@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -69,6 +70,31 @@ class TouchPassthroughService : AccessibilityService() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).also { this.scope = it }
         scope.launch {
             KeyboardPassthrough.region.collectLatest { applyRegion(it) }
+        }
+        // Restating the region is not belt-and-braces, it is the only thing
+        // that makes it stick. The framework hands the region straight to the
+        // display's TouchExplorer and keeps no copy:
+        //
+        //     if (region != null && mTouchExplorer.contains(displayId)) {
+        //         mTouchExplorer.get(displayId).setTouchExplorationPassthroughRegion(region);
+        //     }
+        //
+        // so a call that arrives while no explorer exists is dropped without an
+        // error, and every rebuild of the input filter's features destroys the
+        // explorer holding it — nothing replays what was set before. Both
+        // happen around the moments this service cares about: the explorer is
+        // created as touch exploration turns on, and the filter is rebuilt
+        // whenever any service's info changes, including this one's flag flip
+        // and TalkBack's own updates as the user moves between fields. Setting
+        // it once left a region the framework had already thrown away: on
+        // device the keys stayed dead under TalkBack while every call reported
+        // success. Restating it costs one oneway binder call a second, and only
+        // while a screen reader is running and the keyboard is on screen.
+        scope.launch {
+            while (true) {
+                delay(RESTATE_INTERVAL_MS)
+                applyRegion(KeyboardPassthrough.region.value ?: continue)
+            }
         }
     }
 
@@ -136,5 +162,16 @@ class TouchPassthroughService : AccessibilityService() {
                         AccessibilityServiceInfo.FLAG_REQUEST_TOUCH_EXPLORATION_MODE != 0
                 }
         }.getOrDefault(false)
+    }
+
+    private companion object {
+        /**
+         * How often the published region is restated while the keyboard is up
+         * under a screen reader. A second is what device testing showed to be
+         * enough: the region is lost around filter rebuilds, and a gap this
+         * short leaves no window in which a finger lands on a grid the touch
+         * explorer still owns.
+         */
+        const val RESTATE_INTERVAL_MS = 1000L
     }
 }
