@@ -482,6 +482,33 @@ private fun Resources.emojiRows(): List<SettingsSearchEntry> {
     )
 }
 
+/** Rows on the Clipboard screen. */
+private fun Resources.clipboardRows(): List<SettingsSearchEntry> {
+    fun row(@StringRes title: Int, @StringRes subtitle: Int = 0) =
+        entry(title, subtitle, R.string.home_clipboard_title, "clipboard")
+    return listOf(
+        row(R.string.clipboard_history_title, R.string.clipboard_history_subtitle),
+        row(R.string.clipboard_suggest_recent_title, R.string.clipboard_suggest_recent_subtitle),
+        row(R.string.clipboard_chip_life_title, R.string.clipboard_chip_life_subtitle),
+        row(R.string.clipboard_suggest_codes_title, R.string.clipboard_suggest_codes_subtitle),
+        row(R.string.clipboard_toast_title, R.string.clipboard_toast_subtitle),
+        row(R.string.clipboard_expiry_title, R.string.clipboard_expiry_subtitle),
+        row(R.string.clipboard_max_title, R.string.clipboard_max_subtitle),
+        row(R.string.clipboard_bottom_row_title, R.string.clipboard_bottom_row_subtitle),
+        row(R.string.clipboard_full_bleed_title, R.string.clipboard_full_bleed_subtitle),
+        row(R.string.clipboard_pinned_last_title, R.string.clipboard_pinned_last_subtitle),
+        row(R.string.clipboard_search_title, R.string.clipboard_search_subtitle),
+        row(R.string.clipboard_entities_title, R.string.clipboard_entities_subtitle),
+        row(R.string.clipboard_password_paste_title, R.string.clipboard_password_paste_subtitle),
+        row(R.string.clipboard_link_previews_title, R.string.clipboard_link_previews_subtitle),
+        row(R.string.clipboard_screenshots_title, R.string.clipboard_screenshots_subtitle),
+        row(R.string.clipboard_track_source_title, R.string.clipboard_track_source_subtitle),
+        row(R.string.clipboard_sensitive_title, R.string.clipboard_sensitive_subtitle),
+        row(R.string.clipboard_detect_sensitive_title, R.string.clipboard_detect_sensitive_subtitle),
+        row(R.string.clipboard_sensitive_expiry_title, R.string.clipboard_sensitive_expiry_subtitle),
+    )
+}
+
 /**
  * Rows on the Text Expander screen.
  *
@@ -505,63 +532,11 @@ private fun Resources.expanderRows(): List<SettingsSearchEntry> {
 private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.EMOJI, R.string.tooldetail_emoji_toolbar_title, R.string.tooldetail_emoji_toolbar_subtitle),
     toolEntry(ToolbarTool.EMOJI, R.string.tooldetail_emoji_all_title, R.string.tooldetail_emoji_all_subtitle, weight = EntryWeight.MIRROR),
-    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_history_title, R.string.tooldetail_clipboard_history_subtitle),
     toolEntry(
         ToolbarTool.CLIPBOARD,
-        R.string.tooldetail_clipboard_suggest_recent_title,
-        R.string.tooldetail_clipboard_suggest_recent_subtitle,
-    ),
-    toolEntry(
-        ToolbarTool.CLIPBOARD,
-        R.string.tooldetail_clipboard_suggest_codes_title,
-        R.string.tooldetail_clipboard_suggest_codes_subtitle,
-    ),
-    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_toast_title, R.string.tooldetail_clipboard_toast_subtitle),
-    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_expiry_title, R.string.tooldetail_clipboard_expiry_subtitle),
-    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_max_title, R.string.tooldetail_clipboard_max_subtitle),
-    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_sensitive_title, R.string.tooldetail_clipboard_sensitive_subtitle),
-    toolEntry(
-        ToolbarTool.CLIPBOARD,
-        R.string.tooldetail_clipboard_detect_sensitive_title,
-        R.string.tooldetail_clipboard_detect_sensitive_subtitle,
-    ),
-    toolEntry(
-        ToolbarTool.CLIPBOARD,
-        R.string.tooldetail_clipboard_sensitive_expiry_title,
-        R.string.tooldetail_clipboard_sensitive_expiry_subtitle,
-    ),
-    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_bottom_row_title, R.string.tooldetail_clipboard_bottom_row_subtitle),
-    toolEntry(
-        ToolbarTool.CLIPBOARD,
-        R.string.tooldetail_clipboard_full_bleed_title,
-        R.string.tooldetail_clipboard_full_bleed_subtitle,
-    ),
-    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_pinned_last_title, R.string.tooldetail_clipboard_pinned_last_subtitle),
-    toolEntry(ToolbarTool.CLIPBOARD, R.string.tooldetail_clipboard_search_title, R.string.tooldetail_clipboard_search_subtitle),
-    toolEntry(
-        ToolbarTool.CLIPBOARD,
-        R.string.tooldetail_clipboard_entities_title,
-        R.string.tooldetail_clipboard_entities_subtitle,
-    ),
-    toolEntry(
-        ToolbarTool.CLIPBOARD,
-        R.string.tooldetail_clipboard_password_paste_title,
-        R.string.tooldetail_clipboard_password_paste_subtitle,
-    ),
-    toolEntry(
-        ToolbarTool.CLIPBOARD,
-        R.string.tooldetail_clipboard_link_previews_title,
-        R.string.tooldetail_clipboard_link_previews_subtitle,
-    ),
-    toolEntry(
-        ToolbarTool.CLIPBOARD,
-        R.string.tooldetail_clipboard_screenshots_title,
-        R.string.tooldetail_clipboard_screenshots_subtitle,
-    ),
-    toolEntry(
-        ToolbarTool.CLIPBOARD,
-        R.string.tooldetail_clipboard_track_source_title,
-        R.string.tooldetail_clipboard_track_source_subtitle,
+        R.string.tooldetail_clipboard_all_title,
+        R.string.tooldetail_clipboard_all_subtitle,
+        weight = EntryWeight.MIRROR,
     ),
     toolEntry(
         ToolbarTool.SNIPPETS,
@@ -1050,6 +1025,10 @@ private fun Resources.sectionRows(): List<SettingsSearchEntry> {
         home(R.string.home_modes_title, R.string.home_modes_subtitle, "modes", R.string.search_kw_modes),
         home(R.string.home_emoji_title, R.string.home_emoji_subtitle, "emoji", R.string.search_kw_emoji),
         home(
+            R.string.home_clipboard_title, R.string.home_clipboard_subtitle,
+            "clipboard", R.string.search_kw_clipboard,
+        ),
+        home(
             R.string.home_expander_title, R.string.home_expander_subtitle,
             "expander", R.string.search_kw_expander,
         ),
@@ -1103,16 +1082,14 @@ private fun Resources.sectionRows(): List<SettingsSearchEntry> {
             R.string.typing_blacklist_title, R.string.typing_blacklist_subtitle,
             R.string.home_typing_title, "blacklist", R.string.search_kw_blacklist,
         ),
-        // The Clipboard tool page has a row for this, but the row only opens
-        // this screen, so it is indexed once and points straight at it.
-        entry(
+        // The Clipboard screen has a row for this, but the row only opens this
+        // screen, so it is indexed once and points straight at it.
+        under(
             R.string.home_screen_phoneformats_title,
-            R.string.tooldetail_clipboard_phone_formats_subtitle,
-            screen = toolTitle(ToolbarTool.CLIPBOARD),
-            route = "phoneformats",
-            screenParent = R.string.home_tools_title,
-            weight = EntryWeight.SECTION,
-            keywords = R.string.search_kw_phoneformats,
+            R.string.clipboard_phone_formats_subtitle,
+            R.string.home_clipboard_title,
+            "phoneformats",
+            R.string.search_kw_phoneformats,
         ),
         under(
             R.string.typing_hw_shortcuts_list_title,
@@ -1201,7 +1178,7 @@ internal fun settingsSearchIndex(res: Resources): List<SettingsSearchEntry> = wi
         .map { "tool/${it.name}" }.toSet()
     val all = sectionRows() + toolRows() + sectionChildRows() + typingRows() + keyPressRows() +
         appearanceRows() + photoRows() + layoutRows() + languageRows() + emojiRows() +
-        expanderRows() + toolPageRowsA() + toolPageRowsB() + storageRows() + otherRows()
+        clipboardRows() + expanderRows() + toolPageRowsA() + toolPageRowsB() + storageRows() + otherRows()
     all.filterNot { it.route in unsupported }
 }
 

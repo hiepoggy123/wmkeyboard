@@ -652,28 +652,28 @@ internal object SettingsRowIcons {
         // ---- Tool pages ----
         put(R.string.tooldetail_emoji_toolbar_title) { Icons.Outlined.EmojiEmotions }
         put(R.string.tooldetail_emoji_all_title) { Icons.Outlined.EmojiEmotions }
-        put(R.string.tooldetail_clipboard_history_title) { Icons.Outlined.History }
-        put(R.string.tooldetail_clipboard_suggest_recent_title) { Icons.Outlined.ContentPaste }
-        put(R.string.tooldetail_clipboard_suggest_codes_title) { Icons.Outlined.Password }
-        put(R.string.tooldetail_clipboard_toast_title) { Icons.Outlined.Notifications }
-        put(R.string.tooldetail_clipboard_expiry_title) { Icons.Outlined.Timer }
-        put(R.string.tooldetail_clipboard_max_title) { Icons.Outlined.Numbers }
-        put(R.string.tooldetail_clipboard_sensitive_title) { Icons.Outlined.Shield }
-        put(R.string.tooldetail_clipboard_detect_sensitive_title) { Icons.Outlined.Search }
-        put(R.string.tooldetail_clipboard_sensitive_expiry_title) { Icons.Outlined.Timer }
-        put(R.string.tooldetail_clipboard_bottom_row_title) { Icons.Outlined.ViewAgenda }
-        put(R.string.tooldetail_clipboard_full_bleed_title) { Icons.Outlined.Fullscreen }
-        put(R.string.tooldetail_clipboard_pinned_last_title) { Icons.Outlined.PushPin }
-        put(R.string.tooldetail_clipboard_search_title) { Icons.Outlined.Search }
-        put(R.string.tooldetail_clipboard_password_paste_title) { Icons.Outlined.Password }
-        put(R.string.tooldetail_clipboard_link_previews_title) { Icons.Outlined.Link }
-        put(R.string.tooldetail_clipboard_entities_title) { Icons.Outlined.Tag }
-        put(R.string.tooldetail_clipboard_chip_life_title) { Icons.Outlined.Timer }
-        put(R.string.tooldetail_clipboard_phone_formats_title) { Icons.Outlined.Phone }
-        put(R.string.tooldetail_clipboard_screenshots_title) { Icons.Outlined.Screenshot }
-        put(R.string.tooldetail_clipboard_track_source_title) { Icons.Outlined.Apps }
-        put(R.string.tooldetail_clipboard_storage_permission_title) { Icons.Outlined.Folder }
-        put(R.string.tooldetail_clipboard_usage_permission_title) { Icons.Outlined.Lock }
+        put(R.string.clipboard_history_title) { Icons.Outlined.History }
+        put(R.string.clipboard_suggest_recent_title) { Icons.Outlined.ContentPaste }
+        put(R.string.clipboard_suggest_codes_title) { Icons.Outlined.Password }
+        put(R.string.clipboard_toast_title) { Icons.Outlined.Notifications }
+        put(R.string.clipboard_expiry_title) { Icons.Outlined.Timer }
+        put(R.string.clipboard_max_title) { Icons.Outlined.Numbers }
+        put(R.string.clipboard_sensitive_title) { Icons.Outlined.Shield }
+        put(R.string.clipboard_detect_sensitive_title) { Icons.Outlined.Search }
+        put(R.string.clipboard_sensitive_expiry_title) { Icons.Outlined.Timer }
+        put(R.string.clipboard_bottom_row_title) { Icons.Outlined.ViewAgenda }
+        put(R.string.clipboard_full_bleed_title) { Icons.Outlined.Fullscreen }
+        put(R.string.clipboard_pinned_last_title) { Icons.Outlined.PushPin }
+        put(R.string.clipboard_search_title) { Icons.Outlined.Search }
+        put(R.string.clipboard_password_paste_title) { Icons.Outlined.Password }
+        put(R.string.clipboard_link_previews_title) { Icons.Outlined.Link }
+        put(R.string.clipboard_entities_title) { Icons.Outlined.Tag }
+        put(R.string.clipboard_chip_life_title) { Icons.Outlined.Timer }
+        put(R.string.clipboard_phone_formats_title) { Icons.Outlined.Phone }
+        put(R.string.clipboard_screenshots_title) { Icons.Outlined.Screenshot }
+        put(R.string.clipboard_track_source_title) { Icons.Outlined.Apps }
+        put(R.string.clipboard_storage_permission_title) { Icons.Outlined.Folder }
+        put(R.string.clipboard_usage_permission_title) { Icons.Outlined.Lock }
         put(R.string.tooldetail_split_gap_title) { Icons.Outlined.SpaceBar }
         put(R.string.tooldetail_layout_nav_title) { Icons.Outlined.AspectRatio }
         put(R.string.tooldetail_floating_width_title) { Icons.Outlined.Straighten }

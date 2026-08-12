@@ -214,6 +214,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "ai_chat" to Color(0xFF7E57C2),
     "modes" to Color(0xFFFFA726),
     "emoji" to Color(0xFFFFB300),
+    "clipboard" to Color(0xFF42A5F5),
     // The Snippets tool's own teal: the screen and the tool page it is opened
     // from are the same feature.
     "expander" to Color(0xFF26A69A),
@@ -240,8 +241,8 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "dictionary" to Color(0xFF26A69A),
     "customdictionaries" to Color(0xFF26A69A),
     "blacklist" to Color(0xFFEF5350),
-    // Opened from the Clipboard tool page, so it keeps the Tools orange.
-    "phoneformats" to Color(0xFFFF7043),
+    // A child of Clipboard, so it keeps the parent's blue.
+    "phoneformats" to Color(0xFF42A5F5),
     "hwshortcuts" to Color(0xFF5C6BC0),
     "emojikeywords" to Color(0xFFFFB300),
 )

@@ -51,7 +51,7 @@ Tapping an image, file, or video card negotiates a MIME type with the focused fi
 
 ### Expiry and the entry cap
 
-Unpinned clips fall off two ways. <SettingsPath path="Tools / Clipboard" /> sets an expiry in hours, where 0 turns expiry off. It also caps how many unpinned entries history keeps at once, and once that cap is hit the oldest unpinned clip drops with each new copy. Pinning a clip exempts it from both. A pinned clip never expires and never counts against the cap.
+Unpinned clips fall off two ways. <SettingsPath path="Clipboard" /> sets an expiry in hours, where 0 turns expiry off. It also caps how many unpinned entries history keeps at once, and once that cap is hit the oldest unpinned clip drops with each new copy. Pinning a clip exempts it from both. A pinned clip never expires and never counts against the cap.
 
 ## Finding a clip again
 
@@ -79,7 +79,7 @@ This entity strip is a different mechanism from [Smart chips](/smart/chips/), wh
 
 The clipboard tool treats a copied password or code as sensitive in two independent ways: at copy time, and at paste time.
 
-**At copy time**, <SettingsPath path="Tools / Clipboard / Passwords and codes" /> chooses what happens to a clip Android itself marks sensitive. That's the flag a password manager sets when you copy a login. You can keep it like any other clip, hide it and forget it quickly, or never save it at all. The default hides and forgets. Never saving would trade away the everyday "I pasted a password into the wrong field" recovery, and it closes a risk a short timer already closes. Turn on recognizing sensitive clips yourself and the same handling covers anything that merely *looks* like a password or a bare code. That's for managers older than the flag, or a code you copied by hand, and it's narrow enough that a sentence, a link or an email address never qualifies.
+**At copy time**, <SettingsPath path="Clipboard / Passwords and codes" /> chooses what happens to a clip Android itself marks sensitive. That's the flag a password manager sets when you copy a login. You can keep it like any other clip, hide it and forget it quickly, or never save it at all. The default hides and forgets. Never saving would trade away the everyday "I pasted a password into the wrong field" recovery, and it closes a risk a short timer already closes. Turn on recognizing sensitive clips yourself and the same handling covers anything that merely *looks* like a password or a bare code. That's for managers older than the flag, or a code you copied by hand, and it's narrow enough that a sentence, a link or an email address never qualifies.
 
 A hidden clip shows as a row of dots and a character count in the panel, and it's never revealable there. It's also left out of the strip's paste chip, the entity strip and the settings backup. It expires on its own timer, independent of the ordinary history expiry above and not capped by it. Pinning a sensitive clip overrides all of that, the same as pinning anything else.
 
@@ -91,7 +91,9 @@ The clipboard is already out of reach while the lock screen is showing, and no s
 
 ## Options
 
-<SettingsPath path="Tools / Clipboard" />
+<SettingsPath path="Clipboard" />
+
+Everything below lives on the Clipboard screen, under Features on the settings home screen, rather than on the tool page. Your copies land in the history whether or not the panel's button is on the toolbar, so these aren't really the tool's settings.
 
 <PhoneFrame caption="Clipboard settings: the History group and, below it, Passwords and codes.">
   ![Clipboard settings: the History group and, below it, Passwords and codes.](@assets/screens/tools/clipboard-settings.webp)
@@ -122,6 +124,15 @@ The clipboard is already out of reach while the lock screen is showing, and no s
 - **Sensitive clips**: keep, hide-and-forget (default), or never save. See [above](#passwords-are-handled-deliberately).
 - **Let the keyboard find them**: extends sensitive handling to clips that merely look like a password or code; on by default, shown only when sensitive handling isn't set to "keep."
 - **Forget sensitive clips after**: the hidden-clip timer, 1–120 minutes, default 5; shown only under the hide-and-forget option.
+
+<SettingsPath path="Tools / Clipboard" />
+
+The tool page carries only what belongs to the button:
+
+- **All clipboard settings**: opens the screen above.
+- **Enabled**: whether Clipboard appears on the toolbar and in the toolbox.
+- **Icon colour**: only shown if [colorful tool icons](/tools/overview/) is turned on globally. Overrides just this tool's icon color.
+- **Keyword shortcut**: the words that make the [Smart chips](/smart/chips/) suggestion offer to open this panel.
 
 ## Backups and exports
 

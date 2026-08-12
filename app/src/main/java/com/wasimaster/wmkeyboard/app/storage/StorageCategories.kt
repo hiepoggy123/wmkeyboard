@@ -656,7 +656,7 @@ internal object StorageCategories {
             accent = Color(0xFF42A5F5),
             group = StorageGroup.PERSONAL,
             danger = Danger.PERSONAL,
-            manageRoute = "privacy",
+            manageRoute = "clipboard",
             pathsOf = { listOf(File(it.files, "clipboard")) },
         ),
         StorageCategory(

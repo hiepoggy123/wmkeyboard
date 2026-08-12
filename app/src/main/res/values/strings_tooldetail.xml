@@ -64,69 +64,11 @@
     <string name="tooldetail_snippets_all_title">All Text Expander settings</string>
     <string name="tooldetail_snippets_all_subtitle">Your snippets, triggers, patterns and template variables</string>
 
-    <!-- Clipboard tool: the history group. -->
-    <string name="tooldetail_clipboard_history_group">History</string>
-    <string name="tooldetail_clipboard_history_title">Clipboard history</string>
-    <string name="tooldetail_clipboard_history_subtitle">Save copied text so that you can paste it quickly</string>
-    <string name="tooldetail_clipboard_suggest_recent_title">Suggest the last copy</string>
-    <string name="tooldetail_clipboard_suggest_recent_subtitle">Show the last copied text as a chip on the suggestion strip. One press pastes it</string>
-    <string name="tooldetail_clipboard_suggest_codes_title">Suggest copied codes in code boxes</string>
-    <string name="tooldetail_clipboard_suggest_codes_subtitle">A copied one-time code is offered when a field asks for digits</string>
-    <string name="tooldetail_clipboard_suggest_codes_info">A copied code is treated as a secret, so it is normally kept off the suggestion strip: the chip stays in view while you type, and a code sitting above the keys of a message is a code on show. A code box is the exception, because the code is the only thing you are there to type. With this on, a code copied in the last few minutes is offered as a chip in fields that ask for digits, and nowhere else.</string>
-    <string name="tooldetail_clipboard_toast_title">Pop-up when you copy</string>
-    <string name="tooldetail_clipboard_toast_subtitle">Show a short \"Copied\" pop-up when you copy or cut text from the keyboard</string>
-    <string name="tooldetail_clipboard_toast_info">This works for the copy actions of the keyboard: the A/C/V/X clipboard shortcuts and the copy button of the text editing panel. It works only for fields that give no copy feedback of their own. This setting is off by default.</string>
-    <string name="tooldetail_clipboard_expiry_title">Clipboard expiry</string>
-    <string name="tooldetail_clipboard_expiry_subtitle">Delete unpinned clips after this time</string>
-    <!-- Slider readout when the clipboard expiry is set to zero, so clips never expire. -->
-    <string name="tooldetail_clipboard_expiry_never">never</string>
-    <string name="tooldetail_clipboard_max_title">Maximum entries</string>
-    <string name="tooldetail_clipboard_max_subtitle">How many unpinned clips the history keeps</string>
-    <string name="tooldetail_clipboard_max_info">This is the second limit on the history. The clipboard expiry above is the first one. A busy day of copying can make hundreds of clips well inside the expiry time. When the panel is full, each new copy deletes the oldest unpinned clip. Pinned clips do not count against this limit, and the keyboard never deletes them.</string>
-    <string name="tooldetail_clipboard_bottom_row_title">Bottom control row</string>
-    <string name="tooldetail_clipboard_bottom_row_subtitle">Show an abc, space and backspace row at the bottom of the clipboard panel, like the emoji panel</string>
-    <string name="tooldetail_clipboard_full_bleed_title">Full-screen clipboard panel</string>
-    <string name="tooldetail_clipboard_full_bleed_subtitle">Hide the toolbar behind a back button so the history gets the whole keyboard</string>
-    <string name="tooldetail_clipboard_full_bleed_info">The clipboard panel takes the whole keyboard. The toolbar, the emoji row and the symbol row step aside, and a slim back header takes their place. The history then shows more clips at once. While you search the history, the panel returns to its compact form so the keys fit below it. This setting is on by default.</string>
-    <string name="tooldetail_clipboard_pinned_last_title">Pinned entries last</string>
-    <string name="tooldetail_clipboard_pinned_last_subtitle">List pinned clips at the end of the panel instead of the top</string>
-    <string name="tooldetail_clipboard_search_title">Search bar</string>
-    <string name="tooldetail_clipboard_search_subtitle">Show a search bar at the top of the clipboard panel. It filters the history as you type</string>
-    <string name="tooldetail_clipboard_entities_title">Detect codes, numbers and links</string>
-    <string name="tooldetail_clipboard_entities_subtitle">Take one-time codes, phone numbers and links out of your clips. Each one becomes its own chip</string>
-    <string name="tooldetail_clipboard_entities_info">The chips sit above the history in dashed outlines, so they read as parts of a clip and not as clips of their own. Press and hold a chip to see it marked inside the clip that it comes from. A press pastes only that part, and the clip stays in the history. The keyboard finds these parts on your device.</string>
-    <string name="tooldetail_clipboard_phone_formats_title">Phone number formats</string>
-    <string name="tooldetail_clipboard_phone_formats_subtitle">Keep only the numbers that look like the ones you copy. Every number becomes a chip now</string>
-    <!-- %1$d is how many formats the user made. -->
-    <plurals name="tooldetail_clipboard_phone_formats_count_subtitle">
-        <item quantity="one">%1$d format kept</item>
-        <item quantity="other">%1$d formats kept</item>
-    </plurals>
-    <string name="tooldetail_clipboard_password_paste_title">Forget after you paste a password</string>
-    <string name="tooldetail_clipboard_password_paste_subtitle">Delete a clip from the history and from the system clipboard as soon as you paste it into a password field</string>
-    <string name="tooldetail_clipboard_password_paste_info">Every app on your device can read the system clipboard. Without this setting, a password from a password manager stays readable there until it expires. This applies to the pastes that you make with the keyboard into a password field: the clipboard panel, the paste chip, hold V and Ctrl+V. This setting is on by default.</string>
-    <string name="tooldetail_clipboard_link_previews_title">Link previews</string>
-    <string name="tooldetail_clipboard_link_previews_subtitle">Get the page title of a copied link and show it in the panel. This contacts the linked site</string>
-    <string name="tooldetail_clipboard_screenshots_title">Your screenshots</string>
-    <string name="tooldetail_clipboard_screenshots_subtitle">Show your screenshots in the clipboard next to copied text and images</string>
-    <string name="tooldetail_clipboard_storage_permission_title">The app needs the storage permission</string>
-    <string name="tooldetail_clipboard_storage_permission_subtitle">Open the system settings to give the permission</string>
-    <string name="tooldetail_clipboard_track_source_title">Show the source app</string>
-    <string name="tooldetail_clipboard_track_source_subtitle">Record which app a clip comes from. Press and hold a clip to see it. This needs the Usage Access permission</string>
-    <string name="tooldetail_clipboard_track_source_info">The keyboard reads the app in the foreground at the moment you copy, through Usage Access. Some copies have no source app, for example a copy from a background sync. Nothing about your app usage leaves your device.</string>
-    <string name="tooldetail_clipboard_usage_permission_title">The app needs the Usage Access permission</string>
-    <string name="tooldetail_clipboard_usage_permission_subtitle">Without it, the keyboard saves clips with no source app</string>
-
-    <!-- Clipboard tool: the group for sensitive clips. -->
-    <string name="tooldetail_clipboard_sensitive_group">Passwords and codes</string>
-    <string name="tooldetail_clipboard_sensitive_title">Sensitive clips</string>
-    <string name="tooldetail_clipboard_sensitive_subtitle">What to do with a copied password or one-time code</string>
-    <string name="tooldetail_clipboard_sensitive_info">Android lets an app mark what it puts on the clipboard as sensitive. A password manager does this when you copy a login. Nothing else on your device acts on that mark, so the keyboard acts on it here. A hidden clip shows as dots in the panel. The keyboard never offers it as a paste chip and never puts it in a settings backup. It deletes itself on the short timer below and not on the history expiry. If you pin the clip, none of that applies, because a pin means \"keep this\".</string>
-    <string name="tooldetail_clipboard_detect_sensitive_title">Let the keyboard find them</string>
-    <string name="tooldetail_clipboard_detect_sensitive_subtitle">Also treat a clip that looks like a password or a bare verification code as sensitive, not only the clips that the copying app marks</string>
-    <string name="tooldetail_clipboard_detect_sensitive_info">Most password managers are older than the sensitive mark of Android, and a code that you copy by hand out of a message carries no mark at all. The keyboard looks for these clips on your device, and the test is narrow on purpose. A clip matches only when the whole clip is one token: a short run of capital letters and digits, or a long mix of capital letters, small letters, digits and symbols. Sentences, links and email addresses never match.</string>
-    <string name="tooldetail_clipboard_sensitive_expiry_title">Forget sensitive clips after</string>
-    <string name="tooldetail_clipboard_sensitive_expiry_subtitle">This time is separate from the history expiry above</string>
+    <!-- Clipboard tool. Everything it can be configured with lives on the
+         Clipboard screen, so the page is one row that opens it. -->
+    <string name="tooldetail_clipboard_group">Clipboard</string>
+    <string name="tooldetail_clipboard_all_title">All clipboard settings</string>
+    <string name="tooldetail_clipboard_all_subtitle">History, the panel, the paste chip, and what happens to a copied password</string>
 
     <!-- Split keyboard tool. -->
     <string name="tooldetail_split_gap_title">Split gap</string>
@@ -559,11 +501,6 @@
     <string name="tooldetail_launcher_recents_count_title">How many recent apps</string>
     <string name="tooldetail_launcher_recents_count_subtitle">Length of the recent apps row</string>
     <string name="tooldetail_launcher_recents_count_info">The grid is three to six apps wide, so a number that divides by your grid width fills whole rows and leaves no gap at the end.</string>
-
-    <string name="tooldetail_clipboard_chip_life_title">How long the paste chip stays</string>
-    <string name="tooldetail_clipboard_chip_life_subtitle">Time before the recently copied chip hides itself</string>
-    <string name="tooldetail_clipboard_chip_life_info">The chip appears on the suggestion strip after you copy something, so that you can paste it without opening the clipboard. Typing does not dismiss it, because it is meant to survive writing the message you will paste it into. Set a shorter time if you would rather what you copied stopped being on screen, which matters for a password or an address. You can always dismiss the chip yourself.</string>
-    <string name="tooldetail_clipboard_chip_until_dismissed">Until dismissed</string>
 
     <string name="tooldetail_camera_timer_title">Self-timer</string>
     <string name="tooldetail_camera_timer_subtitle">The timer the camera opens on</string>
