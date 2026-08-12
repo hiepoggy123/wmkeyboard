@@ -17,6 +17,37 @@
     <string name="expander_add_action">Add snippet</string>
     <string name="expander_reorder_title">Snippet order</string>
 
+    <!-- Folders: named groups of snippets. A folder that is switched off keeps
+         its snippets, but they no longer appear by themselves while you type. -->
+    <string name="expander_folders_title">Folders</string>
+    <string name="expander_folders_info">Put snippets that belong together in a folder. Switch a folder off and its snippets stop appearing while you type. You can still insert them from the snippet panel of the keyboard. A snippet pack that you install gets a folder of its own.</string>
+    <string name="expander_folder_new_action">New folder</string>
+    <string name="expander_folder_new_title">New folder</string>
+    <string name="expander_folder_rename_title">Rename folder</string>
+    <string name="expander_folder_name_label">Folder name</string>
+    <string name="expander_folder_order_title">Folder order</string>
+    <!-- Section that holds every snippet that is in no folder. -->
+    <string name="expander_no_folder_title">Not in a folder</string>
+    <!-- Subtitle of a folder row. %1$d is how many snippets are in it. -->
+    <plurals name="expander_folder_count">
+        <item quantity="one">%1$d snippet</item>
+        <item quantity="other">%1$d snippets</item>
+    </plurals>
+    <!-- Added to the folder row when the folder is switched off. -->
+    <string name="expander_folder_off_label">Off while you type</string>
+    <!-- Read out for the switch on a folder row. %1$s is the folder name. -->
+    <string name="expander_folder_switch_desc">Expand the snippets in %1$s while you type</string>
+
+    <!-- Asked before a folder goes. %1$s is the folder name. -->
+    <string name="expander_folder_delete_title">Delete %1$s?</string>
+    <!-- %1$d is how many snippets are in the folder, and it picks the form. -->
+    <plurals name="expander_folder_delete_body">
+        <item quantity="one">%1$d snippet is in this folder. It stays in your list.</item>
+        <item quantity="other">%1$d snippets are in this folder. They stay in your list.</item>
+    </plurals>
+    <!-- Switch in that question. Off means the snippets stay. -->
+    <string name="expander_folder_delete_all_action">Delete the snippets too</string>
+
     <!-- %1$s is the snippet text after every variable in it expands. -->
     <string name="expander_inserts_as_label">Inserts as: %1$s</string>
     <!-- %1$s is the short text that the user types to insert the snippet. -->

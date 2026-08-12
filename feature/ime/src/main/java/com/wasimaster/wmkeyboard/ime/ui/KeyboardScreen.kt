@@ -63,6 +63,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridItemScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -323,6 +324,7 @@ import com.wasimaster.wmkeyboard.core.settings.toolOpensScreen
 import com.wasimaster.wmkeyboard.core.settings.toolboxPage
 import com.wasimaster.wmkeyboard.core.settings.toolboxPageCount
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.snippets.SnippetFolder
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.HintModifiers
 import com.wasimaster.wmkeyboard.core.tools.HintPlan
@@ -379,9 +381,13 @@ import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
 import com.wasimaster.wmkeyboard.core.layout.expandNumberRowForTablet
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
+import com.wasimaster.wmkeyboard.core.layout.hasRowSpans
+import com.wasimaster.wmkeyboard.core.layout.KeySlot
 import com.wasimaster.wmkeyboard.core.layout.roleIn
 import com.wasimaster.wmkeyboard.core.layout.rowScaledKeyHeight
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
+import com.wasimaster.wmkeyboard.core.layout.spanBands
+import com.wasimaster.wmkeyboard.core.layout.spanSlots
 import com.wasimaster.wmkeyboard.core.layout.Layouts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -783,7 +789,7 @@ fun KeyboardScreen(
     onClipboardEntity: (ClipEntity) -> Unit = {},
     onOtpAccept: (NotificationOtp) -> Unit = {},
     onOtpDismiss: () -> Unit = {},
-    onSnippet: (Snippet) -> Unit = {},
+    snippetPanel: SnippetPanelCallbacks = SnippetPanelCallbacks(),
     onOneHanded: (OneHandedMode) -> Unit = {},
     /** Persists the dock side for one orientation (landscape flag, side). */
     onOneHandedSide: (Boolean, OneHandedSide) -> Unit = { _, _ -> },
@@ -1053,7 +1059,7 @@ fun KeyboardScreen(
                 onClipboardEntity = onClipboardEntity,
                 onOtpAccept = onOtpAccept,
                 onOtpDismiss = onOtpDismiss,
-                onSnippet = onSnippet,
+                snippetPanel = snippetPanel,
                 onToolTap = onToolTap,
                 onToolbarToolsChange = onToolbarToolsChange,
                 onToolboxOrderChange = onToolboxOrderChange,
@@ -6496,7 +6502,7 @@ private fun KeyboardBody(
     onOtpAccept: (NotificationOtp) -> Unit,
     onOtpDismiss: () -> Unit,
     onEmojiRowShown: () -> Unit,
-    onSnippet: (Snippet) -> Unit,
+    snippetPanel: SnippetPanelCallbacks,
     onToolTap: (ToolbarTool) -> Unit,
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit,
     onToolboxOrderChange: (List<ToolbarTool>) -> Unit,
@@ -6781,22 +6787,36 @@ private fun KeyboardBody(
                 // rows the toolbar gives up are worth a whole extra pair of
                 // them. The editor lives in settings, so the header's action
                 // slot carries the gear the panel used to draw itself.
-                PanelMode.SNIPPETS -> FullBleedTool(
-                    state, stringResource(R.string.ime_tool_snippets),
-                    onClose = { onPanelChange(PanelMode.SNIPPETS) },
-                    headerActions = {
-                        ToolCircle(
-                            slot = IconSlots.forTool(ToolbarTool.SETTINGS),
-                            description = stringResource(R.string.ime_snippets_settings_desc),
-                            active = false,
-                            onClick = { onOpenToolSettings(ToolbarTool.SNIPPETS) },
+                //
+                // Inside a folder the header carries that folder's name and its
+                // back button goes up a level rather than out of the panel —
+                // the same back the hardware key and the system key perform.
+                PanelMode.SNIPPETS -> {
+                    val openFolder = state.openSnippetFolder()
+                    FullBleedTool(
+                        state,
+                        openFolder?.name ?: stringResource(R.string.ime_tool_snippets),
+                        onClose = {
+                            if (openFolder == null) {
+                                onPanelChange(PanelMode.SNIPPETS)
+                            } else {
+                                snippetPanel.onFolderOpen(null)
+                            }
+                        },
+                        headerActions = {
+                            ToolCircle(
+                                slot = IconSlots.forTool(ToolbarTool.SETTINGS),
+                                description = stringResource(R.string.ime_snippets_settings_desc),
+                                active = false,
+                                onClick = { onOpenToolSettings(ToolbarTool.SNIPPETS) },
+                            )
+                        },
+                    ) {
+                        SnippetsPanel(
+                            state, snippetPanel,
+                            onOpenSettings = { onOpenToolSettings(ToolbarTool.SNIPPETS) },
                         )
-                    },
-                ) {
-                    SnippetsPanel(
-                        state, onSnippet,
-                        onOpenSettings = { onOpenToolSettings(ToolbarTool.SNIPPETS) },
-                    )
+                    }
                 }
                 PanelMode.TEXT_EDIT -> TextEditPanel(state, onTextEdit)
                 PanelMode.TOOLBOX -> ToolboxPanel(state, onToolTap, onToolboxHintDismiss, drag)
@@ -7925,6 +7945,50 @@ private data class KeyRowVisual(
 )
 
 /**
+ * A run of rows that has to be drawn as one block because a key spans across
+ * them — see [spanSlots] for the geometry.
+ *
+ * Rows are normally independent `Row`s, and that is what [KeyRowVisual] is for.
+ * A key covering two rows cannot be one of their children: drawn in the upper
+ * row it hangs outside that row's bounds, and Compose does not hit-test a child
+ * outside its parent, so the lower half of the key would look pressable and do
+ * nothing. The band is the parent both rows' keys share instead.
+ */
+@Immutable
+private data class KeyBandVisual(
+    /** Every key of the band, resolved and placed, in row-major order. */
+    val slots: List<KeyBandSlot>,
+    /** Grid units across the band — the unit [KeyBandSlot.x] is measured in. */
+    val weight: Float,
+    /** Key height in dp for each row of the band, top to bottom. */
+    val rowHeights: List<Int>,
+)
+
+/** One key of a [KeyBandVisual], with where it sits and how far it reaches. */
+@Immutable
+private data class KeyBandSlot(
+    val visual: KeyVisual,
+    /** Left edge in grid units, already centred and flowed around the spans. */
+    val x: Float,
+    val width: Float,
+    /** First row of the band this key covers, and how many it covers. */
+    val row: Int,
+    val span: Int,
+)
+
+/**
+ * One block of the body grid: an ordinary row, or a band of rows joined by a
+ * spanning key. Almost every layout is all [Row]s.
+ */
+private sealed interface KeyGridBlock {
+    @Immutable
+    data class Row(val row: KeyRowVisual) : KeyGridBlock
+
+    @Immutable
+    data class Band(val band: KeyBandVisual) : KeyGridBlock
+}
+
+/**
  * Resolves one key against [state].
  *
  * A plain function rather than a composable so the invariant the whole split
@@ -8036,13 +8100,18 @@ private fun spacebarArrowsShown(state: KeyboardUiState): Boolean {
 
 /**
  * Every key on the board, resolved in one pass: the digit row (null when it is
- * not shown) and the body rows, each with its own height and centring pad.
+ * not shown) and the body blocks, each with its own height and centring pad.
  *
  * Rebuilt only when something a key actually draws changes. Deliberately NOT
  * keyed on the suggestions, the composing preview or the open panel: those change
  * on every keystroke, and rebuilding here is exactly what used to re-run all ~40
  * key bodies per keypress. Every field this reads is a key below — read one more
  * without adding its key and the board goes stale.
+ *
+ * A block is one row unless the layout uses [Key.rowSpan], in which case the
+ * rows a key reaches across come out as a single [KeyGridBlock.Band]. The blocks
+ * still cover the body rows in order and still sum to the same height, so
+ * `keyRowsHeight` and the reserved window are untouched by a span.
  */
 @Composable
 private fun rememberKeyGrid(
@@ -8052,7 +8121,7 @@ private fun rememberKeyGrid(
     extraRow: List<Key>?,
     palette: KeyPalette,
     gridWeight: Float,
-): Pair<KeyRowVisual?, List<KeyRowVisual>> {
+): Pair<KeyRowVisual?, List<KeyGridBlock>> {
     val settings = state.settings
     val split = settings.splitKeyboard
     val splitGapPercent = settings.splitGapPercent
@@ -8077,7 +8146,7 @@ private fun rememberKeyGrid(
                 settings.numberRowHeightDp, state, palette,
             )
         }
-        digits to bodyRows.mapIndexed { index, row ->
+        val heights = bodyRows.indices.map { index ->
             // Per-row height multiplier from the layout, if any. Rounded to whole
             // dp so the rendered height matches keyRowsHeight exactly (which sums
             // the same rounded values).
@@ -8085,14 +8154,64 @@ private fun rememberKeyGrid(
                 settings.keyHeightDp, layout.rowHeights?.getOrNull(index),
             )
             val bottomRow = index == bodyRows.lastIndex && layout.rowHeights == null
-            val rowHeightDp = if (bottomRowHeightDp > 0 && bottomRow) {
-                bottomRowHeightDp
+            if (bottomRowHeightDp > 0 && bottomRow) bottomRowHeightDp else perRowHeight
+        }
+        // Split mode cuts every row at its own midpoint, which a key belonging to
+        // two rows cannot survive: the halves would part company under it. So a
+        // split board draws spans as ordinary one-row keys — the arrangement the
+        // layout had before spans existed — rather than drawing them wrong.
+        val banded = !split && hasRowSpans(bodyRows)
+        val bands = if (banded) spanBands(bodyRows) else bodyRows.indices.map { it..it }
+        val slots = if (banded) spanSlots(bodyRows, gridWeight) else emptyList()
+        digits to bands.map { band ->
+            if (band.first == band.last) {
+                KeyGridBlock.Row(
+                    keyRowVisual(
+                        bodyRows[band.first], split, splitGapPercent, gridWeight,
+                        heights[band.first], state, palette,
+                    ),
+                )
             } else {
-                perRowHeight
+                KeyGridBlock.Band(
+                    keyBandVisual(band, slots, gridWeight, heights, state, palette),
+                )
             }
-            keyRowVisual(row, split, splitGapPercent, gridWeight, rowHeightDp, state, palette)
         }
     }
+}
+
+/**
+ * Resolves one band of rows: the slots that fall in it, re-based on the band's
+ * own first row so the renderer can index [KeyBandVisual.rowHeights] directly.
+ *
+ * The band is laid out against one width for all its rows rather than each row's
+ * own, because a spanning key has to sit on the same column pitch as the rows it
+ * reaches into — that is the whole point of it. Only an over-wide row inside the
+ * band moves that width, and then it moves it for the band as a whole.
+ */
+private fun keyBandVisual(
+    band: IntRange,
+    slots: List<KeySlot>,
+    gridWeight: Float,
+    heights: List<Int>,
+    state: KeyboardUiState,
+    palette: KeyPalette,
+): KeyBandVisual {
+    val inBand = slots.filter { it.row in band }
+    val weight = maxOf(gridWeight, inBand.maxOfOrNull { it.end } ?: 0f)
+    return KeyBandVisual(
+        slots = inBand.map { slot ->
+            KeyBandSlot(
+                visual = keyVisual(slot.key, state, palette),
+                x = slot.x,
+                width = slot.key.width,
+                row = slot.row - band.first,
+                span = slot.span,
+            )
+        },
+        weight = weight,
+        rowHeights = band.map { heights[it] },
+    )
 }
 
 /** A key whose preview bubble is up, and where that key sits. */
@@ -9077,7 +9196,7 @@ private fun KeyRows(
             } else {
                 null
             }
-            val (numberRowVisual, bodyRowVisuals) =
+            val (numberRowVisual, bodyBlocks) =
                 rememberKeyGrid(state, layout, bodyRows, extraRow, palette, gridWeight)
             if (numberRowVisual != null) {
                 KeyRow(
@@ -9110,23 +9229,41 @@ private fun KeyRows(
                     ),
                 )
             }
-            for (row in bodyRowVisuals) {
-                KeyRow(
-                    row = row,
-                    settings = settings,
-                    split = split,
-                    numericField = numericField,
-                    layoutId = state.layoutId,
-                    keyPreview = keyPreview,
-                    onKey = stampedOnKey,
-                    onText = stampedOnText,
-                    onCursorMove = onCursorMove,
-                    onLayoutSelect = onLayoutSelect,
-                    onLetterPositioned = onLetterPositioned,
-                    onSpacePositioned = onSpacePositioned,
-                    smartResolve = smartResolve,
-                    onBurst = onBurst,
-                )
+            for (block in bodyBlocks) {
+                when (block) {
+                    is KeyGridBlock.Row -> KeyRow(
+                        row = block.row,
+                        settings = settings,
+                        split = split,
+                        numericField = numericField,
+                        layoutId = state.layoutId,
+                        keyPreview = keyPreview,
+                        onKey = stampedOnKey,
+                        onText = stampedOnText,
+                        onCursorMove = onCursorMove,
+                        onLayoutSelect = onLayoutSelect,
+                        onLetterPositioned = onLetterPositioned,
+                        onSpacePositioned = onSpacePositioned,
+                        smartResolve = smartResolve,
+                        onBurst = onBurst,
+                    )
+
+                    is KeyGridBlock.Band -> KeyBand(
+                        band = block.band,
+                        settings = settings,
+                        numericField = numericField,
+                        layoutId = state.layoutId,
+                        keyPreview = keyPreview,
+                        onKey = stampedOnKey,
+                        onText = stampedOnText,
+                        onCursorMove = onCursorMove,
+                        onLayoutSelect = onLayoutSelect,
+                        onLetterPositioned = onLetterPositioned,
+                        onSpacePositioned = onSpacePositioned,
+                        smartResolve = smartResolve,
+                        onBurst = onBurst,
+                    )
+                }
             }
         }
 
@@ -9374,6 +9511,7 @@ private fun KeyRow(
         for (visual in row.left) {
             KeyCell(
                 visual,
+                Modifier.weight(visual.key.width),
                 row.heightDp,
                 settings,
                 numericField,
@@ -9396,6 +9534,7 @@ private fun KeyRow(
             for (visual in row.right) {
                 KeyCell(
                     visual,
+                    Modifier.weight(visual.key.width),
                     row.heightDp,
                     settings,
                     numericField,
@@ -9416,9 +9555,104 @@ private fun KeyRow(
     }
 }
 
+/**
+ * A run of rows drawn as one block, because a key of it covers more than one —
+ * see [KeyBandVisual].
+ *
+ * Placed by hand rather than by nested `Row`s: the band is the only parent every
+ * key of it shares, so it is the only node that can hold a two-row key inside
+ * its own bounds, which is what makes the whole key tappable rather than just
+ * the half that overlaps its own row.
+ *
+ * Each edge is rounded independently off the same unit width, so neighbours stay
+ * flush the way `Row`'s weights keep them — rounding widths instead would leave a
+ * sub-pixel seam that accumulates across the row.
+ */
 @Composable
-private fun RowScope.KeyCell(
+private fun KeyBand(
+    band: KeyBandVisual,
+    settings: KeyboardSettings,
+    numericField: Boolean,
+    layoutId: String,
+    keyPreview: KeyPreviewState,
+    onKey: (Key) -> Unit,
+    onText: (String) -> Unit,
+    onCursorMove: (Int) -> Unit,
+    onLayoutSelect: (String) -> Unit,
+    onLetterPositioned: (Char, LayoutCoordinates) -> Unit,
+    onSpacePositioned: (LayoutCoordinates) -> Unit = {},
+    smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
+    onBurst: ((Rect) -> Unit)? = null,
+) {
+    // Row pitch in px: the key height the row was given, plus the gap above and
+    // below it, exactly as an ordinary KeyCell measures itself.
+    val gap = keyGapV(settings)
+    val rowPitch = with(LocalDensity.current) {
+        band.rowHeights.map { (it.dp + gap * 2).roundToPx() }
+    }
+    // Row tops, and the band's own height as the last entry.
+    val tops = IntArray(rowPitch.size + 1).also {
+        for (i in rowPitch.indices) it[i + 1] = it[i] + rowPitch[i]
+    }
+    Layout(
+        content = {
+            for (slot in band.slots) {
+                // heightDp is what this key would be on a row of its own; the
+                // measure policy below hands it the real height, spanned rows
+                // and the gaps between them included.
+                KeyCell(
+                    slot.visual,
+                    Modifier,
+                    band.rowHeights[slot.row],
+                    settings,
+                    numericField,
+                    layoutId,
+                    keyPreview,
+                    onKey,
+                    onText,
+                    onCursorMove,
+                    onLayoutSelect,
+                    onLetterPositioned,
+                    onSpacePositioned,
+                    smartResolve,
+                    onBurst,
+                )
+            }
+        },
+    ) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val unit = if (band.weight > 0f) width / band.weight else 0f
+        val lefts = IntArray(measurables.size)
+        val placeables = measurables.mapIndexed { index, measurable ->
+            val slot = band.slots[index]
+            val left = (unit * slot.x).roundToInt()
+            val right = (unit * (slot.x + slot.width)).roundToInt()
+            lefts[index] = left
+            measurable.measure(
+                Constraints.fixed(
+                    width = (right - left).coerceIn(0, width),
+                    height = tops[slot.row + slot.span] - tops[slot.row],
+                ),
+            )
+        }
+        layout(width, tops.last()) {
+            placeables.forEachIndexed { index, placeable ->
+                placeable.placeRelative(lefts[index], tops[band.slots[index].row])
+            }
+        }
+    }
+}
+
+/**
+ * One key in its grid cell. [sizeModifier] is how the cell gets its width: a
+ * `Row`'s weight for an ordinary row, nothing at all inside a [KeyBand], whose
+ * measure policy sizes its children itself. Taken as a parameter rather than
+ * applied here so this is not tied to `RowScope`, which a band has no way to be.
+ */
+@Composable
+private fun KeyCell(
     visual: KeyVisual,
+    sizeModifier: Modifier,
     keyHeightDp: Int,
     settings: KeyboardSettings,
     numericField: Boolean,
@@ -9444,15 +9678,13 @@ private fun RowScope.KeyCell(
         visual = visual,
         settings = settings,
         modifier = if (letter != null) {
-            Modifier
-                .weight(key.width)
+            sizeModifier
                 .onGloballyPositioned { onLetterPositioned(letter.lowercaseChar(), it) }
         } else if (key.action == KeyAction.Space) {
-            Modifier
-                .weight(key.width)
+            sizeModifier
                 .onGloballyPositioned { onSpacePositioned(it) }
         } else {
-            Modifier.weight(key.width)
+            sizeModifier
         },
         heightDp = keyHeightDp,
         numericField = numericField,
@@ -13471,22 +13703,62 @@ private fun DualTonePicker(
 
 // ---- snippets panel ----
 
+/**
+ * The snippets panel's service callbacks, bundled into one [KeyboardScreen]
+ * parameter for the reason [ConverterCallbacks] is: its caller sits against the
+ * JVM's 64K method-size ceiling, where every added parameter costs bytecode.
+ * Folders needed two more callbacks, and the bundle pays for all three.
+ */
+data class SnippetPanelCallbacks(
+    /** A snippet was tapped: insert it. */
+    val onSnippet: (Snippet) -> Unit = {},
+    /** Drill into a folder, or back out of one with null. */
+    val onFolderOpen: (Long?) -> Unit = {},
+    /** Long-press on a folder: arm or disarm its triggers, and persist that. */
+    val onFolderToggle: (Long) -> Unit = {},
+)
+
+/**
+ * The snippets panel, one level of folders deep.
+ *
+ * With no folders it is the flat grid it has always been. With folders it opens
+ * on them — folders first, then whatever is filed in none of them — and a tap
+ * goes inside. Which level is showing lives on [KeyboardUiState], not in this
+ * composable, so that back leaves the folder before it closes the panel and the
+ * hardware focus ring counts the right things.
+ *
+ * A long press toggles a folder's triggers. It is the one folder edit worth
+ * having here rather than in settings: the point of switching a set of work
+ * replies off is that you are mid-message when you realise you want them off.
+ */
 @Composable
 private fun SnippetsPanel(
     state: KeyboardUiState,
-    onSnippet: (Snippet) -> Unit,
+    callbacks: SnippetPanelCallbacks,
     onOpenSettings: () -> Unit,
 ) {
     // Inside a [FullBleedTool], which owns the height — fill what it gives.
     Column(modifier = Modifier.fillMaxSize()) {
-        if (state.snippets.isEmpty()) {
+        val folders = state.snippetFolders
+        val open = state.openSnippetFolder()
+        // Only at the top level, and only when there are folders to draw: inside
+        // a folder the tiles are all snippets, as they were before folders.
+        val tiles = if (open == null) folders else emptyList()
+        val shown = state.snippetsShown()
+        if (shown.isEmpty() && tiles.isEmpty()) {
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    stringResource(R.string.ime_snippets_empty),
+                    stringResource(
+                        if (open == null) {
+                            R.string.ime_snippets_empty
+                        } else {
+                            R.string.ime_snippets_folder_empty
+                        },
+                    ),
                     textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -13509,11 +13781,20 @@ private fun SnippetsPanel(
                 .fillMaxWidth()
                 .padding(start = 20.dp, end = 8.dp, bottom = 4.dp),
         )
+        // One region over both kinds of tile, folders first, in the order the
+        // grid lays them out — so Tab walks the panel the way the eye does.
         PanelFocusTarget(
             panel = PanelMode.SNIPPETS,
-            count = state.snippets.size,
+            count = tiles.size + shown.size,
             columns = 2,
-            onActivate = { index -> state.snippets.getOrNull(index)?.let(onSnippet) },
+            onActivate = { index ->
+                val folder = tiles.getOrNull(index)
+                if (folder != null) {
+                    callbacks.onFolderOpen(folder.id)
+                } else {
+                    shown.getOrNull(index - tiles.size)?.let(callbacks.onSnippet)
+                }
+            },
         )
         val gridState = rememberLazyGridState()
         val focused = state.focusedIndex()
@@ -13528,58 +13809,159 @@ private fun SnippetsPanel(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            itemsIndexed(state.snippets, key = { _, snippet -> snippet.id }) { index, snippet ->
-                val kb = LocalKbTheme.current
-                val cardShape = kb.cardShape()
-                Column(
-                    modifier = Modifier
-                        .focusRing(index == focused, cardShape)
-                        .animateItem(
-                            fadeInSpec = tween(160),
-                            placementSpec = spring(
-                                stiffness = Spring.StiffnessMediumLow,
-                                visibilityThreshold = IntOffset.VisibilityThreshold,
-                            ),
-                            fadeOutSpec = tween(140),
-                        )
-                        .clip(cardShape)
-                        .background(kb.chip)
-                        .chipBorder(kb, cardShape)
-                        .clickable { onSnippet(snippet) }
-                        .padding(10.dp),
-                ) {
-                    Text(
-                        text = snippet.label,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        text = snippet.text,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    // A pattern snippet is listed with the rule that fires it,
-                    // because nobody remembers the patterns they wrote weeks
-                    // ago — and a tap inserts the text with its blanks empty,
-                    // which only makes sense next to the rule.
-                    val pattern = snippet.triggerPattern
-                    if (!pattern.isNullOrBlank() && snippet.trigger.isNullOrBlank()) {
-                        Text(
-                            text = stringResource(R.string.ime_snippets_pattern_label, pattern),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
+            // Keyed apart from the snippets: the two id spaces are independent,
+            // so a folder and a snippet can both be 1 and the grid would reuse
+            // one's slot for the other on the way into a folder.
+            itemsIndexed(tiles, key = { _, folder -> "folder-${folder.id}" }) { index, folder ->
+                SnippetFolderTile(
+                    folder = folder,
+                    count = state.snippets.count { it.folderId == folder.id },
+                    focused = index == focused,
+                    modifier = snippetTileMotion(),
+                    onOpen = { callbacks.onFolderOpen(folder.id) },
+                    onToggle = { callbacks.onFolderToggle(folder.id) },
+                )
             }
+            itemsIndexed(shown, key = { _, snippet -> snippet.id }) { index, snippet ->
+                SnippetTile(
+                    snippet,
+                    focused = tiles.size + index == focused,
+                    modifier = snippetTileMotion(),
+                ) { callbacks.onSnippet(snippet) }
+            }
+        }
+    }
+}
+
+/**
+ * How a tile in the snippets grid moves when the list under it changes — the
+ * same spring the panel has always used, lifted out so both kinds of tile get
+ * it without either one having to be a lazy-grid item scope itself.
+ */
+private fun LazyGridItemScope.snippetTileMotion(): Modifier =
+    Modifier.animateItem(
+        fadeInSpec = tween(160),
+        placementSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            visibilityThreshold = IntOffset.VisibilityThreshold,
+        ),
+        fadeOutSpec = tween(140),
+    )
+
+/** One folder in the snippets panel: open it, or hold to arm/disarm it. */
+@Composable
+private fun SnippetFolderTile(
+    folder: SnippetFolder,
+    count: Int,
+    focused: Boolean,
+    modifier: Modifier = Modifier,
+    onOpen: () -> Unit,
+    onToggle: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    val cardShape = kb.cardShape()
+    val haptic = LocalHapticFeedback.current
+    val description = stringResource(R.string.ime_snippets_folder_desc, folder.name)
+    Row(
+        modifier = modifier
+            .focusRing(focused, cardShape)
+            .clip(cardShape)
+            .background(kb.chip)
+            .chipBorder(kb, cardShape)
+            .combinedClickable(
+                onClick = onOpen,
+                onLongClick = {
+                    haptic()
+                    onToggle()
+                },
+            )
+            .semantics { contentDescription = description }
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        // A disarmed folder is dimmed rather than hidden or recoloured: it is
+        // still a folder you can open and still inserts on a tap, and the badge
+        // below says the one thing that changed.
+        val fade = if (folder.enabled) 1f else 0.55f
+        Icon(
+            Icons.Outlined.Folder,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = fade),
+            modifier = Modifier.size(20.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = folder.name,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = fade),
+            )
+            Text(
+                text = if (folder.enabled) {
+                    pluralStringResource(R.plurals.ime_snippets_folder_count, count, count)
+                } else {
+                    stringResource(R.string.ime_snippets_folder_off)
+                },
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/** One snippet card: its name, its text, and the rule that fires it. */
+@Composable
+private fun SnippetTile(
+    snippet: Snippet,
+    focused: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    val cardShape = kb.cardShape()
+    Column(
+        modifier = modifier
+            .focusRing(focused, cardShape)
+            .clip(cardShape)
+            .background(kb.chip)
+            .chipBorder(kb, cardShape)
+            .clickable(onClick = onClick)
+            .padding(10.dp),
+    ) {
+        Text(
+            text = snippet.label,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Text(
+            text = snippet.text,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        // A pattern snippet is listed with the rule that fires it, because
+        // nobody remembers the patterns they wrote weeks ago — and a tap
+        // inserts the text with its blanks empty, which only makes sense next
+        // to the rule.
+        val pattern = snippet.triggerPattern
+        if (!pattern.isNullOrBlank() && snippet.trigger.isNullOrBlank()) {
+            Text(
+                text = stringResource(R.string.ime_snippets_pattern_label, pattern),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

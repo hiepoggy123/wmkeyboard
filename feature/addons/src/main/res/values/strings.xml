@@ -79,6 +79,9 @@
 
     <string name="faddons_install_error_not_a_snippet_pack">That file is not a WM Keyboard snippet pack.</string>
     <string name="faddons_install_error_snippet_pack_empty">That snippet pack is empty.</string>
+    <!-- Name of the folder that an installed snippet pack goes into, for a
+         pack whose own listing gives it no name. -->
+    <string name="faddons_snippet_pack_folder_fallback">Snippet pack</string>
 
     <string name="faddons_install_error_not_a_sticker_pack">That file is not a sticker pack.</string>
     <!-- %1$s is the first line the sticker importer wrote about what went

@@ -150,4 +150,11 @@
         <item quantity="other">The app removed the pattern from \"<xliff:g id="snippet" example="Greeting">%1$s</xliff:g>\". It was longer than %2$d characters.</item>
     </plurals>
 
+    <!-- A folder is a named group of snippets. %1$d is how many groups the app
+         could not use, and is also what picks the form. -->
+    <plurals name="core_content_snippet_repair_folders_dropped">
+        <item quantity="one">The app dropped %1$d folder that has no name or that repeats another one. Its snippets came in without a folder.</item>
+        <item quantity="other">The app dropped %1$d folders that have no name or that repeat another one. Their snippets came in without a folder.</item>
+    </plurals>
+
 </resources>

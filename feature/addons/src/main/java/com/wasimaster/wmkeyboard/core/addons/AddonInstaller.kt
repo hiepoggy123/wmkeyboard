@@ -162,7 +162,7 @@ object AddonInstaller {
             AddonType.Layout -> installLayout(context, payload)
             AddonType.Dictionary -> installDictionary(context, entry, payload)
             AddonType.EmojiKeywords -> installEmojiKeywords(context, entry, payload)
-            AddonType.Snippets -> installSnippets(context, payload)
+            AddonType.Snippets -> installSnippets(context, entry, payload)
             AddonType.Stickers -> installStickers(context, entry, payload)
             AddonType.IconPack -> installIconPack(context, entry, payload)
             AddonType.Font -> installFont(context, entry, payload, emoji = false)
@@ -382,7 +382,17 @@ object AddonInstaller {
 
     // ---- snippets --------------------------------------------------------
 
-    private fun installSnippets(context: Context, payload: File): Outcome {
+    /**
+     * Installs a snippet pack into a folder of its own, named after the pack.
+     *
+     * A pack is a set, not thirty loose snippets: a folder is what lets it be
+     * switched off in one gesture, found again in six months, and uninstalled
+     * without hunting. Any folders the pack file declares itself are flattened
+     * into that one — folders are a single level, and a pack that arrived as
+     * four groups nested under its own name would be a structure this app has
+     * no way to draw.
+     */
+    private fun installSnippets(context: Context, entry: AddonEntry, payload: File): Outcome {
         val imported = SnippetFile.decode(payload.readText())
             ?: return Outcome.Rejected(
                 AddonText.of(R.string.faddons_install_error_not_a_snippet_pack),
@@ -393,22 +403,41 @@ object AddonInstaller {
             )
         }
         val store = SnippetStore(snippetsFile(context))
-        // Ids in the file are ignored — add() assigns fresh ones — so the ids
-        // it hands back are what uninstall has to remember. Whole snippets go
-        // in: rebuilding them out of named fields would silently strip whatever
-        // the format gained last, and a pack would install with its patterns
-        // missing and nothing to say so.
-        val added = imported.snippets.map { store.add(it).id }
-        // add() only mutates the in-memory list; nothing reaches disk until save().
+        val folder = store.addFolder(
+            entry.name.trim().ifBlank {
+                context.getString(R.string.faddons_snippet_pack_folder_fallback)
+            },
+        )
+        // Ids in the file are ignored — the store assigns fresh ones — so the
+        // ids it hands back are what uninstall has to remember. Whole snippets
+        // go in: rebuilding them out of named fields would silently strip
+        // whatever the format gained last, and a pack would install with its
+        // patterns missing and nothing to say so.
+        //
+        // The localRef stays the comma-joined snippet ids it has always been.
+        // The folder is found back from them at uninstall, which keeps every
+        // record written by an older build readable by this one.
+        val added = store.addAll(
+            imported.snippets,
+            fallbackFolderId = folder.id,
+        ).map { it.id }
+        // The adds only mutate the in-memory list; save() is what writes the file.
         store.save()
         return Outcome.Installed(added.joinToString(","), imported.repairs.map { it.resolve(context) })
     }
 
     private fun removeSnippets(context: Context, localRef: String) {
         val store = SnippetStore(snippetsFile(context))
-        localRef.split(',')
-            .mapNotNull { it.trim().toLongOrNull() }
-            .forEach { store.remove(it) }
+        val ids = localRef.split(',').mapNotNull { it.trim().toLongOrNull() }
+        // Read before the removal: afterwards there is nothing left pointing at
+        // the pack's folder to find it by.
+        val folders = store.items()
+            .filter { it.id in ids }
+            .mapTo(HashSet()) { it.folderId }
+        ids.forEach { store.remove(it) }
+        // The folder goes with the pack, unless the user has moved something
+        // else into it — then it is theirs now and outlives the pack.
+        folders.filter { it != 0L }.forEach { store.removeFolderIfEmpty(it) }
         store.save()
     }
 

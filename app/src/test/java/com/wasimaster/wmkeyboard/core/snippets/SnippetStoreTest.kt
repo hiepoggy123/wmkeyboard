@@ -157,6 +157,161 @@ class SnippetStoreTest {
     }
 
     @Test
+    fun `a folder that is switched off disarms its triggers and nothing else`() {
+        val store = SnippetStore(null)
+        val work = store.addFolder("Work")
+        val filed = store.add(
+            Snippet(id = 0, label = "Sig", text = "Regards", trigger = "sig", folderId = work.id),
+        )
+        store.add(Snippet(id = 0, label = "Way", text = "On my way!", trigger = "omw"))
+        assertEquals(filed.id, store.matchTrigger("sig")?.id)
+
+        store.setFolderEnabled(work.id, false)
+        // Gone from the index...
+        assertEquals(null, store.matchTrigger("sig"))
+        // ...and from nowhere else: the panel still lists it and a tap still
+        // inserts it, which is the whole point of the switch.
+        assertEquals(2, store.items().size)
+        assertTrue(store.items().any { it.id == filed.id })
+        // A snippet outside the folder is untouched.
+        assertEquals("On my way!", store.matchTrigger("omw")?.text)
+
+        store.setFolderEnabled(work.id, true)
+        assertEquals(filed.id, store.matchTrigger("sig")?.id)
+    }
+
+    @Test
+    fun `a folder that is switched off disarms its patterns too`() {
+        val store = SnippetStore(null)
+        val folder = store.addFolder("Greetings")
+        store.add(
+            Snippet(
+                id = 0,
+                label = "Greet",
+                text = "Hello, \$1!",
+                triggerPattern = "^hi (.+)$",
+                folderId = folder.id,
+            ),
+        )
+        assertTrue(store.hasPatterns())
+        store.setFolderEnabled(folder.id, false)
+        // Every question the index answers has to agree, not just the match:
+        // the keystroke gate asks these before it reads the field at all.
+        assertTrue(!store.hasPatterns())
+        assertTrue(!store.couldStartPattern('h'))
+        assertEquals(null, store.matchPattern("hi John", atFieldStart = true))
+    }
+
+    @Test
+    fun `deleting a folder keeps its snippets unless asked otherwise`() {
+        val store = SnippetStore(null)
+        val folder = store.addFolder("Work")
+        store.add(Snippet(id = 0, label = "Sig", text = "Regards", folderId = folder.id))
+        store.removeFolder(folder.id)
+        assertTrue(store.folders().isEmpty())
+        assertEquals(1, store.items().size)
+        assertEquals(0L, store.items().single().folderId)
+
+        val second = store.addFolder("Work")
+        store.add(Snippet(id = 0, label = "Note", text = "…", folderId = second.id))
+        store.removeFolder(second.id, withSnippets = true)
+        assertEquals(listOf("Sig"), store.items().map { it.label })
+    }
+
+    @Test
+    fun `an empty folder is pruned and a folder with anything left in it is not`() {
+        val store = SnippetStore(null)
+        val pack = store.addFolder("Pack")
+        val own = store.add(Snippet(id = 0, label = "A", text = "a", folderId = pack.id))
+        store.add(Snippet(id = 0, label = "Mine", text = "b", folderId = pack.id))
+        // What uninstalling a pack does: drop the pack's own rows, then offer
+        // the folder up. Something else is in it, so it stays.
+        store.remove(own.id)
+        store.removeFolderIfEmpty(pack.id)
+        assertEquals(1, store.folders().size)
+
+        store.remove(store.items().single().id)
+        store.removeFolderIfEmpty(pack.id)
+        assertTrue(store.folders().isEmpty())
+    }
+
+    @Test
+    fun `addAll recreates a file's folders under fresh ids`() {
+        val store = SnippetStore(null)
+        // Something already here, so the ids in the file cannot accidentally
+        // line up with the ids they are given.
+        store.addFolder("Existing")
+        val added = store.addAll(
+            snippets = listOf(
+                Snippet(id = 7, label = "A", text = "a", folderId = 1),
+                Snippet(id = 8, label = "B", text = "b", folderId = 1),
+                Snippet(id = 9, label = "C", text = "c", folderId = 0),
+            ),
+            folders = listOf(SnippetFolder(id = 1, name = "Replies")),
+        )
+        val replies = store.folders().single { it.name == "Replies" }
+        assertTrue(replies.id != 1L)
+        assertEquals(listOf(replies.id, replies.id, 0L), added.map { it.folderId })
+    }
+
+    @Test
+    fun `addAll files everything under the fallback when the file declares no folders`() {
+        // How a snippet pack installs: one folder named after the pack, and
+        // whatever the file thought its own grouping was is flattened into it.
+        val store = SnippetStore(null)
+        val pack = store.addFolder("Dev shortcuts")
+        val added = store.addAll(
+            snippets = listOf(
+                Snippet(id = 1, label = "A", text = "a", folderId = 4),
+                Snippet(id = 2, label = "B", text = "b"),
+            ),
+            fallbackFolderId = pack.id,
+        )
+        assertEquals(listOf(pack.id, pack.id), added.map { it.folderId })
+    }
+
+    @Test
+    fun `folders survive a save and reload`() {
+        val file = File(tmp.newFolder(), "snippets.json")
+        val store = SnippetStore(file)
+        val work = store.addFolder("Work")
+        store.setFolderEnabled(work.id, false)
+        store.add(Snippet(id = 0, label = "Sig", text = "Regards", trigger = "sig", folderId = work.id))
+        store.save()
+
+        val reloaded = SnippetStore(file)
+        val folder = reloaded.folders().single()
+        assertEquals("Work", folder.name)
+        assertTrue(!folder.enabled)
+        assertEquals(folder.id, reloaded.items().single().folderId)
+        // The switch has to survive the trip too, or a folder someone silenced
+        // starts firing again on the next launch.
+        assertEquals(null, reloaded.matchTrigger("sig"))
+        // Fresh folder ids continue past the highest persisted one.
+        assertTrue(reloaded.addFolder("Other").id > folder.id)
+    }
+
+    @Test
+    fun `a snippet pointing at a folder nobody declared ends up in none`() {
+        val file = File(tmp.newFolder(), "snippets.json")
+        file.writeText(
+            """{"snippets":[{"id":1,"label":"A","text":"a","folderId":42}],"folders":[]}""",
+        )
+        assertEquals(0L, SnippetStore(file).items().single().folderId)
+    }
+
+    @Test
+    fun `an edit leaves the folder alone unless it is given one`() {
+        val store = SnippetStore(null)
+        val folder = store.addFolder("Work")
+        val snippet = store.add(Snippet(id = 0, label = "Sig", text = "Regards", folderId = folder.id))
+        store.update(snippet.id, "Signature", "Best")
+        assertEquals(folder.id, store.items().single().folderId)
+        store.update(snippet.id, "Signature", "Best", folderId = 0)
+        assertEquals(0L, store.items().single().folderId)
+    }
+
+    @Test
     fun `expands date and time variables`() {
         val expanded = SnippetStore.expand("Meeting on {date} at {time}", now = fixedTime())
         if (Locale.getDefault().language == "en") {

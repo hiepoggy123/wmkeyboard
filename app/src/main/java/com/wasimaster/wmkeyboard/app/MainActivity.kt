@@ -118,6 +118,7 @@ import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Extension
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.GridOn
@@ -175,6 +176,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -211,6 +213,8 @@ import com.wasimaster.wmkeyboard.ime.R as ImeR
 import com.wasimaster.wmkeyboard.core.tools.leaderLabel
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -385,6 +389,7 @@ import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.fonts.InstalledFont
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetFile
+import com.wasimaster.wmkeyboard.core.snippets.SnippetFolder
 import com.wasimaster.wmkeyboard.core.snippets.SnippetIndex
 import com.wasimaster.wmkeyboard.core.snippets.SnippetMatcher
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
@@ -13332,13 +13337,18 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
     // every save) runs on Dispatchers.IO, not during composition or on a click.
     var store by remember { mutableStateOf<SnippetStore?>(null) }
     var snippets by remember { mutableStateOf<List<Snippet>>(emptyList()) }
+    var folders by remember { mutableStateOf<List<SnippetFolder>>(emptyList()) }
     var editing by remember { mutableStateOf<Snippet?>(null) }
     var showAdd by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
+    // The folder being renamed, or a blank one standing for "add a folder".
+    var namingFolder by remember { mutableStateOf<SnippetFolder?>(null) }
+    var deletingFolder by remember { mutableStateOf<SnippetFolder?>(null) }
 
     LaunchedEffect(Unit) {
         val s = withContext(Dispatchers.IO) { SnippetStore(file) }
         snippets = s.items()
+        folders = s.folders()
         store = s
     }
 
@@ -13350,6 +13360,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                 s.save()
             }
             snippets = s.items()
+            folders = s.folders()
         }
     }
 
@@ -13358,6 +13369,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val current = snippets
+        val currentFolders = folders
         scope.launch {
             val ok = withContext(Dispatchers.IO) {
                 runCatching {
@@ -13367,6 +13379,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                                 current,
                                 appVersion = BuildConfig.VERSION_CODE,
                                 appVersionName = BuildConfig.VERSION_NAME,
+                                folders = currentFolders,
                             ).toByteArray(),
                         )
                     } ?: error("no stream")
@@ -13402,11 +13415,13 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                 withContext(Dispatchers.IO) {
                     // Whole snippets, not a handful of named fields: rebuilding
                     // them would quietly drop whatever the format gained last.
-                    for (snippet in imported.snippets) s.add(snippet)
-                    // add() is in-memory only; save() is what writes the file.
+                    // The file's folders come with them, under fresh ids.
+                    s.addAll(imported.snippets, imported.folders)
+                    // The adds are in-memory only; save() writes the file.
                     s.save()
                 }
                 snippets = s.items()
+                folders = s.folders()
                 buildString {
                     append(
                         context.resources.getQuantityString(
@@ -13527,87 +13542,100 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
             }
         }
     }
-    SettingsGroup {
-        for (snippet in snippets) {
+    SettingsGroup(stringResource(R.string.expander_folders_title)) {
+        item { CaptionText(stringResource(R.string.expander_folders_info)) }
+        if (folders.size > 1) {
             item {
-                // Snippet ids are numbers; an install records the batch it
-                // added as one comma-joined list of them.
-                HighlightableItem(snippet.id.toString()) {
-                    WmRow(
-                        title = snippet.label,
-                        supporting = {
-                            Column {
-                                Text(snippet.text, maxLines = 2)
-                                val preview = SnippetStore.expandWithCursor(
-                                    snippet.text,
-                                    context = SNIPPET_PREVIEW_CONTEXT,
-                                ).text
-                                if (snippet.text != preview) {
-                                    Text(
-                                        stringResource(
-                                            R.string.expander_inserts_as_label,
-                                            preview,
-                                        ),
-                                        maxLines = 2,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.primary,
-                                    )
-                                }
-                                val trigger = snippet.trigger
-                                val pattern = snippet.triggerPattern
-                                // Which of the two lines a trigger gets is only
-                                // about wording: one asks first, the other rewrites
-                                // what you typed, and the row has to say which.
-                                if (trigger != null) {
-                                    Text(
-                                        stringResource(
-                                            if (snippet.confirm) {
-                                                R.string.expander_trigger_asks_label
-                                            } else {
-                                                R.string.expander_trigger_label
-                                            },
-                                            trigger,
-                                        ),
-                                        maxLines = 1,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                } else if (pattern != null) {
-                                    Text(
-                                        stringResource(
-                                            if (snippet.confirm) {
-                                                R.string.expander_pattern_asks_label
-                                            } else {
-                                                R.string.expander_pattern_label
-                                            },
-                                            pattern,
-                                        ),
-                                        maxLines = 1,
-                                        fontFamily = FontFamily.Monospace,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
+                ReorderSetting(
+                    title = stringResource(R.string.expander_folder_order_title),
+                    dialogTitle = stringResource(R.string.expander_folder_order_title),
+                    items = folders,
+                    label = { it.name },
+                    onReordered = { ordered ->
+                        mutate { s -> s.reorderFolders(ordered.map { it.id }) }
+                    },
+                )
+            }
+        }
+        for (folder in folders) {
+            item {
+                val count = snippets.count { it.folderId == folder.id }
+                WmRow(
+                    title = folder.name,
+                    icon = Icons.Outlined.Folder,
+                    subtitle = buildString {
+                        append(
+                            pluralStringResource(R.plurals.expander_folder_count, count, count),
+                        )
+                        if (!folder.enabled) {
+                            append(" • ")
+                            append(stringResource(R.string.expander_folder_off_label))
+                        }
+                    },
+                    // The row itself renames; the switch is the one action worth
+                    // its own target, and delete asks before it does anything.
+                    onClick = { namingFolder = folder },
+                    trailing = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val switchDesc = stringResource(
+                                R.string.expander_folder_switch_desc, folder.name,
+                            )
+                            Switch(
+                                checked = folder.enabled,
+                                onCheckedChange = { on ->
+                                    mutate { it.setFolderEnabled(folder.id, on) }
+                                },
+                                modifier = Modifier.semantics { contentDescription = switchDesc },
+                            )
+                            IconButton(onClick = { deletingFolder = folder }) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = stringResource(CommonR.string.common_delete),
+                                )
                             }
-                        },
-                        trailing = {
-                            Row {
-                                IconButton(onClick = { editing = snippet }) {
-                                    Icon(
-                                        Icons.Outlined.Edit,
-                                        contentDescription = stringResource(CommonR.string.common_edit),
-                                    )
-                                }
-                                IconButton(onClick = { mutate { it.remove(snippet.id) } }) {
-                                    Icon(
-                                        Icons.Outlined.Delete,
-                                        contentDescription = stringResource(CommonR.string.common_delete),
-                                    )
-                                }
-                            }
-                        },
+                        }
+                    },
+                )
+            }
+        }
+        item {
+            WmRow(
+                title = stringResource(R.string.expander_folder_new_action),
+                icon = Icons.Outlined.Add,
+                onClick = { namingFolder = SnippetFolder(id = 0, name = "") },
+            )
+        }
+    }
+    // One section per folder, then whatever is in none of them. A folder with
+    // nothing in it is not drawn here — it is already listed above, and an empty
+    // headed section reads as a section that failed to load.
+    for (folder in folders) {
+        val inFolder = snippets.filter { it.folderId == folder.id }
+        if (inFolder.isEmpty()) continue
+        SettingsGroup(folder.name) {
+            for (snippet in inFolder) {
+                item {
+                    SnippetRow(
+                        snippet,
+                        onEdit = { editing = snippet },
+                        onDelete = { mutate { it.remove(snippet.id) } },
                     )
                 }
+            }
+        }
+    }
+    val loose = snippets.filter { it.folderId == 0L }
+    SettingsGroup(
+        // Only worth a heading once there is something to tell it apart from.
+        title = if (folders.isEmpty()) null else stringResource(R.string.expander_no_folder_title),
+    ) {
+        for (snippet in loose) {
+            item {
+                SnippetRow(
+                    snippet,
+                    onEdit = { editing = snippet },
+                    onDelete = { mutate { it.remove(snippet.id) } },
+                )
             }
         }
     }
@@ -13615,6 +13643,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
     if (showAdd || editing != null) {
         SnippetDialog(
             initial = editing,
+            folders = folders,
             onDismiss = { showAdd = false; editing = null },
             onSave = { draft ->
                 val current = editing
@@ -13630,6 +13659,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                             draft.triggerPattern,
                             draft.triggerWords,
                             draft.confirm,
+                            draft.folderId,
                         )
                     }
                 }
@@ -13639,6 +13669,198 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
         )
     }
 
+    namingFolder?.let { folder ->
+        SnippetFolderNameDialog(
+            initial = folder,
+            onDismiss = { namingFolder = null },
+            onSave = { name ->
+                mutate { s ->
+                    if (folder.id == 0L) s.addFolder(name) else s.renameFolder(folder.id, name)
+                }
+                namingFolder = null
+            },
+        )
+    }
+
+    deletingFolder?.let { folder ->
+        SnippetFolderDeleteDialog(
+            folder = folder,
+            count = snippets.count { it.folderId == folder.id },
+            onDismiss = { deletingFolder = null },
+            onDelete = { withSnippets ->
+                mutate { it.removeFolder(folder.id, withSnippets) }
+                deletingFolder = null
+            },
+        )
+    }
+}
+
+/** One snippet in the Text Expander list: what it inserts, and what fires it. */
+@Composable
+private fun SnippetRow(snippet: Snippet, onEdit: () -> Unit, onDelete: () -> Unit) {
+    // Snippet ids are numbers; an install records the batch it added as one
+    // comma-joined list of them.
+    HighlightableItem(snippet.id.toString()) {
+        WmRow(
+            title = snippet.label,
+            supporting = {
+                Column {
+                    Text(snippet.text, maxLines = 2)
+                    val preview = SnippetStore.expandWithCursor(
+                        snippet.text,
+                        context = SNIPPET_PREVIEW_CONTEXT,
+                    ).text
+                    if (snippet.text != preview) {
+                        Text(
+                            stringResource(R.string.expander_inserts_as_label, preview),
+                            maxLines = 2,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    val trigger = snippet.trigger
+                    val pattern = snippet.triggerPattern
+                    // Which of the two lines a trigger gets is only about
+                    // wording: one asks first, the other rewrites what you
+                    // typed, and the row has to say which.
+                    if (trigger != null) {
+                        Text(
+                            stringResource(
+                                if (snippet.confirm) {
+                                    R.string.expander_trigger_asks_label
+                                } else {
+                                    R.string.expander_trigger_label
+                                },
+                                trigger,
+                            ),
+                            maxLines = 1,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else if (pattern != null) {
+                        Text(
+                            stringResource(
+                                if (snippet.confirm) {
+                                    R.string.expander_pattern_asks_label
+                                } else {
+                                    R.string.expander_pattern_label
+                                },
+                                pattern,
+                            ),
+                            maxLines = 1,
+                            fontFamily = FontFamily.Monospace,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            trailing = {
+                Row {
+                    IconButton(onClick = onEdit) {
+                        Icon(
+                            Icons.Outlined.Edit,
+                            contentDescription = stringResource(CommonR.string.common_edit),
+                        )
+                    }
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Outlined.Delete,
+                            contentDescription = stringResource(CommonR.string.common_delete),
+                        )
+                    }
+                }
+            },
+        )
+    }
+}
+
+/** Names a new folder, or renames one. A blank [initial] name means new. */
+@Composable
+private fun SnippetFolderNameDialog(
+    initial: SnippetFolder,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var name by remember(initial.id) { mutableStateOf(initial.name) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                stringResource(
+                    if (initial.id == 0L) {
+                        R.string.expander_folder_new_title
+                    } else {
+                        R.string.expander_folder_rename_title
+                    },
+                ),
+            )
+        },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(R.string.expander_folder_name_label)) },
+                singleLine = true,
+            )
+        },
+        confirmButton = {
+            TextButton(enabled = name.isNotBlank(), onClick = { onSave(name.trim()) }) {
+                Text(stringResource(CommonR.string.common_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
+/**
+ * Asks what should happen to a folder's snippets before the folder goes.
+ *
+ * The switch, not a second button: Cancel has to stay reachable, and three
+ * buttons in an alert is how the destructive one gets tapped by accident. It
+ * starts off, so the plain answer — the folder goes, the writing stays — is the
+ * one a hurried tap gives. An empty folder is not asked about at all.
+ */
+@Composable
+private fun SnippetFolderDeleteDialog(
+    folder: SnippetFolder,
+    count: Int,
+    onDismiss: () -> Unit,
+    onDelete: (withSnippets: Boolean) -> Unit,
+) {
+    var withSnippets by remember(folder.id) { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.expander_folder_delete_title, folder.name)) },
+        text = if (count == 0) {
+            null
+        } else {
+            {
+                Column {
+                    Text(pluralStringResource(R.plurals.expander_folder_delete_body, count, count))
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.expander_folder_delete_all_action),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(checked = withSnippets, onCheckedChange = { withSnippets = it })
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onDelete(withSnippets) }) {
+                Text(stringResource(CommonR.string.common_delete))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
 }
 
 /**
@@ -13705,9 +13927,11 @@ private enum class SnippetTriggerMode { WORD, PATTERN }
 @Composable
 private fun SnippetDialog(
     initial: Snippet?,
+    folders: List<SnippetFolder>,
     onDismiss: () -> Unit,
     onSave: (Snippet) -> Unit,
 ) {
+    var folderId by remember { mutableLongStateOf(initial?.folderId ?: 0L) }
     var label by remember { mutableStateOf(initial?.label.orEmpty()) }
     var text by remember { mutableStateOf(initial?.text.orEmpty()) }
     var trigger by remember { mutableStateOf(initial?.trigger.orEmpty()) }
@@ -13802,6 +14026,23 @@ private fun SnippetDialog(
                     Switch(checked = confirm, onCheckedChange = { confirm = it })
                 }
                 DialogNote(stringResource(R.string.rows_snippet_confirm_body))
+                // Only once there is a folder to pick. A picker whose one
+                // choice is "None" teaches nothing and costs a row.
+                if (folders.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        stringResource(R.string.rows_snippet_folder_label),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    ChoiceControl(
+                        options = listOf(
+                            0L to stringResource(R.string.rows_snippet_folder_none_label),
+                        ) + folders.map { it.id to it.name },
+                        selected = folderId,
+                        onChange = { folderId = it },
+                    )
+                }
             }
         },
         confirmButton = {
@@ -13818,6 +14059,7 @@ private fun SnippetDialog(
                             triggerPattern = if (word) null else pattern.text.trim().ifBlank { null },
                             triggerWords = if (word) 0 else words,
                             confirm = confirm,
+                            folderId = folderId,
                         ),
                     )
                 },

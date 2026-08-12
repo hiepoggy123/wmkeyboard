@@ -277,6 +277,19 @@
          %1$s is the pattern itself, for example ^hello (.+)$ — leave it as is. -->
     <string name="ime_snippets_pattern_label">Pattern: %1$s</string>
 
+    <!-- Snippet folders. A folder is a named group of snippets. -->
+    <!-- How many snippets a folder holds. %1$d is the number. -->
+    <plurals name="ime_snippets_folder_count">
+        <item quantity="one">%1$d snippet</item>
+        <item quantity="other">%1$d snippets</item>
+    </plurals>
+    <!-- Marks a folder whose snippets no longer expand while you type. They
+         still work when you press them here. Keep it very short. -->
+    <string name="ime_snippets_folder_off">Off</string>
+    <!-- Read out for a folder. %1$s is its name. -->
+    <string name="ime_snippets_folder_desc">Folder %1$s. Press to open, press and hold to switch its automatic text on or off.</string>
+    <string name="ime_snippets_folder_empty">This folder is empty.</string>
+
     <!-- The emoji panel. -->
     <string name="ime_emoji_search_hint">Type to search…</string>
     <string name="ime_emoji_search_delete_desc">Delete from the text field</string>

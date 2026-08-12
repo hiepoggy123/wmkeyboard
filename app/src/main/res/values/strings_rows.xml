@@ -28,6 +28,10 @@
     <string name="rows_snippet_trigger_label">Trigger word (optional)</string>
     <string name="rows_snippet_trigger_body">The keyboard expands this word to the text above when you type it alone.</string>
 
+    <!-- Which folder the snippet goes in. The first choice means no folder. -->
+    <string name="rows_snippet_folder_label">Folder</string>
+    <string name="rows_snippet_folder_none_label">None</string>
+
     <!-- The two ways a snippet can expand as the user types. -->
     <string name="rows_snippet_mode_word_label">Word</string>
     <string name="rows_snippet_mode_pattern_label">Pattern</string>

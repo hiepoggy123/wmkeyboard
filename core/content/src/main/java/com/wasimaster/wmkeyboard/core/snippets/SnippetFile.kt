@@ -12,6 +12,7 @@ private data class SnippetEnvelope(
     val appVersion: Int = 0,
     val appVersionName: String = "",
     val snippets: List<Snippet> = emptyList(),
+    val folders: List<SnippetFolder> = emptyList(),
 )
 
 /**
@@ -19,12 +20,17 @@ private data class SnippetEnvelope(
  *
  * [repairs] arrive unresolved: this reader has no Context, so the screen that
  * lists the notes calls [ContentText.resolve] on each one.
+ *
+ * [folders] are the groups the file declared. Their ids mean something only
+ * within the file — [SnippetStore.addAll] reassigns them on the way in, exactly
+ * as it does for snippet ids.
  */
 data class ImportedSnippets(
     val snippets: List<Snippet>,
     val repairs: List<ContentText>,
     /** Version code of the build that wrote the file; 0 when unstated. */
     val fromAppVersion: Int,
+    val folders: List<SnippetFolder> = emptyList(),
 )
 
 /**
@@ -74,11 +80,27 @@ object SnippetFile {
     /** Enough for anyone; a file past this is a generated dump. */
     private const val MAX_SNIPPETS = 500
 
+    /** Folders are a filing aid, not a data structure; a file past this is junk. */
+    private const val MAX_FOLDERS = 100
+
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true; prettyPrint = true }
 
     fun fileName(): String = "snippets.$FILE_EXTENSION"
 
-    fun encode(snippets: List<Snippet>, appVersion: Int, appVersionName: String): String =
+    /**
+     * Writes [snippets] and the [folders] they are filed under.
+     *
+     * Folders travel with the snippets rather than being flattened away,
+     * because a pack of thirty replies filed into four groups is a different
+     * thing from thirty loose replies — and the reader can always drop the
+     * grouping, while it can never invent it back.
+     */
+    fun encode(
+        snippets: List<Snippet>,
+        appVersion: Int,
+        appVersionName: String,
+        folders: List<SnippetFolder> = emptyList(),
+    ): String =
         json.encodeToString(
             SnippetEnvelope(
                 format = FORMAT,
@@ -86,6 +108,9 @@ object SnippetFile {
                 appVersion = appVersion,
                 appVersionName = appVersionName,
                 snippets = snippets,
+                // Only the folders something is actually filed in: exporting a
+                // subset of a library must not carry its empty shelves along.
+                folders = folders.filter { folder -> snippets.any { it.folderId == folder.id } },
             ),
         )
 
@@ -103,6 +128,8 @@ object SnippetFile {
 
         val repairs = ArrayList<ContentText>()
         val kept = ArrayList<Snippet>()
+        val folders = keptFolders(envelope.folders, repairs)
+        val folderIds = folders.mapTo(HashSet()) { it.id }
 
         for (snippet in envelope.snippets) {
             if (kept.size >= MAX_SNIPPETS) {
@@ -143,6 +170,10 @@ object SnippetFile {
                 // A number nudged back into range is not lost content, so it
                 // earns no note; every other note here is about content.
                 triggerWords = snippet.triggerWords.coerceIn(0, SnippetMatcher.MAX_WORDS),
+                // A folder the file never declared is dropped rather than
+                // carried: the importer would have to invent a name for it, and
+                // an ungrouped snippet is a filing detail, not lost content.
+                folderId = snippet.folderId.takeIf { it in folderIds } ?: 0,
             )
         }
 
@@ -150,7 +181,49 @@ object SnippetFile {
             snippets = kept,
             repairs = repairs,
             fromAppVersion = envelope.appVersion,
+            // Only the ones something actually landed in: a folder whose every
+            // snippet was dropped for having no text would otherwise arrive as
+            // an empty group nobody asked for.
+            folders = folders.filter { folder -> kept.any { it.folderId == folder.id } },
         )
+    }
+
+    /**
+     * The folders the app will use, with whatever had to be dropped noted.
+     *
+     * A folder is only a name and a switch, so the checks are the ones that can
+     * actually mislead: a nameless folder (nothing to draw, nothing to pick in
+     * a menu), a second folder claiming an id the file already used, which
+     * would silently swallow the first one's snippets, and id 0, which is how
+     * every snippet spells "in no folder at all".
+     */
+    private fun keptFolders(
+        folders: List<SnippetFolder>,
+        repairs: MutableList<ContentText>,
+    ): List<SnippetFolder> {
+        if (folders.isEmpty()) return emptyList()
+        val kept = ArrayList<SnippetFolder>(folders.size)
+        val seen = HashSet<Long>(folders.size)
+        var dropped = 0
+        for (folder in folders) {
+            if (kept.size >= MAX_FOLDERS ||
+                folder.id == 0L ||
+                folder.name.isBlank() ||
+                !seen.add(folder.id)
+            ) {
+                dropped++
+                continue
+            }
+            kept += folder.copy(name = folder.name.trim())
+        }
+        if (dropped > 0) {
+            repairs += ContentText(
+                pluralsRes = R.plurals.core_content_snippet_repair_folders_dropped,
+                quantity = dropped,
+                args = listOf(dropped),
+            )
+        }
+        return kept
     }
 
     /**

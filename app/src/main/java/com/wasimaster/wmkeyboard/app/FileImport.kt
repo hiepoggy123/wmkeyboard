@@ -835,14 +835,15 @@ private fun rememberProposal(
                 val store = withContext(Dispatchers.IO) {
                     SnippetStore(File(context.filesDir, "snippets/snippets.json"))
                 }
-                // Ids in the file are ignored; add() assigns fresh ones, so
+                // Ids in the file are ignored; the store assigns fresh ones, so
                 // importing the same pack twice gives two independent sets
-                // rather than silently overwriting the first.
+                // rather than silently overwriting the first. Whole snippets go
+                // in, not a handful of named fields: rebuilding them here is
+                // how a file's patterns, its ask-first flag and its folders get
+                // dropped on the floor with nothing to say so.
                 withContext(Dispatchers.IO) {
-                    for (snippet in state.snippets.snippets) {
-                        store.add(snippet.label, snippet.text, snippet.trigger)
-                    }
-                    // add() is in-memory only; save() is what writes the file.
+                    store.addAll(state.snippets.snippets, state.snippets.folders)
+                    // The adds are in-memory only; save() is what writes the file.
                     store.save()
                 }
                 context.resources.getQuantityString(

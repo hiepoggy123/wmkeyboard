@@ -2151,6 +2151,7 @@ open class WMKeyboardService : InputMethodService() {
             it.copy(
                 clipboardItems = clipboardStore.items(),
                 snippets = snippetStore.items(),
+                snippetFolders = snippetStore.folders(),
             )
         }
     }
@@ -2508,7 +2509,7 @@ open class WMKeyboardService : InputMethodService() {
                 onClipboardEntity = ::onClipboardEntityTapped,
                 onOtpAccept = ::onOtpSuggestionTapped,
                 onOtpDismiss = ::onOtpSuggestionDismiss,
-                onSnippet = ::onSnippetTapped,
+                snippetPanel = snippetPanelCallbacks,
                 onOneHanded = ::onOneHandedChange,
                 onOneHandedSide = ::onOneHandedSideChange,
                 onFloatingChange = ::onFloatingChange,
@@ -8775,6 +8776,11 @@ open class WMKeyboardService : InputMethodService() {
                 emojiResults = emptyList(),
                 clipboardItems = clipboardStore.items(),
                 snippets = snippetStore.items(),
+                snippetFolders = snippetStore.folders(),
+                // Every open of the snippets panel starts at the folders. A
+                // panel that reopened three levels into where it was last week
+                // is a panel that looks broken.
+                snippetFolderOpen = null,
                 dictionarySearchActive = false,
                 clipboardSearchActive = false,
                 clipboardQuery = "",
@@ -13575,6 +13581,45 @@ open class WMKeyboardService : InputMethodService() {
         _uiState.update { it.copy(textEditSelecting = true) }
     }
 
+    /**
+     * One stable bundle for the snippets panel, built outside
+     * [ServiceKeyboardContent] for the reason [converterCallbacks] is: that
+     * method sits against the JVM's 64K size ceiling, and folders needed two
+     * callbacks more than the one parameter it used to spend.
+     */
+    private val snippetPanelCallbacks by lazy {
+        com.wasimaster.wmkeyboard.ime.ui.SnippetPanelCallbacks(
+            onSnippet = ::onSnippetTapped,
+            onFolderOpen = ::onSnippetFolderOpen,
+            onFolderToggle = ::onSnippetFolderToggle,
+        )
+    }
+
+    /** Drills the snippets panel into a folder, or backs out of one with null. */
+    fun onSnippetFolderOpen(folderId: Long?) {
+        vibrate()
+        _uiState.update { it.copy(snippetFolderOpen = folderId) }
+    }
+
+    /**
+     * Long press on a folder in the panel: arms or disarms its triggers.
+     *
+     * Written straight through to the shared file, because the settings app
+     * reads it as its own source of truth and would otherwise show the folder
+     * still on. [snippetsStamp] is caught up in the same breath so the write
+     * this process just made does not read back as somebody else's edit and
+     * cost a needless reload.
+     */
+    fun onSnippetFolderToggle(folderId: Long) {
+        val folder = snippetStore.folder(folderId) ?: return
+        snippetStore.setFolderEnabled(folderId, !folder.enabled)
+        _uiState.update { it.copy(snippetFolders = snippetStore.folders()) }
+        serviceScope.launch {
+            withContext(Dispatchers.IO) { snippetStore.save() }
+            snippetsStamp = snippetsFile?.lastModified() ?: snippetsStamp
+        }
+    }
+
     fun onSnippetTapped(snippet: Snippet) {
         vibrate()
         val ic = currentInputConnection
@@ -13644,7 +13689,9 @@ open class WMKeyboardService : InputMethodService() {
         if (stamp == snippetsStamp) return
         snippetsStamp = stamp
         snippetStore.reload()
-        _uiState.update { it.copy(snippets = snippetStore.items()) }
+        _uiState.update {
+            it.copy(snippets = snippetStore.items(), snippetFolders = snippetStore.folders())
+        }
     }
 
     /** Human-readable label for [pkg], falling back to the package name. */
@@ -14749,6 +14796,12 @@ open class WMKeyboardService : InputMethodService() {
             }
             state.pluginTypingActive -> {
                 onPluginInputFocus(null)
+                true
+            }
+            // Same shape one level down: back climbs out of an open snippet
+            // folder before it closes the panel the folder is drawn in.
+            state.panel == PanelMode.SNIPPETS && state.snippetFolderOpen != null -> {
+                onSnippetFolderOpen(null)
                 true
             }
             state.panel != PanelMode.NONE -> {

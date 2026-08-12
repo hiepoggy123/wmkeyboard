@@ -28,6 +28,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.snippets.SnippetFolder
 import com.wasimaster.wmkeyboard.core.tools.AiPhase
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.ToolPrefill
@@ -1258,6 +1259,18 @@ data class KeyboardUiState(
      */
     val snippetOffer: SnippetOffer? = null,
     val snippets: List<Snippet> = emptyList(),
+    /** The folders [snippets] are filed under, in the order the panel draws them. */
+    val snippetFolders: List<SnippetFolder> = emptyList(),
+    /**
+     * The folder the snippets panel has been opened into, or null while it is
+     * showing the folders themselves.
+     *
+     * Panel state rather than composition state on purpose: back has to leave
+     * the folder before it closes the panel, and the hardware focus ring has to
+     * know how many things the panel is currently drawing. Neither can see a
+     * `remember` inside the panel body.
+     */
+    val snippetFolderOpen: Long? = null,
     /**
      * MIME types the focused editor advertises for commitContent
      * (EditorInfo.contentMimeTypes). Empty means the field takes text only —
@@ -1542,6 +1555,29 @@ data class KeyboardUiState(
      */
     fun focusedIndex(region: FocusRegion = FocusRegion.RESULTS): Int? =
         panelFocus?.takeIf { it.region == region }?.index
+
+    /**
+     * The snippet folder the panel is inside, or null at its top level.
+     *
+     * Resolved rather than stored, so a folder deleted in settings while the
+     * panel sits inside it drops the panel back to the folder list instead of
+     * leaving it looking at a name that no longer exists.
+     */
+    fun openSnippetFolder(): SnippetFolder? =
+        snippetFolderOpen?.let { id -> snippetFolders.firstOrNull { it.id == id } }
+
+    /**
+     * The snippets the panel lists right now: a folder's contents when it is
+     * open, otherwise the ones filed in no folder at all.
+     *
+     * With no folders anywhere this is every snippet, which is what makes the
+     * panel identical to its pre-folder self for anyone who never makes one.
+     */
+    fun snippetsShown(): List<Snippet> = when {
+        snippetFolders.isEmpty() -> snippets
+        openSnippetFolder() != null -> snippets.filter { it.folderId == snippetFolderOpen }
+        else -> snippets.filter { it.folderId == 0L }
+    }
 }
 
 /**

@@ -58,6 +58,40 @@ data class Snippet(
      */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val confirm: Boolean = false,
+    /**
+     * The [SnippetFolder] this snippet belongs to, or 0 for none.
+     *
+     * Folders are one level deep and a snippet is in at most one of them, so
+     * this is an id rather than a list. 0 rather than null because "no folder"
+     * is the overwhelmingly common case and a null would be written as an
+     * explicit key by every exporter that encodes defaults.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val folderId: Long = 0,
+)
+
+/**
+ * A named group of snippets, and the switch that arms or disarms their
+ * triggers together.
+ *
+ * [enabled] is about *automatic* behaviour only: a snippet in a folder that is
+ * switched off never expands as you type and never offers itself as a chip,
+ * but it is still listed in the snippets panel and still inserts when tapped.
+ * That is the whole point of the switch — a folder of work replies that must
+ * not fire mid-message is still a folder you want to reach for on purpose.
+ *
+ * Folders are drawn in list order, which [SnippetStore.reorderFolders] rewrites.
+ */
+@Serializable
+@OptIn(ExperimentalSerializationApi::class)
+data class SnippetFolder(
+    val id: Long,
+    val name: String,
+    /** Whether the folder's snippets may expand on their own. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val enabled: Boolean = true,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val createdAt: Long = 0,
 )
 
 /**
@@ -67,15 +101,24 @@ data class Snippet(
  * Supported variables, expanded at insertion time — see [SnippetVariable] for
  * the full list, which covers date/time parts, the clipboard, the app being
  * typed into, the current selection, and a `{cursor}` placement marker.
+ *
+ * Snippets may be grouped into [SnippetFolder]s, one level deep. A folder that
+ * is switched off keeps its snippets out of the trigger index and nowhere else;
+ * see [SnippetFolder].
  */
 class SnippetStore(private val storageFile: File?) {
 
     @Serializable
-    private data class Snapshot(val snippets: List<Snippet> = emptyList())
+    private data class Snapshot(
+        val snippets: List<Snippet> = emptyList(),
+        val folders: List<SnippetFolder> = emptyList(),
+    )
 
     private val snippets = ArrayList<Snippet>()
+    private val folders = ArrayList<SnippetFolder>()
     private val json = Json { ignoreUnknownKeys = true }
     private var nextId = 1L
+    private var nextFolderId = 1L
 
     /**
      * The triggers, prepared for lookup. Built on first use and thrown away by
@@ -112,12 +155,49 @@ class SnippetStore(private val storageFile: File?) {
             trigger = normalizeTrigger(snippet.trigger),
             triggerPattern = normalizeTrigger(snippet.triggerPattern),
             triggerWords = snippet.triggerWords.coerceIn(0, SnippetMatcher.MAX_WORDS),
+            folderId = knownFolder(snippet.folderId),
         )
         snippets.add(added)
         lookup = null
         return added
     }
 
+    /**
+     * Adds a whole file's worth of snippets, recreating the folders they came
+     * in and keeping which snippet sat in which one.
+     *
+     * Folder ids in a file are as untrustworthy as snippet ids — two files
+     * written on two phones both start at 1 — so every folder here is created
+     * afresh and the snippets are re-pointed at the new ids. A snippet naming a
+     * folder the file never declared, and a snippet that named none, both land
+     * in [fallbackFolderId]: 0 for an ordinary import, and the pack's own folder
+     * when an add-on is being installed.
+     *
+     * Returns the snippets as stored, in the order they were given.
+     */
+    @Synchronized
+    fun addAll(
+        snippets: List<Snippet>,
+        folders: List<SnippetFolder> = emptyList(),
+        fallbackFolderId: Long = 0,
+        now: Long = System.currentTimeMillis(),
+    ): List<Snippet> {
+        val remapped = HashMap<Long, Long>(folders.size)
+        for (folder in folders) {
+            remapped[folder.id] = addFolder(folder.name, folder.enabled, now).id
+        }
+        return snippets.map { snippet ->
+            add(snippet.copy(folderId = remapped[snippet.folderId] ?: fallbackFolderId), now)
+        }
+    }
+
+    /**
+     * Rewrites one snippet's editable fields.
+     *
+     * [folderId] is the one field that is left alone when it is not passed: a
+     * caller editing a snippet's text has no business moving it, and the two
+     * screens that do move snippets say so explicitly.
+     */
     @Synchronized
     fun update(
         id: Long,
@@ -127,6 +207,7 @@ class SnippetStore(private val storageFile: File?) {
         triggerPattern: String? = null,
         triggerWords: Int = 0,
         confirm: Boolean = false,
+        folderId: Long? = null,
     ) {
         val index = snippets.indexOfFirst { it.id == id }
         if (index >= 0) {
@@ -137,6 +218,7 @@ class SnippetStore(private val storageFile: File?) {
                 triggerPattern = normalizeTrigger(triggerPattern),
                 triggerWords = triggerWords.coerceIn(0, SnippetMatcher.MAX_WORDS),
                 confirm = confirm,
+                folderId = folderId?.let(::knownFolder) ?: snippets[index].folderId,
             )
             lookup = null
         }
@@ -172,6 +254,114 @@ class SnippetStore(private val storageFile: File?) {
         snippets.addAll(rest)
         lookup = null
     }
+
+    // ---- folders ---------------------------------------------------------
+
+    @Synchronized
+    fun folders(): List<SnippetFolder> = folders.toList()
+
+    @Synchronized
+    fun folder(id: Long): SnippetFolder? = folders.firstOrNull { it.id == id }
+
+    /**
+     * Adds a folder under a fresh id and returns it.
+     *
+     * The name is taken as given beyond a trim; an empty one is the caller's
+     * problem, since only a screen knows what to call an unnamed folder.
+     */
+    @Synchronized
+    fun addFolder(
+        name: String,
+        enabled: Boolean = true,
+        now: Long = System.currentTimeMillis(),
+    ): SnippetFolder {
+        val added = SnippetFolder(
+            id = nextFolderId++,
+            name = name.trim(),
+            enabled = enabled,
+            createdAt = now,
+        )
+        folders.add(added)
+        // A folder arrives switched off often enough — an installed pack that
+        // must not fire yet — that the index cannot be assumed still good.
+        lookup = null
+        return added
+    }
+
+    @Synchronized
+    fun renameFolder(id: Long, name: String) {
+        val index = folders.indexOfFirst { it.id == id }
+        if (index >= 0) folders[index] = folders[index].copy(name = name.trim())
+    }
+
+    /** Arms or disarms every trigger in the folder. See [SnippetFolder]. */
+    @Synchronized
+    fun setFolderEnabled(id: Long, enabled: Boolean) {
+        val index = folders.indexOfFirst { it.id == id }
+        if (index >= 0 && folders[index].enabled != enabled) {
+            folders[index] = folders[index].copy(enabled = enabled)
+            lookup = null
+        }
+    }
+
+    /**
+     * Deletes a folder. Its snippets survive it and become ungrouped unless
+     * [withSnippets], which is the "delete the pack and everything in it" case.
+     *
+     * Losing a folder must never quietly lose the text inside it, so the
+     * surviving-snippets path is the default and the destructive one has to be
+     * asked for by name.
+     */
+    @Synchronized
+    fun removeFolder(id: Long, withSnippets: Boolean = false) {
+        if (!folders.removeAll { it.id == id }) return
+        if (withSnippets) {
+            snippets.removeAll { it.folderId == id }
+        } else {
+            for (i in snippets.indices) {
+                if (snippets[i].folderId == id) snippets[i] = snippets[i].copy(folderId = 0)
+            }
+        }
+        lookup = null
+    }
+
+    /**
+     * Deletes [id] if nothing is left in it.
+     *
+     * What uninstalling a pack does after removing the pack's own snippets: the
+     * folder goes too, unless the user has moved something else into it, in
+     * which case it is now theirs.
+     */
+    @Synchronized
+    fun removeFolderIfEmpty(id: Long) {
+        if (snippets.none { it.folderId == id }) removeFolder(id)
+    }
+
+    /** Rewrites folder order, the order every list of folders draws in. */
+    @Synchronized
+    fun reorderFolders(ids: List<Long>) {
+        val byId = folders.associateBy { it.id }
+        val moved = ids.mapNotNull(byId::get)
+        val movedIds = moved.mapTo(HashSet()) { it.id }
+        val rest = folders.filter { it.id !in movedIds }
+        folders.clear()
+        folders.addAll(moved)
+        folders.addAll(rest)
+    }
+
+    /** Moves one snippet into [folderId], or out of every folder when it is 0. */
+    @Synchronized
+    fun moveToFolder(snippetId: Long, folderId: Long) {
+        val index = snippets.indexOfFirst { it.id == snippetId }
+        if (index >= 0) {
+            snippets[index] = snippets[index].copy(folderId = knownFolder(folderId))
+            lookup = null
+        }
+    }
+
+    /** [id] itself when a folder has it, else 0 — no snippet points at nothing. */
+    private fun knownFolder(id: Long): Long =
+        if (id != 0L && folders.any { it.id == id }) id else 0L
 
     /** The snippet whose trigger matches [word] exactly (case-insensitive), if any. */
     fun matchTrigger(word: String): Snippet? = index().matchTrigger(word)
@@ -212,7 +402,24 @@ class SnippetStore(private val storageFile: File?) {
 
     @Synchronized
     private fun build(): SnippetIndex =
-        lookup ?: SnippetIndex.of(snippets.toList()).also { lookup = it }
+        lookup ?: SnippetIndex.of(armed()).also { lookup = it }
+
+    /**
+     * The snippets whose triggers may fire: everything outside a folder that is
+     * switched off.
+     *
+     * Filtering here rather than inside [SnippetIndex] keeps the matcher's one
+     * job — decide what the text behind the cursor matches — free of a second
+     * notion of whether a snippet counts. A disarmed snippet is simply not in
+     * the index, so every one of the index's questions (`hasPatterns`,
+     * `couldStartPattern`, the confirm-chip gates) answers correctly without
+     * being told about folders at all.
+     */
+    private fun armed(): List<Snippet> {
+        val off = folders.mapNotNullTo(HashSet()) { if (it.enabled) null else it.id }
+        if (off.isEmpty()) return snippets.toList()
+        return snippets.filter { it.folderId !in off }
+    }
 
     private fun normalizeTrigger(trigger: String?): String? =
         trigger?.trim()?.takeIf { it.isNotEmpty() }
@@ -222,7 +429,7 @@ class SnippetStore(private val storageFile: File?) {
         val file = storageFile ?: return
         runCatching {
             file.parentFile?.mkdirs()
-            file.writeText(json.encodeToString(Snapshot(snippets.toList())))
+            file.writeText(json.encodeToString(Snapshot(snippets.toList(), folders.toList())))
         }
     }
 
@@ -230,14 +437,20 @@ class SnippetStore(private val storageFile: File?) {
     @Synchronized
     fun reload() {
         snippets.clear()
+        folders.clear()
         lookup = null
         val file = storageFile ?: return
         if (!file.exists()) return
         runCatching {
             val snapshot = json.decodeFromString<Snapshot>(file.readText())
-            snippets.addAll(snapshot.snippets)
+            folders.addAll(snapshot.folders)
+            // Read after the folders, so a file hand-edited to point a snippet
+            // at a folder it never declared lands ungrouped rather than at an
+            // id a later addFolder would hand out to something else.
+            snippets.addAll(snapshot.snippets.map { it.copy(folderId = knownFolder(it.folderId)) })
         }
         nextId = (snippets.maxOfOrNull { it.id } ?: 0) + 1
+        nextFolderId = (folders.maxOfOrNull { it.id } ?: 0) + 1
     }
 
     companion object {

@@ -40,9 +40,9 @@ object AddonReconciler {
         val settings = SettingsRepository(app).settings.first()
         val themeIds = settings.customThemes.mapTo(HashSet()) { it.id }
         val layoutIds = settings.customLayouts.mapTo(HashSet()) { it.id }
-        val snippetIds = SnippetStore(File(app.filesDir, "snippets/snippets.json"))
-            .items()
-            .mapTo(HashSet()) { it.id }
+        val snippets = SnippetStore(File(app.filesDir, "snippets/snippets.json"))
+        adoptPackFolders(snippets, store)
+        val snippetIds = snippets.items().mapTo(HashSet()) { it.id }
 
         store.reconcileInstalled { record ->
             when (record.type) {
@@ -69,5 +69,49 @@ object AddonReconciler {
                 AddonType.Unknown -> true
             }
         }
+    }
+
+    /**
+     * Files the snippets of already-installed packs into folders named after
+     * them, for packs installed before snippets had folders.
+     *
+     * The record already holds everything this needs — the pack's name and the
+     * ids it added — so the grouping can be recovered rather than lost to
+     * whoever installed early. It runs on the sweep the addon screens already
+     * do, and it is idempotent twice over: a pack whose snippets are all in
+     * some folder is skipped, and one whose snippets are gone has nothing to
+     * move.
+     *
+     * A pack whose snippets the user has since filed by hand is left exactly as
+     * they filed it. Their arrangement is newer information than the pack's.
+     */
+    private fun adoptPackFolders(snippets: SnippetStore, store: AddonStore) {
+        var moved = false
+        for ((key, record) in store.installed()) {
+            if (adoptPackFolder(snippets, key, record)) moved = true
+        }
+        if (moved) snippets.save()
+    }
+
+    /** One record's share of [adoptPackFolders]; true when it moved anything. */
+    private fun adoptPackFolder(
+        snippets: SnippetStore,
+        key: String,
+        record: InstalledAddon,
+    ): Boolean {
+        if (record.type != AddonType.Snippets) return false
+        val ids = record.localRef.split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
+        if (ids.isEmpty()) return false
+        val own = snippets.items().filter { it.id in ids }
+        // Nothing of the pack left, or the user has already filed some of it.
+        // Either way there is nothing here to put right.
+        if (own.isEmpty() || own.any { it.folderId != 0L }) return false
+        // The key is "<repoId>/<addonId>", so its tail names the pack when the
+        // record predates the field that keeps its display name.
+        val name = record.name.trim().ifBlank { key.substringAfterLast('/') }
+        if (name.isBlank()) return false
+        val folder = snippets.addFolder(name)
+        for (snippet in own) snippets.moveToFolder(snippet.id, folder.id)
+        return true
     }
 }

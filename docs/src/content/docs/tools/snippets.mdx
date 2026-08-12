@@ -21,6 +21,8 @@ Open **Snippets** from the toolbar if you've pinned it there, or from the toolbo
 
 Each snippet shows as a card in a two-column grid: its label in bold on top, the snippet text underneath. That text is the raw template rather than an expanded preview, so a card containing `{date}` shows the literal token instead of today's date. Tap a card to insert it. Anything you were mid-typing gets committed first, so a half-finished word can't get swallowed into the snippet. With nothing saved yet, the panel shows the same variable hint plus a shortcut straight to Snippets settings.
 
+If you've made any [folders](#folders), the panel opens on them instead: folder tiles first, then whatever you've filed in no folder at all, in the same grid. Tap a folder to go inside it, and the header takes the folder's name while you're there. Back (the header arrow, the system Back gesture, or Esc on a hardware keyboard) climbs out of the folder before it closes the panel. Press and hold a folder tile to switch its automatic expansion on or off without leaving the app. With no folders anywhere the panel is exactly the flat grid it always was.
+
 The panel re-reads the snippet file every time you open it. Settings and the keyboard share that file, so an edit you make in Settings shows up the next time you switch to this panel, not while it's already open. Unlike [Clipboard](/tools/clipboard/), there's no search inside the panel, so keep labels short and distinct if your list grows.
 
 ## Auto-expanding as you type
@@ -127,17 +129,32 @@ The settings screen opens with a reference card listing all 18 variables plus `{
 
 Snippets have a stored order. New ones append to the end, and the **Snippet order** row that sits above the saved list lifts the ones you use daily back to the top. That matters because the snippets panel draws in the same order and has no search of its own.
 
+### Folders
+
+Folders group snippets that belong together: a set of work replies, a pack you installed, the handful of things you only use for one project. They're one level deep, and a snippet is in at most one of them.
+
+The **Folders** section on the Text Expander screen is where you make and manage them. **New folder** asks for a name. Tapping a folder row renames it. The trash icon deletes it, and asks first: by default the snippets inside survive and become ungrouped, and a switch in that same question deletes them along with the folder if that's what you meant. An empty folder goes without being asked about. With two or more folders you also get a **Folder order** row, which sets the order they're drawn in everywhere. Below the section, the saved snippets are listed under a heading per folder, with everything else under "Not in a folder". The add/edit dialog grows a **Folder** picker once at least one folder exists.
+
+Each folder row carries a switch, and that switch is the point of the whole feature:
+
+- **On** is the normal state. Everything about the folder's snippets works the way it always has.
+- **Off** stops the folder's snippets expanding while you type. Their word triggers and pattern triggers don't fire, and their ask-first chips don't appear. Nothing else changes: the snippets are still there, still listed in the panel, and still insert when you tap them. It's the difference between a set of canned work replies that must not fire in the middle of a personal message, and having to delete them.
+
+Because switching a folder off is exactly the kind of thing you realise mid-message, you can also do it from the keyboard: press and hold a folder tile in the snippets panel. The tile dims and says "Off" while it's disarmed. The change is written straight to the shared file, so Settings shows it too.
+
+A folder switched off costs nothing at all while you type. Its snippets are left out of the trigger index entirely, so the keyboard's "could anything match here?" checks answer no without doing any work.
+
 ### Import and export
 
-**Export** writes every current snippet to a `.wmsnippets.json` file (see [file formats](/reference/file-formats/)). **Import** always adds alongside what's already there rather than replacing it, so importing the same file twice leaves you with two copies.
+**Export** writes every current snippet to a `.wmsnippets.json` file (see [file formats](/reference/file-formats/)), along with the folders they're filed in. A folder with nothing in it isn't written, so exporting doesn't carry empty shelves along. **Import** always adds alongside what's already there rather than replacing it, so importing the same file twice leaves you with two copies. The file's folders come back as new folders of the same name, and a snippet that was in none stays in none.
 
-Rows are repaired rather than rejected when something's off. A snippet with no text is dropped. Text over 20,000 characters is trimmed. A blank label is filled in from the snippet's own first line. A trigger pattern that won't compile, or that runs past 200 characters, is removed while the snippet itself is kept. Only the first 500 snippets of an oversized file are kept. Once the import finishes you get a summary of everything that changed.
+Rows are repaired rather than rejected when something's off. A snippet with no text is dropped. Text over 20,000 characters is trimmed. A blank label is filled in from the snippet's own first line. A trigger pattern that won't compile, or that runs past 200 characters, is removed while the snippet itself is kept. Only the first 500 snippets of an oversized file are kept, and the first 100 folders. A folder with no name, or one repeating another's ID, is dropped and its snippets arrive ungrouped. Once the import finishes you get a summary of everything that changed.
 
 ## Options
 
 <SettingsPath path="Text Expander" />
 
-Everything about the snippets themselves lives here, under Features on the settings home screen, rather than on the tool page: the list, the two reference cards, Add, Import and Export. Snippets expand while you type whether or not the tool sits on the toolbar, so they aren't really the tool's settings.
+Everything about the snippets themselves lives here, under Features on the settings home screen, rather than on the tool page: the list, the two reference cards, folders, Add, Import and Export. Snippets expand while you type whether or not the tool sits on the toolbar, so they aren't really the tool's settings.
 
 <SettingsPath path="Tools / Snippets" />
 
@@ -148,11 +165,13 @@ The tool page carries only what belongs to the button:
 - **Icon colour**: only shown if [colorful tool icons](/tools/overview/) is turned on globally. Overrides just this tool's icon color.
 - **Keyword shortcut**: the words that make the [Smart chips](/smart/chips/) suggestion offer to open this panel. "Snippet" and "snippets" out of the box, editable or clearable here. This only controls opening the panel, and it's unrelated to a snippet's own trigger word (above).
 
-Beyond that, there's nothing global to configure about expansion. There's no on/off switch separate from the tool. How matching works is set per snippet instead, in the add/edit dialog: word or pattern, how far back a pattern may reach, and whether it expands on its own or asks first. Having no pattern snippets at all is what keeps the matching machinery out of the typing path entirely.
+Beyond that, there's nothing global to configure about expansion. There's no on/off switch separate from the tool. How matching works is set per snippet instead, in the add/edit dialog: word or pattern, how far back a pattern may reach, and whether it expands on its own or asks first. The nearest thing to a group switch is a [folder](#folders), which arms and disarms everything filed in it together. Having no pattern snippets at all is what keeps the matching machinery out of the typing path entirely.
 
 ## Snippet packs and backups
 
-Someone can package a set of snippets as an installable addon: a `.wmsnippets.json` file up to 4&nbsp;MB. You can preview it before installing, so you see the actual snippets it contains rather than installing blind. Installing a pack adds its snippets alongside anything you already have. Uninstalling it removes exactly the snippets that pack added and leaves your own snippets and any other installed pack untouched. See [installing addons](/addons/installing/) for the general install/preview/uninstall flow.
+Someone can package a set of snippets as an installable addon: a `.wmsnippets.json` file up to 4&nbsp;MB. You can preview it before installing, so you see the actual snippets it contains rather than installing blind. Installing a pack adds its snippets alongside anything you already have, in a [folder](#folders) of its own named after the pack. That's what lets you silence a whole pack with one switch, find it again in six months, and see at a glance which snippets are yours. If the pack file declares folders of its own they're flattened into the pack's folder, since folders are one level deep.
+
+Uninstalling a pack removes exactly the snippets that pack added and leaves your own snippets and any other installed pack untouched. Its folder goes with it, unless you've moved something else into that folder, in which case the folder is yours now and stays. Packs you installed before folders existed are filed into one the next time you open the Addons screen, using the name the pack was installed under. If you've already sorted a pack's snippets by hand, that arrangement is left exactly as you made it. See [installing addons](/addons/installing/) for the general install/preview/uninstall flow.
 
 That's a different mechanism from the whole-app [config backup](/privacy/backup/) (`.wmconfig.json`). That backup has its own optional Snippets section you can include or leave out when backing up everything at once, alongside themes, dictionary, clipboard, stickers and your settings. The plain settings backup (`.wmsettings.json`) is different again: it deliberately leaves snippets out, since these two flows already cover them.
 

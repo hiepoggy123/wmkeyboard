@@ -271,6 +271,77 @@ class SnippetFileTest {
     }
 
     @Test
+    fun `folders round-trip with the snippets filed in them`() {
+        val folders = listOf(SnippetFolder(id = 3, name = "Work", enabled = false))
+        val original = listOf(
+            Snippet(id = 1, label = "Sig", text = "Regards", folderId = 3),
+            Snippet(id = 2, label = "Loose", text = "x"),
+        )
+        val decoded = SnippetFile.decode(
+            SnippetFile.encode(original, 41, "1.4.0", folders = folders),
+        )!!
+        assertEquals(folders, decoded.folders)
+        assertEquals(listOf(3L, 0L), decoded.snippets.map { it.folderId })
+    }
+
+    @Test
+    fun `an empty folder is not exported`() {
+        // Exporting a subset must not carry its empty shelves along.
+        val encoded = SnippetFile.encode(
+            listOf(snippet(1, "Loose", "x")),
+            41,
+            "1.4.0",
+            folders = listOf(SnippetFolder(id = 3, name = "Work")),
+        )
+        assertTrue(!encoded.contains("Work"))
+    }
+
+    @Test
+    fun `a plain snippet exports no folder key`() {
+        val encoded = SnippetFile.encode(listOf(snippet(1, "Shrug", "x", "shrug")), 41, "1.4.0")
+        assertTrue(!encoded.contains("folderId"))
+    }
+
+    @Test
+    fun `a folder with no name, a repeated id or id zero is dropped and reported`() {
+        // Id 0 is how a snippet spells "in no folder", so a folder claiming it
+        // would swallow every ungrouped row in the file.
+        val text = """
+            {"format":"wmkeyboard-snippets","version":1,
+             "folders":[{"id":1,"name":"Work"},{"id":1,"name":"Again"},
+                        {"id":2,"name":"  "},{"id":0,"name":"Nothing"}],
+             "snippets":[
+              {"id":1,"label":"A","text":"a","folderId":1},
+              {"id":2,"label":"B","text":"b","folderId":2},
+              {"id":3,"label":"C","text":"c"}
+            ]}
+        """.trimIndent()
+        val imported = SnippetFile.decode(text)!!
+        assertEquals(listOf("Work"), imported.folders.map { it.name })
+        // The row that pointed at a dropped folder keeps its text and loses
+        // only its filing.
+        assertEquals(listOf(1L, 0L, 0L), imported.snippets.map { it.folderId })
+        assertTrue(
+            imported.repairs.any {
+                it.pluralsRes == R.plurals.core_content_snippet_repair_folders_dropped
+            },
+        )
+    }
+
+    @Test
+    fun `a file written before folders existed decodes with none`() {
+        val text = """
+            {"format":"wmkeyboard-snippets","version":1,"snippets":[
+              {"id":1,"label":"A","text":"a","trigger":"a"}
+            ]}
+        """.trimIndent()
+        val imported = SnippetFile.decode(text)!!
+        assertTrue(imported.folders.isEmpty())
+        assertEquals(0L, imported.snippets.single().folderId)
+        assertTrue(imported.repairs.isEmpty())
+    }
+
+    @Test
     fun `the file extension stays compound so plain json is unclaimed`() {
         // A bare .json association would offer this app for every JSON file on
         // the device.
