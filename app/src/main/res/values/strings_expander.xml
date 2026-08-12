@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Text Expander: the snippet manager that used to sit on the Snippets tool
+  page. The tool page now holds one row that opens this screen, the same shape
+  the Emoji tool has.
+-->
+<resources>
+
+    <string name="expander_intro_info">A snippet is a piece of text that you use again and again, for example an address, an email sign-off or a standard reply. You insert a snippet from the snippet panel of the keyboard with one press.</string>
+
+    <string name="expander_variables_title">Template variables</string>
+    <!-- Meaning of the {date:…} variable, shown next to the token itself. -->
+    <string name="expander_var_date_pattern_info">any date format that you want</string>
+    <!-- The braces and the words inside them are code. Do not translate them. -->
+    <string name="expander_variables_info">A variable expands at the moment that you insert the snippet, not when you save it. Because of this, {date} always gives the current date. {date:…} takes a pattern, for example {date:EEEE} or {date:dd/MM/yy}.</string>
+
+    <string name="expander_add_action">Add snippet</string>
+    <string name="expander_reorder_title">Snippet order</string>
+
+    <!-- %1$s is the snippet text after every variable in it expands. -->
+    <string name="expander_inserts_as_label">Inserts as: %1$s</string>
+    <!-- %1$s is the short text that the user types to insert the snippet. -->
+    <string name="expander_trigger_label">Expands by itself from: %1$s</string>
+    <!-- %1$s is the pattern, for example ^hello (.+)$ — leave it as it is. -->
+    <string name="expander_pattern_label">Expands by itself from the pattern: %1$s</string>
+    <!-- The same two lines for a snippet that waits to be tapped. %1$s is the
+         short text that the user types; in the second line it is the pattern,
+         for example ^hello (.+)$ — leave that as it is. -->
+    <string name="expander_trigger_asks_label">Offers itself after: %1$s</string>
+    <string name="expander_pattern_asks_label">Offers itself after the pattern: %1$s</string>
+
+    <string name="expander_pattern_title">Patterns</string>
+    <!-- The symbols in this line are code. Keep them exactly as they are. -->
+    <string name="expander_pattern_info">A pattern lets one snippet take a different piece of text each time. Give the snippet the pattern ^hello (.+)$ and the text \"Hello, $1! Nice to meet you.\" Then type \"hello John\" and a space, and the keyboard writes \"Hello, John! Nice to meet you.\" Use $1 to $9 for each part in brackets, and ${1:upper}, ${1:lower}, ${1:title} or ${1:trim} to change one. One backspace puts back what you typed.</string>
+
+    <!-- Result of an export. %1$d is the number of snippets in the file. -->
+    <plurals name="expander_saved_count">
+        <item quantity="one">The app saved %1$d snippet.</item>
+        <item quantity="other">The app saved %1$d snippets.</item>
+    </plurals>
+    <string name="expander_export_error">The app cannot write that file.</string>
+
+    <!-- Result of an import. %1$d is the number of snippets that came in. -->
+    <plurals name="expander_imported_count">
+        <item quantity="one">The app imported %1$d snippet.</item>
+        <item quantity="other">The app imported %1$d snippets.</item>
+    </plurals>
+    <!-- Heading above the list of repairs the app made to an imported file. -->
+    <string name="expander_import_repairs_title">Changed during the import:</string>
+    <string name="expander_import_error">That file is not a WMKeyboard snippet pack.</string>
+
+</resources>

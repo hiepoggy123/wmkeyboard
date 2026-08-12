@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.StickyNote2
+import androidx.compose.material.icons.automirrored.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.History
@@ -433,6 +434,7 @@ internal object SettingsRouteIcons {
         "modes" to { Icons.Outlined.Tune },
         "emoji" to { Icons.Outlined.EmojiEmotions },
         "emojikeywords" to { Icons.Outlined.EmojiEmotions },
+        "expander" to { Icons.AutoMirrored.Outlined.TextSnippet },
         "tools" to { Icons.Outlined.Widgets },
         "sticker_packs" to { Icons.AutoMirrored.Outlined.StickyNote2 },
         "plugins" to { Icons.Outlined.Extension },

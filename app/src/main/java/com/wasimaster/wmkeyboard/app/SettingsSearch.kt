@@ -482,6 +482,25 @@ private fun Resources.emojiRows(): List<SettingsSearchEntry> {
     )
 }
 
+/**
+ * Rows on the Text Expander screen.
+ *
+ * The snippets themselves are not here: they are the user's own text, and the
+ * index is built once per screen from resources. The two reference cards are,
+ * because template variables and patterns are what someone looking for the
+ * feature actually types.
+ */
+private fun Resources.expanderRows(): List<SettingsSearchEntry> {
+    fun row(@StringRes title: Int, @StringRes subtitle: Int = 0) =
+        entry(title, subtitle, R.string.home_expander_title, "expander")
+    return listOf(
+        row(R.string.expander_variables_title),
+        row(R.string.expander_pattern_title),
+        row(R.string.expander_add_action),
+        row(R.string.expander_reorder_title),
+    )
+}
+
 /** Rows on the tool pages, from Emoji through One-handed mode. */
 private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.EMOJI, R.string.tooldetail_emoji_toolbar_title, R.string.tooldetail_emoji_toolbar_subtitle),
@@ -543,6 +562,12 @@ private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
         ToolbarTool.CLIPBOARD,
         R.string.tooldetail_clipboard_track_source_title,
         R.string.tooldetail_clipboard_track_source_subtitle,
+    ),
+    toolEntry(
+        ToolbarTool.SNIPPETS,
+        R.string.tooldetail_snippets_all_title,
+        R.string.tooldetail_snippets_all_subtitle,
+        weight = EntryWeight.MIRROR,
     ),
     toolEntry(ToolbarTool.SPLIT, R.string.tooldetail_split_gap_title, R.string.tooldetail_split_gap_subtitle),
     toolEntry(
@@ -1024,6 +1049,10 @@ private fun Resources.sectionRows(): List<SettingsSearchEntry> {
         home(R.string.home_rows_title, R.string.home_rows_subtitle, "rows", R.string.search_kw_rows),
         home(R.string.home_modes_title, R.string.home_modes_subtitle, "modes", R.string.search_kw_modes),
         home(R.string.home_emoji_title, R.string.home_emoji_subtitle, "emoji", R.string.search_kw_emoji),
+        home(
+            R.string.home_expander_title, R.string.home_expander_subtitle,
+            "expander", R.string.search_kw_expander,
+        ),
         home(R.string.home_tools_title, R.string.home_tools_subtitle, "tools", R.string.search_kw_tools),
         home(R.string.home_addons_title, R.string.home_addons_subtitle, "addons", R.string.search_kw_addons),
         home(
@@ -1172,7 +1201,7 @@ internal fun settingsSearchIndex(res: Resources): List<SettingsSearchEntry> = wi
         .map { "tool/${it.name}" }.toSet()
     val all = sectionRows() + toolRows() + sectionChildRows() + typingRows() + keyPressRows() +
         appearanceRows() + photoRows() + layoutRows() + languageRows() + emojiRows() +
-        toolPageRowsA() + toolPageRowsB() + storageRows() + otherRows()
+        expanderRows() + toolPageRowsA() + toolPageRowsB() + storageRows() + otherRows()
     all.filterNot { it.route in unsupported }
 }
 

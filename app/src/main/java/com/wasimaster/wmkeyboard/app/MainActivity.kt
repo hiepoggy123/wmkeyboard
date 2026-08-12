@@ -54,6 +54,7 @@ import android.view.KeyEvent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.Accessibility
@@ -1119,6 +1120,15 @@ private fun SettingsNavGraph(
                 EmojiSettings(repository, settings) { navController.navigate(it) }
             }
         }
+        composable("expander") {
+            SettingsScreen(
+                stringResource(R.string.home_expander_title),
+                { navController.popBackStack() },
+                route = "expander",
+            ) {
+                SnippetSettings { navController.navigate(it) }
+            }
+        }
         composable("tools") {
             SettingsScreen(
                 stringResource(R.string.home_tools_title),
@@ -1534,6 +1544,13 @@ private fun AnimatedVisibilityScope.HomeScreen(
                         "emoji", Icons.Outlined.EmojiEmotions,
                         stringResource(R.string.home_emoji_title),
                         stringResource(R.string.home_emoji_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    HomeItem(
+                        "expander", Icons.AutoMirrored.Outlined.TextSnippet,
+                        stringResource(R.string.home_expander_title),
+                        stringResource(R.string.home_expander_subtitle), onNavigate,
                     )
                 }
                 item {
@@ -10009,7 +10026,15 @@ private fun ToolDetailSettings(
                 )
             }
         }
-        ToolbarTool.SNIPPETS -> SnippetSettings(onNavigate)
+        ToolbarTool.SNIPPETS -> SettingsGroup(stringResource(R.string.tooldetail_snippets_group)) {
+            item {
+                NavRow(
+                    R.string.tooldetail_snippets_all_title,
+                    stringResource(R.string.tooldetail_snippets_all_subtitle),
+                    onClick = { onNavigate("expander") },
+                )
+            }
+        }
         ToolbarTool.CLIPBOARD -> {
             // Both grants happen on a system screen, so they are read through
             // rememberGrantState: the rows below disappear as soon as we come back
@@ -13239,8 +13264,16 @@ private fun PrivacySettings(
     CaptionText(stringResource(R.string.privacy_on_device_info))
 }
 
-// ---- snippets ----
+// ---- text expander ----
 
+/**
+ * The Text Expander screen: every snippet setting there is.
+ *
+ * It is a Features row rather than the Snippets tool page, which now holds one
+ * row that opens this — the same split the Emoji tool has. A snippet expands
+ * while you type whether or not the tool is on the toolbar, so its settings
+ * are not the tool's.
+ */
 @Composable
 private fun SnippetSettings(onNavigate: (String) -> Unit) {
     val scope = rememberCoroutineScope()
@@ -13292,10 +13325,10 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
             }
             message = if (ok) {
                 context.resources.getQuantityString(
-                    R.plurals.privacy_snippets_saved_count, current.size, current.size,
+                    R.plurals.expander_saved_count, current.size, current.size,
                 )
             } else {
-                context.getString(R.string.privacy_snippets_export_error)
+                context.getString(R.string.expander_export_error)
             }
         }
     }
@@ -13313,7 +13346,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                 }.getOrNull()
             }
             message = if (imported == null) {
-                context.getString(R.string.privacy_snippets_import_error)
+                context.getString(R.string.expander_import_error)
             } else {
                 // Added alongside what's already there, with fresh ids — an
                 // import should never quietly replace snippets someone wrote.
@@ -13328,14 +13361,14 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                 buildString {
                     append(
                         context.resources.getQuantityString(
-                            R.plurals.privacy_snippets_imported_count,
+                            R.plurals.expander_imported_count,
                             imported.snippets.size,
                             imported.snippets.size,
                         ),
                     )
                     if (imported.repairs.isNotEmpty()) {
                         append("\n\n")
-                        append(context.getString(R.string.privacy_snippets_import_repairs_title))
+                        append(context.getString(R.string.expander_import_repairs_title))
                         // The reader hands back a resource and its arguments,
                         // so the note is worded here.
                         for (line in imported.repairs) append("\n• ${line.resolve(context)}")
@@ -13358,7 +13391,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
     }
 
     Text(
-        stringResource(R.string.privacy_snippets_intro_info),
+        stringResource(R.string.expander_intro_info),
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
@@ -13368,7 +13401,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
         .padding(horizontal = 16.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                stringResource(R.string.privacy_snippets_variables_title),
+                stringResource(R.string.expander_variables_title),
                 style = MaterialTheme.typography.titleSmall,
             )
             Spacer(Modifier.height(8.dp))
@@ -13383,12 +13416,12 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                 )
             }
             VariableRow(
-                "{date:…}", stringResource(R.string.privacy_snippets_var_date_pattern_info),
+                "{date:…}", stringResource(R.string.expander_var_date_pattern_info),
                 SnippetStore.expand("{date:EEE d MMM}"),
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                stringResource(R.string.privacy_snippets_variables_info),
+                stringResource(R.string.expander_variables_info),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -13400,12 +13433,12 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
         .padding(horizontal = 16.dp)) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                stringResource(R.string.privacy_snippets_pattern_title),
+                stringResource(R.string.expander_pattern_title),
                 style = MaterialTheme.typography.titleSmall,
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                stringResource(R.string.privacy_snippets_pattern_info),
+                stringResource(R.string.expander_pattern_info),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -13418,7 +13451,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Button(onClick = { showAdd = true }) {
-            Text(stringResource(R.string.privacy_snippets_add_action))
+            Text(stringResource(R.string.expander_add_action))
         }
         OutlinedButton(
             onClick = { importLauncher.launch(SnippetFile.IMPORT_MIME_TYPES) },
@@ -13436,8 +13469,8 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
         SettingsGroup {
             item {
                 ReorderSetting(
-                    title = stringResource(R.string.privacy_snippets_reorder_title),
-                    dialogTitle = stringResource(R.string.privacy_snippets_reorder_title),
+                    title = stringResource(R.string.expander_reorder_title),
+                    dialogTitle = stringResource(R.string.expander_reorder_title),
                     items = snippets,
                     label = { it.label },
                     onReordered = { ordered -> mutate { s -> s.reorder(ordered.map { it.id }) } },
@@ -13463,7 +13496,7 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                                 if (snippet.text != preview) {
                                     Text(
                                         stringResource(
-                                            R.string.privacy_snippets_inserts_as_label,
+                                            R.string.expander_inserts_as_label,
                                             preview,
                                         ),
                                         maxLines = 2,
@@ -13480,9 +13513,9 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                                     Text(
                                         stringResource(
                                             if (snippet.confirm) {
-                                                R.string.privacy_snippets_trigger_asks_label
+                                                R.string.expander_trigger_asks_label
                                             } else {
-                                                R.string.privacy_snippets_trigger_label
+                                                R.string.expander_trigger_label
                                             },
                                             trigger,
                                         ),
@@ -13494,9 +13527,9 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                                     Text(
                                         stringResource(
                                             if (snippet.confirm) {
-                                                R.string.privacy_snippets_pattern_asks_label
+                                                R.string.expander_pattern_asks_label
                                             } else {
-                                                R.string.privacy_snippets_pattern_label
+                                                R.string.expander_pattern_label
                                             },
                                             pattern,
                                         ),

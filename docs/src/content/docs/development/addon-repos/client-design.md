@@ -137,7 +137,7 @@ under its new local id without asking, because every importer mints a fresh id a
 revoked the choice.
 
 Separately, the detail page offers **Use**, which navigates to whichever settings screen owns
-that type (`themes`, `languages`, `customdictionaries`, `emojikeywords`, `tool/SNIPPETS`,
+that type (`themes`, `languages`, `customdictionaries`, `emojikeywords`, `expander`,
 `sticker_packs`, `icons`, `fonts`, `emoji`, `keypress`, `plugins`). Layouts go to Languages rather than Key
 layouts: an installed layout arrives switched off, and the switch that turns it on is under
 Languages → Your layouts, while Key layouts lists only layouts that are already on.

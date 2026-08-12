@@ -214,6 +214,9 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "ai_chat" to Color(0xFF7E57C2),
     "modes" to Color(0xFFFFA726),
     "emoji" to Color(0xFFFFB300),
+    // The Snippets tool's own teal: the screen and the tool page it is opened
+    // from are the same feature.
+    "expander" to Color(0xFF26A69A),
     "tools" to Color(0xFFFF7043),
     "sticker_packs" to Color(0xFFF06292),
     // The editor is opened from a pack, so it keeps the pack screens' pink.

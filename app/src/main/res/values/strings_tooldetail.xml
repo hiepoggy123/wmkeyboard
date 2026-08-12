@@ -58,6 +58,12 @@
     <string name="tooldetail_emoji_all_title">All emoji settings</string>
     <string name="tooldetail_emoji_all_subtitle">Suggestions, the history tab, the emoji row, skin tones and favourites</string>
 
+    <!-- Snippets tool. Everything it can be configured with lives on the Text
+         Expander screen, so the page is one row that opens it. -->
+    <string name="tooldetail_snippets_group">Snippets</string>
+    <string name="tooldetail_snippets_all_title">All Text Expander settings</string>
+    <string name="tooldetail_snippets_all_subtitle">Your snippets, triggers, patterns and template variables</string>
+
     <!-- Clipboard tool: the history group. -->
     <string name="tooldetail_clipboard_history_group">History</string>
     <string name="tooldetail_clipboard_history_title">Clipboard history</string>

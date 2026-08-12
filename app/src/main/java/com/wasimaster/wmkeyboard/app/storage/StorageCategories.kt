@@ -667,6 +667,7 @@ internal object StorageCategories {
             accent = Color(0xFF5C6BC0),
             group = StorageGroup.PERSONAL,
             danger = Danger.PERSONAL,
+            manageRoute = "expander",
             pathsOf = { listOf(File(it.files, "snippets")) },
         ),
         StorageCategory(

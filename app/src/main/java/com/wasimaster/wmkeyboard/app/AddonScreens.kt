@@ -1365,7 +1365,7 @@ private val AddonType.settingsRoute: String
         AddonType.Layout -> "languages"
         AddonType.Dictionary -> "customdictionaries"
         AddonType.EmojiKeywords -> "emojikeywords"
-        AddonType.Snippets -> "tool/SNIPPETS"
+        AddonType.Snippets -> "expander"
         AddonType.Stickers -> "sticker_packs"
         AddonType.IconPack -> "icons"
         AddonType.Font -> "fonts"
