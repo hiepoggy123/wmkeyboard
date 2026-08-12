@@ -136,6 +136,15 @@ platform :android do
     if aab
       # Prebuilt (CI hands over the bundle-job artifact); signing already
       # happened wherever it was built, so no keystore is needed here.
+      #
+      # Anchored to the repo root rather than taken as given. fastlane runs a
+      # lane with the working directory set to this folder, so a relative path
+      # from the caller is resolved against fastlane/ and never found: the
+      # release workflow hands over `dist/app-full-release.aab`, which it built
+      # at the repo root, and v0.4.0's upload died on "No AAB at
+      # dist/app-full-release.aab" while the file sat there the whole time.
+      # The repo root is where both CI and a human invoking this are standing.
+      aab = File.expand_path(aab, File.expand_path("..", __dir__)) unless File.absolute_path?(aab)
       UI.user_error!("No AAB at #{aab}") unless File.exist?(aab)
     else
       bundle_play
