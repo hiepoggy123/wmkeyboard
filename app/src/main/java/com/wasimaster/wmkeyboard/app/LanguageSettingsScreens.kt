@@ -132,7 +132,7 @@ internal fun languageRowSubtitle(lang: LanguageDef): String =
  * that layout for someone who knows the input system but not what the app
  * files it under. An empty term matches everything.
  *
- * There are 352 languages in the registry, and filtering it runs per keystroke
+ * There are 843 languages in the registry, and filtering it runs per keystroke
  * in the search box; lowercasing every field on every call built and threw
  * away fourteen hundred strings per letter typed, which is why the strings are
  * built once here. The comparisons are kept field by field rather than
@@ -292,7 +292,7 @@ internal fun AddLanguageScreen(
     }
     val q = query.trim().lowercase()
     // Both remembered on the query: this whole screen recomposes on every
-    // letter typed into the search box, and re-running the filter over 352
+    // letter typed into the search box, and re-running the filter over 843
     // languages — and rebuilding the enabled-id set — for a query that has not
     // changed is work with no result to show for it.
     val matches = remember(q) { searchLanguages(q) }
@@ -410,7 +410,32 @@ private fun conjunctSample(script: ScriptId): String? = when (script) {
     ScriptId.KHMER -> "ក្ស"
     ScriptId.MYANMAR -> "က္ခ"
     ScriptId.TIBETAN -> "ཀྵ"
-    else -> null
+    // Every script with nothing to show, listed rather than left to an `else`
+    // so a newly added ScriptId has to come here and pick a side. Most have no
+    // conjuncts at all; the few Brahmic ones here have no cluster recognisable
+    // enough to teach the setting, which is what the fallback wording is for.
+    ScriptId.LATIN, ScriptId.CYRILLIC, ScriptId.GREEK, ScriptId.ARMENIAN, ScriptId.GEORGIAN, ScriptId.ARABIC, ScriptId.HEBREW,
+    ScriptId.SYRIAC, ScriptId.THAI, ScriptId.LAO, ScriptId.HANGUL, ScriptId.ETHIOPIC, ScriptId.THAANA, ScriptId.JAPANESE, ScriptId.HAN,
+    ScriptId.IPA, ScriptId.TIFINAGH, ScriptId.CHEROKEE, ScriptId.NKO, ScriptId.CANADIAN_ABORIGINAL_SYLLABICS, ScriptId.OL_CHIKI,
+    ScriptId.MEETEI_MAYEK, ScriptId.TAI_LE, ScriptId.VAI, ScriptId.OSAGE, ScriptId.ADLAM, ScriptId.AHOM, ScriptId.AVESTAN,
+    ScriptId.BALINESE, ScriptId.BAMUM, ScriptId.BASSA_VAH, ScriptId.BATAK, ScriptId.BHAIKSUKI, ScriptId.BOPOMOFO, ScriptId.BRAHMI,
+    ScriptId.BUGINESE, ScriptId.BUHID, ScriptId.CAUCASIAN_ALBANIAN, ScriptId.CHAKMA, ScriptId.CHAM, ScriptId.COPTIC, ScriptId.CYPRIOT,
+    ScriptId.CYPRO_MINOAN, ScriptId.DESERET, ScriptId.DIVES_AKURU, ScriptId.DOGRA, ScriptId.ELBASAN, ScriptId.GLAGOLITIC,
+    ScriptId.GOTHIC, ScriptId.GRANTHA, ScriptId.GUNJALA_GONDI, ScriptId.HANIFI_ROHINGYA, ScriptId.HANUNOO, ScriptId.HATRAN,
+    ScriptId.INSCRIPTIONAL_PAHLAVI, ScriptId.INSCRIPTIONAL_PARTHIAN, ScriptId.JAVANESE, ScriptId.KAITHI, ScriptId.KAWI,
+    ScriptId.KAYAH_LI, ScriptId.KHAROSHTHI, ScriptId.KHOJKI, ScriptId.KHUDAWADI, ScriptId.KIRAT_RAI, ScriptId.LEPCHA, ScriptId.LIMBU,
+    ScriptId.LINEAR_B, ScriptId.LISU, ScriptId.LYCIAN, ScriptId.LYDIAN, ScriptId.MAHAJANI, ScriptId.MAKASAR, ScriptId.MANDAIC,
+    ScriptId.MANICHAEAN, ScriptId.MARCHEN, ScriptId.MASARAM_GONDI, ScriptId.MEDEFAIDRIN, ScriptId.MENDE_KIKAKUI,
+    ScriptId.MEROITIC_CURSIVE, ScriptId.MEROITIC_HIEROGLYPHS, ScriptId.MIAO, ScriptId.MODI, ScriptId.MONGOLIAN, ScriptId.MRO,
+    ScriptId.MULTANI, ScriptId.NABATAEAN, ScriptId.NAG_MUNDARI, ScriptId.NANDINAGARI, ScriptId.NEWA, ScriptId.NEW_TAI_LUE,
+    ScriptId.NYIAKENG_PUACHUE_HMONG, ScriptId.OGHAM, ScriptId.OLD_HUNGARIAN, ScriptId.OLD_ITALIC, ScriptId.OLD_PERMIC,
+    ScriptId.OLD_PERSIAN, ScriptId.OLD_SOGDIAN, ScriptId.OLD_SOUTH_ARABIAN, ScriptId.OLD_UYGHUR, ScriptId.OSMANYA,
+    ScriptId.PAHAWH_HMONG, ScriptId.PALMYRENE, ScriptId.PAU_CIN_HAU, ScriptId.PHAGS_PA, ScriptId.PHOENICIAN, ScriptId.PSALTER_PAHLAVI,
+    ScriptId.REJANG, ScriptId.RUNIC, ScriptId.SAMARITAN, ScriptId.SAURASHTRA, ScriptId.SHARADA, ScriptId.SHAVIAN, ScriptId.SIDDHAM,
+    ScriptId.SOGDIAN, ScriptId.SORA_SOMPENG, ScriptId.SOYOMBO, ScriptId.SUNDANESE, ScriptId.SYLOTI_NAGRI, ScriptId.TAGALOG,
+    ScriptId.TAGBANWA, ScriptId.TAI_THAM, ScriptId.TAI_VIET, ScriptId.TAKRI, ScriptId.TIRHUTA, ScriptId.TODHRI, ScriptId.TOTO,
+    ScriptId.UGARITIC, ScriptId.VITHKUQI, ScriptId.YEZIDI, ScriptId.YI, ScriptId.ZANABAZAR_SQUARE, ScriptId.MUSIC, ScriptId.BRAILLE,
+    -> null
 }
 
 /**
@@ -1322,7 +1347,15 @@ private fun WordlistRow(
         ) {
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
-        else -> Unit
+
+        // The three resting states. Nothing goes under the row for any of them:
+        // the row itself already carries the word count, the size and the retry
+        // button, so a second line here would only repeat it. Listed rather than
+        // left to an `else` so a new status has to decide whether it needs one.
+        WordlistDownloadManager.DownloadStatus.NotDownloaded,
+        is WordlistDownloadManager.DownloadStatus.Downloaded,
+        is WordlistDownloadManager.DownloadStatus.Failed,
+        -> Unit
     }
 }
 
@@ -1379,7 +1412,15 @@ private fun CjkDictPackManager(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
-                            else -> TextButton(
+                            // The three states with nothing on disk to act on, so
+                            // all three offer the same button; the label below is
+                            // what separates resuming from starting. Listed rather
+                            // than left to an `else` so a new status has to say
+                            // which button it belongs under.
+                            CjkDictDownloadManager.DownloadStatus.NotDownloaded,
+                            is CjkDictDownloadManager.DownloadStatus.Paused,
+                            is CjkDictDownloadManager.DownloadStatus.Failed,
+                            -> TextButton(
                                 enabled = pack.available && !CjkDictDownloadManager.isBusy,
                                 onClick = { CjkDictDownloadManager.start(filesDir, pack) },
                             ) {
