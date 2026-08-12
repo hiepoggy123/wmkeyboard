@@ -214,6 +214,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "ai_chat" to Color(0xFF7E57C2),
     "modes" to Color(0xFFFFA726),
     "emoji" to Color(0xFFFFB300),
+    "voice" to Color(0xFF7E57C2),
     "clipboard" to Color(0xFF42A5F5),
     // The Snippets tool's own teal: the screen and the tool page it is opened
     // from are the same feature.

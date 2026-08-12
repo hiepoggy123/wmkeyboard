@@ -53,6 +53,7 @@ import androidx.compose.material.icons.outlined.DataSaverOn
 import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Fingerprint
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.TouchApp
@@ -436,6 +437,7 @@ internal object SettingsRouteIcons {
         "emoji" to { Icons.Outlined.EmojiEmotions },
         "emojikeywords" to { Icons.Outlined.EmojiEmotions },
         "clipboard" to { Icons.Outlined.ContentPaste },
+        "voice" to { Icons.Outlined.Mic },
         "expander" to { Icons.AutoMirrored.Outlined.TextSnippet },
         "tools" to { Icons.Outlined.Widgets },
         "sticker_packs" to { Icons.AutoMirrored.Outlined.StickyNote2 },

@@ -350,35 +350,11 @@
     <string name="tooldetail_doc_scan_gallery_subtitle">Also keep scanned pages in Pictures/WM Keyboard</string>
     <string name="tooldetail_doc_scan_info">This opens the document scanner of Google, which is part of Google Play services, with edge detection, crop and shadow cleanup. Scanned pages come back as images. The keyboard puts them into the chat like a camera photo when it opens again. The processing runs on your device.</string>
 
-    <!-- Voice typing tool. -->
-    <string name="tooldetail_voice_engine_group">Engine</string>
-    <string name="tooldetail_voice_engine_title">Recognition engine</string>
-    <string name="tooldetail_voice_engine_subtitle">How the keyboard turns speech into text</string>
-    <string name="tooldetail_voice_engine_info">The system recognizer is fast and shows the words while you speak, but it depends on the operating system and its languages. Offline Whisper runs fully on your device across many languages and sends no audio anywhere. It transcribes each phrase after you stop speaking.</string>
-    <string name="tooldetail_voice_engine_system">System recognizer</string>
-    <string name="tooldetail_voice_engine_whisper">Offline Whisper</string>
-    <string name="tooldetail_voice_dictation_group">Voice typing</string>
-    <string name="tooldetail_voice_ui_title">Voice typing view</string>
-    <string name="tooldetail_voice_ui_subtitle">What the microphone button opens</string>
-    <string name="tooldetail_voice_ui_info">The panel gives large controls and status in the space of the keyboard. The compact bar speaks over the keys, so you can correct words as they land. The collapsed bar hides the whole keyboard behind a small pill that you can drag anywhere, and it stays until you bring the keyboard back. The panel and the compact bar have a collapse button, and the pill has an expand button, so you can switch styles without coming back to this screen.</string>
-    <string name="tooldetail_voice_ui_panel">Full panel</string>
-    <string name="tooldetail_voice_ui_strip">Compact bar over the keys</string>
-    <string name="tooldetail_voice_ui_bar">Collapsed bar, keyboard hidden</string>
-    <string name="tooldetail_voice_typing_title">Voice typing mode</string>
-    <string name="tooldetail_voice_typing_subtitle">How voice typing and the keys share the field</string>
-    <string name="tooldetail_voice_typing_info">One block at a time is the usual way. The words appear in the field while you speak, and the first key press stops the microphone.\n\nType while you speak keeps the microphone open. Each phrase goes into the field when you stop for breath, so the keys, the layouts and the suggestion strip stay live all through the session. Use it with the compact bar over the keys. This mode always keeps listening.\n\nPlain text works the same way, but it adds no punctuation, no capital letters and no spaces. You control all of them from the keyboard. Use it for code, for terminals and for any field where you want only the words you said.</string>
-    <string name="tooldetail_voice_typing_block">One block at a time</string>
-    <string name="tooldetail_voice_typing_interactive">Type while you speak</string>
-    <string name="tooldetail_voice_typing_plain">Type while you speak, plain text</string>
-    <string name="tooldetail_voice_continuous_title">Keep listening</string>
-    <string name="tooldetail_voice_continuous_subtitle">Start the next sentence automatically after each one goes into the field</string>
-    <string name="tooldetail_voice_punctuation_title">Spoken punctuation</string>
-    <!-- The three quoted words are spoken examples. Translate them into words that the user would say. -->
-    <string name="tooldetail_voice_punctuation_subtitle">Say \"comma\", \"question mark\" or \"দাঁড়ি\" to type the mark</string>
-    <string name="tooldetail_voice_offline_group">Offline transcription</string>
-    <string name="tooldetail_voice_translate_title">Translate to English</string>
-    <string name="tooldetail_voice_translate_subtitle">Speak any language and type its English translation</string>
-    <string name="tooldetail_voice_system_info">Recognition uses the speech recognizer of your device. On Android 12 and later it runs on your device when the language model is installed. If it is not, the audio goes to the recognizer service while you speak. Press and hold the microphone to speak in walkie-talkie style. It stops when you let go.</string>
+    <!-- Voice typing tool. Everything it can be configured with lives on the
+         Voice typing screen, so the page is one row that opens it. -->
+    <string name="tooldetail_voice_group">Voice typing</string>
+    <string name="tooldetail_voice_all_title">All voice typing settings</string>
+    <string name="tooldetail_voice_all_subtitle">The recognition engine, the microphone view, spoken punctuation and the offline models</string>
 
     <!-- Grammar check tool. -->
     <string name="tooldetail_grammar_dialect_title">English dialect</string>
@@ -523,10 +499,6 @@
     <string name="tooldetail_camera_timer_title">Self-timer</string>
     <string name="tooldetail_camera_timer_subtitle">The timer the camera opens on</string>
     <string name="tooldetail_camera_timer_info">The camera panel has a timer button that steps through off, 3 seconds and 10 seconds. This is where it starts each time you open the panel, so if you always use the same one you do not have to set it again.</string>
-
-    <string name="tooldetail_voice_hold_title">Hold to talk</string>
-    <string name="tooldetail_voice_hold_subtitle">How long you hold the microphone before it becomes press-and-hold</string>
-    <string name="tooldetail_voice_hold_info">A short tap on the microphone starts dictation and leaves it running until you tap again. Holding it instead dictates only while you hold, like a walkie-talkie. This is the line between the two. Raise it if a slow press keeps stopping your dictation, lower it if you mean to hold and it keeps latching on.</string>
 
     <string name="tooldetail_weather_refresh_title">How often to check</string>
     <string name="tooldetail_weather_refresh_subtitle">Time before the tool fetches the weather again</string>

@@ -334,7 +334,7 @@ internal object StorageCategories {
             accent = Color(0xFF7E57C2),
             group = StorageGroup.DOWNLOADS,
             danger = Danger.REDOWNLOAD,
-            manageRoute = "tool/VOICE",
+            manageRoute = "voice",
             note = R.string.storage_note_mapped,
             pathsOf = { listOf(WhisperStore.rootDir(it.files)) },
             itemsOf = { env ->

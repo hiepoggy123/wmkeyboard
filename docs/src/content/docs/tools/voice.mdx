@@ -42,7 +42,7 @@ Every word you dictate is learned the same way a typed word is, so frequent dict
 
 ## Typing while you dictate
 
-<SettingsPath path="Tools / Voice typing / Voice typing mode" />
+<SettingsPath path="Voice typing / Voice typing mode" />
 
 By default, dictation owns the field while it runs. The words being recognized sit there as composing text, and the first key you press ends the session. **Voice typing mode** offers two other ways to work, both of which leave the mic open while you use the keyboard.
 
@@ -92,7 +92,7 @@ An **Undo** control appears (bottom-left in the panel, as a small icon on either
 
 ## Continuous mode
 
-<SettingsPath path="Tools / Voice typing / Keep listening" />
+<SettingsPath path="Voice typing / Keep listening" />
 
 With **Keep listening** on (the default), finishing one sentence doesn't stop dictation. The next listening session starts on its own, so you can keep talking sentence after sentence without re-tapping the mic. Turn it off and each session ends after one utterance. Tap the mic again for the next one.
 
@@ -104,7 +104,7 @@ That last paragraph describes the default mode. If you want the mic to survive t
 
 ## Spoken punctuation
 
-<SettingsPath path="Tools / Voice typing / Spoken punctuation" />
+<SettingsPath path="Voice typing / Spoken punctuation" />
 
 With this on (the default), saying certain words types the punctuation mark instead of the word itself. It only applies to finished phrases, never to the live partial text, and it knows two sets of words: English and Bangla.
 
@@ -135,7 +135,9 @@ On Android 13 and up, a chip offers to download a model that's available for you
 
 ## Options
 
-<SettingsPath path="Tools / Voice typing" />
+<SettingsPath path="Voice typing" />
+
+Everything below lives on the Voice typing screen, under Features on the settings home screen, rather than on the tool page. The microphone can be reached from a key or a hardware shortcut with the tool nowhere on the toolbar, so these aren't really the tool's settings.
 
 | Setting | Default | What it does |
 |---|---|---|
@@ -145,9 +147,18 @@ On Android 13 and up, a chip offers to download a model that's available for you
 | Keep listening | On | Starts the next sentence automatically after each one commits. |
 | Spoken punctuation | On | Saying "comma", "question mark" or "দাঁড়ি" types the mark. |
 
-All five sit in a group headed **Voice typing**, on the Voice typing tool's own screen. An edition with the offline engine built in adds an **Engine** group above it, holding the **Recognition engine** choice (see [Offline voice (Whisper)](/tools/whisper/) for what that adds). With the system recognizer in use, the screen ends with this note about what it sends:
+All five sit in a group headed **Dictation**. An edition with the offline engine built in adds an **Engine** group above it, holding the **Recognition engine** choice (see [Offline voice (Whisper)](/tools/whisper/) for what that adds). With the system recognizer in use, the screen ends with this note about what it sends:
 
 > Recognition uses the speech recognizer of your device. On Android 12 and later it runs on your device when the language model is installed. If it is not, the audio goes to the recognizer service while you speak. Press and hold the microphone to speak in walkie-talkie style. It stops when you let go.
+
+<SettingsPath path="Tools / Voice typing" />
+
+The tool page carries only what belongs to the button:
+
+- **All voice typing settings**: opens the screen above.
+- **Enabled**: whether Voice typing appears on the toolbar and in the toolbox.
+- **Icon colour**: only shown if [colorful tool icons](/tools/overview/) is turned on globally. Overrides just this tool's icon color.
+- **Keyword shortcut**: the words that make the [Smart chips](/smart/chips/) suggestion offer to open this panel.
 
 ## Privacy: what leaves your device
 

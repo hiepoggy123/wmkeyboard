@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Voice typing screen: the recognition engine, what the microphone button
+  opens, and how dictation shares the field with the keys. It used to be the
+  Voice typing tool page; the tool page now holds one row that opens this, the
+  same shape the Emoji tool has.
+-->
+<resources>
+
+    <string name="voice_engine_group">Engine</string>
+    <string name="voice_engine_title">Recognition engine</string>
+    <string name="voice_engine_subtitle">How the keyboard turns speech into text</string>
+    <string name="voice_engine_info">The system recognizer is fast and shows the words while you speak, but it depends on the operating system and its languages. Offline Whisper runs fully on your device across many languages and sends no audio anywhere. It transcribes each phrase after you stop speaking.</string>
+    <string name="voice_engine_system">System recognizer</string>
+    <string name="voice_engine_whisper">Offline Whisper</string>
+    <string name="voice_dictation_group">Dictation</string>
+    <string name="voice_ui_title">Voice typing view</string>
+    <string name="voice_ui_subtitle">What the microphone button opens</string>
+    <string name="voice_ui_info">The panel gives large controls and status in the space of the keyboard. The compact bar speaks over the keys, so you can correct words as they land. The collapsed bar hides the whole keyboard behind a small pill that you can drag anywhere, and it stays until you bring the keyboard back. The panel and the compact bar have a collapse button, and the pill has an expand button, so you can switch styles without coming back to this screen.</string>
+    <string name="voice_ui_panel">Full panel</string>
+    <string name="voice_ui_strip">Compact bar over the keys</string>
+    <string name="voice_ui_bar">Collapsed bar, keyboard hidden</string>
+    <string name="voice_typing_title">Voice typing mode</string>
+    <string name="voice_typing_subtitle">How voice typing and the keys share the field</string>
+    <string name="voice_typing_info">One block at a time is the usual way. The words appear in the field while you speak, and the first key press stops the microphone.\n\nType while you speak keeps the microphone open. Each phrase goes into the field when you stop for breath, so the keys, the layouts and the suggestion strip stay live all through the session. Use it with the compact bar over the keys. This mode always keeps listening.\n\nPlain text works the same way, but it adds no punctuation, no capital letters and no spaces. You control all of them from the keyboard. Use it for code, for terminals and for any field where you want only the words you said.</string>
+    <string name="voice_typing_block">One block at a time</string>
+    <string name="voice_typing_interactive">Type while you speak</string>
+    <string name="voice_typing_plain">Type while you speak, plain text</string>
+    <string name="voice_continuous_title">Keep listening</string>
+    <string name="voice_continuous_subtitle">Start the next sentence automatically after each one goes into the field</string>
+    <string name="voice_punctuation_title">Spoken punctuation</string>
+    <!-- The three quoted words are spoken examples. Translate them into words that the user would say. -->
+    <string name="voice_punctuation_subtitle">Say \"comma\", \"question mark\" or \"দাঁড়ি\" to type the mark</string>
+    <string name="voice_offline_group">Offline transcription</string>
+    <string name="voice_translate_title">Translate to English</string>
+    <string name="voice_translate_subtitle">Speak any language and type its English translation</string>
+    <string name="voice_system_info">Recognition uses the speech recognizer of your device. On Android 12 and later it runs on your device when the language model is installed. If it is not, the audio goes to the recognizer service while you speak. Press and hold the microphone to speak in walkie-talkie style. It stops when you let go.</string>
+
+    <!-- The line between a tap and a walkie-talkie hold. -->
+    <string name="voice_hold_title">Hold to talk</string>
+    <string name="voice_hold_subtitle">How long you hold the microphone before it becomes press-and-hold</string>
+    <string name="voice_hold_info">A short tap on the microphone starts dictation and leaves it running until you tap again. Holding it instead dictates only while you hold, like a walkie-talkie. This is the line between the two. Raise it if a slow press keeps stopping your dictation, lower it if you mean to hold and it keeps latching on.</string>
+
+</resources>

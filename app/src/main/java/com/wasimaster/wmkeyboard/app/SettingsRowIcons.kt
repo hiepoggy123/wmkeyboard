@@ -776,13 +776,13 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_qr_scan_haptics_title) { Icons.Outlined.Vibration }
         put(R.string.tooldetail_qr_scan_preview_title) { Icons.Outlined.Link }
         put(R.string.tooldetail_doc_scan_gallery_title) { Icons.Outlined.PhotoLibrary }
-        put(R.string.tooldetail_voice_ui_title) { Icons.Outlined.ViewAgenda }
-        put(R.string.tooldetail_voice_typing_title) { Icons.Outlined.RecordVoiceOver }
-        put(R.string.tooldetail_voice_continuous_title) { Icons.Outlined.MicNone }
-        put(R.string.tooldetail_voice_punctuation_title) { Icons.Outlined.MoreHoriz }
-        put(R.string.tooldetail_voice_engine_title) { Icons.Outlined.GraphicEq }
-        put(R.string.tooldetail_voice_translate_title) { Icons.Outlined.Translate }
-        put(R.string.tooldetail_voice_hold_title) { Icons.Outlined.TouchApp }
+        put(R.string.voice_ui_title) { Icons.Outlined.ViewAgenda }
+        put(R.string.voice_typing_title) { Icons.Outlined.RecordVoiceOver }
+        put(R.string.voice_continuous_title) { Icons.Outlined.MicNone }
+        put(R.string.voice_punctuation_title) { Icons.Outlined.MoreHoriz }
+        put(R.string.voice_engine_title) { Icons.Outlined.GraphicEq }
+        put(R.string.voice_translate_title) { Icons.Outlined.Translate }
+        put(R.string.voice_hold_title) { Icons.Outlined.TouchApp }
         put(R.string.models_whisper_fallback_title) { Icons.Outlined.Memory }
         put(R.string.tooldetail_grammar_dialect_title) { Icons.Outlined.Language }
         put(R.string.tooldetail_grammar_debounce_title) { Icons.Outlined.Timer }

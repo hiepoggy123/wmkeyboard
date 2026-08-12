@@ -134,6 +134,7 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -1156,6 +1157,15 @@ private fun SettingsNavGraph(
                 EmojiSettings(repository, settings) { navController.navigate(it) }
             }
         }
+        composable("voice") {
+            SettingsScreen(
+                stringResource(R.string.home_voice_title),
+                { navController.popBackStack() },
+                route = "voice",
+            ) {
+                VoiceSettings(repository, settings)
+            }
+        }
         composable("clipboard") {
             SettingsScreen(
                 stringResource(R.string.home_clipboard_title),
@@ -1589,6 +1599,13 @@ private fun AnimatedVisibilityScope.HomeScreen(
                         "emoji", Icons.Outlined.EmojiEmotions,
                         stringResource(R.string.home_emoji_title),
                         stringResource(R.string.home_emoji_subtitle), onNavigate,
+                    )
+                }
+                item {
+                    HomeItem(
+                        "voice", Icons.Outlined.Mic,
+                        stringResource(R.string.home_voice_title),
+                        stringResource(R.string.home_voice_subtitle), onNavigate,
                     )
                 }
                 item {
@@ -11294,110 +11311,13 @@ private fun ToolDetailSettings(
             }
             CaptionText(stringResource(R.string.tooldetail_doc_scan_info))
         }
-        ToolbarTool.VOICE -> {
-            val whisperEnabled = com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled()
-            val usingWhisper = whisperEnabled && settings.whisper.engine == "whisper"
-            if (whisperEnabled) {
-                val systemEngine = stringResource(R.string.tooldetail_voice_engine_system)
-                val whisperEngine = stringResource(R.string.tooldetail_voice_engine_whisper)
-                SettingsGroup(stringResource(R.string.tooldetail_voice_engine_group)) {
-                    item {
-                        ChoiceSetting(
-                            R.string.tooldetail_voice_engine_title,
-                            subtitle = stringResource(R.string.tooldetail_voice_engine_subtitle),
-                            info = stringResource(R.string.tooldetail_voice_engine_info),
-                            options = listOf(
-                                "system" to systemEngine,
-                                "whisper" to whisperEngine,
-                            ),
-                            selected = settings.whisper.engine,
-                            default = SettingsDefaults.whisper.engine,
-                        ) { scope.launch { repository.setVoiceEngine(it) } }
-                    }
-                }
-            }
-            SettingsGroup(stringResource(R.string.tooldetail_voice_dictation_group)) {
-                item {
-                    ChoiceSetting(
-                        R.string.tooldetail_voice_ui_title,
-                        subtitle = stringResource(R.string.tooldetail_voice_ui_subtitle),
-                        info = stringResource(R.string.tooldetail_voice_ui_info),
-                        options = listOf(
-                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_PANEL to
-                                stringResource(R.string.tooldetail_voice_ui_panel),
-                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_STRIP to
-                                stringResource(R.string.tooldetail_voice_ui_strip),
-                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_BAR to
-                                stringResource(R.string.tooldetail_voice_ui_bar),
-                        ),
-                        selected = settings.voiceBar.mode,
-                        default = SettingsDefaults.voiceBar.mode,
-                    ) { scope.launch { repository.setVoiceUiMode(it) } }
-                }
-                item {
-                    ChoiceSetting(
-                        R.string.tooldetail_voice_typing_title,
-                        subtitle = stringResource(R.string.tooldetail_voice_typing_subtitle),
-                        info = stringResource(R.string.tooldetail_voice_typing_info),
-                        options = listOf(
-                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_BLOCK to
-                                stringResource(R.string.tooldetail_voice_typing_block),
-                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_INTERACTIVE to
-                                stringResource(R.string.tooldetail_voice_typing_interactive),
-                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN to
-                                stringResource(R.string.tooldetail_voice_typing_plain),
-                        ),
-                        selected = settings.voiceBar.typingMode,
-                        default = SettingsDefaults.voiceBar.typingMode,
-                    ) { scope.launch { repository.setVoiceTypingMode(it) } }
-                }
-                item {
-                    val holdMsFormat = stringResource(R.string.typing_value_milliseconds)
-                    SliderSetting(
-                        R.string.tooldetail_voice_hold_title,
-                        subtitle = stringResource(R.string.tooldetail_voice_hold_subtitle),
-                        value = settings.voiceBar.holdToTalkMs.toFloat(),
-                        range = HoldToTalkRange.first.toFloat()..HoldToTalkRange.last.toFloat(),
-                        display = { holdMsFormat.format((it / 50f).roundToInt() * 50) },
-                        info = stringResource(R.string.tooldetail_voice_hold_info),
-                        default = SettingsDefaults.voiceBar.holdToTalkMs.toFloat(),
-                    ) { picked ->
-                        scope.launch {
-                            repository.setHoldToTalkMs((picked / 50f).roundToInt() * 50)
-                        }
-                    }
-                }
-                item {
-                    ToggleSetting(
-                        R.string.tooldetail_voice_continuous_title,
-                        stringResource(R.string.tooldetail_voice_continuous_subtitle),
-                        settings.voiceContinuous,
-                        default = SettingsDefaults.voiceContinuous,
-                    ) { scope.launch { repository.setVoiceContinuous(it) } }
-                }
-                item {
-                    ToggleSetting(
-                        R.string.tooldetail_voice_punctuation_title,
-                        stringResource(R.string.tooldetail_voice_punctuation_subtitle),
-                        settings.voiceSpokenPunctuation,
-                        default = SettingsDefaults.voiceSpokenPunctuation,
-                    ) { scope.launch { repository.setVoiceSpokenPunctuation(it) } }
-                }
-            }
-            if (usingWhisper) {
-                SettingsGroup(stringResource(R.string.tooldetail_voice_offline_group)) {
-                    item {
-                        ToggleSetting(
-                            R.string.tooldetail_voice_translate_title,
-                            stringResource(R.string.tooldetail_voice_translate_subtitle),
-                            settings.whisper.translate,
-                            default = SettingsDefaults.whisper.translate,
-                        ) { scope.launch { repository.setWhisperTranslate(it) } }
-                    }
-                }
-                WhisperModelManager(repository, settings)
-            } else {
-                CaptionText(stringResource(R.string.tooldetail_voice_system_info))
+        ToolbarTool.VOICE -> SettingsGroup(stringResource(R.string.tooldetail_voice_group)) {
+            item {
+                NavRow(
+                    R.string.tooldetail_voice_all_title,
+                    stringResource(R.string.tooldetail_voice_all_subtitle),
+                    onClick = { onNavigate("voice") },
+                )
             }
         }
         ToolbarTool.GRAMMAR -> {
@@ -13349,6 +13269,126 @@ private fun PrivacySettings(
         }
     }
     CaptionText(stringResource(R.string.privacy_on_device_info))
+}
+
+// ---- voice typing ----
+
+/**
+ * The Voice typing screen: the engine, the microphone view, and dictation.
+ *
+ * A Features row rather than the Voice typing tool page, which now holds one
+ * row that opens this — the same split the Emoji tool has. Dictation is a way
+ * of typing, and the microphone can be reached from a key or a hardware
+ * shortcut with the tool nowhere on the toolbar, so these are not the tool's
+ * settings.
+ */
+@Composable
+private fun VoiceSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val whisperEnabled = com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled()
+    val usingWhisper = whisperEnabled && settings.whisper.engine == "whisper"
+    if (whisperEnabled) {
+        val systemEngine = stringResource(R.string.voice_engine_system)
+        val whisperEngine = stringResource(R.string.voice_engine_whisper)
+        SettingsGroup(stringResource(R.string.voice_engine_group)) {
+            item {
+                ChoiceSetting(
+                    R.string.voice_engine_title,
+                    subtitle = stringResource(R.string.voice_engine_subtitle),
+                    info = stringResource(R.string.voice_engine_info),
+                    options = listOf(
+                        "system" to systemEngine,
+                        "whisper" to whisperEngine,
+                    ),
+                    selected = settings.whisper.engine,
+                    default = SettingsDefaults.whisper.engine,
+                ) { scope.launch { repository.setVoiceEngine(it) } }
+            }
+        }
+    }
+    SettingsGroup(stringResource(R.string.voice_dictation_group)) {
+        item {
+            ChoiceSetting(
+                R.string.voice_ui_title,
+                subtitle = stringResource(R.string.voice_ui_subtitle),
+                info = stringResource(R.string.voice_ui_info),
+                options = listOf(
+                    com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_PANEL to
+                        stringResource(R.string.voice_ui_panel),
+                    com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_STRIP to
+                        stringResource(R.string.voice_ui_strip),
+                    com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_BAR to
+                        stringResource(R.string.voice_ui_bar),
+                ),
+                selected = settings.voiceBar.mode,
+                default = SettingsDefaults.voiceBar.mode,
+            ) { scope.launch { repository.setVoiceUiMode(it) } }
+        }
+        item {
+            ChoiceSetting(
+                R.string.voice_typing_title,
+                subtitle = stringResource(R.string.voice_typing_subtitle),
+                info = stringResource(R.string.voice_typing_info),
+                options = listOf(
+                    com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_BLOCK to
+                        stringResource(R.string.voice_typing_block),
+                    com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_INTERACTIVE to
+                        stringResource(R.string.voice_typing_interactive),
+                    com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN to
+                        stringResource(R.string.voice_typing_plain),
+                ),
+                selected = settings.voiceBar.typingMode,
+                default = SettingsDefaults.voiceBar.typingMode,
+            ) { scope.launch { repository.setVoiceTypingMode(it) } }
+        }
+        item {
+            val holdMsFormat = stringResource(R.string.typing_value_milliseconds)
+            SliderSetting(
+                R.string.voice_hold_title,
+                subtitle = stringResource(R.string.voice_hold_subtitle),
+                value = settings.voiceBar.holdToTalkMs.toFloat(),
+                range = HoldToTalkRange.first.toFloat()..HoldToTalkRange.last.toFloat(),
+                display = { holdMsFormat.format((it / 50f).roundToInt() * 50) },
+                info = stringResource(R.string.voice_hold_info),
+                default = SettingsDefaults.voiceBar.holdToTalkMs.toFloat(),
+            ) { picked ->
+                scope.launch {
+                    repository.setHoldToTalkMs((picked / 50f).roundToInt() * 50)
+                }
+            }
+        }
+        item {
+            ToggleSetting(
+                R.string.voice_continuous_title,
+                stringResource(R.string.voice_continuous_subtitle),
+                settings.voiceContinuous,
+                default = SettingsDefaults.voiceContinuous,
+            ) { scope.launch { repository.setVoiceContinuous(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.voice_punctuation_title,
+                stringResource(R.string.voice_punctuation_subtitle),
+                settings.voiceSpokenPunctuation,
+                default = SettingsDefaults.voiceSpokenPunctuation,
+            ) { scope.launch { repository.setVoiceSpokenPunctuation(it) } }
+        }
+    }
+    if (usingWhisper) {
+        SettingsGroup(stringResource(R.string.voice_offline_group)) {
+            item {
+                ToggleSetting(
+                    R.string.voice_translate_title,
+                    stringResource(R.string.voice_translate_subtitle),
+                    settings.whisper.translate,
+                    default = SettingsDefaults.whisper.translate,
+                ) { scope.launch { repository.setWhisperTranslate(it) } }
+            }
+        }
+        WhisperModelManager(repository, settings)
+    } else {
+        CaptionText(stringResource(R.string.voice_system_info))
+    }
 }
 
 // ---- clipboard ----

@@ -486,6 +486,21 @@ private fun Resources.emojiRows(): List<SettingsSearchEntry> {
     )
 }
 
+/** Rows on the Voice typing screen. */
+private fun Resources.voiceRows(): List<SettingsSearchEntry> {
+    fun row(@StringRes title: Int, @StringRes subtitle: Int = 0) =
+        entry(title, subtitle, R.string.home_voice_title, "voice")
+    return listOf(
+        row(R.string.voice_engine_title, R.string.voice_engine_subtitle),
+        row(R.string.voice_ui_title, R.string.voice_ui_subtitle),
+        row(R.string.voice_typing_title, R.string.voice_typing_subtitle),
+        row(R.string.voice_hold_title, R.string.voice_hold_subtitle),
+        row(R.string.voice_continuous_title, R.string.voice_continuous_subtitle),
+        row(R.string.voice_punctuation_title, R.string.voice_punctuation_subtitle),
+        row(R.string.voice_translate_title, R.string.voice_translate_subtitle),
+    )
+}
+
 /** Rows on the Clipboard screen. */
 private fun Resources.clipboardRows(): List<SettingsSearchEntry> {
     fun row(@StringRes title: Int, @StringRes subtitle: Int = 0) =
@@ -727,12 +742,12 @@ private fun Resources.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.QR_SCAN, R.string.tooldetail_qr_scan_haptics_title, R.string.tooldetail_qr_scan_haptics_subtitle),
     toolEntry(ToolbarTool.QR_SCAN, R.string.tooldetail_qr_scan_preview_title, R.string.tooldetail_qr_scan_preview_subtitle),
     toolEntry(ToolbarTool.DOC_SCAN, R.string.tooldetail_doc_scan_gallery_title, R.string.tooldetail_doc_scan_gallery_subtitle),
-    toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_engine_title, R.string.tooldetail_voice_engine_subtitle),
-    toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_ui_title, R.string.tooldetail_voice_ui_subtitle),
-    toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_typing_title, R.string.tooldetail_voice_typing_subtitle),
-    toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_continuous_title, R.string.tooldetail_voice_continuous_subtitle),
-    toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_punctuation_title, R.string.tooldetail_voice_punctuation_subtitle),
-    toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_translate_title, R.string.tooldetail_voice_translate_subtitle),
+    toolEntry(
+        ToolbarTool.VOICE,
+        R.string.tooldetail_voice_all_title,
+        R.string.tooldetail_voice_all_subtitle,
+        weight = EntryWeight.MIRROR,
+    ),
     toolEntry(ToolbarTool.GRAMMAR, R.string.tooldetail_grammar_dialect_title, R.string.tooldetail_grammar_dialect_subtitle),
     toolEntry(ToolbarTool.GRAMMAR, R.string.tooldetail_grammar_debounce_title, R.string.tooldetail_grammar_debounce_subtitle),
     toolEntry(ToolbarTool.GRAMMAR, R.string.tooldetail_grammar_system_title, R.string.tooldetail_grammar_system_subtitle),
@@ -1057,6 +1072,10 @@ private fun Resources.sectionRows(): List<SettingsSearchEntry> {
             "clipboard", R.string.search_kw_clipboard,
         ),
         home(
+            R.string.home_voice_title, R.string.home_voice_subtitle,
+            "voice", R.string.search_kw_voice,
+        ),
+        home(
             R.string.home_expander_title, R.string.home_expander_subtitle,
             "expander", R.string.search_kw_expander,
         ),
@@ -1206,7 +1225,7 @@ internal fun settingsSearchIndex(res: Resources): List<SettingsSearchEntry> = wi
         .map { "tool/${it.name}" }.toSet()
     val all = sectionRows() + toolRows() + sectionChildRows() + typingRows() + keyPressRows() +
         appearanceRows() + photoRows() + layoutRows() + languageRows() + emojiRows() +
-        clipboardRows() + expanderRows() + toolPageRowsA() + toolPageRowsB() + storageRows() + otherRows()
+        voiceRows() + clipboardRows() + expanderRows() + toolPageRowsA() + toolPageRowsB() + storageRows() + otherRows()
     all.filterNot { it.route in unsupported }
 }
 
