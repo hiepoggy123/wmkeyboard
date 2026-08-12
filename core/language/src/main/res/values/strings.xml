@@ -179,6 +179,14 @@
         <item quantity="other">The app changed %1$d letters to the form that this keyboard writes.</item>
     </plurals>
 
+    <!-- The file asked for a text style this keyboard has no form of, such as a
+         monospaced or an off-centre label. The size of the label did come
+         across. %1$d is the number of keys, and picks the wording. -->
+    <plurals name="core_lang_foreign_labels_restyled">
+        <item quantity="one">The app kept the label size of %1$d key but not its text style. This keyboard draws labels in one style.</item>
+        <item quantity="other">The app kept the label size of %1$d keys but not their text style. This keyboard draws labels in one style.</item>
+    </plurals>
+
     <string name="core_lang_foreign_widths_scaled">The other keyboard measures key widths differently. The app changed the widths to fit this grid.</string>
 
     <!-- ================================================================== -->

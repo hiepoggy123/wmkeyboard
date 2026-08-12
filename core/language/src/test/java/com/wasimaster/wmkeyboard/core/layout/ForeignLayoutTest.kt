@@ -291,4 +291,85 @@ class ForeignLayoutTest {
         assertNotNull(ForeignLayouts.fromFlorisJson("""{"arrangement":[["a"]]}""", "x.json"))
         assertFalse(ForeignLayouts.fromFlorisJson("""{"arrangement":[["a"]]}""", "x.json")!!.keys().isEmpty())
     }
+
+    // ---- label flags ----
+
+    /** Converts one key object and hands back the key it became. */
+    private fun oneKey(json: String): Key {
+        val converted = checkNotNull(ForeignLayouts.fromFlorisJson("""[[$json]]""", "x.json"))
+        return converted.letters()[0].first()
+    }
+
+    private fun scaleOf(json: String): Float = checkNotNull(oneKey(json).labelScale)
+
+    @Test
+    fun `the follow-ratio flags become a label size`() {
+        // 0x80 followKeyLetterRatio: draw it the size of a letter, which is what
+        // this keyboard would not have done on its own for a two-letter label.
+        assertEquals(1f, scaleOf("""{"label":"ab","labelFlags":128}"""), 0f)
+        // 0xC0 followKeyLabelRatio lands on the mode-label size.
+        assertEquals(0.68f, scaleOf("""{"label":"ab","labelFlags":192}"""), 0f)
+        // 0x140 followKeyHintLabelRatio has a bit outside the other three and
+        // must not read as 0x40.
+        assertEquals(0.44f, scaleOf("""{"label":"ab","labelFlags":320}"""), 0f)
+        assertEquals(1.15f, scaleOf("""{"label":"ab","labelFlags":64}"""), 0f)
+    }
+
+    @Test
+    fun `a key with no flags keeps the automatic size`() {
+        assertNull(oneKey("""{"label":"a"}""").labelScale)
+        assertNull(oneKey("""{"label":"a","labelFlags":0}""").labelScale)
+        // autoScale is what this keyboard already does to every label.
+        assertNull(oneKey("""{"label":"a","labelFlags":49152}""").labelScale)
+    }
+
+    @Test
+    fun `flags may be written in hex`() {
+        // The format's own documentation is written in hex, so a hand-written
+        // file is likely to be too.
+        assertEquals(0.44f, scaleOf("""{"label":"ab","labelFlags":"0x140"}"""), 0f)
+        // The same flag in decimal, which is what an exported file carries.
+        assertTrue(oneKey("""{"label":"a","labelFlags":1073741824}""").hideHint)
+    }
+
+    @Test
+    fun `disableKeyHintLabel hides the corner hint`() {
+        val key = oneKey("""{"label":"a","popup":["b"],"labelFlags":"0x40000000"}""")
+        assertTrue(key.hideHint)
+        // The alternates are still reachable; only the corner is cleared.
+        assertEquals(listOf("b"), key.longPress)
+    }
+
+    @Test
+    fun `a style this keyboard cannot draw is reported, not applied`() {
+        // 0x20 fontMonoSpace on its own, with no ratio bits.
+        val converted = checkNotNull(
+            ForeignLayouts.fromFlorisJson("""[[{"label":"a","labelFlags":32}]]""", "x.json"),
+        )
+        assertNull(converted.letters()[0].first().labelScale)
+        assertTrue(converted.notes.any { it.pluralsRes == R.plurals.core_lang_foreign_labels_restyled })
+    }
+
+    @Test
+    fun `flags on an action key come across too`() {
+        // -202 is the symbols key, whose "?123" label this keyboard shrinks by
+        // itself. The file asking for the letter ratio is asking it not to.
+        assertEquals(1f, scaleOf("""{"code":-202,"label":"?123","labelFlags":128}"""), 0f)
+    }
+
+    @Test
+    fun `a suppressed popup group is not a lost popup`() {
+        // groupId -1 means "add no popups", which is the key getting what it
+        // asked for rather than anything going missing.
+        val converted = checkNotNull(
+            ForeignLayouts.fromFlorisJson("""[[{"label":"a","groupId":-1}]]""", "x.json"),
+        )
+        assertFalse(converted.notes.any { it.pluralsRes == R.plurals.core_lang_foreign_popups_missing })
+        // A real group id still reports, because those letters live in a file
+        // this import never saw.
+        val grouped = checkNotNull(
+            ForeignLayouts.fromFlorisJson("""[[{"label":"a","groupId":1}]]""", "x.json"),
+        )
+        assertTrue(grouped.notes.any { it.pluralsRes == R.plurals.core_lang_foreign_popups_missing })
+    }
 }

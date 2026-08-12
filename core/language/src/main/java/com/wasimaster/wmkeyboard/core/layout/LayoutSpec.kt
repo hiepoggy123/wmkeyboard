@@ -70,6 +70,51 @@ data class LayerSpec(
 )
 
 /**
+ * How one layout draws its key labels, over whatever the theme and the global
+ * settings already decided.
+ *
+ * A grid nobody else wrote can need type its author never gets to choose
+ * anywhere else: a layout whose keys are labelled with words rather than
+ * letters wants smaller text, a phonetic grid may want a face the rest of the
+ * keyboard is not set to. Both belong to the *layout*, not to the theme and not
+ * to the global settings — switching language must not undo them, and setting
+ * them must not follow the user onto every other grid. This is the layout's own
+ * slot for them (issue #18).
+ *
+ * Both fields are null in the normal case, which is the layout saying nothing
+ * and taking what it is given.
+ *
+ * [fontScale] is a **multiplier**, not a replacement. An imported layout that
+ * simply overwrote the label size would silently throw away the larger type an
+ * accessibility user set on purpose; multiplying keeps their setting and still
+ * says "and this grid a fifth smaller than that". [LayoutFontScaleRange] bounds
+ * it; the product is left alone, because 0.5 of an already-small setting is
+ * exactly what a wordy grid asks for.
+ *
+ * [fontId] takes the same ids the font settings write — `default`,
+ * `google:<Name>`, `installed:<name>`, `custom` — and resolves through
+ * `KeyboardFonts.family`, so an id whose font is not on this device falls
+ * through to the face that would have been used anyway rather than blanking the
+ * keys.
+ */
+@Serializable
+data class LayoutAppearance(
+    val fontId: String? = null,
+    val fontScale: Float? = null,
+) {
+    /** Whether this says anything at all; an all-null instance is stored as null. */
+    val isEmpty: Boolean get() = fontId == null && fontScale == null
+}
+
+/**
+ * What a [LayoutAppearance.fontScale] is honoured at. Reaches lower than the
+ * global `KeyFontScaleRange` on purpose: that floor is a whole-keyboard
+ * accessibility one, and this exists for the single grid that needs to go below
+ * it.
+ */
+val LayoutFontScaleRange = 0.5f..2f
+
+/**
  * A complete keyboard layout as the user owns it: the grids for every layer it
  * overrides, plus the language it types in.
  *
@@ -139,6 +184,14 @@ data class LayoutSpec(
      * usable keyboard, it is just no longer the input method its author wrote.
      */
     val keyman: KeymanBinding? = null,
+    /**
+     * This layout's own key-label font and size, over the theme's and the
+     * global settings'. Null — every shipped layout — draws exactly as before.
+     *
+     * Additive and defaulted, so no format-version bump, for the reason
+     * [tabletExpand] gives.
+     */
+    val appearance: LayoutAppearance? = null,
     /** Format revision, bumped by [LayoutCodec] migrations. */
     val version: Int = CurrentLayoutSpecVersion,
 ) {

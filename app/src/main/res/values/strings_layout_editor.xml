@@ -251,6 +251,23 @@
     <!-- Name of the key that types capital letters. -->
     <string name="layout_editor_action_shift_title">Shift</string>
     <string name="layout_editor_action_shift_detail">Press for one capital letter. Press two times for caps lock</string>
+    <!-- Font and size of the text printed on the keys of one layout. Both are
+         for the whole layout; the key sheet has its own size for one key. -->
+    <string name="layout_editor_font_title">Label font</string>
+    <!-- Shown when the layout picks no font of its own. -->
+    <string name="layout_editor_font_inherit">Follow the theme and the settings</string>
+    <!-- %1$.2f is the multiple, for example 0.80. -->
+    <string name="layout_editor_font_scale_label">Label size ×<xliff:g id="multiple" example="0.80">%1$.2f</xliff:g></string>
+    <string name="layout_editor_font_scale_auto_label">Label size: automatic</string>
+    <!-- Sets the size back to the one the settings give. Keep it short: it is
+         the first chip in a row of sizes. -->
+    <string name="layout_editor_font_scale_auto_chip">Auto</string>
+    <string name="layout_editor_font_scale_hint">Makes every label on this layout larger or smaller than the size in Settings. It does not change the size on other layouts.</string>
+    <!-- Size of the text on one key. %1$.2f is the multiple, for example 1.30. -->
+    <string name="layout_editor_key_label_scale_label">Label size ×<xliff:g id="multiple" example="1.30">%1$.2f</xliff:g></string>
+    <string name="layout_editor_key_label_scale_auto_label">Label size: automatic</string>
+    <string name="layout_editor_key_label_scale_hint">Automatic draws one letter large and a word small. Set a size to choose for this key.</string>
+
     <string name="layout_editor_tablet_expand_title">Add tablet keys automatically</string>
     <string name="layout_editor_tablet_expand_subtitle">On a tablet, add tab, backslash, caps lock, a second shift and the arrow keys around this layout</string>
     <string name="layout_editor_tablet_expand_subtitle_na">This layout is not one the tablet keys can be added to, so this setting has no effect on it</string>

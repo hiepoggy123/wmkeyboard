@@ -159,6 +159,7 @@ import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.sizingValuesFor
 import com.wasimaster.wmkeyboard.core.settings.activeThemeSpec
+import com.wasimaster.wmkeyboard.core.settings.applyLayoutAppearance
 import com.wasimaster.wmkeyboard.core.settings.applyThemeOverrides
 import com.wasimaster.wmkeyboard.core.settings.resolvedFor
 import com.wasimaster.wmkeyboard.core.input.MorseCode
@@ -383,6 +384,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
+import com.wasimaster.wmkeyboard.core.layout.drawnLabelScale
 import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
 import com.wasimaster.wmkeyboard.core.layout.expandNumberRowForTablet
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
@@ -944,8 +946,16 @@ fun KeyboardScreen(
     val activeSpec = remember(rawState.settings, darkSlot) {
         rawState.settings.activeThemeSpec(darkSlot)
     }
-    val settings = remember(rawState.settings, variant, activeSpec) {
+    // The layout's own type, which sits outside that chain because it multiplies
+    // rather than replaces — see applyLayoutAppearance. Resolved from the layout
+    // the board is showing, so it follows a language switch without anything
+    // being written to settings.
+    val appearance = remember(rawState.settings.customLayouts, rawState.layoutId) {
+        resolveLayout(rawState.settings.customLayouts, rawState.layoutId).appearance
+    }
+    val settings = remember(rawState.settings, variant, activeSpec, appearance) {
         rawState.settings.applyThemeOverrides(activeSpec).resolvedFor(variant)
+            .applyLayoutAppearance(appearance)
     }
     // The inline resize tool's live preview. Stored-space values, folded in
     // AFTER the resolve so a drag previews exactly what Done would persist;
@@ -1180,7 +1190,11 @@ fun KeyboardScreen(
     }
 
     val rotationStates by PhotoBackgroundManager.rotationStates.collectAsState()
-    KeyboardThemeProvider(settings = state.settings, rotationStates = rotationStates) {
+    KeyboardThemeProvider(
+        settings = state.settings,
+        rotationStates = rotationStates,
+        layoutFontId = appearance?.fontId,
+    ) {
         // The collapsed voice bar takes the whole window over: no keyboard, no
         // strips, just the pill. It outranks floating mode because it is the
         // temporary state — restoring the keyboard lands back in whichever
@@ -11592,8 +11606,18 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                 // labels, not characters — render them clearly smaller than
                 // letters. Measured on the resolved text, or every fallback above
                 // would come out at full letter size.
+                //
+                // A key carrying its own labelScale overrides that rule outright
+                // rather than scaling its result: the whole point of the field is
+                // to say what the automatic answer got wrong on this one key, and
+                // it is what carries a HeliBoard label flag across (issue #18).
                 val isModeLabel = key.action != KeyAction.Text && text.length > 1
-                val baseSize = if (isModeLabel) 15.6f else 23f
+                val keyScale = key.drawnLabelScale()
+                val baseSize = when {
+                    keyScale != null -> LetterLabelSp * keyScale
+                    isModeLabel -> ModeLabelSp
+                    else -> LetterLabelSp
+                }
                 // A custom layout may put any string on a key — ".com", or a word
                 // like "SEND". Left alone, a long one wrapped onto a second line
                 // and drew outside the key it belongs to, so it is held to one
@@ -11654,6 +11678,17 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
         }
     }
 }
+
+/**
+ * The size an ordinary letter key's label is drawn at, before the user's
+ * [KeyboardSettings.fontScale] and the layout's own multiplier. Also the unit a
+ * [Key.labelScale] is a multiple of, which is why it is named rather than
+ * inline.
+ */
+private const val LetterLabelSp = 23f
+
+/** The smaller size a multi-character mode label (`?123`, `ABC`) falls back to. */
+private const val ModeLabelSp = 15.6f
 
 /**
  * Text drawn on the spacebar: the live language name, or the user's custom

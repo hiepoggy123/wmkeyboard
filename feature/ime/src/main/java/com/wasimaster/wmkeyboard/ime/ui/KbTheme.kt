@@ -850,6 +850,14 @@ private fun currentMinutesOfDay(): Int {
 fun KeyboardThemeProvider(
     settings: KeyboardSettings,
     rotationStates: Map<String, RotationState> = emptyMap(),
+    /**
+     * The face the layout on screen asked for (`LayoutAppearance.fontId`), which
+     * sits between the user's per-script pick and the theme's — see
+     * [KeyboardFonts.scriptFamily] for the order and why. Null, the default, is
+     * every shipped layout, and is also what the callers that have no layout in
+     * hand (the layout editor's own preview picks its own) pass.
+     */
+    layoutFontId: String? = null,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -931,6 +939,9 @@ fun KeyboardThemeProvider(
     // Noto one — a pixel theme with a pixel Bengali font asked for those glyphs,
     // it is not a Latin-only display face about to blank the board. The user's
     // own per-script pick still wins over both.
+    // A *layout* may carry a face too (layoutFontId), and it goes above the
+    // theme's: a theme is a skin over the whole keyboard, a layout is one grid
+    // whose author picked type for the labels on it.
     val themeFontId = remember(settings, darkSlot) {
         settings.activeThemeSpec(darkSlot)?.fontId
     }
@@ -939,6 +950,7 @@ fun KeyboardThemeProvider(
     }
     val keyFontFamily = remember(
         scriptId,
+        layoutFontId,
         themeFontId,
         themeScriptFontId,
         settings.keyFontId,
@@ -950,8 +962,12 @@ fun KeyboardThemeProvider(
             context,
             scriptId,
             settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
+            layoutFontId,
             themeScriptFontId,
-        ) ?: themeFontId?.let { KeyboardFonts.family(context, it) }
+        ) // The Latin/Cyrillic/Greek side of the same order: the layout's own
+            // face, then the theme's, then the user's global pick.
+            ?: layoutFontId?.let { KeyboardFonts.family(context, it) }
+            ?: themeFontId?.let { KeyboardFonts.family(context, it) }
             ?: KeyboardFonts.family(context, settings.keyFontId)
     }
     val emojiFontFamily = remember(settings.emojiFont, settings.emojiFontInstalled.installedId) {

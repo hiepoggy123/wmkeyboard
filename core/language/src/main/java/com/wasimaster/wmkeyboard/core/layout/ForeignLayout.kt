@@ -275,6 +275,7 @@ object ForeignLayouts {
         val cleanLabel = normalizeForScript(label).also { if (it != label) report.normalized++ }
         val cleanOutput = output?.let { normalizeForScript(it) }
         if (cleanLabel.isEmpty() && cleanOutput.isNullOrEmpty()) return null
+        val flags = obj?.labelFlags(report) ?: LabelFlags.None
         return Key(
             label = cleanLabel,
             // Only when it differs: a key whose output repeats its label is the
@@ -287,6 +288,8 @@ object ForeignLayouts {
             shiftLabel = null,
             width = obj?.width() ?: 1f,
             longPress = obj?.let { popupsOf(it, report) }.orEmpty(),
+            hideHint = flags.hideHint,
+            labelScale = flags.labelScale,
         )
     }
 
@@ -298,10 +301,16 @@ object ForeignLayouts {
             return null
         }
         if (code in ApproximateCodes) report.approximated++
+        val flags = obj.labelFlags(report)
         return Key(
             label = labelFor(action, obj.string("label")),
             action = action,
             width = obj.width(),
+            hideHint = flags.hideHint,
+            // The flags matter most here. A mode key labelled with a word is
+            // exactly what this keyboard shrinks on its own, and a file that
+            // asked for the letter ratio is saying not to.
+            labelScale = flags.labelScale,
         )
     }
 
@@ -328,6 +337,11 @@ object ForeignLayouts {
      * points at a popup *group* instead of listing its letters is counted as a
      * loss: those groups live in a separate file that a single exported layout
      * does not carry, so there is nothing here to resolve them against.
+     *
+     * A *negative* group is not a loss and must not be counted as one. HeliBoard
+     * spells "add no popups at all" as `groupId: -1`, so counting it reported a
+     * missing popup for every key that had deliberately asked for none — a note
+     * telling the user something went wrong when nothing had.
      */
     private fun popupsOf(obj: JsonObject, report: Report): List<String> {
         val popup = obj["popup"]
@@ -337,8 +351,65 @@ object ForeignLayouts {
             is JsonPrimitive, null -> emptyList()
         }
         val letters = entries.mapNotNull { popupLabel(it) }.filter { it.isNotEmpty() }.distinct()
-        if (letters.isEmpty() && (obj.int("groupId") ?: 0) != 0) report.lostPopups++
+        if (letters.isEmpty() && (obj.int("groupId") ?: 0) > 0) report.lostPopups++
         return letters
+    }
+
+    /**
+     * HeliBoard's `labelFlags`, as much of it as this keyboard has type for.
+     *
+     * This is the field the layout in issue #18 needed and had nowhere to land:
+     * it is how the other keyboard is told that one key's label is a word rather
+     * than a letter, and without it an imported grid draws its odd keys at the
+     * wrong size with no way to say otherwise.
+     *
+     * **Transcribed from the format's published values** (HeliBoard's
+     * `attrs.xml` declares them, and its layout guide names them), the same
+     * footing as the key codes above — see the file header. Read as a `Long`
+     * first because two of the flags are above `Int.MAX_VALUE` in decimal, and
+     * hex is accepted because the documentation is written in it and people
+     * hand-write these files.
+     *
+     * What comes across:
+     * - the four "follow ratio" flags become a [Key.labelScale], as close to
+     *   each ratio as this keyboard's own type scale goes;
+     * - `disableKeyHintLabel` becomes [Key.hideHint], which already means
+     *   exactly that;
+     * - `autoScale` / `autoXScale` need nothing — every label here already
+     *   steps down until it fits its key.
+     *
+     * Everything else is counted and reported rather than half-applied: a
+     * monospace or off-centre label is a thing this keyboard does not draw, and
+     * a note saying so is worth more than a key that quietly came across wrong.
+     */
+    private fun JsonObject.labelFlags(report: Report): LabelFlags {
+        val raw = (this["labelFlags"] as? JsonPrimitive)?.content?.let(::parseFlags) ?: return LabelFlags.None
+        if (raw == 0) return LabelFlags.None
+        val font = raw and FLAG_FONT_DEFAULT
+        val unsupported = (raw and HandledLabelFlags.inv()) != 0 ||
+            (font != 0 && font != FLAG_FONT_DEFAULT)
+        if (unsupported) report.restyled++
+        return LabelFlags(
+            labelScale = when (raw and RatioMask) {
+                FLAG_FOLLOW_LARGE_LETTER_RATIO -> LargeLetterScale
+                FLAG_FOLLOW_LETTER_RATIO -> 1f
+                FLAG_FOLLOW_LABEL_RATIO -> ModeLabelScale
+                FLAG_FOLLOW_HINT_LABEL_RATIO -> HintLabelScale
+                else -> null
+            },
+            hideHint = (raw and FLAG_DISABLE_HINT_LABEL) != 0,
+        )
+    }
+
+    /** Decimal or hex, and via `Long` so the top-bit flags parse rather than fail. */
+    private fun parseFlags(text: String): Int? {
+        val trimmed = text.trim()
+        val hex = trimmed.removePrefix("-").startsWith("0x", ignoreCase = true)
+        return if (hex) {
+            trimmed.replace("0x", "", ignoreCase = true).toLongOrNull(HEX_RADIX)?.toInt()
+        } else {
+            trimmed.toLongOrNull()?.toInt()
+        }
     }
 
     private fun popupLabel(element: JsonElement): String? {
@@ -434,7 +505,50 @@ object ForeignLayouts {
 
     /** Narrowest an expanded key may end up, as a fraction of the row. */
     private const val MinExpandWidth = 0.1f
+
+    private const val HEX_RADIX = 16
 }
+
+/** The part of a foreign key's `labelFlags` this keyboard can draw. */
+private class LabelFlags(val labelScale: Float? = null, val hideHint: Boolean = false) {
+    companion object {
+        val None = LabelFlags()
+    }
+}
+
+// HeliBoard's keyLabelFlags, by the values its attrs.xml declares. Transcribed
+// from the published format, like the key codes above; see the file header.
+private const val FLAG_FONT_NORMAL = 0x10
+private const val FLAG_FONT_MONO_SPACE = 0x20
+
+/** `fontNormal or fontMonoSpace`, which together mean "the default font". */
+private const val FLAG_FONT_DEFAULT = FLAG_FONT_NORMAL or FLAG_FONT_MONO_SPACE
+private const val FLAG_FOLLOW_LARGE_LETTER_RATIO = 0x40
+private const val FLAG_FOLLOW_LETTER_RATIO = 0x80
+private const val FLAG_FOLLOW_LABEL_RATIO = 0xC0
+private const val FLAG_FOLLOW_HINT_LABEL_RATIO = 0x140
+private const val FLAG_AUTO_SCALE = 0xC000
+private const val FLAG_DISABLE_HINT_LABEL = 0x40000000
+
+/**
+ * The bits the four ratio flags live in. Wider than the three values below it
+ * looks like it needs: `followKeyHintLabelRatio` is 0x140, so the mask has to
+ * reach 0x100 or that flag reads as `followKeyLargeLetterRatio`.
+ */
+private const val RatioMask =
+    FLAG_FOLLOW_LARGE_LETTER_RATIO or FLAG_FOLLOW_LETTER_RATIO or 0x100
+
+/** Everything the converter either applies or knowingly needs nothing for. */
+private const val HandledLabelFlags =
+    RatioMask or FLAG_AUTO_SCALE or FLAG_DISABLE_HINT_LABEL or FLAG_FONT_DEFAULT
+
+// The ratios, as multiples of this keyboard's own letter size. The other
+// keyboard's numbers are ratios of the key height and cannot be carried over
+// literally, so each lands on the nearest size this one actually draws: a
+// mode label, and a corner hint.
+private const val LargeLetterScale = 1.15f
+private const val ModeLabelScale = 0.68f
+private const val HintLabelScale = 0.44f
 
 /**
  * The action a foreign key code means here, or null when nothing does.
@@ -613,6 +727,8 @@ private class Report(
     var normalized: Int = 0,
     var approximated: Int = 0,
     var lostPopups: Int = 0,
+    /** Keys whose `labelFlags` asked for styling this keyboard has no form of. */
+    var restyled: Int = 0,
     val unmapped: MutableList<Int> = mutableListOf(),
 ) {
     fun notes(scaled: Boolean): List<LayoutMessage> = buildList {
@@ -649,6 +765,15 @@ private class Report(
                     pluralsRes = R.plurals.core_lang_foreign_letters_normalized,
                     quantity = normalized,
                     args = listOf(normalized),
+                ),
+            )
+        }
+        if (restyled > 0) {
+            add(
+                LayoutMessage(
+                    pluralsRes = R.plurals.core_lang_foreign_labels_restyled,
+                    quantity = restyled,
+                    args = listOf(restyled),
                 ),
             )
         }

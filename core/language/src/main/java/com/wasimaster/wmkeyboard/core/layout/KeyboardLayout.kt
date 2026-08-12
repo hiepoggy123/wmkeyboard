@@ -100,7 +100,55 @@ data class Key(
      * cancels the press, exactly as before.
      */
     val flick: Map<FlickDirection, String> = emptyMap(),
+    /**
+     * How big this one key's label is drawn, as a multiple of an ordinary
+     * letter's size — and null, the normal case, means the keyboard decides,
+     * which is a letter's size for a letter and a smaller one for a
+     * multi-character mode label like `?123`.
+     *
+     * Setting it *replaces* that decision rather than scaling it, so 1.0 is the
+     * way to say "draw this multi-character label at full letter size" — which
+     * is the thing the automatic rule cannot be talked out of, and the thing a
+     * layout imported from a keyboard with per-key label flags needs (see
+     * `ForeignLayouts`, and issue #18). [LayoutAppearance.fontScale] then scales
+     * the result, the same as it scales every other key.
+     *
+     * Per key rather than per row because that is the granularity the formats
+     * this has to read use, and because the case it exists for is one odd key in
+     * an otherwise ordinary grid. Clamped at draw time to [KeyLabelScaleRange]
+     * — the same treatment [LayerSpec.rowHeights] gets, and for the same reason:
+     * a value from a file is not a value from a control.
+     */
+    val labelScale: Float? = null,
 )
+
+/**
+ * What a [Key.labelScale] is honoured at.
+ *
+ * The floor is below the corner-hint size, so a layout can genuinely annotate a
+ * key rather than only shrink it a little; the ceiling is where a label stops
+ * fitting a key it shares a row with.
+ */
+val KeyLabelScaleRange = 0.3f..2f
+
+/**
+ * This key's [Key.labelScale] as a drawer should use it: clamped, and null when
+ * the key wants the automatic size.
+ *
+ * Both the keyboard and the layout editor's preview go through here so a key
+ * cannot be shown at one size and typed on at another, which is the same
+ * arrangement [rowScaledKeyHeight] exists for.
+ */
+fun Key.drawnLabelScale(): Float? =
+    labelScale?.takeIf { it.isFinite() }?.coerceIn(KeyLabelScaleRange)
+
+/**
+ * The multiplier a layout's [LayoutAppearance.fontScale] puts on every label of
+ * its grid: clamped to [LayoutFontScaleRange], and 1.0 for the layouts (all the
+ * shipped ones) that ask for nothing.
+ */
+fun LayoutAppearance?.drawnFontScale(): Float =
+    this?.fontScale?.takeIf { it.isFinite() }?.coerceIn(LayoutFontScaleRange) ?: 1f
 
 /**
  * A compiled grid, ready to render. Produced by [LayoutSpec.compile] and never
@@ -116,6 +164,13 @@ data class KeyboardLayout(
      * short entry defaults to 1.0. Carried over verbatim from [LayerSpec].
      */
     val rowHeights: List<Float>? = null,
+    /**
+     * The label font and size the layout this grid came from asked for, carried
+     * here for the same reason [rowHeights] is: the renderer is handed the
+     * compiled grid, not the spec, and the editor's preview has to be able to
+     * draw the same thing the keyboard will.
+     */
+    val appearance: LayoutAppearance? = null,
 )
 
 /**

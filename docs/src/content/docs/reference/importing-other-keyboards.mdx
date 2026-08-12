@@ -49,6 +49,25 @@ Some keys in those formats do things WM Keyboard reaches another way: voice inpu
 
 A handful of keys convert to the closest match rather than an exact one, and the dialog counts those too. Delete-word becomes a plain delete; the second symbols page folds onto the symbols key.
 
+### Label flags become label sizes
+
+HeliBoard keys can carry a `labelFlags` number, which is how a layout says that one key's label is a word rather than a letter and should be drawn at a different size. Layouts with unusual key captions need it to look right.
+
+The app reads it. Four of those flags set a size, and each one becomes that key's **Label size** in the layout editor, so you can see it and change it afterwards:
+
+| Flag in the file | Label size here |
+| --- | --- |
+| `followKeyLargeLetterRatio` | ×1.15 |
+| `followKeyLetterRatio` | ×1 |
+| `followKeyLabelRatio` | ×0.68 |
+| `followKeyHintLabelRatio` | ×0.44 |
+
+Two more need no size at all. `disableKeyHintLabel` turns on **Hide the corner hint** for that key, which means the same thing. `autoScale` and `autoXScale` ask for a label that shrinks to fit its key, and WM Keyboard already does that to every label on every layout.
+
+Write the number in decimal or in hex (`"labelFlags": 320` and `"labelFlags": "0x140"` are the same key). An exported file uses decimal.
+
+The rest of the flags ask for a text style this keyboard has no form of, such as a monospaced or an off-centre label. Those keys keep their size and lose the style, and the dialog counts them.
+
 ### Letters are rewritten to one spelling
 
 Some letters can be written two ways in Unicode: a base letter plus a mark, or a single character that means the same thing. Bengali, Devanagari, Gurmukhi and Oriya all have letters like this. WM Keyboard's cluster shaping and its backspace rules use the single-character spelling, so the app rewrites the other one on the way in. Without it a key looks correct and then deletes half a letter at a time.

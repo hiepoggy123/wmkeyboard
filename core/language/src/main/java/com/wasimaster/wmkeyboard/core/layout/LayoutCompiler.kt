@@ -29,6 +29,11 @@ fun LayoutSpec.compile(layer: LayoutLayer): KeyboardLayout = synchronized(compil
         name = "$id/${layer.key}",
         rows = resolved.rows,
         rowHeights = resolved.rowHeights,
+        // From this layout, never from whichever layout the *grid* was inherited
+        // from: the appearance belongs to the board the user is typing on, so a
+        // custom letters layer with a borrowed symbols page keeps one type size
+        // across both.
+        appearance = appearance,
     )
     compileCache[cacheKey] = this to built
     built

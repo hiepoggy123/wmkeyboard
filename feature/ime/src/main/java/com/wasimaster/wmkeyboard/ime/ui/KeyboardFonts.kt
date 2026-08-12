@@ -399,25 +399,35 @@ object KeyboardFonts {
     /**
      * The [FontFamily] a [scriptId] wants, honouring the user's per-script pick
      * ([selectedId]: a `google:<Name>` id, an imported-file id, or [DEFAULT_ID]),
-     * then the active theme's face for this script ([themeScriptId], from
-     * `ThemeSpec.scriptFontIds`), and otherwise the script's automatic Noto
-     * face. Null for the scripts that follow the user's own font choice
-     * (Latin/Cyrillic/Greek). Used by the keyboard theme to pick a face per
-     * active script.
+     * then the active *layout's* own face ([layoutFontId], from
+     * `LayoutAppearance.fontId`), then the active theme's face for this script
+     * ([themeScriptId], from `ThemeSpec.scriptFontIds`), and otherwise the
+     * script's automatic Noto face. Null for the scripts that follow the user's
+     * own font choice (Latin/Cyrillic/Greek). Used by the keyboard theme to pick
+     * a face per active script.
      *
-     * The theme sits *between* the two: a pixel theme should still look like
-     * itself on a Bengali board, but not by overruling a font the user picked
-     * for that script by hand. A [themeScriptId] the device has no font for
-     * resolves to null and drops through to the Noto face rather than blanking
-     * the keys — the font is its own addon and may never have been installed.
+     * The order is most-specific-first, and every step is somebody's deliberate
+     * answer to a narrower question than the step below it. The user's own
+     * per-script pick is the narrowest — they chose that face for these glyphs.
+     * The layout comes next: it is one grid rather than a whole skin, and a
+     * layout whose keys are labelled with words was given a face for exactly
+     * those labels. The theme's per-script face still beats the automatic Noto
+     * one, because asking for a script's glyphs on purpose is not the same as a
+     * Latin display face about to blank the board.
+     *
+     * Any of these ids may name a font this device does not have — a layout and
+     * a theme both travel between devices, and a font is its own addon. Each
+     * resolves to null and drops through rather than blanking the keys.
      */
     fun scriptFamily(
         context: Context,
         scriptId: ScriptId,
         selectedId: String = DEFAULT_ID,
+        layoutFontId: String? = null,
         themeScriptId: String? = null,
     ): FontFamily? {
         if (selectedId != DEFAULT_ID) family(context, selectedId)?.let { return it }
+        if (layoutFontId != null) family(context, layoutFontId)?.let { return it }
         if (themeScriptId != null) family(context, themeScriptId)?.let { return it }
         return scriptGoogleFonts[scriptId]?.let { googleFamily(it) }
     }

@@ -67,6 +67,46 @@ class LayoutCodecTest {
     }
 
     @Test
+    fun `round trips a layout's own font and label sizes`() {
+        val original = spec(
+            listOf(Key("a"), Key("Send", labelScale = 0.7f)),
+        ).copy(appearance = LayoutAppearance(fontId = "google:Roboto Mono", fontScale = 0.85f))
+        assertEquals(original, LayoutCodec.decode(LayoutCodec.encode(original)))
+    }
+
+    /**
+     * A file written before the layout could carry type of its own — which is
+     * every asset and every stored custom layout — has to read as "says
+     * nothing", not as a layout that has asked for the defaults. Only the first
+     * one keeps following the theme and the settings.
+     */
+    @Test
+    fun `a layout written before appearance existed says nothing`() {
+        val old = """
+            {"id":"custom_old","name":"Old","langId":"en","version":2,
+             "layers":{"letters":{"rows":[[{"label":"a"}]]}}}
+        """.trimIndent()
+        val decoded = checkNotNull(LayoutCodec.decode(old))
+        assertNull(decoded.appearance)
+        assertNull(decoded.layer(LayoutLayer.LETTERS)!!.rows[0][0].labelScale)
+        // And it did not bump the format version, for the reason above.
+        assertEquals(2, decoded.version)
+    }
+
+    @Test
+    fun `an out-of-range size is clamped at draw time, not stored`() {
+        // Both of these come off a file, so neither can be trusted; both are
+        // pulled back to the range the renderer honours without the stored
+        // layout being rewritten under the user.
+        assertEquals(2f, LayoutAppearance(fontScale = 9f).drawnFontScale(), 0f)
+        assertEquals(0.5f, LayoutAppearance(fontScale = 0f).drawnFontScale(), 0f)
+        assertEquals(1f, (null as LayoutAppearance?).drawnFontScale(), 0f)
+        assertEquals(1f, LayoutAppearance(fontScale = Float.NaN).drawnFontScale(), 0f)
+        assertEquals(2f, checkNotNull(Key("a", labelScale = 40f).drawnLabelScale()), 0f)
+        assertNull(Key("a").drawnLabelScale())
+    }
+
+    @Test
     fun `round trips flick keys and the kana-variant action`() {
         val original = spec(
             listOf(

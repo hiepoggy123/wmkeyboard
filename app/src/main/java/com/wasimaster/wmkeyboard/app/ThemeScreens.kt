@@ -3435,12 +3435,17 @@ private fun keySoundStyleLabelRes(style: KeySoundStyle): Int = when (style) {
 }
 
 /**
- * Picks the theme's key font: follow the global setting, a Google face, or a
- * font from the installed library. Every row draws in its own face — the row
- * is the preview, the same trick the Fonts screen uses.
+ * Picks a key font: follow the global setting, a Google face, or a font from the
+ * installed library. Every row draws in its own face — the row is the preview,
+ * the same trick the Fonts screen uses.
+ *
+ * Shared with the layout editor, which picks a font for one layout out of the
+ * same three sources and against the same font ids, so the two screens offer the
+ * same list and cannot drift apart. Which is why this is `internal` rather than
+ * private to this file.
  */
 @Composable
-private fun ThemeFontPickerDialog(
+internal fun ThemeFontPickerDialog(
     current: String?,
     onPick: (String?) -> Unit,
     onDismiss: () -> Unit,

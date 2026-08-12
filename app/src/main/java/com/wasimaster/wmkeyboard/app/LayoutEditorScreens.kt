@@ -122,9 +122,15 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutSeverity
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.ime.ui.KeyIcons
 import com.wasimaster.wmkeyboard.core.layout.GridUnitStep
+import com.wasimaster.wmkeyboard.core.layout.KeyLabelScaleRange
+import com.wasimaster.wmkeyboard.core.layout.LayoutAppearance
+import com.wasimaster.wmkeyboard.core.layout.LayoutFontScaleRange
 import com.wasimaster.wmkeyboard.core.layout.MaxKeyWidth
 import com.wasimaster.wmkeyboard.core.layout.MaxRowHeightScale
 import com.wasimaster.wmkeyboard.core.layout.MinRowHeightScale
+import com.wasimaster.wmkeyboard.core.layout.drawnFontScale
+import com.wasimaster.wmkeyboard.core.layout.drawnLabelScale
+import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.layout.fitRowToGrid
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
 import com.wasimaster.wmkeyboard.core.layout.hasRowSpans
@@ -143,6 +149,7 @@ import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.ime.ui.KbTheme
+import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardThemeProvider
 import com.wasimaster.wmkeyboard.ime.ui.LocalKbTheme
 import com.wasimaster.wmkeyboard.ime.ui.keyShape
@@ -1126,6 +1133,7 @@ internal fun KeyLayoutEditorScreen(
     // autocorrect, shift behaviour and dictation.
     var renaming by remember(layoutId) { mutableStateOf(false) }
     var languagePickerOpen by remember(layoutId) { mutableStateOf(false) }
+    var fontPickerOpen by remember(layoutId) { mutableStateOf(false) }
     SettingsGroup {
         item {
             WmRow(
@@ -1179,6 +1187,25 @@ internal fun KeyLayoutEditorScreen(
             onPick = { id ->
                 languagePickerOpen = false
                 edit { it.copy(langId = id) }
+            },
+        )
+    }
+
+    if (fontPickerOpen) {
+        // The theme editor's picker, offering the same three sources against the
+        // same font ids. Narrowed to this layout's script where the font system
+        // has faces for it — a Bengali grid should not be offered a Latin-only
+        // display face — and left wide otherwise, because that branch of the
+        // picker offers *nothing* for a script with no curated list.
+        ThemeFontPickerDialog(
+            current = layout.appearance?.fontId,
+            title = stringResource(R.string.layout_editor_font_title),
+            defaultLabel = stringResource(R.string.layout_editor_font_inherit),
+            script = layout.script().id.takeIf { KeyboardFonts.scriptFontChoices(it) != null },
+            onDismiss = { fontPickerOpen = false },
+            onPick = { id ->
+                fontPickerOpen = false
+                edit { it.withAppearance(fontId = id) }
             },
         )
     }
@@ -1408,6 +1435,28 @@ internal fun KeyLayoutEditorScreen(
                 actualSize,
                 info = stringResource(R.string.layout_editor_actual_size_info),
             ) { actualSize = it }
+        }
+        item {
+            // Layout-wide, like the tablet row and the JSON row below it. The
+            // font and the size are what issue #18 asked for: a grid whose keys
+            // are labelled with words, or drawn in a script the global font does
+            // not suit, needs type of its own, and neither the theme nor the
+            // global settings can hold an answer for one layout.
+            WmRow(
+                title = stringResource(R.string.layout_editor_font_title),
+                subtitle = layout.appearance?.fontId?.let {
+                    KeyboardFonts.displayName(context, it, settings.customFontName)
+                } ?: stringResource(R.string.layout_editor_font_inherit),
+                onClick = { fontPickerOpen = true },
+            )
+        }
+        item {
+            LayoutFontScaleRow(
+                scale = layout.appearance?.fontScale,
+                // Coalesced: one drag of the slider is one undo step, the same
+                // rule the row-height slider follows.
+                onChange = { value -> editCoalesced { it.withAppearance(fontScale = value) } },
+            )
         }
         item {
             // Layout-wide, like the JSON row below it, rather than layer-scoped
@@ -1732,7 +1781,9 @@ private fun EditorGrid(
             .clip(RoundedCornerShape(10.dp))
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp)),
     ) {
-        KeyboardThemeProvider(settings) {
+        // The layout's own face, so the preview reads in the font the keyboard
+        // will actually draw with rather than the global one.
+        KeyboardThemeProvider(settings, layoutFontId = layout.appearance?.fontId) {
             val kb = LocalKbTheme.current
             // Forced LTR: a key's index in its row is its serialized order, so an
             // RTL locale mirroring the grid would make "move right" write
@@ -1780,6 +1831,12 @@ private fun EditorGrid(
                     } else {
                         emptyList()
                     }
+                    // The layout's label-size multiplier, applied to the
+                    // preview's own (smaller) type the same way the keyboard
+                    // applies it to its own. A preview that ignored it would
+                    // leave the one control on this screen with no visible
+                    // effect until the user went and typed something.
+                    val fontScale = layout.appearance.drawnFontScale()
                     for (band in spanBands(layout.rows)) {
                         if (band.first != band.last) {
                             EditorBand(
@@ -1790,6 +1847,7 @@ private fun EditorGrid(
                                 heights = band.map { heightOf(it) },
                                 selection = selection,
                                 showShift = showShift,
+                                fontScale = fontScale,
                                 onSelect = onSelect,
                             )
                             continue
@@ -1806,6 +1864,7 @@ private fun EditorGrid(
                                     heightDp = heightOf(r),
                                     selected = selection == KeyRef(r, c),
                                     showShift = showShift,
+                                    fontScale = fontScale,
                                     modifier = Modifier.weight(key.width),
                                 ) { onSelect(KeyRef(r, c)) }
                             }
@@ -1835,6 +1894,7 @@ private fun EditorBand(
     heights: List<Int>,
     selection: KeyRef?,
     showShift: Boolean,
+    fontScale: Float,
     onSelect: (KeyRef) -> Unit,
 ) {
     val weight = maxOf(gridWeight, slots.maxOfOrNull { it.end } ?: 0f)
@@ -1853,6 +1913,7 @@ private fun EditorBand(
                     heightDp = heights[slot.row - band.first],
                     selected = selection == ref,
                     showShift = showShift,
+                    fontScale = fontScale,
                     // Half the 3dp the spaced rows put between neighbours, on
                     // each side, so a band's keys read at the same size as the
                     // rows above and below it.
@@ -1894,6 +1955,8 @@ private fun EditorKeyCell(
     heightDp: Int,
     selected: Boolean,
     showShift: Boolean,
+    /** The layout's own label-size multiplier; 1.0 for a layout that sets none. */
+    fontScale: Float,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
@@ -1948,7 +2011,7 @@ private fun EditorKeyCell(
                 Text(
                     text = primary.ifBlank { actionGlyph(key.action, spaceLabel) },
                     color = foreground,
-                    fontSize = labelSize(primary),
+                    fontSize = labelSize(primary, key.drawnLabelScale(), fontScale),
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1976,12 +2039,22 @@ private fun EditorKeyCell(
 /**
  * ".com" and "https://" are legal labels and would blow a cell open at full
  * size, so the label steps down as it grows.
+ *
+ * The preview's cell is a fraction of a real key, so these are its own numbers
+ * rather than the keyboard's — but the two multipliers on top are the same ones,
+ * applied the same way round: a key's own [Key.labelScale] replaces the
+ * automatic size (which here is the length rule), and the layout's scales
+ * whatever came out of it.
  */
-private fun labelSize(label: String) = when {
-    label.length <= 1 -> 16.sp
-    label.length <= 3 -> 13.sp
-    else -> 11.sp
-}
+private fun labelSize(label: String, keyScale: Float?, layoutScale: Float) = when {
+    keyScale != null -> EditorLetterSp * keyScale
+    label.length <= 1 -> EditorLetterSp
+    label.length <= 3 -> 13f
+    else -> 11f
+}.times(layoutScale).sp
+
+/** The preview cell's size for a one-glyph label, and the unit a scale multiplies. */
+private const val EditorLetterSp = 16f
 
 /**
  * The [KeyIcons] name an action always draws with, whatever its stored label
@@ -2339,6 +2412,8 @@ private fun KeyEditSheet(
                 rowsBelow = rowCount - ref.row - 1,
             ) { span -> onChange { it.copy(rowSpan = span) } }
 
+            KeyLabelScaleRow(key) { scale -> onChange { it.copy(labelScale = scale) } }
+
             if (key.action == KeyAction.Text) {
                 SheetField(
                     label = stringResource(R.string.layout_editor_icon_field_label),
@@ -2623,6 +2698,160 @@ private fun RowHeightRow(
             }
         }
     }
+}
+
+/**
+ * One field of this layout's appearance, changed.
+ *
+ * Drops the whole object again once nothing is left in it, so a layout set back
+ * to its defaults stores no appearance rather than an object full of nulls —
+ * which is what keeps `appearance == null` meaning "this layout says nothing"
+ * everywhere else, exported files included.
+ */
+private fun LayoutSpec.withAppearance(
+    fontId: String? = appearance?.fontId,
+    fontScale: Float? = appearance?.fontScale,
+): LayoutSpec {
+    val next = LayoutAppearance(fontId = fontId, fontScale = fontScale)
+    return copy(appearance = next.takeUnless { it.isEmpty })
+}
+
+/**
+ * Label size for the whole layout, as a multiple of whatever size the keyboard
+ * would otherwise draw at.
+ *
+ * A multiplier and not a size, so it composes with the accessibility font scale
+ * instead of overruling it — see `applyLayoutAppearance`. Null is the default
+ * and is offered as its own chip rather than as 1.00, because "this layout does
+ * not care" and "this layout wants exactly the normal size" are different
+ * things to store: only the first one keeps following the settings.
+ */
+@Composable
+private fun LayoutFontScaleRow(scale: Float?, onChange: (Float?) -> Unit) {
+    val shown = scale ?: 1f
+    val travel = sliderTravel(
+        shown,
+        floor = LayoutFontScaleRange.start,
+        ceiling = LayoutFontScaleRange.endInclusive,
+        hardMax = LayoutFontScaleRange.endInclusive,
+    )
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(
+            if (scale == null) {
+                stringResource(R.string.layout_editor_font_scale_auto_label)
+            } else {
+                stringResource(R.string.layout_editor_font_scale_label, scale)
+            },
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            stringResource(R.string.layout_editor_font_scale_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Slider(
+            value = sliderPosition(shown, travel),
+            onValueChange = { onChange(roundGridUnit(it)) },
+            valueRange = travel,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterChip(
+                selected = scale == null,
+                onClick = { onChange(null) },
+                label = { Text(stringResource(R.string.layout_editor_font_scale_auto_chip)) },
+            )
+            for (preset in listOf(0.8f, 1f, 1.2f)) {
+                FilterChip(
+                    selected = scale != null && kotlin.math.abs(shown - preset) < GridUnitStep / 2f,
+                    onClick = { onChange(preset) },
+                    label = { Text("×%.2f".format(preset).trimEnd('0').trimEnd('.')) },
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Label size for one key, as a multiple of an ordinary letter's size.
+ *
+ * The twin of [LayoutFontScaleRow] one level down, and the control the label
+ * flags of an imported layout land in (issue #18). Its null is louder than the
+ * layout's: unset means the keyboard picks the size, which for a key labelled
+ * with a word is deliberately smaller than a letter — so setting this to ×1 is
+ * a real instruction ("draw the word at letter size"), not a no-op.
+ */
+@Composable
+private fun KeyLabelScaleRow(key: Key, onChange: (Float?) -> Unit) {
+    // Only for a key that draws a label at letter size. The keyboard draws the
+    // shift, delete and enter keys from icon slots, prints the spacebar's
+    // language name at its own small size, and an icon key draws no text at
+    // all — so on those this control would move a number nothing reads. Same
+    // rule as the hide-hint and row-span rows: a control that cannot do
+    // anything here does not take a row here.
+    if (!drawsScalableLabel(key)) return
+    val scale = key.labelScale
+    val shown = scale ?: 1f
+    val travel = sliderTravel(
+        shown,
+        floor = KeyLabelScaleRange.start,
+        ceiling = KeyLabelScaleRange.endInclusive,
+        hardMax = KeyLabelScaleRange.endInclusive,
+    )
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(
+            if (scale == null) {
+                stringResource(R.string.layout_editor_key_label_scale_auto_label)
+            } else {
+                stringResource(R.string.layout_editor_key_label_scale_label, scale)
+            },
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            stringResource(R.string.layout_editor_key_label_scale_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (scale != null) {
+            Slider(
+                value = sliderPosition(shown, travel),
+                onValueChange = { onChange(roundGridUnit(it)) },
+                valueRange = travel,
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilterChip(
+                selected = scale == null,
+                onClick = { onChange(null) },
+                label = { Text(stringResource(R.string.layout_editor_font_scale_auto_chip)) },
+            )
+            for (preset in listOf(0.5f, 0.7f, 1f, 1.3f)) {
+                FilterChip(
+                    selected = scale != null && kotlin.math.abs(shown - preset) < GridUnitStep / 2f,
+                    onClick = { onChange(preset) },
+                    label = { Text("×%.2f".format(preset).trimEnd('0').trimEnd('.')) },
+                )
+            }
+        }
+    }
+    // Deliberately no GridSizeStepper: the exact-value field is what a width
+    // needs, because a row has to add up to the grid. A label size never has to
+    // land on a particular number.
+}
+
+/**
+ * Whether this key's label is the one `KeyContent` draws at letter size, which
+ * is the only label a [Key.labelScale] reaches.
+ *
+ * Kept beside the control rather than inside it so the list reads against
+ * `KeyContent`'s own `when`, which is what it has to stay in step with.
+ */
+private fun drawsScalableLabel(key: Key): Boolean = when (key.action) {
+    KeyAction.Shift, KeyAction.CapsLock, KeyAction.Delete, KeyAction.ForwardDelete,
+    KeyAction.Enter, KeyAction.LanguageSwitch, KeyAction.InputMethodPicker,
+    KeyAction.Emoji, KeyAction.Space,
+    -> false
+    // An icon in place of the glyph means there is no text to size.
+    else -> KeyIcons.byName(key.icon) == null
 }
 
 /**
