@@ -167,6 +167,11 @@
     <string name="layout_editor_key_label_hint">What the app draws on the key</string>
     <string name="layout_editor_key_output_label">Output</string>
     <string name="layout_editor_key_output_hint">Blank: the key types the label</string>
+    <!-- Shown under the Output field of a text key that has a label. %1$s is the
+         label, so the line reads "Blank: this key types q". -->
+    <string name="layout_editor_key_output_hint_typed">Blank: this key types <xliff:g id="label" example="q">%1$s</xliff:g></string>
+    <!-- Shown under the Output field of a text key that has no label either. -->
+    <string name="layout_editor_key_output_hint_none">Give the key a label or an output. A key with neither types nothing. The app deletes it when you turn the layout on.</string>
     <string name="layout_editor_key_shift_label_label">Shift label</string>
     <string name="layout_editor_key_shift_label_hint">Blank: shift types the capital letter of the label</string>
 

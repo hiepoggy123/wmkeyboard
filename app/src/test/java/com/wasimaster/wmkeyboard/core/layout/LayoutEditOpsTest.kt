@@ -117,6 +117,84 @@ class LayoutEditOpsTest {
         )
     }
 
+    /**
+     * The key sheet's write, mirrored from KeyLayoutEditorScreen: a change to one
+     * field, applied to the key as it is *stored*.
+     */
+    private fun LayoutSpec.editKey(row: Int, col: Int, change: (Key) -> Key): LayoutSpec {
+        val rows = layer(layer)?.rows ?: compile(layer).rows
+        return withLayerRows(
+            rows.mapIndexed { r, keys ->
+                if (r != row) keys else keys.mapIndexed { c, k -> if (c == col) change(k) else k }
+            },
+        )
+    }
+
+    @Test
+    fun `a width edit made from a stale copy of the key keeps the label`() {
+        // Issue #15. The sheet reads its key back out of the settings flow, which
+        // lags the write that produced it, so the copy a control is holding can be
+        // one or more edits behind. A control that handed back a whole key wrote
+        // that stale copy over the stored one — label first, then width, and the
+        // label was gone.
+        val start = mine().withLayerRows(listOf(listOf(Key("new"))))
+        val labelled = start.editKey(0, 0) { it.copy(label = "q") }
+        // The copy a control in the sheet is still holding while the label edit is
+        // in flight: the key as it was before the label landed.
+        assertEquals("the stale copy is the pre-label key", "new", start.layer(layer)!!.rows[0][0].label)
+
+        val widened = labelled.editKey(0, 0) { it.copy(width = 2f) }
+        val key = widened.layer(layer)!!.rows[0][0]
+        assertEquals("the width lands", 2f, key.width, 0.001f)
+        assertEquals("and the label survives it", "q", key.label)
+    }
+
+    @Test
+    fun `reordering the keys of a row keeps an edit made just before it`() {
+        // Same staleness, one level up: the reorder dialog used to hand back the
+        // keys themselves, which were this composition's copies of them.
+        val stored = mine().withLayerRows(listOf(listOf(Key("a"), Key("b"), Key("c"))))
+            .editKey(0, 2) { it.copy(label = "z") }
+        val order = listOf(2, 0, 1)
+        val rows = stored.layer(layer)!!.rows
+        val reordered = stored.withLayerRows(
+            rows.mapIndexed { i, row ->
+                if (i == 0 && order.size == row.size) order.map { row[it] } else row
+            },
+        )
+        assertEquals(
+            listOf("z", "a", "b"),
+            reordered.layer(layer)!!.rows[0].map { it.label },
+        )
+    }
+
+    @Test
+    fun `a key with no label and no output is reported, not silently deleted`() {
+        // Issue #16: the key is legal to store, types nothing, and repair deletes
+        // it at activation — which from the keyboard reads as a dead key. The
+        // editor has to say so while it can still be fixed.
+        val withBlank = mine().withLayerRows(listOf(listOf(Key(""), Key("a"))))
+        assertTrue(
+            "findings were ${validateLayout(withBlank)}",
+            validateLayout(withBlank).any {
+                it.text.pluralsRes == R.plurals.core_lang_layout_blank_key_warning &&
+                    it.severity == LayoutSeverity.WARNING
+            },
+        )
+        // A key with only a label is not blank: the keyboard types the label when
+        // the output is empty, which is what the Output field's hint promises.
+        val labelOnly = mine().withLayerRows(listOf(listOf(Key("q"))))
+        assertTrue(
+            validateLayout(labelOnly).none {
+                it.text.pluralsRes == R.plurals.core_lang_layout_blank_key_warning
+            },
+        )
+        assertTrue(
+            "and repair keeps it, alongside the delete/space/enter keys it adds",
+            labelOnly.repair().spec.layer(layer)!!.rows.flatten().contains(Key("q")),
+        )
+    }
+
     @Test
     fun `a half-built layout can be saved but not enabled`() {
         val broken = mine().withLayerRows(listOf(listOf(Key("a"))))

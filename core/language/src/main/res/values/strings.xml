@@ -79,6 +79,13 @@
         <item quantity="other">%1$d braille dot keys in the <xliff:g id="layer" example="letters">%2$s</xliff:g> layer have a dot number outside 1 to 6.</item>
     </plurals>
 
+    <!-- %1$d is the number of keys that have neither a label nor an output, and
+         picks the wording. %2$s is the layer name. -->
+    <plurals name="core_lang_layout_blank_key_warning">
+        <item quantity="one">%1$d key in the <xliff:g id="layer" example="letters">%2$s</xliff:g> layer has no label and no output. It types nothing, and the app deletes it when you turn this layout on.</item>
+        <item quantity="other">%1$d keys in the <xliff:g id="layer" example="letters">%2$s</xliff:g> layer have no label and no output. They type nothing, and the app deletes them when you turn this layout on.</item>
+    </plurals>
+
     <!-- %1$d is the number of keys with an action the app cannot read.
          %2$s is the layer name. -->
     <plurals name="core_lang_layout_unknown_action_error">

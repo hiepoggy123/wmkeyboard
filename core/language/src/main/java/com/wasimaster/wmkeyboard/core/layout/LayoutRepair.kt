@@ -304,6 +304,25 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
             )
         }
 
+        // The one thing repair *deletes* silently, and the editor never said so:
+        // a text key with nothing to type is gone the moment the layout is turned
+        // on, which reads from the keyboard as a key that does nothing (issue
+        // #16). A warning rather than blocking, for the same reason the whole
+        // file exists — the editor saves mid-edit, and a key you have not
+        // labelled yet must not lock the layout you are building.
+        val blank = rows.sumOf { row -> row.count { it.typesNothing() } }
+        if (blank > 0) {
+            findings += LayoutFinding(
+                LayoutSeverity.WARNING,
+                LayoutMessage(
+                    pluralsRes = R.plurals.core_lang_layout_blank_key_warning,
+                    quantity = blank,
+                    args = listOf(blank, label),
+                ),
+                layer,
+            )
+        }
+
         val unknown = rows.sumOf { row -> row.count { it.action is KeyAction.Unknown } }
         if (unknown > 0) {
             findings += LayoutFinding(
@@ -320,6 +339,17 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
 
     return findings.sortedByDescending { it.severity == LayoutSeverity.BLOCKING }
 }
+
+/**
+ * A text key with neither a label nor an output: nothing to draw and nothing to
+ * type. [Key.repairKey] deletes these and [validateLayout] warns about them, off
+ * this one definition so the warning and the deletion can never disagree.
+ *
+ * Emptiness, not blankness — a key labelled with a space types a space, which is
+ * a key doing its job.
+ */
+private fun Key.typesNothing(): Boolean =
+    action == KeyAction.Text && label.isEmpty() && output.isNullOrEmpty()
 
 /** Whether this layout is safe to turn on. */
 fun LayoutSpec.canBeEnabled(): Boolean =
@@ -424,7 +454,7 @@ private fun Key.repairKey(label: String, repairs: MutableList<LayoutMessage>): K
         )
         return null
     }
-    if (action == KeyAction.Text && this.label.isEmpty() && output.isNullOrEmpty()) {
+    if (typesNothing()) {
         repairs += LayoutMessage(
             R.string.core_lang_repair_blank_key_deleted,
             args = listOf(label),

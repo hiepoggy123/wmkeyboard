@@ -1367,10 +1367,28 @@ internal fun KeyLayoutEditorScreen(
                             ref.row + 1,
                         ),
                         dialogTitle = stringResource(R.string.layout_editor_key_order_dialog_title),
-                        items = rows[ref.row],
-                        label = { keyReorderLabel(context, it) },
+                        // Positions, not the keys themselves — the same shape the
+                        // row reorder above uses, and for the stronger of its two
+                        // reasons: a list of keys carries this composition's copy
+                        // of them, so writing it back would put a key edited a
+                        // frame ago back the way it was. It also disambiguates a
+                        // row holding two identical keys.
+                        items = rows[ref.row].indices.toList(),
+                        label = { keyReorderLabel(context, rows[ref.row][it]) },
                     ) { order ->
-                        editRows { r -> r.mapIndexed { i, row -> if (i == ref.row) order else row } }
+                        editRows { r ->
+                            r.mapIndexed { i, row ->
+                                // Guarded because the stored row may have gained
+                                // or lost a key since the dialog opened; a
+                                // permutation that no longer fits it is dropped
+                                // rather than allowed to delete keys.
+                                if (i == ref.row && order.size == row.size) {
+                                    order.map { row[it] }
+                                } else {
+                                    row
+                                }
+                            }
+                        }
                         selection = null
                     }
                 }
@@ -1474,7 +1492,15 @@ internal fun KeyLayoutEditorScreen(
             // Counting the columns a spanning key above holds over this row, so
             // "Fill the row" offers the width that is genuinely left.
             otherWidthsInRow = spanRowWidths(rows)[ref.row] - selectedKey.width,
-            onChange = { updated ->
+            // A change to *one field* of the key, never a whole key built here.
+            // The sheet's copy of the key comes from the settings flow, which lags
+            // the write it just made, so a control that handed back `key.copy(…)`
+            // was also handing back every other field as it stood a frame or more
+            // ago: type a label, then nudge the width, and the width edit wrote
+            // the pre-label key straight back over it. Applying the change to the
+            // key inside the same store edit is the same rule
+            // `updateCustomLayout` already follows for the layout as a whole.
+            onChange = { change ->
                 editCoalesced { spec ->
                     withLayerRows(
                         spec,
@@ -1482,7 +1508,7 @@ internal fun KeyLayoutEditorScreen(
                             if (r != ref.row) {
                                 row
                             } else {
-                                row.mapIndexed { c, k -> if (c == ref.col) updated else k }
+                                row.mapIndexed { c, k -> if (c == ref.col) change(k) else k }
                             }
                         },
                     )
@@ -2210,7 +2236,13 @@ private fun KeyEditSheet(
     rowCount: Int,
     gridWeight: Float,
     otherWidthsInRow: Float,
-    onChange: (Key) -> Unit,
+    /**
+     * One field of this key, changed. Takes a transform rather than a finished
+     * key so the change lands on whatever is *stored* — see the call site: [key]
+     * here is a read of the settings flow and can be a frame or more behind the
+     * edit the user made just before this one.
+     */
+    onChange: ((Key) -> Key) -> Unit,
     onMove: (Int) -> Unit,
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
@@ -2239,21 +2271,26 @@ private fun KeyEditSheet(
                 value = key.label,
                 supporting = stringResource(R.string.layout_editor_key_label_hint),
                 resetKey = ref,
-            ) { onChange(key.copy(label = it)) }
+            ) { text -> onChange { it.copy(label = text) } }
 
             SheetField(
                 label = stringResource(R.string.layout_editor_key_output_label),
                 value = key.output.orEmpty(),
-                supporting = stringResource(R.string.layout_editor_key_output_hint),
+                // Says what a blank field types, and — once there is a label to
+                // name — what *this* key types, because "the key types the label"
+                // read as a rule about some other key to the person who filed
+                // issue #16. A key with neither is called out as well: repair
+                // deletes it the moment the layout is turned on.
+                supporting = outputFieldSupport(key),
                 resetKey = ref,
-            ) { onChange(key.copy(output = it.ifBlank { null })) }
+            ) { text -> onChange { it.copy(output = text.ifBlank { null }) } }
 
             SheetField(
                 label = stringResource(R.string.layout_editor_key_shift_label_label),
                 value = key.shiftLabel.orEmpty(),
                 supporting = stringResource(R.string.layout_editor_key_shift_label_hint),
                 resetKey = ref,
-            ) { onChange(key.copy(shiftLabel = it.ifBlank { null })) }
+            ) { text -> onChange { it.copy(shiftLabel = text.ifBlank { null }) } }
 
             val option = KeyActionCatalog.firstOrNull { it.matches(key.action) }
             val actionDetail = option?.let { stringResource(it.detailRes) }
@@ -2273,7 +2310,7 @@ private fun KeyEditSheet(
                     value = broadcast.action,
                     supporting = stringResource(R.string.layout_editor_broadcast_field_hint),
                     resetKey = ref,
-                ) { onChange(key.copy(action = KeyAction.Broadcast(it.trim()))) }
+                ) { text -> onChange { it.copy(action = KeyAction.Broadcast(text.trim())) } }
             }
 
             // Braille dot keys carry which of the six dots this key is.
@@ -2284,8 +2321,8 @@ private fun KeyEditSheet(
                     supporting = stringResource(R.string.layout_editor_dot_field_hint),
                     resetKey = ref,
                 ) { text ->
-                    text.trim().toIntOrNull()?.takeIf { it in 1..6 }?.let {
-                        onChange(key.copy(action = KeyAction.BrailleDot(it)))
+                    text.trim().toIntOrNull()?.takeIf { it in 1..6 }?.let { dot ->
+                        onChange { it.copy(action = KeyAction.BrailleDot(dot)) }
                     }
                 }
             }
@@ -2295,12 +2332,12 @@ private fun KeyEditSheet(
                 gridWeight = gridWeight,
                 otherWidthsInRow = otherWidthsInRow,
                 resetKey = ref,
-            ) { onChange(key.copy(width = it)) }
+            ) { width -> onChange { it.copy(width = width) } }
 
             KeyRowSpanRow(
                 span = key.rowSpan,
                 rowsBelow = rowCount - ref.row - 1,
-            ) { onChange(key.copy(rowSpan = it)) }
+            ) { span -> onChange { it.copy(rowSpan = span) } }
 
             if (key.action == KeyAction.Text) {
                 SheetField(
@@ -2308,14 +2345,14 @@ private fun KeyEditSheet(
                     value = key.icon.orEmpty(),
                     supporting = iconFieldSupport(key.icon),
                     resetKey = ref,
-                ) { onChange(key.copy(icon = it.ifBlank { null })) }
+                ) { text -> onChange { it.copy(icon = text.ifBlank { null }) } }
 
                 SheetField(
                     label = stringResource(R.string.layout_editor_icon_hint_field_label),
                     value = key.iconHint.orEmpty(),
                     supporting = iconFieldSupport(key.iconHint),
                     resetKey = ref,
-                ) { onChange(key.copy(iconHint = it.ifBlank { null })) }
+                ) { text -> onChange { it.copy(iconHint = text.ifBlank { null }) } }
 
                 SheetField(
                     label = stringResource(R.string.layout_editor_alternates_field_label),
@@ -2324,14 +2361,14 @@ private fun KeyEditSheet(
                     resetKey = ref,
                 ) { text ->
                     alternates = text
-                    onChange(key.copy(longPress = parseAlternates(text)))
+                    onChange { it.copy(longPress = parseAlternates(text)) }
                 }
                 AlternatePreview(parseAlternates(alternates))
 
-                RoleRow(key.role) { onChange(key.copy(role = it)) }
+                RoleRow(key.role) { role -> onChange { it.copy(role = role) } }
             }
 
-            HideHintRow(key) { onChange(key.copy(hideHint = it)) }
+            HideHintRow(key) { hide -> onChange { it.copy(hideHint = hide) } }
 
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -2373,8 +2410,8 @@ private fun KeyEditSheet(
     if (pickingAction) {
         KeyActionPickerDialog(
             current = key.action,
-            onPick = {
-                onChange(key.copy(action = it))
+            onPick = { action ->
+                onChange { it.copy(action = action) }
                 pickingAction = false
             },
             onDismiss = { pickingAction = false },
@@ -2390,6 +2427,24 @@ private fun KeyEditSheet(
  */
 private fun parseAlternates(text: String): List<String> =
     text.split(Regex("\\s+")).filter { it.isNotEmpty() }
+
+/**
+ * What a blank Output field means for *this* key, spelled out.
+ *
+ * The field has always been optional — the keyboard types `output ?: label` —
+ * but "Blank: the key types the label" read as a rule about some other key, so
+ * the case it does not cover got read as "Output is required" (issue #16). Naming
+ * the label the key would type answers that where it is asked. A key with no
+ * label either types nothing at all, and repair deletes it the moment the layout
+ * is turned on, so that one says so rather than sounding optional.
+ */
+@Composable
+private fun outputFieldSupport(key: Key): String = when {
+    key.action != KeyAction.Text -> stringResource(R.string.layout_editor_key_output_hint)
+    key.label.isNotBlank() ->
+        stringResource(R.string.layout_editor_key_output_hint_typed, key.label)
+    else -> stringResource(R.string.layout_editor_key_output_hint_none)
+}
 
 /** Inline validity feedback for the icon / icon-hint name fields. */
 @Composable
