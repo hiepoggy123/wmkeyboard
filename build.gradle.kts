@@ -15,6 +15,30 @@ plugins {
 // Type-resolution detekt (detektFullDebug) is deliberately included instead of
 // the source-only `detekt` task — the rules that find real bugs (nullability,
 // unreachable code, ignored return values) need a resolved classpath.
+// Everything that guards the converted Keyman layouts:
+//   ./gradlew keymanCheck
+// The engine's conformance tests, the converter, the package and .js readers,
+// and the parity check that the 862 committed grids still match what the
+// converter produces. Worth running as a unit after touching the converter,
+// because a change there is invisible until the assets are regenerated.
+//
+// Two things are deliberately absent. The whole-corpus sweep needs a 78 MB
+// checkout and skips without one:
+//   KEYMAN_CORPUS=<checkout> ./gradlew :core:keyman:testFullDebugUnitTest
+// And KeymanConversionParityTest lives in :app, because it reads the committed
+// assets; :app's suite is large enough to want running on its own, so it is not
+// pulled in here:
+//   ./gradlew :app:testFullDebugUnitTest --tests '*KeymanConversionParityTest*'
+tasks.register("keymanCheck") {
+    group = "verification"
+    description = "Runs the Keyman engine, converter, package and seam tests."
+    dependsOn(
+        ":core:keyman:testFullDebugUnitTest",
+        ":core:language:testFullDebugUnitTest",
+        ":feature:ime:testFullDebugUnitTest",
+    )
+}
+
 tasks.register("staticAnalysis") {
     group = "verification"
     description = "Runs every static analyser: Android Lint, detekt (with type resolution), and Kotlin compiler diagnostics."
