@@ -694,8 +694,9 @@ internal fun LanguageDetailScreen(
     val enableGate = rememberLayoutEnableGate(settings)
     SettingsGroup(stringResource(R.string.languages_layouts_title)) {
         for (layoutId in lang.layoutIds) {
+            val spec = resolveLayout(settings.customLayouts, layoutId)
             item {
-                val name = resolveLayout(settings.customLayouts, layoutId).name
+                val name = spec.name
                 ToggleSetting(
                     name,
                     null,
@@ -714,6 +715,10 @@ internal fun LanguageDetailScreen(
                     if (enable) enableGate(layoutId) { write() } else write()
                 }
             }
+            // A converted Keyman layout can only type what its author wrote
+            // once its rules are on the device, so the row that fetches them
+            // sits directly under the layout it belongs to.
+            spec.keyman?.let { binding -> item { KeymanRulesRow(binding) } }
         }
     }
 

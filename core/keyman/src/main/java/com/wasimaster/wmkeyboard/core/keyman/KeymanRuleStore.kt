@@ -77,6 +77,37 @@ class KeymanRuleStore(private val context: Context) {
         parsed.remove(keyboardId)
     }
 
+    /**
+     * The upstream version of the rules on disk, or null when none are.
+     *
+     * Kept in a sidecar file rather than in preferences so it cannot disagree
+     * with what is actually there: the two are written and deleted together, and
+     * a `.kmx` restored from a backup without its sidecar simply reports no
+     * version and gets re-fetched.
+     *
+     * The `.kmx` header carries a keyboard version of its own, but that is the
+     * *author's* number and does not identify the package the file came from,
+     * which is what an update check needs to compare.
+     */
+    fun installedVersion(keyboardId: String): String? {
+        val file = versionFile(keyboardId)?.takeIf { it.isFile } ?: return null
+        if (file.length() > MAX_VERSION_BYTES) return null
+        return runCatching { file.readText().trim() }.getOrNull()?.takeIf { it.isNotEmpty() }
+    }
+
+    fun writeInstalledVersion(keyboardId: String, version: String) {
+        val file = versionFile(keyboardId) ?: return
+        file.parentFile?.mkdirs()
+        runCatching { file.writeText(version.take(MAX_VERSION_BYTES.toInt())) }
+    }
+
+    fun clearInstalledVersion(keyboardId: String) {
+        versionFile(keyboardId)?.delete()
+    }
+
+    private fun versionFile(keyboardId: String): File? =
+        rulesDir()?.let { File(it, "$keyboardId.version") }
+
     companion object {
         private const val DIR_KEYMAN = "keyman"
         private const val DIR_RULES = "rules"
@@ -87,5 +118,8 @@ class KeymanRuleStore(private val context: Context) {
          * them harder to identify in a bug report.
          */
         const val EXTENSION = "kmx"
+
+        /** A version string is a few characters; anything longer is not one. */
+        private const val MAX_VERSION_BYTES = 64L
     }
 }

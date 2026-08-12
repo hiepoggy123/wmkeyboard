@@ -25,7 +25,7 @@ WM Keyboard isn't affiliated with SIL Global or the Keyman project. We converted
 
 ## What converts, and what doesn't
 
-A Keyman keyboard is two things: the visual key grid, and a set of rules that decide what each keypress actually types. **Only the grid is converted so far.**
+A Keyman keyboard is two things: the visual key grid, and a set of rules that decide what each keypress actually types. **Only the grid is converted.** The rules are downloaded separately, which the next section covers.
 
 What comes across:
 
@@ -40,17 +40,23 @@ What doesn't:
 - **Diagonal flicks.** Keyman has eight flick directions and WM Keyboard has four. A flick aimed north-east isn't quietly remapped onto the north key, because typing the wrong character is worse than the gesture doing nothing.
 - **Fonts.** Keyman packages ship their own. WM Keyboard uses [its own font system](/themes/fonts/) instead, which already covers these scripts.
 
-## The rules aren't shipped yet
+## Typing rules
 
-This is the important limitation, and it's worth understanding before you enable one of these layouts.
+This is the part worth understanding before you enable one of these layouts.
 
-On a **positional** keyboard, each key types the character printed on it. Those layouts work correctly today, and that's most of the 862.
+On a **positional** keyboard, each key types the character printed on it. Those work correctly with nothing extra, and that's most of the 862.
 
-On a **mnemonic** keyboard, the printed key caps and the typed output are deliberately different. A mnemonic Khmer keyboard has you press the key where `k` sits on a US layout to get ក, and the rules are what perform that mapping. Without them, the key types what its cap says instead.
+On a **mnemonic** keyboard, the printed key caps and the typed output are deliberately different. A mnemonic Khmer keyboard has you press the key where `k` sits on a US layout to get ក, and a set of rules performs that mapping. Those rules aren't in the app.
 
-WM Keyboard has the rule engine built and passing Keyman's own conformance examples, but **the rule files aren't distributed to devices yet**. Until they are, a mnemonic layout types its key caps. The grid is still correct, the long-press alternates are still there, and nothing is broken in a way that damages your text. It just isn't doing the character mapping its author wrote.
+The grids ship with WM Keyboard; the rules are downloaded per keyboard, from keyman.com, when you ask for them.
 
-If you enable one of these and the output doesn't match the key caps, that's this. It'll start working when the rules ship, with no change on your side.
+<SettingsPath path="Settings > Languages > (a language) > Typing rules" />
+
+The row sits under the layout it belongs to and tells you which state you're in. Press it to download; press it again later to remove them. Nothing is fetched until you press it, and the row names where it's fetching from.
+
+Until you do, the layout types its key caps. The grid is still right, the long-press alternates are still there, and nothing damages your text. It just isn't doing the character mapping its author wrote. If you enable one of these and the output doesn't match the caps, that's this.
+
+Rules are only fetched for keyboards whose upstream licence permits it, and the downloaded file has to parse as a keyboard before it's kept.
 
 ## Undetermined languages
 
@@ -62,7 +68,7 @@ Five keyboards in the upstream repository declare no language at all. Rather tha
 
 Pick a `.keyman-touch-layout` file. The app reads the grid, then shows you what the conversion did and asks which language the layout belongs to. See [Importing from other keyboards](/reference/importing-other-keyboards/) for how that dialog works.
 
-This is for keyboards that aren't bundled, and for one you're writing yourself. Rules aren't read from the file, so the same key-caps limitation above applies. Full `.kmp` packages aren't supported yet.
+This is for keyboards that aren't bundled, and for one you're writing yourself. A touch layout file holds no rules, so an imported layout types its key caps and has no Typing rules row. Full `.kmp` packages aren't supported yet.
 
 ## Reporting a bad layout
 

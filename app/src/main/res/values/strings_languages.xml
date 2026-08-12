@@ -44,6 +44,20 @@
 
     <string name="languages_layouts_title">Layouts</string>
 
+    <!--
+      The Keyman rules row. "Rules" is the word the Keyman project uses for the
+      part that decides what a key types, so someone who knows the keyboard
+      recognises it, and someone who does not gets told what it means in the
+      subtitle rather than in a term they have to look up.
+    -->
+    <string name="languages_keyman_rules_title">Typing rules</string>
+    <string name="languages_keyman_rules_missing">Not downloaded. Each key types the character printed on it.</string>
+    <string name="languages_keyman_rules_installed">Downloaded, version %1$s. Press to remove.</string>
+    <string name="languages_keyman_rules_installed_unknown">Downloaded. Press to remove.</string>
+    <string name="languages_keyman_rules_checking">Checking keyman.com…</string>
+    <string name="languages_keyman_rules_downloading">Downloading, %1$d%%</string>
+    <string name="languages_keyman_rules_failed">Download failed. Press to try again.</string>
+
     <string name="languages_clusters_title">Clusters</string>
     <string name="languages_conjunct_backspace_title">Conjunct-aware backspace</string>
     <!-- %1$s is a sample cluster of the script, for example "ক্ষ". -->

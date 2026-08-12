@@ -47,6 +47,7 @@ dependencies {
     api(project(":core:theme"))
     api(project(":core:emoji"))
     api(project(":core:language"))
+    api(project(":core:keyman"))
     api(project(":core:prediction"))
     api(project(":core:plugins"))
     api(project(":core:tools"))
