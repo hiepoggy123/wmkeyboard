@@ -11031,6 +11031,23 @@ private fun ToolDetailSettings(
                     ) { scope.launch { repository.setVoiceUiMode(it) } }
                 }
                 item {
+                    ChoiceSetting(
+                        R.string.tooldetail_voice_typing_title,
+                        subtitle = stringResource(R.string.tooldetail_voice_typing_subtitle),
+                        info = stringResource(R.string.tooldetail_voice_typing_info),
+                        options = listOf(
+                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_BLOCK to
+                                stringResource(R.string.tooldetail_voice_typing_block),
+                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_INTERACTIVE to
+                                stringResource(R.string.tooldetail_voice_typing_interactive),
+                            com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN to
+                                stringResource(R.string.tooldetail_voice_typing_plain),
+                        ),
+                        selected = settings.voiceBar.typingMode,
+                        default = SettingsDefaults.voiceBar.typingMode,
+                    ) { scope.launch { repository.setVoiceTypingMode(it) } }
+                }
+                item {
                     val holdMsFormat = stringResource(R.string.typing_value_milliseconds)
                     SliderSetting(
                         R.string.tooldetail_voice_hold_title,

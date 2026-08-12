@@ -2552,6 +2552,11 @@ val HoldToTalkRange = 200..1500
 data class VoiceBarSettings(
     /** What the voice tool opens: the full panel, the strip over the keys, or the collapsed bar. */
     val mode: String = MODE_PANEL,
+    /**
+     * How voice typing shares the field with the keys: [TYPING_BLOCK],
+     * [TYPING_INTERACTIVE] or [TYPING_PLAIN]. See the constants.
+     */
+    val typingMode: String = TYPING_BLOCK,
     /** The collapsed bar stands in for the keyboard until the keyboard is restored. */
     val active: Boolean = false,
     /** The bar stands upright against a screen edge instead of lying along the bottom. */
@@ -2594,8 +2599,39 @@ data class VoiceBarSettings(
         const val SNAP_LEFT = 0
         const val SNAP_CENTER = 1
         const val SNAP_RIGHT = 2
+
+        /**
+         * One block of speech at a time, the way voice typing has always
+         * worked here: the words being recognised sit in the field as
+         * composing text, and the first key press ends the session, because
+         * a cumulative partial result cannot survive an edit inside it.
+         */
+        const val TYPING_BLOCK = "block"
+
+        /**
+         * The microphone stays open while you type. Nothing is composed in
+         * the field: each phrase lands as finished text when you pause, so
+         * the keys, the layouts and the suggestion strip all keep working
+         * through the whole session.
+         */
+        const val TYPING_INTERACTIVE = "interactive"
+
+        /**
+         * [TYPING_INTERACTIVE] with every text rule turned off: no spoken
+         * punctuation, no recognizer punctuation or capital letters, and no
+         * spaces added around what lands. For code, terminals and any field
+         * where you want exactly the words you said.
+         */
+        const val TYPING_PLAIN = "plain"
     }
 }
+
+/** The microphone survives typing: [VoiceBarSettings.TYPING_INTERACTIVE] or [VoiceBarSettings.TYPING_PLAIN]. */
+fun VoiceBarSettings.interactiveTyping(): Boolean =
+    typingMode == VoiceBarSettings.TYPING_INTERACTIVE || typingMode == VoiceBarSettings.TYPING_PLAIN
+
+/** Dictated text lands exactly as it was recognised ([VoiceBarSettings.TYPING_PLAIN]). */
+fun VoiceBarSettings.plainTyping(): Boolean = typingMode == VoiceBarSettings.TYPING_PLAIN
 
 /**
  * Offline Whisper dictation settings, grouped into their own object (see
@@ -4290,6 +4326,7 @@ class SettingsRepository(private val context: Context) {
         // the fallback so an existing strip-mode choice survives the update.
         private val VOICE_STRIP_MODE = booleanPreferencesKey("voice_strip_mode")
         private val VOICE_UI_MODE = stringPreferencesKey("voice_ui_mode")
+        private val VOICE_TYPING_MODE = stringPreferencesKey("voice_typing_mode")
         private val VOICE_BAR_ACTIVE = booleanPreferencesKey("voice_bar_active")
         private val VOICE_BAR_VERTICAL = booleanPreferencesKey("voice_bar_vertical")
         private val VOICE_BAR_SNAP = intPreferencesKey("voice_bar_snap")
@@ -5273,6 +5310,7 @@ class SettingsRepository(private val context: Context) {
                 } else {
                     defaults.voiceBar.mode
                 },
+                typingMode = p[VOICE_TYPING_MODE] ?: defaults.voiceBar.typingMode,
                 active = p[VOICE_BAR_ACTIVE] ?: defaults.voiceBar.active,
                 vertical = p[VOICE_BAR_VERTICAL] ?: defaults.voiceBar.vertical,
                 snap = p[VOICE_BAR_SNAP] ?: defaults.voiceBar.snap,
@@ -5848,6 +5886,9 @@ class SettingsRepository(private val context: Context) {
             // only [setVoiceSurface]'s inline collapse sets this true.
             it[VOICE_BAR_INLINE] = false
         }
+
+    suspend fun setVoiceTypingMode(value: String) =
+        editPrefs { it[VOICE_TYPING_MODE] = value }
 
     suspend fun setVoiceBarActive(value: Boolean) =
         editPrefs { it[VOICE_BAR_ACTIVE] = value }

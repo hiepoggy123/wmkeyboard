@@ -27,6 +27,7 @@ import com.wasimaster.wmkeyboard.core.settings.DataSaverStatus
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
+import com.wasimaster.wmkeyboard.core.settings.interactiveTyping
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetFolder
 import com.wasimaster.wmkeyboard.core.tools.AiPhase
@@ -572,6 +573,23 @@ data class VoiceUi(
 
 /** The persisted settings say the collapsed voice bar should be up. */
 fun VoiceBarSettings.armed(): Boolean = mode == VoiceBarSettings.MODE_BAR && active
+
+/**
+ * An interactive voice typing session can be run from one microphone button,
+ * which leaves the suggestion strip its room (see `VoiceMicChip`).
+ *
+ * False when the surface has something to say that does not fit on a button:
+ * no microphone permission, no recognizer, no offline model, an error, or a
+ * password field. Those fall back to the compact bar, which has a line of text
+ * and an action.
+ */
+fun KeyboardUiState.voiceChipOnly(): Boolean =
+    settings.voiceBar.interactiveTyping() &&
+        !secureField &&
+        !voice.whisperNeedsModel &&
+        voice.status != VoiceStatus.NEED_PERMISSION &&
+        voice.status != VoiceStatus.UNAVAILABLE &&
+        voice.status != VoiceStatus.ERROR
 
 /**
  * [VoiceUi.bar] and [VoiceUi.barInline] following the persisted flags —

@@ -359,6 +359,7 @@ import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.ime.PwSettingAction
 import com.wasimaster.wmkeyboard.ime.TypingTestAction
 import com.wasimaster.wmkeyboard.ime.VoiceBarAction
+import com.wasimaster.wmkeyboard.ime.voiceChipOnly
 import com.wasimaster.wmkeyboard.ime.SizingAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.ime.TextEditAction
@@ -2323,19 +2324,27 @@ private fun TopBar(
         val feedback = LocalKeyPressFeedback.current
         // Compact dictation bar takes over the whole strip while active;
         // the keys below stay usable for fixing recognition errors.
+        //
+        // Interactive voice typing gets a microphone button instead and the
+        // strip carries on: there the keys are used all through the session,
+        // so the candidates have to stay reachable. See [VoiceMicChip].
         if (state.voice.strip) {
-            VoiceStripBar(
-                state = state,
-                onToggle = onVoiceToggle,
-                onUndo = onVoiceUndo,
-                onRequestPermission = onVoicePermissionRequest,
-                onOpenVoiceSettings = onOpenVoiceSettings,
-                onCollapse = onVoiceCollapse,
-                // The tool tap toggles the strip, so it also closes it.
-                onClose = { onToolTap(ToolbarTool.VOICE) },
-                modifier = Modifier.weight(1f),
-            )
-            return@Row
+            if (state.voiceChipOnly()) {
+                VoiceMicChip(state = state, onToggle = onVoiceToggle)
+            } else {
+                VoiceStripBar(
+                    state = state,
+                    onToggle = onVoiceToggle,
+                    onUndo = onVoiceUndo,
+                    onRequestPermission = onVoicePermissionRequest,
+                    onOpenVoiceSettings = onOpenVoiceSettings,
+                    onCollapse = onVoiceCollapse,
+                    // The tool tap toggles the strip, so it also closes it.
+                    onClose = { onToolTap(ToolbarTool.VOICE) },
+                    modifier = Modifier.weight(1f),
+                )
+                return@Row
+            }
         }
         if (emojiBarOpen && !emojiRowSuppressed && !hasSuggestions) {
             EmojiBarStrip(

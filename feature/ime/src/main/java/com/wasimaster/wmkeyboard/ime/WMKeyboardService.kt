@@ -174,6 +174,8 @@ import com.wasimaster.wmkeyboard.core.settings.AutoBackupScheduler
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
+import com.wasimaster.wmkeyboard.core.settings.interactiveTyping
+import com.wasimaster.wmkeyboard.core.settings.plainTyping
 import com.wasimaster.wmkeyboard.core.settings.restrictedToDirectBoot
 import com.wasimaster.wmkeyboard.core.settings.PowerSavingSettings
 import com.wasimaster.wmkeyboard.core.settings.SystemMotion
@@ -3243,7 +3245,12 @@ open class WMKeyboardService : InputMethodService() {
         val voiceStatus = _uiState.value.voice.status
         if ((voiceStatus == VoiceStatus.LISTENING || voiceStatus == VoiceStatus.FINISHING) &&
             _uiState.value.voice.partial.isNotEmpty() &&
-            cursorOutsideCandidates
+            cursorOutsideCandidates &&
+            // Interactive voice typing puts no partial in the field, so a
+            // cursor jump costs it nothing: the next phrase lands wherever
+            // the caret now is. Moving the caret mid-sentence is a normal
+            // part of using the keys while the microphone is open.
+            !interactiveVoice()
         ) {
             cancelVoice()
         }
@@ -5397,6 +5404,15 @@ open class WMKeyboardService : InputMethodService() {
         // panel's replace-field commit onto the composing region. Write-on-
         // keys handwriting and an in-flight Whisper transcription commit
         // their own text the same way, so they must not race a resume either.
+        // Interactive voice typing is the exception to the dictation clause
+        // above: it puts nothing of its own in the composing region, it
+        // flushes whatever is being composed before its phrase lands, and
+        // correcting a word by hand mid-session is what the mode is for.
+        val voiceBlocksResume = when (state.voice.status) {
+            VoiceStatus.LISTENING, VoiceStatus.FINISHING, VoiceStatus.TRANSCRIBING ->
+                !state.settings.voiceBar.interactiveTyping()
+            else -> false
+        }
         val canResume = !scrubbing && state.settings.suggestions &&
             state.panel == PanelMode.NONE &&
             !keyboardHandwriteActive(state) &&
@@ -5405,9 +5421,7 @@ open class WMKeyboardService : InputMethodService() {
             !state.typingTestActive && !state.emojiSearchActive &&
             !state.dictionarySearchActive && !state.mediaSearchActive &&
             !state.clipboardSearchActive && !state.pluginTypingActive &&
-            state.voice.status != VoiceStatus.LISTENING &&
-            state.voice.status != VoiceStatus.FINISHING &&
-            state.voice.status != VoiceStatus.TRANSCRIBING &&
+            !voiceBlocksResume &&
             // Last, so the one term that asks the engine anything is only
             // reached once the screen and the field have already said yes.
             composingResumable(state.composer, suggestionEngine?.hasWordSources == true)
@@ -9036,8 +9050,10 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Starts one dictation session. Partial results stream into the editor
-     * as composing text; the final result commits and is learned like a
+     * Starts one dictation session. In block voice typing, partial results
+     * stream into the editor as composing text; interactive voice typing shows
+     * them on the surface only and puts nothing in the field until the phrase
+     * is finished. Either way the final result commits and is learned like a
      * typed word. Dictated text arrives in final script, so the Avro
      * transliteration pipeline is bypassed entirely.
      */
@@ -9117,7 +9133,10 @@ open class WMKeyboardService : InputMethodService() {
         if (!modelKnown) refreshVoiceModelState(tag)
         voiceEngine.start(
             tag,
-            object : VoiceInputEngine.Listener {
+            // Plain voice typing wants the words and nothing else, so the
+            // recognizer is asked for no punctuation and no capital letters.
+            formatting = !plainVoice(),
+            listener = object : VoiceInputEngine.Listener {
                 override fun onListening() {}
 
                 override fun onLevel(level: Float) {
@@ -9133,27 +9152,24 @@ open class WMKeyboardService : InputMethodService() {
 
                 override fun onPartial(text: String) {
                     if (generation != voiceGeneration) return
-                    currentInputConnection?.setComposingText(spacedVoiceText(text), 1)
+                    // Interactive voice typing never writes a partial into the
+                    // field. A partial is cumulative — the next one rewrites
+                    // the whole composing region — so keeping one there is
+                    // exactly what stops the keys being used at the same time.
+                    // The phrase lands whole at the next pause; until then it
+                    // is only in the status line.
+                    if (!interactiveVoice()) {
+                        currentInputConnection?.setComposingText(spacedVoiceText(text), 1)
+                    }
                     _uiState.update { it.copy(voice = it.voice.copy(partial = text)) }
                 }
 
                 override fun onFinal(text: String) {
                     if (generation != voiceGeneration) return
                     voiceGeneration++
-                    val settings = _uiState.value.settings
-                    val processed = if (settings.voiceSpokenPunctuation) {
-                        VoicePunctuation.apply(text, tag)
-                    } else {
-                        text
-                    }
-                    val spaced = spacedVoiceText(processed)
-                    currentInputConnection?.let { connection ->
-                        connection.commitText(spaced, 1)
-                        learn(processed)
-                        lastVoiceCommit = spaced
-                    }
+                    commitVoiceUtterance(text, tag)
                     voiceSilentRetries = 0
-                    if (settings.voiceContinuous && !voiceStopRequested && voiceSessionAlive()) {
+                    if (voiceChains() && !voiceStopRequested && voiceSessionAlive()) {
                         // Continuous dictation: chain straight into the next
                         // utterance until the user stops or leaves. Deferred
                         // to the next looper tick — starting a new recognizer
@@ -9178,13 +9194,16 @@ open class WMKeyboardService : InputMethodService() {
                     if (generation != voiceGeneration) return
                     voiceGeneration++
                     // A network drop mid-utterance keeps whatever was heard.
-                    currentInputConnection?.finishComposingText()
+                    // Interactive voice typing owns no composing region, and
+                    // the one in the field may be a word the user is typing
+                    // right now — leave it alone.
+                    if (!interactiveVoice()) currentInputConnection?.finishComposingText()
                     // Silence in continuous mode restarts quietly — but not
                     // forever, so an abandoned open mic winds down.
                     if (kind == VoiceInputEngine.ErrorKind.NO_SPEECH &&
-                        _uiState.value.settings.voiceContinuous &&
+                        voiceChains() &&
                         !voiceStopRequested && voiceSessionAlive() &&
-                        voiceSilentRetries < 2
+                        voiceSilentRetries < voiceSilentRetryLimit()
                     ) {
                         voiceSilentRetries++
                         serviceScope.launch(Dispatchers.Main) { startVoice() }
@@ -9344,8 +9363,7 @@ open class WMKeyboardService : InputMethodService() {
 
     /** Commits a finished Whisper transcription and continues or ends the session. */
     private fun commitWhisperResult(text: String, tag: String, userStopped: Boolean) {
-        val settings = _uiState.value.settings
-        val chain = !userStopped && settings.voiceContinuous &&
+        val chain = !userStopped && voiceChains() &&
             !voiceStopRequested && voiceSessionAlive()
         if (text.isBlank()) {
             // Nothing heard. In continuous mode keep listening; otherwise idle.
@@ -9357,17 +9375,7 @@ open class WMKeyboardService : InputMethodService() {
             }
             return
         }
-        val processed = if (settings.voiceSpokenPunctuation) VoicePunctuation.apply(text, tag) else text
-        val spaced = spacedVoiceText(processed)
-        currentInputConnection?.let { connection ->
-            // A word resumed as composing while the transcription was in
-            // flight (a caret tap onto an existing word) must commit first,
-            // or the result replaces it.
-            commitComposing(connection, autocorrect = false)
-            connection.commitText(spaced, 1)
-            learn(processed)
-            lastVoiceCommit = spaced
-        }
+        commitVoiceUtterance(text, tag)
         if (chain) {
             _uiState.update { it.copy(voice = it.voice.copy(partial = "", level = 0f, canUndo = true)) }
             serviceScope.launch(Dispatchers.Main) { startVoice() }
@@ -9376,6 +9384,60 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(voice = it.voice.copy(status = VoiceStatus.IDLE, partial = "", level = 0f, canUndo = true))
             }
         }
+    }
+
+    /**
+     * Voice typing shares the field with the keys: the microphone stays open
+     * while the user types, so nothing is composed and each phrase lands as
+     * finished text ([VoiceBarSettings.TYPING_INTERACTIVE] and
+     * [VoiceBarSettings.TYPING_PLAIN]).
+     */
+    private fun interactiveVoice(): Boolean =
+        _uiState.value.settings.voiceBar.interactiveTyping()
+
+    /** Dictated text goes in exactly as it was heard ([VoiceBarSettings.TYPING_PLAIN]). */
+    private fun plainVoice(): Boolean = _uiState.value.settings.voiceBar.plainTyping()
+
+    /**
+     * Whether the next utterance follows this one without another press of the
+     * microphone. Interactive voice typing always chains: a session that ended
+     * at the first pause would leave the user typing into a closed microphone,
+     * which is the one thing the mode exists to avoid.
+     */
+    private fun voiceChains(): Boolean =
+        _uiState.value.settings.voiceContinuous || interactiveVoice()
+
+    /** See [VOICE_SILENT_RETRIES]. */
+    private fun voiceSilentRetryLimit(): Int =
+        if (interactiveVoice()) VOICE_SILENT_RETRIES_INTERACTIVE else VOICE_SILENT_RETRIES
+
+    /**
+     * Puts one finished utterance into the field, however it was recognised.
+     *
+     * Interactive voice typing reads the spacing here instead of at the start
+     * of the session: the cursor has been moving under the open microphone the
+     * whole time, so where the words go is only known now. Plain voice typing
+     * takes neither the spoken-punctuation pass nor the spacing, because there
+     * the point is the words exactly as they were said.
+     */
+    private fun commitVoiceUtterance(text: String, tag: String) {
+        val settings = _uiState.value.settings
+        val plain = settings.voiceBar.plainTyping()
+        val processed = if (!plain && settings.voiceSpokenPunctuation) {
+            VoicePunctuation.apply(text, tag)
+        } else {
+            text
+        }
+        val ic = currentInputConnection ?: return
+        // A word still being composed — typed under the microphone, or resumed
+        // by a caret tap while a transcription was in flight — has to commit
+        // first, or the dictated text replaces it.
+        commitComposing(ic, autocorrect = false)
+        if (settings.voiceBar.interactiveTyping()) refreshVoiceSpacing()
+        val spaced = if (plain) processed else spacedVoiceText(processed)
+        ic.commitText(spaced, 1)
+        learn(processed)
+        lastVoiceCommit = spaced
     }
 
     /** Intelligent leading and trailing spaces when dictation starts mid-text or replaces selection. */
@@ -9471,22 +9533,36 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         voiceEngine.cancel()
-        currentInputConnection?.finishComposingText()
+        // The composing region is the dictated partial in block voice typing,
+        // so ending the session settles it. In interactive voice typing it is
+        // whatever word the user is typing this second, and finishing it here
+        // would strand the keyboard's own buffer against a field that is no
+        // longer composing.
+        if (!interactiveVoice()) currentInputConnection?.finishComposingText()
         _uiState.update {
             it.copy(voice = it.voice.copy(status = VoiceStatus.IDLE, partial = "", level = 0f))
         }
     }
 
     /**
-     * Manual input (keys, swipes, suggestion taps) during dictation ends the
-     * utterance: partial results are cumulative, so keystrokes woven into
-     * the composing region would corrupt it. The partial is kept; the
+     * Manual input (keys, swipes, suggestion taps) during block voice typing
+     * ends the utterance: partial results are cumulative, so keystrokes woven
+     * into the composing region would corrupt it. The partial is kept; the
      * panel/strip stays open to resume with a mic tap.
+     *
+     * Interactive voice typing keeps the session instead. See the body.
      */
     private fun stopVoiceForManualInput() {
         // The panel's own rail keys are part of the dictation surface and are
         // handled in [onVoiceRailKey], which dispatches through here.
         if (voiceRailKeyInFlight) return
+        // Interactive voice typing is the whole point of this check being
+        // conditional: the microphone stays open through typing, glides,
+        // suggestions and layout switches, because nothing of the utterance
+        // is in the field to be corrupted. Spacing is read again when the
+        // phrase lands ([commitVoiceUtterance]), not now — this runs before
+        // the key that called it has been applied.
+        if (interactiveVoice()) return
         val status = _uiState.value.voice.status
         // A Whisper clip already off the mic and inside the decoder is not
         // something a keystroke should throw away: the audio is captured, the mic
@@ -16275,6 +16351,20 @@ open class WMKeyboardService : InputMethodService() {
 
         /** See [voiceBarDockSlopPx]. */
         private const val VOICE_BAR_DOCK_SLOP_DP = 72
+
+        /**
+         * How many silent recognizer sessions in a row wind an open microphone
+         * down. Block voice typing takes the low count: silence there means
+         * the user has stopped and walked away.
+         *
+         * Interactive voice typing takes the high one, because silence is the
+         * normal state of the mode. The user speaks a phrase, then types for
+         * half a minute to fix it, and the microphone has to still be there
+         * afterwards. Roughly a minute and a half of quiet, and the surface
+         * says the whole time that it is listening.
+         */
+        private const val VOICE_SILENT_RETRIES = 2
+        private const val VOICE_SILENT_RETRIES_INTERACTIVE = 12
 
         /** Inline emoji search is a local index lookup — no network wait. */
         private const val EMOJI_SEARCH_DEBOUNCE_MS = 24L

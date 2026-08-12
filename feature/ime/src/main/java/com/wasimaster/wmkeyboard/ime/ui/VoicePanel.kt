@@ -819,6 +819,81 @@ internal fun VoiceStripBar(
     }
 }
 
+/**
+ * The whole voice surface of an interactive session: one microphone, pulsing
+ * while it listens.
+ *
+ * Interactive voice typing is used with the keys, so the suggestion strip has
+ * to stay where it is. The compact bar takes the whole strip and would put the
+ * candidates, the emoji row and the clipboard chip out of reach for as long as
+ * the microphone is open, which is the length of the sentence being written.
+ * So the strip keeps its room and dictation keeps one button at the left of it.
+ *
+ * A press stops the session, the same as the compact bar's microphone. A press
+ * and hold on the voice tool is still how it starts.
+ */
+@Composable
+internal fun VoiceMicChip(
+    state: KeyboardUiState,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val kb = LocalKbTheme.current
+    val voice = state.voice
+    val listening = voice.status == VoiceStatus.LISTENING
+    val busy = voice.status == VoiceStatus.FINISHING || voice.status == VoiceStatus.TRANSCRIBING
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier.padding(start = 4.dp, end = 2.dp),
+    ) {
+        // Static under reduce motion, like every other mic ring here.
+        val ringScale by animateFloatAsState(
+            targetValue = when {
+                !listening -> 0f
+                kb.reduceMotion -> 1.15f
+                else -> 1f + voice.level * 0.5f
+            },
+            animationSpec = if (kb.reduceMotion) snap() else spring(stiffness = 220f),
+            label = "voiceChipPulse",
+        )
+        if (listening) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .scale(ringScale)
+                    .background(kb.accent.copy(alpha = 0.25f), CircleShape),
+            )
+        }
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(if (listening) kb.toolCircleActive else kb.chip)
+                .clickable(enabled = !busy) { onToggle() },
+            contentAlignment = Alignment.Center,
+        ) {
+            if (busy) {
+                CircularProgressIndicator(
+                    color = kb.accent,
+                    modifier = Modifier.size(15.dp),
+                    strokeWidth = 2.dp,
+                )
+            } else {
+                Icon(
+                    Icons.Outlined.Mic,
+                    contentDescription = if (listening) {
+                        stringResource(R.string.ime_voice_stop_desc)
+                    } else {
+                        stringResource(R.string.ime_voice_start_desc)
+                    },
+                    modifier = Modifier.size(17.dp),
+                    tint = if (listening) kb.toolCircleActiveIcon else kb.secondaryText,
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun VoiceNotice(text: String) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

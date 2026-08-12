@@ -711,6 +711,7 @@ private fun Resources.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.DOC_SCAN, R.string.tooldetail_doc_scan_gallery_title, R.string.tooldetail_doc_scan_gallery_subtitle),
     toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_engine_title, R.string.tooldetail_voice_engine_subtitle),
     toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_ui_title, R.string.tooldetail_voice_ui_subtitle),
+    toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_typing_title, R.string.tooldetail_voice_typing_subtitle),
     toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_continuous_title, R.string.tooldetail_voice_continuous_subtitle),
     toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_punctuation_title, R.string.tooldetail_voice_punctuation_subtitle),
     toolEntry(ToolbarTool.VOICE, R.string.tooldetail_voice_translate_title, R.string.tooldetail_voice_translate_subtitle),

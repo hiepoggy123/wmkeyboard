@@ -355,6 +355,12 @@
     <string name="tooldetail_voice_ui_panel">Full panel</string>
     <string name="tooldetail_voice_ui_strip">Compact bar over the keys</string>
     <string name="tooldetail_voice_ui_bar">Collapsed bar, keyboard hidden</string>
+    <string name="tooldetail_voice_typing_title">Voice typing mode</string>
+    <string name="tooldetail_voice_typing_subtitle">How voice typing and the keys share the field</string>
+    <string name="tooldetail_voice_typing_info">One block at a time is the usual way. The words appear in the field while you speak, and the first key press stops the microphone.\n\nType while you speak keeps the microphone open. Each phrase goes into the field when you stop for breath, so the keys, the layouts and the suggestion strip stay live all through the session. Use it with the compact bar over the keys. This mode always keeps listening.\n\nPlain text works the same way, but it adds no punctuation, no capital letters and no spaces. You control all of them from the keyboard. Use it for code, for terminals and for any field where you want only the words you said.</string>
+    <string name="tooldetail_voice_typing_block">One block at a time</string>
+    <string name="tooldetail_voice_typing_interactive">Type while you speak</string>
+    <string name="tooldetail_voice_typing_plain">Type while you speak, plain text</string>
     <string name="tooldetail_voice_continuous_title">Keep listening</string>
     <string name="tooldetail_voice_continuous_subtitle">Start the next sentence automatically after each one goes into the field</string>
     <string name="tooldetail_voice_punctuation_title">Spoken punctuation</string>

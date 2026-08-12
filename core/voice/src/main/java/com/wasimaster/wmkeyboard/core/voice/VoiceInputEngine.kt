@@ -62,8 +62,17 @@ class VoiceInputEngine(private val context: Context) {
      * per-utterance beep that makes continuous dictation grating. A
      * language the on-device model can't handle falls back to the network
      * recognizer transparently, once, and is remembered.
+     *
+     * [formatting] asks the recognizer for punctuation and capital letters
+     * (API 33+). Plain voice typing turns it off, because there the words are
+     * wanted exactly as they were said.
      */
-    fun start(languageTag: String, listener: Listener, allowOnDevice: Boolean = true) {
+    fun start(
+        languageTag: String,
+        listener: Listener,
+        allowOnDevice: Boolean = true,
+        formatting: Boolean = true,
+    ) {
         cancel()
         val onDevice = allowOnDevice &&
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
@@ -94,7 +103,7 @@ class VoiceInputEngine(private val context: Context) {
                 val kind = errorKind(error)
                 if (onDevice && kind == ErrorKind.LANGUAGE) {
                     onDeviceFailedTags += languageTag
-                    start(languageTag, listener, allowOnDevice = false)
+                    start(languageTag, listener, allowOnDevice = false, formatting = formatting)
                     return
                 }
                 listener.onError(kind)
@@ -118,10 +127,10 @@ class VoiceInputEngine(private val context: Context) {
 
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
-        session.startListening(recognizerIntent(languageTag))
+        session.startListening(recognizerIntent(languageTag, formatting))
     }
 
-    private fun recognizerIntent(languageTag: String): Intent =
+    private fun recognizerIntent(languageTag: String, formatting: Boolean = true): Intent =
         Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(
                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
@@ -130,7 +139,7 @@ class VoiceInputEngine(private val context: Context) {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, languageTag)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && formatting) {
                 // Recognizer-side punctuation/casing where supported.
                 putExtra(
                     RecognizerIntent.EXTRA_ENABLE_FORMATTING,

@@ -40,6 +40,26 @@ Every word you dictate is learned the same way a typed word is, so frequent dict
 - **No microphone permission** shows an explanation and an "Allow microphone" button. Tapping it opens a system permission prompt through a small trampoline screen (IMEs can't show permission dialogs directly), and the keyboard rechecks automatically once you're back. The bars have room for one line, so they say "The app needs microphone permission" with an **Allow** chip.
 - **No speech recognizer on the device** (rare, typically no Google app installed) shows "Speech recognition is not available on your device." in the panel, or "Speech recognition is not available" on either bar.
 
+## Typing while you dictate
+
+<SettingsPath path="Tools / Voice typing / Voice typing mode" />
+
+By default, dictation owns the field while it runs. The words being recognized sit there as composing text, and the first key you press ends the session. **Voice typing mode** offers two other ways to work, both of which leave the mic open while you use the keyboard.
+
+- **One block at a time** (the default) is the behaviour described everywhere else on this page. Speak, watch the words appear live, and the first keystroke stops the mic.
+- **Type while you speak** keeps the mic running through everything you do. Nothing goes into the field until you pause: each phrase lands whole, at wherever your cursor is by then. Keys, glide typing, suggestions, cursor moves, layout switches and panels-that-aren't-a-panel all carry on around it.
+- **Type while you speak, plain text** is the same, minus every text rule. No spoken punctuation, no punctuation or capitals from the recognizer, and no spaces added around what lands. You control all of it from the keys. It's the one to pick for code, terminals, and anywhere you want exactly the words you said and nothing else.
+
+The reason the default can't do this is worth knowing: a partial result is cumulative. Each one rewrites the whole phrase, not just the new words, so a letter you type into the middle of it gets overwritten by the next partial a moment later. The two interactive modes solve that by never putting a partial in the field at all. You lose the live preview of the sentence, and in exchange you get the whole keyboard back while the mic is open.
+
+Pair them with **Compact bar over the keys**, which is where they make the most sense. In that view an interactive session shrinks to a single pulsing mic at the left of the suggestion strip, and the strip keeps its room, so your candidates, the emoji row and the clipboard chip all stay reachable while you talk. Tap the mic to end the session. Tap the voice tool again to put the bar away. If something goes wrong (no permission, no recognizer, no offline model), the full compact bar comes back for as long as it has something to tell you.
+
+<PhoneFrame caption="An interactive session: one pulsing mic at the left of the suggestion strip, keys and candidates untouched.">
+{/* shot: tools/voice-mic-chip */}
+</PhoneFrame>
+
+Two smaller things change in these modes. They always keep listening, whatever **Keep listening** is set to, because a session that ended at the first pause would leave you typing into a closed mic. And they're far more patient with silence: twelve quiet retries instead of two, which is roughly a minute and a half of not talking, because silence is the normal state of a mode where you speak a line and then spend a while fixing it by hand.
+
 ## The collapsed bar
 
 The third surface isn't a keyboard at all. Pick **Collapsed bar, keyboard hidden**, or tap the collapse button in the panel or the compact bar, and the keyboard gives its whole window back to the app you're typing in. What's left is a small pill of dictation controls floating on top. Only the pill itself is touchable: taps anywhere around it go through to the app underneath, so you can scroll the thing you're dictating into while you talk.
@@ -80,6 +100,8 @@ Continuous mode is also patient with silence: a pause that would normally time o
 
 Dictation ends completely the moment you type a key, swipe, or tap a suggestion. There's no pausing and picking up where you left off. Partial results build up as one continuous chunk, so typing in the middle of an utterance would corrupt it rather than interrupt it. Whichever view you're in stays open afterward, so you can tap the mic to resume. Dictation also stops when you close the panel, dismiss either bar, or switch to a different tool panel.
 
+That last paragraph describes the default mode. If you want the mic to survive typing, see [Typing while you dictate](#typing-while-you-dictate). Both interactive modes ignore the **Keep listening** setting and always chain.
+
 ## Spoken punctuation
 
 <SettingsPath path="Tools / Voice typing / Spoken punctuation" />
@@ -118,11 +140,12 @@ On Android 13 and up, a chip offers to download a model that's available for you
 | Setting | Default | What it does |
 |---|---|---|
 | Voice typing view | Full panel | A choice of three, not a switch: which surface the mic button opens. **Full panel**, **Compact bar over the keys**, or **Collapsed bar, keyboard hidden**. |
+| Voice typing mode | One block at a time | Another choice of three: whether the keys work while the mic is open. **One block at a time**, **Type while you speak**, or **Type while you speak, plain text**. See [Typing while you dictate](#typing-while-you-dictate). |
 | Hold to talk | 600&nbsp;ms | How long you hold the microphone before a tap becomes a press-and-hold, from 200 to 1500&nbsp;ms. Raise it if a slow press keeps stopping your dictation. Lower it if you mean to hold and it keeps latching on. |
 | Keep listening | On | Starts the next sentence automatically after each one commits. |
 | Spoken punctuation | On | Saying "comma", "question mark" or "দাঁড়ি" types the mark. |
 
-All four sit in a group headed **Voice typing**, on the Voice typing tool's own screen. An edition with the offline engine built in adds an **Engine** group above it, holding the **Recognition engine** choice (see [Offline voice (Whisper)](/tools/whisper/) for what that adds). With the system recognizer in use, the screen ends with this note about what it sends:
+All five sit in a group headed **Voice typing**, on the Voice typing tool's own screen. An edition with the offline engine built in adds an **Engine** group above it, holding the **Recognition engine** choice (see [Offline voice (Whisper)](/tools/whisper/) for what that adds). With the system recognizer in use, the screen ends with this note about what it sends:
 
 > Recognition uses the speech recognizer of your device. On Android 12 and later it runs on your device when the language model is installed. If it is not, the audio goes to the recognizer service while you speak. Press and hold the microphone to speak in walkie-talkie style. It stops when you let go.
 

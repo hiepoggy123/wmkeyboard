@@ -770,6 +770,7 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_qr_scan_preview_title) { Icons.Outlined.Link }
         put(R.string.tooldetail_doc_scan_gallery_title) { Icons.Outlined.PhotoLibrary }
         put(R.string.tooldetail_voice_ui_title) { Icons.Outlined.ViewAgenda }
+        put(R.string.tooldetail_voice_typing_title) { Icons.Outlined.RecordVoiceOver }
         put(R.string.tooldetail_voice_continuous_title) { Icons.Outlined.MicNone }
         put(R.string.tooldetail_voice_punctuation_title) { Icons.Outlined.MoreHoriz }
         put(R.string.tooldetail_voice_engine_title) { Icons.Outlined.GraphicEq }
