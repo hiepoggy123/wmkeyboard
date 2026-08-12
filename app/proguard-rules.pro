@@ -100,17 +100,30 @@
 -dontwarn org.tensorflow.lite.**
 
 # --- LuaJ (plugin sandbox) ---------------------------------------------------
-# No -keep rules on purpose. PluginSandbox constructs every library class it
-# wants directly, so R8 keeps the interpreter by reference and strips the parts
-# nothing points at — luajava (Java interop), luajc (bytecode backend), the
-# JSR-223 script engine, the AST parser. That stripping is a security property
-# in its own right: the reflective Java-coercion surface never ships. Only the
+# Almost no -keep rules, on purpose. PluginSandbox constructs every library class
+# it wants directly, so R8 keeps the interpreter by reference and strips the
+# parts nothing points at — luajava (Java interop), luajc (bytecode backend), the
+# JSR-223 script engine, the AST parser. That stripping is a security property in
+# its own right: the reflective Java-coercion surface never ships. Only the
 # warnings need silencing, because those stripped corners reference optional
 # dependencies that are on no classpath here (the POM declares none).
 -dontwarn org.apache.bcel.**
 -dontwarn javax.script.**
 -dontwarn org.luaj.vm2.luajc.**
 -dontwarn org.luaj.vm2.script.**
+
+# The exception, and it is not optional. LuaJ is compiled at Java 1.4 source
+# level, where `Foo.class` is not a class constant but a `class$("...")` helper
+# that hands a *string* to Class.forName. Bit32Lib binds its two function classes
+# that way, so the dex references them nowhere, R8 strips them as dead, and the
+# first plugin to load dies at Bit32Lib's own install with NoClassDefFoundError —
+# in release builds only, which is why no test and no debug run ever saw it.
+# LibFunction.bind then calls newInstance, so the no-arg constructor has to stay
+# with the class. Naming the two classes rather than keeping org.luaj.vm2.lib.**
+# is deliberate: the wider rule would drag PackageLib and LuajavaLib back into
+# the APK, and their absence is the sandbox's outermost wall.
+-keep class org.luaj.vm2.lib.Bit32Lib$Bit32Lib2 { <init>(); }
+-keep class org.luaj.vm2.lib.Bit32Lib$Bit32LibV { <init>(); }
 
 # --- AndroidX WorkManager & Room (transitive ML Kit dependency) --------------
 # Room database implementations (e.g. WorkDatabase_Impl) are instantiated reflectively

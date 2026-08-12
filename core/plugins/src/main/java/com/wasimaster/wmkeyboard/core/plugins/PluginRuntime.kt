@@ -298,7 +298,12 @@ class PluginRuntime(
             }
 
             else -> {
-                current.log.add("error: ${failure.javaClass.simpleName}")
+                // The class name alone is not a bug report. A bare
+                // "NoClassDefFoundError" in someone's log says a plugin broke and
+                // nothing about what broke it, so the message comes too.
+                val detail = failure.message?.take(MAX_ERROR)
+                val name = failure.javaClass.simpleName
+                current.log.add("error: " + if (detail != null) "$name: $detail" else name)
                 stop(current, PluginText.of(R.string.core_plugins_stopped_unexpected), strike = false)
             }
         }
