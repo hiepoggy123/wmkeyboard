@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.layout
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 /**
  * A single layout as a shareable file.
@@ -69,6 +70,30 @@ object LayoutFile {
         LayoutCodec.json.encodeToString(
             LayoutEnvelope(FORMAT, VERSION, appVersion, appVersionName, layout),
         )
+
+    /**
+     * Encodes a layout the way the shipped assets under `assets/layouts` are
+     * written: indented, and with defaulted fields left out.
+     *
+     * [encode] writes every field of every key, which is right for a file the
+     * user exports — it is self-describing and survives a format change — and
+     * wrong for one committed to the repository. Measured over the Keyman
+     * corpus the difference is 24 MB against roughly 3 MB for the same 867
+     * layouts, all of it `"output":null,"shiftLabel":null` repeated per key. The
+     * APK barely notices either way, because both deflate to about the same
+     * thing; the repository notices a great deal.
+     *
+     * No app version is recorded: an asset ships with the build it is in, so
+     * the field would say nothing and cost a line in every file.
+     */
+    fun encodeAsset(layout: LayoutSpec): String =
+        assetJson.encodeToString(LayoutEnvelope(FORMAT, VERSION, 0, "", layout))
+
+    private val assetJson = Json(LayoutCodec.json) {
+        encodeDefaults = false
+        prettyPrint = true
+        prettyPrintIndent = "  "
+    }
 
     /**
      * Parses [text], or returns null when it is not a layout file at all — the
