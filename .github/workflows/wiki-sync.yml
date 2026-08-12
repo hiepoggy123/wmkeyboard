@@ -5,6 +5,8 @@ on:
       - main
     paths:
       - 'docs/**'
+      - '.github/workflows/wiki-sync.yml'
+      - '.github/scripts/convert-mdx.js'
   workflow_dispatch:
 
 jobs:

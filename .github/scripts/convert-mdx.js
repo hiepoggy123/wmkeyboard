@@ -21,6 +21,13 @@ function processFile(filePath) {
         content = content.replace(/^---\n[\s\S]*?\n---(\n|$)/, '');
     }
 
+    // Remove MDX block comments
+    content = content.replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+    
+    // Replace known variables from index.mdx
+    content = content.replace(/\{languages\.length\}/g, '352');
+    content = content.replace(/\{wordlists\.length\}/g, '333');
+
     // Remove imports
     content = content.replace(/^import\s+.*?from\s+['"].*?['"];?\n/gm, '');
 
@@ -29,12 +36,16 @@ function processFile(filePath) {
     content = content.replace(/<KeyCap\s+(?:key|letter)="([^"]+)"\s*\/?>/g, '`$1`');
     content = content.replace(/<LinkCard\s+title="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, '[$1]($2)');
     content = content.replace(/<LinkCard\s+title="([^"]+)"\s+description="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, '[$1]($3) - $2');
+    content = content.replace(/<LinkButton\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/LinkButton>/g, '[$2]($1)');
     
     // Strip layout tags but keep content
-    content = content.replace(/<\/?(?:PhoneFrame|Steps|CardGrid|FileTree|Flavor|Since|LayoutExplorer|ThemePreview|GestureDemo|FilterTable|Card)[^>]*>/g, '');
+    content = content.replace(/<\/?(?:PhoneFrame|Steps|CardGrid|FileTree|Flavor|Since|LayoutExplorer|ThemePreview|GestureDemo|FilterTable|Card|Fragment|FeatureRow)[^>]*>/g, '');
 
     // Remove completely generic self-closing components we missed
     content = content.replace(/<[A-Z][a-zA-Z0-9]*\s+[^>]*\/>/g, '');
+
+    // Remove leading tabs to prevent indented text from turning into Markdown code blocks
+    content = content.replace(/^\t+/gm, '');
 
     // Clean up empty lines created by tag removal
     content = content.replace(/\n{3,}/g, '\n\n');
