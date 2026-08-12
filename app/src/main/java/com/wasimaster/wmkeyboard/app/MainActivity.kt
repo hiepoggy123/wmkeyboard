@@ -2579,7 +2579,12 @@ internal fun <T> ChoiceSetting(
                 Text(title, style = MaterialTheme.typography.bodyLarge)
                 if (info != null) InfoButton(title, info)
                 Spacer(Modifier.weight(1f))
-                ResetSetting(title, default != null && selected != default) { onChange(default!!) }
+                // The same `default != null` that draws the control at all is what
+                // makes the let non-empty; there is no fallback option to reset to
+                // on a row that shipped without a default.
+                ResetSetting(title, default != null && selected != default) {
+                    default?.let(onChange)
+                }
             },
         ) {
             ChoiceControl(options, selected, Modifier.padding(top = 8.dp), onChange)
@@ -3031,7 +3036,7 @@ private fun TypingSettings(
             ) { scope.launch { repository.setSuggestionPrimaryCenter(it) } }
         }
         item {
-            val context = LocalContext.current
+            val permissionContext = LocalContext.current
             // Prominent disclosure before the system prompt, never the prompt on
             // its own: see PermissionDisclosure.
             val contactsPermission =
@@ -3047,7 +3052,7 @@ private fun TypingSettings(
             ) { enabled ->
                 when {
                     !enabled -> scope.launch { repository.setContactSuggestions(false) }
-                    context.checkSelfPermission(Manifest.permission.READ_CONTACTS) ==
+                    permissionContext.checkSelfPermission(Manifest.permission.READ_CONTACTS) ==
                         PackageManager.PERMISSION_GRANTED ->
                         scope.launch { repository.setContactSuggestions(true) }
                     else -> contactsPermission()
@@ -3055,7 +3060,7 @@ private fun TypingSettings(
             }
         }
         item {
-            val context = LocalContext.current
+            val permissionContext = LocalContext.current
             val emailPermission =
                 rememberDisclosedPermissionRequest(PermissionDisclosures.CONTACT_EMAILS) {
                     scope.launch { repository.setContactEmailSuggestions(true) }
@@ -3069,7 +3074,7 @@ private fun TypingSettings(
             ) { enabled ->
                 when {
                     !enabled -> scope.launch { repository.setContactEmailSuggestions(false) }
-                    context.checkSelfPermission(Manifest.permission.READ_CONTACTS) ==
+                    permissionContext.checkSelfPermission(Manifest.permission.READ_CONTACTS) ==
                         PackageManager.PERMISSION_GRANTED ->
                         scope.launch { repository.setContactEmailSuggestions(true) }
                     else -> emailPermission()
@@ -3256,7 +3261,7 @@ private fun TypingSettings(
     val minutesFormat = stringResource(R.string.values_minutes)
     SettingsGroup(stringResource(R.string.typing_group_otp_title)) {
         item {
-            val context = LocalContext.current
+            val accessContext = LocalContext.current
             val codesAccess = rememberDisclosedSpecialAccess(SpecialAccess.NOTIFICATION_CODES)
             ToggleSetting(
                 R.string.typing_otp_chip_title,
@@ -3269,7 +3274,7 @@ private fun TypingSettings(
                 // Disclosure then the grant screen, the first time it goes on —
                 // but not when access is already there, which is the common
                 // case for a toggle flipped off and on again.
-                if (on && !hasNotificationAccess(context)) codesAccess()
+                if (on && !hasNotificationAccess(accessContext)) codesAccess()
             }
         }
         if (settings.otp.enabled) {
