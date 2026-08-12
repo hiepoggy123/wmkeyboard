@@ -1,0 +1,88 @@
+package com.wasimaster.wmkeyboard.core.keyman
+
+/**
+ * One keystroke as a rule engine sees it: an identity, not text.
+ *
+ * [modifiers] is a Keyman mask ([KmxFormat.K_SHIFTFLAG] and friends), not
+ * Android's `META_*`. The two overlap in meaning and not in value, so the
+ * conversion belongs at the call site where the platform is known.
+ */
+data class ProcessorKey(val vkey: Int, val modifiers: Int)
+
+/** What one keystroke did. Never partially applied. */
+sealed interface ProcessorResult {
+
+    /**
+     * The engine declined — Keyman's `emit_keystroke`. The host should type this
+     * key exactly as it would with no engine loaded.
+     */
+    data object Declined : ProcessorResult
+
+    /**
+     * [deleteBefore] is UTF-16 units of **visible** text, already resolved past
+     * any invisible deadkey markers, so it can go straight to
+     * `deleteSurroundingText`. It is never a code-point count and never includes
+     * a marker.
+     *
+     * An edit with nothing to delete, nothing to insert and no layer change is a
+     * pure deadkey press: the host must issue no `InputConnection` call at all,
+     * or the editor sees an empty transaction and some of them scroll for it.
+     */
+    data class Edit(
+        val deleteBefore: Int,
+        val insert: String,
+        val nextLayer: String? = null,
+        val alert: Boolean = false,
+    ) : ProcessorResult {
+        val isNoOp: Boolean get() = deleteBefore == 0 && insert.isEmpty() && nextLayer == null
+    }
+
+    /** A budget was blown or the interpreter faulted. The host disables the engine. */
+    data class Failed(val fault: KeymanFault) : ProcessorResult
+}
+
+/**
+ * The seam between a rule engine and the IME.
+ *
+ * Deliberately **not** a `Composer`. A `Composer` is a stateless
+ * `String -> String` called after the key has already been flattened to text,
+ * and its only context hook sees a single preceding character. A rule engine
+ * needs the key's identity before flattening, owns sixty-four units of mutable
+ * state including markers that must never reach the field, and answers with
+ * "delete this many, insert this" rather than with a string. Widening `Composer`
+ * to fit would hand fifteen existing implementations a member none of them can
+ * answer.
+ */
+interface KeyProcessor {
+
+    /**
+     * Could any rule match this key at all? A cheap prefilter, and wrong only
+     * ever in the direction of costing time: a false positive runs the engine
+     * for nothing, a false negative would lose a keystroke, so implementations
+     * must err towards true.
+     */
+    fun matches(vkey: Int, modifiers: Int): Boolean
+
+    /** Rebuilds the context from [before], dropping every deadkey. */
+    fun resetContext(before: CharSequence)
+
+    /** Keeps the context if it still agrees with [before], else rebuilds it. */
+    fun syncContext(before: CharSequence): SyncDecision
+
+    fun process(key: ProcessorKey): ProcessorResult
+
+    /**
+     * Keyman's `begin NewContext`: the caret moved, or a field was entered.
+     * Produces no text — only store changes and, possibly, a layer to show.
+     */
+    fun onNewContext(before: CharSequence): String?
+
+    /**
+     * Keyman's `begin PostKeystroke`, run after an edit has been applied. Same
+     * contract as [onNewContext]: layer only, never text.
+     */
+    fun onPostKeystroke(): String?
+
+    /** True while a deadkey is pending, for the strip's pending-accent hint. */
+    val deadKeyPending: Boolean
+}
