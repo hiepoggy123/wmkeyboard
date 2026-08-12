@@ -250,7 +250,7 @@ fun ColorPickerDialog(
                                 onBrightness = { brightness = it },
                                 onOpacity = { opacity = it },
                             )
-                            HexField(currentHex, supportsAlpha, opacity) { setFrom(it) }
+                            HexField(currentHex, current.toArgb(), supportsAlpha, opacity) { setFrom(it) }
                         }
                     }
                 } else {
@@ -272,7 +272,7 @@ fun ColorPickerDialog(
                         onBrightness = { brightness = it },
                         onOpacity = { opacity = it },
                     )
-                    HexField(currentHex, supportsAlpha, opacity) { setFrom(it) }
+                    HexField(currentHex, current.toArgb(), supportsAlpha, opacity) { setFrom(it) }
                 }
                 Spacer(Modifier.height(12.dp))
                 Text(
@@ -542,13 +542,19 @@ private fun ChannelBar(
 @Composable
 private fun HexField(
     hex: String,
+    argb: Int,
     supportsAlpha: Boolean,
     opacity: Float,
     onParsed: (Color) -> Unit,
 ) {
     var field by remember { mutableStateOf(TextFieldValue(hex, TextRange(hex.length))) }
+    val alphaByte = if (supportsAlpha) (opacity * 255).roundToInt().coerceIn(0, 255) else 255
+    // Rewrite the field only when its own text no longer means the colour the
+    // wheel is on. Comparing the strings instead would fight the user: deleting
+    // AARRGGBB down past six digits parses, which changes nothing about the
+    // colour, and the field would snap back to eight digits under the caret.
     LaunchedEffect(hex) {
-        if (!field.text.equals(hex, ignoreCase = true)) {
+        if (parseHex(field.text, alphaByte) != argb) {
             field = TextFieldValue(hex, TextRange(hex.length))
         }
     }
@@ -557,14 +563,16 @@ private fun HexField(
     OutlinedTextField(
         value = field,
         onValueChange = { typed ->
-            val cleaned = typed.text.filter { it.isHexDigit() }.uppercase().take(digits)
+            // Keep whatever case they typed. Rebuilding the value on every
+            // letter to upper-case it re-syncs the IME mid-word, and that is
+            // how a keyboard ends up committing the same characters twice.
+            val cleaned = typed.text.filter { it.isHexDigit() }.take(digits)
             field = if (cleaned == typed.text) {
                 typed
             } else {
                 TextFieldValue(cleaned, TextRange(cleaned.length))
             }
-            val alpha = if (supportsAlpha) (opacity * 255).roundToInt().coerceIn(0, 255) else 255
-            parseHex(cleaned, alpha)?.let { onParsed(Color(it)) }
+            parseHex(cleaned, alphaByte)?.let { onParsed(Color(it)) }
         },
         label = {
             Text(
@@ -589,8 +597,14 @@ private fun HexField(
 
 private fun Char.isHexDigit(): Boolean = this in '0'..'9' || this in 'a'..'f' || this in 'A'..'F'
 
-/** Returns the ARGB behind [text], or null while the text is still partial. */
-private fun parseHex(text: String, alpha: Int): Int? {
+/**
+ * Returns the ARGB behind [text], or null while the text is still partial.
+ *
+ * Six digits are RRGGBB and keep the opacity the picker already carries in
+ * [alpha]. The old picker forced FF there, which is what issue #19 saw as
+ * "hex color adds FF". Public for the unit test, see ColorPickerHexTest.
+ */
+fun parseHex(text: String, alpha: Int): Int? {
     val full = when (text.length) {
         3 -> text.map { "$it$it" }.joinToString("")
         6, 8 -> text
