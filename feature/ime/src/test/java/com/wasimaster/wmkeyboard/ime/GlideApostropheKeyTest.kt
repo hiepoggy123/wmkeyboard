@@ -2,93 +2,98 @@ package com.wasimaster.wmkeyboard.ime
 
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
+import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.Layouts
 import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.sourceChar
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
  * The apostrophe a glide can draw: `LayoutSet.glideKeys` has to put `'` on the one
- * key the user picked and take it off every other.
+ * key the user picked, and nowhere else.
  *
- * The second half is the part worth a test. Shipped QWERTY already hides an
- * apostrophe behind `c`'s press-and-hold, so `'` was *already* on the glide grid
- * before this feature existed, sitting on a letter key three rows from the
- * punctuation. A stroke drawn through the comma would spell nothing, and a stroke
- * that merely passed over `c` would spell an apostrophe the user never asked for.
+ * The premise is worth pinning, because it is the reason the feature exists at
+ * all: [keySpelling] admits letters and combining marks only, so no punctuation
+ * key is on the glide grid — not the comma, not the full stop, and not the
+ * apostrophe QWERTY hides behind `c`'s press and hold. Until a key is chosen here
+ * a contraction cannot be drawn at all, whatever the word list holds.
  */
 class GlideApostropheKeyTest {
 
-    /** A grid whose keys sit one unit apart, so the numbers below read plainly. */
     private val set = LayoutSet(Layouts.QWERTY, Layouts.SYMBOLS, Layouts.SYMBOLS_SHIFTED)
 
-    /** Column-major placement by row, in pixels, at a key width of 10. */
+    /** Key width, so pixel centres below divide back to whole grid units. */
+    private val keyWidth = 10f
+
+    /**
+     * Every text key's centre, punctuation included — the same map the keyboard
+     * builds, which reports the punctuation keys precisely so this feature can
+     * find them.
+     */
     private val centers: Map<Char, Pair<Float, Float>> = buildMap {
         for ((rowIndex, row) in set.letters.rows.withIndex()) {
             var column = 0
             for (key in row) {
-                val ch = keySpelling(key.label)?.first() ?: continue
-                put(ch.lowercaseChar(), (column * 10f) to (rowIndex * 10f))
+                if (key.action == KeyAction.Text) {
+                    (key.output ?: key.label).firstOrNull()?.let {
+                        putIfAbsent(it.lowercaseChar(), (column * keyWidth) to (rowIndex * keyWidth))
+                    }
+                }
                 column++
             }
         }
     }
 
-    private fun grid(apostropheCenter: Pair<Float, Float>?): GlideKeyMap =
+    private fun grid(apostropheCenter: Pair<Float, Float>? = null): GlideKeyMap =
         GlideKeyMap.of(
             set.glideKeys(apostropheCenter = apostropheCenter) { centers[it] },
-            keyWidth = 10f,
+            keyWidth = keyWidth,
         )
 
-    /** The premise: the shipped grid reaches `'` through a letter key. */
     @Test
-    fun `without the setting the apostrophe rides the c key`() {
-        val keys = grid(null)
-        val apostrophe = keys.keyIndex('\'')
-        assertTrue("shipped QWERTY should still reach an apostrophe at all", apostrophe >= 0)
-        assertEquals(
-            "the long-press alternate on c is where it lives today",
-            keys.keyIndex('c'),
-            apostrophe,
-        )
+    fun `without a chosen key no punctuation is on the glide grid`() {
+        val keys = grid()
+        for (ch in listOf('\'', '’', ',', '.')) {
+            assertFalse("$ch should not be glidable by default", keys.knows(ch))
+        }
+        // The letters are, or there would be nothing to prove.
+        assertTrue(keys.knows('c'))
     }
 
     @Test
-    fun `the chosen key takes the claim on the apostrophe`() {
-        val comma = centers.getValue(',')
-        val keys = grid(comma)
-        assertEquals(keys.keyIndex(','), keys.keyIndex('\''))
-        assertNotEquals(
-            "c must stop standing for an apostrophe once a key is chosen",
-            keys.keyIndex('c'),
-            keys.keyIndex('\''),
-        )
+    fun `the chosen key is where the apostrophe lands`() {
+        val (commaX, commaY) = centers.getValue(',')
+        val keys = grid(commaX to commaY)
+        val index = keys.keyIndex('\'')
+        assertTrue("the apostrophe should be on the grid now", index >= 0)
+        assertEquals(commaX / keyWidth, keys.keyX[index], 0f)
+        assertEquals(commaY / keyWidth, keys.keyY[index], 0f)
     }
 
     /** A word list may spell a contraction either way, and one finger draws both. */
     @Test
     fun `both apostrophe characters land on the chosen key`() {
-        val keys = grid(centers.getValue('.'))
-        assertEquals(keys.keyIndex('.'), keys.keyIndex('\''))
-        assertEquals(keys.keyIndex('.'), keys.keyIndex('’'))
+        val (x, y) = centers.getValue('.')
+        val keys = grid(x to y)
+        assertEquals(keys.keyIndex('\''), keys.keyIndex('’'))
+        assertEquals(x / keyWidth, keys.keyX[keys.keyIndex('’')], 0f)
     }
 
-    /** The letters themselves are untouched: this adds a character, it moves none. */
+    /** The letters are untouched: this adds a character, it moves none. */
     @Test
     fun `choosing a key leaves every letter where it was`() {
-        val before = grid(null)
+        val before = grid()
         val after = grid(centers.getValue(','))
         for (ch in 'a'..'z') {
-            assertEquals(
-                "$ch moved",
-                before.keyX[before.keyIndex(ch)],
-                after.keyX[after.keyIndex(ch)],
-                0f,
-            )
+            val i = before.keyIndex(ch)
+            val j = after.keyIndex(ch)
+            assertTrue("$ch fell off the grid", i >= 0 && j >= 0)
+            assertEquals("$ch moved", before.keyX[i], after.keyX[j], 0f)
+            assertEquals("$ch moved", before.keyY[i], after.keyY[j], 0f)
         }
     }
 
@@ -103,8 +108,8 @@ class GlideApostropheKeyTest {
     }
 
     /**
-     * The shipped QWERTY has the comma and the full stop the two default choices
-     * point at. Without them the setting would offer a key that is not there.
+     * Shipped QWERTY has the two keys the default choices point at. Without them
+     * the setting would offer a key that is not on the board.
      */
     @Test
     fun `shipped qwerty has the punctuation keys the choices name`() {

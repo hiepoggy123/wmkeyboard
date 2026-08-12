@@ -8707,7 +8707,14 @@ private fun KeyRows(
         snapshotFlow { keyCenters.toMap() to keyWidth.value }
             .collect { (centers, kw) ->
                 if (kw > 0f && centers.isNotEmpty()) {
-                    onTouchKeys(centers.map { (char, c) -> KeyCenter(char, c.x / kw, c.y / kw) })
+                    // Letters only: the touch model turns a tap into per-letter
+                    // likelihoods, and the punctuation keys the map also tracks
+                    // (for the apostrophe setting) are not candidates for that.
+                    onTouchKeys(
+                        centers.entries
+                            .filter { it.key !in GlidePunctuationChars }
+                            .map { (char, c) -> KeyCenter(char, c.x / kw, c.y / kw) },
+                    )
                 }
             }
     }
@@ -9734,8 +9741,14 @@ private fun KeyCell(
     // is the same character the glide grid anchors it by. Not `singleOrNull`:
     // a Bengali nukta key (ড়, ঢ়, য়) writes two characters, and keying it by
     // "exactly one" drops the key — and its shifted twin — off the grid.
+    //
+    // The comma, full stop and apostrophe keys report too, because the
+    // apostrophe-in-a-glide setting needs to know where they are. They are not
+    // letters and nothing treats them as letters: both consumers of the map that
+    // are about letters filter them back out (see [GlidePunctuationChars]).
     val letter = key.label.takeIf { key.action == KeyAction.Text }
         ?.let { keySpelling(it) }?.first()
+        ?: key.glidePunctuationChar()
     KeyButton(
         visual = visual,
         settings = settings,
@@ -9792,9 +9805,36 @@ internal fun splitKeys(keys: List<Key>): Pair<List<Key>, List<Key>> {
     return keys.subList(0, cut) to keys.subList(cut, keys.size)
 }
 
-/** True when [position] falls within roughly one key of a tracked letter key. */
-private fun nearLetterKey(position: Offset, centers: Map<Char, Offset>, keyWidth: Float): Boolean =
-    centers.values.any { (it - position).getDistance() < keyWidth }
+/**
+ * The punctuation keys that report a centre alongside the letters, for the
+ * apostrophe-in-a-glide setting to find. Kept out of everything that means
+ * "letter key" — the engine's touch model and [nearLetterKey] — so tracking them
+ * cannot change where a tap lands or what starts a glide.
+ */
+private val GlidePunctuationChars = setOf(',', '.', '\'')
+
+/** The character this key contributes to the centres map if it is punctuation. */
+private fun Key.glidePunctuationChar(): Char? =
+    if (action == KeyAction.Text) {
+        (output ?: label).singleOrNull()?.takeIf { it in GlidePunctuationChars }
+    } else {
+        null
+    }
+
+/**
+ * True when [position] falls within roughly one key of a tracked letter key.
+ *
+ * Letters only, which is why the punctuation keys the centres map now also holds
+ * are skipped: they are tracked for the apostrophe setting to find, and a slide
+ * off the comma key must keep meaning exactly what it meant before.
+ */
+private fun nearLetterKey(
+    position: Offset,
+    centers: Map<Char, Offset>,
+    keyWidth: Float,
+): Boolean = centers.any { (ch, center) ->
+    ch !in GlidePunctuationChars && (center - position).getDistance() < keyWidth
+}
 
 /**
  * Where the glide grid should put the apostrophe, in this box's space, or null

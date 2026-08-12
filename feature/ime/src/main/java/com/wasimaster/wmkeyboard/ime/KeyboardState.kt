@@ -237,13 +237,15 @@ data class LayoutSet(
      * is one key's base label and another key's long-press alternate resolves to
      * the key that actually shows it.
      *
-     * [apostropheCenter] is that rule put to work: the key the user picked to
-     * stand for the apostrophe (`GestureSettings.apostropheKey`) is emitted
-     * *before* every pass, so it takes the claim on `'` off whichever key holds
-     * the character as a long-press alternate — shipped QWERTY hides one behind
-     * `c`. Exactly one key on the board means an apostrophe, which is what makes
-     * the stroke through it readable; two would blur both of them. Null (the
-     * default) leaves the grid exactly as it was.
+     * [apostropheCenter] is the key the user picked to stand for the apostrophe
+     * (`GestureSettings.apostropheKey`), and it is the *only* way `'` reaches this
+     * grid. [keySpelling] takes letters and combining marks and nothing else, so
+     * punctuation is absent from every pass — including the apostrophe QWERTY
+     * hides behind `c`'s long press, which is why a contraction cannot be drawn
+     * at all until a key is chosen here. Emitted before the passes so it holds the
+     * claim whatever a layout does, and emitted once: exactly one key on the board
+     * means an apostrophe, and two would blur both of them. Null (the default)
+     * leaves the grid exactly as it was.
      */
     fun glideKeys(
         apostropheCenter: Pair<Float, Float>? = null,
