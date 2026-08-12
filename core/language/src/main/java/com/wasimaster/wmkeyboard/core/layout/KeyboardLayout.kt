@@ -52,6 +52,17 @@ data class Key(
     val shiftLabel: String? = null,
     val action: KeyAction = KeyAction.Text,
     val width: Float = 1f,
+    /**
+     * How many rows this key covers, counting its own: 1 (the usual case) is an
+     * ordinary key, 2 makes it twice as tall and pushes the row below to flow
+     * around the column it occupies. The vertical twin of [width], and the thing
+     * an arrangement like ClearFlow's tall Enter cannot be written without.
+     *
+     * See [spanSlots] for the geometry and `KeyBand` in the ime layer for the
+     * render. A span that runs past the last row is clamped rather than rejected,
+     * so a grid the editor has just had a row deleted from still draws.
+     */
+    val rowSpan: Int = 1,
     val longPress: List<String> = emptyList(),
     /** Clipboard shortcut fired on long press instead of the alternates popup. */
     val clipboardAction: ClipboardKeyAction? = null,
@@ -116,10 +127,15 @@ data class KeyboardLayout(
  * Widths are bucketed on a rounded key so accumulated-float jitter can't split
  * one width into two buckets; ties between equally common widths resolve to the
  * wider one.
+ *
+ * A row under a spanning key is measured *including* the column that key holds
+ * over it — see [spanRowWidths]. Without that, the row below a two-row Enter
+ * reads as one column narrower than it is drawn, and a grid with two such rows
+ * would elect the wrong width for every other row on the board.
  */
 fun gridWeightOf(rows: List<List<Key>>): Float {
     if (rows.isEmpty()) return 0f
-    val widths = rows.map { row -> row.sumOf { it.width.toDouble() }.toFloat() }
+    val widths = spanRowWidths(rows).toList()
     return widths
         .groupBy { (it * 100f).roundToInt() }
         .entries
@@ -131,6 +147,10 @@ fun gridWeightOf(rows: List<List<Key>>): Float {
  * Half the slack between [gridWeight] and this row's own width, as a layout
  * weight. Negative for an over-wide row; callers drop the spacer below a small
  * epsilon rather than testing for zero, because these are accumulated floats.
+ *
+ * For rows a spanning key reaches into, [spanSlots] does this and the flow around
+ * the span in one pass — a row cannot be centred from its own contents alone once
+ * something above it is standing in one of its columns.
  */
 fun sidePadFor(row: List<Key>, gridWeight: Float): Float =
     (gridWeight - row.sumOf { it.width.toDouble() }.toFloat()) / 2f

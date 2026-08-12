@@ -117,6 +117,15 @@ const val MaxKeysPerRow = 24
 const val MaxRowsPerLayer = 8
 
 /**
+ * Most rows one key may cover ([Key.rowSpan]). A key cannot usefully be taller
+ * than the tallest layer the grid is allowed to be, and a file asking for more
+ * is broken rather than ambitious. A span reaching past the *actual* last row is
+ * a separate, milder thing: the renderer clamps it (see [Key.spanFrom]) and
+ * [validateLayout] only warns.
+ */
+const val MaxKeySpan = MaxRowsPerLayer
+
+/**
  * Everything wrong with this layout, worst first. Pure — it never rewrites the
  * layout, so the editor can call it on every keystroke and show the result
  * without the layout changing under the user.
@@ -203,6 +212,7 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
         }
 
         val gridWeight = gridWeightOf(rows)
+        val spanWidths = spanRowWidths(rows)
         rows.forEachIndexed { index, row ->
             val number = index + 1
             if (row.isEmpty()) {
@@ -237,7 +247,33 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
                     layer,
                 )
             }
-            val total = row.sumOf { it.width.toDouble() }.toFloat()
+            if (row.any { it.rowSpan < 1 || it.rowSpan > MaxKeySpan }) {
+                findings += LayoutFinding(
+                    LayoutSeverity.BLOCKING,
+                    LayoutMessage(
+                        R.string.core_lang_layout_key_span_error,
+                        args = listOf(number, label, MaxKeySpan),
+                    ),
+                    layer,
+                )
+            } else if (row.any { index + it.rowSpan > rows.size }) {
+                // Only reported once the span is otherwise sane, so a file with a
+                // nonsense span gets one line rather than two. Not blocking: this
+                // is what deleting the bottom row of a grid leaves behind, and the
+                // renderer stops the key at the last row.
+                findings += LayoutFinding(
+                    LayoutSeverity.WARNING,
+                    LayoutMessage(
+                        R.string.core_lang_layout_span_past_end_warning,
+                        args = listOf(number, label),
+                    ),
+                    layer,
+                )
+            }
+            // Counting the columns held over this row by a spanning key above, so
+            // the row under a two-row Enter is not reported as over-wide for
+            // filling the width it is actually given.
+            val total = spanWidths[index]
             if (total > gridWeight + 0.01f) {
                 findings += LayoutFinding(
                     LayoutSeverity.WARNING,
@@ -424,6 +460,17 @@ private fun Key.repairKey(label: String, repairs: MutableList<LayoutMessage>): K
             args = listOf(label, width, MaxKeyWidth),
         )
         fixed = fixed.copy(width = MaxKeyWidth)
+    }
+    // Same shape as the width clamp above, and for the same reason: a span
+    // outside the range [validateLayout] accepts would come through repair
+    // "clean" and then refuse to enable. A key covering no rows is not a key.
+    if (rowSpan < 1 || rowSpan > MaxKeySpan) {
+        val span = rowSpan.coerceIn(1, MaxKeySpan)
+        repairs += LayoutMessage(
+            R.string.core_lang_repair_key_span_clamped,
+            args = listOf(label, rowSpan, span),
+        )
+        fixed = fixed.copy(rowSpan = span)
     }
     if (fixed.longPress.any { it.isEmpty() }) {
         fixed = fixed.copy(longPress = fixed.longPress.filter { it.isNotEmpty() })

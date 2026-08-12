@@ -67,7 +67,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -98,10 +97,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -124,12 +127,17 @@ import com.wasimaster.wmkeyboard.core.layout.MaxRowHeightScale
 import com.wasimaster.wmkeyboard.core.layout.MinRowHeightScale
 import com.wasimaster.wmkeyboard.core.layout.fitRowToGrid
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
+import com.wasimaster.wmkeyboard.core.layout.hasRowSpans
+import com.wasimaster.wmkeyboard.core.layout.KeySlot
 import com.wasimaster.wmkeyboard.core.layout.roundGridUnit
 import com.wasimaster.wmkeyboard.core.layout.rowScaledKeyHeight
 import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.resolveLayouts
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
+import com.wasimaster.wmkeyboard.core.layout.spanBands
+import com.wasimaster.wmkeyboard.core.layout.spanRowWidths
+import com.wasimaster.wmkeyboard.core.layout.spanSlots
 import com.wasimaster.wmkeyboard.core.layout.validateLayout
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -138,6 +146,7 @@ import com.wasimaster.wmkeyboard.ime.ui.KbTheme
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardThemeProvider
 import com.wasimaster.wmkeyboard.ime.ui.LocalKbTheme
 import com.wasimaster.wmkeyboard.ime.ui.keyShape
+import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
 // ---------------------------------------------------------------------------
@@ -1260,10 +1269,14 @@ internal fun KeyLayoutEditorScreen(
 
     selection?.let { ref ->
         if (ref.row in rows.indices) {
+            // A row is as wide as its own keys plus the columns a spanning key
+            // above holds over it — that is the number the keyboard centres it
+            // on, so it is the number the mismatch warning has to judge.
+            val spanWidth = spanRowWidths(rows)[ref.row]
             RowActionBar(
                 rowIndex = ref.row,
                 rowCount = rows.size,
-                rowWidth = rows[ref.row].sumOf { it.width.toDouble() }.toFloat(),
+                rowWidth = spanWidth,
                 gridWeight = gridWeightOf(rows),
                 onAddKey = {
                     editRows { r ->
@@ -1293,12 +1306,17 @@ internal fun KeyLayoutEditorScreen(
                 },
             )
             RowFitRow(
-                rowWidth = rows[ref.row].sumOf { it.width.toDouble() }.toFloat(),
+                rowWidth = spanWidth,
                 gridWeight = gridWeightOf(rows),
             ) {
                 editRows { r ->
+                    // The row's own keys have to fill what the spanning key above
+                    // is not already standing in, so the fit targets the grid
+                    // less the columns held over this row.
+                    val held = spanRowWidths(r)[ref.row] -
+                        r[ref.row].sumOf { it.width.toDouble() }.toFloat()
                     r.mapIndexed { i, row ->
-                        if (i == ref.row) fitRowToGrid(row, gridWeightOf(r)) else row
+                        if (i == ref.row) fitRowToGrid(row, gridWeightOf(r) - held) else row
                     }
                 }
             }
@@ -1451,11 +1469,11 @@ internal fun KeyLayoutEditorScreen(
             key = selectedKey,
             ref = ref,
             rowSize = rows[ref.row].size,
+            rowCount = rows.size,
             gridWeight = gridWeightOf(rows),
-            otherWidthsInRow = rows[ref.row]
-                .filterIndexed { i, _ -> i != ref.col }
-                .sumOf { it.width.toDouble() }
-                .toFloat(),
+            // Counting the columns a spanning key above holds over this row, so
+            // "Fill the row" offers the width that is genuinely left.
+            otherWidthsInRow = spanRowWidths(rows)[ref.row] - selectedKey.width,
             onChange = { updated ->
                 editCoalesced { spec ->
                     withLayerRows(
@@ -1723,7 +1741,35 @@ private fun EditorGrid(
                     } else {
                         settings.keyHeightDp.coerceIn(38, 56)
                     }
-                    layout.rows.forEachIndexed { r, row ->
+                    fun heightOf(r: Int) = rowScaledKeyHeight(
+                        baseHeightDp,
+                        layout.rowHeights?.getOrNull(r),
+                    )
+                    // Rows joined by a spanning key are drawn as one block, the
+                    // same way the keyboard does it — see EditorBand. Every other
+                    // row is its own Row, which is every row of almost every
+                    // layout.
+                    val slots = if (hasRowSpans(layout.rows)) {
+                        spanSlots(layout.rows, gridWeight)
+                    } else {
+                        emptyList()
+                    }
+                    for (band in spanBands(layout.rows)) {
+                        if (band.first != band.last) {
+                            EditorBand(
+                                slots = slots.filter { it.row in band },
+                                band = band,
+                                kb = kb,
+                                gridWeight = gridWeight,
+                                heights = band.map { heightOf(it) },
+                                selection = selection,
+                                showShift = showShift,
+                                onSelect = onSelect,
+                            )
+                            continue
+                        }
+                        val r = band.first
+                        val row = layout.rows[r]
                         val sidePad = sidePadFor(row, gridWeight)
                         Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                             if (sidePad > 0.01f) Spacer(Modifier.weight(sidePad))
@@ -1731,10 +1777,7 @@ private fun EditorGrid(
                                 EditorKeyCell(
                                     key = key,
                                     kb = kb,
-                                    heightDp = rowScaledKeyHeight(
-                                        baseHeightDp,
-                                        layout.rowHeights?.getOrNull(r),
-                                    ),
+                                    heightDp = heightOf(r),
                                     selected = selection == KeyRef(r, c),
                                     showShift = showShift,
                                     modifier = Modifier.weight(key.width),
@@ -1749,8 +1792,77 @@ private fun EditorGrid(
     }
 }
 
+/**
+ * The preview's answer to a run of rows joined by a spanning key.
+ *
+ * Same shape as the keyboard's own `KeyBand` and for the same reason: a key
+ * covering two rows has to be a child of something that covers both of them.
+ * Placed by hand, so the 3dp/4dp gaps the `Row`/`Column` above get from their
+ * arrangements are taken here as a per-cell inset and a per-row pitch instead.
+ */
 @Composable
-private fun RowScope.EditorKeyCell(
+private fun EditorBand(
+    slots: List<KeySlot>,
+    band: IntRange,
+    kb: KbTheme,
+    gridWeight: Float,
+    heights: List<Int>,
+    selection: KeyRef?,
+    showShift: Boolean,
+    onSelect: (KeyRef) -> Unit,
+) {
+    val weight = maxOf(gridWeight, slots.maxOfOrNull { it.end } ?: 0f)
+    val gap = with(LocalDensity.current) { 4.dp.roundToPx() }
+    val pitch = with(LocalDensity.current) { heights.map { it.dp.roundToPx() + gap } }
+    val tops = IntArray(pitch.size + 1).also {
+        for (i in pitch.indices) it[i + 1] = it[i] + pitch[i]
+    }
+    Layout(
+        content = {
+            for (slot in slots) {
+                val ref = KeyRef(slot.row, slot.col)
+                EditorKeyCell(
+                    key = slot.key,
+                    kb = kb,
+                    heightDp = heights[slot.row - band.first],
+                    selected = selection == ref,
+                    showShift = showShift,
+                    // Half the 3dp the spaced rows put between neighbours, on
+                    // each side, so a band's keys read at the same size as the
+                    // rows above and below it.
+                    modifier = Modifier.padding(horizontal = 1.5.dp),
+                ) { onSelect(ref) }
+            }
+        },
+    ) { measurables, constraints ->
+        val width = constraints.maxWidth
+        val unit = if (weight > 0f) width / weight else 0f
+        val lefts = IntArray(measurables.size)
+        val placeables = measurables.mapIndexed { index, measurable ->
+            val slot = slots[index]
+            val row = slot.row - band.first
+            val left = (unit * slot.x).roundToInt()
+            val right = (unit * slot.end).roundToInt()
+            lefts[index] = left
+            measurable.measure(
+                Constraints.fixed(
+                    width = (right - left).coerceIn(0, width),
+                    // Minus the trailing gap, so a one-row key is exactly the
+                    // height the Row path would give it.
+                    height = (tops[row + slot.span] - tops[row] - gap).coerceAtLeast(0),
+                ),
+            )
+        }
+        layout(width, (tops.last() - gap).coerceAtLeast(0)) {
+            placeables.forEachIndexed { index, placeable ->
+                placeable.placeRelative(lefts[index], tops[slots[index].row - band.first])
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditorKeyCell(
     key: Key,
     kb: KbTheme,
     heightDp: Int,
@@ -2094,6 +2206,8 @@ private fun KeyEditSheet(
     key: Key,
     ref: KeyRef,
     rowSize: Int,
+    /** Rows in this layer, so the span stepper cannot reach past the last one. */
+    rowCount: Int,
     gridWeight: Float,
     otherWidthsInRow: Float,
     onChange: (Key) -> Unit,
@@ -2182,6 +2296,11 @@ private fun KeyEditSheet(
                 otherWidthsInRow = otherWidthsInRow,
                 resetKey = ref,
             ) { onChange(key.copy(width = it)) }
+
+            KeyRowSpanRow(
+                span = key.rowSpan,
+                rowsBelow = rowCount - ref.row - 1,
+            ) { onChange(key.copy(rowSpan = it)) }
 
             if (key.action == KeyAction.Text) {
                 SheetField(
@@ -2440,6 +2559,44 @@ private fun RowFitRow(rowWidth: Float, gridWeight: Float, onFit: () -> Unit) {
         onClick = onFit,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     ) { Text(stringResource(R.string.layout_editor_fit_row_action, gridWeight)) }
+}
+
+/**
+ * How many rows this key covers — the vertical twin of [KeyWidthRow].
+ *
+ * A row of chips rather than a slider: the useful range is two or three, the
+ * values are whole rows, and the ceiling moves with the key's position, since a
+ * key on the last row has nothing to reach into. A key that already covers more
+ * rows than the layer has left (a row was deleted under it) keeps its chip, so
+ * touching this control never silently rewrites what the file says — the same
+ * rule [sliderTravel] follows for an out-of-range width.
+ */
+@Composable
+private fun KeyRowSpanRow(span: Int, rowsBelow: Int, onChange: (Int) -> Unit) {
+    // Nothing to span into and nothing already spanning: the control would offer
+    // one choice, which is not a choice.
+    if (rowsBelow <= 0 && span <= 1) return
+    val choices = (1..maxOf(rowsBelow + 1, span)).toList()
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(
+            pluralStringResource(R.plurals.layout_editor_key_row_span_label, span, span),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Text(
+            stringResource(R.string.layout_editor_key_row_span_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (choice in choices) {
+                FilterChip(
+                    selected = choice == span,
+                    onClick = { onChange(choice) },
+                    label = { Text(choice.toString()) },
+                )
+            }
+        }
+    }
 }
 
 @Composable

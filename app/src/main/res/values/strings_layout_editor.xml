@@ -185,6 +185,14 @@
     <!-- Button that gives the key all the width the row has left.
          %1$.2f is that width, for example 1.75. -->
     <string name="layout_editor_fill_row_action">Fill the row (<xliff:g id="width" example="1.75">%1$.2f</xliff:g>)</string>
+    <!-- How many rows the key covers, counting the one it is written in.
+         %1$d is that number and picks the wording. -->
+    <plurals name="layout_editor_key_row_span_label">
+        <item quantity="one">Covers %1$d row</item>
+        <item quantity="other">Covers %1$d rows</item>
+    </plurals>
+    <string name="layout_editor_key_row_span_hint">More than one makes the key taller. The rows under it draw their keys around it.</string>
+
     <!-- Name of the field you type an exact key width into. -->
     <string name="layout_editor_width_field_label">Width</string>
     <!-- Buttons that change the width of the key by a small step. -->

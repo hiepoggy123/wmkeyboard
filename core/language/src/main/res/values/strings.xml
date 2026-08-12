@@ -61,6 +61,17 @@
          word after it belongs to the rest of the sentence. -->
     <string name="core_lang_layout_wide_row_warning" tools:ignore="PluralsCandidate">Row %1$d of the <xliff:g id="layer" example="symbols">%2$s</xliff:g> layer is wider than the other rows. The keyboard draws the keys of this row narrower.</string>
 
+    <!-- %1$d is the row number, counted from 1. %2$s is the layer name.
+         %3$d is the largest number of rows one key may cover.
+         A key can be made taller than its row: it then covers the rows under it
+         and those rows draw their keys around it.
+         Not a plural: %1$d numbers one row, it does not count rows. -->
+    <string name="core_lang_layout_key_span_error" tools:ignore="PluralsCandidate">Row %1$d of the <xliff:g id="layer" example="symbols">%2$s</xliff:g> layer has a key that covers fewer than 1 or more than %3$d rows.</string>
+
+    <!-- %1$d is the row number, counted from 1. %2$s is the layer name.
+         Not a plural: %1$d numbers one row, it does not count rows. -->
+    <string name="core_lang_layout_span_past_end_warning" tools:ignore="PluralsCandidate">Row %1$d of the <xliff:g id="layer" example="symbols">%2$s</xliff:g> layer has a key that covers more rows than the layer has. The keyboard stops it at the last row.</string>
+
     <!-- %1$d is the number of braille dot keys with a bad dot number.
          %2$s is the layer name. A braille cell has six dots, numbered 1 to 6. -->
     <plurals name="core_lang_layout_bad_braille_dots_error">
@@ -112,6 +123,11 @@
     <!-- %1$s is the layer name. %2$s is the width the key had, in grid units.
          %3$s is the width the app gave it. -->
     <string name="core_lang_repair_key_width_capped">A key in the <xliff:g id="layer" example="letters">%1$s</xliff:g> layer was %2$s units wide. The app made it %3$s units wide.</string>
+    <!-- %1$s is the layer name. %2$d is the number of rows the key covered.
+         %3$d is the number of rows the app left it covering. A key can be made
+         taller than its row, covering the rows under it. -->
+    <string name="core_lang_repair_key_span_clamped">A key in the <xliff:g id="layer" example="letters">%1$s</xliff:g> layer covered <xliff:g id="span" example="12">%2$d</xliff:g> rows. The app made it cover <xliff:g id="fixed" example="8">%3$d</xliff:g>.</string>
+
     <string name="core_lang_repair_braille_dot_clamped">A key in the <xliff:g id="layer" example="letters">%1$s</xliff:g> layer used braille dot <xliff:g id="dot" example="9">%2$d</xliff:g>. The app made it dot <xliff:g id="fixed" example="6">%3$d</xliff:g>.</string>
 
     <!-- %1$s is the layer name. %2$d is the number of keys the row had, and
