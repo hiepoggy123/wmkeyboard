@@ -39,7 +39,7 @@ Pasting into a password field clears the system clipboard afterward by default, 
 
 ## One-tap cursor tools for the toolbar
 
-The panel above costs one tap to open and another to act. If you reach for the same cursor move often, pin its toolbar tool instead and skip the panel entirely. They call the same underlying handler, so behavior is identical either way.
+The panel above costs one tap to open and another to act. If you reach for the same cursor move often, pin its toolbar tool instead and skip the panel entirely. They call the same underlying handler, so the move itself is identical either way. The toolbar adds two things the panel has no room for: Shift extends the selection, and a hold repeats the move.
 
 | Tool | What it does |
 |---|---|
@@ -52,6 +52,27 @@ The panel above costs one tap to open and another to act. If you reach for the s
 | Select line | Select the entire line at the cursor |
 
 **Select word** and **Select line** don't send Ctrl+Shift+Arrow. The keyboard works out the word or line boundaries around the cursor itself and sets the selection directly. Both turn selection mode on afterward. Both do nothing if the cursor sits on whitespace or punctuation with no word to grab, or on an empty line.
+
+### Hold Shift to select
+
+Tap Shift before a cursor tool and the move extends the selection instead of collapsing it, the way Shift+Arrow does on a physical keyboard. Shift lock works too, which is the easier one for dragging a selection out over several taps. Shift isn't spent by the move, so it stays on and every following tap keeps extending. To stop, tap in the field to put the cursor down. Tapping Shift won't do it while text is selected, because by default that re-cases the selection instead (see [Details & edge cases](#details--edge-cases)).
+
+Only a Shift you pressed yourself counts. The keyboard arms Shift by itself at the start of a sentence, and an ALL CAPS field arms the lock, so reading those would turn an ordinary cursor tap into a selection you never asked for and your next keystroke would type over it.
+
+Auto-capitalize leaves your Shift alone while a selection is live, so the second tap extends the selection instead of dropping it. That only applies to the toolbar. Inside the text-editing panel the Shift key isn't on screen at all, so the panel's own <KeyCap>Select</KeyCap> toggle stays the only answer there.
+
+### Hold to repeat
+
+Holding a cursor tool on the toolbar keeps the move going for as long as your finger is down, at the same repeat interval the panel uses. It saves a tap per character when you're crossing a paragraph.
+
+Eight tools repeat: **Cursor left**, **Cursor right**, **Word left**, **Word right**, **Cursor up**, **Cursor down**, **Page up** and **Page down**. **Line start**, **Line end**, **Select word** and **Select line** don't, because a second press of any of those lands exactly where the first one did.
+
+Two things a hold does on every *other* toolbar tool are worth knowing about here:
+
+- **Hold and drag still moves the tool.** Once your finger travels far enough to read as a drag, the repeat stops and the tool picks itself up as usual. The moves it already made stay, so a deliberate drag costs you a caret move or two. Move the caret back, or drag from the toolbox instead.
+- **Hold opens a tool's settings page.** That gesture is spoken for on the toolbar once repeat is on, so hold the tool in the *toolbox* to reach its page. The toolbox never repeats.
+
+Turn repeat off and the toolbar hold goes back to opening the settings page. See [Options](#options).
 
 A **Hide keyboard** tool (one tap dismisses the keyboard) shares the **Cursor** section with these on the <SettingsPath path="Tools" /> screen, but it isn't a cursor move itself.
 
@@ -88,7 +109,15 @@ You don't have to open a panel at all for the most common move: sliding the curs
 
 <SettingsPath path="Tools / Text editing / Options" />
 
-**Key repeat interval**: default **60 ms**, adjustable from 30–200 ms. It sets the pause between repeats while you hold an arrow key or Backspace in the panel. Lower is faster. The initial 400 ms delay before repeating starts isn't adjustable.
+**Key repeat interval**: default **60 ms**, adjustable from 30–200 ms. It sets the pause between repeats while you hold an arrow key or Backspace in the panel, and while you hold one of the toolbar's cursor tools. Lower is faster. The delay before repeating starts isn't adjustable: 400 ms in the panel, and the system's own long-press timeout on the toolbar.
+
+### Hold a cursor tool to repeat
+
+<SettingsPath path="Tools / Cursor left / Options" />
+
+**Hold to repeat**: on by default. Holding one of the eight repeating cursor tools on the toolbar keeps moving the cursor. Turn it off and a hold there opens that tool's settings page instead, the way a hold on any other toolbar tool does.
+
+It's one switch shown on all eight of their settings screens, so flipping it on any one of them flips it everywhere. The **Key repeat interval** slider sits under it, the same slider the text-editing panel uses. Either way, holding the tool in the toolbox still opens its settings page, and dragging it from the toolbar still moves it.
 
 ### Numpad layout
 
@@ -121,6 +150,7 @@ This is the only place cut lives: there's no Cut button in the text-editing pane
 
 ## Details & edge cases
 
+- **Shift on a live selection re-cases it rather than switching Shift off**, so the obvious way to end a Shift-driven selection isn't the one to reach for. Tap in the field to put the cursor down instead. That's the "Tapping Shift with text selected cycles its case" toggle in the next bullet, on by default; turn it off and Shift goes back to being a plain Shift.
 - **Two Typing-screen toggles change what Select mode does elsewhere on the keyboard**, even though neither is on this page's own settings screens. Typing a bracket or quote with text selected wraps the selection in the pair instead of replacing it (on by default). Tapping Shift with text selected cycles its case instead of arming Shift for the next letter (also on by default, and a no-op in caseless scripts like Bengali). Both live under <SettingsPath path="Typing / Automatic corrections" />.
 - **Every tool on this page works before you've unlocked your device for the first time after a restart** (direct boot). The panel, the cursor tools, undo/redo and the numpad only touch the input connection, never stored data, so none of them wait on your device being unlocked. Compare [Media controls](/tools/media/), which can't.
 - **Nothing here is edition-gated.** The panel, every cursor tool, undo/redo, and the numpad all work identically on the full and lite builds.
