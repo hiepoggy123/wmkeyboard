@@ -636,6 +636,65 @@ internal fun addLanguage(
 }
 
 /**
+ * The Layouts group for one language: a toggle per layout, and under each
+ * converted Keyman layout the row that fetches its typing rules.
+ *
+ * Split out of [LanguageDetailScreen] rather than left inline. That function was
+ * already past detekt's complexity ceiling before the Keyman rows went in, and
+ * adding a prompt and a refresh counter to it made a bad number worse; this is
+ * the piece that grew, so this is the piece that moves.
+ */
+@Composable
+private fun LayoutsGroup(
+    lang: LanguageDef,
+    settings: KeyboardSettings,
+    repository: SettingsRepository,
+    scope: CoroutineScope,
+) {
+    val enableGate = rememberLayoutEnableGate(settings)
+    // Bumped when the enable prompt installs rules, so the row underneath stops
+    // offering to download what it just got.
+    var rulesRefresh by remember { mutableStateOf(0) }
+    val promptForRules = rememberKeymanRulesPrompt { rulesRefresh++ }
+
+    SettingsGroup(stringResource(R.string.languages_layouts_title)) {
+        for (layoutId in lang.layoutIds) {
+            val spec = resolveLayout(settings.customLayouts, layoutId)
+            item {
+                ToggleSetting(
+                    spec.name,
+                    null,
+                    layoutId in settings.enabledLayoutIds,
+                    default = layoutId in SettingsDefaults.enabledLayoutIds,
+                ) { enable ->
+                    fun write() {
+                        scope.launch {
+                            val next =
+                                if (enable) settings.enabledLayoutIds + layoutId
+                                else settings.enabledLayoutIds - layoutId
+                            // At least one layout must stay enabled somewhere.
+                            if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
+                        }
+                        // Asked at the moment of switching on, because that is
+                        // when the user is deciding to type in this language.
+                        // Finding out later that the keys produce Latin letters
+                        // is the outcome this exists to prevent.
+                        if (enable) spec.keyman?.let { promptForRules(it, spec.name) }
+                    }
+                    if (enable) enableGate(layoutId) { write() } else write()
+                }
+            }
+            // A converted Keyman layout can only type what its author wrote once
+            // its rules are on the device, so the row that fetches them sits
+            // directly under the layout it belongs to, and names it.
+            spec.keyman?.let { binding ->
+                item { KeymanRulesRow(binding, spec.name, rulesRefresh) }
+            }
+        }
+    }
+}
+
+/**
  * One language: toggle its layouts on/off (at least one layout overall must stay
  * enabled), pick other enabled languages as secondary suggestion sources, see
  * its dictionary status, and remove it. [onRemoved] pops back to the list once
@@ -691,36 +750,7 @@ internal fun LanguageDetailScreen(
     // A shipped layout always validates, but an *edited* one is stored under the
     // same id and resolves in its place, so this list can hold a broken layout
     // too. Same gate as the custom list; switching off is never gated.
-    val enableGate = rememberLayoutEnableGate(settings)
-    SettingsGroup(stringResource(R.string.languages_layouts_title)) {
-        for (layoutId in lang.layoutIds) {
-            val spec = resolveLayout(settings.customLayouts, layoutId)
-            item {
-                val name = spec.name
-                ToggleSetting(
-                    name,
-                    null,
-                    layoutId in settings.enabledLayoutIds,
-                    default = layoutId in SettingsDefaults.enabledLayoutIds,
-                ) { enable ->
-                    fun write() {
-                        scope.launch {
-                            val next =
-                                if (enable) settings.enabledLayoutIds + layoutId
-                                else settings.enabledLayoutIds - layoutId
-                            // At least one layout must stay enabled somewhere.
-                            if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
-                        }
-                    }
-                    if (enable) enableGate(layoutId) { write() } else write()
-                }
-            }
-            // A converted Keyman layout can only type what its author wrote
-            // once its rules are on the device, so the row that fetches them
-            // sits directly under the layout it belongs to.
-            spec.keyman?.let { binding -> item { KeymanRulesRow(binding) } }
-        }
-    }
+    LayoutsGroup(lang, settings, repository, scope)
 
     // Fancy Text: the style the one fancy layout draws and types. The strip
     // over the keys switches it too; this row makes it discoverable from
