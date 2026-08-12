@@ -804,7 +804,7 @@ fun KeyboardScreen(
     onFloatingBounds: (IntRect) -> Unit = {},
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit = {},
     onToolboxOrderChange: (List<ToolbarTool>) -> Unit = {},
-    onToolSettings: (ToolbarTool) -> Unit = {},
+    toolHold: ToolHoldCallbacks = ToolHoldCallbacks(),
     onToolboxHintDismiss: () -> Unit = {},
     onWeatherRefresh: () -> Unit = {},
     onCameraSend: (java.io.File) -> Unit = {},
@@ -1068,7 +1068,7 @@ fun KeyboardScreen(
                 onToolTap = onToolTap,
                 onToolbarToolsChange = onToolbarToolsChange,
                 onToolboxOrderChange = onToolboxOrderChange,
-                onToolSettings = onToolSettings,
+                toolHold = toolHold,
                 onToolboxHintDismiss = onToolboxHintDismiss,
                 onWeatherRefresh = onWeatherRefresh,
                 onCameraSend = onCameraSend,
@@ -4451,6 +4451,7 @@ internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.PAGE_DOWN -> R.string.ime_tool_page_down
     ToolbarTool.SELECT_WORD -> R.string.ime_tool_select_word
     ToolbarTool.SELECT_LINE -> R.string.ime_tool_select_line
+    ToolbarTool.SELECT_MODE -> R.string.ime_tool_select_mode
 }
 
 /** [toolLabelRes], worded for a caller that is already drawing. */
@@ -4510,6 +4511,11 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     // Lit while the fancy layout is the one typing, however it got there:
     // the tool and the 🌐 key reach the same place.
     ToolbarTool.FANCY -> state.language.id == FancyStyles.LANG_ID
+    // Lit while a caret move would extend the selection, however that was
+    // asked for: this tool, a hold on it, or the panel's own Select key. The
+    // tool is the only indicator the mode has outside that panel, so it reads
+    // the whole answer rather than its own flag.
+    ToolbarTool.SELECT_MODE -> state.selectingText
     // Stateless one-shot moves, like undo/redo: nothing to stay lit for.
     ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
     ToolbarTool.CURSOR_WORD_LEFT, ToolbarTool.CURSOR_WORD_RIGHT,
@@ -4595,6 +4601,14 @@ private class ToolDragController {
      * handlers.
      */
     var onHoldAction: (ToolbarTool) -> Unit = {}
+
+    /**
+     * The Selection mode tool held down (true) and let go (false). On the
+     * controller for the same reason [onHoldAction] is, and because the release
+     * has to reach the service even when the finger travels far enough to turn
+     * the gesture into a reorder.
+     */
+    var onSelectionHold: (Boolean) -> Unit = {}
 
     // Toolbox geometry and data, registered by ToolboxPanel while it is
     // open (a drag can only happen with the toolbox open). The viewport is
@@ -4772,11 +4786,29 @@ private fun holdActionFor(
     tool: ToolbarTool,
     fromToolbar: Boolean,
     state: KeyboardUiState,
-): ToolbarTool? = if (!fromToolbar || holdRepeatMs(tool, state) != null) {
+): ToolbarTool? = if (!fromToolbar || holdRepeatMs(tool, state) != null || holdArmsSelection(tool, fromToolbar, state)) {
     null
 } else {
     state.settings.toolbarBehavior.holdActions[tool]
 }
+
+/**
+ * Whether a press and hold on [tool] turns selection mode on for as long as the
+ * finger stays down — true for the Selection mode tool on the toolbar, unless
+ * the user has given that hold back.
+ *
+ * The third thing a stationary hold can be, beside repeating a caret move and
+ * running a bound action, and it excludes the other two the same way they
+ * exclude each other. Toolbar only: in the toolbox a hold reaches every tool's
+ * settings page, and there is nothing to select behind an open panel anyway.
+ */
+private fun holdArmsSelection(
+    tool: ToolbarTool,
+    fromToolbar: Boolean,
+    state: KeyboardUiState,
+): Boolean = fromToolbar &&
+    tool == ToolbarTool.SELECT_MODE &&
+    state.settings.textEditing.selectionModeHold
 
 /**
  * Wires long-press-drag onto a tool. Three outcomes from one gesture: a tap
@@ -4790,6 +4822,13 @@ private fun holdActionFor(
  * [holdRepeatMs] instead, so the cursor keeps moving for as long as the finger
  * is down. Null everywhere else, and on those tools the settings page is a hold
  * away in the toolbox instead.
+ *
+ * [holdArms] replaces it in the same way for the Selection mode tool: the hold
+ * turns selection mode on while the finger is down and the release turns it off
+ * (see [holdArmsSelection]). Like a repeat, it holds the pick-up back until the
+ * finger travels, so the tool can still be dragged somewhere else — and the
+ * release reaches the service on that path too, or the mode would be left on by
+ * a reorder.
  *
  * The tap is dispatched from here rather than from a `clickable` on the tool
  * itself: a `clickable` sits deeper in the modifier chain, so it saw the
@@ -4805,6 +4844,8 @@ private fun DraggableTool(
     holdRepeatMs: Long? = null,
     /** What a stationary hold runs, or null to open the tool's settings page. */
     holdAction: ToolbarTool? = null,
+    /** Whether a stationary hold arms selection mode for as long as it lasts. */
+    holdArms: Boolean = false,
     content: @Composable (Modifier) -> Unit,
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
@@ -4820,7 +4861,7 @@ private fun DraggableTool(
             // Keyed on the interval too: it comes from a setting, so the handler
             // has to be rebuilt when it changes. A Long changes far more rarely
             // than the lambda above, which is why that one goes through a holder.
-            .pointerInput(enabled, tool, holdRepeatMs) {
+            .pointerInput(enabled, tool, holdRepeatMs, holdArms) {
                 if (!enabled) return@pointerInput
                 // Raw press-and-hold, mirroring the key rows' handler, instead
                 // of detectDragGesturesAfterLongPress: its long-press never
@@ -4840,13 +4881,23 @@ private fun DraggableTool(
                     var dragged = false
                     var released = false
                     var scrolled = false
+                    // Whether selection mode is on because of *this* hold, so
+                    // the release turns off exactly what the press turned on.
+                    var armed = false
                     val timer = scope.launch {
                         delay(viewConfiguration.longPressTimeoutMillis)
                         // The pick-up is invisible until the first move; the
                         // buzz tells the user the long-press registered.
                         feedback()
                         longPressed = true
-                        if (holdRepeatMs == null) {
+                        if (holdArms) {
+                            // Selection mode for as long as the finger stays
+                            // down. The pick-up waits for travel, exactly as a
+                            // repeating tool's does, so the bar can still be
+                            // rearranged from this button.
+                            armed = true
+                            drag.onSelectionHold(true)
+                        } else if (holdRepeatMs == null) {
                             drag.start(tool, fromToolbar, rootPos)
                         } else {
                             // A repeating tool holds its pick-up back until the
@@ -4891,27 +4942,45 @@ private fun DraggableTool(
                                     // picks itself up from here. The moves it
                                     // already made stand — they are caret moves,
                                     // undone by moving the caret back.
-                                    if (holdRepeatMs != null) {
+                                    if (holdRepeatMs != null || holdArms) {
                                         timer.cancel()
+                                        // The mode ends here rather than on the
+                                        // drop: from this point the gesture is
+                                        // about the toolbar, not the text.
+                                        if (armed) {
+                                            armed = false
+                                            drag.onSelectionHold(false)
+                                        }
                                         drag.start(tool, fromToolbar, rootPos)
                                     }
                                 }
                                 // Nothing to move while a hold is still
-                                // repeating: no drag has been started, and
-                                // drag.move would tick the drop haptic anyway.
-                                if (holdRepeatMs == null || dragged) drag.move(rootPos)
+                                // repeating or arming: no drag has been started,
+                                // and drag.move would tick the drop haptic anyway.
+                                if ((holdRepeatMs == null && !holdArms) || dragged) drag.move(rootPos)
                             }
                         }
                     } finally {
                         timer.cancel()
+                        // Whatever ended the gesture — a release, a drop, the
+                        // handler being torn down mid-hold — the mode this press
+                        // armed ends with it. Nothing else here can be trusted
+                        // to run: the branches below are exclusive.
+                        if (armed) {
+                            armed = false
+                            drag.onSelectionHold(false)
+                        }
                         when {
                             !longPressed -> {
                                 drag.cancel()
                                 if (released && !scrolled) tapAction()
                             }
                             dragged -> drag.end()
-                            // A repeating hold has already done its work, and
-                            // there is nothing to drop. Its settings page is a
+                            // A hold that armed selection mode has already done
+                            // its work, and there is nothing to drop. Its
+                            // settings page is a hold away in the toolbox.
+                            holdArms -> drag.cancel()
+                            // Same for a repeating hold. Its settings page is a
                             // hold away in the toolbox, which never repeats.
                             holdRepeatMs != null -> drag.cancel()
                             // A hold that never travelled past the slop is a
@@ -5659,6 +5728,7 @@ private fun RowScope.ToolbarRow(
                         onTap = { onToolTap(tool) },
                         holdRepeatMs = holdRepeatMs(tool, state),
                         holdAction = holdActionFor(tool, fromToolbar = true, state = state),
+                        holdArms = holdArmsSelection(tool, fromToolbar = true, state = state),
                     ) { dragModifier ->
                         ToolCircle(
                             slot = IconSlots.forTool(tool),
@@ -6656,7 +6726,7 @@ private fun KeyboardBody(
     onToolTap: (ToolbarTool) -> Unit,
     onToolbarToolsChange: (List<ToolbarTool>) -> Unit,
     onToolboxOrderChange: (List<ToolbarTool>) -> Unit,
-    onToolSettings: (ToolbarTool) -> Unit,
+    toolHold: ToolHoldCallbacks,
     onToolboxHintDismiss: () -> Unit,
     onWeatherRefresh: () -> Unit,
     onCameraSend: (java.io.File) -> Unit,
@@ -6754,7 +6824,8 @@ private fun KeyboardBody(
         if (readsRtl) { tools -> onToolbarToolsChange(tools.reversed()) } else onToolbarToolsChange
     drag.onOrderCommit = onToolboxOrderChange
     drag.onSnap = LocalKeyPressFeedback.current
-    drag.onOpenSettings = onToolSettings
+    drag.onOpenSettings = toolHold.onSettings
+    drag.onSelectionHold = toolHold.onSelectionHold
     // A remapped hold runs the bound tool through the same dispatcher a tap
     // uses, so it opens panels, acts on the field, and is logged identically.
     drag.onHoldAction = onToolTap
@@ -13973,6 +14044,22 @@ private fun DualTonePicker(
         }
     }
 }
+
+/**
+ * What a press and hold on a tool reaches, bundled into one [KeyboardScreen]
+ * parameter for the reason [SnippetPanelCallbacks] is: its caller sits against
+ * the JVM's 64K method-size ceiling, where every added parameter costs bytecode.
+ * Selection mode needed a second callback, and the bundle pays for both.
+ */
+data class ToolHoldCallbacks(
+    /** A stationary hold with nothing else bound: open that tool's settings page. */
+    val onSettings: (ToolbarTool) -> Unit = {},
+    /**
+     * The Selection mode tool held down (true) and let go (false). Always paired:
+     * every path out of the gesture releases what it armed.
+     */
+    val onSelectionHold: (Boolean) -> Unit = {},
+)
 
 // ---- snippets panel ----
 

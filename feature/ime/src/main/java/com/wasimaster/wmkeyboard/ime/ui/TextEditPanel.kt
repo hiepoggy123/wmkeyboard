@@ -85,7 +85,10 @@ internal fun TextEditPanel(
             .height(height)
             .padding(horizontal = 6.dp, vertical = 4.dp),
     ) {
-        TextEditGrid(layout, repeatMs, state.textEditSelecting, onAction)
+        // The whole answer, not the panel's own flag: with the toolbar's
+        // Selection mode on, this panel's arrows extend the selection too, so
+        // its Select key has to read as on.
+        TextEditGrid(layout, repeatMs, state.selectingText, onAction)
     }
 }
 

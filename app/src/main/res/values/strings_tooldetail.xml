@@ -159,6 +159,15 @@
     <string name="tooldetail_cursor_repeat_toolbox_info">A hold in the toolbox is how you open a tool\'s page from the keyboard, so this tool gives that up while this is on. Its page stays under Tools. Turn it on only for the moves you actually hold.</string>
     <string name="tooldetail_cursor_repeat_speed_subtitle">Pause between moves while you hold the tool. A lower value is faster. Shared with the text editing tool</string>
 
+    <!-- Selection mode tool on the toolbar. -->
+    <string name="tooldetail_select_mode_hold_title">Press and hold to select</string>
+    <string name="tooldetail_select_mode_hold_subtitle">Selection mode stays on while you hold the tool. It stops when you let go, and the selected text stays selected</string>
+    <string name="tooldetail_select_mode_hold_info">This spends the press and hold on the toolbar, so this page is where you change the tool, or a hold in the toolbox. To move the tool, press and hold it and then drag it, as before.</string>
+    <string name="tooldetail_select_mode_taps_title">Two presses select a word</string>
+    <string name="tooldetail_select_mode_taps_subtitle">Two quick presses select the word at the cursor. Three select the full line</string>
+    <string name="tooldetail_select_mode_taps_info">The first press of a pair still turns selection mode on or off, in the same way the shift key gives you caps lock. Turn this off if you press the tool twice in quick succession and want no word selected.</string>
+    <string name="tooldetail_select_mode_info">While selection mode is on, every cursor move selects text: the cursor tools, the text editing panel, the spacebar cursor swipe and the volume keys. Turn it off to keep what you selected and stop selecting more.</string>
+
     <!-- Numpad tool. -->
     <string name="tooldetail_numpad_calc_title">Calculator layout</string>
     <string name="tooldetail_numpad_calc_subtitle">7 8 9 on the top row, like a desk keypad. Off puts 1 2 3 on top, like a dialer</string>

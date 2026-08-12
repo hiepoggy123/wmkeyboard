@@ -1189,6 +1189,24 @@ data class KeyboardUiState(
     val nextLetterBias: Map<Char, Float> = emptyMap(),
     /** Text-edit panel: arrows extend the selection instead of moving the cursor. */
     val textEditSelecting: Boolean = false,
+    /**
+     * The toolbar's Selection mode tool, switched on by a tap and off by the
+     * next one.
+     *
+     * The same question as [textEditSelecting] with a longer life: the panel's
+     * toggle belongs to the panel and dies when one opens or closes, while this
+     * one is a mode the user armed from the bar and can see lit there, so it
+     * survives panels, caret moves and everything else until it is tapped off
+     * or the field changes. Read them together through [selectingText].
+     */
+    val selectionMode: Boolean = false,
+    /**
+     * Selection mode for as long as the finger stays on the tool: a press and
+     * hold arms it, the release disarms it. Only the *extending* stops there.
+     * Whatever was selected stays selected, because the selection lives in the
+     * editor and nothing here collapses it.
+     */
+    val selectionHold: Boolean = false,
     val emojiQuery: String = "",
     val emojiSearchActive: Boolean = false,
     val emojiResults: List<EmojiEntry> = emptyList(),
@@ -1483,6 +1501,20 @@ data class KeyboardUiState(
      */
     val shiftSelectsText: Boolean
         get() = shiftState != ShiftState.OFF && shiftPressedByUser
+
+    /**
+     * Whether a caret move right now extends the selection instead of collapsing
+     * it, from any of the three places that can ask for it: the text-editing
+     * panel's own toggle, the toolbar's Selection mode, and a hold on that tool.
+     *
+     * Every caret path reads this one property — the panel's arrows, the
+     * toolbar's cursor tools, the spacebar cursor swipe, the volume keys and a
+     * layout's own arrow keys — so a mode armed in one place is in force in all
+     * of them. Shift is deliberately not folded in: it is spent on the next
+     * letter, so the tools that read it say so themselves (see [shiftSelectsText]).
+     */
+    val selectingText: Boolean
+        get() = textEditSelecting || selectionMode || selectionHold
 
     /**
      * The action the Enter key should draw and fire, folding in the

@@ -72,6 +72,7 @@ import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material.icons.outlined.Speed
@@ -174,6 +175,7 @@ object IconDefaults {
         ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
         ToolbarTool.SELECT_WORD -> Icons.Outlined.HighlightAlt
         ToolbarTool.SELECT_LINE -> Icons.Outlined.ViewHeadline
+        ToolbarTool.SELECT_MODE -> Icons.Outlined.SelectAll
     }
 
     /**

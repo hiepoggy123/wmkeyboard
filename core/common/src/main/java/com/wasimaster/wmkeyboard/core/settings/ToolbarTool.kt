@@ -40,6 +40,9 @@ enum class ToolbarTool {
     CURSOR_HOME, CURSOR_END, PAGE_UP, PAGE_DOWN,
     // Move by whole words (Ctrl+Arrow), and select the word or line at the cursor.
     CURSOR_WORD_LEFT, CURSOR_WORD_RIGHT, SELECT_WORD, SELECT_LINE,
+    // Selection mode: while it is on, every caret move extends the selection
+    // instead of collapsing it, the way a held shift does on a physical keyboard.
+    SELECT_MODE,
     // Dismiss the keyboard in one tap. Grouped with the cursor moves in the
     // toolbox (it belongs beside the caret controls, not a panel it opens).
     HIDE_KEYBOARD,
@@ -52,7 +55,7 @@ val CursorTools: List<ToolbarTool> = listOf(
     ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
     ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
-    ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE,
+    ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE, ToolbarTool.SELECT_MODE,
 )
 
 /**
@@ -207,7 +210,7 @@ private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.CURSOR_WORD_LEFT, ToolbarTool.CURSOR_WORD_RIGHT,
     ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
-    ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE,
+    ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE, ToolbarTool.SELECT_MODE,
 )
 
 /**

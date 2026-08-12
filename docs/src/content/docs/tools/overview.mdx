@@ -11,7 +11,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import Flavor from '@components/Flavor.astro';
 
-WM Keyboard ships 63 tools (panels, sensors, generators, and one-tap actions), but only a handful sit on the toolbar at once. The rest wait one tap away in the toolbox, and you decide which is which by dragging tools between the two.
+WM Keyboard ships 64 tools (panels, sensors, generators, and one-tap actions), but only a handful sit on the toolbar at once. The rest wait one tap away in the toolbox, and you decide which is which by dragging tools between the two.
 
 <PhoneFrame caption="The toolbar's default row (Emoji, Clipboard, Settings) with the toolbox grid open below it.">
   {/* shot: tools/toolbar-and-toolbox */}
@@ -54,7 +54,7 @@ The trade is muscle memory against reach. Paging keeps every tool at the same sp
 
 Pick a page size that's a multiple of your row size and every page comes out with full rows. Ask for more tools than fit the panel's height and the page will scroll as well as swipe, which rather defeats the point.
 
-## Browsing all 63 tools
+## Browsing all 64 tools
 
 <SettingsPath path="Tools" />
 
@@ -86,7 +86,7 @@ To back out of any open panel:
 
 **Direct boot** is the window right after a restart, before you've entered your PIN or pattern for the first time. The keyboard can't reach its stored data yet. Some tools work anyway.
 
-WM Keyboard exposes 38 of its 63 tools during that window: everything that's pure arithmetic, a sensor reading, or a control over the keyboard's own on-screen state. That's Emoji, Text editing, Numpad, Symbols, One-handed, Split, Floating, Resize, Hide keyboard, Themes, Autocorrect, Sound & haptics, Incognito, Modes, Fancy text, Undo, Redo, Power saving, Calculator, Unit converter, Password generator, QR generator, Flashlight, Compass, Level, Moon phase, and all twelve cursor tools.
+WM Keyboard exposes 39 of its 64 tools during that window: everything that's pure arithmetic, a sensor reading, or a control over the keyboard's own on-screen state. That's Emoji, Text editing, Numpad, Symbols, One-handed, Split, Floating, Resize, Hide keyboard, Themes, Autocorrect, Sound & haptics, Incognito, Modes, Fancy text, Undo, Redo, Power saving, Calculator, Unit converter, Password generator, QR generator, Flashlight, Compass, Level, Moon phase, and all thirteen cursor tools.
 
 The other 25 sit it out until you unlock. That covers anything backed by a file on disk (Clipboard, Snippets, Camera, downloaded speech or AI models), anything that needs a credential (Translate, the online searches, AI), anything that reads a content provider behind the lock screen (Calendar), and anything that has to launch a separate activity (Settings, the document scanner). None of it is a toggle. The split is automatic, and it only applies before that first unlock.
 
@@ -128,7 +128,7 @@ The leader is one switch in a broader hardware-keyboard group. Arrow-key navigat
 ## Details & edge cases
 
 - A tool that's disabled under <SettingsPath path="Tools" /> disappears from the toolbar, the toolbox, *and* its hardware leader-key letter all at once, since there's a single switch, not three.
-- Five tools ship native libraries the Lite build leaves out, so they are <Flavor edition="full" />: Handwriting, OCR, QR scan, and Document scanner need ML Kit, and Grammar needs Harper's. Lite ships 58 tools instead of 63. A build-gated tool gets no settings row at all, so you never meet a switch that won't turn on.
+- Five tools ship native libraries the Lite build leaves out, so they are <Flavor edition="full" />: Handwriting, OCR, QR scan, and Document scanner need ML Kit, and Grammar needs Harper's. Lite ships 59 tools instead of 64. A build-gated tool gets no settings row at all, so you never meet a switch that won't turn on.
 - **Document scanner** has a second gate on top of that one: it's an activity inside Google Play services, not this app's own code, so it's hidden on any device without Play services even on <Flavor edition="full" />. OCR and QR scan stay put there, since their models ship in the APK and run with no Play services at all.
 - **Reset toolbox order** puts the grid back in the order it shipped in, after a confirmation. It sits under <SettingsPath path="Appearance / Toolbar" /> right below Reset pinned tools, and only appears once you have actually dragged something. It leaves the pinned row and which tools are enabled alone. **Reset pinned tools** is the mirror of it.
 - Toolbar reordering is per-installation, not per-language. Pinning a tool applies everywhere, not only while a particular language is active. A keyboard mode's own toolbar override is the one exception. See [above](#pinning-and-reordering).

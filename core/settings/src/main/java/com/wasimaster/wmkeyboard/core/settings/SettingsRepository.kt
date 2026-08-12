@@ -2796,6 +2796,27 @@ data class TextEditingSettings(
      */
     val toolboxRepeatTools: Set<ToolbarTool> = emptySet(),
     /**
+     * A press and hold on the toolbar's Selection mode tool turns selection mode
+     * on for as long as the finger stays down, and the release turns it off.
+     *
+     * On, that hold is spoken for, so the tool's own settings page is reached
+     * from the Tools screen or from a toolbox hold instead. That is the same
+     * trade [cursorToolsRepeatOnHold] makes, and it is a setting for the same
+     * reason: someone who only ever taps the tool would rather have the hold
+     * back. Dragging to reorder survives either way, since a hold that travels
+     * still picks the tool up.
+     */
+    val selectionModeHold: Boolean = true,
+    /**
+     * Two quick presses of the Selection mode tool select the word at the
+     * cursor, and three select the line.
+     *
+     * Off, every press is a plain toggle. Worth turning off for anyone who
+     * switches the mode on and straight back off faster than the double-tap
+     * window, who would otherwise select a word they did not ask for.
+     */
+    val selectionModeMultiTap: Boolean = true,
+    /**
      * The text-editing panel's own grid, or null for the shipped arrangement
      * ([DefaultTextEditLayout]).
      *
@@ -4497,6 +4518,8 @@ class SettingsRepository(private val context: Context) {
         private val CURSOR_TOOLS_REPEAT_ON_HOLD =
             booleanPreferencesKey("cursor_tools_repeat_on_hold")
         private val TOOLBOX_REPEAT_TOOLS = stringPreferencesKey("toolbox_repeat_tools")
+        private val SELECTION_MODE_HOLD = booleanPreferencesKey("selection_mode_hold")
+        private val SELECTION_MODE_MULTI_TAP = booleanPreferencesKey("selection_mode_multi_tap")
         private val DOUBLE_SPACE_WINDOW_MS = intPreferencesKey("double_space_window_ms")
         private val SPACE_CURSOR_STEP_DP = intPreferencesKey("space_cursor_step_dp")
         private val BACKSPACE_WORD_STEP_DP = intPreferencesKey("backspace_word_step_dp")
@@ -5506,6 +5529,10 @@ class SettingsRepository(private val context: Context) {
                 toolboxRepeatTools = p[TOOLBOX_REPEAT_TOOLS]
                     ?.let { csv -> decodeToolNames(csv).filterTo(HashSet()) { it in HoldRepeatCursorTools } }
                     ?: defaults.textEditing.toolboxRepeatTools,
+                selectionModeHold = p[SELECTION_MODE_HOLD]
+                    ?: defaults.textEditing.selectionModeHold,
+                selectionModeMultiTap = p[SELECTION_MODE_MULTI_TAP]
+                    ?: defaults.textEditing.selectionModeMultiTap,
                 // Null when nothing is stored *or* when what is stored has no
                 // usable key left; both mean the shipped arrangement.
                 layout = TextEditLayoutCodec.decode(p[TEXT_EDIT_LAYOUT]),
@@ -6152,6 +6179,12 @@ class SettingsRepository(private val context: Context) {
             if (repeat) current += tool else current -= tool
             prefs[TOOLBOX_REPEAT_TOOLS] = current.joinToString(",") { it.name }
         }
+
+    suspend fun setSelectionModeHold(value: Boolean) =
+        editPrefs { it[SELECTION_MODE_HOLD] = value }
+
+    suspend fun setSelectionModeMultiTap(value: Boolean) =
+        editPrefs { it[SELECTION_MODE_MULTI_TAP] = value }
 
     suspend fun setDoubleSpaceWindowMs(value: Int) =
         editPrefs { it[DOUBLE_SPACE_WINDOW_MS] = value.coerceIn(200, 800) }

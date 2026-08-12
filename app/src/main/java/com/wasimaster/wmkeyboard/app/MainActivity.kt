@@ -3914,7 +3914,8 @@ internal const val ROUTE_TOOLBAR_HOLD = "toolbar_hold"
  *
  * The caret tools are shown with their reason rather than hidden: their hold is
  * already spent repeating the move, and someone looking for them here should find
- * out why instead of wondering where they went.
+ * out why instead of wondering where they went. Selection mode reads the same
+ * way, for the hold that turns it on while the finger is down.
  */
 @Composable
 private fun ToolbarHoldSettings(repository: SettingsRepository, settings: KeyboardSettings) {
@@ -3934,6 +3935,10 @@ private fun ToolbarHoldSettings(repository: SettingsRepository, settings: Keyboa
                 item {
                     val repeats = tool in HoldRepeatCursorTools &&
                         settings.textEditing.cursorToolsRepeatOnHold
+                    // The other hold that is already spoken for: this one turns
+                    // selection mode on for as long as it lasts.
+                    val selects = tool == ToolbarTool.SELECT_MODE &&
+                        settings.textEditing.selectionModeHold
                     val bound = holdActions[tool]
                     WmRow(
                         title = stringResource(toolTitle(tool)),
@@ -3943,6 +3948,9 @@ private fun ToolbarHoldSettings(repository: SettingsRepository, settings: Keyboa
                         supporting = when {
                             repeats -> {
                                 { CaptionText(stringResource(R.string.appearance_toolbar_hold_repeats_subtitle)) }
+                            }
+                            selects -> {
+                                { CaptionText(stringResource(R.string.appearance_toolbar_hold_selects_subtitle)) }
                             }
                             bound == null -> {
                                 { CaptionText(stringResource(R.string.appearance_toolbar_hold_settings_subtitle)) }
@@ -3979,9 +3987,9 @@ private fun ToolbarHoldSettings(repository: SettingsRepository, settings: Keyboa
                                 }
                             }
                         },
-                        // A repeating tool has no hold to give, so its row reads
-                        // rather than opens.
-                        onClick = if (repeats) null else ({ editing = tool }),
+                        // A tool whose hold is already spoken for has none to
+                        // give, so its row reads rather than opens.
+                        onClick = if (repeats || selects) null else ({ editing = tool }),
                     )
                 }
             }
@@ -9853,6 +9861,7 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.PAGE_DOWN -> ImeR.string.ime_tool_page_down
     ToolbarTool.SELECT_WORD -> ImeR.string.ime_tool_select_word
     ToolbarTool.SELECT_LINE -> ImeR.string.ime_tool_select_line
+    ToolbarTool.SELECT_MODE -> ImeR.string.ime_tool_select_mode
     ToolbarTool.HIDE_KEYBOARD -> R.string.fonts_tool_hide_keyboard_title
 }
 
@@ -9921,6 +9930,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.PAGE_DOWN -> R.string.fonts_tool_page_down_desc
     ToolbarTool.SELECT_WORD -> R.string.fonts_tool_select_word_desc
     ToolbarTool.SELECT_LINE -> R.string.fonts_tool_select_line_desc
+    ToolbarTool.SELECT_MODE -> R.string.fonts_tool_select_mode_desc
     ToolbarTool.HIDE_KEYBOARD -> R.string.fonts_tool_hide_keyboard_desc
 }
 
@@ -10636,6 +10646,29 @@ private fun ToolDetailSettings(
                     ),
                 ) { onNavigate(ROUTE_TEXT_EDIT_LAYOUT) }
             }
+        }
+        ToolbarTool.SELECT_MODE -> {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_select_mode_hold_title,
+                        stringResource(R.string.tooldetail_select_mode_hold_subtitle),
+                        settings.textEditing.selectionModeHold,
+                        info = stringResource(R.string.tooldetail_select_mode_hold_info),
+                        default = SettingsDefaults.textEditing.selectionModeHold,
+                    ) { scope.launch { repository.setSelectionModeHold(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_select_mode_taps_title,
+                        stringResource(R.string.tooldetail_select_mode_taps_subtitle),
+                        settings.textEditing.selectionModeMultiTap,
+                        info = stringResource(R.string.tooldetail_select_mode_taps_info),
+                        default = SettingsDefaults.textEditing.selectionModeMultiTap,
+                    ) { scope.launch { repository.setSelectionModeMultiTap(it) } }
+                }
+            }
+            CaptionText(stringResource(R.string.tooldetail_select_mode_info))
         }
         // The caret movers, which are the only tools a hold repeats. Home, End
         // and the two select tools are not in the set — a second press of those

@@ -58,6 +58,7 @@
     <string name="appearance_toolbar_hold_empty_body">There are no tools on the toolbar. Add some in Tools, then give them their second action here.</string>
     <string name="appearance_toolbar_hold_settings_subtitle">Opens this tool\'s settings</string>
     <string name="appearance_toolbar_hold_repeats_subtitle">Press and hold repeats the move, so it cannot do a second action</string>
+    <string name="appearance_toolbar_hold_selects_subtitle">Press and hold turns selection mode on, so it cannot do a second action</string>
     <!-- %1$s is the name of a tool, for example "Undo". -->
     <string name="appearance_toolbar_hold_clear_desc">Clear the press and hold action for <xliff:g id="tool" example="Undo">%1$s</xliff:g></string>
     <!-- %1$s is the name of a tool, for example "Undo". -->

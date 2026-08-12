@@ -21,7 +21,7 @@ Open **Text editing** from the toolbar, or from the toolbox if you haven't pinne
 
 The panel is a d-pad cluster: <KeyCap>◀</KeyCap> and <KeyCap>▶</KeyCap> span the full height on either side, with <KeyCap>▲</KeyCap>, a <KeyCap>Select</KeyCap> toggle, and <KeyCap>▼</KeyCap> stacked in the middle. A bottom row adds <KeyCap>Home</KeyCap>, <KeyCap>End</KeyCap>, and <KeyCap>Backspace</KeyCap>. Each of those keys sends the field a real key event, the same one a hardware arrow key would send, rather than a movement the keyboard computed itself. So the cursor behaves exactly as it would with a physical keyboard plugged in.
 
-Tap <KeyCap>Select</KeyCap> to turn selection mode on. The key lights up while it's active. With Select on, every arrow, Home, or End move extends the selection instead of just moving the caret. The panel wraps each move in a real Shift press rather than a background modifier flag, since some editors only pick up Shift state from the key events themselves. Tap <KeyCap>Select</KeyCap> again to turn it off, or see below for the two actions that flip it automatically.
+Tap <KeyCap>Select</KeyCap> to turn selection mode on. The key lights up while it's active. With Select on, every arrow, Home, or End move extends the selection instead of just moving the caret. The panel wraps each move in a real Shift press rather than a background modifier flag, since some editors only pick up Shift state from the key events themselves. Tap <KeyCap>Select</KeyCap> again to turn it off, or see below for the two actions that flip it automatically. The toolbar's [Selection mode](#selection-mode) tool is the same mode from outside the panel: either one turns it on, either one turns it off, and both light up while it's on. The difference is how long it lasts. The panel's toggle ends when the panel does, and the tool's mode stays on until you press it again.
 
 Holding <KeyCap>◀</KeyCap>, <KeyCap>▶</KeyCap>, <KeyCap>▲</KeyCap>, <KeyCap>▼</KeyCap>, or <KeyCap>Backspace</KeyCap> auto-repeats after a fixed 400 ms delay, then keeps repeating at an interval you can tune (see [Options](#options) below).
 
@@ -50,6 +50,7 @@ The panel above costs one tap to open and another to act. If you reach for the s
 | Page up / Page down | Scroll the cursor a page |
 | Select word | Select the word at the cursor |
 | Select line | Select the entire line at the cursor |
+| Selection mode | Every cursor move selects text until you turn it back off |
 
 **Select word** and **Select line** don't send Ctrl+Shift+Arrow. The keyboard works out the word or line boundaries around the cursor itself and sets the selection directly. Both turn selection mode on afterward. Both do nothing if the cursor sits on whitespace or punctuation with no word to grab, or on an empty line.
 
@@ -61,11 +62,34 @@ Only a Shift you pressed yourself counts. The keyboard arms Shift by itself at t
 
 Auto-capitalize leaves your Shift alone while a selection is live, so the second tap extends the selection instead of dropping it. That only applies to the toolbar. Inside the text-editing panel the Shift key isn't on screen at all, so the panel's own <KeyCap>Select</KeyCap> toggle stays the only answer there.
 
+### Selection mode
+
+**Selection mode** is the toolbar's version of holding Shift down, without a hand tied up doing it. Press it once and it stays on: from then on every cursor move extends the selection instead of collapsing it. Press it again to turn it off. The tool lights up while it's on, and so does the panel's own <KeyCap>Select</KeyCap> key, because they're the same mode seen from two places.
+
+*Every* cursor move obeys it, not just the toolbar's:
+
+- the arrows, Home and End in the text-editing panel
+- the one-tap cursor tools above
+- the [spacebar cursor swipe](/typing/gestures/), including its 2-D mode
+- the [volume keys](/typing/gestures/), when you've set them to move the cursor
+- arrow keys on the keyboard itself, on a layout that has them
+
+That's the point of a mode over a held Shift: whichever hand you'd normally move the cursor with is free to do it, and navigating never cancels the selection you're building.
+
+Turning it off keeps the selection. Only the *extending* stops, so what you've selected is still there to copy, cut, or type over.
+
+Two more gestures on the same button:
+
+- **Press and hold** for a temporary mode. Selection mode is on for as long as your finger stays down and off the moment you let go, again leaving the selection intact. Good for one quick selection when you don't want to remember to switch the mode back off. It's on by default and can be turned off under [Options](#options).
+- **Press twice quickly** to select the word at the cursor, or **three times** to select the line. Both leave the mode on, so you can widen the selection from there with any cursor move. The first press of a pair still toggles the mode, exactly the way the first tap of a Shift double-tap still arms Shift. If that trips you up, the shortcut is switchable off.
+
+Selection mode ends by itself when you move to a different text field, and a press and hold ends when the keyboard closes. It survives everything else: panels opening and closing, layout switches, and any amount of cursor movement.
+
 ### Hold to repeat
 
 Holding a cursor tool on the toolbar keeps the move going for as long as your finger is down, at the same repeat interval the panel uses. It saves a tap per character when you're crossing a paragraph.
 
-Eight tools repeat: **Cursor left**, **Cursor right**, **Word left**, **Word right**, **Cursor up**, **Cursor down**, **Page up** and **Page down**. **Line start**, **Line end**, **Select word** and **Select line** don't, because a second press of any of those lands exactly where the first one did.
+Eight tools repeat: **Cursor left**, **Cursor right**, **Word left**, **Word right**, **Cursor up**, **Cursor down**, **Page up** and **Page down**. **Line start**, **Line end**, **Select word** and **Select line** don't, because a second press of any of those lands exactly where the first one did. **Selection mode** doesn't either: its hold is the temporary mode described above.
 
 The toolbox grid can do it too, but that one is off until you ask for it, one tool at a time. See [Options](#options) for why.
 
@@ -134,6 +158,16 @@ Two of those pairings ship: **Home** and **End** hold to the start and end of th
 It's per tool, and off to start with, because of what it costs. A hold in the toolbox is how you reach any tool's settings page from the keyboard. A tool that repeats there has spent that gesture, so its own page is then only reachable under <SettingsPath path="Tools" />. That's a fair trade for the one or two moves you actually hold down and a bad one across the whole grid, which is why it's answered a tool at a time rather than all at once.
 
 The **Key repeat interval** slider sits under both, the same slider the text-editing panel uses, and it shows as soon as either surface repeats. Dragging a tool to move it survives both switches on both surfaces.
+
+### Selection mode gestures
+
+<SettingsPath path="Tools / Selection mode / Options" />
+
+**Press and hold to select**: on by default. Holding the tool on the toolbar turns selection mode on until you let go. Turn it off and a hold there opens the tool's settings page instead, the way a hold on any other toolbar tool does.
+
+**Two presses select a word**: on by default. Two quick presses select the word at the cursor and three select the line, on the same 350 ms window the Shift key uses for caps lock. Turn it off if you flip the mode on and off faster than that and don't want a word selected on the way past.
+
+Dragging the tool to move it works with either switch on: once your finger travels far enough to read as a drag, the mode ends and the tool picks itself up as usual.
 
 ### Numpad layout
 

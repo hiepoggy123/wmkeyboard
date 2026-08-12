@@ -34,6 +34,8 @@ Set a slot to **Cursor** and the drag moves the text cursor instead of typing. T
 
 **2-D cursor touchpad** (off by default) turns the same drag into a touchpad. A vertical component now steps the cursor up and down through the text too, on the same Cursor speed distance. Both axes send real arrow-key events rather than computing a raw text offset, so vertical movement follows whatever line-wrapping the app is doing instead of guessing at it. The toggle only appears once one of the two swipe slots above is set to Cursor, and Cursor speed appears beside it.
 
+The same drag **selects** text instead of moving through it while selection mode is on, on either axis. Turn the mode on from the toolbar's [Selection mode](/tools/text-editing/#selection-mode) tool, or hold that tool down and scrub the spacebar with your other thumb.
+
 ## Swiping down to hide the keyboard
 
 <SettingsPath path="Typing / Gestures / Swipe down to hide the keyboard" />
@@ -76,7 +78,7 @@ See [Sound & vibration](/typing/feedback/) for the **Vibrate on delete swipe** h
 
 <SettingsPath path="Typing / Volume keys" />
 
-**Volume keys move the cursor** (off by default) repurposes the hardware volume rocker while the keyboard is on screen: volume down moves the cursor one character left, volume up moves it one character right. Holding a volume key repeats for free, riding Android's own hardware key-repeat rather than a separate timer. Both the press and the release are swallowed, so the app underneath never sees a stray volume keypress. It applies only while the keyboard is actually shown. Once it closes, the volume keys go back to controlling volume.
+**Volume keys move the cursor** (off by default) repurposes the hardware volume rocker while the keyboard is on screen: volume down moves the cursor one character left, volume up moves it one character right. Holding a volume key repeats for free, riding Android's own hardware key-repeat rather than a separate timer. Both the press and the release are swallowed, so the app underneath never sees a stray volume keypress. It applies only while the keyboard is actually shown. Once it closes, the volume keys go back to controlling volume. With [Selection mode](/tools/text-editing/#selection-mode) on, each press selects a character instead of stepping past it, so the rocker drags a selection out.
 
 <PhoneFrame caption="With Volume keys move the cursor on, the hardware volume keys move the text cursor instead of the volume.">
   {/* shot: typing/volume-cursor-control */}

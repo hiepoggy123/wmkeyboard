@@ -2522,7 +2522,7 @@ open class WMKeyboardService : InputMethodService() {
                 onFloatingBounds = ::onFloatingBounds,
                 onToolbarToolsChange = ::onToolbarToolsChange,
                 onToolboxOrderChange = ::onToolboxOrderChange,
-                onToolSettings = ::openToolSettings,
+                toolHold = toolHoldCallbacks,
                 onToolboxHintDismiss = {
                     serviceScope.launch { settingsRepository.setToolboxHintDismissed(true) }
                 },
@@ -3056,6 +3056,14 @@ open class WMKeyboardService : InputMethodService() {
                 // A fresh field starts on the letter layer; a restart of the
                 // same field keeps whatever layer the user was on.
                 layoutMode = if (restarting) it.layoutMode else LayoutMode.LETTERS,
+                // Selection mode belongs to the text it was armed over. A
+                // restart is the same field reporting itself (a programmatic
+                // edit, a web view resetting its connection), where the mode is
+                // still about the text the user is working on, so it stays.
+                selectionMode = if (restarting) it.selectionMode else false,
+                // The finger is not on the tool any more either way: this runs
+                // between sessions, not during a hold.
+                selectionHold = false,
                 fieldKind = fieldKind,
                 fieldNoSuggestions = fieldNoSuggestions,
                 fieldIncognito = fieldIncognito,
@@ -3410,6 +3418,13 @@ open class WMKeyboardService : InputMethodService() {
         resetChordInputs()
         // Latches die with the keyboard, locked ones included.
         clearModifiers()
+        // So does a held Selection mode: the button went with the window, so no
+        // release is coming to end it. The sticky mode survives, the same as
+        // every other switched-on tool.
+        if (_uiState.value.selectionHold) {
+            _uiState.update { it.copy(selectionHold = false) }
+        }
+        selectionTaps.reset()
         resetHardwareKeyState()
         // An open resize session dies with the view, unsaved by design: Done
         // is the only path that persists.
@@ -3896,7 +3911,12 @@ open class WMKeyboardService : InputMethodService() {
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
         var meta = modifiers.metaFlags() or (explicit?.meta ?: 0)
-        if (shift) meta = meta or KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON
+        // A layout's own arrow key (or Home/End/PageUp/PageDown) while selection
+        // mode is on extends the selection, the same as the toolbar's cursor
+        // tools and the panel's arrows. Every other key is left alone: shift on
+        // a letter types a capital, which is not what the mode is about.
+        val selecting = state.selectingText && code in CARET_KEY_CODES
+        if (shift || selecting) meta = meta or KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON
 
         // Press order mirrors a hardware keyboard: modifiers down outermost and
         // released in reverse, so an editor that pairs down and up events never
@@ -8356,7 +8376,14 @@ open class WMKeyboardService : InputMethodService() {
         refreshSuggestions()
     }
 
-    /** Spacebar drag: move the cursor one position left (-1) or right (+1). */
+    /**
+     * Spacebar drag: move the cursor one position left (-1) or right (+1). The
+     * volume keys land here too when they are set to move the caret.
+     *
+     * With selection mode on the step carries shift and drags the selection out
+     * instead, which is the pairing the mode exists for: one finger holds the
+     * mode (or a tap left it on) and the other scrubs the spacebar.
+     */
     fun onCursorMove(delta: Int) {
         val ic = currentInputConnection ?: return
         vibrate()
@@ -8365,14 +8392,15 @@ open class WMKeyboardService : InputMethodService() {
         lastCaretScrubMs = SystemClock.uptimeMillis()
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
-        sendDownUpKeyEvents(
-            if (delta < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT
+        sendEditorKey(
+            if (delta < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT,
+            shift = _uiState.value.selectingText,
         )
     }
 
     /**
      * 2-D spacebar touchpad: move the cursor one line up (-1) or down (+1).
-     * Mirrors [onCursorMove] but on the vertical axis.
+     * Mirrors [onCursorMove] but on the vertical axis, selection mode included.
      */
     fun onCursorMoveVertical(delta: Int) {
         val ic = currentInputConnection ?: return
@@ -8380,8 +8408,9 @@ open class WMKeyboardService : InputMethodService() {
         lastCaretScrubMs = SystemClock.uptimeMillis()
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
-        sendDownUpKeyEvents(
-            if (delta < 0) KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_DOWN
+        sendEditorKey(
+            if (delta < 0) KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_DOWN,
+            shift = _uiState.value.selectingText,
         )
     }
 
@@ -8950,6 +8979,7 @@ open class WMKeyboardService : InputMethodService() {
             ToolbarTool.PAGE_DOWN -> onCursorTool(TextEditAction.PAGE_DOWN)
             ToolbarTool.SELECT_WORD -> onTextEdit(TextEditAction.SELECT_WORD)
             ToolbarTool.SELECT_LINE -> onTextEdit(TextEditAction.SELECT_LINE)
+            ToolbarTool.SELECT_MODE -> onSelectModeTap()
             ToolbarTool.HIDE_KEYBOARD -> onHideKeyboard()
         }
     }
@@ -13678,6 +13708,95 @@ open class WMKeyboardService : InputMethodService() {
         onTextEdit(action, extendSelection = _uiState.value.shiftSelectsText)
     }
 
+    /** Counts presses of the Selection mode tool into a tap, a double or a triple. */
+    private val selectionTaps = SelectionTapCounter(SHIFT_DOUBLE_TAP_MS)
+
+    /**
+     * A press of the toolbar's Selection mode tool.
+     *
+     * One tap turns the mode on, and the next one turns it off: while it is on
+     * every caret move extends the selection instead of collapsing it, wherever
+     * the move comes from — the arrow tools, the text-editing panel, the
+     * spacebar cursor swipe, the volume keys, a layout's own arrow keys. That is
+     * the whole point of the mode over a held shift: the hand that moves the
+     * caret is free.
+     *
+     * Two quick taps select the word at the cursor and three select the line,
+     * both of which leave the mode on so the selection can be adjusted from
+     * there. The first tap of a double has already toggled by then, which is
+     * what the shift key's double tap does too and is the price of a mode that
+     * comes on the instant it is asked for.
+     *
+     * Turning the mode off does not touch the selection. Only the extending
+     * stops; what is selected stays selected, ready for copy or for typing over.
+     */
+    private fun onSelectModeTap() {
+        val multiTap = _uiState.value.settings.textEditing.selectionModeMultiTap
+        when (selectionTaps.tap(SystemClock.uptimeMillis(), multiTap)) {
+            SelectionTap.TOGGLE -> {
+                vibrate()
+                if (_uiState.value.selectingText) clearSelectionArm() else armSelectionMode()
+            }
+            // These two buzz and commit through onTextEdit, the same path the
+            // Select word and Select line tools take.
+            SelectionTap.WORD -> {
+                onTextEdit(TextEditAction.SELECT_WORD)
+                armSelectionMode()
+            }
+            SelectionTap.LINE -> {
+                onTextEdit(TextEditAction.SELECT_LINE)
+                armSelectionMode()
+            }
+        }
+    }
+
+    /**
+     * The Selection mode tool held down (true) and let go (false): selection
+     * mode for exactly as long as the finger stays on the button.
+     *
+     * The release leaves the selection alone and the sticky mode alone. It ends
+     * this hold and nothing else, so a hold inside a mode the user had already
+     * switched on gives the mode back on release rather than taking it away.
+     */
+    fun onSelectionHold(down: Boolean) {
+        // A hold is not a tap. Without this, the tap after a hold would count as
+        // the second of a double and select a word nobody asked for.
+        selectionTaps.reset()
+        _uiState.update { it.copy(selectionHold = down) }
+    }
+
+    /**
+     * What a press and hold on a tool reaches, built outside
+     * [ServiceKeyboardContent] for the reason [converterCallbacks] is: that
+     * method sits against the JVM's 64K size ceiling, so the two callbacks
+     * travel as one parameter and are constructed once, here.
+     */
+    private val toolHoldCallbacks by lazy {
+        com.wasimaster.wmkeyboard.ime.ui.ToolHoldCallbacks(
+            onSettings = ::openToolSettings,
+            onSelectionHold = ::onSelectionHold,
+        )
+    }
+
+    /** Arms the toolbar's selection mode, whatever the panel's own toggle says. */
+    private fun armSelectionMode() {
+        _uiState.update { it.copy(selectionMode = true) }
+    }
+
+    /**
+     * Disarms selection mode from every source at once.
+     *
+     * Both surfaces that switch it off — the tool and the panel's Select key —
+     * clear all three flags rather than their own, because the button the user
+     * pressed reads as "selecting: off" and leaving another flag holding it on
+     * would make the next arrow key extend a selection they just ended.
+     */
+    private fun clearSelectionArm() {
+        _uiState.update {
+            it.copy(textEditSelecting = false, selectionMode = false, selectionHold = false)
+        }
+    }
+
     /**
      * Text-editing panel buttons. Cursor moves go through the editor as key
      * events so apps handle them natively; while selection mode is on (or
@@ -13685,14 +13804,15 @@ open class WMKeyboardService : InputMethodService() {
      *
      * [extendSelection] forces that on for a single call, for callers that have
      * their own reason to extend — see [onCursorTool]. It never turns extending
-     * *off*: the panel's select mode still wins when it is on.
+     * *off*: selection mode still wins when it is on, from whichever surface
+     * armed it (see [KeyboardUiState.selectingText]).
      */
     fun onTextEdit(action: TextEditAction, extendSelection: Boolean = false) {
         val ic = currentInputConnection ?: return
         vibrate()
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
-        val selecting = extendSelection || _uiState.value.textEditSelecting
+        val selecting = extendSelection || _uiState.value.selectingText
         when (action) {
             TextEditAction.LEFT -> sendEditorKey(KeyEvent.KEYCODE_DPAD_LEFT, selecting)
             TextEditAction.RIGHT -> sendEditorKey(KeyEvent.KEYCODE_DPAD_RIGHT, selecting)
@@ -13710,10 +13830,17 @@ open class WMKeyboardService : InputMethodService() {
                 sendEditorKey(KeyEvent.KEYCODE_DPAD_RIGHT, selecting, ctrl = true)
             TextEditAction.SELECT_WORD -> selectWordAtCursor(ic)
             TextEditAction.SELECT_LINE -> selectLineAtCursor(ic)
-            // Reads the panel's own toggle rather than `selecting`, which a
-            // caller may have forced on for this one call.
+            // Reads the armed state rather than `selecting`, which a caller may
+            // have forced on for this one call. Switching it on is the panel's
+            // own flag, which dies with the panel; switching it off clears every
+            // flag, so the key means what it says even when the toolbar's mode
+            // is the one holding selection on.
             TextEditAction.SELECT ->
-                _uiState.update { it.copy(textEditSelecting = !it.textEditSelecting) }
+                if (_uiState.value.selectingText) {
+                    clearSelectionArm()
+                } else {
+                    _uiState.update { it.copy(textEditSelecting = true) }
+                }
             TextEditAction.SELECT_ALL -> {
                 ic.performContextMenuAction(android.R.id.selectAll)
                 _uiState.update { it.copy(textEditSelecting = true) }
@@ -16698,6 +16825,20 @@ open class WMKeyboardService : InputMethodService() {
          */
         private val AUTO_SPACE_PUNCTUATION = charArrayOf('.', '!', '?', '।', ',', ';', ':')
         private const val SHIFT_DOUBLE_TAP_MS = 350L
+
+        /**
+         * The keys that move the caret and nothing else, so selection mode can
+         * add shift to them and leave every other key a layout sends alone.
+         *
+         * The panel's own moves are not in here: they name their action rather
+         * than a keycode, and [onTextEdit] reads the mode itself.
+         */
+        private val CARET_KEY_CODES = intArrayOf(
+            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT,
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN,
+            KeyEvent.KEYCODE_MOVE_HOME, KeyEvent.KEYCODE_MOVE_END,
+            KeyEvent.KEYCODE_PAGE_UP, KeyEvent.KEYCODE_PAGE_DOWN,
+        )
 
         /**
          * Silence after the last morse signal before the pending sequence

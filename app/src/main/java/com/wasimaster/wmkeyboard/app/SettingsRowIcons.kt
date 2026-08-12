@@ -710,6 +710,8 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_text_edit_repeat_title) { Icons.Outlined.Repeat }
         put(R.string.tooldetail_cursor_repeat_title) { Icons.Outlined.TouchApp }
         put(R.string.tooldetail_cursor_repeat_toolbox_title) { Icons.Outlined.GridView }
+        put(R.string.tooldetail_select_mode_hold_title) { Icons.Outlined.TouchApp }
+        put(R.string.tooldetail_select_mode_taps_title) { Icons.Outlined.SelectAll }
         put(R.string.tooldetail_numpad_calc_title) { Icons.Outlined.Calculate }
         put(R.string.tooldetail_incognito_learning_title) { Icons.Outlined.School }
         put(R.string.tooldetail_incognito_clipboard_title) { Icons.Outlined.ContentPaste }
