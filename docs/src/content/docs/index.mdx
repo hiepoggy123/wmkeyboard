@@ -27,22 +27,7 @@ import FeatureRow from '@components/FeatureRow.astro';
 import GestureDemo from '@components/GestureDemo.astro';
 import LayoutExplorer from '@components/LayoutExplorer.astro';
 import PhoneFrame from '@components/PhoneFrame.astro';
-import languages from '@data/languages.json';
-import wordlists from '@data/wordlists.json';
 import bengali from '@assets/layouts/bn_jatiya.wmlayout.json';
-
-{/* Languages and wordlists are computed from the generated data files; the
-    rest are the code-verified figures from CONTENT_GUIDE.md. Layout count
-    rechecked 2026-08-12 after the Keyman conversion landed. */}
-
-<div class="wm-stats not-content">
-	<a href="/languages/overview/"><strong>{languages.length}</strong> languages</a>
-	<a href="/languages/custom-layouts/"><strong>1,274</strong> layouts</a>
-	<a href="/languages/dictionaries/"><strong>{wordlists.length}</strong> wordlists</a>
-	<a href="/tools/overview/"><strong>63</strong> toolbar tools</a>
-	<a href="/tools/whisper/"><strong>29</strong> Whisper models</a>
-	<a href="/tools/ai/"><strong>8</strong> local LLMs</a>
-</div>
 
 <p class="wm-kicker">The short version</p>
 

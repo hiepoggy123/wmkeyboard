@@ -200,7 +200,7 @@ for (let file of allFiles) {
         } else if (href.includes('assets/')) {
             newHref = href.substring(href.indexOf('assets/'));
         }
-        return `<img src="${newHref}" alt="${alt}" width="350">`;
+        return `<img src="${newHref}" alt="${alt}" width="200">\n\n`;
     });
 
     // Rewrite standard root-relative markdown links to wiki absolute paths
