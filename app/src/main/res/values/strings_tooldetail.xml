@@ -202,6 +202,12 @@
     <string name="tooldetail_text_edit_repeat_title">Key repeat interval</string>
     <string name="tooldetail_text_edit_repeat_subtitle">Pause between repeats while you hold an arrow or backspace. A lower value is faster</string>
 
+    <!-- Cursor tools on the toolbar. -->
+    <string name="tooldetail_cursor_repeat_title">Hold to repeat</string>
+    <string name="tooldetail_cursor_repeat_subtitle">Holding this tool on the toolbar keeps moving the cursor. Off, holding it opens this page instead</string>
+    <string name="tooldetail_cursor_repeat_info">Hold the tool in the toolbox to open this page either way, and drag it from the toolbar to move it as usual.</string>
+    <string name="tooldetail_cursor_repeat_speed_subtitle">Pause between moves while you hold the tool. A lower value is faster. Shared with the text editing tool</string>
+
     <!-- Numpad tool. -->
     <string name="tooldetail_numpad_calc_title">Calculator layout</string>
     <string name="tooldetail_numpad_calc_subtitle">7 8 9 on the top row, like a desk keypad. Off puts 1 2 3 on top, like a dialer</string>

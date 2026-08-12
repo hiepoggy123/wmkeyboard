@@ -296,6 +296,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.core.settings.BarRow
 import com.wasimaster.wmkeyboard.core.settings.CursorTools
+import com.wasimaster.wmkeyboard.core.settings.HoldRepeatCursorTools
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.script.FancyStyles
@@ -10587,6 +10588,36 @@ private fun ToolDetailSettings(
                     display = { msFormat.format(it.toInt()) },
                     default = SettingsDefaults.textEditing.repeatMs.toFloat(),
                 ) { scope.launch { repository.setTextEditRepeatMs(it.toInt()) } }
+            }
+        }
+        // The caret movers, which are the only tools a hold repeats. Home, End
+        // and the two select tools are not in the set — a second press of those
+        // lands exactly where the first one did — so their pages stay plain.
+        in HoldRepeatCursorTools -> {
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_cursor_repeat_title,
+                        stringResource(R.string.tooldetail_cursor_repeat_subtitle),
+                        settings.textEditing.cursorToolsRepeatOnHold,
+                        info = stringResource(R.string.tooldetail_cursor_repeat_info),
+                        default = SettingsDefaults.textEditing.cursorToolsRepeatOnHold,
+                    ) { scope.launch { repository.setCursorToolsRepeatOnHold(it) } }
+                }
+                if (settings.textEditing.cursorToolsRepeatOnHold) {
+                    item {
+                        SliderSetting(
+                            R.string.tooldetail_text_edit_repeat_title,
+                            subtitle = stringResource(
+                                R.string.tooldetail_cursor_repeat_speed_subtitle,
+                            ),
+                            value = settings.textEditing.repeatMs.toFloat(),
+                            range = 30f..200f,
+                            display = { msFormat.format(it.toInt()) },
+                            default = SettingsDefaults.textEditing.repeatMs.toFloat(),
+                        ) { scope.launch { repository.setTextEditRepeatMs(it.toInt()) } }
+                    }
+                }
             }
         }
         ToolbarTool.NUMPAD -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {

@@ -297,6 +297,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiTabMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
+import com.wasimaster.wmkeyboard.core.settings.HoldRepeatCursorTools
 import com.wasimaster.wmkeyboard.core.settings.KeyPopupSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyRepeatSettings
 import com.wasimaster.wmkeyboard.core.settings.TextEditingSettings
@@ -4622,10 +4623,31 @@ private class ToolDragController {
 private val ToolDragSlop = 24.dp
 
 /**
+ * How often a held toolbar tool repeats its move, or null for the tools (and
+ * the settings) where holding means something else.
+ *
+ * The interval is the text-editing tool's repeat speed: the same key held down
+ * at the same rate, whether the user reached it through the panel or pinned it
+ * to the bar.
+ */
+private fun holdRepeatMs(tool: ToolbarTool, state: KeyboardUiState): Long? =
+    if (tool in HoldRepeatCursorTools && state.settings.textEditing.cursorToolsRepeatOnHold) {
+        state.settings.textEditing.repeatMs.toLong()
+    } else {
+        null
+    }
+
+/**
  * Wires long-press-drag onto a tool. Three outcomes from one gesture: a tap
  * runs [onTap]; a hold that never travels past [ToolDragSlop] opens the
  * tool's settings page; a hold that does travel picks the tool up and drops
  * it wherever it lands (reorder, pin, or unpin).
+ *
+ * [holdRepeatMs] replaces the middle one for the caret tools (see
+ * [HoldRepeatCursorTools]): a stationary hold runs [onTap] again every
+ * [holdRepeatMs] instead, so the cursor keeps moving for as long as the finger
+ * is down. Null everywhere else, and on those tools the settings page is a hold
+ * away in the toolbox instead.
  *
  * The tap is dispatched from here rather than from a `clickable` on the tool
  * itself: a `clickable` sits deeper in the modifier chain, so it saw the
@@ -4638,6 +4660,7 @@ private fun DraggableTool(
     enabled: Boolean,
     drag: ToolDragController,
     onTap: () -> Unit,
+    holdRepeatMs: Long? = null,
     content: @Composable (Modifier) -> Unit,
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
@@ -4650,7 +4673,10 @@ private fun DraggableTool(
     content(
         Modifier
             .onGloballyPositioned { origin = it.positionInRoot() }
-            .pointerInput(enabled, tool) {
+            // Keyed on the interval too: it comes from a setting, so the handler
+            // has to be rebuilt when it changes. A Long changes far more rarely
+            // than the lambda above, which is why that one goes through a holder.
+            .pointerInput(enabled, tool, holdRepeatMs) {
                 if (!enabled) return@pointerInput
                 // Raw press-and-hold, mirroring the key rows' handler, instead
                 // of detectDragGesturesAfterLongPress: its long-press never
@@ -4676,7 +4702,21 @@ private fun DraggableTool(
                         // buzz tells the user the long-press registered.
                         feedback()
                         longPressed = true
-                        drag.start(tool, fromToolbar, rootPos)
+                        if (holdRepeatMs == null) {
+                            drag.start(tool, fromToolbar, rootPos)
+                        } else {
+                            // A repeating tool holds its pick-up back until the
+                            // finger actually travels (see the drag slop below):
+                            // starting it here would park a drag ghost and a
+                            // scope pill under a finger that is only holding a
+                            // cursor key down. The first move lands with no
+                            // delay of its own — the long-press timeout has
+                            // already served as the repeat's start delay.
+                            while (true) {
+                                tapAction()
+                                delay(holdRepeatMs)
+                            }
+                        }
                     }
                     try {
                         while (true) {
@@ -4700,8 +4740,22 @@ private fun DraggableTool(
                                 }
                             } else {
                                 change.consume()
-                                if (travel > dragSlop) dragged = true
-                                drag.move(rootPos)
+                                if (travel > dragSlop && !dragged) {
+                                    dragged = true
+                                    // Travel means this was a reorder all along,
+                                    // so a repeating tool stops repeating and
+                                    // picks itself up from here. The moves it
+                                    // already made stand — they are caret moves,
+                                    // undone by moving the caret back.
+                                    if (holdRepeatMs != null) {
+                                        timer.cancel()
+                                        drag.start(tool, fromToolbar, rootPos)
+                                    }
+                                }
+                                // Nothing to move while a hold is still
+                                // repeating: no drag has been started, and
+                                // drag.move would tick the drop haptic anyway.
+                                if (holdRepeatMs == null || dragged) drag.move(rootPos)
                             }
                         }
                     } finally {
@@ -4712,6 +4766,10 @@ private fun DraggableTool(
                                 if (released && !scrolled) tapAction()
                             }
                             dragged -> drag.end()
+                            // A repeating hold has already done its work, and
+                            // there is nothing to drop. Its settings page is a
+                            // hold away in the toolbox, which never repeats.
+                            holdRepeatMs != null -> drag.cancel()
                             // A hold that never travelled past the slop is a
                             // distinct gesture: open the tool's settings page.
                             else -> {
@@ -5405,13 +5463,18 @@ private fun RowScope.ToolbarRow(
                 Box(cell, contentAlignment = Alignment.Center) {
                     // Drag is always live: hold-and-drag reorders the bar
                     // (or unpins into an open toolbox); a hold that never
-                    // moves opens the tool's settings page instead.
+                    // moves opens the tool's settings page instead — or,
+                    // on the caret tools, repeats the move for as long as
+                    // the finger is down. Only here: the toolbox keeps the
+                    // hold-for-settings gesture for every tool, which is
+                    // what makes those pages still reachable.
                     DraggableTool(
                         tool,
                         fromToolbar = true,
                         enabled = true,
                         drag = drag,
                         onTap = { onToolTap(tool) },
+                        holdRepeatMs = holdRepeatMs(tool, state),
                     ) { dragModifier ->
                         ToolCircle(
                             slot = IconSlots.forTool(tool),

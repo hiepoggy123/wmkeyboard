@@ -56,6 +56,22 @@ val CursorTools: List<ToolbarTool> = listOf(
 )
 
 /**
+ * The cursor tools a hold repeats, rather than opening their settings page.
+ *
+ * Every caret move whose second press does something different from its first.
+ * Home and End are left out because theirs does not: the caret is already at
+ * the end of the line, so a hold would buzz away sending key events nothing
+ * acts on. Select word and select line are out for the same reason, and are not
+ * moves in the first place.
+ */
+val HoldRepeatCursorTools: Set<ToolbarTool> = setOf(
+    ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
+    ToolbarTool.CURSOR_WORD_LEFT, ToolbarTool.CURSOR_WORD_RIGHT,
+    ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
+    ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
+)
+
+/**
  * Tools that still work during direct boot — before the user has ever unlocked
  * the device, when the keyboard has no credential-encrypted storage, no
  * personal data, and (usually) no network.

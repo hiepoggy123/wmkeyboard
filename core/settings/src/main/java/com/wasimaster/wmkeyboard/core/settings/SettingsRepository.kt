@@ -2627,8 +2627,23 @@ data class WhisperSettings(
  * object (see [CameraSettings] for why). DataStore keys stay flat.
  */
 data class TextEditingSettings(
-    /** Auto-repeat interval while holding an arrow/backspace in the text-editing tool. */
+    /**
+     * Auto-repeat interval while holding an arrow/backspace in the text-editing
+     * tool, and while holding one of the toolbar's own cursor tools (see
+     * [cursorToolsRepeatOnHold]).
+     */
     val repeatMs: Int = 60,
+    /**
+     * Holding one of the toolbar's cursor tools repeats the move for as long as
+     * the finger stays down, at [repeatMs].
+     *
+     * Off, a hold on the toolbar does what a hold on any other tool does and
+     * opens that tool's settings page. On, it repeats — and the settings page
+     * moves to a hold in the *toolbox*, which is why this is the toolbar's
+     * behaviour and not the toolbox's. Dragging to reorder survives either way:
+     * a hold that travels still picks the tool up.
+     */
+    val cursorToolsRepeatOnHold: Boolean = true,
     /**
      * Typing a bracket, brace or quote with text selected wraps the selection
      * in the pair (foo → (foo)) instead of replacing it.
@@ -4291,6 +4306,8 @@ class SettingsRepository(private val context: Context) {
         private val QR_SEND_MODE = stringPreferencesKey("qr_send_mode")
         private val DICTIONARY_AUTO_LOOKUP = booleanPreferencesKey("dictionary_auto_lookup")
         private val TEXT_EDIT_REPEAT_MS = intPreferencesKey("text_edit_repeat_ms")
+        private val CURSOR_TOOLS_REPEAT_ON_HOLD =
+            booleanPreferencesKey("cursor_tools_repeat_on_hold")
         private val DOUBLE_SPACE_WINDOW_MS = intPreferencesKey("double_space_window_ms")
         private val SPACE_CURSOR_STEP_DP = intPreferencesKey("space_cursor_step_dp")
         private val BACKSPACE_WORD_STEP_DP = intPreferencesKey("backspace_word_step_dp")
@@ -5283,6 +5300,8 @@ class SettingsRepository(private val context: Context) {
             dictionaryAutoLookup = p[DICTIONARY_AUTO_LOOKUP] ?: defaults.dictionaryAutoLookup,
             textEditing = TextEditingSettings(
                 repeatMs = p[TEXT_EDIT_REPEAT_MS] ?: defaults.textEditing.repeatMs,
+                cursorToolsRepeatOnHold = p[CURSOR_TOOLS_REPEAT_ON_HOLD]
+                    ?: defaults.textEditing.cursorToolsRepeatOnHold,
                 wrapSelectionWithPair =
                     p[WRAP_SELECTION_WITH_PAIR] ?: defaults.textEditing.wrapSelectionWithPair,
                 recapitalizeSelectionWithShift = p[RECAPITALIZE_SELECTION_WITH_SHIFT]
@@ -5905,6 +5924,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTextEditRepeatMs(value: Int) =
         editPrefs { it[TEXT_EDIT_REPEAT_MS] = value.coerceIn(30, 200) }
+
+    suspend fun setCursorToolsRepeatOnHold(value: Boolean) =
+        editPrefs { it[CURSOR_TOOLS_REPEAT_ON_HOLD] = value }
 
     suspend fun setDoubleSpaceWindowMs(value: Int) =
         editPrefs { it[DOUBLE_SPACE_WINDOW_MS] = value.coerceIn(200, 800) }

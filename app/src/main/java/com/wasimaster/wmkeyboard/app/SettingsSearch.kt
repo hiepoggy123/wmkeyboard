@@ -578,6 +578,15 @@ private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.CAMERA, R.string.tooldetail_camera_haptics_title, R.string.tooldetail_camera_haptics_subtitle),
     toolEntry(ToolbarTool.DICTIONARY, R.string.tooldetail_dictionary_auto_title, R.string.tooldetail_dictionary_auto_subtitle),
     toolEntry(ToolbarTool.TEXT_EDIT, R.string.tooldetail_text_edit_repeat_title, R.string.tooldetail_text_edit_repeat_subtitle),
+    // One switch drawn on all eight caret tools' pages, indexed once. Eight
+    // results with the same title would read as a broken search, and the switch
+    // is the same one wherever it is flipped — so the first of them answers for
+    // the set.
+    toolEntry(
+        ToolbarTool.CURSOR_LEFT,
+        R.string.tooldetail_cursor_repeat_title,
+        R.string.tooldetail_cursor_repeat_subtitle,
+    ),
     toolEntry(ToolbarTool.NUMPAD, R.string.tooldetail_numpad_calc_title, R.string.tooldetail_numpad_calc_subtitle),
     toolEntry(ToolbarTool.INCOGNITO, R.string.tooldetail_incognito_learning_title, R.string.tooldetail_incognito_learning_subtitle),
     toolEntry(ToolbarTool.INCOGNITO, R.string.tooldetail_incognito_clipboard_title, R.string.tooldetail_incognito_clipboard_subtitle),
