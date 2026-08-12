@@ -137,9 +137,16 @@ internal class BiometricAppLock(
         if (_status.value.failsOpen) return false
         // SELF is locked by the feature being on, not by being ticked.
         if (target !== AppLockTargets.SELF && target.id !in cfg.lockedTargets) return false
-        // Actions and the configurator ask every time; only screens ride the
-        // session. See [AppLockSession].
-        if (target.kind == LockKind.ACTION || target === AppLockTargets.SELF) return true
+        // Actions ask every time; only screens ride the session. See
+        // [AppLockSession].
+        if (target.kind == LockKind.ACTION) return true
+        // The configurator asks fresh too, but "fresh" means once per visit and
+        // not once per frame. Answering an unconditional `true` here is what
+        // made the gate in front of the off switch redraw over its own success:
+        // the prompt was passed, the gate recomposed, and this said "locked"
+        // again. It reads its own grant, which no other screen can open and
+        // which ends when the screen or the app is left.
+        if (target === AppLockTargets.SELF) return !AppLockSession.configGranted
         return !AppLockSession.isOpen(cfg.relock, SystemClock.elapsedRealtime())
     }
 
@@ -182,9 +189,19 @@ internal class BiometricAppLock(
         // is what makes a check the user passed mid-rotation still count, and
         // the gate redraws on its own because the grant is Compose state.
         if (result.succeeded) {
-            val target = id?.let { AppLockTargets[it] }
-            if (target != null && target.kind == LockKind.SCREEN) {
-                AppLockSession.grant(SystemClock.elapsedRealtime())
+            // The configurator's grant is its own and has to be matched by id:
+            // [AppLockTargets.get] cannot answer for SELF, which is kept out of
+            // `all` so it never draws as a checkbox, so the lookup below
+            // returns null for it and the check the user just passed would be
+            // thrown away. Nor does it open the shared session — passing the
+            // gate on the off switch is not a reason to open the screens.
+            if (id == AppLockTargets.SELF.id) {
+                AppLockSession.grantConfig()
+            } else {
+                val target = id?.let { AppLockTargets[it] }
+                if (target != null && target.kind == LockKind.SCREEN) {
+                    AppLockSession.grant(SystemClock.elapsedRealtime())
+                }
             }
         }
         callback?.invoke(result)

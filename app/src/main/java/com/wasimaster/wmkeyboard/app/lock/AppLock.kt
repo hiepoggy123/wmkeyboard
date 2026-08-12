@@ -121,12 +121,14 @@ internal interface AppLock {
     fun unlock(target: LockTarget, onResult: (AppLockResult) -> Unit)
 
     /**
-     * A check with nothing behind it, for the master toggle and for anything
-     * that must ask every time.
+     * A check with nothing behind it, for the destructive actions and for
+     * anything else that must ask every time.
      *
-     * Separate from [unlock] because it neither reads nor opens the session:
-     * turning the lock off, or wiping every setting, is exactly the moment to
-     * ask again however recently the user last answered.
+     * Separate from [unlock] because it neither reads nor opens any grant:
+     * wiping every setting is exactly the moment to ask again however recently
+     * the user last answered. The master toggle goes through [unlock] against
+     * [AppLockTargets.SELF] instead, so that its answer counts for the gate it
+     * raises in front of its own screen.
      */
     fun authenticate(onResult: (AppLockResult) -> Unit)
 

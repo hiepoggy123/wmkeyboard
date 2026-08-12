@@ -78,6 +78,13 @@ private fun rememberLockedState(target: LockTarget, route: String): Boolean {
     val config by lock.config.collectAsStateWithLifecycle()
     lock.status.collectAsStateWithLifecycle()
     val locked = lock.isLocked(target)
+    if (target === AppLockTargets.SELF) {
+        // The configurator's grant lasts exactly one visit, whatever the
+        // relock setting says: this is the screen with the off switch on it.
+        // Dropped on the way out, like the IMMEDIATE policy below and at the
+        // same cost — a rotation asks again.
+        DisposableEffect(Unit) { onDispose { AppLockSession.clearConfig() } }
+    }
     // IMMEDIATE means the grant lasts exactly as long as the screen it was
     // given for, so it is dropped on the way out rather than waiting for the
     // app to stop.

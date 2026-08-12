@@ -39,6 +39,22 @@ internal object AppLockSession {
     private var grantedAt: Long? by mutableStateOf(null)
 
     /**
+     * Whether the configurator's own check still counts on this visit.
+     *
+     * Deliberately separate from [grantedAt], in both directions: the screen
+     * holding the off switch must not open on a grant earned in front of some
+     * other screen, and passing its gate must not open the rest of the app.
+     *
+     * A flag rather than a timestamp because it is ended by events and never by
+     * the clock — leaving the screen ends it, and so does leaving the app. What
+     * it exists for is the frame after a successful check: without it
+     * `isLocked(SELF)` answers "locked" forever and the gate redraws over its
+     * own success, which is a lockout, not a lock.
+     */
+    var configGranted: Boolean by mutableStateOf(false)
+        private set
+
+    /**
      * The id of the target a prompt is currently up for, or null.
      *
      * Guards the one case the lifecycle cannot: a rotation destroys and
@@ -75,6 +91,16 @@ internal object AppLockSession {
         grantedAt = null
     }
 
+    /** The user answered a prompt raised by the configurator itself. */
+    fun grantConfig() {
+        configGranted = true
+    }
+
+    /** Ends that grant: the configurator asks again on the next visit. */
+    fun clearConfig() {
+        configGranted = false
+    }
+
     /**
      * The settings app went to the background.
      *
@@ -85,6 +111,12 @@ internal object AppLockSession {
      */
     fun onStopped(policy: AppLockRelock) {
         if (policy == AppLockRelock.IMMEDIATE || policy == AppLockRelock.ON_LEAVE) clear()
+        // The configurator's grant ends here whatever the policy says. That
+        // setting is about how long one check keeps the *locked screens* open;
+        // the screen holding the off switch is not one of them, and a grant
+        // that survived a trip to the background would let the next person
+        // holding the phone switch the lock off.
+        clearConfig()
     }
 
     private const val MINUTE_MS = 60_000L

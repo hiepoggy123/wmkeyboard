@@ -24,7 +24,41 @@ class AppLockPolicyTest {
         // The session is a process-scoped object, so a leftover grant would
         // leak into the next test in the same JVM.
         AppLockSession.clear()
+        AppLockSession.clearConfig()
         AppLockSession.prompting = null
+    }
+
+    @Test
+    fun `the configurator starts shut`() {
+        assertFalse(AppLockSession.configGranted)
+    }
+
+    @Test
+    fun `the configurator opens on its own check and not on a screen check`() {
+        // The regression this pins: the gate in front of the off switch used to
+        // answer "locked" unconditionally, so passing its prompt changed
+        // nothing and the screen could never be opened again.
+        AppLockSession.grant(start)
+        assertFalse("a screen check opened the configurator", AppLockSession.configGranted)
+        AppLockSession.grantConfig()
+        assertTrue(AppLockSession.configGranted)
+    }
+
+    @Test
+    fun `the configurator's check does not open the screens`() {
+        AppLockSession.grantConfig()
+        for (policy in AppLockRelock.entries) {
+            assertFalse("$policy opened on a configurator check", AppLockSession.isOpen(policy, start))
+        }
+    }
+
+    @Test
+    fun `leaving the app shuts the configurator whatever the policy`() {
+        for (policy in AppLockRelock.entries) {
+            AppLockSession.grantConfig()
+            AppLockSession.onStopped(policy)
+            assertFalse("$policy kept the off switch open", AppLockSession.configGranted)
+        }
     }
 
     @Test

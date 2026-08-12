@@ -64,8 +64,14 @@ internal fun AppLockSettingsScreen(repository: SettingsRepository) {
                 // Both directions ask. Turning it on matters, but turning it
                 // off matters more: a lock somebody else can switch off while
                 // holding your phone is not a lock.
-                lock.authenticate { result ->
-                    if (!result.succeeded) return@authenticate
+                //
+                // Raised against SELF rather than as a bare check so that
+                // passing it counts as this visit's check. Switching the
+                // feature on puts the gate in front of this very screen on the
+                // next frame, and a bare check would leave that gate asking a
+                // second time for a finger the user gave a moment ago.
+                lock.unlock(AppLockTargets.SELF) { result ->
+                    if (!result.succeeded) return@unlock
                     scope.launch {
                         repository.setAppLockEnabled(wanted)
                         // Seed the curated picks the first time only, so the
