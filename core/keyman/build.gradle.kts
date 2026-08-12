@@ -44,4 +44,5 @@ dependencies {
     api(project(":core:language"))
     api(project(":core:common"))
     implementation(libs.kotlinx.serialization.json)
+    testImplementation(libs.junit)
 }
