@@ -158,7 +158,16 @@ object AddonPreviewReader {
         AddonType.SoundPack -> readSoundPack(payload)
         AddonType.Stickers -> readStickers(payload)
         AddonType.Plugin -> readPlugin(payload)
-        else -> AddonPreviewContent.Unreadable(
+        // Screenshots already answer the question these raise, and [Unknown] is
+        // a type this build cannot read by definition. Listed rather than left
+        // to an `else` so a new addon type has to come here and pick a side.
+        AddonType.Theme,
+        AddonType.Layout,
+        AddonType.IconPack,
+        AddonType.Font,
+        AddonType.EmojiFont,
+        AddonType.Unknown,
+        -> AddonPreviewContent.Unreadable(
             AddonText.of(R.string.faddons_preview_error_no_preview),
         )
     }
@@ -177,7 +186,10 @@ object AddonPreviewReader {
 
             is PluginManifestResult.Rejected ->
                 AddonPreviewContent.Unreadable(read.reasonText.toAddonText())
-            else -> AddonPreviewContent.Unreadable(
+
+            // Null is the read itself having thrown; both land on the same
+            // "this isn't a plugin" line, since neither leaves anything to show.
+            PluginManifestResult.NotAPlugin, null -> AddonPreviewContent.Unreadable(
                 AddonText.of(R.string.faddons_error_not_a_plugin),
             )
         }
