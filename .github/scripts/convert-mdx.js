@@ -150,13 +150,15 @@ for (let file of allFiles) {
         if (href.startsWith('http')) return href;
         if (href.startsWith('mailto:')) return href;
         if (href.startsWith('#')) return href;
-        let clean = href.split('#')[0]; // ignore hash for mapping
+        let hashIndex = href.indexOf('#');
+        let hash = hashIndex !== -1 ? href.substring(hashIndex) : '';
+        let clean = hashIndex !== -1 ? href.substring(0, hashIndex) : href;
         let mapped = linkMap[clean];
-        if (mapped) return mapped;
+        if (mapped) return mapped + hash;
         // Fallback if not found in map
-        let fallback = href.replace(/^\//, '').replace(/\/$/, '');
+        let fallback = clean.replace(/^\//, '').replace(/\/$/, '');
         if (fallback === '') fallback = 'Home';
-        return `${wikiBase}${fallback}`;
+        return `${wikiBase}${fallback}${hash}`;
     }
 
     // For all Astro block components (e.g. FeatureRow, PhoneFrame, Fragment, CardGrid) AND HTML layout divs,
