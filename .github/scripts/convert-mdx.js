@@ -159,12 +159,12 @@ for (let file of allFiles) {
         return `${wikiBase}${fallback}`;
     }
 
-    // For all Astro block components (e.g. FeatureRow, PhoneFrame, Fragment, CardGrid),
+    // For all Astro block components (e.g. FeatureRow, PhoneFrame, Fragment, CardGrid) AND HTML layout divs,
     // strip the tags but preserve and unindent their body content so it doesn't render as a code block.
     let previousContent;
     do {
         previousContent = content;
-        content = content.replace(/^[ \t]*<([A-Z][a-zA-Z0-9]*)[^>]*>\s*([\s\S]*?)\s*<\/\1>[ \t]*\n?/gm, (match, tag, body) => {
+        content = content.replace(/^[ \t]*<([A-Z][a-zA-Z0-9]*|div)[^>]*>\s*([\s\S]*?)\s*<\/\1>[ \t]*\n?/gm, (match, tag, body) => {
             // Leave tags that we have specific replacements for
             if (['Card', 'LinkCard', 'LinkButton', 'SettingsPath', 'KeyCap'].includes(tag)) {
                 return match;
@@ -185,6 +185,10 @@ for (let file of allFiles) {
 
     // Remove any remaining self-closing or inline Astro components
     content = content.replace(/<\/?([A-Z][a-zA-Z0-9]*)[^>]*>/g, '');
+
+    // Strip HTML paragraph wrappers that prevent markdown rendering inside them
+    content = content.replace(/<p(?:\s+[^>]*)?>/g, '');
+    content = content.replace(/<\/p>/g, '\n');
     
     // Rewrite image links
     content = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, href) => {
