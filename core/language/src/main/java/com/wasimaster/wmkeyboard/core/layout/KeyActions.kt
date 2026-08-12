@@ -198,6 +198,35 @@ sealed interface KeyAction {
     @Serializable @SerialName("morse_dash") data object MorseDash : KeyAction
 
     /** A deliberate gap in the grid: drawn as empty space, swallows its taps. */
+    /**
+     * A key of a converted Keyman layout. The key names a virtual key and the
+     * keyboard's rule engine decides what it types.
+     *
+     * [Key.label] and [Key.output] are the cap and the fallback, not the answer:
+     * the character a rule matches on comes from Keyman's own US virtual-key
+     * table, so a Khmer key cap does not make the matched character Khmer. When
+     * no engine is loaded — an exported layout on a device without the rules,
+     * or a keyboard whose rules failed to parse — the key types its label, and
+     * the grid stays an ordinary usable keyboard.
+     *
+     * [modifiers] is the touch key's `layer` attribute folded into a Keyman
+     * modifier mask: "match rules as though this combination were held", which
+     * is a different thing from [nextLayer], the layer to *show* afterwards. A
+     * touch key's `nextlayer` wins over a rule's own `layer()` statement.
+     *
+     * Carried on the action rather than as a field on [Key] because [Key] is
+     * serialised with `encodeDefaults`, so a new field there writes into every
+     * key of every stored layout, and because [Key] is a Compose parameter under
+     * strong skipping that should not grow. An older build decodes this as
+     * [Unknown] and `repair` drops the key with a note, which is the format's
+     * designed way of degrading.
+     */
+    @Serializable @SerialName("keyman_key") data class KeymanKey(
+        val vkey: Int,
+        val modifiers: Int = 0,
+        val nextLayer: String? = null,
+    ) : KeyAction
+
     @Serializable @SerialName("none") data object None : KeyAction
 
     /**
@@ -267,6 +296,9 @@ fun KeyAction.fallbackLabel(): String = when (this) {
     // typed by position, so the digit is what the user needs to see.
     is KeyAction.BrailleDot -> dot.toString()
     is KeyAction.Broadcast -> "⚡"
+    // A Keyman key always carries its own cap from the touch layout, so this is
+    // reached only by a hand-edited layout that left the label blank.
+    is KeyAction.KeymanKey -> ""
     // Reached only by a layout that repair has not been through yet.
     is KeyAction.Unknown -> "?"
     // Text keys have nothing to fall back to: a blank one is a blank key, which

@@ -3687,6 +3687,11 @@ open class WMKeyboardService : InputMethodService() {
         }
         when (key.action) {
             KeyAction.Text -> onTextKey(key)
+            // A key of a converted Keyman layout, with no rule engine attached
+            // yet. It types its own cap, which is what it would do anyway on a
+            // device that has the layout but not the keyboard's rules — the
+            // grid stays an ordinary usable keyboard rather than going dead.
+            is KeyAction.KeymanKey -> onTextKey(key)
             KeyAction.Shift -> onShift()
             KeyAction.CapsLock -> onCapsLock()
             KeyAction.Delete -> onDelete()
