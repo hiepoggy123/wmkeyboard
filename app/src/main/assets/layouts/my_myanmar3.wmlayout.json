@@ -28,7 +28,11 @@
             },
             {
               "label": "အ",
-              "shiftLabel": "ဩ"
+              "shiftLabel": "ဩ",
+              "longPress": [
+                "ဪ",
+                "ဩ"
+              ]
             },
             {
               "label": "ပ",
@@ -44,7 +48,10 @@
             },
             {
               "label": "သ",
-              "shiftLabel": "ဥ"
+              "shiftLabel": "ဥ",
+              "longPress": [
+                "ဿ"
+              ]
             },
             {
               "label": "စ",
@@ -153,10 +160,15 @@
               "width": 1.5
             },
             {
-              "label": ",",
+              "label": "၊",
               "longPress": [
+                ",",
                 "!",
-                "?"
+                "?",
+                "၌",
+                "၍",
+                "၎",
+                "၏"
               ],
               "role": "Comma"
             },

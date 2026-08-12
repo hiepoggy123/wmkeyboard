@@ -118,8 +118,17 @@
               "shiftLabel": "ဎ"
             },
             {
-              "label": "ထ",
-              "shiftLabel": "ဓ"
+              "label": "ꧠ",
+              "shiftLabel": "ꧤ",
+              "longPress": [
+                "ꧡ",
+                "ꧢ",
+                "ꧣ",
+                "ဓ",
+                "ꧥ",
+                "႟",
+                "႞"
+              ]
             },
             {
               "label": "ခ",

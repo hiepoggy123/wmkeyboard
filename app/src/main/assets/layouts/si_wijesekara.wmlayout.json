@@ -34,7 +34,8 @@
               "label": "ර",
               "shiftLabel": "ඍ",
               "longPress": [
-                "ඎ"
+                "ඎ",
+                "ර්‍"
               ]
             },
             {
@@ -42,7 +43,9 @@
               "shiftLabel": "ඒ",
               "longPress": [
                 "ඔ",
-                "ඕ"
+                "ඕ",
+                "ඓ",
+                "ඖ"
               ]
             },
             {
@@ -67,12 +70,21 @@
             {
               "label": "ච",
               "shiftLabel": "ඡ"
+            },
+            {
+              "label": "ඤ",
+              "shiftLabel": "ඥ"
             }
           ],
           [
             {
               "label": "්",
-              "shiftLabel": "ෟ"
+              "shiftLabel": "ෟ",
+              "longPress": [
+                "්‍",
+                "‍",
+                "‌"
+              ]
             },
             {
               "label": "ි",
@@ -80,15 +92,20 @@
             },
             {
               "label": "ා",
-              "shiftLabel": "ෘ"
+              "shiftLabel": "ෘ",
+              "longPress": [
+                "ෲ"
+              ]
             },
             {
               "label": "ෙ",
               "shiftLabel": "ේ",
               "longPress": [
-                "ෆ",
                 "ො",
-                "ෝ"
+                "ෝ",
+                "ෛ",
+                "ෞ",
+                "ෆ"
               ]
             },
             {
@@ -96,10 +113,12 @@
               "shiftLabel": "ඨ"
             },
             {
-              "label": "ය"
+              "label": "ය",
+              "shiftLabel": "්‍ය"
             },
             {
-              "label": "ව"
+              "label": "ව",
+              "shiftLabel": "ළු"
             },
             {
               "label": "න",
@@ -112,6 +131,13 @@
             {
               "label": "ත",
               "shiftLabel": "ථ"
+            },
+            {
+              "label": "ඏ",
+              "shiftLabel": "්‍ර",
+              "longPress": [
+                "ඐ"
+              ]
             }
           ],
           [
@@ -124,7 +150,11 @@
             },
             {
               "label": "ං",
-              "shiftLabel": "ඃ"
+              "shiftLabel": "ඞ",
+              "longPress": [
+                "ඃ",
+                "ඁ"
+              ]
             },
             {
               "label": "ජ",
@@ -162,6 +192,10 @@
               "longPress": [
                 "ඟ"
               ]
+            },
+            {
+              "label": "ෳ",
+              "shiftLabel": "ර්‍"
             },
             {
               "label": "⌫",
@@ -204,6 +238,7 @@
               "label": ".",
               "longPress": [
                 "…",
+                "෴",
                 ",",
                 "?",
                 "!",

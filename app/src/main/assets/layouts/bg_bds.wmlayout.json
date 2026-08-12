@@ -1,0 +1,196 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_bg_bds",
+    "name": "БДС (BDS)",
+    "langId": "bg",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "у"
+            },
+            {
+              "label": "е",
+              "longPress": [
+                "э"
+              ]
+            },
+            {
+              "label": "и",
+              "longPress": [
+                "ѝ"
+              ]
+            },
+            {
+              "label": "ш"
+            },
+            {
+              "label": "щ"
+            },
+            {
+              "label": "к"
+            },
+            {
+              "label": "с"
+            },
+            {
+              "label": "д"
+            },
+            {
+              "label": "з"
+            },
+            {
+              "label": "ц"
+            },
+            {
+              "label": "б"
+            }
+          ],
+          [
+            {
+              "label": "ь",
+              "longPress": [
+                "ы"
+              ]
+            },
+            {
+              "label": "я",
+              "longPress": [
+                "ѣ"
+              ]
+            },
+            {
+              "label": "а"
+            },
+            {
+              "label": "о"
+            },
+            {
+              "label": "ж"
+            },
+            {
+              "label": "г"
+            },
+            {
+              "label": "т"
+            },
+            {
+              "label": "н"
+            },
+            {
+              "label": "в"
+            },
+            {
+              "label": "м"
+            },
+            {
+              "label": "ч"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ю"
+            },
+            {
+              "label": "й",
+              "longPress": [
+                "ѭ"
+              ]
+            },
+            {
+              "label": "ъ",
+              "longPress": [
+                "ѫ"
+              ]
+            },
+            {
+              "label": "э"
+            },
+            {
+              "label": "ф"
+            },
+            {
+              "label": "х"
+            },
+            {
+              "label": "п"
+            },
+            {
+              "label": "р"
+            },
+            {
+              "label": "л"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

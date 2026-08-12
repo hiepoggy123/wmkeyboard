@@ -1,0 +1,267 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_tr_turkishf",
+    "name": "F Klavye (Turkish F)",
+    "langId": "tr",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "f",
+              "longPress": [
+                "1"
+              ]
+            },
+            {
+              "label": "g",
+              "longPress": [
+                "2"
+              ]
+            },
+            {
+              "label": "ğ",
+              "longPress": [
+                "3"
+              ]
+            },
+            {
+              "label": "ı",
+              "longPress": [
+                "4"
+              ],
+              "shiftLabel": "I"
+            },
+            {
+              "label": "o",
+              "longPress": [
+                "5",
+                "ô"
+              ]
+            },
+            {
+              "label": "d",
+              "longPress": [
+                "6"
+              ]
+            },
+            {
+              "label": "r",
+              "longPress": [
+                "7"
+              ]
+            },
+            {
+              "label": "n",
+              "longPress": [
+                "8"
+              ]
+            },
+            {
+              "label": "h",
+              "longPress": [
+                "9"
+              ]
+            },
+            {
+              "label": "p",
+              "longPress": [
+                "0"
+              ]
+            },
+            {
+              "label": "q"
+            },
+            {
+              "label": "w"
+            }
+          ],
+          [
+            {
+              "label": "u",
+              "longPress": [
+                "@",
+                "û"
+              ]
+            },
+            {
+              "label": "i",
+              "longPress": [
+                "#",
+                "î",
+                "İ"
+              ],
+              "shiftLabel": "İ"
+            },
+            {
+              "label": "e",
+              "longPress": [
+                "$"
+              ]
+            },
+            {
+              "label": "a",
+              "longPress": [
+                "_",
+                "â"
+              ]
+            },
+            {
+              "label": "ü",
+              "longPress": [
+                "&",
+                "û"
+              ]
+            },
+            {
+              "label": "t",
+              "longPress": [
+                "-"
+              ]
+            },
+            {
+              "label": "k",
+              "longPress": [
+                "+"
+              ]
+            },
+            {
+              "label": "m",
+              "longPress": [
+                "("
+              ]
+            },
+            {
+              "label": "l",
+              "longPress": [
+                ")"
+              ]
+            },
+            {
+              "label": "y"
+            },
+            {
+              "label": "ş"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "j",
+              "longPress": [
+                "*"
+              ]
+            },
+            {
+              "label": "ö",
+              "longPress": [
+                "\""
+              ]
+            },
+            {
+              "label": "v",
+              "longPress": [
+                "'"
+              ]
+            },
+            {
+              "label": "c",
+              "longPress": [
+                ":"
+              ]
+            },
+            {
+              "label": "ç",
+              "longPress": [
+                ";"
+              ]
+            },
+            {
+              "label": "z",
+              "longPress": [
+                "!"
+              ]
+            },
+            {
+              "label": "s",
+              "longPress": [
+                "?"
+              ]
+            },
+            {
+              "label": "b"
+            },
+            {
+              "label": "x"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

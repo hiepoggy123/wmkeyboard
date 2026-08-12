@@ -1,0 +1,198 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ta_inscript",
+    "name": "இன்ஸ்கிரிப்ட் (InScript)",
+    "langId": "ta",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ௌ",
+              "shiftLabel": "ஔ",
+              "longPress": [
+                "ௗ"
+              ]
+            },
+            {
+              "label": "ை",
+              "shiftLabel": "ஐ"
+            },
+            {
+              "label": "ா",
+              "shiftLabel": "ஆ"
+            },
+            {
+              "label": "ீ",
+              "shiftLabel": "ஈ"
+            },
+            {
+              "label": "ூ",
+              "shiftLabel": "ஊ"
+            },
+            {
+              "label": "ஹ",
+              "shiftLabel": "ங"
+            },
+            {
+              "label": "ஜ"
+            },
+            {
+              "label": "ஞ"
+            }
+          ],
+          [
+            {
+              "label": "ோ",
+              "shiftLabel": "ஓ",
+              "longPress": [
+                "ொ",
+                "ஒ"
+              ]
+            },
+            {
+              "label": "ே",
+              "shiftLabel": "ஏ"
+            },
+            {
+              "label": "்",
+              "shiftLabel": "அ"
+            },
+            {
+              "label": "ி",
+              "shiftLabel": "இ"
+            },
+            {
+              "label": "ு",
+              "shiftLabel": "உ"
+            },
+            {
+              "label": "ப"
+            },
+            {
+              "label": "ர",
+              "shiftLabel": "ற"
+            },
+            {
+              "label": "க"
+            },
+            {
+              "label": "த"
+            },
+            {
+              "label": "ச"
+            },
+            {
+              "label": "ட"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ெ",
+              "shiftLabel": "எ"
+            },
+            {
+              "label": "ஂ",
+              "shiftLabel": "ஃ"
+            },
+            {
+              "label": "ம",
+              "shiftLabel": "ண"
+            },
+            {
+              "label": "ந",
+              "shiftLabel": "ன"
+            },
+            {
+              "label": "வ",
+              "shiftLabel": "ழ"
+            },
+            {
+              "label": "ல",
+              "shiftLabel": "ள"
+            },
+            {
+              "label": "ஸ",
+              "shiftLabel": "ஶ",
+              "longPress": [
+                "ஷ",
+                "க்ஷ",
+                "ஸ்ரீ"
+              ]
+            },
+            {
+              "label": "ய"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";",
+                "।"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

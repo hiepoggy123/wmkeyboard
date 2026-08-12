@@ -175,6 +175,14 @@
     <string name="core_lang_numeral_system_persian" translatable="false">۰-۹</string>
     <string name="core_lang_numeral_system_bengali" translatable="false">০-৯</string>
     <string name="core_lang_numeral_system_devanagari" translatable="false">०-९</string>
+    <string name="core_lang_numeral_system_thai" translatable="false">๐-๙</string>
+    <string name="core_lang_numeral_system_lao" translatable="false">໐-໙</string>
+    <string name="core_lang_numeral_system_khmer" translatable="false">០-៩</string>
+    <string name="core_lang_numeral_system_myanmar" translatable="false">၀-၉</string>
+    <string name="core_lang_numeral_system_tibetan" translatable="false">༠-༩</string>
+    <string name="core_lang_numeral_system_meetei" translatable="false">꯰-꯹</string>
+    <string name="core_lang_numeral_system_ol_chiki" translatable="false">᱐-᱙</string>
+    <string name="core_lang_numeral_system_shan" translatable="false">႐-႙</string>
 
     <!-- Where the app types the digits of the language. "Text fields" leaves
          0-9 in number, phone, date and time fields. -->

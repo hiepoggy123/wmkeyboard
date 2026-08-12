@@ -1,0 +1,192 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_dv_phonetic",
+    "name": "ދިވެހި (Phonetic)",
+    "langId": "dv",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ް",
+              "shiftLabel": "ޤ"
+            },
+            {
+              "label": "އ",
+              "shiftLabel": "ޢ"
+            },
+            {
+              "label": "ެ",
+              "shiftLabel": "ޭ"
+            },
+            {
+              "label": "ރ",
+              "shiftLabel": "ޜ"
+            },
+            {
+              "label": "ތ",
+              "shiftLabel": "ޓ"
+            },
+            {
+              "label": "ޔ",
+              "shiftLabel": "ޠ"
+            },
+            {
+              "label": "ު",
+              "shiftLabel": "ޫ"
+            },
+            {
+              "label": "ި",
+              "shiftLabel": "ީ"
+            },
+            {
+              "label": "ޮ",
+              "shiftLabel": "ޯ"
+            },
+            {
+              "label": "ޕ"
+            }
+          ],
+          [
+            {
+              "label": "ަ",
+              "shiftLabel": "ާ"
+            },
+            {
+              "label": "ސ",
+              "shiftLabel": "ށ"
+            },
+            {
+              "label": "ދ",
+              "shiftLabel": "ޑ"
+            },
+            {
+              "label": "ފ",
+              "shiftLabel": "ﷲ"
+            },
+            {
+              "label": "ގ",
+              "shiftLabel": "ޣ"
+            },
+            {
+              "label": "ހ",
+              "shiftLabel": "ޙ"
+            },
+            {
+              "label": "ޖ",
+              "shiftLabel": "ޛ"
+            },
+            {
+              "label": "ކ",
+              "shiftLabel": "ޚ"
+            },
+            {
+              "label": "ލ",
+              "shiftLabel": "ޅ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ޒ",
+              "shiftLabel": "ޡ"
+            },
+            {
+              "label": "ޘ"
+            },
+            {
+              "label": "ޗ",
+              "shiftLabel": "ޝ"
+            },
+            {
+              "label": "ވ",
+              "shiftLabel": "ޥ"
+            },
+            {
+              "label": "ބ",
+              "shiftLabel": "ޞ"
+            },
+            {
+              "label": "ނ",
+              "shiftLabel": "ޏ",
+              "longPress": [
+                "ޱ"
+              ]
+            },
+            {
+              "label": "މ",
+              "shiftLabel": "ޟ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "،",
+                "؟",
+                "؛",
+                "…",
+                ",",
+                "?",
+                "!",
+                ":"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

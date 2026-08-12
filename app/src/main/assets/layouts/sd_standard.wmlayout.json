@@ -1,0 +1,285 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_sd_standard",
+    "name": "سنڌي (Standard)",
+    "langId": "sd",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ق",
+              "longPress": [
+                "۱",
+                "َ",
+                "ً"
+              ]
+            },
+            {
+              "label": "ص",
+              "shiftLabel": "ض",
+              "longPress": [
+                "۲"
+              ]
+            },
+            {
+              "label": "ي",
+              "shiftLabel": "ى",
+              "longPress": [
+                "۳",
+                "ِ",
+                "ٖ"
+              ]
+            },
+            {
+              "label": "ر",
+              "shiftLabel": "ڙ",
+              "longPress": [
+                "۴"
+              ]
+            },
+            {
+              "label": "ت",
+              "shiftLabel": "ٽ",
+              "longPress": [
+                "۵",
+                "ٺ",
+                "ة"
+              ]
+            },
+            {
+              "label": "ٿ",
+              "shiftLabel": "ث",
+              "longPress": [
+                "۶"
+              ]
+            },
+            {
+              "label": "ع",
+              "shiftLabel": "غ",
+              "longPress": [
+                "۷"
+              ]
+            },
+            {
+              "label": "ڳ",
+              "shiftLabel": "ھ",
+              "longPress": [
+                "۸"
+              ]
+            },
+            {
+              "label": "و",
+              "shiftLabel": "ؤ",
+              "longPress": [
+                "۹",
+                "ُ",
+                "ٗ"
+              ]
+            },
+            {
+              "label": "پ",
+              "shiftLabel": "ڦ",
+              "longPress": [
+                "۰"
+              ]
+            },
+            {
+              "label": "چ",
+              "shiftLabel": "ڄ",
+              "longPress": [
+                "ڇ",
+                "ڃ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ا",
+              "shiftLabel": "آ",
+              "longPress": [
+                "أ",
+                "إ",
+                "ٱ",
+                "ٰ"
+              ]
+            },
+            {
+              "label": "س",
+              "shiftLabel": "ش"
+            },
+            {
+              "label": "د",
+              "shiftLabel": "ڊ",
+              "longPress": [
+                "ڏ",
+                "ڌ",
+                "ڍ"
+              ]
+            },
+            {
+              "label": "ف"
+            },
+            {
+              "label": "گ"
+            },
+            {
+              "label": "ه",
+              "shiftLabel": "ح",
+              "longPress": [
+                "ہ",
+                "ۃ"
+              ]
+            },
+            {
+              "label": "ج",
+              "longPress": [
+                "ﷺ",
+                "ﷻ"
+              ]
+            },
+            {
+              "label": "ڪ",
+              "shiftLabel": "ك",
+              "longPress": [
+                "ۡ"
+              ]
+            },
+            {
+              "label": "ل"
+            },
+            {
+              "label": "ک",
+              "longPress": [
+                "؛"
+              ]
+            },
+            {
+              "label": "ڱ",
+              "longPress": [
+                "ـ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ز",
+              "shiftLabel": "ذ",
+              "longPress": [
+                "ژ",
+                "ْ"
+              ]
+            },
+            {
+              "label": "خ",
+              "longPress": [
+                "ّ"
+              ]
+            },
+            {
+              "label": "ط",
+              "shiftLabel": "ظ"
+            },
+            {
+              "label": "ڀ",
+              "shiftLabel": "ء"
+            },
+            {
+              "label": "ب",
+              "shiftLabel": "ٻ"
+            },
+            {
+              "label": "ن",
+              "shiftLabel": "ڻ",
+              "longPress": [
+                "ں"
+              ]
+            },
+            {
+              "label": "م",
+              "shiftLabel": "۾",
+              "longPress": [
+                "۽"
+              ]
+            },
+            {
+              "label": "ئ",
+              "longPress": [
+                "،",
+                "۔",
+                "؟"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "۔",
+                "،",
+                "؟",
+                "؛",
+                "…",
+                "!",
+                ":"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

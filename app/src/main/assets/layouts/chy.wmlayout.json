@@ -46,6 +46,7 @@
               "label": "o",
               "longPress": [
                 "ó",
+                "ô",
                 "ȯ"
               ]
             },
@@ -58,11 +59,15 @@
               "label": "a",
               "longPress": [
                 "á",
-                "â"
+                "â",
+                "ȧ"
               ]
             },
             {
-              "label": "s"
+              "label": "s",
+              "longPress": [
+                "š"
+              ]
             },
             {
               "label": "d"
@@ -84,6 +89,9 @@
             },
             {
               "label": "l"
+            },
+            {
+              "label": "ʼ"
             }
           ],
           [

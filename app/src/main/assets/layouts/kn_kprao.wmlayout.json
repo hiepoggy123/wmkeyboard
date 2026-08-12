@@ -1,0 +1,232 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kn_kprao",
+    "name": "ಕೆ ಪಿ ರಾವ್ (KP Rao)",
+    "langId": "kn",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ಟ",
+              "shiftLabel": "ಠ"
+            },
+            {
+              "label": "ಡ",
+              "shiftLabel": "ಢ"
+            },
+            {
+              "label": "ಎ",
+              "shiftLabel": "ಏ",
+              "longPress": [
+                "ೆ",
+                "ೇ"
+              ]
+            },
+            {
+              "label": "ರ",
+              "shiftLabel": "ಋ",
+              "longPress": [
+                "ೃ",
+                "ೄ",
+                "ೠ",
+                "ಱ"
+              ]
+            },
+            {
+              "label": "ತ",
+              "shiftLabel": "ಥ"
+            },
+            {
+              "label": "ಯ",
+              "shiftLabel": "ಐ",
+              "longPress": [
+                "ೈ"
+              ]
+            },
+            {
+              "label": "ಉ",
+              "shiftLabel": "ಊ",
+              "longPress": [
+                "ು",
+                "ೂ"
+              ]
+            },
+            {
+              "label": "ಇ",
+              "shiftLabel": "ಈ",
+              "longPress": [
+                "ಿ",
+                "ೀ"
+              ]
+            },
+            {
+              "label": "ಒ",
+              "shiftLabel": "ಓ",
+              "longPress": [
+                "ೊ",
+                "ೋ"
+              ]
+            },
+            {
+              "label": "ಪ",
+              "shiftLabel": "ಫ"
+            }
+          ],
+          [
+            {
+              "label": "ಅ",
+              "shiftLabel": "ಆ",
+              "longPress": [
+                "ಾ",
+                "ಽ"
+              ]
+            },
+            {
+              "label": "ಸ",
+              "shiftLabel": "ಶ"
+            },
+            {
+              "label": "ದ",
+              "shiftLabel": "ಧ"
+            },
+            {
+              "label": "್",
+              "longPress": [
+                "಼",
+                "ೕ",
+                "ೖ"
+              ]
+            },
+            {
+              "label": "ಗ",
+              "shiftLabel": "ಘ"
+            },
+            {
+              "label": "ಹ",
+              "shiftLabel": "ಃ"
+            },
+            {
+              "label": "ಜ",
+              "shiftLabel": "ಝ"
+            },
+            {
+              "label": "ಕ",
+              "shiftLabel": "ಖ"
+            },
+            {
+              "label": "ಲ",
+              "shiftLabel": "ಳ",
+              "longPress": [
+                "ೞ",
+                "ಌ",
+                "ೡ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ಞ",
+              "shiftLabel": "ಙ"
+            },
+            {
+              "label": "ಷ"
+            },
+            {
+              "label": "ಚ",
+              "shiftLabel": "ಛ"
+            },
+            {
+              "label": "ವ",
+              "shiftLabel": "ಔ",
+              "longPress": [
+                "ೌ"
+              ]
+            },
+            {
+              "label": "ಬ",
+              "shiftLabel": "ಭ"
+            },
+            {
+              "label": "ನ",
+              "shiftLabel": "ಣ"
+            },
+            {
+              "label": "ಮ",
+              "shiftLabel": "ಂ",
+              "longPress": [
+                "ಁ"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

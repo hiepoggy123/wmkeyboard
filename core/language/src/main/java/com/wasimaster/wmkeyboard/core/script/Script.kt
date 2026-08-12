@@ -32,7 +32,7 @@ enum class ScriptId {
     TIFINAGH, CHEROKEE,
     NKO, CANADIAN_ABORIGINAL_SYLLABICS,
     TIBETAN,
-    OL_CHIKI, MEETEI_MAYEK,
+    OL_CHIKI, MEETEI_MAYEK, TAI_LE,
 
     /**
      * Western musical notation: the Musical Symbols block (U+1D100..1D1FF) plus
@@ -223,6 +223,14 @@ object ScriptRegistry {
             composer = ComposerType.INDIC_CLUSTER,
             fontHint = FontHint.DEVANAGARI,
             unicodeRange = 0x0900..0x097F,
+            // Hindi, Marathi, Nepali and the rest end a sentence with the danda
+            // (।), the same way Bengali ends one with the dari. The danda was
+            // reachable on the period key's long-press, which is the wrong way
+            // round: it made the native mark the deliberate choice and the
+            // foreign one the default, on fifteen layouts plus the built-in
+            // Hindi grid. ASCII "." moves to the long-press, where it is still
+            // one press away for numbers, file names and URLs.
+            fullStop = "।",
         ),
         ScriptDef(
             id = ScriptId.GEORGIAN,
@@ -242,6 +250,8 @@ object ScriptRegistry {
             composer = ComposerType.NONE,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x0530..0x058F,
+            // Armenian ends a sentence with vertsaket (։), not a full stop.
+            fullStop = "։",
         ),
         // Brahmic scripts: all uncased, all cluster-shaping (conjuncts joined by a
         // virama, vowel signs deleted with their base), so they share the generic
@@ -337,6 +347,8 @@ object ScriptRegistry {
             composer = ComposerType.INDIC_CLUSTER,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x1780..0x17FF,
+            // Khmer ends a sentence with khan (។); the ASCII stop moves to long-press.
+            fullStop = "។",
         ),
         ScriptDef(
             id = ScriptId.MYANMAR,
@@ -345,6 +357,8 @@ object ScriptRegistry {
             composer = ComposerType.INDIC_CLUSTER,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x1000..0x109F,
+            // Burmese ends a sentence with the section mark (။), not a full stop.
+            fullStop = "။",
         ),
         // Ethiopic (Amharic, Tigrinya …) is an abugida written left-to-right and
         // uncased. Its ~34 base consonants each have seven vowel orders; the
@@ -357,6 +371,8 @@ object ScriptRegistry {
             composer = ComposerType.NONE,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x1200..0x137F,
+            // Ethiopic ends a sentence with arat netib (።).
+            fullStop = "።",
         ),
         // Thaana (Dhivehi) is written right-to-left; consonants carry vowel
         // diacritics (fili) typed after them, so like Arabic it composes 1:1 and
@@ -379,6 +395,8 @@ object ScriptRegistry {
             composer = ComposerType.NONE,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x3040..0x30FF,
+            // Japanese ends a sentence with the ideographic full stop (。).
+            fullStop = "。",
         ),
         ScriptDef(
             id = ScriptId.HAN,
@@ -441,6 +459,8 @@ object ScriptRegistry {
             composer = ComposerType.INDIC_CLUSTER,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x0F00..0x0FFF,
+            // Tibetan ends a clause with shad (།).
+            fullStop = "།",
         ),
         // Ol Chiki (Santali) is a true alphabet, not an abugida — no virama or
         // conjunct stacking, so it composes 1:1 like Thai/Lao rather than using
@@ -452,6 +472,8 @@ object ScriptRegistry {
             composer = ComposerType.NONE,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x1C50..0x1C7F,
+            // Ol Chiki ends a sentence with mucaad (᱾).
+            fullStop = "᱾",
         ),
         // Meetei Mayek (Manipuri) is an abugida with a virama-like killer stroke
         // (Apun Iyek), so it rides the generic cluster composer like the other
@@ -466,6 +488,23 @@ object ScriptRegistry {
             composer = ComposerType.INDIC_CLUSTER,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0xABC0..0xABFF,
+            // Meetei Mayek ends a sentence with cheikhei (꯫).
+            fullStop = "꯫",
+        ),
+        // Tai Le (Tai Nuea) is an abugida written left to right with the tone
+        // marks as spacing characters after the syllable, so it composes 1:1
+        // rather than clustering. Like Ol Chiki and N'Ko it has no dedicated
+        // font ride: devices that carry Noto Sans Tai Le render it, the rest
+        // show tofu, which is the same bargain the other minority scripts here
+        // already take and still better than the ASCII QWERTY this language
+        // shipped with.
+        ScriptDef(
+            id = ScriptId.TAI_LE,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x1950..0x197F,
         ),
         // Musical notation composes 1:1 — every key commits its symbol as-is,
         // like IPA. The declared range is the Musical Symbols block; the layout

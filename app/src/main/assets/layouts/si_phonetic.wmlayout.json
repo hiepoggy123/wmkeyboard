@@ -1,0 +1,260 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_si_phonetic",
+    "name": "ශබ්ද (Phonetic)",
+    "langId": "si",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ඍ",
+              "shiftLabel": "ඎ",
+              "longPress": [
+                "ෘ",
+                "ෲ"
+              ]
+            },
+            {
+              "label": "ඇ",
+              "shiftLabel": "ඈ",
+              "longPress": [
+                "ැ",
+                "ෑ"
+              ]
+            },
+            {
+              "label": "එ",
+              "shiftLabel": "ඒ",
+              "longPress": [
+                "ෙ",
+                "ේ"
+              ]
+            },
+            {
+              "label": "ර",
+              "shiftLabel": "්",
+              "longPress": [
+                "්‍ර",
+                "ර්‍",
+                "්‍"
+              ]
+            },
+            {
+              "label": "ත",
+              "shiftLabel": "ථ",
+              "longPress": [
+                "ට",
+                "ඨ"
+              ]
+            },
+            {
+              "label": "ය",
+              "shiftLabel": "ං",
+              "longPress": [
+                "්‍ය"
+              ]
+            },
+            {
+              "label": "උ",
+              "shiftLabel": "ඌ",
+              "longPress": [
+                "ු",
+                "ූ"
+              ]
+            },
+            {
+              "label": "ඉ",
+              "shiftLabel": "ඊ",
+              "longPress": [
+                "ි",
+                "ී"
+              ]
+            },
+            {
+              "label": "ඔ",
+              "shiftLabel": "ඕ",
+              "longPress": [
+                "ො",
+                "ෝ"
+              ]
+            },
+            {
+              "label": "ප",
+              "shiftLabel": "ඵ"
+            }
+          ],
+          [
+            {
+              "label": "අ",
+              "shiftLabel": "ආ",
+              "longPress": [
+                "ා"
+              ]
+            },
+            {
+              "label": "ස",
+              "shiftLabel": "ශ",
+              "longPress": [
+                "ෂ"
+              ]
+            },
+            {
+              "label": "ද",
+              "shiftLabel": "ධ",
+              "longPress": [
+                "ඩ",
+                "ඪ"
+              ]
+            },
+            {
+              "label": "ෆ",
+              "longPress": [
+                "ෛ",
+                "ඓ"
+              ]
+            },
+            {
+              "label": "ග",
+              "shiftLabel": "ඝ",
+              "longPress": [
+                "ඟ"
+              ]
+            },
+            {
+              "label": "හ",
+              "shiftLabel": "ඃ",
+              "longPress": [
+                "ෞ",
+                "ඖ"
+              ]
+            },
+            {
+              "label": "ජ",
+              "shiftLabel": "ඣ",
+              "longPress": [
+                "ඦ"
+              ]
+            },
+            {
+              "label": "ක",
+              "shiftLabel": "ඛ",
+              "longPress": [
+                "ඏ",
+                "ඐ"
+              ]
+            },
+            {
+              "label": "ල",
+              "shiftLabel": "ළ",
+              "longPress": [
+                "ෟ",
+                "ෳ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ඤ",
+              "shiftLabel": "ඥ"
+            },
+            {
+              "label": "ඳ",
+              "shiftLabel": "ඬ"
+            },
+            {
+              "label": "ච",
+              "shiftLabel": "ඡ"
+            },
+            {
+              "label": "ව"
+            },
+            {
+              "label": "බ",
+              "shiftLabel": "භ"
+            },
+            {
+              "label": "න",
+              "shiftLabel": "ණ",
+              "longPress": [
+                "ං",
+                "ඞ"
+              ]
+            },
+            {
+              "label": "ම",
+              "shiftLabel": "ඹ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                "෴",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

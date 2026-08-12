@@ -72,7 +72,9 @@
             {
               "label": "l",
               "longPress": [
-                "ł"
+                "ł",
+                "ḷ",
+                "ł̣"
               ]
             }
           ],
@@ -100,7 +102,11 @@
               "label": "b"
             },
             {
-              "label": "n"
+              "label": "n",
+              "longPress": [
+                "ñ",
+                "ŋ"
+              ]
             },
             {
               "label": "m"

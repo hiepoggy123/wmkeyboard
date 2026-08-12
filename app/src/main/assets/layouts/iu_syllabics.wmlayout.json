@@ -5,53 +5,404 @@
     "id": "asset_iu_syllabics",
     "name": "ᐃᓄᒃᑎᑐᑦ (Inuktitut)",
     "langId": "iu",
-    "version": 1,
+    "version": 2,
     "layers": {
       "letters": {
         "rows": [
           [
-            { "label": "ᐊ", "longPress": ["ᐃ", "ᐅ", "ᐁ"] },
-            { "label": "ᐱ", "longPress": ["ᐲ", "ᐳ", "ᐸ"] },
-            { "label": "ᑎ", "longPress": ["ᑏ", "ᑐ", "ᑕ"] },
-            { "label": "ᑭ", "longPress": ["ᑮ", "ᑯ", "ᑲ"] },
-            { "label": "ᒥ", "longPress": ["ᒦ", "ᒧ", "ᒪ"] },
-            { "label": "ᓂ", "longPress": ["ᓃ", "ᓄ", "ᓇ"] },
-            { "label": "ᓴ", "longPress": ["ᓯ", "ᓱ", "ᓵ"] },
-            { "label": "ᔭ", "longPress": ["ᔨ", "ᔪ", "ᔭ"] },
-            { "label": "ᕙ", "longPress": ["ᕕ", "ᕗ", "ᕘ"] }
+            {
+              "label": "ᐊ",
+              "shiftLabel": "ᐦ",
+              "longPress": [
+                "ᐃ",
+                "ᐅ",
+                "ᐁ",
+                "ᐋ",
+                "ᐄ",
+                "ᐆ"
+              ]
+            },
+            {
+              "label": "ᐸ",
+              "shiftLabel": "ᑉ",
+              "longPress": [
+                "ᐱ",
+                "ᐳ",
+                "ᐯ",
+                "ᐹ",
+                "ᐲ",
+                "ᐴ"
+              ]
+            },
+            {
+              "label": "ᑕ",
+              "shiftLabel": "ᑦ",
+              "longPress": [
+                "ᑎ",
+                "ᑐ",
+                "ᑌ",
+                "ᑖ",
+                "ᑏ",
+                "ᑑ"
+              ]
+            },
+            {
+              "label": "ᑲ",
+              "shiftLabel": "ᒃ",
+              "longPress": [
+                "ᑭ",
+                "ᑯ",
+                "ᑫ",
+                "ᑳ",
+                "ᑮ",
+                "ᑰ"
+              ]
+            },
+            {
+              "label": "ᒐ",
+              "shiftLabel": "ᒡ",
+              "longPress": [
+                "ᒋ",
+                "ᒍ",
+                "ᒉ",
+                "ᒑ",
+                "ᒌ",
+                "ᒎ"
+              ]
+            },
+            {
+              "label": "ᒪ",
+              "shiftLabel": "ᒻ",
+              "longPress": [
+                "ᒥ",
+                "ᒧ",
+                "ᒣ",
+                "ᒫ",
+                "ᒦ",
+                "ᒨ"
+              ]
+            },
+            {
+              "label": "ᓇ",
+              "shiftLabel": "ᓐ",
+              "longPress": [
+                "ᓂ",
+                "ᓄ",
+                "ᓀ",
+                "ᓈ",
+                "ᓃ",
+                "ᓅ"
+              ]
+            },
+            {
+              "label": "ᓴ",
+              "shiftLabel": "ᔅ",
+              "longPress": [
+                "ᓯ",
+                "ᓱ",
+                "ᓭ",
+                "ᓵ",
+                "ᓰ",
+                "ᓲ"
+              ]
+            },
+            {
+              "label": "ᓚ",
+              "shiftLabel": "ᓪ",
+              "longPress": [
+                "ᓕ",
+                "ᓗ",
+                "ᓓ",
+                "ᓛ",
+                "ᓖ",
+                "ᓘ"
+              ]
+            },
+            {
+              "label": "ᔭ",
+              "shiftLabel": "ᔾ",
+              "longPress": [
+                "ᔨ",
+                "ᔪ",
+                "ᔦ",
+                "ᔮ",
+                "ᔩ",
+                "ᔫ"
+              ]
+            },
+            {
+              "label": "ᕙ",
+              "shiftLabel": "ᕝ",
+              "longPress": [
+                "ᕕ",
+                "ᕗ",
+                "ᕓ",
+                "ᕚ",
+                "ᕖ",
+                "ᕘ"
+              ]
+            }
           ],
           [
-            { "label": "ᐸ", "longPress": ["ᐱ", "ᐳ", "ᐁ"] },
-            { "label": "ᑕ", "longPress": ["ᑎ", "ᑐ", "ᑏ"] },
-            { "label": "ᑲ", "longPress": ["ᑭ", "ᑯ", "ᑮ"] },
-            { "label": "ᒪ", "longPress": ["ᒥ", "ᒧ", "ᒦ"] },
-            { "label": "ᓇ", "longPress": ["ᓂ", "ᓄ", "ᓃ"] },
-            { "label": "ᓵ", "longPress": ["ᓴ", "ᓯ", "ᓱ"] },
-            { "label": "ᔪ", "longPress": ["ᔭ", "ᔨ", "ᔫ"] },
-            { "label": "ᕗ", "longPress": ["ᕙ", "ᕕ", "ᕘ"] },
-            { "label": "ᕋ", "longPress": ["ᕆ", "ᕇ", "ᕈ"] },
-            { "label": "ᙯ", "longPress": ["ᙱ", "ᙳ", "ᙰ"] }
+            {
+              "label": "ᕋ",
+              "shiftLabel": "ᕐ",
+              "longPress": [
+                "ᕆ",
+                "ᕈ",
+                "ᕂ",
+                "ᕌ",
+                "ᕇ",
+                "ᕉ"
+              ]
+            },
+            {
+              "label": "ᖃ",
+              "shiftLabel": "ᖅ",
+              "longPress": [
+                "ᕿ",
+                "ᖁ",
+                "ᙯ",
+                "ᖄ",
+                "ᖀ",
+                "ᖂ"
+              ]
+            },
+            {
+              "label": "ᖓ",
+              "shiftLabel": "ᖕ",
+              "longPress": [
+                "ᖏ",
+                "ᖑ",
+                "ᙰ",
+                "ᖔ",
+                "ᖐ",
+                "ᖒ"
+              ]
+            },
+            {
+              "label": "ᙵ",
+              "shiftLabel": "ᖖ",
+              "longPress": [
+                "ᙱ",
+                "ᙳ",
+                "ᙶ",
+                "ᙲ",
+                "ᙴ"
+              ]
+            },
+            {
+              "label": "ᖤ",
+              "shiftLabel": "ᖦ",
+              "longPress": [
+                "ᖠ",
+                "ᖢ",
+                "ᖥ",
+                "ᖡ",
+                "ᖣ"
+              ]
+            },
+            {
+              "label": "ᐃ",
+              "shiftLabel": "ᐄ"
+            },
+            {
+              "label": "ᐅ",
+              "shiftLabel": "ᐆ"
+            },
+            {
+              "label": "ᐋ",
+              "shiftLabel": "ᐁ"
+            },
+            {
+              "label": "ᕼ",
+              "shiftLabel": "ᕽ"
+            },
+            {
+              "label": "ᕆ",
+              "shiftLabel": "ᕇ",
+              "longPress": [
+                "ᕈ",
+                "ᕉ",
+                "ᕂ",
+                "ᕋ",
+                "ᕌ",
+                "ᕐ"
+              ]
+            },
+            {
+              "label": "ᕿ",
+              "shiftLabel": "ᖀ",
+              "longPress": [
+                "ᖁ",
+                "ᖂ",
+                "ᙯ",
+                "ᖃ",
+                "ᖄ",
+                "ᖅ"
+              ]
+            }
           ],
           [
-            { "label": "ᐊ", "longPress": ["ᐃ", "ᐅ", "ᐁ"] },
-            { "label": "ᐱ", "longPress": ["ᐲ", "ᐳ", "ᐸ"] },
-            { "label": "ᑎ", "longPress": ["ᑏ", "ᑐ", "ᑕ"] },
-            { "label": "ᑭ", "longPress": ["ᑮ", "ᑯ", "ᑲ"] },
-            { "label": "ᒥ", "longPress": ["ᒦ", "ᒧ", "ᒪ"] },
-            { "label": "ᓂ", "longPress": ["ᓃ", "ᓄ", "ᓇ"] },
-            { "label": "ᓴ", "longPress": ["ᓯ", "ᓱ", "ᓵ"] },
-            { "label": "ᔭ", "longPress": ["ᔨ", "ᔪ", "ᔭ"] },
-            { "label": "ᕙ", "longPress": ["ᕕ", "ᕗ", "ᕘ"] },
-            { "label": "ᕆ", "longPress": ["ᕇ", "ᕈ", "ᕋ"] }
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ᐱ",
+              "shiftLabel": "ᐲ",
+              "longPress": [
+                "ᐳ",
+                "ᐴ",
+                "ᐯ",
+                "ᐸ",
+                "ᐹ",
+                "ᑉ"
+              ]
+            },
+            {
+              "label": "ᑎ",
+              "shiftLabel": "ᑏ",
+              "longPress": [
+                "ᑐ",
+                "ᑑ",
+                "ᑌ",
+                "ᑕ",
+                "ᑖ",
+                "ᑦ"
+              ]
+            },
+            {
+              "label": "ᑭ",
+              "shiftLabel": "ᑮ",
+              "longPress": [
+                "ᑯ",
+                "ᑰ",
+                "ᑫ",
+                "ᑲ",
+                "ᑳ",
+                "ᒃ"
+              ]
+            },
+            {
+              "label": "ᒋ",
+              "shiftLabel": "ᒌ",
+              "longPress": [
+                "ᒍ",
+                "ᒎ",
+                "ᒉ",
+                "ᒐ",
+                "ᒑ",
+                "ᒡ"
+              ]
+            },
+            {
+              "label": "ᒥ",
+              "shiftLabel": "ᒦ",
+              "longPress": [
+                "ᒧ",
+                "ᒨ",
+                "ᒣ",
+                "ᒪ",
+                "ᒫ",
+                "ᒻ"
+              ]
+            },
+            {
+              "label": "ᓂ",
+              "shiftLabel": "ᓃ",
+              "longPress": [
+                "ᓄ",
+                "ᓅ",
+                "ᓀ",
+                "ᓇ",
+                "ᓈ",
+                "ᓐ"
+              ]
+            },
+            {
+              "label": "ᓯ",
+              "shiftLabel": "ᓰ",
+              "longPress": [
+                "ᓱ",
+                "ᓲ",
+                "ᓭ",
+                "ᓴ",
+                "ᓵ",
+                "ᔅ"
+              ]
+            },
+            {
+              "label": "ᓕ",
+              "shiftLabel": "ᓖ",
+              "longPress": [
+                "ᓗ",
+                "ᓘ",
+                "ᓓ",
+                "ᓚ",
+                "ᓛ",
+                "ᓪ"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
           ],
           [
-            { "label": "?123", "action": { "type": "symbols" }, "width": 1.5 },
-            { "label": ",", "longPress": ["!", "?"], "role": "Comma" },
-            { "label": "🌐", "action": { "type": "language_switch" } },
-            { "label": " ", "action": { "type": "space" }, "width": 4 },
-            { "label": ".", "longPress": ["…", ",", "?", "!", ":", ";"], "role": "Period" },
-            { "label": "⌫", "action": { "type": "delete" }, "width": 1.5 },
-            { "label": "⏎", "action": { "type": "enter" }, "width": 1.5 }
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4.0
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
           ]
         ]
       }

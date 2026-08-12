@@ -32,6 +32,14 @@ enum class NumeralSystem(val digits: String?, @StringRes val labelRes: Int) {
     PERSIAN("۰۱۲۳۴۵۶۷۸۹", R.string.core_lang_numeral_system_persian),
     BENGALI("০১২৩৪৫৬৭৮৯", R.string.core_lang_numeral_system_bengali),
     DEVANAGARI("०१२३४५६७८९", R.string.core_lang_numeral_system_devanagari),
+    THAI("๐๑๒๓๔๕๖๗๘๙", R.string.core_lang_numeral_system_thai),
+    LAO("໐໑໒໓໔໕໖໗໘໙", R.string.core_lang_numeral_system_lao),
+    KHMER("០១២៣៤៥៦៧៨៩", R.string.core_lang_numeral_system_khmer),
+    MYANMAR("၀၁၂၃၄၅၆၇၈၉", R.string.core_lang_numeral_system_myanmar),
+    TIBETAN("༠༡༢༣༤༥༦༧༨༩", R.string.core_lang_numeral_system_tibetan),
+    MEETEI("꯰꯱꯲꯳꯴꯵꯶꯷꯸꯹", R.string.core_lang_numeral_system_meetei),
+    OL_CHIKI("᱐᱑᱒᱓᱔᱕᱖᱗᱘᱙", R.string.core_lang_numeral_system_ol_chiki),
+    SHAN("႐႑႒႓႔႕႖႗႘႙", R.string.core_lang_numeral_system_shan),
 }
 
 /**

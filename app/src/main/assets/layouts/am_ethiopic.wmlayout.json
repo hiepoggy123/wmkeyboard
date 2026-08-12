@@ -23,6 +23,7 @@
             },
             {
               "label": "ለ",
+              "shiftLabel": "ሏ",
               "longPress": [
                 "ሉ",
                 "ሊ",
@@ -34,6 +35,7 @@
             },
             {
               "label": "ሐ",
+              "shiftLabel": "ሗ",
               "longPress": [
                 "ሑ",
                 "ሒ",
@@ -45,6 +47,7 @@
             },
             {
               "label": "መ",
+              "shiftLabel": "ሟ",
               "longPress": [
                 "ሙ",
                 "ሚ",
@@ -56,6 +59,7 @@
             },
             {
               "label": "ሠ",
+              "shiftLabel": "ሧ",
               "longPress": [
                 "ሡ",
                 "ሢ",
@@ -67,6 +71,7 @@
             },
             {
               "label": "ረ",
+              "shiftLabel": "ሯ",
               "longPress": [
                 "ሩ",
                 "ሪ",
@@ -78,6 +83,7 @@
             },
             {
               "label": "ሰ",
+              "shiftLabel": "ሷ",
               "longPress": [
                 "ሱ",
                 "ሲ",
@@ -89,6 +95,7 @@
             },
             {
               "label": "ሸ",
+              "shiftLabel": "ሿ",
               "longPress": [
                 "ሹ",
                 "ሺ",
@@ -100,17 +107,23 @@
             },
             {
               "label": "ቀ",
+              "shiftLabel": "ቋ",
               "longPress": [
                 "ቁ",
                 "ቂ",
                 "ቃ",
                 "ቄ",
                 "ቅ",
-                "ቆ"
+                "ቆ",
+                "ቈ",
+                "ቊ",
+                "ቌ",
+                "ቍ"
               ]
             },
             {
               "label": "በ",
+              "shiftLabel": "ቧ",
               "longPress": [
                 "ቡ",
                 "ቢ",
@@ -124,6 +137,7 @@
           [
             {
               "label": "ቨ",
+              "shiftLabel": "ቯ",
               "longPress": [
                 "ቩ",
                 "ቪ",
@@ -135,6 +149,7 @@
             },
             {
               "label": "ተ",
+              "shiftLabel": "ቷ",
               "longPress": [
                 "ቱ",
                 "ቲ",
@@ -146,6 +161,7 @@
             },
             {
               "label": "ቸ",
+              "shiftLabel": "ቿ",
               "longPress": [
                 "ቹ",
                 "ቺ",
@@ -157,17 +173,23 @@
             },
             {
               "label": "ኀ",
+              "shiftLabel": "ኋ",
               "longPress": [
                 "ኁ",
                 "ኂ",
                 "ኃ",
                 "ኄ",
                 "ኅ",
-                "ኆ"
+                "ኆ",
+                "ኈ",
+                "ኊ",
+                "ኌ",
+                "ኍ"
               ]
             },
             {
               "label": "ነ",
+              "shiftLabel": "ኗ",
               "longPress": [
                 "ኑ",
                 "ኒ",
@@ -179,6 +201,7 @@
             },
             {
               "label": "ኘ",
+              "shiftLabel": "ኟ",
               "longPress": [
                 "ኙ",
                 "ኚ",
@@ -190,6 +213,7 @@
             },
             {
               "label": "አ",
+              "shiftLabel": "ኧ",
               "longPress": [
                 "ኡ",
                 "ኢ",
@@ -201,24 +225,34 @@
             },
             {
               "label": "ከ",
+              "shiftLabel": "ኳ",
               "longPress": [
                 "ኩ",
                 "ኪ",
                 "ካ",
                 "ኬ",
                 "ክ",
-                "ኮ"
+                "ኮ",
+                "ኰ",
+                "ኲ",
+                "ኴ",
+                "ኵ"
               ]
             },
             {
               "label": "ኸ",
+              "shiftLabel": "ዃ",
               "longPress": [
                 "ኹ",
                 "ኺ",
                 "ኻ",
                 "ኼ",
                 "ኽ",
-                "ኾ"
+                "ኾ",
+                "ዀ",
+                "ዂ",
+                "ዄ",
+                "ዅ"
               ]
             }
           ],
@@ -247,6 +281,7 @@
             },
             {
               "label": "ዘ",
+              "shiftLabel": "ዟ",
               "longPress": [
                 "ዙ",
                 "ዚ",
@@ -258,6 +293,7 @@
             },
             {
               "label": "ዠ",
+              "shiftLabel": "ዧ",
               "longPress": [
                 "ዡ",
                 "ዢ",
@@ -280,6 +316,7 @@
             },
             {
               "label": "ደ",
+              "shiftLabel": "ዷ",
               "longPress": [
                 "ዱ",
                 "ዲ",
@@ -291,6 +328,7 @@
             },
             {
               "label": "ጀ",
+              "shiftLabel": "ጇ",
               "longPress": [
                 "ጁ",
                 "ጂ",
@@ -302,17 +340,23 @@
             },
             {
               "label": "ገ",
+              "shiftLabel": "ጓ",
               "longPress": [
                 "ጉ",
                 "ጊ",
                 "ጋ",
                 "ጌ",
                 "ግ",
-                "ጎ"
+                "ጎ",
+                "ጐ",
+                "ጒ",
+                "ጔ",
+                "ጕ"
               ]
             },
             {
               "label": "ጠ",
+              "shiftLabel": "ጧ",
               "longPress": [
                 "ጡ",
                 "ጢ",
@@ -333,6 +377,7 @@
             },
             {
               "label": "ጨ",
+              "shiftLabel": "ጯ",
               "longPress": [
                 "ጩ",
                 "ጪ",
@@ -344,6 +389,7 @@
             },
             {
               "label": "ጰ",
+              "shiftLabel": "ጷ",
               "longPress": [
                 "ጱ",
                 "ጲ",
@@ -355,6 +401,7 @@
             },
             {
               "label": "ጸ",
+              "shiftLabel": "ጿ",
               "longPress": [
                 "ጹ",
                 "ጺ",
@@ -377,6 +424,7 @@
             },
             {
               "label": "ፈ",
+              "shiftLabel": "ፏ",
               "longPress": [
                 "ፉ",
                 "ፊ",
@@ -388,6 +436,7 @@
             },
             {
               "label": "ፐ",
+              "shiftLabel": "ፗ",
               "longPress": [
                 "ፑ",
                 "ፒ",
@@ -414,8 +463,15 @@
               "width": 1.5
             },
             {
-              "label": ",",
+              "label": "፣",
               "longPress": [
+                "፡",
+                "፤",
+                "፥",
+                "፦",
+                "፧",
+                "፨",
+                ",",
                 "!",
                 "?"
               ],
@@ -432,7 +488,7 @@
               "action": {
                 "type": "space"
               },
-              "width": 4
+              "width": 4.0
             },
             {
               "label": ".",

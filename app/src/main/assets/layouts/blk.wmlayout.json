@@ -28,7 +28,10 @@
             },
             {
               "label": "အ",
-              "shiftLabel": "ဩ"
+              "shiftLabel": "ဩ",
+              "longPress": [
+                "ဪ"
+              ]
             },
             {
               "label": "ပ",
@@ -44,7 +47,10 @@
             },
             {
               "label": "သ",
-              "shiftLabel": "ဥ"
+              "shiftLabel": "ဥ",
+              "longPress": [
+                "ဿ"
+              ]
             },
             {
               "label": "စ",
@@ -95,6 +101,10 @@
             {
               "label": "း",
               "shiftLabel": "ဍ"
+            },
+            {
+              "label": "ꩻ",
+              "shiftLabel": "ႏ"
             }
           ],
           [
@@ -153,8 +163,9 @@
               "width": 1.5
             },
             {
-              "label": ",",
+              "label": "၊",
               "longPress": [
+                ",",
                 "!",
                 "?"
               ],

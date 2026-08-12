@@ -5,7 +5,7 @@
     "id": "asset_bo_tibetan",
     "name": "བོད་སྐད་ (Tibetan)",
     "langId": "bo",
-    "version": 1,
+    "version": 2,
     "layers": {
       "letters": {
         "rows": [
@@ -14,29 +14,25 @@
               "label": "ཀ",
               "shiftLabel": "ྐ",
               "longPress": [
-                "ི"
+                "ཀྵ",
+                "ྐྵ"
               ]
             },
             {
               "label": "ཁ",
-              "shiftLabel": "ྑ",
-              "longPress": [
-                "ུ"
-              ]
+              "shiftLabel": "ྑ"
             },
             {
               "label": "ག",
               "shiftLabel": "ྒ",
               "longPress": [
-                "ེ"
+                "གྷ",
+                "ྒྷ"
               ]
             },
             {
               "label": "ང",
-              "shiftLabel": "ྔ",
-              "longPress": [
-                "ོ"
-              ]
+              "shiftLabel": "ྔ"
             },
             {
               "label": "ཅ",
@@ -55,43 +51,43 @@
               "shiftLabel": "ྙ"
             },
             {
-              "label": "ཊ",
-              "shiftLabel": "ྚ"
-            },
-            {
-              "label": "ཋ",
-              "shiftLabel": "ྛ"
-            }
-          ],
-          [
-            {
-              "label": "ཌ",
-              "shiftLabel": "ྜ"
-            },
-            {
-              "label": "ཌྷ",
-              "shiftLabel": "ྜྷ"
-            },
-            {
-              "label": "ཎ",
-              "shiftLabel": "ྞ"
-            },
-            {
               "label": "ཏ",
-              "shiftLabel": "ྟ"
+              "shiftLabel": "ྟ",
+              "longPress": [
+                "ཊ",
+                "ྚ"
+              ]
             },
             {
               "label": "ཐ",
-              "shiftLabel": "ྠ"
+              "shiftLabel": "ྠ",
+              "longPress": [
+                "ཋ",
+                "ྛ"
+              ]
             },
             {
               "label": "ད",
-              "shiftLabel": "ྡ"
+              "shiftLabel": "ྡ",
+              "longPress": [
+                "ཌ",
+                "ྜ",
+                "ཌྷ",
+                "ྜྷ",
+                "དྷ",
+                "ྡྷ"
+              ]
             },
             {
               "label": "ན",
-              "shiftLabel": "ྣ"
-            },
+              "shiftLabel": "ྣ",
+              "longPress": [
+                "ཎ",
+                "ྞ"
+              ]
+            }
+          ],
+          [
             {
               "label": "པ",
               "shiftLabel": "ྤ"
@@ -102,16 +98,11 @@
             },
             {
               "label": "བ",
-              "shiftLabel": "ྦ"
-            }
-          ],
-          [
-            {
-              "label": "⇧",
-              "action": {
-                "type": "shift"
-              },
-              "width": 1.0
+              "shiftLabel": "ྦ",
+              "longPress": [
+                "བྷ",
+                "ྦྷ"
+              ]
             },
             {
               "label": "མ",
@@ -127,15 +118,18 @@
             },
             {
               "label": "ཛ",
-              "shiftLabel": "ྫ"
-            },
-            {
-              "label": "ཛྷ",
-              "shiftLabel": "ྫྷ"
+              "shiftLabel": "ྫ",
+              "longPress": [
+                "ཛྷ",
+                "ྫྷ"
+              ]
             },
             {
               "label": "ཝ",
-              "shiftLabel": "ྭ"
+              "shiftLabel": "ྭ",
+              "longPress": [
+                "ྺ"
+              ]
             },
             {
               "label": "ཞ",
@@ -147,11 +141,87 @@
             },
             {
               "label": "འ",
-              "shiftLabel": "ྰ"
+              "shiftLabel": "ྰ",
+              "longPress": [
+                "ཱ",
+                "ྈ",
+                "ྉ"
+              ]
+            },
+            {
+              "label": "ཡ",
+              "shiftLabel": "ྱ",
+              "longPress": [
+                "ྻ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.0
+            },
+            {
+              "label": "ར",
+              "shiftLabel": "ྲ",
+              "longPress": [
+                "ཪ",
+                "ྼ"
+              ]
+            },
+            {
+              "label": "ལ",
+              "shiftLabel": "ླ"
+            },
+            {
+              "label": "ཤ",
+              "shiftLabel": "ྴ",
+              "longPress": [
+                "ཥ",
+                "ྵ"
+              ]
+            },
+            {
+              "label": "ས",
+              "shiftLabel": "ྶ"
+            },
+            {
+              "label": "ཧ",
+              "shiftLabel": "ྷ"
             },
             {
               "label": "ཨ",
-              "shiftLabel": "ྸ"
+              "shiftLabel": "ྸ",
+              "longPress": [
+                "ཾ",
+                "ཿ",
+                "ྂ",
+                "ྃ",
+                "྄",
+                "྅"
+              ]
+            },
+            {
+              "label": "ི",
+              "shiftLabel": "ྀ",
+              "longPress": [
+                "ཱི"
+              ]
+            },
+            {
+              "label": "ུ",
+              "shiftLabel": "ཱུ"
+            },
+            {
+              "label": "ེ",
+              "shiftLabel": "ཻ"
+            },
+            {
+              "label": "ོ",
+              "shiftLabel": "ཽ"
             },
             {
               "label": "⌫",
@@ -173,7 +243,9 @@
               "label": ",",
               "longPress": [
                 "!",
-                "?"
+                "?",
+                "༏",
+                "༒"
               ],
               "role": "Comma"
             },
@@ -184,11 +256,25 @@
               }
             },
             {
+              "label": "་",
+              "longPress": [
+                "༌",
+                "༄",
+                "༅",
+                "༆",
+                "༈",
+                "༉",
+                "༐",
+                "༑",
+                "༔"
+              ]
+            },
+            {
               "label": " ",
               "action": {
                 "type": "space"
               },
-              "width": 4
+              "width": 3.5
             },
             {
               "label": ".",
@@ -198,7 +284,8 @@
                 "?",
                 "!",
                 ":",
-                ";"
+                ";",
+                "༎"
               ],
               "role": "Period"
             },

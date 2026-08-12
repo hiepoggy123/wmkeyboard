@@ -15,10 +15,10 @@ import java.text.Normalizer
  * precomposed spelling (U+09DF) and a decomposed one (য + U+09BC NUKTA). NFC
  * keeps the decomposed one, because U+09DF and its siblings U+09DC and U+09DD
  * are on Unicode's composition-exclusion list, so NFC takes them apart and
- * never puts them back. The word lists and the Probhat and Jatiya layouts write
- * that form; `AvroPhonetic` commits the precomposed one. They render
- * identically, so every disagreement between them looks, on screen, exactly
- * like a word nothing had ever seen.
+ * never puts them back. The word lists write that form; every layout and
+ * `AvroPhonetic` commit the precomposed one. They render identically, so every
+ * disagreement between them looks, on screen, exactly like a word nothing had
+ * ever seen.
  *
  * Folding at the store boundary rather than at the producer is deliberate.
  * Words do not only arrive from the layout the user is typing on: the context

@@ -29,10 +29,7 @@
               ]
             },
             {
-              "label": "н",
-              "longPress": [
-                "њ"
-              ]
+              "label": "н"
             },
             {
               "label": "г",
@@ -79,10 +76,7 @@
               "label": "о"
             },
             {
-              "label": "л",
-              "longPress": [
-                "љ"
-              ]
+              "label": "л"
             },
             {
               "label": "д"
@@ -106,10 +100,7 @@
               "label": "я"
             },
             {
-              "label": "ч",
-              "longPress": [
-                "џ"
-              ]
+              "label": "ч"
             },
             {
               "label": "с"
@@ -120,7 +111,6 @@
             {
               "label": "и",
               "longPress": [
-                "і",
                 "ї"
               ]
             },

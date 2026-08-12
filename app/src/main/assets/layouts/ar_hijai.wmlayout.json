@@ -1,0 +1,250 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ar_hijai",
+    "name": "هجائي (Alphabetical)",
+    "langId": "ar",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ز",
+              "longPress": [
+                "١",
+                "ژ"
+              ]
+            },
+            {
+              "label": "ر",
+              "longPress": [
+                "٢"
+              ]
+            },
+            {
+              "label": "ذ",
+              "longPress": [
+                "٣"
+              ]
+            },
+            {
+              "label": "د",
+              "longPress": [
+                "٤"
+              ]
+            },
+            {
+              "label": "خ",
+              "longPress": [
+                "٥"
+              ]
+            },
+            {
+              "label": "ح",
+              "longPress": [
+                "٦"
+              ]
+            },
+            {
+              "label": "ج",
+              "shiftLabel": "چ",
+              "longPress": [
+                "٧"
+              ]
+            },
+            {
+              "label": "ث",
+              "longPress": [
+                "٨"
+              ]
+            },
+            {
+              "label": "ت",
+              "longPress": [
+                "٩"
+              ]
+            },
+            {
+              "label": "ب",
+              "shiftLabel": "پ",
+              "longPress": [
+                "٠"
+              ]
+            },
+            {
+              "label": "ا",
+              "shiftLabel": "آ",
+              "longPress": [
+                "أ",
+                "إ",
+                "ٱ",
+                "ٰ",
+                "ٓ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ك",
+              "longPress": [
+                "ک",
+                "گ"
+              ]
+            },
+            {
+              "label": "ق"
+            },
+            {
+              "label": "ف",
+              "longPress": [
+                "ڤ"
+              ]
+            },
+            {
+              "label": "غ"
+            },
+            {
+              "label": "ع"
+            },
+            {
+              "label": "ظ"
+            },
+            {
+              "label": "ط"
+            },
+            {
+              "label": "ض"
+            },
+            {
+              "label": "ص"
+            },
+            {
+              "label": "ش"
+            },
+            {
+              "label": "س"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ء",
+              "longPress": [
+                "ّ",
+                "ْ",
+                "َ",
+                "ُ",
+                "ِ"
+              ]
+            },
+            {
+              "label": "ي",
+              "shiftLabel": "ئ",
+              "longPress": [
+                "ى",
+                "ی"
+              ]
+            },
+            {
+              "label": "و",
+              "shiftLabel": "ؤ"
+            },
+            {
+              "label": "ه",
+              "shiftLabel": "ة",
+              "longPress": [
+                "ہ",
+                "ـ"
+              ]
+            },
+            {
+              "label": "ن",
+              "longPress": [
+                "ً",
+                "ٌ",
+                "ٍ"
+              ]
+            },
+            {
+              "label": "م"
+            },
+            {
+              "label": "ل",
+              "longPress": [
+                "لا",
+                "لأ",
+                "لإ",
+                "لآ"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "۔",
+                "،",
+                "؟",
+                "؛",
+                "…",
+                "!",
+                ":"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

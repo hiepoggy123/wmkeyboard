@@ -26,7 +26,10 @@
               "label": "к"
             },
             {
-              "label": "е"
+              "label": "е",
+              "longPress": [
+                "ё"
+              ]
             },
             {
               "label": "н",
@@ -87,7 +90,7 @@
             {
               "label": "ж",
               "longPress": [
-                "җ"
+                "ј"
               ]
             },
             {

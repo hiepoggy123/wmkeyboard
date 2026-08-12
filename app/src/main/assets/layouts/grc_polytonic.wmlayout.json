@@ -10,7 +10,7 @@
       "letters": {
         "rows": [
           [
-            { "label": "semicolon", "longPress": ["·"] },
+            { "label": ";", "longPress": ["·", ":"] },
             { "label": "ς" },
             { "label": "ε", "longPress": ["ἐ", "ἑ", "ἔ", "ἕ", "ὲ", "έ"] },
             { "label": "ρ", "longPress": ["ῤ", "ῥ"] },

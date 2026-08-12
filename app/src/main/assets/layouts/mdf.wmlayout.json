@@ -11,7 +11,10 @@
         "rows": [
           [
             {
-              "label": "й"
+              "label": "й",
+              "longPress": [
+                "йх"
+              ]
             },
             {
               "label": "ц"
@@ -23,7 +26,10 @@
               "label": "к"
             },
             {
-              "label": "е"
+              "label": "е",
+              "longPress": [
+                "ё"
+              ]
             },
             {
               "label": "н"
@@ -58,22 +64,25 @@
               "label": "в"
             },
             {
-              "label": "а",
-              "longPress": [
-                "ӓ"
-              ]
+              "label": "а"
             },
             {
               "label": "п"
             },
             {
-              "label": "р"
+              "label": "р",
+              "longPress": [
+                "рх"
+              ]
             },
             {
               "label": "о"
             },
             {
-              "label": "л"
+              "label": "л",
+              "longPress": [
+                "лх"
+              ]
             },
             {
               "label": "д"

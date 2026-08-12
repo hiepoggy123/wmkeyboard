@@ -5,40 +5,40 @@
     "id": "asset_zgh_tifinagh",
     "name": "ⵜⴰⵎⴰⵣⵉⵖⵜ (Tamazight Tifinagh)",
     "langId": "zgh",
-    "version": 1,
+    "version": 2,
     "layers": {
       "letters": {
         "rows": [
           [
             { "label": "ⵇ" },
-            { "label": "ⵡ" },
+            { "label": "ⵡ", "shiftLabel": "ⵯ" },
             { "label": "ⴻ" },
-            { "label": "ⵔ", "longPress": ["ⵕ"] },
-            { "label": "ⵜ", "longPress": ["ⵟ"] },
+            { "label": "ⵔ", "shiftLabel": "ⵕ", "longPress": ["ⵕ"] },
+            { "label": "ⵜ", "shiftLabel": "ⵟ", "longPress": ["ⵟ"] },
             { "label": "ⵢ" },
             { "label": "ⵓ" },
             { "label": "ⵉ" },
-            { "label": "o" },
-            { "label": "ⵒ" }
+            { "label": "ⵄ" },
+            { "label": "ⵃ" }
           ],
           [
             { "label": "ⴰ" },
-            { "label": "ⵙ", "longPress": ["ⵚ"] },
-            { "label": "ⴷ", "longPress": ["ⴹ"] },
+            { "label": "ⵙ", "shiftLabel": "ⵚ", "longPress": ["ⵚ"] },
+            { "label": "ⴷ", "shiftLabel": "ⴹ", "longPress": ["ⴹ"] },
             { "label": "ⴼ" },
-            { "label": "ⴳ", "longPress": ["ⴲ", "ⴴ"] },
-            { "label": "ⵀ", "longPress": ["ⵁ", "ⵃ"] },
+            { "label": "ⴳ", "longPress": ["ⴳⵯ"] },
+            { "label": "ⵀ", "longPress": ["ⵁ"] },
             { "label": "ⵊ" },
-            { "label": "ⴽ", "longPress": ["ⴾ"] },
+            { "label": "ⴽ", "longPress": ["ⴽⵯ", "ⴾ"] },
             { "label": "ⵍ" }
           ],
           [
             { "label": "⇧", "action": { "type": "shift" }, "width": 1.5 },
-            { "label": "ⵣ", "longPress": ["ⵥ"] },
+            { "label": "ⵣ", "shiftLabel": "ⵥ", "longPress": ["ⵥ"] },
             { "label": "ⵅ" },
-            { "label": "ⵛ" },
-            { "label": "ⵞ" },
-            { "label": "ⴱ" },
+            { "label": "ⵛ", "longPress": ["ⵞ"] },
+            { "label": "ⵖ", "longPress": ["ⴴ"] },
+            { "label": "ⴱ", "longPress": ["ⴲ", "ⵒ"] },
             { "label": "ⵏ" },
             { "label": "ⵎ" },
             { "label": "⌫", "action": { "type": "delete" }, "width": 1.5 }

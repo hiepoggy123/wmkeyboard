@@ -77,7 +77,11 @@
             },
             {
               "label": "്",
-              "shiftLabel": "അ"
+              "shiftLabel": "അ",
+              "longPress": [
+                "്\u200d",
+                "്\u200c"
+              ]
             },
             {
               "label": "ി",
@@ -132,7 +136,8 @@
               "label": "ം",
               "shiftLabel": "ഁ",
               "longPress": [
-                "ഃ"
+                "ഃ",
+                "ഽ"
               ]
             },
             {
@@ -144,10 +149,7 @@
             },
             {
               "label": "ന",
-              "shiftLabel": "ഩ",
-              "longPress": [
-                "ൻ"
-              ]
+              "shiftLabel": "ൻ"
             },
             {
               "label": "വ",
@@ -163,13 +165,13 @@
             },
             {
               "label": "സ",
-              "shiftLabel": "ഷ"
+              "shiftLabel": "ശ"
+            },
+            {
+              "label": "ഷ"
             },
             {
               "label": "യ"
-            },
-            {
-              "label": "ശ"
             },
             {
               "label": "⌫",

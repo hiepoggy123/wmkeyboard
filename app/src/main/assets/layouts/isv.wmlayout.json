@@ -1,0 +1,244 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_isv",
+    "name": "Medžuslovjansky (Interslavic)",
+    "langId": "isv",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ј",
+              "longPress": [
+                "й"
+              ]
+            },
+            {
+              "label": "ц"
+            },
+            {
+              "label": "у",
+              "longPress": [
+                "ѫ",
+                "ў"
+              ]
+            },
+            {
+              "label": "к",
+              "longPress": [
+                "ќ"
+              ]
+            },
+            {
+              "label": "е",
+              "longPress": [
+                "ѣ",
+                "ё"
+              ]
+            },
+            {
+              "label": "н",
+              "longPress": [
+                "њ"
+              ]
+            },
+            {
+              "label": "г",
+              "longPress": [
+                "ґ",
+                "ѓ"
+              ]
+            },
+            {
+              "label": "ш"
+            },
+            {
+              "label": "щ"
+            },
+            {
+              "label": "з",
+              "longPress": [
+                "ѕ"
+              ]
+            },
+            {
+              "label": "х"
+            },
+            {
+              "label": "ъ"
+            }
+          ],
+          [
+            {
+              "label": "ф",
+              "longPress": [
+                "ѳ"
+              ]
+            },
+            {
+              "label": "ы"
+            },
+            {
+              "label": "в",
+              "longPress": [
+                "ѵ"
+              ]
+            },
+            {
+              "label": "а",
+              "longPress": [
+                "ѧ",
+                "ӑ"
+              ]
+            },
+            {
+              "label": "п"
+            },
+            {
+              "label": "р"
+            },
+            {
+              "label": "о",
+              "longPress": [
+                "ѡ"
+              ]
+            },
+            {
+              "label": "л",
+              "longPress": [
+                "љ"
+              ]
+            },
+            {
+              "label": "д",
+              "longPress": [
+                "ђ"
+              ]
+            },
+            {
+              "label": "ж"
+            },
+            {
+              "label": "э",
+              "longPress": [
+                "є"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "я",
+              "longPress": [
+                "ѩ"
+              ]
+            },
+            {
+              "label": "ч",
+              "longPress": [
+                "џ"
+              ]
+            },
+            {
+              "label": "с"
+            },
+            {
+              "label": "м"
+            },
+            {
+              "label": "и",
+              "longPress": [
+                "і",
+                "ї",
+                "ѝ"
+              ]
+            },
+            {
+              "label": "т",
+              "longPress": [
+                "ћ"
+              ]
+            },
+            {
+              "label": "ь"
+            },
+            {
+              "label": "б"
+            },
+            {
+              "label": "ю",
+              "longPress": [
+                "ѭ"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

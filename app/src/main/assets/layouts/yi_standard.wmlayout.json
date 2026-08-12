@@ -5,29 +5,29 @@
     "id": "asset_yi_standard",
     "name": "ייִדיש (Yiddish)",
     "langId": "yi",
-    "version": 1,
+    "version": 2,
     "layers": {
       "letters": {
         "rows": [
           [
-            { "label": "q" },
-            { "label": "w" },
-            { "label": "e" },
-            { "label": "r" },
-            { "label": "t" },
-            { "label": "y" },
-            { "label": "u", "longPress": ["וּ"] },
-            { "label": "i", "longPress": ["יִ"] },
-            { "label": "o", "longPress": ["אָ"] },
-            { "label": "p" }
+            { "label": "ײ", "shiftLabel": "ײַ", "longPress": ["װ", "ױ", "ײַ"] },
+            { "label": "׳", "shiftLabel": "״", "longPress": ["״"] },
+            { "label": "ק" },
+            { "label": "ר" },
+            { "label": "א", "shiftLabel": "אַ", "longPress": ["אַ", "אָ"] },
+            { "label": "ט", "longPress": ["טש"] },
+            { "label": "ו", "shiftLabel": "וּ", "longPress": ["וּ", "װ", "ױ", "וֹ"] },
+            { "label": "ן" },
+            { "label": "ם" },
+            { "label": "פ", "shiftLabel": "פּ", "longPress": ["פֿ", "פּ", "ף"] }
           ],
           [
-            { "label": "ש" },
-            { "label": "ד" },
+            { "label": "ש", "shiftLabel": "שׂ", "longPress": ["שׁ", "שׂ"] },
+            { "label": "ד", "longPress": ["דזש"] },
             { "label": "ג" },
-            { "label": "כ", "longPress": ["ך"] },
+            { "label": "כ", "shiftLabel": "כּ", "longPress": ["ך", "כּ", "כֿ"] },
             { "label": "ע" },
-            { "label": "י", "longPress": ["ײ", "ױ", "יִ"] },
+            { "label": "י", "shiftLabel": "יִ", "longPress": ["ײ", "ױ", "יִ"] },
             { "label": "ח" },
             { "label": "ל" },
             { "label": "ך" },
@@ -35,13 +35,15 @@
           ],
           [
             { "label": "⇧", "action": { "type": "shift" }, "width": 1.5 },
-            { "label": "ז" },
+            { "label": "ז", "longPress": ["זש"] },
             { "label": "ס" },
-            { "label": "ב", "longPress": ["בֿ"] },
+            { "label": "ב", "shiftLabel": "בֿ", "longPress": ["בּ", "בֿ"] },
             { "label": "ה" },
             { "label": "נ", "longPress": ["ן"] },
             { "label": "מ", "longPress": ["ם"] },
             { "label": "צ", "longPress": ["ץ"] },
+            { "label": "ת", "shiftLabel": "תּ", "longPress": ["תּ"] },
+            { "label": "ץ" },
             { "label": "⌫", "action": { "type": "delete" }, "width": 1.5 }
           ],
           [

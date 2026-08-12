@@ -130,7 +130,9 @@
               "label": "ં",
               "shiftLabel": "ઁ",
               "longPress": [
-                "ઃ"
+                "ઃ",
+                "ૐ",
+                "ઽ"
               ]
             },
             {
@@ -149,13 +151,13 @@
             },
             {
               "label": "સ",
-              "shiftLabel": "ષ"
+              "shiftLabel": "શ"
+            },
+            {
+              "label": "ષ"
             },
             {
               "label": "ય"
-            },
-            {
-              "label": "શ"
             },
             {
               "label": "⌫",

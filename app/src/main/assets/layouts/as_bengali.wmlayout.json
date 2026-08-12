@@ -80,10 +80,7 @@
             },
             {
               "label": "হ",
-              "shiftLabel": "ঃ",
-              "longPress": [
-                "ঽ"
-              ]
+              "shiftLabel": "ঃ"
             },
             {
               "label": "জ",
@@ -138,10 +135,10 @@
             },
             {
               "label": "ব",
-              "shiftLabel": "ভ",
-              "longPress": [
-                "ৱ"
-              ]
+              "shiftLabel": "ভ"
+            },
+            {
+              "label": "ৱ"
             },
             {
               "label": "ন",
@@ -157,7 +154,8 @@
               "longPress": [
                 "ঁ",
                 "়",
-                "॥"
+                "॥",
+                "ঽ"
               ]
             },
             {

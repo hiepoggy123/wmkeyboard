@@ -210,6 +210,7 @@ data class LayoutSet(
                     val label = spelling ?: return
                     addAll(keySpelling(label) ?: return)
                     composedKeyChar(label)?.let { add(it) }
+                    decomposedKeyChars(label)?.let(::addAll)
                 }
                 take(key.output ?: key.label)
                 take(key.shiftLabel)
@@ -240,6 +241,7 @@ data class LayoutSet(
             val label = spelling ?: return
             for (ch in keySpelling(label) ?: return) out.add(KeyCenter(ch, x, y))
             composedKeyChar(label)?.let { out.add(KeyCenter(it, x, y)) }
+            decomposedKeyChars(label)?.forEach { out.add(KeyCenter(it, x, y)) }
         }
         for (pass in 0 until PASSES) {
             for (row in letters.rows) {
@@ -1547,12 +1549,17 @@ sealed interface PluginPanelUi {
  * does not write a word character at all.
  *
  * Usually this is one character and the function is a formality. It is not a
- * formality on the fixed Bengali layouts, where ড়, ঢ় and য় are stored the way
- * Unicode also allows — a base letter followed by U+09BC NUKTA — so the key that
- * writes য় writes *two* characters. Anything that indexes the grid per
- * character has to know that, or the whole key vanishes from it: that is what
- * put every word containing য (214 of Bengali's 1500 commonest, since the plain
- * letter rides on that key's shift) out of a glide's reach.
+ * formality wherever a key is stored the way Unicode also allows — a base letter
+ * followed by a combining mark — so that one press writes *two* characters.
+ * Anything that indexes the grid per character has to know that, or the whole key
+ * vanishes from it: that is what once put every word containing য (214 of
+ * Bengali's 1500 commonest, since the plain letter rides on that key's shift) out
+ * of a glide's reach.
+ *
+ * The shipped Bengali layouts no longer spell ড় ঢ় য় that way — they are
+ * precomposed now, and [decomposedKeyChars] is what keeps those keys reachable
+ * from a word list that spells them the other way — but an imported or
+ * hand-edited layout is still free to, and several scripts compose this way.
  *
  * A trailing run of combining marks counts as part of the character; anything
  * longer does not. The bound matters — a key whose label is a whole word, which
@@ -1611,7 +1618,44 @@ fun composedKeyChar(label: String): Char? {
     return cached.takeIf { it != NOT_COMPOSED }
 }
 
+/**
+ * The other direction: the characters a *composed* label decomposes into.
+ *
+ * [composedKeyChar] answers a key written the decomposed way; this answers the
+ * same key written the composed way, and the pair is what makes the grid
+ * indifferent to which spelling a layout happens to use.
+ *
+ * It has to exist because the layouts and the word lists disagree on purpose.
+ * The Bengali layouts write ড় ঢ় য় precomposed (U+09DC/09DD/09DF); the word
+ * list is NFC, and NFC *decomposes* those three, because they are in Unicode's
+ * composition exclusion table. So a glide over Jatiya's ড় key was offering the
+ * decoder one character that the trie it walks does not contain anywhere, and
+ * every word spelled with one fell out of reach — the same class of bug the
+ * two-character key handling above was written for, arriving from the opposite
+ * side.
+ *
+ * **Only composition exclusions qualify, and the restriction is load-bearing.**
+ * Nearly every vowel sign on an Indic grid has a canonical decomposition — ো is
+ * ে + া — but NFC puts those straight back together, so the word list holds the
+ * composed form and there is nothing to bridge. Emitting the parts anyway lets
+ * the ো key claim grid centres that belong to the real ে and া keys, and
+ * Probhat's glide accuracy fell from 0.771 to 0.402 on exactly that. A character
+ * NFC leaves alone is already the spelling the trie uses; only one it takes
+ * apart needs both.
+ */
+fun decomposedKeyChars(label: String): List<Char>? {
+    if (label.length != 1) return null
+    val cached = decomposedCache.getOrPut(label) {
+        java.text.Normalizer.normalize(label, java.text.Normalizer.Form.NFC)
+            .takeIf { it != label && it.length in 2..MAX_KEY_SPELLING }
+            .orEmpty()
+    }
+    return cached.takeIf { it.isNotEmpty() }?.map { it.lowercaseChar() }
+}
+
 private val composedCache = java.util.concurrent.ConcurrentHashMap<String, Char>()
+
+private val decomposedCache = java.util.concurrent.ConcurrentHashMap<String, String>()
 
 /** Stands in for "looked, found nothing", so a miss is cached too. */
 private val NOT_COMPOSED: Char = 0.toChar()

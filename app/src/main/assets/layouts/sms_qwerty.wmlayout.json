@@ -24,13 +24,14 @@
           [
             { "label": "a", "longPress": ["â", "ä", "å", "á"] },
             { "label": "s", "longPress": ["š"] },
-            { "label": "d", "longPress": ["đ", "ǥ", "ǧ", "ǩ"] },
+            { "label": "d", "longPress": ["đ"] },
             { "label": "f" },
-            { "label": "g" },
+            { "label": "g", "longPress": ["ǥ", "ǧ"] },
             { "label": "h" },
             { "label": "j" },
-            { "label": "k" },
-            { "label": "l" }
+            { "label": "k", "longPress": ["ǩ"] },
+            { "label": "l" },
+            { "label": "ʹ" }
           ],
           [
             { "label": "⇧", "action": { "type": "shift" }, "width": 1.5 },

@@ -66,11 +66,19 @@
           [
             {
               "label": "ो",
-              "shiftLabel": "ओ"
+              "shiftLabel": "ओ",
+              "longPress": [
+                "ॉ",
+                "ऑ"
+              ]
             },
             {
               "label": "े",
-              "shiftLabel": "ए"
+              "shiftLabel": "ए",
+              "longPress": [
+                "ॅ",
+                "ऍ"
+              ]
             },
             {
               "label": "्",
@@ -147,7 +155,8 @@
               "shiftLabel": "ऩ"
             },
             {
-              "label": "व"
+              "label": "व",
+              "shiftLabel": "ऴ"
             },
             {
               "label": "ल",
@@ -161,7 +170,8 @@
               "label": "ष"
             },
             {
-              "label": "य"
+              "label": "य",
+              "shiftLabel": "य़"
             },
             {
               "label": "⌫",
@@ -203,6 +213,8 @@
             {
               "label": ".",
               "longPress": [
+                "।",
+                "॥",
                 "…",
                 ",",
                 "?",

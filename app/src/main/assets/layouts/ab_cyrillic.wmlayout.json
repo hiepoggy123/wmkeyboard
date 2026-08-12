@@ -3,7 +3,7 @@
   "version": 1,
   "layout": {
     "id": "asset_ab_cyrillic",
-    "name": "Аҧсуа (Abkhaz)",
+    "name": "Аԥсуа (Abkhaz)",
     "langId": "ab",
     "version": 2,
     "layers": {
@@ -41,6 +41,7 @@
             {
               "label": "г",
               "longPress": [
+                "ӷ",
                 "ҕ"
               ]
             },
@@ -82,6 +83,7 @@
             {
               "label": "п",
               "longPress": [
+                "ԥ",
                 "ҧ"
               ]
             },

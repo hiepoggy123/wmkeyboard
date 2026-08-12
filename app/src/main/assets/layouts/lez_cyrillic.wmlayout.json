@@ -14,22 +14,40 @@
               "label": "й"
             },
             {
-              "label": "ц"
+              "label": "ц",
+              "longPress": [
+                "цӀ"
+              ]
             },
             {
-              "label": "у"
+              "label": "у",
+              "longPress": [
+                "уь"
+              ]
             },
             {
-              "label": "к"
+              "label": "к",
+              "longPress": [
+                "къ",
+                "кь",
+                "кӀ"
+              ]
             },
             {
-              "label": "е"
+              "label": "е",
+              "longPress": [
+                "ё"
+              ]
             },
             {
               "label": "н"
             },
             {
-              "label": "г"
+              "label": "г",
+              "longPress": [
+                "гъ",
+                "гь"
+              ]
             },
             {
               "label": "ш"
@@ -41,7 +59,11 @@
               "label": "з"
             },
             {
-              "label": "х"
+              "label": "х",
+              "longPress": [
+                "хъ",
+                "хь"
+              ]
             },
             {
               "label": "ъ"
@@ -61,7 +83,10 @@
               "label": "а"
             },
             {
-              "label": "п"
+              "label": "п",
+              "longPress": [
+                "пӀ"
+              ]
             },
             {
               "label": "р"
@@ -94,7 +119,10 @@
               "label": "я"
             },
             {
-              "label": "ч"
+              "label": "ч",
+              "longPress": [
+                "чӀ"
+              ]
             },
             {
               "label": "с"
@@ -106,12 +134,15 @@
               "label": "и"
             },
             {
-              "label": "т"
+              "label": "т",
+              "longPress": [
+                "тӀ"
+              ]
             },
             {
               "label": "ь",
               "longPress": [
-                "ӏ"
+                "Ӏ"
               ]
             },
             {

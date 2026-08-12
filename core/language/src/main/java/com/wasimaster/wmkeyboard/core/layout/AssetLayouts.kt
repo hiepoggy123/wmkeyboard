@@ -411,6 +411,51 @@ object AssetLayouts {
     const val SAT_ID = "asset_sat"
     const val MNI_ID = "asset_mni"
 
+    // --- Second keymaps for languages that already ship one: national standards
+    // (InScript, BDS, TS 2117, Remington), ergonomic alternatives and regional
+    // variants. Each is a different arrangement of a script already supported,
+    // not a new script. ---
+    const val AR_HIJAI_ID = "asset_ar_hijai"
+    const val AS_INSCRIPT_ID = "asset_as_inscript"
+    const val BEM_QWERTY_ID = "asset_bem_qwerty"
+    const val BG_BDS_ID = "asset_bg_bds"
+    const val BN_BAISHAKHI_ID = "asset_bn_baishakhi"
+    const val BN_BORNONA_ID = "asset_bn_bornona"
+    const val BN_INSCRIPT_ID = "asset_bn_inscript"
+    const val BO_STANDARD_ID = "asset_bo_standard"
+    const val CKB_STANDARD_ID = "asset_ckb_standard"
+    const val DAR_URAKHI_ID = "asset_dar_urakhi"
+    const val DE_NEO2_ID = "asset_de_neo2"
+    const val DV_PHONETIC_ID = "asset_dv_phonetic"
+    const val DZ_STANDARD_ID = "asset_dz_standard"
+    const val EN_COLEMAK_DH_ID = "asset_en_colemak_dh"
+    const val EN_NALMY_ID = "asset_en_nalmy"
+    const val EN_SANGALINE_ID = "asset_en_sangaline"
+    const val FR_CANADIAN_ID = "asset_fr_canadian"
+    const val FR_SWISS_ID = "asset_fr_swiss"
+    const val GAA_QWERTY_ID = "asset_gaa_qwerty"
+    const val HI_REMINGTON_GAIL_ID = "asset_hi_remington_gail"
+    const val ISV_ID = "asset_isv"
+    const val KA_LEGACY_ID = "asset_ka_legacy"
+    const val KN_KPRAO_ID = "asset_kn_kprao"
+    const val ML_INSCRIPT_ENHANCED_ID = "asset_ml_inscript_enhanced"
+    const val MNI_INSCRIPT_ID = "asset_mni_inscript"
+    const val MNS_ID = "asset_mns"
+    const val NE_TRADITIONAL_ID = "asset_ne_traditional"
+    const val OR_PHONETIC_ID = "asset_or_phonetic"
+    const val PA_JHELUM_ID = "asset_pa_jhelum"
+    const val RU_DIKTOR_ID = "asset_ru_diktor"
+    const val SAT_INSCRIPT_ID = "asset_sat_inscript"
+    const val SD_STANDARD_ID = "asset_sd_standard"
+    const val SI_PHONETIC_ID = "asset_si_phonetic"
+    const val SR_LATIN_ID = "asset_sr_latin"
+    const val TA_INSCRIPT_ID = "asset_ta_inscript"
+    const val TH_MANOONCHAI_ID = "asset_th_manoonchai"
+    const val TH_PATTACHOTE_ID = "asset_th_pattachote"
+    const val TR_TURKISHF_ID = "asset_tr_turkishf"
+    const val UDM_EXTENDED_ID = "asset_udm_extended"
+    const val UR_NLA_ID = "asset_ur_nla"
+
     @Volatile private var cached: List<LayoutSpec> = emptyList()
     @Volatile private var index: Map<String, LayoutSpec> = emptyMap()
     @Volatile private var loaded = false

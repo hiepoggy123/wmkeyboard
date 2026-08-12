@@ -1,0 +1,232 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_pa_jhelum",
+    "name": "ਜੇਹਲਮ (Jhelum)",
+    "langId": "pa",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ੌ",
+              "shiftLabel": "ਔ"
+            },
+            {
+              "label": "ੈ",
+              "shiftLabel": "ਐ"
+            },
+            {
+              "label": "ਾ",
+              "shiftLabel": "ਆ"
+            },
+            {
+              "label": "ੀ",
+              "shiftLabel": "ਈ"
+            },
+            {
+              "label": "ੂ",
+              "shiftLabel": "ਊ"
+            },
+            {
+              "label": "ਰ",
+              "shiftLabel": "ੜ"
+            },
+            {
+              "label": "ਦ",
+              "shiftLabel": "ਧ"
+            },
+            {
+              "label": "ਗ",
+              "shiftLabel": "ਘ",
+              "longPress": [
+                "ਗ਼"
+              ]
+            },
+            {
+              "label": "ਤ",
+              "shiftLabel": "ਟ"
+            },
+            {
+              "label": "ਪ",
+              "shiftLabel": "ਫ",
+              "longPress": [
+                "ਫ਼"
+              ]
+            },
+            {
+              "label": "ਡ",
+              "shiftLabel": "ਢ"
+            }
+          ],
+          [
+            {
+              "label": "ੋ",
+              "shiftLabel": "ਓ",
+              "longPress": [
+                "ੳ"
+              ]
+            },
+            {
+              "label": "ੇ",
+              "shiftLabel": "ਏ",
+              "longPress": [
+                "ੲ"
+              ]
+            },
+            {
+              "label": "੍",
+              "shiftLabel": "ਅ",
+              "longPress": [
+                "ਃ"
+              ]
+            },
+            {
+              "label": "ਿ",
+              "shiftLabel": "ਇ"
+            },
+            {
+              "label": "ੁ",
+              "shiftLabel": "ਉ"
+            },
+            {
+              "label": "ਹ",
+              "shiftLabel": "ਠ"
+            },
+            {
+              "label": "ਜ",
+              "shiftLabel": "ਝ",
+              "longPress": [
+                "ਜ਼"
+              ]
+            },
+            {
+              "label": "ਕ",
+              "shiftLabel": "ਖ",
+              "longPress": [
+                "ਖ਼"
+              ]
+            },
+            {
+              "label": "ਲ",
+              "shiftLabel": "ਥ",
+              "longPress": [
+                "ਲ਼"
+              ]
+            },
+            {
+              "label": "ਸ",
+              "shiftLabel": "ਸ਼"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ੱ",
+              "shiftLabel": "਼",
+              "longPress": [
+                "ੑ"
+              ]
+            },
+            {
+              "label": "ਂ",
+              "shiftLabel": "ੰ",
+              "longPress": [
+                "ਁ"
+              ]
+            },
+            {
+              "label": "ਚ",
+              "shiftLabel": "ਛ"
+            },
+            {
+              "label": "ਵ",
+              "shiftLabel": "ਯ"
+            },
+            {
+              "label": "ਬ",
+              "shiftLabel": "ਭ"
+            },
+            {
+              "label": "ਨ",
+              "shiftLabel": "ਣ"
+            },
+            {
+              "label": "ਮ"
+            },
+            {
+              "label": "ਙ",
+              "shiftLabel": "ਞ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                "।",
+                "॥",
+                "ੴ",
+                "☬",
+                ",",
+                "?",
+                "!"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,278 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_th_manoonchai",
+    "name": "มนูญชัย (Manoonchai)",
+    "langId": "th",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ใ",
+              "shiftLabel": "ฒ",
+              "longPress": [
+                "๑"
+              ]
+            },
+            {
+              "label": "ต",
+              "shiftLabel": "ฏ",
+              "longPress": [
+                "๒"
+              ]
+            },
+            {
+              "label": "ห",
+              "shiftLabel": "ซ",
+              "longPress": [
+                "๓"
+              ]
+            },
+            {
+              "label": "ล",
+              "shiftLabel": "ญ",
+              "longPress": [
+                "๔"
+              ]
+            },
+            {
+              "label": "ส",
+              "shiftLabel": "ฟ",
+              "longPress": [
+                "๕"
+              ]
+            },
+            {
+              "label": "ป",
+              "shiftLabel": "ฉ",
+              "longPress": [
+                "๖"
+              ]
+            },
+            {
+              "label": "ั",
+              "shiftLabel": "ึ",
+              "longPress": [
+                "๗",
+                "ฺ"
+              ]
+            },
+            {
+              "label": "ก",
+              "shiftLabel": "ธ",
+              "longPress": [
+                "๘"
+              ]
+            },
+            {
+              "label": "ิ",
+              "shiftLabel": "ฐ",
+              "longPress": [
+                "๙"
+              ]
+            },
+            {
+              "label": "บ",
+              "shiftLabel": "ฎ",
+              "longPress": [
+                "๐"
+              ]
+            },
+            {
+              "label": "็",
+              "shiftLabel": "ฆ"
+            },
+            {
+              "label": "ฬ",
+              "shiftLabel": "ฑ"
+            }
+          ],
+          [
+            {
+              "label": "ง",
+              "shiftLabel": "ษ"
+            },
+            {
+              "label": "เ",
+              "shiftLabel": "ถ",
+              "longPress": [
+                "๏"
+              ]
+            },
+            {
+              "label": "ร",
+              "shiftLabel": "แ",
+              "longPress": [
+                "๛"
+              ]
+            },
+            {
+              "label": "น",
+              "shiftLabel": "ช",
+              "longPress": [
+                "฿"
+              ]
+            },
+            {
+              "label": "ม",
+              "shiftLabel": "พ"
+            },
+            {
+              "label": "อ",
+              "shiftLabel": "ผ",
+              "longPress": [
+                "ํ"
+              ]
+            },
+            {
+              "label": "า",
+              "shiftLabel": "ำ",
+              "longPress": [
+                "ๅ"
+              ]
+            },
+            {
+              "label": "่",
+              "shiftLabel": "ข",
+              "longPress": [
+                "ฃ"
+              ]
+            },
+            {
+              "label": "้",
+              "shiftLabel": "โ"
+            },
+            {
+              "label": "ว",
+              "shiftLabel": "ภ"
+            },
+            {
+              "label": "ื"
+            },
+            {
+              "label": "ฯ",
+              "shiftLabel": "ฌ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ุ",
+              "shiftLabel": "ฤ",
+              "longPress": [
+                "ู",
+                "ฦ"
+              ]
+            },
+            {
+              "label": "ไ",
+              "shiftLabel": "ฝ"
+            },
+            {
+              "label": "ท",
+              "shiftLabel": "ๆ",
+              "longPress": [
+                "๚"
+              ]
+            },
+            {
+              "label": "ย",
+              "shiftLabel": "ณ"
+            },
+            {
+              "label": "จ",
+              "shiftLabel": "๊"
+            },
+            {
+              "label": "ค",
+              "shiftLabel": "๋",
+              "longPress": [
+                "ฅ"
+              ]
+            },
+            {
+              "label": "ี",
+              "shiftLabel": "์",
+              "longPress": [
+                "๎"
+              ]
+            },
+            {
+              "label": "ด",
+              "shiftLabel": "ศ"
+            },
+            {
+              "label": "ะ",
+              "shiftLabel": "ฮ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

@@ -34,7 +34,8 @@
             { "label": "л" },
             { "label": "д" },
             { "label": "ж" },
-            { "label": "є", "longPress": ["ʼ"] }
+            { "label": "є" },
+            { "label": "'", "longPress": ["’", "ʼ"] }
           ],
           [
             { "label": "⇧", "action": { "type": "shift" }, "width": 1.5 },

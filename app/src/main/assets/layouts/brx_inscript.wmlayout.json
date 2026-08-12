@@ -134,7 +134,8 @@
               "shiftLabel": "ँ",
               "longPress": [
                 "ः",
-                "ॐ"
+                "ॐ",
+                "ऽ"
               ]
             },
             {
@@ -146,7 +147,8 @@
               "shiftLabel": "ऩ"
             },
             {
-              "label": "व"
+              "label": "व",
+              "shiftLabel": "ऴ"
             },
             {
               "label": "ल",
@@ -157,10 +159,16 @@
               "shiftLabel": "श"
             },
             {
-              "label": "ष"
+              "label": "ष",
+              "shiftLabel": "'",
+              "longPress": [
+                "ʼ",
+                "’"
+              ]
             },
             {
-              "label": "य"
+              "label": "य",
+              "shiftLabel": "य़"
             },
             {
               "label": "⌫",
@@ -202,6 +210,8 @@
             {
               "label": ".",
               "longPress": [
+                "।",
+                "॥",
                 "…",
                 ",",
                 "?",

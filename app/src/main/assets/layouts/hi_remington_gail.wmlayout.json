@@ -1,0 +1,302 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_hi_remington_gail",
+    "name": "रेमिंगटन गेल (Remington GAIL)",
+    "langId": "hi",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ु",
+              "shiftLabel": "फ",
+              "longPress": [
+                "फ्",
+                "फ़"
+              ]
+            },
+            {
+              "label": "ू",
+              "shiftLabel": "ॅ",
+              "longPress": [
+                "ॉ",
+                "ॄ"
+              ]
+            },
+            {
+              "label": "म",
+              "shiftLabel": "म्"
+            },
+            {
+              "label": "त",
+              "shiftLabel": "त्",
+              "longPress": [
+                "त्र",
+                "त्त"
+              ]
+            },
+            {
+              "label": "ज",
+              "shiftLabel": "ज्",
+              "longPress": [
+                "झ",
+                "ज्ञ",
+                "ज़"
+              ]
+            },
+            {
+              "label": "ल",
+              "shiftLabel": "ल्",
+              "longPress": [
+                "ळ"
+              ]
+            },
+            {
+              "label": "न",
+              "shiftLabel": "न्",
+              "longPress": [
+                "ण",
+                "ण्",
+                "ञ",
+                "ङ"
+              ]
+            },
+            {
+              "label": "प",
+              "shiftLabel": "प्"
+            },
+            {
+              "label": "व",
+              "shiftLabel": "व्"
+            },
+            {
+              "label": "च",
+              "shiftLabel": "च्",
+              "longPress": [
+                "छ"
+              ]
+            },
+            {
+              "label": "ख्",
+              "shiftLabel": "क्ष्",
+              "longPress": [
+                "ख",
+                "क्ष",
+                "ख़"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ं",
+              "shiftLabel": "ा",
+              "longPress": [
+                "ँ",
+                "ः",
+                "़"
+              ]
+            },
+            {
+              "label": "े",
+              "shiftLabel": "ै",
+              "longPress": [
+                "ो",
+                "ौ",
+                "ॉ"
+              ]
+            },
+            {
+              "label": "क",
+              "shiftLabel": "क्"
+            },
+            {
+              "label": "ि",
+              "shiftLabel": "थ्",
+              "longPress": [
+                "थ"
+              ]
+            },
+            {
+              "label": "ह",
+              "shiftLabel": "ळ"
+            },
+            {
+              "label": "ी",
+              "shiftLabel": "भ्",
+              "longPress": [
+                "भ"
+              ]
+            },
+            {
+              "label": "र",
+              "shiftLabel": "श्र",
+              "longPress": [
+                "ऋ",
+                "ॠ"
+              ]
+            },
+            {
+              "label": "ा",
+              "shiftLabel": "ज्ञ",
+              "longPress": [
+                "आ"
+              ]
+            },
+            {
+              "label": "स",
+              "shiftLabel": "स्"
+            },
+            {
+              "label": "य",
+              "shiftLabel": "रू"
+            },
+            {
+              "label": "श्",
+              "shiftLabel": "ष्",
+              "longPress": [
+                "श",
+                "ष"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "्र",
+              "shiftLabel": "र्",
+              "longPress": [
+                "्",
+                "ृ"
+              ]
+            },
+            {
+              "label": "ग",
+              "shiftLabel": "ग्",
+              "longPress": [
+                "घ",
+                "घ्",
+                "ग़"
+              ]
+            },
+            {
+              "label": "ब",
+              "shiftLabel": "ब्"
+            },
+            {
+              "label": "अ",
+              "shiftLabel": "ट",
+              "longPress": [
+                "आ",
+                "ऑ",
+                "ॐ",
+                "ऽ"
+              ]
+            },
+            {
+              "label": "इ",
+              "shiftLabel": "ठ",
+              "longPress": [
+                "ई"
+              ]
+            },
+            {
+              "label": "द",
+              "shiftLabel": "छ",
+              "longPress": [
+                "ध",
+                "ध्",
+                "द्ध",
+                "द्य",
+                "द्व"
+              ]
+            },
+            {
+              "label": "उ",
+              "shiftLabel": "ड",
+              "longPress": [
+                "ऊ",
+                "ड़"
+              ]
+            },
+            {
+              "label": "ए",
+              "shiftLabel": "ढ",
+              "longPress": [
+                "ऐ",
+                "ओ",
+                "औ",
+                "ऍ",
+                "ढ़"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                "।",
+                "॥",
+                ",",
+                "?",
+                "!"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

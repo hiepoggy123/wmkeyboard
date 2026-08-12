@@ -14,34 +14,63 @@
               "label": "й"
             },
             {
-              "label": "ц"
+              "label": "ц",
+              "longPress": [
+                "цӀ"
+              ]
             },
             {
               "label": "у"
             },
             {
-              "label": "к"
+              "label": "к",
+              "longPress": [
+                "къ",
+                "кӀ",
+                "кхъ",
+                "ку",
+                "къу",
+                "кӀу",
+                "кхъу"
+              ]
             },
             {
-              "label": "е"
+              "label": "е",
+              "longPress": [
+                "ё"
+              ]
             },
             {
               "label": "н"
             },
             {
-              "label": "г"
+              "label": "г",
+              "longPress": [
+                "гъ",
+                "гу",
+                "гъу"
+              ]
             },
             {
               "label": "ш"
             },
             {
-              "label": "щ"
+              "label": "щ",
+              "longPress": [
+                "щӀ"
+              ]
             },
             {
               "label": "з"
             },
             {
-              "label": "х"
+              "label": "х",
+              "longPress": [
+                "хъ",
+                "хь",
+                "ху",
+                "хъу"
+              ]
             },
             {
               "label": "ъ"
@@ -49,7 +78,10 @@
           ],
           [
             {
-              "label": "ф"
+              "label": "ф",
+              "longPress": [
+                "фӀ"
+              ]
             },
             {
               "label": "ы"
@@ -61,7 +93,10 @@
               "label": "а"
             },
             {
-              "label": "п"
+              "label": "п",
+              "longPress": [
+                "пӀ"
+              ]
             },
             {
               "label": "р"
@@ -70,16 +105,33 @@
               "label": "о"
             },
             {
-              "label": "л"
+              "label": "л",
+              "longPress": [
+                "лъ",
+                "лӀ"
+              ]
             },
             {
-              "label": "д"
+              "label": "д",
+              "longPress": [
+                "дж",
+                "дз"
+              ]
             },
             {
-              "label": "ж"
+              "label": "ж",
+              "longPress": [
+                "жь"
+              ]
             },
             {
               "label": "э"
+            },
+            {
+              "label": "Ӏ",
+              "longPress": [
+                "Ӏу"
+              ]
             }
           ],
           [
@@ -106,13 +158,13 @@
               "label": "и"
             },
             {
-              "label": "т"
+              "label": "т",
+              "longPress": [
+                "тӀ"
+              ]
             },
             {
-              "label": "ь",
-              "longPress": [
-                "ӏ"
-              ]
+              "label": "ь"
             },
             {
               "label": "б"

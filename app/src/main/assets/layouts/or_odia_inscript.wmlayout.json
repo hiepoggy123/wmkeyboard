@@ -124,7 +124,11 @@
             },
             {
               "label": "ଂ",
-              "shiftLabel": "ଁ"
+              "shiftLabel": "ଁ",
+              "longPress": [
+                "ଃ",
+                "ଽ"
+              ]
             },
             {
               "label": "ମ",
@@ -134,7 +138,8 @@
               "label": "ନ"
             },
             {
-              "label": "ଵ"
+              "label": "ୱ",
+              "shiftLabel": "ଵ"
             },
             {
               "label": "ଲ",

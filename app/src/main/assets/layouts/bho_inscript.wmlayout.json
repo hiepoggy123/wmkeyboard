@@ -40,7 +40,10 @@
             },
             {
               "label": "ग",
-              "shiftLabel": "घ"
+              "shiftLabel": "घ",
+              "longPress": [
+                "ग़"
+              ]
             },
             {
               "label": "द",
@@ -50,7 +53,8 @@
               "label": "ज",
               "shiftLabel": "झ",
               "longPress": [
-                "ञ"
+                "ञ",
+                "ज़"
               ]
             },
             {
@@ -94,7 +98,10 @@
             },
             {
               "label": "प",
-              "shiftLabel": "फ"
+              "shiftLabel": "फ",
+              "longPress": [
+                "फ़"
+              ]
             },
             {
               "label": "र",
@@ -102,7 +109,11 @@
             },
             {
               "label": "क",
-              "shiftLabel": "ख"
+              "shiftLabel": "ख",
+              "longPress": [
+                "क़",
+                "ख़"
+              ]
             },
             {
               "label": "त",
@@ -134,7 +145,8 @@
               "shiftLabel": "ँ",
               "longPress": [
                 "ः",
-                "ॐ"
+                "ॐ",
+                "ऽ"
               ]
             },
             {
@@ -146,7 +158,8 @@
               "shiftLabel": "ऩ"
             },
             {
-              "label": "व"
+              "label": "व",
+              "shiftLabel": "ऴ"
             },
             {
               "label": "ल",
@@ -160,7 +173,8 @@
               "label": "ष"
             },
             {
-              "label": "य"
+              "label": "य",
+              "shiftLabel": "य़"
             },
             {
               "label": "⌫",
@@ -202,6 +216,8 @@
             {
               "label": ".",
               "longPress": [
+                "।",
+                "॥",
                 "…",
                 ",",
                 "?",

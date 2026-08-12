@@ -19,7 +19,8 @@
             {
               "label": "e",
               "longPress": [
-                "ē"
+                "é",
+                "ë"
               ]
             },
             {
@@ -34,19 +35,20 @@
             {
               "label": "u",
               "longPress": [
-                "ū"
+                "ú"
               ]
             },
             {
               "label": "i",
               "longPress": [
-                "ī"
+                "í"
               ]
             },
             {
               "label": "o",
               "longPress": [
-                "ō"
+                "ó",
+                "ö"
               ]
             },
             {
@@ -57,7 +59,8 @@
             {
               "label": "a",
               "longPress": [
-                "ā"
+                "á",
+                "ä"
               ]
             },
             {

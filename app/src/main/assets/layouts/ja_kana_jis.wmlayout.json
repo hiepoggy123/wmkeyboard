@@ -6,7 +6,7 @@
     "name": "日本語 かな入力 (Japanese Kana JIS)",
     "langId": "ja",
     "composer": "ROMAJI",
-    "version": 1,
+    "version": 2,
     "layers": {
       "letters": {
         "rows": [
@@ -18,34 +18,53 @@
               "label": "ふ"
             },
             {
-              "label": "あ"
+              "label": "あ",
+              "shiftLabel": "ぁ"
             },
             {
-              "label": "う"
+              "label": "う",
+              "shiftLabel": "ぅ"
             },
             {
-              "label": "え"
+              "label": "え",
+              "shiftLabel": "ぇ"
             },
             {
-              "label": "お"
+              "label": "お",
+              "shiftLabel": "ぉ"
             },
             {
-              "label": "や"
+              "label": "や",
+              "shiftLabel": "ゃ"
             },
             {
-              "label": "ゆ"
+              "label": "ゆ",
+              "shiftLabel": "ゅ"
             },
             {
-              "label": "よ"
+              "label": "よ",
+              "shiftLabel": "ょ"
             },
             {
-              "label": "わ"
+              "label": "わ",
+              "shiftLabel": "を"
             },
             {
               "label": "ほ"
             },
             {
               "label": "へ"
+            },
+            {
+              "label": "ー",
+              "longPress": [
+                "〜",
+                "〃",
+                "ゝ",
+                "ゞ",
+                "ヽ",
+                "ヾ"
+              ]
             }
           ],
           [
@@ -56,7 +75,8 @@
               "label": "て"
             },
             {
-              "label": "い"
+              "label": "い",
+              "shiftLabel": "ぃ"
             },
             {
               "label": "す"
@@ -132,7 +152,15 @@
           ],
           [
             {
-              "label": "つ"
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.0
+            },
+            {
+              "label": "つ",
+              "shiftLabel": "っ"
             },
             {
               "label": "さ"
@@ -153,13 +181,16 @@
               "label": "も"
             },
             {
-              "label": "ね"
+              "label": "ね",
+              "shiftLabel": "、"
             },
             {
-              "label": "る"
+              "label": "る",
+              "shiftLabel": "。"
             },
             {
-              "label": "め"
+              "label": "め",
+              "shiftLabel": "・"
             },
             {
               "label": "ろ"
@@ -168,7 +199,8 @@
               "label": "⌫",
               "action": {
                 "type": "delete"
-              }
+              },
+              "width": 1.0
             }
           ],
           [
@@ -187,17 +219,33 @@
               "width": 1.5
             },
             {
-              "label": "、"
+              "label": "、",
+              "longPress": [
+                "，",
+                "！",
+                "？",
+                ","
+              ],
+              "role": "Comma"
             },
             {
               "label": "␣",
               "action": {
                 "type": "space"
               },
-              "width": 4
+              "width": 5
             },
             {
-              "label": "。"
+              "label": ".",
+              "longPress": [
+                "…",
+                "・",
+                "：",
+                "；",
+                "！",
+                "？"
+              ],
+              "role": "Period"
             },
             {
               "label": "⏎",

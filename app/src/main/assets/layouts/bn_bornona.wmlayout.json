@@ -1,0 +1,247 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_bn_bornona",
+    "name": "বর্ণনা (Bornona)",
+    "langId": "bn",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ং",
+              "shiftLabel": "ঙ",
+              "longPress": [
+                "ৗ",
+                "ঁ"
+              ]
+            },
+            {
+              "label": "ঢ",
+              "shiftLabel": "ঠ",
+              "longPress": [
+                "ঊ"
+              ]
+            },
+            {
+              "label": "ে",
+              "shiftLabel": "ৈ",
+              "longPress": [
+                "ঈ"
+              ]
+            },
+            {
+              "label": "র",
+              "shiftLabel": "ৃ",
+              "longPress": [
+                "ঋ"
+              ]
+            },
+            {
+              "label": "ত",
+              "shiftLabel": "ট",
+              "longPress": [
+                "ৎ"
+              ]
+            },
+            {
+              "label": "ধ",
+              "shiftLabel": "থ",
+              "longPress": [
+                "এ"
+              ]
+            },
+            {
+              "label": "ু",
+              "shiftLabel": "ূ",
+              "longPress": [
+                "উ"
+              ]
+            },
+            {
+              "label": "ি",
+              "shiftLabel": "ী",
+              "longPress": [
+                "ই"
+              ]
+            },
+            {
+              "label": "ো",
+              "shiftLabel": "ৌ",
+              "longPress": [
+                "ও"
+              ]
+            },
+            {
+              "label": "প",
+              "shiftLabel": "ঐ",
+              "longPress": [
+                "ঔ",
+                "্র"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "া",
+              "shiftLabel": "অ",
+              "longPress": [
+                "আ",
+                "৴"
+              ]
+            },
+            {
+              "label": "স",
+              "shiftLabel": "শ",
+              "longPress": [
+                "৵"
+              ]
+            },
+            {
+              "label": "দ",
+              "shiftLabel": "ড",
+              "longPress": [
+                "ড়",
+                "৸"
+              ]
+            },
+            {
+              "label": "ফ",
+              "longPress": [
+                "্য"
+              ]
+            },
+            {
+              "label": "গ",
+              "shiftLabel": "ঘ"
+            },
+            {
+              "label": "্",
+              "shiftLabel": "হ",
+              "longPress": [
+                "ঃ"
+              ]
+            },
+            {
+              "label": "জ",
+              "shiftLabel": "ঝ"
+            },
+            {
+              "label": "ক",
+              "shiftLabel": "খ"
+            },
+            {
+              "label": "ল",
+              "shiftLabel": "।"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "য",
+              "shiftLabel": "ড়"
+            },
+            {
+              "label": "ষ",
+              "shiftLabel": "ঢ়",
+              "longPress": [
+                "়",
+                "৺"
+              ]
+            },
+            {
+              "label": "চ",
+              "shiftLabel": "ছ"
+            },
+            {
+              "label": "ভ",
+              "longPress": [
+                "র্"
+              ]
+            },
+            {
+              "label": "ব",
+              "shiftLabel": "য়",
+              "longPress": [
+                "ৱ",
+                "ৰ"
+              ]
+            },
+            {
+              "label": "ন",
+              "shiftLabel": "ণ"
+            },
+            {
+              "label": "ম",
+              "shiftLabel": "ঞ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

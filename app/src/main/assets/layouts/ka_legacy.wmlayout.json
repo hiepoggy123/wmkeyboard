@@ -1,0 +1,218 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ka_legacy",
+    "name": "ღცუკენ (Legacy)",
+    "langId": "ka",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ღ"
+            },
+            {
+              "label": "ც"
+            },
+            {
+              "label": "უ"
+            },
+            {
+              "label": "კ"
+            },
+            {
+              "label": "ე",
+              "longPress": [
+                "ჱ"
+              ]
+            },
+            {
+              "label": "ნ",
+              "longPress": [
+                "ჼ"
+              ]
+            },
+            {
+              "label": "გ",
+              "longPress": [
+                "ჹ"
+              ]
+            },
+            {
+              "label": "შ"
+            },
+            {
+              "label": "წ"
+            },
+            {
+              "label": "ზ"
+            },
+            {
+              "label": "ხ",
+              "longPress": [
+                "ჴ"
+              ]
+            },
+            {
+              "label": "ჯ",
+              "longPress": [
+                "ჷ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ფ",
+              "longPress": [
+                "ჶ"
+              ]
+            },
+            {
+              "label": "თ"
+            },
+            {
+              "label": "ვ",
+              "longPress": [
+                "ჳ"
+              ]
+            },
+            {
+              "label": "ა",
+              "longPress": [
+                "ჺ"
+              ]
+            },
+            {
+              "label": "პ"
+            },
+            {
+              "label": "რ"
+            },
+            {
+              "label": "ო"
+            },
+            {
+              "label": "ლ"
+            },
+            {
+              "label": "დ"
+            },
+            {
+              "label": "ჟ"
+            },
+            {
+              "label": "ძ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ჩ",
+              "longPress": [
+                "ჭ"
+              ]
+            },
+            {
+              "label": "ს"
+            },
+            {
+              "label": "მ"
+            },
+            {
+              "label": "ი",
+              "longPress": [
+                "ჲ"
+              ]
+            },
+            {
+              "label": "ტ"
+            },
+            {
+              "label": "ქ"
+            },
+            {
+              "label": "ბ"
+            },
+            {
+              "label": "ყ",
+              "longPress": [
+                "ჸ"
+              ]
+            },
+            {
+              "label": "ჰ",
+              "longPress": [
+                "ჵ"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";",
+                "჻"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

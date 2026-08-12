@@ -1,0 +1,259 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ne_traditional",
+    "name": "परम्परागत (Traditional)",
+    "langId": "ne",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "त्र",
+              "shiftLabel": "त्त"
+            },
+            {
+              "label": "ध",
+              "shiftLabel": "ड्ढ",
+              "longPress": [
+                "ड",
+                "ढ",
+                "ड्ड"
+              ]
+            },
+            {
+              "label": "भ",
+              "shiftLabel": "ऐ"
+            },
+            {
+              "label": "च",
+              "shiftLabel": "द्व",
+              "longPress": [
+                "छ"
+              ]
+            },
+            {
+              "label": "त",
+              "shiftLabel": "ट्ट",
+              "longPress": [
+                "ट"
+              ]
+            },
+            {
+              "label": "थ",
+              "shiftLabel": "ठ्ठ",
+              "longPress": [
+                "ठ"
+              ]
+            },
+            {
+              "label": "ग",
+              "shiftLabel": "ऊ",
+              "longPress": [
+                "घ"
+              ]
+            },
+            {
+              "label": "ष",
+              "shiftLabel": "क्ष"
+            },
+            {
+              "label": "य",
+              "shiftLabel": "इ",
+              "longPress": [
+                "ई"
+              ]
+            },
+            {
+              "label": "उ",
+              "shiftLabel": "ए",
+              "longPress": [
+                "ओ",
+                "औ"
+              ]
+            },
+            {
+              "label": "े",
+              "shiftLabel": "ै"
+            }
+          ],
+          [
+            {
+              "label": "ब",
+              "shiftLabel": "आ"
+            },
+            {
+              "label": "क",
+              "shiftLabel": "ङ्क"
+            },
+            {
+              "label": "म",
+              "shiftLabel": "ङ्ग",
+              "longPress": [
+                "ङ"
+              ]
+            },
+            {
+              "label": "ा",
+              "shiftLabel": "ँ"
+            },
+            {
+              "label": "न",
+              "shiftLabel": "द्द",
+              "longPress": [
+                "ण"
+              ]
+            },
+            {
+              "label": "ज",
+              "shiftLabel": "झ",
+              "longPress": [
+                "ञ",
+                "ज्ञ"
+              ]
+            },
+            {
+              "label": "व",
+              "shiftLabel": "ो"
+            },
+            {
+              "label": "प",
+              "shiftLabel": "फ"
+            },
+            {
+              "label": "ि",
+              "shiftLabel": "ी"
+            },
+            {
+              "label": "स",
+              "shiftLabel": "ट्ठ"
+            },
+            {
+              "label": "ु",
+              "shiftLabel": "ू"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "श",
+              "shiftLabel": "क्क",
+              "longPress": [
+                "श्र"
+              ]
+            },
+            {
+              "label": "ह",
+              "shiftLabel": "ह्य",
+              "longPress": [
+                "ह्म"
+              ]
+            },
+            {
+              "label": "अ",
+              "shiftLabel": "ऋ",
+              "longPress": [
+                "ऽ",
+                "ृ"
+              ]
+            },
+            {
+              "label": "ख",
+              "shiftLabel": "ॐ"
+            },
+            {
+              "label": "द",
+              "shiftLabel": "ौ",
+              "longPress": [
+                "द्ध"
+              ]
+            },
+            {
+              "label": "ल",
+              "shiftLabel": "द्य"
+            },
+            {
+              "label": "्",
+              "shiftLabel": "ं",
+              "longPress": [
+                "ः",
+                "़"
+              ]
+            },
+            {
+              "label": "र",
+              "shiftLabel": "रु",
+              "longPress": [
+                "र्"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                "।",
+                "॥",
+                ",",
+                "?",
+                "!"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

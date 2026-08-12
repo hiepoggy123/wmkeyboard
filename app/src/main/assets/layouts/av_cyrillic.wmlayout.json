@@ -3,7 +3,7 @@
   "version": 1,
   "layout": {
     "id": "asset_av_cyrillic",
-    "name": "Магӏарул (Avar)",
+    "name": "МагӀарул (Avar)",
     "langId": "av",
     "version": 2,
     "layers": {
@@ -14,22 +14,40 @@
               "label": "й"
             },
             {
-              "label": "ц"
+              "label": "ц",
+              "longPress": [
+                "цӀ",
+                "цц"
+              ]
             },
             {
               "label": "у"
             },
             {
-              "label": "к"
+              "label": "к",
+              "longPress": [
+                "къ",
+                "кь",
+                "кӀ",
+                "кк"
+              ]
             },
             {
-              "label": "е"
+              "label": "е",
+              "longPress": [
+                "ё"
+              ]
             },
             {
               "label": "н"
             },
             {
-              "label": "г"
+              "label": "г",
+              "longPress": [
+                "гъ",
+                "гь",
+                "гӀ"
+              ]
             },
             {
               "label": "ш"
@@ -41,7 +59,13 @@
               "label": "з"
             },
             {
-              "label": "х"
+              "label": "х",
+              "longPress": [
+                "хъ",
+                "хь",
+                "хӀ",
+                "хх"
+              ]
             },
             {
               "label": "ъ"
@@ -70,7 +94,11 @@
               "label": "о"
             },
             {
-              "label": "л"
+              "label": "л",
+              "longPress": [
+                "лъ",
+                "лълъ"
+              ]
             },
             {
               "label": "д"
@@ -80,6 +108,9 @@
             },
             {
               "label": "э"
+            },
+            {
+              "label": "Ӏ"
             }
           ],
           [
@@ -94,10 +125,17 @@
               "label": "я"
             },
             {
-              "label": "ч"
+              "label": "ч",
+              "longPress": [
+                "чӀ",
+                "чч"
+              ]
             },
             {
-              "label": "с"
+              "label": "с",
+              "longPress": [
+                "сс"
+              ]
             },
             {
               "label": "м"
@@ -106,13 +144,13 @@
               "label": "и"
             },
             {
-              "label": "т"
+              "label": "т",
+              "longPress": [
+                "тӀ"
+              ]
             },
             {
-              "label": "ь",
-              "longPress": [
-                "ӏ"
-              ]
+              "label": "ь"
             },
             {
               "label": "б"

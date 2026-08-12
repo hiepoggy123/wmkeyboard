@@ -46,7 +46,8 @@
               ]
             },
             {
-              "label": "ள"
+              "label": "ள",
+              "shiftLabel": "ஶ்ரீ"
             },
             {
               "label": "ற",
@@ -62,7 +63,7 @@
               "label": "ண"
             },
             {
-              "label": "ழ"
+              "label": "ச"
             }
           ],
           [
@@ -82,8 +83,8 @@
               ]
             },
             {
-              "label": "ஃ",
-              "shiftLabel": "்"
+              "label": "்",
+              "shiftLabel": "ஃ"
             },
             {
               "label": "எ",
@@ -149,10 +150,10 @@
               "label": "ர"
             },
             {
-              "label": "ச"
+              "label": "ஞ"
             },
             {
-              "label": "ஞ"
+              "label": "ழ"
             },
             {
               "label": "⌫",

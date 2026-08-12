@@ -1,0 +1,274 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_th_pattachote",
+    "name": "ปัตตะโชติ (Pattachote)",
+    "langId": "th",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "็",
+              "shiftLabel": "๊",
+              "longPress": [
+                "๑"
+              ]
+            },
+            {
+              "label": "ต",
+              "shiftLabel": "ฤ",
+              "longPress": [
+                "๒"
+              ]
+            },
+            {
+              "label": "ย",
+              "shiftLabel": "ๆ",
+              "longPress": [
+                "๓"
+              ]
+            },
+            {
+              "label": "อ",
+              "shiftLabel": "ญ",
+              "longPress": [
+                "๔"
+              ]
+            },
+            {
+              "label": "ร",
+              "shiftLabel": "ษ",
+              "longPress": [
+                "๕"
+              ]
+            },
+            {
+              "label": "่",
+              "shiftLabel": "ึ",
+              "longPress": [
+                "๖"
+              ]
+            },
+            {
+              "label": "ด",
+              "shiftLabel": "ฝ",
+              "longPress": [
+                "๗"
+              ]
+            },
+            {
+              "label": "ม",
+              "shiftLabel": "ซ",
+              "longPress": [
+                "๘"
+              ]
+            },
+            {
+              "label": "ว",
+              "shiftLabel": "ถ",
+              "longPress": [
+                "๙"
+              ]
+            },
+            {
+              "label": "แ",
+              "shiftLabel": "ฒ",
+              "longPress": [
+                "๐"
+              ]
+            },
+            {
+              "label": "ใ",
+              "shiftLabel": "ฯ",
+              "longPress": [
+                "๏",
+                "๛",
+                "๚"
+              ]
+            },
+            {
+              "label": "ฌ",
+              "shiftLabel": "ฦ"
+            }
+          ],
+          [
+            {
+              "label": "้",
+              "shiftLabel": "๋"
+            },
+            {
+              "label": "ท",
+              "shiftLabel": "ธ"
+            },
+            {
+              "label": "ง",
+              "shiftLabel": "ำ"
+            },
+            {
+              "label": "ก",
+              "shiftLabel": "ณ"
+            },
+            {
+              "label": "ั",
+              "shiftLabel": "์",
+              "longPress": [
+                "๎"
+              ]
+            },
+            {
+              "label": "ี",
+              "shiftLabel": "ื",
+              "longPress": [
+                "ุ",
+                "ู"
+              ]
+            },
+            {
+              "label": "า",
+              "shiftLabel": "ผ"
+            },
+            {
+              "label": "น",
+              "shiftLabel": "ช"
+            },
+            {
+              "label": "เ",
+              "shiftLabel": "โ"
+            },
+            {
+              "label": "ไ",
+              "shiftLabel": "ฆ"
+            },
+            {
+              "label": "ข",
+              "shiftLabel": "ฑ",
+              "longPress": [
+                "ฃ"
+              ]
+            },
+            {
+              "label": "ๅ",
+              "shiftLabel": "ํ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "บ",
+              "shiftLabel": "ฎ"
+            },
+            {
+              "label": "ป",
+              "shiftLabel": "ฏ"
+            },
+            {
+              "label": "ล",
+              "shiftLabel": "ฐ",
+              "longPress": [
+                "ฬ"
+              ]
+            },
+            {
+              "label": "ห",
+              "shiftLabel": "ภ"
+            },
+            {
+              "label": "ิ",
+              "shiftLabel": "ฺ"
+            },
+            {
+              "label": "ค",
+              "shiftLabel": "ศ",
+              "longPress": [
+                "ฅ"
+              ]
+            },
+            {
+              "label": "ส",
+              "shiftLabel": "ฮ"
+            },
+            {
+              "label": "ะ",
+              "shiftLabel": "ฟ",
+              "longPress": [
+                "พ"
+              ]
+            },
+            {
+              "label": "จ",
+              "shiftLabel": "ฉ",
+              "longPress": [
+                "฿"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

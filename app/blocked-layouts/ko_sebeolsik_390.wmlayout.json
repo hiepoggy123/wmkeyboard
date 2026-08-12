@@ -1,0 +1,212 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ko_sebeolsik_390",
+    "name": "세벌식 390 (Sebeolsik 390)",
+    "langId": "ko",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ᆺ",
+              "shiftLabel": "ᇁ",
+              "longPress": [
+                "ᇂ",
+                "ᆽ"
+              ]
+            },
+            {
+              "label": "ᆯ",
+              "shiftLabel": "ᇀ",
+              "longPress": [
+                "ᆻ"
+              ]
+            },
+            {
+              "label": "ᅧ",
+              "shiftLabel": "ᆿ",
+              "longPress": [
+                "ᆸ"
+              ]
+            },
+            {
+              "label": "ᅢ",
+              "shiftLabel": "ᅤ",
+              "longPress": [
+                "ᅭ"
+              ]
+            },
+            {
+              "label": "ᅥ",
+              "longPress": [
+                "ᅲ"
+              ]
+            },
+            {
+              "label": "ᄅ",
+              "longPress": [
+                "ᅣ"
+              ]
+            },
+            {
+              "label": "ᄃ",
+              "longPress": [
+                "ᅨ"
+              ]
+            },
+            {
+              "label": "ᄆ",
+              "longPress": [
+                "ᅴ"
+              ]
+            },
+            {
+              "label": "ᄎ",
+              "longPress": [
+                "ᅮ"
+              ]
+            },
+            {
+              "label": "ᄑ",
+              "longPress": [
+                "ᄏ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ᆼ",
+              "shiftLabel": "ᆮ"
+            },
+            {
+              "label": "ᆫ",
+              "shiftLabel": "ᆭ"
+            },
+            {
+              "label": "ᅵ",
+              "shiftLabel": "ᆰ"
+            },
+            {
+              "label": "ᅡ",
+              "shiftLabel": "ᆩ"
+            },
+            {
+              "label": "ᅳ"
+            },
+            {
+              "label": "ᄂ"
+            },
+            {
+              "label": "ᄋ"
+            },
+            {
+              "label": "ᄀ"
+            },
+            {
+              "label": "ᄌ"
+            },
+            {
+              "label": "ᄇ",
+              "longPress": [
+                "ᄐ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ᆷ",
+              "shiftLabel": "ᆾ"
+            },
+            {
+              "label": "ᆨ",
+              "shiftLabel": "ᆹ"
+            },
+            {
+              "label": "ᅦ",
+              "shiftLabel": "ᆱ"
+            },
+            {
+              "label": "ᅩ",
+              "shiftLabel": "ᆶ"
+            },
+            {
+              "label": "ᅮ"
+            },
+            {
+              "label": "ᄉ"
+            },
+            {
+              "label": "ᄒ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

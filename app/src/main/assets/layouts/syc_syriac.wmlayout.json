@@ -12,38 +12,38 @@
           [
             { "label": "ܐ", "longPress": ["ܰ", "ܱ", "ܲ"] },
             { "label": "ܒ", "longPress": ["ܳ", "ܴ", "ܵ"] },
-            { "label": "ܓ", "longPress": ["ܶ", "ܷ", "ܸ"] },
-            { "label": "ܕ", "longPress": ["ܹ", "ܺ", "ܻ"] },
+            { "label": "ܓ", "shiftLabel": "ܔ", "longPress": ["ܶ", "ܷ", "ܸ"] },
+            { "label": "ܕ", "shiftLabel": "ܖ", "longPress": ["ܹ", "ܺ", "ܻ"] },
             { "label": "ܗ", "longPress": ["ܼ", "ܽ", "ܾ"] },
             { "label": "ܘ", "longPress": ["ܰ", "ܱ", "ܲ"] },
             { "label": "ܙ", "longPress": ["ܳ", "ܴ", "ܵ"] },
             { "label": "ܚ", "longPress": ["ܶ", "ܷ", "ܸ"] },
-            { "label": "ܛ", "longPress": ["ܹ", "ܺ", "ܻ"] },
-            { "label": "ܝ", "longPress": ["ܼ", "ܽ", "ܾ"] }
+            { "label": "ܛ", "shiftLabel": "ܜ", "longPress": ["ܹ", "ܺ", "ܻ"] },
+            { "label": "ܝ", "shiftLabel": "ܞ", "longPress": ["ܼ", "ܽ", "ܾ"] }
           ],
           [
             { "label": "ܟ", "longPress": ["ܰ", "ܱ", "ܲ"] },
             { "label": "ܠ", "longPress": ["ܳ", "ܴ", "ܵ"] },
             { "label": "ܡ", "longPress": ["ܶ", "ܷ", "ܸ"] },
             { "label": "ܢ", "longPress": ["ܹ", "ܺ", "ܻ"] },
-            { "label": "ܣ", "longPress": ["ܼ", "ܽ", "ܾ"] },
+            { "label": "ܣ", "shiftLabel": "ܤ", "longPress": ["ܼ", "ܽ", "ܾ"] },
             { "label": "ܥ", "longPress": ["ܰ", "ܱ", "ܲ"] },
-            { "label": "ܦ", "longPress": ["ܳ", "ܴ", "ܵ"] },
+            { "label": "ܦ", "shiftLabel": "ܧ", "longPress": ["ܳ", "ܴ", "ܵ"] },
             { "label": "ܨ", "longPress": ["ܶ", "ܷ", "ܸ"] },
             { "label": "ܩ", "longPress": ["ܹ", "ܺ", "ܻ"] },
-            { "label": "ܪ", "longPress": ["ܼ", "ܽ", "ܾ"] }
+            { "label": "ܪ", "shiftLabel": "ܖ", "longPress": ["ܼ", "ܽ", "ܾ"] }
           ],
           [
+            { "label": "⇧", "action": { "type": "shift" }, "width": 1.5 },
             { "label": "ܫ", "longPress": ["ܰ", "ܱ", "ܲ"] },
             { "label": "ܬ", "longPress": ["ܳ", "ܴ", "ܵ"] },
-            { "label": "ܰ" },
-            { "label": "ܱ" },
-            { "label": "ܲ" },
-            { "label": "ܳ" },
-            { "label": "ܴ" },
-            { "label": "ܵ" },
-            { "label": "ܶ" },
-            { "label": "ܷ" }
+            { "label": "◌̈", "output": "̈", "longPress": ["݀", "ܿ"] },
+            { "label": "◌݁", "output": "݁", "longPress": ["݂"] },
+            { "label": "◌ܑ", "output": "ܑ" },
+            { "label": "◌݃", "output": "݃", "longPress": ["݄", "݅", "݆"] },
+            { "label": "◌݇", "output": "݇", "longPress": ["݈", "݉", "݊"] },
+            { "label": "܀", "longPress": ["܁", "܂", "܃", "܄", "܅", "܊"] },
+            { "label": "⌫", "action": { "type": "delete" }, "width": 1.5 }
           ],
           [
             { "label": "?123", "action": { "type": "symbols" }, "width": 1.5 },
@@ -51,7 +51,6 @@
             { "label": "🌐", "action": { "type": "language_switch" } },
             { "label": " ", "action": { "type": "space" }, "width": 4 },
             { "label": ".", "longPress": ["…", ",", "?", "!", ":", ";"], "role": "Period" },
-            { "label": "⌫", "action": { "type": "delete" }, "width": 1.5 },
             { "label": "⏎", "action": { "type": "enter" }, "width": 1.5 }
           ]
         ]

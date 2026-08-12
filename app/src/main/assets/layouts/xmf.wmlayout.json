@@ -34,7 +34,10 @@
               "label": "უ"
             },
             {
-              "label": "ი"
+              "label": "ი",
+              "longPress": [
+                "ჲ"
+              ]
             },
             {
               "label": "ო"
@@ -58,14 +61,20 @@
               "label": "დ"
             },
             {
-              "label": "ფ"
+              "label": "ფ",
+              "longPress": [
+                "ჶ"
+              ]
             },
             {
               "label": "გ",
               "shiftLabel": "ღ"
             },
             {
-              "label": "ჰ"
+              "label": "ჰ",
+              "longPress": [
+                "ჸ"
+              ]
             },
             {
               "label": "ჯ",

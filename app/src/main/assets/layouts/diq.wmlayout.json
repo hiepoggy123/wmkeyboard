@@ -34,6 +34,7 @@
             {
               "label": "u",
               "longPress": [
+                "û",
                 "ü"
               ]
             },
@@ -68,7 +69,10 @@
               "label": "f"
             },
             {
-              "label": "g"
+              "label": "g",
+              "longPress": [
+                "ğ"
+              ]
             },
             {
               "label": "h"

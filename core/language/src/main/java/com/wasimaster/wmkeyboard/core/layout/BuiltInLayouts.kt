@@ -165,7 +165,7 @@ object BuiltInLayouts {
      */
     val JATIYA = LayoutSpec(
         id = JATIYA_ID,
-        name = "জাতীয় (National)",
+        name = "জাতীয় (National)",
         langId = "bn",
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(jatiyaRows)),
     )
@@ -599,7 +599,7 @@ private val halmakRows = listOf(
 private val probhatRows = listOf(
     listOf(
         Key("দ", shiftLabel = "ধ"), Key("ূ", shiftLabel = "ঊ"), Key("ী", shiftLabel = "ঈ"),
-        Key("র", shiftLabel = "ড়"), Key("ট", shiftLabel = "ঠ"),
+        Key("র", shiftLabel = "ড়"), Key("ট", shiftLabel = "ঠ"),
         Key("এ", shiftLabel = "ঐ"), Key("ু", shiftLabel = "উ"),
         Key("ি", shiftLabel = "ই"), Key("ও", shiftLabel = "ঔ", longPress = listOf("ৗ")),
         Key("প", shiftLabel = "ফ"),
@@ -613,7 +613,7 @@ private val probhatRows = listOf(
     ),
     listOf(
         Key("⇧", action = KeyAction.Shift, width = 1.2f),
-        Key("য়", shiftLabel = "য"), Key("শ", shiftLabel = "ঢ়"), Key("চ", shiftLabel = "ছ"),
+        Key("য়", shiftLabel = "য"), Key("শ", shiftLabel = "ঢ়"), Key("চ", shiftLabel = "ছ"),
         Key("আ", shiftLabel = "ঋ", longPress = listOf("ৃ")), Key("ব", shiftLabel = "ভ"),
         Key("ন", shiftLabel = "ণ"), Key("ম", shiftLabel = "ঙ"),
         Key("্", shiftLabel = "।", longPress = listOf("ঁ", "়", "॥")),
@@ -624,10 +624,10 @@ private val probhatRows = listOf(
 
 private val jatiyaRows = listOf(
     listOf(
-        Key("ঙ", shiftLabel = "ং"), Key("য", shiftLabel = "য়"), Key("ড", shiftLabel = "ঢ"),
+        Key("ঙ", shiftLabel = "ং"), Key("য", shiftLabel = "য়"), Key("ড", shiftLabel = "ঢ"),
         Key("প", shiftLabel = "ফ"), Key("ট", shiftLabel = "ঠ"), Key("চ", shiftLabel = "ছ"),
         Key("জ", shiftLabel = "ঝ"), Key("হ", shiftLabel = "ঞ", longPress = listOf("ঽ")),
-        Key("গ", shiftLabel = "ঘ"), Key("ড়", shiftLabel = "ঢ়"),
+        Key("গ", shiftLabel = "ঘ"), Key("ড়", shiftLabel = "ঢ়"),
     ),
     listOf(
         Key("ৃ", shiftLabel = "ৗ", longPress = listOf("ঋ")),
@@ -692,25 +692,53 @@ private val russianRows = listOf(
     bottomRow(),
 )
 
+/**
+ * The bottom row for the Arabic grid.
+ *
+ * [bottomRow] is shared with QWERTY and every Latin layout, so the Arabic
+ * punctuation cannot go there: ، ؟ ؛ are different characters from , ? ; and
+ * an Arabic writer reaching the Latin ones is the same paper cut as a Bengali
+ * writer reaching "." instead of ৷. ASCII stays on long-press, where numbers,
+ * URLs and code still need it.
+ */
+private fun arabicBottomRow() = listOf(
+    Key("?123", action = KeyAction.Symbols, width = 1.5f),
+    Key("،", role = KeyRole.Comma, longPress = listOf("؟", "؛", "ـ", ",", "!", "?")),
+    Key("🌐", action = KeyAction.LanguageSwitch),
+    Key(" ", action = KeyAction.Space, width = 4f),
+    Key(".", role = KeyRole.Period, longPress = listOf("…", "٪", "،", "؟", "!", ":", ";")),
+    Key("⏎", action = KeyAction.Enter, width = 1.5f),
+)
+
 // Arabic letters in visual (left-to-right) key order; the field renders the
 // committed text right-to-left, so the grid itself is not mirrored.
+//
+// Arabic is uncased, so shift is free for a second plane rather than being
+// inert: it carries the eight harakat, which the Arabic 101 keyboard also puts
+// there. Without them the layout could write consonants but never vowel a text,
+// which is required in the Qur'an, in poetry, in dictionaries and in anything
+// written for learners.
 private val arabicRows = listOf(
     listOf(
-        Key("ض"), Key("ص"), Key("ث"), Key("ق"), Key("ف"), Key("غ"),
-        Key("ع"), Key("ه"), Key("خ"), Key("ح"), Key("ج"),
+        Key("ض", shiftLabel = "َ"), Key("ص", shiftLabel = "ً"), Key("ث", shiftLabel = "ُ"),
+        Key("ق", shiftLabel = "ٌ"), Key("ف", shiftLabel = "ِ"), Key("غ", shiftLabel = "ٍ"),
+        Key("ع", shiftLabel = "ْ"), Key("ه", shiftLabel = "ّ"),
+        Key("خ", shiftLabel = "ٰ"), Key("ح", shiftLabel = "ٓ"), Key("ج", shiftLabel = "ـ"),
     ),
     listOf(
-        Key("ش"), Key("س"), Key("ي", longPress = listOf("ئ")), Key("ب"),
-        Key("ل"), Key("ا", longPress = listOf("أ", "إ", "آ")), Key("ت"),
-        Key("ن"), Key("م"), Key("ك"), Key("ط", longPress = listOf("ظ")),
+        Key("ش"), Key("س"), Key("ي", shiftLabel = "ى", longPress = listOf("ئ")), Key("ب"),
+        Key("ل", shiftLabel = "لا", longPress = listOf("لأ", "لإ", "لآ")),
+        Key("ا", shiftLabel = "آ", longPress = listOf("أ", "إ", "ٱ")), Key("ت"),
+        Key("ن"), Key("م"), Key("ك"), Key("ط", shiftLabel = "ظ"),
     ),
     listOf(
         Key("⇧", action = KeyAction.Shift, width = 1.5f),
         Key("ذ"), Key("د"), Key("ز"), Key("ر"), Key("و", longPress = listOf("ؤ")),
-        Key("ة"), Key("ى"), Key("ء"),
+        Key("ة", shiftLabel = "ه"), Key("ى", shiftLabel = "ي"),
+        Key("ء", longPress = listOf("أ", "إ", "ؤ", "ئ")),
         Key("⌫", action = KeyAction.Delete, width = 1.5f),
     ),
-    bottomRow(),
+    arabicBottomRow(),
 )
 
 // Greek national layout. Greek has case, so shift uppercases the labels

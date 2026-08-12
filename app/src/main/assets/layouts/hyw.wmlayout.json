@@ -30,7 +30,7 @@
               ]
             },
             {
-              "label": "տ",
+              "label": "դ",
               "longPress": [
                 "թ"
               ]
@@ -51,7 +51,7 @@
               ]
             },
             {
-              "label": "պ",
+              "label": "բ",
               "longPress": [
                 "փ"
               ]
@@ -68,32 +68,43 @@
               ]
             },
             {
-              "label": "դ",
+              "label": "տ",
               "longPress": [
-                "ձ"
+                "ծ"
               ]
             },
             {
               "label": "ֆ"
             },
             {
-              "label": "գ"
+              "label": "կ"
             },
             {
               "label": "հ"
             },
             {
-              "label": "ջ",
+              "label": "ճ",
               "longPress": [
-                "ճ",
+                "ջ",
                 "չ"
               ]
             },
             {
-              "label": "կ"
+              "label": "գ"
             },
             {
               "label": "լ"
+            },
+            {
+              "label": "՞",
+              "longPress": [
+                "՜",
+                "՛",
+                "՝",
+                "֊",
+                "«",
+                "»"
+              ]
             }
           ],
           [
@@ -117,16 +128,16 @@
               ]
             },
             {
-              "label": "ծ",
+              "label": "ց",
               "longPress": [
-                "ց"
+                "ձ"
               ]
             },
             {
               "label": "վ"
             },
             {
-              "label": "բ"
+              "label": "պ"
             },
             {
               "label": "ն"
@@ -153,6 +164,7 @@
             {
               "label": ",",
               "longPress": [
+                "՝",
                 "!",
                 "?"
               ],

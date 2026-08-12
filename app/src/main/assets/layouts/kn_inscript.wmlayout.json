@@ -55,7 +55,10 @@
               "shiftLabel": "ಢ"
             },
             {
-              "label": "ಞ"
+              "label": "ಞ",
+              "longPress": [
+                "಼"
+              ]
             }
           ],
           [
@@ -130,7 +133,8 @@
               "label": "ಂ",
               "shiftLabel": "ಁ",
               "longPress": [
-                "ಃ"
+                "ಃ",
+                "ಽ"
               ]
             },
             {
@@ -141,7 +145,8 @@
               "label": "ನ"
             },
             {
-              "label": "ವ"
+              "label": "ವ",
+              "shiftLabel": "ೞ"
             },
             {
               "label": "ಲ",

@@ -114,8 +114,15 @@
               "width": 1.5
             },
             {
+              "label": "ੰ",
+              "shiftLabel": "ੱ"
+            },
+            {
               "label": "ਂ",
-              "shiftLabel": "ਁ"
+              "shiftLabel": "ਁ",
+              "longPress": [
+                "ਃ"
+              ]
             },
             {
               "label": "ਮ",

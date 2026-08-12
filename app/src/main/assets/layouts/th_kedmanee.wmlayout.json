@@ -51,7 +51,13 @@
           ],
           [
             {
-              "label": "ๆ"
+              "label": "ๆ",
+              "longPress": [
+                "๏",
+                "๚",
+                "๛",
+                "ฯ"
+              ]
             },
             {
               "label": "ไ"
@@ -175,7 +181,10 @@
             },
             {
               "label": "ื",
-              "shiftLabel": "์"
+              "shiftLabel": "์",
+              "longPress": [
+                "๎"
+              ]
             },
             {
               "label": "ท"

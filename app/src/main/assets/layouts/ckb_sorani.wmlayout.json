@@ -17,7 +17,8 @@
               "label": "و"
             },
             {
-              "label": "ە"
+              "label": "ە",
+              "shiftLabel": "ي"
             },
             {
               "label": "ر",
@@ -40,10 +41,12 @@
               "shiftLabel": "ع"
             },
             {
-              "label": "ۆ"
+              "label": "ۆ",
+              "shiftLabel": "ؤ"
             },
             {
-              "label": "پ"
+              "label": "پ",
+              "shiftLabel": "ث"
             }
           ],
           [
@@ -60,7 +63,8 @@
               "shiftLabel": "ش"
             },
             {
-              "label": "د"
+              "label": "د",
+              "shiftLabel": "ذ"
             },
             {
               "label": "ف"
@@ -80,7 +84,8 @@
               "label": "ژ"
             },
             {
-              "label": "ک"
+              "label": "ک",
+              "shiftLabel": "ك"
             },
             {
               "label": "ل",
@@ -96,26 +101,31 @@
               "width": 1.5
             },
             {
-              "label": "ز"
+              "label": "ز",
+              "shiftLabel": "ض"
             },
             {
-              "label": "خ"
+              "label": "خ",
+              "shiftLabel": "ص"
             },
             {
               "label": "ج",
               "shiftLabel": "چ"
             },
             {
-              "label": "ڤ"
+              "label": "ڤ",
+              "shiftLabel": "ظ"
             },
             {
-              "label": "ب"
+              "label": "ب",
+              "shiftLabel": "ى"
             },
             {
               "label": "ن"
             },
             {
-              "label": "م"
+              "label": "م",
+              "shiftLabel": "ـ"
             },
             {
               "label": "⌫",
@@ -134,8 +144,12 @@
               "width": 1.5
             },
             {
-              "label": ",",
+              "label": "،",
               "longPress": [
+                "؟",
+                "؛",
+                "ـ",
+                ",",
                 "!",
                 "?"
               ],
@@ -158,6 +172,10 @@
               "label": ".",
               "longPress": [
                 "…",
+                "؟",
+                "،",
+                "؛",
+                "٪",
                 ",",
                 "?",
                 "!",

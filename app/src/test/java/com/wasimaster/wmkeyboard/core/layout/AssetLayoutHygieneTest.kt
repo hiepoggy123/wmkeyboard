@@ -1,0 +1,172 @@
+package com.wasimaster.wmkeyboard.core.layout
+
+import com.wasimaster.wmkeyboard.core.script.ScriptId
+import java.io.File
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+/**
+ * The guardrails against the two ways an asset layout goes wrong quietly.
+ *
+ * [AssetLayoutsTest] already proves every shipped file *parses*, needs no
+ * repair and names a real language. None of that catches the failure mode that
+ * actually shipped: a layout created by copying a sibling and never filled in.
+ * Four reached users — a Yiddish grid whose top row was still `q w e r t y u i
+ * o p`, a Tai Nuea grid that was a whole ASCII QWERTY, a stray Latin `o` among
+ * the Tifinagh, and a Greek key labelled with the literal string "semicolon" —
+ * alongside seven groups of layouts that were byte-identical to the sibling
+ * they were copied from.
+ *
+ * Both checks are allow-lists rather than heuristics, and deliberately so: a
+ * new exception has to be added here by hand. The cost of the fifth
+ * placeholder bug should be a failing test, not a bug report in a language none
+ * of us reads.
+ */
+class AssetLayoutHygieneTest {
+
+    private val layouts: List<Pair<String, LayoutSpec>> =
+        File("src/main/assets/layouts")
+            .listFiles { f -> f.name.endsWith(".${LayoutFile.FILE_EXTENSION}") }
+            .orEmpty()
+            .sortedBy { it.name }
+            .map { it.name.removeSuffix(".${LayoutFile.FILE_EXTENSION}") to LayoutFile.decode(it.readText())!!.layout }
+
+    /**
+     * Every character a layout can produce: what the keys say, what shift makes
+     * them say, what long-press offers, and what they commit when that differs
+     * from the label. Deliberately *not* the layout's `name`, which is written
+     * in the script under test and would mask every miss — the first pass of
+     * this audit was run with a naive substring search and the name field
+     * produced a false negative on nearly every layout checked.
+     */
+    private fun LayoutSpec.reachable(): Set<Char> =
+        layers.values
+            .flatMap { it.rows.flatten() }
+            .flatMap { key ->
+                buildList {
+                    add(key.label)
+                    key.shiftLabel?.let(::add)
+                    key.output?.let(::add)
+                    addAll(key.longPress)
+                }
+            }
+            .flatMap { it.toList() }
+            .toSet()
+
+    /**
+     * The layouts that put Latin letters on the keys on purpose. A romanised
+     * input method (pinyin, jyutping, romaji), Cangjie — whose keys show a
+     * radical and commit a letter — and the notation pseudo-scripts all
+     * legitimately type ASCII while declaring a non-Latin script, because the
+     * script describes what the composer *emits*, not what sits on the keys.
+     */
+    private val latinByDesign = setOf(
+        "asset_ipa",
+        "asset_ja_romaji",
+        "asset_music",
+        "asset_yue_jyutping",
+        "asset_zh_cangjie",
+        "asset_zh_cangjie_quick",
+        "asset_zh_pinyin",
+        "asset_zh_pinyin_t9",
+    )
+
+    @Test
+    fun `a non-Latin layout never types Latin letters`() {
+        val offenders = layouts
+            .filter { (_, layout) ->
+                layout.id !in latinByDesign &&
+                    layout.script().id != ScriptId.LATIN &&
+                    layout.reachable().any { it in 'a'..'z' || it in 'A'..'Z' }
+            }
+            .map { (name, layout) ->
+                val latin = layout.reachable().filter { it.code < 0x80 && it.isLetter() }.sorted()
+                "$name (${latin.joinToString("")})"
+            }
+        assertEquals(
+            "these layouts declare a non-Latin script but type Latin letters, which means a " +
+                "placeholder was left in",
+            emptyList<String>(),
+            offenders,
+        )
+    }
+
+    /**
+     * Two layouts with the same grid are one layout listed twice.
+     *
+     * Sharing is legitimate and common on Latin — 68 languages differ only in
+     * their word list and all wear the same QWERTY — so this only looks at the
+     * non-Latin half, where a shared grid means one language never got adapted.
+     * The exceptions below are the script-level standards, where one grid
+     * serving several languages is the whole point: InScript is defined per
+     * *script*, not per language, and the Bengali-script minorities inherit
+     * Bengali's arrangement by design.
+     */
+    private val sharedGridIsIntentional: List<Set<String>> = listOf(
+        // Devanagari InScript: one chart for every language written in the script.
+        setOf(
+            "anp", "awa", "bho_inscript", "brx_inscript", "doi_inscript", "dty",
+            "kok_inscript", "mai_inscript", "ne_inscript", "new", "raj",
+        ),
+        // Bengali-script minorities riding the Bengali grid.
+        setOf("bpy_bengali", "syl_bengali"),
+        // Gilaki and Mazanderani share the Persian alphabet outright.
+        setOf("glk", "mzn"),
+        // Komi-Permyak and Komi-Zyrian share one 35-letter alphabet, as do
+        // Moksha and Erzya (Russia's plain 33). Correcting each language's
+        // letter inventory is what made these pairs equal — there is nothing
+        // left to tell apart without inventing a difference.
+        setOf("koi", "kv_cyrillic"),
+        setOf("mdf", "myv_cyrillic"),
+    )
+
+    @Test
+    fun `no two non-Latin layouts share a grid`() {
+        val offenders = layouts
+            .groupBy { (_, layout) -> layout.layers }
+            .values
+            .filter { group ->
+                group.size > 1 &&
+                    group.any { (_, l) -> l.id !in latinByDesign && l.script().id != ScriptId.LATIN } &&
+                    // Membership, not an exact group match: fixing one language's
+                    // letters moves it in or out of a shared-grid cluster, and a
+                    // list of exact groups would need re-editing every time that
+                    // happens without saying anything more.
+                    sharedGridIsIntentional.none { allowed -> group.all { it.first in allowed } }
+            }
+            .map { group -> group.joinToString("/") { it.first } }
+        assertEquals(
+            "these non-Latin layouts are byte-identical, so at least one is an unfilled copy of " +
+                "another; if the sharing is deliberate, add the group to sharedGridIsIntentional",
+            emptyList<String>(),
+            offenders,
+        )
+    }
+
+    /**
+     * A key label is a glyph, not a description of one. "semicolon" reached the
+     * shipped Greek polytonic layout as a ten-character label because nothing
+     * checked. Multi-character labels are legitimate — the mode keys, the T9
+     * letter groups, "IPA" — so the rule is only that an all-ASCII-letter label
+     * has to be one the layouts actually mean to show.
+     */
+    private val wordLabelsInUse = setOf(
+        "ABC", "abc", "OK", "Fn", "Esc", "Tab", "Del", "Ins", "IPA",
+        // The T9 pinyin pad labels its keys with the letter group, Nokia-style.
+        "DEF", "GHI", "JKL", "MNO", "PQRS", "TUV", "WXYZ",
+    )
+
+    @Test
+    fun `no key is labelled with the name of a character`() {
+        val offenders = layouts.flatMap { (name, layout) ->
+            layout.layers.values
+                .flatMap { it.rows.flatten() }
+                .map { it.label }
+                .filter { it.length > 2 && it.all { c -> c in 'a'..'z' || c in 'A'..'Z' } }
+                .filter { it !in wordLabelsInUse }
+                .distinct()
+                .map { "$name: \"$it\"" }
+        }
+        assertEquals("these key labels are words, not characters", emptyList<String>(), offenders)
+    }
+}

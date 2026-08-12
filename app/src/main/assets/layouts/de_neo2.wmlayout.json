@@ -1,0 +1,256 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_de_neo2",
+    "name": "Neo 2",
+    "langId": "de",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "x",
+              "longPress": [
+                "1"
+              ]
+            },
+            {
+              "label": "v",
+              "longPress": [
+                "2"
+              ]
+            },
+            {
+              "label": "l",
+              "longPress": [
+                "3"
+              ]
+            },
+            {
+              "label": "c",
+              "longPress": [
+                "4"
+              ]
+            },
+            {
+              "label": "w",
+              "longPress": [
+                "5"
+              ]
+            },
+            {
+              "label": "k",
+              "longPress": [
+                "6"
+              ]
+            },
+            {
+              "label": "h",
+              "longPress": [
+                "7"
+              ]
+            },
+            {
+              "label": "g",
+              "longPress": [
+                "8"
+              ]
+            },
+            {
+              "label": "f",
+              "longPress": [
+                "9"
+              ]
+            },
+            {
+              "label": "q",
+              "longPress": [
+                "0"
+              ]
+            },
+            {
+              "label": "ß",
+              "longPress": [
+                "ẞ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "u",
+              "longPress": [
+                "@"
+              ]
+            },
+            {
+              "label": "i",
+              "longPress": [
+                "#"
+              ]
+            },
+            {
+              "label": "a",
+              "longPress": [
+                "$"
+              ]
+            },
+            {
+              "label": "e",
+              "longPress": [
+                "_"
+              ]
+            },
+            {
+              "label": "o",
+              "longPress": [
+                "&"
+              ]
+            },
+            {
+              "label": "s",
+              "longPress": [
+                "-"
+              ]
+            },
+            {
+              "label": "n",
+              "longPress": [
+                "+"
+              ]
+            },
+            {
+              "label": "r",
+              "longPress": [
+                "("
+              ]
+            },
+            {
+              "label": "t",
+              "longPress": [
+                ")"
+              ]
+            },
+            {
+              "label": "d"
+            },
+            {
+              "label": "y"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ü",
+              "longPress": [
+                "*"
+              ]
+            },
+            {
+              "label": "ö",
+              "longPress": [
+                "\""
+              ]
+            },
+            {
+              "label": "ä",
+              "longPress": [
+                "'"
+              ]
+            },
+            {
+              "label": "p",
+              "longPress": [
+                ":"
+              ]
+            },
+            {
+              "label": "z",
+              "longPress": [
+                ";"
+              ]
+            },
+            {
+              "label": "b",
+              "longPress": [
+                "!"
+              ]
+            },
+            {
+              "label": "m",
+              "longPress": [
+                "?"
+              ]
+            },
+            {
+              "label": "j"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

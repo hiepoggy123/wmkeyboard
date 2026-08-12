@@ -32,10 +32,16 @@
               "label": "y"
             },
             {
-              "label": "u"
+              "label": "u",
+              "longPress": [
+                "ʋ"
+              ]
             },
             {
-              "label": "i"
+              "label": "i",
+              "longPress": [
+                "ɩ"
+              ]
             },
             {
               "label": "o",

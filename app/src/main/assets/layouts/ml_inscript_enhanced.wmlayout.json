@@ -1,0 +1,250 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_ml_inscript_enhanced",
+    "name": "എൻഹാൻസ്ഡ് ഇൻസ്ക്രിപ്റ്റ് (Enhanced InScript)",
+    "langId": "ml",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ൗ",
+              "shiftLabel": "ഔ",
+              "longPress": [
+                "ൌ"
+              ]
+            },
+            {
+              "label": "ൈ",
+              "shiftLabel": "ഐ"
+            },
+            {
+              "label": "ാ",
+              "shiftLabel": "ആ"
+            },
+            {
+              "label": "ീ",
+              "shiftLabel": "ഈ"
+            },
+            {
+              "label": "ൂ",
+              "shiftLabel": "ഊ"
+            },
+            {
+              "label": "ബ",
+              "shiftLabel": "ഭ"
+            },
+            {
+              "label": "ഹ",
+              "shiftLabel": "ങ"
+            },
+            {
+              "label": "ഗ",
+              "shiftLabel": "ഘ"
+            },
+            {
+              "label": "ദ",
+              "shiftLabel": "ധ"
+            },
+            {
+              "label": "ജ",
+              "shiftLabel": "ഝ"
+            },
+            {
+              "label": "ഡ",
+              "shiftLabel": "ഢ"
+            },
+            {
+              "label": "◌‿◌",
+              "output": "‍",
+              "shiftLabel": "ഞ",
+              "longPress": [
+                "ഞ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ോ",
+              "shiftLabel": "ഓ",
+              "longPress": [
+                "ൊ",
+                "ഒ"
+              ]
+            },
+            {
+              "label": "േ",
+              "shiftLabel": "ഏ"
+            },
+            {
+              "label": "്",
+              "shiftLabel": "അ",
+              "longPress": [
+                "ഽ"
+              ]
+            },
+            {
+              "label": "ി",
+              "shiftLabel": "ഇ"
+            },
+            {
+              "label": "ു",
+              "shiftLabel": "ഉ",
+              "longPress": [
+                "ൃ",
+                "ഋ",
+                "ൄ",
+                "ൠ"
+              ]
+            },
+            {
+              "label": "പ",
+              "shiftLabel": "ഫ"
+            },
+            {
+              "label": "ര",
+              "shiftLabel": "റ",
+              "longPress": [
+                "ർ",
+                "ൎ"
+              ]
+            },
+            {
+              "label": "ക",
+              "shiftLabel": "ഖ",
+              "longPress": [
+                "ൿ"
+              ]
+            },
+            {
+              "label": "ത",
+              "shiftLabel": "ഥ"
+            },
+            {
+              "label": "ച",
+              "shiftLabel": "ഛ"
+            },
+            {
+              "label": "ട",
+              "shiftLabel": "ഠ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "െ",
+              "shiftLabel": "എ"
+            },
+            {
+              "label": "ം",
+              "shiftLabel": "ൺ",
+              "longPress": [
+                "ഃ",
+                "ഁ"
+              ]
+            },
+            {
+              "label": "മ",
+              "shiftLabel": "ണ"
+            },
+            {
+              "label": "ന",
+              "shiftLabel": "ൻ"
+            },
+            {
+              "label": "വ",
+              "shiftLabel": "ഴ"
+            },
+            {
+              "label": "ല",
+              "shiftLabel": "ള",
+              "longPress": [
+                "ൽ",
+                "ൾ"
+              ]
+            },
+            {
+              "label": "സ",
+              "shiftLabel": "ശ",
+              "longPress": [
+                "ഷ"
+              ]
+            },
+            {
+              "label": "യ"
+            },
+            {
+              "label": "◌│◌",
+              "output": "‌"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

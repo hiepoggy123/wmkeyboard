@@ -9,7 +9,7 @@ import org.junit.Test
 
 /**
  * The tablet expansion, run over every layout the app ships — 18 built in plus
- * 354 assets, on both tablet forms with the digit row on and off.
+ * 394 assets, on both tablet forms with the digit row on and off.
  *
  * `TabletExpansionTest` pins the arithmetic on grids it builds by hand; this
  * pins it against reality. The transform relocates keys by role across 393
@@ -43,17 +43,23 @@ class TabletExpansionCorpusTest {
 
     @Test
     fun `the corpus is the whole shipped set`() {
-        assertEquals("built-ins plus assets", 18 + 354, corpus.size)
+        assertEquals("built-ins plus assets", 18 + 394, corpus.size)
     }
 
     /**
      * The exact set of layouts that decline, spelled out.
      *
      * An assertion on the count alone would pass while the transform silently
-     * started rejecting Bengali and accepting braille. These fourteen are the
+     * started rejecting Bengali and accepting braille. These twelve are the
      * grids where a wide alphabetic layout is not what the user is looking at:
      * kana flick pads and braille are typed by position, morse by timing, and
      * the rest have no shift key to mirror.
+     *
+     * Inuktitut and Syriac used to be on this list and have earned their way
+     * off it. Both declined because they had a shift key with nothing on it —
+     * Inuktitut could not reach a single one of its twelve finals, and Syriac
+     * could not reach seyame. Filling those planes in made them ordinary
+     * alphabetic grids, which is what the transform is for.
      */
     @Test
     fun `exactly the non-alphabetic layouts decline`() {
@@ -65,7 +71,7 @@ class TabletExpansionCorpusTest {
         assertEquals(
             setOf(
                 "braille_chord", "ja_flick", "ja_kana_jis", "morse", "zh_stroke",
-                "ipa", "iu_syllabics", "music", "nqo_nko", "syc_syriac",
+                "ipa", "music", "nqo_nko",
                 "zh_cangjie", "zh_cangjie_quick", "zh_pinyin_t9", "zh_zhuyin",
             ),
             declined,
