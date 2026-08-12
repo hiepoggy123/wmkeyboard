@@ -103,9 +103,26 @@ Builds:
       - core/intelligence/src/full/jniLibs
       - feature/llm/src/main/jniLibs
 
+  # Still the same build. The Espanso support this release adds reads YAML
+  # through snakeyaml, which is an ordinary Maven dependency with no Google
+  # artifact behind it, so the lite flavour is unaffected.
+  - versionName: 0.5.0
+    versionCode: 10
+    commit: v0.5.0
+    subdir: app
+    gradle:
+      - lite
+    gradleprops:
+      - wmkb.enablePlayStore=false
+      - wmkb.enableGms=false
+      - wmkb.enableFdroid=true
+    scandelete:
+      - core/intelligence/src/full/jniLibs
+      - feature/llm/src/main/jniLibs
+
 # Bump both of these with every release. Alternatively switch to
 # UpdateCheckMode: Tags once the tag pattern has a couple of releases behind it.
 AutoUpdateMode: None
 UpdateCheckMode: None
-CurrentVersion: 0.4.1
-CurrentVersionCode: 9
+CurrentVersion: 0.5.0
+CurrentVersionCode: 10

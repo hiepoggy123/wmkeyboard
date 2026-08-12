@@ -1,0 +1,10 @@
+The toolbar gets a row of its own and a hold action per tool, plus a Selection
+mode tool, and the text-editing panel is a layout you can edit.
+
+Snippets read and write Espanso files and sort into folders. Voice typing gains
+interactive modes. A glide can draw an apostrophe, and a flick adds 's.
+
+A layout can carry its own font, size a key's label and span a key across rows.
+The color picker is rebuilt on a hue wheel.
+
+Fixed: TalkBack pass-through, hex color entry, key edits and the app lock.
