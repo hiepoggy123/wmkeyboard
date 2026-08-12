@@ -32,7 +32,8 @@ import urllib.request
 from pathlib import Path
 
 INDEX_URL = "https://googlefonts.github.io/noto-emoji-animation/data/api.json"
-OUT = Path("app/src/main/assets/emoji/animated.txt")
+ROOT = Path(__file__).resolve().parents[2]
+OUT = ROOT / "app/src/main/assets/emoji/animated.txt"
 
 # Below this the file is not the index — a captive portal, or an API that moved.
 MIN_ENTRIES = 500

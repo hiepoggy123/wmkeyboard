@@ -44,7 +44,7 @@ DUPLICATE_CODES = {"fil", "pt_br", "zh_cn"}
 
 
 def app_language_ids(root: Path) -> set[str]:
-    src = (root / "app/src/main/java/com/wasimaster/wmkeyboard/core/script/Language.kt")
+    src = (root / "core/language/src/main/java/com/wasimaster/wmkeyboard/core/script/Language.kt")
     return set(re.findall(r'\bid\s*=\s*"([A-Za-z0-9_-]+)"', src.read_text(encoding="utf-8")))
 
 
@@ -83,7 +83,7 @@ def main() -> int:
     parser.add_argument("--tree", type=Path, help="saved copy of the repo tree JSON")
     parser.add_argument(
         "--out", type=Path,
-        default=root / "app/src/main/java/com/wasimaster/wmkeyboard/core/emoji/EmojiDictCatalog.kt",
+        default=root / "core/emoji/src/main/java/com/wasimaster/wmkeyboard/core/emoji/EmojiDictCatalog.kt",
     )
     args = parser.parse_args()
 

@@ -49,12 +49,13 @@ def parse_names(path: Path) -> dict[str, str]:
 
 
 def main() -> int:
+    root = Path(__file__).resolve().parents[2]
     ap = argparse.ArgumentParser()
     ap.add_argument("--emoji-test", required=True, type=Path)
     ap.add_argument(
         "--catalog",
         type=Path,
-        default=Path("app/src/main/assets/emoji/catalog.tsv"),
+        default=root / "app/src/main/assets/emoji/catalog.tsv",
     )
     args = ap.parse_args()
 
