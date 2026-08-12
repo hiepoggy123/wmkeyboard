@@ -26,7 +26,18 @@
          types. Keep them exactly as they are. -->
     <string name="rows_snippet_text_label">Text (supports {date} {time} {clip} {app} {cursor} …)</string>
     <string name="rows_snippet_trigger_label">Trigger word (optional)</string>
-    <string name="rows_snippet_trigger_body">The keyboard expands this word to the text above when you type it alone.</string>
+    <string name="rows_snippet_trigger_body">The keyboard expands this word to the text above when you type it alone. It may start with punctuation, as in :shrug.</string>
+
+    <!-- Extra spellings of the trigger above. Each one fires the same snippet. -->
+    <string name="rows_snippet_aliases_label">Other triggers (optional)</string>
+    <string name="rows_snippet_aliases_body">Separate them with commas. Each one expands the same snippet.</string>
+
+    <!-- Carrying the trigger's own capitals into what it expands to. -->
+    <string name="rows_snippet_propagate_case_label">Match the trigger\'s capitals</string>
+    <string name="rows_snippet_propagate_case_body">Typing the trigger in capitals expands to capitals. Useful for snippets that fix ordinary words rather than codes.</string>
+    <string name="rows_snippet_case_first_label">First letter</string>
+    <string name="rows_snippet_case_words_label">Every word</string>
+    <string name="rows_snippet_case_all_label">All capitals</string>
 
     <!-- Which folder the snippet goes in. The first choice means no folder. -->
     <string name="rows_snippet_folder_label">Folder</string>

@@ -396,7 +396,15 @@ import com.wasimaster.wmkeyboard.core.snippets.SnippetFolder
 import com.wasimaster.wmkeyboard.core.snippets.SnippetIndex
 import com.wasimaster.wmkeyboard.core.snippets.SnippetMatcher
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
+import com.wasimaster.wmkeyboard.core.content.ContentText
+import com.wasimaster.wmkeyboard.core.util.requireOutputStream
+import com.wasimaster.wmkeyboard.core.snippets.SnippetPayload
 import com.wasimaster.wmkeyboard.core.snippets.SnippetVariable
+import com.wasimaster.wmkeyboard.core.snippets.UppercaseStyle
+import com.wasimaster.wmkeyboard.core.snippets.espanso.EspansoFile
+import com.wasimaster.wmkeyboard.core.snippets.espanso.EspansoHub
+import com.wasimaster.wmkeyboard.core.snippets.espanso.EspansoManifest
+import com.wasimaster.wmkeyboard.core.snippets.espanso.EspansoWriter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.conflate
@@ -13666,48 +13674,128 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
         }
     }
 
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val s = store ?: return@rememberLauncherForActivityResult
+    // An Espanso file is somebody else's, in a format that cannot say
+    // everything this app's own can, so it is described and confirmed before
+    // anything is written. The app's own format applies straight away, exactly
+    // as it always has.
+    var pendingImport by remember { mutableStateOf<SnippetPayload.Parsed?>(null) }
+    var pendingExport by remember { mutableStateOf<List<ContentText>>(emptyList()) }
+    var importSource by remember { mutableStateOf(false) }
+    var exportTarget by remember { mutableStateOf(false) }
+    var urlPrompt by remember { mutableStateOf(false) }
+    var packagePrompt by remember { mutableStateOf(false) }
+    var manifest by remember { mutableStateOf(EspansoManifest("", "", "")) }
+    var busy by remember { mutableStateOf(false) }
+
+    /** Writes [parsed] into the store, under a folder when it names one. */
+    fun applyImport(parsed: SnippetPayload.Parsed, folderName: String?) {
+        val s = store ?: return
         scope.launch {
-            val imported = withContext(Dispatchers.IO) {
+            withContext(Dispatchers.IO) {
+                // Whole snippets, not a handful of named fields: rebuilding them
+                // would quietly drop whatever the format gained last. An Espanso
+                // file has no folders of its own, so it lands in one named after
+                // the package, which is what gives it a single off switch.
+                val target = folderName?.trim()?.takeIf { it.isNotEmpty() }?.let { s.addFolder(it).id } ?: 0L
+                s.addAll(parsed.snippets, parsed.folders, fallbackFolderId = target)
+                // The adds are in-memory only; save() writes the file.
+                s.save()
+            }
+            snippets = s.items()
+            folders = s.folders()
+            message = buildString {
+                append(
+                    context.resources.getQuantityString(
+                        R.plurals.expander_imported_count,
+                        parsed.snippets.size,
+                        parsed.snippets.size,
+                    ),
+                )
+                if (parsed.notes.isNotEmpty()) {
+                    append("\n\n")
+                    append(context.getString(R.string.expander_import_repairs_title))
+                    // The reader hands back a resource and its arguments, so the
+                    // note is worded here.
+                    for (line in parsed.notes) append("\n• ${line.resolve(context)}")
+                }
+            }
+        }
+    }
+
+    /** Reads whatever was picked, then either applies it or asks first. */
+    fun offerImport(uri: Uri) {
+        if (store == null) return
+        scope.launch {
+            val name = WMFileTypes.displayName(context, uri)
+            val parsed = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.requireInputStream(uri)
-                        .use { SnippetFile.decode(it.readBytes().decodeToString()) }
+                    context.contentResolver.requireInputStream(uri).use {
+                        SnippetPayload.read(it.readBytes(), name)
+                    }
                 }.getOrNull()
             }
-            message = if (imported == null) {
-                context.getString(R.string.expander_import_error)
-            } else {
-                // Added alongside what's already there, with fresh ids — an
-                // import should never quietly replace snippets someone wrote.
-                withContext(Dispatchers.IO) {
-                    // Whole snippets, not a handful of named fields: rebuilding
-                    // them would quietly drop whatever the format gained last.
-                    // The file's folders come with them, under fresh ids.
-                    s.addAll(imported.snippets, imported.folders)
-                    // The adds are in-memory only; save() writes the file.
-                    s.save()
-                }
-                snippets = s.items()
-                folders = s.folders()
-                buildString {
-                    append(
-                        context.resources.getQuantityString(
-                            R.plurals.expander_imported_count,
-                            imported.snippets.size,
-                            imported.snippets.size,
-                        ),
-                    )
-                    if (imported.repairs.isNotEmpty()) {
-                        append("\n\n")
-                        append(context.getString(R.string.expander_import_repairs_title))
-                        // The reader hands back a resource and its arguments,
-                        // so the note is worded here.
-                        for (line in imported.repairs) append("\n• ${line.resolve(context)}")
+            when {
+                parsed == null -> message = context.getString(R.string.expander_import_error)
+                parsed.isEspanso -> pendingImport = parsed
+                else -> applyImport(parsed, folderName = null)
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri -> uri?.let(::offerImport) }
+
+    val espansoExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(EspansoWriter.MIME_TYPE),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val current = snippets
+        val currentFolders = folders
+        scope.launch {
+            val written = withContext(Dispatchers.IO) {
+                val export = EspansoWriter.encodeMatchFile(current, currentFolders)
+                runCancellable {
+                    context.contentResolver.requireOutputStream(uri).use {
+                        it.write(export.text.toByteArray())
                     }
+                }.map { export.notes }.getOrNull()
+            }
+            if (written == null) {
+                message = context.getString(R.string.expander_export_error)
+            } else {
+                pendingExport = written
+                if (written.isEmpty()) {
+                    message = context.resources.getQuantityString(
+                        R.plurals.expander_saved_count, current.size, current.size,
+                    )
+                }
+            }
+        }
+    }
+
+    val packageExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(EspansoWriter.PACKAGE_MIME_TYPE),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val current = snippets
+        val currentFolders = folders
+        val currentManifest = manifest
+        scope.launch {
+            val written = withContext(Dispatchers.IO) {
+                val (bytes, notes) = EspansoWriter.encodePackage(current, currentFolders, currentManifest)
+                runCancellable {
+                    context.contentResolver.requireOutputStream(uri).use { it.write(bytes) }
+                }.map { notes }.getOrNull()
+            }
+            if (written == null) {
+                message = context.getString(R.string.expander_export_error)
+            } else {
+                pendingExport = written
+                if (written.isEmpty()) {
+                    message = context.resources.getQuantityString(
+                        R.plurals.expander_saved_count, current.size, current.size,
+                    )
                 }
             }
         }
@@ -13789,10 +13877,10 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
             Text(stringResource(R.string.expander_add_action))
         }
         OutlinedButton(
-            onClick = { importLauncher.launch(SnippetFile.IMPORT_MIME_TYPES) },
+            onClick = { importSource = true },
         ) { Text(stringResource(CommonR.string.common_import)) }
         OutlinedButton(
-            onClick = { exportLauncher.launch(SnippetFile.fileName()) },
+            onClick = { exportTarget = true },
             enabled = snippets.isNotEmpty(),
         ) { Text(stringResource(CommonR.string.common_export)) }
     }
@@ -13931,6 +14019,9 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
                             draft.triggerWords,
                             draft.confirm,
                             draft.folderId,
+                            draft.aliases,
+                            draft.propagateCase,
+                            draft.uppercaseStyle,
                         )
                     }
                 }
@@ -13964,6 +14055,315 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
             },
         )
     }
+
+    if (importSource) {
+        SnippetSourceDialog(
+            title = R.string.expander_import_source_title,
+            options = listOf(
+                R.string.expander_source_native to R.string.expander_source_native_body,
+                R.string.expander_source_espanso to R.string.expander_source_espanso_body,
+                R.string.expander_source_url to R.string.expander_source_url_body,
+            ),
+            onDismiss = { importSource = false },
+            onPick = { index ->
+                importSource = false
+                when (index) {
+                    0 -> importLauncher.launch(SnippetFile.IMPORT_MIME_TYPES)
+                    1 -> importLauncher.launch(SnippetPayload.IMPORT_MIME_TYPES)
+                    else -> urlPrompt = true
+                }
+            },
+        )
+    }
+
+    if (exportTarget) {
+        SnippetSourceDialog(
+            title = R.string.expander_export_target_title,
+            options = listOf(
+                R.string.expander_target_native to R.string.expander_target_native_body,
+                R.string.expander_target_espanso to R.string.expander_target_espanso_body,
+                R.string.expander_target_package to R.string.expander_target_package_body,
+            ),
+            onDismiss = { exportTarget = false },
+            onPick = { index ->
+                exportTarget = false
+                when (index) {
+                    0 -> exportLauncher.launch(SnippetFile.fileName())
+                    1 -> espansoExportLauncher.launch(EspansoWriter.FILE_NAME)
+                    else -> packagePrompt = true
+                }
+            },
+        )
+    }
+
+    if (urlPrompt) {
+        SnippetUrlDialog(
+            busy = busy,
+            onDismiss = { if (!busy) urlPrompt = false },
+            onFetch = { pasted ->
+                busy = true
+                scope.launch {
+                    val parsed = withContext(Dispatchers.IO) { fetchEspanso(pasted) }
+                    busy = false
+                    urlPrompt = false
+                    when {
+                        parsed == null -> message = context.getString(R.string.expander_url_error)
+                        parsed.isEspanso -> pendingImport = parsed
+                        else -> applyImport(parsed, folderName = null)
+                    }
+                }
+            },
+        )
+    }
+
+    pendingImport?.let { parsed ->
+        SnippetEspansoImportDialog(
+            parsed = parsed,
+            onDismiss = { pendingImport = null },
+            onImport = { folderName ->
+                pendingImport = null
+                applyImport(parsed, folderName)
+            },
+        )
+    }
+
+    if (packagePrompt) {
+        SnippetPackageDialog(
+            onDismiss = { packagePrompt = false },
+            onExport = { built ->
+                packagePrompt = false
+                manifest = built
+                packageExportLauncher.launch("${EspansoManifest.sanitizeName(built.name)}.zip")
+            },
+        )
+    }
+
+    if (pendingExport.isNotEmpty()) {
+        val lines = pendingExport
+        AlertDialog(
+            onDismissRequest = { pendingExport = emptyList() },
+            title = { Text(stringResource(R.string.expander_export_notes_title)) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    for (line in lines) Text("• ${line.resolve(context)}")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { pendingExport = emptyList() }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
+        )
+    }
+}
+
+/**
+ * Fetches an Espanso file from a pasted address and reads it.
+ *
+ * A Hub package page names a package without saying where its files are, so
+ * that shape takes two requests: list the package's versions, take the newest,
+ * then fetch that version's `package.yml`. Everything else is one.
+ *
+ * Blocking, so call it on IO. Every failure is null; the dialog says the same
+ * thing whichever step it was, because none of the differences is something the
+ * person pasting a link can act on.
+ */
+private fun fetchEspanso(pasted: String): SnippetPayload.Parsed? {
+    val target = EspansoHub.resolve(pasted) ?: return null
+    val url = when (target) {
+        is EspansoHub.Target.Direct -> target.url
+        is EspansoHub.Target.HubPackage -> {
+            val listing = runCancellable { ToolHttp.get(target.contentsUrl) }.getOrNull() ?: return null
+            val version = EspansoHub.newestVersion(listing) ?: return null
+            target.packageUrl(version)
+        }
+    }
+    val temp = java.io.File.createTempFile("espanso", null)
+    return try {
+        runCancellable {
+            ToolHttp.download(url, temp, maxBytes = EspansoFile.MAX_BYTES.toLong())
+        }.getOrNull() ?: return null
+        SnippetPayload.read(temp, url.substringAfterLast('/'))
+    } finally {
+        temp.delete()
+    }
+}
+
+/** A short list of ways to do the thing, one row each. */
+@Composable
+private fun SnippetSourceDialog(
+    @StringRes title: Int,
+    options: List<Pair<Int, Int>>,
+    onDismiss: () -> Unit,
+    onPick: (Int) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(title)) },
+        text = {
+            Column {
+                options.forEachIndexed { index, (label, body) ->
+                    WmRow(
+                        title = stringResource(label),
+                        supporting = { Text(stringResource(body)) },
+                        onClick = { onPick(index) },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
+/** Asks for an address to fetch a snippet file from. */
+@Composable
+private fun SnippetUrlDialog(busy: Boolean, onDismiss: () -> Unit, onFetch: (String) -> Unit) {
+    var url by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.expander_url_title)) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = { url = it },
+                    label = { Text(stringResource(R.string.expander_url_label)) },
+                    singleLine = true,
+                    enabled = !busy,
+                )
+                DialogNote(stringResource(R.string.expander_url_body))
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !busy && url.isNotBlank(),
+                onClick = { onFetch(url) },
+            ) { Text(stringResource(CommonR.string.common_import)) }
+        },
+        dismissButton = {
+            TextButton(enabled = !busy, onClick = onDismiss) {
+                Text(stringResource(CommonR.string.common_cancel))
+            }
+        },
+    )
+}
+
+/**
+ * What an Espanso file holds and what it loses, before any of it is written.
+ *
+ * The notes are the point of the dialog. An Espanso file can say things this app
+ * has no equivalent for, and finding that out after the import is worse than
+ * being told and deciding.
+ */
+@Composable
+private fun SnippetEspansoImportDialog(
+    parsed: SnippetPayload.Parsed,
+    onDismiss: () -> Unit,
+    onImport: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    var folderName by remember { mutableStateOf(parsed.suggestedName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                pluralStringResource(
+                    R.plurals.expander_espanso_import_title,
+                    parsed.snippets.size,
+                    parsed.snippets.size,
+                ),
+            )
+        },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(
+                    value = folderName,
+                    onValueChange = { folderName = it },
+                    label = { Text(stringResource(R.string.expander_espanso_folder_label)) },
+                    singleLine = true,
+                )
+                DialogNote(stringResource(R.string.expander_espanso_folder_body))
+                if (parsed.notes.isNotEmpty()) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        stringResource(R.string.expander_espanso_changes_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    for (line in parsed.notes) DialogNote("• ${line.resolve(context)}")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = parsed.snippets.isNotEmpty(),
+                onClick = { onImport(folderName) },
+            ) { Text(stringResource(CommonR.string.common_import)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
+/** The handful of things an Espanso package's manifest has to declare. */
+@Composable
+private fun SnippetPackageDialog(onDismiss: () -> Unit, onExport: (EspansoManifest) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var author by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    val cleaned = remember(name) { EspansoManifest.sanitizeName(name) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.expander_package_title)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.expander_package_name_label)) },
+                    singleLine = true,
+                )
+                // The specification allows lowercase letters, digits and hyphens
+                // only, so show what the name will actually become.
+                DialogNote(stringResource(R.string.expander_package_name_body, cleaned))
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = author,
+                    onValueChange = { author = it },
+                    label = { Text(stringResource(R.string.expander_package_author_label)) },
+                    singleLine = true,
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text(stringResource(R.string.expander_package_description_label)) },
+                    singleLine = true,
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = name.isNotBlank(),
+                onClick = {
+                    onExport(
+                        EspansoManifest(
+                            name = cleaned,
+                            title = name.trim(),
+                            description = description.trim(),
+                            author = author.trim(),
+                        ),
+                    )
+                },
+            ) { Text(stringResource(CommonR.string.common_export)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
 }
 
 /** One snippet in the Text Expander list: what it inserts, and what fires it. */
@@ -13989,7 +14389,10 @@ private fun SnippetRow(snippet: Snippet, onEdit: () -> Unit, onDelete: () -> Uni
                             color = MaterialTheme.colorScheme.primary,
                         )
                     }
-                    val trigger = snippet.trigger
+                    // Aliases sit on the same line as the trigger: they are the
+                    // same rule spelled more than once, not a second thing the
+                    // row has to explain.
+                    val trigger = snippet.spellings().takeIf { it.isNotEmpty() }?.joinToString(", ")
                     val pattern = snippet.triggerPattern
                     // Which of the two lines a trigger gets is only about
                     // wording: one asks first, the other rewrites what you
@@ -14225,6 +14628,11 @@ private fun SnippetDialog(
         )
     }
     var confirm by remember { mutableStateOf(initial?.confirm == true) }
+    var aliases by remember { mutableStateOf(initial?.aliases.orEmpty().joinToString(", ")) }
+    var propagateCase by remember { mutableStateOf(initial?.propagateCase == true) }
+    var uppercaseStyle by remember {
+        mutableStateOf(initial?.uppercaseStyle ?: UppercaseStyle.CAPITALIZE)
+    }
     val fault = remember(pattern.text) { SnippetMatcher.validate(pattern.text) }
     val patternOk = mode == SnippetTriggerMode.WORD || fault == null
 
@@ -14277,6 +14685,41 @@ private fun SnippetDialog(
                         singleLine = true,
                     )
                     DialogNote(stringResource(R.string.rows_snippet_trigger_body))
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = aliases,
+                        onValueChange = { aliases = it },
+                        label = { Text(stringResource(R.string.rows_snippet_aliases_label)) },
+                        singleLine = true,
+                    )
+                    DialogNote(stringResource(R.string.rows_snippet_aliases_body))
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.rows_snippet_propagate_case_label),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Switch(checked = propagateCase, onCheckedChange = { propagateCase = it })
+                    }
+                    DialogNote(stringResource(R.string.rows_snippet_propagate_case_body))
+                    // The style only means anything for a trigger typed with one
+                    // leading capital. An all-caps trigger always shouts back.
+                    if (propagateCase) {
+                        Spacer(Modifier.height(8.dp))
+                        ChoiceControl(
+                            options = listOf(
+                                UppercaseStyle.CAPITALIZE to
+                                    stringResource(R.string.rows_snippet_case_first_label),
+                                UppercaseStyle.CAPITALIZE_WORDS to
+                                    stringResource(R.string.rows_snippet_case_words_label),
+                                UppercaseStyle.UPPERCASE to
+                                    stringResource(R.string.rows_snippet_case_all_label),
+                            ),
+                            selected = uppercaseStyle,
+                            onChange = { uppercaseStyle = it },
+                        )
+                    }
                 } else {
                     SnippetPatternFields(
                         pattern = pattern,
@@ -14327,6 +14770,9 @@ private fun SnippetDialog(
                             label = label.trim(),
                             text = text,
                             trigger = if (word) trigger.trim().ifBlank { null } else null,
+                            aliases = if (word) splitAliases(aliases) else emptyList(),
+                            propagateCase = word && propagateCase,
+                            uppercaseStyle = uppercaseStyle,
                             triggerPattern = if (word) null else pattern.text.trim().ifBlank { null },
                             triggerWords = if (word) 0 else words,
                             confirm = confirm,
@@ -14341,6 +14787,15 @@ private fun SnippetDialog(
         },
     )
 }
+
+/**
+ * The alias field's comma-separated text as a list of triggers.
+ *
+ * Split on commas *and* whitespace: a trigger can hold neither, so a user who
+ * types "brb, omw ttyl" meant three of them however they separated them.
+ */
+private fun splitAliases(text: String): List<String> =
+    text.split(',', ' ', '\t', '\n').mapNotNull { it.trim().takeIf(String::isNotEmpty) }
 
 /**
  * A small explanatory line under a field in a dialog.

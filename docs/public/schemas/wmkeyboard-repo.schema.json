@@ -92,11 +92,13 @@
             "dictionary",
             "emoji_keywords",
             "snippets",
+            "espanso",
             "stickers",
             "icon_pack",
             "font",
             "emoji_font",
             "sound",
+            "sound_pack",
             "plugin"
           ],
           "description": "Addon kind. Determines which native import path installs it."

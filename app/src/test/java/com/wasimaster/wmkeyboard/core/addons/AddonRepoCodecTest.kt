@@ -37,6 +37,21 @@ class AddonRepoCodecTest {
     }
 
     @Test
+    fun `the sample repository's espanso entry declares the payload it ships`() {
+        // The manifest states a hash and a size for every payload, and the app
+        // verifies both before installing. A fixture whose numbers have drifted
+        // from its file would pass every other test here and fail on a device.
+        val entry = AddonRepoCodec.decode(fixture("wmkeyboard-repo.json"))!!
+            .addons.single { it.type == AddonType.Espanso }
+        val bytes = checkNotNull(
+            javaClass.classLoader?.getResourceAsStream("addons/${entry.path.substringAfterLast('/')}"),
+        ) { "missing payload for ${entry.id}" }.use { it.readBytes() }
+        assertEquals(entry.sizeBytes, bytes.size.toLong())
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(bytes)
+        assertEquals(entry.sha256, digest.joinToString("") { "%02x".format(it) })
+    }
+
+    @Test
     fun `the sample repository states a licence for every addon`() {
         // Not a format requirement, but an addon whose licence nobody can find
         // is one nobody can safely reuse — and the sample is what people copy.
@@ -122,6 +137,9 @@ class AddonRepoCodecTest {
             setOf(
                 // Content is the choice: the words, the images, the sound itself.
                 AddonType.Snippets,
+                // And doubly so for an Espanso pack, whose preview also says
+                // what converting it from that format costs.
+                AddonType.Espanso,
                 AddonType.Dictionary,
                 // A keyword pack is judged the same way: a few emoji beside
                 // the words this language calls them by is the whole question.

@@ -78,6 +78,46 @@
     </plurals>
     <!-- Heading above the list of repairs the app made to an imported file. -->
     <string name="expander_import_repairs_title">Changed during the import:</string>
-    <string name="expander_import_error">That file is not a WMKeyboard snippet pack.</string>
+    <string name="expander_import_error">That file is not a snippet pack the app can read.</string>
+
+    <!-- Espanso is a text expander for computers, and the name of its app. Do
+         not translate it. -->
+    <string name="expander_import_source_title">Import snippets from</string>
+    <string name="expander_source_native">A WM Keyboard file</string>
+    <string name="expander_source_native_body">A .wmsnippets.json file exported from this app.</string>
+    <string name="expander_source_espanso">An Espanso file</string>
+    <string name="expander_source_espanso_body">A .yml match file or a package .zip from the Espanso Hub.</string>
+    <string name="expander_source_url">A web address</string>
+    <string name="expander_source_url_body">Paste a link to an Espanso package or match file.</string>
+
+    <string name="expander_export_target_title">Export snippets as</string>
+    <string name="expander_target_native">A WM Keyboard file</string>
+    <string name="expander_target_native_body">Keeps everything, including folders and which snippets ask first.</string>
+    <string name="expander_target_espanso">An Espanso match file</string>
+    <string name="expander_target_espanso_body">A .yml file to put in Espanso\'s match folder on a computer.</string>
+    <string name="expander_target_package">An Espanso package</string>
+    <string name="expander_target_package_body">A .zip you can install on a computer or share with others.</string>
+
+    <string name="expander_url_title">Import from a web address</string>
+    <string name="expander_url_label">Address</string>
+    <string name="expander_url_body">An https address for an Espanso package page, or a direct link to a .yml or .zip file.</string>
+    <string name="expander_url_error">The app cannot read a snippet file from that address.</string>
+
+    <!-- %1$d is how many snippets the file holds, and also picks the form. -->
+    <plurals name="expander_espanso_import_title">
+        <item quantity="one">Import %1$d snippet from Espanso?</item>
+        <item quantity="other">Import %1$d snippets from Espanso?</item>
+    </plurals>
+    <string name="expander_espanso_folder_label">Folder name</string>
+    <string name="expander_espanso_folder_body">The snippets go in this folder, so you can switch the whole set off at once. Clear the name to leave them ungrouped.</string>
+    <string name="expander_espanso_changes_title">What changes on the way in</string>
+
+    <string name="expander_package_title">Espanso package</string>
+    <string name="expander_package_name_label">Package name</string>
+    <!-- %1$s is the name after the app has made it fit Espanso's rules. -->
+    <string name="expander_package_name_body">Espanso allows small letters, numbers and hyphens, so the app will use: %1$s</string>
+    <string name="expander_package_author_label">Author (optional)</string>
+    <string name="expander_package_description_label">Description (optional)</string>
+    <string name="expander_export_notes_title">What Espanso cannot carry</string>
 
 </resources>

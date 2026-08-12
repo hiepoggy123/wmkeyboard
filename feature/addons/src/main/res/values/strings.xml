@@ -78,6 +78,9 @@
     <string name="faddons_install_error_keywords_not_saved">The app could not save the keyword pack.</string>
 
     <string name="faddons_install_error_not_a_snippet_pack">That file is not a WM Keyboard snippet pack.</string>
+    <!-- Espanso is a text expander for computers, and the name of its app. Do
+         not translate it. -->
+    <string name="faddons_install_error_not_an_espanso_pack">That file is not an Espanso package or match file.</string>
     <string name="faddons_install_error_snippet_pack_empty">That snippet pack is empty.</string>
     <!-- Name of the folder that an installed snippet pack goes into, for a
          pack whose own listing gives it no name. -->
@@ -108,6 +111,7 @@
     <string name="faddons_preview_error_no_preview">The app cannot preview this add-on.</string>
     <string name="faddons_preview_error_not_keyword_pack">That file is not an emoji keyword pack.</string>
     <string name="faddons_preview_error_not_snippet_pack">That file is not a snippet pack.</string>
+    <string name="faddons_preview_error_not_espanso_pack">That file is not an Espanso package or match file.</string>
     <string name="faddons_preview_error_stickers_unreadable">The app could not read the sticker images.</string>
     <string name="faddons_preview_error_sound_pack_unreadable">The app could not read the sounds in this pack.</string>
 

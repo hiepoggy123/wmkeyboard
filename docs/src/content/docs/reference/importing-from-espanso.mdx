@@ -1,0 +1,87 @@
+---
+title: "Importing from Espanso"
+description: "Move snippets between WM Keyboard and Espanso: what converts both ways, what doesn't, and why."
+sidebar:
+  order: 6
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+
+[Espanso](https://espanso.org) is a text expander for Windows, macOS and Linux, and the [Espanso Hub](https://hub.espanso.org/search) is a few hundred snippet packages people have written and shared. WM Keyboard reads that format and writes it, so a package from the Hub works on your phone and the snippets you wrote on your phone work on your computer.
+
+Both directions are honest about being lossy. An import always ends on a dialog listing what changed before anything is written, and an export tells you afterwards what Espanso could not carry. Neither format is a superset of the other.
+
+## Bringing snippets in
+
+<SettingsPath path="Text Expander" />
+
+**Import** offers three sources:
+
+- **A WM Keyboard file**, the `.wmsnippets.json` this app exports. Nothing is converted and nothing is lost.
+- **An Espanso file**, either a `.yml` match file or a package `.zip`. Both shapes of archive work: the one the Hub attaches to its releases, and the one you get by zipping a package directory.
+- **A web address**, for the common case of finding a package on the Hub and wanting it without a detour through a file manager.
+
+Paste a Hub package page (`https://hub.espanso.org/all-emojis`) and the app finds the newest version for you. A direct link to a `.yml` or a `.zip` works too, as does a GitHub file page, which is rewritten to its raw address. Addresses have to be `https`.
+
+Whichever route, the snippets land in a folder named after the package, which is what lets you [switch the whole set off](/tools/snippets/#folders) with one switch when it turns out to be firing at the wrong moments. Clear the folder name in the dialog if you would rather they came in loose.
+
+An Espanso pack can also be served from an [addon repository](/development/addon-repos/repo-format/), where it is its own `espanso` type. A repository can point straight at a Hub package with no conversion step, and the preview lists what the conversion costs before you install rather than after.
+
+## What converts
+
+| Espanso | Becomes |
+|---|---|
+| `trigger` | The snippet's trigger word |
+| `triggers` | The first becomes the trigger, the rest become [other triggers](/tools/snippets/#other-triggers) |
+| `replace` | The snippet's text |
+| `label` | The snippet's name |
+| `propagate_case`, `uppercase_style` | [Match the trigger's capitals](/tools/snippets/#matching-capitals) |
+| `regex` | A [pattern trigger](/tools/snippets/#pattern-triggers). Named captures become `$1` to `$9` |
+| `$\|$` | `{cursor}` |
+| `vars` of type `echo` | Written straight into the text |
+| `vars` of type `clipboard` | `{clip}` |
+| `vars` of type `date` | `{date:…}`, with the offset kept |
+| `vars` of type `random` | `{random:…}` |
+| `global_vars` | Resolved into each snippet that uses them |
+
+Espanso trigger words nearly always start with a colon or a semicolon, and that is exactly why this works at all: those triggers get their own matching path in WM Keyboard, because the keyboard's word buffer never holds punctuation. See [Triggers that start with punctuation](/tools/snippets/#triggers-that-start-with-punctuation).
+
+## What doesn't
+
+Every one of these is reported in the import dialog with a count, so you know what a package lost before you accept it.
+
+- **Commands.** A `shell` or `script` variable runs a program on a computer. It is read, discarded and **never run**, in either direction. A snippet that was only a command comes in with that part empty.
+- **Forms.** A `form` match keeps its layout as ordinary text, with the cursor parked in the first blank and the remaining `[[fields]]` left visible so you can see what belongs where.
+- **Rich text.** A `markdown` or `html` match keeps its words and loses its formatting, because a snippet goes into the field you are typing in as plain characters.
+- **Pictures.** An `image_path` match is skipped.
+- **App filters.** `apps` and `exclude_apps` name desktop windows and executables, which mean nothing to an Android app, so they are ignored rather than half-translated.
+- **Mid-word triggers.** Espanso's `word` defaults to off, meaning a trigger can fire in the middle of a word. WM Keyboard always wants a whole word (or a punctuation prefix). A package that relies on mid-word matching still imports, and its triggers work as whole words.
+- **Pick-from-a-list.** A `choice` variable becomes a random pick, since there is no picker to show.
+- **Symbol-only triggers.** A trigger made entirely of punctuation, like `->`, cannot be watched for. Its snippet still arrives and still inserts from the panel.
+- **Other files.** `imports` cannot follow a file onto a phone. Inside a package archive they are resolved within the archive.
+- **Slow patterns.** A regular expression WM Keyboard will not run (see [pattern triggers](/tools/snippets/#pattern-triggers)) is removed and the snippet kept.
+
+One more thing worth knowing: a snippet whose text already contains something in braces that this app expands, like a template package containing a literal `{date}`, will expand it rather than write it out. The dialog counts those too.
+
+## Sending snippets out
+
+**Export** offers the same three-way choice:
+
+- **A WM Keyboard file**, which keeps everything, folders and ask-first snippets included.
+- **An Espanso match file**, a `.yml` to drop into Espanso's match folder. Find that folder with `espanso path config`.
+- **An Espanso package**, a `.zip` holding `package.yml`, `_manifest.yml` and a `README.md`. Install it with `espanso install --path`, or use it as the starting point for something you want to publish to the Hub. The app asks for a package name and sanitizes it to the lowercase letters, digits and hyphens the Hub requires.
+
+Going out, `word: true` is written on every trigger. Espanso would otherwise fire them mid-word, and a snippet that behaves differently on the two devices is worse than one that does not travel.
+
+Four things have no Espanso equivalent and are written out as they stand, with a note afterwards: `{uuid}`, `{app}`, `{package}` and `{selection}`. So is **Ask before it expands**, which Espanso cannot say, so those snippets expand on their own there. A folder that is switched off is still exported, since Espanso has no folder switch and silently dropping the snippets would be worse.
+
+None of this ever writes a `shell` or `script` variable. Generating a file that runs commands on somebody's machine is not something an export gets to do on your behalf.
+
+## Details & edge cases
+
+- Folders become comments in the exported file, one heading per folder, since Espanso has no folder of its own.
+- A snippet with no trigger at all still needs a key Espanso can find it by, so the export gives it one made from its name, like `:myaddress`.
+- Pattern captures swap notation both ways. WM Keyboard numbers them (`$1`), Espanso names them (`{{g1}}`), and an unnamed group in front of a named one shifts the numbering. The four capture transforms (`${1:upper}` and friends) have no Espanso equivalent and are noted on the way out.
+- Date formats are translated a specifier at a time between Espanso's strftime (`%d/%m/%Y`) and this app's (`dd/MM/yyyy`). Anything with no equivalent is dropped and counted rather than guessed at.
+- A file is capped at 4 MB and 500 snippets, the same caps a `.wmsnippets.json` gets.
+- Neither `.yml` nor `.yaml` is registered as a file association. They are far too generic to claim, so Espanso files are opened from the Text Expander screen rather than by tapping them in a file manager.

@@ -157,4 +157,82 @@
         <item quantity="other">The app dropped %1$d folders that have no name or that repeat another one. Their snippets came in without a folder.</item>
     </plurals>
 
+    <!-- Espanso is a text expander for computers, and the name of its app. Do
+         not translate it. Each of these lines says what an imported file lost,
+         and %1$d is how many of its snippets were affected, which also picks
+         the form. They are shown as a list before the user accepts the import,
+         so each one has to make sense on its own. -->
+    <plurals name="core_content_espanso_note_shell">
+        <item quantity="one">%1$d snippet runs a command on your computer. The app left the command out and never runs it.</item>
+        <item quantity="other">%1$d snippets run commands on your computer. The app left the commands out and never runs them.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_form">
+        <item quantity="one">%1$d snippet asks you to fill in a form. The app inserts the form as text, with the cursor in the first blank.</item>
+        <item quantity="other">%1$d snippets ask you to fill in a form. The app inserts each form as text, with the cursor in the first blank.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_rich_text">
+        <item quantity="one">%1$d snippet uses formatted text. The app keeps the words and drops the formatting.</item>
+        <item quantity="other">%1$d snippets use formatted text. The app keeps the words and drops the formatting.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_image">
+        <item quantity="one">The app skipped %1$d snippet that inserts a picture.</item>
+        <item quantity="other">The app skipped %1$d snippets that insert pictures.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_apps">
+        <item quantity="one">%1$d snippet is limited to certain computer programs. On your phone it works everywhere.</item>
+        <item quantity="other">%1$d snippets are limited to certain computer programs. On your phone they work everywhere.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_choice">
+        <item quantity="one">%1$d snippet asks you to pick from a list. The app picks one at random instead.</item>
+        <item quantity="other">%1$d snippets ask you to pick from a list. The app picks one at random instead.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_variable">
+        <item quantity="one">%1$d snippet uses a value the app has no equivalent for. That part comes in empty.</item>
+        <item quantity="other">%1$d snippets use values the app has no equivalent for. Those parts come in empty.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_date">
+        <item quantity="one">%1$d snippet uses a date format the app cannot write in full. The app left out the part it cannot do.</item>
+        <item quantity="other">%1$d snippets use date formats the app cannot write in full. The app left out the parts it cannot do.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_regex">
+        <item quantity="one">The app removed the pattern from %1$d snippet. The app does not run patterns of that shape. The snippet stays in the list.</item>
+        <item quantity="other">The app removed the pattern from %1$d snippets. The app does not run patterns of that shape. The snippets stay in the list.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_symbol_trigger">
+        <item quantity="one">%1$d trigger is made only of symbols, so the app cannot watch for it. Its snippet stays in the list.</item>
+        <item quantity="other">%1$d triggers are made only of symbols, so the app cannot watch for them. Their snippets stay in the list.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_mid_word">
+        <item quantity="one">%1$d trigger is meant to work inside a word. On your phone it works only as a whole word.</item>
+        <item quantity="other">%1$d triggers are meant to work inside a word. On your phone they work only as whole words.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_empty">
+        <item quantity="one">The app skipped %1$d snippet that has nothing to insert.</item>
+        <item quantity="other">The app skipped %1$d snippets that have nothing to insert.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_imports">
+        <item quantity="one">The file reads %1$d other file. One file cannot bring the others with it.</item>
+        <item quantity="other">The file reads %1$d other files. One file cannot bring the others with it.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_token">
+        <item quantity="one">%1$d snippet contains text in braces that this app fills in, such as {date}. It will expand instead of appearing as written.</item>
+        <item quantity="other">%1$d snippets contain text in braces that this app fills in, such as {date}. It will expand instead of appearing as written.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_confirm">
+        <item quantity="one">%1$d snippet asks before it expands. Espanso has no such setting, so it will expand on its own there.</item>
+        <item quantity="other">%1$d snippets ask before they expand. Espanso has no such setting, so they will expand on their own there.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_no_variable">
+        <item quantity="one">%1$d snippet uses a value Espanso has no equivalent for. It is written out as it stands.</item>
+        <item quantity="other">%1$d snippets use values Espanso has no equivalent for. They are written out as they stand.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_transform">
+        <item quantity="one">%1$d snippet changes the capitals of what its pattern captured. Espanso cannot do that, so the captured text goes in unchanged.</item>
+        <item quantity="other">%1$d snippets change the capitals of what their patterns captured. Espanso cannot do that, so the captured text goes in unchanged.</item>
+    </plurals>
+    <plurals name="core_content_espanso_note_disabled_folder">
+        <item quantity="one">%1$d snippet is in a folder that is switched off. Espanso has no folder switch, so it will expand there.</item>
+        <item quantity="other">%1$d snippets are in folders that are switched off. Espanso has no folder switch, so they will expand there.</item>
+    </plurals>
+
 </resources>

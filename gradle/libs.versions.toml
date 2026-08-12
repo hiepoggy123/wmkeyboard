@@ -76,6 +76,18 @@ playAppUpdate = "2.1.0"
 # that must never reach the F-Droid or direct-download APKs.
 playFeatureDelivery = "2.1.0"
 playServicesAuth = "21.3.0"
+# YAML, read-only, for the Espanso importer in :core:content. Espanso match
+# files are real YAML — comments, block scalars, quoting rules, the occasional
+# anchor — and they come from strangers on the Espanso Hub, so a hand-rolled
+# subset parser would be both a bug farm and a security surface.
+#
+# Only the *loader* is used, always through SafeConstructor with an explicit
+# LoaderOptions (code-point, alias and nesting limits). The 1.x default
+# constructor instantiated arbitrary classes named in the document, which is
+# CVE-2022-1471; 2.x removed that, and this app additionally never goes near
+# the unsafe entry points. Writing YAML is hand-rolled in EspansoFile, so the
+# emitter half shrinks away and the output keeps its block scalars and comments.
+snakeyaml = "2.4"
 # Static analysis. detekt 2.x is still alpha; 1.23.8 is the last stable line and
 # parses this project's Kotlin fine (no context receivers / `when` guards here).
 detekt = "1.23.8"
@@ -131,6 +143,7 @@ zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" 
 litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
 litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
 luaj-jse = { group = "org.luaj", name = "luaj-jse", version.ref = "luaj" }
+snakeyaml = { group = "org.yaml", name = "snakeyaml", version.ref = "snakeyaml" }
 play-app-update = { group = "com.google.android.play", name = "app-update", version.ref = "playAppUpdate" }
 play-feature-delivery = { group = "com.google.android.play", name = "feature-delivery", version.ref = "playFeatureDelivery" }
 # Only the AuthorizationClient half is used, to get an OAuth token for the

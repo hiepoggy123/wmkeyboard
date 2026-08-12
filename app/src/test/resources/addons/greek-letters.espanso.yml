@@ -1,0 +1,18 @@
+# Greek letters, in Espanso's own match-file format.
+#
+# Hand-written for this repository's tests and sample manifest, from Espanso's
+# published YAML schema. Not copied from any Espanso Hub package.
+
+matches:
+  - trigger: ":alpha"
+    replace: "α"
+  - trigger: ":beta"
+    replace: "β"
+  - triggers: [":gamma", ":gam"]
+    replace: "γ"
+    label: Gamma
+  - trigger: ":delta"
+    replace: "δ"
+  - trigger: ":pi"
+    replace: "π"
+    word: true

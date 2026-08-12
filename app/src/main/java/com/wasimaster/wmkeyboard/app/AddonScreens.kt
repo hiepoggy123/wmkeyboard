@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -204,6 +205,7 @@ private val AddonType.icon
         AddonType.Dictionary -> Icons.AutoMirrored.Outlined.MenuBook
         AddonType.EmojiKeywords -> Icons.Outlined.Translate
         AddonType.Snippets -> Icons.Outlined.Description
+        AddonType.Espanso -> Icons.Outlined.Bolt
         AddonType.Stickers -> Icons.Outlined.EmojiEmotions
         AddonType.IconPack -> Icons.Outlined.Category
         AddonType.Font -> Icons.Outlined.TextFields
@@ -227,7 +229,7 @@ private val AddonType.seed: Color
         AddonType.Layout -> Color(0xFF3B82F6)
         AddonType.Dictionary -> Color(0xFF14B8A6)
         AddonType.EmojiKeywords -> Color(0xFF0EA5E9)
-        AddonType.Snippets -> Color(0xFFF59E0B)
+        AddonType.Snippets, AddonType.Espanso -> Color(0xFFF59E0B)
         AddonType.Stickers -> Color(0xFFEC4899)
         AddonType.IconPack -> Color(0xFF22A559)
         AddonType.Font -> Color(0xFF6366F1)
@@ -406,7 +408,12 @@ internal fun AddonsScreen(
     val autoRefresh = remember(revision) { store.autoRefresh() }
     val refreshUnmeteredOnly = remember(revision) { store.refreshUnmeteredOnly() }
     val installed = remember(revision, typeFilter) {
-        store.installed().filter { (_, record) -> typeFilter == null || record.type == typeFilter }
+        // Matched on the category rather than the type: an Espanso pack is a
+        // pack of snippets to a user, and browsing is the place that has to
+        // agree with them. See AddonType.storeCategory.
+        store.installed().filter { (_, record) ->
+            typeFilter == null || record.type.storeCategory == typeFilter
+        }
     }
 
     var showAdd by remember { mutableStateOf(prefillUrl.isNotBlank()) }
@@ -1072,7 +1079,10 @@ internal fun AddonRepoScreen(
     val presentTypes = remember(manifest) {
         // Catalogue order, not manifest order, so the chip row doesn't reshuffle
         // between two repositories that list the same types.
-        AddonType.entries.filter { type -> manifest.addons.any { it.type == type } }
+        AddonType.entries
+            .filter { type -> manifest.addons.any { it.type.storeCategory == type } }
+            .map { it.storeCategory }
+            .distinct()
     }
     Row(
         modifier = Modifier
@@ -1107,7 +1117,7 @@ internal fun AddonRepoScreen(
 
     val shown = remember(manifest, query, typeFilter) {
         manifest.addons.filter { entry ->
-            (typeFilter == null || entry.type == typeFilter) && entry.matches(query)
+            (typeFilter == null || entry.type.storeCategory == typeFilter) && entry.matches(query)
         }
     }
 
@@ -1365,7 +1375,7 @@ private val AddonType.settingsRoute: String
         AddonType.Layout -> "languages"
         AddonType.Dictionary -> "customdictionaries"
         AddonType.EmojiKeywords -> "emojikeywords"
-        AddonType.Snippets -> "expander"
+        AddonType.Snippets, AddonType.Espanso -> "expander"
         AddonType.Stickers -> "sticker_packs"
         AddonType.IconPack -> "icons"
         AddonType.Font -> "fonts"
@@ -1396,7 +1406,7 @@ private val AddonType.settingsAnchor: Int
         AddonType.Layout -> R.string.langemoji_lang_your_layouts_title
         AddonType.Dictionary -> 0
         AddonType.EmojiKeywords -> 0
-        AddonType.Snippets -> 0
+        AddonType.Snippets, AddonType.Espanso -> 0
         AddonType.Stickers -> R.string.import_sticker_packs_section_title
         AddonType.IconPack -> R.string.plugins_icons_pack_title
         AddonType.Font -> R.string.fonts_installed_header
@@ -1429,7 +1439,7 @@ private val AddonType.settingsAnchor: Int
 private fun AddonType.openSettings(onNavigate: (String) -> Unit, localRef: String = "") {
     val anchor = settingsAnchor
     // Snippets are stored as one comma-joined list of the ids the import added.
-    val keys = if (this == AddonType.Snippets) {
+    val keys = if (storeCategory == AddonType.Snippets) {
         localRef.split(',').map { it.trim() }
     } else {
         listOf(localRef)
@@ -1452,7 +1462,7 @@ private val AddonType.useLabelRes: Int
         AddonType.Layout -> R.string.addon_use_target_layout_label
         AddonType.Dictionary -> R.string.addon_use_target_dictionary_label
         AddonType.EmojiKeywords -> R.string.addon_use_target_emoji_keywords_label
-        AddonType.Snippets -> ImeR.string.ime_tool_snippets
+        AddonType.Snippets, AddonType.Espanso -> ImeR.string.ime_tool_snippets
         AddonType.Stickers -> R.string.addon_use_target_stickers_label
         AddonType.IconPack -> R.string.addon_use_target_icons_label
         AddonType.Font -> R.string.addon_use_target_font_label
@@ -2178,6 +2188,17 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
     val previewTitle = stringResource(R.string.addon_preview_section_title)
     when (val shown = content) {
         is AddonPreviewContent.Snippets -> SettingsGroup(previewTitle) {
+            // Before the snippets, not after: what a converted pack loses is
+            // part of deciding whether to install it.
+            if (shown.notes.isNotEmpty()) {
+                item {
+                    val context = LocalContext.current
+                    CaptionText(
+                        stringResource(R.string.addon_preview_snippet_changes) + "\n" +
+                            shown.notes.joinToString("\n") { "• ${it.resolve(context)}" },
+                    )
+                }
+            }
             for (snippet in shown.entries) {
                 item {
                     WmRow(

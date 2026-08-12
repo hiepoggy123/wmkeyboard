@@ -50,6 +50,49 @@ object SnippetMatcher {
      */
     const val MAX_STEPS = 40_000
 
+    /**
+     * Longest run of punctuation a trigger may lead with, in characters.
+     *
+     * Bounds the read [SnippetIndex.matchPrefix] asks the field for. Espanso's
+     * own convention is one or two characters (`:`, `;`, `//`), so this is
+     * generous rather than tight.
+     */
+    const val MAX_PREFIX = 8
+
+    /** A trigger's leading punctuation and the word it leads. */
+    data class Prefixed(val prefix: String, val word: String)
+
+    /**
+     * [trigger] split into its punctuation prefix and the word after it, or
+     * null when it is an ordinary whole-word trigger.
+     *
+     * `:shrug` gives `(":", "shrug")`. This is the shape nearly every Espanso
+     * package uses, and it cannot go through the plain whole-word lookup: the
+     * keyboard's composing buffer only ever holds letters, digits and
+     * apostrophes, so a leading `:` has already been committed to the field by
+     * the time the word it prefixes is finished.
+     *
+     * Null for a plain word (nothing to look back at), for a trigger that is all
+     * punctuation (no composing word to gate on), and for one whose word part
+     * holds a character the buffer would break on. Those last two are reported
+     * as unsupported by the Espanso importer rather than stored and left inert.
+     */
+    fun splitPrefix(trigger: String): Prefixed? {
+        val cut = trigger.indexOfFirst(::isTriggerWordChar)
+        if (cut <= 0 || cut > MAX_PREFIX) return null
+        val word = trigger.substring(cut)
+        if (!word.all(::isTriggerWordChar)) return null
+        return Prefixed(trigger.substring(0, cut), word)
+    }
+
+    /**
+     * True for a character the keyboard's composing buffer holds.
+     *
+     * Deliberately the same set as `isComposingWordChar` on the IME side: a
+     * trigger word made of anything else could never be handed to a lookup.
+     */
+    fun isTriggerWordChar(c: Char): Boolean = c.isLetterOrDigit() || c == '\''
+
     /** Why a pattern cannot be used. */
     enum class Fault {
         /** There is no pattern to compile. */
@@ -428,8 +471,18 @@ internal class CompiledSnippet(
  *
  * Replaces the linear scan [SnippetStore.matchTrigger] used to do.
  */
+/**
+ * One trigger that leads with punctuation, ready to be checked against the text
+ * behind the composing word.
+ *
+ * [typed] is the trigger as written, prefix included, which is what
+ * [SnippetStore.casingFor] needs to decide whether the user shouted it.
+ */
+class PrefixTrigger(val prefix: String, val typed: String, val snippet: Snippet)
+
 class SnippetIndex private constructor(
     private val plain: Map<String, Snippet>,
+    private val prefixed: Map<String, List<PrefixTrigger>>,
     private val byHead: Map<Char, List<CompiledSnippet>>,
     private val ungated: List<CompiledSnippet>,
 ) {
@@ -461,6 +514,43 @@ class SnippetIndex private constructor(
 
     /** The snippet whose plain trigger is [word], ignoring case. */
     fun matchTrigger(word: String): Snippet? = plain[word.lowercase(Locale.ROOT)]
+
+    /** True when some trigger leads with punctuation, so the keyboard need not look. */
+    val hasPrefixTriggers: Boolean = prefixed.isNotEmpty()
+
+    /** True when some prefix trigger offers itself instead of expanding. */
+    val hasConfirmPrefixTriggers: Boolean = prefixed.values.any { list -> list.any { it.snippet.confirm } }
+
+    /**
+     * The prefix triggers whose word part is [word], longest prefix first, or
+     * an empty list.
+     *
+     * This is the free half of the prefix gate, and it exists for the same
+     * reason [couldStartAt] does: the keyboard already holds the composing word,
+     * so it can ask this without touching the input connection, and only a
+     * non-empty answer buys the right to read the characters in front of it.
+     */
+    fun prefixCandidates(word: String): List<PrefixTrigger> =
+        if (prefixed.isEmpty()) emptyList() else prefixed[word.lowercase(Locale.ROOT)].orEmpty()
+
+    /**
+     * The prefix trigger that [word] completes, given [before] is the text
+     * immediately in front of it, or null.
+     *
+     * Longest prefix wins, so `::x` beats `:x` when both are installed.
+     * [confirm] picks which half of the list is asked, for the same reason
+     * [matchPattern] takes one: the two are looked for at different moments and
+     * neither may answer for the other.
+     */
+    fun matchPrefix(word: String, before: CharSequence, confirm: Boolean = false): PrefixTrigger? {
+        for (candidate in prefixCandidates(word)) {
+            if (candidate.snippet.confirm != confirm) continue
+            val prefix = candidate.prefix
+            if (before.length < prefix.length) continue
+            if (before.endsWith(prefix)) return candidate
+        }
+        return null
+    }
 
     /**
      * True when a word starting with [first] could begin a gated pattern.
@@ -618,16 +708,27 @@ class SnippetIndex private constructor(
 
         fun of(snippets: List<Snippet>): SnippetIndex {
             val plain = LinkedHashMap<String, Snippet>()
+            val prefixed = LinkedHashMap<String, MutableList<PrefixTrigger>>()
             val byHead = LinkedHashMap<Char, MutableList<CompiledSnippet>>()
             val ungated = ArrayList<CompiledSnippet>()
             for (snippet in snippets) {
                 // A plain trigger is the more specific and the cheaper rule, so
-                // a snippet carrying both never reaches the pattern side.
-                val trigger = snippet.trigger?.trim()?.takeIf { it.isNotEmpty() }
-                if (trigger != null) {
-                    plain.putIfAbsent(trigger.lowercase(Locale.ROOT), snippet)
-                    continue
+                // a snippet carrying both never reaches the pattern side. Every
+                // alias is registered exactly as the trigger is, prefix rules
+                // included, so which spelling a snippet was reached by makes no
+                // difference to how it expands.
+                var triggered = false
+                for (spelling in snippet.spellings()) {
+                    triggered = true
+                    val split = SnippetMatcher.splitPrefix(spelling)
+                    if (split == null) {
+                        plain.putIfAbsent(spelling.lowercase(Locale.ROOT), snippet)
+                    } else {
+                        prefixed.getOrPut(split.word.lowercase(Locale.ROOT)) { ArrayList() } +=
+                            PrefixTrigger(split.prefix, spelling, snippet)
+                    }
                 }
+                if (triggered) continue
                 val source = snippet.triggerPattern?.trim()?.takeIf { it.isNotEmpty() } ?: continue
                 if (SnippetMatcher.validate(source) != null) continue
                 val compiled = CompiledSnippet(
@@ -644,7 +745,10 @@ class SnippetIndex private constructor(
                     byHead.getOrPut(head[0]) { ArrayList() } += compiled
                 }
             }
-            return SnippetIndex(plain, byHead, ungated)
+            // Longest prefix first, so `::x` is preferred to `:x` when a user
+            // has installed both and the field ends in "::".
+            for (list in prefixed.values) list.sortByDescending { it.prefix.length }
+            return SnippetIndex(plain, prefixed, byHead, ungated)
         }
     }
 }

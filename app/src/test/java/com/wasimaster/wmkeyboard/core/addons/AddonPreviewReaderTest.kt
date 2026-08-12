@@ -50,6 +50,95 @@ class AddonPreviewReaderTest {
         assertEquals("shrug", snippets.entries[0].trigger)
         // A snippet with no trigger reads as blank, not "null".
         assertEquals("", snippets.entries[1].trigger)
+        // Nothing was converted, so there is nothing to warn about.
+        assertTrue(snippets.notes.isEmpty())
+    }
+
+    // ---- espanso ---------------------------------------------------------
+
+    @Test
+    fun `reads the snippets out of an espanso match file`() {
+        val payload = file(
+            "p.yml",
+            """
+            matches:
+              - trigger: ":shrug"
+                replace: "shrugged"
+              - trigger: ":hi"
+                replace: "hello"
+                label: Greeting
+            """.trimIndent(),
+        )
+        val content = AddonPreviewReader.read(entry(AddonType.Espanso), payload)
+        val snippets = content as AddonPreviewContent.Snippets
+        assertEquals(2, snippets.total)
+        assertEquals(":shrug", snippets.entries[0].trigger)
+        assertEquals("Greeting", snippets.entries[1].label)
+    }
+
+    @Test
+    fun `an espanso preview says what conversion costs, before the install button`() {
+        val payload = file(
+            "p.yml",
+            """
+            matches:
+              - trigger: ":ip"
+                replace: "{{out}}"
+                vars:
+                  - name: out
+                    type: shell
+                    params:
+                      cmd: "curl https://api.ipify.org"
+            """.trimIndent(),
+        )
+        val content = AddonPreviewReader.read(entry(AddonType.Espanso), payload)
+        val snippets = content as AddonPreviewContent.Snippets
+        assertTrue("a dropped shell command has to be reported", snippets.notes.isNotEmpty())
+    }
+
+    @Test
+    fun `the two snippet types do not read each other's payloads`() {
+        // The entry declares its format, so a payload in the other one is a
+        // mistake in the manifest rather than something to reinterpret.
+        val espanso = file("a.yml", "matches:\n  - trigger: \":x\"\n    replace: \"y\"\n")
+        val native = file(
+            "b.wmsnippets.json",
+            """{"format":"wmkeyboard-snippets","version":1,"snippets":[{"id":1,"label":"A","text":"a"}]}""",
+        )
+        assertTrue(
+            AddonPreviewReader.read(entry(AddonType.Snippets), espanso)
+                is AddonPreviewContent.Unreadable,
+        )
+        assertTrue(
+            AddonPreviewReader.read(entry(AddonType.Espanso), native)
+                is AddonPreviewContent.Unreadable,
+        )
+    }
+
+    @Test
+    fun `an espanso package archive previews`() {
+        val bytes = ByteArrayOutputStream().also { out ->
+            ZipOutputStream(out).use { zip ->
+                zip.putNextEntry(ZipEntry("package.yml"))
+                zip.write("matches:\n  - trigger: \":a\"\n    replace: \"b\"\n".toByteArray())
+                zip.closeEntry()
+                zip.putNextEntry(ZipEntry("_manifest.yml"))
+                zip.write("name: pack\ntitle: Pack\n".toByteArray())
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        val payload = temp.newFile("p.zip").apply { writeBytes(bytes) }
+        val content = AddonPreviewReader.read(entry(AddonType.Espanso), payload)
+        assertEquals(1, (content as AddonPreviewContent.Snippets).total)
+    }
+
+    @Test
+    fun `something that is not espanso at all is unreadable rather than a crash`() {
+        val payload = file("p.yml", "just: some other yaml\n")
+        assertTrue(
+            AddonPreviewReader.read(entry(AddonType.Espanso), payload)
+                is AddonPreviewContent.Unreadable,
+        )
     }
 
     @Test

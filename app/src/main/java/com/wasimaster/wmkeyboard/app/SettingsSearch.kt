@@ -529,6 +529,10 @@ private fun Resources.expanderRows(): List<SettingsSearchEntry> {
         row(R.string.expander_pattern_title),
         row(R.string.expander_add_action),
         row(R.string.expander_reorder_title),
+        // Espanso is the name somebody arriving from that app will search for,
+        // and it appears nowhere else in the index.
+        row(R.string.expander_import_source_title, R.string.expander_source_espanso_body),
+        row(R.string.expander_export_target_title, R.string.expander_target_espanso_body),
     )
 }
 

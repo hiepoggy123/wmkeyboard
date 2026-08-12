@@ -54,7 +54,7 @@ object AddonReconciler {
                 // their ids comma-joined. Deleting one of five by hand doesn't
                 // mean the pack is gone, so the pack survives while any of its
                 // snippets does.
-                AddonType.Snippets -> record.localRef.split(',')
+                AddonType.Snippets, AddonType.Espanso -> record.localRef.split(',')
                     .mapNotNull { it.trim().toLongOrNull() }
                     .any { it in snippetIds }
                 AddonType.Stickers -> StickerPackStore.get(app).pack(record.localRef) != null
@@ -99,7 +99,7 @@ object AddonReconciler {
         key: String,
         record: InstalledAddon,
     ): Boolean {
-        if (record.type != AddonType.Snippets) return false
+        if (record.type != AddonType.Snippets && record.type != AddonType.Espanso) return false
         val ids = record.localRef.split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
         if (ids.isEmpty()) return false
         val own = snippets.items().filter { it.id in ids }

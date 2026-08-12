@@ -4,12 +4,39 @@ import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.content.R
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+/**
+ * How a trigger's leading capital is carried into the expansion.
+ *
+ * Only consulted when [Snippet.propagateCase] is on and the trigger was typed
+ * with its first letter capitalized. An all-caps trigger always gives an
+ * all-caps expansion whatever this says, since there is nothing else it could
+ * reasonably mean.
+ *
+ * The serial names are Espanso's `uppercase_style` values, so the two formats
+ * agree without a translation table.
+ */
+@Serializable
+enum class UppercaseStyle {
+    /** "Alh" gives "Although": the first letter only. */
+    @SerialName("capitalize")
+    CAPITALIZE,
+
+    /** "Alh" gives "Although Etc": every word's first letter. */
+    @SerialName("capitalize_words")
+    CAPITALIZE_WORDS,
+
+    /** "Alh" gives "ALTHOUGH", the same as an all-caps trigger would. */
+    @SerialName("uppercase")
+    UPPERCASE,
+}
 
 /**
  * A reusable text snippet inserted from the keyboard's snippet panel.
@@ -22,9 +49,9 @@ import java.util.Locale
  * [confirm] turns that trigger from a rewrite into an offer: the keyboard shows
  * a chip and waits to be tapped rather than replacing what was typed.
  *
- * The three optional trigger fields are written only when they are set. Every
- * published pack is a hand-maintained file, and [SnippetFile] encodes defaults,
- * so without that a plain snippet would grow three empty keys it never uses.
+ * The optional fields are written only when they are set. Every published pack
+ * is a hand-maintained file, and [SnippetFile] encodes defaults, so without that
+ * a plain snippet would grow half a dozen empty keys it never uses.
  */
 @Serializable
 @OptIn(ExperimentalSerializationApi::class)
@@ -33,8 +60,39 @@ data class Snippet(
     val label: String,
     val text: String,
     val createdAt: Long = 0,
-    /** Word that, typed on its own and finished with a space/punctuation/enter, auto-expands to [text]. */
+    /**
+     * Word that, typed on its own and finished with a space/punctuation/enter,
+     * auto-expands to [text].
+     *
+     * May carry a leading run of punctuation, as in `:shrug` or `//date`. That
+     * form is how nearly every Espanso package spells its triggers, and it is
+     * matched by its own path in [SnippetIndex] rather than by the plain
+     * whole-word lookup; see [SnippetMatcher.splitPrefix].
+     */
     val trigger: String? = null,
+    /**
+     * Extra spellings of [trigger], each matched exactly as [trigger] is.
+     *
+     * Espanso's `triggers:` list maps onto this: the first becomes [trigger] and
+     * the rest land here.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val aliases: List<String> = emptyList(),
+    /**
+     * Carry the trigger's own capitalization into the expansion.
+     *
+     * With this off, "OMW" and "omw" both expand to whatever [text] says. With
+     * it on, "OMW" expands to an all-caps version and "Omw" to a version capitalized
+     * per [uppercaseStyle]. Espanso calls this `propagate_case`, and packages
+     * that expand ordinary words rather than codes lean on it heavily: without
+     * it a package that fixes "a bas" to "à bas" mangles "A Bas" at the start of
+     * a sentence.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val propagateCase: Boolean = false,
+    /** What a leading capital means when [propagateCase] is on. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val uppercaseStyle: UppercaseStyle = UppercaseStyle.CAPITALIZE,
     /**
      * Regular expression matched against the words behind the cursor. Capture
      * groups reach [text] as `$1` to `$9`; see [SnippetMatcher].
@@ -68,7 +126,24 @@ data class Snippet(
      */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val folderId: Long = 0,
-)
+) {
+
+    /**
+     * Every way this snippet may be typed: [trigger] then each of [aliases],
+     * trimmed and with the empty ones dropped.
+     *
+     * One list rather than two call sites, so nothing that consults triggers can
+     * quietly forget about aliases.
+     */
+    fun spellings(): List<String> {
+        val first = trigger?.trim()?.takeIf { it.isNotEmpty() }
+        if (aliases.isEmpty()) return listOfNotNull(first)
+        val out = ArrayList<String>(aliases.size + 1)
+        first?.let(out::add)
+        aliases.mapNotNullTo(out) { it.trim().takeIf(String::isNotEmpty) }
+        return out
+    }
+}
 
 /**
  * A named group of snippets, and the switch that arms or disarms their
@@ -148,11 +223,13 @@ class SnippetStore(private val storageFile: File?) {
      */
     @Synchronized
     fun add(snippet: Snippet, now: Long = System.currentTimeMillis()): Snippet {
+        val trigger = normalizeTrigger(snippet.trigger)
         val added = snippet.copy(
             id = nextId++,
             label = snippet.label.trim(),
             createdAt = now,
-            trigger = normalizeTrigger(snippet.trigger),
+            trigger = trigger,
+            aliases = normalizeAliases(snippet.aliases, trigger),
             triggerPattern = normalizeTrigger(snippet.triggerPattern),
             triggerWords = snippet.triggerWords.coerceIn(0, SnippetMatcher.MAX_WORDS),
             folderId = knownFolder(snippet.folderId),
@@ -199,6 +276,7 @@ class SnippetStore(private val storageFile: File?) {
      * screens that do move snippets say so explicitly.
      */
     @Synchronized
+    @Suppress("LongParameterList")
     fun update(
         id: Long,
         label: String,
@@ -208,13 +286,20 @@ class SnippetStore(private val storageFile: File?) {
         triggerWords: Int = 0,
         confirm: Boolean = false,
         folderId: Long? = null,
+        aliases: List<String> = emptyList(),
+        propagateCase: Boolean = false,
+        uppercaseStyle: UppercaseStyle = UppercaseStyle.CAPITALIZE,
     ) {
         val index = snippets.indexOfFirst { it.id == id }
         if (index >= 0) {
+            val normalized = normalizeTrigger(trigger)
             snippets[index] = snippets[index].copy(
                 label = label.trim(),
                 text = text,
-                trigger = normalizeTrigger(trigger),
+                trigger = normalized,
+                aliases = normalizeAliases(aliases, normalized),
+                propagateCase = propagateCase,
+                uppercaseStyle = uppercaseStyle,
                 triggerPattern = normalizeTrigger(triggerPattern),
                 triggerWords = triggerWords.coerceIn(0, SnippetMatcher.MAX_WORDS),
                 confirm = confirm,
@@ -366,6 +451,22 @@ class SnippetStore(private val storageFile: File?) {
     /** The snippet whose trigger matches [word] exactly (case-insensitive), if any. */
     fun matchTrigger(word: String): Snippet? = index().matchTrigger(word)
 
+    /** True when any trigger leads with punctuation, the prefix path's gate. */
+    fun hasPrefixTriggers(): Boolean = index().hasPrefixTriggers
+
+    /** True when some prefix trigger offers itself instead of expanding. */
+    fun hasConfirmPrefixTriggers(): Boolean = index().hasConfirmPrefixTriggers
+
+    /** True when [word] could finish a prefix trigger, asked without reading the field. */
+    fun couldFinishPrefix(word: String): Boolean = index().prefixCandidates(word).isNotEmpty()
+
+    /**
+     * The prefix trigger [word] completes, given [before] is the text in front
+     * of it. See [SnippetIndex.matchPrefix].
+     */
+    fun matchPrefix(word: String, before: CharSequence, confirm: Boolean = false): PrefixTrigger? =
+        index().matchPrefix(word, before, confirm)
+
     /**
      * The pattern snippet that fits the end of [window], or null.
      *
@@ -424,6 +525,30 @@ class SnippetStore(private val storageFile: File?) {
     private fun normalizeTrigger(trigger: String?): String? =
         trigger?.trim()?.takeIf { it.isNotEmpty() }
 
+    /**
+     * Trims the aliases, drops the empty ones, and drops any that repeats
+     * [trigger] or an earlier alias.
+     *
+     * A duplicate is dropped rather than rejected: an Espanso `triggers:` list
+     * with the same spelling twice is a typo in somebody else's file, not a
+     * reason to refuse the whole snippet. [MAX_ALIASES] bounds what one imported
+     * match can add to the trigger index.
+     */
+    private fun normalizeAliases(aliases: List<String>, trigger: String?): List<String> {
+        if (aliases.isEmpty()) return emptyList()
+        val seen = HashSet<String>()
+        trigger?.let { seen.add(it.lowercase(Locale.ROOT)) }
+        val out = ArrayList<String>(aliases.size)
+        for (alias in aliases) {
+            val clean = alias.trim()
+            if (clean.isEmpty()) continue
+            if (!seen.add(clean.lowercase(Locale.ROOT))) continue
+            out.add(clean)
+            if (out.size >= MAX_ALIASES) break
+        }
+        return out
+    }
+
     @Synchronized
     fun save() {
         val file = storageFile ?: return
@@ -478,7 +603,23 @@ class SnippetStore(private val storageFile: File?) {
         /** Expanded text plus where the cursor should end up inside it. */
         data class Expanded(val text: String, val cursorOffset: Int)
 
-        private val CUSTOM_DATE = Regex("""\{date:([^}\n]{1,40})\}""")
+        /**
+         * `{date}`, `{date:pattern}`, `{date+3600}` and `{date-86400:pattern}`.
+         *
+         * The offset sits before the colon so it can never be mistaken for part
+         * of a `SimpleDateFormat` pattern, which may contain almost anything.
+         * It is in seconds, which is the unit Espanso's `date` extension uses.
+         */
+        private val CUSTOM_DATE = Regex("""\{date([+-]\d{1,9})?(?::([^}\n]{1,40}))?\}""")
+
+        /** `{random:one|two|three}`, one alternative picked per insertion. */
+        private val RANDOM = Regex("""\{random:([^}\n]{1,400})\}""")
+
+        /** Default pattern for a bare `{date}` or `{date+n}`. */
+        private const val DEFAULT_DATE = "d MMM yyyy"
+
+        /** Most aliases one snippet may carry. */
+        const val MAX_ALIASES = 16
 
         /** Expands template variables, leaving [CURSOR_MARKER] in place. */
         fun expand(
@@ -488,18 +629,59 @@ class SnippetStore(private val storageFile: File?) {
             context: Context = Context(),
         ): String {
             val ctx = if (clipboard != null) context.copy(clipboard = clipboard) else context
-            val date = Date(now)
-            fun fmt(pattern: String) =
-                runCatching { SimpleDateFormat(pattern, Locale.getDefault()).format(date) }
-                    .getOrDefault("")
 
-            // {date:pattern} first, so a literal pattern can't be eaten by {date}.
-            var out = CUSTOM_DATE.replace(text) { fmt(it.groupValues[1]) }
+            // Random first, so an alternative may itself contain a date or any
+            // other token. It is the only variable whose value is more template.
+            var out = RANDOM.replace(text) { pickRandom(it.groupValues[1]) }
+
+            // Then {date...}, so a literal pattern can't be eaten by {date}.
+            out = CUSTOM_DATE.replace(out) { match ->
+                val shift = match.groupValues[1].toLongOrNull() ?: 0L
+                val pattern = match.groupValues[2].ifEmpty { DEFAULT_DATE }
+                format(pattern, now + shift * 1000L)
+            }
+            val fmt: (String) -> String = { format(it, now) }
             for (variable in SnippetVariable.entries) {
                 if (!out.contains(variable.token)) continue
-                out = out.replace(variable.token, variable.value(::fmt, ctx, now))
+                out = out.replace(variable.token, variable.value(fmt, ctx, now))
             }
             return out
+        }
+
+        private fun format(pattern: String, at: Long): String =
+            runCatching { SimpleDateFormat(pattern, Locale.getDefault()).format(Date(at)) }
+                .getOrDefault("")
+
+        /**
+         * One of the pipe-separated alternatives in [body], or the whole of it
+         * when there is only one.
+         *
+         * `\|` is a literal pipe, so an alternative may contain one.
+         */
+        private fun pickRandom(body: String): String {
+            val parts = ArrayList<String>()
+            val current = StringBuilder()
+            var i = 0
+            while (i < body.length) {
+                val c = body[i]
+                when {
+                    c == '\\' && body.getOrNull(i + 1) == '|' -> {
+                        current.append('|')
+                        i += 2
+                    }
+                    c == '|' -> {
+                        parts.add(current.toString())
+                        current.setLength(0)
+                        i++
+                    }
+                    else -> {
+                        current.append(c)
+                        i++
+                    }
+                }
+            }
+            parts.add(current.toString())
+            return parts.random()
         }
 
         /** Expands, then strips the cursor marker and reports its offset. */
@@ -507,12 +689,84 @@ class SnippetStore(private val storageFile: File?) {
             text: String,
             now: Long = System.currentTimeMillis(),
             context: Context = Context(),
+            casing: TriggerCasing = TriggerCasing.NONE,
         ): Expanded {
-            val expanded = expand(text, now, context = context)
+            // Re-cased before the marker is located, not after: a case mapping
+            // may change a string's length (ß uppercases to SS), and the marker
+            // is a private-use code point that no mapping touches.
+            val expanded = casing.apply(expand(text, now, context = context))
             val index = expanded.indexOf(CURSOR_MARKER)
             if (index < 0) return Expanded(expanded, expanded.length)
             return Expanded(expanded.replace(CURSOR_MARKER, ""), index)
         }
+
+        /**
+         * How [snippet] should be re-cased given that its trigger was actually
+         * typed as [typed].
+         *
+         * Matches Espanso's `propagate_case` rule: an all-caps trigger gives an
+         * all-caps expansion, a leading capital gives the snippet's own
+         * [Snippet.uppercaseStyle], and anything else is left alone. A trigger's
+         * punctuation prefix is ignored, so `:Omw` reads as capitalized.
+         */
+        fun casingFor(snippet: Snippet, typed: String): TriggerCasing {
+            if (!snippet.propagateCase) return TriggerCasing.NONE
+            val letters = typed.filter(Char::isLetter)
+            if (letters.isEmpty()) return TriggerCasing.NONE
+            if (letters.length > 1 && letters.all(Char::isUpperCase)) return TriggerCasing.UPPER
+            if (!letters[0].isUpperCase()) return TriggerCasing.NONE
+            return when (snippet.uppercaseStyle) {
+                UppercaseStyle.UPPERCASE -> TriggerCasing.UPPER
+                UppercaseStyle.CAPITALIZE_WORDS -> TriggerCasing.CAPITALIZE_WORDS
+                UppercaseStyle.CAPITALIZE -> TriggerCasing.CAPITALIZE
+            }
+        }
+    }
+}
+
+/** What [SnippetStore.casingFor] decided a typed trigger asks for. */
+enum class TriggerCasing {
+    NONE,
+    UPPER,
+    CAPITALIZE,
+    CAPITALIZE_WORDS;
+
+    fun apply(text: String): String {
+        val locale = Locale.getDefault()
+        return when (this) {
+            NONE -> text
+            UPPER -> text.uppercase(locale)
+            CAPITALIZE -> capitalize(text, locale, everyWord = false)
+            CAPITALIZE_WORDS -> capitalize(text, locale, everyWord = true)
+        }
+    }
+
+    /**
+     * Upper-cases the first letter, and every word's first letter when
+     * [everyWord]. The rest of the text is left exactly as the snippet wrote it:
+     * a snippet that deliberately contains an acronym keeps it.
+     */
+    private fun capitalize(text: String, locale: Locale, everyWord: Boolean): String {
+        val out = StringBuilder(text.length)
+        var atStart = true
+        for (i in text.indices) {
+            val c = text[i]
+            if (atStart && c.isLetter()) {
+                out.append(c.uppercase(locale))
+                atStart = false
+                if (!everyWord) {
+                    // Indexed against the source, not the builder: an uppercase
+                    // mapping may be longer than what it replaced (ß gives SS),
+                    // so the builder's length is not a position in [text].
+                    out.append(text, i + 1, text.length)
+                    return out.toString()
+                }
+                continue
+            }
+            out.append(c)
+            if (everyWord && !c.isLetterOrDigit() && c != '\'') atStart = true
+        }
+        return out.toString()
     }
 }
 
@@ -520,8 +774,11 @@ class SnippetStore(private val storageFile: File?) {
  * The template variables a snippet may contain. Kept as an enum so the
  * expander and the settings screen's reference table can never drift apart.
  *
- * `{date:pattern}` is handled separately in [SnippetStore.expand] since it
- * takes an argument (any SimpleDateFormat pattern, e.g. `{date:EEEE 'week' w}`).
+ * Two variables take an argument and so are handled separately in
+ * [SnippetStore.expand] rather than listed here: `{date:pattern}` with any
+ * SimpleDateFormat pattern and an optional seconds offset
+ * (`{date+86400:dd/MM/yy}` is tomorrow), and `{random:one|two|three}`, which
+ * picks one alternative per insertion.
  */
 enum class SnippetVariable(
     val token: String,

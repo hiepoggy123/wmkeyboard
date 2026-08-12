@@ -6402,7 +6402,11 @@ open class WMKeyboardService : InputMethodService() {
             // ordinary text, and the offer goes with it.
             val snippet = snippetStore.matchTrigger(typed)?.takeIf { !it.confirm }
             if (snippet != null) {
-                val expanded = SnippetStore.expandWithCursor(snippet.text, context = snippetContext(ic))
+                val expanded = SnippetStore.expandWithCursor(
+                    snippet.text,
+                    context = snippetContext(ic),
+                    casing = SnippetStore.casingFor(snippet, typed),
+                )
                 commitSplitAtCaret(ic, expanded.text, expanded.cursorOffset)
                 afterSnippetExpansion(
                     inserted = expanded.text,
@@ -6411,6 +6415,7 @@ open class WMKeyboardService : InputMethodService() {
                 )
                 return true
             }
+            if (tryPrefixExpansion(ic, typed)) return true
             if (expandPatterns && tryPatternExpansion(ic, typed, state)) return true
         }
         // Conversion IME (Pinyin, Japanese): flush the whole reading as a
@@ -6543,6 +6548,53 @@ open class WMKeyboardService : InputMethodService() {
         _uiState.update {
             it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
         }
+    }
+
+    /**
+     * Expands the snippet whose trigger is [typed] behind a run of punctuation,
+     * as in `:shrug`. Returns true when it committed something.
+     *
+     * This is the path every Espanso package needs. Its trigger convention puts
+     * a `:` or `;` in front of an ordinary word, and the keyboard's composing
+     * buffer never holds one: the punctuation was committed to the field the
+     * moment it was typed, and only "shrug" is in the buffer when the space
+     * lands. So the lookup is on the buffer, and the prefix is confirmed by
+     * reading the handful of characters in front of it.
+     *
+     * The gate is the same shape as [patternGateOpen]'s. A user with no prefix
+     * trigger pays one map lookup on a string already in memory, and the read
+     * only happens once that lookup has said a match is possible at all.
+     */
+    private fun tryPrefixExpansion(ic: InputConnection, typed: String): Boolean {
+        if (typed.isEmpty() || !snippetStore.hasPrefixTriggers()) return false
+        if (!snippetStore.couldFinishPrefix(typed)) return false
+        val read = ic.getTextBeforeCursor(SnippetMatcher.MAX_PREFIX + typed.length, 0) ?: return false
+        // The buffer is still composing, so the read ends with it. What sits in
+        // front of that is what the prefix has to match.
+        val before = read.toString().removeSuffix(typed)
+        if (before.length == read.length) return false
+        val hit = snippetStore.matchPrefix(typed, before) ?: return false
+        stopVoiceForManualInput()
+        val consumed = hit.prefix + typed
+        val expanded = SnippetStore.expandWithCursor(
+            hit.snippet.text,
+            context = snippetContext(ic),
+            casing = SnippetStore.casingFor(hit.snippet, typed),
+        )
+        ic.beginBatchEdit()
+        // Same reason as [tryPatternExpansion]: a live composing region and
+        // deleteSurroundingText disagree about which characters they mean.
+        ic.finishComposingText()
+        composing = StringBuilder()
+        ic.deleteSurroundingText(consumed.length, 0)
+        commitSplitAtCaret(ic, expanded.text, expanded.cursorOffset)
+        ic.endBatchEdit()
+        afterSnippetExpansion(
+            inserted = expanded.text,
+            original = consumed,
+            caretParked = expanded.cursorOffset < expanded.text.length,
+        )
+        return true
     }
 
     /**
@@ -6686,6 +6738,7 @@ open class WMKeyboardService : InputMethodService() {
                 // The selection is not worth a blocking round-trip on the
                 // typing path: a word only composes with the caret collapsed.
                 context = snippetContext(currentInputConnection, withSelection = false),
+                casing = SnippetStore.casingFor(trigger, typed),
             )
             publishSnippetOffer(
                 SnippetOffer(
@@ -6699,7 +6752,13 @@ open class WMKeyboardService : InputMethodService() {
             )
             return
         }
-        if (!snippetStore.hasConfirmPatterns() || !patternGateOpen(typed)) {
+        // A prefix trigger sits between the two: the lookup is free like a plain
+        // trigger's, but confirming the punctuation in front of the buffer costs
+        // the same read a pattern does. So it rides the same debounced job.
+        val wantPrefix = typed.isNotEmpty() && snippetStore.hasConfirmPrefixTriggers() &&
+            snippetStore.couldFinishPrefix(typed)
+        val wantPattern = snippetStore.hasConfirmPatterns() && patternGateOpen(typed)
+        if (!wantPrefix && !wantPattern) {
             publishSnippetOffer(null)
             return
         }
@@ -6732,6 +6791,43 @@ open class WMKeyboardService : InputMethodService() {
             // turning out to be secure does not cancel this job.
             val still = _uiState.value
             if (still.panel != PanelMode.NONE || still.secureField || still.fieldNoSuggestions) {
+                publishSnippetOffer(null)
+                return@launch
+            }
+            // The prefix trigger goes first, for the same reason a plain one
+            // does on the commit path: it is the more specific rule.
+            if (wantPrefix) {
+                val before = window.removeSuffix(typed)
+                val prefix = if (before.length == window.length) {
+                    null
+                } else {
+                    snippetStore.matchPrefix(typed, before, confirm = true)
+                }
+                if (prefix != null) {
+                    val expanded = SnippetStore.expandWithCursor(
+                        prefix.snippet.text,
+                        context = snippetContext(ic, withSelection = false),
+                        casing = SnippetStore.casingFor(prefix.snippet, typed),
+                    )
+                    publishSnippetOffer(
+                        SnippetOffer(
+                            id = prefix.snippet.id,
+                            label = prefix.snippet.label,
+                            text = expanded.text,
+                            cursorOffset = expanded.cursorOffset,
+                            // Not `composed`: the span reaches back past the
+                            // buffer over punctuation the editor already has, so
+                            // accepting has to find and delete it the way a
+                            // pattern's offer does rather than just replace the
+                            // composing region.
+                            consumed = prefix.prefix + typed,
+                            composed = false,
+                        ),
+                    )
+                    return@launch
+                }
+            }
+            if (!wantPattern) {
                 publishSnippetOffer(null)
                 return@launch
             }

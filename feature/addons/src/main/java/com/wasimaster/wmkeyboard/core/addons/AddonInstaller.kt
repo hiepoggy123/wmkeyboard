@@ -26,7 +26,10 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPacks
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.content.ContentText
+import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetFile
+import com.wasimaster.wmkeyboard.core.snippets.SnippetPayload
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.stickers.StickerImportResult
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackFile
@@ -116,6 +119,15 @@ fun PluginText.toAddonText(): AddonText = when (this) {
     is PluginText.Resource -> AddonText.Resource(textRes, arg1 = arg1, arg2 = arg2)
 }
 
+/** The same line, carried out of :core:content unresolved. */
+fun ContentText.toAddonText(): AddonText = AddonText.Resource(
+    textRes = stringRes,
+    pluralsRes = pluralsRes,
+    quantity = quantity,
+    arg1 = args.getOrNull(0),
+    arg2 = args.getOrNull(1),
+)
+
 /**
  * Turning a downloaded payload into an installed addon.
  *
@@ -163,6 +175,7 @@ object AddonInstaller {
             AddonType.Dictionary -> installDictionary(context, entry, payload)
             AddonType.EmojiKeywords -> installEmojiKeywords(context, entry, payload)
             AddonType.Snippets -> installSnippets(context, entry, payload)
+            AddonType.Espanso -> installEspanso(context, entry, payload)
             AddonType.Stickers -> installStickers(context, entry, payload)
             AddonType.IconPack -> installIconPack(context, entry, payload)
             AddonType.Font -> installFont(context, entry, payload, emoji = false)
@@ -187,7 +200,7 @@ object AddonInstaller {
             AddonType.Theme -> SettingsRepository(context).deleteCustomTheme(record.localRef)
             AddonType.Layout -> SettingsRepository(context).deleteCustomLayout(record.localRef)
             AddonType.Dictionary, AddonType.EmojiKeywords -> File(record.localRef).delete()
-            AddonType.Snippets -> removeSnippets(context, record.localRef)
+            AddonType.Snippets, AddonType.Espanso -> removeSnippets(context, record.localRef)
             AddonType.Stickers -> StickerPackStore.get(context).deletePack(record.localRef)
             AddonType.IconPack -> uninstallIconPack(context, record.localRef)
             AddonType.Font -> uninstallFont(context, record.localRef)
@@ -215,7 +228,7 @@ object AddonInstaller {
             // The rest are read from disk when they are used, or are already
             // live the moment the importer returns. Listed rather than
             // defaulted so a new type has to decide.
-            AddonType.Theme, AddonType.Layout, AddonType.Snippets,
+            AddonType.Theme, AddonType.Layout, AddonType.Snippets, AddonType.Espanso,
             AddonType.Stickers, AddonType.IconPack, AddonType.Font,
             AddonType.EmojiFont, AddonType.Sound, AddonType.SoundPack, AddonType.Plugin,
             AddonType.Unknown,
@@ -397,7 +410,36 @@ object AddonInstaller {
             ?: return Outcome.Rejected(
                 AddonText.of(R.string.faddons_install_error_not_a_snippet_pack),
             )
-        if (imported.snippets.isEmpty()) {
+        return storeSnippets(context, entry, imported.snippets, imported.repairs.map { it.resolve(context) })
+    }
+
+    /**
+     * Installs an Espanso package or match file.
+     *
+     * A separate branch rather than a widening of [installSnippets], because a
+     * repository entry declares which format its payload is in: a `.yml` filed
+     * as `snippets` is a mistake in the manifest, and saying so beats guessing.
+     * What the two share is everything after the conversion, which is why they
+     * meet again in [storeSnippets] — an Espanso pack has to uninstall by
+     * exactly the same rules, or its folder would outlive it.
+     */
+    private fun installEspanso(context: Context, entry: AddonEntry, payload: File): Outcome {
+        val imported = SnippetPayload.read(payload, entry.name.ifBlank { entry.id })
+            ?.takeIf { it.isEspanso }
+            ?: return Outcome.Rejected(
+                AddonText.of(R.string.faddons_install_error_not_an_espanso_pack),
+            )
+        return storeSnippets(context, entry, imported.snippets, imported.notes.map { it.resolve(context) })
+    }
+
+    /** The half of a snippet install that does not care where the file came from. */
+    private fun storeSnippets(
+        context: Context,
+        entry: AddonEntry,
+        snippets: List<Snippet>,
+        repairs: List<String>,
+    ): Outcome {
+        if (snippets.isEmpty()) {
             return Outcome.Rejected(
                 AddonText.of(R.string.faddons_install_error_snippet_pack_empty),
             )
@@ -417,13 +459,10 @@ object AddonInstaller {
         // The localRef stays the comma-joined snippet ids it has always been.
         // The folder is found back from them at uninstall, which keeps every
         // record written by an older build readable by this one.
-        val added = store.addAll(
-            imported.snippets,
-            fallbackFolderId = folder.id,
-        ).map { it.id }
+        val added = store.addAll(snippets, fallbackFolderId = folder.id).map { it.id }
         // The adds only mutate the in-memory list; save() is what writes the file.
         store.save()
-        return Outcome.Installed(added.joinToString(","), imported.repairs.map { it.resolve(context) })
+        return Outcome.Installed(added.joinToString(","), repairs)
     }
 
     private fun removeSnippets(context: Context, localRef: String) {

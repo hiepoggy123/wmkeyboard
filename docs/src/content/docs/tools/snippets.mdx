@@ -29,6 +29,28 @@ The panel re-reads the snippet file every time you open it. Settings and the key
 
 Give a snippet a trigger word and it expands on its own. Type the trigger by itself, then finish it with a space, punctuation or Enter. What you typed is replaced with the expanded snippet instead of being committed literally. Matching is case-insensitive and exact: `omw` matches `OMW` but not `omww`, with no partial or prefix matching. To match something that varies, like a name or a time or a phrase, use a [pattern trigger](#pattern-triggers) instead.
 
+### Triggers that start with punctuation
+
+A trigger can lead with punctuation: `:shrug`, `;ty`, `//date`. Type the whole thing and finish it the usual way, and it expands like any other trigger.
+
+This is worth its own heading because it's the convention almost every [Espanso](/reference/importing-from-espanso/) package uses, and because it works differently under the hood. The keyboard's word buffer only ever holds letters, digits and apostrophes, so by the time you finish typing `:shrug` the colon has already been committed to the field and only "shrug" is in the buffer. So the keyboard looks up the word part, and only when that word could finish some trigger does it read the character or two in front of it to check. A snippet list with no punctuation-prefixed trigger in it costs nothing at all.
+
+The longest prefix wins, so `::x` beats `:x` if you have both. A trigger made *entirely* of punctuation (`->`) can't be watched for at all: there's no word to look up. Nor can one with punctuation in the middle or at the end, like `a-b` or `x:`, for the same reason.
+
+### Other triggers
+
+One snippet can answer to several triggers. The **Other triggers** field in the add/edit dialog takes a comma-separated list, and each one fires the same snippet in exactly the same way, punctuation prefixes included. Sixteen is the limit, and a spelling that repeats the main trigger or an earlier alias is quietly dropped.
+
+### Matching capitals
+
+**Match the trigger's capitals** carries how you typed the trigger into what comes out. Off (the default), `omw` and `OMW` both expand to whatever the snippet says. On:
+
+- typing it in **capitals** gives you the expansion in capitals: `ALH` gives "ALTHOUGH"
+- typing it with **one leading capital** gives you the style you picked: **First letter** (`Alh` gives "Although"), **Every word**, or **All capitals**
+- typing it in **lower case** changes nothing
+
+It matters for snippets that fix ordinary words rather than expand codes. A pack that turns "a bas" into "à bas" would otherwise mangle "A Bas" at the start of a sentence. Espanso calls this `propagate_case`, and packages that correct spellings lean on it heavily.
+
 Trigger expansion is skipped while you're mid-transliteration or mid-conversion. For phonetic composers like Bangla-style transliteration, or Pinyin/Japanese-style conversion, the composing buffer holds an input spelling rather than the literal word you meant as a trigger, so expansion would misfire.
 
 This is a different mechanism from the **Keyword shortcut** field on the Snippets settings screen (see [Options](#options)), which is a [smart chip](/smart/chips/) that offers to *open the Snippets panel* when you type "snippet" or "snippets." It has nothing to do with any individual snippet's own trigger word.
@@ -101,10 +123,11 @@ A snippet's text can include any of these tokens. They're substituted the moment
 | `{package}` | That app's package name |
 | `{uuid}` | A fresh random UUID, different every time it's used |
 | `{cursor}` | Not text; marks where the cursor lands after insertion |
+| `{random:a\|b\|c}` | One of the alternatives, picked fresh each insertion |
 
 `{timezone}` is the one worth a second look. It writes the zone's long name, not an offset, so you get "Bangladesh Standard Time" or "Central European Summer Time" rather than GMT+06:00. An offset only shows up for a zone with no name of its own. The settings screen's reference card gives GMT+06:00 as its example, which is the fallback rather than the usual case, but the live preview next to it always shows what you'd actually get. If you want the offset itself, `{date:XXX}` or `{date:ZZZZ}` will give you one.
 
-`{date:pattern}` takes any date pattern you like, for example `` {date:EEEE 'week' w} `` or `` {date:dd/MM/yy} ``. It's checked before the plain `{date}` token, so a literal pattern can't be partly swallowed by it. A malformed pattern quietly expands to nothing instead of breaking the rest of the snippet. Tokens the expander doesn't recognize, like `{nope}`, are left untouched. A variable with nothing to draw on expands to an empty string rather than leaving the raw token behind, which is what you get from `{app}` outside the keyboard or `{clip}` with an empty clipboard.
+`{date:pattern}` takes any date pattern you like, for example `` {date:EEEE 'week' w} `` or `` {date:dd/MM/yy} ``. A `+` or `-` and a number of seconds before the colon shifts it: `{date+86400:dd/MM/yy}` is tomorrow, `{date-86400}` was yesterday, and a bare `{date+3600}` is an hour from now in the usual format. It's checked before the plain `{date}` token, so a literal pattern can't be partly swallowed by it. A malformed pattern quietly expands to nothing instead of breaking the rest of the snippet. Tokens the expander doesn't recognize, like `{nope}`, are left untouched. A variable with nothing to draw on expands to an empty string rather than leaving the raw token behind, which is what you get from `{app}` outside the keyboard or `{clip}` with an empty clipboard.
 
 ## Managing snippets
 
@@ -117,7 +140,7 @@ Find the list under Settings → Text Expander (see [Options](#options) below fo
 The settings screen opens with a reference card listing all 18 variables plus `{date:pattern}`, each with a live example. Below it:
 
 - **Add snippet** opens a dialog with a label, a multi-line text field (hint text calls out the most common variables), and a Word / Pattern switch for how it expands as you type.
-- Choosing **Word** gives you a single trigger-word field. Choosing **Pattern** gives you the pattern itself, chips that write `(.+)`, `$1`, `^` and `$` at the cursor, a words-to-match picker, and a **Try it** box. Type into **Try it** what you'd type on the keyboard, and the result appears underneath. A pattern that won't compile is flagged as you type, with the regular-expression engine's own complaint under it. Save stays disabled until you fix it.
+- Choosing **Word** gives you a trigger-word field, an **Other triggers** field for extra spellings of it, and a **Match the trigger's capitals** switch that reveals its style choice when you turn it on. Choosing **Pattern** gives you the pattern itself, chips that write `(.+)`, `$1`, `^` and `$` at the cursor, a words-to-match picker, and a **Try it** box. Type into **Try it** what you'd type on the keyboard, and the result appears underneath. A pattern that won't compile is flagged as you type, with the regular-expression engine's own complaint under it. Save stays disabled until you fix it.
 - Under both is **Ask before it expands**, which turns the trigger into a suggestion-bar offer instead of an automatic rewrite (see [Ask before it expands](#ask-before-it-expands)).
 - The pencil icon on a saved snippet reopens that same dialog, pre-filled, to **edit** it.
 - The trash icon **deletes** it immediately: no confirmation prompt, no undo. It sits right next to the pencil at the end of every row, a thumb's width away, which is where nearly every accidental deletion comes from. Aim before you tap, and keep an [export](#import-and-export) around if a snippet took you a while to write.
@@ -145,6 +168,8 @@ Because switching a folder off is exactly the kind of thing you realise mid-mess
 A folder switched off costs nothing at all while you type. Its snippets are left out of the trigger index entirely, so the keyboard's "could anything match here?" checks answer no without doing any work.
 
 ### Import and export
+
+**Import** and **Export** each start by asking which format you mean. This app's own is one of three; the other two are [Espanso](/reference/importing-from-espanso/)'s, which is what lets a package from the [Espanso Hub](https://hub.espanso.org/search) work here and your own snippets work on a desktop. Importing from Espanso can also fetch straight from a pasted web address, and always shows what conversion costs before it writes anything.
 
 **Export** writes every current snippet to a `.wmsnippets.json` file (see [file formats](/reference/file-formats/)), along with the folders they're filed in. A folder with nothing in it isn't written, so exporting doesn't carry empty shelves along. **Import** always adds alongside what's already there rather than replacing it, so importing the same file twice leaves you with two copies. The file's folders come back as new folders of the same name, and a snippet that was in none stays in none.
 

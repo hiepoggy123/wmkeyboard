@@ -44,6 +44,9 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
+    // Reading Espanso match files. Loader only, always under SafeConstructor;
+    // see the version catalog and EspansoYaml.
+    implementation(libs.snakeyaml)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)

@@ -139,6 +139,7 @@ enum class AddonType {
     @SerialName("dictionary") Dictionary,
     @SerialName("emoji_keywords") EmojiKeywords,
     @SerialName("snippets") Snippets,
+    @SerialName("espanso") Espanso,
     @SerialName("stickers") Stickers,
     @SerialName("icon_pack") IconPack,
     @SerialName("font") Font,
@@ -158,6 +159,7 @@ enum class AddonType {
             Dictionary -> R.string.core_addons_type_dictionary_label
             EmojiKeywords -> R.string.core_addons_type_emoji_keywords_label
             Snippets -> R.string.core_addons_type_snippets_label
+            Espanso -> R.string.core_addons_type_espanso_label
             Stickers -> R.string.core_addons_type_stickers_label
             IconPack -> R.string.core_addons_type_icon_pack_label
             Font -> R.string.core_addons_type_font_label
@@ -183,6 +185,7 @@ enum class AddonType {
             Dictionary -> R.string.core_addons_type_dictionary_singular_label
             EmojiKeywords -> R.string.core_addons_type_emoji_keywords_singular_label
             Snippets -> R.string.core_addons_type_snippets_singular_label
+            Espanso -> R.string.core_addons_type_espanso_singular_label
             Stickers -> R.string.core_addons_type_stickers_singular_label
             IconPack -> R.string.core_addons_type_icon_pack_singular_label
             Font -> R.string.core_addons_type_font_singular_label
@@ -200,7 +203,7 @@ enum class AddonType {
      */
     val maxBytes: Long
         get() = when (this) {
-            Layout, Snippets -> 4L * 1024 * 1024
+            Layout, Snippets, Espanso -> 4L * 1024 * 1024
             // A theme can carry base64 background images — an animated GIF
             // pair plus key textures runs well past the old 4 MB.
             Theme -> 16L * 1024 * 1024
@@ -237,7 +240,7 @@ enum class AddonType {
      */
     val previewable: Boolean
         get() = when (this) {
-            Snippets, Dictionary, EmojiKeywords, Sound, SoundPack, Stickers, Plugin -> true
+            Snippets, Espanso, Dictionary, EmojiKeywords, Sound, SoundPack, Stickers, Plugin -> true
             else -> false
         }
 
@@ -250,4 +253,18 @@ enum class AddonType {
      */
     val isExecutable: Boolean
         get() = this == Plugin
+
+    /**
+     * The type this one is browsed under.
+     *
+     * The split between [Snippets] and [Espanso] is a contract with whoever
+     * writes a repository manifest: the entry says which format its payload is
+     * in, so a mistake is a clear rejection rather than a guess. It is not a
+     * second thing for a user to go looking for. An Espanso package *is* a pack
+     * of snippets, so the filter chips, the type listing, the routes and the
+     * store group all work in categories, and only the entry card and the
+     * install dialog name the format.
+     */
+    val storeCategory: AddonType
+        get() = if (this == Espanso) Snippets else this
 }

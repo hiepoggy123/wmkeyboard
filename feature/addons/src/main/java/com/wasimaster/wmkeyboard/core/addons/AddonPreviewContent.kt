@@ -4,7 +4,7 @@ import com.wasimaster.wmkeyboard.addons.feature.R
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginManifestResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginPermission
-import com.wasimaster.wmkeyboard.core.snippets.SnippetFile
+import com.wasimaster.wmkeyboard.core.snippets.SnippetPayload
 import com.wasimaster.wmkeyboard.core.feedback.SoundPackFile
 import java.io.File
 import java.util.zip.GZIPInputStream
@@ -27,6 +27,15 @@ sealed interface AddonPreviewContent {
     data class Snippets(
         val entries: List<Entry>,
         val total: Int,
+        /**
+         * What converting the pack cost, for a pack that had to be converted.
+         *
+         * Always empty for this app's own format, which needs no conversion. An
+         * Espanso pack can lose things on the way in, and reading that after
+         * installing is worse than being told and deciding, so it belongs in the
+         * preview rather than in the result.
+         */
+        val notes: List<AddonText> = emptyList(),
     ) : AddonPreviewContent {
         data class Entry(
             val label: String,
@@ -151,7 +160,7 @@ object AddonPreviewReader {
     private const val MAX_IMAGE_BYTES = 4L * 1024 * 1024
 
     fun read(entry: AddonEntry, payload: File): AddonPreviewContent = when (entry.type) {
-        AddonType.Snippets -> readSnippets(payload)
+        AddonType.Snippets, AddonType.Espanso -> readSnippets(entry, payload)
         AddonType.Dictionary -> readDictionary(entry, payload)
         AddonType.EmojiKeywords -> readEmojiKeywords(entry, payload)
         AddonType.Sound -> AddonPreviewContent.Sound(payload)
@@ -237,13 +246,30 @@ object AddonPreviewReader {
         )
     }
 
-    private fun readSnippets(payload: File): AddonPreviewContent {
-        val imported = runCatching { SnippetFile.decode(payload.readText()) }.getOrNull()
+    /**
+     * The snippets in a pack, whichever of the two formats it arrived in.
+     *
+     * An Espanso pack carries a second thing worth previewing: what conversion
+     * costs it. That has to be readable *before* the install button, not after,
+     * so the notes ride along with the entries.
+     */
+    private fun readSnippets(entry: AddonEntry, payload: File): AddonPreviewContent {
+        val wantEspanso = entry.type == AddonType.Espanso
+        // The entry declared which format it is in, so a payload in the other
+        // one is a mistake in the manifest rather than something to reinterpret.
+        val parsed = SnippetPayload.read(payload, entry.name.ifBlank { entry.id })
+            ?.takeIf { it.isEspanso == wantEspanso }
             ?: return AddonPreviewContent.Unreadable(
-                AddonText.of(R.string.faddons_preview_error_not_snippet_pack),
+                AddonText.of(
+                    if (wantEspanso) {
+                        R.string.faddons_preview_error_not_espanso_pack
+                    } else {
+                        R.string.faddons_preview_error_not_snippet_pack
+                    },
+                ),
             )
         return AddonPreviewContent.Snippets(
-            entries = imported.snippets.take(MAX_SNIPPETS).map {
+            entries = parsed.snippets.take(MAX_SNIPPETS).map {
                 // A pattern snippet has no trigger word, so the preview shows
                 // the pattern in its place rather than an empty line.
                 AddonPreviewContent.Snippets.Entry(
@@ -253,7 +279,8 @@ object AddonPreviewReader {
                     it.confirm,
                 )
             },
-            total = imported.snippets.size,
+            total = parsed.snippets.size,
+            notes = parsed.notes.map { it.toAddonText() },
         )
     }
 

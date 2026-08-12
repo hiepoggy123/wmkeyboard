@@ -120,6 +120,21 @@
       "license": "CC0-1.0"
     },
     {
+      "id": "greek-letters",
+      "type": "espanso",
+      "name": "Greek letters",
+      "version": "1.0.0",
+      "author": "Wasi Master",
+      "description": "Greek letters by name, in Espanso's own format.",
+      "tags": [
+        "symbols"
+      ],
+      "path": "espanso/greek-letters.espanso.yml",
+      "sha256": "ce782798b18bbb0aeb3196fa8981cc4ed2c724ef3c1a2595b0eadc1e9a8424b8",
+      "sizeBytes": 449,
+      "license": "CC0-1.0"
+    },
+    {
       "id": "lucide",
       "type": "icon_pack",
       "name": "Lucide",
