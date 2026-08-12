@@ -352,7 +352,7 @@ internal fun AddLanguageScreen(
     val allTitle = stringResource(R.string.languages_all_title)
     val addedLabel = stringResource(R.string.languages_added_label)
     SettingsGroup(if (q.isEmpty() && suggested.isNotEmpty()) allTitle else null) {
-        for (lang in matches) {
+        for (lang in matches.take(ADD_LANGUAGE_LIMIT)) {
             item {
                 val added = lang.id in enabledLangIds
                 NavRow(
@@ -366,9 +366,28 @@ internal fun AddLanguageScreen(
         }
         if (matches.isEmpty()) {
             item { CaptionText(stringResource(R.string.languages_search_empty, query)) }
+        } else if (matches.size > ADD_LANGUAGE_LIMIT) {
+            val extra = matches.size - ADD_LANGUAGE_LIMIT
+            item {
+                CaptionText(pluralStringResource(R.plurals.languages_search_more_count, extra, extra))
+            }
         }
     }
 }
+
+/**
+ * Most languages listed at once before the rest are left to the search box.
+ *
+ * [SettingsGroup] composes every row it is given into a `Column` inside a
+ * scrolling parent, so an uncapped list is a full compose-and-measure of the
+ * whole registry on the way in. That was tolerable at 352 entries and is not at
+ * 843, which is where the Keyman conversion left it.
+ *
+ * Higher than the onboarding page's 30 because this screen is also where
+ * someone browses, and browsing wants more than a screenful. Anyone looking for
+ * a specific language types, and typing is what the caption points at.
+ */
+private const val ADD_LANGUAGE_LIMIT = 80
 
 /**
  * A cluster the reader will recognise, for the conjunct-backspace row. A script

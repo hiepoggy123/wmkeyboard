@@ -40,6 +40,12 @@
     <!-- Empty state of the language search. %1$s is what the user typed. -->
     <string name="languages_search_empty">No languages match “<xliff:g id="search_term" example="german">%1$s</xliff:g>”.</string>
 
+    <!-- Shown when the list is capped; the search box is the way to the rest. -->
+    <plurals name="languages_search_more_count">
+        <item quantity="one">%1$d more language. Search to find it.</item>
+        <item quantity="other">%1$d more languages. Search to find one.</item>
+    </plurals>
+
     <!-- ===== One language: layouts, clusters, numerals ===== -->
 
     <string name="languages_layouts_title">Layouts</string>
