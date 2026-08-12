@@ -12,7 +12,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Area | Families | Features | Capabilities |
 |---|---|---|---|
 | Typing core: prediction, autocorrect, learning, spell check | 9 | 49 | 172 |
-| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 72 | 131 |
+| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 72 | 132 |
 | Languages, scripts, layouts, transliteration | 11 | 59 | 186 |
 | Themes and appearance | 14 | 73 | 179 |
 | Emoji, GIFs, stickers, kaomoji | 16 | 88 | 93 |
@@ -23,7 +23,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Accessibility, form factors, platform integration | 12 | 56 | 105 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 200 |
-| **Total** | **131** | **771** | **1999** |
+| **Total** | **131** | **771** | **2000** |
 
 ## Typing core: prediction, autocorrect, learning, spell check
 
@@ -355,8 +355,9 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Own repeat interval — Arrow and backspace auto-repeat, default 60 ms, user-adjustable
   - 12 one-tap cursor tools `RARE` — CursorTools list: left/right, word left/right, up/down, home/end, page up/down, select word, select line — placeable on the toolbar
     - Shift extends the selection `RARE` — A shift the user pressed turns every toolbar cursor move into shift+arrow; auto-capitalise's own shift is excluded, and is held off the state while the selection is live
-    - Hold to repeat `RARE` — The eight non-idempotent moves repeat on hold at the text-edit interval, defaulted on, switchable on each of their settings screens
-    - Drag survives the repeat — Travel past the drag slop stops the repeat and picks the tool up; the toolbox keeps hold-for-settings so those screens stay reachable
+    - Hold to repeat `RARE` — The eight non-idempotent moves repeat on hold at the text-edit interval; one switch for the toolbar, defaulted on
+    - Per-tool toolbox opt-in — A second switch, one tool at a time and off by default, since a repeating tool spends the toolbox hold that opens its settings page
+    - Drag survives the repeat — Travel past the drag slop stops the repeat and picks the tool up, on either surface
   - Volume keys as cursor `RARE` — Volume down/up move the caret left/right while the keyboard is showing; off by default
     - Media-aware release — Re-checks isMusicActive on every press and hands the keys back to the system while audio plays
     - Free auto-repeat — Holding repeats via Android's own hardware key repeat; both DOWN and UP are swallowed
@@ -1288,7 +1289,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Drag to pin / unpin / reorder `uncommon` — Hold-and-drag between bar and grid, Gboard style
     - Live drop preview — Bar slot and grid slot render a ghost stand-in so icons make room
     - Haptic tick on slot change — onSnap fires whenever the drop target moves
-    - Hold-without-drag opens that tool's settings — Same gesture, 24dp slop decides: tap, settings, or drag; on the toolbar the eight repeating cursor tools spend it on their repeat instead
+    - Hold-without-drag opens that tool's settings — Same gesture, 24dp slop decides: tap, settings, or drag; a cursor tool set to repeat on that surface spends it on the repeat instead
     - Hidden pinned tools keep their slot — Slots counted against visible list, translated back to stored list on drop
     - Drag hint on first open — toolboxHintDismissed; resurfaces occasionally after dismissal
   - Two toolbox layouts `RARE` — ToolboxLayout.ICONS (default) or PILLS

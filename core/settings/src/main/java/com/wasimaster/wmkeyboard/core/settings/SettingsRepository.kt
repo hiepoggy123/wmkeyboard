@@ -2638,12 +2638,28 @@ data class TextEditingSettings(
      * the finger stays down, at [repeatMs].
      *
      * Off, a hold on the toolbar does what a hold on any other tool does and
-     * opens that tool's settings page. On, it repeats — and the settings page
-     * moves to a hold in the *toolbox*, which is why this is the toolbar's
-     * behaviour and not the toolbox's. Dragging to reorder survives either way:
-     * a hold that travels still picks the tool up.
+     * opens that tool's settings page. On, it repeats, and that page is reached
+     * from the Tools screen (or from a toolbox hold, unless the tool is also in
+     * [toolboxRepeatTools]). Dragging to reorder survives either way: a hold
+     * that travels still picks the tool up.
      */
     val cursorToolsRepeatOnHold: Boolean = true,
+    /**
+     * The cursor tools that repeat on a hold in the *toolbox* as well, named
+     * one at a time rather than all together.
+     *
+     * Per tool because the toolbox is where a hold reaches every tool's own
+     * settings page, and a tool in this set gives that up: its page is then
+     * only on the Tools screen. That is a fine trade for the one or two moves
+     * someone actually holds, and a bad one across a grid of forty tools, so
+     * it is opted into a tool at a time. Empty by default for the same reason.
+     *
+     * Only [HoldRepeatCursorTools] may appear here; anything else is ignored.
+     * Independent of [cursorToolsRepeatOnHold], which is the toolbar's own
+     * switch: the two surfaces are held in different places for different
+     * reasons, and neither is a master for the other.
+     */
+    val toolboxRepeatTools: Set<ToolbarTool> = emptySet(),
     /**
      * Typing a bracket, brace or quote with text selected wraps the selection
      * in the pair (foo → (foo)) instead of replacing it.
@@ -4308,6 +4324,7 @@ class SettingsRepository(private val context: Context) {
         private val TEXT_EDIT_REPEAT_MS = intPreferencesKey("text_edit_repeat_ms")
         private val CURSOR_TOOLS_REPEAT_ON_HOLD =
             booleanPreferencesKey("cursor_tools_repeat_on_hold")
+        private val TOOLBOX_REPEAT_TOOLS = stringPreferencesKey("toolbox_repeat_tools")
         private val DOUBLE_SPACE_WINDOW_MS = intPreferencesKey("double_space_window_ms")
         private val SPACE_CURSOR_STEP_DP = intPreferencesKey("space_cursor_step_dp")
         private val BACKSPACE_WORD_STEP_DP = intPreferencesKey("backspace_word_step_dp")
@@ -5302,6 +5319,12 @@ class SettingsRepository(private val context: Context) {
                 repeatMs = p[TEXT_EDIT_REPEAT_MS] ?: defaults.textEditing.repeatMs,
                 cursorToolsRepeatOnHold = p[CURSOR_TOOLS_REPEAT_ON_HOLD]
                     ?: defaults.textEditing.cursorToolsRepeatOnHold,
+                // Filtered rather than trusted: the stored list outlives a tool
+                // leaving HoldRepeatCursorTools, and a name in here that no
+                // longer repeats would quietly cost that tool its toolbox hold.
+                toolboxRepeatTools = p[TOOLBOX_REPEAT_TOOLS]
+                    ?.let { csv -> decodeToolNames(csv).filterTo(HashSet()) { it in HoldRepeatCursorTools } }
+                    ?: defaults.textEditing.toolboxRepeatTools,
                 wrapSelectionWithPair =
                     p[WRAP_SELECTION_WITH_PAIR] ?: defaults.textEditing.wrapSelectionWithPair,
                 recapitalizeSelectionWithShift = p[RECAPITALIZE_SELECTION_WITH_SHIFT]
@@ -5562,7 +5585,10 @@ class SettingsRepository(private val context: Context) {
     suspend fun setToolboxHintDismissed(value: Boolean) =
         editPrefs { it[TOOLBOX_HINT_DISMISSED] = value }
 
-    private fun decodeDisabledTools(csv: String?): List<ToolbarTool> =
+    private fun decodeDisabledTools(csv: String?): List<ToolbarTool> = decodeToolNames(csv)
+
+    /** Comma-separated `ToolbarTool` names; anything unrecognised is dropped. */
+    private fun decodeToolNames(csv: String?): List<ToolbarTool> =
         csv?.split(',')?.mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
             .orEmpty()
 
@@ -5927,6 +5953,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setCursorToolsRepeatOnHold(value: Boolean) =
         editPrefs { it[CURSOR_TOOLS_REPEAT_ON_HOLD] = value }
+
+    /**
+     * Adds or removes one cursor tool from the toolbox's repeat set. Read-modify
+     * -write inside the same edit, so two tools switched on in quick succession
+     * cannot each overwrite the other's row.
+     */
+    suspend fun setToolboxRepeat(tool: ToolbarTool, repeat: Boolean) =
+        editPrefs { prefs ->
+            val current = decodeToolNames(prefs[TOOLBOX_REPEAT_TOOLS]).toMutableSet()
+            if (repeat) current += tool else current -= tool
+            prefs[TOOLBOX_REPEAT_TOOLS] = current.joinToString(",") { it.name }
+        }
 
     suspend fun setDoubleSpaceWindowMs(value: Int) =
         editPrefs { it[DOUBLE_SPACE_WINDOW_MS] = value.coerceIn(200, 800) }

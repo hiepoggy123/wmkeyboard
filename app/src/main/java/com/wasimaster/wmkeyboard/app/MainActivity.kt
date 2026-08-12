@@ -10380,7 +10380,22 @@ private fun ToolDetailSettings(
                         default = SettingsDefaults.textEditing.cursorToolsRepeatOnHold,
                     ) { scope.launch { repository.setCursorToolsRepeatOnHold(it) } }
                 }
-                if (settings.textEditing.cursorToolsRepeatOnHold) {
+                item {
+                    // This one is per tool, unlike the switch above: turning it
+                    // on costs *this* tool the toolbox hold that opens its
+                    // settings page, so it is answered a tool at a time.
+                    ToggleSetting(
+                        R.string.tooldetail_cursor_repeat_toolbox_title,
+                        stringResource(R.string.tooldetail_cursor_repeat_toolbox_subtitle),
+                        tool in settings.textEditing.toolboxRepeatTools,
+                        info = stringResource(R.string.tooldetail_cursor_repeat_toolbox_info),
+                        default = tool in SettingsDefaults.textEditing.toolboxRepeatTools,
+                    ) { scope.launch { repository.setToolboxRepeat(tool, it) } }
+                }
+                // The speed is shared, so it shows while either surface repeats.
+                if (settings.textEditing.cursorToolsRepeatOnHold ||
+                    tool in settings.textEditing.toolboxRepeatTools
+                ) {
                     item {
                         SliderSetting(
                             R.string.tooldetail_text_edit_repeat_title,

@@ -151,9 +151,12 @@
     <string name="tooldetail_text_edit_repeat_subtitle">Pause between repeats while you hold an arrow or backspace. A lower value is faster</string>
 
     <!-- Cursor tools on the toolbar. -->
-    <string name="tooldetail_cursor_repeat_title">Hold to repeat</string>
+    <string name="tooldetail_cursor_repeat_title">Hold to repeat on the toolbar</string>
     <string name="tooldetail_cursor_repeat_subtitle">Holding this tool on the toolbar keeps moving the cursor. Off, holding it opens this page instead</string>
-    <string name="tooldetail_cursor_repeat_info">Hold the tool in the toolbox to open this page either way, and drag it from the toolbar to move it as usual.</string>
+    <string name="tooldetail_cursor_repeat_info">One switch for all eight moving cursor tools. Dragging the tool from the toolbar still moves it.</string>
+    <string name="tooldetail_cursor_repeat_toolbox_title">Hold to repeat in the toolbox</string>
+    <string name="tooldetail_cursor_repeat_toolbox_subtitle">Do the same in the toolbox grid. This tool only, and off by default</string>
+    <string name="tooldetail_cursor_repeat_toolbox_info">A hold in the toolbox is how you open a tool\'s page from the keyboard, so this tool gives that up while this is on. Its page stays under Tools. Turn it on only for the moves you actually hold.</string>
     <string name="tooldetail_cursor_repeat_speed_subtitle">Pause between moves while you hold the tool. A lower value is faster. Shared with the text editing tool</string>
 
     <!-- Numpad tool. -->

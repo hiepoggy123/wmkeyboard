@@ -67,12 +67,12 @@ Holding a cursor tool on the toolbar keeps the move going for as long as your fi
 
 Eight tools repeat: **Cursor left**, **Cursor right**, **Word left**, **Word right**, **Cursor up**, **Cursor down**, **Page up** and **Page down**. **Line start**, **Line end**, **Select word** and **Select line** don't, because a second press of any of those lands exactly where the first one did.
 
-Two things a hold does on every *other* toolbar tool are worth knowing about here:
+The toolbox grid can do it too, but that one is off until you ask for it, one tool at a time. See [Options](#options) for why.
 
-- **Hold and drag still moves the tool.** Once your finger travels far enough to read as a drag, the repeat stops and the tool picks itself up as usual. The moves it already made stay, so a deliberate drag costs you a caret move or two. Move the caret back, or drag from the toolbox instead.
-- **Hold opens a tool's settings page.** That gesture is spoken for on the toolbar once repeat is on, so hold the tool in the *toolbox* to reach its page. The toolbox never repeats.
+Two things a hold does on every *other* tool are worth knowing about here:
 
-Turn repeat off and the toolbar hold goes back to opening the settings page. See [Options](#options).
+- **Hold and drag still moves the tool.** Once your finger travels far enough to read as a drag, the repeat stops and the tool picks itself up as usual. The moves it already made stay, so a deliberate drag costs you a caret move or two. Move the caret back afterward.
+- **Hold opens a tool's settings page.** Repeat spends that gesture on whichever surface it's turned on for. With the toolbar switch on and the toolbox one off, which is how it ships, a toolbox hold still opens any tool's page. Turn a tool's toolbox switch on as well and that tool's page is only reachable under <SettingsPath path="Tools" />.
 
 A **Hide keyboard** tool (one tap dismisses the keyboard) shares the **Cursor** section with these on the <SettingsPath path="Tools" /> screen, but it isn't a cursor move itself.
 
@@ -115,9 +115,13 @@ You don't have to open a panel at all for the most common move: sliding the curs
 
 <SettingsPath path="Tools / Cursor left / Options" />
 
-**Hold to repeat**: on by default. Holding one of the eight repeating cursor tools on the toolbar keeps moving the cursor. Turn it off and a hold there opens that tool's settings page instead, the way a hold on any other toolbar tool does.
+**Hold to repeat on the toolbar**: on by default. Holding one of the eight repeating cursor tools on the toolbar keeps moving the cursor. Turn it off and a hold there opens that tool's settings page instead, the way a hold on any other toolbar tool does. It's one switch shown on all eight of their settings screens, so flipping it on any one of them flips it everywhere.
 
-It's one switch shown on all eight of their settings screens, so flipping it on any one of them flips it everywhere. The **Key repeat interval** slider sits under it, the same slider the text-editing panel uses. Either way, holding the tool in the toolbox still opens its settings page, and dragging it from the toolbar still moves it.
+**Hold to repeat in the toolbox**: off by default, and this one is **per tool**. Turn it on and holding that tool in the toolbox grid repeats the move as well.
+
+It's per tool, and off to start with, because of what it costs. A hold in the toolbox is how you reach any tool's settings page from the keyboard. A tool that repeats there has spent that gesture, so its own page is then only reachable under <SettingsPath path="Tools" />. That's a fair trade for the one or two moves you actually hold down and a bad one across the whole grid, which is why it's answered a tool at a time rather than all at once.
+
+The **Key repeat interval** slider sits under both, the same slider the text-editing panel uses, and it shows as soon as either surface repeats. Dragging a tool to move it survives both switches on both surfaces.
 
 ### Numpad layout
 

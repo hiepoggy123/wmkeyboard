@@ -5924,6 +5924,11 @@ private fun ToolboxGrid(
     val cellsNow by rememberUpdatedState(display)
     val columnsNow by rememberUpdatedState(columns)
     val registerNow by rememberUpdatedState(registerGeometry)
+    // Through a holder for the same reason, rather than as a pointerInput key:
+    // the grid's handler is keyed on nothing at all, and a settings change is
+    // not a reason to be the one thing that restarts it mid-gesture.
+    val toolboxRepeatNow by rememberUpdatedState(state.settings.textEditing.toolboxRepeatTools)
+    val repeatMsNow by rememberUpdatedState(state.settings.textEditing.repeatMs.toLong())
     val gridScroll = rememberScrollState()
     // No lazy state to scroll by index, so scroll by row: every cell reports
     // the same size, and the drag controller already collects it.
@@ -5969,11 +5974,28 @@ private fun ToolboxGrid(
                     var dragged = false
                     var released = false
                     var scrolled = false
+                    // Resolved with the tool, from the set as it stands now. A
+                    // tool the user opted in repeats here exactly as it does on
+                    // the toolbar, and gives up this grid's hold-for-settings
+                    // to do it; every other tool keeps it.
+                    val holdRepeatMs =
+                        repeatMsNow.takeIf { tool in toolboxRepeatNow && tool in HoldRepeatCursorTools }
                     val timer = scope.launch {
                         delay(viewConfiguration.longPressTimeoutMillis)
                         feedback()
                         longPressed = true
-                        drag.start(tool, false, rootPos)
+                        if (holdRepeatMs == null) {
+                            drag.start(tool, false, rootPos)
+                        } else {
+                            // Pick-up held back until the finger travels, as on
+                            // the toolbar: starting it here would park a drag
+                            // ghost under a finger that is only holding a
+                            // cursor key down.
+                            while (true) {
+                                tapTool(tool)
+                                delay(holdRepeatMs)
+                            }
+                        }
                     }
                     try {
                         while (true) {
@@ -5995,8 +6017,20 @@ private fun ToolboxGrid(
                                 }
                             } else {
                                 change.consume()
-                                if (travel > dragSlop) dragged = true
-                                drag.move(rootPos)
+                                if (travel > dragSlop && !dragged) {
+                                    dragged = true
+                                    // Travel means a reorder after all, so a
+                                    // repeating tool stops and picks itself up
+                                    // from here.
+                                    if (holdRepeatMs != null) {
+                                        timer.cancel()
+                                        drag.start(tool, false, rootPos)
+                                    }
+                                }
+                                // Nothing to move while a hold is still
+                                // repeating: no drag has been started, and
+                                // drag.move would tick the drop haptic anyway.
+                                if (holdRepeatMs == null || dragged) drag.move(rootPos)
                             }
                         }
                     } finally {
@@ -6007,6 +6041,9 @@ private fun ToolboxGrid(
                                 if (released && !scrolled) tapTool(tool)
                             }
                             dragged -> drag.end()
+                            // A repeating hold has already done its work, and
+                            // there is nothing to drop.
+                            holdRepeatMs != null -> drag.cancel()
                             // A hold that never travelled past the slop is a
                             // distinct gesture: open the tool's settings.
                             else -> {

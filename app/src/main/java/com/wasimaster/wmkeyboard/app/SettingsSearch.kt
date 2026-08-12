@@ -587,6 +587,15 @@ private fun Resources.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
         R.string.tooldetail_cursor_repeat_title,
         R.string.tooldetail_cursor_repeat_subtitle,
     ),
+    // The toolbox switch is per tool, so unlike the one above it genuinely has
+    // eight different answers. Still indexed once: eight rows with the same
+    // title would read as a broken search, and the first of them is the way in
+    // to the rest.
+    toolEntry(
+        ToolbarTool.CURSOR_LEFT,
+        R.string.tooldetail_cursor_repeat_toolbox_title,
+        R.string.tooldetail_cursor_repeat_toolbox_subtitle,
+    ),
     toolEntry(ToolbarTool.NUMPAD, R.string.tooldetail_numpad_calc_title, R.string.tooldetail_numpad_calc_subtitle),
     toolEntry(ToolbarTool.INCOGNITO, R.string.tooldetail_incognito_learning_title, R.string.tooldetail_incognito_learning_subtitle),
     toolEntry(ToolbarTool.INCOGNITO, R.string.tooldetail_incognito_clipboard_title, R.string.tooldetail_incognito_clipboard_subtitle),
