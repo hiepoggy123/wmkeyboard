@@ -159,12 +159,18 @@ for (let file of allFiles) {
         return `${wikiBase}${fallback}`;
     }
 
+    // Remove layout and wrapping tags
+    content = content.replace(/<\/?(?:CardGrid|FeatureRow|PhoneFrame|Fragment)[^>]*>/g, '');
+    
+    // Convert <Card> to headings
+    content = content.replace(/<Card\s+title="([^"]+)"[^>]*>\s*([\s\S]*?)\s*<\/Card>/g, (match, title, body) => `### ${title}\n\n${body}\n`);
+
     // Replace specific known tags to readable text
     content = content.replace(/<SettingsPath\s+path="([^"]+)"\s*\/?>/g, '**$1**');
     content = content.replace(/<KeyCap\s+(?:key|letter)="([^"]+)"\s*\/?>/g, '`$1`');
-    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, (match, title, href) => `[${title}](${getMappedLink(href)})`);
-    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+description="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, (match, title, desc, href) => `[${title}](${getMappedLink(href)}) - ${desc}`);
-    content = content.replace(/<LinkButton\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/LinkButton>/g, (match, href, text) => `[${text}](${getMappedLink(href)})`);
+    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, (match, title, href) => `- [**${title}**](${getMappedLink(href)})`);
+    content = content.replace(/<LinkCard\s+title="([^"]+)"\s+description="([^"]+)"\s+href="([^"]+)"\s*\/?>/g, (match, title, desc, href) => `- [**${title}**](${getMappedLink(href)})\n  ${desc}`);
+    content = content.replace(/<LinkButton\s+href="([^"]+)"[^>]*>([\s\S]*?)<\/LinkButton>/g, (match, href, text) => `[**${text}**](${getMappedLink(href)})`);
     
     // Rewrite image links
     content = content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, href) => {
@@ -178,7 +184,13 @@ for (let file of allFiles) {
     });
 
     // Rewrite standard root-relative markdown links to wiki absolute paths
-    content = content.replace(/(?<!!)\[([^\]]+)\]\(\/([^)]+)\)/g, (match, text, href) => `[${text}](${getMappedLink('/' + href)})`);
+    content = content.replace(/(?<!!)\[([^\]]+)\]\(\/([^)]+)\)/g, (match, text, href) => {
+        if (href.startsWith(`${repo}/wiki/`)) return match; // prevent double prefixing
+        return `[${text}](${getMappedLink('/' + href)})`;
+    });
+
+    // Rewrite root-relative HTML links
+    content = content.replace(/href="\/([^"]+)"/g, (match, href) => `href="${getMappedLink('/' + href)}"`);
 
     // Parse admonitions into <details>
     content = content.replace(/^:::(\w+)(?:\[(.*?)\])?\s*\n([\s\S]*?)\n^:::/gm, (match, type, title, body) => {
