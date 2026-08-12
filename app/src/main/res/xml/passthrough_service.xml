@@ -2,13 +2,20 @@
 <!--
      The keyboard-gesture pass-through service. Deliberately inert: it
      subscribes to no events (accessibilityEventTypes is left out, which means
-     none), cannot retrieve window content, and declares no capabilities. Its
+     none), cannot retrieve window content, and declares the one capability it
+     cannot work without. Its
      only job is to call setTouchExplorationPassthroughRegion for the
      keyboard's own window, which the platform only lets an accessibility
      service do.
 
-     FLAG_REQUEST_TOUCH_EXPLORATION_MODE is *not* declared here: the service
-     adds it at runtime, and only while another enabled service already
+     Two different things share the "touch exploration" name, and both are
+     needed. canRequestTouchExplorationMode below is the *capability*: without
+     it the framework strips FLAG_REQUEST_TOUCH_EXPLORATION_MODE from whatever
+     the service asks for, and a stripped flag makes every
+     setTouchExplorationPassthroughRegion call a silent no-op — the region is
+     accepted and then ignored, which is exactly how this feature failed on
+     device. The *flag* itself still stays out of accessibilityFlags here: the
+     service adds it at runtime, and only while another enabled service already
      explores by touch, so enabling this alone never switches explore-by-touch
      on. See TouchPassthroughService.
 -->
@@ -24,6 +31,7 @@
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:accessibilityFeedbackType="feedbackGeneric"
+    android:canRequestTouchExplorationMode="true"
     android:canRetrieveWindowContent="false"
     android:description="@string/passthrough_service_description"
     android:isAccessibilityTool="true"
