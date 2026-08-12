@@ -213,6 +213,10 @@
     <!-- Small badge on the first alternate, which the keyboard also draws in the corner of the key. -->
     <string name="layout_editor_alternate_hint_badge">hint</string>
 
+    <!-- Turns off the small hint in the corner of this one key. -->
+    <string name="layout_editor_hide_hint_title">Hide the corner hint</string>
+    <string name="layout_editor_hide_hint_subtitle">This key draws no hint. Press and hold still opens the alternates</string>
+
     <string name="layout_editor_role_title">Field adaptation</string>
     <string name="layout_editor_role_subtitle">Email and web fields put @ and / in these two slots</string>
     <string name="layout_editor_role_comma">Comma slot</string>

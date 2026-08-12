@@ -11331,8 +11331,11 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
             // clipboard shortcut show no character hint — the popup never opens
             // there — but an explicit icon hint is an authored annotation, so it
             // stands regardless of the alternates popup.
-            val hintIcon = KeyIcons.byName(key.iconHint)
-            val hint = key.longPress.firstOrNull()
+            //
+            // Key.hideHint silences both: the author asked this one key for a
+            // clean corner while keeping its alternates reachable.
+            val hintIcon = if (key.hideHint) null else KeyIcons.byName(key.iconHint)
+            val hint = if (key.hideHint) null else key.longPress.firstOrNull()
             when {
                 settings.longPressHints && hintIcon != null -> Icon(
                     hintIcon,

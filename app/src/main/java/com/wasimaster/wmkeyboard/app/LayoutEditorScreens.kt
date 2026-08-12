@@ -2331,6 +2331,8 @@ private fun KeyEditSheet(
                 RoleRow(key.role) { onChange(key.copy(role = it)) }
             }
 
+            HideHintRow(key) { onChange(key.copy(hideHint = it)) }
+
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -2471,6 +2473,31 @@ private fun SheetField(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp),
+    )
+}
+
+/**
+ * Turns off the corner hint on this one key.
+ *
+ * Shown only for a key that has a hint to hide, because on every other key the
+ * switch would do nothing visible and it would cost the whole sheet a row. The
+ * test mirrors the keyboard's own draw: an icon hint annotates any key, while the
+ * character hint needs a text key whose press and hold opens the alternates
+ * rather than running a clipboard shortcut. A key already hiding its hint keeps
+ * the switch whatever else changed, or turning it on would be a one-way door.
+ */
+@Composable
+private fun HideHintRow(key: Key, onChange: (Boolean) -> Unit) {
+    val hasIconHint = key.iconHint != null
+    val hasCharHint = key.action == KeyAction.Text &&
+        key.clipboardAction == null &&
+        key.longPress.isNotEmpty()
+    if (!key.hideHint && !hasIconHint && !hasCharHint) return
+    ToggleSetting(
+        title = R.string.layout_editor_hide_hint_title,
+        subtitle = stringResource(R.string.layout_editor_hide_hint_subtitle),
+        checked = key.hideHint,
+        onChange = onChange,
     )
 }
 

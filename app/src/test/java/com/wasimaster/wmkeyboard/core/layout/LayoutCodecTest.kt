@@ -85,6 +85,28 @@ class LayoutCodecTest {
         assertEquals(original, LayoutCodec.decode(LayoutCodec.encode(original)))
     }
 
+    /**
+     * A key that hides its corner hint keeps its alternates: the two are separate
+     * fields on purpose, since clearing `longPress` is what an author does *not*
+     * want here. Also pins the default, because a file written before the field
+     * existed has to keep drawing its hints.
+     */
+    @Test
+    fun `round trips a hint-hiding key without touching its alternates`() {
+        val original = spec(listOf(Key("a", longPress = listOf("@", "à"), hideHint = true)))
+        val decoded = LayoutCodec.decode(LayoutCodec.encode(original))
+        assertEquals(original, decoded)
+        val key = decoded!!.layers.getValue(LayoutLayer.LETTERS.key).rows[0][0]
+        assertEquals(listOf("@", "à"), key.longPress)
+
+        val old = """
+            {"id":"custom_old","name":"Old","langId":"en","version":2,
+             "layers":{"letters":{"rows":[[{"label":"a","longPress":["@"]}]]}}}
+        """.trimIndent()
+        val oldKey = LayoutCodec.decode(old)!!.layers.getValue("letters").rows[0][0]
+        assertEquals(false, oldKey.hideHint)
+    }
+
     @Test
     fun `round trips a list`() {
         val list = listOf(spec(listOf(Key("a"))), spec(listOf(Key("b"))).copy(id = "custom_2"))

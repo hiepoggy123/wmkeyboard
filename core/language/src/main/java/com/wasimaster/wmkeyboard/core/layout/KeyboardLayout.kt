@@ -82,6 +82,18 @@ data class Key(
      */
     val iconHint: String? = null,
     /**
+     * Draws no corner hint on this key, whatever it would otherwise have shown —
+     * the first long-press alternate, or an [iconHint].
+     *
+     * Per-key rather than per-layout because the case it exists for is one key in
+     * an otherwise hinted grid: an author who wants the alternates *reachable*
+     * (so clearing [longPress] is not the answer) but the corner left clean.
+     * A key's own field beats the global [KeyboardSettings.longPressHints]
+     * toggle, which is the other direction — it turns every hint on the board off
+     * at once.
+     */
+    val hideHint: Boolean = false,
+    /**
      * Directional flick outputs for a 12-key kana pad: a flick left/up/right/down
      * from this key commits the matching kana instead of the centre tap. Empty
      * (the usual case) means the key has no flick behaviour and a drag off it just
