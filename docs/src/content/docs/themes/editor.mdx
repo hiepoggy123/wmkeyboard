@@ -46,7 +46,19 @@ Tapping a swatch, or flipping Dark theme, recomputes the board, key, accent, and
 
 <SettingsPath path="Appearance / Keyboard themes / (edit a theme)" />
 
-The rest of the editor is grouped into sections, each opening a standard color picker (with an alpha slider on fields that support translucency) when you tap a row.
+The rest of the editor is grouped into sections, each opening the color picker when you tap a row.
+
+### The color picker
+
+Every color row in the app opens the same dialog, here and over in the tool screens:
+
+- A **wheel** for hue and saturation. Hue runs around it, saturation runs outward from the middle, and the ring follows your finger from the moment you touch it.
+- A **Brightness** bar, plus an **Opacity** bar on the fields that support translucency. Each bar is painted in the colors it's about to hand you, and the opacity one sits on a checkerboard so you can see how much is showing through.
+- A **preview strip** across the top, split down the middle: the color you opened with on the left, the color you have now on the right. Tap the left half to throw away the change and start again.
+- A **Hex** field taking three, six or eight digits, with or without the `#`. Six digits keeps whatever opacity you already set rather than resetting it to solid.
+- A row of **presets**, the same seeds as the swatch row above. Tapping one changes the color and leaves your opacity alone, so a scrim you've already made translucent stays that way.
+
+The button in the dialog's title swaps the wheel for **Hue** and **Saturation** bars, for when you'd rather read exact numbers or move one channel at a time. Those bars are also the ones TalkBack can set. In landscape the wheel sits beside the bars instead of above them.
 
 ### Board
 
