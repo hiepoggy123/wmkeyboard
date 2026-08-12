@@ -112,6 +112,26 @@ object KeyboardFonts {
         ScriptId.HANGUL to "Noto Sans KR",
         ScriptId.JAPANESE to "Noto Sans JP",
         ScriptId.HAN to "Noto Sans SC",
+        // The minority scripts. These went without a face for a while on the
+        // reasoning that a device carrying the script's Noto build would render
+        // them anyway — but that bargain only pays on a device whose system font
+        // set is broad, and it is exactly the scripts here that vendor-trimmed
+        // builds drop first. Naming the family costs nothing when the system
+        // already has the glyphs and fixes the keys when it does not.
+        ScriptId.SYRIAC to "Noto Sans Syriac",
+        ScriptId.TIFINAGH to "Noto Sans Tifinagh",
+        ScriptId.CHEROKEE to "Noto Sans Cherokee",
+        ScriptId.NKO to "Noto Sans NKo",
+        ScriptId.CANADIAN_ABORIGINAL_SYLLABICS to "Noto Sans Canadian Aboriginal",
+        // Tibetan is the one script here with no Noto Sans build — Google Fonts
+        // ships only the serif face.
+        ScriptId.TIBETAN to "Noto Serif Tibetan",
+        ScriptId.OL_CHIKI to "Noto Sans Ol Chiki",
+        ScriptId.MEETEI_MAYEK to "Noto Sans Meetei Mayek",
+        ScriptId.TAI_LE to "Noto Sans Tai Le",
+        ScriptId.VAI to "Noto Sans Vai",
+        ScriptId.OSAGE to "Noto Sans Osage",
+        ScriptId.ADLAM to "Noto Sans Adlam",
         // Notations rather than languages, but the same problem: device fonts
         // rarely carry the SMP Musical Symbols block, and braille dot-cells
         // deserve a face that has all 256 patterns. Missing glyphs still fall

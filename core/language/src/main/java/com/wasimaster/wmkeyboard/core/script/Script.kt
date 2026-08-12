@@ -34,6 +34,22 @@ enum class ScriptId {
     TIBETAN,
     OL_CHIKI, MEETEI_MAYEK, TAI_LE,
 
+    /** Vai (Liberia): a syllabary, U+A500..A63F. Uncased, no composer. */
+    VAI,
+
+    /**
+     * Osage, U+104B0..104FB. Cased — the block encodes separate capital and
+     * small letters — and outside the BMP, so every character is a surrogate
+     * pair. Anything counting characters here has to count code points.
+     */
+    OSAGE,
+
+    /**
+     * Adlam (Pular/Fulani), U+1E900..1E95F. Right to left *and* cased, which
+     * few scripts are, and outside the BMP like [OSAGE].
+     */
+    ADLAM,
+
     /**
      * Western musical notation: the Musical Symbols block (U+1D100..1D1FF) plus
      * the BMP note/accidental characters (U+2669..266F). Not a writing system —
@@ -493,11 +509,7 @@ object ScriptRegistry {
         ),
         // Tai Le (Tai Nuea) is an abugida written left to right with the tone
         // marks as spacing characters after the syllable, so it composes 1:1
-        // rather than clustering. Like Ol Chiki and N'Ko it has no dedicated
-        // font ride: devices that carry Noto Sans Tai Le render it, the rest
-        // show tofu, which is the same bargain the other minority scripts here
-        // already take and still better than the ASCII QWERTY this language
-        // shipped with.
+        // rather than clustering.
         ScriptDef(
             id = ScriptId.TAI_LE,
             direction = TextDirection.LTR,
@@ -505,6 +517,43 @@ object ScriptRegistry {
             composer = ComposerType.NONE,
             fontHint = FontHint.GENERIC,
             unicodeRange = 0x1950..0x197F,
+        ),
+        // Vai is a syllabary — one glyph per consonant-vowel syllable, no
+        // vowel signs and no clustering — so it composes 1:1 and is uncased.
+        ScriptDef(
+            id = ScriptId.VAI,
+            direction = TextDirection.LTR,
+            hasLetterCase = false,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0xA500..0xA63F,
+        ),
+        // Osage is one of the few cased non-Latin scripts: U+104B0..104D3 are
+        // the capitals and U+104D8..104FB the smalls, so shift-uppercasing is
+        // meaningful and `hasLetterCase` is true. It sits outside the BMP, so
+        // its characters are surrogate pairs — see the note on [ScriptId.OSAGE].
+        ScriptDef(
+            id = ScriptId.OSAGE,
+            direction = TextDirection.LTR,
+            hasLetterCase = true,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x104B0..0x104FB,
+        ),
+        // Adlam is right to left and cased (U+1E900..1E921 capitals,
+        // U+1E922..1E943 smalls), a combination no other script here has. Also
+        // outside the BMP. It has combining marks but no virama and no
+        // conjuncts, so it composes 1:1 rather than clustering.
+        ScriptDef(
+            id = ScriptId.ADLAM,
+            direction = TextDirection.RTL,
+            hasLetterCase = true,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x1E900..0x1E95F,
+            // No fullStop override: Unicode gives Adlam an initial exclamation
+            // and question mark (U+1E95E, U+1E95F) but no full stop of its own,
+            // and Adlam text ends a sentence with the ASCII one.
         ),
         // Musical notation composes 1:1 — every key commits its symbol as-is,
         // like IPA. The declared range is the Musical Symbols block; the layout
