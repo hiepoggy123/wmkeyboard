@@ -83,10 +83,10 @@ class KmxProcessor(
         for (group in keyboard.groups) {
             if (!group.usingKeys) continue
             for (rule in group.rules) {
-                when (rule.kind) {
-                    KmxKeyKind.CHARACTER -> if (rule.key == char) return true
-                    else -> if (rule.key == vkey) return true
-                }
+                // A character rule matches what the key types; every other
+                // kind matches the key itself.
+                val wanted = if (rule.kind == KmxKeyKind.CHARACTER) char else vkey
+                if (rule.key == wanted) return true
             }
         }
         return false
@@ -96,13 +96,12 @@ class KmxProcessor(
         beginKeystroke(key)
         if (keyboard.startGroup !in keyboard.groups.indices) return ProcessorResult.Declined
 
-        val ok = runCatching { processGroup(keyboard.groups[keyboard.startGroup]) }
-            .getOrElse {
-                fault = KeymanFault.INTERNAL
-                false
-            }
+        runCatching { processGroup(keyboard.groups[keyboard.startGroup]) }
+            .onFailure { fault = KeymanFault.INTERNAL }
         fault?.let { return ProcessorResult.Failed(it) }
-        if (!ok && emitKeystroke) return ProcessorResult.Declined
+        // `ok` is not consulted: a group that matched nothing still declines
+        // only when it asked to, which `emitKeystroke` records. A rule that
+        // matched and produced no output is a real edit of zero characters.
         if (emitKeystroke) return ProcessorResult.Declined
 
         return ProcessorResult.Edit(
@@ -158,7 +157,16 @@ class KmxProcessor(
         indexStack.fill(0)
     }
 
-    /** `ProcessGroup`. Returns true when a rule matched. */
+    /**
+     * `ProcessGroup`. Returns true when a rule matched.
+     *
+     * The jumps are the reference's own control flow, kept deliberately: this
+     * loop decides which rule wins, and the upstream order of those decisions is
+     * the specification. Restructuring it to please the rule would make the two
+     * unreadable against each other, which is the only way to tell whether this
+     * is still correct.
+     */
+    @Suppress("LoopWithTooManyJumpStatements")
     private fun processGroup(group: KmxGroup): Boolean {
         if (++useDepth > KeymanLimits.MAX_USE_DEPTH) {
             fault = KeymanFault.RECURSION_LIMIT

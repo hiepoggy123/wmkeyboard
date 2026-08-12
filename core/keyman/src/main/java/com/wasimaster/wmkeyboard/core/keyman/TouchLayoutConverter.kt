@@ -187,10 +187,10 @@ object TouchLayoutConverter {
         val capIsLayerName = k.text?.lowercase()?.let { it in layerNames } == true
         val width = ((k.width ?: 100f) / 100f).coerceIn(MIN_WIDTH, MAX_WIDTH)
 
-        when (KeymanKeySp.of(k.sp)) {
-            KeymanKeySp.SPACER, KeymanKeySp.BLANK ->
-                return Key(label = "", action = KeyAction.None, width = width)
-            else -> Unit
+        // A key that holds space rather than typing: both draw as a gap, and
+        // KeyAction.None swallows taps on it.
+        if (KeymanKeySp.of(k.sp) in HOLLOW_KEYS) {
+            return Key(label = "", action = KeyAction.None, width = width)
         }
 
         // Frame keys are recognised by id before text, because the text is not
@@ -241,9 +241,9 @@ object TouchLayoutConverter {
                 // Never the layer's own name: "rightalt" and "default" are
                 // internal identifiers, and printing one on a key puts a word
                 // where the user expects a character.
-                val fallback = when (action) {
-                    KeyAction.Letters -> "ABC"
-                    KeyAction.Symbols -> "?123"
+                val fallback = when {
+                    action == KeyAction.Letters -> "ABC"
+                    action == KeyAction.Symbols -> "?123"
                     else -> "⌨"
                 }
                 return Key(label = label ?: fallback, action = action, width = width)
@@ -489,6 +489,9 @@ object TouchLayoutConverter {
             put("nbsp", SPECIAL_KEYS.getValue("*NBSp*"))
         }
     }
+
+    /** The `sp` values that mean "leave a gap here" rather than "type". */
+    private val HOLLOW_KEYS = setOf(KeymanKeySp.SPACER, KeymanKeySp.BLANK)
 
     private const val DEFAULT_PAD = 5f
     private const val MIN_WIDTH = 0.1f

@@ -57,7 +57,12 @@ object KeymanRuleDownloader {
         /** Upstream has no rules for this keyboard. Not an error. */
         data object NotAvailable : Outcome
 
-        data class Failed(val fault: KeymanFault) : Outcome
+        /**
+         * [message] is already in the user's language when the failure came off
+         * the network, and null when it came from the file itself. Carrying it
+         * is what keeps the underlying exception from being swallowed.
+         */
+        data class Failed(val fault: KeymanFault, val message: String? = null) : Outcome
     }
 
     /**
@@ -115,9 +120,17 @@ object KeymanRuleDownloader {
             store.writeInstalledVersion(keyboardId, meta.version)
             store.invalidate(keyboardId)
             Outcome.Installed(meta.version)
-        } catch (e: Exception) {
-            if (e is kotlinx.coroutines.CancellationException) throw e
-            Outcome.Failed(KeymanFault.TRUNCATED)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Cancellation is the caller leaving the screen, not a failure, and
+            // swallowing it would leave the coroutine looking like it finished.
+            throw e
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            // Everything the network and the filesystem can raise, reported as
+            // one outcome: the row says "try again" either way, and a keyboard
+            // must not crash because a download went wrong. The reason is
+            // carried rather than discarded, worded the way the addon
+            // downloader words its own failures.
+            Outcome.Failed(KeymanFault.TRUNCATED, ToolHttp.friendlyMessage(context, e))
         } finally {
             packageFile.delete()
         }

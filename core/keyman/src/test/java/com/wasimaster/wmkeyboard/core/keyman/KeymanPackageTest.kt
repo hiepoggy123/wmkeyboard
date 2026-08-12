@@ -77,13 +77,13 @@ class KeymanPackageTest {
     /** Reading stops at the cap rather than at whatever the header claims. */
     @Test
     fun `an oversized entry is refused`() {
-        val huge = ByteArray((KeymanLimits.MAX_KMX_BYTES + 1024).toInt())
+        val huge = ByteArray(KeymanLimits.MAX_KMX_BYTES + 1024)
         assertNull(rules(zip("big.kmx" to huge), "big"))
     }
 
     @Test
     fun `an entry at the cap is still read`() {
-        val atCap = ByteArray(KeymanLimits.MAX_KMX_BYTES.toInt()) { 3 }
+        val atCap = ByteArray(KeymanLimits.MAX_KMX_BYTES) { 3 }
         val got = rules(zip("ok.kmx" to atCap), "ok")
         assertEquals(atCap.size, got?.size)
     }

@@ -39,6 +39,7 @@ internal fun KeymanRulesRow(binding: KeymanBinding) {
     var installedVersion by remember(binding.keyboardId) { mutableStateOf<String?>(null) }
     var busy by remember(binding.keyboardId) { mutableStateOf(false) }
     var progress by remember(binding.keyboardId) { mutableStateOf(0) }
+    var failure by remember(binding.keyboardId) { mutableStateOf<String?>(null) }
     var failed by remember(binding.keyboardId) { mutableStateOf(false) }
 
     // Off the main thread: this stats a file, and the settings list builds one
@@ -57,7 +58,7 @@ internal fun KeymanRulesRow(binding: KeymanBinding) {
     val subtitle = when {
         busy && progress > 0 -> stringResource(R.string.languages_keyman_rules_downloading, progress)
         busy -> stringResource(R.string.languages_keyman_rules_checking)
-        failed -> stringResource(R.string.languages_keyman_rules_failed)
+        failed -> failure ?: stringResource(R.string.languages_keyman_rules_failed)
         installedVersion == UNKNOWN_VERSION -> stringResource(R.string.languages_keyman_rules_installed_unknown)
         installedVersion != null ->
             stringResource(R.string.languages_keyman_rules_installed, installedVersion.orEmpty())
@@ -79,11 +80,13 @@ internal fun KeymanRulesRow(binding: KeymanBinding) {
                 }
                 installedVersion = null
                 failed = false
+                failure = null
             }
             return@NavRow
         }
         busy = true
         failed = false
+        failure = null
         progress = 0
         scope.launch {
             val outcome = KeymanRuleDownloader.fetch(
@@ -95,9 +98,14 @@ internal fun KeymanRulesRow(binding: KeymanBinding) {
             when (outcome) {
                 is KeymanRuleDownloader.Outcome.Installed -> installedVersion = outcome.version
                 is KeymanRuleDownloader.Outcome.AlreadyCurrent -> installedVersion = outcome.version
-                is KeymanRuleDownloader.Outcome.NotAvailable,
-                is KeymanRuleDownloader.Outcome.Failed,
-                -> failed = true
+                is KeymanRuleDownloader.Outcome.NotAvailable -> {
+                    failed = true
+                    failure = null
+                }
+                is KeymanRuleDownloader.Outcome.Failed -> {
+                    failed = true
+                    failure = outcome.message
+                }
             }
             busy = false
         }

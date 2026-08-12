@@ -15,6 +15,10 @@ package com.wasimaster.wmkeyboard.core.keyman
  */
 object KmxParser {
 
+    // Sixteen exits, and each one is a distinct way the bytes can be wrong.
+    // Folding them into a nested expression would hide which check failed,
+    // which is the one thing this function exists to report.
+    @Suppress("ReturnCount")
     fun parse(bytes: ByteArray): KeymanResult<KeymanKeyboard> {
         if (bytes.size > KeymanLimits.MAX_KMX_BYTES) {
             return KeymanResult.Failure(KeymanFault.TOO_LARGE)
@@ -64,8 +68,8 @@ object KmxParser {
                 ?: return KeymanResult.Failure(KeymanFault.TRUNCATED)
             val keyArray = r.u32(at + KmxFormat.GROUP_OFF_KEY_ARRAY)
             val keyCount = r.u32(at + KmxFormat.GROUP_OFF_KEY_COUNT)
-            val match = r.string(r.u32(at + KmxFormat.GROUP_OFF_MATCH)) ?: ""
-            val noMatch = r.string(r.u32(at + KmxFormat.GROUP_OFF_NOMATCH)) ?: ""
+            val match = r.string(r.u32(at + KmxFormat.GROUP_OFF_MATCH)).orEmpty()
+            val noMatch = r.string(r.u32(at + KmxFormat.GROUP_OFF_NOMATCH)).orEmpty()
             val usingKeys = r.u32(at + KmxFormat.GROUP_OFF_USING_KEYS) != 0
 
             if (keyCount < 0) return KeymanResult.Failure(KeymanFault.TRUNCATED)
