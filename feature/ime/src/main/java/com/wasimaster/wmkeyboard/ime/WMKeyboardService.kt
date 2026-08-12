@@ -4028,6 +4028,46 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * Offers a frame key to the rule engine before the keyboard's own handler
+     * takes it. Returns true when the engine typed something.
+     *
+     * Space and backspace convert to [KeyAction.Space] and [KeyAction.Delete]
+     * rather than to engine keys, so long-press repeat, auto-space and
+     * double-space-period keep working. That leaves the keyboards whose rules
+     * *do* fire on those keys — a syllable finalised on space, a cluster
+     * deleted whole on backspace — with nothing, which is what this restores:
+     * the engine is asked first and only a decline falls through.
+     *
+     * The prefilter is what keeps it cheap. On the overwhelming majority of
+     * keyboards no rule mentions either key, [KeyProcessor.matches] says so
+     * without touching the context, and the ordinary path runs as before.
+     */
+    private fun runKeymanFrameKey(vkey: Int): Boolean {
+        val session = keymanSession ?: return false
+        val state = _uiState.value
+        if (state.keysTakenByKeyboard) return false
+        // A pending composition belongs to our own composer, and the engine
+        // keeps its own context. Letting both edit one keystroke deletes twice.
+        if (composing.isNotEmpty()) return false
+        val ic = currentInputConnection ?: return false
+
+        val modifiers = KeymanSeam.modifiersFor(
+            shifted = state.shiftState != ShiftState.OFF,
+            capsLocked = state.shiftState == ShiftState.CAPS_LOCK,
+        )
+        if (!session.processor.matches(vkey, modifiers)) return false
+
+        session.syncIfNeeded(expectedSelStart) {
+            ic.getTextBeforeCursor(KEYMAN_CONTEXT_UNITS, 0) ?: ""
+        }
+        val result = session.process(ProcessorKey(vkey, modifiers)) ?: return false
+        val edit = result as? ProcessorResult.Edit ?: return false
+        applyKeymanEdit(ic, session, edit)
+        edit.nextLayer?.let { switchToNamedLayer(it) }
+        return true
+    }
+
+    /**
      * Applies a rule engine edit as one editor transaction.
      *
      * Not through the composing region. `setComposingText` replaces the whole
@@ -4093,6 +4133,10 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     private var activeKeymanKeyboardId: String? = null
+
+    /** Keyman's own virtual keys for the two frame keys the engine may claim. */
+    private val VK_BACKSPACE = 8
+    private val VK_SPACE = 32
 
     /**
      * Springs ?123 back to the letters after one of the user's listed
@@ -4929,6 +4973,9 @@ open class WMKeyboardService : InputMethodService() {
      * backspace key is busy editing the query.
      */
     private fun deleteFromField() {
+        // Inside rather than in onDelete, so the emoji bar's field-backspace
+        // gets the same offer.
+        if (runKeymanFrameKey(VK_BACKSPACE)) return
         val state = _uiState.value
         val ic = currentInputConnection ?: return
         recordStat { onBackspace(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
@@ -5581,6 +5628,11 @@ open class WMKeyboardService : InputMethodService() {
                 maybeAutoCapitalize()
                 return
             }
+        }
+
+        if (runKeymanFrameKey(VK_SPACE)) {
+            lastSpaceTime = now
+            return
         }
 
         // Conversion IME (Pinyin, Japanese): space commits the top candidate for

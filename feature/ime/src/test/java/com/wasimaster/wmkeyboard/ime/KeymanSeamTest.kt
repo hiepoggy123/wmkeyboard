@@ -200,15 +200,4 @@ class KeymanSeamTest {
         assertEquals(ProcessorResult.Declined, session.process(ProcessorKey(65, 0)))
         assertFalse(session.disabled)
     }
-
-    // --- decline routing ---
-
-    @Test
-    fun `declined frame keys route to their own handlers`() {
-        assertEquals(KeymanFallback.Delete, KeymanSeam.declinedFallback(8))
-        assertEquals(KeymanFallback.Tab, KeymanSeam.declinedFallback(9))
-        assertEquals(KeymanFallback.Enter, KeymanSeam.declinedFallback(13))
-        assertEquals(KeymanFallback.Space, KeymanSeam.declinedFallback(32))
-        assertEquals(KeymanFallback.TypeKeyText, KeymanSeam.declinedFallback(65))
-    }
 }

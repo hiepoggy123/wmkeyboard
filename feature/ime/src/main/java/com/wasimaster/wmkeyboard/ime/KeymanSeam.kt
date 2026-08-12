@@ -15,21 +15,6 @@ import com.wasimaster.wmkeyboard.core.keyman.SyncDecision
 object KeymanSeam {
 
     /**
-     * What the host should do when the engine declines a key.
-     *
-     * Keyman's `emit_keystroke` means "no rule of mine applies, type this the
-     * way you would with no engine loaded", so each of these routes to the
-     * handler that key already had.
-     */
-    fun declinedFallback(vkey: Int): KeymanFallback = when (vkey) {
-        VK_BKSP -> KeymanFallback.Delete
-        VK_ENTER -> KeymanFallback.Enter
-        VK_SPACE -> KeymanFallback.Space
-        VK_TAB -> KeymanFallback.Tab
-        else -> KeymanFallback.TypeKeyText
-    }
-
-    /**
      * The caret position the context describes after an edit is applied.
      *
      * Arithmetic, never a read: `onUpdateSelection` fires on every keystroke and
@@ -66,26 +51,11 @@ object KeymanSeam {
     }
 }
 
-/** What the host does with a key the engine declined. */
-enum class KeymanFallback {
-    /** Type the key's own label, the ordinary text path. */
-    TypeKeyText,
-    Delete,
-    Enter,
-    Space,
-    Tab,
-}
-
 /**
  * How much text behind the caret the engine is given when its context has to be
  * rebuilt. Keyman's own window, in UTF-16 code units.
  */
 const val KEYMAN_CONTEXT_UNITS = 64
-
-private const val VK_BKSP = 8
-private const val VK_TAB = 9
-private const val VK_ENTER = 13
-private const val VK_SPACE = 32
 
 /**
  * One input session's worth of engine state: the processor, and how far the
