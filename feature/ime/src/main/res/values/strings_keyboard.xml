@@ -18,6 +18,8 @@
     <string name="ime_key_arrow_down">Down</string>
     <string name="ime_key_escape">Escape</string>
     <string name="ime_key_language_switch">Switch language</string>
+    <!-- Name of the key that opens the system list of keyboards. -->
+    <string name="ime_key_input_method_picker">Switch keyboard</string>
     <string name="ime_key_emoji">Emoji</string>
     <!-- Fallback name for a key that has no label of its own. -->
     <string name="ime_key_generic">Key</string>
@@ -359,6 +361,10 @@
          list, and the content description of the button that closes it. -->
     <string name="ime_language_switch_title">Input language</string>
     <string name="ime_language_switch_close_desc">Close the language list</string>
+
+    <!-- Last row of the language list. It opens the system list of the other
+         keyboards that are installed on the device. -->
+    <string name="ime_language_picker_other_keyboards">Other keyboards…</string>
 
     <!-- The chip the suggestion strip shows for a tool. %1$s is a tool name. -->
     <string name="ime_smart_open_tool">Open %1$s</string>

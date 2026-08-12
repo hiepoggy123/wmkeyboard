@@ -50,6 +50,7 @@ import androidx.compose.material.icons.outlined.GifBox
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.HighlightAlt
 import androidx.compose.material.icons.outlined.ImageSearch
+import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
@@ -241,6 +242,7 @@ object IconDefaults {
         put(IconSlots.KEY_BACKSPACE, Icons.AutoMirrored.Outlined.Backspace)
         put(IconSlots.KEY_FORWARD_DELETE, KeyboardIcons.ForwardDelete)
         put(IconSlots.KEY_GLOBE, Icons.Outlined.Language)
+        put(IconSlots.KEY_INPUT_METHOD_PICKER, Icons.Outlined.Keyboard)
         put(IconSlots.KEY_EMOJI, Icons.Outlined.EmojiEmotions)
         for (action in EnterAction.entries) {
             val slot = enterActionSlot(action) ?: continue

@@ -157,6 +157,7 @@ class ForeignNormalizationTest {
         assertEquals(KeyAction.Symbols, keyActionForCode(-202))
         assertEquals(KeyAction.Emoji, keyActionForCode(-212))
         assertEquals(KeyAction.LanguageSwitch, keyActionForCode(-227))
+        assertEquals(KeyAction.InputMethodPicker, keyActionForCode(-221))
         assertEquals(KeyAction.Mod(ModifierKey.CTRL), keyActionForCode(-1))
         assertEquals(KeyAction.None, keyActionForCode(-999))
     }

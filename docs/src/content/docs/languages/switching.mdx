@@ -48,6 +48,8 @@ Press and hold the spacebar with more than one layout enabled. Shortly before th
 
 Once the list is open, drag vertically to walk it one row at a time. The first bit of finger movement after the list appears is absorbed as calibration, so drift from before the hold fired never selects a neighbor by accident. Lift your finger after moving and the highlighted row is selected. Lift without moving at all and the list stays open, so you can tap the row you want.
 
+The last row, **Other keyboards…**, isn't a layout. It opens Android's own "Choose input method" sheet, which is how you hand the field to a different keyboard app entirely. It sits below the scrolling part of the list so it's always in reach however many layouts you have on, and the hold-drag walk skips it: it's a tap-only row.
+
 <PhoneFrame caption="More than four layouts enabled: holding the spacebar opens a scrollable list instead of the inline preview.">
   {/* shot: languages/hold-drag-picker-list */}
 </PhoneFrame>
@@ -93,7 +95,9 @@ There's no separate "recent languages" or "maximum visible" setting. The ring is
 
 ## Switching from Android's system menu
 
-The **System language switcher** group on the Languages screen connects your switch ring to Android itself:
+Two things open Android's keyboard picker straight from the keys: the **Other keyboards…** row at the bottom of the picker list, and any key you set to **Switch keyboard** in the layout editor (it's in the Layers group of the action picker, see [Custom layouts](/languages/custom-layouts/)). Both put up the system's "Choose input method" sheet, which is where you change to a different keyboard app. If Android refuses to show the sheet, the keyboard opens the input-method settings screen instead, which reaches the same place.
+
+The settings below are about the opposite direction: getting Android's own switcher to list *this* keyboard's languages. The **System language switcher** group on the Languages screen connects your switch ring to Android itself:
 
 - **List languages in the Android switcher** (off by default) registers every enabled layout as an Android input-method subtype, so the system's "Choose input method" sheet lists each one and can switch to it directly. The two stay in sync either way: a switch you make inside the keyboard is mirrored out to Android, and a switch made from the system sheet is followed back into the keyboard. It ships off because the sheet prints a subtype's label where it would otherwise print the keyboard's name, so one language name in that row reads as if the keyboard were called that. Left off, switching stays entirely inside the keyboard and Android sees no subtypes at all.
 - **Show app name first** (off by default, shown only while the toggle above is on) puts "WM Keyboard" ahead of the language in the switcher's label instead of after it. Android still controls which part of the label is bold or greyed; this only changes the text order.

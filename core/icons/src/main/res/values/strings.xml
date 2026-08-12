@@ -42,6 +42,8 @@
     <string name="core_icons_slot_enter_done_label">Enter: done</string>
     <!-- The globe key, which switches to the next language. -->
     <string name="core_icons_slot_globe_label">Switch language</string>
+    <!-- The key that opens the system list of keyboards on the device. -->
+    <string name="core_icons_slot_input_method_picker_label">Switch keyboard</string>
     <string name="core_icons_slot_emoji_key_label">Emoji key</string>
 
     <!-- ================================================================== -->

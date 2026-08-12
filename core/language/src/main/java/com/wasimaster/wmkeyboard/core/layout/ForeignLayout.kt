@@ -466,7 +466,11 @@ internal fun keyActionForCode(code: Int): KeyAction? = when (code) {
     -202, -203 -> KeyAction.Symbols
     -204, -205 -> KeyAction.Numpad
     -212 -> KeyAction.Emoji
-    -221, -227 -> KeyAction.LanguageSwitch
+    // -221 is Florisboard's system input-method picker and -227 the layout
+    // cycle. They used to collapse onto the cycle, which was the closest thing
+    // this keyboard had; -221 now lands on the key it always meant.
+    -221 -> KeyAction.InputMethodPicker
+    -227 -> KeyAction.LanguageSwitch
 
     // Cursor movement and shortcuts, as raw key events.
     -21 -> KeyAction.SendKey(KEYCODE_DPAD_LEFT)

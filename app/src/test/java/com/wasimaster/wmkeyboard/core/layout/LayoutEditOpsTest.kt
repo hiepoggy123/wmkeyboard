@@ -224,8 +224,8 @@ class LayoutEditOpsTest {
         // the same key that only the editor would ever show.
         val drawnAsIcons = listOf(
             KeyAction.Shift, KeyAction.Delete, KeyAction.ForwardDelete,
-            KeyAction.Enter, KeyAction.LanguageSwitch, KeyAction.Emoji,
-            KeyAction.Text, KeyAction.None,
+            KeyAction.Enter, KeyAction.LanguageSwitch, KeyAction.InputMethodPicker,
+            KeyAction.Emoji, KeyAction.Text, KeyAction.None,
         )
         for (action in drawnAsIcons) {
             assertEquals("$action", "", action.fallbackLabel())

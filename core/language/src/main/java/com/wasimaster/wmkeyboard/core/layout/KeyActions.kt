@@ -81,6 +81,23 @@ sealed interface KeyAction {
 
     @Serializable @SerialName("language_switch") data object LanguageSwitch : KeyAction
 
+    /**
+     * Opens the system's keyboard picker — the "Choose input method" list that
+     * holds every keyboard the device has turned on — so the field can be
+     * handed to a different keyboard app.
+     *
+     * A separate action from [LanguageSwitch], not a long-press on it: that one
+     * cycles *our* enabled layouts and never leaves this keyboard, and the two
+     * answer different questions ("type in my other language" against "let me
+     * use my other keyboard"). Keeping them apart is also what lets a layout
+     * bind either one to whichever key it likes.
+     *
+     * The list itself is drawn by the framework and cannot be styled or
+     * filtered: switching the active keyboard is a move only the platform is
+     * allowed to make.
+     */
+    @Serializable @SerialName("input_method_picker") data object InputMethodPicker : KeyAction
+
     @Serializable @SerialName("emoji") data object Emoji : KeyAction
 
     /**
@@ -257,7 +274,7 @@ fun KeyAction.fallbackLabel(): String = when (this) {
     // this stays exhaustive and a new action cannot be added without deciding.
     KeyAction.Text, KeyAction.Shift, KeyAction.CapsLock, KeyAction.Delete,
     KeyAction.ForwardDelete, KeyAction.Enter, KeyAction.LanguageSwitch,
-    KeyAction.Emoji,
+    KeyAction.InputMethodPicker, KeyAction.Emoji,
     -> ""
 }
 

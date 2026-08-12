@@ -3698,6 +3698,7 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(layoutMode = LayoutMode.LETTERS, fnLocked = false, fnReturn = null)
             }
             KeyAction.LanguageSwitch -> switchLanguage()
+            KeyAction.InputMethodPicker -> showInputMethodPicker()
             KeyAction.Emoji -> onPanelChange(PanelMode.EMOJI, haptic = false)
             // Produced only by a long-press on ?123 when the opt-in is set.
             KeyAction.Numpad -> onPanelChange(PanelMode.NUMPAD, haptic = false)
@@ -5776,6 +5777,36 @@ open class WMKeyboardService : InputMethodService() {
         // them into one and make them unreachable from the keyboard.
         val ids = state.settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
         onLayoutSelected(ids[(ids.indexOf(state.layoutId) + 1).mod(ids.size)])
+    }
+
+    /**
+     * Opens the system's keyboard picker, the "Choose input method" list that
+     * holds every keyboard turned on for the device. Reached from a key bound
+     * to [KeyAction.InputMethodPicker] and from the last row of the language
+     * list.
+     *
+     * The buffer is committed first. The picker hands the field to another
+     * keyboard, and text left composing at that moment belongs to a keyboard
+     * that is about to stop owning the input connection, which is how a
+     * half-typed word disappears on the switch.
+     *
+     * The platform only grants this to the keyboard that owns the current input
+     * connection, which is exactly what we are, so unlike the crash screen's
+     * copy of this there is no dance to work out whether it appeared. It is
+     * still wrapped: an OEM build that refuses outright must not take the
+     * keyboard down with it, and the input-method settings screen reaches the
+     * same place in two more presses.
+     */
+    private fun showInputMethodPicker() {
+        currentInputConnection?.let { commitComposing(it, autocorrect = false) }
+        val imm = getSystemService(InputMethodManager::class.java)
+        if (imm != null && runCatching { imm.showInputMethodPicker() }.isSuccess) return
+        runCatching {
+            startActivity(
+                Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
     }
 
     /** Spacebar swipe (or 🌐 cycle): switch to an explicit layout. */

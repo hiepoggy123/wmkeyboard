@@ -1806,6 +1806,7 @@ private fun labelSize(label: String) = when {
  */
 private fun actionIconName(action: KeyAction): String? = when (action) {
     KeyAction.LanguageSwitch -> "language"
+    KeyAction.InputMethodPicker -> "keyboard"
     KeyAction.Emoji -> "emoji"
     else -> null
 }
@@ -1919,6 +1920,12 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
         R.string.layout_editor_action_group_layers,
         R.string.layout_editor_action_switch_layout_detail,
         { KeyAction.LanguageSwitch }, { it == KeyAction.LanguageSwitch },
+    ),
+    KeyActionOption(
+        R.string.layout_editor_action_input_method_picker_title,
+        R.string.layout_editor_action_group_layers,
+        R.string.layout_editor_action_input_method_picker_detail,
+        { KeyAction.InputMethodPicker }, { it == KeyAction.InputMethodPicker },
     ),
     KeyActionOption(
         R.string.layout_editor_action_fn_title,

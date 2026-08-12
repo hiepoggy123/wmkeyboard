@@ -66,6 +66,7 @@ object IconSlots {
     const val KEY_BACKSPACE = "key.backspace"
     const val KEY_FORWARD_DELETE = "key.forward_delete"
     const val KEY_GLOBE = "key.globe"
+    const val KEY_INPUT_METHOD_PICKER = "key.input_method_picker"
     const val KEY_EMOJI = "key.emoji"
 
     /**
@@ -138,6 +139,11 @@ object IconSlots {
         IconSlot(KEY_ENTER_PREVIOUS, IconSlotGroup.KEY, R.string.core_icons_slot_enter_previous_label),
         IconSlot(KEY_ENTER_DONE, IconSlotGroup.KEY, R.string.core_icons_slot_enter_done_label),
         IconSlot(KEY_GLOBE, IconSlotGroup.KEY, R.string.core_icons_slot_globe_label),
+        IconSlot(
+            KEY_INPUT_METHOD_PICKER,
+            IconSlotGroup.KEY,
+            R.string.core_icons_slot_input_method_picker_label,
+        ),
         IconSlot(KEY_EMOJI, IconSlotGroup.KEY, R.string.core_icons_slot_emoji_key_label),
     )
 

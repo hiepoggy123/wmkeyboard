@@ -246,6 +246,8 @@
     <string name="layout_editor_action_emoji_detail">Opens the emoji picker</string>
     <string name="layout_editor_action_switch_layout_title">Switch layout</string>
     <string name="layout_editor_action_switch_layout_detail">Changes to the next layout that you turned on</string>
+    <string name="layout_editor_action_input_method_picker_title">Switch keyboard</string>
+    <string name="layout_editor_action_input_method_picker_detail">Opens the system list of the keyboards on your device, so you can change to a different one</string>
     <string name="layout_editor_action_fn_title">Fn layer</string>
     <string name="layout_editor_action_fn_detail">Changes to the Fn grid of this layout for one key</string>
 

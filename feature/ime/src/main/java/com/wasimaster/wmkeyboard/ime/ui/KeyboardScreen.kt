@@ -123,6 +123,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -613,6 +614,7 @@ private fun spokenLabel(key: Key, state: KeyboardUiState): SpokenLabel = when (k
         },
     )
     KeyAction.LanguageSwitch -> SpokenLabel(R.string.ime_key_language_switch)
+    KeyAction.InputMethodPicker -> SpokenLabel(R.string.ime_key_input_method_picker)
     KeyAction.Emoji -> SpokenLabel(R.string.ime_key_emoji)
     is KeyAction.Mod -> {
         val nameRes = when ((key.action as KeyAction.Mod).key) {
@@ -10453,6 +10455,14 @@ private fun KeyButton(
                     pickerDragIndex = null
                     if (it != layoutId) onLayoutSelect(it)
                 },
+                // Routed through the key dispatch rather than a callback of its
+                // own: the service already answers this action for a key bound
+                // to it, and KeyboardScreen cannot take another parameter.
+                onOtherKeyboards = {
+                    showLanguagePicker = false
+                    pickerDragIndex = null
+                    onKey(Key(label = "", action = KeyAction.InputMethodPicker))
+                },
                 onDismiss = { showLanguagePicker = false; pickerDragIndex = null },
             )
         }
@@ -10578,6 +10588,13 @@ private object FlickPopupPositionProvider : PopupPositionProvider {
  * read like the spacebar (language, with the layout in parentheses when a
  * language has several enabled layouts). Non-focusable like the other key
  * popups so it never steals the edited field's input connection.
+ *
+ * The last row leaves this keyboard entirely, through [onOtherKeyboards]. It is
+ * pinned below the scrolling list rather than being row *n+1* of it, because
+ * this is the only place in the keyboard that offers the system picker and a
+ * user with eight layouts enabled would have to scroll past all of them to find
+ * out it exists. The spacebar hold-drag walks the list by index and so never
+ * lands on it, which is the other reason it sits outside the scroller.
  */
 @Composable
 private fun LanguagePickerPopup(
@@ -10587,6 +10604,7 @@ private fun LanguagePickerPopup(
     customLayouts: List<LayoutSpec>,
     displayMode: SpacebarDisplay,
     onPick: (String) -> Unit,
+    onOtherKeyboards: () -> Unit,
     onDismiss: () -> Unit,
     /**
      * Row a spacebar hold-drag has walked to, or null when the popup is in
@@ -10617,34 +10635,49 @@ private fun LanguagePickerPopup(
             border = kb.popupSurfaceBorder(),
             shadowElevation = 8.dp,
         ) {
-            Column(
-                modifier = Modifier
-                    .widthIn(min = 160.dp, max = 240.dp)
-                    .heightIn(max = 240.dp)
-                    .verticalScroll(scrollState)
-                    .padding(vertical = 4.dp),
-            ) {
-                for ((index, layoutId) in enabledLayoutIds.withIndex()) {
-                    val selected = layoutId == currentLayoutId
-                    val dragged = index == highlightIndex
-                    Text(
-                        text = layoutSwitchLabel(layoutId, enabledLayoutIds, customLayouts, displayMode),
-                        color = if (selected) kb.accent else kb.popupText,
-                        fontWeight = if (selected || dragged) FontWeight.Bold else FontWeight.Normal,
-                        fontSize = 15.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            // Fixed row height — the hold-drag gesture steps its
-                            // highlight by this exact amount of finger travel.
-                            .height(PickerRowHeightDp.dp)
-                            .background(if (dragged || (selected && highlightIndex == null)) kb.pressedKey else Color.Transparent)
-                            .clickable { onPick(layoutId) }
-                            .padding(horizontal = 16.dp)
-                            .wrapContentHeight(Alignment.CenterVertically),
-                    )
+            Column(modifier = Modifier.widthIn(min = 160.dp, max = 240.dp)) {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = 240.dp)
+                        .verticalScroll(scrollState)
+                        .padding(vertical = 4.dp),
+                ) {
+                    for ((index, layoutId) in enabledLayoutIds.withIndex()) {
+                        val selected = layoutId == currentLayoutId
+                        val dragged = index == highlightIndex
+                        Text(
+                            text = layoutSwitchLabel(layoutId, enabledLayoutIds, customLayouts, displayMode),
+                            color = if (selected) kb.accent else kb.popupText,
+                            fontWeight = if (selected || dragged) FontWeight.Bold else FontWeight.Normal,
+                            fontSize = 15.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                // Fixed row height — the hold-drag gesture steps its
+                                // highlight by this exact amount of finger travel.
+                                .height(PickerRowHeightDp.dp)
+                                .background(if (dragged || (selected && highlightIndex == null)) kb.pressedKey else Color.Transparent)
+                                .clickable { onPick(layoutId) }
+                                .padding(horizontal = 16.dp)
+                                .wrapContentHeight(Alignment.CenterVertically),
+                        )
+                    }
                 }
+                HorizontalDivider(color = kb.popupText.copy(alpha = 0.15f))
+                Text(
+                    text = stringResource(R.string.ime_language_picker_other_keyboards),
+                    color = kb.popupText,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(PickerRowHeightDp.dp)
+                        .clickable { onOtherKeyboards() }
+                        .padding(horizontal = 16.dp)
+                        .wrapContentHeight(Alignment.CenterVertically),
+                )
             }
         }
     }
@@ -10733,6 +10766,11 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
         KeyAction.LanguageSwitch -> SlotIcon(
             IconSlots.KEY_GLOBE,
             contentDescription = stringResource(R.string.ime_key_language_switch),
+            tint = contentColor,
+        )
+        KeyAction.InputMethodPicker -> SlotIcon(
+            IconSlots.KEY_INPUT_METHOD_PICKER,
+            contentDescription = stringResource(R.string.ime_key_input_method_picker),
             tint = contentColor,
         )
         KeyAction.Emoji -> SlotIcon(
