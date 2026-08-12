@@ -31,12 +31,13 @@ import languages from '@data/languages.json';
 import wordlists from '@data/wordlists.json';
 import bengali from '@assets/layouts/bn_jatiya.wmlayout.json';
 
-{/* 352 and 333 are computed from the generated data files; the rest are the
-    code-verified figures from CONTENT_GUIDE.md (checked 2026-08-11). */}
+{/* Languages and wordlists are computed from the generated data files; the
+    rest are the code-verified figures from CONTENT_GUIDE.md. Layout count
+    rechecked 2026-08-12 after the Keyman conversion landed. */}
 
 <div class="wm-stats not-content">
 	<a href="/languages/overview/"><strong>{languages.length}</strong> languages</a>
-	<a href="/languages/custom-layouts/"><strong>412</strong> layouts</a>
+	<a href="/languages/custom-layouts/"><strong>1,274</strong> layouts</a>
 	<a href="/languages/dictionaries/"><strong>{wordlists.length}</strong> wordlists</a>
 	<a href="/tools/overview/"><strong>63</strong> toolbar tools</a>
 	<a href="/tools/whisper/"><strong>29</strong> Whisper models</a>
@@ -86,7 +87,7 @@ import bengali from '@assets/layouts/bn_jatiya.wmlayout.json';
 	device. There is a lighter online engine too, if you want it.
 </FeatureRow>
 
-<FeatureRow kicker="Languages" title="352 languages, one keyboard" href="/languages/overview/" linkText="Browse the languages">
+<FeatureRow kicker="Languages" title="843 languages, one keyboard" href="/languages/overview/" linkText="Browse the languages">
 	<Fragment slot="media"><LayoutExplorer layout={bengali} /></Fragment>
 	This is the Bangla National (Jatiya) layout, rendered live from the same key
 	data the app ships. Hover any key to peek at its long-press alternates, or tap

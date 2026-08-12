@@ -151,14 +151,18 @@ widget needs a framework, question it first.
   full rule set and the term glossary live in `../config/i18n/STRINGS.md`, which
   the app's own strings already follow. Descriptive prose stays warm and normal,
   up to 25 words a sentence.
-- Numbers are features. Write "332 languages" and "29 Whisper models", and
+- Numbers are features. Write "843 languages" and "29 Whisper models", and
   verify the number in code before you write it. Headline counts were
-  code-verified on 2026-08-11: 352 registered languages, 372 layouts
-  (18 built-in + 354 asset), 333 wordlists (332 languages), 125 emoji keyword
-  packs, 29 Whisper models, 8 local LLMs, 63 toolbar tools, 12 addon types,
-  8 alternative calendars, 22 fancy-text styles, 18 snippet variables,
-  Emoji 17.0 catalog (1,914 catalog rows; 1,717 base grid entries). Re-verify
-  before reuse. Several of these drift with every feature release.
+  code-verified on 2026-08-12: 843 registered languages (358 hand-written +
+  485 generated from Keyman), 1,274 layouts (18 built-in + 1,256 asset, of
+  which 862 are converted Keyman grids), 333 wordlists (332 languages), 125
+  emoji keyword packs, 29 Whisper models, 8 local LLMs, 63 toolbar tools, 12
+  addon types, 8 alternative calendars, 22 fancy-text styles, 18 snippet
+  variables, Emoji 17.0 catalog (1,914 catalog rows; 1,717 base grid entries).
+  Re-verify before reuse. Several of these drift with every feature release.
+  The language and wordlist counts come from `src/data/*.json`, which
+  `scripts/extract_data.py` regenerates from the Kotlin registries; rerun it
+  after any registry change rather than editing the numbers by hand.
 - The privacy section is the trust anchor. Every network claim there needs a
   file/class reference in a code comment or PR description, even though the
   prose itself stays reference-free.

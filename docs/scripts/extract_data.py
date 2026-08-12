@@ -4,7 +4,8 @@
 Reads the Kotlin sources (regex-based; the registries are declarative enough
 for that to be safe) and writes:
 
-  src/data/languages.json   — every LanguageDef: id, name, English name, script
+  src/data/languages.json   — every LanguageDef: id, name, English name, script,
+                              and whether it came from the converted Keyman set
   src/data/wordlists.json   — every DictionaryCatalog entry: id, language,
                               English name, word count, gz size
 
@@ -18,29 +19,39 @@ import re
 DOCS = pathlib.Path(__file__).resolve().parent.parent
 REPO = DOCS.parent
 LANG_KT = REPO / "core/language/src/main/java/com/wasimaster/wmkeyboard/core/script/Language.kt"
+# The generated half of the registry. Same LanguageDef shape, separate file
+# because it is rewritten wholesale by the Keyman pipeline.
+KEYMAN_KT = REPO / "core/language/src/main/java/com/wasimaster/wmkeyboard/core/script/KeymanLanguages.kt"
 DICT_KT = REPO / "core/prediction/src/main/java/com/wasimaster/wmkeyboard/core/dictionaries/DictionaryCatalog.kt"
 OUT = DOCS / "src/data"
 
-lang_src = LANG_KT.read_text(encoding="utf-8")
-langs = []
-for block in re.finditer(r"LanguageDef\(\s*(.*?)\n\s*\)[,\s]", lang_src, re.S):
-    body = block.group(1)
-    def field(name):
-        m = re.search(rf'{name}\s*=\s*"((?:[^"\\]|\\.)*)"', body)
-        return m.group(1) if m else None
-    ident = field("id")
-    if not ident:
-        continue
-    script = re.search(r"script\s*=\s*ScriptId\.(\w+)", body)
-    langs.append({
-        "id": ident,
-        "name": field("displayName"),
-        "english": field("englishName"),
-        "script": (script.group(1).replace("_", " ").title() if script else ""),
-    })
+def parse_languages(path, keyman):
+    src = path.read_text(encoding="utf-8")
+    out = []
+    for block in re.finditer(r"LanguageDef\(\s*(.*?)\n\s*\)[,\s]", src, re.S):
+        body = block.group(1)
+        def field(name):
+            m = re.search(rf'{name}\s*=\s*"((?:[^"\\]|\\.)*)"', body)
+            return m.group(1) if m else None
+        ident = field("id")
+        if not ident:
+            continue
+        script = re.search(r"script\s*=\s*ScriptId\.(\w+)", body)
+        out.append({
+            "id": ident,
+            "name": field("displayName"),
+            "english": field("englishName"),
+            "script": (script.group(1).replace("_", " ").title() if script else ""),
+            "keyman": keyman,
+        })
+    return out
+
+langs = parse_languages(LANG_KT, keyman=False)
+if KEYMAN_KT.exists():
+    langs += parse_languages(KEYMAN_KT, keyman=True)
 # The registry's GENERIC fallback ("und", never surfaced in UI) is not a language.
 langs = [l for l in langs if l["id"] != "und"]
-assert len(langs) > 300, f"suspiciously few languages parsed: {len(langs)}"
+assert len(langs) > 800, f"suspiciously few languages parsed: {len(langs)}"
 
 by_id = {l["id"]: l for l in langs}
 

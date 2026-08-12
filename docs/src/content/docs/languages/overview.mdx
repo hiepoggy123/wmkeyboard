@@ -1,6 +1,6 @@
 ---
 title: "Languages overview"
-description: "352 languages, each enabled independently with its own layouts, numerals, and dictionary."
+description: "843 languages, each enabled independently with its own layouts, numerals, and dictionary."
 sidebar:
   label: "Overview"
   order: 1
@@ -12,7 +12,7 @@ import KeyCap from '@components/KeyCap.astro';
 import LayoutExplorer from '@components/LayoutExplorer.astro';
 import cherokee from '../../../../../app/src/main/assets/layouts/chr_cherokee.wmlayout.json';
 
-WM Keyboard's language catalogue holds 352 entries. Alongside the languages you'd expect are InScript variants, minority Cyrillic alphabets, and a dozen constructed languages. Every one you enable becomes a full input mode with its own layout, dictionary, and settings, and you move between them without leaving the keyboard.
+WM Keyboard's language catalogue holds 843 entries. Alongside the languages you'd expect are InScript variants, minority Cyrillic alphabets, and a dozen constructed languages. Every one you enable becomes a full input mode with its own layout, dictionary, and settings, and you move between them without leaving the keyboard.
 
 <PhoneFrame caption="The Languages screen: your enabled languages, a device-derived Suggested for you group, and Add language to search the full catalogue.">
   {/* shot: languages/list-overview */}
@@ -93,7 +93,13 @@ A language on a script that forms conjunct clusters (Bengali, Devanagari, Tamil,
 
 ## What ships
 
-WM Keyboard ships 412 layouts in total: 18 built into the app (QWERTY, AZERTY, Dvorak, Colemak, Workman, Halmak, Avro, Probhat, Jatiya, plus dedicated layouts for French, German, Spanish, Korean, Russian, Arabic, Greek, Hebrew, and Hindi) and 394 more bundled as individual layout files, one per language or variant that isn't among those 18.
+WM Keyboard ships 1,274 layouts in total, in three groups.
+
+18 are built into the app: QWERTY, AZERTY, Dvorak, Colemak, Workman, Halmak, Avro, Probhat, Jatiya, plus dedicated layouts for French, German, Spanish, Korean, Russian, Arabic, Greek, Hebrew, and Hindi.
+
+394 more are bundled as individual layout files, one per language or variant that isn't among those 18.
+
+The remaining 862 are key grids converted from the [Keyman keyboards repository](https://github.com/keymanapp/keyboards), which is where most of the long tail comes from. They're what takes the language count past 800. See [Keyman layouts](/languages/keyman/) for what they are and what they can and can't do yet.
 
 Which of them start enabled depends on your phone. A fresh install reads your phone's language list and turns on one layout per language it recognises, up to four, always including English. English is there because it's what fields that force plain ASCII fall back to: passwords, URLs, email addresses. A phone set to Bangla starts with Avro and QWERTY. A phone set only to English starts with QWERTY alone. Your region is *not* used here. Being somewhere is a reason to offer a language, not to switch your keyboard to it.
 
@@ -145,7 +151,7 @@ click a heading to sort.
 <FilterTable
 	columns={[{ label: 'Id' }, { label: 'Name' }, { label: 'English name' }, { label: 'Script' }]}
 	rows={languages.map((l) => [l.id, l.name, l.english, l.script])}
-	placeholder="Filter 352 languages…"
+	placeholder="Filter 843 languages…"
 	caption="Generated from the app's language registry."
 />
 {/* keep it */}

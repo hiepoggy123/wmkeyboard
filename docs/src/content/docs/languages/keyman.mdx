@@ -1,0 +1,61 @@
+---
+title: "Keyman layouts"
+description: "862 key grids converted from the Keyman keyboards repository, covering languages nothing else on Android has a layout for."
+sidebar:
+  order: 9
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+import LayoutExplorer from '@components/LayoutExplorer.astro';
+import khmer from '../../../../../app/src/main/assets/layouts/kmn_khmer_angkor.wmlayout.json';
+
+862 of the layouts in WM Keyboard started life as [Keyman](https://keyman.com/) keyboards. That's where most of the language catalogue's long tail comes from: Adyghe, Hatran, Osage, Cypro-Minoan, and several hundred more that no other Android keyboard ships a layout for.
+
+They behave like any other layout once enabled. They appear under their language in <SettingsPath path="Settings > Languages" />, they're editable in the layout editor, and you can export one as a file like any other.
+
+<LayoutExplorer layout={khmer} />
+
+That's Khmer Angkor, rendered from the same layout data the app ships.
+
+## Where they come from
+
+[Keyman](https://github.com/keymanapp/keyboards) is an SIL Global project. Its repository holds around 930 keyboards, most of them for minority and historical languages, and the release-quality ones are MIT licensed. Every keyboard used here is credited by name and copyright holder in <SettingsPath path="Settings > About > Open-source licences > Keyman keyboard layouts" />.
+
+WM Keyboard isn't affiliated with SIL Global or the Keyman project. We converted the key grids with our own code; these aren't the upstream files.
+
+## What converts, and what doesn't
+
+A Keyman keyboard is two things: the visual key grid, and a set of rules that decide what each keypress actually types. **Only the grid is converted so far.**
+
+What comes across:
+
+- The key grid itself, including every layer the keyboard defines
+- Long-press alternates
+- Flicks, for the four directions WM Keyboard supports
+- The shift layer, folded into per-key shift labels where the two grids line up
+
+What doesn't:
+
+- **Multi-tap keys.** WM Keyboard has no equivalent gesture, so those alternates are dropped.
+- **Diagonal flicks.** Keyman has eight flick directions and WM Keyboard has four. A flick aimed north-east isn't quietly remapped onto the north key, because typing the wrong character is worse than the gesture doing nothing.
+- **Fonts.** Keyman packages ship their own. WM Keyboard uses [its own font system](/themes/fonts/) instead, which already covers these scripts.
+
+## The rules aren't shipped yet
+
+This is the important limitation, and it's worth understanding before you enable one of these layouts.
+
+On a **positional** keyboard, each key types the character printed on it. Those layouts work correctly today, and that's most of the 862.
+
+On a **mnemonic** keyboard, the printed key caps and the typed output are deliberately different. A mnemonic Khmer keyboard has you press the key where `k` sits on a US layout to get ក, and the rules are what perform that mapping. Without them, the key types what its cap says instead.
+
+WM Keyboard has the rule engine built and passing Keyman's own conformance examples, but **the rule files aren't distributed to devices yet**. Until they are, a mnemonic layout types its key caps. The grid is still correct, the long-press alternates are still there, and nothing is broken in a way that damages your text. It just isn't doing the character mapping its author wrote.
+
+If you enable one of these and the output doesn't match the key caps, that's this. It'll start working when the rules ship, with no change on your side.
+
+## Undetermined languages
+
+Five keyboards in the upstream repository declare no language at all. Rather than invent one, WM Keyboard skips them unless the script by itself identifies the language, which is how one of the IPA keyboards gets in. Those five aren't available yet.
+
+## Reporting a bad layout
+
+These were converted in bulk, and nobody on the project reads most of these languages. If a grid is wrong, a key is in the wrong place, or a character is missing, [open an issue](https://github.com/wasi-master/wmkeyboard/issues) and say which layout. Upstream fixes flow back in when the conversion is re-run.
