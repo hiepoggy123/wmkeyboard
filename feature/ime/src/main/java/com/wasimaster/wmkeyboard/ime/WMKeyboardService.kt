@@ -953,7 +953,7 @@ open class WMKeyboardService : InputMethodService() {
      * readiness watcher re-measures coverage after a dictionary download
      * lands — the language and layout it otherwise keys on did not move.
      */
-    private val glideSourcesEpoch = AtomicInteger(0)
+    private val glideSourcesEpoch = MutableStateFlow(0)
 
     /**
      * How a swipe over a phonetic layout is read: Latin keys in, Bengali out.
@@ -1987,6 +1987,7 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.englishAsSecondary =
                     "en" in secondaryIds && !activeLang.isEnglish
                 suggestionEngine?.fieldDetectionShift = fieldDetectionShift(settings)
+                glideSourcesEpoch.update { it + 1 }
             }
         }
 
@@ -2323,7 +2324,7 @@ open class WMKeyboardService : InputMethodService() {
             }
             // A new engine means new word sources; re-ask whether this
             // language and layout can be glided.
-            glideSourcesEpoch.incrementAndGet()
+            glideSourcesEpoch.update { it + 1 }
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog, emojiShortcodes)
             emojiSuggester = EmojiSuggester(catalog, emojiTriggers, emojiShortcodes)
@@ -8140,17 +8141,16 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun startGlideReadinessWatcher() {
         serviceScope.launch {
-            _uiState
-                .map {
-                    GlideGate(
-                        languageId = it.language.id,
-                        converts = it.composer.isTransliterating || it.composer.isConversion,
-                        phonetic = it.composer.isBengaliPhonetic,
-                        alphabet = it.layouts.letterAlphabet,
-                        sources = glideSourcesEpoch.get(),
-                    )
-                }
-                .distinctUntilChanged()
+            combine(_uiState, glideSourcesEpoch) { it, epoch ->
+                GlideGate(
+                    languageId = it.language.id,
+                    converts = it.composer.isTransliterating || it.composer.isConversion,
+                    phonetic = it.composer.isBengaliPhonetic,
+                    alphabet = it.layouts.letterAlphabet,
+                    sources = epoch,
+                )
+            }
+            .distinctUntilChanged()
                 .collect { gate ->
                     // Handed over before coverage is asked, because on a
                     // phonetic layout coverage is a question about the
@@ -15494,7 +15494,7 @@ open class WMKeyboardService : InputMethodService() {
             )
             // A download can be the thing that makes a language glidable, and
             // neither the language nor the layout moved to say so.
-            glideSourcesEpoch.incrementAndGet()
+            glideSourcesEpoch.update { it + 1 }
         }
     }
 
