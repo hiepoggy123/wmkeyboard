@@ -38,6 +38,13 @@ import com.wasimaster.wmkeyboard.core.icons.IconImportResult
 import com.wasimaster.wmkeyboard.core.icons.IconPackFile
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
+import com.wasimaster.wmkeyboard.core.keyman.KeymanResult
+import com.wasimaster.wmkeyboard.core.keyman.KeymanRuleStore
+import com.wasimaster.wmkeyboard.core.keyman.KeymanTouchLayoutReader
+import com.wasimaster.wmkeyboard.core.keyman.TouchLayoutConverter
+import com.wasimaster.wmkeyboard.core.layout.KeymanBinding
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.keyman.KeymanPackage
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
@@ -114,7 +121,19 @@ object WMFileTypes {
         // the file they already have. FlorisBoard's own filter is unaffected —
         // with both installed the user is asked which app to open it with.
         FlexTheme.FILE_EXTENSION,
+        // Keyman's keyboard package, claimed for the same reason as `.flex`:
+        // someone arriving with a keyboard they already use should be able to
+        // open it. Keyman's own filter is unaffected, and with both installed
+        // Android asks which app should handle it.
+        KEYMAN_PACKAGE_EXTENSION,
     )
+
+    /**
+     * Keyman's package extension. A bare constant rather than a reference into
+     * `:core:keyman`, because that module describes what is *inside* a package
+     * and has no opinion about what a file is called.
+     */
+    const val KEYMAN_PACKAGE_EXTENSION = "kmp"
 
     /** First four bytes of every ZIP local file header. */
     private val ZIP_MAGIC = byteArrayOf(0x50, 0x4B, 0x03, 0x04)
@@ -146,6 +165,16 @@ object WMFileTypes {
          * what did not. A converted theme must never be presented as one of ours.
          */
         data class FlorisTheme(val result: FlexResult) : Opened
+
+        /**
+         * A Keyman keyboard package: the grid, and the rules that decide what
+         * its keys type.
+         *
+         * Carries the whole contents rather than a converted layout because the
+         * rules are installed alongside it, and a package that turned out to
+         * hold no grid still has something worth saying about it.
+         */
+        data class KeymanPackageFile(val contents: KeymanPackage.Contents) : Opened
 
         /**
          * An encrypted config bundle. Nothing but the header has been read: the
@@ -262,6 +291,17 @@ object WMFileTypes {
 
         // Converting reads the whole archive, so it happens only once the
         // manifest has said the archive is worth reading.
+        // Keyman's manifest has no format tag to check, so the file name it
+        // arrived under is the evidence, the same way a .wmtheme.json is. The
+        // read below is what actually confirms it: a manifest that names no
+        // keyboard comes back null and the archive falls through as
+        // unrecognised.
+        if (isKeymanManifest(manifest)) {
+            val contents = runCatching {
+                context.contentResolver.requireInputStream(uri).use { KeymanPackage.read(it) }
+            }.getOrNull()
+            return if (contents != null) Opened.KeymanPackageFile(contents) else Opened.Unrecognized
+        }
         if (isFlexManifest(manifest)) {
             val result = runCatching {
                 context.contentResolver.requireInputStream(uri).use { FlexTheme.read(it) }
@@ -311,7 +351,20 @@ object WMFileTypes {
      * reading any Lua.
      */
     private val ARCHIVE_MANIFESTS =
-        setOf(StickerPackFile.MANIFEST, PluginFile.MANIFEST, FlexTheme.MANIFEST)
+        setOf(
+            StickerPackFile.MANIFEST,
+            PluginFile.MANIFEST,
+            FlexTheme.MANIFEST,
+            KeymanPackage.MANIFEST,
+        )
+
+    /**
+     * Whether a manifest is Keyman's. Matched on the two fields every package
+     * carries and nothing else does, because `kmp.json` has no format tag of its
+     * own to check.
+     */
+    private fun isKeymanManifest(manifest: String): Boolean =
+        manifest.contains("\"keyboards\"") && manifest.contains("\"system\"")
 
     /** The provider's display name for [uri], or its last path segment. */
     fun displayName(context: android.content.Context, uri: Uri): String {
@@ -513,6 +566,78 @@ private fun ImportFileDialog(
 }
 
 /**
+ * What a Keyman package offers, and what installing it does.
+ *
+ * A package is two things at once: a grid, and the rules that decide what its
+ * keys type. Both are installed together, which is the whole reason to accept a
+ * package rather than the touch layout on its own.
+ *
+ * The rules land in the same directory the downloader writes to, so a keyboard
+ * installed from a file behaves exactly like one whose rules were fetched.
+ */
+private fun keymanProposal(
+    contents: KeymanPackage.Contents,
+    repository: SettingsRepository,
+    context: android.content.Context,
+): ImportProposal {
+    val doc = contents.touchLayoutJson
+        ?.let { KeymanTouchLayoutReader.parse(it) as? KeymanResult.Success }
+        ?.value
+    val converted = doc
+        ?.let { TouchLayoutConverter.convert(it, contents.keyboardId, contents.name) }
+        ?.let { it as? KeymanResult.Success }
+        ?.value
+
+    if (converted == null) {
+        return ImportProposal(
+            titleRes = R.string.import_name_title,
+            titleArg = contents.name,
+            body = context.getString(R.string.import_keyman_no_grid_body),
+            apply = { context.getString(R.string.import_keyman_no_grid_body) },
+        )
+    }
+
+    // The language the package names, when it is one this build knows. A tag we
+    // do not carry falls back to the script guess rather than inventing an
+    // entry, which is the same rule the bundled set follows.
+    val declared = contents.languages.firstOrNull { LanguageRegistry.byId(it).id == it }
+
+    return ImportProposal(
+        titleRes = R.string.import_name_title,
+        titleArg = contents.name,
+        body = context.getString(
+            if (contents.rules != null) R.string.import_keyman_body_with_rules
+            else R.string.import_keyman_body_no_rules,
+        ),
+        repairs = converted.repairNotes.map { it.format(context.resources) },
+        apply = {
+            val id = "custom_${System.currentTimeMillis()}"
+            val binding = contents.rules?.let {
+                KeymanBinding(keyboardId = contents.keyboardId)
+            }
+            repository.upsertCustomLayout(
+                converted.layout.copy(
+                    id = id,
+                    langId = declared ?: "en",
+                    // Only claim a binding when the rules actually landed, or
+                    // the engine would look for a file that is not there.
+                    keyman = binding,
+                ),
+            )
+            contents.rules?.let { bytes ->
+                val store = KeymanRuleStore(context)
+                store.ruleFile(contents.keyboardId)?.let { file ->
+                    file.parentFile?.mkdirs()
+                    file.writeBytes(bytes)
+                    store.invalidate(contents.keyboardId)
+                }
+            }
+            context.getString(R.string.import_done_name, contents.name)
+        },
+    )
+}
+
+/**
  * Turns a read file into what the dialog should say and do. Every branch mirrors
  * the equivalent in-app import so an opened file and a picked file behave the
  * same — including reading first and asking before anything is written.
@@ -550,6 +675,9 @@ private fun rememberProposal(
         }
 
         is WMFileTypes.Opened.FlorisTheme -> florisProposal(state.result, repository, context)
+
+        is WMFileTypes.Opened.KeymanPackageFile ->
+            keymanProposal(state.contents, repository, context)
 
         is WMFileTypes.Opened.Layout -> ImportProposal(
             titleRes = R.string.import_name_title,

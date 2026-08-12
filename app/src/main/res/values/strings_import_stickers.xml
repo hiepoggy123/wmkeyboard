@@ -22,6 +22,9 @@
          import_name_title ("Import the theme?") and import_done_name. -->
     <string name="import_theme_fallback_name">the theme</string>
     <string name="import_theme_body">The app adds the theme to your themes and uses it on the keyboard.</string>
+    <string name="import_keyman_body_with_rules">This is a Keyman keyboard package. The app will add its key grid as a layout and install its typing rules, so its keys type what its author intended.</string>
+    <string name="import_keyman_body_no_rules">This is a Keyman keyboard package. The app will add its key grid as a layout. The package holds no typing rules, so each key types the character printed on it.</string>
+    <string name="import_keyman_no_grid_body">This Keyman package holds no on-screen keyboard, so there is no layout to add. Packages built for desktop computers only are like this.</string>
     <!-- Languages is the name of a screen in the settings app. -->
     <string name="import_layout_body">The app adds the layout to your layouts. The layout stays off. To type with it, turn it on in Languages.</string>
 

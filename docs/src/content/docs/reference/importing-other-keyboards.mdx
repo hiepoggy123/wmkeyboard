@@ -19,10 +19,11 @@ Conversion is honest about being lossy. A layout import always ends on a confirm
 | `.txt` layout | HeliBoard | A custom layout |
 | `.flex` theme | FlorisBoard 0.5 and later | One theme, one look per theme in the file |
 | `.keyman-touch-layout` | Keyman | A custom layout, without the keyboard's rules |
+| `.kmp` package | Keyman | A custom layout **and** its typing rules |
 
 HeliBoard's JSON layouts use FlorisBoard's format, so one reader handles both.
 
-**Keyman is a different story.** 862 Keyman key grids are already built into the app, so for most of them there's nothing to import. You can still open a `.keyman-touch-layout` file yourself, which is how you'd add a keyboard that isn't bundled or one you're writing. Full `.kmp` packages aren't read yet. See [Keyman layouts](/languages/keyman/).
+**Keyman is a different story.** 862 Keyman key grids are already built into the app, so for most of them there's nothing to import. You can still open a `.keyman-touch-layout` file or a full `.kmp` package yourself, which is how you'd add a keyboard that isn't bundled or one you're writing. A `.kmp` brings its typing rules with it; a touch layout file does not. See [Keyman layouts](/languages/keyman/).
 
 ## Layouts
 

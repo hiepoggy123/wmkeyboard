@@ -127,4 +127,95 @@ class KeymanPackageTest {
         checkNotNull(javaClass.classLoader?.getResourceAsStream("kmx/$name")) {
             "missing fixture kmx/$name"
         }.use { it.readBytes() }
+
+    private fun jsFixture(id: String): ByteArray =
+        checkNotNull(javaClass.classLoader?.getResourceAsStream("js/$id.js")) {
+            "missing fixture js/$id.js"
+        }.use { it.readBytes() }
+
+    /**
+     * A package shaped like the real thing, built from the real parts.
+     *
+     * Assembled here rather than vendored because a genuine `.kmp` is mostly
+     * fonts, and none of what this reads depends on them being present.
+     */
+    private fun packageZip(id: String, manifest: String = manifestFor(id)): ByteArray = zip(
+        "kmp.json" to manifest.toByteArray(),
+        "kmp.inf" to "[Package]".toByteArray(),
+        "$id.js" to jsFixture(id),
+        "$id.kmx" to fixtureBytes("$id.kmx"),
+        "welcome.htm" to "<html/>".toByteArray(),
+        "font.ttf" to ByteArray(512),
+    )
+
+    private fun manifestFor(id: String): String = """
+        {"system":{"fileVersion":"7.0"},
+         "keyboards":[{"id":"$id","name":"Test $id","version":"1.0",
+           "languages":[{"id":"km","name":"Khmer"},{"id":"en","name":"English"}]}]}
+    """.trimIndent()
+
+    @Test
+    fun `a package gives up its keyboard, grid and rules`() {
+        val contents = checkNotNull(KeymanPackage.read(ByteArrayInputStream(packageZip("khmer_angkor"))))
+        assertEquals("khmer_angkor", contents.keyboardId)
+        assertEquals("Test khmer_angkor", contents.name)
+        assertEquals(listOf("km", "en"), contents.languages)
+        assertTrue("no grid came out", contents.isUsable)
+        assertTrue("no rules came out", contents.rules != null)
+        assertTrue(
+            "the rules did not parse",
+            KmxParser.parse(contents.rules!!) is KeymanResult.Success,
+        )
+    }
+
+    /** The grid out of a package must convert the same as any other. */
+    @Test
+    fun `the grid from a package converts`() {
+        val contents = KeymanPackage.read(ByteArrayInputStream(packageZip("lao_2008_basic")))!!
+        val doc = KeymanTouchLayoutReader.parse(contents.touchLayoutJson!!)
+        assertTrue(doc is KeymanResult.Success)
+        val converted = TouchLayoutConverter.convert(
+            (doc as KeymanResult.Success).value,
+            contents.keyboardId,
+            contents.name,
+        )
+        assertTrue("package grid did not convert", converted is KeymanResult.Success)
+    }
+
+    /** Without a manifest it is some other ZIP, not a keyboard package. */
+    @Test
+    fun `an archive with no manifest is not a package`() {
+        val archive = zip("thing.js" to jsFixture("basic_kbdus"))
+        assertNull(KeymanPackage.read(ByteArrayInputStream(archive)))
+    }
+
+    @Test
+    fun `a malformed manifest is refused rather than guessed at`() {
+        for (bad in listOf("{}", "not json", """{"keyboards":[]}""", """{"keyboards":[{}]}""")) {
+            assertNull(
+                "accepted manifest: $bad",
+                KeymanPackage.read(ByteArrayInputStream(packageZip("basic_kbdus", bad))),
+            )
+        }
+    }
+
+    /** A package with no compiled keyboard has no grid, and says so. */
+    @Test
+    fun `a package with no compiled keyboard is unusable, not null`() {
+        val archive = zip(
+            "kmp.json" to manifestFor("x").toByteArray(),
+            "x.kmx" to fixtureBytes("basic_kbdus.kmx"),
+        )
+        val contents = checkNotNull(KeymanPackage.read(ByteArrayInputStream(archive)))
+        assertEquals("x", contents.keyboardId)
+        assertTrue("should have no grid", !contents.isUsable)
+        assertTrue("rules should still be there", contents.rules != null)
+    }
+
+    @Test
+    fun `reading a package never throws on rubbish`() {
+        for (bytes in listOf(ByteArray(0), byteArrayOf(1, 2, 3), "PK".toByteArray())) {
+            assertNull(KeymanPackage.read(ByteArrayInputStream(bytes)))
+        }
+    }
 }

@@ -253,6 +253,10 @@
                 <data android:pathPattern=".*\\..*\\.flex" />
                 <data android:pathPattern=".*\\..*\\..*\\.flex" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.flex" />
+                <data android:pathPattern=".*\\.kmp" />
+                <data android:pathPattern=".*\\..*\\.kmp" />
+                <data android:pathPattern=".*\\..*\\..*\\.kmp" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.kmp" />
             </intent-filter>
 
             <intent-filter android:label="@string/import_file_label">
@@ -300,6 +304,10 @@
                 <data android:pathPattern=".*\\..*\\.flex" />
                 <data android:pathPattern=".*\\..*\\..*\\.flex" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.flex" />
+                <data android:pathPattern=".*\\.kmp" />
+                <data android:pathPattern=".*\\..*\\.kmp" />
+                <data android:pathPattern=".*\\..*\\..*\\.kmp" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.kmp" />
             </intent-filter>
         </activity>
 

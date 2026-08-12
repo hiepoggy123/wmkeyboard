@@ -68,7 +68,11 @@ Five keyboards in the upstream repository declare no language at all. Rather tha
 
 Pick a `.keyman-touch-layout` file. The app reads the grid, then shows you what the conversion did and asks which language the layout belongs to. See [Importing from other keyboards](/reference/importing-other-keyboards/) for how that dialog works.
 
-This is for keyboards that aren't bundled, and for one you're writing yourself. A touch layout file holds no rules, so an imported layout types its key caps and has no Typing rules row. Full `.kmp` packages aren't supported yet.
+A touch layout file holds no rules, so a layout imported that way types its key caps.
+
+You can also open a **`.kmp` keyboard package** straight from a file manager. A package carries both the grid and the rules, so it's the one route that gives you a working keyboard in a single step, and it's how you'd install a keyboard that isn't in the bundled set at all. The app reads the grid out of the compiled keyboard inside the package, installs the rules alongside it, and tells you which of the two it found.
+
+A package built for desktop computers only has no on-screen keyboard in it, so there's nothing to add. The app says so rather than adding an empty layout.
 
 ## Reporting a bad layout
 
