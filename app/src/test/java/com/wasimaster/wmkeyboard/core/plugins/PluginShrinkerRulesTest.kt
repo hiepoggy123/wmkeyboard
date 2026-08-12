@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.plugins
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.lang.reflect.Modifier
 
 /**
  * Guards the plugin sandbox against the one shrinker failure no other test can see.
@@ -38,6 +39,57 @@ class PluginShrinkerRulesTest {
             "R8 strips these, and LuaJ then resolves them with Class.forName and fails: $unkept",
             unkept.isEmpty(),
         )
+    }
+
+    /**
+     * Keeping the class is half the job. LuaJ's helpers are package-private, and
+     * `LibFunction.bind` instantiates them with `Class.newInstance` from inside
+     * their own package — but a `-keep` rule pins the *target* to its package
+     * while R8 is free to repackage the *caller* into the root package. That
+     * turns a same-package access into a cross-package one and the load fails
+     * with IllegalAccessException one step past where it used to fail.
+     */
+    @Test
+    fun `packages survive shrinking wherever a class-by-name reference is not public`() {
+        val pinned = pinnedPackages(proguardRules())
+        val exposed = luajClassesReachedByName()
+            .filter { !isPubliclyConstructible(it) }
+            .map { it.substringBeforeLast('.') }
+            .distinct()
+            .filterNot { pkg -> pinned.any { it.matches(pkg) } }
+
+        assertTrue(
+            "these packages hold package-private classes LuaJ instantiates reflectively, " +
+                "so R8 must not repackage them; add -keeppackagenames: $exposed",
+            exposed.isEmpty(),
+        )
+    }
+
+    /** True when neither the class nor its no-arg constructor needs same-package access. */
+    private fun isPubliclyConstructible(name: String): Boolean {
+        val type = runCatching { Class.forName(name) }.getOrNull() ?: return true
+        val constructor = runCatching { type.getDeclaredConstructor() }.getOrNull() ?: return true
+        return Modifier.isPublic(type.modifiers) && Modifier.isPublic(constructor.modifiers)
+    }
+
+    /** The `-keeppackagenames` filters, as matchers over a package name. */
+    private fun pinnedPackages(rules: String): List<Regex> =
+        KEEP_PACKAGES.findAll(rules)
+            .map { Regex("^${filterToPattern(it.groupValues[1].trim())}$") }
+            .toList()
+
+    /** A ProGuard name filter as a regex: `**` spans dots, `*` stops at one. */
+    private fun filterToPattern(filter: String): String {
+        val out = StringBuilder()
+        var i = 0
+        while (i < filter.length) {
+            when {
+                filter.startsWith("**", i) -> { out.append(".*"); i += 2 }
+                filter[i] == '*' -> { out.append("[^.]*"); i++ }
+                else -> { out.append(Regex.escape(filter[i].toString())); i++ }
+            }
+        }
+        return out.toString()
     }
 
     /**
@@ -85,5 +137,7 @@ class PluginShrinkerRulesTest {
 
         /** A class *name* handed to Class.forName: dots. */
         val LUAJ_NAME = Regex("""org\.luaj\.vm2\.[A-Za-z0-9_.${'$'}]+""")
+
+        val KEEP_PACKAGES = Regex("""^\s*-keeppackagenames\s+(\S+)""", RegexOption.MULTILINE)
     }
 }

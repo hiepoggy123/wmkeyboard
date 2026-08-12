@@ -125,6 +125,16 @@
 -keep class org.luaj.vm2.lib.Bit32Lib$Bit32Lib2 { <init>(); }
 -keep class org.luaj.vm2.lib.Bit32Lib$Bit32LibV { <init>(); }
 
+# And keeping them is only half of it, because both classes are package-private
+# and so is the constructor bind reaches. R8 repackages what it can into the root
+# package, which moved LibFunction — the class that actually calls newInstance —
+# out of org.luaj.vm2.lib while the two -keep rules above pinned its targets to
+# it. Same-package access became cross-package access and the load failed a step
+# later with IllegalAccessException instead. Pinning the package names costs
+# nothing: the class names inside them are still obfuscated, and nothing here is
+# reached by name from outside.
+-keeppackagenames org.luaj.**
+
 # --- AndroidX WorkManager & Room (transitive ML Kit dependency) --------------
 # Room database implementations (e.g. WorkDatabase_Impl) are instantiated reflectively
 # by androidx.startup during app launch.
