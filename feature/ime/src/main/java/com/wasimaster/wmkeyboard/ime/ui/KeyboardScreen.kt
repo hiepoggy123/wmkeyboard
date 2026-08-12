@@ -379,6 +379,7 @@ import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
 import com.wasimaster.wmkeyboard.core.layout.expandNumberRowForTablet
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
 import com.wasimaster.wmkeyboard.core.layout.roleIn
+import com.wasimaster.wmkeyboard.core.layout.rowScaledKeyHeight
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
 import com.wasimaster.wmkeyboard.core.layout.Layouts
 import kotlinx.coroutines.Dispatchers
@@ -10013,20 +10014,6 @@ internal fun keyRowsHeight(state: KeyboardUiState): Dp {
     }
     return height
 }
-
-/**
- * A row's key height in dp after applying its optional [scale] multiplier,
- * clamped to a sane range and rounded to whole dp. A null or 1.0 scale (the
- * common case) returns [baseKeyHeightDp] untouched. Shared by the [KeyRows]
- * render loop and [keyRowsHeight] so the reserved and drawn heights agree to
- * the pixel.
- */
-private fun rowScaledKeyHeight(baseKeyHeightDp: Int, scale: Float?): Int =
-    if (scale == null || scale == 1f) {
-        baseKeyHeightDp
-    } else {
-        (baseKeyHeightDp * scale.coerceIn(0.4f, 2.5f)).roundToInt().coerceAtLeast(1)
-    }
 
 /**
  * One key's tremor filter — the "ignore repeated presses" accessibility

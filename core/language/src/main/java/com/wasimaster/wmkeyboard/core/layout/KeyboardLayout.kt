@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import kotlin.math.floor
 import kotlin.math.roundToInt
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -133,3 +134,120 @@ fun gridWeightOf(rows: List<List<Key>>): Float {
  */
 fun sidePadFor(row: List<Key>, gridWeight: Float): Float =
     (gridWeight - row.sumOf { it.width.toDouble() }.toFloat()) / 2f
+
+/**
+ * The resolution a [Key.width] or a [LayerSpec.rowHeights] entry is edited at:
+ * two decimals.
+ *
+ * The editor used to move both in quarter steps, which cannot express the width
+ * a row of seven keys needs to fill a ten-wide grid (10 ÷ 7 = 1.43). Two
+ * decimals can, and it is also the precision every one of these numbers is
+ * *shown* at, so what the screen says is what the file holds. A free float is
+ * the thing this is not: people hand-edit these layouts as JSON, and 1.4285715
+ * in a file is noise no one can read or type back.
+ *
+ * One hundredth of a grid unit is about a third of a dp on a phone, so nothing
+ * is lost by rounding to it.
+ */
+const val GridUnitStep = 0.01f
+
+/**
+ * [value] at [GridUnitStep] resolution.
+ *
+ * Non-finite and absurd values pass through untouched rather than saturating
+ * through `Int`: a layout from a file can hold anything, and clamping it is
+ * `repair`'s job, not this function's.
+ */
+fun roundGridUnit(value: Float): Float =
+    if (!value.isFinite() || value > 1e6f || value < -1e6f) {
+        value
+    } else {
+        (value * 100f).roundToInt() / 100f
+    }
+
+/**
+ * [row] scaled so its keys add up to [gridWeight], keeping every key's share of
+ * the row.
+ *
+ * The fix for the one thing quarter steps made unreachable: a row of keys of
+ * *different* sizes that has to land exactly on the grid. Scaling keeps the
+ * proportions the author chose, where widening one key to fill the slack (the
+ * key sheet's "Fill the row") changes them.
+ *
+ * The row has to land *exactly*, or the warning this is the button for stays on
+ * screen after pressing it. Rounding each key on its own does not: twenty-four
+ * keys each losing up to half a hundredth leave the row an eighth of a key
+ * short. So the arithmetic is done in whole hundredths and the leftover ones are
+ * handed out largest-fraction-first, the way seats are apportioned — every key
+ * ends within one hundredth of its exact share, and the row sums to the target
+ * by construction rather than by luck.
+ */
+fun fitRowToGrid(row: List<Key>, gridWeight: Float): List<Key> {
+    if (row.isEmpty() || !gridWeight.isFinite() || gridWeight <= 0f) return row
+    // Far past MaxRowWidth. A grid weight this size is a broken file rather than
+    // a wide layout, and scaling to it would write widths repair has to undo.
+    if (gridWeight > MaxRowWidth * 10f) return row
+    val total = row.sumOf { it.width.toDouble() }
+    if (!total.isFinite() || total <= 0.0) return row
+    val target = (gridWeight.toDouble() * 100.0).roundToInt()
+    // Not enough to give every key the hundredth that keeps it from validating
+    // as a zero-width key.
+    if (target < row.size) return row
+
+    val scale = target / total
+    val exact = row.map { it.width.toDouble() * scale }
+    val units = exact.mapTo(ArrayList(row.size)) { floor(it).toInt().coerceAtLeast(1) }
+    var slack = target - units.sum()
+
+    // The hundredths that fell off the floor go to the keys that lost the most.
+    if (slack > 0) {
+        val byFraction = exact.indices.sortedByDescending { exact[it] - floor(exact[it]) }
+        var i = 0
+        while (slack > 0) {
+            units[byFraction[i % byFraction.size]]++
+            slack--
+            i++
+        }
+    }
+    // The other direction: keys floored up to one hundredth can overshoot the
+    // target, and the widest keys are where a hundredth shows least.
+    if (slack < 0) {
+        val byWidth = exact.indices.sortedByDescending { exact[it] }
+        var i = 0
+        while (slack < 0 && i < byWidth.size * (target + 1)) {
+            val index = byWidth[i % byWidth.size]
+            if (units[index] > 1) {
+                units[index]--
+                slack++
+            }
+            i++
+        }
+    }
+    return row.mapIndexed { index, key -> key.copy(width = units[index] / 100f) }
+}
+
+/**
+ * A row's key height in dp after applying its optional [scale] multiplier,
+ * clamped to a sane range and rounded to whole dp. A null or 1.0 scale (the
+ * common case) returns [baseKeyHeightDp] untouched.
+ *
+ * Lives here rather than beside the render loop because three places need the
+ * same answer: the loop that draws the row, the pass that reserves height for
+ * it, and the layout editor's preview. The editor is in another module, and a
+ * preview that disagreed with the keyboard about how tall a row is would be
+ * showing the user a keyboard they do not have.
+ */
+fun rowScaledKeyHeight(baseKeyHeightDp: Int, scale: Float?): Int =
+    if (scale == null || scale == 1f) {
+        baseKeyHeightDp
+    } else {
+        (baseKeyHeightDp * scale.coerceIn(MinRowHeightScale, MaxRowHeightScale))
+            .roundToInt()
+            .coerceAtLeast(1)
+    }
+
+/** The shortest a per-row height multiplier is honoured at. */
+const val MinRowHeightScale = 0.4f
+
+/** The tallest a per-row height multiplier is honoured at. */
+const val MaxRowHeightScale = 2.5f

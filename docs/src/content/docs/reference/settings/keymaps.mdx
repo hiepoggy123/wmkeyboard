@@ -79,7 +79,9 @@ A layout has up to **nine layers**, switchable with a row of chips across the to
 
 Undo and redo icon buttons sit above the grid, next to a "The app saves every change" label, because every edit writes immediately. Undo holds up to **30** whole-layout snapshots, for the current session only. They aren't persisted and they aren't diffs: restoring a full snapshot per step is simpler than giving every edit an inverse. Editing inside one key's bottom sheet coalesces into a single undo step for that sheet rather than one step per keystroke.
 
-Tap a key to select it and open its edit sheet (below). Selecting also reveals a **row action bar**: a "Row N" label, then three icon buttons that add a key to the row, duplicate the row, and delete the row. Delete is disabled once only one row is left. If that row's total key width disagrees with the rest of the layer, a red warning reads "This row is *X* wide. The grid is *Y*." Right below the bar, a **row height** slider covers the selected row specifically, with preset chips at ×0.75, ×1, ×1.25, ×1.5 and ×2.
+Tap a key to select it and open its edit sheet (below). Selecting also reveals a **row action bar**: a "Row N" label, then three icon buttons that add a key to the row, duplicate the row, and delete the row. Delete is disabled once only one row is left. If that row's total key width disagrees with the rest of the layer, a red warning reads "This row is *X* wide. The grid is *Y*.", and under it a **Fit the row to the grid (*Y*)** button scales every key in the row by the same factor until the row lands exactly on the grid. That keeps a row of deliberately mixed key sizes in proportion, which is the difference between it and the key sheet's "Fill the row", which grows one key into the slack. The button only appears while the row and the grid actually disagree.
+
+Right below that, a **row height** slider covers the selected row specifically: a continuous slider from ×0.4 to ×2.5, then a minus / value / plus stepper, then preset chips at ×0.75, ×1, ×1.25, ×1.5 and ×2. The range is the one the keyboard itself honours, so nothing you can set here gets clamped at typing time. The grid preview draws each row at its own height, so a row you make taller looks taller while you edit it.
 
 Below the grid:
 
@@ -110,7 +112,9 @@ Tapping a key opens a bottom sheet headed "Row *N*, key *M*", with, in order:
 - **Action**: opens a picker with **26 options across six groups**: Typing (types text, shift, caps lock, delete, forward delete, space, enter), Layers (symbols page, letters page, emoji panel, switch layout, Fn layer), Modifiers (Ctrl, Alt, Meta), keys apps understand (Tab, Escape, and the four arrow keys), chorded input (Braille dot, Morse dot, Morse dash), and Other (broadcast intent, and nothing, a deliberate empty gap that swallows taps).
   - Choosing **Broadcast intent** adds a "Broadcast action" field for the intent-action string an automation app (like Tasker) listens for.
   - Choosing **Braille dot** adds a "Dot number" field, **default 1**, valid range **1–6**. Type anything outside that range and it's ignored silently, with no error.
-- **Width**: a quarter-step slider from **0.5 to 5.0**, default **1.0**, with preset chips at 1 / 1.25 / 1.5 / 2 / 4. A "Fill the row" button appears whenever there's at least half a unit of slack left in the row and the key isn't already sized to it.
+- **Width**: three controls over the same number, default **1.0**. A continuous slider from **0.5 to 5.0**; a minus / value / plus stepper under it, where the buttons move by **0.05** and the field takes an exact value you type, up to two decimals; and preset chips at 1 / 1.25 / 1.5 / 2 / 4. A "Fill the row" button appears whenever the row has slack left and the key isn't already sized to it, and it hands over the exact remainder rather than a rounded one.
+  - Every width lands on a hundredth, so **1.43** is a width you can set, and the number in the field is the number in the file. Widths are stored to that same precision, so nothing is lost between what you set and what you type on.
+  - The slider stretches if it has to. A key already stored wider than 5.0, which the JSON editor and the import paths can write, keeps its real value on the slider rather than being pinned at 5.0 and quietly cut down the next time you touch it. The typed field reaches all the way to the 12.0 cap that repair enforces.
 - For keys whose action is "Types text" only: **Icon** and **Icon hint** (both blank by default, with live feedback if the name you type doesn't match a known icon), **Alternates for press and hold** (space-separated, with a live preview strip that badges the first entry "hint", since that's the one the keyboard draws in the key's corner), and **Field adaptation**, a choice of **None / Comma slot / Full stop slot** (**default None**). Comma slot swaps this key for `@` in an email field or `/` in a web address field. Full stop slot keeps its own character and gains extra long-press alternates for domain endings in those same two field kinds.
 - A bottom row: **Delete key**, move left/right (disabled at the row's edges), and duplicate key.
 
@@ -180,8 +184,8 @@ The list screen itself holds no toggles: it manages a layout registry, not prefe
 | Show the shift plane | Toggle | Off |
 | Preview at your key height | Toggle | Off |
 | Add tablet keys automatically | Toggle, per layout | On |
-| Row height (selected row) | Slider, 0.5–2.0 in quarter steps | 1.00 |
-| Key width (selected key) | Slider, 0.5–5.0 in quarter steps | 1.0 |
+| Row height (selected row) | Slider 0.4–2.5, stepper of 0.05, or a typed value to two decimals | 1.00 |
+| Key width (selected key) | Slider 0.5–5.0 (wider if the key already is), stepper of 0.05, or a typed value to two decimals up to 12.0 | 1.0 |
 | Field adaptation (text keys) | Choice: None / Comma slot / Full stop slot | None |
 | Braille dot number | 1–6 | 1 |
 

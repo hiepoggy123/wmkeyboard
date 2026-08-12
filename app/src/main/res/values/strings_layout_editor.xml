@@ -121,6 +121,14 @@
     <!-- Height of one row, as a multiple of the standard key height.
          %1$.2f is the multiple, for example 1.25. -->
     <string name="layout_editor_row_height_label">Row height ×<xliff:g id="multiple" example="1.25">%1$.2f</xliff:g></string>
+    <!-- Name of the field you type an exact row height into. -->
+    <string name="layout_editor_height_field_label">Height</string>
+    <!-- Buttons that change the height of the row by a small step. -->
+    <string name="layout_editor_height_decrease_desc">Make the row shorter</string>
+    <string name="layout_editor_height_increase_desc">Make the row taller</string>
+    <!-- Button that scales every key in the row so the row is as wide as the
+         grid. %1$.2f is the width of the grid, for example 10.00. -->
+    <string name="layout_editor_fit_row_action">Fit the row to the grid (<xliff:g id="grid_width" example="10.00">%1$.2f</xliff:g>)</string>
 
     <string name="layout_editor_add_row_title">Add a row</string>
     <string name="layout_editor_add_row_subtitle">Adds an empty row at the end of this layer</string>
@@ -177,6 +185,11 @@
     <!-- Button that gives the key all the width the row has left.
          %1$.2f is that width, for example 1.75. -->
     <string name="layout_editor_fill_row_action">Fill the row (<xliff:g id="width" example="1.75">%1$.2f</xliff:g>)</string>
+    <!-- Name of the field you type an exact key width into. -->
+    <string name="layout_editor_width_field_label">Width</string>
+    <!-- Buttons that change the width of the key by a small step. -->
+    <string name="layout_editor_width_decrease_desc">Make the key narrower</string>
+    <string name="layout_editor_width_increase_desc">Make the key wider</string>
 
     <string name="layout_editor_icon_field_label">Icon</string>
     <string name="layout_editor_icon_hint_field_label">Icon hint</string>

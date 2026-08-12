@@ -14,6 +14,11 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.input.KeyboardType
+import java.util.Locale
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -25,7 +30,6 @@ import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.LayerSpec
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.runCancellable
-import kotlin.math.roundToInt
 import androidx.compose.material3.Button
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
 import com.wasimaster.wmkeyboard.core.layout.repair
@@ -114,7 +118,14 @@ import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.LayoutSeverity
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.ime.ui.KeyIcons
+import com.wasimaster.wmkeyboard.core.layout.GridUnitStep
+import com.wasimaster.wmkeyboard.core.layout.MaxKeyWidth
+import com.wasimaster.wmkeyboard.core.layout.MaxRowHeightScale
+import com.wasimaster.wmkeyboard.core.layout.MinRowHeightScale
+import com.wasimaster.wmkeyboard.core.layout.fitRowToGrid
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
+import com.wasimaster.wmkeyboard.core.layout.roundGridUnit
+import com.wasimaster.wmkeyboard.core.layout.rowScaledKeyHeight
 import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.resolveLayouts
@@ -1054,8 +1065,17 @@ internal fun KeyLayoutEditorScreen(
     fun pickHeights(heights: List<Float>?, sourceIndices: List<Int>): List<Float>? =
         heights?.let { h -> sourceIndices.map { h.getOrNull(it) ?: 1f } }
 
+    // One drag of the row-height slider is one undo step, not one per frame it
+    // emits. Same rule and same latch as the key sheet: everything done to one
+    // selected row coalesces, and selecting another row starts a new step.
+    fun editLayerCoalesced(transform: (LayerSpec) -> LayerSpec) {
+        if (!stepPushed) push()
+        stepPushed = true
+        apply { spec -> spec.copy(layers = spec.layers + (layer.key to transform(baseLayerOf(spec)))) }
+    }
+
     fun setRowHeight(rowIndex: Int, value: Float) {
-        editLayer { ls ->
+        editLayerCoalesced { ls ->
             val list = MutableList(ls.rows.size) { ls.rowHeights?.getOrNull(it) ?: 1f }
             if (rowIndex in list.indices) list[rowIndex] = value
             ls.copy(rowHeights = if (list.all { it == 1f }) null else list.toList())
@@ -1272,7 +1292,18 @@ internal fun KeyLayoutEditorScreen(
                     selection = null
                 },
             )
+            RowFitRow(
+                rowWidth = rows[ref.row].sumOf { it.width.toDouble() }.toFloat(),
+                gridWeight = gridWeightOf(rows),
+            ) {
+                editRows { r ->
+                    r.mapIndexed { i, row ->
+                        if (i == ref.row) fitRowToGrid(row, gridWeightOf(r)) else row
+                    }
+                }
+            }
             RowHeightRow(
+                rowIndex = ref.row,
                 height = rowHeights?.getOrNull(ref.row) ?: 1f,
             ) { setRowHeight(ref.row, it) }
         }
@@ -1683,6 +1714,15 @@ private fun EditorGrid(
                             fontSize = 13.sp,
                         )
                     }
+                    // The preview's key height, before this row's own multiplier:
+                    // the user's real setting, or a clamp of it. Clamped first and
+                    // scaled second, so a row set to twice the height still draws
+                    // twice as tall as its neighbours in the clamped preview.
+                    val baseHeightDp = if (actualSize) {
+                        settings.keyHeightDp
+                    } else {
+                        settings.keyHeightDp.coerceIn(38, 56)
+                    }
                     layout.rows.forEachIndexed { r, row ->
                         val sidePad = sidePadFor(row, gridWeight)
                         Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -1691,8 +1731,10 @@ private fun EditorGrid(
                                 EditorKeyCell(
                                     key = key,
                                     kb = kb,
-                                    heightDp = settings.keyHeightDp,
-                                    actualSize = actualSize,
+                                    heightDp = rowScaledKeyHeight(
+                                        baseHeightDp,
+                                        layout.rowHeights?.getOrNull(r),
+                                    ),
                                     selected = selection == KeyRef(r, c),
                                     showShift = showShift,
                                     modifier = Modifier.weight(key.width),
@@ -1712,7 +1754,6 @@ private fun RowScope.EditorKeyCell(
     key: Key,
     kb: KbTheme,
     heightDp: Int,
-    actualSize: Boolean,
     selected: Boolean,
     showShift: Boolean,
     modifier: Modifier = Modifier,
@@ -1728,11 +1769,10 @@ private fun RowScope.EditorKeyCell(
         key.action != KeyAction.Text -> kb.modifierKeyText
         else -> kb.keyText
     }
-    // The user's own key height keeps the preview honest, but a 100 dp setting
-    // would put two rows on screen. Clamped by default and exact on request:
-    // someone typing at 70 dp never otherwise saw their real proportions while
-    // editing, which is most of what a preview is for.
-    val height = if (actualSize) heightDp.dp else heightDp.dp.coerceIn(38.dp, 56.dp)
+    // Already the user's own key height, clamped or not and scaled by this row's
+    // multiplier, decided by the caller — which is the one place that knows which
+    // row this cell is in.
+    val height = heightDp.dp
     // Read here rather than inside the ifBlank lambda below, which is not a
     // composable and so cannot reach a resource itself.
     val spaceLabel = stringResource(R.string.layout_editor_space_key_label)
@@ -2140,6 +2180,7 @@ private fun KeyEditSheet(
                 width = key.width,
                 gridWeight = gridWeight,
                 otherWidthsInRow = otherWidthsInRow,
+                resetKey = ref,
             ) { onChange(key.copy(width = it)) }
 
             if (key.action == KeyAction.Text) {
@@ -2333,28 +2374,48 @@ private fun RoleRow(role: KeyRole?, onChange: (KeyRole?) -> Unit) {
 /**
  * Per-row height control for the layout editor: a multiplier on the standard
  * key height for this one row. 1.00 is the default (and collapses the stored
- * list back to nothing). Mirrors [KeyWidthRow]'s quarter-step slider + presets.
+ * list back to nothing). Mirrors [KeyWidthRow] control for control.
+ *
+ * The range is the renderer's own ([MinRowHeightScale] to [MaxRowHeightScale]),
+ * not the narrower 0.5 to 2 it used to be: a slider that stops short of what the
+ * keyboard honours makes the last part of the range reachable only through the
+ * JSON, and then unreachable again the next time the slider is touched.
  */
 @Composable
 private fun RowHeightRow(
+    rowIndex: Int,
     height: Float,
     onChange: (Float) -> Unit,
 ) {
+    val travel = sliderTravel(
+        height,
+        floor = MinRowHeightScale,
+        ceiling = MaxRowHeightScale,
+        hardMax = MaxRowHeightScale,
+    )
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         Text(
             stringResource(R.string.layout_editor_row_height_label, height),
             style = MaterialTheme.typography.bodyLarge,
         )
         Slider(
-            value = height.coerceIn(0.5f, 2f),
-            onValueChange = { onChange((it * 4f).roundToInt() / 4f) },
-            valueRange = 0.5f..2f,
-            steps = 5,
+            value = sliderPosition(height, travel),
+            onValueChange = { onChange(roundGridUnit(it)) },
+            valueRange = travel,
+        )
+        GridSizeStepper(
+            value = height,
+            range = MinRowHeightScale..MaxRowHeightScale,
+            fieldLabel = stringResource(R.string.layout_editor_height_field_label),
+            decreaseDesc = stringResource(R.string.layout_editor_height_decrease_desc),
+            increaseDesc = stringResource(R.string.layout_editor_height_increase_desc),
+            resetKey = rowIndex,
+            onChange = onChange,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (preset in listOf(0.75f, 1f, 1.25f, 1.5f, 2f)) {
                 FilterChip(
-                    selected = kotlin.math.abs(height - preset) < 0.01f,
+                    selected = kotlin.math.abs(height - preset) < GridUnitStep / 2f,
                     onClick = { onChange(preset) },
                     label = { Text("×%.2f".format(preset).trimEnd('0').trimEnd('.')) },
                 )
@@ -2363,45 +2424,210 @@ private fun RowHeightRow(
     }
 }
 
+/**
+ * The row-level answer to a row that does not add up to the grid: scale every
+ * key in it, keeping the proportions.
+ *
+ * The key sheet's "Fill the row" grows one key into the slack, which is right
+ * when one key is meant to be the wide one and wrong for a row whose keys are
+ * deliberately several different sizes. Shown only while the row disagrees with
+ * the grid, which is the only time it does anything.
+ */
+@Composable
+private fun RowFitRow(rowWidth: Float, gridWeight: Float, onFit: () -> Unit) {
+    if (kotlin.math.abs(rowWidth - gridWeight) <= GridUnitStep) return
+    OutlinedButton(
+        onClick = onFit,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    ) { Text(stringResource(R.string.layout_editor_fit_row_action, gridWeight)) }
+}
+
 @Composable
 private fun KeyWidthRow(
     width: Float,
     gridWeight: Float,
     otherWidthsInRow: Float,
+    resetKey: Any?,
     onChange: (Float) -> Unit,
 ) {
     val remaining = gridWeight - otherWidthsInRow
+    val travel = sliderTravel(width, floor = 0.5f, ceiling = 5f, hardMax = MaxKeyWidth)
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         Text(
             stringResource(R.string.layout_editor_key_width_label, width),
             style = MaterialTheme.typography.bodyLarge,
         )
-        // Quarter steps. Every built-in width (1, 1.2, 1.3, 1.5, 4) lands on or
-        // beside a step, and a free slider would write 1.0374 into a file people
-        // are invited to hand-edit.
+        // Continuous, landing on hundredths. It used to move in quarters, on the
+        // grounds that a free slider writes 1.0374 into a file people are invited
+        // to hand-edit — true, but quarters cannot express the 1.43 that seven
+        // keys need to fill a ten-wide grid, and rounding to the two decimals the
+        // number is displayed at answers both.
         Slider(
-            value = width.coerceIn(0.5f, 5f),
-            onValueChange = { onChange((it * 4f).roundToInt() / 4f) },
-            valueRange = 0.5f..5f,
-            steps = 17,
+            value = sliderPosition(width, travel),
+            onValueChange = { onChange(roundGridUnit(it)) },
+            valueRange = travel,
+        )
+        GridSizeStepper(
+            value = width,
+            range = GridUnitStep..MaxKeyWidth,
+            fieldLabel = stringResource(R.string.layout_editor_width_field_label),
+            decreaseDesc = stringResource(R.string.layout_editor_width_decrease_desc),
+            increaseDesc = stringResource(R.string.layout_editor_width_increase_desc),
+            resetKey = resetKey,
+            onChange = onChange,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             for (preset in listOf(1f, 1.25f, 1.5f, 2f, 4f)) {
                 FilterChip(
-                    selected = kotlin.math.abs(width - preset) < 0.01f,
+                    selected = kotlin.math.abs(width - preset) < GridUnitStep / 2f,
                     onClick = { onChange(preset) },
                     label = { Text("%.2f".format(preset).trimEnd('0').trimEnd('.')) },
                 )
             }
         }
-        // The one-tap fix for a row left 0.75 short after an edit: hand this key
-        // whatever row 1's width is not already spoken for.
-        if (remaining >= 0.5f && kotlin.math.abs(remaining - width) > 0.01f) {
+        // The one-tap fix for a row left short after an edit: hand this key
+        // whatever row 1's width is not already spoken for. Exact, not rounded to
+        // a quarter, or pressing it would leave the row it promises to fill still
+        // short and the warning above it still on screen.
+        if (remaining >= GridUnitStep && kotlin.math.abs(remaining - width) > GridUnitStep / 2f) {
             OutlinedButton(
-                onClick = { onChange((remaining * 4f).roundToInt() / 4f) },
+                onClick = { onChange(roundGridUnit(remaining)) },
                 modifier = Modifier.padding(top = 4.dp),
             ) { Text(stringResource(R.string.layout_editor_fill_row_action, remaining)) }
         }
+    }
+}
+
+/**
+ * How far a size slider travels: its usual range, widened to reach a value that
+ * is already outside it.
+ *
+ * A fixed range silently rewrote the layout it was showing. A key stored at 8
+ * wide, which the JSON editor and every import path can write, drew its handle
+ * pinned at the old maximum of 5, and the next touch of the slider committed
+ * that 5 over the 8 that was there.
+ */
+private fun sliderTravel(
+    value: Float,
+    floor: Float,
+    ceiling: Float,
+    hardMax: Float,
+): ClosedFloatingPointRange<Float> {
+    val safe = if (value.isFinite()) value else floor
+    val low = minOf(floor, safe).coerceAtLeast(0f)
+    val high = maxOf(ceiling, kotlin.math.ceil(safe)).coerceAtMost(hardMax)
+    return low..maxOf(high, low + GridUnitStep)
+}
+
+/** Where the handle sits, for a stored value that may be anything at all. */
+private fun sliderPosition(value: Float, travel: ClosedFloatingPointRange<Float>): Float =
+    if (value.isFinite()) value.coerceIn(travel) else travel.start
+
+/** Grid sizes are stored in hundredths; the nudge buttons move five at a time. */
+private const val SizeNudgeStep = 0.05f
+
+/**
+ * The one format the editable size fields read and write. Both separators are
+ * accepted because a decimal comma is what half of Europe's keyboards offer.
+ */
+private val gridSizePattern = Regex("""^\d{0,2}([.,]\d{0,2})?$""")
+
+/**
+ * Fixed notation, not the reader's own, because this is the one number on the
+ * screen that has to be read back: a field that prints "1,43" and then cannot
+ * parse it is worse than one that disagrees with the label above it.
+ */
+private fun formatGridUnit(value: Float): String = "%.2f".format(Locale.US, value)
+
+private fun parseGridUnit(text: String): Float? = text.replace(',', '.').toFloatOrNull()
+
+/**
+ * Minus, an exact value, plus: the half of a size control a slider cannot do.
+ *
+ * The slider and the preset chips cover "about this wide". This covers "1.43",
+ * which before this existed meant leaving the grid editor for the raw JSON.
+ *
+ * The text is held here and only taken from [value] while nothing of ours is in
+ * flight, for the reason [SheetField] documents at length: the value is read
+ * back out of the settings store a frame or more after the keystroke that caused
+ * it, and fed straight back in it rewinds the field mid-entry. The extra rule
+ * this one needs is the focus check — "1." and "" are not numbers, so without it
+ * the field rewrites itself the moment you clear it to type a new value.
+ */
+@Composable
+private fun GridSizeStepper(
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    fieldLabel: String,
+    decreaseDesc: String,
+    increaseDesc: String,
+    resetKey: Any?,
+    onChange: (Float) -> Unit,
+) {
+    var text by remember(resetKey) { mutableStateOf(formatGridUnit(value)) }
+    var pending by remember(resetKey) { mutableStateOf<Float?>(null) }
+    var focused by remember(resetKey) { mutableStateOf(false) }
+
+    val typed = parseGridUnit(text)
+    val settled = pending
+    when {
+        focused && typed == null -> Unit
+        settled == null ->
+            if (typed == null || kotlin.math.abs(typed - value) > GridUnitStep / 2f) {
+                text = formatGridUnit(value)
+            }
+        kotlin.math.abs(value - settled) < GridUnitStep / 2f -> pending = null
+    }
+
+    fun emit(next: Float) {
+        if (!next.isFinite()) return
+        val clamped = roundGridUnit(next).coerceIn(range)
+        pending = clamped
+        onChange(clamped)
+    }
+
+    // Counted from what this control last asked for, not from what the store has
+    // said back so far. Two presses inside one round trip both read the same
+    // stored value, so counted from that the second one does nothing.
+    fun nudge(delta: Float) = emit((pending ?: value) + delta)
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        IconButton(
+            enabled = value > range.start + GridUnitStep / 2f,
+            onClick = { nudge(-SizeNudgeStep) },
+        ) { Icon(Icons.Outlined.Remove, contentDescription = decreaseDesc) }
+        OutlinedTextField(
+            value = text,
+            onValueChange = { raw ->
+                val trimmed = raw.trim()
+                // A third decimal is refused rather than rounded away, so the
+                // field never disagrees with the number it just accepted.
+                if (gridSizePattern.matches(trimmed)) {
+                    text = trimmed
+                    parseGridUnit(trimmed)?.let(::emit)
+                }
+            },
+            // Named even though the line above it already says "Width 1.43":
+            // an unlabelled edit box in the middle of a sheet is a shrug to
+            // anyone reading the screen with TalkBack.
+            label = { Text(fieldLabel, maxLines = 1) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            modifier = Modifier
+                .width(124.dp)
+                .onFocusChanged { state ->
+                    focused = state.isFocused
+                    // Leaving tidies "1." or a value that was clamped on the way in.
+                    if (!state.isFocused) text = formatGridUnit(value)
+                },
+        )
+        IconButton(
+            enabled = value < range.endInclusive - GridUnitStep / 2f,
+            onClick = { nudge(+SizeNudgeStep) },
+        ) { Icon(Icons.Outlined.Add, contentDescription = increaseDesc) }
     }
 }
 
