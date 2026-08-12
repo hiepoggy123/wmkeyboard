@@ -36,7 +36,7 @@ tasks.register("staticAnalysis") {
     // passes only where lite compiles different code (flavored modules);
     // everywhere else the two variants' sources are identical.
     val detektModules = listOf(
-        ":core:common", ":core:language", ":core:input", ":core:prediction",
+        ":core:common", ":core:language", ":core:input", ":core:keyman", ":core:prediction",
         ":core:emoji", ":core:theme", ":core:icons", ":core:tools",
         ":core:content", ":core:addons", ":core:voice", ":core:settings",
         ":core:feedback", ":core:plugins", ":core:intelligence",
