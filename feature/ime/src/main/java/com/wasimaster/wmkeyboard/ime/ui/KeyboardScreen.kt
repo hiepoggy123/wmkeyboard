@@ -314,7 +314,9 @@ import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
+import com.wasimaster.wmkeyboard.core.settings.ToolbarPlacement
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.isOwnRow
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import com.wasimaster.wmkeyboard.core.settings.ToolboxLayout
 import com.wasimaster.wmkeyboard.core.settings.ToolboxPageSizeRange
@@ -1987,6 +1989,13 @@ private class HeldCandidates(state: KeyboardUiState) {
 @Composable
 private fun TopBar(
     state: KeyboardUiState,
+    /**
+     * Whether the tools' own row is open, when the placement gives them one. The
+     * bar reads the placement off the settings itself; only the row's open state
+     * has to come in, because the row is drawn by the caller.
+     */
+    toolsRowOpen: Boolean = false,
+    onToolsRowToggle: () -> Unit = {},
     onSuggestion: (String) -> Unit,
     onJoinSuggestion: () -> Unit = {},
     onRevisionSuggestion: () -> Unit = {},
@@ -2110,8 +2119,17 @@ private fun TopBar(
             }
         }
     }
-    val wantToolbar = state.panel != PanelMode.NONE || toolbarOverride ||
-        (!hasSuggestions && emptySettled && !suggestionsFirst)
+    // Where the tools live. With a row of their own this bar is the suggestion
+    // strip and only that: the surface never flips, so the emoji handoff, the
+    // dissolve and the settle beat below all sit at their resting values and cost
+    // nothing. The chevron stays, as the opener for that row.
+    val placement = state.settings.toolbarBehavior.placement
+    val toolsOwnRow = placement.isOwnRow
+    val wantToolbar = !toolsOwnRow &&
+        (
+            state.panel != PanelMode.NONE || toolbarOverride ||
+                (!hasSuggestions && emptySettled && !suggestionsFirst)
+            )
 
     // The surface the bar is actually drawing, which lags [wantToolbar] by one
     // [ToolbarExitMs] fade.
@@ -2385,8 +2403,10 @@ private fun TopBar(
         // Keyed on the decision, not on the drawn surface: the turn is the
         // acknowledgement of the tap, so it starts on the frame the tap lands
         // and runs through the outgoing dissolve rather than waiting it out.
+        // With the tools on their own row the chevron opens and closes that row
+        // instead of flipping this one, so the turn tracks the row's state.
         val chevronTurn by animateFloatAsState(
-            targetValue = if (wantToolbar) 180f else 0f,
+            targetValue = if (if (toolsOwnRow) toolsRowOpen else wantToolbar) 180f else 0f,
             animationSpec = if (state.settings.reduceMotion) snap() else tween(ToolbarMotionMs),
             label = "chevronTurn",
         )
@@ -2429,25 +2449,35 @@ private fun TopBar(
         // past where it started. One decision, and the row moves once, when the
         // surface it belongs to arrives.
         AnimatedVisibility(
-            visible = !showToolbar ||
-                (
-                    wantToolbar && state.panel == PanelMode.NONE &&
-                        (hasSuggestions || suggestionsFirst)
-                    ),
+            visible = when (placement) {
+                // The row is always there; there is nothing for a chevron to do.
+                ToolbarPlacement.ALWAYS_ROW -> false
+                // The chevron *is* the way to that row, so it is always offered.
+                ToolbarPlacement.ON_DEMAND_ROW -> true
+                ToolbarPlacement.STRIP -> !showToolbar ||
+                    (
+                        wantToolbar && state.panel == PanelMode.NONE &&
+                            (hasSuggestions || suggestionsFirst)
+                        )
+            },
             enter = fadeIn(tween(motionMs)),
             exit = ExitTransition.None,
         ) {
             IconButton(
                 onClick = {
                     feedback()
-                    toolbarOverride = !toolbarOverride
+                    if (toolsOwnRow) onToolsRowToggle() else toolbarOverride = !toolbarOverride
                 },
                 modifier = Modifier.size(36.dp),
             ) {
                 Icon(
                     Icons.Outlined.ChevronRight,
                     contentDescription = stringResource(
-                        if (showToolbar) R.string.ime_suggestions_show_desc else R.string.ime_toolbar_show_desc,
+                        if (if (toolsOwnRow) toolsRowOpen else showToolbar) {
+                            R.string.ime_suggestions_show_desc
+                        } else {
+                            R.string.ime_toolbar_show_desc
+                        },
                     ),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.graphicsLayer { rotationZ = chevronTurn },
@@ -4557,6 +4587,15 @@ private class ToolDragController {
     /** Hold without dragging past the slop: open the tool's settings page. */
     var onOpenSettings: (ToolbarTool) -> Unit = {}
 
+    /**
+     * Runs the tool a hold was remapped to (see `holdActionFor`). Routed through
+     * the controller alongside [onOpenSettings] rather than captured per tool:
+     * both are the same gesture's outcome, and the tool cells are recomposed on
+     * every frame of a drag, so a captured lambda would restart their pointer
+     * handlers.
+     */
+    var onHoldAction: (ToolbarTool) -> Unit = {}
+
     // Toolbox geometry and data, registered by ToolboxPanel while it is
     // open (a drag can only happen with the toolbox open). The viewport is
     // the visible panel box; content coords are the scrolling grid column,
@@ -4720,10 +4759,31 @@ private fun holdRepeatMs(tool: ToolbarTool, state: KeyboardUiState): Long? =
     }
 
 /**
+ * The tool a press and hold on [tool] runs instead of opening its settings page,
+ * or null when the hold keeps its original job.
+ *
+ * Toolbar only, and never for a tool whose hold already repeats — that hold is
+ * spoken for, and the tools it covers are the caret moves, where a repeat is the
+ * whole point. Reads through to a tool rather than a separate action vocabulary:
+ * "holding this does what tapping that does" needs nothing new to be dispatched,
+ * and every tool is already a target.
+ */
+private fun holdActionFor(
+    tool: ToolbarTool,
+    fromToolbar: Boolean,
+    state: KeyboardUiState,
+): ToolbarTool? = if (!fromToolbar || holdRepeatMs(tool, state) != null) {
+    null
+} else {
+    state.settings.toolbarBehavior.holdActions[tool]
+}
+
+/**
  * Wires long-press-drag onto a tool. Three outcomes from one gesture: a tap
  * runs [onTap]; a hold that never travels past [ToolDragSlop] opens the
- * tool's settings page; a hold that does travel picks the tool up and drops
- * it wherever it lands (reorder, pin, or unpin).
+ * tool's settings page — or runs [holdAction] when the user has given that
+ * tool one; a hold that does travel picks the tool up and drops it wherever it
+ * lands (reorder, pin, or unpin).
  *
  * [holdRepeatMs] replaces the middle one for the caret tools (see
  * [HoldRepeatCursorTools]): a stationary hold runs [onTap] again every
@@ -4743,6 +4803,8 @@ private fun DraggableTool(
     drag: ToolDragController,
     onTap: () -> Unit,
     holdRepeatMs: Long? = null,
+    /** What a stationary hold runs, or null to open the tool's settings page. */
+    holdAction: ToolbarTool? = null,
     content: @Composable (Modifier) -> Unit,
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
@@ -4853,10 +4915,12 @@ private fun DraggableTool(
                             // hold away in the toolbox, which never repeats.
                             holdRepeatMs != null -> drag.cancel()
                             // A hold that never travelled past the slop is a
-                            // distinct gesture: open the tool's settings page.
+                            // distinct gesture: the action the user bound to it,
+                            // or the tool's settings page when they bound none.
                             else -> {
                                 drag.cancel()
-                                drag.onOpenSettings(tool)
+                                val bound = holdAction
+                                if (bound != null) drag.onHoldAction(bound) else drag.onOpenSettings(tool)
                             }
                         }
                     }
@@ -5380,6 +5444,43 @@ private fun GhostToolCircle(
 private val ToolIconSize = 22.dp
 
 /**
+ * The tools on a row of their own, above the suggestion strip — the row
+ * [ToolbarPlacement.ON_DEMAND_ROW] and [ToolbarPlacement.ALWAYS_ROW] add.
+ *
+ * A plain [Row] of the same height as the strip wrapping the same [ToolbarRow]
+ * the strip hosts in the shared arrangement, so the two placements draw the same
+ * tools, the same widths, and the same drag behaviour. No fade: nothing is being
+ * exchanged here — the row is either there or it is not, and its own appearance
+ * is the animation.
+ *
+ * RTL scripts mirror it exactly as they mirror the strip; the drag controller is
+ * already mirrored to match (see [KeyboardBody]).
+ */
+@Composable
+private fun ToolsRow(
+    state: KeyboardUiState,
+    onPanelChange: (PanelMode) -> Unit,
+    onToolTap: (ToolbarTool) -> Unit,
+    drag: ToolDragController,
+) {
+    val direction = if (state.script.direction == TextDirection.RTL) {
+        LayoutDirection.Rtl
+    } else {
+        LayoutDirection.Ltr
+    }
+    CompositionLocalProvider(LocalLayoutDirection provides direction) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(topBarHeight(state.settings)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ToolbarRow(state, onPanelChange, onToolTap, drag)
+        }
+    }
+}
+
+/**
  * The toolbar itself: fixed toolbox launcher, then the user's tools —
  * spread across the free space when the greedy setting is on, packed to
  * the left otherwise.
@@ -5557,6 +5658,7 @@ private fun RowScope.ToolbarRow(
                         drag = drag,
                         onTap = { onToolTap(tool) },
                         holdRepeatMs = holdRepeatMs(tool, state),
+                        holdAction = holdActionFor(tool, fromToolbar = true, state = state),
                     ) { dragModifier ->
                         ToolCircle(
                             slot = IconSlots.forTool(tool),
@@ -6653,6 +6755,9 @@ private fun KeyboardBody(
     drag.onOrderCommit = onToolboxOrderChange
     drag.onSnap = LocalKeyPressFeedback.current
     drag.onOpenSettings = onToolSettings
+    // A remapped hold runs the bound tool through the same dispatcher a tap
+    // uses, so it opens panels, acts on the field, and is logged identically.
+    drag.onHoldAction = onToolTap
     var bodyOrigin by remember { mutableStateOf(Offset.Zero) }
     // Kept alongside the origin so the drag-scope pill can park itself against
     // the bottom of the keyboard when the toolbar end is where the finger is.
@@ -6698,6 +6803,23 @@ private fun KeyboardBody(
             // While an emoji search is typing, the toolbar is dead weight —
             // hide it and let the panel spend the height on result rows.
             val emojiSearching = state.panel == PanelMode.EMOJI && state.emojiSearchActive
+            // Tools on a row of their own (see [ToolbarPlacement]). The row is
+            // drawn here, above the strip, rather than inside TopBar: the two are
+            // then plain siblings, each with its own height, and the strip's
+            // surface-swap machinery is switched off instead of being taught to
+            // draw two things at once.
+            //
+            // ON_DEMAND_ROW is the same row behind the strip's chevron, so the
+            // open/closed flag lives out here where both can reach it. It resets
+            // whenever the placement changes, or a row opened under one
+            // arrangement would still be open under another that has no way to
+            // close it.
+            val placement = state.settings.toolbarBehavior.placement
+            var toolsRowOpen by remember(placement) { mutableStateOf(false) }
+            val toolsRowShown = placement.isOwnRow &&
+                (placement == ToolbarPlacement.ALWAYS_ROW || toolsRowOpen) &&
+                state.settings.toolbarBehavior.enabled &&
+                !fullBleed && !emojiSearching && !clipboardSearching && !lockHidden
             for (row in state.settings.barOrder) {
                 when (row) {
                     // Disabling the toolbar drops the whole strip — suggestions
@@ -6706,8 +6828,13 @@ private fun KeyboardBody(
                         state.settings.toolbarBehavior.enabled && !fullBleed &&
                         !emojiSearching && !clipboardSearching && !lockHidden
                     ) {
+                        if (toolsRowShown) {
+                            ToolsRow(state, onPanelChange, onToolTap, drag)
+                        }
                         TopBar(
                             state,
+                            toolsRowOpen = toolsRowOpen,
+                            onToolsRowToggle = { toolsRowOpen = !toolsRowOpen },
                             onSuggestion = onSuggestion,
                             onJoinSuggestion = onJoinSuggestion,
                             onRevisionSuggestion = onRevisionSuggestion,

@@ -1311,6 +1311,15 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Page size 4–40 — ToolboxPageSizeRange, default 12, with page dots
     - Empty toolbox is still one page — toolboxPageCount floors at 1; out-of-range pages return empty, not a crash
     - Drag reorders within the held page — Pages don't flip under the finger
+  - Tools on their own row `uncommon` — ToolbarPlacement: STRIP (default, shares the suggestion strip), ON_DEMAND_ROW (the chevron opens a tools row above it, FUTO-style), ALWAYS_ROW (that row stays open, LeanType-style)
+    - Strip stops flipping — With a row of their own the strip is only ever candidates, so the surface swap, the emoji handoff and the settle beat all rest
+    - Chevron changes job — Opens and closes the row on ON_DEMAND_ROW, and disappears on ALWAYS_ROW where it would do nothing
+    - Same row, one renderer — The standalone row wraps the same ToolbarRow the strip hosts, so widths, labels, drag and RTL mirroring are identical
+  - Press-and-hold actions on the toolbar `RARE` — Per-tool holdActions map: a hold runs another tool's tap instead of opening that tool's settings page
+    - Any tool is a target — "Holding this does what tapping that does" needs no second action vocabulary; the bound tool goes through the same dispatcher a tap uses
+    - Toolbar only — The toolbox hold keeps opening settings pages, so no page loses its way in
+    - Repeat tools excluded — A caret tool's hold is already spent repeating the move; its row says so rather than hiding
+    - Self-binding refused — Encoder drops tool=itself, which is a tap done slowly
   - Toolbar chrome options `uncommon` — ToolbarBehavior + height/label/shape fields
     - Master strip switch — toolbarBehavior.enabled off reclaims the height for keys
     - Swipe down on the bar to hide keyboard — swipeDownHide, off by default

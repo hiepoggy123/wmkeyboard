@@ -160,6 +160,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -361,6 +362,7 @@ import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
+import com.wasimaster.wmkeyboard.core.settings.ToolbarPlacement
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.ToolboxLayout
 import com.wasimaster.wmkeyboard.core.settings.ToolboxPageSizeRange
@@ -822,7 +824,17 @@ private fun SettingsNavGraph(
                     onOpenThemes = { navController.navigate("themes") },
                     onOpenFonts = { navController.navigate("fonts") },
                     onOpenIcons = { navController.navigate("icons") },
+                    onNavigate = { route -> navController.navigate(route) },
                 )
+            }
+        }
+        composable(ROUTE_TOOLBAR_HOLD) {
+            SettingsScreen(
+                stringResource(R.string.appearance_toolbar_hold_title),
+                { navController.popBackStack() },
+                route = ROUTE_TOOLBAR_HOLD,
+            ) {
+                ToolbarHoldSettings(repository, settings)
             }
         }
         composable("layout") {
@@ -3880,6 +3892,159 @@ private fun TypingSettings(
  * are still reachable through the toolbox.
  */
 @Composable
+/** Route of the toolbar press-and-hold screen, reached from Appearance. */
+internal const val ROUTE_TOOLBAR_HOLD = "toolbar_hold"
+
+/**
+ * What a press and hold on each pinned tool does.
+ *
+ * Lists the tools that are actually on the bar, because that is the only surface
+ * this setting changes and a list of all forty-odd would bury them. A tool with
+ * nothing bound keeps the original behaviour and opens its own settings page,
+ * which the row says in as many words — the alternative, an explicit "settings"
+ * entry in the picker, made the default look like a choice the user had made.
+ *
+ * The caret tools are shown with their reason rather than hidden: their hold is
+ * already spent repeating the move, and someone looking for them here should find
+ * out why instead of wondering where they went.
+ */
+@Composable
+private fun ToolbarHoldSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    var editing by remember { mutableStateOf<ToolbarTool?>(null) }
+    val holdActions = settings.toolbarBehavior.holdActions
+    val pinned = settings.toolbarTools.filter(::isSupportedTool)
+
+    Column {
+        CaptionText(stringResource(R.string.appearance_toolbar_hold_intro_body))
+        if (pinned.isEmpty()) {
+            CaptionText(stringResource(R.string.appearance_toolbar_hold_empty_body))
+            return@Column
+        }
+        SettingsGroup(stringResource(R.string.appearance_toolbar_hold_tools_group_title)) {
+            for (tool in pinned) {
+                item {
+                    val repeats = tool in HoldRepeatCursorTools &&
+                        settings.textEditing.cursorToolsRepeatOnHold
+                    val bound = holdActions[tool]
+                    WmRow(
+                        title = stringResource(toolTitle(tool)),
+                        leading = {
+                            SlotIcon(IconSlots.forTool(tool), contentDescription = null)
+                        },
+                        supporting = when {
+                            repeats -> {
+                                { CaptionText(stringResource(R.string.appearance_toolbar_hold_repeats_subtitle)) }
+                            }
+                            bound == null -> {
+                                { CaptionText(stringResource(R.string.appearance_toolbar_hold_settings_subtitle)) }
+                            }
+                            else -> null
+                        },
+                        trailing = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    if (bound == null) {
+                                        stringResource(CommonR.string.common_none)
+                                    } else {
+                                        stringResource(toolTitle(bound))
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (bound == null) {
+                                        MaterialTheme.colorScheme.onSurfaceVariant
+                                    } else {
+                                        MaterialTheme.colorScheme.primary
+                                    },
+                                )
+                                if (bound != null) {
+                                    IconButton(onClick = {
+                                        scope.launch { repository.setToolHoldAction(tool, null) }
+                                    }) {
+                                        Icon(
+                                            Icons.Outlined.Close,
+                                            contentDescription = stringResource(
+                                                R.string.appearance_toolbar_hold_clear_desc,
+                                                stringResource(toolTitle(tool)),
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        // A repeating tool has no hold to give, so its row reads
+                        // rather than opens.
+                        onClick = if (repeats) null else ({ editing = tool }),
+                    )
+                }
+            }
+        }
+        if (holdActions.isNotEmpty()) {
+            TextButton(
+                onClick = { scope.launch { repository.clearToolHoldActions() } },
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            ) { Text(stringResource(CommonR.string.common_reset_defaults)) }
+        }
+    }
+
+    editing?.let { tool ->
+        ToolPickerDialog(
+            title = stringResource(R.string.appearance_toolbar_hold_pick_title, stringResource(toolTitle(tool))),
+            current = holdActions[tool],
+            // Every tool but this one: holding a tool to run itself is a slow tap.
+            options = ToolbarTool.entries.filter { isSupportedTool(it) && it != tool },
+            onDismiss = { editing = null },
+            onPick = { picked ->
+                editing = null
+                scope.launch { repository.setToolHoldAction(tool, picked) }
+            },
+        )
+    }
+}
+
+/**
+ * Picks one tool out of every tool, or none. Its own dialog rather than a
+ * [ChoiceSetting] because the list is forty entries long and has to scroll.
+ */
+@Composable
+private fun ToolPickerDialog(
+    title: String,
+    current: ToolbarTool?,
+    options: List<ToolbarTool>,
+    onDismiss: () -> Unit,
+    onPick: (ToolbarTool?) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+                item {
+                    WmRow(
+                        title = stringResource(CommonR.string.common_none),
+                        supporting = {
+                            CaptionText(stringResource(R.string.appearance_toolbar_hold_settings_subtitle))
+                        },
+                        trailing = { RadioButton(selected = current == null, onClick = { onPick(null) }) },
+                        onClick = { onPick(null) },
+                    )
+                }
+                items(options, key = { it.name }) { tool ->
+                    WmRow(
+                        title = stringResource(toolTitle(tool)),
+                        leading = { SlotIcon(IconSlots.forTool(tool), contentDescription = null) },
+                        trailing = { RadioButton(selected = current == tool, onClick = { onPick(tool) }) },
+                        onClick = { onPick(tool) },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
+@Composable
 private fun HardwareShortcutsSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     val hw = settings.hardwareKeyboard
@@ -5285,6 +5450,7 @@ private fun AppearanceSettings(
     onOpenThemes: () -> Unit,
     onOpenFonts: () -> Unit,
     onOpenIcons: () -> Unit,
+    onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     // Slider readouts are plain lambdas, so their format strings are resolved
@@ -5411,6 +5577,39 @@ private fun AppearanceSettings(
                 // Enabling is harmless; disabling loses real features, so confirm.
                 if (on) scope.launch { repository.setToolbarEnabled(true) }
                 else confirmDisableToolbar = true
+            }
+        }
+        // Where the tools live: sharing the suggestion strip, or on a row of
+        // their own so they are in reach whatever the strip is showing.
+        if (settings.toolbarBehavior.enabled) {
+            item {
+                ChoiceSetting(
+                    title = R.string.appearance_toolbar_placement_title,
+                    subtitle = stringResource(R.string.appearance_toolbar_placement_subtitle),
+                    info = stringResource(R.string.appearance_toolbar_placement_info),
+                    options = listOf(
+                        ToolbarPlacement.STRIP to
+                            stringResource(R.string.appearance_toolbar_placement_strip_label),
+                        ToolbarPlacement.ON_DEMAND_ROW to
+                            stringResource(R.string.appearance_toolbar_placement_button_label),
+                        ToolbarPlacement.ALWAYS_ROW to
+                            stringResource(R.string.appearance_toolbar_placement_always_label),
+                    ),
+                    selected = settings.toolbarBehavior.placement,
+                    onChange = { scope.launch { repository.setToolbarPlacement(it) } },
+                    default = SettingsDefaults.toolbarBehavior.placement,
+                )
+            }
+            item {
+                NavRow(
+                    title = R.string.appearance_toolbar_hold_title,
+                    subtitle = stringResource(R.string.appearance_toolbar_hold_subtitle),
+                    value = pluralStringResource(
+                        R.plurals.appearance_toolbar_hold_count,
+                        settings.toolbarBehavior.holdActions.size,
+                        settings.toolbarBehavior.holdActions.size,
+                    ),
+                ) { onNavigate(ROUTE_TOOLBAR_HOLD) }
             }
         }
         item {

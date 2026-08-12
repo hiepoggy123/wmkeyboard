@@ -730,7 +730,75 @@ data class ToolbarBehavior(
      * theme gallery in Settings edits it per card.
      */
     val themesPanelBuiltIns: Set<String>? = null,
+    /**
+     * Where the pinned tools live: sharing the suggestion strip's row (the
+     * default), or on a row of their own above it.
+     */
+    val placement: ToolbarPlacement = ToolbarPlacement.STRIP,
+    /**
+     * What a press and hold on a pinned tool does, per tool, as tool name →
+     * action token (see [ToolHoldActions]).
+     *
+     * Empty by default, which is the behaviour the toolbar has always had: a
+     * hold opens that tool's settings page. Naming a tool here spends the hold
+     * on a second action instead — hold Undo to redo, hold a cursor key to jump
+     * to the end of the line, hold the text-editing tool to open the clipboard.
+     * The settings page a tool gives up is still a hold away in the toolbox and
+     * still on the Tools screen, exactly as it is for the cursor tools that
+     * repeat on hold.
+     *
+     * Only the toolbar reads this. The toolbox is where every tool's settings
+     * page stays reachable by hold, so remapping it there would leave some
+     * pages with no way in.
+     */
+    val holdActions: Map<ToolbarTool, ToolbarTool> = emptyMap(),
 )
+
+/**
+ * Where the pinned tools are drawn.
+ *
+ * [STRIP] is the original arrangement and the default: tools and suggestions
+ * share one row, the tools resting there when there is nothing to suggest and a
+ * chevron flipping between the two. It costs no height, and it is the reason the
+ * toolbar is not always in reach.
+ *
+ * The other two give the tools a row of their own above the suggestions, which
+ * is what a keyboard has to do for the tools to be there whatever the strip is
+ * showing. [ON_DEMAND_ROW] opens that row from the chevron and closes it again
+ * (FUTO's arrangement); [ALWAYS_ROW] keeps it open (LeanType's). Both cost one
+ * strip's worth of keyboard height while the row is up, which is the trade.
+ */
+enum class ToolbarPlacement { STRIP, ON_DEMAND_ROW, ALWAYS_ROW }
+
+/** True while the tools have a row of their own rather than sharing the strip. */
+val ToolbarPlacement.isOwnRow: Boolean get() = this != ToolbarPlacement.STRIP
+
+/**
+ * The `tool=action` CSV behind [ToolbarBehavior.holdActions].
+ *
+ * A tool this build does not have is dropped on both sides rather than
+ * corrupting the map — the same rule `IconOverrides` follows — so a map written
+ * by a newer build costs that one entry and no more.
+ */
+object ToolHoldActions {
+
+    fun decode(csv: String?): Map<ToolbarTool, ToolbarTool> =
+        csv?.split(',')?.mapNotNull { entry ->
+            val separator = entry.indexOf('=')
+            if (separator <= 0) return@mapNotNull null
+            val tool = toolOrNull(entry.substring(0, separator)) ?: return@mapNotNull null
+            val action = toolOrNull(entry.substring(separator + 1)) ?: return@mapNotNull null
+            // A tool holding to itself is a tap done slowly; drop it rather than
+            // firing the same action twice for one gesture.
+            if (tool == action) null else tool to action
+        }?.toMap().orEmpty()
+
+    fun encode(map: Map<ToolbarTool, ToolbarTool>): String =
+        map.entries.joinToString(",") { (tool, action) -> "${tool.name}=${action.name}" }
+
+    private fun toolOrNull(name: String): ToolbarTool? =
+        runCatching { ToolbarTool.valueOf(name) }.getOrNull()
+}
 
 /**
  * The built-ins the Themes tool starts with: a spread of dark, light, AMOLED
@@ -4318,6 +4386,8 @@ class SettingsRepository(private val context: Context) {
         private val TOOL_CIRCLE_RADIUS = intPreferencesKey("tool_circle_radius")
         private val TOOL_SHAPE = stringPreferencesKey("tool_circle_shape")
         private val TOOLBAR_TOOL_WIDTH = intPreferencesKey("toolbar_tool_width")
+        private val TOOLBAR_PLACEMENT = stringPreferencesKey("toolbar_placement")
+        private val TOOLBAR_HOLD_ACTIONS = stringPreferencesKey("toolbar_hold_actions")
         private val THEMES_PANEL_BUILTINS = stringSetPreferencesKey("themes_panel_builtins")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
         private val SWAP_COMMA_GLOBE = booleanPreferencesKey("swap_comma_globe")
@@ -5277,6 +5347,10 @@ class SettingsRepository(private val context: Context) {
                 hideWhenLocked = p[TOOLBAR_HIDE_WHEN_LOCKED] ?: defaults.toolbarBehavior.hideWhenLocked,
                 toolWidthDp = p[TOOLBAR_TOOL_WIDTH] ?: defaults.toolbarBehavior.toolWidthDp,
                 themesPanelBuiltIns = p[THEMES_PANEL_BUILTINS],
+                placement = p[TOOLBAR_PLACEMENT]
+                    ?.let { runCatching { ToolbarPlacement.valueOf(it) }.getOrNull() }
+                    ?: defaults.toolbarBehavior.placement,
+                holdActions = ToolHoldActions.decode(p[TOOLBAR_HOLD_ACTIONS]),
             ),
             toolbarHeightDp = p[TOOLBAR_HEIGHT] ?: defaults.toolbarHeightDp,
             toolbarLabels = p[TOOLBAR_LABELS] ?: defaults.toolbarLabels,
@@ -6242,6 +6316,23 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setToolbarToolWidthDp(value: Int) =
         editPrefs { it[TOOLBAR_TOOL_WIDTH] = value.coerceIn(38, 64) }
+
+    suspend fun setToolbarPlacement(value: ToolbarPlacement) =
+        editPrefs { it[TOOLBAR_PLACEMENT] = value.name }
+
+    /**
+     * Sets or clears one tool's press-and-hold action. Null puts that tool back
+     * to opening its own settings page.
+     */
+    suspend fun setToolHoldAction(tool: ToolbarTool, action: ToolbarTool?) =
+        editPrefs { prefs ->
+            val current = ToolHoldActions.decode(prefs[TOOLBAR_HOLD_ACTIONS]).toMutableMap()
+            if (action == null || action == tool) current.remove(tool) else current[tool] = action
+            prefs[TOOLBAR_HOLD_ACTIONS] = ToolHoldActions.encode(current)
+        }
+
+    suspend fun clearToolHoldActions() =
+        editPrefs { it.remove(TOOLBAR_HOLD_ACTIONS) }
 
     /**
      * Moving emoji onto the comma key also pulls the emoji tool off the
