@@ -1,0 +1,846 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_mahajani_inscript",
+    "name": "Mahajani (Inscript)",
+    "langId": "hi-Mahj",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "१",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49
+              },
+              "longPress": [
+                "1"
+              ]
+            },
+            {
+              "label": "२",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50
+              },
+              "longPress": [
+                "2"
+              ]
+            },
+            {
+              "label": "३",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51
+              },
+              "longPress": [
+                "3"
+              ]
+            },
+            {
+              "label": "४",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52
+              },
+              "longPress": [
+                "4"
+              ]
+            },
+            {
+              "label": "५",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53
+              },
+              "longPress": [
+                "5"
+              ]
+            },
+            {
+              "label": "६",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54
+              },
+              "longPress": [
+                "6"
+              ]
+            },
+            {
+              "label": "७",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55
+              },
+              "longPress": [
+                "7"
+              ]
+            },
+            {
+              "label": "८",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56
+              },
+              "longPress": [
+                "8"
+              ]
+            },
+            {
+              "label": "९",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57
+              },
+              "longPress": [
+                "9"
+              ]
+            },
+            {
+              "label": "०",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48
+              },
+              "longPress": [
+                "0"
+              ]
+            },
+            {
+              "label": "-",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189
+              }
+            },
+            {
+              "label": "=",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.7
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              }
+            },
+            {
+              "label": "𑅐",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              }
+            },
+            {
+              "label": "𑅪",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              }
+            },
+            {
+              "label": "𑅱",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              }
+            },
+            {
+              "label": "𑅗",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              }
+            },
+            {
+              "label": "𑅥",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              }
+            },
+            {
+              "label": "𑅛",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              }
+            },
+            {
+              "label": "𑅠",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219
+              }
+            },
+            {
+              "label": "𑅳",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 221
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "`",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 192
+              }
+            },
+            {
+              "label": "𑅔",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "𑅓",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              }
+            },
+            {
+              "label": "𑅑",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "𑅒",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              }
+            },
+            {
+              "label": "𑅨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              }
+            },
+            {
+              "label": "𑅭",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              }
+            },
+            {
+              "label": "𑅕",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              }
+            },
+            {
+              "label": "𑅣",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            },
+            {
+              "label": "𑅙",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 186
+              }
+            },
+            {
+              "label": "𑅞",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 222
+              }
+            },
+            {
+              "label": "𑅴",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220
+              },
+              "longPress": [
+                "·"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.6
+            },
+            {
+              "label": "𑅵",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              }
+            },
+            {
+              "label": "𑅶",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              }
+            },
+            {
+              "label": "𑅬",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              }
+            },
+            {
+              "label": "𑅧",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "𑅯",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              }
+            },
+            {
+              "label": "𑅮",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              }
+            },
+            {
+              "label": "𑅰",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            },
+            {
+              "label": ",",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 188
+              }
+            },
+            {
+              "label": "।",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              }
+            },
+            {
+              "label": "॥",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 191
+              }
+            },
+            {
+              "label": ":"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.4
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 9.3
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.45
+            }
+          ]
+        ]
+      },
+      "shift": {
+        "rows": [
+          [
+            {
+              "label": "!",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49
+              }
+            },
+            {
+              "label": "@",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50
+              }
+            },
+            {
+              "label": "#",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51
+              }
+            },
+            {
+              "label": "$",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52
+              }
+            },
+            {
+              "label": "%",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53
+              }
+            },
+            {
+              "label": "^",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54
+              }
+            },
+            {
+              "label": "&",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55
+              }
+            },
+            {
+              "label": "*",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56
+              }
+            },
+            {
+              "label": "(",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57
+              }
+            },
+            {
+              "label": ")",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48
+              }
+            },
+            {
+              "label": "_",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189
+              }
+            },
+            {
+              "label": "+",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.7
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              }
+            },
+            {
+              "label": "𑅫",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              }
+            },
+            {
+              "label": "𑅘",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              }
+            },
+            {
+              "label": "𑅦",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              }
+            },
+            {
+              "label": "𑅜",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              }
+            },
+            {
+              "label": "𑅡",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219
+              }
+            },
+            {
+              "label": "𑅝",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 221
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "~",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 192
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              }
+            },
+            {
+              "label": "𑅩",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              }
+            },
+            {
+              "label": "𑅲",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              }
+            },
+            {
+              "label": "𑅖",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              }
+            },
+            {
+              "label": "𑅤",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            },
+            {
+              "label": "𑅚",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 186
+              }
+            },
+            {
+              "label": "𑅟",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 222
+              }
+            },
+            {
+              "label": "|",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220
+              }
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.6
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              }
+            },
+            {
+              "label": "𑅢",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            },
+            {
+              "label": "<",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 188
+              }
+            },
+            {
+              "label": ">",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              }
+            },
+            {
+              "label": "?",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 191
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.4
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 9.3
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.45
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "mahajani_inscript"
+    }
+  }
+}

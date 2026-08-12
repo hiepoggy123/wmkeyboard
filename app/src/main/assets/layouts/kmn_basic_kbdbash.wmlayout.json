@@ -1,0 +1,504 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_basic_kbdbash",
+    "name": "Bashkir Basic",
+    "langId": "ba-Cyrl",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "й",
+              "shiftLabel": "Й",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              }
+            },
+            {
+              "label": "ц",
+              "shiftLabel": "Ц",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              }
+            },
+            {
+              "label": "у",
+              "shiftLabel": "У",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              }
+            },
+            {
+              "label": "к",
+              "shiftLabel": "К",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              },
+              "longPress": [
+                "ҡ"
+              ]
+            },
+            {
+              "label": "е",
+              "shiftLabel": "Е",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              }
+            },
+            {
+              "label": "н",
+              "shiftLabel": "Н",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              },
+              "longPress": [
+                "ң"
+              ]
+            },
+            {
+              "label": "г",
+              "shiftLabel": "Г",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              },
+              "longPress": [
+                "ғ"
+              ]
+            },
+            {
+              "label": "ш",
+              "shiftLabel": "Ш",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              }
+            },
+            {
+              "label": "щ",
+              "shiftLabel": "Щ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              }
+            },
+            {
+              "label": "з",
+              "shiftLabel": "З",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              },
+              "longPress": [
+                "ҙ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.65
+            },
+            {
+              "label": "ф",
+              "shiftLabel": "Ф",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "ы",
+              "shiftLabel": "Ы",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              }
+            },
+            {
+              "label": "в",
+              "shiftLabel": "В",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              }
+            },
+            {
+              "label": "а",
+              "shiftLabel": "А",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "п",
+              "shiftLabel": "П",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              }
+            },
+            {
+              "label": "р",
+              "shiftLabel": "Р",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              }
+            },
+            {
+              "label": "о",
+              "shiftLabel": "О",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              }
+            },
+            {
+              "label": "л",
+              "shiftLabel": "Л",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              }
+            },
+            {
+              "label": "д",
+              "shiftLabel": "Д",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.1
+            },
+            {
+              "label": "я",
+              "shiftLabel": "Я",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              }
+            },
+            {
+              "label": "ч",
+              "shiftLabel": "Ч",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              }
+            },
+            {
+              "label": "с",
+              "shiftLabel": "С",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              },
+              "longPress": [
+                "ҫ"
+              ]
+            },
+            {
+              "label": "м",
+              "shiftLabel": "М",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "и",
+              "shiftLabel": "И",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              }
+            },
+            {
+              "label": "т",
+              "shiftLabel": "Т",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              }
+            },
+            {
+              "label": "ь",
+              "shiftLabel": "Ь",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            },
+            {
+              "label": "ю",
+              "shiftLabel": "Ю",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 0.9
+            }
+          ],
+          [
+            {
+              "label": "⌨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "alt"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.25
+            },
+            {
+              "label": ".",
+              "longPress": [
+                ",",
+                ":",
+                ";",
+                "!",
+                "?"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.4
+            }
+          ]
+        ]
+      },
+      "alt": {
+        "rows": [
+          [
+            {
+              "label": "ә"
+            },
+            {
+              "label": "Ә"
+            },
+            {
+              "label": "ө"
+            },
+            {
+              "label": "Ө"
+            },
+            {
+              "label": "һ"
+            },
+            {
+              "label": "Һ"
+            },
+            {
+              "label": "ү"
+            },
+            {
+              "label": "Ү"
+            },
+            {
+              "label": "-",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189
+              }
+            },
+            {
+              "label": "№"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.65
+            },
+            {
+              "label": "х"
+            },
+            {
+              "label": "X",
+              "output": "Х"
+            },
+            {
+              "label": "ъ"
+            },
+            {
+              "label": "Ъ"
+            },
+            {
+              "label": "ж"
+            },
+            {
+              "label": "Ж"
+            },
+            {
+              "label": "э"
+            },
+            {
+              "label": "Э"
+            },
+            {
+              "label": "%",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.1
+            },
+            {
+              "label": "б"
+            },
+            {
+              "label": "Б"
+            },
+            {
+              "label": "(",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": ")",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "\""
+            },
+            {
+              "label": ":"
+            },
+            {
+              "label": ";"
+            },
+            {
+              "label": "₽"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 0.9
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.25
+            },
+            {
+              "label": ".",
+              "longPress": [
+                ",",
+                ":",
+                ";",
+                "!",
+                "?"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.4
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "basic_kbdbash"
+    }
+  }
+}

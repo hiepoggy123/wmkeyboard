@@ -1,0 +1,1625 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_dakota_smsc",
+    "name": "SMSC Dakota",
+    "langId": "dak",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.28
+            },
+            {
+              "label": "q",
+              "shiftLabel": "Q",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              }
+            },
+            {
+              "label": "w",
+              "shiftLabel": "W",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              }
+            },
+            {
+              "label": "e",
+              "shiftLabel": "E",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              },
+              "longPress": [
+                "é"
+              ]
+            },
+            {
+              "label": "r",
+              "shiftLabel": "R",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              }
+            },
+            {
+              "label": "t",
+              "shiftLabel": "T",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              },
+              "longPress": [
+                "ṫ"
+              ]
+            },
+            {
+              "label": "y",
+              "shiftLabel": "Y",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              }
+            },
+            {
+              "label": "u",
+              "shiftLabel": "U",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              },
+              "longPress": [
+                "ú"
+              ]
+            },
+            {
+              "label": "i",
+              "shiftLabel": "I",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              },
+              "longPress": [
+                "í"
+              ]
+            },
+            {
+              "label": "o",
+              "shiftLabel": "O",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              },
+              "longPress": [
+                "ó"
+              ]
+            },
+            {
+              "label": "p",
+              "shiftLabel": "P",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              },
+              "longPress": [
+                "ṗ"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.27
+            }
+          ],
+          [
+            {
+              "label": "◌̇",
+              "output": "̇",
+              "width": 0.85
+            },
+            {
+              "label": "a",
+              "shiftLabel": "A",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              },
+              "longPress": [
+                "á"
+              ]
+            },
+            {
+              "label": "s",
+              "shiftLabel": "S",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              },
+              "longPress": [
+                "ṡ"
+              ]
+            },
+            {
+              "label": "d",
+              "shiftLabel": "D",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              }
+            },
+            {
+              "label": "f",
+              "shiftLabel": "F",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "g",
+              "shiftLabel": "G",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              },
+              "longPress": [
+                "ġ"
+              ]
+            },
+            {
+              "label": "h",
+              "shiftLabel": "H",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              },
+              "longPress": [
+                "ḣ"
+              ]
+            },
+            {
+              "label": "j",
+              "shiftLabel": "J",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              }
+            },
+            {
+              "label": "k",
+              "shiftLabel": "K",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              },
+              "longPress": [
+                "k̇"
+              ]
+            },
+            {
+              "label": "l",
+              "shiftLabel": "L",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            },
+            {
+              "label": "◌́",
+              "output": "́",
+              "width": 0.85
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.47
+            },
+            {
+              "label": "z",
+              "shiftLabel": "Z",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              },
+              "longPress": [
+                "ż"
+              ]
+            },
+            {
+              "label": "x",
+              "shiftLabel": "X",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              }
+            },
+            {
+              "label": "c",
+              "shiftLabel": "C",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              },
+              "longPress": [
+                "ċ"
+              ]
+            },
+            {
+              "label": "v",
+              "shiftLabel": "V",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "b",
+              "shiftLabel": "B",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              }
+            },
+            {
+              "label": "n",
+              "shiftLabel": "N",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              },
+              "longPress": [
+                "ŋ"
+              ]
+            },
+            {
+              "label": "m",
+              "shiftLabel": "M",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            },
+            {
+              "label": "ŋ",
+              "shiftLabel": "Ŋ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.38
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "☺",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "emoji_1"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4.92
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "?",
+                "!"
+              ]
+            },
+            {
+              "label": ","
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.38
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "1"
+            },
+            {
+              "label": "2"
+            },
+            {
+              "label": "3"
+            },
+            {
+              "label": "4"
+            },
+            {
+              "label": "5"
+            },
+            {
+              "label": "6"
+            },
+            {
+              "label": "7"
+            },
+            {
+              "label": "8"
+            },
+            {
+              "label": "9"
+            },
+            {
+              "label": "0"
+            }
+          ],
+          [
+            {
+              "label": "!"
+            },
+            {
+              "label": "$"
+            },
+            {
+              "label": "#"
+            },
+            {
+              "label": "%"
+            },
+            {
+              "label": "&"
+            },
+            {
+              "label": "+",
+              "longPress": [
+                "±",
+                "÷",
+                "×"
+              ]
+            },
+            {
+              "label": "="
+            },
+            {
+              "label": "*"
+            },
+            {
+              "label": "^",
+              "longPress": [
+                "˄",
+                "˅",
+                "ˆ",
+                "ˇ"
+              ]
+            },
+            {
+              "label": "-",
+              "longPress": [
+                "_"
+              ]
+            }
+          ],
+          [
+            {
+              "label": ";"
+            },
+            {
+              "label": ":"
+            },
+            {
+              "label": "(",
+              "longPress": [
+                "<",
+                "[",
+                "{",
+                "«"
+              ]
+            },
+            {
+              "label": ")",
+              "longPress": [
+                ">",
+                "]",
+                "}",
+                "»"
+              ]
+            },
+            {
+              "label": "\""
+            },
+            {
+              "label": "'",
+              "longPress": [
+                "`"
+              ]
+            },
+            {
+              "label": "~"
+            },
+            {
+              "label": "@"
+            },
+            {
+              "label": "/",
+              "longPress": [
+                "\\",
+                "|"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            },
+            {
+              "label": "☺",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "emoji_1"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 2.92
+            },
+            {
+              "label": "."
+            },
+            {
+              "label": ","
+            },
+            {
+              "label": "?"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.38
+            }
+          ]
+        ]
+      },
+      "emoji_1": {
+        "rows": [
+          [
+            {
+              "label": "😀"
+            },
+            {
+              "label": "😁"
+            },
+            {
+              "label": "😂"
+            },
+            {
+              "label": "😃"
+            },
+            {
+              "label": "😄"
+            },
+            {
+              "label": "😅"
+            },
+            {
+              "label": "😆"
+            },
+            {
+              "label": "😇"
+            },
+            {
+              "label": "😈"
+            },
+            {
+              "label": "⭢",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "emoji_2"
+              },
+              "width": 2.15
+            }
+          ],
+          [
+            {
+              "label": "😉"
+            },
+            {
+              "label": "😊"
+            },
+            {
+              "label": "😋"
+            },
+            {
+              "label": "😌"
+            },
+            {
+              "label": "😍"
+            },
+            {
+              "label": "😎"
+            },
+            {
+              "label": "😏"
+            },
+            {
+              "label": "😐"
+            },
+            {
+              "label": "😑"
+            },
+            {
+              "label": "😒"
+            },
+            {
+              "label": "😓"
+            }
+          ],
+          [
+            {
+              "label": "😔"
+            },
+            {
+              "label": "😕"
+            },
+            {
+              "label": "😖"
+            },
+            {
+              "label": "😗"
+            },
+            {
+              "label": "😘"
+            },
+            {
+              "label": "😙"
+            },
+            {
+              "label": "😚"
+            },
+            {
+              "label": "😛"
+            },
+            {
+              "label": "😜"
+            },
+            {
+              "label": "😝"
+            },
+            {
+              "label": "😞"
+            }
+          ],
+          [
+            {
+              "label": "😟"
+            },
+            {
+              "label": "😡"
+            },
+            {
+              "label": "😢"
+            },
+            {
+              "label": "😣"
+            },
+            {
+              "label": "😤"
+            },
+            {
+              "label": "😥"
+            },
+            {
+              "label": "😦"
+            },
+            {
+              "label": "😧"
+            },
+            {
+              "label": "😨"
+            },
+            {
+              "label": "😩"
+            },
+            {
+              "label": "😪"
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            },
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.99
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.38
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.38
+            }
+          ]
+        ]
+      },
+      "emoji_2": {
+        "rows": [
+          [
+            {
+              "label": "⭠",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "emoji_1"
+              },
+              "width": 1.57
+            },
+            {
+              "label": "😫"
+            },
+            {
+              "label": "😬"
+            },
+            {
+              "label": "😭"
+            },
+            {
+              "label": "😮"
+            },
+            {
+              "label": "😰"
+            },
+            {
+              "label": "😱"
+            },
+            {
+              "label": "😲"
+            },
+            {
+              "label": "😳"
+            },
+            {
+              "label": "⭢",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "emoji_3"
+              },
+              "width": 1.57
+            }
+          ],
+          [
+            {
+              "label": "😴"
+            },
+            {
+              "label": "😵"
+            },
+            {
+              "label": "😶"
+            },
+            {
+              "label": "😷"
+            },
+            {
+              "label": "🙁"
+            },
+            {
+              "label": "🙂"
+            },
+            {
+              "label": "🙃"
+            },
+            {
+              "label": "🙄"
+            },
+            {
+              "label": "😸"
+            },
+            {
+              "label": "😹"
+            },
+            {
+              "label": "😺"
+            }
+          ],
+          [
+            {
+              "label": "😻"
+            },
+            {
+              "label": "😼"
+            },
+            {
+              "label": "😽"
+            },
+            {
+              "label": "😾"
+            },
+            {
+              "label": "😿"
+            },
+            {
+              "label": "🙀"
+            },
+            {
+              "label": "🙈"
+            },
+            {
+              "label": "🙉"
+            },
+            {
+              "label": "🙊"
+            },
+            {
+              "label": "🙌🏽"
+            },
+            {
+              "label": "🙏🏽"
+            }
+          ],
+          [
+            {
+              "label": "👆🏽"
+            },
+            {
+              "label": "👇🏽"
+            },
+            {
+              "label": "👈🏽"
+            },
+            {
+              "label": "👉🏽"
+            },
+            {
+              "label": "👊🏽"
+            },
+            {
+              "label": "👋🏽"
+            },
+            {
+              "label": "👌🏽"
+            },
+            {
+              "label": "👍🏽"
+            },
+            {
+              "label": "👎🏽"
+            },
+            {
+              "label": "👏🏽"
+            },
+            {
+              "label": "👐🏽"
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            },
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.99
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.38
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.38
+            }
+          ]
+        ]
+      },
+      "emoji_3": {
+        "rows": [
+          [
+            {
+              "label": "⭠",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "emoji_2"
+              },
+              "width": 1.57
+            },
+            {
+              "label": "🤐"
+            },
+            {
+              "label": "🤑"
+            },
+            {
+              "label": "🤒"
+            },
+            {
+              "label": "🤓"
+            },
+            {
+              "label": "🤔"
+            },
+            {
+              "label": "🤕"
+            },
+            {
+              "label": "🤖"
+            },
+            {
+              "label": "🤗"
+            },
+            {
+              "label": "⭢",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "emoji_4"
+              },
+              "width": 1.57
+            }
+          ],
+          [
+            {
+              "label": "🤠"
+            },
+            {
+              "label": "🤡"
+            },
+            {
+              "label": "🤢"
+            },
+            {
+              "label": "🤣"
+            },
+            {
+              "label": "🤤"
+            },
+            {
+              "label": "🤥"
+            },
+            {
+              "label": "🤧"
+            },
+            {
+              "label": "🤨"
+            },
+            {
+              "label": "🤩"
+            },
+            {
+              "label": "🤪"
+            },
+            {
+              "label": "🤫"
+            }
+          ],
+          [
+            {
+              "label": "🤬"
+            },
+            {
+              "label": "🤭"
+            },
+            {
+              "label": "🤮"
+            },
+            {
+              "label": "🤯"
+            },
+            {
+              "label": "🥰"
+            },
+            {
+              "label": "🥱"
+            },
+            {
+              "label": "🥳"
+            },
+            {
+              "label": "🥴"
+            },
+            {
+              "label": "🥵"
+            },
+            {
+              "label": "🥶"
+            },
+            {
+              "label": "🥺"
+            }
+          ],
+          [
+            {
+              "label": "🦅"
+            },
+            {
+              "label": "🦉"
+            },
+            {
+              "label": "🦊"
+            },
+            {
+              "label": "🦋"
+            },
+            {
+              "label": "🦌"
+            },
+            {
+              "label": "🦝"
+            },
+            {
+              "label": "🦨"
+            },
+            {
+              "label": "🦦"
+            },
+            {
+              "label": "☕"
+            },
+            {
+              "label": "🌙"
+            },
+            {
+              "label": "🌞"
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            },
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.99
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.38
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.38
+            }
+          ]
+        ]
+      },
+      "emoji_4": {
+        "rows": [
+          [
+            {
+              "label": "⭠",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "emoji_3"
+              },
+              "width": 2.15
+            },
+            {
+              "label": "🎂"
+            },
+            {
+              "label": "🤷🏽"
+            },
+            {
+              "label": "🤦🏽"
+            },
+            {
+              "label": "🔥"
+            },
+            {
+              "label": "🚀"
+            },
+            {
+              "label": "💪🏽"
+            },
+            {
+              "label": "✨"
+            },
+            {
+              "label": "👀"
+            },
+            {
+              "label": "🐃"
+            }
+          ],
+          [
+            {
+              "label": "💗"
+            },
+            {
+              "label": "❤️",
+              "output": "❤"
+            },
+            {
+              "label": "💕"
+            },
+            {
+              "label": "💓"
+            },
+            {
+              "label": "💙"
+            },
+            {
+              "label": "💚"
+            },
+            {
+              "label": "💛"
+            },
+            {
+              "label": "💜"
+            },
+            {
+              "label": "💔"
+            },
+            {
+              "label": "🧡"
+            },
+            {
+              "label": "🖤"
+            }
+          ],
+          [
+            {
+              "label": "💃🏽"
+            },
+            {
+              "label": "💐"
+            },
+            {
+              "label": "🌸"
+            },
+            {
+              "label": "🌹"
+            },
+            {
+              "label": "🌺"
+            },
+            {
+              "label": "🌼"
+            },
+            {
+              "label": "🌻"
+            },
+            {
+              "label": "🌷"
+            },
+            {
+              "label": "🍄"
+            },
+            {
+              "label": "🌽"
+            },
+            {
+              "label": "🌾"
+            }
+          ],
+          [
+            {
+              "label": "✓"
+            },
+            {
+              "label": "❌"
+            },
+            {
+              "label": "⭕"
+            },
+            {
+              "label": "💣"
+            },
+            {
+              "label": "💥"
+            },
+            {
+              "label": "💯"
+            },
+            {
+              "label": "💤"
+            },
+            {
+              "label": "🎈"
+            },
+            {
+              "label": "💋"
+            },
+            {
+              "label": "💀"
+            },
+            {
+              "label": "🎶"
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            },
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.99
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.38
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.38
+            }
+          ]
+        ]
+      },
+      "caps": {
+        "rows": [
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.28
+            },
+            {
+              "label": "Q",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              }
+            },
+            {
+              "label": "W",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              }
+            },
+            {
+              "label": "E",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              },
+              "longPress": [
+                "É"
+              ]
+            },
+            {
+              "label": "R",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              }
+            },
+            {
+              "label": "T",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              },
+              "longPress": [
+                "Ṫ"
+              ]
+            },
+            {
+              "label": "Y",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              }
+            },
+            {
+              "label": "U",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              },
+              "longPress": [
+                "Ú"
+              ]
+            },
+            {
+              "label": "I",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              },
+              "longPress": [
+                "Í"
+              ]
+            },
+            {
+              "label": "O",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              },
+              "longPress": [
+                "Ó"
+              ]
+            },
+            {
+              "label": "P",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              },
+              "longPress": [
+                "Ṗ"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.27
+            }
+          ],
+          [
+            {
+              "label": "◌̇",
+              "output": "̇",
+              "width": 0.85
+            },
+            {
+              "label": "A",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              },
+              "longPress": [
+                "Á"
+              ]
+            },
+            {
+              "label": "S",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              },
+              "longPress": [
+                "Ṡ"
+              ]
+            },
+            {
+              "label": "D",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              }
+            },
+            {
+              "label": "F",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "G",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              },
+              "longPress": [
+                "Ġ"
+              ]
+            },
+            {
+              "label": "H",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              },
+              "longPress": [
+                "Ḣ"
+              ]
+            },
+            {
+              "label": "J",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              }
+            },
+            {
+              "label": "K",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              },
+              "longPress": [
+                "K̇"
+              ]
+            },
+            {
+              "label": "L",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            },
+            {
+              "label": "◌́",
+              "output": "́",
+              "width": 0.85
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.47
+            },
+            {
+              "label": "Z",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              },
+              "longPress": [
+                "Ż"
+              ]
+            },
+            {
+              "label": "X",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              }
+            },
+            {
+              "label": "C",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              },
+              "longPress": [
+                "Ċ"
+              ]
+            },
+            {
+              "label": "V",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "B",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              }
+            },
+            {
+              "label": "N",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              },
+              "longPress": [
+                "Ŋ"
+              ]
+            },
+            {
+              "label": "M",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            },
+            {
+              "label": "Ŋ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.38
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "☺",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "emoji_1"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4.92
+            },
+            {
+              "label": "."
+            },
+            {
+              "label": ","
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.38
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "dakota_smsc"
+    }
+  }
+}

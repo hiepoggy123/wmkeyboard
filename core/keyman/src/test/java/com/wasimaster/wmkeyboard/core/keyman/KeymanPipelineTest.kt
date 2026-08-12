@@ -79,7 +79,12 @@ class KeymanPipelineTest {
                     }
                 }
 
-                val langId = meta.languages.firstOrNull()?.let(::canonicalTag) ?: ""
+                val declared = meta.languages.firstOrNull()?.let(::canonicalTag).orEmpty()
+                val langId = resolveLanguage(declared, distinctiveScript(converted.layout))
+                if (langId.isEmpty()) {
+                    skipped += "$id: no usable language (declared '$declared')"
+                    continue
+                }
                 val spec = converted.layout.copy(
                     langId = langId,
                     keyman = com.wasimaster.wmkeyboard.core.layout.KeymanBinding(
@@ -256,6 +261,51 @@ class KeymanPipelineTest {
     }
 
     /**
+     * The language a keyboard belongs to, or empty when it has none we can use.
+     *
+     * Most keyboards declare one. A few declare `und` — "undetermined" — which
+     * is not a language anyone picks out of a list, and which would collide with
+     * the registry's own `und` stand-in that is documented as never being shown.
+     *
+     * For those the script is the identity instead: an IPA keyboard is an IPA
+     * keyboard whatever its author left in the tag, and we already carry a
+     * language for that. Where the script maps to nothing the board is skipped
+     * and named in `skipped.txt`, because inventing a language identity for a
+     * keyboard is guesswork that a user would then have to find and undo.
+     */
+    private fun resolveLanguage(declared: String, distinctive: String?): String {
+        if (declared.isNotEmpty() && !declared.startsWith("und")) return declared
+        return UNDETERMINED_BY_SCRIPT[distinctive].orEmpty()
+    }
+
+    /**
+     * The most common script among the grid's *non-ASCII* letters.
+     *
+     * Separate from [dominantScript], which counts ASCII as Latin because for
+     * a normal keyboard that is the truth. Here the question is narrower —
+     * which script makes this keyboard distinctive — and counting ASCII
+     * answers it wrongly: an IPA keyboard's base layer is mostly plain Latin
+     * letters, so Latin wins and the IPA that is the entire point of the
+     * keyboard never shows up.
+     */
+    private fun distinctiveScript(spec: LayoutSpec): String? {
+        val counts = mutableMapOf<ScriptId, Int>()
+        for (layer in spec.layers.values) {
+            for (row in layer.rows) {
+                for (key in row) {
+                    for (ch in (key.output ?: key.label)) {
+                        if (ch.code < 0x80 || !ch.isLetter()) continue
+                        val script = ScriptRegistry.all.firstOrNull { ch.code in it.unicodeRange }
+                            ?: continue
+                        counts.merge(script.id, 1, Int::plus)
+                    }
+                }
+            }
+        }
+        return counts.maxByOrNull { it.value }?.key?.name
+    }
+
+    /**
      * The [ScriptId] a language's keyboards write in.
      *
      * The tag's own script subtag wins when it has one — `adi-Tibt` says
@@ -313,6 +363,12 @@ class KeymanPipelineTest {
     }
 
     private companion object {
+        /**
+         * What an undetermined tag falls back to, by measured script. Only
+         * scripts we already carry a language for appear here.
+         */
+        val UNDETERMINED_BY_SCRIPT = mapOf("IPA" to "ipa")
+
         /** A script named by the tag itself is stated, not inferred. */
         const val CONFIDENCE_FROM_TAG = 100
 

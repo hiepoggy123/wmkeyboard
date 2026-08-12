@@ -1,0 +1,900 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_sil_myanmar_my3",
+    "name": "Myanmar3 (SIL)",
+    "langId": "my",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ဇ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဗ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဂ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 186,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဒ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဓ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ရ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဝ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ွ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ှ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဲ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ံ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72,
+                "modifiers": 16
+              }
+            }
+          ],
+          [
+            {
+              "label": "ဆ"
+            },
+            {
+              "label": "တ"
+            },
+            {
+              "label": "န"
+            },
+            {
+              "label": "မ"
+            },
+            {
+              "label": "အ"
+            },
+            {
+              "label": "ပ"
+            },
+            {
+              "label": "က",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              }
+            },
+            {
+              "label": "င"
+            },
+            {
+              "label": "သ"
+            },
+            {
+              "label": "စ"
+            },
+            {
+              "label": "ဟ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219
+              }
+            }
+          ],
+          [
+            {
+              "label": "ေ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "ျ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              }
+            },
+            {
+              "label": "ိ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              }
+            },
+            {
+              "label": "ီ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "်",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "ါ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              }
+            },
+            {
+              "label": "့",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              }
+            },
+            {
+              "label": "ြ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              }
+            },
+            {
+              "label": "ု",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              }
+            },
+            {
+              "label": "ူ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            },
+            {
+              "label": "း",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 186
+              }
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.1
+            },
+            {
+              "label": "ဖ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              }
+            },
+            {
+              "label": "ထ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              }
+            },
+            {
+              "label": "ခ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              }
+            },
+            {
+              "label": "လ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "ဘ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              }
+            },
+            {
+              "label": "ည",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              }
+            },
+            {
+              "label": "ာ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            },
+            {
+              "label": "ယ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဥ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 0.9
+            }
+          ],
+          [
+            {
+              "label": "၁၂၃",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": "ဏ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.0
+            },
+            {
+              "label": "္",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "။",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190,
+                "modifiers": 16
+              },
+              "longPress": [
+                "၊",
+                "(",
+                ")",
+                "\"",
+                "'"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            }
+          ]
+        ]
+      },
+      "shift": {
+        "rows": [
+          [
+            {
+              "label": "ဳ"
+            },
+            {
+              "label": "ဴ"
+            },
+            {
+              "label": "ဵ"
+            },
+            {
+              "label": "ဨ"
+            },
+            {
+              "label": "ၐ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 192
+              }
+            },
+            {
+              "label": "ၑ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ၒ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ၓ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဢ"
+            }
+          ],
+          [
+            {
+              "label": "ဋ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဌ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဍ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဎ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 192,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ၔ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ၕ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ၖ"
+            },
+            {
+              "label": "ၗ"
+            },
+            {
+              "label": "ၘ"
+            },
+            {
+              "label": "ၙ"
+            }
+          ],
+          [
+            {
+              "label": "ဈ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဃ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဿ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဣ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဤ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဥ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဦ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဧ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဩ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 221
+              }
+            },
+            {
+              "label": "ဪ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 221,
+                "modifiers": 16
+              }
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.1
+            },
+            {
+              "label": "ဠ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဉ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ဏ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "၌",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "၍",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "၏",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220
+              }
+            },
+            {
+              "label": "၎င်း"
+            },
+            {
+              "label": "င်္"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 0.9
+            }
+          ],
+          [
+            {
+              "label": "၁၂၃",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.0
+            },
+            {
+              "label": "္",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "။",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190,
+                "modifiers": 16
+              },
+              "longPress": [
+                "၊",
+                "(",
+                ")",
+                "\"",
+                "'"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 0.1
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "၁"
+            },
+            {
+              "label": "၂"
+            },
+            {
+              "label": "၃"
+            },
+            {
+              "label": "၄"
+            },
+            {
+              "label": "၅"
+            },
+            {
+              "label": "၆"
+            },
+            {
+              "label": "၇"
+            },
+            {
+              "label": "၈"
+            },
+            {
+              "label": "၉"
+            },
+            {
+              "label": "၀"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.65
+            },
+            {
+              "label": "$"
+            },
+            {
+              "label": "@"
+            },
+            {
+              "label": "#"
+            },
+            {
+              "label": "%"
+            },
+            {
+              "label": "&"
+            },
+            {
+              "label": "_",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "=",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187
+              }
+            },
+            {
+              "label": ":"
+            },
+            {
+              "label": "\\"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.1
+            },
+            {
+              "label": "[",
+              "longPress": [
+                "«",
+                "<",
+                "{"
+              ]
+            },
+            {
+              "label": "(",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": ")",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "]",
+              "longPress": [
+                "»",
+                ">",
+                "}"
+              ]
+            },
+            {
+              "label": "+",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "-",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189
+              }
+            },
+            {
+              "label": "*",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "/",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 191
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 0.9
+            }
+          ],
+          [
+            {
+              "label": "ကခ",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.3
+            },
+            {
+              "label": "။",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190,
+                "modifiers": 16
+              },
+              "longPress": [
+                "၊",
+                "(",
+                ")",
+                "\"",
+                "'"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.4
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "sil_myanmar_my3"
+    }
+  }
+}

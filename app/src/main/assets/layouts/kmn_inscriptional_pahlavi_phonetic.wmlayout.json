@@ -1,0 +1,455 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_inscriptional_pahlavi_phonetic",
+    "name": "Inscriptional Pahlavi (Phonetic)",
+    "langId": "pal",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "𐭸",
+              "shiftLabel": "!",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49
+              },
+              "longPress": [
+                "1"
+              ]
+            },
+            {
+              "label": "𐭹",
+              "shiftLabel": "@",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50
+              },
+              "longPress": [
+                "2"
+              ]
+            },
+            {
+              "label": "𐭺",
+              "shiftLabel": "#",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51
+              },
+              "longPress": [
+                "3"
+              ]
+            },
+            {
+              "label": "𐭻",
+              "shiftLabel": "$",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52
+              },
+              "longPress": [
+                "4"
+              ]
+            },
+            {
+              "label": "𐭼",
+              "shiftLabel": "%",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53
+              },
+              "longPress": [
+                "5"
+              ]
+            },
+            {
+              "label": "𐭽",
+              "shiftLabel": "^",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54
+              },
+              "longPress": [
+                "6"
+              ]
+            },
+            {
+              "label": "𐭾",
+              "shiftLabel": "&",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55
+              },
+              "longPress": [
+                "7"
+              ]
+            },
+            {
+              "label": "𐭿",
+              "shiftLabel": "*",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56
+              },
+              "longPress": [
+                "8"
+              ]
+            },
+            {
+              "label": "9",
+              "shiftLabel": "(",
+              "longPress": [
+                "9"
+              ]
+            },
+            {
+              "label": "0",
+              "shiftLabel": ")",
+              "longPress": [
+                "0"
+              ]
+            },
+            {
+              "label": "-",
+              "shiftLabel": "_",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189
+              }
+            },
+            {
+              "label": "=",
+              "shiftLabel": "+",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.7
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              }
+            },
+            {
+              "label": "𐭥",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              }
+            },
+            {
+              "label": "𐭰",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              }
+            },
+            {
+              "label": "𐭨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              }
+            },
+            {
+              "label": "𐭲",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              }
+            },
+            {
+              "label": "𐭩",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              }
+            },
+            {
+              "label": "𐭯",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              }
+            },
+            {
+              "label": "[",
+              "shiftLabel": "{",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219
+              }
+            },
+            {
+              "label": "]",
+              "shiftLabel": "}",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 221
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "𐭠",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "𐭮",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              }
+            },
+            {
+              "label": "𐭣",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "𐭢",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              }
+            },
+            {
+              "label": "𐭤",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              }
+            },
+            {
+              "label": "𐭪",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              }
+            },
+            {
+              "label": "𐭫",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            },
+            {
+              "label": ";",
+              "shiftLabel": ":",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 186
+              }
+            },
+            {
+              "label": "'",
+              "shiftLabel": "\"",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 222
+              }
+            },
+            {
+              "label": "\\",
+              "shiftLabel": "|",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220
+              }
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.6
+            },
+            {
+              "label": "𐭦",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              }
+            },
+            {
+              "label": "𐭱",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              }
+            },
+            {
+              "label": "𐭧",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              }
+            },
+            {
+              "label": "v",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "𐭡",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              }
+            },
+            {
+              "label": "𐭭",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              }
+            },
+            {
+              "label": "𐭬",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            },
+            {
+              "label": ",",
+              "shiftLabel": "<",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 188
+              }
+            },
+            {
+              "label": ".",
+              "shiftLabel": ">",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              }
+            },
+            {
+              "label": "/",
+              "shiftLabel": "?",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 191
+              }
+            },
+            {
+              "label": "`",
+              "shiftLabel": "~",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 192
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.4
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 9.3
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.45
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "inscriptional_pahlavi_phonetic"
+    }
+  }
+}

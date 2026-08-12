@@ -1,0 +1,453 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_sil_bunong",
+    "name": "Bunong ឞូន៝ង (SIL)",
+    "langId": "cmo-Khmr",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ក",
+              "shiftLabel": "១",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              }
+            },
+            {
+              "label": "ខ",
+              "shiftLabel": "២",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              }
+            },
+            {
+              "label": "គ",
+              "shiftLabel": "៣",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ង",
+              "shiftLabel": "៤",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              }
+            },
+            {
+              "label": "៝",
+              "shiftLabel": "៥",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 188
+              }
+            },
+            {
+              "label": "់",
+              "shiftLabel": "៦",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 222
+              },
+              "longPress": [
+                "ៈ"
+              ]
+            },
+            {
+              "label": "ច",
+              "shiftLabel": "៧",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              }
+            },
+            {
+              "label": "ឆ",
+              "shiftLabel": "៨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              }
+            },
+            {
+              "label": "ជ",
+              "shiftLabel": "៩",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ញ",
+              "shiftLabel": "០",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74,
+                "modifiers": 16
+              }
+            }
+          ],
+          [
+            {
+              "label": "ដ",
+              "shiftLabel": "(",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              }
+            },
+            {
+              "label": "ត",
+              "shiftLabel": ")",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              }
+            },
+            {
+              "label": "ថ",
+              "shiftLabel": "ៈ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "ទ",
+              "shiftLabel": "ិ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ន",
+              "shiftLabel": "ី",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              }
+            },
+            {
+              "label": "ា",
+              "shiftLabel": "ឹ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "ប",
+              "shiftLabel": "ឺ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              }
+            },
+            {
+              "label": "ផ",
+              "shiftLabel": "ៀ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              }
+            },
+            {
+              "label": "ព",
+              "shiftLabel": "៖",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ម",
+              "shiftLabel": "%",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            }
+          ],
+          [
+            {
+              "label": "យ",
+              "shiftLabel": "«",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              }
+            },
+            {
+              "label": "រ",
+              "shiftLabel": "»",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              }
+            },
+            {
+              "label": "ល",
+              "shiftLabel": "ូ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            },
+            {
+              "label": "វ",
+              "shiftLabel": "េ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "ោ",
+              "shiftLabel": "ែ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              },
+              "longPress": [
+                "ៅ"
+              ]
+            },
+            {
+              "label": "ុ",
+              "shiftLabel": "ៃ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              },
+              "longPress": [
+                "ូ",
+                "ួ"
+              ]
+            },
+            {
+              "label": "ឞ",
+              "shiftLabel": "ៅ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ស",
+              "shiftLabel": "ឿ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              }
+            },
+            {
+              "label": "ហ",
+              "shiftLabel": ",",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              }
+            },
+            {
+              "label": "អ",
+              "shiftLabel": ".",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71,
+                "modifiers": 16
+              }
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.55
+            },
+            {
+              "label": "្យ",
+              "shiftLabel": "\""
+            },
+            {
+              "label": "្រ",
+              "shiftLabel": "@"
+            },
+            {
+              "label": "្ស",
+              "shiftLabel": "+"
+            },
+            {
+              "label": "ើ",
+              "shiftLabel": "-",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 186
+              }
+            },
+            {
+              "label": "្ល",
+              "shiftLabel": "៛"
+            },
+            {
+              "label": "្វ",
+              "shiftLabel": "\\"
+            },
+            {
+              "label": "្ហ",
+              "shiftLabel": "="
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.6
+            }
+          ],
+          [
+            {
+              "label": "⌨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "number"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.55
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.1
+            },
+            {
+              "label": "។",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              },
+              "width": 1.5,
+              "longPress": [
+                "៕",
+                "!",
+                "?",
+                "ៗ"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.6
+            }
+          ]
+        ]
+      },
+      "number": {
+        "rows": [
+          [
+            {
+              "label": "1",
+              "width": 3.7
+            },
+            {
+              "label": "2",
+              "width": 3.7
+            },
+            {
+              "label": "3",
+              "width": 3.7
+            }
+          ],
+          [
+            {
+              "label": "4",
+              "width": 3.7
+            },
+            {
+              "label": "5",
+              "width": 3.7
+            },
+            {
+              "label": "6",
+              "width": 3.7
+            }
+          ],
+          [
+            {
+              "label": "7",
+              "width": 3.7
+            },
+            {
+              "label": "8",
+              "width": 3.7
+            },
+            {
+              "label": "9",
+              "width": 3.7
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.55
+            },
+            {
+              "label": "0",
+              "width": 5.05
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.6
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.6
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "sil_bunong"
+    }
+  }
+}

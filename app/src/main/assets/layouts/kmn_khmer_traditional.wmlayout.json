@@ -1,0 +1,550 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_khmer_traditional",
+    "name": "Khmer Traditional",
+    "langId": "km",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "១",
+              "shiftLabel": "!",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49
+              }
+            },
+            {
+              "label": "២",
+              "shiftLabel": "ៗ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50
+              }
+            },
+            {
+              "label": "៣",
+              "shiftLabel": "៊",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51
+              }
+            },
+            {
+              "label": "៤",
+              "shiftLabel": "៛",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52
+              }
+            },
+            {
+              "label": "៥",
+              "shiftLabel": "%",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53
+              }
+            },
+            {
+              "label": "៦",
+              "shiftLabel": "៍",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54
+              }
+            },
+            {
+              "label": "៧",
+              "shiftLabel": "័",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55
+              }
+            },
+            {
+              "label": "៨",
+              "shiftLabel": "៏",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56
+              }
+            },
+            {
+              "label": "៩",
+              "shiftLabel": "ឰ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57
+              }
+            },
+            {
+              "label": "០",
+              "shiftLabel": "ឪ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48
+              }
+            },
+            {
+              "label": "ឥ",
+              "shiftLabel": "៌"
+            },
+            {
+              "label": "ឲ",
+              "shiftLabel": "៎"
+            }
+          ],
+          [
+            {
+              "label": "ឆ",
+              "shiftLabel": "ឈ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              }
+            },
+            {
+              "label": "ឹ",
+              "shiftLabel": "ឺ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              }
+            },
+            {
+              "label": "េ",
+              "shiftLabel": "ែ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              }
+            },
+            {
+              "label": "រ",
+              "shiftLabel": "ឬ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              }
+            },
+            {
+              "label": "ត",
+              "shiftLabel": "ទ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              }
+            },
+            {
+              "label": "យ",
+              "shiftLabel": "ួ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              }
+            },
+            {
+              "label": "ុ",
+              "shiftLabel": "ូ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              }
+            },
+            {
+              "label": "ិ",
+              "shiftLabel": "ី",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              }
+            },
+            {
+              "label": "ោ",
+              "shiftLabel": "ៅ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              }
+            },
+            {
+              "label": "ផ",
+              "shiftLabel": "ភ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              }
+            },
+            {
+              "label": "ៀ",
+              "shiftLabel": "ឿ"
+            },
+            {
+              "label": "ឳ",
+              "shiftLabel": "ឧ"
+            }
+          ],
+          [
+            {
+              "label": "ា",
+              "shiftLabel": "ៃ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "ស",
+              "shiftLabel": "ាំ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              }
+            },
+            {
+              "label": "ដ",
+              "shiftLabel": "ឌ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              }
+            },
+            {
+              "label": "ថ",
+              "shiftLabel": "ធ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "ង",
+              "shiftLabel": "អ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              }
+            },
+            {
+              "label": "ហ",
+              "shiftLabel": "ះ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              }
+            },
+            {
+              "label": "្",
+              "shiftLabel": "ញ"
+            },
+            {
+              "label": "ក",
+              "shiftLabel": "គ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              }
+            },
+            {
+              "label": "ល",
+              "shiftLabel": "ឡ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            },
+            {
+              "label": "ើ",
+              "shiftLabel": "៖",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219
+              }
+            },
+            {
+              "label": "់",
+              "shiftLabel": "៉",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 222
+              }
+            },
+            {
+              "label": "ឮ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "ឋ",
+              "shiftLabel": "ឍ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              }
+            },
+            {
+              "label": "ខ",
+              "shiftLabel": "ឃ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              }
+            },
+            {
+              "label": "ច",
+              "shiftLabel": "ជ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              }
+            },
+            {
+              "label": "វ",
+              "shiftLabel": "ៈ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "ប",
+              "shiftLabel": "ព",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              }
+            },
+            {
+              "label": "ន",
+              "shiftLabel": "ណ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              }
+            },
+            {
+              "label": "ម",
+              "shiftLabel": "ំ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            },
+            {
+              "label": "ឦ",
+              "shiftLabel": "ឱ"
+            },
+            {
+              "label": "។",
+              "shiftLabel": "៕"
+            },
+            {
+              "label": "៊",
+              "shiftLabel": "ឯ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.3
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "ដកឃ្លា",
+              "output": " ",
+              "width": 8.0
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2.5
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4.0
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "1"
+            },
+            {
+              "label": "2"
+            },
+            {
+              "label": "3"
+            },
+            {
+              "label": "4"
+            },
+            {
+              "label": "5"
+            },
+            {
+              "label": "6"
+            },
+            {
+              "label": "7"
+            },
+            {
+              "label": "8"
+            },
+            {
+              "label": "9"
+            },
+            {
+              "label": "0"
+            }
+          ],
+          [
+            {
+              "label": "«"
+            },
+            {
+              "label": "»"
+            },
+            {
+              "label": "@"
+            },
+            {
+              "label": "៑"
+            },
+            {
+              "label": "៛"
+            },
+            {
+              "label": "/"
+            },
+            {
+              "label": "៙"
+            },
+            {
+              "label": "៚"
+            },
+            {
+              "label": "("
+            },
+            {
+              "label": ")"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.6
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.45
+            },
+            {
+              "label": "ឩ",
+              "width": 1.3
+            },
+            {
+              "label": "ឝ",
+              "width": 1.3
+            },
+            {
+              "label": "ឞ",
+              "width": 1.3
+            },
+            {
+              "label": "?",
+              "width": 1.3
+            },
+            {
+              "label": "!",
+              "width": 1.3
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.5
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.6
+            }
+          ],
+          [
+            {
+              "label": "ក",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.3
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "ដកឃ្លា",
+              "output": " ",
+              "width": 6.0
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2.2
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "khmer_traditional"
+    }
+  }
+}

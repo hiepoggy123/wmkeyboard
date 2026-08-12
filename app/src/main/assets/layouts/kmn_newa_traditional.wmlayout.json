@@ -1,0 +1,598 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_newa_traditional",
+    "name": "Newa Traditional",
+    "langId": "new-Newa",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "𑐢",
+              "shiftLabel": "𑐘",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              }
+            },
+            {
+              "label": "𑐨",
+              "shiftLabel": "𑐑",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              }
+            },
+            {
+              "label": "𑐔",
+              "shiftLabel": "𑐒",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              }
+            },
+            {
+              "label": "𑐟",
+              "shiftLabel": "𑐕",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              },
+              "longPress": [
+                "𑐟𑑂𑐟",
+                "𑐟𑑂𑐬"
+              ]
+            },
+            {
+              "label": "𑐠",
+              "shiftLabel": "𑐚",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              }
+            },
+            {
+              "label": "𑐐",
+              "shiftLabel": "𑐛",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              }
+            },
+            {
+              "label": "𑐫",
+              "shiftLabel": "𑐜",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              },
+              "longPress": [
+                "𑐫𑑂‌"
+              ]
+            },
+            {
+              "label": "𑐸",
+              "shiftLabel": "𑐝",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 222
+              },
+              "longPress": [
+                "𑐹",
+                "𑐄",
+                "𑐅",
+                "𑐺"
+              ]
+            },
+            {
+              "label": "𑐾",
+              "shiftLabel": "𑐞",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 221
+              },
+              "longPress": [
+                "𑐿",
+                "𑐊",
+                "𑐋"
+              ]
+            },
+            {
+              "label": "𑑂",
+              "shiftLabel": "𑑄",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220
+              },
+              "longPress": [
+                "zwnj",
+                "zwj"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "𑐧",
+              "shiftLabel": "𑐁",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "𑐎",
+              "shiftLabel": "𑐎𑑂",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              },
+              "longPress": [
+                "𑐎𑑂𑐲"
+              ]
+            },
+            {
+              "label": "𑐩",
+              "shiftLabel": "𑐩𑑂",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              }
+            },
+            {
+              "label": "𑐵",
+              "shiftLabel": "𑑃",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "𑐣",
+              "shiftLabel": "𑐣𑑂",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              }
+            },
+            {
+              "label": "𑐖",
+              "shiftLabel": "𑐗",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              },
+              "longPress": [
+                "𑐖𑑂𑐘"
+              ]
+            },
+            {
+              "label": "𑐰",
+              "shiftLabel": "𑑀",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              }
+            },
+            {
+              "label": "𑐥",
+              "shiftLabel": "𑐦",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              }
+            },
+            {
+              "label": "𑐶",
+              "shiftLabel": "𑐷",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              },
+              "longPress": [
+                "𑐷",
+                "𑐂",
+                "𑐃"
+              ]
+            },
+            {
+              "label": "𑐳",
+              "shiftLabel": "𑐳𑑂",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 186
+              },
+              "longPress": [
+                "𑐲"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "𑐱",
+              "shiftLabel": "𑐱𑑂",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              }
+            },
+            {
+              "label": "𑐴",
+              "shiftLabel": "𑐴𑑂",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              }
+            },
+            {
+              "label": "𑐀",
+              "shiftLabel": "𑐆",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              },
+              "longPress": [
+                "𑐁",
+                "𑐆",
+                "𑐺",
+                "𑐌",
+                "𑐍"
+              ]
+            },
+            {
+              "label": "𑐏",
+              "shiftLabel": "𑑉",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "𑐡",
+              "shiftLabel": "𑑁",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              },
+              "longPress": [
+                "𑐡𑑂𑐢"
+              ]
+            },
+            {
+              "label": "𑐮",
+              "shiftLabel": "𑐮𑑂",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              }
+            },
+            {
+              "label": "𑑋",
+              "shiftLabel": "𑐱𑑂𑐬",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              },
+              "longPress": [
+                "𑑍",
+                "𑑌",
+                ".",
+                ",",
+                "?",
+                "'",
+                "\"",
+                "/",
+                "\\",
+                ":",
+                ";"
+              ]
+            },
+            {
+              "label": "𑐬",
+              "shiftLabel": "𑑅",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 191
+              },
+              "longPress": [
+                "𑐭"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "𑑑1#",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.1
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2.1
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "𑑑",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49
+              },
+              "longPress": [
+                "1"
+              ]
+            },
+            {
+              "label": "𑑒",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50
+              },
+              "longPress": [
+                "2"
+              ]
+            },
+            {
+              "label": "𑑓",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51
+              },
+              "longPress": [
+                "3"
+              ]
+            },
+            {
+              "label": "𑑔",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52
+              },
+              "longPress": [
+                "4"
+              ]
+            },
+            {
+              "label": "𑑕",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53
+              },
+              "longPress": [
+                "5"
+              ]
+            },
+            {
+              "label": "𑑖",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54
+              },
+              "longPress": [
+                "6"
+              ]
+            },
+            {
+              "label": "𑑗",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55
+              },
+              "longPress": [
+                "7"
+              ]
+            },
+            {
+              "label": "𑑘",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56
+              },
+              "longPress": [
+                "8"
+              ]
+            },
+            {
+              "label": "𑑙",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57
+              },
+              "longPress": [
+                "9"
+              ]
+            },
+            {
+              "label": "𑑐",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48
+              },
+              "longPress": [
+                "0"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "!"
+            },
+            {
+              "label": "@"
+            },
+            {
+              "label": "#"
+            },
+            {
+              "label": "$"
+            },
+            {
+              "label": "%"
+            },
+            {
+              "label": "^"
+            },
+            {
+              "label": "&"
+            },
+            {
+              "label": "*"
+            },
+            {
+              "label": "(",
+              "longPress": [
+                "{",
+                "["
+              ]
+            },
+            {
+              "label": ")",
+              "width": 0.1,
+              "longPress": [
+                "}",
+                "]"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "𑑇",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 192,
+                "modifiers": 16
+              },
+              "longPress": [
+                "𑑊",
+                "𑑛",
+                "𑑝",
+                "𑑞",
+                "𑑟"
+              ]
+            },
+            {
+              "label": "<",
+              "longPress": [
+                "«"
+              ]
+            },
+            {
+              "label": "-",
+              "longPress": [
+                "_"
+              ]
+            },
+            {
+              "label": "=",
+              "longPress": [
+                "+"
+              ]
+            },
+            {
+              "label": ">",
+              "longPress": [
+                "»"
+              ]
+            },
+            {
+              "label": "𑑈",
+              "longPress": [
+                "𑑍"
+              ]
+            },
+            {
+              "label": "𑑎"
+            },
+            {
+              "label": "𑑏"
+            },
+            {
+              "label": ".",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187
+              },
+              "longPress": [
+                ","
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "𑐎𑐏",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.1
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2.1
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "newa_traditional"
+    }
+  }
+}

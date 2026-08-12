@@ -1,0 +1,1482 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_gff_gurage_legacy",
+    "name": "GFF Legacy Gurage",
+    "langId": "sgw-Ethi",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ል",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              },
+              "longPress": [
+                "ለ",
+                "ሉ",
+                "ሊ",
+                "ላ",
+                "ሌ",
+                "ሎ",
+                "ሏ"
+              ]
+            },
+            {
+              "label": "ⷅ",
+              "longPress": [
+                "ⷀ",
+                "ⷁ",
+                "ⷂ",
+                "ⷃ",
+                "ⷄ",
+                "ⷆ"
+              ]
+            },
+            {
+              "label": "ሽ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              },
+              "longPress": [
+                "ሸ",
+                "ሹ",
+                "ሺ",
+                "ሻ",
+                "ሼ",
+                "ሾ",
+                "ሿ"
+              ]
+            },
+            {
+              "label": "ጅ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              },
+              "longPress": [
+                "ጀ",
+                "ጁ",
+                "ጂ",
+                "ጃ",
+                "ጄ",
+                "ጆ",
+                "ጇ"
+              ]
+            },
+            {
+              "label": "ፍ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              },
+              "longPress": [
+                "ፈ",
+                "ፉ",
+                "ፊ",
+                "ፋ",
+                "ፌ",
+                "ፎ",
+                "ᎈ",
+                "ᎉ",
+                "ፏ",
+                "ᎊ",
+                "ᎋ"
+              ]
+            },
+            {
+              "label": "ⷕ",
+              "longPress": [
+                "ⷐ",
+                "ⷑ",
+                "ⷒ",
+                "ⷓ",
+                "ⷔ",
+                "ⷖ"
+              ]
+            },
+            {
+              "label": "ⷝ",
+              "longPress": [
+                "ⷘ",
+                "ⷙ",
+                "ⷚ",
+                "ⷛ",
+                "ⷜ",
+                "ⷞ"
+              ]
+            },
+            {
+              "label": "ጥ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84,
+                "modifiers": 16
+              },
+              "longPress": [
+                "ጠ",
+                "ጡ",
+                "ጢ",
+                "ጣ",
+                "ጤ",
+                "ጦ",
+                "ጧ"
+              ]
+            },
+            {
+              "label": "ጭ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67,
+                "modifiers": 16
+              },
+              "longPress": [
+                "ጨ",
+                "ጩ",
+                "ጪ",
+                "ጫ",
+                "ጬ",
+                "ጮ",
+                "ጯ"
+              ]
+            },
+            {
+              "label": "ⷍ",
+              "longPress": [
+                "ⷈ",
+                "ⷉ",
+                "ⷊ",
+                "ⷋ",
+                "ⷌ",
+                "ⷎ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "እ",
+              "longPress": [
+                "ኧ",
+                "ኡ",
+                "ኢ",
+                "ኣ",
+                "ኤ",
+                "ኦ"
+              ]
+            },
+            {
+              "label": "ቅ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              },
+              "longPress": [
+                "ቀ",
+                "ቁ",
+                "ቂ",
+                "ቃ",
+                "ቄ",
+                "ቆ",
+                "ቋ",
+                "ቈ",
+                "ቍ",
+                "ቊ",
+                "ቌ"
+              ]
+            },
+            {
+              "label": "ስ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              },
+              "longPress": [
+                "ሰ",
+                "ሱ",
+                "ሲ",
+                "ሳ",
+                "ሴ",
+                "ሶ",
+                "ሷ"
+              ]
+            },
+            {
+              "label": "ድ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              },
+              "longPress": [
+                "ደ",
+                "ዱ",
+                "ዲ",
+                "ዳ",
+                "ዴ",
+                "ዶ",
+                "ዷ"
+              ]
+            },
+            {
+              "label": "ር",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              },
+              "longPress": [
+                "ረ",
+                "ሩ",
+                "ሪ",
+                "ራ",
+                "ሬ",
+                "ሮ",
+                "ሯ"
+              ]
+            },
+            {
+              "label": "ኽ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              },
+              "longPress": [
+                "ኸ",
+                "ኹ",
+                "ኺ",
+                "ኻ",
+                "ኼ",
+                "ኾ",
+                "ዀ",
+                "ዂ",
+                "ዃ",
+                "ዄ",
+                "ዅ"
+              ]
+            },
+            {
+              "label": "ግ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              },
+              "longPress": [
+                "ገ",
+                "ጉ",
+                "ጊ",
+                "ጋ",
+                "ጌ",
+                "ጎ",
+                "ጓ",
+                "ጐ",
+                "ጕ",
+                "ጒ",
+                "ጔ"
+              ]
+            },
+            {
+              "label": "ት",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              },
+              "longPress": [
+                "ተ",
+                "ቱ",
+                "ቲ",
+                "ታ",
+                "ቴ",
+                "ቶ",
+                "ቷ"
+              ]
+            },
+            {
+              "label": "ች",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              },
+              "longPress": [
+                "ቸ",
+                "ቹ",
+                "ቺ",
+                "ቻ",
+                "ቼ",
+                "ቾ",
+                "ቿ"
+              ]
+            },
+            {
+              "label": "ክ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              },
+              "longPress": [
+                "ከ",
+                "ኩ",
+                "ኪ",
+                "ካ",
+                "ኬ",
+                "ኮ",
+                "ኳ",
+                "ኰ",
+                "ኵ",
+                "ኲ",
+                "ኴ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "ዝ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              },
+              "longPress": [
+                "ዘ",
+                "ዙ",
+                "ዚ",
+                "ዛ",
+                "ዜ",
+                "ዞ",
+                "ዟ",
+                "ዠ",
+                "ዡ",
+                "ዢ",
+                "ዣ",
+                "ዤ",
+                "ዥ",
+                "ዦ",
+                "ዧ"
+              ]
+            },
+            {
+              "label": "ብ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              },
+              "longPress": [
+                "በ",
+                "ቡ",
+                "ቢ",
+                "ባ",
+                "ቤ",
+                "ቦ",
+                "ቧ"
+              ]
+            },
+            {
+              "label": "ን",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              },
+              "longPress": [
+                "ነ",
+                "ኑ",
+                "ኒ",
+                "ና",
+                "ኔ",
+                "ኖ",
+                "ኗ",
+                "ኘ",
+                "ኙ",
+                "ኚ",
+                "ኛ",
+                "ኜ",
+                "ኝ",
+                "ኞ",
+                "ኟ"
+              ]
+            },
+            {
+              "label": "!",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49,
+                "modifiers": 16
+              },
+              "longPress": [
+                "?",
+                "/",
+                ".",
+                ",",
+                ":",
+                "’"
+              ]
+            },
+            {
+              "label": "።",
+              "longPress": [
+                "፡",
+                "፣",
+                "፤",
+                "፦",
+                "«",
+                "»"
+              ]
+            },
+            {
+              "label": "ም",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              },
+              "longPress": [
+                "መ",
+                "ሙ",
+                "ሚ",
+                "ማ",
+                "ሜ",
+                "ሞ",
+                "ᎀ",
+                "ᎁ",
+                "ሟ",
+                "ᎂ",
+                "ᎃ"
+              ]
+            },
+            {
+              "label": "ይ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              },
+              "longPress": [
+                "የ",
+                "ዩ",
+                "ዪ",
+                "ያ",
+                "ዬ",
+                "ዮ"
+              ]
+            },
+            {
+              "label": "ው",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              },
+              "longPress": [
+                "ወ",
+                "ዉ",
+                "ዊ",
+                "ዋ",
+                "ዌ",
+                "ዎ"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "አ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              }
+            },
+            {
+              "label": "ኡ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              }
+            },
+            {
+              "label": "ኢ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 2.15
+            },
+            {
+              "label": "ኣ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "ኤ"
+            },
+            {
+              "label": "ኦ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              }
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            }
+          ]
+        ]
+      },
+      "non-gurage": {
+        "rows": [
+          [
+            {
+              "label": "1",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49
+              },
+              "longPress": [
+                "፩",
+                "፲",
+                "፻"
+              ]
+            },
+            {
+              "label": "2",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50
+              },
+              "longPress": [
+                "፪",
+                "፳"
+              ]
+            },
+            {
+              "label": "3",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51
+              },
+              "longPress": [
+                "፫",
+                "፴"
+              ]
+            },
+            {
+              "label": "4",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52
+              },
+              "longPress": [
+                "፬",
+                "፵"
+              ]
+            },
+            {
+              "label": "5",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53
+              },
+              "longPress": [
+                "፭",
+                "፶"
+              ]
+            },
+            {
+              "label": "6",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54
+              },
+              "longPress": [
+                "፮",
+                "፷"
+              ]
+            },
+            {
+              "label": "7",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55
+              },
+              "longPress": [
+                "፯",
+                "፸"
+              ]
+            },
+            {
+              "label": "8",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56
+              },
+              "longPress": [
+                "፰",
+                "፹"
+              ]
+            },
+            {
+              "label": "9",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57
+              },
+              "longPress": [
+                "፱",
+                "፺"
+              ]
+            },
+            {
+              "label": "0",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48
+              },
+              "longPress": [
+                "°",
+                "፲",
+                "፻",
+                "፲፻",
+                "፼"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ፕ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              },
+              "longPress": [
+                "ፐ",
+                "ፑ",
+                "ፒ",
+                "ፓ",
+                "ፔ",
+                "ፖ",
+                "ᎌ",
+                "ᎍ",
+                "ፗ",
+                "ᎎ",
+                "ᎏ"
+              ]
+            },
+            {
+              "label": "ዥ",
+              "longPress": [
+                "ዠ",
+                "ዡ",
+                "ዢ",
+                "ዣ",
+                "ዤ",
+                "ዦ",
+                "ዧ"
+              ]
+            },
+            {
+              "label": "ቭ",
+              "longPress": [
+                "ቨ",
+                "ቩ",
+                "ቪ",
+                "ቫ",
+                "ቬ",
+                "ቮ",
+                "ቯ"
+              ]
+            },
+            {
+              "label": "ኝ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78,
+                "modifiers": 16
+              },
+              "longPress": [
+                "ኘ",
+                "ኙ",
+                "ኚ",
+                "ኛ",
+                "ኜ",
+                "ኞ",
+                "ኟ"
+              ]
+            },
+            {
+              "label": "ኅ",
+              "longPress": [
+                "ኀ",
+                "ኁ",
+                "ኂ",
+                "ኃ",
+                "ኄ",
+                "ኆ",
+                "ኋ",
+                "ኈ",
+                "ኍ",
+                "ኊ",
+                "ኌ"
+              ]
+            },
+            {
+              "label": "ህ",
+              "longPress": [
+                "ሀ",
+                "ሁ",
+                "ሂ",
+                "ሃ",
+                "ሄ",
+                "ሆ"
+              ]
+            },
+            {
+              "label": "ሥ",
+              "longPress": [
+                "ሠ",
+                "ሡ",
+                "ሢ",
+                "ሣ",
+                "ሤ",
+                "ሦ",
+                "ሧ"
+              ]
+            },
+            {
+              "label": "ዕ/ፅ",
+              "output": "ዕ",
+              "longPress": [
+                "ዐ",
+                "ዑ",
+                "ዒ",
+                "ዓ",
+                "ዔ",
+                "ዖ",
+                "ፀ",
+                "ፁ",
+                "ፂ",
+                "ፃ",
+                "ፄ",
+                "ፅ",
+                "ፆ"
+              ]
+            },
+            {
+              "label": "ጽ",
+              "longPress": [
+                "ጸ",
+                "ጹ",
+                "ጺ",
+                "ጻ",
+                "ጼ",
+                "ጾ",
+                "ጿ"
+              ]
+            },
+            {
+              "label": "ጵ/ዸ",
+              "output": "ጵ",
+              "longPress": [
+                "ጰ",
+                "ጱ",
+                "ጲ",
+                "ጳ",
+                "ጴ",
+                "ጶ",
+                "ጷ",
+                "ዸ",
+                "ዹ",
+                "ዺ",
+                "ዻ",
+                "ዼ",
+                "ዽ",
+                "ዾ",
+                "ዿ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "@$፩",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "«",
+              "longPress": [
+                "‹",
+                "“",
+                "‘"
+              ]
+            },
+            {
+              "label": "፥"
+            },
+            {
+              "label": "፦"
+            },
+            {
+              "label": "፤"
+            },
+            {
+              "label": "፣"
+            },
+            {
+              "label": "፡",
+              "longPress": [
+                "፧"
+              ]
+            },
+            {
+              "label": "።",
+              "longPress": [
+                "!",
+                "?",
+                ".",
+                "፨",
+                "፠"
+              ]
+            },
+            {
+              "label": "»",
+              "longPress": [
+                "›",
+                "”",
+                "’"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "አ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              }
+            },
+            {
+              "label": "ኡ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              }
+            },
+            {
+              "label": "ኢ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 2.15
+            },
+            {
+              "label": "ኣ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "ኤ"
+            },
+            {
+              "label": "ኦ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              }
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            }
+          ]
+        ]
+      },
+      "punctuation": {
+        "rows": [
+          [
+            {
+              "label": "፩",
+              "longPress": [
+                "፲",
+                "፻",
+                "1"
+              ]
+            },
+            {
+              "label": "፪",
+              "longPress": [
+                "፳",
+                "2"
+              ]
+            },
+            {
+              "label": "፫",
+              "longPress": [
+                "፴",
+                "3"
+              ]
+            },
+            {
+              "label": "፬",
+              "longPress": [
+                "፵",
+                "4"
+              ]
+            },
+            {
+              "label": "፭",
+              "longPress": [
+                "፶",
+                "5"
+              ]
+            },
+            {
+              "label": "፮",
+              "longPress": [
+                "፷",
+                "6"
+              ]
+            },
+            {
+              "label": "፯",
+              "longPress": [
+                "፸",
+                "7"
+              ]
+            },
+            {
+              "label": "፰",
+              "longPress": [
+                "፹",
+                "8"
+              ]
+            },
+            {
+              "label": "፱",
+              "longPress": [
+                "፺",
+                "9"
+              ]
+            },
+            {
+              "label": "፲",
+              "longPress": [
+                "፻",
+                "፲፻",
+                "፼",
+                "0"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "-",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189
+              },
+              "longPress": [
+                "–",
+                "—",
+                "•"
+              ]
+            },
+            {
+              "label": "/",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 191
+              },
+              "longPress": [
+                "\\"
+              ]
+            },
+            {
+              "label": ":"
+            },
+            {
+              "label": ";"
+            },
+            {
+              "label": "(",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": ")",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "$",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52,
+                "modifiers": 16
+              },
+              "longPress": [
+                "₽",
+                "¥",
+                "€",
+                "¢",
+                "£",
+                "₩"
+              ]
+            },
+            {
+              "label": "&",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55,
+                "modifiers": 16
+              },
+              "longPress": [
+                "§"
+              ]
+            },
+            {
+              "label": "@",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "\"",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 222,
+                "modifiers": 16
+              },
+              "longPress": [
+                "«",
+                "»",
+                "„",
+                "“",
+                "”",
+                "\""
+              ]
+            }
+          ],
+          [
+            {
+              "label": "#+€",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.2
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.75
+            },
+            {
+              "label": ".",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              },
+              "width": 1.2,
+              "longPress": [
+                "…"
+              ]
+            },
+            {
+              "label": ",",
+              "width": 1.2
+            },
+            {
+              "label": "?",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 191,
+                "modifiers": 16
+              },
+              "width": 1.2,
+              "longPress": [
+                "¿"
+              ]
+            },
+            {
+              "label": "!",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49,
+                "modifiers": 16
+              },
+              "width": 1.2,
+              "longPress": [
+                "¡"
+              ]
+            },
+            {
+              "label": "'",
+              "width": 1.2,
+              "longPress": [
+                "`",
+                "‘",
+                "’’"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.7
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 2.0
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.95
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.15
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.95
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2.0
+            }
+          ]
+        ]
+      },
+      "punctuation-2": {
+        "rows": [
+          [
+            {
+              "label": "[",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219
+              }
+            },
+            {
+              "label": "]",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 221
+              }
+            },
+            {
+              "label": "{",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "}",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 221,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "#",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "%",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53,
+                "modifiers": 16
+              },
+              "longPress": [
+                "‰"
+              ]
+            },
+            {
+              "label": "^",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "*",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "+",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "=",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187
+              }
+            }
+          ],
+          [
+            {
+              "label": "_"
+            },
+            {
+              "label": "\\",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220
+              }
+            },
+            {
+              "label": "|",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "~",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 192,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "<"
+            },
+            {
+              "label": ">"
+            },
+            {
+              "label": "€"
+            },
+            {
+              "label": "£"
+            },
+            {
+              "label": "¥"
+            },
+            {
+              "label": "•"
+            }
+          ],
+          [
+            {
+              "label": "ሐለⷐ",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.2
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.75
+            },
+            {
+              "label": ".",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              },
+              "width": 1.2,
+              "longPress": [
+                "…"
+              ]
+            },
+            {
+              "label": ",",
+              "width": 1.2
+            },
+            {
+              "label": "?",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 191,
+                "modifiers": 16
+              },
+              "width": 1.2,
+              "longPress": [
+                "¿"
+              ]
+            },
+            {
+              "label": "!",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49,
+                "modifiers": 16
+              },
+              "width": 1.2,
+              "longPress": [
+                "¡"
+              ]
+            },
+            {
+              "label": "'",
+              "width": 1.2,
+              "longPress": [
+                "`",
+                "‘",
+                "’"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.7
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 2.0
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.95
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.15
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.95
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2.0
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "gff_gurage_legacy"
+    }
+  }
+}

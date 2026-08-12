@@ -1,0 +1,431 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_sil_gawri",
+    "name": "NP Gawri (SIL)",
+    "langId": "gwc",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ق",
+              "output": "ق",
+              "shiftLabel": "ث"
+            },
+            {
+              "label": "و",
+              "output": "و",
+              "shiftLabel": "ؤ"
+            },
+            {
+              "label": "ژ",
+              "output": "ژ",
+              "shiftLabel": "ڑ"
+            },
+            {
+              "label": "ر",
+              "output": "ر",
+              "shiftLabel": "ڄ"
+            },
+            {
+              "label": "ت",
+              "output": "ت",
+              "shiftLabel": "ٹ"
+            },
+            {
+              "label": "ی",
+              "output": "ی",
+              "shiftLabel": "ے"
+            },
+            {
+              "label": "ع",
+              "output": "ع",
+              "shiftLabel": "ُ"
+            },
+            {
+              "label": "غ",
+              "output": "غ",
+              "shiftLabel": "ش"
+            },
+            {
+              "label": "ه",
+              "output": "ه",
+              "shiftLabel": "ع"
+            },
+            {
+              "label": "پ",
+              "output": "پ",
+              "shiftLabel": "ّ"
+            }
+          ],
+          [
+            {
+              "label": "ا",
+              "output": "ا",
+              "shiftLabel": "آ"
+            },
+            {
+              "label": "س",
+              "output": "س",
+              "shiftLabel": "ص"
+            },
+            {
+              "label": "د",
+              "output": "د",
+              "shiftLabel": "ڈ"
+            },
+            {
+              "label": "ف",
+              "output": "ف",
+              "shiftLabel": "ث"
+            },
+            {
+              "label": "گ",
+              "output": "گ",
+              "shiftLabel": "ض"
+            },
+            {
+              "label": "ھ",
+              "output": "ھ",
+              "shiftLabel": "ح"
+            },
+            {
+              "label": "ج",
+              "output": "ج",
+              "shiftLabel": "ݫ"
+            },
+            {
+              "label": "ک",
+              "output": "ک",
+              "shiftLabel": "ؚ"
+            },
+            {
+              "label": "ل",
+              "output": "ل",
+              "shiftLabel": "ؘ"
+            },
+            {
+              "label": "ش",
+              "output": "ش",
+              "shiftLabel": "ݪ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "ز",
+              "output": "ز",
+              "shiftLabel": "ذ"
+            },
+            {
+              "label": "ء",
+              "output": "ء",
+              "shiftLabel": "ئ"
+            },
+            {
+              "label": "خ",
+              "output": "خ",
+              "shiftLabel": "چ"
+            },
+            {
+              "label": "ظ",
+              "output": "ظ",
+              "shiftLabel": "ط"
+            },
+            {
+              "label": "ب",
+              "output": "ب",
+              "shiftLabel": "ٞ"
+            },
+            {
+              "label": "ن",
+              "output": "ن",
+              "shiftLabel": "ں"
+            },
+            {
+              "label": "م",
+              "output": "م",
+              "shiftLabel": "ݭ"
+            },
+            {
+              "label": "څ",
+              "output": "څ",
+              "shiftLabel": "ۡ",
+              "longPress": [
+                "ݭ",
+                "ٴ"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.1
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "١",
+              "output": "١",
+              "longPress": [
+                "!"
+              ]
+            },
+            {
+              "label": "٢",
+              "output": "٢",
+              "longPress": [
+                "@"
+              ]
+            },
+            {
+              "label": "٣",
+              "output": "٣",
+              "longPress": [
+                "#"
+              ]
+            },
+            {
+              "label": "٤",
+              "output": "٤",
+              "longPress": [
+                "$"
+              ]
+            },
+            {
+              "label": "٥",
+              "output": "٥",
+              "longPress": [
+                "%"
+              ]
+            },
+            {
+              "label": "٦",
+              "output": "٦",
+              "longPress": [
+                "^"
+              ]
+            },
+            {
+              "label": "٧",
+              "output": "٧",
+              "longPress": [
+                "&"
+              ]
+            },
+            {
+              "label": "٨",
+              "output": "٨",
+              "longPress": [
+                "*"
+              ]
+            },
+            {
+              "label": "٩",
+              "output": "٩",
+              "longPress": [
+                ")"
+              ]
+            },
+            {
+              "label": "٠",
+              "output": "٠"
+            }
+          ],
+          [
+            {
+              "label": "ً",
+              "output": "ً",
+              "longPress": [
+                "ݪ"
+              ]
+            },
+            {
+              "label": "ٛ",
+              "output": "ٛ"
+            },
+            {
+              "label": "؛",
+              "output": "؛",
+              "longPress": [
+                ":"
+              ]
+            },
+            {
+              "label": "ٰ",
+              "output": "ٰ"
+            },
+            {
+              "label": "،",
+              "output": "،",
+              "longPress": [
+                "ً"
+              ]
+            },
+            {
+              "label": ".",
+              "output": ".",
+              "longPress": [
+                "ٛ"
+              ]
+            },
+            {
+              "label": "\"",
+              "output": "\""
+            },
+            {
+              "label": "=",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187
+              }
+            },
+            {
+              "label": "◌│◌",
+              "output": "‌"
+            },
+            {
+              "label": "\\",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220
+              }
+            }
+          ],
+          [
+            {
+              "label": "؟",
+              "output": "؟"
+            },
+            {
+              "label": "]",
+              "output": "]"
+            },
+            {
+              "label": ")",
+              "output": ")"
+            },
+            {
+              "label": "(",
+              "output": "("
+            },
+            {
+              "label": "[",
+              "output": "["
+            },
+            {
+              "label": "+",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "-",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189
+              }
+            },
+            {
+              "label": "*",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "/",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 191
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.1
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "sil_gawri"
+    }
+  }
+}

@@ -1,0 +1,559 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_fv_dene_mb",
+    "name": "Dene MB",
+    "langId": "chp-Cans",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ᐊ"
+            },
+            {
+              "label": "ᐸ"
+            },
+            {
+              "label": "ᑕ"
+            },
+            {
+              "label": "ᑲ",
+              "longPress": [
+                "ᖉ"
+              ]
+            },
+            {
+              "label": "ᕍ"
+            },
+            {
+              "label": "ᒪ"
+            },
+            {
+              "label": "ᓇ"
+            },
+            {
+              "label": "ᗃ"
+            },
+            {
+              "label": "ᓴ"
+            },
+            {
+              "label": "ᘔ"
+            }
+          ],
+          [
+            {
+              "label": "ᐁ"
+            },
+            {
+              "label": "ᐯ",
+              "longPress": [
+                "ᐨ"
+              ]
+            },
+            {
+              "label": "ᑌ",
+              "longPress": [
+                "ᐨ"
+              ]
+            },
+            {
+              "label": "ᑫ",
+              "longPress": [
+                "ᖆ",
+                "ᐠ"
+              ]
+            },
+            {
+              "label": "ᕃ",
+              "longPress": [
+                "ᐟ"
+              ]
+            },
+            {
+              "label": "ᒣ",
+              "longPress": [
+                "ᒼ"
+              ]
+            },
+            {
+              "label": "ᓀ",
+              "longPress": [
+                "ᐣ"
+              ]
+            },
+            {
+              "label": "ᗀ",
+              "longPress": [
+                "ᑊ"
+              ]
+            },
+            {
+              "label": "ᓭ",
+              "longPress": [
+                "ᐢ"
+              ]
+            },
+            {
+              "label": "ᘛ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "ᔭ"
+            },
+            {
+              "label": "ᔦ",
+              "longPress": [
+                "ᕁ",
+                "ᐩ"
+              ]
+            },
+            {
+              "label": "ᒐ",
+              "longPress": [
+                "ᖚ"
+              ]
+            },
+            {
+              "label": "ᒉ",
+              "longPress": [
+                "ᖗ",
+                "ᒢ"
+              ]
+            },
+            {
+              "label": "ᗴ"
+            },
+            {
+              "label": "ᗯ"
+            },
+            {
+              "label": "ᕦ"
+            },
+            {
+              "label": "ᕞ",
+              "longPress": [
+                "ᒡ"
+              ]
+            },
+            {
+              "label": "ᐤ",
+              "longPress": [
+                "ᐧ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ᕮ"
+            },
+            {
+              "label": "ᕫ"
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 2.05
+            },
+            {
+              "label": "ᕬ"
+            },
+            {
+              "label": "ᕭ"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ]
+        ]
+      },
+      "shift": {
+        "rows": [
+          [
+            {
+              "label": "ᐃ"
+            },
+            {
+              "label": "ᐱ"
+            },
+            {
+              "label": "ᑎ"
+            },
+            {
+              "label": "ᑭ",
+              "longPress": [
+                "ᖇ"
+              ]
+            },
+            {
+              "label": "ᕄ"
+            },
+            {
+              "label": "ᒥ"
+            },
+            {
+              "label": "ᓂ"
+            },
+            {
+              "label": "ᗁ"
+            },
+            {
+              "label": "ᓯ"
+            },
+            {
+              "label": "ᘚ"
+            }
+          ],
+          [
+            {
+              "label": "ᐅ"
+            },
+            {
+              "label": "ᐳ"
+            },
+            {
+              "label": "ᑐ"
+            },
+            {
+              "label": "ᑯ",
+              "longPress": [
+                "ᖈ"
+              ]
+            },
+            {
+              "label": "ᕊ"
+            },
+            {
+              "label": "ᒧ"
+            },
+            {
+              "label": "ᓄ"
+            },
+            {
+              "label": "ᗂ"
+            },
+            {
+              "label": "ᓱ"
+            },
+            {
+              "label": "ᘕ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "ᔨ"
+            },
+            {
+              "label": "ᔪ"
+            },
+            {
+              "label": "ᒋ",
+              "longPress": [
+                "ᖘ"
+              ]
+            },
+            {
+              "label": "ᒍ",
+              "longPress": [
+                "ᖙ"
+              ]
+            },
+            {
+              "label": "ᗰ"
+            },
+            {
+              "label": "ᗱ"
+            },
+            {
+              "label": "ᕠ"
+            },
+            {
+              "label": "ᕤ"
+            },
+            {
+              "label": "ᐡ"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.08
+            },
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.25
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.25
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 3.95
+            },
+            {
+              "label": ".",
+              "longPress": [
+                ",",
+                "!",
+                "?",
+                ";",
+                ":",
+                "'",
+                "\"",
+                "`",
+                "~"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.25
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.25
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.12
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "1"
+            },
+            {
+              "label": "2"
+            },
+            {
+              "label": "3"
+            },
+            {
+              "label": "4"
+            },
+            {
+              "label": "5"
+            },
+            {
+              "label": "6"
+            },
+            {
+              "label": "7"
+            },
+            {
+              "label": "8"
+            },
+            {
+              "label": "9"
+            },
+            {
+              "label": "0"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.45
+            },
+            {
+              "label": "$"
+            },
+            {
+              "label": "@"
+            },
+            {
+              "label": "#"
+            },
+            {
+              "label": "%"
+            },
+            {
+              "label": "&"
+            },
+            {
+              "label": "_"
+            },
+            {
+              "label": "="
+            },
+            {
+              "label": "|"
+            },
+            {
+              "label": "\\"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 1.05
+            },
+            {
+              "label": "[",
+              "longPress": [
+                "«",
+                "<",
+                "{"
+              ]
+            },
+            {
+              "label": "("
+            },
+            {
+              "label": ")"
+            },
+            {
+              "label": "]",
+              "longPress": [
+                "»",
+                ">",
+                "}"
+              ]
+            },
+            {
+              "label": "+"
+            },
+            {
+              "label": "-"
+            },
+            {
+              "label": "*"
+            },
+            {
+              "label": "/"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.05
+            },
+            {
+              "label": ".",
+              "longPress": [
+                ",",
+                "!",
+                "?",
+                ";",
+                ":",
+                "'",
+                "\"",
+                "`",
+                "~"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "fv_dene_mb"
+    }
+  }
+}

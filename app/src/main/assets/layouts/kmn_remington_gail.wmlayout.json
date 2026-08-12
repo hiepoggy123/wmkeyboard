@@ -1,0 +1,594 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_remington_gail",
+    "name": "Remington GAIL (SIL)",
+    "langId": "hi",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "1",
+              "shiftLabel": "!",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49
+              },
+              "longPress": [
+                "१"
+              ]
+            },
+            {
+              "label": "2",
+              "shiftLabel": "/",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50
+              },
+              "longPress": [
+                "२"
+              ]
+            },
+            {
+              "label": "3",
+              "shiftLabel": "ः",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51
+              },
+              "longPress": [
+                "३"
+              ]
+            },
+            {
+              "label": "4",
+              "shiftLabel": "*",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52
+              },
+              "longPress": [
+                "४"
+              ]
+            },
+            {
+              "label": "5",
+              "shiftLabel": "-",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53
+              },
+              "longPress": [
+                "५"
+              ]
+            },
+            {
+              "label": "6",
+              "shiftLabel": "‘",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54
+              },
+              "longPress": [
+                "६"
+              ]
+            },
+            {
+              "label": "7",
+              "shiftLabel": "’",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55
+              },
+              "longPress": [
+                "७"
+              ]
+            },
+            {
+              "label": "8",
+              "shiftLabel": "द्ध",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56
+              },
+              "longPress": [
+                "८"
+              ]
+            },
+            {
+              "label": "9",
+              "shiftLabel": "त्र",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57
+              },
+              "longPress": [
+                "९"
+              ]
+            },
+            {
+              "label": "0",
+              "shiftLabel": "ऋ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48
+              },
+              "longPress": [
+                "०"
+              ]
+            },
+            {
+              "label": ";",
+              "shiftLabel": ".",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189
+              }
+            },
+            {
+              "label": "ृ",
+              "shiftLabel": "्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187
+              },
+              "longPress": [
+                "ॄ"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ु",
+              "shiftLabel": "फ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              }
+            },
+            {
+              "label": "ू",
+              "shiftLabel": "ॅ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              }
+            },
+            {
+              "label": "म",
+              "shiftLabel": "म्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              },
+              "longPress": [
+                "म्"
+              ]
+            },
+            {
+              "label": "त",
+              "shiftLabel": "त्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              },
+              "longPress": [
+                "त्",
+                "त्त",
+                "त्त्"
+              ]
+            },
+            {
+              "label": "ज",
+              "shiftLabel": "ज्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              },
+              "longPress": [
+                "ज्",
+                "ज़"
+              ]
+            },
+            {
+              "label": "ल",
+              "shiftLabel": "ल्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              },
+              "longPress": [
+                "ल्"
+              ]
+            },
+            {
+              "label": "न",
+              "shiftLabel": "न्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              },
+              "longPress": [
+                "न्",
+                "न्न"
+              ]
+            },
+            {
+              "label": "प",
+              "shiftLabel": "प्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              },
+              "longPress": [
+                "प्",
+                "प्र",
+                "फ",
+                "फ़"
+              ]
+            },
+            {
+              "label": "व",
+              "shiftLabel": "व्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              },
+              "longPress": [
+                "व्",
+                "व्न",
+                "व्र"
+              ]
+            },
+            {
+              "label": "च",
+              "shiftLabel": "च्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              },
+              "longPress": [
+                "च्"
+              ]
+            },
+            {
+              "label": "ख्",
+              "shiftLabel": "क्ष्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219
+              },
+              "longPress": [
+                "ख",
+                "ख़"
+              ]
+            },
+            {
+              "label": "ञ",
+              "shiftLabel": "द्व",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189
+              },
+              "longPress": [
+                "ञ्"
+              ]
+            },
+            {
+              "label": ",",
+              "shiftLabel": "ऊ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 221
+              }
+            }
+          ],
+          [
+            {
+              "label": "ं",
+              "shiftLabel": "ा",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "े",
+              "shiftLabel": "ै",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              },
+              "longPress": [
+                "ें"
+              ]
+            },
+            {
+              "label": "क",
+              "shiftLabel": "क्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              },
+              "longPress": [
+                "क्",
+                "क्ष"
+              ]
+            },
+            {
+              "label": "ि",
+              "shiftLabel": "थ्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "ह",
+              "shiftLabel": "ळ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              },
+              "longPress": [
+                "ह्ण",
+                "ह्म"
+              ]
+            },
+            {
+              "label": "ी",
+              "shiftLabel": "भ्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              },
+              "longPress": [
+                "ीर्",
+                "ीं"
+              ]
+            },
+            {
+              "label": "र",
+              "shiftLabel": "श्र",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              },
+              "longPress": [
+                "र्",
+                "रू",
+                "र्‍ ",
+                "ेर्",
+                "ैर्"
+              ]
+            },
+            {
+              "label": "ा",
+              "shiftLabel": "ज्ञ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              }
+            },
+            {
+              "label": "स",
+              "shiftLabel": "स्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              },
+              "longPress": [
+                "स्",
+                "स्त्र",
+                "स्र"
+              ]
+            },
+            {
+              "label": "य",
+              "shiftLabel": "रू",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 186
+              },
+              "longPress": [
+                "्य"
+              ]
+            },
+            {
+              "label": "श्",
+              "shiftLabel": "ष्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 222
+              },
+              "longPress": [
+                "श"
+              ]
+            },
+            {
+              "label": "(",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220
+              }
+            },
+            {
+              "label": ")",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220,
+                "modifiers": 16
+              }
+            }
+          ],
+          [
+            {
+              "label": "◌│◌",
+              "output": "‌"
+            },
+            {
+              "label": "्र",
+              "shiftLabel": "र्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              }
+            },
+            {
+              "label": "ग",
+              "shiftLabel": "ग्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              },
+              "longPress": [
+                "ग्",
+                "ग़"
+              ]
+            },
+            {
+              "label": "ब",
+              "shiftLabel": "ब्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              },
+              "longPress": [
+                "ब्"
+              ]
+            },
+            {
+              "label": "अ",
+              "shiftLabel": "ट",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "इ",
+              "shiftLabel": "ठ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              },
+              "longPress": [
+                "ई"
+              ]
+            },
+            {
+              "label": "द",
+              "shiftLabel": "छ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              },
+              "longPress": [
+                "द्य",
+                "द्र",
+                "द्ध",
+                "द्ब",
+                "द्म"
+              ]
+            },
+            {
+              "label": "उ",
+              "shiftLabel": "ड",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            },
+            {
+              "label": "ए",
+              "shiftLabel": "ढ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 188
+              }
+            },
+            {
+              "label": "ण्",
+              "shiftLabel": "झ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              },
+              "longPress": [
+                "ण"
+              ]
+            },
+            {
+              "label": "ध्",
+              "shiftLabel": "घ्",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 191
+              },
+              "longPress": [
+                "ध"
+              ]
+            },
+            {
+              "label": "़",
+              "shiftLabel": "द्य",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 192
+              }
+            },
+            {
+              "label": "।",
+              "longPress": [
+                "॥",
+                "ऽ",
+                "ॐ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.6
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.4
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 8.6
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.45
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "remington_gail"
+    }
+  }
+}

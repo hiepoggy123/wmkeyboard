@@ -1,0 +1,545 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_brahmi_inscript",
+    "name": "Brahmi Inscript",
+    "langId": "sa-Brah",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "𑁅",
+              "shiftLabel": "𑀒"
+            },
+            {
+              "label": "𑁃",
+              "shiftLabel": "𑀐"
+            },
+            {
+              "label": "𑀸",
+              "shiftLabel": "𑀆"
+            },
+            {
+              "label": "𑀻",
+              "shiftLabel": "𑀈"
+            },
+            {
+              "label": "𑀽",
+              "shiftLabel": "𑀊"
+            },
+            {
+              "label": "𑀩",
+              "shiftLabel": "𑀪"
+            },
+            {
+              "label": "𑀳",
+              "shiftLabel": "𑀗"
+            },
+            {
+              "label": "𑀕",
+              "shiftLabel": "𑀖"
+            },
+            {
+              "label": "𑀤",
+              "shiftLabel": "𑀥"
+            },
+            {
+              "label": "𑀚",
+              "shiftLabel": "𑀛"
+            },
+            {
+              "label": "𑀟",
+              "shiftLabel": "𑀠"
+            },
+            {
+              "label": "𑀹",
+              "shiftLabel": "𑀜"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.45
+            },
+            {
+              "label": "𑁄",
+              "shiftLabel": "𑀑"
+            },
+            {
+              "label": "𑁂",
+              "shiftLabel": "𑀏"
+            },
+            {
+              "label": "𑁆",
+              "shiftLabel": "𑀅"
+            },
+            {
+              "label": "𑀺",
+              "shiftLabel": "𑀇"
+            },
+            {
+              "label": "𑀼",
+              "shiftLabel": "𑀉"
+            },
+            {
+              "label": "𑀧",
+              "shiftLabel": "𑀨"
+            },
+            {
+              "label": "𑀭",
+              "shiftLabel": "𑀶"
+            },
+            {
+              "label": "𑀓",
+              "shiftLabel": "𑀔"
+            },
+            {
+              "label": "𑀢",
+              "shiftLabel": "𑀣"
+            },
+            {
+              "label": "𑀘",
+              "shiftLabel": "𑀙"
+            },
+            {
+              "label": "𑀝",
+              "shiftLabel": "𑀞"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "⌨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "rightalt"
+              }
+            },
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "𑀬",
+              "shiftLabel": "𑀱"
+            },
+            {
+              "label": "𑀁",
+              "shiftLabel": "𑀀"
+            },
+            {
+              "label": "𑀫",
+              "shiftLabel": "𑀡"
+            },
+            {
+              "label": "𑀦",
+              "shiftLabel": "𑀵"
+            },
+            {
+              "label": "𑀯",
+              "shiftLabel": "𑀷"
+            },
+            {
+              "label": "𑀮",
+              "shiftLabel": "𑀴"
+            },
+            {
+              "label": "𑀲",
+              "shiftLabel": "𑀰"
+            },
+            {
+              "label": "𑁈",
+              "shiftLabel": "𑁊",
+              "longPress": [
+                "𑁇",
+                "!",
+                "?",
+                "'",
+                "\"",
+                "\\",
+                ":",
+                ";"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.1
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "𑁧"
+            },
+            {
+              "label": "𑁨"
+            },
+            {
+              "label": "𑁩"
+            },
+            {
+              "label": "𑁪"
+            },
+            {
+              "label": "𑁫"
+            },
+            {
+              "label": "𑁬"
+            },
+            {
+              "label": "𑁭"
+            },
+            {
+              "label": "𑁮"
+            },
+            {
+              "label": "𑁯"
+            },
+            {
+              "label": "𑁦"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.45
+            },
+            {
+              "label": "𑁌"
+            },
+            {
+              "label": "𑀋"
+            },
+            {
+              "label": "𑀌"
+            },
+            {
+              "label": "𑀍"
+            },
+            {
+              "label": "𑀎"
+            },
+            {
+              "label": "𑀿"
+            },
+            {
+              "label": "𑁁"
+            },
+            {
+              "label": "𑀂"
+            },
+            {
+              "label": "𑁋"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 1.05
+            },
+            {
+              "label": "[",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219
+              },
+              "longPress": [
+                "«",
+                "<",
+                "{"
+              ]
+            },
+            {
+              "label": "(",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": ")",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "]",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 221
+              },
+              "longPress": [
+                "»",
+                ">",
+                "}"
+              ]
+            },
+            {
+              "label": "𑀾"
+            },
+            {
+              "label": "𑁀"
+            },
+            {
+              "label": "𑁍"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.1
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      },
+      "rightalt": {
+        "rows": [
+          [
+            {
+              "label": "𑁒"
+            },
+            {
+              "label": "𑁓"
+            },
+            {
+              "label": "𑁔"
+            },
+            {
+              "label": "𑁕"
+            },
+            {
+              "label": "𑁖"
+            },
+            {
+              "label": "𑁗"
+            },
+            {
+              "label": "𑁘"
+            },
+            {
+              "label": "𑁙"
+            },
+            {
+              "label": "𑁚"
+            },
+            {
+              "label": "𑁛"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.45
+            },
+            {
+              "label": "𑁜"
+            },
+            {
+              "label": "𑁝"
+            },
+            {
+              "label": "𑁞"
+            },
+            {
+              "label": "𑁟"
+            },
+            {
+              "label": "𑁠"
+            },
+            {
+              "label": "𑁡"
+            },
+            {
+              "label": "𑁢"
+            },
+            {
+              "label": "𑁣"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 1.55
+            },
+            {
+              "label": "𑁤"
+            },
+            {
+              "label": "𑁥"
+            },
+            {
+              "label": "𑀃"
+            },
+            {
+              "label": "𑀄"
+            },
+            {
+              "label": ".",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              },
+              "longPress": [
+                ",",
+                "!",
+                "?",
+                "'",
+                "\"",
+                "\\",
+                ":",
+                ";"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.1
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "brahmi_inscript"
+    }
+  }
+}

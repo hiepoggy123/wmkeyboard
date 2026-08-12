@@ -1,0 +1,363 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_rejang",
+    "name": "Rejang",
+    "langId": "rej-Rjng",
+    "layers": {
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "1",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49
+              }
+            },
+            {
+              "label": "2",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50
+              }
+            },
+            {
+              "label": "3",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51
+              }
+            },
+            {
+              "label": "4",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52
+              }
+            },
+            {
+              "label": "5",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53
+              }
+            },
+            {
+              "label": "6",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54
+              }
+            },
+            {
+              "label": "7",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55
+              }
+            },
+            {
+              "label": "8",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56
+              }
+            },
+            {
+              "label": "9",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57
+              }
+            },
+            {
+              "label": "0",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48
+              }
+            }
+          ],
+          [
+            {
+              "label": "$"
+            },
+            {
+              "label": "@"
+            },
+            {
+              "label": "#"
+            },
+            {
+              "label": "%"
+            },
+            {
+              "label": "&"
+            },
+            {
+              "label": "_"
+            },
+            {
+              "label": "="
+            },
+            {
+              "label": "|"
+            },
+            {
+              "label": "\\"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "["
+            },
+            {
+              "label": "("
+            },
+            {
+              "label": ")"
+            },
+            {
+              "label": "]"
+            },
+            {
+              "label": "+"
+            },
+            {
+              "label": "-"
+            },
+            {
+              "label": "*"
+            },
+            {
+              "label": "{"
+            },
+            {
+              "label": "}"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 0.9
+            }
+          ],
+          [
+            {
+              "label": "ꤰꤱꤲ",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.3
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.4
+            }
+          ]
+        ]
+      },
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ꥇ"
+            },
+            {
+              "label": "ꥈ"
+            },
+            {
+              "label": "ꥉ"
+            },
+            {
+              "label": "ꥊ"
+            },
+            {
+              "label": "ꥋ"
+            },
+            {
+              "label": "ꥌ"
+            },
+            {
+              "label": "ꥍ"
+            },
+            {
+              "label": "ꥎ"
+            },
+            {
+              "label": "ꥏ"
+            },
+            {
+              "label": "ꥐ"
+            }
+          ],
+          [
+            {
+              "label": "ꤰ"
+            },
+            {
+              "label": "ꤱ"
+            },
+            {
+              "label": "ꤲ"
+            },
+            {
+              "label": "ꤳ"
+            },
+            {
+              "label": "ꤴ"
+            },
+            {
+              "label": "ꤵ"
+            },
+            {
+              "label": "ꤶ"
+            },
+            {
+              "label": "ꤷ"
+            },
+            {
+              "label": "ꤸ"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "ꤹ"
+            },
+            {
+              "label": "ꤺ"
+            },
+            {
+              "label": "ꤻ"
+            },
+            {
+              "label": "ꤼ"
+            },
+            {
+              "label": "ꤽ"
+            },
+            {
+              "label": "ꤾ"
+            },
+            {
+              "label": "ꤿ"
+            },
+            {
+              "label": "ꥀ"
+            },
+            {
+              "label": "ꥁ"
+            },
+            {
+              "label": "ꥒ"
+            }
+          ],
+          [
+            {
+              "label": "ꥂ",
+              "width": 0.1
+            },
+            {
+              "label": "ꥃ"
+            },
+            {
+              "label": "ꥄ"
+            },
+            {
+              "label": "ꥅ"
+            },
+            {
+              "label": "ꥆ"
+            },
+            {
+              "label": "꥓"
+            },
+            {
+              "label": "꥟"
+            },
+            {
+              "label": ","
+            },
+            {
+              "label": "."
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 0.9
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.8
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.4
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "rejang"
+    }
+  }
+}

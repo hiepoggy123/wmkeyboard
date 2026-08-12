@@ -1,0 +1,502 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_rac_ormuri",
+    "name": "Rachitrali-Ormuri",
+    "langId": "oru",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ق",
+              "shiftLabel": "ݫ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              }
+            },
+            {
+              "label": "و",
+              "shiftLabel": "ڑ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              }
+            },
+            {
+              "label": "ع",
+              "shiftLabel": "ٹ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              }
+            },
+            {
+              "label": "ر",
+              "shiftLabel": "ٸ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              }
+            },
+            {
+              "label": "ت",
+              "shiftLabel": "ۃ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              }
+            },
+            {
+              "label": "ے",
+              "shiftLabel": "ښ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              }
+            },
+            {
+              "label": "ێ",
+              "shiftLabel": "ي",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              }
+            },
+            {
+              "label": "ی",
+              "shiftLabel": "ݬ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              }
+            },
+            {
+              "label": "ہ",
+              "shiftLabel": "ۍ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              }
+            },
+            {
+              "label": "پ",
+              "shiftLabel": "ڒ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              }
+            }
+          ],
+          [
+            {
+              "label": "ټ",
+              "shiftLabel": "ڼ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 192
+              }
+            },
+            {
+              "label": "ا",
+              "shiftLabel": "آ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "س",
+              "shiftLabel": "ص",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              }
+            },
+            {
+              "label": "د",
+              "shiftLabel": "ڈ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              }
+            },
+            {
+              "label": "ف",
+              "shiftLabel": "ې",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              }
+            },
+            {
+              "label": "گ",
+              "shiftLabel": "غ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              }
+            },
+            {
+              "label": "ح",
+              "shiftLabel": "ھ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              }
+            },
+            {
+              "label": "ج",
+              "shiftLabel": "ض",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              }
+            },
+            {
+              "label": "ک",
+              "shiftLabel": "خ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              }
+            },
+            {
+              "label": "ل",
+              "shiftLabel": "ݭ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ز",
+              "shiftLabel": "ۇ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              }
+            },
+            {
+              "label": "ش",
+              "shiftLabel": "ذ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              }
+            },
+            {
+              "label": "چ",
+              "shiftLabel": "ژ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              }
+            },
+            {
+              "label": "ط",
+              "shiftLabel": "ث",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              }
+            },
+            {
+              "label": "ب",
+              "shiftLabel": "ظ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              }
+            },
+            {
+              "label": "ن",
+              "shiftLabel": "ں",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              }
+            },
+            {
+              "label": "م",
+              "shiftLabel": "ږ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.55
+            }
+          ],
+          [
+            {
+              "label": "!@#",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.2
+            },
+            {
+              "label": "۔",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              },
+              "longPress": [
+                ":",
+                "؏"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.55
+            }
+          ]
+        ]
+      },
+      "symbols2": {
+        "rows": [
+          [
+            {
+              "label": "۱",
+              "longPress": [
+                "1"
+              ]
+            },
+            {
+              "label": "۲",
+              "longPress": [
+                "2"
+              ]
+            },
+            {
+              "label": "۳",
+              "longPress": [
+                "3"
+              ]
+            },
+            {
+              "label": "۴",
+              "longPress": [
+                "4"
+              ]
+            },
+            {
+              "label": "۵",
+              "longPress": [
+                "5"
+              ]
+            },
+            {
+              "label": "۶",
+              "longPress": [
+                "6"
+              ]
+            },
+            {
+              "label": "۷",
+              "longPress": [
+                "7"
+              ]
+            },
+            {
+              "label": "۸",
+              "longPress": [
+                "8"
+              ]
+            },
+            {
+              "label": "۹",
+              "longPress": [
+                "9"
+              ]
+            },
+            {
+              "label": "۰",
+              "longPress": [
+                "0"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "=",
+              "longPress": [
+                "~",
+                "^",
+                "٪"
+              ]
+            },
+            {
+              "label": "$"
+            },
+            {
+              "label": "+",
+              "longPress": [
+                "-",
+                "_",
+                "#"
+              ]
+            },
+            {
+              "label": "ٰ"
+            },
+            {
+              "label": "َ",
+              "longPress": [
+                "ِ",
+                "ً",
+                "ّ"
+              ]
+            },
+            {
+              "label": "ُ",
+              "longPress": [
+                "ٔ"
+              ]
+            },
+            {
+              "label": "ړ"
+            },
+            {
+              "label": "ډ"
+            },
+            {
+              "label": "ګ"
+            },
+            {
+              "label": "*"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "@",
+              "longPress": [
+                "©",
+                "®",
+                "&"
+              ]
+            },
+            {
+              "label": ")",
+              "longPress": [
+                "]",
+                "}",
+                ">"
+              ]
+            },
+            {
+              "label": "(",
+              "longPress": [
+                "[",
+                "{",
+                "<"
+              ]
+            },
+            {
+              "label": "څ"
+            },
+            {
+              "label": "ځ"
+            },
+            {
+              "label": "،"
+            },
+            {
+              "label": "؟",
+              "longPress": [
+                "!"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.55
+            }
+          ],
+          [
+            {
+              "label": "!@#",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 0.1
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.2
+            },
+            {
+              "label": "۔",
+              "longPress": [
+                ":",
+                "؏"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.55
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "rac_ormuri"
+    }
+  }
+}

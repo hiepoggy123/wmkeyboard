@@ -52,7 +52,7 @@ data class LanguageDef(
  */
 object LanguageRegistry {
 
-    val all: List<LanguageDef> = listOf(
+    private val handWritten: List<LanguageDef> = listOf(
         LanguageDef(
             id = "en",
             displayName = "English",
@@ -3039,6 +3039,32 @@ object LanguageRegistry {
             layoutIds = listOf(AssetLayouts.SR_LATIN_ID),
         ),
     )
+
+    /**
+     * Every language the keyboard knows: the hand-maintained ones above, then
+     * the generated Keyman ones.
+     *
+     * Declared after [handWritten] because an object's properties initialize in
+     * declaration order, and reading one above its own declaration yields null
+     * rather than a compile error here — an empty registry that fails much later
+     * as a missing language.
+     *
+     * Hand-written first, and that order is load-bearing: [byLayout] resolves
+     * with `putIfAbsent`, so where a converted Keyman layout and a shipped one
+     * claim the same id the shipped language wins. That is the right winner — it
+     * is the one with a dictionary, an endonym and a deliberately chosen numeral
+     * system.
+     *
+     * Converted layouts for a language we already carry are merged onto that
+     * language rather than added as a second entry under the same id. A
+     * duplicate id would shadow the hand-written entry in [index], and dropping
+     * them instead would leave 290 layouts that no language names — which is to
+     * say, that the user cannot reach.
+     */
+    val all: List<LanguageDef> = handWritten.map { lang ->
+        val extra = KeymanLanguages.extraLayoutIds[lang.id]
+        if (extra.isNullOrEmpty()) lang else lang.copy(layoutIds = lang.layoutIds + extra)
+    } + KeymanLanguages.all
 
     /** The stand-in for an id this build does not recognise. Never surfaced in UI. */
     val GENERIC: LanguageDef = LanguageDef(

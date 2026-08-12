@@ -1,0 +1,424 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_fv_naskapi",
+    "name": "ᓇᔅᑲᐱ",
+    "langId": "nsk-Cans",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.16
+            },
+            {
+              "label": "ᐃ",
+              "shiftLabel": "ᐖ"
+            },
+            {
+              "label": "ᐱ",
+              "shiftLabel": "ᑈ"
+            },
+            {
+              "label": "ᑎ",
+              "shiftLabel": "ᑥ",
+              "longPress": [
+                "ᕆ"
+              ]
+            },
+            {
+              "label": "ᑭ",
+              "shiftLabel": "ᒂ"
+            },
+            {
+              "label": "ᒋ",
+              "shiftLabel": "ᒠ"
+            },
+            {
+              "label": "ᒥ",
+              "shiftLabel": "ᒺ"
+            },
+            {
+              "label": "ᓂ",
+              "shiftLabel": "ᓏ",
+              "longPress": [
+                "ᓕ"
+              ]
+            },
+            {
+              "label": "ᓯ",
+              "shiftLabel": "ᔄ"
+            },
+            {
+              "label": "ᔨ",
+              "shiftLabel": "ᔽ"
+            },
+            {
+              "label": "ᐎ",
+              "shiftLabel": "ᒄ"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.21
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.16
+            },
+            {
+              "label": "ᐊ",
+              "shiftLabel": "ᐅ"
+            },
+            {
+              "label": "ᐸ",
+              "shiftLabel": "ᐳ"
+            },
+            {
+              "label": "ᑕ",
+              "shiftLabel": "ᑐ",
+              "longPress": [
+                "ᕋ"
+              ]
+            },
+            {
+              "label": "ᑲ",
+              "shiftLabel": "ᑯ"
+            },
+            {
+              "label": "ᒐ",
+              "shiftLabel": "ᒍ"
+            },
+            {
+              "label": "ᒪ",
+              "shiftLabel": "ᒧ"
+            },
+            {
+              "label": "ᓇ",
+              "shiftLabel": "ᓄ",
+              "longPress": [
+                "ᓚ"
+              ]
+            },
+            {
+              "label": "ᓴ",
+              "shiftLabel": "ᓱ"
+            },
+            {
+              "label": "ᔭ",
+              "shiftLabel": "ᔪ"
+            },
+            {
+              "label": "ᐛ",
+              "shiftLabel": "ᐤ"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.21
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.16
+            },
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "ᑉ",
+              "shiftLabel": "ᔌ"
+            },
+            {
+              "label": "ᑦ",
+              "shiftLabel": "ᔍ",
+              "longPress": [
+                "ᕐ"
+              ]
+            },
+            {
+              "label": "ᒃ",
+              "shiftLabel": "ᔎ"
+            },
+            {
+              "label": "ᒡ",
+              "shiftLabel": "ᔏ"
+            },
+            {
+              "label": "ᒻ",
+              "shiftLabel": "ᔋ"
+            },
+            {
+              "label": "ᓐ",
+              "longPress": [
+                "ᓪ"
+              ]
+            },
+            {
+              "label": "ᔅ",
+              "shiftLabel": "ᐧ"
+            },
+            {
+              "label": "ᔾ",
+              "shiftLabel": "ᐦ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.21
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.36
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.36
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4.38
+            },
+            {
+              "label": ".",
+              "longPress": [
+                ",",
+                "!",
+                "?",
+                ";",
+                ":",
+                "'",
+                "\"",
+                "`",
+                "~"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2.57
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "1"
+            },
+            {
+              "label": "2"
+            },
+            {
+              "label": "3"
+            },
+            {
+              "label": "4"
+            },
+            {
+              "label": "5"
+            },
+            {
+              "label": "6"
+            },
+            {
+              "label": "7"
+            },
+            {
+              "label": "8"
+            },
+            {
+              "label": "9"
+            },
+            {
+              "label": "0"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.45
+            },
+            {
+              "label": "$"
+            },
+            {
+              "label": "@"
+            },
+            {
+              "label": "#"
+            },
+            {
+              "label": "%"
+            },
+            {
+              "label": "&"
+            },
+            {
+              "label": "_"
+            },
+            {
+              "label": "="
+            },
+            {
+              "label": "|"
+            },
+            {
+              "label": "\\"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 1.05
+            },
+            {
+              "label": "[",
+              "longPress": [
+                "«",
+                "<",
+                "{"
+              ]
+            },
+            {
+              "label": "("
+            },
+            {
+              "label": ")"
+            },
+            {
+              "label": "]",
+              "longPress": [
+                "»",
+                ">",
+                "}"
+              ]
+            },
+            {
+              "label": "+"
+            },
+            {
+              "label": "-"
+            },
+            {
+              "label": "*"
+            },
+            {
+              "label": "/"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.05
+            },
+            {
+              "label": ".",
+              "longPress": [
+                ",",
+                "!",
+                "?",
+                ";",
+                ":",
+                "'",
+                "\"",
+                "`",
+                "~"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "fv_naskapi",
+      "version": "9.3.1"
+    }
+  }
+}

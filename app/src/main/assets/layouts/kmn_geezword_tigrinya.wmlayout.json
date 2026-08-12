@@ -1,0 +1,1332 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_geezword_tigrinya",
+    "name": "GeezWord ትግርኛ",
+    "langId": "ti",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.3
+            },
+            {
+              "label": "ቅ.",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              },
+              "longPress": [
+                "ቐ",
+                "ቑ",
+                "ቒ",
+                "ቓ",
+                "ቔ",
+                "ቕ",
+                "ቖ",
+                "ቘ",
+                "ቚ",
+                "ቛ",
+                "ቜ",
+                "ቝ",
+                "ቀ",
+                "ቁ",
+                "ቂ",
+                "ቃ",
+                "ቄ",
+                "ቅ",
+                "ቆ",
+                "ቈ",
+                "ቊ",
+                "ቋ",
+                "ቌ",
+                "ቍ"
+              ]
+            },
+            {
+              "label": "ው",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              },
+              "longPress": [
+                "ወ",
+                "ዉ",
+                "ዊ",
+                "ዋ",
+                "ዌ",
+                "ው",
+                "ዎ"
+              ]
+            },
+            {
+              "label": "አ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              }
+            },
+            {
+              "label": "ር",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              },
+              "longPress": [
+                "ረ",
+                "ሩ",
+                "ሪ",
+                "ራ",
+                "ሬ",
+                "ር",
+                "ሮ",
+                "ሯ"
+              ]
+            },
+            {
+              "label": "ት. ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              },
+              "longPress": [
+                "ጠ",
+                "ጡ",
+                "ጢ",
+                "ጣ",
+                "ጤ",
+                "ጥ",
+                "ጦ",
+                "ጧ",
+                "ተ",
+                "ቱ",
+                "ቲ",
+                "ታ",
+                "ቴ",
+                "ት",
+                "ቶ",
+                "ቷ"
+              ]
+            },
+            {
+              "label": "ይ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              },
+              "longPress": [
+                "የ",
+                "ዩ",
+                "ዪ",
+                "ያ",
+                "ዬ",
+                "ይ",
+                "ዮ"
+              ]
+            },
+            {
+              "label": "ኡ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              }
+            },
+            {
+              "label": "ኢ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              }
+            },
+            {
+              "label": "ኦ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              },
+              "longPress": [
+                "ዕ"
+              ]
+            },
+            {
+              "label": "ፕ.",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              },
+              "longPress": [
+                "ጰ",
+                "ጱ",
+                "ጲ",
+                "ጳ",
+                "ጴ",
+                "ጵ",
+                "ጶ",
+                "ጷ",
+                "ፐ",
+                "ፑ",
+                "ፒ",
+                "ፓ",
+                "ፔ",
+                "ፕ",
+                "ፖ",
+                "ፗ"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.3
+            },
+            {
+              "label": "ኣ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              },
+              "longPress": [
+                "እ"
+              ]
+            },
+            {
+              "label": "ስ.",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              },
+              "longPress": [
+                "ሸ",
+                "ሹ",
+                "ሺ",
+                "ሻ",
+                "ሼ",
+                "ሽ",
+                "ሾ",
+                "ሿ",
+                "ሰ",
+                "ሱ",
+                "ሲ",
+                "ሳ",
+                "ሴ",
+                "ስ",
+                "ሶ",
+                "ሷ"
+              ]
+            },
+            {
+              "label": "ድ.",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              },
+              "longPress": [
+                "ዸ",
+                "ዹ",
+                "ዺ",
+                "ዻ",
+                "ዼ",
+                "ዽ",
+                "ዾ",
+                "ዿ",
+                "ደ",
+                "ዱ",
+                "ዲ",
+                "ዳ",
+                "ዴ",
+                "ድ",
+                "ዶ",
+                "ዷ"
+              ]
+            },
+            {
+              "label": "ፍ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              },
+              "longPress": [
+                "ፈ",
+                "ፉ",
+                "ፊ",
+                "ፋ",
+                "ፌ",
+                "ፍ",
+                "ፎ",
+                "ፏ"
+              ]
+            },
+            {
+              "label": "ግ.",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              },
+              "longPress": [
+                "ጘ",
+                "ጙ",
+                "ጚ",
+                "ጛ",
+                "ጜ",
+                "ጝ",
+                "ጞ",
+                "ጟ",
+                "ገ",
+                "ጉ",
+                "ጊ",
+                "ጋ",
+                "ጌ",
+                "ግ",
+                "ጎ",
+                "ጐ",
+                "ጒ",
+                "ጓ",
+                "ጔ",
+                "ጕ"
+              ]
+            },
+            {
+              "label": "ህ.",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              },
+              "longPress": [
+                "ሐ",
+                "ሑ",
+                "ሒ",
+                "ሓ",
+                "ሔ",
+                "ሕ",
+                "ሖ",
+                "ሗ",
+                "ሀ",
+                "ሁ",
+                "ሂ",
+                "ሃ",
+                "ሄ",
+                "ህ",
+                "ሆ"
+              ]
+            },
+            {
+              "label": "ጅ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              },
+              "longPress": [
+                "ጀ",
+                "ጁ",
+                "ጂ",
+                "ጃ",
+                "ጄ",
+                "ጅ",
+                "ጆ",
+                "ጇ"
+              ]
+            },
+            {
+              "label": "ክ.",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              },
+              "longPress": [
+                "ኸ",
+                "ኹ",
+                "ኺ",
+                "ኻ",
+                "ኼ",
+                "ኽ",
+                "ኾ",
+                "ዀ",
+                "ዂ",
+                "ዃ",
+                "ዄ",
+                "ዅ",
+                "ከ",
+                "ኩ",
+                "ኪ",
+                "ካ",
+                "ኬ",
+                "ኮ",
+                "ክ",
+                "ኰ",
+                "ኲ",
+                "ኳ",
+                "ኴ"
+              ]
+            },
+            {
+              "label": "ል",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              },
+              "longPress": [
+                "ለ",
+                "ሉ",
+                "ሊ",
+                "ላ",
+                "ሌ",
+                "ል",
+                "ሎ",
+                "ሏ"
+              ]
+            },
+            {
+              "label": "ዕ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79,
+                "modifiers": 16
+              },
+              "longPress": [
+                "ዐ",
+                "ዑ",
+                "ዒ",
+                "ዓ",
+                "ዔ",
+                "ዕ",
+                "ዖ"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.2
+            },
+            {
+              "label": "ዝ.",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              },
+              "longPress": [
+                "ዠ",
+                "ዡ",
+                "ዢ",
+                "ዣ",
+                "ዤ",
+                "ዥ",
+                "ዦ",
+                "ዧ",
+                "ዘ",
+                "ዙ",
+                "ዚ",
+                "ዛ",
+                "ዜ",
+                "ዝ",
+                "ዞ",
+                "ዟ"
+              ]
+            },
+            {
+              "label": "ጽ.",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              },
+              "longPress": [
+                "ፀ",
+                "ፁ",
+                "ፂ",
+                "ፃ",
+                "ፄ",
+                "ፅ",
+                "ፆ",
+                "ጸ",
+                "ጹ",
+                "ጺ",
+                "ጻ",
+                "ጼ",
+                "ጽ",
+                "ጾ",
+                "ጿ"
+              ]
+            },
+            {
+              "label": "ች.",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              },
+              "longPress": [
+                "ጨ",
+                "ጩ",
+                "ጪ",
+                "ጫ",
+                "ጬ",
+                "ጭ",
+                "ጮ",
+                "ጯ",
+                "ቸ",
+                "ቹ",
+                "ቺ",
+                "ቻ",
+                "ቼ",
+                "ች",
+                "ቾ",
+                "ቿ"
+              ]
+            },
+            {
+              "label": "ቭ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              },
+              "longPress": [
+                "ቨ",
+                "ቩ",
+                "ቪ",
+                "ቫ",
+                "ቬ",
+                "ቭ",
+                "ቮ",
+                "ቯ"
+              ]
+            },
+            {
+              "label": "ብ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              },
+              "longPress": [
+                "በ",
+                "ቡ",
+                "ቢ",
+                "ባ",
+                "ቤ",
+                "ብ",
+                "ቦ",
+                "ቧ"
+              ],
+              "flick": {
+                "up": "ቡ",
+                "left": "ባ",
+                "right": "ቤ"
+              }
+            },
+            {
+              "label": "ን.",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              },
+              "longPress": [
+                "ኘ",
+                "ኙ",
+                "ኚ",
+                "ኛ",
+                "ኜ",
+                "ኝ",
+                "ኞ",
+                "ኟ",
+                "ነ",
+                "ኑ",
+                "ኒ",
+                "ና",
+                "ኔ",
+                "ን",
+                "ኖ",
+                "ኗ"
+              ]
+            },
+            {
+              "label": "ም",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              },
+              "longPress": [
+                "መ",
+                "ሙ",
+                "ሚ",
+                "ማ",
+                "ሜ",
+                "ም",
+                "ሞ",
+                "ሟ"
+              ]
+            },
+            {
+              "label": "፡",
+              "longPress": [
+                "።",
+                ".",
+                "፧",
+                "፣",
+                "፤",
+                "፥",
+                "፦",
+                "!",
+                "'",
+                "\"",
+                "?",
+                ";",
+                ",",
+                "/"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.3
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.2
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ኤ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69,
+                "modifiers": 16
+              },
+              "longPress": [
+                "ኤ"
+              ]
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4.45
+            },
+            {
+              "label": "እ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65,
+                "modifiers": 16
+              },
+              "longPress": [
+                "አ",
+                "ኡ",
+                "ኢ",
+                "ኣ",
+                "ኤ",
+                "እ",
+                "ኦ",
+                "ኧ"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2.45
+            }
+          ]
+        ]
+      },
+      "shift": {
+        "rows": [
+          [
+            {
+              "label": "ቕ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "ቐ",
+                "ቑ",
+                "ቒ",
+                "ቓ",
+                "ቔ",
+                "ቕ",
+                "ቖ",
+                "ቘ",
+                "ቚ",
+                "ቛ",
+                "ቜ",
+                "ቝ"
+              ]
+            },
+            {
+              "label": "ኤ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69,
+                "nextLayer": "letters"
+              }
+            },
+            {
+              "label": "ጥ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "ጠ",
+                "ጡ",
+                "ጢ",
+                "ጣ",
+                "ጤ",
+                "ጥ",
+                "ጦ",
+                "ጧ"
+              ]
+            },
+            {
+              "label": "ጵ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "ጰ",
+                "ጱ",
+                "ጲ",
+                "ጳ",
+                "ጴ",
+                "ጵ",
+                "ጶ",
+                "ጷ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.45
+            },
+            {
+              "label": "እ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "አ",
+                "ኡ",
+                "ኢ",
+                "ኣ",
+                "ኤ",
+                "እ",
+                "ኦ",
+                "ኧ"
+              ]
+            },
+            {
+              "label": "ሽ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83,
+                "nextLayer": "shift"
+              },
+              "longPress": [
+                "ሸ",
+                "ሹ",
+                "ሺ",
+                "ሻ",
+                "ሼ",
+                "ሽ",
+                "ሾ",
+                "ሿ"
+              ]
+            },
+            {
+              "label": "ዽ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "ዸ",
+                "ዹ",
+                "ዺ",
+                "ዻ",
+                "ዼ",
+                "ዽ",
+                "ዾ",
+                "ዿ"
+              ]
+            },
+            {
+              "label": "ጝ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "ጘ",
+                "ጙ",
+                "ጚ",
+                "ጛ",
+                "ጜ",
+                "ጝ",
+                "ጞ",
+                "ጟ"
+              ]
+            },
+            {
+              "label": "ሕ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "ሐ",
+                "ሑ",
+                "ሒ",
+                "ሓ",
+                "ሔ",
+                "ሕ",
+                "ሖ",
+                "ሗ"
+              ]
+            },
+            {
+              "label": "ኽ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "ኸ",
+                "ኹ",
+                "ኺ",
+                "ኻ",
+                "ኼ",
+                "ኽ",
+                "ኾ",
+                "ዀ",
+                "ዂ",
+                "ዃ",
+                "ዄ",
+                "ዅ"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "ሀለሐ",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "ዥ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "ዠ",
+                "ዡ",
+                "ዢ",
+                "ዣ",
+                "ዤ",
+                "ዥ",
+                "ዦ",
+                "ዧ"
+              ]
+            },
+            {
+              "label": "ፅ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "ፀ",
+                "ፁ",
+                "ፂ",
+                "ፃ",
+                "ፄ",
+                "ፅ",
+                "ፆ",
+                "ፇ"
+              ]
+            },
+            {
+              "label": "ጭ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "ጨ",
+                "ጩ",
+                "ጪ",
+                "ጫ",
+                "ጬ",
+                "ጭ",
+                "ጮ",
+                "ጯ"
+              ]
+            },
+            {
+              "label": "ኝ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78,
+                "nextLayer": "letters"
+              },
+              "longPress": [
+                "ኘ",
+                "ኙ",
+                "ኚ",
+                "ኛ",
+                "ኜ",
+                "ኝ",
+                "ኞ",
+                "ኟ"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              },
+              "longPress": [
+                ",",
+                "!",
+                "?",
+                "'",
+                "\"",
+                "\\",
+                ":",
+                ";"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.1
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "1",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49
+              },
+              "longPress": [
+                "፩",
+                "፲",
+                "፻",
+                "፼"
+              ]
+            },
+            {
+              "label": "2",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50
+              },
+              "longPress": [
+                "፪",
+                "፳"
+              ]
+            },
+            {
+              "label": "3",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51
+              },
+              "longPress": [
+                "፫",
+                "፴"
+              ]
+            },
+            {
+              "label": "4",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52
+              },
+              "longPress": [
+                "፬",
+                "፵"
+              ]
+            },
+            {
+              "label": "5",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53
+              },
+              "longPress": [
+                "፭",
+                "፶"
+              ]
+            },
+            {
+              "label": "6",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54
+              },
+              "longPress": [
+                "፮",
+                "፷"
+              ]
+            },
+            {
+              "label": "7",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55
+              },
+              "longPress": [
+                "፯",
+                "፸"
+              ]
+            },
+            {
+              "label": "8",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56
+              },
+              "longPress": [
+                "፰",
+                "፹"
+              ]
+            },
+            {
+              "label": "9",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57
+              },
+              "longPress": [
+                "፱",
+                "፺"
+              ]
+            },
+            {
+              "label": "0",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48
+              }
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.45
+            },
+            {
+              "label": "$",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "@",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "#",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "%",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "^",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "_",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "=",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187
+              }
+            },
+            {
+              "label": "£",
+              "output": "ģ"
+            },
+            {
+              "label": "€",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 220
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 1.05
+            },
+            {
+              "label": "ሥ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219
+              },
+              "longPress": [
+                "ሠ",
+                "ሡ",
+                "ሢ",
+                "ሣ",
+                "ሤ",
+                "ሥ",
+                "ሦ",
+                "ሧ"
+              ]
+            },
+            {
+              "label": "(",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": ")",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "ኅ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 221
+              },
+              "longPress": [
+                "ኀ",
+                "ኁ",
+                "ኂ",
+                "ኃ",
+                "ኄ",
+                "ኅ",
+                "ኆ",
+                "ኈ",
+                "ኊ",
+                "ኋ",
+                "ኌ",
+                "ኍ"
+              ]
+            },
+            {
+              "label": "+",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "-",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189
+              }
+            },
+            {
+              "label": "*",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "/",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 191
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ሀለሐ",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.1
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "geezword_tigrinya"
+    }
+  }
+}

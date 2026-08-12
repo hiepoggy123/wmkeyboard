@@ -1,0 +1,229 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_sxava_eo",
+    "name": "sxava_eo",
+    "langId": "eo",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "𐑕",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              },
+              "longPress": [
+                "𐑟"
+              ]
+            },
+            {
+              "label": "𐑒",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              },
+              "longPress": [
+                "𐑜"
+              ]
+            },
+            {
+              "label": "𐑐",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              },
+              "longPress": [
+                "𐑚"
+              ]
+            },
+            {
+              "label": "𐑖",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              },
+              "longPress": [
+                "𐑠"
+              ]
+            },
+            {
+              "label": "𐑙",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              },
+              "longPress": [
+                "𐑣"
+              ]
+            },
+            {
+              "label": "𐑗",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              },
+              "longPress": [
+                "𐑡"
+              ]
+            },
+            {
+              "label": "𐑓",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              },
+              "longPress": [
+                "𐑝"
+              ]
+            },
+            {
+              "label": "𐑔",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              },
+              "longPress": [
+                "𐑞"
+              ]
+            },
+            {
+              "label": "𐑑",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              },
+              "longPress": [
+                "𐑛"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "𐑨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              },
+              "longPress": [
+                "𐑲"
+              ]
+            },
+            {
+              "label": "𐑧",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              },
+              "longPress": [
+                "𐑱"
+              ]
+            },
+            {
+              "label": "𐑤",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            },
+            {
+              "label": "𐑫",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              }
+            },
+            {
+              "label": "𐑪",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              }
+            },
+            {
+              "label": "𐑵",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              }
+            },
+            {
+              "label": "𐑮",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              }
+            },
+            {
+              "label": "𐑩",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              }
+            },
+            {
+              "label": "𐑦",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              },
+              "longPress": [
+                "𐑰"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 0.1
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.6
+            },
+            {
+              "label": "·",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 226
+              },
+              "width": 0.1,
+              "longPress": [
+                "?",
+                ",",
+                ".",
+                "–",
+                "!"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 0.1
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 0.1
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "sxava_eo"
+    }
+  }
+}

@@ -1,0 +1,5370 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_sil_yi",
+    "name": "SIL Yi",
+    "langId": "ii",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "Ø"
+            }
+          ],
+          [
+            {
+              "label": "#.?",
+              "action": {
+                "type": "symbols"
+              }
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "◌-◌",
+              "output": "­"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4.0
+            }
+          ]
+        ]
+      },
+      "NC": {
+        "rows": [
+          [
+            {
+              "label": "ꀀ"
+            },
+            {
+              "label": "ꀄ"
+            },
+            {
+              "label": "ꀈ"
+            },
+            {
+              "label": "ꀏ"
+            }
+          ],
+          [
+            {
+              "label": "ꀁ"
+            },
+            {
+              "label": "ꀅ"
+            },
+            {
+              "label": "ꀉ"
+            },
+            {
+              "label": "ꀌ"
+            },
+            {
+              "label": "ꀐ"
+            },
+            {
+              "label": "ꀓ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꀂ"
+            },
+            {
+              "label": "ꀆ"
+            },
+            {
+              "label": "ꀊ"
+            },
+            {
+              "label": "ꀍ"
+            },
+            {
+              "label": "ꀑ"
+            },
+            {
+              "label": "ꀔ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꀃ"
+            },
+            {
+              "label": "ꀇ"
+            },
+            {
+              "label": "ꀋ"
+            },
+            {
+              "label": "ꀎ"
+            },
+            {
+              "label": "ꀒ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "b": {
+        "rows": [
+          [
+            {
+              "label": "ꀖ"
+            },
+            {
+              "label": "ꀚ"
+            },
+            {
+              "label": "ꀞ"
+            },
+            {
+              "label": "ꀥ"
+            },
+            {
+              "label": "ꀬ"
+            },
+            {
+              "label": "ꀲ"
+            }
+          ],
+          [
+            {
+              "label": "ꀗ"
+            },
+            {
+              "label": "ꀛ"
+            },
+            {
+              "label": "ꀟ"
+            },
+            {
+              "label": "ꀢ"
+            },
+            {
+              "label": "ꀦ"
+            },
+            {
+              "label": "ꀩ"
+            },
+            {
+              "label": "ꀭ"
+            },
+            {
+              "label": "ꀰ"
+            },
+            {
+              "label": "ꀳ"
+            },
+            {
+              "label": "ꀶ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꀘ"
+            },
+            {
+              "label": "ꀜ"
+            },
+            {
+              "label": "ꀠ"
+            },
+            {
+              "label": "ꀣ"
+            },
+            {
+              "label": "ꀧ"
+            },
+            {
+              "label": "ꀪ"
+            },
+            {
+              "label": "ꀮ"
+            },
+            {
+              "label": "ꀱ"
+            },
+            {
+              "label": "ꀴ"
+            },
+            {
+              "label": "ꀷ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꀙ"
+            },
+            {
+              "label": "ꀝ"
+            },
+            {
+              "label": "ꀡ"
+            },
+            {
+              "label": "ꀤ"
+            },
+            {
+              "label": "ꀨ"
+            },
+            {
+              "label": "ꀫ"
+            },
+            {
+              "label": "ꀯ"
+            },
+            {
+              "label": "ꀵ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "p": {
+        "rows": [
+          [
+            {
+              "label": "ꀸ"
+            },
+            {
+              "label": "ꀿ"
+            },
+            {
+              "label": "ꁆ"
+            },
+            {
+              "label": "ꁊ"
+            },
+            {
+              "label": "ꁐ"
+            }
+          ],
+          [
+            {
+              "label": "ꀹ"
+            },
+            {
+              "label": "ꀼ"
+            },
+            {
+              "label": "ꁀ"
+            },
+            {
+              "label": "ꁃ"
+            },
+            {
+              "label": "ꁇ"
+            },
+            {
+              "label": "ꁋ"
+            },
+            {
+              "label": "ꁎ"
+            },
+            {
+              "label": "ꁑ"
+            },
+            {
+              "label": "ꁔ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꀺ"
+            },
+            {
+              "label": "ꀽ"
+            },
+            {
+              "label": "ꁁ"
+            },
+            {
+              "label": "ꁄ"
+            },
+            {
+              "label": "ꁈ"
+            },
+            {
+              "label": "ꁌ"
+            },
+            {
+              "label": "ꁏ"
+            },
+            {
+              "label": "ꁒ"
+            },
+            {
+              "label": "ꁕ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꀻ"
+            },
+            {
+              "label": "ꀾ"
+            },
+            {
+              "label": "ꁂ"
+            },
+            {
+              "label": "ꁅ"
+            },
+            {
+              "label": "ꁉ"
+            },
+            {
+              "label": "ꁍ"
+            },
+            {
+              "label": "ꁓ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "bb": {
+        "rows": [
+          [
+            {
+              "label": "ꁖ"
+            },
+            {
+              "label": "ꁚ"
+            },
+            {
+              "label": "ꁞ"
+            },
+            {
+              "label": "ꁥ"
+            },
+            {
+              "label": "ꁬ"
+            },
+            {
+              "label": "ꁲ"
+            }
+          ],
+          [
+            {
+              "label": "ꁗ"
+            },
+            {
+              "label": "ꁛ"
+            },
+            {
+              "label": "ꁟ"
+            },
+            {
+              "label": "ꁢ"
+            },
+            {
+              "label": "ꁦ"
+            },
+            {
+              "label": "ꁩ"
+            },
+            {
+              "label": "ꁭ"
+            },
+            {
+              "label": "ꁰ"
+            },
+            {
+              "label": "ꁳ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꁘ"
+            },
+            {
+              "label": "ꁜ"
+            },
+            {
+              "label": "ꁠ"
+            },
+            {
+              "label": "ꁣ"
+            },
+            {
+              "label": "ꁧ"
+            },
+            {
+              "label": "ꁪ"
+            },
+            {
+              "label": "ꁮ"
+            },
+            {
+              "label": "ꁱ"
+            },
+            {
+              "label": "ꁴ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꁙ"
+            },
+            {
+              "label": "ꁝ"
+            },
+            {
+              "label": "ꁡ"
+            },
+            {
+              "label": "ꁤ"
+            },
+            {
+              "label": "ꁨ"
+            },
+            {
+              "label": "ꁫ"
+            },
+            {
+              "label": "ꁯ"
+            },
+            {
+              "label": "ꁵ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "nb": {
+        "rows": [
+          [
+            {
+              "label": "ꁶ"
+            },
+            {
+              "label": "ꁽ"
+            },
+            {
+              "label": "ꂁ"
+            },
+            {
+              "label": "ꂅ"
+            },
+            {
+              "label": "ꂋ"
+            }
+          ],
+          [
+            {
+              "label": "ꁷ"
+            },
+            {
+              "label": "ꁺ"
+            },
+            {
+              "label": "ꁾ"
+            },
+            {
+              "label": "ꂂ"
+            },
+            {
+              "label": "ꂆ"
+            },
+            {
+              "label": "ꂉ"
+            },
+            {
+              "label": "ꂌ"
+            },
+            {
+              "label": "ꂏ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꁸ"
+            },
+            {
+              "label": "ꁻ"
+            },
+            {
+              "label": "ꁿ"
+            },
+            {
+              "label": "ꂃ"
+            },
+            {
+              "label": "ꂇ"
+            },
+            {
+              "label": "ꂊ"
+            },
+            {
+              "label": "ꂍ"
+            },
+            {
+              "label": "ꂐ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꁹ"
+            },
+            {
+              "label": "ꁼ"
+            },
+            {
+              "label": "ꂀ"
+            },
+            {
+              "label": "ꂄ"
+            },
+            {
+              "label": "ꂈ"
+            },
+            {
+              "label": "ꂎ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "hm": {
+        "rows": [
+          [
+            {
+              "label": "ꂑ"
+            },
+            {
+              "label": "ꂘ"
+            },
+            {
+              "label": "ꂟ"
+            },
+            {
+              "label": "ꂣ"
+            }
+          ],
+          [
+            {
+              "label": "ꂒ"
+            },
+            {
+              "label": "ꂕ"
+            },
+            {
+              "label": "ꂙ"
+            },
+            {
+              "label": "ꂜ"
+            },
+            {
+              "label": "ꂠ"
+            },
+            {
+              "label": "ꂤ"
+            },
+            {
+              "label": "ꂧ"
+            },
+            {
+              "label": "ꂩ"
+            },
+            {
+              "label": "ꂬ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꂓ"
+            },
+            {
+              "label": "ꂖ"
+            },
+            {
+              "label": "ꂚ"
+            },
+            {
+              "label": "ꂝ"
+            },
+            {
+              "label": "ꂡ"
+            },
+            {
+              "label": "ꂥ"
+            },
+            {
+              "label": "ꂨ"
+            },
+            {
+              "label": "ꂪ"
+            },
+            {
+              "label": "ꂭ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꂔ"
+            },
+            {
+              "label": "ꂗ"
+            },
+            {
+              "label": "ꂛ"
+            },
+            {
+              "label": "ꂞ"
+            },
+            {
+              "label": "ꂢ"
+            },
+            {
+              "label": "ꂦ"
+            },
+            {
+              "label": "ꂫ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "m": {
+        "rows": [
+          [
+            {
+              "label": "ꂮ"
+            },
+            {
+              "label": "ꂵ"
+            },
+            {
+              "label": "ꂹ"
+            },
+            {
+              "label": "ꂽ"
+            },
+            {
+              "label": "ꃃ"
+            },
+            {
+              "label": "ꃉ"
+            }
+          ],
+          [
+            {
+              "label": "ꂯ"
+            },
+            {
+              "label": "ꂲ"
+            },
+            {
+              "label": "ꂶ"
+            },
+            {
+              "label": "ꂺ"
+            },
+            {
+              "label": "ꂾ"
+            },
+            {
+              "label": "ꃁ"
+            },
+            {
+              "label": "ꃄ"
+            },
+            {
+              "label": "ꃇ"
+            },
+            {
+              "label": "ꃊ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꂰ"
+            },
+            {
+              "label": "ꂳ"
+            },
+            {
+              "label": "ꂷ"
+            },
+            {
+              "label": "ꂻ"
+            },
+            {
+              "label": "ꂿ"
+            },
+            {
+              "label": "ꃂ"
+            },
+            {
+              "label": "ꃅ"
+            },
+            {
+              "label": "ꃈ"
+            },
+            {
+              "label": "ꃋ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꂱ"
+            },
+            {
+              "label": "ꂴ"
+            },
+            {
+              "label": "ꂸ"
+            },
+            {
+              "label": "ꂼ"
+            },
+            {
+              "label": "ꃀ"
+            },
+            {
+              "label": "ꃆ"
+            },
+            {
+              "label": "ꃌ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "f": {
+        "rows": [
+          [
+            {
+              "label": "ꃍ"
+            },
+            {
+              "label": "ꃑ"
+            },
+            {
+              "label": "ꃘ"
+            },
+            {
+              "label": "ꃞ"
+            }
+          ],
+          [
+            {
+              "label": "ꃎ"
+            },
+            {
+              "label": "ꃒ"
+            },
+            {
+              "label": "ꃕ"
+            },
+            {
+              "label": "ꃙ"
+            },
+            {
+              "label": "ꃜ"
+            },
+            {
+              "label": "ꃟ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꃏ"
+            },
+            {
+              "label": "ꃓ"
+            },
+            {
+              "label": "ꃖ"
+            },
+            {
+              "label": "ꃚ"
+            },
+            {
+              "label": "ꃝ"
+            },
+            {
+              "label": "ꃠ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꃐ"
+            },
+            {
+              "label": "ꃔ"
+            },
+            {
+              "label": "ꃗ"
+            },
+            {
+              "label": "ꃛ"
+            },
+            {
+              "label": "ꃡ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "v": {
+        "rows": [
+          [
+            {
+              "label": "ꃢ"
+            },
+            {
+              "label": "ꃦ"
+            },
+            {
+              "label": "ꃪ"
+            },
+            {
+              "label": "ꃮ"
+            },
+            {
+              "label": "ꃴ"
+            },
+            {
+              "label": "ꃺ"
+            }
+          ],
+          [
+            {
+              "label": "ꃣ"
+            },
+            {
+              "label": "ꃧ"
+            },
+            {
+              "label": "ꃫ"
+            },
+            {
+              "label": "ꃯ"
+            },
+            {
+              "label": "ꃲ"
+            },
+            {
+              "label": "ꃵ"
+            },
+            {
+              "label": "ꃸ"
+            },
+            {
+              "label": "ꃻ"
+            },
+            {
+              "label": "ꃾ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꃤ"
+            },
+            {
+              "label": "ꃨ"
+            },
+            {
+              "label": "ꃬ"
+            },
+            {
+              "label": "ꃰ"
+            },
+            {
+              "label": "ꃶ"
+            },
+            {
+              "label": "ꃹ"
+            },
+            {
+              "label": "ꃼ"
+            },
+            {
+              "label": "ꃿ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꃥ"
+            },
+            {
+              "label": "ꃩ"
+            },
+            {
+              "label": "ꃭ"
+            },
+            {
+              "label": "ꃱ"
+            },
+            {
+              "label": "ꃳ"
+            },
+            {
+              "label": "ꃷ"
+            },
+            {
+              "label": "ꃽ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "d": {
+        "rows": [
+          [
+            {
+              "label": "ꄀ"
+            },
+            {
+              "label": "ꄇ"
+            },
+            {
+              "label": "ꄍ"
+            },
+            {
+              "label": "ꄔ"
+            }
+          ],
+          [
+            {
+              "label": "ꄁ"
+            },
+            {
+              "label": "ꄄ"
+            },
+            {
+              "label": "ꄈ"
+            },
+            {
+              "label": "ꄋ"
+            },
+            {
+              "label": "ꄎ"
+            },
+            {
+              "label": "ꄑ"
+            },
+            {
+              "label": "ꄕ"
+            },
+            {
+              "label": "ꄘ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꄂ"
+            },
+            {
+              "label": "ꄅ"
+            },
+            {
+              "label": "ꄉ"
+            },
+            {
+              "label": "ꄌ"
+            },
+            {
+              "label": "ꄏ"
+            },
+            {
+              "label": "ꄒ"
+            },
+            {
+              "label": "ꄖ"
+            },
+            {
+              "label": "ꄙ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꄃ"
+            },
+            {
+              "label": "ꄆ"
+            },
+            {
+              "label": "ꄊ"
+            },
+            {
+              "label": "ꄐ"
+            },
+            {
+              "label": "ꄓ"
+            },
+            {
+              "label": "ꄗ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "t": {
+        "rows": [
+          [
+            {
+              "label": "ꄚ"
+            },
+            {
+              "label": "ꄡ"
+            },
+            {
+              "label": "ꄥ"
+            },
+            {
+              "label": "ꄩ"
+            },
+            {
+              "label": "ꄰ"
+            }
+          ],
+          [
+            {
+              "label": "ꄛ"
+            },
+            {
+              "label": "ꄞ"
+            },
+            {
+              "label": "ꄢ"
+            },
+            {
+              "label": "ꄦ"
+            },
+            {
+              "label": "ꄪ"
+            },
+            {
+              "label": "ꄭ"
+            },
+            {
+              "label": "ꄱ"
+            },
+            {
+              "label": "ꄴ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꄜ"
+            },
+            {
+              "label": "ꄟ"
+            },
+            {
+              "label": "ꄣ"
+            },
+            {
+              "label": "ꄧ"
+            },
+            {
+              "label": "ꄫ"
+            },
+            {
+              "label": "ꄮ"
+            },
+            {
+              "label": "ꄲ"
+            },
+            {
+              "label": "ꄵ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꄝ"
+            },
+            {
+              "label": "ꄠ"
+            },
+            {
+              "label": "ꄤ"
+            },
+            {
+              "label": "ꄨ"
+            },
+            {
+              "label": "ꄬ"
+            },
+            {
+              "label": "ꄯ"
+            },
+            {
+              "label": "ꄳ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "dd": {
+        "rows": [
+          [
+            {
+              "label": "ꄶ"
+            },
+            {
+              "label": "ꄽ"
+            },
+            {
+              "label": "ꅄ"
+            },
+            {
+              "label": "ꅋ"
+            }
+          ],
+          [
+            {
+              "label": "ꄷ"
+            },
+            {
+              "label": "ꄺ"
+            },
+            {
+              "label": "ꄾ"
+            },
+            {
+              "label": "ꅁ"
+            },
+            {
+              "label": "ꅅ"
+            },
+            {
+              "label": "ꅈ"
+            },
+            {
+              "label": "ꅌ"
+            },
+            {
+              "label": "ꅏ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꄸ"
+            },
+            {
+              "label": "ꄻ"
+            },
+            {
+              "label": "ꄿ"
+            },
+            {
+              "label": "ꅂ"
+            },
+            {
+              "label": "ꅆ"
+            },
+            {
+              "label": "ꅉ"
+            },
+            {
+              "label": "ꅍ"
+            },
+            {
+              "label": "ꅐ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꄹ"
+            },
+            {
+              "label": "ꄼ"
+            },
+            {
+              "label": "ꅀ"
+            },
+            {
+              "label": "ꅃ"
+            },
+            {
+              "label": "ꅇ"
+            },
+            {
+              "label": "ꅊ"
+            },
+            {
+              "label": "ꅎ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "nd": {
+        "rows": [
+          [
+            {
+              "label": "ꅑ"
+            },
+            {
+              "label": "ꅗ"
+            },
+            {
+              "label": "ꅛ"
+            },
+            {
+              "label": "ꅢ"
+            }
+          ],
+          [
+            {
+              "label": "ꅒ"
+            },
+            {
+              "label": "ꅕ"
+            },
+            {
+              "label": "ꅘ"
+            },
+            {
+              "label": "ꅜ"
+            },
+            {
+              "label": "ꅟ"
+            },
+            {
+              "label": "ꅣ"
+            },
+            {
+              "label": "ꅦ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꅓ"
+            },
+            {
+              "label": "ꅖ"
+            },
+            {
+              "label": "ꅙ"
+            },
+            {
+              "label": "ꅝ"
+            },
+            {
+              "label": "ꅠ"
+            },
+            {
+              "label": "ꅤ"
+            },
+            {
+              "label": "ꅧ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꅔ"
+            },
+            {
+              "label": "ꅚ"
+            },
+            {
+              "label": "ꅞ"
+            },
+            {
+              "label": "ꅡ"
+            },
+            {
+              "label": "ꅥ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "hn": {
+        "rows": [
+          [
+            {
+              "label": "ꅨ"
+            },
+            {
+              "label": "ꅬ"
+            },
+            {
+              "label": "ꅰ"
+            },
+            {
+              "label": "ꅶ"
+            },
+            {
+              "label": "ꅼ"
+            }
+          ],
+          [
+            {
+              "label": "ꅩ"
+            },
+            {
+              "label": "ꅭ"
+            },
+            {
+              "label": "ꅱ"
+            },
+            {
+              "label": "ꅴ"
+            },
+            {
+              "label": "ꅷ"
+            },
+            {
+              "label": "ꅹ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꅪ"
+            },
+            {
+              "label": "ꅮ"
+            },
+            {
+              "label": "ꅲ"
+            },
+            {
+              "label": "ꅵ"
+            },
+            {
+              "label": "ꅺ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꅫ"
+            },
+            {
+              "label": "ꅯ"
+            },
+            {
+              "label": "ꅳ"
+            },
+            {
+              "label": "ꅸ"
+            },
+            {
+              "label": "ꅻ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "n": {
+        "rows": [
+          [
+            {
+              "label": "ꅽ"
+            },
+            {
+              "label": "ꆊ"
+            },
+            {
+              "label": "ꆑ"
+            }
+          ],
+          [
+            {
+              "label": "ꅾ"
+            },
+            {
+              "label": "ꆁ"
+            },
+            {
+              "label": "ꆄ"
+            },
+            {
+              "label": "ꆇ"
+            },
+            {
+              "label": "ꆋ"
+            },
+            {
+              "label": "ꆎ"
+            },
+            {
+              "label": "ꆒ"
+            },
+            {
+              "label": "ꆕ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꅿ"
+            },
+            {
+              "label": "ꆂ"
+            },
+            {
+              "label": "ꆅ"
+            },
+            {
+              "label": "ꆈ"
+            },
+            {
+              "label": "ꆌ"
+            },
+            {
+              "label": "ꆏ"
+            },
+            {
+              "label": "ꆓ"
+            },
+            {
+              "label": "ꆖ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꆀ"
+            },
+            {
+              "label": "ꆃ"
+            },
+            {
+              "label": "ꆆ"
+            },
+            {
+              "label": "ꆉ"
+            },
+            {
+              "label": "ꆍ"
+            },
+            {
+              "label": "ꆐ"
+            },
+            {
+              "label": "ꆔ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "hl": {
+        "rows": [
+          [
+            {
+              "label": "ꆗ"
+            },
+            {
+              "label": "ꆞ"
+            },
+            {
+              "label": "ꆫ"
+            },
+            {
+              "label": "ꆱ"
+            }
+          ],
+          [
+            {
+              "label": "ꆘ"
+            },
+            {
+              "label": "ꆛ"
+            },
+            {
+              "label": "ꆟ"
+            },
+            {
+              "label": "ꆢ"
+            },
+            {
+              "label": "ꆥ"
+            },
+            {
+              "label": "ꆨ"
+            },
+            {
+              "label": "ꆬ"
+            },
+            {
+              "label": "ꆯ"
+            },
+            {
+              "label": "ꆲ"
+            },
+            {
+              "label": "ꆵ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꆙ"
+            },
+            {
+              "label": "ꆜ"
+            },
+            {
+              "label": "ꆠ"
+            },
+            {
+              "label": "ꆣ"
+            },
+            {
+              "label": "ꆦ"
+            },
+            {
+              "label": "ꆩ"
+            },
+            {
+              "label": "ꆭ"
+            },
+            {
+              "label": "ꆰ"
+            },
+            {
+              "label": "ꆳ"
+            },
+            {
+              "label": "ꆶ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꆚ"
+            },
+            {
+              "label": "ꆝ"
+            },
+            {
+              "label": "ꆡ"
+            },
+            {
+              "label": "ꆤ"
+            },
+            {
+              "label": "ꆧ"
+            },
+            {
+              "label": "ꆪ"
+            },
+            {
+              "label": "ꆮ"
+            },
+            {
+              "label": "ꆴ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "l": {
+        "rows": [
+          [
+            {
+              "label": "ꆷ"
+            },
+            {
+              "label": "ꆻ"
+            },
+            {
+              "label": "ꆿ"
+            },
+            {
+              "label": "ꇃ"
+            },
+            {
+              "label": "ꇇ"
+            },
+            {
+              "label": "ꇎ"
+            },
+            {
+              "label": "ꇔ"
+            }
+          ],
+          [
+            {
+              "label": "ꆸ"
+            },
+            {
+              "label": "ꆼ"
+            },
+            {
+              "label": "ꇀ"
+            },
+            {
+              "label": "ꇄ"
+            },
+            {
+              "label": "ꇈ"
+            },
+            {
+              "label": "ꇋ"
+            },
+            {
+              "label": "ꇏ"
+            },
+            {
+              "label": "ꇒ"
+            },
+            {
+              "label": "ꇕ"
+            },
+            {
+              "label": "ꇘ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꆹ"
+            },
+            {
+              "label": "ꆽ"
+            },
+            {
+              "label": "ꇁ"
+            },
+            {
+              "label": "ꇅ"
+            },
+            {
+              "label": "ꇉ"
+            },
+            {
+              "label": "ꇌ"
+            },
+            {
+              "label": "ꇐ"
+            },
+            {
+              "label": "ꇓ"
+            },
+            {
+              "label": "ꇖ"
+            },
+            {
+              "label": "ꇙ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꆺ"
+            },
+            {
+              "label": "ꆾ"
+            },
+            {
+              "label": "ꇂ"
+            },
+            {
+              "label": "ꇆ"
+            },
+            {
+              "label": "ꇊ"
+            },
+            {
+              "label": "ꇍ"
+            },
+            {
+              "label": "ꇑ"
+            },
+            {
+              "label": "ꇗ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "g": {
+        "rows": [
+          [
+            {
+              "label": "ꇚ"
+            },
+            {
+              "label": "ꇞ"
+            },
+            {
+              "label": "ꇢ"
+            },
+            {
+              "label": "ꇦ"
+            },
+            {
+              "label": "ꇪ"
+            },
+            {
+              "label": "ꇮ"
+            },
+            {
+              "label": "ꇲ"
+            }
+          ],
+          [
+            {
+              "label": "ꇛ"
+            },
+            {
+              "label": "ꇟ"
+            },
+            {
+              "label": "ꇣ"
+            },
+            {
+              "label": "ꇧ"
+            },
+            {
+              "label": "ꇫ"
+            },
+            {
+              "label": "ꇯ"
+            },
+            {
+              "label": "ꇳ"
+            },
+            {
+              "label": "ꇶ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꇜ"
+            },
+            {
+              "label": "ꇠ"
+            },
+            {
+              "label": "ꇤ"
+            },
+            {
+              "label": "ꇨ"
+            },
+            {
+              "label": "ꇬ"
+            },
+            {
+              "label": "ꇰ"
+            },
+            {
+              "label": "ꇴ"
+            },
+            {
+              "label": "ꇷ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꇝ"
+            },
+            {
+              "label": "ꇡ"
+            },
+            {
+              "label": "ꇥ"
+            },
+            {
+              "label": "ꇩ"
+            },
+            {
+              "label": "ꇭ"
+            },
+            {
+              "label": "ꇱ"
+            },
+            {
+              "label": "ꇵ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "k": {
+        "rows": [
+          [
+            {
+              "label": "ꇸ"
+            },
+            {
+              "label": "ꇿ"
+            },
+            {
+              "label": "ꈆ"
+            },
+            {
+              "label": "ꈊ"
+            },
+            {
+              "label": "ꈎ"
+            }
+          ],
+          [
+            {
+              "label": "ꇹ"
+            },
+            {
+              "label": "ꇼ"
+            },
+            {
+              "label": "ꈀ"
+            },
+            {
+              "label": "ꈃ"
+            },
+            {
+              "label": "ꈇ"
+            },
+            {
+              "label": "ꈋ"
+            },
+            {
+              "label": "ꈏ"
+            },
+            {
+              "label": "ꈒ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꇺ"
+            },
+            {
+              "label": "ꇽ"
+            },
+            {
+              "label": "ꈁ"
+            },
+            {
+              "label": "ꈄ"
+            },
+            {
+              "label": "ꈈ"
+            },
+            {
+              "label": "ꈌ"
+            },
+            {
+              "label": "ꈐ"
+            },
+            {
+              "label": "ꈓ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꇻ"
+            },
+            {
+              "label": "ꇾ"
+            },
+            {
+              "label": "ꈂ"
+            },
+            {
+              "label": "ꈅ"
+            },
+            {
+              "label": "ꈉ"
+            },
+            {
+              "label": "ꈍ"
+            },
+            {
+              "label": "ꈑ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "gg": {
+        "rows": [
+          [
+            {
+              "label": "ꈔ"
+            },
+            {
+              "label": "ꈚ"
+            },
+            {
+              "label": "ꈞ"
+            },
+            {
+              "label": "ꈢ"
+            },
+            {
+              "label": "ꈦ"
+            },
+            {
+              "label": "ꈪ"
+            }
+          ],
+          [
+            {
+              "label": "ꈕ"
+            },
+            {
+              "label": "ꈗ"
+            },
+            {
+              "label": "ꈛ"
+            },
+            {
+              "label": "ꈟ"
+            },
+            {
+              "label": "ꈣ"
+            },
+            {
+              "label": "ꈧ"
+            },
+            {
+              "label": "ꈫ"
+            },
+            {
+              "label": "ꈮ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꈖ"
+            },
+            {
+              "label": "ꈘ"
+            },
+            {
+              "label": "ꈜ"
+            },
+            {
+              "label": "ꈠ"
+            },
+            {
+              "label": "ꈤ"
+            },
+            {
+              "label": "ꈨ"
+            },
+            {
+              "label": "ꈬ"
+            },
+            {
+              "label": "ꈯ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꈙ"
+            },
+            {
+              "label": "ꈝ"
+            },
+            {
+              "label": "ꈡ"
+            },
+            {
+              "label": "ꈥ"
+            },
+            {
+              "label": "ꈩ"
+            },
+            {
+              "label": "ꈭ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "mg": {
+        "rows": [
+          [
+            {
+              "label": "ꈲ"
+            },
+            {
+              "label": "ꈹ"
+            },
+            {
+              "label": "ꉀ"
+            }
+          ],
+          [
+            {
+              "label": "ꈰ"
+            },
+            {
+              "label": "ꈳ"
+            },
+            {
+              "label": "ꈶ"
+            },
+            {
+              "label": "ꈺ"
+            },
+            {
+              "label": "ꈽ"
+            },
+            {
+              "label": "ꉁ"
+            },
+            {
+              "label": "ꉄ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꈱ"
+            },
+            {
+              "label": "ꈴ"
+            },
+            {
+              "label": "ꈷ"
+            },
+            {
+              "label": "ꈻ"
+            },
+            {
+              "label": "ꈾ"
+            },
+            {
+              "label": "ꉂ"
+            },
+            {
+              "label": "ꉅ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꈵ"
+            },
+            {
+              "label": "ꈸ"
+            },
+            {
+              "label": "ꈼ"
+            },
+            {
+              "label": "ꈿ"
+            },
+            {
+              "label": "ꉃ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "hx": {
+        "rows": [
+          [
+            {
+              "label": "ꉆ"
+            },
+            {
+              "label": "ꉊ"
+            },
+            {
+              "label": "ꉎ"
+            },
+            {
+              "label": "ꉒ"
+            },
+            {
+              "label": "ꉖ"
+            }
+          ],
+          [
+            {
+              "label": "ꉇ"
+            },
+            {
+              "label": "ꉋ"
+            },
+            {
+              "label": "ꉏ"
+            },
+            {
+              "label": "ꉓ"
+            },
+            {
+              "label": "ꉗ"
+            },
+            {
+              "label": "ꉚ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꉈ"
+            },
+            {
+              "label": "ꉌ"
+            },
+            {
+              "label": "ꉐ"
+            },
+            {
+              "label": "ꉔ"
+            },
+            {
+              "label": "ꉘ"
+            },
+            {
+              "label": "ꉛ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꉉ"
+            },
+            {
+              "label": "ꉍ"
+            },
+            {
+              "label": "ꉑ"
+            },
+            {
+              "label": "ꉕ"
+            },
+            {
+              "label": "ꉙ"
+            },
+            {
+              "label": "ꉜ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "ng": {
+        "rows": [
+          [
+            {
+              "label": "ꉠ"
+            },
+            {
+              "label": "ꉤ"
+            },
+            {
+              "label": "ꉧ"
+            }
+          ],
+          [
+            {
+              "label": "ꉝ"
+            },
+            {
+              "label": "ꉡ"
+            },
+            {
+              "label": "ꉥ"
+            },
+            {
+              "label": "ꉨ"
+            },
+            {
+              "label": "ꉫ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꉞ"
+            },
+            {
+              "label": "ꉢ"
+            },
+            {
+              "label": "ꉦ"
+            },
+            {
+              "label": "ꉩ"
+            },
+            {
+              "label": "ꉬ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꉟ"
+            },
+            {
+              "label": "ꉣ"
+            },
+            {
+              "label": "ꉪ"
+            },
+            {
+              "label": "ꉭ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "h": {
+        "rows": [
+          [
+            {
+              "label": "ꉮ"
+            },
+            {
+              "label": "ꉱ"
+            },
+            {
+              "label": "ꉵ"
+            },
+            {
+              "label": "ꉹ"
+            }
+          ],
+          [
+            {
+              "label": "ꉯ"
+            },
+            {
+              "label": "ꉲ"
+            },
+            {
+              "label": "ꉶ"
+            },
+            {
+              "label": "ꉺ"
+            },
+            {
+              "label": "ꉽ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꉰ"
+            },
+            {
+              "label": "ꉳ"
+            },
+            {
+              "label": "ꉷ"
+            },
+            {
+              "label": "ꉻ"
+            },
+            {
+              "label": "ꉾ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꉴ"
+            },
+            {
+              "label": "ꉸ"
+            },
+            {
+              "label": "ꉼ"
+            },
+            {
+              "label": "ꉿ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "w": {
+        "rows": [
+          [
+            {
+              "label": "ꊀ"
+            }
+          ],
+          [
+            {
+              "label": "ꊁ"
+            },
+            {
+              "label": "ꊄ"
+            },
+            {
+              "label": "ꊇ"
+            },
+            {
+              "label": "ꊊ"
+            },
+            {
+              "label": "ꀕ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꊂ"
+            },
+            {
+              "label": "ꊅ"
+            },
+            {
+              "label": "ꊈ"
+            },
+            {
+              "label": "ꊋ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꊃ"
+            },
+            {
+              "label": "ꊆ"
+            },
+            {
+              "label": "ꊉ"
+            },
+            {
+              "label": "ꊌ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "z": {
+        "rows": [
+          [
+            {
+              "label": "ꊍ"
+            },
+            {
+              "label": "ꊔ"
+            },
+            {
+              "label": "ꊛ"
+            },
+            {
+              "label": "ꊢ"
+            },
+            {
+              "label": "ꊨ"
+            }
+          ],
+          [
+            {
+              "label": "ꊎ"
+            },
+            {
+              "label": "ꊑ"
+            },
+            {
+              "label": "ꊕ"
+            },
+            {
+              "label": "ꊘ"
+            },
+            {
+              "label": "ꊜ"
+            },
+            {
+              "label": "ꊟ"
+            },
+            {
+              "label": "ꊣ"
+            },
+            {
+              "label": "ꊦ"
+            },
+            {
+              "label": "ꊩ"
+            },
+            {
+              "label": "ꊬ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꊏ"
+            },
+            {
+              "label": "ꊒ"
+            },
+            {
+              "label": "ꊖ"
+            },
+            {
+              "label": "ꊙ"
+            },
+            {
+              "label": "ꊝ"
+            },
+            {
+              "label": "ꊠ"
+            },
+            {
+              "label": "ꊤ"
+            },
+            {
+              "label": "ꊧ"
+            },
+            {
+              "label": "ꊪ"
+            },
+            {
+              "label": "ꊭ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꊐ"
+            },
+            {
+              "label": "ꊓ"
+            },
+            {
+              "label": "ꊗ"
+            },
+            {
+              "label": "ꊚ"
+            },
+            {
+              "label": "ꊞ"
+            },
+            {
+              "label": "ꊡ"
+            },
+            {
+              "label": "ꊥ"
+            },
+            {
+              "label": "ꊫ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "c": {
+        "rows": [
+          [
+            {
+              "label": "ꊮ"
+            },
+            {
+              "label": "ꊲ"
+            },
+            {
+              "label": "ꊶ"
+            },
+            {
+              "label": "ꊽ"
+            },
+            {
+              "label": "ꋄ"
+            },
+            {
+              "label": "ꋊ"
+            }
+          ],
+          [
+            {
+              "label": "ꊯ"
+            },
+            {
+              "label": "ꊳ"
+            },
+            {
+              "label": "ꊷ"
+            },
+            {
+              "label": "ꊺ"
+            },
+            {
+              "label": "ꊾ"
+            },
+            {
+              "label": "ꋁ"
+            },
+            {
+              "label": "ꋅ"
+            },
+            {
+              "label": "ꋈ"
+            },
+            {
+              "label": "ꋋ"
+            },
+            {
+              "label": "ꋎ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꊰ"
+            },
+            {
+              "label": "ꊴ"
+            },
+            {
+              "label": "ꊸ"
+            },
+            {
+              "label": "ꊻ"
+            },
+            {
+              "label": "ꊿ"
+            },
+            {
+              "label": "ꋂ"
+            },
+            {
+              "label": "ꋆ"
+            },
+            {
+              "label": "ꋉ"
+            },
+            {
+              "label": "ꋌ"
+            },
+            {
+              "label": "ꋏ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꊱ"
+            },
+            {
+              "label": "ꊵ"
+            },
+            {
+              "label": "ꊹ"
+            },
+            {
+              "label": "ꊼ"
+            },
+            {
+              "label": "ꋀ"
+            },
+            {
+              "label": "ꋃ"
+            },
+            {
+              "label": "ꋇ"
+            },
+            {
+              "label": "ꋍ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "zz": {
+        "rows": [
+          [
+            {
+              "label": "ꋐ"
+            },
+            {
+              "label": "ꋔ"
+            },
+            {
+              "label": "ꋘ"
+            },
+            {
+              "label": "ꋧ"
+            }
+          ],
+          [
+            {
+              "label": "ꋑ"
+            },
+            {
+              "label": "ꋕ"
+            },
+            {
+              "label": "ꋙ"
+            },
+            {
+              "label": "ꋜ"
+            },
+            {
+              "label": "ꋟ"
+            },
+            {
+              "label": "ꋢ"
+            },
+            {
+              "label": "ꋥ"
+            },
+            {
+              "label": "ꋨ"
+            },
+            {
+              "label": "ꋫ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꋒ"
+            },
+            {
+              "label": "ꋖ"
+            },
+            {
+              "label": "ꋚ"
+            },
+            {
+              "label": "ꋝ"
+            },
+            {
+              "label": "ꋠ"
+            },
+            {
+              "label": "ꋣ"
+            },
+            {
+              "label": "ꋦ"
+            },
+            {
+              "label": "ꋩ"
+            },
+            {
+              "label": "ꋬ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꋓ"
+            },
+            {
+              "label": "ꋗ"
+            },
+            {
+              "label": "ꋛ"
+            },
+            {
+              "label": "ꋞ"
+            },
+            {
+              "label": "ꋡ"
+            },
+            {
+              "label": "ꋤ"
+            },
+            {
+              "label": "ꋪ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "nz": {
+        "rows": [
+          [
+            {
+              "label": "ꋭ"
+            },
+            {
+              "label": "ꋴ"
+            },
+            {
+              "label": "ꌃ"
+            }
+          ],
+          [
+            {
+              "label": "ꋮ"
+            },
+            {
+              "label": "ꋱ"
+            },
+            {
+              "label": "ꋵ"
+            },
+            {
+              "label": "ꋸ"
+            },
+            {
+              "label": "ꋺ"
+            },
+            {
+              "label": "ꋼ"
+            },
+            {
+              "label": "ꋾ"
+            },
+            {
+              "label": "ꌁ"
+            },
+            {
+              "label": "ꌄ"
+            },
+            {
+              "label": "ꌇ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꋯ"
+            },
+            {
+              "label": "ꋲ"
+            },
+            {
+              "label": "ꋶ"
+            },
+            {
+              "label": "ꋹ"
+            },
+            {
+              "label": "ꋽ"
+            },
+            {
+              "label": "ꋿ"
+            },
+            {
+              "label": "ꌂ"
+            },
+            {
+              "label": "ꌅ"
+            },
+            {
+              "label": "ꌈ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꋰ"
+            },
+            {
+              "label": "ꋳ"
+            },
+            {
+              "label": "ꋷ"
+            },
+            {
+              "label": "ꋻ"
+            },
+            {
+              "label": "ꌀ"
+            },
+            {
+              "label": "ꌆ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "s": {
+        "rows": [
+          [
+            {
+              "label": "ꌉ"
+            },
+            {
+              "label": "ꌐ"
+            },
+            {
+              "label": "ꌗ"
+            },
+            {
+              "label": "ꌞ"
+            },
+            {
+              "label": "ꌤ"
+            }
+          ],
+          [
+            {
+              "label": "ꌊ"
+            },
+            {
+              "label": "ꌍ"
+            },
+            {
+              "label": "ꌑ"
+            },
+            {
+              "label": "ꌔ"
+            },
+            {
+              "label": "ꌘ"
+            },
+            {
+              "label": "ꌛ"
+            },
+            {
+              "label": "ꌟ"
+            },
+            {
+              "label": "ꌢ"
+            },
+            {
+              "label": "ꌥ"
+            },
+            {
+              "label": "ꌨ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꌋ"
+            },
+            {
+              "label": "ꌎ"
+            },
+            {
+              "label": "ꌒ"
+            },
+            {
+              "label": "ꌕ"
+            },
+            {
+              "label": "ꌙ"
+            },
+            {
+              "label": "ꌜ"
+            },
+            {
+              "label": "ꌠ"
+            },
+            {
+              "label": "ꌣ"
+            },
+            {
+              "label": "ꌦ"
+            },
+            {
+              "label": "ꌩ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꌌ"
+            },
+            {
+              "label": "ꌏ"
+            },
+            {
+              "label": "ꌓ"
+            },
+            {
+              "label": "ꌖ"
+            },
+            {
+              "label": "ꌚ"
+            },
+            {
+              "label": "ꌝ"
+            },
+            {
+              "label": "ꌡ"
+            },
+            {
+              "label": "ꌧ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "ss": {
+        "rows": [
+          [
+            {
+              "label": "ꌪ"
+            },
+            {
+              "label": "ꌱ"
+            },
+            {
+              "label": "ꌵ"
+            },
+            {
+              "label": "ꌼ"
+            },
+            {
+              "label": "ꍀ"
+            }
+          ],
+          [
+            {
+              "label": "ꌫ"
+            },
+            {
+              "label": "ꌮ"
+            },
+            {
+              "label": "ꌲ"
+            },
+            {
+              "label": "ꌶ"
+            },
+            {
+              "label": "ꌹ"
+            },
+            {
+              "label": "ꌽ"
+            },
+            {
+              "label": "ꍁ"
+            },
+            {
+              "label": "ꍄ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꌬ"
+            },
+            {
+              "label": "ꌯ"
+            },
+            {
+              "label": "ꌳ"
+            },
+            {
+              "label": "ꌷ"
+            },
+            {
+              "label": "ꌺ"
+            },
+            {
+              "label": "ꌾ"
+            },
+            {
+              "label": "ꍂ"
+            },
+            {
+              "label": "ꍅ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꌭ"
+            },
+            {
+              "label": "ꌰ"
+            },
+            {
+              "label": "ꌴ"
+            },
+            {
+              "label": "ꌸ"
+            },
+            {
+              "label": "ꌻ"
+            },
+            {
+              "label": "ꌿ"
+            },
+            {
+              "label": "ꍃ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "zh": {
+        "rows": [
+          [
+            {
+              "label": "ꍆ"
+            },
+            {
+              "label": "ꍍ"
+            },
+            {
+              "label": "ꍑ"
+            },
+            {
+              "label": "ꍕ"
+            },
+            {
+              "label": "ꍛ"
+            }
+          ],
+          [
+            {
+              "label": "ꍇ"
+            },
+            {
+              "label": "ꍊ"
+            },
+            {
+              "label": "ꍎ"
+            },
+            {
+              "label": "ꍒ"
+            },
+            {
+              "label": "ꍖ"
+            },
+            {
+              "label": "ꍙ"
+            },
+            {
+              "label": "ꍜ"
+            },
+            {
+              "label": "ꍟ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꍈ"
+            },
+            {
+              "label": "ꍋ"
+            },
+            {
+              "label": "ꍏ"
+            },
+            {
+              "label": "ꍓ"
+            },
+            {
+              "label": "ꍗ"
+            },
+            {
+              "label": "ꍚ"
+            },
+            {
+              "label": "ꍝ"
+            },
+            {
+              "label": "ꍠ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꍉ"
+            },
+            {
+              "label": "ꍌ"
+            },
+            {
+              "label": "ꍐ"
+            },
+            {
+              "label": "ꍔ"
+            },
+            {
+              "label": "ꍘ"
+            },
+            {
+              "label": "ꍞ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "ch": {
+        "rows": [
+          [
+            {
+              "label": "ꍡ"
+            },
+            {
+              "label": "ꍥ"
+            },
+            {
+              "label": "ꍩ"
+            },
+            {
+              "label": "ꍭ"
+            },
+            {
+              "label": "ꍶ"
+            }
+          ],
+          [
+            {
+              "label": "ꍢ"
+            },
+            {
+              "label": "ꍦ"
+            },
+            {
+              "label": "ꍪ"
+            },
+            {
+              "label": "ꍮ"
+            },
+            {
+              "label": "ꍱ"
+            },
+            {
+              "label": "ꍴ"
+            },
+            {
+              "label": "ꍷ"
+            },
+            {
+              "label": "ꍺ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꍣ"
+            },
+            {
+              "label": "ꍧ"
+            },
+            {
+              "label": "ꍫ"
+            },
+            {
+              "label": "ꍯ"
+            },
+            {
+              "label": "ꍲ"
+            },
+            {
+              "label": "ꍵ"
+            },
+            {
+              "label": "ꍸ"
+            },
+            {
+              "label": "ꍻ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꍤ"
+            },
+            {
+              "label": "ꍨ"
+            },
+            {
+              "label": "ꍬ"
+            },
+            {
+              "label": "ꍰ"
+            },
+            {
+              "label": "ꍳ"
+            },
+            {
+              "label": "ꍹ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "rr": {
+        "rows": [
+          [
+            {
+              "label": "ꎀ"
+            },
+            {
+              "label": "ꎄ"
+            },
+            {
+              "label": "ꎈ"
+            },
+            {
+              "label": "ꎎ"
+            }
+          ],
+          [
+            {
+              "label": "ꍼ"
+            },
+            {
+              "label": "ꍾ"
+            },
+            {
+              "label": "ꎁ"
+            },
+            {
+              "label": "ꎅ"
+            },
+            {
+              "label": "ꎉ"
+            },
+            {
+              "label": "ꎌ"
+            },
+            {
+              "label": "ꎏ"
+            },
+            {
+              "label": "ꎒ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꍽ"
+            },
+            {
+              "label": "ꍿ"
+            },
+            {
+              "label": "ꎂ"
+            },
+            {
+              "label": "ꎆ"
+            },
+            {
+              "label": "ꎊ"
+            },
+            {
+              "label": "ꎍ"
+            },
+            {
+              "label": "ꎐ"
+            },
+            {
+              "label": "ꎓ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꎃ"
+            },
+            {
+              "label": "ꎇ"
+            },
+            {
+              "label": "ꎋ"
+            },
+            {
+              "label": "ꎑ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "nr": {
+        "rows": [
+          [
+            {
+              "label": "ꎔ"
+            },
+            {
+              "label": "ꎛ"
+            },
+            {
+              "label": "ꎟ"
+            },
+            {
+              "label": "ꎥ"
+            }
+          ],
+          [
+            {
+              "label": "ꎕ"
+            },
+            {
+              "label": "ꎘ"
+            },
+            {
+              "label": "ꎜ"
+            },
+            {
+              "label": "ꎠ"
+            },
+            {
+              "label": "ꎣ"
+            },
+            {
+              "label": "ꎦ"
+            },
+            {
+              "label": "ꎩ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꎖ"
+            },
+            {
+              "label": "ꎙ"
+            },
+            {
+              "label": "ꎝ"
+            },
+            {
+              "label": "ꎡ"
+            },
+            {
+              "label": "ꎤ"
+            },
+            {
+              "label": "ꎧ"
+            },
+            {
+              "label": "ꎪ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꎗ"
+            },
+            {
+              "label": "ꎚ"
+            },
+            {
+              "label": "ꎞ"
+            },
+            {
+              "label": "ꎢ"
+            },
+            {
+              "label": "ꎨ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "sh": {
+        "rows": [
+          [
+            {
+              "label": "ꎫ"
+            },
+            {
+              "label": "ꎲ"
+            },
+            {
+              "label": "ꎶ"
+            },
+            {
+              "label": "ꎺ"
+            },
+            {
+              "label": "ꏀ"
+            }
+          ],
+          [
+            {
+              "label": "ꎬ"
+            },
+            {
+              "label": "ꎯ"
+            },
+            {
+              "label": "ꎳ"
+            },
+            {
+              "label": "ꎷ"
+            },
+            {
+              "label": "ꎻ"
+            },
+            {
+              "label": "ꎾ"
+            },
+            {
+              "label": "ꏁ"
+            },
+            {
+              "label": "ꏄ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꎭ"
+            },
+            {
+              "label": "ꎰ"
+            },
+            {
+              "label": "ꎴ"
+            },
+            {
+              "label": "ꎸ"
+            },
+            {
+              "label": "ꎼ"
+            },
+            {
+              "label": "ꎿ"
+            },
+            {
+              "label": "ꏂ"
+            },
+            {
+              "label": "ꏅ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꎮ"
+            },
+            {
+              "label": "ꎱ"
+            },
+            {
+              "label": "ꎵ"
+            },
+            {
+              "label": "ꎹ"
+            },
+            {
+              "label": "ꎽ"
+            },
+            {
+              "label": "ꏃ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "r": {
+        "rows": [
+          [
+            {
+              "label": "ꏆ"
+            },
+            {
+              "label": "ꏍ"
+            },
+            {
+              "label": "ꏔ"
+            },
+            {
+              "label": "ꏚ"
+            }
+          ],
+          [
+            {
+              "label": "ꏇ"
+            },
+            {
+              "label": "ꏊ"
+            },
+            {
+              "label": "ꏎ"
+            },
+            {
+              "label": "ꏑ"
+            },
+            {
+              "label": "ꏕ"
+            },
+            {
+              "label": "ꏘ"
+            },
+            {
+              "label": "ꏛ"
+            },
+            {
+              "label": "ꏞ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꏈ"
+            },
+            {
+              "label": "ꏋ"
+            },
+            {
+              "label": "ꏏ"
+            },
+            {
+              "label": "ꏒ"
+            },
+            {
+              "label": "ꏖ"
+            },
+            {
+              "label": "ꏙ"
+            },
+            {
+              "label": "ꏜ"
+            },
+            {
+              "label": "ꏟ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꏉ"
+            },
+            {
+              "label": "ꏌ"
+            },
+            {
+              "label": "ꏐ"
+            },
+            {
+              "label": "ꏓ"
+            },
+            {
+              "label": "ꏗ"
+            },
+            {
+              "label": "ꏝ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "j": {
+        "rows": [
+          [
+            {
+              "label": "ꏠ"
+            },
+            {
+              "label": "ꏤ"
+            },
+            {
+              "label": "ꏨ"
+            },
+            {
+              "label": "ꏬ"
+            },
+            {
+              "label": "ꏰ"
+            },
+            {
+              "label": "ꏶ"
+            }
+          ],
+          [
+            {
+              "label": "ꏡ"
+            },
+            {
+              "label": "ꏥ"
+            },
+            {
+              "label": "ꏩ"
+            },
+            {
+              "label": "ꏭ"
+            },
+            {
+              "label": "ꏱ"
+            },
+            {
+              "label": "ꏴ"
+            },
+            {
+              "label": "ꏷ"
+            },
+            {
+              "label": "ꏺ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꏢ"
+            },
+            {
+              "label": "ꏦ"
+            },
+            {
+              "label": "ꏪ"
+            },
+            {
+              "label": "ꏮ"
+            },
+            {
+              "label": "ꏲ"
+            },
+            {
+              "label": "ꏵ"
+            },
+            {
+              "label": "ꏸ"
+            },
+            {
+              "label": "ꏻ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꏣ"
+            },
+            {
+              "label": "ꏧ"
+            },
+            {
+              "label": "ꏫ"
+            },
+            {
+              "label": "ꏯ"
+            },
+            {
+              "label": "ꏳ"
+            },
+            {
+              "label": "ꏹ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "q": {
+        "rows": [
+          [
+            {
+              "label": "ꏼ"
+            },
+            {
+              "label": "ꐀ"
+            },
+            {
+              "label": "ꐄ"
+            },
+            {
+              "label": "ꐈ"
+            },
+            {
+              "label": "ꐌ"
+            },
+            {
+              "label": "ꐒ"
+            }
+          ],
+          [
+            {
+              "label": "ꏽ"
+            },
+            {
+              "label": "ꐁ"
+            },
+            {
+              "label": "ꐅ"
+            },
+            {
+              "label": "ꐉ"
+            },
+            {
+              "label": "ꐍ"
+            },
+            {
+              "label": "ꐐ"
+            },
+            {
+              "label": "ꐓ"
+            },
+            {
+              "label": "ꐖ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꏾ"
+            },
+            {
+              "label": "ꐂ"
+            },
+            {
+              "label": "ꐆ"
+            },
+            {
+              "label": "ꐊ"
+            },
+            {
+              "label": "ꐎ"
+            },
+            {
+              "label": "ꐑ"
+            },
+            {
+              "label": "ꐔ"
+            },
+            {
+              "label": "ꐗ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꏿ"
+            },
+            {
+              "label": "ꐃ"
+            },
+            {
+              "label": "ꐇ"
+            },
+            {
+              "label": "ꐋ"
+            },
+            {
+              "label": "ꐏ"
+            },
+            {
+              "label": "ꐕ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "jj": {
+        "rows": [
+          [
+            {
+              "label": "ꐘ"
+            },
+            {
+              "label": "ꐜ"
+            },
+            {
+              "label": "ꐣ"
+            },
+            {
+              "label": "ꐧ"
+            },
+            {
+              "label": "ꐭ"
+            }
+          ],
+          [
+            {
+              "label": "ꐙ"
+            },
+            {
+              "label": "ꐝ"
+            },
+            {
+              "label": "ꐠ"
+            },
+            {
+              "label": "ꐤ"
+            },
+            {
+              "label": "ꐨ"
+            },
+            {
+              "label": "ꐫ"
+            },
+            {
+              "label": "ꐮ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꐚ"
+            },
+            {
+              "label": "ꐞ"
+            },
+            {
+              "label": "ꐡ"
+            },
+            {
+              "label": "ꐥ"
+            },
+            {
+              "label": "ꐩ"
+            },
+            {
+              "label": "ꐬ"
+            },
+            {
+              "label": "ꐯ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꐛ"
+            },
+            {
+              "label": "ꐟ"
+            },
+            {
+              "label": "ꐢ"
+            },
+            {
+              "label": "ꐦ"
+            },
+            {
+              "label": "ꐪ"
+            },
+            {
+              "label": "ꐰ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "nj": {
+        "rows": [
+          [
+            {
+              "label": "ꐱ"
+            },
+            {
+              "label": "ꐵ"
+            },
+            {
+              "label": "ꐻ"
+            },
+            {
+              "label": "ꑄ"
+            }
+          ],
+          [
+            {
+              "label": "ꐲ"
+            },
+            {
+              "label": "ꐶ"
+            },
+            {
+              "label": "ꐹ"
+            },
+            {
+              "label": "ꐼ"
+            },
+            {
+              "label": "ꐿ"
+            },
+            {
+              "label": "ꑂ"
+            },
+            {
+              "label": "ꑅ"
+            },
+            {
+              "label": "ꑈ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꐳ"
+            },
+            {
+              "label": "ꐷ"
+            },
+            {
+              "label": "ꐺ"
+            },
+            {
+              "label": "ꐽ"
+            },
+            {
+              "label": "ꑀ"
+            },
+            {
+              "label": "ꑃ"
+            },
+            {
+              "label": "ꑆ"
+            },
+            {
+              "label": "ꑉ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꐴ"
+            },
+            {
+              "label": "ꐸ"
+            },
+            {
+              "label": "ꐾ"
+            },
+            {
+              "label": "ꑁ"
+            },
+            {
+              "label": "ꑇ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "ny": {
+        "rows": [
+          [
+            {
+              "label": "ꑊ"
+            },
+            {
+              "label": "ꑎ"
+            },
+            {
+              "label": "ꑕ"
+            },
+            {
+              "label": "ꑙ"
+            }
+          ],
+          [
+            {
+              "label": "ꑋ"
+            },
+            {
+              "label": "ꑏ"
+            },
+            {
+              "label": "ꑒ"
+            },
+            {
+              "label": "ꑖ"
+            },
+            {
+              "label": "ꑚ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꑌ"
+            },
+            {
+              "label": "ꑐ"
+            },
+            {
+              "label": "ꑓ"
+            },
+            {
+              "label": "ꑗ"
+            },
+            {
+              "label": "ꑛ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꑍ"
+            },
+            {
+              "label": "ꑑ"
+            },
+            {
+              "label": "ꑔ"
+            },
+            {
+              "label": "ꑘ"
+            },
+            {
+              "label": "ꑜ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "x": {
+        "rows": [
+          [
+            {
+              "label": "ꑝ"
+            },
+            {
+              "label": "ꑡ"
+            },
+            {
+              "label": "ꑧ"
+            },
+            {
+              "label": "ꑫ"
+            }
+          ],
+          [
+            {
+              "label": "ꑞ"
+            },
+            {
+              "label": "ꑢ"
+            },
+            {
+              "label": "ꑥ"
+            },
+            {
+              "label": "ꑨ"
+            },
+            {
+              "label": "ꑬ"
+            },
+            {
+              "label": "ꑯ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꑟ"
+            },
+            {
+              "label": "ꑣ"
+            },
+            {
+              "label": "ꑦ"
+            },
+            {
+              "label": "ꑩ"
+            },
+            {
+              "label": "ꑭ"
+            },
+            {
+              "label": "ꑰ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꑠ"
+            },
+            {
+              "label": "ꑤ"
+            },
+            {
+              "label": "ꑪ"
+            },
+            {
+              "label": "ꑮ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "y": {
+        "rows": [
+          [
+            {
+              "label": "ꑱ"
+            },
+            {
+              "label": "ꑵ"
+            },
+            {
+              "label": "ꑹ"
+            },
+            {
+              "label": "ꑽ"
+            },
+            {
+              "label": "ꒁ"
+            },
+            {
+              "label": "ꒇ"
+            }
+          ],
+          [
+            {
+              "label": "ꑲ"
+            },
+            {
+              "label": "ꑶ"
+            },
+            {
+              "label": "ꑺ"
+            },
+            {
+              "label": "ꑾ"
+            },
+            {
+              "label": "ꒂ"
+            },
+            {
+              "label": "ꒅ"
+            },
+            {
+              "label": "ꒈ"
+            },
+            {
+              "label": "ꒋ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "ꑳ"
+            },
+            {
+              "label": "ꑷ"
+            },
+            {
+              "label": "ꑻ"
+            },
+            {
+              "label": "ꑿ"
+            },
+            {
+              "label": "ꒃ"
+            },
+            {
+              "label": "ꒆ"
+            },
+            {
+              "label": "ꒉ"
+            },
+            {
+              "label": "ꒌ"
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ꑴ"
+            },
+            {
+              "label": "ꑸ"
+            },
+            {
+              "label": "ꑼ"
+            },
+            {
+              "label": "ꒀ"
+            },
+            {
+              "label": "ꒄ"
+            },
+            {
+              "label": "ꒊ"
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              }
+            },
+            {
+              "label": "1"
+            },
+            {
+              "label": "2"
+            },
+            {
+              "label": "3"
+            },
+            {
+              "label": "4"
+            },
+            {
+              "label": "5"
+            },
+            {
+              "label": "6"
+            },
+            {
+              "label": "7"
+            },
+            {
+              "label": "8"
+            },
+            {
+              "label": "9"
+            },
+            {
+              "label": "0"
+            },
+            {
+              "label": "."
+            }
+          ],
+          [
+            {
+              "label": "#.?",
+              "action": {
+                "type": "letters"
+              }
+            },
+            {
+              "label": "〈"
+            },
+            {
+              "label": "〉"
+            },
+            {
+              "label": "《"
+            },
+            {
+              "label": "》"
+            },
+            {
+              "label": "（"
+            },
+            {
+              "label": "）"
+            },
+            {
+              "label": "｛"
+            },
+            {
+              "label": "｝"
+            },
+            {
+              "label": "［",
+              "longPress": [
+                "〔",
+                "【",
+                "［"
+              ]
+            },
+            {
+              "label": "］",
+              "longPress": [
+                "〕",
+                "】",
+                "］"
+              ]
+            },
+            {
+              "label": "ꀕ"
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "#"
+            },
+            {
+              "label": "%"
+            },
+            {
+              "label": "+"
+            },
+            {
+              "label": "-",
+              "output": "–",
+              "longPress": [
+                "－",
+                "–",
+                "—"
+              ]
+            },
+            {
+              "label": "・",
+              "longPress": [
+                "*"
+              ]
+            },
+            {
+              "label": "="
+            },
+            {
+              "label": "‘"
+            },
+            {
+              "label": "’"
+            },
+            {
+              "label": "“"
+            },
+            {
+              "label": "”"
+            },
+            {
+              "label": "/",
+              "longPress": [
+                "|",
+                "／",
+                "｜"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "~",
+              "longPress": [
+                "～"
+              ]
+            },
+            {
+              "label": "¥"
+            },
+            {
+              "label": "…"
+            },
+            {
+              "label": "、"
+            },
+            {
+              "label": "，"
+            },
+            {
+              "label": "。"
+            },
+            {
+              "label": "；"
+            },
+            {
+              "label": "："
+            },
+            {
+              "label": "？"
+            },
+            {
+              "label": "！"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ]
+        ]
+      },
+      "radicals": {
+        "rows": [
+          [
+            {
+              "label": "꒐"
+            },
+            {
+              "label": "꒕"
+            },
+            {
+              "label": "꒚",
+              "longPress": [
+                "꒚",
+                "꒛"
+              ]
+            },
+            {
+              "label": "꒤",
+              "longPress": [
+                "꒤",
+                "꒥",
+                "꒦"
+              ]
+            },
+            {
+              "label": "꒪",
+              "longPress": [
+                "꒪",
+                "꒫"
+              ]
+            },
+            {
+              "label": "꒸",
+              "longPress": [
+                "꒸",
+                "꒹",
+                "꒺",
+                "꒻"
+              ]
+            },
+            {
+              "label": "꓄",
+              "longPress": [
+                "꓄",
+                "꓅"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            }
+          ],
+          [
+            {
+              "label": "#.?",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "꒑",
+              "longPress": [
+                "꒑",
+                "꒒"
+              ]
+            },
+            {
+              "label": "꒖"
+            },
+            {
+              "label": "꒜",
+              "longPress": [
+                "꒜",
+                "꒝",
+                "꒞"
+              ]
+            },
+            {
+              "label": "꒧"
+            },
+            {
+              "label": "꒬",
+              "longPress": [
+                "꒬",
+                "꒭",
+                "꒮",
+                "꒯"
+              ]
+            },
+            {
+              "label": "꒼",
+              "longPress": [
+                "꒼",
+                "꒽"
+              ]
+            },
+            {
+              "label": "꓆"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "꒓"
+            },
+            {
+              "label": "꒗",
+              "longPress": [
+                "꒗",
+                "꒘"
+              ]
+            },
+            {
+              "label": "꒟",
+              "longPress": [
+                "꒟",
+                "꒠"
+              ]
+            },
+            {
+              "label": "꒨"
+            },
+            {
+              "label": "꒰",
+              "longPress": [
+                "꒰",
+                "꒱",
+                "꒲"
+              ]
+            },
+            {
+              "label": "꒾",
+              "longPress": [
+                "꒾",
+                "꒿"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "꒔"
+            },
+            {
+              "label": "꒙"
+            },
+            {
+              "label": "꒡",
+              "longPress": [
+                "꒡",
+                "꒢",
+                "꒣"
+              ]
+            },
+            {
+              "label": "꒩"
+            },
+            {
+              "label": "꒳",
+              "longPress": [
+                "꒳",
+                "꒴",
+                "꒵",
+                "꒶",
+                "꒷"
+              ]
+            },
+            {
+              "label": "꓀",
+              "longPress": [
+                "꓀",
+                "꓁",
+                "꓂",
+                "꓃"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "sil_yi"
+    }
+  }
+}

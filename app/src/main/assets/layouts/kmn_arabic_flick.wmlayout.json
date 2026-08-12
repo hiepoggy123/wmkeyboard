@@ -1,0 +1,930 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_arabic_flick",
+    "name": "Arabic Flick",
+    "langId": "ar",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            },
+            {
+              "label": "ج",
+              "flick": {
+                "right": "ح",
+                "up": "خ",
+                "left": "چ"
+              }
+            },
+            {
+              "label": "ب",
+              "flick": {
+                "right": "ت",
+                "up": "ث",
+                "left": "پ",
+                "down": "ٮ"
+              }
+            },
+            {
+              "label": "ا",
+              "flick": {
+                "right": "أ",
+                "up": "إ",
+                "left": "ء",
+                "down": "آ"
+              }
+            },
+            {
+              "label": "⌨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "base_symbols"
+              }
+            }
+          ],
+          [
+            {
+              "label": "←",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 37
+              }
+            },
+            {
+              "label": "ط",
+              "flick": {
+                "right": "ظ",
+                "up": "ع",
+                "left": "غ"
+              }
+            },
+            {
+              "label": "س",
+              "flick": {
+                "right": "ش",
+                "up": "ص",
+                "left": "ض"
+              }
+            },
+            {
+              "label": "د",
+              "flick": {
+                "right": "ذ",
+                "up": "ر",
+                "left": "ز",
+                "down": "ژ"
+              }
+            },
+            {
+              "label": "→",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 39
+              }
+            }
+          ],
+          [
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              }
+            },
+            {
+              "label": "ه",
+              "flick": {
+                "right": "ة",
+                "up": "و",
+                "left": "ؤ"
+              }
+            },
+            {
+              "label": "ك",
+              "flick": {
+                "right": "ل",
+                "up": "م",
+                "left": "ن",
+                "down": "گ"
+              }
+            },
+            {
+              "label": "ف",
+              "flick": {
+                "right": "ق",
+                "up": "ڢ",
+                "left": "ڧ",
+                "down": "ڤ"
+              }
+            },
+            {
+              "label": "⌨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "numbers"
+              }
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "،",
+              "flick": {
+                "right": ".",
+                "up": "؟",
+                "left": "!"
+              }
+            },
+            {
+              "label": "ي",
+              "flick": {
+                "right": "ى",
+                "up": "ئ",
+                "left": "ـ"
+              }
+            },
+            {
+              "label": "ّ",
+              "longPress": [
+                "َ",
+                "ُ",
+                "ِ",
+                "ً",
+                "ٌ",
+                "ٍ",
+                "ْ",
+                "ٰ",
+                "ٜ"
+              ],
+              "flick": {
+                "right": "َ",
+                "up": "ُ",
+                "left": "ِ"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            }
+          ]
+        ]
+      },
+      "numbers": {
+        "rows": [
+          [
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            },
+            {
+              "label": "1",
+              "flick": {
+                "up": "١"
+              }
+            },
+            {
+              "label": "2",
+              "flick": {
+                "up": "٢"
+              }
+            },
+            {
+              "label": "3",
+              "flick": {
+                "up": "٣"
+              }
+            },
+            {
+              "label": "⌨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "currency"
+              }
+            }
+          ],
+          [
+            {
+              "label": "-",
+              "flick": {
+                "up": "_"
+              }
+            },
+            {
+              "label": "4",
+              "flick": {
+                "up": "٤"
+              }
+            },
+            {
+              "label": "5",
+              "flick": {
+                "up": "٥"
+              }
+            },
+            {
+              "label": "6",
+              "flick": {
+                "up": "٦"
+              }
+            },
+            {
+              "label": ":",
+              "flick": {
+                "up": ";"
+              }
+            }
+          ],
+          [
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              }
+            },
+            {
+              "label": "7",
+              "flick": {
+                "up": "٧"
+              }
+            },
+            {
+              "label": "8",
+              "flick": {
+                "up": "٨"
+              }
+            },
+            {
+              "label": "9",
+              "flick": {
+                "up": "٩"
+              }
+            },
+            {
+              "label": "↩",
+              "action": {
+                "type": "letters"
+              }
+            }
+          ],
+          [
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "#",
+              "flick": {
+                "right": ".",
+                "up": "^",
+                "left": ","
+              }
+            },
+            {
+              "label": "0",
+              "flick": {
+                "up": "٠",
+                "right": "+",
+                "left": "="
+              }
+            },
+            {
+              "label": "@",
+              "flick": {
+                "right": "&",
+                "up": "~",
+                "left": "…"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            }
+          ]
+        ]
+      },
+      "base_symbols": {
+        "rows": [
+          [
+            {
+              "label": "`"
+            },
+            {
+              "label": "!"
+            },
+            {
+              "label": "@"
+            },
+            {
+              "label": "#"
+            },
+            {
+              "label": "$"
+            },
+            {
+              "label": "%"
+            },
+            {
+              "label": "^"
+            },
+            {
+              "label": "&"
+            },
+            {
+              "label": "*"
+            },
+            {
+              "label": "~"
+            }
+          ],
+          [
+            {
+              "label": "("
+            },
+            {
+              "label": ")"
+            },
+            {
+              "label": "["
+            },
+            {
+              "label": "]"
+            },
+            {
+              "label": "{"
+            },
+            {
+              "label": "}"
+            },
+            {
+              "label": "'"
+            },
+            {
+              "label": "\""
+            },
+            {
+              "label": "+"
+            },
+            {
+              "label": "="
+            }
+          ],
+          [
+            {
+              "label": "⅓",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "<"
+            },
+            {
+              "label": ">"
+            },
+            {
+              "label": "-"
+            },
+            {
+              "label": "_"
+            },
+            {
+              "label": ":"
+            },
+            {
+              "label": ";"
+            },
+            {
+              "label": "/"
+            },
+            {
+              "label": "?"
+            },
+            {
+              "label": "↩",
+              "action": {
+                "type": "shift"
+              }
+            }
+          ],
+          [
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "\\"
+            },
+            {
+              "label": "|"
+            },
+            {
+              "label": "‘"
+            },
+            {
+              "label": "’"
+            },
+            {
+              "label": "“"
+            },
+            {
+              "label": "”"
+            },
+            {
+              "label": "⌨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "numbers"
+              }
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            }
+          ]
+        ]
+      },
+      "base_symbols_two": {
+        "rows": [
+          [
+            {
+              "label": "¡"
+            },
+            {
+              "label": "¦"
+            },
+            {
+              "label": "«"
+            },
+            {
+              "label": "»"
+            },
+            {
+              "label": "°"
+            },
+            {
+              "label": "±"
+            },
+            {
+              "label": "µ"
+            },
+            {
+              "label": "¶"
+            },
+            {
+              "label": "×"
+            },
+            {
+              "label": "÷"
+            }
+          ],
+          [
+            {
+              "label": "¿"
+            },
+            {
+              "label": "؈"
+            },
+            {
+              "label": "؀"
+            },
+            {
+              "label": "؁"
+            },
+            {
+              "label": "؂"
+            },
+            {
+              "label": "؃"
+            },
+            {
+              "label": "؄"
+            },
+            {
+              "label": "؅"
+            },
+            {
+              "label": "؎"
+            },
+            {
+              "label": "؏"
+            }
+          ],
+          [
+            {
+              "label": "⅔",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "√"
+            },
+            {
+              "label": "؆"
+            },
+            {
+              "label": "؇"
+            },
+            {
+              "label": "؝"
+            },
+            {
+              "label": "؞"
+            },
+            {
+              "label": "٪"
+            },
+            {
+              "label": "؉"
+            },
+            {
+              "label": "؊"
+            },
+            {
+              "label": "↩",
+              "action": {
+                "type": "shift"
+              }
+            }
+          ],
+          [
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "٫"
+            },
+            {
+              "label": "٬"
+            },
+            {
+              "label": "؍"
+            },
+            {
+              "label": "۔"
+            },
+            {
+              "label": "ـ"
+            },
+            {
+              "label": "٭"
+            },
+            {
+              "label": "⌨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "numbers"
+              }
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            }
+          ]
+        ]
+      },
+      "currency": {
+        "rows": [
+          [
+            {
+              "label": "$"
+            },
+            {
+              "label": "¢"
+            },
+            {
+              "label": "£"
+            },
+            {
+              "label": "¥"
+            },
+            {
+              "label": "€"
+            },
+            {
+              "label": "﷼"
+            },
+            {
+              "label": "₩"
+            },
+            {
+              "label": "₽"
+            },
+            {
+              "label": "₺"
+            },
+            {
+              "label": "₤"
+            }
+          ],
+          [
+            {
+              "label": "₿"
+            },
+            {
+              "label": "₢"
+            },
+            {
+              "label": "⃀"
+            },
+            {
+              "label": "₡"
+            },
+            {
+              "label": "₦"
+            },
+            {
+              "label": "₧"
+            },
+            {
+              "label": "₨"
+            },
+            {
+              "label": "₹"
+            },
+            {
+              "label": "₫"
+            },
+            {
+              "label": "؋"
+            }
+          ],
+          [
+            {
+              "label": "₭"
+            },
+            {
+              "label": "₮"
+            },
+            {
+              "label": "₯"
+            },
+            {
+              "label": "₰"
+            },
+            {
+              "label": "₱"
+            },
+            {
+              "label": "₲"
+            },
+            {
+              "label": "₳"
+            },
+            {
+              "label": "₴"
+            },
+            {
+              "label": "₵"
+            },
+            {
+              "label": "↩",
+              "action": {
+                "type": "shift"
+              }
+            }
+          ],
+          [
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "₶"
+            },
+            {
+              "label": "₷"
+            },
+            {
+              "label": "₸"
+            },
+            {
+              "label": "₼"
+            },
+            {
+              "label": "₥"
+            },
+            {
+              "label": "₾"
+            },
+            {
+              "label": "₻"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            }
+          ]
+        ]
+      },
+      "base_symbols_three": {
+        "rows": [
+          [
+            {
+              "label": "﵀"
+            },
+            {
+              "label": "﵁"
+            },
+            {
+              "label": "﵂"
+            },
+            {
+              "label": "﵃"
+            },
+            {
+              "label": "﵄"
+            },
+            {
+              "label": "﵅"
+            },
+            {
+              "label": "﵆"
+            },
+            {
+              "label": "﵇"
+            },
+            {
+              "label": "﵈"
+            },
+            {
+              "label": "﵉"
+            }
+          ],
+          [
+            {
+              "label": "﵊"
+            },
+            {
+              "label": "﵌"
+            },
+            {
+              "label": "﵍"
+            },
+            {
+              "label": "﵎"
+            },
+            {
+              "label": "﵏"
+            },
+            {
+              "label": "﷏"
+            },
+            {
+              "label": "ﷺ"
+            },
+            {
+              "label": "ﷻ"
+            },
+            {
+              "label": "ﷲ"
+            },
+            {
+              "label": "ﷴ"
+            }
+          ],
+          [
+            {
+              "label": "³⁄₃",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "﷽",
+              "width": 2.13
+            },
+            {
+              "label": "﵋"
+            },
+            {
+              "label": "۝"
+            },
+            {
+              "label": "۞"
+            },
+            {
+              "label": "۩"
+            },
+            {
+              "label": "﴾"
+            },
+            {
+              "label": "﴿"
+            },
+            {
+              "label": "↩",
+              "action": {
+                "type": "shift"
+              }
+            }
+          ],
+          [
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "—"
+            },
+            {
+              "label": "‖"
+            },
+            {
+              "label": "‚"
+            },
+            {
+              "label": "‛"
+            },
+            {
+              "label": "„"
+            },
+            {
+              "label": "‟"
+            },
+            {
+              "label": "⌨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "numbers"
+              }
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "arabic_flick"
+    }
+  }
+}

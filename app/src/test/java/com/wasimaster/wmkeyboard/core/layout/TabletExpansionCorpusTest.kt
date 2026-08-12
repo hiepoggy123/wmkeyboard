@@ -39,11 +39,28 @@ class TabletExpansionCorpusTest {
 
     private val forms = listOf(DeviceForm.SMALL_TABLET, DeviceForm.LARGE_TABLET)
 
+    /**
+     * The hand-authored grids.
+     *
+     * The shape checks below run over the whole corpus, generated grids
+     * included — a row that overflows on a tablet is a real defect wherever it
+     * came from. But the decline set is a list of *our* twelve, named one by
+     * one so a transform that silently started rejecting Bengali would fail;
+     * folding 862 converted Keyman grids into it would turn that precise
+     * assertion into a number nobody can check.
+     */
+    private val handAuthored: List<Case>
+        get() = corpus.filterNot { it.id.startsWith("kmn_") }
+
     private fun List<Key>.width() = sumOf { it.width.toDouble() }.toFloat()
 
     @Test
     fun `the corpus is the whole shipped set`() {
-        assertEquals("built-ins plus assets", 18 + 394, corpus.size)
+        assertEquals("built-ins plus hand-authored assets", 18 + 394, handAuthored.size)
+        assertTrue(
+            "converted Keyman grids are missing from the corpus",
+            corpus.size - handAuthored.size > 800,
+        )
     }
 
     /**
@@ -63,7 +80,7 @@ class TabletExpansionCorpusTest {
      */
     @Test
     fun `exactly the non-alphabetic layouts decline`() {
-        val declined = corpus
+        val declined = handAuthored
             .filter { tabletGridWidth(it.letters, DeviceForm.LARGE_TABLET) == null }
             .map { it.id }
             .toSet()

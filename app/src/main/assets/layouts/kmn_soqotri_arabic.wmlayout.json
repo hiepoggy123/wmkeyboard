@@ -1,0 +1,249 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_soqotri_arabic",
+    "name": "Soqotri",
+    "langId": "sqt",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "١",
+              "shiftLabel": "!"
+            },
+            {
+              "label": "٢",
+              "shiftLabel": "@"
+            },
+            {
+              "label": "٣",
+              "shiftLabel": "#"
+            },
+            {
+              "label": "٤",
+              "shiftLabel": "$"
+            },
+            {
+              "label": "٥",
+              "shiftLabel": "%"
+            },
+            {
+              "label": "٦",
+              "shiftLabel": "^"
+            },
+            {
+              "label": "٧",
+              "shiftLabel": "&"
+            },
+            {
+              "label": "٨",
+              "shiftLabel": "*"
+            },
+            {
+              "label": "٩",
+              "shiftLabel": ")"
+            },
+            {
+              "label": "٠",
+              "output": "۰",
+              "shiftLabel": "("
+            },
+            {
+              "label": "-",
+              "shiftLabel": "_"
+            },
+            {
+              "label": "=",
+              "shiftLabel": "+"
+            }
+          ],
+          [
+            {
+              "label": "ض",
+              "shiftLabel": "َ"
+            },
+            {
+              "label": "ص",
+              "shiftLabel": "ً"
+            },
+            {
+              "label": "ث",
+              "shiftLabel": "ُ"
+            },
+            {
+              "label": "ق",
+              "shiftLabel": "ٌ"
+            },
+            {
+              "label": "ف",
+              "shiftLabel": "ڞ"
+            },
+            {
+              "label": "غ",
+              "shiftLabel": "إ"
+            },
+            {
+              "label": "ع",
+              "shiftLabel": "÷"
+            },
+            {
+              "label": "ه",
+              "shiftLabel": "×"
+            },
+            {
+              "label": "خ",
+              "shiftLabel": "؛"
+            },
+            {
+              "label": "ح",
+              "shiftLabel": "<"
+            },
+            {
+              "label": "ج",
+              "shiftLabel": ">"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ش",
+              "shiftLabel": "ِ"
+            },
+            {
+              "label": "س",
+              "shiftLabel": "ٍ"
+            },
+            {
+              "label": "ي",
+              "shiftLabel": "]"
+            },
+            {
+              "label": "ب",
+              "shiftLabel": "["
+            },
+            {
+              "label": "ل",
+              "shiftLabel": "ڟ"
+            },
+            {
+              "label": "ا",
+              "shiftLabel": "أ"
+            },
+            {
+              "label": "ت",
+              "shiftLabel": "-"
+            },
+            {
+              "label": "ن",
+              "shiftLabel": "،"
+            },
+            {
+              "label": "م",
+              "shiftLabel": "/"
+            },
+            {
+              "label": "ك",
+              "shiftLabel": ":"
+            },
+            {
+              "label": "ط",
+              "shiftLabel": "\""
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ئ",
+              "shiftLabel": "~"
+            },
+            {
+              "label": "ء",
+              "shiftLabel": "ْ"
+            },
+            {
+              "label": "ؤ",
+              "shiftLabel": "}"
+            },
+            {
+              "label": "ر",
+              "shiftLabel": "{"
+            },
+            {
+              "label": "ڛ",
+              "shiftLabel": "چ"
+            },
+            {
+              "label": "ى",
+              "shiftLabel": "آ"
+            },
+            {
+              "label": "ة",
+              "shiftLabel": "'"
+            },
+            {
+              "label": "و",
+              "shiftLabel": "٫"
+            },
+            {
+              "label": "ز",
+              "shiftLabel": "."
+            },
+            {
+              "label": "ظ",
+              "shiftLabel": "؟"
+            },
+            {
+              "label": "\\",
+              "shiftLabel": "¨"
+            },
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            }
+          ],
+          [
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "ذ",
+              "shiftLabel": "ّ"
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 9.0
+            },
+            {
+              "label": "د",
+              "shiftLabel": "|"
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "soqotri_arabic"
+    }
+  }
+}

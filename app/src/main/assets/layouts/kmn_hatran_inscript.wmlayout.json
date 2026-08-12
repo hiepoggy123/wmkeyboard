@@ -1,0 +1,176 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_hatran_inscript",
+    "name": "Hatran Inscript",
+    "langId": "arc-Hatr",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "𐣠"
+            },
+            {
+              "label": "𐣡"
+            },
+            {
+              "label": "𐣢"
+            },
+            {
+              "label": "𐣣"
+            },
+            {
+              "label": "𐣤"
+            },
+            {
+              "label": "𐣥"
+            },
+            {
+              "label": "𐣦"
+            },
+            {
+              "label": "𐣧"
+            },
+            {
+              "label": "𐣨"
+            },
+            {
+              "label": "𐣩"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "𐣪"
+            },
+            {
+              "label": "𐣫"
+            },
+            {
+              "label": "𐣬"
+            },
+            {
+              "label": "𐣭"
+            },
+            {
+              "label": "𐣮"
+            },
+            {
+              "label": "𐣯"
+            },
+            {
+              "label": "𐣰"
+            },
+            {
+              "label": "𐣱"
+            },
+            {
+              "label": "𐣲"
+            },
+            {
+              "label": "𐣴"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "𐣵"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 1.25
+            },
+            {
+              "label": "𐣻"
+            },
+            {
+              "label": "𐣼"
+            },
+            {
+              "label": "𐣽"
+            },
+            {
+              "label": "𐣾"
+            },
+            {
+              "label": "𐣿"
+            },
+            {
+              "label": ".",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              },
+              "longPress": [
+                ",",
+                "!",
+                "?",
+                "'",
+                "\"",
+                "\\",
+                ":",
+                ";"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 1.15
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 6.1
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "hatran_inscript"
+    }
+  }
+}

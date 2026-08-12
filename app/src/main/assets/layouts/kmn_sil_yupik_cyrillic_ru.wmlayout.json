@@ -1,0 +1,682 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_sil_yupik_cyrillic_ru",
+    "name": "SIL Yupik Cyrillic RU",
+    "langId": "ess-Cyrl",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "й",
+              "shiftLabel": "Й",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 81
+              },
+              "longPress": [
+                "1"
+              ]
+            },
+            {
+              "label": "ц",
+              "shiftLabel": "Ц",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 87
+              },
+              "longPress": [
+                "2"
+              ]
+            },
+            {
+              "label": "у",
+              "shiftLabel": "У",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 69
+              },
+              "longPress": [
+                "ӯ",
+                "ў",
+                "3"
+              ]
+            },
+            {
+              "label": "к",
+              "shiftLabel": "К",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 82
+              },
+              "longPress": [
+                "қ",
+                "4"
+              ]
+            },
+            {
+              "label": "е",
+              "shiftLabel": "Е",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 84
+              },
+              "longPress": [
+                "ё",
+                "5"
+              ]
+            },
+            {
+              "label": "н",
+              "shiftLabel": "Н",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 89
+              },
+              "longPress": [
+                "ң",
+                "6"
+              ]
+            },
+            {
+              "label": "г",
+              "shiftLabel": "Г",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 85
+              },
+              "longPress": [
+                "ӷ",
+                "7"
+              ]
+            },
+            {
+              "label": "ш",
+              "shiftLabel": "Ш",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 73
+              },
+              "longPress": [
+                "8"
+              ]
+            },
+            {
+              "label": "щ",
+              "shiftLabel": "Щ",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 79
+              },
+              "longPress": [
+                "9"
+              ]
+            },
+            {
+              "label": "з",
+              "shiftLabel": "З",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 80
+              },
+              "longPress": [
+                "0"
+              ]
+            },
+            {
+              "label": "х",
+              "shiftLabel": "Х",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 219
+              },
+              "longPress": [
+                "ҳ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "ф",
+              "shiftLabel": "Ф",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 65
+              }
+            },
+            {
+              "label": "ы",
+              "shiftLabel": "Ы",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 83
+              }
+            },
+            {
+              "label": "в",
+              "shiftLabel": "В",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 68
+              },
+              "longPress": [
+                "ў"
+              ]
+            },
+            {
+              "label": "а",
+              "shiftLabel": "А",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 70
+              },
+              "longPress": [
+                "а̄"
+              ]
+            },
+            {
+              "label": "п",
+              "shiftLabel": "П",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 71
+              }
+            },
+            {
+              "label": "р",
+              "shiftLabel": "Р",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 72
+              }
+            },
+            {
+              "label": "о",
+              "shiftLabel": "О",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 74
+              }
+            },
+            {
+              "label": "л",
+              "shiftLabel": "Л",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 75
+              }
+            },
+            {
+              "label": "д",
+              "shiftLabel": "Д",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 76
+              }
+            },
+            {
+              "label": "ж",
+              "shiftLabel": "Ж",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 186
+              }
+            },
+            {
+              "label": "э",
+              "shiftLabel": "Э",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 222
+              }
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.14
+            },
+            {
+              "label": "я",
+              "shiftLabel": "Я",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 90
+              },
+              "width": 0.97,
+              "longPress": [
+                "я̄"
+              ]
+            },
+            {
+              "label": " ч",
+              "shiftLabel": "Ч",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 88
+              },
+              "width": 0.97
+            },
+            {
+              "label": "с",
+              "shiftLabel": "С",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 67
+              },
+              "width": 0.97
+            },
+            {
+              "label": "м",
+              "shiftLabel": "М",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 86
+              },
+              "width": 0.97
+            },
+            {
+              "label": "и",
+              "shiftLabel": "И",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 66
+              },
+              "width": 0.97,
+              "longPress": [
+                "ӣ"
+              ]
+            },
+            {
+              "label": "т",
+              "shiftLabel": "Т",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 78
+              },
+              "width": 0.97
+            },
+            {
+              "label": "ь",
+              "shiftLabel": "Ь",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 77
+              },
+              "width": 0.97,
+              "longPress": [
+                "ъ"
+              ]
+            },
+            {
+              "label": "б",
+              "shiftLabel": "Б",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 188
+              },
+              "width": 0.97
+            },
+            {
+              "label": "ю",
+              "shiftLabel": "Ю",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 190
+              },
+              "width": 0.97,
+              "longPress": [
+                "ю̄"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.13
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": ","
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.75
+            },
+            {
+              "label": ".",
+              "longPress": [
+                ",",
+                "?",
+                "!",
+                ";",
+                ":",
+                "'",
+                "\"",
+                "@",
+                "#"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.4
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "1",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49
+              }
+            },
+            {
+              "label": "2",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50
+              }
+            },
+            {
+              "label": "3",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 51
+              }
+            },
+            {
+              "label": "4",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52
+              }
+            },
+            {
+              "label": "5",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53
+              }
+            },
+            {
+              "label": "6",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54
+              }
+            },
+            {
+              "label": "7",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55
+              }
+            },
+            {
+              "label": "8",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56
+              }
+            },
+            {
+              "label": "9",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57
+              }
+            },
+            {
+              "label": "0",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48
+              }
+            },
+            {
+              "label": "-",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189
+              }
+            }
+          ],
+          [
+            {
+              "label": "!",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 49,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "\"",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 50,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "#",
+              "longPress": [
+                "№"
+              ]
+            },
+            {
+              "label": ";",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 52,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "%",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 53,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": ":",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 54,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "?",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 55,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "*",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 56,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "(",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 57,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": ")",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 48,
+                "modifiers": 16
+              }
+            },
+            {
+              "label": "_",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 189,
+                "modifiers": 16
+              }
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.14
+            },
+            {
+              "label": "'",
+              "width": 0.97
+            },
+            {
+              "label": "@",
+              "width": 0.97
+            },
+            {
+              "label": "₽",
+              "width": 0.97,
+              "longPress": [
+                "£",
+                "€",
+                "$"
+              ]
+            },
+            {
+              "label": "/",
+              "width": 0.97
+            },
+            {
+              "label": "\\",
+              "width": 0.97
+            },
+            {
+              "label": "=",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187
+              },
+              "width": 0.97
+            },
+            {
+              "label": "+",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 187,
+                "modifiers": 16
+              },
+              "width": 0.97
+            },
+            {
+              "label": "[",
+              "width": 0.97,
+              "longPress": [
+                "{",
+                "<",
+                "«"
+              ]
+            },
+            {
+              "label": "]",
+              "width": 0.97,
+              "longPress": [
+                "}",
+                ">",
+                "»"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.13
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.4
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": ","
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.75
+            },
+            {
+              "label": "."
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.4
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "sil_yupik_cyrillic_ru"
+    }
+  }
+}

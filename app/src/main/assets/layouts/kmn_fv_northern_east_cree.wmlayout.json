@@ -1,0 +1,601 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_fv_northern_east_cree",
+    "name": "ᐄᔨᔫ-ᐄᓅ ᐊᔨᒨᓐ (Northern East Cree)",
+    "langId": "crl-Cans",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ᐃ"
+            },
+            {
+              "label": "ᐱ",
+              "longPress": [
+                "ᕕ"
+              ]
+            },
+            {
+              "label": "ᑎ",
+              "longPress": [
+                "ᕆ",
+                "ᕠ"
+              ]
+            },
+            {
+              "label": "ᑭ"
+            },
+            {
+              "label": "ᒋ"
+            },
+            {
+              "label": "ᒥ"
+            },
+            {
+              "label": "ᓂ",
+              "longPress": [
+                "ᓕ"
+              ]
+            },
+            {
+              "label": "ᓯ"
+            },
+            {
+              "label": "ᔑ"
+            },
+            {
+              "label": "ᔨ"
+            }
+          ],
+          [
+            {
+              "label": "ᐊ"
+            },
+            {
+              "label": "ᐸ",
+              "longPress": [
+                "ᕙ"
+              ]
+            },
+            {
+              "label": "ᑕ",
+              "longPress": [
+                "ᕋ",
+                "ᕦ"
+              ]
+            },
+            {
+              "label": "ᑲ"
+            },
+            {
+              "label": "ᒐ"
+            },
+            {
+              "label": "ᒪ"
+            },
+            {
+              "label": "ᓇ",
+              "longPress": [
+                "ᓚ"
+              ]
+            },
+            {
+              "label": "ᓴ"
+            },
+            {
+              "label": "ᔕ"
+            },
+            {
+              "label": "ᔭ"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "ᑉ",
+              "longPress": [
+                "ᕝ"
+              ]
+            },
+            {
+              "label": "ᑦ",
+              "longPress": [
+                "ᕐ",
+                "ᕪ"
+              ]
+            },
+            {
+              "label": "ᒃ"
+            },
+            {
+              "label": "ᒡ"
+            },
+            {
+              "label": "ᒻ"
+            },
+            {
+              "label": "ᓐ",
+              "longPress": [
+                "ᓪ"
+              ]
+            },
+            {
+              "label": "ᔅ"
+            },
+            {
+              "label": "ᔥ"
+            },
+            {
+              "label": "ᔾ"
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": "ᐧ"
+            },
+            {
+              "label": "ᐤ"
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 2.05
+            },
+            {
+              "label": "ᐦ"
+            },
+            {
+              "label": "˙"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              }
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ]
+        ]
+      },
+      "shift": {
+        "rows": [
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.16
+            },
+            {
+              "label": "ᐁ"
+            },
+            {
+              "label": "ᐯ",
+              "longPress": [
+                "ᕓ"
+              ]
+            },
+            {
+              "label": "ᑌ",
+              "longPress": [
+                "ᕃ",
+                "ᕞ"
+              ]
+            },
+            {
+              "label": "ᑫ"
+            },
+            {
+              "label": "ᒉ"
+            },
+            {
+              "label": "ᒣ"
+            },
+            {
+              "label": "ᓀ",
+              "longPress": [
+                "ᓓ"
+              ]
+            },
+            {
+              "label": "ᓭ"
+            },
+            {
+              "label": "ᔐ"
+            },
+            {
+              "label": "ᔦ"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.21
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.16
+            },
+            {
+              "label": "ᐅ"
+            },
+            {
+              "label": "ᐳ",
+              "longPress": [
+                "ᕗ"
+              ]
+            },
+            {
+              "label": "ᑐ",
+              "longPress": [
+                "ᕈ",
+                "ᕤ"
+              ]
+            },
+            {
+              "label": "ᑯ"
+            },
+            {
+              "label": "ᒍ"
+            },
+            {
+              "label": "ᒧ"
+            },
+            {
+              "label": "ᓄ",
+              "longPress": [
+                "ᓗ"
+              ]
+            },
+            {
+              "label": "ᓱ"
+            },
+            {
+              "label": "ᔓ"
+            },
+            {
+              "label": "ᔪ"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.21
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.16
+            },
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "ᒄ"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "ᒽ"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.21
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.36
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.36
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4.38
+            },
+            {
+              "label": ".",
+              "longPress": [
+                ",",
+                "!",
+                "?",
+                ";",
+                ":",
+                "'",
+                "\"",
+                "`",
+                "~"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.3
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.22
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "1"
+            },
+            {
+              "label": "2"
+            },
+            {
+              "label": "3"
+            },
+            {
+              "label": "4"
+            },
+            {
+              "label": "5"
+            },
+            {
+              "label": "6"
+            },
+            {
+              "label": "7"
+            },
+            {
+              "label": "8"
+            },
+            {
+              "label": "9"
+            },
+            {
+              "label": "0"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.45
+            },
+            {
+              "label": "$"
+            },
+            {
+              "label": "@"
+            },
+            {
+              "label": "#"
+            },
+            {
+              "label": "%"
+            },
+            {
+              "label": "&"
+            },
+            {
+              "label": "_"
+            },
+            {
+              "label": "="
+            },
+            {
+              "label": "|"
+            },
+            {
+              "label": "\\"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 1.05
+            },
+            {
+              "label": "[",
+              "longPress": [
+                "«",
+                "<",
+                "{"
+              ]
+            },
+            {
+              "label": "("
+            },
+            {
+              "label": ")"
+            },
+            {
+              "label": "]",
+              "longPress": [
+                "»",
+                ">",
+                "}"
+              ]
+            },
+            {
+              "label": "+"
+            },
+            {
+              "label": "-"
+            },
+            {
+              "label": "*"
+            },
+            {
+              "label": "/"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.2
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.05
+            },
+            {
+              "label": ".",
+              "longPress": [
+                ",",
+                "!",
+                "?",
+                ";",
+                ":",
+                "'",
+                "\"",
+                "`",
+                "~"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "fv_northern_east_cree"
+    }
+  }
+}

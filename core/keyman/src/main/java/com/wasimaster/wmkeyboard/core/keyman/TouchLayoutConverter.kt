@@ -35,8 +35,10 @@ object TouchLayoutConverter {
 
         val report = Report()
         val converted = LinkedHashMap<String, LayerSpec>()
+        val layerNames = platform.layer.map { it.id.lowercase() }.toSet() + MODIFIER_LAYER_NAMES
         for (layer in platform.layer) {
-            val rows = layer.row.map { row -> convertRow(row, report) }.filter { it.isNotEmpty() }
+            val rows = layer.row.map { row -> convertRow(row, layerNames, report) }
+                .filter { it.isNotEmpty() }
             if (rows.isEmpty()) continue
             converted[layer.id] = LayerSpec(rows = rows)
         }
@@ -159,7 +161,11 @@ object TouchLayoutConverter {
         a.rows.size == b.rows.size &&
             a.rows.indices.all { a.rows[it].size == b.rows[it].size }
 
-    private fun convertRow(row: TouchRow, report: Report): List<Key> {
+    private fun convertRow(
+        row: TouchRow,
+        layerNames: Set<String>,
+        report: Report,
+    ): List<Key> {
         val out = ArrayList<Key>(row.key.size + 1)
         for (k in row.key) {
             // Keyman expresses a leading gap as padding on the next key; we have
@@ -169,12 +175,16 @@ object TouchLayoutConverter {
             if (pad > DEFAULT_PAD * 2) {
                 out += Key(label = "", action = KeyAction.None, width = (pad - DEFAULT_PAD) / 100f)
             }
-            out += convertKey(k, report) ?: continue
+            out += convertKey(k, layerNames, report) ?: continue
         }
         return out
     }
 
-    private fun convertKey(k: TouchKey, report: Report): Key? {
+    private fun convertKey(k: TouchKey, layerNames: Set<String>, report: Report): Key? {
+        // Some authors cap a layer-switch key with the layer's own id, so the
+        // key reads "rightalt" or "default". Those are internal identifiers, not
+        // something to print on a key.
+        val capIsLayerName = k.text?.lowercase()?.let { it in layerNames } == true
         val width = ((k.width ?: 100f) / 100f).coerceIn(MIN_WIDTH, MAX_WIDTH)
 
         when (KeymanKeySp.of(k.sp)) {
@@ -196,7 +206,9 @@ object TouchLayoutConverter {
         // long-press repeat on backspace, auto-space and double-space-period.
         FRAME_KEYS[k.id]?.let { frame ->
             return Key(
-                label = k.text?.takeIf { it.isNotBlank() && !it.startsWith("*") } ?: frame.label,
+                label = k.text
+                    ?.takeIf { it.isNotBlank() && !it.startsWith("*") && !capIsLayerName }
+                    ?: frame.label,
                 action = frame.action,
                 width = width,
             )
@@ -219,32 +231,40 @@ object TouchLayoutConverter {
         if (nextLayer != null) {
             val sp = KeymanKeySp.of(k.sp)
             val isFrame = sp == KeymanKeySp.SPECIAL || sp == KeymanKeySp.SPECIAL_ACTIVE
-            val label = k.text?.takeIf { it.isNotBlank() && !it.startsWith("*") }
+            val label = k.text?.takeIf { it.isNotBlank() && !it.startsWith("*") && !capIsLayerName }
             if (isFrame) {
                 val action = when (nextLayer) {
                     LayoutLayer.LETTERS.key -> KeyAction.Letters
                     LayoutLayer.SYMBOLS.key, LayoutLayer.SYMBOLS_SHIFTED.key -> KeyAction.Symbols
                     else -> KeyAction.KeymanKey(vkey = 0, nextLayer = nextLayer)
                 }
+                // Never the layer's own name: "rightalt" and "default" are
+                // internal identifiers, and printing one on a key puts a word
+                // where the user expects a character.
                 val fallback = when (action) {
                     KeyAction.Letters -> "ABC"
                     KeyAction.Symbols -> "?123"
-                    else -> nextLayer
+                    else -> "⌨"
                 }
                 return Key(label = label ?: fallback, action = action, width = width)
             }
         }
 
-        val special = k.text?.let { SPECIAL_KEYS[it] }
+        val special = k.text?.let(::specialFor)
         if (special != null) {
             if (special.action == null) {
                 report.droppedSpecial++
                 return Key(label = "", action = KeyAction.None, width = width)
             }
-            return Key(label = special.label, action = special.action, width = width)
+            return Key(
+                label = special.label,
+                output = special.output,
+                action = special.action,
+                width = width,
+            )
         }
 
-        val label = k.text.orEmpty()
+        val label = if (capIsLayerName) "" else k.text.orEmpty()
         val longPress = k.sk.mapNotNull { subLabel(it) }.filter { it.isNotEmpty() }.distinct()
         val flick = convertFlicks(k, report)
         if (k.multitap.isNotEmpty()) report.droppedMultitaps++
@@ -347,7 +367,27 @@ object TouchLayoutConverter {
         else -> 0
     }
 
-    private class Special(val label: String, val action: KeyAction?)
+    /**
+     * The [Special] a cap names, whether or not the author starred it.
+     *
+     * The format documents these as `*ZWNJ*`, but a good number of keyboards in
+     * the corpus write plain `ZWNJ`, `rlm` or `LRM` instead. Unrecognised, those
+     * become the key's visible label — a word sitting on a key where a character
+     * belongs, and no zero-width joiner actually typed.
+     */
+    private fun specialFor(text: String): Special? {
+        SPECIAL_KEYS[text]?.let { return it }
+        val bare = text.trim('*')
+        if (bare.isEmpty()) return null
+        return SPECIAL_KEYS["*$bare*"] ?: SPECIAL_BY_BARE_NAME[bare.lowercase()]
+    }
+
+    private class Special(
+        val label: String,
+        val action: KeyAction?,
+        /** What the key commits, when that differs from its cap. */
+        val output: String? = null,
+    )
 
     private class Frame(val label: String, val action: KeyAction)
 
@@ -368,6 +408,12 @@ object TouchLayoutConverter {
 
     /** `KeyEvent.KEYCODE_TAB`, spelled out so this module needs no Android import. */
     private const val KEYCODE_TAB = 61
+
+    /** Layer ids Keyman defines that a key may also be capped with. */
+    private val MODIFIER_LAYER_NAMES = setOf(
+        "default", "shift", "caps", "ctrl", "alt", "ctrlshift", "altshift",
+        "ctrlalt", "ctrlaltshift", "rightalt", "rightalt-shift", "numeric", "symbol",
+    )
 
     /**
      * The `*Special*` labels, which Keyman renders from a private-use icon font
@@ -391,22 +437,56 @@ object TouchLayoutConverter {
         put("*Numeral*", Special("?123", KeyAction.Symbols))
         put("*Symbol*", Special("=\\<", KeyAction.Symbols))
         put("*Currency*", Special("$", KeyAction.Symbols))
-        // Invisible characters, which are ordinary text keys with a visible cap.
-        put("*ZWNJ*", Special("ZWNJ", KeyAction.Text))
-        put("*ZWNJiOS*", Special("ZWNJ", KeyAction.Text))
-        put("*ZWNJAndroid*", Special("ZWNJ", KeyAction.Text))
-        put("*ZWNJGeneric*", Special("ZWNJ", KeyAction.Text))
-        put("*ZWJ*", Special("ZWJ", KeyAction.Text))
-        // Spacing variants all commit a space of some width; the cap names it.
-        for (t in listOf("*Sp*", "*NBSp*", "*NarNBSp*", "*EnSp*", "*EmSp*", "*EnQ*", "*EmQ*",
-            "*PunctSp*", "*ThSp*", "*HSp*", "*ZWSp*")) {
-            put(t, Special(t.trim('*'), KeyAction.Space))
+        // Invisible and width-varying characters. Each commits its own code
+        // point, not a plain space: an earlier version routed every one of
+        // these to KeyAction.Space, so a no-break space key typed U+0020 and the
+        // distinction the key exists for was silently lost.
+        //
+        // Caps follow the convention the shipped layouts already use for
+        // joiners — a dotted circle either side of the mark — rather than
+        // spelling the name out, which reads as a word on a key.
+        put("*Sp*", Special(" ", KeyAction.Space))
+        put("*NBSp*", Special("⍽", KeyAction.Text, output = "\u00A0"))
+        put("*NarNBSp*", Special("⍽", KeyAction.Text, output = "\u202F"))
+        put("*EnQ*", Special("␣", KeyAction.Text, output = "\u2000"))
+        put("*EmQ*", Special("␣", KeyAction.Text, output = "\u2001"))
+        put("*EnSp*", Special("␣", KeyAction.Text, output = "\u2002"))
+        put("*EmSp*", Special("␣", KeyAction.Text, output = "\u2003"))
+        put("*PunctSp*", Special("␣", KeyAction.Text, output = "\u2008"))
+        put("*ThSp*", Special("␣", KeyAction.Text, output = "\u2009"))
+        put("*HSp*", Special("␣", KeyAction.Text, output = "\u200A"))
+        put("*ZWSp*", Special("␣", KeyAction.Text, output = "\u200B"))
+        for (t in listOf("*ZWNJ*", "*ZWNJiOS*", "*ZWNJAndroid*", "*ZWNJGeneric*")) {
+            put(t, Special("◌│◌", KeyAction.Text, output = "\u200C"))
         }
+        put("*ZWJ*", Special("◌‿◌", KeyAction.Text, output = "\u200D"))
+        put("*WJ*", Special("◌⁀◌", KeyAction.Text, output = "\u2060"))
+        put("*CGJ*", Special("◌⌇◌", KeyAction.Text, output = "\u034F"))
+        put("*LTRM*", Special("◌→", KeyAction.Text, output = "\u200E"))
+        put("*RTLM*", Special("←◌", KeyAction.Text, output = "\u200F"))
+        put("*SH*", Special("◌-◌", KeyAction.Text, output = "\u00AD"))
+        put("*HTab*", Special("⇥", KeyAction.SendKey(KEYCODE_TAB)))
         // No equivalent: hiding the keyboard is the system's gesture here, and
         // the desktop modifier caps have no meaning on a touch grid.
         for (t in listOf("*Hide*", "*Tab*", "*TabLeft*", "*AltGr*", "*Alt*", "*Ctrl*",
             "*LAlt*", "*RAlt*", "*LCtrl*", "*RCtrl*")) {
             put(t, Special("", null))
+        }
+    }
+
+    /**
+     * Bare spellings the corpus uses for keys the format wants starred, keyed
+     * lowercase. Only the unambiguous ones: a cap of "shift" could plausibly be
+     * a word someone meant to show, while "zwnj" could not.
+     */
+    private val SPECIAL_BY_BARE_NAME: Map<String, Special> by lazy {
+        buildMap {
+            for ((starred, special) in SPECIAL_KEYS) {
+                put(starred.trim('*').lowercase(), special)
+            }
+            put("lrm", SPECIAL_KEYS.getValue("*LTRM*"))
+            put("rlm", SPECIAL_KEYS.getValue("*RTLM*"))
+            put("nbsp", SPECIAL_KEYS.getValue("*NBSp*"))
         }
     }
 

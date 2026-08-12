@@ -1,0 +1,371 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_rac_pashto",
+    "name": "Rachitrali-Pashto",
+    "langId": "ps",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ق",
+              "shiftLabel": "ټ"
+            },
+            {
+              "label": "و",
+              "shiftLabel": "ّ"
+            },
+            {
+              "label": "ع",
+              "shiftLabel": "ٰ"
+            },
+            {
+              "label": "ر",
+              "shiftLabel": "ڑ"
+            },
+            {
+              "label": "ت",
+              "shiftLabel": "ٹ"
+            },
+            {
+              "label": "ے",
+              "shiftLabel": "َ"
+            },
+            {
+              "label": "ء",
+              "shiftLabel": "ئ"
+            },
+            {
+              "label": "ی",
+              "shiftLabel": "ِ"
+            },
+            {
+              "label": "ہ",
+              "shiftLabel": "ۃ"
+            },
+            {
+              "label": "پ",
+              "shiftLabel": "ُ"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.25
+            },
+            {
+              "label": "ا",
+              "shiftLabel": "آ",
+              "width": 0.1
+            },
+            {
+              "label": "س",
+              "shiftLabel": "ص"
+            },
+            {
+              "label": "د",
+              "shiftLabel": "ڈ"
+            },
+            {
+              "label": "ف",
+              "shiftLabel": "ې"
+            },
+            {
+              "label": "گ",
+              "shiftLabel": "غ"
+            },
+            {
+              "label": "ح",
+              "shiftLabel": "ھ"
+            },
+            {
+              "label": "ج",
+              "shiftLabel": "ض"
+            },
+            {
+              "label": "ک",
+              "shiftLabel": "خ"
+            },
+            {
+              "label": "ل",
+              "shiftLabel": "ي"
+            },
+            {
+              "label": "ځ",
+              "shiftLabel": "ڼ",
+              "width": 0.1
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              }
+            },
+            {
+              "label": "ز",
+              "shiftLabel": "ذ"
+            },
+            {
+              "label": "ش",
+              "shiftLabel": "ژ"
+            },
+            {
+              "label": "چ",
+              "shiftLabel": "ث"
+            },
+            {
+              "label": "ط",
+              "shiftLabel": "ظ"
+            },
+            {
+              "label": "ب",
+              "shiftLabel": "ً"
+            },
+            {
+              "label": "ن",
+              "shiftLabel": "ں"
+            },
+            {
+              "label": "م",
+              "shiftLabel": "ډ"
+            },
+            {
+              "label": "څ",
+              "shiftLabel": "ښ",
+              "width": 0.1
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "۱۲۳",
+              "action": {
+                "type": "symbols"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.05
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.95
+            },
+            {
+              "label": "۔",
+              "longPress": [
+                "،",
+                "؛",
+                "؟",
+                "!",
+                ":",
+                "-",
+                "\"",
+                "`",
+                "؏"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.25
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "۱"
+            },
+            {
+              "label": "۲"
+            },
+            {
+              "label": "۳"
+            },
+            {
+              "label": "۴"
+            },
+            {
+              "label": "۵"
+            },
+            {
+              "label": "۶"
+            },
+            {
+              "label": "۷"
+            },
+            {
+              "label": "۸"
+            },
+            {
+              "label": "۹"
+            },
+            {
+              "label": "۰"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.25
+            },
+            {
+              "label": "1",
+              "width": 0.1
+            },
+            {
+              "label": "2",
+              "width": 0.1
+            },
+            {
+              "label": "3",
+              "width": 0.1
+            },
+            {
+              "label": "4"
+            },
+            {
+              "label": "5"
+            },
+            {
+              "label": "6"
+            },
+            {
+              "label": "7"
+            },
+            {
+              "label": "8"
+            },
+            {
+              "label": "9"
+            },
+            {
+              "label": "0"
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              }
+            },
+            {
+              "label": "ۍ"
+            },
+            {
+              "label": "ْ"
+            },
+            {
+              "label": "ٔ"
+            },
+            {
+              "label": "ګ",
+              "output": "ڰ"
+            },
+            {
+              "label": "ړ"
+            },
+            {
+              "label": "ږ"
+            },
+            {
+              "label": "(",
+              "longPress": [
+                "[",
+                "{"
+              ]
+            },
+            {
+              "label": ")",
+              "longPress": [
+                "]",
+                "}"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              }
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.05
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 5.95
+            },
+            {
+              "label": "@",
+              "longPress": [
+                "\\",
+                "/",
+                "#",
+                "$",
+                "%",
+                "^",
+                "&",
+                "*",
+                "=",
+                "+",
+                "_"
+              ]
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.25
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "rac_pashto"
+    }
+  }
+}

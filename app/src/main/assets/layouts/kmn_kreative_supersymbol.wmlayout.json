@@ -1,0 +1,909 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_kmn_kreative_supersymbol",
+    "name": "Kreative SuperSymbol",
+    "langId": "zxx-Zmth",
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "1",
+              "shiftLabel": "!",
+              "longPress": [
+                "¹",
+                "₁",
+                "½",
+                "⅓",
+                "¼",
+                "⅕",
+                "⅙",
+                "⅐",
+                "⅛",
+                "⅑",
+                "⅒",
+                "⅟"
+              ]
+            },
+            {
+              "label": "2",
+              "shiftLabel": "≅",
+              "longPress": [
+                "²",
+                "₂",
+                "½",
+                "⅔",
+                "⅖"
+              ]
+            },
+            {
+              "label": "3",
+              "shiftLabel": "#",
+              "longPress": [
+                "³",
+                "₃",
+                "↉",
+                "⅓",
+                "⅔",
+                "¾",
+                "⅗",
+                "⅜"
+              ]
+            },
+            {
+              "label": "4",
+              "shiftLabel": "€",
+              "longPress": [
+                "⁴",
+                "₄",
+                "¼",
+                "¾",
+                "⅘"
+              ]
+            },
+            {
+              "label": "5",
+              "shiftLabel": "%",
+              "longPress": [
+                "⁵",
+                "₅",
+                "⅕",
+                "⅖",
+                "⅗",
+                "⅘",
+                "⅚",
+                "⅝"
+              ]
+            },
+            {
+              "label": "6",
+              "shiftLabel": "⊥",
+              "longPress": [
+                "⁶",
+                "₆",
+                "⅙",
+                "⅚"
+              ]
+            },
+            {
+              "label": "7",
+              "shiftLabel": "&",
+              "longPress": [
+                "⁷",
+                "₇",
+                "⅐",
+                "⅞"
+              ]
+            },
+            {
+              "label": "8",
+              "shiftLabel": "∗",
+              "longPress": [
+                "⁸",
+                "₈",
+                "⅛",
+                "⅜",
+                "⅝",
+                "⅞",
+                "∞"
+              ]
+            },
+            {
+              "label": "9",
+              "shiftLabel": "(",
+              "longPress": [
+                "⁹",
+                "₉",
+                "⅑"
+              ]
+            },
+            {
+              "label": "0",
+              "shiftLabel": ")",
+              "longPress": [
+                "⁰",
+                "₀",
+                "⅒",
+                "↉",
+                "°"
+              ]
+            },
+            {
+              "label": "−",
+              "shiftLabel": "⎯",
+              "longPress": [
+                "-",
+                "–",
+                "—",
+                "¬",
+                "~",
+                "¯",
+                "",
+                " "
+              ]
+            },
+            {
+              "label": "≠",
+              "shiftLabel": "±",
+              "longPress": [
+                "=",
+                "≡",
+                "≅",
+                "≈",
+                "∼",
+                "↔",
+                "⇔"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.7
+            },
+            {
+              "label": "θ",
+              "shiftLabel": "Θ"
+            },
+            {
+              "label": "ω",
+              "shiftLabel": "Ω"
+            },
+            {
+              "label": "ε",
+              "shiftLabel": "Ε",
+              "longPress": [
+                "∉",
+                "∈",
+                "∋",
+                "∍"
+              ]
+            },
+            {
+              "label": "ρ",
+              "shiftLabel": "Ρ",
+              "longPress": [
+                "ℜ",
+                "®"
+              ]
+            },
+            {
+              "label": "τ",
+              "shiftLabel": "Τ",
+              "longPress": [
+                "™"
+              ]
+            },
+            {
+              "label": "ψ",
+              "shiftLabel": "Ψ"
+            },
+            {
+              "label": "υ",
+              "shiftLabel": "Υ",
+              "longPress": [
+                "∩",
+                "∪"
+              ]
+            },
+            {
+              "label": "ι",
+              "shiftLabel": "Ι",
+              "longPress": [
+                "ℑ"
+              ]
+            },
+            {
+              "label": "ο",
+              "shiftLabel": "Ο",
+              "longPress": [
+                "∅",
+                "°"
+              ]
+            },
+            {
+              "label": "π",
+              "shiftLabel": "Π",
+              "longPress": [
+                "∏",
+                "℘"
+              ]
+            },
+            {
+              "label": "[",
+              "shiftLabel": "{",
+              "longPress": [
+                "⎡",
+                "⎢",
+                "⎣",
+                "⊆",
+                "⊂",
+                "⊄"
+              ]
+            },
+            {
+              "label": "]",
+              "shiftLabel": "}",
+              "longPress": [
+                "⎤",
+                "⎥",
+                "⎦",
+                "⊇",
+                "⊃"
+              ]
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.4
+            }
+          ],
+          [
+            {
+              "label": "∼",
+              "shiftLabel": "≈",
+              "longPress": [
+                "~",
+                "˜"
+              ]
+            },
+            {
+              "label": "α",
+              "shiftLabel": "Α",
+              "longPress": [
+                "ℵ",
+                "∝"
+              ]
+            },
+            {
+              "label": "σ",
+              "shiftLabel": "Σ",
+              "longPress": [
+                "∑",
+                "∫",
+                "⌠",
+                "⎮",
+                "⌡",
+                "ƒ"
+              ]
+            },
+            {
+              "label": "δ",
+              "shiftLabel": "Δ",
+              "longPress": [
+                "∂"
+              ]
+            },
+            {
+              "label": "φ",
+              "shiftLabel": "Φ"
+            },
+            {
+              "label": "γ",
+              "shiftLabel": "Γ"
+            },
+            {
+              "label": "η",
+              "shiftLabel": "Η"
+            },
+            {
+              "label": "ϕ",
+              "shiftLabel": "ϑ"
+            },
+            {
+              "label": "κ",
+              "shiftLabel": "Κ"
+            },
+            {
+              "label": "λ",
+              "shiftLabel": "Λ"
+            },
+            {
+              "label": "∃",
+              "shiftLabel": "∀"
+            },
+            {
+              "label": "′",
+              "shiftLabel": "″",
+              "longPress": [
+                "'",
+                "‘",
+                "’",
+                "‚",
+                "‛"
+              ]
+            },
+            {
+              "label": "∴",
+              "shiftLabel": "⏐"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.6
+            },
+            {
+              "label": "ζ",
+              "shiftLabel": "Ζ"
+            },
+            {
+              "label": "ξ",
+              "shiftLabel": "Ξ"
+            },
+            {
+              "label": "χ",
+              "shiftLabel": "Χ"
+            },
+            {
+              "label": "ϖ",
+              "shiftLabel": "ς"
+            },
+            {
+              "label": "β",
+              "shiftLabel": "Β"
+            },
+            {
+              "label": "ν",
+              "shiftLabel": "Ν",
+              "longPress": [
+                "∧",
+                "∨",
+                "↓",
+                "⇓",
+                "√",
+                "✓",
+                "⍻",
+                "↵"
+              ]
+            },
+            {
+              "label": "μ",
+              "shiftLabel": "Μ"
+            },
+            {
+              "label": ",",
+              "shiftLabel": "<",
+              "longPress": [
+                "‚",
+                "„"
+              ]
+            },
+            {
+              "label": ".",
+              "shiftLabel": ">",
+              "longPress": [
+                "…",
+                "∴",
+                "⋅",
+                "•"
+              ]
+            },
+            {
+              "label": "/",
+              "shiftLabel": "?",
+              "longPress": [
+                "⁄",
+                "∠",
+                "÷",
+                "\\"
+              ]
+            },
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.55
+            }
+          ],
+          [
+            {
+              "label": "⌨",
+              "action": {
+                "type": "keyman_key",
+                "vkey": 0,
+                "nextLayer": "alt"
+              },
+              "width": 1.3
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.4
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 9.3
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2.35
+            }
+          ]
+        ]
+      },
+      "alt": {
+        "rows": [
+          [
+            {
+              "label": "⎝"
+            },
+            {
+              "label": "⎣"
+            },
+            {
+              "label": "⎩"
+            },
+            {
+              "label": "⎜"
+            },
+            {
+              "label": "⎢"
+            },
+            {
+              "label": "⎨"
+            },
+            {
+              "label": "⎛"
+            },
+            {
+              "label": "⎡"
+            },
+            {
+              "label": "⎧"
+            },
+            {
+              "label": "⎪"
+            },
+            {
+              "label": "¬"
+            },
+            {
+              "label": "≡"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.7
+            },
+            {
+              "label": "♠"
+            },
+            {
+              "label": "♥"
+            },
+            {
+              "label": "∈"
+            },
+            {
+              "label": "®"
+            },
+            {
+              "label": "™"
+            },
+            {
+              "label": "ϒ"
+            },
+            {
+              "label": "∪"
+            },
+            {
+              "label": "∞"
+            },
+            {
+              "label": "°"
+            },
+            {
+              "label": "℘"
+            },
+            {
+              "label": "⊂"
+            },
+            {
+              "label": "⊃"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.4
+            }
+          ],
+          [
+            {
+              "label": "⌠"
+            },
+            {
+              "label": "∝"
+            },
+            {
+              "label": "∫"
+            },
+            {
+              "label": "∂"
+            },
+            {
+              "label": "ƒ"
+            },
+            {
+              "label": "⌃"
+            },
+            {
+              "label": "←"
+            },
+            {
+              "label": "↓"
+            },
+            {
+              "label": "↑"
+            },
+            {
+              "label": "→"
+            },
+            {
+              "label": "↔"
+            },
+            {
+              "label": "∍"
+            },
+            {
+              "label": "÷"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.6
+            },
+            {
+              "label": "…"
+            },
+            {
+              "label": "×"
+            },
+            {
+              "label": "©"
+            },
+            {
+              "label": "∨"
+            },
+            {
+              "label": "⋅"
+            },
+            {
+              "label": "✓"
+            },
+            {
+              "label": "↵"
+            },
+            {
+              "label": "〈"
+            },
+            {
+              "label": "〉"
+            },
+            {
+              "label": "⁄"
+            },
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.55
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.3
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.4
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 9.3
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2.35
+            }
+          ]
+        ]
+      },
+      "shift-alt": {
+        "rows": [
+          [
+            {
+              "label": "⎠"
+            },
+            {
+              "label": "⎦"
+            },
+            {
+              "label": "⎭"
+            },
+            {
+              "label": "⎟"
+            },
+            {
+              "label": "⎥"
+            },
+            {
+              "label": "⎬"
+            },
+            {
+              "label": "⎞"
+            },
+            {
+              "label": "⎤"
+            },
+            {
+              "label": "⎫"
+            },
+            {
+              "label": "⎮"
+            },
+            {
+              "label": ""
+            },
+            {
+              "label": "⊕"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              }
+            }
+          ],
+          [
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.7
+            },
+            {
+              "label": "♣"
+            },
+            {
+              "label": "♦"
+            },
+            {
+              "label": "∉"
+            },
+            {
+              "label": "ℜ"
+            },
+            {
+              "label": "⌥"
+            },
+            {
+              "label": "√"
+            },
+            {
+              "label": "∩"
+            },
+            {
+              "label": "ℑ"
+            },
+            {
+              "label": "∅"
+            },
+            {
+              "label": "∏"
+            },
+            {
+              "label": "⊆"
+            },
+            {
+              "label": "⊇"
+            },
+            {
+              "label": "",
+              "action": {
+                "type": "none"
+              },
+              "width": 0.4
+            }
+          ],
+          [
+            {
+              "label": "⌡"
+            },
+            {
+              "label": "ℵ"
+            },
+            {
+              "label": "∑"
+            },
+            {
+              "label": "∇"
+            },
+            {
+              "label": "⇧"
+            },
+            {
+              "label": "⇪"
+            },
+            {
+              "label": "⇐"
+            },
+            {
+              "label": "⇓"
+            },
+            {
+              "label": "⇑"
+            },
+            {
+              "label": "⇒"
+            },
+            {
+              "label": "⇔"
+            },
+            {
+              "label": "∋"
+            },
+            {
+              "label": ""
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.6
+            },
+            {
+              "label": "◊"
+            },
+            {
+              "label": "⊗"
+            },
+            {
+              "label": "⊄"
+            },
+            {
+              "label": "∧"
+            },
+            {
+              "label": "•"
+            },
+            {
+              "label": "⍻"
+            },
+            {
+              "label": "⌘"
+            },
+            {
+              "label": "≤"
+            },
+            {
+              "label": "≥"
+            },
+            {
+              "label": "∠"
+            },
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.55
+            }
+          ],
+          [
+            {
+              "label": "⌨",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.3
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              },
+              "width": 1.4
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 9.3
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 2.35
+            }
+          ]
+        ]
+      }
+    },
+    "keyman": {
+      "keyboardId": "kreative_supersymbol"
+    }
+  }
+}
