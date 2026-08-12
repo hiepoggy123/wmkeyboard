@@ -1425,6 +1425,23 @@ data class KeyboardUiState(
         get() = shiftState == ShiftState.ON && shiftPressedByUser
 
     /**
+     * Whether shift is up as a *selection* modifier right now, which is what the
+     * toolbar's caret-moving tools read to decide between moving the cursor and
+     * extending the selection — shift+arrow, the way a physical keyboard does it.
+     *
+     * Both shift layers count, the one-shot and the lock: the user asked for
+     * either by pressing a key, and holding a lock to drag out a long selection
+     * is the whole point of the lock. What does *not* count is a shift the
+     * keyboard armed by itself — auto-capitalize at a sentence start, or a field
+     * flagged all-caps, both of which leave [shiftPressedByUser] false. Those are
+     * statements about the next letter's case, not about the caret, and acting on
+     * them would turn an ordinary cursor tap into a silent selection that the
+     * next keystroke overwrites.
+     */
+    val shiftSelectsText: Boolean
+        get() = shiftState != ShiftState.OFF && shiftPressedByUser
+
+    /**
      * The action the Enter key should draw and fire, folding in the
      * Shift+Enter override so the key never promises a Send it will not do.
      */

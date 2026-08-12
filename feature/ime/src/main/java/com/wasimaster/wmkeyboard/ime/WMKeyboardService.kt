@@ -8692,17 +8692,18 @@ open class WMKeyboardService : InputMethodService() {
             ToolbarTool.MODES -> onPanelChange(PanelMode.MODES)
             // Same moves the text-editing panel offers, one tap deep instead
             // of two. Selection still extends when the panel's select mode is
-            // on, since onTextEdit reads that state itself.
-            ToolbarTool.CURSOR_LEFT -> onTextEdit(TextEditAction.LEFT)
-            ToolbarTool.CURSOR_RIGHT -> onTextEdit(TextEditAction.RIGHT)
-            ToolbarTool.CURSOR_WORD_LEFT -> onTextEdit(TextEditAction.WORD_LEFT)
-            ToolbarTool.CURSOR_WORD_RIGHT -> onTextEdit(TextEditAction.WORD_RIGHT)
-            ToolbarTool.CURSOR_UP -> onTextEdit(TextEditAction.UP)
-            ToolbarTool.CURSOR_DOWN -> onTextEdit(TextEditAction.DOWN)
-            ToolbarTool.CURSOR_HOME -> onTextEdit(TextEditAction.HOME)
-            ToolbarTool.CURSOR_END -> onTextEdit(TextEditAction.END)
-            ToolbarTool.PAGE_UP -> onTextEdit(TextEditAction.PAGE_UP)
-            ToolbarTool.PAGE_DOWN -> onTextEdit(TextEditAction.PAGE_DOWN)
+            // on, since onTextEdit reads that state itself — and also while
+            // shift is up, which [onCursorTool] folds in.
+            ToolbarTool.CURSOR_LEFT -> onCursorTool(TextEditAction.LEFT)
+            ToolbarTool.CURSOR_RIGHT -> onCursorTool(TextEditAction.RIGHT)
+            ToolbarTool.CURSOR_WORD_LEFT -> onCursorTool(TextEditAction.WORD_LEFT)
+            ToolbarTool.CURSOR_WORD_RIGHT -> onCursorTool(TextEditAction.WORD_RIGHT)
+            ToolbarTool.CURSOR_UP -> onCursorTool(TextEditAction.UP)
+            ToolbarTool.CURSOR_DOWN -> onCursorTool(TextEditAction.DOWN)
+            ToolbarTool.CURSOR_HOME -> onCursorTool(TextEditAction.HOME)
+            ToolbarTool.CURSOR_END -> onCursorTool(TextEditAction.END)
+            ToolbarTool.PAGE_UP -> onCursorTool(TextEditAction.PAGE_UP)
+            ToolbarTool.PAGE_DOWN -> onCursorTool(TextEditAction.PAGE_DOWN)
             ToolbarTool.SELECT_WORD -> onTextEdit(TextEditAction.SELECT_WORD)
             ToolbarTool.SELECT_LINE -> onTextEdit(TextEditAction.SELECT_LINE)
             ToolbarTool.HIDE_KEYBOARD -> onHideKeyboard()
@@ -13346,16 +13347,41 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * The toolbar's caret-moving tools, which are the panel's moves one tap deep
+     * instead of two. Holding shift turns them into shift+arrow: the move
+     * extends the selection instead of collapsing it, exactly as a physical
+     * keyboard's would.
+     *
+     * The shift is read but not spent. Repeated taps have to keep extending —
+     * one character of selection is no use — and a shift the user pressed is
+     * theirs to end, by pressing it again or by putting the caret somewhere
+     * else. Nor does it touch the panel's own select mode: that toggle belongs
+     * to the panel, and quietly leaving it on would keep these tools selecting
+     * long after the shift went away.
+     *
+     * Only the toolbar reads shift this way. Inside the text-editing panel the
+     * shift key isn't even on screen, so a shift left armed there is a leftover,
+     * not an instruction, and the panel's select toggle stays the only answer.
+     */
+    private fun onCursorTool(action: TextEditAction) {
+        onTextEdit(action, extendSelection = _uiState.value.shiftSelectsText)
+    }
+
+    /**
      * Text-editing panel buttons. Cursor moves go through the editor as key
      * events so apps handle them natively; while selection mode is on (or
      * right after Select all) the moves carry shift and extend the selection.
+     *
+     * [extendSelection] forces that on for a single call, for callers that have
+     * their own reason to extend — see [onCursorTool]. It never turns extending
+     * *off*: the panel's select mode still wins when it is on.
      */
-    fun onTextEdit(action: TextEditAction) {
+    fun onTextEdit(action: TextEditAction, extendSelection: Boolean = false) {
         val ic = currentInputConnection ?: return
         vibrate()
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
-        val selecting = _uiState.value.textEditSelecting
+        val selecting = extendSelection || _uiState.value.textEditSelecting
         when (action) {
             TextEditAction.LEFT -> sendEditorKey(KeyEvent.KEYCODE_DPAD_LEFT, selecting)
             TextEditAction.RIGHT -> sendEditorKey(KeyEvent.KEYCODE_DPAD_RIGHT, selecting)
@@ -13373,8 +13399,10 @@ open class WMKeyboardService : InputMethodService() {
                 sendEditorKey(KeyEvent.KEYCODE_DPAD_RIGHT, selecting, ctrl = true)
             TextEditAction.SELECT_WORD -> selectWordAtCursor(ic)
             TextEditAction.SELECT_LINE -> selectLineAtCursor(ic)
+            // Reads the panel's own toggle rather than `selecting`, which a
+            // caller may have forced on for this one call.
             TextEditAction.SELECT ->
-                _uiState.update { it.copy(textEditSelecting = !selecting) }
+                _uiState.update { it.copy(textEditSelecting = !it.textEditSelecting) }
             TextEditAction.SELECT_ALL -> {
                 ic.performContextMenuAction(android.R.id.selectAll)
                 _uiState.update { it.copy(textEditSelecting = true) }
@@ -15830,6 +15858,22 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         if (!state.settings.autoCapitalize) return
         if (state.shiftState == ShiftState.CAPS_LOCK) return
+        // A shift the user pressed themselves, with a range selection live, is a
+        // shift being held to extend that selection (see
+        // [KeyboardUiState.shiftSelectsText]). Auto-capitalize must not pull it
+        // out from under the next move: getCursorCapsMode answers for the
+        // selection's *start*, which mid-sentence means OFF, so the very first
+        // shift+arrow would disarm the shift and the second would collapse the
+        // selection it just made. A shift the keyboard armed by itself is not
+        // held by anyone and is still re-evaluated below, so a selection dragged
+        // out by hand behaves exactly as before. The caller is onUpdateSelection,
+        // which has just written both offsets, so this reads them fresh rather
+        // than paying for getSelectedText.
+        if (state.shiftPressedByUser && expectedSelStart >= 0 && expectedSelEnd >= 0 &&
+            expectedSelStart != expectedSelEnd
+        ) {
+            return
+        }
         val target = autoCapitalizeShift()
         _uiState.update {
             when {
