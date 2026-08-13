@@ -4632,8 +4632,7 @@ open class WMKeyboardService : InputMethodService() {
      * press is swallowed rather than doubled (see [onSpace]).
      */
     private fun insertPunctuationSpace(ic: InputConnection) {
-        val after = ic.getTextAfterCursor(1, 0)?.toString().orEmpty()
-        if (after.startsWith(" ") || after.startsWith(" ")) return
+        if (spacedAfterCaret(ic.getTextAfterCursor(1, 0))) return
         ic.commitText(" ", 1)
         pendingAutoSpace = true
         pendingPunctuationSpace = true
@@ -8368,9 +8367,8 @@ open class WMKeyboardService : InputMethodService() {
         // caret moved back onto it) already has a space after it — appending
         // another would leave a double gap, so skip it when one is there. The
         // trailing space itself is opt-out (A26): off commits the word bare.
-        val nextChar = ic.getTextAfterCursor(1, 0)
         val autoSpace = _uiState.value.settings.suggestionStrip.autoSpaceAfterSuggestion
-        val tail = if (autoSpace && (nextChar.isNullOrEmpty() || !nextChar[0].isWhitespace())) " " else ""
+        val tail = if (autoSpace && !spacedAfterCaret(ic.getTextAfterCursor(1, 0))) " " else ""
         // Commit in the case the strip is showing: a shift held over the strip
         // capitalizes the word the user is about to pick, matching the chip.
         val committed = displayCaseForShift(suggestion, _uiState.value.shiftState)
@@ -8809,7 +8807,8 @@ open class WMKeyboardService : InputMethodService() {
      * Types the space that follows a glided word, so the next word — glided or
      * tapped — does not run into it. Skipped when the text already continues
      * with one: a word glided back into the middle of a sentence has a space
-     * after it already, and a second would leave a double gap.
+     * after it already, and a second would leave a double gap. A line break
+     * after the caret is not one of those — see [spacedAfterCaret].
      *
      * Arms [pendingGestureSpace], which is what lets punctuation typed straight
      * afterwards take the space back and a space press be swallowed rather than
@@ -8817,8 +8816,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun commitGestureSpace(ic: InputConnection, state: KeyboardUiState) {
         if (!state.settings.gesture.autoSpaceAfterGlide) return
-        val after = ic.getTextAfterCursor(1, 0)?.toString().orEmpty()
-        if (after.isNotEmpty() && after[0].isWhitespace()) return
+        if (spacedAfterCaret(ic.getTextAfterCursor(1, 0))) return
         ic.commitText(" ", 1)
         pendingGestureSpace = true
     }
