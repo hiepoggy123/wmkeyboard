@@ -13947,12 +13947,16 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
         val currentFolders = folders
         scope.launch {
             val written = withContext(Dispatchers.IO) {
-                val export = EspansoWriter.encodeMatchFile(current, currentFolders)
+                // Encoding is inside the runCatching, not in front of it: a
+                // throw out here would escape the coroutine and take the
+                // process with it rather than reaching the error dialog.
                 runCancellable {
-                    context.contentResolver.requireOutputStream(uri).use {
+                    val export = EspansoWriter.encodeMatchFile(current, currentFolders)
+                    context.contentResolver.openOutputStream(uri)?.use {
                         it.write(export.text.toByteArray())
-                    }
-                }.map { export.notes }.getOrNull()
+                    } ?: error("no stream")
+                    export.notes
+                }.getOrNull()
             }
             if (written == null) {
                 message = context.getString(R.string.expander_export_error)
@@ -13976,10 +13980,14 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
         val currentManifest = manifest
         scope.launch {
             val written = withContext(Dispatchers.IO) {
-                val (bytes, notes) = EspansoWriter.encodePackage(current, currentFolders, currentManifest)
+                // Encoding inside the runCatching, for the reason spelled out
+                // on the match-file launcher above.
                 runCancellable {
-                    context.contentResolver.requireOutputStream(uri).use { it.write(bytes) }
-                }.map { notes }.getOrNull()
+                    val (bytes, notes) = EspansoWriter.encodePackage(current, currentFolders, currentManifest)
+                    context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+                        ?: error("no stream")
+                    notes
+                }.getOrNull()
             }
             if (written == null) {
                 message = context.getString(R.string.expander_export_error)
@@ -14337,7 +14345,11 @@ private fun SnippetSettings(onNavigate: (String) -> Unit) {
             onDismissRequest = { pendingExport = emptyList() },
             title = { Text(stringResource(R.string.expander_export_notes_title)) },
             text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Column(
+                    modifier = Modifier
+                        .heightIn(max = DialogScrollMaxHeight)
+                        .verticalScroll(rememberScrollState()),
+                ) {
                     for (line in lines) Text("• ${line.resolve(context)}")
                 }
             },
@@ -14470,7 +14482,11 @@ private fun SnippetEspansoImportDialog(
             )
         },
         text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = DialogScrollMaxHeight)
+                    .verticalScroll(rememberScrollState()),
+            ) {
                 OutlinedTextField(
                     value = folderName,
                     onValueChange = { folderName = it },
@@ -14512,7 +14528,11 @@ private fun SnippetPackageDialog(onDismiss: () -> Unit, onExport: (EspansoManife
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.expander_package_title)) },
         text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = DialogScrollMaxHeight)
+                    .verticalScroll(rememberScrollState()),
+            ) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
@@ -14989,6 +15009,19 @@ private fun SnippetDialog(
  */
 private fun splitAliases(text: String): List<String> =
     text.split(',', ' ', '\t', '\n').mapNotNull { it.trim().takeIf(String::isNotEmpty) }
+
+/**
+ * Tallest a scrolling dialog body may grow before it starts scrolling.
+ *
+ * A number rather than "whatever the dialog allows". `verticalScroll` throws
+ * outright when it is measured with an infinite maximum height, and a dialog is
+ * one of the places that can happen: the window measures its content to wrap,
+ * and a slot that wraps hands its child no ceiling. Clamping the height with
+ * `heightIn(max = …)` *before* the scroll in the chain makes that impossible
+ * rather than unlikely, and it is also better behaviour — an unbounded body
+ * with a long list grows until it pushes the dialog's own buttons off screen.
+ */
+private val DialogScrollMaxHeight = 400.dp
 
 /**
  * A small explanatory line under a field in a dialog.

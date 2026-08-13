@@ -54,10 +54,10 @@ object EspansoFile {
     private const val CURSOR_HINT = "\$|\$"
 
     /** `{{name}}` or `{{form.field}}` inside a replacement. */
-    private val INJECTION = Regex("""\{\{\s*([A-Za-z0-9_.]{1,64})\s*}}""")
+    private val INJECTION = Regex("""\{\{\s*([A-Za-z0-9_.]{1,64})\s*\}\}""")
 
     /** `[[field]]` inside a form layout. */
-    private val FORM_FIELD = Regex("""\[\[\s*([A-Za-z0-9_]{1,64})\s*]]""")
+    private val FORM_FIELD = Regex("""\[\[\s*([A-Za-z0-9_]{1,64})\s*\]\]""")
 
     /** Espanso's named capture groups, which Java spells without the P. */
     private val NAMED_GROUP = Regex("""\(\?P<([A-Za-z][A-Za-z0-9]*)>""")

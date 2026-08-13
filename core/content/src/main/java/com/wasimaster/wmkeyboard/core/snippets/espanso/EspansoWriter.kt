@@ -241,9 +241,9 @@ object EspansoWriter {
         SnippetVariable.SELECTION,
     )
 
-    private val CUSTOM_DATE = Regex("""\{date([+-]\d{1,9})?(?::([^}\n]{1,40}))?}""")
-    private val RANDOM = Regex("""\{random:([^}\n]{1,400})}""")
-    private val REFERENCE = Regex("""\$(\d)|\$\{(\d):([a-z]{1,8})}""")
+    private val CUSTOM_DATE = Regex("""\{date([+-]\d{1,9})?(?::([^}\n]{1,40}))?\}""")
+    private val RANDOM = Regex("""\{random:([^}\n]{1,400})\}""")
+    private val REFERENCE = Regex("""\$(\d)|\$\{(\d):([a-z]{1,8})\}""")
 
     /**
      * Snippet text as an Espanso replacement, and the variables it needs.

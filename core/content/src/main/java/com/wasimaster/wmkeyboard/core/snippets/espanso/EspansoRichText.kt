@@ -46,7 +46,7 @@ internal object EspansoRichText {
     }
 
     private val HEADING = Regex("""^\s{0,3}#{1,6}\s+""")
-    private val LINK = Regex("""\[([^\]\n]{0,200})]\(([^)\s]{0,400})[^)]{0,100}\)""")
+    private val LINK = Regex("""\[([^\]\n]{0,200})\]\(([^)\s]{0,400})[^)]{0,100}\)""")
     private val EMPHASIS = Regex("""(\*{1,3}|_{1,3}|`{1,3}|~~)(.+?)\1""")
 
     private fun flattenLine(line: String): String {
