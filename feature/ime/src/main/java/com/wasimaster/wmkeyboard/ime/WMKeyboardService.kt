@@ -3760,6 +3760,10 @@ open class WMKeyboardService : InputMethodService() {
             KeyAction.Emoji -> onPanelChange(PanelMode.EMOJI, haptic = false)
             // Produced only by a long-press on ?123 when the opt-in is set.
             KeyAction.Numpad -> onPanelChange(PanelMode.NUMPAD, haptic = false)
+            // A key — or a long-press alternate — bound to a tool: voice, the
+            // edit pad, the clipboard. Runs whether or not the tool is on the
+            // toolbar; see [runToolFromKey].
+            is KeyAction.Tool -> runToolFromKey((key.action as KeyAction.Tool).tool)
             is KeyAction.Mod -> onModifier((key.action as KeyAction.Mod).key)
             KeyAction.KanaVariant -> cycleKanaVariant()
             KeyAction.Fn -> onFn()
@@ -8901,21 +8905,49 @@ open class WMKeyboardService : InputMethodService() {
     // ---- panels ----
 
     /**
-     * One entry point for every tool, whatever asked for it: the toolbar tap,
-     * the toolbox cell, and the physical keyboard's picker all land here, so a
+     * A tool the user asked for from the toolbar: the strip's button, the
+     * toolbox cell, and the physical keyboard's picker all land here, so a
      * shortcut can never drift from what the button does.
      *
      * Most tools open a panel; the rest are one-shot actions with no panel of
      * their own (a toggle, a cursor move, the settings app).
      */
     fun onToolTap(tool: ToolbarTool) {
-        // The toolbar never renders an unsupported, disabled or unusable tool,
-        // but a shortcut can still name one — a stored binding outlives the tool
-        // being switched off, a lite build ships fewer tools than the enum
-        // lists, and the search tools lose their key the moment it is cleared.
+        // The toolbar never renders a tool the user has switched off, but a
+        // shortcut can still name one: a stored binding outlives the tool
+        // leaving the strip. The device-level tests are in [runTool], which the
+        // key-bound path ([runToolFromKey]) reaches without this one.
+        if (tool !in _uiState.value.settings.enabledTools) return
+        runTool(tool)
+    }
+
+    /**
+     * A tool fired by something that is not the toolbar: a key bound to
+     * [KeyAction.Tool], or one of its long-press alternates.
+     *
+     * Skips the "is it on the toolbar" test [onToolTap] makes, and only that
+     * one. A key an author put on their layout is its own reason for the tool to
+     * run — the toolbar's set is about what the strip shows, and a layout that
+     * had to keep a tool on the strip to reach it from a key would be paying
+     * twice for the same thing. Everything the *device* decides still applies:
+     * a lite build and an unusable tool both come out as a key that does
+     * nothing, exactly as they do on the toolbar.
+     */
+    private fun runToolFromKey(tool: ToolbarTool) {
+        runTool(tool)
+        ensureInputViewShown()
+        seedPanelFocus()
+    }
+
+    /**
+     * The dispatch itself, once the caller's own gating has passed, plus the two
+     * tests every caller shares: a lite build ships fewer tools than the enum
+     * lists, and a search tool loses its key the moment it is cleared.
+     */
+    private fun runTool(tool: ToolbarTool) {
         if (!isSupportedTool(tool)) return
         val settings = _uiState.value.settings
-        if (tool !in settings.enabledTools || !isUsableTool(tool, settings)) return
+        if (!isUsableTool(tool, settings)) return
         when (tool) {
             ToolbarTool.EMOJI -> onPanelChange(PanelMode.EMOJI)
             ToolbarTool.CLIPBOARD -> {
@@ -15875,9 +15907,11 @@ open class WMKeyboardService : InputMethodService() {
 
     /** Opens a tool from the keyboard, then puts the ring on its first item. */
     private fun openToolByKey(tool: ToolbarTool) {
-        onToolTap(tool)
-        ensureInputViewShown()
-        seedPanelFocus()
+        // Gated on the toolbar's set, unlike a key bound to the tool: a hardware
+        // shortcut is a binding to a button, and a button that is not there is
+        // not one to press. See [runToolFromKey].
+        if (tool !in _uiState.value.settings.enabledTools) return
+        runToolFromKey(tool)
     }
 
     private fun openToolPanelByKey(panel: PanelMode) {

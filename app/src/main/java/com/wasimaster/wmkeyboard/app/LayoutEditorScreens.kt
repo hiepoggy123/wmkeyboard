@@ -75,6 +75,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -83,6 +84,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -113,6 +115,7 @@ import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.KeyAlternate
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -128,8 +131,11 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutFontScaleRange
 import com.wasimaster.wmkeyboard.core.layout.MaxKeyWidth
 import com.wasimaster.wmkeyboard.core.layout.MaxRowHeightScale
 import com.wasimaster.wmkeyboard.core.layout.MinRowHeightScale
+import com.wasimaster.wmkeyboard.core.layout.canHoldAlternates
 import com.wasimaster.wmkeyboard.core.layout.drawnFontScale
+import com.wasimaster.wmkeyboard.core.layout.drawnLabel
 import com.wasimaster.wmkeyboard.core.layout.drawnLabelScale
+import com.wasimaster.wmkeyboard.core.layout.opensAlternatesPopup
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.layout.fitRowToGrid
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
@@ -148,6 +154,8 @@ import com.wasimaster.wmkeyboard.core.layout.validateLayout
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.ime.ui.KbTheme
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardThemeProvider
@@ -2023,7 +2031,13 @@ private fun EditorKeyCell(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            val cellIcon = KeyIcons.byName(key.icon) ?: KeyIcons.byName(actionIconName(key.action))
+            // A tool key draws the tool's icon on the keyboard, so it draws one
+            // here too — the rule this whole pair of helpers exists to keep.
+            val cellIcon = KeyIcons.byName(key.icon)
+                ?: KeyIcons.byName(actionIconName(key.action))
+                ?: (key.action as? KeyAction.Tool)
+                    ?.takeIf { key.label.isBlank() }
+                    ?.let { toolIconFor(it.tool) }
             if (cellIcon != null) {
                 Icon(
                     cellIcon,
@@ -2300,6 +2314,15 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
         R.string.layout_editor_action_morse_dash_detail,
         { KeyAction.MorseDash }, { it == KeyAction.MorseDash },
     ),
+    // The tool the entry builds is a placeholder: the sheet opens the tool picker
+    // the moment this is chosen, so nothing lands on a key still saying "emoji"
+    // unless the user picked emoji.
+    KeyActionOption(
+        R.string.layout_editor_action_tool_title,
+        R.string.layout_editor_action_group_other,
+        R.string.layout_editor_action_tool_detail,
+        { KeyAction.Tool() }, { it is KeyAction.Tool },
+    ),
     KeyActionOption(
         R.string.layout_editor_action_broadcast_title,
         R.string.layout_editor_action_group_other,
@@ -2346,6 +2369,8 @@ private fun KeyEditSheet(
     onDismiss: () -> Unit,
 ) {
     var pickingAction by remember { mutableStateOf(false) }
+    // Which tool this key opens, when the picker put a tool action on it.
+    var pickingTool by remember { mutableStateOf(false) }
     // Held as text so a half-typed entry survives; parsed on every change.
     var alternates by remember(ref) { mutableStateOf(key.longPress.joinToString(" ")) }
 
@@ -2410,6 +2435,16 @@ private fun KeyEditSheet(
                 ) { text -> onChange { it.copy(action = KeyAction.Broadcast(text.trim())) } }
             }
 
+            // A tool key carries which tool it opens. A row rather than a field:
+            // there are forty of them and they have names, not values.
+            (key.action as? KeyAction.Tool)?.let { toolAction ->
+                NavRow(
+                    title = R.string.layout_editor_tool_row_title,
+                    subtitle = stringResource(R.string.layout_editor_tool_row_subtitle),
+                    value = stringResource(toolTitle(toolAction.tool)),
+                ) { pickingTool = true }
+            }
+
             // Braille dot keys carry which of the six dots this key is.
             (key.action as? KeyAction.BrailleDot)?.let { brailleDot ->
                 SheetField(
@@ -2452,7 +2487,13 @@ private fun KeyEditSheet(
                     supporting = iconFieldSupport(key.iconHint),
                     resetKey = ref,
                 ) { text -> onChange { it.copy(iconHint = text.ifBlank { null }) } }
+            }
 
+            // Not only text keys: every key whose press and hold is free can
+            // carry alternates, which is what the enter key was missing (issue
+            // #22). The ones left out are the ones that hold to repeat or chord,
+            // where the popup would never open — see [Key.canHoldAlternates].
+            if (key.canHoldAlternates()) {
                 SheetField(
                     label = stringResource(R.string.layout_editor_alternates_field_label),
                     value = alternates,
@@ -2464,6 +2505,12 @@ private fun KeyEditSheet(
                 }
                 AlternatePreview(parseAlternates(alternates))
 
+                ActionAlternatesRows(key.actionAlternates) { alternatesList ->
+                    onChange { it.copy(actionAlternates = alternatesList) }
+                }
+            }
+
+            if (key.action == KeyAction.Text) {
                 RoleRow(key.role) { role -> onChange { it.copy(role = role) } }
             }
 
@@ -2512,8 +2559,24 @@ private fun KeyEditSheet(
             onPick = { action ->
                 onChange { it.copy(action = action) }
                 pickingAction = false
+                // Straight on to which tool, rather than leaving the key on
+                // whichever one the catalog entry had to name as its default.
+                if (action is KeyAction.Tool) pickingTool = true
             },
             onDismiss = { pickingAction = false },
+        )
+    }
+
+    if (pickingTool) {
+        ToolPickerDialog(
+            title = stringResource(R.string.layout_editor_tool_picker_title),
+            current = (key.action as? KeyAction.Tool)?.tool,
+            options = ToolbarTool.entries.filter(::isSupportedTool),
+            onDismiss = { pickingTool = false },
+            onPick = { picked ->
+                pickingTool = false
+                picked?.let { tool -> onChange { it.copy(action = KeyAction.Tool(tool)) } }
+            },
         )
     }
 }
@@ -2582,6 +2645,127 @@ private fun AlternatePreview(alternates: List<String>) {
 }
 
 /**
+ * The alternates that run an action instead of typing: one chip each, and a
+ * button that adds another (issue #21).
+ *
+ * Chips rather than the space-separated field the characters use, for the reason
+ * that field's own comment gives in reverse: an action is not text, so there is
+ * nothing to type. Tapping a chip re-picks its action; the × removes it.
+ *
+ * The catalog is offered minus the two entries that mean nothing here. "Types
+ * text" is what the characters field above already is, and a popup entry with no
+ * action is a button that does nothing — `repair` drops both on sight, so
+ * offering them would be offering an author a chip that disappears.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ActionAlternatesRows(
+    alternates: List<KeyAlternate>,
+    onChange: (List<KeyAlternate>) -> Unit,
+) {
+    // The chip whose action is being picked; [AddingAlternate] for a new one.
+    var editing by remember { mutableStateOf<Int?>(null) }
+    // Where a tool, just chosen as an action, has to land.
+    var pickingToolAt by remember { mutableStateOf<Int?>(null) }
+
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Text(
+            stringResource(R.string.layout_editor_action_alternates_label),
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        CaptionText(stringResource(R.string.layout_editor_action_alternates_hint))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            alternates.forEachIndexed { index, alternate ->
+                InputChip(
+                    selected = false,
+                    onClick = { editing = index },
+                    label = { Text(actionAlternateName(alternate)) },
+                    trailingIcon = {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = stringResource(
+                                R.string.layout_editor_action_alternate_remove_desc,
+                            ),
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clickable {
+                                    onChange(alternates.filterIndexed { i, _ -> i != index })
+                                },
+                        )
+                    },
+                )
+            }
+            TextButton(onClick = { editing = AddingAlternate }) {
+                Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(stringResource(R.string.layout_editor_action_alternate_add_action))
+            }
+        }
+    }
+
+    editing?.let { index ->
+        KeyActionPickerDialog(
+            current = alternates.getOrNull(index)?.action ?: KeyAction.None,
+            options = AlternateActionCatalog,
+            onPick = { action ->
+                val landsAt = if (index in alternates.indices) index else alternates.size
+                onChange(
+                    if (index in alternates.indices) {
+                        alternates.mapIndexed { i, a -> if (i == index) a.copy(action = action) else a }
+                    } else {
+                        alternates + KeyAlternate(action)
+                    },
+                )
+                editing = null
+                // A tool action is only half an answer until it names its tool.
+                if (action is KeyAction.Tool) pickingToolAt = landsAt
+            },
+            onDismiss = { editing = null },
+        )
+    }
+
+    pickingToolAt?.let { index ->
+        ToolPickerDialog(
+            title = stringResource(R.string.layout_editor_tool_picker_title),
+            current = (alternates.getOrNull(index)?.action as? KeyAction.Tool)?.tool,
+            options = ToolbarTool.entries.filter(::isSupportedTool),
+            onDismiss = { pickingToolAt = null },
+            onPick = { picked ->
+                pickingToolAt = null
+                picked?.let { tool ->
+                    onChange(
+                        alternates.mapIndexed { i, a ->
+                            if (i == index) a.copy(action = KeyAction.Tool(tool)) else a
+                        },
+                    )
+                }
+            },
+        )
+    }
+}
+
+/** The editing index that means "this pick appends a chip". */
+private const val AddingAlternate = -1
+
+/** Every action a popup entry may carry; see [ActionAlternatesRows]. */
+private val AlternateActionCatalog: List<KeyActionOption> =
+    KeyActionCatalog.filterNot { it.matches(KeyAction.Text) || it.matches(KeyAction.None) }
+
+/**
+ * What a chip calls an alternate: the tool's name, the action's name from the
+ * catalog, or — for an action a hand-written layout chose that the picker does
+ * not list — the glyph the popup will draw.
+ */
+@Composable
+private fun actionAlternateName(alternate: KeyAlternate): String {
+    val action = alternate.action
+    if (action is KeyAction.Tool) return stringResource(toolTitle(action.tool))
+    val option = KeyActionCatalog.firstOrNull { it.matches(action) }
+    return option?.let { stringResource(it.titleRes) }
+        ?: alternate.drawnLabel().ifBlank { stringResource(R.string.layout_editor_action_unknown) }
+}
+
+/**
  * A text field whose text survives the round trip through the settings store.
  *
  * [value] is read back out of the repository, so it lags the keystroke that
@@ -2643,9 +2827,7 @@ private fun SheetField(
 @Composable
 private fun HideHintRow(key: Key, onChange: (Boolean) -> Unit) {
     val hasIconHint = key.iconHint != null
-    val hasCharHint = key.action == KeyAction.Text &&
-        key.clipboardAction == null &&
-        key.longPress.isNotEmpty()
+    val hasCharHint = key.opensAlternatesPopup() && key.longPress.isNotEmpty()
     if (!key.hideHint && !hasIconHint && !hasCharHint) return
     ToggleSetting(
         title = R.string.layout_editor_hide_hint_title,
@@ -3130,6 +3312,8 @@ private fun KeyActionPickerDialog(
     current: KeyAction,
     onPick: (KeyAction) -> Unit,
     onDismiss: () -> Unit,
+    /** Narrowed by the popup-alternates picker, which cannot use them all. */
+    options: List<KeyActionOption> = KeyActionCatalog,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -3141,7 +3325,7 @@ private fun KeyActionPickerDialog(
                     .verticalScroll(rememberScrollState()),
             ) {
                 var lastGroup: Int? = null
-                for (option in KeyActionCatalog) {
+                for (option in options) {
                     if (option.groupRes != lastGroup) {
                         SectionHeaderPublic(stringResource(option.groupRes))
                         lastGroup = option.groupRes

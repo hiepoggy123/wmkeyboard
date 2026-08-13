@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.layout
 
 import androidx.compose.runtime.Immutable
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -107,6 +108,31 @@ sealed interface KeyAction {
      * layout binds it, so it is never written to a serialized layout.
      */
     @Serializable @SerialName("numpad") data object Numpad : KeyAction
+
+    /**
+     * Opens one of the keyboard's tools — voice typing, the text-editing pad,
+     * the clipboard, a scanner — exactly as tapping it on the toolbar does.
+     *
+     * The toolbar is a fixed strip with room for a handful of tools, and the
+     * toolbox behind it costs two taps; a key (or a long-press alternate, see
+     * [KeyAlternate]) is how a layout puts the one tool its author reaches for
+     * every day where their thumb already is. Issue #21 asked for exactly this:
+     * voice and the edit pad, on a press and hold.
+     *
+     * The tool is fired whether or not it is one of the tools shown on the
+     * toolbar — a key bound by hand is its own reason for the tool to run — but
+     * a tool this build does not ship (a full-flavour scanner on lite) or one
+     * that is not usable yet (a search tool with no key configured) does
+     * nothing, the same as it would on the toolbar.
+     *
+     * [tool] carries a default so a tool added by a *newer* build coerces to it
+     * rather than throwing: the layout format's enums all take that route (see
+     * `coerceInputValues` in `LayoutSpec`), and the emoji panel is the harmless
+     * end of it — every build has one and a tap closes it.
+     */
+    @Serializable @SerialName("tool") data class Tool(
+        val tool: ToolbarTool = ToolbarTool.EMOJI,
+    ) : KeyAction
 
     /**
      * Latches a modifier for the next key, the way [Shift] latches case: tap to
@@ -299,6 +325,10 @@ fun KeyAction.fallbackLabel(): String = when (this) {
     // A Keyman key always carries its own cap from the touch layout, so this is
     // reached only by a hand-edited layout that left the label blank.
     is KeyAction.KeymanKey -> ""
+    // A tool key draws the tool's own icon — the one it wears on the toolbar —
+    // at both draw sites, so it never falls through to a text label. Naming the
+    // tool here instead would put an untranslated enum name on the key.
+    is KeyAction.Tool -> ""
     // Reached only by a layout that repair has not been through yet.
     is KeyAction.Unknown -> "?"
     // Text keys have nothing to fall back to: a blank one is a blank key, which
@@ -318,6 +348,54 @@ private const val KEYCODE_DPAD_UP = 19
 private const val KEYCODE_DPAD_DOWN = 20
 private const val KEYCODE_DPAD_LEFT = 21
 private const val KEYCODE_DPAD_RIGHT = 22
+
+/**
+ * One entry of a key's long-press popup that *does* something instead of typing:
+ * Tab, the voice tool, the text-editing pad, a layer switch.
+ *
+ * Its own type rather than more entries in [Key.longPress], which is a list of
+ * strings and can only ever mean "commit this text". The two lists sit side by
+ * side on [Key] instead of being merged into one list of this type, because the
+ * string list is what every shipped layout, every import format and the editor's
+ * one-line alternates field are written in, and changing its element type would
+ * rewrite all three to buy nothing a second field does not already give.
+ *
+ * [label] is what the popup draws; blank falls back to [KeyAction.fallbackLabel]
+ * — which is blank in turn for the actions that wear an icon, and those draw the
+ * icon. [icon] overrides both with a named icon from the ime layer's registry,
+ * the same lookup [Key.icon] goes through.
+ */
+@Immutable
+@Serializable
+data class KeyAlternate(
+    val action: KeyAction,
+    val label: String = "",
+    val icon: String? = null,
+)
+
+/** What a popup draws for this alternate when it has no icon; see [KeyAlternate]. */
+fun KeyAlternate.drawnLabel(): String = label.ifBlank { action.fallbackLabel() }
+
+/**
+ * Whether a press and hold on this key is already spoken for by something other
+ * than the alternates popup, so alternates on it would never be reachable.
+ *
+ * The three repeating keys and the braille dots. Backspace and the spacebar hold
+ * to repeat (and swipe), forward delete repeats, and a braille dot fires on the
+ * way down as part of a chord and has no long press at all. Every other action —
+ * enter, the layer switches, a modifier, a keycode sender — does nothing under a
+ * held finger, which is the room issue #22 asked for.
+ *
+ * Lives here because three places have to agree about it: the pointer handler
+ * that opens the popup, the key that draws (or does not draw) a corner hint, and
+ * the layout editor, which must not offer an author a field that will silently
+ * do nothing.
+ */
+fun KeyAction.holdIsSpokenFor(): Boolean = when (this) {
+    KeyAction.Space, KeyAction.Delete, KeyAction.ForwardDelete -> true
+    is KeyAction.BrailleDot -> true
+    else -> false
+}
 
 /**
  * A modifier a [KeyAction.Mod] key latches.

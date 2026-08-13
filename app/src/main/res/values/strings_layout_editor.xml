@@ -185,6 +185,11 @@
     <string name="layout_editor_dot_field_label">Dot number</string>
     <string name="layout_editor_dot_field_hint">1 to 6: dots 1-2-3 down the left column, 4-5-6 down the right</string>
 
+    <!-- Which tool a key opens, shown when the key's action is "Open a tool". -->
+    <string name="layout_editor_tool_row_title">Tool</string>
+    <string name="layout_editor_tool_row_subtitle">The tool this key opens</string>
+    <string name="layout_editor_tool_picker_title">Which tool</string>
+
     <!-- Width of one key, in grid units. %1$.2f is the width, for example 1.50. -->
     <string name="layout_editor_key_width_label">Width <xliff:g id="width" example="1.50">%1$.2f</xliff:g></string>
     <!-- Button that gives the key all the width the row has left.
@@ -217,6 +222,12 @@
     <string name="layout_editor_alternates_field_hint">Separate the entries with spaces, so an alternate cannot be a space. Entries of more than one character, such as .com, are correct. The app also draws the first one in the corner of the key.</string>
     <!-- Small badge on the first alternate, which the keyboard also draws in the corner of the key. -->
     <string name="layout_editor_alternate_hint_badge">hint</string>
+
+    <!-- Popup entries that run something instead of typing a character. -->
+    <string name="layout_editor_action_alternates_label">Actions for press and hold</string>
+    <string name="layout_editor_action_alternates_hint">Extra entries in the same popup that do something instead of typing: Tab, voice typing, the editing pad. Tap one to change it.</string>
+    <string name="layout_editor_action_alternate_add_action">Add an action</string>
+    <string name="layout_editor_action_alternate_remove_desc">Remove this action</string>
 
     <!-- Turns off the small hint in the corner of this one key. -->
     <string name="layout_editor_hide_hint_title">Hide the corner hint</string>
@@ -334,6 +345,8 @@
     <string name="layout_editor_action_morse_dash_title">Morse dash</string>
     <string name="layout_editor_action_morse_dash_detail">Adds a long signal. The letter commits after a pause</string>
 
+    <string name="layout_editor_action_tool_title">Open a tool</string>
+    <string name="layout_editor_action_tool_detail">Opens one of the keyboard tools, such as voice typing or the editing pad. Pick the tool below</string>
     <string name="layout_editor_action_broadcast_title">Broadcast intent</string>
     <!-- Tasker is the name of an automation app. Do not translate it. -->
     <string name="layout_editor_action_broadcast_detail">Sends an Android broadcast for automation apps such as Tasker. Set the action below</string>

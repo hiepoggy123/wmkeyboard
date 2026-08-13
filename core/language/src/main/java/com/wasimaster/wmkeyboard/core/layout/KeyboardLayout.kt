@@ -64,6 +64,15 @@ data class Key(
      */
     val rowSpan: Int = 1,
     val longPress: List<String> = emptyList(),
+    /**
+     * Long-press alternates that run an action instead of typing: Tab, the voice
+     * tool, the editing pad (issue #21). Drawn in the same popup, after the
+     * [longPress] characters, and never the corner hint — the hint is one glyph
+     * and these are mostly icons.
+     *
+     * See [KeyAlternate] for why the two lists stay separate.
+     */
+    val actionAlternates: List<KeyAlternate> = emptyList(),
     /** Clipboard shortcut fired on long press instead of the alternates popup. */
     val clipboardAction: ClipboardKeyAction? = null,
     /** What this key means to field adaptation; null infers it from position. */
@@ -121,6 +130,30 @@ data class Key(
      */
     val labelScale: Float? = null,
 )
+
+/**
+ * Whether a press and hold on this key opens the alternates popup.
+ *
+ * Three things have to agree on the answer: the pointer handler that opens the
+ * popup, the draw that puts the first alternate in the key's corner, and the
+ * layout editor's key sheet, which offers the alternates fields only for a key
+ * that can actually show them. They used to agree by accident — every site
+ * tested `action == Text` — and that is what kept alternates off the enter key
+ * for no reason anyone had chosen (issue #22).
+ *
+ * A clipboard shortcut takes the long press over outright, and the keys that
+ * repeat or chord under a held finger never get one; see [holdIsSpokenFor].
+ */
+fun Key.opensAlternatesPopup(): Boolean =
+    clipboardAction == null &&
+        !action.holdIsSpokenFor() &&
+        (longPress.isNotEmpty() || actionAlternates.isNotEmpty())
+
+/**
+ * Whether this key *could* hold alternates, whether or not it has any — the
+ * question the layout editor asks before drawing the fields that author them.
+ */
+fun Key.canHoldAlternates(): Boolean = clipboardAction == null && !action.holdIsSpokenFor()
 
 /**
  * What a [Key.labelScale] is honoured at.

@@ -380,12 +380,15 @@ import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPhase
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundRole
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.KeyAlternate
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.drawnFontScale
+import com.wasimaster.wmkeyboard.core.layout.drawnLabel
 import com.wasimaster.wmkeyboard.core.layout.drawnLabelScale
 import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
+import com.wasimaster.wmkeyboard.core.layout.opensAlternatesPopup
 import com.wasimaster.wmkeyboard.core.layout.expandNumberRowForTablet
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
 import com.wasimaster.wmkeyboard.core.layout.hasRowSpans
@@ -653,6 +656,13 @@ private fun spokenLabel(key: Key, state: KeyboardUiState): SpokenLabel = when (k
         } else {
             SpokenLabel(text = key.label)
         }
+    // A tool key draws the tool's icon and usually carries no label at all, so
+    // its name is the tool's own — the same words the toolbar speaks.
+    is KeyAction.Tool -> if (key.label.isBlank()) {
+        SpokenLabel(toolLabelRes((key.action as KeyAction.Tool).tool))
+    } else {
+        SpokenLabel(text = key.label)
+    }
     else -> {
         val label = displayLabel(key, state)
         punctuationNames[label]?.let { SpokenLabel(it) } ?: SpokenLabel(text = label)
@@ -11141,37 +11151,21 @@ private fun KeyButton(
         KeyLabel(visual, settings, pressed)
         val popupPosition = rememberAboveAnchorPopup()
 
-        if (showAlternates && key.longPress.isNotEmpty()) {
-            Popup(
-                popupPositionProvider = popupPosition,
-                onDismissRequest = { showAlternates = false },
-            ) {
-                Surface(
-                    shape = kb.popupShape(),
-                    color = kb.popup,
-                    border = kb.popupSurfaceBorder(),
-                    shadowElevation = elevationFor(kb.popupShapeKind, 8.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        for (alternate in key.longPress) {
-                            Text(
-                                text = alternate,
-                                modifier = Modifier
-                                    .clickable {
-                                        showAlternates = false
-                                        onText(alternate)
-                                    }
-                                    .padding(horizontal = 10.dp, vertical = 10.dp),
-                                fontSize = (18 * settings.popup.fontScale).sp,
-                                color = kb.popupText,
-                            )
-                        }
-                    }
-                }
-            }
+        if (showAlternates && key.opensAlternatesPopup()) {
+            AlternatesPopup(
+                key = key,
+                popupPosition = popupPosition,
+                fontScale = settings.popup.fontScale,
+                onDismiss = { showAlternates = false },
+                onText = { text ->
+                    showAlternates = false
+                    onText(text)
+                },
+                onAction = { alternateKey ->
+                    showAlternates = false
+                    onKey(alternateKey)
+                },
+            )
         }
 
         KeyFlickPopup(
@@ -11261,6 +11255,141 @@ private fun KeyButton(
         }
     }
 }
+
+/**
+ * The long-press alternates: the key's characters, then the entries that run an
+ * action rather than typing (issue #21).
+ *
+ * A [FlowRow] rather than the single [Row] this was, because a single row is only
+ * as wide as the screen by luck. A letter key with every accent merged in (the
+ * "All accents on press and hold" setting does exactly that), or an ordinary one
+ * at a raised popup font size, ran off the right-hand edge and took its last few
+ * alternates with it — the popup is positioned by clamping *its* left edge into
+ * the window, so what overflows is unreachable rather than merely ugly (issue
+ * #20). Wrapping keeps every entry on screen and costs a popup that already fits
+ * nothing: a FlowRow of one line measures exactly as the Row did.
+ *
+ * The scroll is a backstop, not the feature. It engages only past
+ * [MaxPopupHeightFraction] of the display — some dozens of entries at the default
+ * size, which no shipped layout comes near — and exists so a pathological popup
+ * is scrollable rather than growing off the top of the screen.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AlternatesPopup(
+    key: Key,
+    popupPosition: PopupPositionProvider,
+    fontScale: Float,
+    onDismiss: () -> Unit,
+    onText: (String) -> Unit,
+    /** An action alternate, as the key the service dispatches for it. */
+    onAction: (Key) -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    val configuration = LocalConfiguration.current
+    // The widest the wrap is allowed to grow: the display, less a margin at each
+    // edge. Measured against the display rather than the keyboard because the
+    // popup is a window of its own — it is free to be wider than a one-handed or
+    // floating board, and stopping it at the board's width would wrap popups
+    // that had room to spare.
+    val maxWidth = (configuration.screenWidthDp - PopupSideMarginDp * 2).dp
+    val maxHeight = (configuration.screenHeightDp * MaxPopupHeightFraction).dp
+    Popup(
+        popupPositionProvider = popupPosition,
+        onDismissRequest = onDismiss,
+    ) {
+        Surface(
+            shape = kb.popupShape(),
+            color = kb.popup,
+            border = kb.popupSurfaceBorder(),
+            shadowElevation = elevationFor(kb.popupShapeKind, 8.dp),
+        ) {
+            FlowRow(
+                modifier = Modifier
+                    .widthIn(max = maxWidth)
+                    .heightIn(max = maxHeight)
+                    .verticalScroll(rememberScrollState())
+                    .padding(4.dp),
+                // A part-full last line sits under the middle of the ones above
+                // it rather than hanging off the left, which is what makes a
+                // wrapped popup read as one block instead of a ragged list.
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                for (alternate in key.longPress) {
+                    Text(
+                        text = alternate,
+                        modifier = Modifier
+                            .clickable { onText(alternate) }
+                            .padding(horizontal = 10.dp, vertical = 10.dp),
+                        fontSize = (18 * fontScale).sp,
+                        color = kb.popupText,
+                    )
+                }
+                for (alternate in key.actionAlternates) {
+                    AlternateAction(alternate, fontScale, kb.popupText) {
+                        onAction(Key(label = alternate.label, action = alternate.action))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One action entry of the alternates popup: the tool's own icon, a named icon,
+ * or the action's glyph — in that order, which is the order that answers "what
+ * will this do" fastest.
+ *
+ * A tool wears the icon it wears on the toolbar, resolved through the slot
+ * registry so an icon pack redresses it here too.
+ */
+@Composable
+private fun AlternateAction(
+    alternate: KeyAlternate,
+    fontScale: Float,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    val action = alternate.action
+    val tool = (action as? KeyAction.Tool)?.tool
+    // Named, so both branches below can speak the entry rather than going silent
+    // on an icon: the label the author gave it, else the tool's own name.
+    val spoken = alternate.label.ifBlank { tool?.let { toolLabel(it) }.orEmpty() }
+    val namedIcon = KeyIcons.byName(alternate.icon)
+    Box(
+        modifier = Modifier
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            namedIcon != null -> Icon(
+                namedIcon,
+                contentDescription = spoken.ifBlank { null },
+                tint = tint,
+                modifier = Modifier.size((20 * fontScale).dp),
+            )
+            tool != null -> SlotIcon(
+                IconSlots.forTool(tool),
+                contentDescription = spoken.ifBlank { null },
+                tint = tint,
+                modifier = Modifier.size((20 * fontScale).dp),
+            )
+            else -> Text(
+                text = alternate.drawnLabel(),
+                fontSize = (18 * fontScale).sp,
+                color = tint,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/** Clearance the alternates popup keeps from each edge of the display. */
+private const val PopupSideMarginDp = 8
+
+/** How much of the display a wrapped alternates popup may fill before it scrolls. */
+private const val MaxPopupHeightFraction = 0.6f
 
 /**
  * The key's label, in a restart scope of its own.
@@ -11614,10 +11743,26 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
             // A key may draw a named icon in place of its glyph; an unknown name
             // resolves to null and falls through to the text label below.
             val mainIcon = KeyIcons.byName(key.icon)
+            // A tool key with no label and no icon of its own wears the icon the
+            // tool wears on the toolbar — through the slot registry, so an icon
+            // pack redresses the key with the tool. A label the author typed wins:
+            // a key that says "Voice" was asked for in words.
+            val toolSlot = (key.action as? KeyAction.Tool)
+                ?.takeIf { mainIcon == null && key.label.isBlank() }
+                ?.let { IconSlots.forTool(it.tool) }
             if (mainIcon != null) {
                 Icon(
                     mainIcon,
                     contentDescription = key.label.ifBlank { key.icon.orEmpty()},
+                    tint = contentColor,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size((22f * fontScale).dp),
+                )
+            } else if (toolSlot != null) {
+                SlotIcon(
+                    toolSlot,
+                    contentDescription = visual.spoken.resolved(),
                     tint = contentColor,
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -11674,10 +11819,15 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                 )
             }
             // Corner hint: a named icon if the key carries one, otherwise the
-            // key's first long-press alternate. Keys whose long press runs a
-            // clipboard shortcut show no character hint — the popup never opens
-            // there — but an explicit icon hint is an authored annotation, so it
-            // stands regardless of the alternates popup.
+            // key's first long-press alternate. The character hint is shown by
+            // whichever keys the popup actually opens on — a clipboard shortcut
+            // takes the long press over, and backspace and the spacebar hold to
+            // repeat, so none of those annotate a popup that never appears. An
+            // explicit icon hint is an authored annotation and stands regardless.
+            //
+            // Enter and the other action keys are in now that they can carry
+            // alternates (issue #22): a key that does something on hold should
+            // say so in the corner, the same as a letter does.
             //
             // Key.hideHint silences both: the author asked this one key for a
             // clean corner while keeping its alternates reachable.
@@ -11693,8 +11843,7 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                         .padding(top = 1.dp, end = 4.dp)
                         .size((11f * fontScale * settings.layoutBehavior.hintFontScale).dp),
                 )
-                settings.longPressHints && key.action == KeyAction.Text &&
-                    key.clipboardAction == null && hint != null -> Text(
+                settings.longPressHints && key.opensAlternatesPopup() && hint != null -> Text(
                     text = hint,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
@@ -12347,7 +12496,7 @@ private fun Modifier.pointerInputKey(
                 onKeyPress()
                 var dir: FlickDirection? = null
                 var longFired = false
-                val longJob = if (key.longPress.isNotEmpty()) {
+                val longJob = if (key.opensAlternatesPopup()) {
                     scope.launch {
                         delay(longPressDelayMs.toLong())
                         if (dir == null) {
@@ -12488,7 +12637,11 @@ private fun Modifier.pointerInputKey(
                                         // on this key; the action fires immediately.
                                         if (hapticOnLongPress) onKeyPress()
                                         key.clipboardAction?.let(onClipboardKey)
-                                    } else if (key.longPress.isNotEmpty()) {
+                                    } else if (key.opensAlternatesPopup()) {
+                                        // Characters, actions, or both: any key with
+                                        // alternates opens the popup, which is what
+                                        // puts them on the enter key (issue #22).
+                                        //
                                         // Tactile cue that the long press registered and the
                                         // finger can be released (alternates are open / the
                                         // long-press action fired). Delete/space skip it:

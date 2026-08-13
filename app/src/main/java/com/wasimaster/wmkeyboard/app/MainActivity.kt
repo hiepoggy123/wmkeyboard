@@ -4025,6 +4025,7 @@ private fun ToolbarHoldSettings(repository: SettingsRepository, settings: Keyboa
             current = holdActions[tool],
             // Every tool but this one: holding a tool to run itself is a slow tap.
             options = ToolbarTool.entries.filter { isSupportedTool(it) && it != tool },
+            noneSubtitle = stringResource(R.string.appearance_toolbar_hold_settings_subtitle),
             onDismiss = { editing = null },
             onPick = { picked ->
                 editing = null
@@ -4037,26 +4038,29 @@ private fun ToolbarHoldSettings(repository: SettingsRepository, settings: Keyboa
 /**
  * Picks one tool out of every tool, or none. Its own dialog rather than a
  * [ChoiceSetting] because the list is forty entries long and has to scroll.
+ *
+ * [noneSubtitle] both words the "None" row and decides whether there is one: the
+ * layout editor picks the tool a key opens, where "no tool" is not a key anyone
+ * would want, so it passes null and the row goes.
  */
 @Composable
-private fun ToolPickerDialog(
+internal fun ToolPickerDialog(
     title: String,
     current: ToolbarTool?,
     options: List<ToolbarTool>,
     onDismiss: () -> Unit,
     onPick: (ToolbarTool?) -> Unit,
+    noneSubtitle: String? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
             LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
-                item {
+                if (noneSubtitle != null) item {
                     WmRow(
                         title = stringResource(CommonR.string.common_none),
-                        supporting = {
-                            CaptionText(stringResource(R.string.appearance_toolbar_hold_settings_subtitle))
-                        },
+                        supporting = { CaptionText(noneSubtitle) },
                         trailing = { RadioButton(selected = current == null, onClick = { onPick(null) }) },
                         onClick = { onPick(null) },
                     )

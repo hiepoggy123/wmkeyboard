@@ -351,6 +351,13 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
 private fun Key.typesNothing(): Boolean =
     action == KeyAction.Text && label.isEmpty() && output.isNullOrEmpty()
 
+/** A popup entry that does something when tapped; see [Key.actionAlternates]. */
+private fun KeyAlternate.isUsable(): Boolean = when (action) {
+    is KeyAction.Unknown -> false
+    KeyAction.Text -> label.isNotEmpty()
+    else -> true
+}
+
 /** Whether this layout is safe to turn on. */
 fun LayoutSpec.canBeEnabled(): Boolean =
     validateLayout(this).none { it.severity == LayoutSeverity.BLOCKING }
@@ -504,6 +511,15 @@ private fun Key.repairKey(label: String, repairs: MutableList<LayoutMessage>): K
     }
     if (fixed.longPress.any { it.isEmpty() }) {
         fixed = fixed.copy(longPress = fixed.longPress.filter { it.isNotEmpty() })
+    }
+    // The same treatment for the action alternates, and quietly for the same
+    // reason: an entry that cannot do anything is a popup button that is visibly
+    // there and silently dead. Unusable means either an action from a newer
+    // build (the popup twin of the Unknown key dropped above) or a Text
+    // alternate with nothing to type — the popup commits an alternate's label,
+    // so a blank one commits nothing.
+    if (fixed.actionAlternates.any { !it.isUsable() }) {
+        fixed = fixed.copy(actionAlternates = fixed.actionAlternates.filter { it.isUsable() })
     }
     return fixed
 }

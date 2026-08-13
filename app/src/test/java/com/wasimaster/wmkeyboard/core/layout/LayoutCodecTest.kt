@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -285,6 +287,114 @@ class LayoutCodecTest {
         val fixed = LayoutCodec.decode(probhat)!!
         assertEquals("bn", fixed.langId)
         assertNull("fixed Bengali keeps the script-default composer", fixed.composer)
+    }
+
+    /**
+     * The popup entries that run an action (issue #21). A tool alternate is the
+     * one that carries a payload, so it is the one worth round-tripping: the
+     * tool has to survive as the tool, not as the enum's first entry.
+     */
+    @Test
+    fun `round trips action alternates`() {
+        val original = spec(
+            listOf(
+                Key(
+                    "⏎",
+                    action = KeyAction.Enter,
+                    actionAlternates = listOf(
+                        KeyAlternate(KeyAction.SendKey(61)),
+                        KeyAlternate(KeyAction.Tool(ToolbarTool.VOICE)),
+                        KeyAlternate(KeyAction.Tool(ToolbarTool.TEXT_EDIT), label = "Edit"),
+                    ),
+                ),
+            ),
+        )
+        val decoded = LayoutCodec.decode(LayoutCodec.encode(original))
+        assertEquals(original, decoded)
+        val key = decoded!!.layers.getValue(LayoutLayer.LETTERS.key).rows[0][0]
+        assertEquals(KeyAction.Tool(ToolbarTool.VOICE), key.actionAlternates[1].action)
+    }
+
+    /**
+     * A tool a newer build knows and this one does not must cost the layout one
+     * popup entry, not the whole file. `coerceInputValues` is what does it — the
+     * same guarantee the role and clipboard-action enums already lean on.
+     */
+    @Test
+    fun `an unknown tool coerces instead of failing the file`() {
+        val json = """
+            {"id":"custom_1","name":"T","langId":"en","version":2,
+             "layers":{"letters":{"rows":[[
+               {"label":"a"},
+               {"label":"⏎","action":{"type":"enter"},
+                "actionAlternates":[{"action":{"type":"tool","tool":"TELEPORT"}}]}
+             ]]}}}
+        """.trimIndent()
+        val decoded = LayoutCodec.decode(json)
+        assertNotNull("an unknown tool must not fail the whole file", decoded)
+        val row = decoded!!.layers.getValue(LayoutLayer.LETTERS.key).rows[0]
+        assertEquals(2, row.size)
+        assertEquals(1, row[1].actionAlternates.size)
+    }
+
+    /**
+     * And an action tag from a newer build inside a popup entry drops to the
+     * same [KeyAction.Unknown] a key's own action does, which is what lets
+     * `repair` recognise it and take the entry out.
+     */
+    @Test
+    fun `an unknown alternate action decodes to Unknown`() {
+        val json = """
+            {"id":"custom_1","name":"T","langId":"en","version":2,
+             "layers":{"letters":{"rows":[[
+               {"label":"a","actionAlternates":[{"action":{"type":"teleport","to":"mars"}}]}
+             ]]}}}
+        """.trimIndent()
+        val decoded = LayoutCodec.decode(json)!!
+        val key = decoded.layers.getValue(LayoutLayer.LETTERS.key).rows[0][0]
+        assertEquals(KeyAction.Unknown("teleport"), key.actionAlternates[0].action)
+        // …and repair takes it out rather than drawing a dead popup button.
+        val repaired = decoded.repair().spec.layers
+            .getValue(LayoutLayer.LETTERS.key).rows[0][0]
+        assertTrue("a dead alternate is dropped", repaired.actionAlternates.isEmpty())
+    }
+
+    /**
+     * The rule the keyboard, the corner hint and the editor all read (issue
+     * #22). Enter used to be excluded by every one of them testing for a text
+     * key; the keys that stay excluded are the ones whose hold is already spent.
+     */
+    @Test
+    fun `every key whose hold is free can open alternates`() {
+        assertTrue(Key("⏎", action = KeyAction.Enter, longPress = listOf("\n")).opensAlternatesPopup())
+        assertTrue(
+            Key("⏎", action = KeyAction.Enter, actionAlternates = listOf(KeyAlternate(KeyAction.SendKey(61))))
+                .opensAlternatesPopup(),
+        )
+        assertTrue(Key("a", longPress = listOf("à")).opensAlternatesPopup())
+
+        assertFalse("nothing to show", Key("a").opensAlternatesPopup())
+        assertFalse(
+            "the hold repeats",
+            Key(" ", action = KeyAction.Space, longPress = listOf("\t")).opensAlternatesPopup(),
+        )
+        assertFalse(
+            "the hold repeats",
+            Key("⌫", action = KeyAction.Delete, longPress = listOf("x")).opensAlternatesPopup(),
+        )
+        assertFalse(
+            "the hold is a chord",
+            Key("1", action = KeyAction.BrailleDot(1), longPress = listOf("x")).opensAlternatesPopup(),
+        )
+        assertFalse(
+            "the shortcut takes the hold",
+            Key("c", longPress = listOf("ç"), clipboardAction = ClipboardKeyAction.COPY)
+                .opensAlternatesPopup(),
+        )
+
+        // The editor asks the other question: not "has any" but "may have".
+        assertTrue(Key("⏎", action = KeyAction.Enter).canHoldAlternates())
+        assertFalse(Key(" ", action = KeyAction.Space).canHoldAlternates())
     }
 
     @Test
