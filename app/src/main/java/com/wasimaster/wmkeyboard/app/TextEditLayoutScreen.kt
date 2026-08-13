@@ -99,7 +99,10 @@ internal fun TextEditLayoutScreen(repository: SettingsRepository) {
         scope.launch { repository.setTextEditLayout(next) }
     }
 
-    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+    // No scroller of its own: SettingsScreen already wraps this content in a
+    // Column(verticalScroll), and a scrollable inside a scrollable is measured
+    // with an infinite maximum height, which Compose refuses outright.
+    Column {
         CaptionText(stringResource(R.string.textedit_layout_intro_body))
         TextEditPreview(
             layout = layout,
