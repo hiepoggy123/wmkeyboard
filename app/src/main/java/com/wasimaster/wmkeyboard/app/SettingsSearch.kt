@@ -441,6 +441,12 @@ private fun Resources.languageRows(): List<SettingsSearchEntry> {
         row(R.string.langemoji_lang_os_switcher_title, R.string.langemoji_lang_os_switcher_subtitle),
         row(R.string.langemoji_lang_app_name_first_title, R.string.langemoji_lang_app_name_first_subtitle),
         row(R.string.langemoji_lang_subtype_enabler_title, R.string.langemoji_lang_subtype_enabler_subtitle),
+        entry(
+            R.string.languages_more_layouts_title,
+            screen = R.string.home_languages_title,
+            route = "languages",
+            keywords = R.string.search_kw_more_layouts,
+        ),
         row(R.string.languages_conjunct_backspace_title),
         row(R.string.languages_fancy_style_row_title, R.string.languages_fancy_style_row_subtitle),
         // The subtitle names the language it is about, so it is a format string

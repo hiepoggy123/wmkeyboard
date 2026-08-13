@@ -75,6 +75,19 @@
     <string name="languages_keyman_prompt_download">Download</string>
     <string name="languages_keyman_prompt_later">Not now</string>
 
+    <!--
+      The way down to a language's converted Keyman layouts. Called "More
+      layouts" and not "Keyman layouts" because the row has to mean something to
+      someone who has never heard of the Keyman project; the description on the
+      page itself is where that name is introduced.
+    -->
+    <string name="languages_more_layouts_title">More layouts</string>
+    <plurals name="languages_more_layouts_subtitle">
+        <item quantity="one">%1$d more layout from the Keyman project</item>
+        <item quantity="other">%1$d more layouts from the Keyman project</item>
+    </plurals>
+    <string name="languages_more_layouts_body">These come from the Keyman project, an open collection of keyboards for languages that rarely get one. Many of them decide what a key types from rules rather than from the character printed on it, and those download a few kilobytes from keyman.com the first time you switch one on.</string>
+
     <string name="languages_clusters_title">Clusters</string>
     <string name="languages_conjunct_backspace_title">Conjunct-aware backspace</string>
     <!-- %1$s is a sample cluster of the script, for example "ক্ষ". -->

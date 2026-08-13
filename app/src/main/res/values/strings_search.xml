@@ -122,6 +122,12 @@
     <string name="search_kw_themes">dark mode, light mode, amoled, colours, wallpaper, background image, custom theme, image blur, opacity, border width, key gap, gradient</string>
     <string name="search_kw_layout">keyboard size, height, resize, one handed, floating, split, number row, padding, position</string>
     <string name="search_kw_languages">keyboard layout, qwerty, locale, script, alphabet, transliteration, add language</string>
+    <!--
+        The More layouts page opens on one language, so like the theme editor its
+        result lands on the list above it. "Keyman" is the word someone who came
+        looking for these will type, and it is not in the row's own title.
+    -->
+    <string name="search_kw_more_layouts">keyman, community layouts, extra layouts, more keyboards, minority language</string>
     <string name="search_kw_emoji">emoticons, smileys, kaomoji, skin tone, stickers, gifs, recent</string>
     <string name="search_kw_expander">snippet, snippets, abbreviation, macro, autotext, text replacement, canned reply, boilerplate, signature, template</string>
     <string name="search_kw_clipboard">copy, paste, cut, clip, clipboard history, pin, pinned, otp, screenshot, sensitive</string>
