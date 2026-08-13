@@ -94,6 +94,59 @@ class LayoutCodecTest {
     }
 
     @Test
+    fun `a layer's own label size overrides the layout's, per layer`() {
+        // The complaint this exists for: one size for the whole layout reached
+        // the symbol page too, so the two could not be set apart.
+        val spec = LayoutSpec(
+            id = "custom_1",
+            name = "Test",
+            langId = "en",
+            appearance = LayoutAppearance(fontScale = 1.4f),
+            layers = mapOf(
+                LayoutLayer.LETTERS.key to LayerSpec(listOf(listOf(Key("a")))),
+                LayoutLayer.SYMBOLS.key to LayerSpec(listOf(listOf(Key("!"))), fontScale = 0.8f),
+            ),
+        )
+        assertEquals(1.4f, spec.compile(LayoutLayer.LETTERS).appearance.drawnFontScale(), 0f)
+        assertEquals(0.8f, spec.compile(LayoutLayer.SYMBOLS).appearance.drawnFontScale(), 0f)
+        // It replaces rather than multiplies. 1.4 × 0.8 would be 1.12, and the
+        // point of the field is that the two layers do not move together.
+        assertEquals(
+            "google:Roboto Mono",
+            spec.copy(appearance = LayoutAppearance("google:Roboto Mono", 1.4f))
+                .compile(LayoutLayer.SYMBOLS).appearance?.fontId,
+        )
+    }
+
+    @Test
+    fun `a layer size works on a layout that sets nothing else`() {
+        val spec = LayoutSpec(
+            id = "custom_2",
+            name = "Test",
+            langId = "en",
+            layers = mapOf(
+                LayoutLayer.LETTERS.key to LayerSpec(listOf(listOf(Key("a"))), fontScale = 0.6f),
+            ),
+        )
+        assertEquals(0.6f, spec.compile(LayoutLayer.LETTERS).appearance.drawnFontScale(), 0f)
+        // A layer it does not define takes the built-in grid and no size at all.
+        assertEquals(1f, spec.compile(LayoutLayer.SYMBOLS).appearance.drawnFontScale(), 0f)
+    }
+
+    @Test
+    fun `round trips a layer's own label size`() {
+        val original = LayoutSpec(
+            id = "custom_3",
+            name = "Test",
+            langId = "en",
+            layers = mapOf(
+                LayoutLayer.LETTERS.key to LayerSpec(listOf(listOf(Key("a"))), fontScale = 1.3f),
+            ),
+        )
+        assertEquals(original, LayoutCodec.decode(LayoutCodec.encode(original)))
+    }
+
+    @Test
     fun `an out-of-range size is clamped at draw time, not stored`() {
         // Both of these come off a file, so neither can be trusted; both are
         // pulled back to the range the renderer honours without the stored

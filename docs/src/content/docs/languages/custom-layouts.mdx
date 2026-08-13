@@ -75,7 +75,9 @@ The layout's font wins over the theme's, and loses to a font you picked for that
 
 **Label size** is a multiplier, not a size. Automatic is the default. Set ×0.8 and every label on this layout is drawn a fifth smaller than it would otherwise be, whatever that turns out to be: your Appearance font size, your accessibility font size and any size the theme sets are all still in effect underneath it. That is the point. A layout that replaced the number would quietly throw away larger type you set on purpose. The range is ×0.5 to ×2.
 
-Both are stored in the layout, so they export with it and they apply only while that layout is the one you're typing on. Switching language switches them back.
+**Label size on this layer** is the same control for one layer, and it sits above the layout-wide one. It **replaces** the layout size rather than stacking on it, which is what keeps the two independent: grow the letters to ×1.4 and the symbol page stays exactly where it was, as long as you give the symbol page a size of its own. Leave it on Automatic (the default on every layer) and the layer follows the layout. Setting it on a layer you haven't edited yet forks that layer's grid into this layout, the same as any other edit to an inherited layer.
+
+All three are stored in the layout, so they export with it and they apply only while that layout is the one you're typing on. Switching language switches them back.
 
 ### Tablet keys
 

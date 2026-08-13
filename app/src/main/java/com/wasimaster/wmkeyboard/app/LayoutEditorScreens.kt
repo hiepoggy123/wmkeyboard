@@ -1451,8 +1451,32 @@ internal fun KeyLayoutEditorScreen(
             )
         }
         item {
+            // Layer-scoped, and it sits above the layout-wide size deliberately:
+            // the layout-wide one reaches every layer, so a symbol page whose
+            // keys are punctuation had no way to stay put while the letters grew.
+            LayoutFontScaleRow(
+                scale = layout.layer(layer)?.fontScale,
+                title = stringResource(
+                    R.string.layout_editor_layer_font_scale_label,
+                    layout.layer(layer)?.fontScale ?: 1f,
+                ),
+                autoTitle = stringResource(R.string.layout_editor_layer_font_scale_auto_label),
+                hint = stringResource(
+                    R.string.layout_editor_layer_font_scale_hint,
+                    stringResource(layerTitleRes(layer)),
+                ),
+                onChange = { value -> editLayerCoalesced { it.copy(fontScale = value) } },
+            )
+        }
+        item {
             LayoutFontScaleRow(
                 scale = layout.appearance?.fontScale,
+                title = stringResource(
+                    R.string.layout_editor_font_scale_label,
+                    layout.appearance?.fontScale ?: 1f,
+                ),
+                autoTitle = stringResource(R.string.layout_editor_font_scale_auto_label),
+                hint = stringResource(R.string.layout_editor_font_scale_hint),
                 // Coalesced: one drag of the slider is one undo step, the same
                 // rule the row-height slider follows.
                 onChange = { value -> editCoalesced { it.withAppearance(fontScale = value) } },
@@ -2727,7 +2751,13 @@ private fun LayoutSpec.withAppearance(
  * things to store: only the first one keeps following the settings.
  */
 @Composable
-private fun LayoutFontScaleRow(scale: Float?, onChange: (Float?) -> Unit) {
+private fun LayoutFontScaleRow(
+    scale: Float?,
+    title: String,
+    autoTitle: String,
+    hint: String,
+    onChange: (Float?) -> Unit,
+) {
     val shown = scale ?: 1f
     val travel = sliderTravel(
         shown,
@@ -2737,15 +2767,11 @@ private fun LayoutFontScaleRow(scale: Float?, onChange: (Float?) -> Unit) {
     )
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         Text(
-            if (scale == null) {
-                stringResource(R.string.layout_editor_font_scale_auto_label)
-            } else {
-                stringResource(R.string.layout_editor_font_scale_label, scale)
-            },
+            if (scale == null) autoTitle else title,
             style = MaterialTheme.typography.bodyLarge,
         )
         Text(
-            stringResource(R.string.layout_editor_font_scale_hint),
+            hint,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

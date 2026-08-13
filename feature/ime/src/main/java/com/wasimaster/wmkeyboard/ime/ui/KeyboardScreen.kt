@@ -159,7 +159,6 @@ import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.sizingValuesFor
 import com.wasimaster.wmkeyboard.core.settings.activeThemeSpec
-import com.wasimaster.wmkeyboard.core.settings.applyLayoutAppearance
 import com.wasimaster.wmkeyboard.core.settings.applyThemeOverrides
 import com.wasimaster.wmkeyboard.core.settings.resolvedFor
 import com.wasimaster.wmkeyboard.core.input.MorseCode
@@ -384,6 +383,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
+import com.wasimaster.wmkeyboard.core.layout.drawnFontScale
 import com.wasimaster.wmkeyboard.core.layout.drawnLabelScale
 import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
 import com.wasimaster.wmkeyboard.core.layout.expandNumberRowForTablet
@@ -946,16 +946,16 @@ fun KeyboardScreen(
     val activeSpec = remember(rawState.settings, darkSlot) {
         rawState.settings.activeThemeSpec(darkSlot)
     }
-    // The layout's own type, which sits outside that chain because it multiplies
-    // rather than replaces — see applyLayoutAppearance. Resolved from the layout
-    // the board is showing, so it follows a language switch without anything
-    // being written to settings.
-    val appearance = remember(rawState.settings.customLayouts, rawState.layoutId) {
-        resolveLayout(rawState.settings.customLayouts, rawState.layoutId).appearance
-    }
-    val settings = remember(rawState.settings, variant, activeSpec, appearance) {
+    val settings = remember(rawState.settings, variant, activeSpec) {
         rawState.settings.applyThemeOverrides(activeSpec).resolvedFor(variant)
-            .applyLayoutAppearance(appearance)
+    }
+    // The layout's own font, which is deliberately NOT part of that chain. The
+    // chain produces one KeyboardSettings for the whole board, and a layout's
+    // type is per grid: its label size is per *layer* on top of that, and rides
+    // the compiled KeyboardLayout down to the keys instead (see keyVisual). Only
+    // the font is layout-wide, so only the font is read here.
+    val layoutFontId = remember(rawState.settings.customLayouts, rawState.layoutId) {
+        resolveLayout(rawState.settings.customLayouts, rawState.layoutId).appearance?.fontId
     }
     // The inline resize tool's live preview. Stored-space values, folded in
     // AFTER the resolve so a drag previews exactly what Done would persist;
@@ -1193,7 +1193,7 @@ fun KeyboardScreen(
     KeyboardThemeProvider(
         settings = state.settings,
         rotationStates = rotationStates,
-        layoutFontId = appearance?.fontId,
+        layoutFontId = layoutFontId,
     ) {
         // The collapsed voice bar takes the whole window over: no keyboard, no
         // strips, just the pill. It outranks floating mode because it is the
@@ -8182,6 +8182,17 @@ internal data class KeyVisual(
     /** A per-key style's own bubble colours; null follows the theme. */
     val popupBackground: Color? = null,
     val popupText: Color? = null,
+    /**
+     * The label-size multiplier the grid this key belongs to asked for: the
+     * layer's own, or the layout's where the layer sets none. 1.0 for every
+     * shipped grid.
+     *
+     * It rides the key rather than the settings because it is per *layer*, and
+     * the settings are resolved once for the whole board — a board-level number
+     * could not have moved when the user pressed `?123`, which was the whole
+     * complaint (issue #18).
+     */
+    val fontScale: Float = 1f,
 )
 
 /**
@@ -8254,7 +8265,13 @@ private sealed interface KeyGridBlock {
  * A plain function rather than a composable so the invariant the whole split
  * rests on — a keystroke changes nothing a key draws — is unit-testable.
  */
-internal fun keyVisual(key: Key, state: KeyboardUiState, palette: KeyPalette): KeyVisual {
+internal fun keyVisual(
+    key: Key,
+    state: KeyboardUiState,
+    palette: KeyPalette,
+    /** The grid's label-size multiplier; see [KeyVisual.fontScale]. */
+    fontScale: Float = 1f,
+): KeyVisual {
     val action = key.action
     // A latched modifier has to look held: it changes what the *next* key does,
     // so with no visible state the user finds out by pressing one.
@@ -8330,6 +8347,7 @@ internal fun keyVisual(key: Key, state: KeyboardUiState, palette: KeyPalette): K
         borderColor = override?.border?.let { Color(it.toInt()) },
         popupBackground = override?.popupBackground?.let { Color(it.toInt()) },
         popupText = override?.popupText?.let { Color(it.toInt()) },
+        fontScale = fontScale,
     )
 }
 
@@ -8400,10 +8418,15 @@ private fun rememberKeyGrid(
         // the session override the strip flips for instant response.
         state.activeFancyStyleId,
     ) {
+        // This layer's label size, or the layout's where the layer sets none —
+        // already resolved into the compiled grid by `compile`. `layout` is
+        // already a key of this remember, so pressing ?123 rebuilds the grid
+        // with the symbol page's own size.
+        val fontScale = layout.appearance.drawnFontScale()
         val digits = extraRow?.let { row ->
             keyRowVisual(
                 row, split, splitGapPercent, row.size.toFloat(),
-                settings.numberRowHeightDp, state, palette,
+                settings.numberRowHeightDp, state, palette, fontScale,
             )
         }
         val heights = bodyRows.indices.map { index ->
@@ -8428,12 +8451,12 @@ private fun rememberKeyGrid(
                 KeyGridBlock.Row(
                     keyRowVisual(
                         bodyRows[band.first], split, splitGapPercent, gridWeight,
-                        heights[band.first], state, palette,
+                        heights[band.first], state, palette, fontScale,
                     ),
                 )
             } else {
                 KeyGridBlock.Band(
-                    keyBandVisual(band, slots, gridWeight, heights, state, palette),
+                    keyBandVisual(band, slots, gridWeight, heights, state, palette, fontScale),
                 )
             }
         }
@@ -8456,13 +8479,14 @@ private fun keyBandVisual(
     heights: List<Int>,
     state: KeyboardUiState,
     palette: KeyPalette,
+    fontScale: Float,
 ): KeyBandVisual {
     val inBand = slots.filter { it.row in band }
     val weight = maxOf(gridWeight, inBand.maxOfOrNull { it.end } ?: 0f)
     return KeyBandVisual(
         slots = inBand.map { slot ->
             KeyBandSlot(
-                visual = keyVisual(slot.key, state, palette),
+                visual = keyVisual(slot.key, state, palette, fontScale),
                 x = slot.x,
                 width = slot.key.width,
                 row = slot.row - band.first,
@@ -8752,13 +8776,14 @@ private fun keyRowVisual(
     heightDp: Int,
     state: KeyboardUiState,
     palette: KeyPalette,
+    fontScale: Float,
 ): KeyRowVisual {
     // Split before resolving: the cut rewrites a straddling spacebar's width and
     // blanks the left half's label, so the halves are the keys to resolve.
     val (left, right) = if (split) splitKeys(row) else row to emptyList()
     return KeyRowVisual(
-        left = left.map { keyVisual(it, state, palette) },
-        right = right.map { keyVisual(it, state, palette) },
+        left = left.map { keyVisual(it, state, palette, fontScale) },
+        right = right.map { keyVisual(it, state, palette, fontScale) },
         sidePad = sidePadFor(row, gridWeight),
         splitGapWeight = gridWeight * splitGapPercent / 100f,
         heightDp = heightDp,
@@ -11485,7 +11510,10 @@ internal fun layoutSwitchLabel(
 @Composable
 private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentColor: Color) {
     val key = visual.key
-    val fontScale = settings.fontScale
+    // The user's own size, then the grid's. Multiplied rather than replaced, so
+    // a layout asking for smaller labels still leaves a larger accessibility
+    // font size in force underneath it instead of silently discarding it.
+    val fontScale = settings.fontScale * visual.fontScale
     when (key.action) {
         // The shift slot and its spoken name both track the live shift state, and
         // [spokenLabel] already words it the way this key wants read out.

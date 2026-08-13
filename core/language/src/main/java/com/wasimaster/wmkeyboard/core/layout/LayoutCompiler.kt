@@ -31,12 +31,33 @@ fun LayoutSpec.compile(layer: LayoutLayer): KeyboardLayout = synchronized(compil
         rowHeights = resolved.rowHeights,
         // From this layout, never from whichever layout the *grid* was inherited
         // from: the appearance belongs to the board the user is typing on, so a
-        // custom letters layer with a borrowed symbols page keeps one type size
+        // custom letters layer with a borrowed symbols page keeps one font
         // across both.
-        appearance = appearance,
+        //
+        // The layer's own label size is folded in here rather than carried
+        // beside the layout's, so everything downstream reads one number and
+        // cannot resolve the pair differently. This is also what makes the
+        // per-layer size work at all: the renderer is handed the compiled grid
+        // for the layer on screen, so the number arrives already correct for it,
+        // and pressing ?123 changes it without anything having to be told.
+        appearance = appearanceFor(resolved),
     )
     compileCache[cacheKey] = this to built
     built
+}
+
+/**
+ * This layout's appearance as it applies to one compiled layer: the layout's
+ * own, with [LayerSpec.fontScale] standing in for its label size where the layer
+ * sets one.
+ *
+ * A layer that sets a size on a layout that sets nothing else still produces an
+ * appearance, so "the layout says nothing" and "this layer says something" are
+ * both expressible.
+ */
+private fun LayoutSpec.appearanceFor(layer: LayerSpec): LayoutAppearance? {
+    val layerScale = layer.fontScale ?: return appearance
+    return (appearance ?: LayoutAppearance()).copy(fontScale = layerScale)
 }
 
 /** The number row this layout shows above [layer], or null to use the default. */

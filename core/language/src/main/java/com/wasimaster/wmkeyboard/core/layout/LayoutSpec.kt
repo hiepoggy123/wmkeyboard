@@ -67,6 +67,21 @@ data class LayerSpec(
      * optional, so it needs no format-version bump.
      */
     val rowHeights: List<Float>? = null,
+    /**
+     * This layer's own label size, replacing the layout's
+     * [LayoutAppearance.fontScale] for the keys on this grid. Null — the normal
+     * case — takes the layout's, which is what the layout-wide control is for.
+     *
+     * It replaces rather than multiplies, and that is the whole point of it: the
+     * layout-wide size reaches every layer, so a symbol page whose keys are
+     * `?123`-sized punctuation had no way to stay put while the letters grew
+     * (issue #18). Replacing makes the two independent; multiplying would only
+     * have moved the coupling one step away.
+     *
+     * Bounded by [LayoutFontScaleRange] at draw time, exactly like the
+     * layout-wide value it stands in for.
+     */
+    val fontScale: Float? = null,
 )
 
 /**
