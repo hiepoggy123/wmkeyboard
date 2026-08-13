@@ -2867,10 +2867,13 @@ private fun TopBar(
                 // plain suggestion never does. The revision chip shares the
                 // slot (they can't coexist: join needs a composing word,
                 // revision needs an empty one) and the same look, for the
-                // same reason — both rewrite committed text on tap.
+                // same reason — both rewrite committed text on tap. So does
+                // the near-miss correction chip, behind both: a confusable the
+                // follower has already proved wrong is better evidence than a
+                // correction that only came close.
                 val join = state.joinSuggestion
                 val revision = state.revisionSuggestion
-                val rewriteChip = join ?: revision
+                val rewriteChip = join ?: revision ?: state.correctionOffer
                 if (rewriteChip != null && suggestionsShowing) {
                     Box(
                         modifier = Modifier

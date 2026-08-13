@@ -21,8 +21,15 @@ class CorrectionStats(private val storageFile: File?) {
 
     enum class Penalty { NONE, PENALIZED, BLOCKED }
 
+    /**
+     * [count] is how many times this exact correction was rejected. [kept] is
+     * progress towards forgiving one of those: a pair the user has since let
+     * stand [KEEPS_TO_FORGIVE] times loses a rejection, because a single bad
+     * fix in a hurry should not sentence the pair for the six months the
+     * expiry clock takes.
+     */
     @Serializable
-    private data class PairStat(val count: Int, val gen: Long)
+    private data class PairStat(val count: Int, val gen: Long, val kept: Int = 0)
 
     @Serializable
     private data class Snapshot(
@@ -48,9 +55,17 @@ class CorrectionStats(private val storageFile: File?) {
         load()
     }
 
-    /** An autocorrect landed in the field. */
-    @Synchronized
-    fun recordFired() {
+    /**
+     * One correction reached its verdict.
+     *
+     * Deliberately not counted when the correction *fires*, which is what this
+     * used to do. At that moment the user has not seen it, so a correction they
+     * went back and fixed by hand counted as a success and quietly told the
+     * adaptive gate that autocorrect was doing better than it was. A verdict
+     * arrives once the text has settled around the correction — see
+     * [CorrectionWatch] — or immediately when the user backspaces it away.
+     */
+    private fun bumpFired() {
         fired++
         // Halving counters: an exponential moving window with no timestamps.
         if (fired >= WINDOW) {
@@ -66,12 +81,43 @@ class CorrectionStats(private val storageFile: File?) {
         val key = key(typed, corrected)
         sessionRejected.add(key)
         val existing = pairs[key]
+        // The accept progress goes with it: a pair being rejected again is not
+        // most of the way to being forgiven.
         pairs[key] = PairStat((existing?.count ?: 0) + 1, generation)
         reverted++
+        bumpFired()
         if (pairs.size > MAX_PAIRS) {
             pairs.remove(pairs.entries.minByOrNull { it.value.gen }?.key)
         }
         dirty = true
+    }
+
+    /**
+     * The user let the correction of [typed] into [corrected] stand.
+     *
+     * Counts towards the global ratio, and towards forgiving this pair if it
+     * carries a rejection. Only pairs already on record are touched: a
+     * correction nobody ever objected to needs no entry, and giving every
+     * accepted correction a slot would evict the rejections this store exists
+     * to remember.
+     */
+    @Synchronized
+    fun recordKept(typed: String, corrected: String) {
+        bumpFired()
+        val key = key(typed, corrected)
+        // A pair rejected in this session stays rejected for it, whatever the
+        // user does afterwards: the block is the promise that the very next
+        // space will not re-correct.
+        if (key in sessionRejected) return
+        val existing = pairs[key] ?: return
+        val kept = existing.kept + 1
+        when {
+            // Not enough accepts yet to buy back a rejection.
+            kept < KEEPS_TO_FORGIVE -> pairs[key] = existing.copy(kept = kept, gen = generation)
+            // Its last rejection is forgiven, so the pair is ordinary again.
+            existing.count <= 1 -> pairs.remove(key)
+            else -> pairs[key] = PairStat(existing.count - 1, generation, kept = 0)
+        }
     }
 
     /** How strongly this exact correction is disfavored. A different
@@ -175,6 +221,17 @@ class CorrectionStats(private val storageFile: File?) {
 
         /** Second persisted revert of the same pair blocks it outright. */
         const val BLOCK_AT = 2
+
+        /**
+         * Accepted uses of a rejected pair that buy back one rejection.
+         *
+         * Three rather than one, because letting a correction stand is much
+         * weaker evidence than reaching for backspace to undo one: people
+         * often simply do not notice. It only reaches BLOCKED pairs through
+         * [expireStalePairs], since a blocked pair never fires and so can
+         * never be accepted.
+         */
+        const val KEEPS_TO_FORGIVE = 3
         const val MAX_PAIRS = 500
         const val EXPIRE_GENERATIONS = 180L
 

@@ -60,6 +60,26 @@ Reverting also counts double towards teaching the original word to your personal
 
 One related behavior is easy to mistake for this toggle. Arming <KeyCap>Shift</KeyCap> live re-cases every chip in the suggestion strip, not only an autocorrect candidate, to match what would actually be committed if you tapped it. Shift is a latch rather than a hold here, so the chips stay re-cased until the shift state clears. That's a strip-wide display rule rather than a way to reject a correction. See [Suggestions & prediction](/smart/suggestions/) for how it works.
 
+## What counts as rejecting a correction
+
+Backspace is the fastest way to reject a correction, but it is not the only one, and for a long time it was the only one the keyboard could see. Fixing a word three words later, selecting it and retyping, or tidying the sentence before sending all rejected the correction just as clearly and taught the keyboard nothing. Worse, they counted as successes, so the adaptive gate read a better record than autocorrect was actually earning and loosened where it should have tightened.
+
+A correction is now judged once the text around it has settled, on the same signals the [personal dictionary](/smart/personal-dictionary/#new-words-wait-their-turn) uses: you close the keyboard, send or clear the field, move to another field, or simply type far enough past it.
+
+- **You never went back into that text.** The correction stands, and counts as accepted.
+- **You did go back into it.** The keyboard reads the field once, at that point only, and looks for which spelling is there now. Your original word standing where the fix was is a rejection, exactly as though you had backspaced. The corrected word still there is an accept.
+- **Neither is there, or the text is gone.** No verdict at all. Deleting the sentence, or sending a message before anything could be checked, teaches nothing rather than something invented.
+
+The read only ever happens at one of those settling points, never while you are typing.
+
+## Corrections it offers instead of applying
+
+Applying a correction and offering one are not the same question. Applying has to be nearly certain, because being wrong rewrites what you wrote and you may not notice. Offering costs you a chip you can ignore. So everything that came close to the bar without clearing it, which used to be discarded silently, is now offered as a chip at the start of the suggestion strip instead. Tap it to apply the fix; carry on typing and it goes away.
+
+The bar for a chip is about a third of the bar for a silent replacement, and it moves with every knob above it: raise the confidence slider and both go up together. A correction you have already rejected once is never offered, because being asked twice is worse than not being helped. Turn the chips off with **Offer corrections it isn't sure about** under <SettingsPath path="Typing / Suggestions" />.
+
+Tapping the chip is itself evidence that the gate is too tight for that pair, so it feeds back the same way an accepted correction does. Backspace undoes it like any other correction.
+
 ## Auto-space and punctuation
 
 Two related rules ride along with autocorrect and share its "sentence in progress" bookkeeping. Each has its own toggle:
@@ -111,7 +131,7 @@ The **Autocorrect** toggle is the master switch for the eleven rows marked "Auto
 
 Three more rows change what autocorrect does without you touching the slider:
 
-- **Adaptive confidence** (on) watches how often you undo corrections and raises the bar when you undo a lot. It stays out of the way until it has seen twenty corrections fire, and it can move the gate anywhere from 0.85&times; the slider (a spotless record) up to 2.5&times; it, with the result always held inside the slider's own 1.5&times;&ndash;10&times; range. It also remembers each correction you reverted: one you've undone once fights uphill from then on, and one you've undone twice never fires again. Undoing a correction also blocks that exact pair for the rest of the session, whatever the counts on disk say.
+- **Adaptive confidence** (on) watches how often corrections get rejected and raises the bar when a lot of them do. It stays out of the way until twenty corrections have been judged, and it can move the gate anywhere from 0.85&times; the slider (a spotless record) up to 2.5&times; it, with the result always held inside the slider's own 1.5&times;&ndash;10&times; range. It also remembers each correction you rejected: one rejected once fights uphill from then on, and one rejected twice never fires again. Undoing a correction blocks that exact pair for the rest of the session too, whatever the counts on disk say. Corrections you let stand count as well, and three of them buy back one rejection, so a pair you undid in a hurry is not sentenced for the six months the expiry clock takes. See [What counts as rejecting a correction](#what-counts-as-rejecting-a-correction).
 - **Typing rhythm** (0%, so off until you move it) measures how fast you typed the word. A quick sloppy burst makes autocorrect a bit braver. Slow deliberate typing, as with an unusual name or a word from another language, makes it hold back. The slider is how much the rhythm is allowed to sway things.
 - **Detection strength** decides how hard the language the keyboard reads the field as leans on ranking, from a light nudge at Gentle through Balanced to a heavy tilt at Aggressive. It reweights the word lists rather than moving the confidence gate, so it changes *which* word autocorrect reaches for, not how sure it has to be. See [Mixed-language typing](/smart/mixed-language/).
 

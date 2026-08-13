@@ -49,7 +49,7 @@ class CorrectionStatsTest {
         // 181 dirty save-generations with unrelated activity age the pair out.
         repeat(181) {
             CorrectionStats(f).apply {
-                recordFired()
+                recordKept("unrelated", "activity")
                 save()
             }
         }
@@ -61,29 +61,23 @@ class CorrectionStatsTest {
         val stats = CorrectionStats(null)
         assertEquals(1.0, stats.confidenceMultiplier(), 1e-9)
         // Below the sample floor nothing moves.
-        repeat(10) { stats.recordFired() }
+        repeat(10) { stats.recordKept("clean$it", "fix$it") }
         assertEquals(1.0, stats.confidenceMultiplier(), 1e-9)
         // A very bad run rails at the ceiling.
-        repeat(30) {
-            stats.recordFired()
-            stats.recordRevert("w$it", "f$it")
-        }
+        repeat(30) { stats.recordRevert("w$it", "f$it") }
         assertEquals(2.5, stats.confidenceMultiplier(), 1e-9)
         // A long clean run drifts down and rails at the floor.
-        repeat(400) { stats.recordFired() }
+        repeat(400) { stats.recordKept("clean$it", "fix$it") }
         assertTrue(stats.confidenceMultiplier() in 0.85..1.0)
     }
 
     @Test
     fun halvingWindowForgetsAncientHistory() {
         val stats = CorrectionStats(null)
-        repeat(30) {
-            stats.recordFired()
-            stats.recordRevert("w$it", "f$it")
-        }
+        repeat(30) { stats.recordRevert("w$it", "f$it") }
         assertEquals(2.5, stats.confidenceMultiplier(), 1e-9)
         // Hundreds of clean corrections later the old reverts stop dominating.
-        repeat(600) { stats.recordFired() }
+        repeat(600) { stats.recordKept("clean$it", "fix$it") }
         assertTrue(stats.confidenceMultiplier() < 1.5)
     }
 
@@ -104,6 +98,79 @@ class CorrectionStatsTest {
         stats.save()
         stats.clear()
         assertEquals(Penalty.NONE, CorrectionStats(f).penalty("teh", "the"))
+    }
+
+    @Test
+    fun acceptsBuyBackARejectedPair() {
+        val f = file()
+        CorrectionStats(f).apply {
+            recordRevert("teh", "the")
+            save()
+        }
+        val next = CorrectionStats(f)
+        assertEquals(Penalty.PENALIZED, next.penalty("teh", "the"))
+        repeat(2) { next.recordKept("teh", "the") }
+        assertEquals(Penalty.PENALIZED, next.penalty("teh", "the"))
+        next.recordKept("teh", "the")
+        assertEquals(Penalty.NONE, next.penalty("teh", "the"))
+    }
+
+    @Test
+    fun twiceRejectedPairNeedsTwiceAsManyAccepts() {
+        val f = file()
+        repeat(2) {
+            CorrectionStats(f).apply {
+                recordRevert("teh", "the")
+                save()
+            }
+        }
+        val next = CorrectionStats(f)
+        assertEquals(Penalty.BLOCKED, next.penalty("teh", "the"))
+        repeat(3) { next.recordKept("teh", "the") }
+        assertEquals(Penalty.PENALIZED, next.penalty("teh", "the"))
+        repeat(3) { next.recordKept("teh", "the") }
+        assertEquals(Penalty.NONE, next.penalty("teh", "the"))
+    }
+
+    @Test
+    fun acceptProgressSurvivesASave() {
+        val f = file()
+        CorrectionStats(f).apply {
+            recordRevert("teh", "the")
+            save()
+        }
+        CorrectionStats(f).apply {
+            repeat(2) { recordKept("teh", "the") }
+            save()
+        }
+        val third = CorrectionStats(f)
+        third.recordKept("teh", "the")
+        assertEquals(Penalty.NONE, third.penalty("teh", "the"))
+    }
+
+    @Test
+    fun acceptsNeverUnblockWithinTheSessionThatRejected() {
+        val stats = CorrectionStats(null)
+        stats.recordRevert("teh", "the")
+        repeat(5) { stats.recordKept("teh", "the") }
+        assertEquals(Penalty.BLOCKED, stats.penalty("teh", "the"))
+    }
+
+    @Test
+    fun acceptsNeverCreateAPair() {
+        val stats = CorrectionStats(null)
+        repeat(10) { stats.recordKept("teh", "the") }
+        assertEquals(Penalty.NONE, stats.penalty("teh", "the"))
+    }
+
+    @Test
+    fun acceptsAndRejectsBothCountTowardsTheRatio() {
+        val stats = CorrectionStats(null)
+        // Ten accepted and ten rejected is a 50% revert rate, well past the
+        // 3% the gate aims for, so it rails at the ceiling.
+        repeat(10) { stats.recordKept("k$it", "f$it") }
+        repeat(10) { stats.recordRevert("w$it", "f$it") }
+        assertEquals(2.5, stats.confidenceMultiplier(), 1e-9)
     }
 
     @Test

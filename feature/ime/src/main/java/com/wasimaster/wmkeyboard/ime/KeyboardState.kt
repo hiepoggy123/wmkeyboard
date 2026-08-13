@@ -1135,6 +1135,13 @@ data class KeyboardUiState(
      * committed word; nothing applies on its own.
      */
     val revisionSuggestion: String? = null,
+    /**
+     * A correction that came close to firing on the word just committed, but
+     * not close enough to apply behind the user's back. Offered on the same
+     * rewrite-chip slot as [joinSuggestion] and [revisionSuggestion]; null
+     * whenever the last commit had no near miss, or the chip is switched off.
+     */
+    val correctionOffer: String? = null,
     /** Spacing form of the dead-key accent waiting for a letter, if any. */
     val pendingDeadKey: String? = null,
     /**

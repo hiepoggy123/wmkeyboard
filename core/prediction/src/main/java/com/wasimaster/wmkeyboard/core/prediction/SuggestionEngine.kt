@@ -960,6 +960,9 @@ class SuggestionEngine(
         const val MIN_AUTOCORRECT_CONFIDENCE = 1.5
         const val MAX_AUTOCORRECT_CONFIDENCE = 10.0
 
+        /** Nothing to do: neither applied nor offered. */
+        val NO_CORRECTION = CorrectionDecision()
+
         /**
          * A Bengali phonetic sibling only outranks the literal
          * transliteration (which is what the composing preview shows) when
@@ -982,6 +985,21 @@ class SuggestionEngine(
          * confidence, while a lone two-edit hit on a rare word does not.
          */
         private const val SOLO_RUNNER_UP_SCORE = 1.0
+
+        /**
+         * Share of the silent-replacement margin a candidate has to clear to
+         * be *offered* instead.
+         *
+         * Well under half, because the two decisions are not the same
+         * question. Applying a correction has to be nearly certain, since
+         * being wrong rewrites what somebody wrote and they may not notice.
+         * Offering one costs a chip they can ignore, so it is worth doing on
+         * much weaker evidence — everything in this band used to be discarded
+         * silently. It is a fraction of the *effective* margin rather than a
+         * constant so that every knob above it (the confidence slider, the
+         * adaptive multiplier, typing rhythm) moves this bar with it.
+         */
+        const val OFFER_MARGIN_FRACTION = 0.35
 
         /** Shape of the learned-bigram context boost on completions. */
         private const val CONTEXT_BIGRAM_BETA = 0.5
@@ -1438,15 +1456,38 @@ class SuggestionEngine(
     }
 
     /**
-     * The correction [word] should be silently replaced with on commit, or
-     * null when it should be left alone.
+     * What should happen to a word on commit.
      *
-     * Null when the word is known (a known word — bundled, imported or
-     * learned — is never corrected away), or when no candidate is
-     * confident: a candidate wins outright only if the dictionaries and
-     * the user's lexicon independently agree on
-     * it, or its score beats the runner-up by [autocorrectConfidence].
-     * Anything closer stays in the suggestion strip for the user to pick.
+     * [apply] is a silent replacement, the only outcome autocorrect had before.
+     * [offer] is a candidate that came close to that bar without clearing it,
+     * for the caller to put on the strip as a chip. The two are never both set:
+     * a correction confident enough to apply is not also asked about.
+     *
+     * An offer costs a wrong guess nothing, which is the point. The silent
+     * gate has to be conservative because getting it wrong rewrites what
+     * somebody wrote, so everything just short of it used to be thrown away.
+     */
+    data class CorrectionDecision(val apply: String? = null, val offer: String? = null)
+
+    /**
+     * The correction [word] should be silently replaced with on commit, or
+     * null when it should be left alone. [decideCorrection] without the offer.
+     */
+    fun shouldAutocorrect(
+        word: String,
+        touch: List<TouchPoint?>? = null,
+        timingMultiplier: Double = 1.0,
+    ): String? = decideCorrection(word, touch, timingMultiplier).apply
+
+    /**
+     * What to do with [word], which a space or enter is about to commit.
+     *
+     * Nothing at all when the word is known (a known word — bundled, imported
+     * or learned — is never corrected away). Otherwise a candidate is applied
+     * only if the dictionaries and the user's lexicon independently agree on
+     * it, or its score beats the runner-up by [autocorrectConfidence]. A
+     * candidate that clears [OFFER_MARGIN_FRACTION] of that same margin
+     * without reaching it is offered instead.
      *
      * @param word the composing word a space or enter is about to commit
      * @param touch per-character tap positions, as in [suggest]
@@ -1456,26 +1497,26 @@ class SuggestionEngine(
      *        1.0 — the default, and always when the setting is off — keeps
      *        the gate exactly at the slider value.
      */
-    fun shouldAutocorrect(
+    fun decideCorrection(
         word: String,
         touch: List<TouchPoint?>? = null,
         timingMultiplier: Double = 1.0,
-    ): String? {
+    ): CorrectionDecision {
         val lower = word.lowercase()
-        if (lower.length < 3) return null
+        if (lower.length < 3) return NO_CORRECTION
         // An all-caps word is a deliberate acronym or shout, not a typo of a
         // lowercase word — don't "correct" it away when the user asked us not to.
-        if (skipAllCapsAutocorrect && isAllCaps(word)) return null
+        if (skipAllCapsAutocorrect && isAllCaps(word)) return NO_CORRECTION
         if (inDictionaries(lower) || userLexicon.isEstablished(lower, learnedWordMinCount)) {
-            return null
+            return NO_CORRECTION
         }
         // Contact and app names are known words too — never "corrected" away.
-        if (contacts.contains(lower) || apps.contains(lower)) return null
+        if (contacts.contains(lower) || apps.contains(lower)) return NO_CORRECTION
         // Digits: exactly one digit may be a number-row slip (when the IME
         // buffers those); anything more digit-heavy is deliberate input —
         // codes, model numbers — and is never rewritten.
         val digits = lower.count { it.isDigit() }
-        if (digits > 0 && (!digitSlipCorrections || digits > 1)) return null
+        if (digits > 0 && (!digitSlipCorrections || digits > 1)) return NO_CORRECTION
 
         // The walk ranks WALK_K deep for the strip's context boosts, but the
         // silent-replacement decision stays on the same top-8 it has always
@@ -1556,7 +1597,7 @@ class SuggestionEngine(
             }
         }
         if (bestDict != null && bestUser != null && bestDict == bestUser) {
-            return matchCase(word, bestDict)
+            return CorrectionDecision(apply = matchCase(word, bestDict))
         }
 
         val effectiveConfidence = (
@@ -1565,23 +1606,41 @@ class SuggestionEngine(
                 timingMultiplier
             ).coerceIn(MIN_AUTOCORRECT_CONFIDENCE, MAX_AUTOCORRECT_CONFIDENCE)
         val top = candidates.firstOrNull()
+        // With no runner-up, a synthetic floor stands in: an unopposed but weak
+        // candidate (rare word reached by an expensive edit) must not fire just
+        // because nothing else was nearby.
+        val margin = if (top == null) {
+            Double.NEGATIVE_INFINITY
+        } else {
+            top.score - (candidates.getOrNull(1)?.score ?: SOLO_RUNNER_UP_SCORE)
+        }
+        // A candidate the user has already rejected once. It still ranks, but
+        // it neither fires nor gets asked about: being told twice is worse
+        // than not being helped.
+        val penalized = top != null &&
+            correctionStats.penalty(lower, top.word) != CorrectionStats.Penalty.NONE
         val single = when {
             top == null -> null
             // A penalized candidate with no competition stays a suggestion:
             // the user already told us once that this exact fix was wrong.
-            candidates.size == 1 && correctionStats.penalty(lower, top.word) !=
-                CorrectionStats.Penalty.NONE -> null
-            // With no runner-up, a synthetic floor stands in: an unopposed
-            // but weak candidate (rare word reached by an expensive edit)
-            // must not fire just because nothing else was nearby.
-            top.score - (candidates.getOrNull(1)?.score ?: SOLO_RUNNER_UP_SCORE) <
-                ln(effectiveConfidence) -> null
+            candidates.size == 1 && penalized -> null
+            margin < ln(effectiveConfidence) -> null
             else -> top.word
         }
-        if (single != null) return matchCase(word, single)
+        if (single != null) return CorrectionDecision(apply = matchCase(word, single))
         // No single word explains the typed string; a missing space might.
-        val split = splitCorrection(lower, top?.score, effectiveConfidence) ?: return null
-        return matchCase(word, split)
+        splitCorrection(lower, top?.score, effectiveConfidence)?.let {
+            return CorrectionDecision(apply = matchCase(word, it))
+        }
+        // Nothing was confident enough to apply. Something may still be worth
+        // asking about: this is where a correction that was probably right
+        // used to be dropped on the floor because "probably" is not enough to
+        // rewrite somebody's word behind their back.
+        val offer = top
+            ?.takeUnless { penalized }
+            ?.takeIf { margin >= ln(effectiveConfidence) * OFFER_MARGIN_FRACTION }
+            ?.word
+        return CorrectionDecision(offer = offer?.let { matchCase(word, it) })
     }
 
     /**

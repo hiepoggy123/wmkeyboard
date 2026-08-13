@@ -3131,6 +3131,15 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
+                R.string.typing_offer_near_miss_title,
+                stringResource(R.string.typing_offer_near_miss_subtitle),
+                settings.suggestionStrip.offerNearMissCorrections,
+                info = stringResource(R.string.typing_offer_near_miss_info),
+                default = SettingsDefaults.suggestionStrip.offerNearMissCorrections,
+            ) { scope.launch { repository.setOfferNearMissCorrections(it) } }
+        }
+        item {
+            ToggleSetting(
                 R.string.typing_ask_before_learning_title,
                 stringResource(R.string.typing_ask_before_learning_subtitle),
                 settings.suggestionStrip.askBeforeLearning,

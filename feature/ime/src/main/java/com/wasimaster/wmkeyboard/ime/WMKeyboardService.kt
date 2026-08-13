@@ -130,6 +130,7 @@ import com.wasimaster.wmkeyboard.core.prediction.Register
 import com.wasimaster.wmkeyboard.core.prediction.RevisionAdvisor
 import com.wasimaster.wmkeyboard.core.prediction.CandidateReranker
 import com.wasimaster.wmkeyboard.core.prediction.CorrectionStats
+import com.wasimaster.wmkeyboard.core.prediction.CorrectionWatch
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackDownloadManager
 import com.wasimaster.wmkeyboard.core.prediction.NgramPack
 import com.wasimaster.wmkeyboard.core.prediction.NgramReranker
@@ -444,6 +445,12 @@ open class WMKeyboardService : InputMethodService() {
      * counted yet: the user may still go back and fix any of it.
      */
     private val learningBuffer = LearningBuffer()
+
+    /**
+     * Autocorrects that have fired in this field and are waiting to be judged
+     * against the text they landed in.
+     */
+    private val correctionWatch = CorrectionWatch()
 
     /**
      * The word the "add to dictionary?" chip is currently asking about, when
@@ -879,7 +886,25 @@ open class WMKeyboardService : InputMethodService() {
         val bengaliTop: String?,
         /** English autocorrect target, or null when the word stands as typed. */
         val correction: String?,
+        /** Near miss: not applied, but worth a chip. See [correctionOffer]. */
+        val offer: String? = null,
     )
+
+    /**
+     * The word the correction chip is offering, and the word it would replace.
+     *
+     * Held beside [KeyboardUiState.correctionOffer] the way [revisionContext]
+     * is held beside its chip: the strip needs the replacement to draw, and the
+     * tap needs the original to find the span in the field.
+     */
+    private var correctionOfferFor: String? = null
+
+    /**
+     * The offer waiting to be published by the next strip refresh, which is
+     * where every other chip on that row is decided. Set at the commit, since
+     * that is the only moment the decision exists.
+     */
+    private var pendingCorrectionOffer: String? = null
 
     /**
      * The last commit one backspace can take back. Any other input clears it.
@@ -2883,9 +2908,12 @@ open class WMKeyboardService : InputMethodService() {
             // The last field's text is behind us and nobody is going back to
             // edit it, so the unknown words still waiting in it have settled.
             // This is also how a message field that was *sent* gets counted
-            // when the app restarts input instead of clearing the text.
-            flushLearningBuffer()
+            // when the app restarts input instead of clearing the text. No
+            // correction verification: the editor answering reads is this new
+            // field, and its text says nothing about the old one's.
+            flushLearningBuffer(verifyCorrections = false)
             clearLearnOffer()
+            clearCorrectionOffer()
             // A genuinely different field. Whatever a plugin was collecting
             // belonged to the last one, and the keys belong to this one.
             stopPlugins()
@@ -3511,6 +3539,7 @@ open class WMKeyboardService : InputMethodService() {
         // there is, and the one the request for this asked for by name. Before
         // the saves, so anything it promotes lands in the same write.
         clearLearnOffer()
+        clearCorrectionOffer()
         flushLearningBuffer()
         userLexicon.save()
         pendingLearn.save()
@@ -4989,8 +5018,11 @@ open class WMKeyboardService : InputMethodService() {
 
     private fun onDelete() {
         // Backspace is the answer "no" to an add-word chip: the user is taking
-        // the word back rather than keeping it, so the offer goes with it.
+        // the word back rather than keeping it, so the offer goes with it. The
+        // near-miss chip goes for the plainer reason that the word it is about
+        // is being deleted.
         if (learnOfferWord != null) clearLearnOffer()
+        if (correctionOfferFor != null) clearCorrectionOffer()
         // Backspace with a morse sequence pending edits the sequence, not the
         // field — Gboard's contract. It only falls through to a real delete
         // once the sequence is empty.
@@ -5241,6 +5273,9 @@ open class WMKeyboardService : InputMethodService() {
                 // a rejection has to hold in incognito and with learning off
                 // too. Other corrections of the same typed word stay live.
                 suggestionEngine?.rejectCorrection(revert.original, revert.committed)
+                // Judged here and now, so the settle pass must not judge it
+                // again on the way out and count the rejection twice.
+                correctionWatch.drop(revert.original, revert.committed)
                 if (state.settings.learnFromTyping &&
                     !(state.incognitoOn && state.settings.incognitoPausesLearning) &&
                     !state.secureField
@@ -6609,6 +6644,9 @@ open class WMKeyboardService : InputMethodService() {
         // Either way the result is fresh — the commit never uses a stale strip.
         val pre = commitResolution?.takeIf { it.typed == typed }
         var corrected: String? = null
+        // A candidate that came close to being applied without getting there.
+        // Published as a chip below, once the word is actually in the field.
+        var offered: String? = null
         val output = when {
             state.composer.isBengaliPhonetic ->
                 (if (pre != null && pre.isBengali) pre.bengaliTop
@@ -6619,23 +6657,35 @@ open class WMKeyboardService : InputMethodService() {
             state.composer.isTransliterating -> state.composer.composeBuffer(typed)
             apostrophized != null -> apostrophized
             autocorrect && state.allowsTypingIntelligence && !gluedToWord -> {
-                corrected = if (pre != null && !pre.isBengali) pre.correction
-                else suggestionEngine?.shouldAutocorrect(
-                    typed, touch = composingTouchFrame(), timingMultiplier = timingMultiplier(),
-                )
-                    ?.takeIf { it != typed }
+                val decision = if (pre != null && !pre.isBengali) {
+                    SuggestionEngine.CorrectionDecision(pre.correction, pre.offer)
+                } else {
+                    suggestionEngine?.decideCorrection(
+                        typed, touch = composingTouchFrame(), timingMultiplier = timingMultiplier(),
+                    ) ?: SuggestionEngine.NO_CORRECTION
+                }
+                corrected = decision.apply?.takeIf { it != typed }
+                offered = decision.offer?.takeIf { it != typed }
                 corrected ?: typed
             }
             else -> typed
         }
-        lastRevertible = corrected?.let {
+        val revertible = corrected?.let {
             RevertibleCommit(RevertibleCommit.Kind.AUTOCORRECT, original = typed, committed = it)
         }
-        if (lastRevertible != null) {
-            // The adaptive gate learns from the fired/reverted ratio.
-            correctionStats.recordFired()
+        lastRevertible = revertible
+        if (revertible != null) {
+            // The adaptive gate learns from the fired/reverted ratio, but not
+            // yet: firing is not a verdict. The correction waits in the watch
+            // until the text around it settles, and is counted then.
+            judgeCorrections(correctionWatch.push(revertible.original, revertible.committed))
             armRevertGuard()
         }
+        // Armed before the commit lands so the strip refresh that follows it
+        // publishes the chip; cleared here too, so a commit with no near miss
+        // takes the previous word's offer down with it.
+        correctionOfferFor = offered?.let { typed }
+        pendingCorrectionOffer = offered
         ic.commitText(output, 1)
         // An autocorrected word was the engine's choice, not the user's —
         // it earns no personal-dictionary reinforcement, only the bigram.
@@ -7427,6 +7477,14 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun onRevisionSuggestionTapped() {
         val state = _uiState.value
+        // The near-miss chip shares this slot and this callback, the way the
+        // join chip does, and is picked apart by state here rather than by
+        // another [ui.KeyboardScreen] parameter — that argument list already
+        // compiles to a method at the JVM's 64K ceiling.
+        if (state.revisionSuggestion == null && state.correctionOffer != null) {
+            applyCorrectionOffer()
+            return
+        }
         val replacement = state.revisionSuggestion ?: return
         val (wrong, follower) = revisionContext ?: return
         if (composing.isNotEmpty()) return
@@ -7476,6 +7534,80 @@ open class WMKeyboardService : InputMethodService() {
         }
         revisionContext = null
         _uiState.update { it.copy(revisionSuggestion = null) }
+    }
+
+    /**
+     * The near-miss chip: put the correction that did not quite fire into the
+     * field after all, over the word the user typed.
+     *
+     * Verified against the field before anything is edited, like every other
+     * chip that rewrites committed text: the offer is derived state, a frame
+     * behind the keystrokes, so a tap can land just after the word it was
+     * about stopped being there. The word is followed by whatever key
+     * committed it, which is read back and put down again verbatim rather than
+     * guessed at.
+     *
+     * Tapping is also a statement about the correction, so the result joins
+     * the watch and reaches the adaptive gate as an accept once it settles —
+     * evidence that the gate was too tight for this pair.
+     */
+    private fun applyCorrectionOffer() {
+        val replacement = _uiState.value.correctionOffer ?: return
+        val typed = correctionOfferFor ?: return
+        if (composing.isNotEmpty()) return
+        val ic = currentInputConnection ?: return
+        vibrate()
+        ic.beginBatchEdit()
+        try {
+            ic.finishComposingText()
+            val window = ic.getTextBeforeCursor(typed.length + CORRECTION_OFFER_TAIL, 0)
+                ?.toString() ?: return
+            val trailing = window.takeLastWhile { !WordContext.isWordChar(it) }
+            if (trailing.length > CORRECTION_OFFER_TAIL) return
+            val core = window.dropLast(trailing.length)
+            if (!core.endsWith(typed, ignoreCase = true)) return
+            // Word boundary: the chip is about a whole word, not a tail of a
+            // longer one the user has since typed into.
+            if (core.length > typed.length &&
+                WordContext.isWordChar(core[core.length - typed.length - 1])
+            ) {
+                return
+            }
+            val typedActual = core.takeLast(typed.length)
+            val display = if (typedActual.firstOrNull()?.isUpperCase() == true) {
+                replacement.replaceFirstChar { it.uppercase() }
+            } else {
+                replacement
+            }
+            val original = typedActual + trailing
+            val committed = display + trailing
+            ic.deleteSurroundingText(original.length, 0)
+            ic.commitText(committed, 1)
+            previousWord = display.lowercase()
+            lastRevertible = RevertibleCommit(
+                RevertibleCommit.Kind.AUTOCORRECT, original = original, committed = committed,
+            )
+            armRevertGuard()
+            invalidateRecentWords()
+            invalidateExpectedSelection()
+            // Watched from here on like any correction that fired on its own,
+            // rather than credited outright: the user has accepted the offer,
+            // not yet the result, and backspacing it away a second later is a
+            // rejection like any other.
+            judgeCorrections(correctionWatch.push(typed, replacement))
+        } finally {
+            ic.endBatchEdit()
+        }
+        clearCorrectionOffer()
+    }
+
+    /** Takes the near-miss chip down, answered or not. */
+    private fun clearCorrectionOffer() {
+        pendingCorrectionOffer = null
+        correctionOfferFor = null
+        if (_uiState.value.correctionOffer != null) {
+            _uiState.update { it.copy(correctionOffer = null) }
+        }
     }
 
     /** Leading capital carries over from either original part. */
@@ -7714,9 +7846,92 @@ open class WMKeyboardService : InputMethodService() {
         if (seen >= threshold) promoteLearned(cleaned, state.language.id, seen)
     }
 
-    /** The text stopped moving: everything still queued has settled. */
-    private fun flushLearningBuffer() {
+    /**
+     * The text stopped moving: everything still queued has settled.
+     *
+     * [verifyCorrections] is false where the field this all belongs to is no
+     * longer the one the keyboard is attached to. Reading text then would
+     * judge these corrections against somebody else's text, so the ones that
+     * needed a read simply go unjudged.
+     */
+    private fun flushLearningBuffer(verifyCorrections: Boolean = true) {
         settleLearned(learningBuffer.drain())
+        judgeCorrections(correctionWatch.drain(), verify = verifyCorrections)
+    }
+
+    /**
+     * Delivers the verdict on corrections whose text has settled.
+     *
+     * An entry the caret never went back in front of is an accept, and needs
+     * no evidence beyond that: the user typed straight past it. One the caret
+     * *did* go back in front of is only a suspect, because going back covers
+     * everything from rewriting that word to adding a comma three words
+     * earlier. Those are settled by reading the field once and asking which
+     * spelling is standing there now.
+     *
+     * Anything the read cannot answer is dropped rather than guessed. That
+     * covers the word being deleted outright, the correction having scrolled
+     * out of the window, and a message field that was sent (the text is gone
+     * by then, so there is nothing left to check). A missing verdict costs the
+     * adaptive gate one sample; a wrong one teaches it something false.
+     */
+    private fun judgeCorrections(entries: List<CorrectionWatch.Entry>, verify: Boolean = true) {
+        if (entries.isEmpty()) return
+        val undisturbed = entries.filterNot { it.disturbed }
+        for (entry in undisturbed) correctionStats.recordKept(entry.typed, entry.corrected)
+        val suspects = entries.filter { it.disturbed }
+        if (suspects.isEmpty() || !verify) return
+        val window = correctionJudgementWindow() ?: return
+        for (entry in suspects) {
+            val kept = containsWord(window, entry.corrected)
+            val undone = containsWord(window, entry.typed)
+            when {
+                // Both readings present somewhere in the window: the user has
+                // used each word, and nothing here says which one replaced
+                // this correction. No verdict.
+                kept && undone -> Unit
+                kept -> correctionStats.recordKept(entry.typed, entry.corrected)
+                // What the user typed is standing where the fix was. This is
+                // the case the immediate-backspace path could never see.
+                undone -> suggestionEngine?.rejectCorrection(entry.typed, entry.corrected)
+                else -> Unit
+            }
+        }
+    }
+
+    /**
+     * The text a correction verdict is read against, or null when the field
+     * cannot answer.
+     *
+     * Deliberately one read of a bounded window rather than the whole field:
+     * this runs at a flush (the keyboard closing, the field changing), never
+     * on the typing path, and a correction further back than this has scrolled
+     * out of the watch anyway.
+     */
+    private fun correctionJudgementWindow(): String? {
+        val ic = currentInputConnection ?: return null
+        val before = ic.getTextBeforeCursor(CORRECTION_JUDGEMENT_WINDOW, 0)?.toString().orEmpty()
+        val after = ic.getTextAfterCursor(CORRECTION_JUDGEMENT_WINDOW, 0)?.toString().orEmpty()
+        val window = before + after
+        return window.takeIf { it.isNotBlank() }
+    }
+
+    /** Whether [word] stands in [text] as a word, not inside a longer one. */
+    private fun containsWord(text: String, word: String): Boolean {
+        if (word.isEmpty()) return false
+        var from = 0
+        while (true) {
+            val at = text.indexOf(word, from, ignoreCase = true)
+            if (at < 0) return false
+            val before = text.getOrNull(at - 1)
+            val after = text.getOrNull(at + word.length)
+            if (before?.let(WordContext::isWordChar) != true &&
+                after?.let(WordContext::isWordChar) != true
+            ) {
+                return true
+            }
+            from = at + 1
+        }
     }
 
     /**
@@ -7732,17 +7947,20 @@ open class WMKeyboardService : InputMethodService() {
      * with words queued *and* the caret at 0, so it is not on the typing path.
      */
     private fun noteCaretForLearning(selStart: Int, selEnd: Int) {
-        if (learningBuffer.isEmpty()) return
+        if (learningBuffer.isEmpty() && correctionWatch.isEmpty()) return
         // A range selection is a selection, not a resting place: anchoring to
         // it would point entries at text that is about to be replaced.
         if (selStart != selEnd) return
         if (selStart == 0 &&
             currentInputConnection?.getTextAfterCursor(1, 0).isNullOrEmpty()
         ) {
+            // Before the caret is handed on, so a send does not read as the
+            // user going back in front of every word in the message.
             flushLearningBuffer()
             return
         }
         learningBuffer.onCaret(selStart)
+        correctionWatch.onCaret(selStart)
     }
 
     /**
@@ -8494,15 +8712,18 @@ open class WMKeyboardService : InputMethodService() {
                         bengaliTop = words.firstOrNull(),
                         correction = null,
                     )
-                    state.settings.autocorrect && state.allowsTypingIntelligence -> CommitResolution(
-                        typed = typed,
-                        isBengali = false,
-                        bengaliTop = null,
-                        correction = engine.shouldAutocorrect(
+                    state.settings.autocorrect && state.allowsTypingIntelligence -> {
+                        val decision = engine.decideCorrection(
                             typed, touch = touchFrame, timingMultiplier = timingMultiplier,
                         )
-                            ?.takeIf { it != typed },
-                    )
+                        CommitResolution(
+                            typed = typed,
+                            isBengali = false,
+                            bengaliTop = null,
+                            correction = decision.apply?.takeIf { it != typed },
+                            offer = decision.offer?.takeIf { it != typed },
+                        )
+                    }
                     else -> null
                 }
                 if (typed.isNotEmpty()) {
@@ -8579,6 +8800,15 @@ open class WMKeyboardService : InputMethodService() {
                 null
             }
             revisionContext = revision?.let { previousWord2.orEmpty() to previousWord.orEmpty() }
+            // The near-miss chip belongs to the word that was just committed,
+            // so it only survives while the composing buffer is still empty:
+            // start the next word and the offer about the last one is gone.
+            val offer = pendingCorrectionOffer
+                ?.takeIf { typed.isEmpty() && state.settings.suggestionStrip.offerNearMissCorrections }
+            if (offer == null) {
+                pendingCorrectionOffer = null
+                correctionOfferFor = null
+            }
             _uiState.update {
                 it.copy(
                     suggestions = results,
@@ -8588,6 +8818,7 @@ open class WMKeyboardService : InputMethodService() {
                     inlineEmoji = false,
                     joinSuggestion = join,
                     revisionSuggestion = revision,
+                    correctionOffer = offer,
                 )
             }
         }
@@ -17098,6 +17329,21 @@ open class WMKeyboardService : InputMethodService() {
          * a clear pattern rather than a single unlucky swipe.
          */
         private const val REVERT_SIGHTINGS = 2
+
+        /**
+         * Characters read either side of the caret when settling autocorrect
+         * verdicts. One read at a flush, never on the typing path, and wide
+         * enough to cover the corrections the watch is still holding.
+         */
+        private const val CORRECTION_JUDGEMENT_WINDOW = 512
+
+        /**
+         * How much non-word text may sit between the caret and the word the
+         * near-miss chip is about. Room for the key that committed it and a
+         * closing mark ("word." plus its space), and no more: anything longer
+         * means the user has typed on and the chip is stale.
+         */
+        private const val CORRECTION_OFFER_TAIL = 3
 
         /** Height offered to autofill chips, matching the suggestion strip. */
         private const val INLINE_CHIP_HEIGHT_DP = 44

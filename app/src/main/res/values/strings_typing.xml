@@ -429,6 +429,10 @@
     <!-- Shown in place of a number at the lowest point of the new-word slider. -->
     <string name="typing_new_word_sightings_once">Straight away</string>
 
+    <string name="typing_offer_near_miss_title">Offer corrections it isn\'t sure about</string>
+    <string name="typing_offer_near_miss_subtitle">Show a chip for a fix that was close, instead of dropping it</string>
+    <string name="typing_offer_near_miss_info">Autocorrect has to be nearly certain before it changes a word on its own, because getting that wrong rewrites what you wrote and you may not notice. Everything just short of certain used to be thrown away, even when it was probably right. With this on, those appear as a chip at the start of the suggestion strip. Tap it to apply the fix, or carry on typing and it goes away. A correction you have already undone once is never offered. On by default, and it only ever appears where nothing used to happen at all.</string>
+
     <string name="typing_ask_before_learning_title">Ask before saving new words</string>
     <string name="typing_ask_before_learning_subtitle">Offer a chip instead of counting how often you type the word</string>
     <string name="typing_ask_before_learning_info">When a word no dictionary knows is typed, the suggestion strip asks whether to add it. Tap the chip to save the word, or the ✕ to never be asked about it again. Nothing is saved unless you tap. Off by default, because a chip after a word you never think about again gets in the way.</string>

@@ -323,14 +323,68 @@ class SuggestionEngineTest {
         e.autocorrectConfidence = 1.5
         assertEquals("test", e.shouldAutocorrect("tesr"))
         // A brutal revert history: gate scales up and the same case stays quiet.
-        repeat(40) {
-            e.correctionStats.recordFired()
-            e.correctionStats.recordRevert("word$it", "fix$it")
-        }
+        repeat(40) { e.correctionStats.recordRevert("word$it", "fix$it") }
         assertNull(e.shouldAutocorrect("tesr"))
         // Adaptivity off: the raw slider value rules again.
         e.adaptiveConfidence = false
         assertEquals("test", e.shouldAutocorrect("tesr"))
+    }
+
+    /** test/tear on "tesr": a real but narrow gap, ratio ~ln(101/61) = 0.5. */
+    private fun nearMissEngine() = SuggestionEngine(
+        Trie().apply {
+            insert("test", 100)
+            insert("tear", 60)
+        },
+        BengaliPhoneticIndex(emptyList()),
+        UserLexicon(null),
+    )
+
+    @Test fun aCandidateShortOfTheBarIsOfferedInstead() {
+        val e = nearMissEngine()
+        // Too tight to fire (0.5 < ln 3), loose enough to ask (0.5 > 0.35 ln 3).
+        e.autocorrectConfidence = 3.0
+        val decision = e.decideCorrection("tesr")
+        assertNull(decision.apply)
+        assertEquals("test", decision.offer)
+    }
+
+    @Test fun aCandidateThatFiresIsNotAlsoOffered() {
+        val e = nearMissEngine()
+        e.autocorrectConfidence = 1.5
+        val decision = e.decideCorrection("tesr")
+        assertEquals("test", decision.apply)
+        assertNull(decision.offer)
+    }
+
+    @Test fun aCandidateFarShortOfTheBarIsNotOffered() {
+        val e = nearMissEngine()
+        // 0.5 is now under 0.35 ln 10 = 0.81: not even worth asking about.
+        e.autocorrectConfidence = 10.0
+        assertNull(e.decideCorrection("tesr").offer)
+    }
+
+    @Test fun aRejectedCorrectionIsNeverOffered() {
+        val e = nearMissEngine()
+        e.autocorrectConfidence = 3.0
+        assertEquals("test", e.decideCorrection("tesr").offer)
+        // Being told twice is worse than not being helped.
+        e.rejectCorrection("tesr", "test")
+        assertNull(e.decideCorrection("tesr").offer)
+    }
+
+    @Test fun aKnownWordIsNeitherCorrectedNorOffered() {
+        val e = nearMissEngine()
+        e.autocorrectConfidence = 3.0
+        val decision = e.decideCorrection("test")
+        assertNull(decision.apply)
+        assertNull(decision.offer)
+    }
+
+    @Test fun theOfferCarriesTheCasingTheCommitWouldUse() {
+        val e = nearMissEngine()
+        e.autocorrectConfidence = 3.0
+        assertEquals("Test", e.decideCorrection("Tesr").offer)
     }
 
     @Test fun blacklistedWordIsNotAnAutocorrectTarget() {

@@ -169,6 +169,7 @@ private fun Resources.typingRows(): List<SettingsSearchEntry> {
         row(R.string.typing_learn_threshold_title, R.string.typing_learn_threshold_subtitle),
         row(R.string.typing_new_word_sightings_title, R.string.typing_new_word_sightings_subtitle),
         row(R.string.typing_ask_before_learning_title, R.string.typing_ask_before_learning_subtitle),
+        row(R.string.typing_offer_near_miss_title, R.string.typing_offer_near_miss_subtitle),
         row(R.string.typing_suggestions_first_title, R.string.typing_suggestions_first_subtitle),
         row(R.string.typing_primary_center_title, R.string.typing_primary_center_subtitle),
         row(R.string.typing_contact_names_title, R.string.typing_contact_names_subtitle),

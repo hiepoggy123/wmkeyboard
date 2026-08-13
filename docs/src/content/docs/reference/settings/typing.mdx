@@ -64,6 +64,7 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 | Punctuation marks | Text field | `.,?!'` | Punctuation suggestions on |
 | Number of suggestions | Slider, 2–6 | 3 | always |
 | Learn a word after | Slider, 1–5 ("Once" at 1) | Once | always |
+| Offer corrections it isn't sure about | Toggle | On | always |
 | Ask before saving new words | Toggle | Off | always |
 | Remember a new word after | Slider, 1–10 ("Straight away" at 1) | 3 | Ask before saving new words off |
 | Suggestions in every field | Toggle | On | always |
@@ -90,6 +91,8 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 **Learn a word after** is a further threshold, applied to words already in your dictionary: how many reinforcements before autocorrect leaves the word alone. At the default of 1 the slider reads "Once". Suggestions are untouched either way: a word under the count can still be offered, it just isn't shielded from correction.
 
 All three are covered in full on [Personal dictionary](/smart/personal-dictionary/#new-words-wait-their-turn).
+
+**Offer corrections it isn't sure about** puts a fix that came close to firing on the strip as a chip rather than dropping it. It never applies anything on its own, and a correction you have already undone once is never offered. See [Autocorrect](/smart/autocorrect/#corrections-it-offers-instead-of-applying).
 
 The three navigation rows at the bottom open their own screens rather than an inline setting. The subtitle on **Suggestion blacklist** starts as "Words to never suggest or autocorrect to" and becomes a running count ("3 words never suggested") once you've added something. All three are documented in full on [Dictionaries & words](/reference/settings/dictionaries/).
 

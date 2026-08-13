@@ -3757,6 +3757,20 @@ data class SuggestionStripSettings(
      * takes over from [newWordSightings] entirely when on.
      */
     val askBeforeLearning: Boolean = false,
+    /**
+     * Offer a correction that came close to firing as a chip on the strip,
+     * instead of throwing it away.
+     *
+     * Autocorrect has to be nearly certain before it rewrites a word, because
+     * being wrong changes what somebody wrote and they may not notice. That
+     * left everything just short of certain going straight in the bin, even
+     * when it was probably right. A chip costs a wrong guess nothing, so it
+     * can be offered on much weaker evidence than a silent replacement.
+     *
+     * On by default: it only ever appears where nothing used to happen at all.
+     * A correction the user has already rejected once is never offered.
+     */
+    val offerNearMissCorrections: Boolean = true,
     /** Keep the suggestion strip as the default top bar even with nothing typed. */
     val suggestionsFirst: Boolean = false,
     /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
@@ -4605,6 +4619,8 @@ class SettingsRepository(private val context: Context) {
         private val LEARNED_WORD_MIN_COUNT = intPreferencesKey("learned_word_min_count")
         private val NEW_WORD_SIGHTINGS = intPreferencesKey("new_word_sightings")
         private val ASK_BEFORE_LEARNING = booleanPreferencesKey("ask_before_learning")
+        private val OFFER_NEAR_MISS_CORRECTIONS =
+            booleanPreferencesKey("offer_near_miss_corrections")
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
         private val GRAMMAR_DIALECT = stringPreferencesKey("grammar_dialect")
@@ -5292,6 +5308,8 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.suggestionStrip.newWordSightings,
                 askBeforeLearning = p[ASK_BEFORE_LEARNING]
                     ?: defaults.suggestionStrip.askBeforeLearning,
+                offerNearMissCorrections = p[OFFER_NEAR_MISS_CORRECTIONS]
+                    ?: defaults.suggestionStrip.offerNearMissCorrections,
                 suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionStrip.suggestionsFirst,
                 suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
                     ?: defaults.suggestionStrip.suggestionPrimaryCenter,
@@ -6362,6 +6380,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAskBeforeLearning(value: Boolean) =
         editPrefs { it[ASK_BEFORE_LEARNING] = value }
+
+    suspend fun setOfferNearMissCorrections(value: Boolean) =
+        editPrefs { it[OFFER_NEAR_MISS_CORRECTIONS] = value }
 
     suspend fun setEmojiRowAboveToolbar(value: Boolean) =
         editPrefs { it[EMOJI_ROW_ABOVE_TOOLBAR] = value }
