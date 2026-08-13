@@ -1517,6 +1517,20 @@ data class KeyboardUiState(
         get() = textEditSelecting || selectionMode || selectionHold
 
     /**
+     * Whether a caret move made with the keyboard's own gestures — the spacebar
+     * cursor swipe and the volume keys — extends the selection.
+     *
+     * Selection mode or a shift the user put up, either of which says "extend".
+     * Shift is folded in here and not into [selectingText] because these paths
+     * have the shift key on screen beside them, the same as the toolbar's cursor
+     * tools ([shiftSelectsText]) and a layout's own arrow keys: holding a lock
+     * and scrubbing the spacebar with the other thumb is shift+arrow, and the
+     * gestures that ignored it were the only caret paths that did.
+     */
+    val caretExtendsSelection: Boolean
+        get() = selectingText || shiftSelectsText
+
+    /**
      * The action the Enter key should draw and fire, folding in the
      * Shift+Enter override so the key never promises a Send it will not do.
      */

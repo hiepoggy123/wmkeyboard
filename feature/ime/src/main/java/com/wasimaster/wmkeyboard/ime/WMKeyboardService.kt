@@ -3911,12 +3911,15 @@ open class WMKeyboardService : InputMethodService() {
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
         var meta = modifiers.metaFlags() or (explicit?.meta ?: 0)
-        // A layout's own arrow key (or Home/End/PageUp/PageDown) while selection
-        // mode is on extends the selection, the same as the toolbar's cursor
-        // tools and the panel's arrows. Every other key is left alone: shift on
-        // a letter types a capital, which is not what the mode is about.
-        val selecting = state.selectingText && code in CARET_KEY_CODES
-        if (shift || selecting) meta = meta or KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON
+        // A layout's own arrow key (or Home/End/PageUp/PageDown) extends the
+        // selection under selection mode or a shift the user put up, the same as
+        // the toolbar's cursor tools and the spacebar scrub. A shift nobody
+        // pressed is excluded there, and only there: on an arrow it would turn a
+        // tap at a sentence start into a selection the next keystroke overwrites,
+        // while on a letter it is the auto-capital that was asked for.
+        val caret = code in CARET_KEY_CODES
+        val shifted = if (caret) state.caretExtendsSelection else shift
+        if (shifted) meta = meta or KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON
 
         // Press order mirrors a hardware keyboard: modifiers down outermost and
         // released in reverse, so an editor that pairs down and up events never
@@ -4796,7 +4799,17 @@ open class WMKeyboardService : InputMethodService() {
         // With a selection, shift re-cases the selected text (lower → Title →
         // UPPER) rather than arming shift for the next character. Falls through
         // to normal shift when nothing is selected or the feature is off.
-        if (_uiState.value.settings.textEditing.recapitalizeSelectionWithShift) {
+        //
+        // Not while that same shift is the modifier holding the selection open
+        // ([KeyboardUiState.shiftSelectsText]): every selection dragged out with
+        // shift+arrow — the toolbar's cursor tools, a layout's arrow keys, the
+        // spacebar scrub — ends with a live selection and a shift still up, and
+        // re-casing there would leave the user no way to put the shift back
+        // down. Press it once to release the modifier; press it again, with the
+        // selection still standing and the shift now down, to re-case.
+        if (_uiState.value.settings.textEditing.recapitalizeSelectionWithShift &&
+            !_uiState.value.shiftSelectsText
+        ) {
             val ic = currentInputConnection
             if (ic != null && hasSelection(ic) && recapitalizeSelection(ic)) return
         }
@@ -8380,9 +8393,10 @@ open class WMKeyboardService : InputMethodService() {
      * Spacebar drag: move the cursor one position left (-1) or right (+1). The
      * volume keys land here too when they are set to move the caret.
      *
-     * With selection mode on the step carries shift and drags the selection out
-     * instead, which is the pairing the mode exists for: one finger holds the
-     * mode (or a tap left it on) and the other scrubs the spacebar.
+     * With selection mode on — or a shift the user put up, lock included — the
+     * step carries shift and drags the selection out instead, which is the
+     * pairing the mode exists for: one finger holds the mode (or a tap left it
+     * on) and the other scrubs the spacebar.
      */
     fun onCursorMove(delta: Int) {
         val ic = currentInputConnection ?: return
@@ -8394,13 +8408,14 @@ open class WMKeyboardService : InputMethodService() {
         lastGestureWord = null
         sendEditorKey(
             if (delta < 0) KeyEvent.KEYCODE_DPAD_LEFT else KeyEvent.KEYCODE_DPAD_RIGHT,
-            shift = _uiState.value.selectingText,
+            shift = _uiState.value.caretExtendsSelection,
         )
     }
 
     /**
      * 2-D spacebar touchpad: move the cursor one line up (-1) or down (+1).
-     * Mirrors [onCursorMove] but on the vertical axis, selection mode included.
+     * Mirrors [onCursorMove] but on the vertical axis, selection mode and a held
+     * shift included.
      */
     fun onCursorMoveVertical(delta: Int) {
         val ic = currentInputConnection ?: return
@@ -8410,7 +8425,7 @@ open class WMKeyboardService : InputMethodService() {
         lastGestureWord = null
         sendEditorKey(
             if (delta < 0) KeyEvent.KEYCODE_DPAD_UP else KeyEvent.KEYCODE_DPAD_DOWN,
-            shift = _uiState.value.selectingText,
+            shift = _uiState.value.caretExtendsSelection,
         )
     }
 

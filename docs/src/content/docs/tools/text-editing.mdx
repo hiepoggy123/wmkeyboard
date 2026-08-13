@@ -56,11 +56,13 @@ The panel above costs one tap to open and another to act. If you reach for the s
 
 ### Hold Shift to select
 
-Tap Shift before a cursor tool and the move extends the selection instead of collapsing it, the way Shift+Arrow does on a physical keyboard. Shift lock works too, which is the easier one for dragging a selection out over several taps. Shift isn't spent by the move, so it stays on and every following tap keeps extending. To stop, tap in the field to put the cursor down. Tapping Shift won't do it while text is selected, because by default that re-cases the selection instead (see [Details & edge cases](#details--edge-cases)).
+Tap Shift before a cursor tool and the move extends the selection instead of collapsing it, the way Shift+Arrow does on a physical keyboard. Shift lock works too, which is the easier one for dragging a selection out over several taps. Shift isn't spent by the move, so it stays on and every following tap keeps extending. To stop, tap Shift again: that puts it back down and leaves the selection where it is. One more Shift tap after that, with the selection still standing, re-cases it (see [Details & edge cases](#details--edge-cases)).
 
 Only a Shift you pressed yourself counts. The keyboard arms Shift by itself at the start of a sentence, and an ALL CAPS field arms the lock, so reading those would turn an ordinary cursor tap into a selection you never asked for and your next keystroke would type over it.
 
-Auto-capitalize leaves your Shift alone while a selection is live, so the second tap extends the selection instead of dropping it. That only applies to the toolbar. Inside the text-editing panel the Shift key isn't on screen at all, so the panel's own <KeyCap>Select</KeyCap> toggle stays the only answer there.
+Auto-capitalize leaves your Shift alone while a selection is live, so the second tap extends the selection instead of dropping it.
+
+A held or locked Shift reaches every cursor move you make from the keyboard itself, not only the toolbar's tools: the [spacebar cursor swipe](/typing/gestures/) on both axes, the [volume keys](/typing/gestures/) when they're set to move the cursor, and a layout's own arrow keys. Lock Shift and scrub the spacebar and you're dragging a selection out with one thumb each. Inside the text-editing panel the Shift key isn't on screen at all, so the panel's own <KeyCap>Select</KeyCap> toggle stays the only answer there.
 
 ### Selection mode
 
@@ -200,7 +202,7 @@ This is the only place cut lives: there's no Cut button in the text-editing pane
 
 ## Details & edge cases
 
-- **Shift on a live selection re-cases it rather than switching Shift off**, so the obvious way to end a Shift-driven selection isn't the one to reach for. Tap in the field to put the cursor down instead. That's the "Tapping Shift with text selected cycles its case" toggle in the next bullet, on by default; turn it off and Shift goes back to being a plain Shift.
+- **Shift on a live selection re-cases it rather than switching Shift off**, with one exception: a Shift that's currently holding the selection open. There the first tap is read as putting the modifier down, so a selection you dragged out with Shift can always be ended with the same key; the tap after that re-cases. That's the "Tapping Shift with text selected cycles its case" toggle in the next bullet, on by default; turn it off and Shift goes back to being a plain Shift.
 - **Two Typing-screen toggles change what Select mode does elsewhere on the keyboard**, even though neither is on this page's own settings screens. Typing a bracket or quote with text selected wraps the selection in the pair instead of replacing it (on by default). Tapping Shift with text selected cycles its case instead of arming Shift for the next letter (also on by default, and a no-op in caseless scripts like Bengali). Both live under <SettingsPath path="Typing / Automatic corrections" />.
 - **Every tool on this page works before you've unlocked your device for the first time after a restart** (direct boot). The panel, the cursor tools, undo/redo and the numpad only touch the input connection, never stored data, so none of them wait on your device being unlocked. Compare [Media controls](/tools/media/), which can't.
 - **Nothing here is edition-gated.** The panel, every cursor tool, undo/redo, and the numpad all work identically on the full and lite builds.
