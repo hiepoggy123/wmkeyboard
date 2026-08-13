@@ -844,6 +844,24 @@ class SuggestionEngine(
             secondaryDictionaries.any { it.source.contains(word) }
 
     /**
+     * Whether [word] is one the keyboard already knows — from any loaded
+     * dictionary, the user's own lexicon, their contacts or their installed
+     * apps.
+     *
+     * This is the gate in front of learning: a known word committed once is
+     * ordinary evidence and is counted straight away, while an unknown one has
+     * to earn its place (see [PendingLearn]). Same membership the autocorrect
+     * exemption in [shouldAutocorrect] asks about, which is the point — a word
+     * that would not be corrected is a word there is nothing to be careful
+     * about.
+     */
+    fun isKnownWord(word: String): Boolean {
+        val lower = word.lowercase()
+        return inDictionaries(lower) || userLexicon.contains(lower) ||
+            contacts.contains(lower) || apps.contains(lower)
+    }
+
+    /**
      * Attribute one committed [word] to the language in the active mix that owns
      * it, feeding [mixConfidence] so the secondary tier's weighting tracks real
      * use. A no-op unless a secondary mix is configured, so a monolingual user

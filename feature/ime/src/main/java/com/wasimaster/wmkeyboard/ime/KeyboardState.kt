@@ -1306,6 +1306,12 @@ data class KeyboardUiState(
      * cursor — see [SnippetOffer].
      */
     val snippetOffer: SnippetOffer? = null,
+    /**
+     * A word nothing recognises, just committed, waiting for the user to say
+     * whether it belongs in their dictionary. Null unless "ask before
+     * learning" is on and such a word is on the strip right now.
+     */
+    val learnOffer: String? = null,
     val snippets: List<Snippet> = emptyList(),
     /** The folders [snippets] are filed under, in the order the panel draws them. */
     val snippetFolders: List<SnippetFolder> = emptyList(),

@@ -64,6 +64,8 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 | Punctuation marks | Text field | `.,?!'` | Punctuation suggestions on |
 | Number of suggestions | Slider, 2–6 | 3 | always |
 | Learn a word after | Slider, 1–5 ("Once" at 1) | Once | always |
+| Ask before saving new words | Toggle | Off | always |
+| Remember a new word after | Slider, 1–10 ("Straight away" at 1) | 3 | Ask before saving new words off |
 | Suggestions in every field | Toggle | On | always |
 | Suggestion strip always visible | Toggle | Off | always |
 | Best suggestion in the middle | Toggle | On | always |
@@ -81,7 +83,13 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 
 **Suggestions** is the master switch for the whole strip: word completions, typo corrections offered as candidates, and next-word prediction. **Punctuation marks** sets which marks the punctuation chips offer, one per character, in the order you want them. Leave it blank and it falls back to the shipped `.,?!'`. **Number of suggestions** splits the strip evenly, so raising it on a narrow screen buys candidates at the cost of reading each one.
 
-**Learn a word after** is how many times you have to type a word before autocorrect leaves it alone. At the default of 1 the slider reads "Once", so one typing is enough to protect a name or a piece of slang. It also protects a typo you commit once. Raise the slider and the keyboard waits until it has seen the word that many times. Suggestions are untouched either way: a word under the count can still be offered, it just isn't shielded from correction.
+**Remember a new word after** is how many times you have to type a word *nothing recognises* before it's saved to your personal dictionary at all. It only counts a use once you've moved on and left the word alone, so a typo you go back and fix never counts. Set it to 1 to save every new word straight away, which is what versions before this did. Words already in a dictionary skip this entirely and are counted the moment you type them.
+
+**Ask before saving new words** replaces that counting with a chip on the suggestion strip reading `Add "yourword"?`. Nothing is saved unless you tap it, and the ✕ stops the keyboard asking about that word again. Turning it on hides the slider above, since the two answer the same question different ways.
+
+**Learn a word after** is a further threshold, applied to words already in your dictionary: how many reinforcements before autocorrect leaves the word alone. At the default of 1 the slider reads "Once". Suggestions are untouched either way: a word under the count can still be offered, it just isn't shielded from correction.
+
+All three are covered in full on [Personal dictionary](/smart/personal-dictionary/#new-words-wait-their-turn).
 
 The three navigation rows at the bottom open their own screens rather than an inline setting. The subtitle on **Suggestion blacklist** starts as "Words to never suggest or autocorrect to" and becomes a running count ("3 words never suggested") once you've added something. All three are documented in full on [Dictionaries & words](/reference/settings/dictionaries/).
 

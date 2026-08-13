@@ -103,6 +103,7 @@ import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Height
+import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
@@ -113,6 +114,7 @@ import androidx.compose.material.icons.outlined.KeyboardAlt
 import androidx.compose.material.icons.outlined.KeyboardCapslock
 import androidx.compose.material.icons.outlined.KeyboardCommandKey
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.LibraryAdd
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.LineWeight
 import androidx.compose.material.icons.outlined.Link
@@ -561,6 +563,8 @@ internal object SettingsRowIcons {
         put(R.string.typing_register_priors_title) { Icons.Outlined.QuestionAnswer }
         put(R.string.typing_context_rerank_title) { Icons.Outlined.Psychology }
         put(R.string.typing_learn_threshold_title) { Icons.Outlined.School }
+        put(R.string.typing_new_word_sightings_title) { Icons.Outlined.LibraryAdd }
+        put(R.string.typing_ask_before_learning_title) { Icons.Outlined.HelpOutline }
         put(R.string.typing_undo_autocorrect_title) { Icons.AutoMirrored.Outlined.Undo }
         put(R.string.typing_skip_all_caps_title) { Icons.Outlined.KeyboardCapslock }
         put(R.string.typing_block_offensive_title) { Icons.Outlined.Block }

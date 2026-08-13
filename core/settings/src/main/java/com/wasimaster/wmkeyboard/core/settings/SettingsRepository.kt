@@ -2230,6 +2230,7 @@ val KeyFontScaleRange = 0.7f..2.0f
  */
 val LEARNED_DATA_FILES = listOf(
     "learning/user_lexicon.json",
+    "learning/pending_learn.json",
     "learning/emoji_usage.json",
     "learning/correction_stats.json",
     "learning/cjk_history.json",
@@ -3727,6 +3728,35 @@ data class SuggestionStripSettings(
      * to stay under the settings class's JVM field ceiling.
      */
     val learnedWordMinCount: Int = 1,
+    /**
+     * How many times a word nothing recognises has to be typed *and left
+     * alone* before it joins the personal dictionary at all.
+     *
+     * The keyboard used to learn a word the first time it was committed, which
+     * meant one sloppy swipe put a misspelling in the dictionary — where it
+     * was then offered as a suggestion and, worse, shielded from the
+     * autocorrect that would have fixed it every time after. Counting
+     * sightings instead means a real word the user keeps typing arrives within
+     * a few uses, and a one-off slip never arrives at all.
+     *
+     * Only unknown words are counted. A word the dictionaries already know is
+     * learned the moment it is typed, as before: there is nothing to protect
+     * anyone from. A sighting only counts once the text has settled — see
+     * `LearningBuffer`. 1 restores the old learn-immediately behaviour. Lives
+     * here rather than beside the other learning flags only to stay under the
+     * settings class's JVM field ceiling.
+     */
+    val newWordSightings: Int = 3,
+    /**
+     * Ask before learning an unknown word instead of counting sightings: the
+     * strip offers an "add to dictionary?" chip the first time the word is
+     * committed, and nothing is learned unless the user taps it.
+     *
+     * Off by default — a chip after a word you never think about again is a
+     * chip in the way — but it is the exact behaviour some people want, and it
+     * takes over from [newWordSightings] entirely when on.
+     */
+    val askBeforeLearning: Boolean = false,
     /** Keep the suggestion strip as the default top bar even with nothing typed. */
     val suggestionsFirst: Boolean = false,
     /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
@@ -4573,6 +4603,8 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBOX_LABEL_SIZE = intPreferencesKey("toolbox_label_size")
         private val SUGGESTION_TEXT_SCALE = floatPreferencesKey("suggestion_text_scale")
         private val LEARNED_WORD_MIN_COUNT = intPreferencesKey("learned_word_min_count")
+        private val NEW_WORD_SIGHTINGS = intPreferencesKey("new_word_sightings")
+        private val ASK_BEFORE_LEARNING = booleanPreferencesKey("ask_before_learning")
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
         private val GRAMMAR_DIALECT = stringPreferencesKey("grammar_dialect")
@@ -5256,6 +5288,10 @@ class SettingsRepository(private val context: Context) {
                 textScale = p[SUGGESTION_TEXT_SCALE] ?: defaults.suggestionStrip.textScale,
                 learnedWordMinCount = p[LEARNED_WORD_MIN_COUNT]
                     ?: defaults.suggestionStrip.learnedWordMinCount,
+                newWordSightings = p[NEW_WORD_SIGHTINGS]
+                    ?: defaults.suggestionStrip.newWordSightings,
+                askBeforeLearning = p[ASK_BEFORE_LEARNING]
+                    ?: defaults.suggestionStrip.askBeforeLearning,
                 suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionStrip.suggestionsFirst,
                 suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
                     ?: defaults.suggestionStrip.suggestionPrimaryCenter,
@@ -6320,6 +6356,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setLearnedWordMinCount(value: Int) =
         editPrefs { it[LEARNED_WORD_MIN_COUNT] = value.coerceIn(1, 5) }
+
+    suspend fun setNewWordSightings(value: Int) =
+        editPrefs { it[NEW_WORD_SIGHTINGS] = value.coerceIn(1, 10) }
+
+    suspend fun setAskBeforeLearning(value: Boolean) =
+        editPrefs { it[ASK_BEFORE_LEARNING] = value }
 
     suspend fun setEmojiRowAboveToolbar(value: Boolean) =
         editPrefs { it[EMOJI_ROW_ABOVE_TOOLBAR] = value }

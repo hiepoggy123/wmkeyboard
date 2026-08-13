@@ -8,7 +8,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 
-WM Keyboard quietly builds a private, on-device vocabulary out of what you actually type: names, slang, abbreviations, anything the bundled dictionary doesn't know. Every word in it becomes safe from autocorrect, out of the box from the very first time you type it. You can review that vocabulary, add to it or remove from it by hand, and wipe it entirely, all from Settings.
+WM Keyboard quietly builds a private, on-device vocabulary out of what you actually type: names, slang, abbreviations, anything the bundled dictionary doesn't know. Every word in it is safe from autocorrect. A word nothing recognises has to be typed a few times before it gets in, so one bad swipe doesn't put a misspelling in your dictionary for good. You can review that vocabulary, add to it or remove from it by hand, and wipe it entirely, all from Settings.
 
 <PhoneFrame caption="The Personal dictionary screen: learned and manually-added words, most-used first.">
   ![The Personal dictionary screen: learned and manually-added words, most-used first.](@assets/screens/smart/personal-dictionary-list.webp)
@@ -27,17 +27,46 @@ Within a plain text field, how hard a word is taught depends on how it was commi
 - **Tapped from the suggestion strip.** Twice the weight of a plain commit, since choosing a candidate deliberately counts for more than just typing it out.
 - **Typed and committed normally.** The default weight.
 - **Autocorrected into place.** The corrected word itself is *not* added, because an autocorrect target earns no credit for being typed. The word pair around it is still recorded for next-word prediction either way.
-- **Backspaced right after an autocorrect fires.** Restoring your original spelling teaches that original word a weight of 5, the equivalent of typing it five times over. That's the strongest of these four signals, ahead of even tapping a suggestion, because deleting a fix is the clearest possible "I meant what I typed." See [Autocorrect](/smart/autocorrect/#undoing-a-correction) for the rest of that flow.
+- **Backspaced right after an autocorrect fires.** Restoring your original spelling counts double towards learning that spelling, because deleting a fix is a clear "I meant what I typed." It no longer saves the word outright, since that was the fastest way for a stray swipe to get nailed into the dictionary forever. Nothing is lost by waiting: that exact correction is already blocked from firing again the moment you undo it. See [Autocorrect](/smart/autocorrect/#undoing-a-correction) for the rest of that flow.
 
 A word needs at least two letters to be auto-learned this way. Adding one yourself (see below) has no such floor.
 
+## New words wait their turn
+
+Words split two ways when you commit them.
+
+A word something already recognises, whether that's the bundled dictionary, a wordlist you imported, a contact name, an app name, or your own dictionary, is counted straight away. Typing it is just more evidence for a word that was never in doubt.
+
+A word *nothing* recognises is not saved yet. It goes into a waiting room and has to be typed **three times** before it joins your dictionary, and each of those has to settle first. Change that count with **Remember a new word after** under <SettingsPath path="Typing / Suggestions" />, anywhere from 1 (save every new word straight away, which is what older versions did) up to 10. A sighting that's undoing an autocorrect counts double, so one undo plus one ordinary use is enough at the default.
+
+Settling is the second half, and it's what stops your typos being counted at all. A word you've just typed isn't evidence of anything yet, because half the time you're about to fix it. So a new word is held, unwritten, until one of these happens:
+
+- You close the keyboard.
+- You send or clear the field.
+- You move to a different field.
+- You keep typing far enough past it (about 96 words) that you're clearly not coming back.
+
+If you go back into that text before any of that, by backspacing over the word or tapping into the sentence to edit it, the word is dropped and counts for nothing. Re-picking a swiped word from the strip drops it too, because you just overruled the guess.
+
+Waiting words are invisible until they graduate. They're never suggested, never shield themselves from autocorrect, and never show up on the Personal dictionary screen. Sightings also go stale on their own, so the same slip made in March and again in September never adds up to a word.
+
+### Being asked instead
+
+If you'd rather decide each one yourself, turn on **Ask before saving new words** (<SettingsPath path="Typing / Suggestions" />). Nothing is counted and nothing is saved. Instead, the moment you commit a word nothing recognises, the suggestion strip offers a chip reading `Add "yourword"?`.
+
+- **Tap the chip** and the word goes in at full strength right away, exactly as though you'd added it by hand.
+- **Tap the ✕** and the keyboard stops asking about that word, permanently.
+- **Ignore it** and it goes away by itself as soon as you type the next word or press backspace. Nothing is saved.
+
+The chip shares the strip with your word candidates rather than covering them, so it never gets in the way of finishing the sentence. Only one ask-first chip shows at a time: a snippet offer takes priority over this one.
+
 ## Why a learned word matters
 
-Once a word has been learned even a single time, it's exempt from autocorrect. The correction engine treats anything in your personal dictionary the same as a word from the bundled dictionary, and never "fixes" it away. It also carries a heavy weight in suggestion ranking, so it competes with genuinely common words in the strip almost immediately rather than needing to be typed dozens of times first. See [Autocorrect](/smart/autocorrect/) and [Suggestions & prediction](/smart/suggestions/) for how those two mechanisms work in full.
+Once a word is in your dictionary, it's exempt from autocorrect. The correction engine treats anything in your personal dictionary the same as a word from the bundled dictionary, and never "fixes" it away. It also carries a heavy weight in suggestion ranking, so it competes with genuinely common words in the strip almost immediately rather than needing to be typed dozens of times first. See [Autocorrect](/smart/autocorrect/) and [Suggestions & prediction](/smart/suggestions/) for how those two mechanisms work in full.
 
-One sighting is the default, not a law. **Learn a word after** under <SettingsPath path="Typing / Suggestions" /> runs from Once up to 5, and raising it asks the keyboard to see a word two or three times before it shields it. That is the knob for the cost of the default: a typo you commit once is protected forever at Once. Ranking is unaffected either way, so a word below the threshold is still offered on the strip, it just isn't shielded from correction.
+That protection is exactly why a new word waits. It also means a second threshold sits behind it. **Learn a word after** under <SettingsPath path="Typing / Suggestions" /> runs from Once up to 5, and asks for that many reinforcements of a word already in your dictionary before it's shielded. Ranking is unaffected either way, so a word below that threshold is still offered on the strip, it just isn't shielded from correction. With **Remember a new word after** doing the heavy lifting now, most people can leave this one at Once.
 
-Alongside single words, the same learning pass builds word-to-word pairs, so typing "good" after "have a" can predict "morning". It builds three-word contexts as well, which win over the two-word ones when they match. It builds word-to-emoji pairs too, so a phrase that's usually followed by 🎉 can offer it. A separate, bundled set of generic English word pairs gives next-word prediction something to work with before you have any typing history of your own. None of those pairs are part of your personal dictionary. They aren't stored in it, don't show up on this screen, and can't be edited or cleared, and your own learned pairs always outrank the bundled ones once you have some.
+Alongside single words, the same learning pass builds word-to-word pairs, so typing "good" after "have a" can predict "morning". It builds three-word contexts as well, which win over the two-word ones when they match. It builds word-to-emoji pairs too, so a phrase that's usually followed by 🎉 can offer it. Pairs are only built out of words the keyboard recognises, at both ends, so a habit is never hung off a possible typo and a misspelling can't come back as a next-word suggestion. A separate, bundled set of generic English word pairs gives next-word prediction something to work with before you have any typing history of your own. None of those pairs are part of your personal dictionary. They aren't stored in it, don't show up on this screen, and can't be edited or cleared, and your own learned pairs always outrank the bundled ones once you have some.
 
 ## Adding and removing words
 
@@ -46,6 +75,8 @@ Alongside single words, the same learning pass builds word-to-word pairs, so typ
 Every word you've typed or added sits in one list, sorted by how often it's been reinforced. Once the list passes a dozen entries, a search field appears above it. Each row reads "You added this word" once its weight reaches 200, and "Seen N times" below that.
 
 **Add word** opens a dialog with a single field. Confirm and 200 is *added* to whatever weight that word already had. A word the keyboard has never seen lands at exactly 200 and reads "You added this word", while one you'd already typed 50 times ends up at 250. Either way it's immediately safe from autocorrect, like anything else in the list. A trash icon on each row removes that word, and drops it out of any word pairs it was part of.
+
+**Remove one-off words** appears next to it whenever the list holds anything that's only been seen once, and clears the lot in one go after a confirmation that tells you how many there are. Older versions saved every new word the first time it was committed, so on an upgraded install this is where the stray swipes and mistyped words are. Words you added by hand are never in there: they start at a weight of 200.
 
 Words are capped at 32 characters, counted after the word is lowercased. Anything longer is dropped on the floor by both paths: typing it teaches nothing, and **Add word** closes the dialog as though it worked while the list stays exactly as it was. There's no error and no warning, so if a long entry never turns up in the list, count the characters.
 
@@ -63,7 +94,7 @@ Two related screens are easy to confuse with this one but do something different
 
 The row is called **Learned words** and its button reads "Delete the learned words". It asks first: a dialog spells out what goes and waits for you to confirm.
 
-It reaches wider than this word list. Five files are cleared together, because each learning store lives on its own: your learned words, your emoji-usage history, autocorrect's memory of the corrections you undid, your CJK candidate-pick history, and the language-mix signal behind mixed-language typing.
+It reaches wider than this word list. Six files are cleared together, because each learning store lives on its own: your learned words, the new words still waiting to be counted, your emoji-usage history, autocorrect's memory of the corrections you undid, your CJK candidate-pick history, and the language-mix signal behind mixed-language typing.
 
 Like an add or a remove, the delete bumps the version marker a running keyboard watches, so a session open in another app re-reads your vocabulary from disk instead of saving the old copy back over the wipe. Typing statistics live under their own folder and aren't touched. Clear those from the Statistics screen instead.
 
@@ -103,18 +134,22 @@ See [Incognito & secure fields](/privacy/incognito/) for the rest of how incogni
 | Follow private browsing | On | Privacy / Learning on this device |
 | Pause learning (while incognito) | On | Tools / Incognito / While incognito is on |
 | Learn a word after | Once | Typing / Suggestions |
+| Remember a new word after | 3 | Typing / Suggestions |
+| Ask before saving new words | Off | Typing / Suggestions |
 | Back up with Android | Off | Privacy / Android backup |
 | Include "Dictionary" in export | Off | Backup & restore / Include in export |
 
-The dictionary screen itself has no settings beyond the word list. Every toggle that controls *whether* something gets learned lives on the Privacy screen rather than here, with two exceptions: pausing learning during incognito is under the Incognito tool's own settings, and the sighting threshold that decides when a learned word is shielded sits with the rest of the suggestion sliders.
+The dictionary screen itself has no settings beyond the word list and its two buttons. Every toggle that controls *whether* something gets learned lives on the Privacy screen rather than here, with two exceptions: pausing learning during incognito is under the Incognito tool's own settings, and the three thresholds that decide when a word gets in and when it's shielded sit with the rest of the suggestion sliders.
 
 ## Details & edge cases
 
 - **The in-app description undersells the gate.** "Learn from typing" describes itself as skipping "password fields," but the real gate is broader. Every structured field (email, web address, number, phone, date, time, datetime) opts out too, not only the secured ones.
-- **The backspace-revert path checks slightly different conditions than ordinary learning.** Restoring a word by backspacing right after an autocorrect checks only the setting, incognito, and that the field isn't a secure one. It doesn't ask for a plain text field the way normal learning does. In practice that costs you nothing, because the autocorrect it undoes could only have fired in a plain text field in the first place.
+- **The backspace-revert path checks slightly different conditions than ordinary learning.** Restoring a word by backspacing right after an autocorrect checks only the setting, incognito, and that the field isn't a secure one. It doesn't ask for a plain text field the way normal learning does. In practice that costs you nothing, because the autocorrect it undoes could only have fired in a plain text field in the first place. It's also counted immediately rather than waiting to settle, since you've told the keyboard directly rather than by leaving the text alone.
 - **A blacklisted word can still be learned.** The personal dictionary and the [suggestion blacklist](/smart/blacklist/) are independent stores. The blacklist wins as a *candidate*, so the word is never offered or autocorrected to. Type that exact word yourself and learning it here doesn't fight the blacklist. It's never offered back either way.
 - **Manually-added words and heavily-reinforced ones can look identical.** The list shows "You added this word" once a word's weight crosses the same 200 that **Add word** hands out, so a word that reached that weight purely through repeated typing reads the same way. Adding a word that's already well reinforced just stacks another 200 on top, which changes nothing you can see.
 - **The list is capped, and stale words go first.** It holds 10,000 words before it starts trimming, and words you added by hand outlast the ones the keyboard picked up on its own. See [Dictionaries & words](/reference/settings/dictionaries/#the-list-is-capped-at-10000-words) for how it chooses.
-- **A backspace-revert word doesn't read "You added this word," even though it's just as protected.** Its weight of 5 shows as "Seen 5 times". It's fully exempt from autocorrect the moment it's learned, and the on-screen label reflects the weight rather than the protection.
+- **A word arrives with the count it earned.** A new word that took three sightings to get in reads "Seen 3 times" on the list, not "Seen once", because the sightings it collected on the way in come with it. Only words at 200 or more read "You added this word".
+- **Turning learning off empties the waiting room too.** Switching off "Learn from typing", or switching on incognito while it's set to pause learning, throws away the words that were queued but not yet counted. They were typed while it was allowed, but none of them had been written anywhere.
+- **A language with no dictionary of its own is slower to learn from.** Nothing recognises any of those words, so every one of them waits its three sightings. Set **Remember a new word after** to 1 if you type mostly in a language the keyboard has no wordlist for.
 
 For the rest of the suggestion strip (completions, corrections and next-word prediction), see [Suggestions & prediction](/smart/suggestions/). To keep a word out of suggestions entirely instead of teaching it, see the [suggestion blacklist](/smart/blacklist/). For how contact names interact with this same learning path, see [Contact-aware typing](/smart/contacts/).

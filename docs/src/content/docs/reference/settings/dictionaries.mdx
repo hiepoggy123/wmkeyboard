@@ -14,11 +14,13 @@ WM Keyboard keeps your words in four separate screens, reached from two differen
 
 <SettingsPath path="Typing / Suggestions / Personal dictionary" />
 
-Every word the keyboard has learned from your typing, plus any you add by hand, sorted with the most-reinforced word first. Each row reads "You added this word" once its weight reaches 200, and "Seen N times" below that.
+Every word the keyboard has learned from your typing, plus any you add by hand, sorted with the most-reinforced word first. Each row reads "You added this word" once its weight reaches 200, and "Seen N times" below that. New words the keyboard is still counting are not on this screen: they only appear once they have been typed enough times to be saved. See [Personal dictionary](/smart/personal-dictionary/#new-words-wait-their-turn).
 
 Past 12 words the list grows a search box above it, with a clear button in the field. Type into it and only the matching words stay on screen; a term that matches nothing says so rather than showing an empty list. Below 12 words there's no box, since the list is short enough to read.
 
 **Add word** opens a single-field dialog and adds 200 to the word's weight. A word the keyboard has never seen lands at exactly 200 and reads "You added this word" straight away. A word you'd already typed 50 times goes to 250 rather than back down to 200. The trash icon on a row removes that word, and drops it from any word pairs it was part of. Every add and every remove signals a running keyboard session to reload the list, so your edit isn't silently overwritten.
+
+**Remove one-off words** sits beside it whenever anything in the list has only been seen once, and clears all of those together after a confirmation naming the count. It is there for installs upgraded from versions that saved every new word on first sight, where those rows are mostly stray swipes and typos. Words you added by hand start at 200 and are never included.
 
 The dialog takes anything you type, but the store won't: a word over 32 characters (measured after lowercasing) is dropped silently, so the dialog closes and the list is exactly as it was. The same limit applies to words learned from typing.
 

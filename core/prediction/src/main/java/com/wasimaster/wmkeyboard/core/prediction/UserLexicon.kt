@@ -252,17 +252,34 @@ class UserLexicon(private val storageFile: File?) {
 
     @Synchronized
     fun forget(word: String) {
-        val key = WordKey.of(word)
-        words.remove(key)
-        wordGen.remove(key)
-        wordLangs.remove(key)
-        bigrams.remove(key)
-        bigrams.values.forEach {
-            if (it.counts.remove(key) != null) it.sorted = null
+        forgetAll(listOf(word))
+    }
+
+    /**
+     * Drops every word in [victims] in one pass.
+     *
+     * The trie is append-only, so each removal rebuilds it; doing that once for
+     * a thousand words rather than a thousand times is the difference between
+     * the settings screen's "clean up" finishing and appearing to hang.
+     */
+    @Synchronized
+    fun forgetAll(victims: Collection<String>) {
+        val keys = victims.mapTo(HashSet()) { WordKey.of(it) }
+        if (keys.isEmpty()) return
+        for (key in keys) {
+            words.remove(key)
+            wordGen.remove(key)
+            wordLangs.remove(key)
+            bigrams.remove(key)
         }
-        trigrams.keys.removeAll { context -> key in context.split(TRIGRAM_SEPARATOR) }
-        trigrams.values.forEach {
-            if (it.counts.remove(key) != null) it.sorted = null
+        bigrams.values.forEach { followers ->
+            if (followers.counts.keys.removeAll(keys)) followers.sorted = null
+        }
+        trigrams.keys.removeAll { context ->
+            context.split(TRIGRAM_SEPARATOR).any { it in keys }
+        }
+        trigrams.values.forEach { followers ->
+            if (followers.counts.keys.removeAll(keys)) followers.sorted = null
         }
         rebuildTrie()
         mutations++

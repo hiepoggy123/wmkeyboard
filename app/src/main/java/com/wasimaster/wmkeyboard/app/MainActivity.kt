@@ -3131,6 +3131,29 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
+                R.string.typing_ask_before_learning_title,
+                stringResource(R.string.typing_ask_before_learning_subtitle),
+                settings.suggestionStrip.askBeforeLearning,
+                info = stringResource(R.string.typing_ask_before_learning_info),
+                default = SettingsDefaults.suggestionStrip.askBeforeLearning,
+            ) { scope.launch { repository.setAskBeforeLearning(it) } }
+        }
+        if (!settings.suggestionStrip.askBeforeLearning) {
+            item {
+                val immediately = stringResource(R.string.typing_new_word_sightings_once)
+                SliderSetting(
+                    R.string.typing_new_word_sightings_title,
+                    subtitle = stringResource(R.string.typing_new_word_sightings_subtitle),
+                    value = settings.suggestionStrip.newWordSightings.toFloat(),
+                    range = 1f..10f,
+                    display = { if (it.toInt() <= 1) immediately else it.toInt().toString() },
+                    info = stringResource(R.string.typing_new_word_sightings_info),
+                    default = SettingsDefaults.suggestionStrip.newWordSightings.toFloat(),
+                ) { scope.launch { repository.setNewWordSightings(it.toInt()) } }
+            }
+        }
+        item {
+            ToggleSetting(
                 R.string.typing_suggestions_all_fields_title,
                 stringResource(R.string.typing_suggestions_all_fields_subtitle),
                 settings.showSuggestionsInAllFields,
@@ -7261,6 +7284,7 @@ private fun DictionarySettings(repository: SettingsRepository) {
     var lexicon by remember { mutableStateOf<UserLexicon?>(null) }
     var words by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
     var showAdd by remember { mutableStateOf(false) }
+    var showTidy by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         val lex = withContext(Dispatchers.IO) { UserLexicon(file) }
@@ -7285,10 +7309,25 @@ private fun DictionarySettings(repository: SettingsRepository) {
         style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
     )
-    Button(
-        onClick = { showAdd = true },
+    // Words seen exactly once. Older versions learned every word the first time
+    // it was committed, so for anyone upgrading this is where the swipe
+    // misfires and mistyped words are — the clean-out the dictionary needed and
+    // had no way to do short of deleting entries one at a time. Words the user
+    // added by hand carry a boost far above 1 and are never in here.
+    val seenOnce = remember(words) { words.filter { it.second <= 1 }.map { it.first } }
+    Row(
         modifier = Modifier.padding(horizontal = 16.dp),
-    ) { Text(stringResource(R.string.backup_add_word_action)) }
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Button(onClick = { showAdd = true }) {
+            Text(stringResource(R.string.backup_add_word_action))
+        }
+        if (seenOnce.isNotEmpty()) {
+            OutlinedButton(onClick = { showTidy = true }) {
+                Text(stringResource(R.string.backup_tidy_words_action))
+            }
+        }
+    }
     Spacer(Modifier.height(12.dp))
     // The lexicon holds up to 10,000 words and used to render as one flat
     // count-sorted list, which made finding a single word to delete a scroll
@@ -7372,6 +7411,35 @@ private fun DictionarySettings(repository: SettingsRepository) {
             },
             dismissButton = {
                 TextButton(onClick = { showAdd = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
+
+    if (showTidy) {
+        AlertDialog(
+            onDismissRequest = { showTidy = false },
+            title = { Text(stringResource(R.string.backup_tidy_words_title)) },
+            text = {
+                Text(
+                    pluralStringResource(
+                        R.plurals.backup_tidy_words_body,
+                        seenOnce.size,
+                        seenOnce.size,
+                    ),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        persist { it.forgetAll(seenOnce) }
+                        showTidy = false
+                    },
+                ) { Text(stringResource(CommonR.string.common_remove)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTidy = false }) {
                     Text(stringResource(CommonR.string.common_cancel))
                 }
             },

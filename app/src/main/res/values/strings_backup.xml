@@ -28,6 +28,15 @@
         <item quantity="one">Seen %1$d time</item>
         <item quantity="other">Seen %1$d times</item>
     </plurals>
+    <!-- Bulk clean-up of words the keyboard saw only once, which is where
+         typos and stray swipes end up. -->
+    <string name="backup_tidy_words_action">Remove one-off words</string>
+    <string name="backup_tidy_words_title">Remove one-off words?</string>
+    <!-- %1$d is how many words were seen exactly once. -->
+    <plurals name="backup_tidy_words_body">
+        <item quantity="one">%1$d word here has only been seen once. That is usually a typo or a stray swipe. Words you added yourself are kept.</item>
+        <item quantity="other">%1$d words here have only been seen once each. Those are usually typos and stray swipes. Words you added yourself are kept.</item>
+    </plurals>
 
     <!-- ================================================================== -->
     <!-- Never suggest: the words the keyboard keeps out of suggestions.    -->

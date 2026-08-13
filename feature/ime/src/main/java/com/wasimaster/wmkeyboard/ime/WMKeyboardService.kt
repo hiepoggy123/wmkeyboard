@@ -137,7 +137,9 @@ import com.wasimaster.wmkeyboard.core.prediction.KeyTouchModel
 import com.wasimaster.wmkeyboard.core.prediction.WordContext
 import com.wasimaster.wmkeyboard.core.prediction.TouchPoint
 import com.wasimaster.wmkeyboard.core.prediction.LanguageMixConfidence
+import com.wasimaster.wmkeyboard.core.prediction.LearningBuffer
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
+import com.wasimaster.wmkeyboard.core.prediction.PendingLearn
 import com.wasimaster.wmkeyboard.core.prediction.SecondaryDictionary
 import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
@@ -430,6 +432,26 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var emojiPackNames: Map<String, Map<String, String>> = emptyMap()
     private lateinit var userLexicon: UserLexicon
+
+    /**
+     * Sighting counts for words no dictionary knows, which have to be typed
+     * and left alone a few times before [userLexicon] will take them.
+     */
+    private var pendingLearn = PendingLearn(null)
+
+    /**
+     * This field's committed-but-unsettled words. Nothing here has been
+     * counted yet: the user may still go back and fix any of it.
+     */
+    private val learningBuffer = LearningBuffer()
+
+    /**
+     * The word the "add to dictionary?" chip is currently asking about, when
+     * `askBeforeLearning` is on. Held here as well as in the UI state so the
+     * chip can be re-offered after a panel covers the strip.
+     */
+    private var learnOfferWord: String? = null
+
     private lateinit var languageMixConfidence: LanguageMixConfidence
     private lateinit var emojiUsage: EmojiUsage
     /**
@@ -1832,12 +1854,17 @@ open class WMKeyboardService : InputMethodService() {
                 if (lexiconVersion != -1 && settings.lexiconVersion != lexiconVersion) {
                     withContext(Dispatchers.Default) {
                         userLexicon.reload()
-                        // The Storage screen deletes all four learning files at
-                        // once, so the same signal has to drop all four copies:
+                        // The Storage screen deletes all the learning files at
+                        // once, so the same signal has to drop all the copies:
                         // any one of them saves the old data back otherwise.
+                        pendingLearn.reload()
                         emojiUsage.reload()
                         languageMixConfidence.reload()
                     }
+                    // Words the user just deleted from their personal
+                    // dictionary must not be sitting in the buffer waiting to
+                    // be written straight back.
+                    learningBuffer.clear()
                 }
                 lexiconVersion = settings.lexiconVersion
                 // Same contract for the typing counters: the Statistics
@@ -1956,6 +1983,17 @@ open class WMKeyboardService : InputMethodService() {
                 // (incognito, fields that forbid typing intelligence) is checked
                 // at the commit itself, where the field is known.
                 CjkLearning.enabled = settings.learnFromTyping
+                // Learning switched off — or incognito switched on with it
+                // paused — throws away the words waiting to settle as well as
+                // stopping new ones. They were typed while it was allowed, but
+                // "stop learning from me" means the queue too, and none of it
+                // has been written anywhere yet.
+                if (!settings.learnFromTyping ||
+                    (settings.incognito && settings.incognitoPausesLearning)
+                ) {
+                    learningBuffer.clear()
+                    clearLearnOffer()
+                }
                 // Adding or removing Bengali changes what the engine was built
                 // with, not just what it looks up, so it is rebuilt rather than
                 // patched. Switching the spelling map counts for the same
@@ -2082,6 +2120,10 @@ open class WMKeyboardService : InputMethodService() {
     private fun attachPersonalStores() {
         fun store(path: String): File? = if (userUnlocked) File(filesDir, path) else null
         userLexicon = UserLexicon(store("learning/user_lexicon.json"))
+        // Its own file for the same reason [CorrectionStats] has one: the
+        // settings app rewrites the lexicon wholesale when the user edits their
+        // personal dictionary, and half-earned sightings must survive that.
+        pendingLearn = PendingLearn(store("learning/pending_learn.json"))
         correctionStats = CorrectionStats(store("learning/correction_stats.json"))
         suggestionEngine?.correctionStats = correctionStats
         // Its own file, so clearing one store never silently clears the other.
@@ -2614,7 +2656,7 @@ open class WMKeyboardService : InputMethodService() {
                 onPickerDismiss = ::dismissHardwareOverlay,
                 onSmartAccept = ::onSmartSuggestionTapped,
                 onSmartOpen = ::onSmartSuggestionOpen,
-                onSnippetOfferAccept = ::onSnippetOfferAccept,
+                onStripOfferAction = ::onStripOfferAction,
                 onToolPrefillConsumed = ::onToolPrefillConsumed,
                 onHideKeyboard = ::onHideKeyboard,
             )
@@ -2838,6 +2880,12 @@ open class WMKeyboardService : InputMethodService() {
             pendingAutoSpace = false
             pendingPunctuationSpace = false
             pendingGestureSpace = false
+            // The last field's text is behind us and nobody is going back to
+            // edit it, so the unknown words still waiting in it have settled.
+            // This is also how a message field that was *sent* gets counted
+            // when the app restarts input instead of clearing the text.
+            flushLearningBuffer()
+            clearLearnOffer()
             // A genuinely different field. Whatever a plugin was collecting
             // belonged to the last one, and the keys belong to this one.
             stopPlugins()
@@ -3179,6 +3227,7 @@ open class WMKeyboardService : InputMethodService() {
         // edit. No text is read here: this runs on every keystroke, and a read
         // would undo what the expected-selection cache exists to save.
         keymanSession?.onSelectionReported(newSelStart, newSelEnd)
+        noteCaretForLearning(newSelStart, newSelEnd)
         // Immediate-revert states are only valid at the caret position their
         // commit left behind; see [revertAnchor]. The first update after
         // arming is the commit's own echo and records the anchor, anything
@@ -3458,7 +3507,13 @@ open class WMKeyboardService : InputMethodService() {
         ) {
             fancyToolAutoOffPending = true
         }
+        // The keyboard going away is the plainest "this text is finished"
+        // there is, and the one the request for this asked for by name. Before
+        // the saves, so anything it promotes lands in the same write.
+        clearLearnOffer()
+        flushLearningBuffer()
         userLexicon.save()
+        pendingLearn.save()
         correctionStats.save()
         CjkLearning.store?.save()
         languageMixConfidence.save()
@@ -3491,7 +3546,9 @@ open class WMKeyboardService : InputMethodService() {
         // The deferred buzz used to be cancelled by serviceScope.cancel() below;
         // on a Handler it has to be taken off the queue by hand.
         feedbackHandler.removeCallbacks(deferredVibrate)
+        flushLearningBuffer()
         userLexicon.save()
+        pendingLearn.save()
         correctionStats.save()
         CjkLearning.store?.save()
         emojiUsage.save()
@@ -4931,6 +4988,9 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     private fun onDelete() {
+        // Backspace is the answer "no" to an add-word chip: the user is taking
+        // the word back rather than keeping it, so the offer goes with it.
+        if (learnOfferWord != null) clearLearnOffer()
         // Backspace with a morse sequence pending edits the sequence, not the
         // field — Gboard's contract. It only falls through to a real delete
         // once the sequence is empty.
@@ -5185,7 +5245,16 @@ open class WMKeyboardService : InputMethodService() {
                     !(state.incognitoOn && state.settings.incognitoPausesLearning) &&
                     !state.secureField
                 ) {
-                    userLexicon.addWord(revert.original, boost = 5)
+                    // Counted, not learned outright. Reaching for backspace is
+                    // strong evidence — worth several ordinary sightings — but
+                    // it is not proof: undoing a correction is also what you do
+                    // when the correction was simply not the word you wanted,
+                    // and this used to be the shortest path from one stray
+                    // swipe to a misspelling nailed into the dictionary
+                    // forever. Nothing is lost by waiting either, because
+                    // [rejectCorrection] above has already stopped this exact
+                    // correction from firing again.
+                    noteRevertedWord(revert.original, state)
                 }
                 previousWord = revert.original.trim { !WordContext.isWordChar(it) }
                     .lowercase().ifEmpty { null }
@@ -6775,6 +6844,9 @@ open class WMKeyboardService : InputMethodService() {
 
     /** Publishes [offer], or takes the chip down when it is null. */
     private fun publishSnippetOffer(offer: SnippetOffer?) {
+        // The add-word chip answers through the same callback, so a snippet
+        // offer arriving takes it down: whichever chip is up owns the answer.
+        if (offer != null) clearLearnOffer()
         if (_uiState.value.snippetOffer != offer) _uiState.update { it.copy(snippetOffer = offer) }
     }
 
@@ -6939,6 +7011,71 @@ open class WMKeyboardService : InputMethodService() {
                 },
             )
         }
+    }
+
+    /**
+     * An ask-first chip on the strip was answered.
+     *
+     * One entry point for both of them — the snippet offer and the add-word
+     * offer — picked apart by state here rather than by a second parameter on
+     * [ui.KeyboardScreen], whose argument list already compiles to a method at
+     * the JVM's 64K ceiling. They never share the strip: publishing either one
+     * clears the other.
+     */
+    fun onStripOfferAction(accepted: Boolean) {
+        if (_uiState.value.learnOffer != null) {
+            if (accepted) acceptLearnOffer() else declineLearnOffer()
+            return
+        }
+        if (accepted) onSnippetOfferAccept()
+    }
+
+    /**
+     * Puts the add-word chip on the strip for [word].
+     *
+     * Only ever reached with `askBeforeLearning` on. The offer is about the
+     * word that was just committed, so a newer one replaces it outright: the
+     * chip follows the typing rather than queueing up behind it.
+     */
+    private fun offerToLearn(word: String) {
+        if (learnOfferWord == word) return
+        learnOfferWord = word
+        // The two ask-first chips answer through the same callback, so only one
+        // of them may be up at a time.
+        clearSnippetOffer()
+        _uiState.update { it.copy(learnOffer = word) }
+    }
+
+    /** Takes the add-word chip down, whether or not it was answered. */
+    private fun clearLearnOffer() {
+        learnOfferWord = null
+        if (_uiState.value.learnOffer != null) _uiState.update { it.copy(learnOffer = null) }
+    }
+
+    /** "Yes, that is a word": into the dictionary at full strength. */
+    private fun acceptLearnOffer() {
+        val word = _uiState.value.learnOffer ?: return
+        vibrate()
+        clearLearnOffer()
+        pendingLearn.forget(word)
+        // addWord, not learnWord: the user was asked outright and said yes, so
+        // the word competes with real vocabulary immediately and is never
+        // corrected away.
+        userLexicon.addWord(word)
+        if (_uiState.value.settings.addWordsToSystemDictionary) {
+            serviceScope.launch(Dispatchers.IO) {
+                SystemUserDictionary.add(applicationContext, word)
+            }
+        }
+        refreshSuggestions()
+    }
+
+    /** "No": drop it and stop asking about that word. */
+    private fun declineLearnOffer() {
+        val word = _uiState.value.learnOffer ?: return
+        vibrate()
+        clearLearnOffer()
+        pendingLearn.decline(word)
     }
 
     /**
@@ -7388,13 +7525,6 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * [reinforcement] grades how deliberate the commit was: 2 for a tapped
-     * suggestion, 1 for a plainly typed word, 0 for an autocorrect (the
-     * word still anchors bigrams but doesn't join the personal lexicon).
-     * Multi-word commits ("of the" from a split suggestion) learn each
-     * word and the bigrams linking them.
-     */
-    /**
      * Whether anything the user types may be remembered: the setting, incognito,
      * and whether the field allows typing intelligence at all. Shared by the
      * Latin lexicon and the CJK pick history so the two go quiet together.
@@ -7423,10 +7553,27 @@ open class WMKeyboardService : InputMethodService() {
         typingStats.block()
     }
 
+    /**
+     * Records one commit against everything that learns from typing.
+     *
+     * [reinforcement] grades how deliberate the commit was: 2 for a tapped
+     * suggestion, 1 for a plainly typed word, 0 for an autocorrect (the word
+     * still anchors bigrams but doesn't join the personal lexicon).
+     * Multi-word commits ("of the" from a split suggestion) learn each word
+     * and the bigrams linking them.
+     *
+     * Words split two ways here. One the keyboard already recognises is
+     * counted straight away, as it always was. One nothing recognises is not
+     * learned at all yet — see [noteUnknownWord].
+     */
     private fun learn(word: String, reinforcement: Int = 1) {
         // The pattern gate follows what went into the field, not what the
         // lexicon was allowed to keep, so it is fed on both paths.
         for (part in word.split(' ')) pushRecentWord(part)
+        // A chip asking about the *previous* word has been overtaken: the user
+        // typed on rather than answering, which is the answer. Cleared before
+        // the gate below so it never outlives the word it was about.
+        if (learnOfferWord != null) clearLearnOffer()
         if (!learningAllowed) {
             previousWord2 = previousWord
             previousWord = word
@@ -7436,36 +7583,183 @@ open class WMKeyboardService : InputMethodService() {
         var previous = previousWord
         var beforePrevious = previousWord2
         var lastLearned: String? = null
+        // Whether the two words a bigram/trigram would hang off are ones the
+        // keyboard actually knows. An n-gram with an unrecognised word at
+        // either end is a habit built out of a possible typo, and it surfaces
+        // in the strip as a next-word suggestion — exactly the rubbish this
+        // gate exists to keep out.
+        var previousKnown = previous == null || isKnownWord(previous)
+        var beforePreviousKnown = beforePrevious == null || isKnownWord(beforePrevious)
         for (part in word.split(' ')) {
             // Combining marks are part of the word, not a boundary: trimming
             // on isLetter alone learns Bengali হয়েছে as হয়েছ. See WordContext.
             val cleaned = part.trim { !WordContext.isWordChar(it) }
             if (cleaned.isEmpty()) continue
-            // Tagged with the active language so a habit learned under one
-            // language can be damped when it crowds another's strip.
-            userLexicon.learnWord(cleaned, reinforcement, langId = state.language.id)
             notePerAppWord(cleaned)
             // Attribute the word to whichever mixed language owns it, so the
             // secondary-dictionary weighting tracks the user's real habit.
             suggestionEngine?.recordUsage(cleaned)
-            // Mirror genuinely typed words (not autocorrect targets, which are
-            // reinforcement 0 and already dictionary words) into Android's
-            // shared personal dictionary when the user has opted in.
-            if (reinforcement > 0 && state.settings.addWordsToSystemDictionary) {
-                serviceScope.launch(Dispatchers.IO) {
-                    SystemUserDictionary.add(applicationContext, cleaned)
+            val known = isKnownWord(cleaned)
+            if (known) {
+                // Tagged with the active language so a habit learned under one
+                // language can be damped when it crowds another's strip.
+                userLexicon.learnWord(cleaned, reinforcement, langId = state.language.id)
+                // Mirror genuinely typed words (not autocorrect targets, which
+                // are reinforcement 0 and already dictionary words) into
+                // Android's shared personal dictionary when the user has opted
+                // in.
+                if (reinforcement > 0 && state.settings.addWordsToSystemDictionary) {
+                    serviceScope.launch(Dispatchers.IO) {
+                        SystemUserDictionary.add(applicationContext, cleaned)
+                    }
                 }
-            }
-            previous?.let { prev ->
-                userLexicon.learnBigram(prev, cleaned)
-                beforePrevious?.let { userLexicon.learnTrigram(it, prev, cleaned) }
+                if (previousKnown) {
+                    previous?.let { prev ->
+                        userLexicon.learnBigram(prev, cleaned)
+                        if (beforePreviousKnown) {
+                            beforePrevious?.let { userLexicon.learnTrigram(it, prev, cleaned) }
+                        }
+                    }
+                }
+            } else {
+                // Nothing recognises this word. It goes into the waiting room
+                // instead of the dictionary, and only earns its way in once
+                // the user has typed it — and left it alone — enough times.
+                noteUnknownWord(cleaned, reinforcement, state)
             }
             beforePrevious = previous
+            beforePreviousKnown = previousKnown
             previous = cleaned
+            previousKnown = known
             lastLearned = cleaned
         }
         previousWord2 = beforePrevious
         previousWord = lastLearned
+    }
+
+    /**
+     * Whether the keyboard already recognises [word] — from a dictionary, the
+     * personal lexicon, contacts or installed apps.
+     *
+     * Falls back to the lexicon alone before the engine exists, which is the
+     * cautious answer: an unrecognised word is only held back, never lost.
+     */
+    private fun isKnownWord(word: String): Boolean =
+        suggestionEngine?.isKnownWord(word) ?: userLexicon.contains(word)
+
+    /**
+     * A word no dictionary knows has been committed.
+     *
+     * Two ways to deal with it, and the user picks which. Asking outright puts
+     * an "add to dictionary?" chip on the strip and learns nothing unless it
+     * is tapped. Counting — the default — says nothing and waits: the word is
+     * parked in [learningBuffer] until the text around it settles, and only
+     * after `newWordSightings` settled uses does it join the lexicon.
+     *
+     * Either way the word is not learned *now*, which is the whole change: a
+     * word learned on first sight is a word autocorrect will never fix again,
+     * and most first sightings of an unknown word are typos and sloppy swipes.
+     */
+    private fun noteUnknownWord(word: String, reinforcement: Int, state: KeyboardUiState) {
+        // An autocorrect target is a dictionary word by construction, so a
+        // reinforcement of 0 here means the correction landed on something we
+        // do not recognise — no evidence about the user's vocabulary at all.
+        if (reinforcement <= 0) return
+        if (pendingLearn.isDeclined(word)) return
+        if (state.settings.suggestionStrip.askBeforeLearning) {
+            offerToLearn(word)
+            return
+        }
+        settleLearned(learningBuffer.push(word, state.language.id, reinforcement))
+    }
+
+    /**
+     * Counts words whose text has settled, promoting any that have now been
+     * seen enough times.
+     */
+    private fun settleLearned(entries: List<LearningBuffer.Entry>) {
+        if (entries.isEmpty()) return
+        val threshold = _uiState.value.settings.suggestionStrip.newWordSightings
+            .coerceAtLeast(1)
+        for (entry in entries) {
+            // The word may have been learned, imported or added by hand while
+            // it sat in the buffer; there is nothing left to count.
+            if (isKnownWord(entry.word)) continue
+            // Graded by how deliberate the commit was, the same way
+            // [UserLexicon.learnWord] grades its own counts: a candidate the
+            // user reached up and tapped says more than one that went past.
+            val seen = pendingLearn.sight(entry.word, entry.langId, weight = entry.weight)
+            if (seen >= threshold) promoteLearned(entry.word, entry.langId, seen)
+        }
+    }
+
+    /**
+     * The user backspaced an autocorrect away, putting [word] back.
+     *
+     * Worth [REVERT_SIGHTINGS] ordinary sightings, and counted immediately
+     * rather than parked in the buffer: the buffer answers "did the user leave
+     * this text alone", and they have just told us directly. A word already
+     * known needs none of this — it was never the autocorrect's target to
+     * begin with, or it has been learned since.
+     */
+    private fun noteRevertedWord(word: String, state: KeyboardUiState) {
+        val cleaned = word.trim { !WordContext.isWordChar(it) }
+        if (cleaned.isEmpty() || isKnownWord(cleaned)) return
+        if (state.settings.suggestionStrip.askBeforeLearning) {
+            if (!pendingLearn.isDeclined(cleaned)) offerToLearn(cleaned)
+            return
+        }
+        val seen = pendingLearn.sight(cleaned, state.language.id, weight = REVERT_SIGHTINGS)
+        val threshold = state.settings.suggestionStrip.newWordSightings.coerceAtLeast(1)
+        if (seen >= threshold) promoteLearned(cleaned, state.language.id, seen)
+    }
+
+    /** The text stopped moving: everything still queued has settled. */
+    private fun flushLearningBuffer() {
+        settleLearned(learningBuffer.drain())
+    }
+
+    /**
+     * Hands the reported caret to the settle buffer, which uses it to notice
+     * the user going back into text it is holding.
+     *
+     * The empty-field check is the one thing here that costs anything, and it
+     * is what makes this work in a chat app: hitting send empties the field
+     * and parks the caret at 0, which is indistinguishable from jumping to the
+     * top of a draft until you look. Sent text is as settled as text gets, and
+     * a draft the user has jumped to the top of is text they are about to
+     * edit — opposite answers, so the one read is worth it. It only ever runs
+     * with words queued *and* the caret at 0, so it is not on the typing path.
+     */
+    private fun noteCaretForLearning(selStart: Int, selEnd: Int) {
+        if (learningBuffer.isEmpty()) return
+        // A range selection is a selection, not a resting place: anchoring to
+        // it would point entries at text that is about to be replaced.
+        if (selStart != selEnd) return
+        if (selStart == 0 &&
+            currentInputConnection?.getTextAfterCursor(1, 0).isNullOrEmpty()
+        ) {
+            flushLearningBuffer()
+            return
+        }
+        learningBuffer.onCaret(selStart)
+    }
+
+    /**
+     * [word] has been typed and left alone enough times: it is the user's now.
+     *
+     * Learned with its sighting count rather than a flat 1, so a word that
+     * took five uses to get here starts out weighted like the five uses it
+     * was.
+     */
+    private fun promoteLearned(word: String, langId: String, sightings: Int) {
+        pendingLearn.forget(word)
+        userLexicon.learnWord(word, count = sightings, langId = langId)
+        if (_uiState.value.settings.addWordsToSystemDictionary) {
+            serviceScope.launch(Dispatchers.IO) {
+                SystemUserDictionary.add(applicationContext, word)
+            }
+        }
     }
 
     /**
@@ -7486,7 +7780,10 @@ open class WMKeyboardService : InputMethodService() {
             previousWord = emoji
             return
         }
-        previousWord?.let { userLexicon.learnBigram(it, emoji) }
+        // Same gate as the word bigrams in [learn]: a habit hung off a word
+        // nothing recognises is a habit hung off a possible typo, and it comes
+        // back as an emoji suggestion after that misspelling forever.
+        previousWord?.let { if (isKnownWord(it)) userLexicon.learnBigram(it, emoji) }
         previousWord = emoji
     }
 
@@ -8383,6 +8680,11 @@ open class WMKeyboardService : InputMethodService() {
                 // The bigram for the pick below must chain off the word
                 // *before* the replaced one, not off the word being replaced.
                 syncPreviousWordFromField(ic)
+                // The decode the user just overruled is not evidence of
+                // anything. Explicit rather than left to the caret rule: the
+                // replacement lands at the same place the old word ended, so
+                // no caret move says it happened.
+                learningBuffer.drop(gestureWord)
             }
         }
         lastGestureWord = null
@@ -16788,6 +17090,14 @@ open class WMKeyboardService : InputMethodService() {
          * takes), far short of a deliberate tap elsewhere.
          */
         private const val REVERT_SETTLE_MS = 200L
+
+        /**
+         * What undoing an autocorrect is worth towards learning the word that
+         * was put back, in ordinary sightings. Two, so the default threshold
+         * of three needs one reverted correction plus one plainly typed use —
+         * a clear pattern rather than a single unlucky swipe.
+         */
+        private const val REVERT_SIGHTINGS = 2
 
         /** Height offered to autofill chips, matching the suggestion strip. */
         private const val INLINE_CHIP_HEIGHT_DP = 44

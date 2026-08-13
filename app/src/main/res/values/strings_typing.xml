@@ -422,4 +422,14 @@
     <string name="typing_learn_threshold_info">The keyboard never corrects a word it has learned from you. That protects your names and slang, but it also means one typo you commit once is protected forever. Raise this to make the keyboard wait until it has seen the word more than once. Suggestions are not affected: a word below this count can still be offered, it is just not shielded from correction. This setting is once by default.</string>
     <!-- Shown in place of a number at the lowest point of the learn threshold slider. -->
     <string name="typing_learn_threshold_once">Once</string>
+
+    <string name="typing_new_word_sightings_title">Remember a new word after</string>
+    <string name="typing_new_word_sightings_subtitle">How many times you type a word nothing recognises before it is saved</string>
+    <string name="typing_new_word_sightings_info">Only words that no dictionary knows are counted. A word already in a dictionary is learned the moment you type it. A use only counts once you have moved on and left the word alone, so a typo you go back and fix is never counted. Lower this if your own names and slang take too long to stick. Set it to 1 to save every new word straight away, which is what older versions did. This setting is 3 by default.</string>
+    <!-- Shown in place of a number at the lowest point of the new-word slider. -->
+    <string name="typing_new_word_sightings_once">Straight away</string>
+
+    <string name="typing_ask_before_learning_title">Ask before saving new words</string>
+    <string name="typing_ask_before_learning_subtitle">Offer a chip instead of counting how often you type the word</string>
+    <string name="typing_ask_before_learning_info">When a word no dictionary knows is typed, the suggestion strip asks whether to add it. Tap the chip to save the word, or the ✕ to never be asked about it again. Nothing is saved unless you tap. Off by default, because a chip after a word you never think about again gets in the way.</string>
 </resources>

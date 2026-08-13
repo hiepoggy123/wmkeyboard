@@ -82,7 +82,7 @@ This is a different screen from the sibling **Backup & restore** item on the Set
 
 <SettingsPath path="Privacy / Your data" />
 
-A single row, **Learned words**, with a **Delete the learned words** button that asks to confirm first. Confirming deletes five files: your word and word-pair lexicon, your emoji-usage history, autocorrect's revert memory (which corrections you undid), your Chinese/Japanese/Cantonese pick history, and the language-mix tracker that remembers which language you tend to reach for. The dialog names the first four, warns that your personal dictionary goes with them, and promises that your snippets and your imported word lists stay.
+A single row, **Learned words**, with a **Delete the learned words** button that asks to confirm first. Confirming deletes six files: your word and word-pair lexicon, the new words still waiting to be counted, your emoji-usage history, autocorrect's revert memory (which corrections you undid), your Chinese/Japanese/Cantonese pick history, and the language-mix tracker that remembers which language you tend to reach for. The dialog names the first four, warns that your personal dictionary goes with them, and promises that your snippets and your imported word lists stay.
 
 Your personal dictionary really does go. The [Personal dictionary](/reference/settings/dictionaries/) screen edits the same word and word-pair lexicon file the keyboard learns into, so a word you added by hand and a word the keyboard picked up sit side by side, and this button takes both.
 
@@ -94,7 +94,7 @@ This is the only bulk clear on this screen. Personal dictionary entries, clipboa
 
 ## Details & edge cases
 
-- **"Delete the learned words" is one bulk action, not a per-category picker.** No dialog lets you choose which of the five files to wipe. Confirming deletes all five at once, with no undo.
+- **"Delete the learned words" is one bulk action, not a per-category picker.** No dialog lets you choose which of the six files to wipe. Confirming deletes all six at once, with no undo.
 - **"Follow private browsing" isn't two settings.** The row here and the row of the same name under <SettingsPath path="Tools / Incognito" /> both read and write `autoIncognito`; flip it in either place and the other reflects the change.
 - **Saved API keys are included in an Android backup**, not excluded the way large downloads are. If that matters to you, use [Backup & restore](/privacy/backup/)'s manual export instead, which never leaves the device.
 - **A cloud backup needs an encryptable screen lock.** On a device without one, turning "Back up with Android" on has nothing to actually back up into: Android's own backup system requires it.

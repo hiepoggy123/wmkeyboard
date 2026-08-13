@@ -57,6 +57,7 @@ internal object StorageNames {
         "addons/.seeded" to R.string.storage_file_seeded_label,
 
         "learning/user_lexicon.json" to R.string.storage_file_lexicon_label,
+        "learning/pending_learn.json" to R.string.storage_file_pending_learn_label,
         "learning/correction_stats.json" to R.string.storage_file_corrections_label,
         "learning/emoji_usage.json" to R.string.storage_file_emoji_usage_label,
         "learning/cjk_history.json" to R.string.storage_file_cjk_history_label,
