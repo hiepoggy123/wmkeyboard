@@ -1445,23 +1445,11 @@ internal fun KeyLayoutEditorScreen(
             ) { actualSize = it }
         }
         item {
-            // Layout-wide, like the tablet row and the JSON row below it. The
-            // font and the size are what issue #18 asked for: a grid whose keys
-            // are labelled with words, or drawn in a script the global font does
-            // not suit, needs type of its own, and neither the theme nor the
-            // global settings can hold an answer for one layout.
-            WmRow(
-                title = stringResource(R.string.layout_editor_font_title),
-                subtitle = layout.appearance?.fontId?.let {
-                    KeyboardFonts.displayName(context, it, settings.customFontName)
-                } ?: stringResource(R.string.layout_editor_font_inherit),
-                onClick = { fontPickerOpen = true },
-            )
-        }
-        item {
             // Layer-scoped, and it sits above the layout-wide size deliberately:
             // the layout-wide one reaches every layer, so a symbol page whose
             // keys are punctuation had no way to stay put while the letters grew.
+            // Null here follows the layout's, which is what almost every layer
+            // wants and what the caption says.
             LayoutFontScaleRow(
                 scale = layout.layer(layer)?.fontScale,
                 title = stringResource(
@@ -1474,6 +1462,20 @@ internal fun KeyLayoutEditorScreen(
                     stringResource(layerTitleRes(layer)),
                 ),
                 onChange = { value -> editLayerCoalesced { it.copy(fontScale = value) } },
+            )
+        }
+        item {
+            // Layout-wide, like the tablet row and the JSON row below it. The
+            // font and the size are what issue #18 asked for: a grid whose keys
+            // are labelled with words, or drawn in a script the global font does
+            // not suit, needs type of its own, and neither the theme nor the
+            // global settings can hold an answer for one layout.
+            WmRow(
+                title = stringResource(R.string.layout_editor_font_title),
+                subtitle = layout.appearance?.fontId?.let {
+                    KeyboardFonts.displayName(context, it, settings.customFontName)
+                } ?: stringResource(R.string.layout_editor_font_inherit),
+                onClick = { fontPickerOpen = true },
             )
         }
         item {
@@ -2937,10 +2939,14 @@ private fun LayoutSpec.withAppearance(
  * would otherwise draw at.
  *
  * A multiplier and not a size, so it composes with the accessibility font scale
- * instead of overruling it — see `applyLayoutAppearance`. Null is the default
- * and is offered as its own chip rather than as 1.00, because "this layout does
- * not care" and "this layout wants exactly the normal size" are different
- * things to store: only the first one keeps following the settings.
+ * instead of overruling it. Null is the default and is offered as its own chip
+ * rather than as 1.00, because "this layout does not care" and "this layout
+ * wants exactly the normal size" are different things to store: only the first
+ * one keeps following the settings.
+ *
+ * [title] names the scope, because the layer row below reuses this control
+ * whole. The two differ only in what null falls back to, and that is said in
+ * their captions rather than in their behaviour here.
  */
 @Composable
 private fun LayoutFontScaleRow(
