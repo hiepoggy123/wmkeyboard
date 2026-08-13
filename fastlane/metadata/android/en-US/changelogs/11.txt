@@ -1,0 +1,7 @@
+Hold any key to reach its alternates or tools. Popups wrap onto multiple rows to fit the screen.
+
+The keyboard learns new words only after you type them a few times, keeping typos out. Autocorrect judges its helpfulness after your text settles.
+
+Voice typing settings and the Keyman catalogue move to new screens. Each layer sizes its own labels.
+
+Fixed: Espanso export, enter key actions, spaces after glides, shift lock, stale key roles, and a layout editor crash.
