@@ -2557,7 +2557,17 @@ private fun KeyEditSheet(
         KeyActionPickerDialog(
             current = key.action,
             onPick = { action ->
-                onChange { it.copy(action = action) }
+                // The role goes with the text: it names a punctuation slot, only
+                // text keys are offered it, and a key retyped as something else
+                // would otherwise keep a tag with nowhere left to show it (issue
+                // #25). The renderer ignores such a tag either way; this is so
+                // the stored layout does not carry one.
+                onChange {
+                    it.copy(
+                        action = action,
+                        role = it.role.takeIf { _ -> action == KeyAction.Text },
+                    )
+                }
                 pickingAction = false
                 // Straight on to which tool, rather than leaving the key on
                 // whichever one the catalog entry had to name as its default.

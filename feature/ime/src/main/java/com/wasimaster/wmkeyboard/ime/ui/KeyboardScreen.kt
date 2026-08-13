@@ -10220,10 +10220,14 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     // full of, and put domain endings on the period key's long press. Both
     // are otherwise a trip through the symbols layer for every address.
     val lettersLayer = state.layoutMode == LayoutMode.LETTERS
-    val fieldKey = when {
+    // The character and its popup, not a finished key: the key is built by
+    // copying the slot it replaces, so a comma the layout drew wide stays wide.
+    // A fresh Key here reset the width, and the bottom row jumped on the way
+    // into a URL field (issue #25) — the same trap `commaAsEmoji` fell into.
+    val fieldKey: Pair<String, List<String>>? = when {
         !lettersLayer -> null
-        state.fieldKind == FieldKind.EMAIL -> Key("@")
-        state.fieldKind == FieldKind.URI -> Key("/", longPress = listOf("?", "#", "&", "="))
+        state.fieldKind == FieldKind.EMAIL -> "@" to emptyList()
+        state.fieldKind == FieldKind.URI -> "/" to listOf("?", "#", "&", "=")
         else -> null
     }
     val domainAlternates = when {
@@ -10318,7 +10322,19 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
             var mapped = when {
                 // Field adaptation outranks the emoji-key preference: an
                 // email box needs its @ more than a shortcut to emoji.
-                fieldKey != null && role == KeyRole.Comma -> fieldKey
+                // Everything the slot decides about itself — width, span, label
+                // scale — survives; everything about the character it used to
+                // type is replaced, icons and flicks included.
+                fieldKey != null && role == KeyRole.Comma -> key.copy(
+                    label = fieldKey.first,
+                    output = null,
+                    shiftLabel = null,
+                    longPress = fieldKey.second,
+                    actionAlternates = emptyList(),
+                    icon = null,
+                    iconHint = null,
+                    flick = emptyMap(),
+                )
                 domainAlternates.isNotEmpty() && role == KeyRole.Period ->
                     key.copy(longPress = domainAlternates + key.longPress)
                 commaAsEmoji && role == KeyRole.Comma ->

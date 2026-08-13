@@ -340,4 +340,86 @@ class CurrentLayoutTest {
         assertEquals("rebuilding the key from scratch used to reset its width", 2.5f, emoji.width, 0.001f)
         assertTrue("comma moves to the long-press alternates", emoji.longPress.first() == ",")
     }
+
+    /** The same trap on the field-adaptation path: the @ key inherits the slot. */
+    @Test
+    fun `the field key keeps the slot's own width`() {
+        val wide = com.wasimaster.wmkeyboard.core.layout.LayoutSpec(
+            id = "custom_wide_field",
+            name = "Wide",
+            layers = mapOf(
+                LayoutLayer.LETTERS.key to com.wasimaster.wmkeyboard.core.layout.LayerSpec(
+                    listOf(
+                        listOf(Key("a")),
+                        listOf(Key(",", role = KeyRole.Comma, width = 2.5f, labelScale = 1.4f)),
+                    ),
+                ),
+            ),
+        )
+        val at = currentLayout(state(wide, fieldKind = FieldKind.EMAIL))
+            .keys().first { it.label == "@" }
+        assertEquals("a fresh Key used to reset the width", 2.5f, at.width, 0.001f)
+        assertEquals("and the label scale with it", 1.4f, at.labelScale!!, 0.001f)
+    }
+
+    /**
+     * Issue #25: a custom layout whose comma key was retyped as shift kept the
+     * [KeyRole.Comma] tag the editor no longer showed it, so a URL field turned
+     * the shift key into "/" — and resized it on the way. A role belongs to the
+     * text a key types; a key that does something else has none.
+     */
+    @Test
+    fun `a tagged key that no longer types text is not a punctuation slot`() {
+        val retyped = com.wasimaster.wmkeyboard.core.layout.LayoutSpec(
+            id = "custom_retyped",
+            name = "Retyped",
+            layers = mapOf(
+                LayoutLayer.LETTERS.key to com.wasimaster.wmkeyboard.core.layout.LayerSpec(
+                    listOf(
+                        listOf(Key("a")),
+                        listOf(
+                            Key("⇧", action = KeyAction.Shift, role = KeyRole.Comma, width = 1.5f),
+                            Key(" ", action = KeyAction.Space),
+                            Key(".", role = KeyRole.Period),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        for (kind in listOf(FieldKind.URI, FieldKind.EMAIL)) {
+            val shift = currentLayout(state(retyped, fieldKind = kind))
+                .keys().first { it.action == KeyAction.Shift }
+            assertEquals("the shift key was rewritten in a $kind field", "⇧", shift.label)
+            assertEquals(1.5f, shift.width, 0.001f)
+        }
+    }
+
+    /** ...and the same key must not be swapped around the spacebar either. */
+    @Test
+    fun `a tagged shift key is not swapped with the globe key`() {
+        val retyped = com.wasimaster.wmkeyboard.core.layout.LayoutSpec(
+            id = "custom_retyped_swap",
+            name = "Retyped",
+            layers = mapOf(
+                LayoutLayer.LETTERS.key to com.wasimaster.wmkeyboard.core.layout.LayerSpec(
+                    listOf(
+                        listOf(Key("a")),
+                        listOf(
+                            Key("⇧", action = KeyAction.Shift, role = KeyRole.Comma),
+                            Key("🌐", action = KeyAction.LanguageSwitch),
+                            Key(" ", action = KeyAction.Space),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        val row = currentLayout(
+            state(
+                retyped,
+                settings = KeyboardSettings(globeAsEmoji = false, swapCommaAndGlobe = true),
+            ),
+        ).rows.last()
+        assertEquals(KeyAction.Shift, row[0].action)
+        assertEquals(KeyAction.LanguageSwitch, row[1].action)
+    }
 }

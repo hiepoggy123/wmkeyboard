@@ -440,10 +440,17 @@ enum class KeyRole {
  * Lives here rather than beside the rendering code that reads it because it is a
  * property of the layout model, and because the tablet expansion in this module
  * has to locate the same two slots before it moves them.
+ *
+ * Both branches want a key that types text, the tag included: a role says which
+ * punctuation slot this key fills, and a key that shifts or deletes fills
+ * neither. The editor only offers the tag on text keys, but the tag outlives a
+ * change of action, so a key retyped as shift kept a stamp it no longer had any
+ * way to show — and turned into the URI field's "/" (issue #25).
  */
 fun Key.roleIn(rowIndex: Int, lastRow: Int): KeyRole? = when {
+    action != KeyAction.Text -> null
     role != null -> role
-    action != KeyAction.Text || rowIndex != lastRow -> null
+    rowIndex != lastRow -> null
     label == "," -> KeyRole.Comma
     label == "." -> KeyRole.Period
     else -> null
