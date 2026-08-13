@@ -619,6 +619,9 @@ private fun spokenLabel(key: Key, state: KeyboardUiState): SpokenLabel = when (k
     KeyAction.Delete -> SpokenLabel(R.string.ime_key_delete)
     KeyAction.ForwardDelete -> SpokenLabel(R.string.ime_key_forward_delete)
     KeyAction.Enter -> enterActionSpoken(state)
+    // Named for what it does, not "enter": on the field this key appears for,
+    // "enter" is the word for the key beside it that sends.
+    KeyAction.Newline -> SpokenLabel(R.string.ime_key_newline)
     KeyAction.Shift -> when (state.shiftState) {
         ShiftState.CAPS_LOCK -> SpokenLabel(R.string.ime_key_caps_lock_on)
         ShiftState.ON -> SpokenLabel(R.string.ime_key_shift_on)
@@ -10197,6 +10200,11 @@ internal fun rememberCurrentLayout(state: KeyboardUiState): KeyboardLayout = rem
     state.settings,
     state.composer,
     state.fieldKind,
+    // The field's declared action, which is what `newlineAlternate` below reads
+    // to decide whether the enter key carries the line break. The *field's*, not
+    // [effectiveEnterAction] — that one moves with the shift key and would
+    // rebuild the whole grid mid-word.
+    state.enterAction,
     numericPadActive(state),
 ) {
     currentLayout(state)
@@ -10291,9 +10299,19 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
         } else {
             emptyMap()
         }
+    // A field that declares Send/Go/Search takes the enter key over, and the
+    // line break it displaces has nowhere else to go — so it moves to the key's
+    // long press, the way Gboard offers it. Only where the key is actually
+    // showing the app's action: on an ordinary multi-line box Enter already
+    // types the break and an alternate offering the same thing is noise.
+    //
+    // Keyed on the field's own action rather than [effectiveEnterAction], which
+    // folds in the live shift: reading that here would rebuild the whole grid on
+    // every shift press, and the entry belongs in the popup either way.
+    val newlineAlternate = state.enterAction != EnterAction.DEFAULT
     if (!commaAsEmoji && !globeAsEmoji && !swapCommaGlobe && !stripDigits &&
         clipboardKeys.isEmpty() && fieldKey == null && domainAlternates.isEmpty() &&
-        currencyKeys.isEmpty() && !allAccents && fullStop == null
+        currencyKeys.isEmpty() && !allAccents && fullStop == null && !newlineAlternate
     ) {
         return base
     }
@@ -10375,6 +10393,18 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
                 clipboardKeys[mapped.output ?: mapped.label]?.let {
                     mapped = mapped.copy(clipboardAction = it)
                 }
+            }
+            // Appended rather than prepended, so a layout that authored its own
+            // alternates onto the enter key keeps them in the order it wrote
+            // them and this one lands at the end. Skipped outright if the layout
+            // already offers a newline of its own.
+            if (newlineAlternate && mapped.action == KeyAction.Enter &&
+                mapped.actionAlternates.none { it.action == KeyAction.Newline }
+            ) {
+                mapped = mapped.copy(
+                    actionAlternates = mapped.actionAlternates +
+                        KeyAlternate(action = KeyAction.Newline, icon = "enter"),
+                )
             }
             mapped
         }
@@ -11704,6 +11734,14 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                 tint = contentColor,
             )
         }
+        // The enter glyph, never one of the action icons: this key types a line
+        // break whatever the field declares, and drawing a paper plane on it
+        // would promise the Send it exists to avoid.
+        KeyAction.Newline -> SlotIcon(
+            IconSlots.KEY_ENTER,
+            contentDescription = stringResource(R.string.ime_key_newline),
+            tint = contentColor,
+        )
         KeyAction.LanguageSwitch -> SlotIcon(
             IconSlots.KEY_GLOBE,
             contentDescription = stringResource(R.string.ime_key_language_switch),

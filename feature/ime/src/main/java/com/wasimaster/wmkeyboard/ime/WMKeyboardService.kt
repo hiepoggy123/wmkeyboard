@@ -3751,6 +3751,9 @@ open class WMKeyboardService : InputMethodService() {
             KeyAction.ForwardDelete -> onForwardDelete()
             KeyAction.Space -> onSpace()
             KeyAction.Enter -> onEnter()
+            // The enter key's long-press alternate, and any layout that binds a
+            // newline key of its own: a line break, never the field's action.
+            KeyAction.Newline -> onNewline()
             KeyAction.Symbols -> toggleSymbols()
             KeyAction.Letters -> _uiState.update {
                 it.copy(layoutMode = LayoutMode.LETTERS, fnLocked = false, fnReturn = null)
@@ -5846,14 +5849,59 @@ open class WMKeyboardService : InputMethodService() {
         val action = if (forceNewline) null else currentInputEditorInfo.editorActionId()
         if (action != null) {
             ic.performEditorAction(action)
-        } else {
-            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
-            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
+        } else if (forceNewline) {
+            // Committed rather than sent as a key event, which is what the
+            // override needs and what a plain newline does not. A field that
+            // declares an action is a single-line TextView, and TextView answers
+            // KEYCODE_ENTER on one of those by firing the editor action — so the
+            // raw event sent the WhatsApp message the override had just decided
+            // not to send. commitText has nothing to intercept it.
+            typeNewline(ic)
             // The armed shift was spent on the override, exactly as a letter
             // would have spent it — otherwise the next Enter overrides too.
-            if (forceNewline) consumeShift()
+            consumeShift()
+            maybeAutoCapitalize()
+        } else {
+            // No action declared at all: a genuinely multi-line field, a web
+            // page, a terminal. These want the key event — a committed "\n"
+            // reaches a page behind keyCode 229 with no Enter for its handlers
+            // to see, which is the mirror image of the digit case above.
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+            ic.sendKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER))
             maybeAutoCapitalize()
         }
+    }
+
+    /**
+     * Puts a line break in the field without going near the editor action, for
+     * the two paths that mean it: Shift+Enter's override and a [KeyAction.Newline]
+     * key (which is what the enter key's long-press alternate is).
+     *
+     * See [KeyAction.Newline] for why this is a commit and not a key event.
+     */
+    private fun typeNewline(ic: InputConnection) {
+        ic.commitText("\n", 1)
+    }
+
+    /**
+     * A key — in practice the enter key's long-press alternate — that types a
+     * line break whatever the field declares.
+     *
+     * Ends the word the same way [onEnter] does, because it is the same
+     * character landing: the composing buffer flushes first, and a snippet
+     * expansion that has parked the caret inside itself swallows the break
+     * rather than breaking the text it just inserted.
+     */
+    private fun onNewline() {
+        val ic = currentInputConnection ?: return
+        recordStat { onSeparator(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
+        commitComposing(ic, autocorrect = false, expandPatterns = true)
+        if (swallowTerminatorAfterCommit) {
+            swallowTerminatorAfterCommit = false
+            return
+        }
+        typeNewline(ic)
+        maybeAutoCapitalize()
     }
 
     private fun toggleSymbols() {

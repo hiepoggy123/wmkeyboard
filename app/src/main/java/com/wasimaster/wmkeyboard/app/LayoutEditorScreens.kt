@@ -2200,6 +2200,12 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
         { KeyAction.Enter }, { it == KeyAction.Enter },
     ),
     KeyActionOption(
+        R.string.layout_editor_action_newline_title,
+        R.string.layout_editor_action_group_typing,
+        R.string.layout_editor_action_newline_detail,
+        { KeyAction.Newline }, { it == KeyAction.Newline },
+    ),
+    KeyActionOption(
         R.string.layout_editor_action_symbols_title,
         R.string.layout_editor_action_group_layers,
         R.string.layout_editor_action_symbols_detail,
@@ -3071,8 +3077,8 @@ private fun KeyLabelScaleRow(key: Key, onChange: (Float?) -> Unit) {
  */
 private fun drawsScalableLabel(key: Key): Boolean = when (key.action) {
     KeyAction.Shift, KeyAction.CapsLock, KeyAction.Delete, KeyAction.ForwardDelete,
-    KeyAction.Enter, KeyAction.LanguageSwitch, KeyAction.InputMethodPicker,
-    KeyAction.Emoji, KeyAction.Space,
+    KeyAction.Enter, KeyAction.Newline, KeyAction.LanguageSwitch,
+    KeyAction.InputMethodPicker, KeyAction.Emoji, KeyAction.Space,
     -> false
     // An icon in place of the glyph means there is no text to size.
     else -> KeyIcons.byName(key.icon) == null

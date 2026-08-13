@@ -8,6 +8,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.core.layout.expandForTablet
+import com.wasimaster.wmkeyboard.core.layout.opensAlternatesPopup
 import com.wasimaster.wmkeyboard.core.layout.roleIn
 import com.wasimaster.wmkeyboard.core.layout.tabletGridWidth
 import com.wasimaster.wmkeyboard.core.settings.DeviceForm
@@ -15,6 +16,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions
+import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.FieldKind
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutSet
@@ -66,6 +68,42 @@ class CurrentLayoutTest {
     /** Settings with every default-on layout rewrite turned off. */
     private fun plain(): KeyboardSettings =
         KeyboardSettings(globeAsEmoji = false, swapCommaAndGlobe = false, numberRow = false)
+
+    private fun enterKeyOf(s: KeyboardUiState): Key =
+        currentLayout(s).keys().single { it.action == KeyAction.Enter }
+
+    /**
+     * A field declaring Send takes the enter key over, so the line break it
+     * displaces moves to the key's long press — the only way to put one in a
+     * chat message without an override.
+     */
+    @Test
+    fun `a send field puts a newline on the enter key's long press`() {
+        val s = state(settings = plain()).copy(enterAction = EnterAction.SEND)
+        val alternates = enterKeyOf(s).actionAlternates
+        assertEquals(1, alternates.size)
+        assertEquals(KeyAction.Newline, alternates.single().action)
+    }
+
+    /** Enter already types the break here; offering it again is noise. */
+    @Test
+    fun `an ordinary text field leaves the enter key alone`() {
+        val s = state(settings = plain()).copy(enterAction = EnterAction.DEFAULT)
+        assertTrue(enterKeyOf(s).actionAlternates.isEmpty())
+    }
+
+    /**
+     * The alternate is what the popup shows, and the popup only opens on a key
+     * that reports it can — the same predicate the pointer handler reads.
+     */
+    @Test
+    fun `the enter key opens its popup once it carries the alternate`() {
+        val s = state(settings = plain()).copy(enterAction = EnterAction.SEARCH)
+        assertTrue(enterKeyOf(s).opensAlternatesPopup())
+        // And draws no corner hint: that comes from the character alternates,
+        // which this key still has none of.
+        assertTrue(enterKeyOf(s).longPress.isEmpty())
+    }
 
     /** The same layout set, widened the way the service widens it on a tablet. */
     private fun tabletState(

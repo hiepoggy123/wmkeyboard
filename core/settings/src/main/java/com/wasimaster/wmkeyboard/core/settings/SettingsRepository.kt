@@ -3484,11 +3484,16 @@ data class LayoutBehaviorSettings(
      * exactly where Enter still has to send. Caps lock is left out for the same
      * reason: it is about letter case, not about Enter.
      *
-     * Off by default: Enter following the app's declared action is the platform
-     * behaviour, and a keyboard that quietly stops sending messages is worse
-     * than one that cannot insert a newline.
+     * On by default. The fear that kept it off was a keyboard that quietly
+     * stops sending messages, and the shift-the-user-armed rule above is what
+     * answers it: the only shift that overrides is one the user put up on
+     * purpose, one key before pressing Enter. Nobody does that by accident, and
+     * every chat app on the platform reads Shift+Enter this way already.
+     *
+     * Turning it off leaves the line break reachable on the enter key's long
+     * press, which is not gated on this and never sends.
      */
-    val shiftEnterNewline: Boolean = false,
+    val shiftEnterNewline: Boolean = true,
     /**
      * Whether the dedicated number row also shows while the symbols layer is up.
      * Only meaningful when [KeyboardSettings.numberRow] is on. On by default (the

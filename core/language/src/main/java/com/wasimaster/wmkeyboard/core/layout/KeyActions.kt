@@ -74,6 +74,22 @@ sealed interface KeyAction {
 
     @Serializable @SerialName("enter") data object Enter : KeyAction
 
+    /**
+     * Types a line break and nothing else — never the field's Send/Go/Search
+     * action, whatever the field declares.
+     *
+     * Its own action rather than a flag on [Enter] because the two are different
+     * promises, and because the popup that offers it sits *on* the enter key: a
+     * chat box declares Send, so Enter sends and this is how a line break gets
+     * into the message. Also not `SendKey(KEYCODE_ENTER)`, which is the obvious
+     * spelling and is exactly the thing that does not work: a raw ENTER lands in
+     * the app's own key handling, and a single-line `TextView` — which is what a
+     * field declaring an action almost always is — answers it by firing the
+     * editor action, so the message sends anyway. Going through `commitText`
+     * puts the character in the buffer with nothing left to intercept it.
+     */
+    @Serializable @SerialName("newline") data object Newline : KeyAction
+
     /** Steps LETTERS → SYMBOLS → SYMBOLS_SHIFTED → SYMBOLS. */
     @Serializable @SerialName("symbols") data object Symbols : KeyAction
 
@@ -300,6 +316,10 @@ fun KeyAction.fallbackLabel(): String = when (this) {
     KeyAction.KanaVariant -> "小"
     KeyAction.MorseDot -> "·"
     KeyAction.MorseDash -> "–"
+    // Drawn from the enter icon slot on the board, so the key itself never
+    // reaches here. The alternates popup does: the entry the enter key offers
+    // carries the icon, but one an author wrote by hand may not.
+    KeyAction.Newline -> "⏎"
     KeyAction.None -> ""
     is KeyAction.Mod -> when (key) {
         ModifierKey.CTRL -> "Ctrl"

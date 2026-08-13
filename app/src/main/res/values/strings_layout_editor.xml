@@ -301,6 +301,8 @@
     <!-- Name of the key that ends a line or sends the text. -->
     <string name="layout_editor_action_enter_title">Enter</string>
     <string name="layout_editor_action_enter_detail">Does the app\'s own action: send, search or done</string>
+    <string name="layout_editor_action_newline_title">New line</string>
+    <string name="layout_editor_action_newline_detail">Always types a line break, even where enter would send</string>
 
     <string name="layout_editor_action_symbols_title">Symbols page</string>
     <!-- ?123 and =\\&lt; are printed on the two symbol keys. Do not translate them. -->
