@@ -6585,7 +6585,7 @@ open class WMKeyboardService : InputMethodService() {
         // Vietnamese, …) — their buffer holds an input spelling, not the
         // trigger the user meant to type. Both also come before apostrophes
         // and autocorrect, so a trigger is matched as it was actually typed.
-        if (!state.composer.isTransliterating && !state.composer.isConversion) {
+        if (!state.composer.isConversion) {
             // A trigger that asks first has already put its chip on the strip
             // (see [refreshSnippetOffer]); the word it matched commits as
             // ordinary text, and the offer goes with it.
@@ -6926,7 +6926,7 @@ open class WMKeyboardService : InputMethodService() {
         // not a word a pattern can read.
         val allowed = state.allowsTypingIntelligence && !state.secureField &&
             !state.fieldNoSuggestions && state.panel == PanelMode.NONE &&
-            !state.composer.isTransliterating && !state.composer.isConversion
+            !state.composer.isConversion
         if (!allowed) {
             publishSnippetOffer(null)
             return
