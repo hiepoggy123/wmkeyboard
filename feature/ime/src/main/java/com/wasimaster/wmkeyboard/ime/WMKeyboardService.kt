@@ -4040,6 +4040,7 @@ open class WMKeyboardService : InputMethodService() {
             "c" -> ClipboardKeyAction.COPY
             "v" -> ClipboardKeyAction.PASTE
             "x" -> ClipboardKeyAction.CUT
+            "d" -> ClipboardKeyAction.CLEAR_ALL
             else -> null
         }
 
@@ -14534,6 +14535,11 @@ open class WMKeyboardService : InputMethodService() {
             ClipboardKeyAction.CUT -> {
                 if (!hasSelection && selectAllIfEmpty) ic.performContextMenuAction(android.R.id.selectAll)
                 ic.performContextMenuAction(android.R.id.cut)
+                _uiState.update { it.copy(textEditSelecting = false) }
+            }
+            ClipboardKeyAction.CLEAR_ALL -> {
+                ic.performContextMenuAction(android.R.id.selectAll)
+                sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
                 _uiState.update { it.copy(textEditSelecting = false) }
             }
             ClipboardKeyAction.PASTE -> {

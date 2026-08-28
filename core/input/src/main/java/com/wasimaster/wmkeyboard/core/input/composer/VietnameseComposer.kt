@@ -93,7 +93,43 @@ internal object VietnameseEngine {
         return false
     }
 
+    private fun isEnglishKeystrokes(raw: String): Boolean {
+        val lower = raw.lowercase()
+        
+        // 1. Multi-syllable V-C-V check
+        // Strict Consonants: b, c, g, h, k, l, m, n, p, q, t, v
+        val vcvRegex = Regex("[aeiouy][^aeiouy]*[bcghklmnpqtv][^aeiouy]*[aeiouy]")
+        if (vcvRegex.containsMatchIn(lower)) return true
+        
+        // 2. Impossible double consonants in Telex
+        val doubleConsonants = listOf("bb", "cc", "gg", "ll", "mm", "nn", "pp", "tt", "vv")
+        if (doubleConsonants.any { lower.contains(it) }) return true
+        
+        // 3. Common English clusters
+        val englishClusters = listOf(
+            "sh", "ck", "dge", "tch", "ght", "ough",
+            "sch", "scr", "str", "spl", "spr", "shr", "thr",
+            "bl", "br", "cl", "cr", "dr", "fl", "fr", "gl", "gr",
+            "pl", "pr", "sl", "sm", "sn", "sp", "sw", "tw",
+            "sc", "sk", "ce", "ci",
+            "ew", "iw", "yw", "owe", "awe", "uwe"
+        )
+        if (englishClusters.any { lower.contains(it) }) return true
+        
+        // 4. Word-ending English clusters
+        val englishEndings = listOf(
+            "nd", "nt", "pt", "ct", "ld", "lt", "rm", "rn", "rt",
+            "tion", "sion", "ment", "ness", "able", "ship"
+        )
+        if (englishEndings.any { lower.endsWith(it) }) return true
+
+        return false
+    }
+
     fun transduce(raw: String, vni: Boolean): String {
+        val isEng = !vni && isEnglishKeystrokes(raw)
+        if (isEng) return raw
+
         val letters = ArrayList<VLetter>()
         var tone = VTone.NONE
 
