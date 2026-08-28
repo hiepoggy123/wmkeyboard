@@ -30,19 +30,19 @@ private class VLetter(var base: Char, var mark: VMark, val upper: Boolean)
 
 internal object VietnameseEngine {
 
-    private fun isVowel(c: Char) = c in "aeiouy"
+    private fun isVowel(l: VLetter) = l.base in "aeiouy" || (l.base == 'w' && l.mark == VMark.HORN)
 
     private fun precompose(base: Char, mark: VMark): Char = when (mark) {
         VMark.NONE -> base
         VMark.CIRCUMFLEX -> when (base) { 'a' -> 'â'; 'e' -> 'ê'; 'o' -> 'ô'; else -> base }
         VMark.BREVE -> if (base == 'a') 'ă' else base
-        VMark.HORN -> when (base) { 'o' -> 'ơ'; 'u' -> 'ư'; else -> base }
+        VMark.HORN -> when (base) { 'o' -> 'ơ'; 'u' -> 'ư'; 'w' -> 'ư'; else -> base }
         VMark.STROKE -> if (base == 'd') 'đ' else base
     }
 
     /** The index of the tone-bearing vowel, or -1 if the syllable has no vowel. */
     private fun nucleus(letters: List<VLetter>): Int {
-        val vowels = letters.indices.filter { isVowel(letters[it].base) }.toMutableList()
+        val vowels = letters.indices.filter { isVowel(letters[it]) }.toMutableList()
         // qu- and gi- onsets: the u / i is a glide, not the nucleus, unless it is
         // the syllable's only vowel.
         if (letters.size >= 2 && letters[0].base == 'q' && letters[1].base == 'u' &&
@@ -55,7 +55,7 @@ internal object VietnameseEngine {
         vowels.lastOrNull { letters[it].mark != VMark.NONE }?.let { return it }
         if (vowels.size == 1) return vowels[0]
         val last = vowels.last()
-        val hasCoda = (last + 1..letters.lastIndex).any { !isVowel(letters[it].base) }
+        val hasCoda = (last + 1..letters.lastIndex).any { !isVowel(letters[it]) }
         if (hasCoda) return last
         if (vowels.size >= 3) return vowels[vowels.size - 2]
         val a = letters[vowels[0]].base
@@ -98,7 +98,7 @@ internal object VietnameseEngine {
         var tone = VTone.NONE
 
         fun toggleTone(t: VTone) { tone = if (tone == t) VTone.NONE else t }
-        fun hasVowel() = letters.any { isVowel(it.base) }
+        fun hasVowel() = letters.any { isVowel(it) }
 
         for (ch in raw) {
             val upper = ch.isUpperCase()
@@ -161,8 +161,8 @@ internal object VietnameseEngine {
                         letters[oIdx].mark = targetMark
                     } else {
                         val a = applyMark(letters, "a", VMark.BREVE) ||
-                            applyMark(letters, "ou", VMark.HORN)
-                        if (!a) letters.add(VLetter('u', VMark.HORN, upper))
+                            applyMark(letters, "ouw", VMark.HORN)
+                        if (!a) letters.add(VLetter('w', VMark.HORN, upper))
                     }
                 }
                 'a', 'e', 'o' -> {
