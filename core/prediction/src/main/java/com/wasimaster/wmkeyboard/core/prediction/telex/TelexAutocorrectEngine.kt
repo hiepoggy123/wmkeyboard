@@ -2,13 +2,15 @@ package com.wasimaster.wmkeyboard.core.prediction.telex
 
 import android.content.Context
 import android.content.res.AssetManager
-import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.BufferedReader
-import java.io.InputStream
 import java.io.InputStreamReader
-import kotlin.math.ln
 
 /**
  * Data class representing a correction candidate for Vietnamese Telex input.
@@ -65,24 +67,21 @@ class TelexProximityManager {
     val neighborsMap: HashMap<Char, List<TelexKeyNeighbor>> = HashMap()
 
     fun loadFromJson(jsonStr: String) {
-        val json = JSONObject(jsonStr)
-        val keys = json.keys()
-        while (keys.hasNext()) {
-            val keyStr = keys.next()
+        val root = Json.parseToJsonElement(jsonStr).jsonObject
+        for ((keyStr, element) in root) {
+            if (keyStr.isEmpty()) continue
             val keyChar = keyStr[0]
-            val keyObj = json.getJSONObject(keyStr)
-            val neighborsArr = keyObj.getJSONArray("neighbors")
+            val keyObj = element.jsonObject
+            val neighborsArr = keyObj["neighbors"]?.jsonArray ?: continue
 
-            val list = ArrayList<TelexKeyNeighbor>()
-            for (i in 0 until neighborsArr.length()) {
-                val item = neighborsArr.getJSONObject(i)
-                list.add(
-                    TelexKeyNeighbor(
-                        key = item.getString("key")[0],
-                        distance = item.getDouble("distance"),
-                        penalty = item.getDouble("penalty")
-                    )
-                )
+            val list = ArrayList<TelexKeyNeighbor>(neighborsArr.size)
+            for (itemEl in neighborsArr) {
+                val item = itemEl.jsonObject
+                val kStr = item["key"]?.jsonPrimitive?.content ?: continue
+                if (kStr.isEmpty()) continue
+                val dist = item["distance"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                val pen = item["penalty"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                list.add(TelexKeyNeighbor(kStr[0], dist, pen))
             }
             neighborsMap[keyChar] = list
         }
@@ -101,25 +100,19 @@ class TelexLanguageModel {
     val bigrams: HashMap<String, HashMap<String, Int>> = HashMap()
 
     fun loadUnigrams(jsonStr: String) {
-        val json = JSONObject(jsonStr)
-        val keys = json.keys()
-        while (keys.hasNext()) {
-            val word = keys.next()
-            unigrams[word] = json.getInt(word)
+        val root = Json.parseToJsonElement(jsonStr).jsonObject
+        for ((word, element) in root) {
+            unigrams[word] = element.jsonPrimitive.intOrNull ?: 1
         }
     }
 
     fun loadBigrams(jsonStr: String) {
-        val json = JSONObject(jsonStr)
-        val keys = json.keys()
-        while (keys.hasNext()) {
-            val w1 = keys.next()
-            val nextWordsObj = json.getJSONObject(w1)
-            val subMap = HashMap<String, Int>()
-            val w2Keys = nextWordsObj.keys()
-            while (w2Keys.hasNext()) {
-                val w2 = w2Keys.next()
-                subMap[w2] = nextWordsObj.getInt(w2)
+        val root = Json.parseToJsonElement(jsonStr).jsonObject
+        for ((w1, element) in root) {
+            val nextWordsObj = element.jsonObject
+            val subMap = HashMap<String, Int>(nextWordsObj.size)
+            for ((w2, scoreEl) in nextWordsObj) {
+                subMap[w2] = scoreEl.jsonPrimitive.intOrNull ?: 1
             }
             bigrams[w1] = subMap
         }
@@ -145,9 +138,9 @@ class TelexLanguageModel {
  */
 class TelexAutocorrectEngine private constructor() {
 
-    private val trie = TelexTrie()
-    private val proximityManager = TelexProximityManager()
-    private val languageModel = TelexLanguageModel()
+    val trie = TelexTrie()
+    val proximityManager = TelexProximityManager()
+    val languageModel = TelexLanguageModel()
 
     @Volatile
     private var isInitialized = false
@@ -181,17 +174,7 @@ class TelexAutocorrectEngine private constructor() {
         try {
             // 1. Syllables & Trie
             val syllablesJson = readAsset(assets, "telex/syllables_telex.json")
-            val syllObj = JSONObject(syllablesJson)
-            val telexKeys = syllObj.keys()
-            while (telexKeys.hasNext()) {
-                val telex = telexKeys.next()
-                val item = syllObj.getJSONObject(telex)
-                trie.insert(
-                    telex = telex,
-                    word = item.getString("word"),
-                    unigramScore = item.getInt("freq")
-                )
-            }
+            loadSyllables(syllablesJson)
 
             // 2. QWERTY Proximity
             val proximityJson = readAsset(assets, "telex/qwerty_proximity.json")
@@ -208,6 +191,16 @@ class TelexAutocorrectEngine private constructor() {
             isInitialized = true
         } catch (e: Exception) {
             e.printStackTrace()
+        }
+    }
+
+    fun loadSyllables(jsonStr: String) {
+        val root = Json.parseToJsonElement(jsonStr).jsonObject
+        for ((telex, element) in root) {
+            val obj = element.jsonObject
+            val word = obj["word"]?.jsonPrimitive?.content ?: continue
+            val freq = obj["freq"]?.jsonPrimitive?.intOrNull ?: 1
+            trie.insert(telex, word, freq)
         }
     }
 

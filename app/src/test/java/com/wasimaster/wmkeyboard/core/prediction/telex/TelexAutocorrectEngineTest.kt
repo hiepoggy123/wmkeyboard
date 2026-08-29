@@ -1,36 +1,11 @@
 package com.wasimaster.wmkeyboard.core.prediction.telex
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
-import java.io.File
 
 class TelexAutocorrectEngineTest {
-
-    private val engine = TelexAutocorrectEngine.getInstance()
-
-    @Before
-    fun setUp() {
-        if (!engine.isReady) {
-            val baseDir = listOf(
-                File("src/main/assets/telex"),
-                File("app/src/main/assets/telex"),
-                File("../app/src/main/assets/telex")
-            ).firstOrNull { it.exists() }
-
-            if (baseDir != null) {
-                // Initialize Trie & Models from assets on disk for JVM unit tests
-                val syllablesJson = File(baseDir, "syllables_telex.json").readText()
-                val proxJson = File(baseDir, "qwerty_proximity.json").readText()
-                val unigramsJson = File(baseDir, "unigrams.json").readText()
-                val bigramsJson = File(baseDir, "bigrams.json").readText()
-
-                // Directly initialize internal components via reflection or helper if needed
-            }
-        }
-    }
 
     @Test
     fun testTrieStructure() {
@@ -79,5 +54,16 @@ class TelexAutocorrectEngineTest {
         assertEquals(90, lm.getBigramScore("trí", "tuệ"))
         assertEquals(10, lm.getBigramScore("trí", "huệ"))
         assertEquals(0, lm.getBigramScore("tâm", "tuệ"))
+    }
+
+    @Test
+    fun testCandidateRanking() {
+        val cand1 = TelexCorrectionCandidate("tuệ", "tueej", 1.2, 150.0)
+        val cand2 = TelexCorrectionCandidate("huệ", "hueej", 1.2, 80.0)
+        val list = mutableListOf(cand2, cand1)
+        list.sort()
+
+        assertEquals("tuệ", list[0].word)
+        assertEquals("huệ", list[1].word)
     }
 }
