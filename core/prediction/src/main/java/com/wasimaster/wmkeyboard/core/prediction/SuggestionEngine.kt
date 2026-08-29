@@ -710,13 +710,15 @@ class SuggestionEngine(
         lower: String,
         limit: Int,
         touch: List<TouchPoint?>?,
+        sources: List<FuzzyBeamSearch.WalkSource> = walkSources(),
     ): List<FuzzyBeamSearch.ScoredCandidate> {
         val k = maxOf(limit * 2, WALK_K)
         val gen = generation.get()
         val lexGen = userLexicon.mutationCount()
         rankedWalk?.let { cached ->
             if (cached.word == lower && cached.generation == gen &&
-                cached.lexMutations == lexGen && cached.k >= k && cached.touch == touch
+                cached.lexMutations == lexGen && cached.k >= k && cached.touch == touch &&
+                sources == walkSources() // Only use cache if using default sources
             ) {
                 return cached.ranked
             }
@@ -730,7 +732,7 @@ class SuggestionEngine(
         // search() sizes its own result list as max(limit * 2, AUTOCORRECT_K);
         // k / 2 makes that exactly k.
         val walked = beam.search(
-            walkSources(), lower, proximity, k / 2, beamWorkspace.get(), touch = scoring,
+            sources, lower, proximity, k / 2, beamWorkspace.get(), touch = scoring,
         )
         val ranked = dampMismatchedLanguages(walked)
         rankedWalk = RankedWalk(lower, gen, lexGen, k, touch?.let(::ArrayList), ranked)
@@ -1421,7 +1423,7 @@ class SuggestionEngine(
     private fun telexSuggestions(composing: String, limit: Int, touch: List<TouchPoint?>?): List<String> {
         if (telexRomanization.isEmpty) return emptyList()
         val decoded = rankedFor(composing, maxOf(limit, Companion.RERANK_POOL), touch, telexRomanization.walkSources())
-        return telexRomanization.resolve(decoded).filterNot(::suppressed).take(limit)
+        return decoded.flatMap { telexRomanization.resolveSpelling(it.word) }.distinct().filterNot(::suppressed).take(limit)
     }
 
     private fun nextWords(previousWord: String?, previousWord2: String?, limit: Int): List<String> {
@@ -1655,7 +1657,7 @@ class SuggestionEngine(
         }
         if (single != null) {
             val resolvedSingle = if (telexMode && !telexRomanization.isEmpty) {
-                telexRomanization.resolve(single).firstOrNull() ?: single
+                telexRomanization.resolveSpelling(single).firstOrNull() ?: single
             } else {
                 single
             }
@@ -1676,7 +1678,7 @@ class SuggestionEngine(
         
         val resolvedOffer = offer?.let {
             if (telexMode && !telexRomanization.isEmpty) {
-                telexRomanization.resolve(it).firstOrNull() ?: it
+                telexRomanization.resolveSpelling(it).firstOrNull() ?: it
             } else {
                 it
             }

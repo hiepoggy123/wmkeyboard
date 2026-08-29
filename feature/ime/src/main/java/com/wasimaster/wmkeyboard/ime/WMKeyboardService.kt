@@ -2415,9 +2415,13 @@ open class WMKeyboardService : InputMethodService() {
                 )
             }
             val telexRomanization = withContext(Dispatchers.Default) {
-                if (activeLang.id == "vi") {
+                if (_uiState.value.language.id == "vi") {
                     val rawTelex = openLanguageDictionary("vi_telex_raw")
-                    if (rawTelex != null) RomanizedIndex.telex(rawTelex) else RomanizedIndex.EMPTY
+                    if (rawTelex != null) {
+                        RomanizedIndex.telex(rawTelex) { spelling ->
+                            listOf(_uiState.value.composer.composeBuffer(spelling))
+                        }
+                    } else RomanizedIndex.EMPTY
                 } else {
                     RomanizedIndex.EMPTY
                 }
