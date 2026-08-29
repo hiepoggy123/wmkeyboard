@@ -35,6 +35,11 @@ interface Composer {
     val isBengaliPhonetic: Boolean get() = false
 
     /**
+     * Specifically the Vietnamese Telex composer.
+     */
+    val isVietnameseTelex: Boolean get() = false
+
+    /**
      * A fixed complex-script layout (Probhat, and later Devanagari, Tamil …):
      * types script characters directly and shapes clusters / contextual vowel
      * forms. The registry-era replacement for `isFixedBengali`.

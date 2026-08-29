@@ -237,6 +237,7 @@ internal object VietnameseEngine {
 /** Vietnamese Telex: letters spell the diacritics (`as`→á, `aw`→ă, `dd`→đ). */
 object VietnameseTelexComposer : Composer {
     override val isTransliterating: Boolean get() = true
+    override val isVietnameseTelex: Boolean get() = true
     override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = false)
 }
 

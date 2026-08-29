@@ -131,6 +131,20 @@ class RomanizedIndex private constructor(
             return RomanizedIndex(curated, downloadedRomanized, resolve, alphabet)
         }
 
+        /**
+         * Builds a RomanizedIndex for Vietnamese Telex.
+         * The trie contains raw telex keystrokes, and it's resolved back to composed Vietnamese.
+         */
+        fun telex(
+            rawTelexTrie: WordSource
+        ): RomanizedIndex {
+            val alphabet = setOf('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z')
+            val resolve = { spelling: String ->
+                listOf(com.wasimaster.wmkeyboard.core.input.composer.VietnameseTelexComposer.composeBuffer(spelling))
+            }
+            return RomanizedIndex(Trie(), rawTelexTrie, resolve, alphabet)
+        }
+
         /** How far behind its spelling's own score a second reading starts. */
         private const val ALTERNATE_STEP = 0.35
 
