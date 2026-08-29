@@ -6,6 +6,7 @@ import ai.onnxruntime.OrtSession
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.nio.LongBuffer
 import java.util.Collections
 import java.util.PriorityQueue
@@ -55,15 +56,24 @@ class V7GPTPredictor private constructor() {
                 }
             }
 
-            // 2. Load ONNX Model
+            // 2. Load ONNX Model via mmap from file (zero Java heap allocation)
+            val modelFile = File(context.filesDir, "v7gpt_int8.onnx")
+            val expectedSize = 15688676L
+            if (!modelFile.exists() || modelFile.length() != expectedSize) {
+                assets.open("ai/v7gpt_int8.onnx").use { input ->
+                    modelFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+
             val env = OrtEnvironment.getEnvironment()
             val sessionOptions = OrtSession.SessionOptions().apply {
                 setIntraOpNumThreads(2)
                 setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
             }
 
-            val modelBytes = assets.open("ai/v7gpt_int8.onnx").use { it.readBytes() }
-            val session = env.createSession(modelBytes, sessionOptions)
+            val session = env.createSession(modelFile.absolutePath, sessionOptions)
 
             ortEnv = env
             ortSession = session
