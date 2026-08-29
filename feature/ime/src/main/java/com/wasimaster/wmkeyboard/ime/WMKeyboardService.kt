@@ -148,6 +148,7 @@ import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.prediction.WordSource
 import com.wasimaster.wmkeyboard.core.prediction.telex.TelexAutocorrectEngine
+import com.wasimaster.wmkeyboard.core.prediction.ai.V7GPTPredictor
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
@@ -2344,6 +2345,7 @@ open class WMKeyboardService : InputMethodService() {
             loadCjkConversionTables()
             withContext(Dispatchers.IO) {
                 TelexAutocorrectEngine.getInstance().initialize(assets)
+                V7GPTPredictor.getInstance().initialize(applicationContext)
             }
             loadedDictToken = withContext(Dispatchers.Default) {
                 if (userUnlocked) DictionaryStore.stateToken(filesDir) else Int.MIN_VALUE
@@ -6730,6 +6732,9 @@ open class WMKeyboardService : InputMethodService() {
         // and neither is a fragment glued onto an existing word.
         if (!state.composer.isConversion && !gluedToWord) {
             learn(output, reinforcement = if (corrected != null) 0 else 1)
+            if (state.composer.isVietnameseTelex && state.settings.aiSettings.enabled) {
+                V7GPTPredictor.getInstance().updateBias(output)
+            }
         }
         composing = StringBuilder()
         // Refill the strip in the same frame the word commits. Blanking it
@@ -8718,21 +8723,48 @@ open class WMKeyboardService : InputMethodService() {
                     ?: snippetStore.matchTrigger(typed)?.text
                     ?: snippetStore.matchTrigger(composed)?.text
 
+                val contextBefore = listOfNotNull(previousWord2, previousWord).joinToString(" ")
                 val suggested = if (state.composer.isVietnameseTelex) {
-                    val telexEngine = TelexAutocorrectEngine.getInstance()
-                    val isComposedValid = telexEngine.isWordInDictionary(composed)
-                    val candidates = telexEngine.correct(
-                        rawInput = typed,
-                        previousWord = previousWord,
-                        userLexicon = userLexicon,
-                        maxResults = 5
-                    ).map { it.word }
-                    if (isComposedValid) {
-                        listOf(composed) + candidates.filterNot { it.equals(composed, ignoreCase = true) }
-                    } else if (candidates.isNotEmpty()) {
-                        candidates
+                    val aiPredictor = V7GPTPredictor.getInstance()
+                    val aiEnabled = state.settings.aiSettings.enabled && aiPredictor.isReady
+                    val shorthandEnabled = state.settings.aiSettings.shorthandPrefixMode
+
+                    if (typed.isEmpty()) {
+                        if (aiEnabled && contextBefore.isNotEmpty()) {
+                            aiPredictor.predict(contextText = contextBefore, maxResults = 5)
+                        } else {
+                            emptyList()
+                        }
                     } else {
-                        listOf(composed)
+                        val telexEngine = TelexAutocorrectEngine.getInstance()
+                        val isComposedValid = telexEngine.isWordInDictionary(composed)
+                        val telexCandidates = telexEngine.correct(
+                            rawInput = typed,
+                            previousWord = previousWord,
+                            userLexicon = userLexicon,
+                            maxResults = 5
+                        ).map { it.word }
+
+                        val aiCandidates = if (aiEnabled && (shorthandEnabled || !isComposedValid)) {
+                            aiPredictor.predict(
+                                contextText = contextBefore,
+                                prefix = if (shorthandEnabled) typed else composed,
+                                maxResults = 5
+                            )
+                        } else {
+                            emptyList()
+                        }
+
+                        if (isComposedValid) {
+                            (listOf(composed) + telexCandidates.filterNot { it.equals(composed, ignoreCase = true) } + aiCandidates)
+                                .distinctBy { it.lowercase() }
+                        } else if (aiCandidates.isNotEmpty()) {
+                            (aiCandidates + telexCandidates).distinctBy { it.lowercase() }
+                        } else if (telexCandidates.isNotEmpty()) {
+                            telexCandidates
+                        } else {
+                            listOf(composed)
+                        }
                     }
                 } else {
                     engine.suggest(

@@ -1149,6 +1149,7 @@ data class KeyboardSettings(
      * walks the preference map rather than this class.
      */
     val photoBackground: PhotoBackgroundSettings = PhotoBackgroundSettings(),
+    val aiSettings: AiPredictionSettings = AiPredictionSettings(),
     val keyHeightDp: Int = 48,
     val numberRowHeightDp: Int = 42,
     // Edge-to-edge IME windows (enforced on Android 15+) draw behind the
@@ -4716,6 +4717,8 @@ class SettingsRepository(private val context: Context) {
         private val AI_DEEPSEEK_MODEL = stringPreferencesKey("ai_deepseek_model")
         private val AI_COMPATIBLE_URL = stringPreferencesKey("ai_compatible_url")
         private val AI_COMPATIBLE_KEY = stringPreferencesKey("ai_compatible_key")
+        private val AI_PREDICTION_ENABLED = booleanPreferencesKey("ai_prediction_enabled")
+        private val AI_SHORTHAND_MODE = booleanPreferencesKey("ai_shorthand_mode")
         private val AI_COMPATIBLE_MODEL = stringPreferencesKey("ai_compatible_model")
         private val AI_MAX_TOKENS = intPreferencesKey("ai_max_tokens")
         private val AI_LOCAL_CONTEXT_TOKENS = intPreferencesKey("ai_local_context_tokens")
@@ -4959,6 +4962,10 @@ class SettingsRepository(private val context: Context) {
                 poolBudgetMb = p[PHOTO_POOL_BUDGET_MB] ?: defaults.photoBackground.poolBudgetMb,
                 readabilityGuard = p[PHOTO_READABILITY_GUARD]
                     ?: defaults.photoBackground.readabilityGuard,
+            ),
+            aiSettings = AiPredictionSettings(
+                enabled = p[AI_PREDICTION_ENABLED] ?: defaults.aiSettings.enabled,
+                shorthandPrefixMode = p[AI_SHORTHAND_MODE] ?: defaults.aiSettings.shorthandPrefixMode,
             ),
             keyHeightDp = p[KEY_HEIGHT] ?: defaults.keyHeightDp,
             numberRowHeightDp = p[NUMBER_ROW_HEIGHT] ?: p[KEY_HEIGHT] ?: defaults.numberRowHeightDp,

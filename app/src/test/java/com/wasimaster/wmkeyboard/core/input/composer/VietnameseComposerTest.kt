@@ -117,6 +117,24 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun vniMixedWords() {
+        val c = VietnameseVniComposer
+        assertEquals("Việt", c.composeBuffer("Vie65t"))
+        assertEquals("Đường", c.composeBuffer("D9u7o7ng2"))
+    }
+
+    @Test
+    fun testDirectToneMarks() {
+        val c = VietnameseTelexComposer
+        assertEquals("chào", c.composeBuffer("chao\u0300"))
+        assertEquals("chào", c.composeBuffer("chaò"))
+        assertEquals("cháo", c.composeBuffer("chao\u0301"))
+        assertEquals("chảo", c.composeBuffer("chao\u0309"))
+        assertEquals("chão", c.composeBuffer("chao\u0303"))
+        assertEquals("chạo", c.composeBuffer("chao\u0323"))
+    }
+
+    @Test
     fun vniCapitalization() {
         val c = VietnameseVniComposer
         assertEquals("Việt", c.composeBuffer("Viet65"))
