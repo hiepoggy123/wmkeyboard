@@ -8748,9 +8748,11 @@ open class WMKeyboardService : InputMethodService() {
                         ).map { it.word }
 
                         val aiCandidates = if (aiEnabled && shorthandEnabled) {
+                            val (shorthandPrefix, shorthandTone) = V7GPTTokenizer.extractShorthand(typed)
                             aiPredictor.predict(
                                 contextText = contextBefore,
-                                prefix = typed,
+                                prefix = shorthandPrefix.ifEmpty { typed },
+                                toneMark = shorthandTone,
                                 maxResults = 5
                             )
                         } else {

@@ -26,6 +26,19 @@ class V7GPTTokenizer {
             "◌̉" to listOf(3)
         )
 
+        fun extractShorthand(raw: String): Pair<String, String> {
+            var tone = ""
+            if (raw.contains("◌́") || raw.contains("́") || raw.contains("\u0301")) tone = "◌́"
+            else if (raw.contains("◌̀") || raw.contains("̀") || raw.contains("\u0300")) tone = "◌̀"
+            else if (raw.contains("◌̉") || raw.contains("̉") || raw.contains("\u0309")) tone = "◌̉"
+            else if (raw.contains("◌̃") || raw.contains("̃") || raw.contains("\u0303")) tone = "◌̃"
+            else if (raw.contains("◌̣") || raw.contains("̣") || raw.contains("\u0323")) tone = "◌̣"
+            else if (raw.contains("◌")) tone = "◌"
+
+            val prefix = raw.filter { it.isLetter() && it != '◌' }
+            return Pair(prefix, tone)
+        }
+
         fun normalizeChar(char: Char): Char {
             return when (char.lowercaseChar()) {
                 'đ' -> 'đ'

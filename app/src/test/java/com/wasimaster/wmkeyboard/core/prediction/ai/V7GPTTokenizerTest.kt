@@ -98,4 +98,23 @@ class V7GPTTokenizerTest {
         assertTrue(biasMgr.biasVector[1] > 0.0f)
         assertEquals(0.0f, biasMgr.biasVector[2], 0.0001f)
     }
+
+    @Test
+    fun testExtractShorthand() {
+        val (p1, t1) = V7GPTTokenizer.extractShorthand("x◌")
+        assertEquals("x", p1)
+        assertEquals("◌", t1)
+
+        val (p2, t2) = V7GPTTokenizer.extractShorthand("x◌́")
+        assertEquals("x", p2)
+        assertEquals("◌́", t2)
+
+        val (p3, t3) = V7GPTTokenizer.extractShorthand("ch◌̀")
+        assertEquals("ch", p3)
+        assertEquals("◌̀", t3)
+
+        val (p4, t4) = V7GPTTokenizer.extractShorthand("t◌̣")
+        assertEquals("t", p4)
+        assertEquals("◌̣", t4)
+    }
 }
