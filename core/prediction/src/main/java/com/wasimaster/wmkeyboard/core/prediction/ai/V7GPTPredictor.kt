@@ -139,13 +139,14 @@ class V7GPTPredictor private constructor() {
             tokenizer.tokenize(contextText)
         }
 
-        if (tokenIds.isEmpty()) return IntArray(0)
+        val safeTokenIds = tokenIds.filter { it in 1..V7GPTTokenizer.BASE_VIET_VOCAB_SIZE }.toLongArray()
+        if (safeTokenIds.isEmpty()) return IntArray(0)
 
         var inputTensor: OnnxTensor? = null
         var results: OrtSession.Result? = null
         try {
-            val shape = longArrayOf(1, tokenIds.size.toLong())
-            val buffer = LongBuffer.wrap(tokenIds)
+            val shape = longArrayOf(1, safeTokenIds.size.toLong())
+            val buffer = LongBuffer.wrap(safeTokenIds)
             inputTensor = OnnxTensor.createTensor(env, buffer, shape)
 
             val inputs = Collections.singletonMap("input_token_ids", inputTensor)

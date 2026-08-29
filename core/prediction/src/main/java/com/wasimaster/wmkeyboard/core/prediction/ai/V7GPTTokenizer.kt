@@ -127,7 +127,7 @@ class V7GPTTokenizer {
             for (len in minOf(4, words.size - i) downTo 1) {
                 val phrase = words.subList(i, i + len).joinToString(" ")
                 val id = enumDict[phrase]
-                if (id != null) {
+                if (id != null && id in 1..BASE_VIET_VOCAB_SIZE) {
                     ids.add(id.toLong())
                     i += len
                     matched = true
@@ -135,7 +135,12 @@ class V7GPTTokenizer {
                 }
             }
             if (!matched) {
-                // If single word not in vocab, try individual characters or skip
+                // If word not in base vocab, try single-char token if available in base vocab
+                val singleWord = words[i]
+                val singleId = enumDict[singleWord]
+                if (singleId != null && singleId in 1..BASE_VIET_VOCAB_SIZE) {
+                    ids.add(singleId.toLong())
+                }
                 i++
             }
         }

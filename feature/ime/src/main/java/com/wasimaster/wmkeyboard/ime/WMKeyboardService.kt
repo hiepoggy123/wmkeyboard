@@ -8820,15 +8820,22 @@ open class WMKeyboardService : InputMethodService() {
                         correction = null,
                     )
                     state.composer.isVietnameseTelex -> {
+                        val shorthandEnabled = state.settings.aiSettings.shorthandPrefixMode
                         val isComposedValid = telexEngine.isWordInDictionary(composed)
-                        val topCandidate = if (isComposedValid) composed else telexCandidates.firstOrNull()
+                        val topCandidate = if (shorthandEnabled) {
+                            words.firstOrNull() ?: (if (isComposedValid) composed else telexCandidates.firstOrNull())
+                        } else if (isComposedValid) {
+                            composed
+                        } else {
+                            telexCandidates.firstOrNull()
+                        }
                         CommitResolution(
                             typed = typed,
                             isBengali = false,
                             bengaliTop = null,
                             isTelex = true,
                             telexTop = words.firstOrNull(),
-                            correction = if (isComposedValid) null else topCandidate?.takeIf { it != composed },
+                            correction = if (!shorthandEnabled && isComposedValid) null else topCandidate?.takeIf { it != composed },
                         )
                     }
                     state.settings.autocorrect && state.allowsTypingIntelligence -> {
