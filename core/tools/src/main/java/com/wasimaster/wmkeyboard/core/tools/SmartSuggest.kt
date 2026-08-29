@@ -1267,10 +1267,11 @@ object SmartSuggest {
 
     // ---- tool keywords ----
 
-    private val KEYWORD_TAIL = Regex("""(?<![\w])([\p{L}]{2,16})$""")
+    private val KEYWORD_TAIL = Regex("""(?<![\w])([\p{L}]{2,16})\s*$""")
 
     private fun detectKeyword(tail: String, ctx: Context): SmartHit? {
-        val word = KEYWORD_TAIL.find(tail)?.groupValues?.get(1) ?: return null
+        val match = KEYWORD_TAIL.find(tail) ?: return null
+        val word = match.groupValues[1]
         val overrides = decodeKeywords(ctx.keywordOverrides)
         val exact = decodeCaseSensitive(ctx.caseSensitiveKeywords)
         val tool = ToolbarTool.entries.firstOrNull { candidate ->
@@ -1282,7 +1283,7 @@ object SmartSuggest {
             query = word,
             result = null,
             insert = null,
-            replaceSpan = if (tool == ToolbarTool.TEXT_EDIT) 0 else word.length,
+            replaceSpan = if (tool == ToolbarTool.TEXT_EDIT) 0 else match.value.length,
             tool = tool,
             prefill = null,
         )

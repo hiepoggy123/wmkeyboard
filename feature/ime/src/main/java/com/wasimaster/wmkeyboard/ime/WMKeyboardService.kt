@@ -8423,7 +8423,14 @@ open class WMKeyboardService : InputMethodService() {
                 return@launch
             }
             val before = withContext(Dispatchers.Default) {
-                ic.getTextBeforeCursor(SmartSuggest.LOOKBEHIND, 0)?.toString().orEmpty()
+                val raw = ic.getTextBeforeCursor(SmartSuggest.LOOKBEHIND, 0)?.toString().orEmpty()
+                val comp = composing.toString()
+                val composed = if (state.composer.isTransliterating) state.composer.composeBuffer(comp) else comp
+                when {
+                    comp.isEmpty() -> raw
+                    raw.endsWith(comp) || raw.endsWith(composed) -> raw
+                    else -> raw + composed
+                }
             }
             if (before == smartMutedAfter) {
                 clearSmartChip()
