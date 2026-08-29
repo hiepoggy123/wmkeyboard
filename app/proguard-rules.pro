@@ -158,3 +158,12 @@
     <init>();
     *;
 }
+
+# --- ONNX Runtime on-device AI models (JNI) -----------------------------------
+# ONNX Runtime JNI (libonnxruntime4j_jni.so) dynamically looks up classes,
+# methods and constructors by name (e.g. ai.onnxruntime.TensorInfo, OnnxTensor,
+# OnnxValue, OrtSession, etc.). Keep the whole library so R8 does not strip
+# or obfuscate any JNI target.
+-keep class ai.onnxruntime.** { *; }
+-keep interface ai.onnxruntime.** { *; }
+-dontwarn ai.onnxruntime.**
