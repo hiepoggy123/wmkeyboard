@@ -18,12 +18,12 @@ class V7GPTTokenizer {
         const val BASE_VIET_VOCAB_SIZE = 17788
 
         val TONE_MAP = mapOf(
-            "◌́" to listOf(1, 6),
-            "◌" to listOf(0),
-            "◌̀" to listOf(2),
-            "◌̣" to listOf(5, 7),
-            "◌̃" to listOf(4),
-            "◌̉" to listOf(3)
+            "◌́" to listOf(0),
+            "◌̀" to listOf(1),
+            "◌̉" to listOf(2),
+            "◌̃" to listOf(3),
+            "◌̣" to listOf(4, 6),
+            "◌" to listOf(5, 7)
         )
 
         fun extractShorthand(raw: String): Pair<String, String> {
@@ -54,11 +54,11 @@ class V7GPTTokenizer {
 
         fun toneCodeToMark(code: Int): String {
             return when (code) {
-                1, 6 -> "◌́"
-                2 -> "◌̀"
-                3 -> "◌̉"
-                4 -> "◌̃"
-                5, 7 -> "◌̣"
+                0 -> "◌́"
+                1 -> "◌̀"
+                2 -> "◌̉"
+                3 -> "◌̃"
+                4, 6 -> "◌̣"
                 else -> "◌"
             }
         }

@@ -24,14 +24,14 @@ class V7GPTTokenizerTest {
 
     @Test
     fun testToneCodeMapping() {
-        assertEquals("◌", V7GPTTokenizer.toneCodeToMark(0))
-        assertEquals("◌́", V7GPTTokenizer.toneCodeToMark(1))
-        assertEquals("◌́", V7GPTTokenizer.toneCodeToMark(6))
-        assertEquals("◌̀", V7GPTTokenizer.toneCodeToMark(2))
-        assertEquals("◌̉", V7GPTTokenizer.toneCodeToMark(3))
-        assertEquals("◌̃", V7GPTTokenizer.toneCodeToMark(4))
-        assertEquals("◌̣", V7GPTTokenizer.toneCodeToMark(5))
-        assertEquals("◌̣", V7GPTTokenizer.toneCodeToMark(7))
+        assertEquals("◌́", V7GPTTokenizer.toneCodeToMark(0))
+        assertEquals("◌̀", V7GPTTokenizer.toneCodeToMark(1))
+        assertEquals("◌̉", V7GPTTokenizer.toneCodeToMark(2))
+        assertEquals("◌̃", V7GPTTokenizer.toneCodeToMark(3))
+        assertEquals("◌̣", V7GPTTokenizer.toneCodeToMark(4))
+        assertEquals("◌̣", V7GPTTokenizer.toneCodeToMark(6))
+        assertEquals("◌", V7GPTTokenizer.toneCodeToMark(5))
+        assertEquals("◌", V7GPTTokenizer.toneCodeToMark(7))
     }
 
     @Test
