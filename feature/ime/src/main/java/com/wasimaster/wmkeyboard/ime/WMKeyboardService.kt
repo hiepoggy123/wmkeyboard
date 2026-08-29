@@ -6588,14 +6588,15 @@ open class WMKeyboardService : InputMethodService() {
         // careless `^(.+)$` cannot shadow every literal trigger in the list.
         //
         // Both are skipped for transliterating/conversion composers (Pinyin,
-        // Vietnamese, …) — their buffer holds an input spelling, not the
+        // Hangul, …) — their buffer holds an input spelling, not the
         // trigger the user meant to type. Both also come before apostrophes
         // and autocorrect, so a trigger is matched as it was actually typed.
-        if (!state.composer.isTransliterating && !state.composer.isConversion) {
+        if ((!state.composer.isTransliterating || state.composer.isVietnameseTelex) && !state.composer.isConversion) {
+            val composed = if (state.composer.isVietnameseTelex) state.composer.composeBuffer(typed) else typed
             // A trigger that asks first has already put its chip on the strip
             // (see [refreshSnippetOffer]); the word it matched commits as
             // ordinary text, and the offer goes with it.
-            val snippet = snippetStore.matchTrigger(typed)?.takeIf { !it.confirm }
+            val snippet = (snippetStore.matchTrigger(typed) ?: snippetStore.matchTrigger(composed))?.takeIf { !it.confirm }
             if (snippet != null) {
                 val expanded = SnippetStore.expandWithCursor(
                     snippet.text,
@@ -6610,8 +6611,8 @@ open class WMKeyboardService : InputMethodService() {
                 )
                 return true
             }
-            if (tryPrefixExpansion(ic, typed)) return true
-            if (expandPatterns && tryPatternExpansion(ic, typed, state)) return true
+            if (tryPrefixExpansion(ic, typed) || (composed != typed && tryPrefixExpansion(ic, composed))) return true
+            if (expandPatterns && (tryPatternExpansion(ic, typed, state) || (composed != typed && tryPatternExpansion(ic, composed, state)))) return true
         }
         // Conversion IME (Pinyin, Japanese): flush the whole reading as a
         // sequence of best candidates, each consuming its own syllables, so the
@@ -6951,19 +6952,20 @@ open class WMKeyboardService : InputMethodService() {
         // not a word a pattern can read.
         val allowed = state.allowsTypingIntelligence && !state.secureField &&
             !state.fieldNoSuggestions && state.panel == PanelMode.NONE &&
-            !state.composer.isTransliterating && !state.composer.isConversion
+            (!state.composer.isTransliterating || state.composer.isVietnameseTelex) && !state.composer.isConversion
         if (!allowed) {
             publishSnippetOffer(null)
             return
         }
         val typed = composing.toString()
+        val composed = if (state.composer.isVietnameseTelex) state.composer.composeBuffer(typed) else typed
         // A plain trigger is the cheaper and the more specific rule, so it is
         // tried first and a match ends the search — the same order the commit
         // path uses.
-        val trigger = typed
-            .takeIf { it.isNotEmpty() && snippetStore.hasConfirmTriggers() }
-            ?.let { snippetStore.matchTrigger(it) }
-            ?.takeIf { it.confirm }
+        val trigger = (
+            typed.takeIf { it.isNotEmpty() && snippetStore.hasConfirmTriggers() }?.let { snippetStore.matchTrigger(it) }
+                ?: composed.takeIf { it.isNotEmpty() && snippetStore.hasConfirmTriggers() }?.let { snippetStore.matchTrigger(it) }
+        )?.takeIf { it.confirm }
         if (trigger != null) {
             val expanded = SnippetStore.expandWithCursor(
                 trigger.text,
@@ -8692,6 +8694,12 @@ open class WMKeyboardService : InputMethodService() {
             val timingMultiplier = timingMultiplier()
             val recentSnapshot = recentWords.toList()
             val (results, emojis, bias) = withContext(Dispatchers.Default) {
+                val composed = if (state.composer.isVietnameseTelex) state.composer.composeBuffer(typed) else typed
+                val shortcutWord = userDictShortcuts[typed.lowercase()]
+                    ?: userDictShortcuts[composed.lowercase()]
+                    ?: snippetStore.matchTrigger(typed)?.text
+                    ?: snippetStore.matchTrigger(composed)?.text
+
                 val suggested = if (state.composer.isVietnameseTelex) {
                     val telexEngine = TelexAutocorrectEngine.getInstance()
                     val candidates = telexEngine.correct(
@@ -8703,7 +8711,7 @@ open class WMKeyboardService : InputMethodService() {
                     if (candidates.isNotEmpty()) {
                         candidates
                     } else {
-                        listOf(state.composer.composeBuffer(typed))
+                        listOf(composed)
                     }
                 } else {
                     engine.suggest(
@@ -8716,15 +8724,11 @@ open class WMKeyboardService : InputMethodService() {
                         allowRerank = true,
                     )
                 }
-                // A28: a personal-dictionary shortcut typed in full offers its
-                // expansion as the top chip (e.g. "omw" → "on my way"). Prepended
+                // A28: a personal-dictionary shortcut or snippet typed in full offers its
+                // expansion as the top chip (e.g. "nn" → "ngủ ngon"). Prepended
                 // so it wins the primary slot; deduped against the word list.
-                val words = if (
-                    state.settings.suggestionStrip.expandUserDictShortcuts && typed.isNotEmpty()
-                ) {
-                    userDictShortcuts[typed.lowercase()]
-                        ?.let { listOf(it) + suggested.filterNot { w -> w == it } }
-                        ?: suggested
+                val words = if (typed.isNotEmpty() && shortcutWord != null) {
+                    listOf(shortcutWord) + suggested.filterNot { w -> w == shortcutWord }
                 } else {
                     suggested
                 }
@@ -8746,6 +8750,14 @@ open class WMKeyboardService : InputMethodService() {
                 // main thread. commitComposing consumes it only on a typed match.
                 commitResolution = when {
                     typed.isEmpty() -> null
+                    shortcutWord != null -> CommitResolution(
+                        typed = typed,
+                        isBengali = false,
+                        bengaliTop = null,
+                        isTelex = true,
+                        telexTop = shortcutWord,
+                        correction = shortcutWord,
+                    )
                     state.composer.isBengaliPhonetic -> CommitResolution(
                         typed = typed,
                         isBengali = true,
