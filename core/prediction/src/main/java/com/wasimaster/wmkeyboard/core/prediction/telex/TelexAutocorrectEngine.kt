@@ -147,8 +147,8 @@ class TelexAutocorrectEngine private constructor() {
     private var isInitialized = false
 
     var isReady: Boolean
-        get() = isInitialized
-        private set(value) { isInitialized = value }
+        get() = isInitialized || trie.root.children.isNotEmpty()
+        set(value) { isInitialized = value }
 
     companion object {
         @Volatile
@@ -204,6 +204,7 @@ class TelexAutocorrectEngine private constructor() {
             val freq = obj["freq"]?.jsonPrimitive?.intOrNull ?: 1
             trie.insert(telex, word, freq)
         }
+        isInitialized = true
     }
 
     fun isWordInDictionary(word: String): Boolean {
@@ -229,7 +230,7 @@ class TelexAutocorrectEngine private constructor() {
         userLexicon: UserLexicon? = null,
         maxResults: Int = 3
     ): List<TelexCorrectionCandidate> {
-        if (!isInitialized) return emptyList()
+        if (!isReady) return emptyList()
 
         val cleanInput = rawInput.trim().lowercase()
         if (cleanInput.isEmpty() || cleanInput.length > 12) return emptyList()
