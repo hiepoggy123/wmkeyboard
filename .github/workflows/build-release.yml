@@ -1,0 +1,89 @@
+name: Build Release APK
+
+# Trigger on every push to any branch and on pull requests.
+# This builds signed release APKs so you always have an installable
+# artifact without needing to tag a release.
+on:
+  push:
+    branches: ['**']
+    # Don't duplicate work when a tag push already triggers release.yml
+    tags-ignore: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -Dorg.gradle.daemon=false
+  # Sideload build — no Play Store or GMS dependencies needed.
+  WMKB_ENABLE_PLAY_STORE: 'false'
+  WMKB_ENABLE_GMS: 'false'
+
+jobs:
+  build-release-apk:
+    name: Build lite arm64 release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          build-scan-publish: true
+          build-scan-terms-of-use-url: "https://gradle.com/terms-of-service"
+          build-scan-terms-of-use-agree: "yes"
+
+      - name: Restore keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > release.keystore
+            echo "SIGNING_AVAILABLE=true" >> "$GITHUB_ENV"
+          else
+            echo "::warning::KEYSTORE_BASE64 secret is not set. Building unsigned release APK."
+            echo "SIGNING_AVAILABLE=false" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build lite release APK (arm64 only)
+        env:
+          RELEASE_STORE_FILE: ${{ env.SIGNING_AVAILABLE == 'true' && 'release.keystore' || '' }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: ./gradlew assembleLiteRelease --stacktrace
+
+      - name: Collect artifacts
+        run: |
+          version=$(grep '^wmkb.versionName=' gradle.properties | cut -d= -f2)
+          code=$(grep '^wmkb.versionCode=' gradle.properties | cut -d= -f2)
+          sha=$(echo "${{ github.sha }}" | cut -c1-7)
+          mkdir -p dist
+          find app/build/outputs/apk -name '*.apk' | while read -r apk; do
+            cp "$apk" "dist/wmkeyboard-${version}-vc${code}-${sha}-lite-arm64.apk"
+          done
+          ls -lh dist/
+
+      - name: Wipe keystore
+        if: always()
+        run: rm -f release.keystore
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk-lite-arm64
+          path: dist/*.apk
+          retention-days: 14
