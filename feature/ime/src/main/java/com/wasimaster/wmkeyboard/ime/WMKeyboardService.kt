@@ -147,6 +147,7 @@ import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.prediction.WordSource
+import com.wasimaster.wmkeyboard.core.prediction.telex.TelexAutocorrectEngine
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
@@ -884,6 +885,8 @@ open class WMKeyboardService : InputMethodService() {
         val isBengali: Boolean,
         /** Transliteration top for Bengali phonetic mode; null otherwise. */
         val bengaliTop: String?,
+        val isTelex: Boolean = false,
+        val telexTop: String? = null,
         /** English autocorrect target, or null when the word stands as typed. */
         val correction: String?,
         /** Near miss: not applied, but worth a chip. See [correctionOffer]. */
@@ -2339,6 +2342,9 @@ open class WMKeyboardService : InputMethodService() {
             // assets are optional: an absent or unreadable file leaves the composer
             // typing the raw reading (pinyin letters, or kana) with no candidates.
             loadCjkConversionTables()
+            withContext(Dispatchers.IO) {
+                TelexAutocorrectEngine.getInstance().initialize(assets)
+            }
             loadedDictToken = withContext(Dispatchers.Default) {
                 if (userUnlocked) DictionaryStore.stateToken(filesDir) else Int.MIN_VALUE
             }
@@ -6652,7 +6658,26 @@ open class WMKeyboardService : InputMethodService() {
                 (if (pre != null && pre.isBengali) pre.bengaliTop
                 else suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)?.firstOrNull())
                     ?: state.composer.composeBuffer(typed)
-            // Other transliterators (Hangul, Vietnamese) commit the composed text
+            state.composer.isVietnameseTelex -> {
+                val telexResolved = if (autocorrect && state.allowsTypingIntelligence) {
+                    val top = if (pre != null && pre.isTelex) {
+                        pre.telexTop
+                    } else {
+                        TelexAutocorrectEngine.getInstance().correct(
+                            rawInput = typed,
+                            previousWord = previousWord,
+                            userLexicon = userLexicon,
+                            maxResults = 1
+                        ).firstOrNull()?.word
+                    }
+                    if (top != null && top != state.composer.composeBuffer(typed)) {
+                        corrected = top
+                    }
+                    top
+                } else null
+                telexResolved ?: state.composer.composeBuffer(typed)
+            }
+            // Other transliterators (Hangul, VNI) commit the composed text
             // directly, with no dictionary pass.
             state.composer.isTransliterating -> state.composer.composeBuffer(typed)
             apostrophized != null -> apostrophized
@@ -8667,15 +8692,30 @@ open class WMKeyboardService : InputMethodService() {
             val timingMultiplier = timingMultiplier()
             val recentSnapshot = recentWords.toList()
             val (results, emojis, bias) = withContext(Dispatchers.Default) {
-                val suggested = engine.suggest(
-                    composing = typed,
-                    previousWord = previousWord,
-                    avroMode = state.composer.isBengaliPhonetic,
-                    touch = touchFrame,
-                    previousWord2 = previousWord2,
-                    recentWords = recentSnapshot,
-                    allowRerank = true,
-                )
+                val suggested = if (state.composer.isVietnameseTelex) {
+                    val telexEngine = TelexAutocorrectEngine.getInstance()
+                    val candidates = telexEngine.correct(
+                        rawInput = typed,
+                        previousWord = previousWord,
+                        userLexicon = userLexicon,
+                        maxResults = 5
+                    ).map { it.word }
+                    if (candidates.isNotEmpty()) {
+                        candidates
+                    } else {
+                        listOf(state.composer.composeBuffer(typed))
+                    }
+                } else {
+                    engine.suggest(
+                        composing = typed,
+                        previousWord = previousWord,
+                        avroMode = state.composer.isBengaliPhonetic,
+                        touch = touchFrame,
+                        previousWord2 = previousWord2,
+                        recentWords = recentSnapshot,
+                        allowRerank = true,
+                    )
+                }
                 // A28: a personal-dictionary shortcut typed in full offers its
                 // expansion as the top chip (e.g. "omw" → "on my way"). Prepended
                 // so it wins the primary slot; deduped against the word list.
@@ -8711,6 +8751,14 @@ open class WMKeyboardService : InputMethodService() {
                         isBengali = true,
                         bengaliTop = words.firstOrNull(),
                         correction = null,
+                    )
+                    state.composer.isVietnameseTelex -> CommitResolution(
+                        typed = typed,
+                        isBengali = false,
+                        bengaliTop = null,
+                        isTelex = true,
+                        telexTop = words.firstOrNull(),
+                        correction = words.firstOrNull()?.takeIf { it != state.composer.composeBuffer(typed) },
                     )
                     state.settings.autocorrect && state.allowsTypingIntelligence -> {
                         val decision = engine.decideCorrection(
