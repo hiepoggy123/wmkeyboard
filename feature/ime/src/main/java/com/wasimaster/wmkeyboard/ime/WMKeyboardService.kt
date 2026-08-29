@@ -4562,10 +4562,9 @@ open class WMKeyboardService : InputMethodService() {
             text.isNotEmpty() && text.all { isComposingWordChar(it) }
         // VNI spells Vietnamese tones/marks with digits, so a digit typed *while a
         // syllable is composing* feeds the buffer (the transducer eats it) instead
-        // of committing. A digit on an empty buffer is a literal digit as usual —
-        // except for a composer whose whole alphabet is digits (T9 pinyin), where
-        // that rule would make the first key of every word commit as a number.
-        val singleWordChar = text.length == 1 && (
+        val isVietnameseTone = (state.composer.isVietnameseTelex || state.composer.isTransliterating) &&
+            text.isNotEmpty() && text.all { state.composer.buffersChar(it) }
+        val singleWordChar = (text.length == 1 && (
             text[0].isLetter() || text[0] == '\'' ||
                 state.composer.buffersChar(text[0]) ||
                 (
@@ -4584,7 +4583,7 @@ open class WMKeyboardService : InputMethodService() {
                         state.settings.suggestionStrip.numberRowCorrections &&
                         state.allowsTypingIntelligence
                     )
-            )
+            )) || isVietnameseTone
         val isWordChar = singleWordChar || clusterContinuation
         // Avro is a transliterating input method: its composing must run even
         // in password fields and with the strip off, or the roman keys commit
