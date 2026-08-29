@@ -8724,6 +8724,9 @@ open class WMKeyboardService : InputMethodService() {
                     ?: snippetStore.matchTrigger(composed)?.text
 
                 val contextBefore = listOfNotNull(previousWord2, previousWord).joinToString(" ")
+                val telexEngine = TelexAutocorrectEngine.getInstance()
+                var telexCandidates: List<String> = emptyList()
+
                 val suggested = if (state.composer.isVietnameseTelex) {
                     val aiPredictor = V7GPTPredictor.getInstance()
                     val aiEnabled = state.settings.aiSettings.enabled && aiPredictor.isReady
@@ -8736,19 +8739,18 @@ open class WMKeyboardService : InputMethodService() {
                             emptyList()
                         }
                     } else {
-                        val telexEngine = TelexAutocorrectEngine.getInstance()
                         val isComposedValid = telexEngine.isWordInDictionary(composed)
-                        val telexCandidates = telexEngine.correct(
+                        telexCandidates = telexEngine.correct(
                             rawInput = typed,
                             previousWord = previousWord,
                             userLexicon = userLexicon,
                             maxResults = 5
                         ).map { it.word }
 
-                        val aiCandidates = if (aiEnabled && (shorthandEnabled || !isComposedValid)) {
+                        val aiCandidates = if (aiEnabled && shorthandEnabled) {
                             aiPredictor.predict(
                                 contextText = contextBefore,
-                                prefix = if (shorthandEnabled) typed else composed,
+                                prefix = typed,
                                 maxResults = 5
                             )
                         } else {
@@ -8817,14 +8819,18 @@ open class WMKeyboardService : InputMethodService() {
                         bengaliTop = words.firstOrNull(),
                         correction = null,
                     )
-                    state.composer.isVietnameseTelex -> CommitResolution(
-                        typed = typed,
-                        isBengali = false,
-                        bengaliTop = null,
-                        isTelex = true,
-                        telexTop = words.firstOrNull(),
-                        correction = words.firstOrNull()?.takeIf { it != state.composer.composeBuffer(typed) },
-                    )
+                    state.composer.isVietnameseTelex -> {
+                        val isComposedValid = telexEngine.isWordInDictionary(composed)
+                        val topCandidate = if (isComposedValid) composed else telexCandidates.firstOrNull()
+                        CommitResolution(
+                            typed = typed,
+                            isBengali = false,
+                            bengaliTop = null,
+                            isTelex = true,
+                            telexTop = words.firstOrNull(),
+                            correction = if (isComposedValid) null else topCandidate?.takeIf { it != composed },
+                        )
+                    }
                     state.settings.autocorrect && state.allowsTypingIntelligence -> {
                         val decision = engine.decideCorrection(
                             typed, touch = touchFrame, timingMultiplier = timingMultiplier,

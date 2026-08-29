@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.nio.LongBuffer
 import java.util.Collections
+import java.util.PriorityQueue
 
 class V7GPTPredictor private constructor() {
 
@@ -23,7 +24,7 @@ class V7GPTPredictor private constructor() {
 
         const val BIAS_ALPHA = 0.3f
         const val TEMPERATURE = 1.0f
-        const val TOP_K_PREDICTIONS = 3000
+        const val TOP_K_PREDICTIONS = 1000
     }
 
     val tokenizer = V7GPTTokenizer()
@@ -67,9 +68,21 @@ class V7GPTPredictor private constructor() {
             ortEnv = env
             ortSession = session
             isReady = true
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (t: Throwable) {
+            t.printStackTrace()
             isReady = false
+        }
+    }
+
+    /**
+     * Update personalization bias when user commits a word.
+     */
+    fun updateBias(word: String) {
+        if (!isReady || word.isBlank()) return
+        try {
+            biasManager.updateBias(word, tokenizer)
+        } catch (t: Throwable) {
+            t.printStackTrace()
         }
     }
 
@@ -118,49 +131,57 @@ class V7GPTPredictor private constructor() {
 
         if (tokenIds.isEmpty()) return IntArray(0)
 
+        var inputTensor: OnnxTensor? = null
+        var results: OrtSession.Result? = null
         try {
             val shape = longArrayOf(1, tokenIds.size.toLong())
             val buffer = LongBuffer.wrap(tokenIds)
-            val inputTensor = OnnxTensor.createTensor(env, buffer, shape)
+            inputTensor = OnnxTensor.createTensor(env, buffer, shape)
 
             val inputs = Collections.singletonMap("input_token_ids", inputTensor)
-            val results = session.run(inputs)
+            results = session.run(inputs)
 
-            @Suppress("UNCHECKED_CAST")
-            val outputTensor = results[0].value as Array<FloatArray>
-            val logits = outputTensor[0] // shape: [vocab_size, 17789]
+            val tensor = runCatching {
+                (results.get("logits").orElse(null)
+                    ?: results.iterator().takeIf { it.hasNext() }?.next()?.value) as? OnnxTensor
+            }.getOrNull() ?: return IntArray(0)
 
-            inputTensor.close()
-            results.close()
+            val floatBuffer = tensor.floatBuffer
+            val vocabSize = minOf(floatBuffer.remaining(), tokenizer.renumList.size)
+            if (vocabSize <= 0) return IntArray(0)
+
+            val logits = FloatArray(vocabSize)
+            floatBuffer.get(logits)
 
             val biasVec = biasManager.biasVector
-            val vocabSize = minOf(logits.size, tokenizer.renumList.size)
 
-            // Index-score pairs
-            val scored = ArrayList<IndexedScore>(vocabSize)
+            // Use min-heap to find top K efficiently without sorting all 17,789 items
+            val topK = minOf(TOP_K_PREDICTIONS, vocabSize)
+            val minHeap = PriorityQueue<IndexedScore>(topK + 1, compareBy { it.score })
+
             for (i in 0 until vocabSize) {
                 val bias = if (i < biasVec.size) biasVec[i] else 0.0f
                 val score = (logits[i] + BIAS_ALPHA * bias) / TEMPERATURE
-                scored.add(IndexedScore(i, score))
+                minHeap.offer(IndexedScore(i, score))
+                if (minHeap.size > topK) {
+                    minHeap.poll()
+                }
             }
 
-            scored.sortByDescending { it.score }
-
-            val topCount = minOf(TOP_K_PREDICTIONS, scored.size)
-            val resultIds = IntArray(topCount)
-            for (i in 0 until topCount) {
-                resultIds[i] = scored[i].index
+            val resultIds = IntArray(minHeap.size)
+            var idx = resultIds.size - 1
+            while (!minHeap.isEmpty()) {
+                resultIds[idx--] = minHeap.poll().index
             }
             return resultIds
-        } catch (e: Exception) {
-            e.printStackTrace()
+        } catch (t: Throwable) {
+            t.printStackTrace()
             return IntArray(0)
+        } finally {
+            try { inputTensor?.close() } catch (_: Throwable) {}
+            try { results?.close() } catch (_: Throwable) {}
         }
     }
 
-    fun updateBias(word: String) {
-        biasManager.updateBias(word, tokenizer)
-    }
-
-    private data class IndexedScore(val index: Int, val score: Float)
+    private class IndexedScore(val index: Int, val score: Float)
 }

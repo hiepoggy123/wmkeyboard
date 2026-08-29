@@ -6109,6 +6109,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setHijriAdjustDays(value: Int) =
         editPrefs { it[HIJRI_ADJUST_DAYS] = value.coerceIn(-2, 2) }
 
+    suspend fun setAiPredictionEnabled(value: Boolean) =
+        editPrefs { it[AI_PREDICTION_ENABLED] = value }
+
+    suspend fun setAiShorthandMode(value: Boolean) =
+        editPrefs { it[AI_SHORTHAND_MODE] = value }
+
     suspend fun setHandwritingStylusOnly(value: Boolean) =
         editPrefs { it[HANDWRITING_STYLUS_ONLY] = value }
 

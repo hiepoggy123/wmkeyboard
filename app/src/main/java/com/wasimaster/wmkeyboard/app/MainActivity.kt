@@ -3089,6 +3089,24 @@ private fun TypingSettings(
         }
         item {
             ToggleSetting(
+                title = "Gợi ý AI Tiếng Việt (GPT-2)",
+                subtitle = "Dự đoán từ tiếp theo theo ngữ cảnh câu văn",
+                checked = settings.aiSettings.enabled,
+                default = SettingsDefaults.aiSettings.enabled,
+            ) { scope.launch { repository.setAiPredictionEnabled(it) } }
+        }
+        if (settings.aiSettings.enabled) {
+            item {
+                ToggleSetting(
+                    title = "Gõ tốc ký Tiếng Việt (Shorthand)",
+                    subtitle = "Gợi ý từ đầy đủ khi gõ chữ cái đầu (ví dụ: 'x' -> 'xin', 'ch' -> 'chào')",
+                    checked = settings.aiSettings.shorthandPrefixMode,
+                    default = SettingsDefaults.aiSettings.shorthandPrefixMode,
+                ) { scope.launch { repository.setAiShorthandMode(it) } }
+            }
+        }
+        item {
+            ToggleSetting(
                 R.string.typing_punctuation_suggestions_title,
                 stringResource(R.string.typing_punctuation_suggestions_subtitle),
                 settings.suggestionStrip.punctuation,
