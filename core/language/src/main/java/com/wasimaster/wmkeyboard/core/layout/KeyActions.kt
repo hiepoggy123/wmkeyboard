@@ -428,8 +428,8 @@ fun KeyAction.holdIsSpokenFor(): Boolean = when (this) {
  */
 enum class ModifierKey { CTRL, ALT, META }
 
-/** Clipboard/undo/redo shortcut a letter key can perform on long press (A/C/V/X/Z/Y/D). */
-enum class ClipboardKeyAction { SELECT_ALL, COPY, PASTE, CUT, UNDO, REDO, CLEAR_ALL }
+/** Clipboard/undo/redo shortcut a letter key can perform on long press (A/C/V/X/Z/Y). */
+enum class ClipboardKeyAction { SELECT_ALL, COPY, PASTE, CUT, UNDO, REDO }
 
 /**
  * What a key means to the runtime beyond the character it types.

@@ -23,7 +23,7 @@ data class DictionaryEntry(
     /** Compressed size of the full file — progress denominator upper bound. */
     val approxGzBytes: Long,
     /** Label distinguishing two entries for one language ("Europe"/"Brazil"). */
-    @param:StringRes val variantRes: Int? = null,
+    @StringRes val variantRes: Int? = null,
     /**
      * Which file under `data/$repoCode/` this entry downloads: `"full"` (the
      * ordinary native-script list) or `"rom"` (a romanized/Latin-script

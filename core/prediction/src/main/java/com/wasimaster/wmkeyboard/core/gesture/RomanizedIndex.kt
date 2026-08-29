@@ -40,7 +40,7 @@ import kotlin.math.ln
 class RomanizedIndex private constructor(
     private val curated: Trie,
     private val downloaded: WordSource,
-    val resolveSpelling: (String) -> List<String>,
+    private val resolveSpelling: (String) -> List<String>,
     /** Characters the romanized side is written in — the coverage gate's input. */
     val alphabet: Set<Char>,
 ) {
@@ -129,18 +129,6 @@ class RomanizedIndex private constructor(
                 spellings.lookup(spelling).ifEmpty { phonetic.lookup(spelling) }
             }
             return RomanizedIndex(curated, downloadedRomanized, resolve, alphabet)
-        }
-
-        /**
-         * Builds a RomanizedIndex for Vietnamese Telex.
-         * The trie contains raw telex keystrokes, and it's resolved back to composed Vietnamese.
-         */
-        fun telex(
-            rawTelexTrie: WordSource,
-            resolve: (String) -> List<String>
-        ): RomanizedIndex {
-            val alphabet = setOf('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z')
-            return RomanizedIndex(Trie(), rawTelexTrie, resolve, alphabet)
         }
 
         /** How far behind its spelling's own score a second reading starts. */

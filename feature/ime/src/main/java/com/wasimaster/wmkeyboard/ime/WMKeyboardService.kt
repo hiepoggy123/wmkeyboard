@@ -2414,20 +2414,6 @@ open class WMKeyboardService : InputMethodService() {
                     },
                 )
             }
-            val telexRomanization = withContext(Dispatchers.Default) {
-                if (_uiState.value.language.id == "vi") {
-                    val rawTelex = openLanguageDictionary("vi_telex_raw")
-                    if (rawTelex != null) {
-                        RomanizedIndex.telex(rawTelex) { spelling ->
-                            listOf(_uiState.value.composer.composeBuffer(spelling))
-                        }
-                    } else RomanizedIndex.EMPTY
-                } else {
-                    RomanizedIndex.EMPTY
-                }
-            }
-            suggestionEngine?.telexRomanization = telexRomanization
-            
             // A new engine means new word sources; re-ask whether this
             // language and layout can be glided.
             glideSourcesEpoch.update { it + 1 }
@@ -4054,7 +4040,6 @@ open class WMKeyboardService : InputMethodService() {
             "c" -> ClipboardKeyAction.COPY
             "v" -> ClipboardKeyAction.PASTE
             "x" -> ClipboardKeyAction.CUT
-            "d" -> ClipboardKeyAction.CLEAR_ALL
             else -> null
         }
 
@@ -6600,7 +6585,7 @@ open class WMKeyboardService : InputMethodService() {
         // Vietnamese, …) — their buffer holds an input spelling, not the
         // trigger the user meant to type. Both also come before apostrophes
         // and autocorrect, so a trigger is matched as it was actually typed.
-        if (!state.composer.isConversion) {
+        if (!state.composer.isTransliterating && !state.composer.isConversion) {
             // A trigger that asks first has already put its chip on the strip
             // (see [refreshSnippetOffer]); the word it matched commits as
             // ordinary text, and the offer goes with it.
@@ -6667,10 +6652,7 @@ open class WMKeyboardService : InputMethodService() {
                 (if (pre != null && pre.isBengali) pre.bengaliTop
                 else suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)?.firstOrNull())
                     ?: state.composer.composeBuffer(typed)
-            state.composer.isVietnameseTelex ->
-                suggestionEngine?.suggest(typed, previousWord = null, telexMode = true)?.firstOrNull()
-                    ?: state.composer.composeBuffer(typed)
-            // Other transliterators (Hangul, Vietnamese VNI) commit the composed text
+            // Other transliterators (Hangul, Vietnamese) commit the composed text
             // directly, with no dictionary pass.
             state.composer.isTransliterating -> state.composer.composeBuffer(typed)
             apostrophized != null -> apostrophized
@@ -6679,13 +6661,12 @@ open class WMKeyboardService : InputMethodService() {
                     SuggestionEngine.CorrectionDecision(pre.correction, pre.offer)
                 } else {
                     suggestionEngine?.decideCorrection(
-                        typed, touch = composingTouchFrame(), timingMultiplier = timingMultiplier(), telexMode = state.composer.isVietnameseTelex
+                        typed, touch = composingTouchFrame(), timingMultiplier = timingMultiplier(),
                     ) ?: SuggestionEngine.NO_CORRECTION
                 }
                 corrected = decision.apply?.takeIf { it != typed }
                 offered = decision.offer?.takeIf { it != typed }
                 corrected ?: typed
-
             }
             else -> typed
         }
@@ -6945,7 +6926,7 @@ open class WMKeyboardService : InputMethodService() {
         // not a word a pattern can read.
         val allowed = state.allowsTypingIntelligence && !state.secureField &&
             !state.fieldNoSuggestions && state.panel == PanelMode.NONE &&
-            !state.composer.isConversion
+            !state.composer.isTransliterating && !state.composer.isConversion
         if (!allowed) {
             publishSnippetOffer(null)
             return
@@ -8694,7 +8675,6 @@ open class WMKeyboardService : InputMethodService() {
                     previousWord2 = previousWord2,
                     recentWords = recentSnapshot,
                     allowRerank = true,
-                    telexMode = state.composer.isVietnameseTelex,
                 )
                 // A28: a personal-dictionary shortcut typed in full offers its
                 // expansion as the top chip (e.g. "omw" → "on my way"). Prepended
@@ -8733,13 +8713,9 @@ open class WMKeyboardService : InputMethodService() {
                         correction = null,
                     )
                     state.settings.autocorrect && state.allowsTypingIntelligence -> {
-                        val decision = if (state.composer.isTransliterating && !state.composer.isVietnameseTelex) {
-                            SuggestionEngine.NO_CORRECTION
-                        } else {
-                            engine.decideCorrection(
-                                typed, touch = touchFrame, timingMultiplier = timingMultiplier, telexMode = state.composer.isVietnameseTelex
-                            )
-                        }
+                        val decision = engine.decideCorrection(
+                            typed, touch = touchFrame, timingMultiplier = timingMultiplier,
+                        )
                         CommitResolution(
                             typed = typed,
                             isBengali = false,
@@ -14558,11 +14534,6 @@ open class WMKeyboardService : InputMethodService() {
             ClipboardKeyAction.CUT -> {
                 if (!hasSelection && selectAllIfEmpty) ic.performContextMenuAction(android.R.id.selectAll)
                 ic.performContextMenuAction(android.R.id.cut)
-                _uiState.update { it.copy(textEditSelecting = false) }
-            }
-            ClipboardKeyAction.CLEAR_ALL -> {
-                ic.performContextMenuAction(android.R.id.selectAll)
-                sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
                 _uiState.update { it.copy(textEditSelecting = false) }
             }
             ClipboardKeyAction.PASTE -> {

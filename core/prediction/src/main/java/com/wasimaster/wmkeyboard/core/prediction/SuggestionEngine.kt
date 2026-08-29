@@ -564,13 +564,6 @@ class SuggestionEngine(
     @Volatile
     var glideRomanization: RomanizedIndex = RomanizedIndex.EMPTY
 
-    /**
-     * The romanization used for Vietnamese TELEX autocorrect. Maps raw
-     * telex keystrokes to their valid Vietnamese composed forms.
-     */
-    @Volatile
-    var telexRomanization: RomanizedIndex = RomanizedIndex.EMPTY
-
     /** The curated Bengali spelling map this engine was built with, so the IME
      * can rebuild the romanization without reloading the assets behind it. */
     val spellingMap: BengaliSpellingMap get() = spellings
@@ -710,15 +703,13 @@ class SuggestionEngine(
         lower: String,
         limit: Int,
         touch: List<TouchPoint?>?,
-        sources: List<FuzzyBeamSearch.WalkSource> = walkSources(),
     ): List<FuzzyBeamSearch.ScoredCandidate> {
         val k = maxOf(limit * 2, WALK_K)
         val gen = generation.get()
         val lexGen = userLexicon.mutationCount()
         rankedWalk?.let { cached ->
             if (cached.word == lower && cached.generation == gen &&
-                cached.lexMutations == lexGen && cached.k >= k && cached.touch == touch &&
-                sources == walkSources() // Only use cache if using default sources
+                cached.lexMutations == lexGen && cached.k >= k && cached.touch == touch
             ) {
                 return cached.ranked
             }
@@ -732,7 +723,7 @@ class SuggestionEngine(
         // search() sizes its own result list as max(limit * 2, AUTOCORRECT_K);
         // k / 2 makes that exactly k.
         val walked = beam.search(
-            sources, lower, proximity, k / 2, beamWorkspace.get(), touch = scoring,
+            walkSources(), lower, proximity, k / 2, beamWorkspace.get(), touch = scoring,
         )
         val ranked = dampMismatchedLanguages(walked)
         rankedWalk = RankedWalk(lower, gen, lexGen, k, touch?.let(::ArrayList), ranked)
@@ -1125,16 +1116,12 @@ class SuggestionEngine(
         previousWord2: String? = null,
         recentWords: List<String> = emptyList(),
         allowRerank: Boolean = false,
-        telexMode: Boolean = false,
     ): List<String> {
         if (composing.isEmpty()) {
             return nextWords(previousWord, previousWord2, limit)
         }
         if (avroMode) {
             return bengaliSuggestions(composing, limit)
-        }
-        if (telexMode) {
-            return telexSuggestions(composing, limit, touch)
         }
 
         val lower = composing.lowercase()
@@ -1420,12 +1407,6 @@ class SuggestionEngine(
         return ordered.asSequence().filterNot(::suppressed).take(limit).toList()
     }
 
-    private fun telexSuggestions(composing: String, limit: Int, touch: List<TouchPoint?>?): List<String> {
-        if (telexRomanization.isEmpty) return emptyList()
-        val decoded = rankedFor(composing, maxOf(limit, Companion.RERANK_POOL), touch, telexRomanization.walkSources())
-        return decoded.flatMap { telexRomanization.resolveSpelling(it.word) }.distinct().filterNot(::suppressed).take(limit)
-    }
-
     private fun nextWords(previousWord: String?, previousWord2: String?, limit: Int): List<String> {
         val prev = previousWord?.lowercase() ?: return emptyList()
         val ordered = LinkedHashSet<String>()
@@ -1520,16 +1501,13 @@ class SuggestionEngine(
         word: String,
         touch: List<TouchPoint?>? = null,
         timingMultiplier: Double = 1.0,
-        telexMode: Boolean = false,
     ): CorrectionDecision {
         val lower = word.lowercase()
         if (lower.length < 3) return NO_CORRECTION
         // An all-caps word is a deliberate acronym or shout, not a typo of a
         // lowercase word — don't "correct" it away when the user asked us not to.
         if (skipAllCapsAutocorrect && isAllCaps(word)) return NO_CORRECTION
-        
-        val known = if (telexMode) false else inDictionaries(lower) || userLexicon.isEstablished(lower, learnedWordMinCount)
-        if (known) {
+        if (inDictionaries(lower) || userLexicon.isEstablished(lower, learnedWordMinCount)) {
             return NO_CORRECTION
         }
         // Contact and app names are known words too — never "corrected" away.
@@ -1540,18 +1518,12 @@ class SuggestionEngine(
         val digits = lower.count { it.isDigit() }
         if (digits > 0 && (!digitSlipCorrections || digits > 1)) return NO_CORRECTION
 
-        val sources = if (telexMode && !telexRomanization.isEmpty) {
-            telexRomanization.walkSources()
-        } else {
-            walkSources()
-        }
-
         // The walk ranks WALK_K deep for the strip's context boosts, but the
         // silent-replacement decision stays on the same top-8 it has always
         // judged: a rank-20 word must never fire as a correction, nor may it
         // appear as the runner-up that tightens (or loosens) the gate.
         val candidates = rankedFor(
-            lower, FuzzyBeamSearch.AUTOCORRECT_K / 2, touch, sources
+            lower, FuzzyBeamSearch.AUTOCORRECT_K / 2, touch,
         ).take(FuzzyBeamSearch.AUTOCORRECT_K).filter { c ->
             // Silent replacement only trusts classic one-edit shapes: a single
             // edit within one character of the typed length, or the
@@ -1655,14 +1627,7 @@ class SuggestionEngine(
             margin < ln(effectiveConfidence) -> null
             else -> top.word
         }
-        if (single != null) {
-            val resolvedSingle = if (telexMode && !telexRomanization.isEmpty) {
-                telexRomanization.resolveSpelling(single).firstOrNull() ?: single
-            } else {
-                single
-            }
-            return CorrectionDecision(apply = matchCase(word, resolvedSingle))
-        }
+        if (single != null) return CorrectionDecision(apply = matchCase(word, single))
         // No single word explains the typed string; a missing space might.
         splitCorrection(lower, top?.score, effectiveConfidence)?.let {
             return CorrectionDecision(apply = matchCase(word, it))
@@ -1675,15 +1640,7 @@ class SuggestionEngine(
             ?.takeUnless { penalized }
             ?.takeIf { margin >= ln(effectiveConfidence) * OFFER_MARGIN_FRACTION }
             ?.word
-        
-        val resolvedOffer = offer?.let {
-            if (telexMode && !telexRomanization.isEmpty) {
-                telexRomanization.resolveSpelling(it).firstOrNull() ?: it
-            } else {
-                it
-            }
-        }
-        return CorrectionDecision(offer = resolvedOffer?.let { matchCase(word, it) })
+        return CorrectionDecision(offer = offer?.let { matchCase(word, it) })
     }
 
     /**

@@ -30,19 +30,19 @@ private class VLetter(var base: Char, var mark: VMark, val upper: Boolean)
 
 internal object VietnameseEngine {
 
-    private fun isVowel(l: VLetter) = l.base in "aeiouy" || (l.base == 'w' && l.mark == VMark.HORN)
+    private fun isVowel(c: Char) = c in "aeiouy"
 
     private fun precompose(base: Char, mark: VMark): Char = when (mark) {
         VMark.NONE -> base
         VMark.CIRCUMFLEX -> when (base) { 'a' -> 'â'; 'e' -> 'ê'; 'o' -> 'ô'; else -> base }
         VMark.BREVE -> if (base == 'a') 'ă' else base
-        VMark.HORN -> when (base) { 'o' -> 'ơ'; 'u' -> 'ư'; 'w' -> 'ư'; else -> base }
+        VMark.HORN -> when (base) { 'o' -> 'ơ'; 'u' -> 'ư'; else -> base }
         VMark.STROKE -> if (base == 'd') 'đ' else base
     }
 
     /** The index of the tone-bearing vowel, or -1 if the syllable has no vowel. */
     private fun nucleus(letters: List<VLetter>): Int {
-        val vowels = letters.indices.filter { isVowel(letters[it]) }.toMutableList()
+        val vowels = letters.indices.filter { isVowel(letters[it].base) }.toMutableList()
         // qu- and gi- onsets: the u / i is a glide, not the nucleus, unless it is
         // the syllable's only vowel.
         if (letters.size >= 2 && letters[0].base == 'q' && letters[1].base == 'u' &&
@@ -55,7 +55,7 @@ internal object VietnameseEngine {
         vowels.lastOrNull { letters[it].mark != VMark.NONE }?.let { return it }
         if (vowels.size == 1) return vowels[0]
         val last = vowels.last()
-        val hasCoda = (last + 1..letters.lastIndex).any { !isVowel(letters[it]) }
+        val hasCoda = (last + 1..letters.lastIndex).any { !isVowel(letters[it].base) }
         if (hasCoda) return last
         if (vowels.size >= 3) return vowels[vowels.size - 2]
         val a = letters[vowels[0]].base
@@ -93,48 +93,12 @@ internal object VietnameseEngine {
         return false
     }
 
-    private fun isEnglishKeystrokes(raw: String): Boolean {
-        val lower = raw.lowercase()
-        
-        // 1. Multi-syllable V-C-V check
-        // Strict Consonants: b, c, g, h, k, l, m, n, p, q, t, v
-        val vcvRegex = Regex("[aeiouy][^aeiouy]*[bcghklmnpqtv][^aeiouy]*[aeiouy]")
-        if (vcvRegex.containsMatchIn(lower)) return true
-        
-        // 2. Impossible double consonants in Telex
-        val doubleConsonants = listOf("bb", "cc", "gg", "ll", "mm", "nn", "pp", "tt", "vv")
-        if (doubleConsonants.any { lower.contains(it) }) return true
-        
-        // 3. Common English clusters
-        val englishClusters = listOf(
-            "sh", "ck", "dge", "tch", "ght", "ough",
-            "sch", "scr", "str", "spl", "spr", "shr", "thr",
-            "bl", "br", "cl", "cr", "dr", "fl", "fr", "gl", "gr",
-            "pl", "pr", "sl", "sm", "sn", "sp", "sw", "tw",
-            "sc", "sk", "ce", "ci",
-            "ew", "iw", "yw", "owe", "awe", "uwe"
-        )
-        if (englishClusters.any { lower.contains(it) }) return true
-        
-        // 4. Word-ending English clusters
-        val englishEndings = listOf(
-            "nd", "nt", "pt", "ct", "ld", "lt", "rm", "rn", "rt",
-            "tion", "sion", "ment", "ness", "able", "ship"
-        )
-        if (englishEndings.any { lower.endsWith(it) }) return true
-
-        return false
-    }
-
     fun transduce(raw: String, vni: Boolean): String {
-        val isEng = !vni && isEnglishKeystrokes(raw)
-        if (isEng) return raw
-
         val letters = ArrayList<VLetter>()
         var tone = VTone.NONE
 
         fun toggleTone(t: VTone) { tone = if (tone == t) VTone.NONE else t }
-        fun hasVowel() = letters.any { isVowel(it) }
+        fun hasVowel() = letters.any { isVowel(it.base) }
 
         for (ch in raw) {
             val upper = ch.isUpperCase()
@@ -197,8 +161,8 @@ internal object VietnameseEngine {
                         letters[oIdx].mark = targetMark
                     } else {
                         val a = applyMark(letters, "a", VMark.BREVE) ||
-                            applyMark(letters, "ouw", VMark.HORN)
-                        if (!a) letters.add(VLetter('w', VMark.HORN, upper))
+                            applyMark(letters, "ou", VMark.HORN)
+                        if (!a) letters.add(VLetter('u', VMark.HORN, upper))
                     }
                 }
                 'a', 'e', 'o' -> {
@@ -237,7 +201,6 @@ internal object VietnameseEngine {
 /** Vietnamese Telex: letters spell the diacritics (`as`→á, `aw`→ă, `dd`→đ). */
 object VietnameseTelexComposer : Composer {
     override val isTransliterating: Boolean get() = true
-    override val isVietnameseTelex: Boolean get() = true
     override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = false)
 }
 
