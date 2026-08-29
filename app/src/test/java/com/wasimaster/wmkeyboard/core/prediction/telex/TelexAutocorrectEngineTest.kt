@@ -66,4 +66,37 @@ class TelexAutocorrectEngineTest {
         assertEquals("tuệ", list[0].word)
         assertEquals("huệ", list[1].word)
     }
+
+    @Test
+    fun testExactMatchBeatsHigherFrequencyNeighbor() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        // Setup engine with mock syllables & proximity
+        val syllablesJson = """
+            {
+                "caanr": {"word": "cẩn", "freq": 82},
+                "caanf": {"word": "cần", "freq": 213}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+
+        val proxJson = """
+            {
+                "c": {"coords": [3.0, 2.0], "neighbors": [{"key": "c", "distance": 0.0, "penalty": 0.0}]},
+                "a": {"coords": [1.0, 1.0], "neighbors": [{"key": "a", "distance": 0.0, "penalty": 0.0}]},
+                "n": {"coords": [6.0, 2.0], "neighbors": [{"key": "n", "distance": 0.0, "penalty": 0.0}]},
+                "r": {"coords": [4.0, 0.0], "neighbors": [
+                    {"key": "r", "distance": 0.0, "penalty": 0.0},
+                    {"key": "f", "distance": 1.0, "penalty": 1.2}
+                ]}
+            }
+        """.trimIndent()
+        engine.proximityManager.loadFromJson(proxJson)
+
+        val uniJson = """{"cẩn": 82, "cần": 213}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        val results = engine.correct("caanr", maxResults = 2)
+        assertTrue(results.isNotEmpty())
+        assertEquals("cẩn", results[0].word) // "cẩn" must win over "cần" because it is an exact match
+    }
 }

@@ -6660,6 +6660,7 @@ open class WMKeyboardService : InputMethodService() {
                 else suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)?.firstOrNull())
                     ?: state.composer.composeBuffer(typed)
             state.composer.isVietnameseTelex -> {
+                val composed = state.composer.composeBuffer(typed)
                 val telexResolved = if (autocorrect && state.allowsTypingIntelligence) {
                     val top = if (pre != null && pre.isTelex) {
                         pre.telexTop
@@ -6671,12 +6672,12 @@ open class WMKeyboardService : InputMethodService() {
                             maxResults = 1
                         ).firstOrNull()?.word
                     }
-                    if (top != null && top != state.composer.composeBuffer(typed)) {
+                    if (top != null && top != composed) {
                         corrected = top
                     }
-                    top
+                    top ?: composed
                 } else null
-                telexResolved ?: state.composer.composeBuffer(typed)
+                telexResolved ?: composed
             }
             // Other transliterators (Hangul, VNI) commit the composed text
             // directly, with no dictionary pass.
@@ -6697,7 +6698,12 @@ open class WMKeyboardService : InputMethodService() {
             else -> typed
         }
         val revertible = corrected?.let {
-            RevertibleCommit(RevertibleCommit.Kind.AUTOCORRECT, original = typed, committed = it)
+            val originalText = if (state.composer.isVietnameseTelex) {
+                state.composer.composeBuffer(typed)
+            } else {
+                typed
+            }
+            RevertibleCommit(RevertibleCommit.Kind.AUTOCORRECT, original = originalText, committed = it)
         }
         lastRevertible = revertible
         if (revertible != null) {

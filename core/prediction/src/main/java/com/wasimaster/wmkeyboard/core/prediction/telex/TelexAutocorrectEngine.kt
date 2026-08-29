@@ -134,7 +134,8 @@ class TelexLanguageModel {
  * 1. Takes raw typing keystrokes (e.g. "yueej", with previous context "trí").
  * 2. Explores valid Vietnamese syllables on the Telex Trie guided by QWERTY key proximity.
  * 3. Incorporates static Language Model (Unigram + Bigram) AND dynamic user learning (UserLexicon).
- * 4. Ranks candidates and preserves original typing capitalization.
+ * 4. Strictly protects exact matches (penalty == 0) so valid words are never replaced by neighbors.
+ * 5. Ranks candidates and preserves original typing capitalization.
  */
 class TelexAutocorrectEngine private constructor() {
 
@@ -160,11 +161,12 @@ class TelexAutocorrectEngine private constructor() {
         }
 
         // Scoring weights
-        private const val WEIGHT_PENALTY = 35.0         // Penalty multiplier for fat-finger keystrokes
-        private const val WEIGHT_UNIGRAM = 0.5          // Base Unigram frequency weight
-        private const val WEIGHT_BIGRAM = 1.2           // Context Bigram weight
-        private const val WEIGHT_USER_UNIGRAM = 2.0     // Bonus weight for words learned from user
-        private const val WEIGHT_USER_BIGRAM = 4.0      // Bonus weight for word pairs learned from user
+        private const val EXACT_MATCH_BONUS = 5000.0    // Massive bonus when exact keystrokes match a valid word
+        private const val WEIGHT_PENALTY = 200.0        // Penalty multiplier for fat-finger keystrokes
+        private const val WEIGHT_UNIGRAM = 1.0          // Base Unigram frequency weight
+        private const val WEIGHT_BIGRAM = 2.5           // Context Bigram weight
+        private const val WEIGHT_USER_UNIGRAM = 3.0     // Bonus weight for words learned from user
+        private const val WEIGHT_USER_BIGRAM = 6.0      // Bonus weight for word pairs learned from user
         private const val MAX_PENALTY_THRESHOLD = 2.5   // Maximum allowed cumulative key distance penalty
     }
 
@@ -204,6 +206,10 @@ class TelexAutocorrectEngine private constructor() {
         }
     }
 
+    fun isWordInDictionary(word: String): Boolean {
+        return languageModel.unigrams.containsKey(word.lowercase())
+    }
+
     @Synchronized
     fun initialize(context: Context) {
         initialize(context.assets)
@@ -212,7 +218,7 @@ class TelexAutocorrectEngine private constructor() {
     /**
      * Finds the best correction candidates for a given raw keystroke buffer.
      *
-     * @param rawInput Raw keystrokes (e.g. "yueej", "trid")
+     * @param rawInput Raw keystrokes (e.g. "yueej", "trid", "caanr")
      * @param previousWord Previous committed word for bigram context (e.g. "trí")
      * @param userLexicon Optional UserLexicon for dynamic user personalized learning
      * @param maxResults Maximum number of suggestions to return
@@ -259,7 +265,11 @@ class TelexAutocorrectEngine private constructor() {
                         userLexicon?.bigramCount(cleanPrev, unicodeWord) ?: 0
                     } else 0
 
-                    val totalScore = -(penalty * WEIGHT_PENALTY) +
+                    // Massive bonus if exact match (penalty == 0.0)
+                    val exactBonus = if (penalty < 0.001) EXACT_MATCH_BONUS else 0.0
+
+                    val totalScore = exactBonus -
+                            (penalty * WEIGHT_PENALTY) +
                             (baseUnigram * WEIGHT_UNIGRAM) +
                             (baseBigram * WEIGHT_BIGRAM) +
                             (userUnigramCount * WEIGHT_USER_UNIGRAM) +
