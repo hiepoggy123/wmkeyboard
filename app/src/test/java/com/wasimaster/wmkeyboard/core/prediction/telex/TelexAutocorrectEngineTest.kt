@@ -99,4 +99,29 @@ class TelexAutocorrectEngineTest {
         assertTrue(results.isNotEmpty())
         assertEquals("cẩn", results[0].word) // "cẩn" must win over "cần" because it is an exact match
     }
+
+    @Test
+    fun testToneBeforeCodaPermutations() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "thaatj": {"word": "thật", "freq": 205},
+                "thaanr": {"word": "thẩn", "freq": 1}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+
+        val uniJson = """{"thật": 205, "thẩn": 1}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // Typing canonical "thaatj"
+        val res1 = engine.correct("thaatj", maxResults = 1)
+        assertTrue(res1.isNotEmpty())
+        assertEquals("thật", res1[0].word)
+
+        // Typing tone before coda "thaajt"
+        val res2 = engine.correct("thaajt", maxResults = 1)
+        assertTrue(res2.isNotEmpty())
+        assertEquals("thật", res2[0].word)
+    }
 }

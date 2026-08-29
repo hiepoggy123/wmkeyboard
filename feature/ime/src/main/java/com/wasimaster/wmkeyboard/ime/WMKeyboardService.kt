@@ -6661,21 +6661,26 @@ open class WMKeyboardService : InputMethodService() {
                     ?: state.composer.composeBuffer(typed)
             state.composer.isVietnameseTelex -> {
                 val composed = state.composer.composeBuffer(typed)
+                val isComposedValid = TelexAutocorrectEngine.getInstance().isWordInDictionary(composed)
                 val telexResolved = if (autocorrect && state.allowsTypingIntelligence) {
-                    val top = if (pre != null && pre.isTelex) {
-                        pre.telexTop
+                    if (isComposedValid) {
+                        null
                     } else {
-                        TelexAutocorrectEngine.getInstance().correct(
-                            rawInput = typed,
-                            previousWord = previousWord,
-                            userLexicon = userLexicon,
-                            maxResults = 1
-                        ).firstOrNull()?.word
+                        val top = if (pre != null && pre.isTelex) {
+                            pre.telexTop
+                        } else {
+                            TelexAutocorrectEngine.getInstance().correct(
+                                rawInput = typed,
+                                previousWord = previousWord,
+                                userLexicon = userLexicon,
+                                maxResults = 1
+                            ).firstOrNull()?.word
+                        }
+                        if (top != null && top != composed) {
+                            corrected = top
+                        }
+                        top ?: composed
                     }
-                    if (top != null && top != composed) {
-                        corrected = top
-                    }
-                    top ?: composed
                 } else null
                 telexResolved ?: composed
             }
@@ -8715,13 +8720,16 @@ open class WMKeyboardService : InputMethodService() {
 
                 val suggested = if (state.composer.isVietnameseTelex) {
                     val telexEngine = TelexAutocorrectEngine.getInstance()
+                    val isComposedValid = telexEngine.isWordInDictionary(composed)
                     val candidates = telexEngine.correct(
                         rawInput = typed,
                         previousWord = previousWord,
                         userLexicon = userLexicon,
                         maxResults = 5
                     ).map { it.word }
-                    if (candidates.isNotEmpty()) {
+                    if (isComposedValid) {
+                        listOf(composed) + candidates.filterNot { it.equals(composed, ignoreCase = true) }
+                    } else if (candidates.isNotEmpty()) {
                         candidates
                     } else {
                         listOf(composed)
