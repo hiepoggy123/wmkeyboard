@@ -580,11 +580,11 @@ internal fun enterActionIcon(action: EnterAction): ImageVector = IconDefaults.fo
 @Immutable
 internal data class SpokenLabel(
     /** The wording. 0 when the key speaks [text] as it is (a letter, a symbol). */
-    @property:StringRes val textRes: Int = 0,
+    @param:StringRes val textRes: Int = 0,
     /** What the key itself supplies: its label, or wording the app chose. */
     val text: String = "",
     /** A name that fills the one argument of [textRes]; 0 when it takes none. */
-    @property:StringRes val argRes: Int = 0,
+    @param:StringRes val argRes: Int = 0,
 ) {
     fun resolve(resources: Resources): String = when {
         textRes == 0 -> text
@@ -11047,6 +11047,7 @@ private fun KeyButton(
     val canForwardDelete = LocalCanForwardDelete.current
     val onDeleteWord = LocalDeleteWord.current
     val onCursorMoveVertical = LocalCursorMoveVertical.current
+    val onSpaceSwipeUp = LocalSpaceSwipeUp.current
     val onHideKeyboard = LocalHideKeyboard.current
 
     // What this key would put in the shared bubble, were it pressed right now.
@@ -11247,6 +11248,7 @@ private fun KeyButton(
                     onClipboardKey = onClipboardKey,
                     onCursorMove = onCursorMove,
                     onCursorMoveVertical = onCursorMoveVertical,
+                    onSpaceSwipeUp = onSpaceSwipeUp,
                     onHideKeyboard = onHideKeyboard,
                     spaceCursor2d = settings.layoutBehavior.spaceCursor2d,
                     spaceSwipeDownHide = settings.layoutBehavior.spaceSwipeDownHide,
@@ -12230,6 +12232,7 @@ private fun Modifier.pointerInputKey(
     onClipboardKey: (ClipboardKeyAction) -> Unit,
     onCursorMove: (Int) -> Unit,
     onCursorMoveVertical: (Int) -> Unit,
+    onSpaceSwipeUp: () -> Unit,
     onHideKeyboard: () -> Unit,
     spaceCursor2d: Boolean,
     spaceSwipeDownHide: Boolean,
@@ -12248,7 +12251,6 @@ private fun Modifier.pointerInputKey(
     smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
 ): Modifier = this.then(
     if (key.action == KeyAction.Space) {
-        val onSpaceSwipeUp = LocalSpaceSwipeUp.current
         Modifier.pointerInput(
             key, spaceShortSwipe, spaceLongSwipe, enabledLayoutIds, currentLayoutId, longPressDelayMs,
             hapticOnLongPress, vibrateOnSpace, spaceCursor2d, spaceSwipeDownHide, textEditing, onSpaceSwipeUp,

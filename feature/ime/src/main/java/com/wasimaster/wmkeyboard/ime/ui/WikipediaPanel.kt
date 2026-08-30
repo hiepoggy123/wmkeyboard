@@ -46,7 +46,7 @@ import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.WikiUi
 
 /** Tabs on an open Wikipedia article. */
-private enum class WikiTab(@property:StringRes val labelRes: Int) {
+private enum class WikiTab(@param:StringRes val labelRes: Int) {
     SUMMARY(R.string.ime_wiki_tab_summary_label),
     LINKS(R.string.ime_wiki_tab_links_label),
     FULL(R.string.ime_wiki_tab_full_label),

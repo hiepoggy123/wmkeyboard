@@ -59,7 +59,7 @@ import com.wasimaster.wmkeyboard.ime.R
  * into four color-coded buckets so the card header reads at a glance.
  */
 private data class LintCategory(
-    @StringRes val labelRes: Int,
+    @param:StringRes val labelRes: Int,
     val light: Color,
     val dark: Color,
 ) {

@@ -263,7 +263,7 @@ object KeyboardFonts {
      */
     data class ScriptFontChoices(
         val script: ScriptId,
-        @property:StringRes val labelRes: Int,
+        @param:StringRes val labelRes: Int,
         val sample: String,
         val fonts: List<String>,
     )

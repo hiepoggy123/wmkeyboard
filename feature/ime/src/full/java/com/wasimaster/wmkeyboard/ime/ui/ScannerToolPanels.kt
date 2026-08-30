@@ -601,7 +601,7 @@ private fun OcrResultView(
 // ---- barcode / QR scanner tool ----
 
 /** A decoded barcode frozen on screen, awaiting insert/copy/rescan. */
-private class ScannedCode(val value: String, @StringRes val formatLabelRes: Int)
+private class ScannedCode(val value: String, @param:StringRes val formatLabelRes: Int)
 
 /**
  * Barcode & QR scanner: a live viewfinder that decodes continuously

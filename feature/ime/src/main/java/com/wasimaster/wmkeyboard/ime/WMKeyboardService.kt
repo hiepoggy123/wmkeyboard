@@ -9100,6 +9100,7 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
 
+        val state = _uiState.value
         val originalText = if (state.composer.isVietnameseTelex || state.composer.isTransliterating) {
             state.composer.composeBuffer(composing.toString())
         } else {
