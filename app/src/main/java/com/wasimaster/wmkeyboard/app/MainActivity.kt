@@ -3085,6 +3085,7 @@ private fun TypingSettings(
                 settings.suggestions,
                 info = stringResource(R.string.typing_suggestions_info),
                 default = SettingsDefaults.suggestions,
+            ) { scope.launch { repository.setSuggestions(it) } }
         }
         item {
             ToggleSetting(

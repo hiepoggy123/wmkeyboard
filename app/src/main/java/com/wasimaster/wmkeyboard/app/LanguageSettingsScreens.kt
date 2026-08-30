@@ -955,6 +955,7 @@ internal fun LanguageDetailScreen(
                     default = SettingsDefaults.suggestionStrip.spellingMapEnabledFor(langId),
                 ) { scope.launch { repository.setSpellingMapEnabled(langId, it) } }
             }
+        }
     }
 
     // Numerals are per language: Arabic can type ٠-٩ while English beside it
