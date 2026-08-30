@@ -3085,15 +3085,6 @@ private fun TypingSettings(
                 settings.suggestions,
                 info = stringResource(R.string.typing_suggestions_info),
                 default = SettingsDefaults.suggestions,
-            ) { scope.launch { repository.setSuggestions(it) } }
-        }
-        item {
-            ToggleSetting(
-                title = "Gợi ý AI Tiếng Việt (GPT-2)",
-                subtitle = "Dự đoán từ tiếp theo & hỗ trợ sửa lỗi theo ngữ cảnh câu văn",
-                checked = settings.aiSettings.enabled,
-                default = SettingsDefaults.aiSettings.enabled,
-            ) { scope.launch { repository.setAiPredictionEnabled(it) } }
         }
         item {
             ToggleSetting(

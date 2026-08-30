@@ -149,8 +149,6 @@ import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.prediction.WordSource
 import com.wasimaster.wmkeyboard.core.prediction.telex.TelexAutocorrectEngine
-import com.wasimaster.wmkeyboard.core.prediction.ai.V7GPTPredictor
-import com.wasimaster.wmkeyboard.core.prediction.ai.V7GPTTokenizer
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
@@ -2350,7 +2348,6 @@ open class WMKeyboardService : InputMethodService() {
             loadCjkConversionTables()
             withContext(Dispatchers.IO) {
                 TelexAutocorrectEngine.getInstance().initialize(assets)
-                V7GPTPredictor.getInstance().initialize(applicationContext)
             }
             loadedDictToken = withContext(Dispatchers.Default) {
                 if (userUnlocked) DictionaryStore.stateToken(filesDir) else Int.MIN_VALUE
@@ -6768,9 +6765,6 @@ open class WMKeyboardService : InputMethodService() {
         // and neither is a fragment glued onto an existing word.
         if (!state.composer.isConversion && !gluedToWord) {
             learn(output, reinforcement = if (corrected != null) 0 else 1)
-            if (state.composer.isVietnameseTelex && state.settings.aiSettings.enabled) {
-                V7GPTPredictor.getInstance().updateBias(output)
-            }
         }
         composing = StringBuilder()
         rejectedVietnameseWord = null
@@ -8765,9 +8759,6 @@ open class WMKeyboardService : InputMethodService() {
                 var telexCandidates: List<String> = emptyList()
 
                 val suggested = if (state.composer.isVietnameseTelex) {
-                    val aiPredictor = V7GPTPredictor.getInstance()
-                    val aiEnabled = state.settings.aiSettings.enabled && aiPredictor.isReady
-
                     if (typed.isEmpty()) {
                         emptyList()
                     } else {
@@ -8777,34 +8768,18 @@ open class WMKeyboardService : InputMethodService() {
                         if (composed.equals(rejectedVietnameseWord, ignoreCase = true) || isWhitelisted || typed.length < 2) {
                             listOf(composed)
                         } else {
-                            val aiCandidates = if (aiEnabled) {
-                                aiPredictor.predict(
-                                    contextText = contextBefore,
-                                    prefix = composed,
-                                    maxResults = 4
-                                )
-                            } else {
-                                emptyList()
-                            }
-
                             telexCandidates = if (typed.length >= 3 && !isComposedValid) {
                                 telexEngine.correct(
                                     rawInput = typed,
                                     previousWord = previousWord,
                                     userLexicon = userLexicon,
-                                    maxResults = 4
+                                    maxResults = 5
                                 ).map { it.word }
                             } else {
                                 emptyList()
                             }
 
-                            val hasExplicitAccent = composed.any { it in "áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ" }
-
-                            val baseList = if (hasExplicitAccent && isComposedValid) {
-                                (listOf(composed) + aiCandidates.filterNot { it.equals(composed, ignoreCase = true) } + telexCandidates)
-                            } else if (aiCandidates.isNotEmpty()) {
-                                (listOf(aiCandidates[0], composed) + aiCandidates.drop(1) + telexCandidates)
-                            } else if (isComposedValid) {
+                            val baseList = if (isComposedValid) {
                                 (listOf(composed) + telexCandidates)
                             } else if (telexCandidates.isNotEmpty()) {
                                 (telexCandidates + listOf(composed))

@@ -955,20 +955,6 @@ internal fun LanguageDetailScreen(
                     default = SettingsDefaults.suggestionStrip.spellingMapEnabledFor(langId),
                 ) { scope.launch { repository.setSpellingMapEnabled(langId, it) } }
             }
-        }
-    }
-
-    if (langId == "vi") {
-        SettingsGroup("Gợi ý & Tốc ký AI Tiếng Việt") {
-            item {
-                ToggleSetting(
-                    title = "Gợi ý thông minh AI (GPT-2)",
-                    subtitle = "Dự đoán từ tiếp theo & hỗ trợ sửa lỗi theo ngữ cảnh câu văn",
-                    checked = settings.aiSettings.enabled,
-                    default = SettingsDefaults.aiSettings.enabled,
-                ) { scope.launch { repository.setAiPredictionEnabled(it) } }
-            }
-        }
     }
 
     // Numerals are per language: Arabic can type ٠-٩ while English beside it

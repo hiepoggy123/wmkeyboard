@@ -55,7 +55,6 @@ litertlm = "0.14.0"
 # manifest merger rejects; 1.4.2 is the last single-artifact classic runtime
 # (org.tensorflow.lite.Interpreter + signature runners).
 litert = "1.4.2"
-onnxruntime = "1.18.0"
 # Lua interpreter for the plugin sandbox. Pure JVM, MIT, no transitive deps.
 # 3.0.1 is the LAST version published to Maven Central — the 3.0.2 git tag was
 # never released as an artifact. Do not bump without re-auditing PluginSandbox:
@@ -143,7 +142,6 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
 litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
-onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }
 luaj-jse = { group = "org.luaj", name = "luaj-jse", version.ref = "luaj" }
 snakeyaml = { group = "org.yaml", name = "snakeyaml", version.ref = "snakeyaml" }
 play-app-update = { group = "com.google.android.play", name = "app-update", version.ref = "playAppUpdate" }
