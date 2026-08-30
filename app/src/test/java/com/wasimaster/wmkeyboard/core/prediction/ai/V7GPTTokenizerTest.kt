@@ -18,7 +18,7 @@ class V7GPTTokenizerTest {
         assertEquals('o', V7GPTTokenizer.normalizeChar('ộ'))
         assertEquals('u', V7GPTTokenizer.normalizeChar('ừ'))
         assertEquals('u', V7GPTTokenizer.normalizeChar('ụ'))
-        assertEquals('đ', V7GPTTokenizer.normalizeChar('đ'))
+        assertEquals('d', V7GPTTokenizer.normalizeChar('đ'))
         assertEquals('x', V7GPTTokenizer.normalizeChar('x'))
     }
 

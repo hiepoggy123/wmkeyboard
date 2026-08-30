@@ -8774,7 +8774,7 @@ open class WMKeyboardService : InputMethodService() {
                         val isWhitelisted = telexEngine.isWhitelisted(composed) || telexEngine.isWhitelisted(typed)
                         val isComposedValid = telexEngine.isWordInDictionary(composed) || isWhitelisted
 
-                        if (composed.equals(rejectedVietnameseWord, ignoreCase = true) || isWhitelisted || composed.length < 3 || typed.length < 3) {
+                        if (composed.equals(rejectedVietnameseWord, ignoreCase = true) || isWhitelisted || typed.length < 2) {
                             listOf(composed)
                         } else {
                             val aiCandidates = if (aiEnabled) {
@@ -8787,7 +8787,7 @@ open class WMKeyboardService : InputMethodService() {
                                 emptyList()
                             }
 
-                            telexCandidates = if (!isComposedValid) {
+                            telexCandidates = if (typed.length >= 3 && !isComposedValid) {
                                 telexEngine.correct(
                                     rawInput = typed,
                                     previousWord = previousWord,
@@ -8798,10 +8798,18 @@ open class WMKeyboardService : InputMethodService() {
                                 emptyList()
                             }
 
-                            val baseList = if (isComposedValid) {
-                                (listOf(composed) + aiCandidates.filterNot { it.equals(composed, ignoreCase = true) })
+                            val hasExplicitAccent = composed.any { it in "áàảãạăắằẳẵặâấầẩẫậéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ" }
+
+                            val baseList = if (hasExplicitAccent && isComposedValid) {
+                                (listOf(composed) + aiCandidates.filterNot { it.equals(composed, ignoreCase = true) } + telexCandidates)
+                            } else if (aiCandidates.isNotEmpty()) {
+                                (listOf(aiCandidates[0], composed) + aiCandidates.drop(1) + telexCandidates)
+                            } else if (isComposedValid) {
+                                (listOf(composed) + telexCandidates)
+                            } else if (telexCandidates.isNotEmpty()) {
+                                (telexCandidates + listOf(composed))
                             } else {
-                                (aiCandidates + telexCandidates + listOf(composed))
+                                listOf(composed)
                             }
                             baseList.distinctBy { it.lowercase() }
                         }

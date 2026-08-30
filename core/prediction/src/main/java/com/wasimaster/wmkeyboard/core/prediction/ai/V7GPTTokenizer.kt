@@ -89,7 +89,7 @@ class V7GPTTokenizer {
 
         fun normalizeChar(char: Char): Char {
             return when (char.lowercaseChar()) {
-                'đ' -> 'đ'
+                'đ' -> 'd'
                 'ă', 'ắ', 'ằ', 'ẳ', 'ẵ', 'ặ', 'â', 'ấ', 'ầ', 'ẩ', 'ẫ', 'ậ', 'á', 'à', 'ả', 'ã', 'ạ' -> 'a'
                 'ê', 'ế', 'ề', 'ể', 'ễ', 'ệ', 'é', 'è', 'ẻ', 'ẽ', 'ẹ' -> 'e'
                 'í', 'ì', 'ỉ', 'ĩ', 'ị' -> 'i'
@@ -287,15 +287,19 @@ class V7GPTTokenizer {
             val p = cleanPattern[i]
             val w = cleanWord[i]
 
-            val pBase = getVowelBase(p)
-            val wBase = getVowelBase(w)
-            if (p in "ăâêôơư") {
-                if (w != p && getToneCodeOfChar(w) != null) return false
-                if (wBase != p) return false
-            } else if (pBase in "ăâêôơư") {
-                if (pBase != wBase) return false
+            if (p == 'đ') {
+                if (w != 'đ') return false
             } else {
-                if (normalizeChar(w) != normalizeChar(p)) return false
+                val pBase = getVowelBase(p)
+                val wBase = getVowelBase(w)
+                if (p in "ăâêôơư") {
+                    if (w != p && getToneCodeOfChar(w) != null) return false
+                    if (wBase != p) return false
+                } else if (pBase in "ăâêôơư") {
+                    if (pBase != wBase) return false
+                } else {
+                    if (normalizeChar(w) != normalizeChar(p)) return false
+                }
             }
         }
         return true
