@@ -39,8 +39,10 @@ import android.view.inputmethod.InlineSuggestionsResponse
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.InputMethodSubtype
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import com.wasimaster.wmkeyboard.ime.ui.LocalSpaceSwipeUp
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.graphics.drawable.toBitmap
@@ -2538,6 +2540,7 @@ open class WMKeyboardService : InputMethodService() {
 
     @androidx.compose.runtime.Composable
     private fun ServiceKeyboardContent() {
+        CompositionLocalProvider(LocalSpaceSwipeUp provides ::onSpaceSwipeUp) {
             KeyboardScreen(
                 stateFlow = uiState,
                 panelFocus = panelFocus,
@@ -2553,7 +2556,6 @@ open class WMKeyboardService : InputMethodService() {
                 onTouchKeys = ::onTouchKeys,
                 onCursorMove = ::onCursorMove,
                 onCursorMoveVertical = ::onCursorMoveVertical,
-                onSpaceSwipeUp = ::onSpaceSwipeUp,
                 onLayoutSelect = ::onLayoutSelected,
                 onClipboardKey = ::onClipboardKey,
                 canDelete = ::canDelete,
@@ -2698,6 +2700,7 @@ open class WMKeyboardService : InputMethodService() {
                 onToolPrefillConsumed = ::onToolPrefillConsumed,
                 onHideKeyboard = ::onHideKeyboard,
             )
+        }
     }
 
     // ---- floating mode ----

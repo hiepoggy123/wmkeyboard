@@ -580,11 +580,11 @@ internal fun enterActionIcon(action: EnterAction): ImageVector = IconDefaults.fo
 @Immutable
 internal data class SpokenLabel(
     /** The wording. 0 when the key speaks [text] as it is (a letter, a symbol). */
-    @StringRes val textRes: Int = 0,
+    @property:StringRes val textRes: Int = 0,
     /** What the key itself supplies: its label, or wording the app chose. */
     val text: String = "",
     /** A name that fills the one argument of [textRes]; 0 when it takes none. */
-    @StringRes val argRes: Int = 0,
+    @property:StringRes val argRes: Int = 0,
 ) {
     fun resolve(resources: Resources): String = when {
         textRes == 0 -> text
@@ -754,7 +754,6 @@ fun KeyboardScreen(
     onTouchKeys: (List<KeyCenter>) -> Unit = {},
     onCursorMove: (Int) -> Unit = {},
     onCursorMoveVertical: (Int) -> Unit = {},
-    onSpaceSwipeUp: () -> Unit = {},
     onLayoutSelect: (String) -> Unit = {},
     onClipboardKey: (ClipboardKeyAction) -> Unit = {},
     canDelete: () -> Boolean = { true },
@@ -1045,7 +1044,6 @@ fun KeyboardScreen(
             LocalCanForwardDelete provides canForwardDelete,
             LocalDeleteWord provides onDeleteWord,
             LocalCursorMoveVertical provides onCursorMoveVertical,
-            LocalSpaceSwipeUp provides onSpaceSwipeUp,
             LocalHideKeyboard provides onHideKeyboard,
             LocalTouchExploration provides rememberTouchExploration(),
             LocalPassthroughService provides

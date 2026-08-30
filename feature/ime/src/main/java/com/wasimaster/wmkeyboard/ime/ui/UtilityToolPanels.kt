@@ -945,7 +945,7 @@ internal fun CurrencyPanel(
 private const val COIN_DECIMALS = 12
 
 /** One run of codes in the picker, under its own heading. */
-private data class CodeSection(@StringRes val label: Int, val codes: List<String>)
+private data class CodeSection(@property:StringRes val label: Int, val codes: List<String>)
 
 /**
  * The picker list: the pinned favourites, then the coins in catalogue
