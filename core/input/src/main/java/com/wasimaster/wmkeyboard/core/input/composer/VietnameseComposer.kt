@@ -197,7 +197,6 @@ internal object VietnameseEngine {
                 '\u0309', '̉' -> { if (hasVowel()) tone = VTone.HOOK else letters.add(VLetter('̉', VMark.NONE, false)); continue }
                 '\u0303', '̃' -> { if (hasVowel()) tone = VTone.TILDE else letters.add(VLetter('̃', VMark.NONE, false)); continue }
                 '\u0323', '̣' -> { if (hasVowel()) tone = VTone.DOT else letters.add(VLetter('̣', VMark.NONE, false)); continue }
-                '◌', '\u25CC' -> { letters.add(VLetter('◌', VMark.NONE, false)); continue }
                 else -> letters.add(VLetter(lc, VMark.NONE, upper))
             }
         }
@@ -209,7 +208,7 @@ internal object VietnameseEngine {
 object VietnameseTelexComposer : Composer {
     override val isTransliterating: Boolean get() = true
     override val isVietnameseTelex: Boolean get() = true
-    override fun buffersChar(c: Char): Boolean = c in "◌́◌̀◌̉◌̃◌̣◌\u0301\u0300\u0309\u0303\u0323\u25CC"
+    override fun buffersChar(c: Char): Boolean = c in "\u0301\u0300\u0309\u0303\u0323"
     override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = false)
 }
 
@@ -217,6 +216,6 @@ object VietnameseTelexComposer : Composer {
 object VietnameseVniComposer : Composer {
     override val isTransliterating: Boolean get() = true
     override val bufferDigits: Boolean get() = true
-    override fun buffersChar(c: Char): Boolean = c in "◌́◌̀◌̉◌̃◌̣◌\u0301\u0300\u0309\u0303\u0323\u25CC"
+    override fun buffersChar(c: Char): Boolean = c in "\u0301\u0300\u0309\u0303\u0323"
     override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = true)
 }

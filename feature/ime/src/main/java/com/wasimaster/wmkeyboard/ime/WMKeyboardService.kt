@@ -8730,7 +8730,6 @@ open class WMKeyboardService : InputMethodService() {
                 val suggested = if (state.composer.isVietnameseTelex) {
                     val aiPredictor = V7GPTPredictor.getInstance()
                     val aiEnabled = state.settings.aiSettings.enabled && aiPredictor.isReady
-                    val shorthandEnabled = state.settings.aiSettings.shorthandPrefixMode
 
                     if (typed.isEmpty()) {
                         if (aiEnabled && contextBefore.isNotEmpty()) {
@@ -8747,35 +8746,41 @@ open class WMKeyboardService : InputMethodService() {
                             maxResults = 5
                         ).map { it.word }
 
-                        val (shorthandPrefix, shorthandTone) = V7GPTTokenizer.extractShorthand(typed)
-                        val effectivePrefix = shorthandPrefix.ifEmpty { composed }
                         val aiCandidates = if (aiEnabled) {
                             aiPredictor.predict(
                                 contextText = contextBefore,
-                                prefix = effectivePrefix,
-                                toneMark = shorthandTone,
+                                prefix = composed,
                                 maxResults = 5
                             )
                         } else {
                             emptyList()
                         }
 
-                        if (isComposedValid) {
-                            // If composed is a full valid word, put it first (or AI top word if exact match), followed by completions & telex candidates
-                            val baseList = if (aiCandidates.isNotEmpty() && aiCandidates[0].equals(composed, ignoreCase = true)) {
-                                aiCandidates + listOf(composed) + telexCandidates
+                        // If AI is enabled, boost any telex typo candidate that matches AI context predictions
+                        val boostedTelexCandidates = if (aiEnabled && contextBefore.isNotEmpty() && telexCandidates.isNotEmpty()) {
+                            val contextPredictions = aiPredictor.predict(contextText = contextBefore, maxResults = 10)
+                            val matchedInContext = telexCandidates.filter { cand -> contextPredictions.any { it.equals(cand, ignoreCase = true) } }
+                            val others = telexCandidates.filterNot { cand -> contextPredictions.any { it.equals(cand, ignoreCase = true) } }
+                            matchedInContext + others
+                        } else {
+                            telexCandidates
+                        }
+
+                        val baseList = if (aiCandidates.isNotEmpty()) {
+                            if (aiCandidates[0].equals(composed, ignoreCase = true)) {
+                                aiCandidates + listOf(composed) + boostedTelexCandidates
                             } else {
-                                listOf(composed) + aiCandidates + telexCandidates
+                                // Put top AI completion (e.g. "chào") first, then composed ("chà"), then other AI/telex candidates
+                                (listOf(aiCandidates[0], composed) + aiCandidates.drop(1) + boostedTelexCandidates)
                             }
-                            baseList.distinctBy { it.lowercase() }
-                        } else if (aiCandidates.isNotEmpty()) {
-                            // If composed is an incomplete prefix or typo, AI and telex completions take top priority
-                            (aiCandidates + telexCandidates + listOf(composed)).distinctBy { it.lowercase() }
-                        } else if (telexCandidates.isNotEmpty()) {
-                            (telexCandidates + listOf(composed)).distinctBy { it.lowercase() }
+                        } else if (isComposedValid) {
+                            listOf(composed) + boostedTelexCandidates
+                        } else if (boostedTelexCandidates.isNotEmpty()) {
+                            boostedTelexCandidates + listOf(composed)
                         } else {
                             listOf(composed)
                         }
+                        baseList.distinctBy { it.lowercase() }
                     }
                 } else {
                     engine.suggest(
@@ -8830,9 +8835,8 @@ open class WMKeyboardService : InputMethodService() {
                     )
                     state.composer.isVietnameseTelex -> {
                         val aiEnabled = state.settings.aiSettings.enabled
-                        val shorthandEnabled = state.settings.aiSettings.shorthandPrefixMode
                         val isComposedValid = telexEngine.isWordInDictionary(composed)
-                        val topCandidate = if (aiEnabled || shorthandEnabled) {
+                        val topCandidate = if (aiEnabled) {
                             words.firstOrNull() ?: (if (isComposedValid) composed else telexCandidates.firstOrNull())
                         } else if (isComposedValid) {
                             composed
@@ -8845,7 +8849,7 @@ open class WMKeyboardService : InputMethodService() {
                             bengaliTop = null,
                             isTelex = true,
                             telexTop = words.firstOrNull(),
-                            correction = if (!aiEnabled && !shorthandEnabled && isComposedValid) null else topCandidate?.takeIf { it != composed },
+                            correction = if (!aiEnabled && isComposedValid) null else topCandidate?.takeIf { it != composed },
                         )
                     }
                     state.settings.autocorrect && state.allowsTypingIntelligence -> {

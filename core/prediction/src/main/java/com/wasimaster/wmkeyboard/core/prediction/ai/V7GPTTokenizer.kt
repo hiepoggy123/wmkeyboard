@@ -133,6 +133,11 @@ class V7GPTTokenizer {
         val enumBuf = ByteBuffer.wrap(enumBytes).order(ByteOrder.LITTLE_ENDIAN)
         val enumCount = enumBuf.int
         enumDict.clear()
+        renumList.clear()
+        while (renumList.size <= VOCAB_SIZE + 1000) {
+            renumList.add(null)
+        }
+
         for (i in 0 until enumCount) {
             val len = enumBuf.short.toInt() and 0xFFFF
             val strBytes = ByteArray(len)
@@ -140,20 +145,24 @@ class V7GPTTokenizer {
             val token = String(strBytes, Charsets.UTF_8)
             val id = enumBuf.int
             enumDict[token] = id
+            if (id in 1 until renumList.size) {
+                renumList[id] = token
+            }
         }
 
-        // 2. Load token_strings_21869.bin
+        // 2. Load token_strings_21869.bin (fill any remaining slots)
         val tokenBuf = ByteBuffer.wrap(tokenBytes).order(ByteOrder.LITTLE_ENDIAN)
         val tokenCount = tokenBuf.int
-        renumList.clear()
         for (i in 0 until tokenCount) {
             val len = tokenBuf.short.toInt() and 0xFFFF
-            if (len == 0) {
-                renumList.add(null)
-            } else {
+            if (len > 0) {
                 val strBytes = ByteArray(len)
                 tokenBuf.get(strBytes)
-                renumList.add(String(strBytes, Charsets.UTF_8))
+                val token = String(strBytes, Charsets.UTF_8)
+                val idx = i + 1
+                if (idx < renumList.size && renumList[idx] == null) {
+                    renumList[idx] = token
+                }
             }
         }
 

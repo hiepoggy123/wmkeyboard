@@ -963,20 +963,10 @@ internal fun LanguageDetailScreen(
             item {
                 ToggleSetting(
                     title = "Gợi ý thông minh AI (GPT-2)",
-                    subtitle = "Dự đoán từ tiếp theo theo ngữ cảnh câu văn",
+                    subtitle = "Dự đoán từ tiếp theo & hỗ trợ sửa lỗi theo ngữ cảnh câu văn",
                     checked = settings.aiSettings.enabled,
                     default = SettingsDefaults.aiSettings.enabled,
                 ) { scope.launch { repository.setAiPredictionEnabled(it) } }
-            }
-            if (settings.aiSettings.enabled) {
-                item {
-                    ToggleSetting(
-                        title = "Gõ tốc ký (Shorthand)",
-                        subtitle = "Gợi ý từ đầy đủ khi gõ chữ cái đầu (ví dụ: 'x' -> 'xin', 'ch' -> 'chào')",
-                        checked = settings.aiSettings.shorthandPrefixMode,
-                        default = SettingsDefaults.aiSettings.shorthandPrefixMode,
-                    ) { scope.launch { repository.setAiShorthandMode(it) } }
-                }
             }
         }
     }
