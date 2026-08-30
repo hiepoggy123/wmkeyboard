@@ -2866,7 +2866,7 @@ data class TextEditingSettings(
      * long-standing constant, which is a long pull on a small phone and a
      * twitch on a tablet.
      */
-    val backspaceWordStepDp: Int = 72,
+    val backspaceWordStepDp: Int = 36,
 )
 
 /**

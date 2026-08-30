@@ -12644,16 +12644,8 @@ private fun Modifier.pointerInputKey(
         // loop mid-press and the move events are consumed while it does.
         Modifier.pointerInput(key, longPressDelayMs, keyRepeat, textEditing, hapticOnLongPress,
             hapticOnLongPressRelease, vibrateOnRepeat, soundOnRepeat, vibrateOnDeleteSwipe) {
-            val slopPx = 10.dp.toPx()
-            // The first word costs a deliberate drag; later ones get cheaper,
-            // down to a floor, so clearing a sentence is one long pull but a
-            // flick can never take more than a word or two.
-            //
-            // The whole curve is derived from the one setting, in the same
-            // proportions the fixed 72/56/6/28 dp had, so a user who shortens
-            // the first pull shortens the rest with it rather than ending up
-            // with a first word that costs less than the second.
-            val firstStepDp = textEditing.backspaceWordStepDp.toFloat()
+            val slopPx = 6.dp.toPx()
+            val firstStepDp = minOf(36f, textEditing.backspaceWordStepDp.toFloat())
             val firstStepPx = firstStepDp.dp.toPx()
             val nextStepPx = (firstStepDp * NEXT_WORD_STEP_RATIO).dp.toPx()
             val stepShrinkPx = (firstStepDp * WORD_STEP_SHRINK_RATIO).dp.toPx()
@@ -12668,8 +12660,6 @@ private fun Modifier.pointerInputKey(
                 onKeyPress()
                 var swiping = false
                 var deleted = 0
-                // X the next step is measured from: the press point until the
-                // first word goes, then walked left one step at a time.
                 var anchorX = down.position.x
                 var longPressFired = false
                 val repeat = scope.launch {
@@ -12688,13 +12678,14 @@ private fun Modifier.pointerInputKey(
                         change.consume()
                         break
                     }
-                    if (!swiping && abs(change.position.x - down.position.x) > slopPx) {
+                    val dragLeftDistance = down.position.x - change.position.x
+                    if (!swiping && dragLeftDistance > slopPx) {
                         swiping = true
                         repeat.cancel()
                         anchorX = down.position.x
+                        change.consume()
                     }
                     if (swiping) {
-                        // Claim the drag so nothing upstream reinterprets it.
                         change.consume()
                         while (anchorX - change.position.x >= wordStepPx(deleted)) {
                             anchorX -= wordStepPx(deleted)
@@ -12703,8 +12694,6 @@ private fun Modifier.pointerInputKey(
                             if (vibrateOnDeleteSwipe) onKeyPress() else onKeySound()
                             onDeleteWord()
                         }
-                        // Dragging back to the right re-anchors and resets the
-                        // acceleration: a reversal stops the run, never replays it.
                         if (change.position.x > anchorX) {
                             anchorX = change.position.x
                             deleted = 0

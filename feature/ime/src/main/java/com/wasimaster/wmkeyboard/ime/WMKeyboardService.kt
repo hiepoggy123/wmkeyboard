@@ -6700,7 +6700,8 @@ open class WMKeyboardService : InputMethodService() {
                 val top = if (pre != null && pre.isTelex) {
                     pre.telexTop
                 } else if (autocorrect && state.allowsTypingIntelligence && composed.length >= 3 && typed.length >= 3) {
-                    val isComposedValid = TelexAutocorrectEngine.getInstance().isWordInDictionary(composed)
+                    val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
+                    val isComposedValid = TelexAutocorrectEngine.getInstance().isWordInDictionary(composed) || isUserLearned
                     if (isComposedValid) {
                         composed
                     } else {
@@ -8763,7 +8764,8 @@ open class WMKeyboardService : InputMethodService() {
                         emptyList()
                     } else {
                         val isWhitelisted = telexEngine.isWhitelisted(composed) || telexEngine.isWhitelisted(typed)
-                        val isComposedValid = telexEngine.isWordInDictionary(composed) || isWhitelisted
+                        val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
+                        val isComposedValid = telexEngine.isWordInDictionary(composed) || isWhitelisted || isUserLearned
 
                         if (composed.equals(rejectedVietnameseWord, ignoreCase = true) || isWhitelisted || typed.length < 2) {
                             listOf(composed)
