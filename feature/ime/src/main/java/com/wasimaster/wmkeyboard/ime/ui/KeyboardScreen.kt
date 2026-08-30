@@ -3149,24 +3149,43 @@ private fun RowScope.LatinSuggestionChips(
         val baseSize = (
             if (baseStyle.fontSize.isSpecified) baseStyle.fontSize else SuggestionFontSize
             ) * textScale
+        val kb = LocalKbTheme.current
+        val isDark = kb.dark
+        val accentColor = kb.accent
+        val primaryFill = accentColor.copy(alpha = if (isDark) 0.22f else 0.14f)
+        val primaryBorderColor = accentColor.copy(alpha = if (isDark) 0.50f else 0.35f)
+        val chipShape = RoundedCornerShape(12.dp)
         val shaper = LocalEmojiShaper.current
         Row(
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             shown.forEachIndexed { index, suggestion ->
-                if (index > 0) {
+                val isPrimary = (index == primaryIndex)
+                if (index > 0 && !isPrimary && (index - 1 != primaryIndex)) {
                     VerticalDivider(
                         modifier = Modifier.height(20.dp),
                         thickness = SuggestionDividerWidth,
                         color = MaterialTheme.colorScheme.outlineVariant,
                     )
                 }
-                Box(
-                    modifier = Modifier
+                val chipModifier = if (isPrimary) {
+                    Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .clickable(enabled = enabled) { onSuggestion(suggestion) },
+                        .padding(vertical = 4.dp, horizontal = 3.dp)
+                        .clip(chipShape)
+                        .background(primaryFill)
+                        .border(1.dp, primaryBorderColor, chipShape)
+                        .clickable(enabled = enabled) { onSuggestion(suggestion) }
+                } else {
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable(enabled = enabled) { onSuggestion(suggestion) }
+                }
+                Box(
+                    modifier = chipModifier,
                     contentAlignment = Alignment.Center,
                 ) {
                     // Counted by slot, so the strip always reads 1 2 3 from the
@@ -3190,7 +3209,7 @@ private fun RowScope.LatinSuggestionChips(
                     }
                     val family = if (isEmoji) emojiFamilyFor(suggestion) else null
                     val weight =
-                        if (index == primaryIndex) FontWeight.SemiBold else FontWeight.Normal
+                        if (isPrimary) FontWeight.SemiBold else FontWeight.Normal
                     // Re-measured only when the word, its styling or the slot
                     // width actually change — not on every keystroke that leaves
                     // this chip alone.
@@ -3212,10 +3231,15 @@ private fun RowScope.LatinSuggestionChips(
                             availableWidthPx = with(density) { textWidth.toPx() },
                         )
                     }
+                    val textColor = if (isPrimary) {
+                        accentColor
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    }
                     Text(
                         text = display,
                         modifier = Modifier.padding(horizontal = SuggestionTextPadding),
-                        color = MaterialTheme.colorScheme.onSurface,
+                        color = textColor,
                         fontSize = baseSize * fit.fontScale,
                         // The default 0.5sp tracking is dead width once a word is
                         // already being squeezed.
