@@ -38,15 +38,28 @@ class V7GPTTokenizerTest {
     fun testIsMatchPrefixAndTone() {
         val tokenizer = V7GPTTokenizer()
         tokenizer.renumList.add(null) // index 0
-        tokenizer.renumToneMark.add(null) // index 0
+        tokenizer.renumToneList.add(null)
+        tokenizer.renumToneMark.add(null)
 
-        // index 1: "xin", tone 0 (◌)
+        // index 1: "xin", tone code 5 (◌)
         tokenizer.renumList.add("xin")
+        tokenizer.renumToneList.add(5)
         tokenizer.renumToneMark.add("◌")
 
-        // index 2: "chào", tone 2 (◌̀)
+        // index 2: "chào", tone code 1 (◌̀)
         tokenizer.renumList.add("chào")
+        tokenizer.renumToneList.add(1)
         tokenizer.renumToneMark.add("◌̀")
+
+        // index 3: "tiểu", tone code 2 (◌̉)
+        tokenizer.renumList.add("tiểu")
+        tokenizer.renumToneList.add(2)
+        tokenizer.renumToneMark.add("◌̉")
+
+        // index 4: "tiện", tone code 4 (◌̣)
+        tokenizer.renumList.add("tiện")
+        tokenizer.renumToneList.add(4)
+        tokenizer.renumToneMark.add("◌̣")
 
         // 1. Shorthand "x" with tone "◌" matches "xin"
         assertTrue(tokenizer.isMatch(pattern = "x", word = "xin", idx = 1, toneMark = "◌"))
@@ -55,8 +68,14 @@ class V7GPTTokenizerTest {
 
         // 3. Shorthand "ch" with tone "◌̀" matches "chào"
         assertTrue(tokenizer.isMatch(pattern = "ch", word = "chào", idx = 2, toneMark = "◌̀"))
-        // 4. Shorthand "ch" with tone "◌́" does NOT match "chào"
-        assertFalse(tokenizer.isMatch(pattern = "ch", word = "chào", idx = 2, toneMark = "◌́"))
+
+        // 4. Embedded tone and vowel "tiể" matches "tiểu"
+        assertTrue(tokenizer.isMatch(pattern = "tiể", word = "tiểu", idx = 3, toneMark = ""))
+        assertFalse(tokenizer.isMatch(pattern = "tiể", word = "tiện", idx = 4, toneMark = ""))
+
+        // 5. Embedded tone and vowel "tiệ" matches "tiện"
+        assertTrue(tokenizer.isMatch(pattern = "tiệ", word = "tiện", idx = 4, toneMark = ""))
+        assertFalse(tokenizer.isMatch(pattern = "tiệ", word = "tiểu", idx = 3, toneMark = ""))
     }
 
     @Test
@@ -128,5 +147,17 @@ class V7GPTTokenizerTest {
         val (p7, t7) = V7GPTTokenizer.extractShorthand("u◌́")
         assertEquals("u", p7)
         assertEquals("◌́", t7)
+
+        val (p8, t8) = V7GPTTokenizer.extractShorthand("ds")
+        assertEquals("d", p8)
+        assertEquals("◌́", t8)
+
+        val (p9, t9) = V7GPTTokenizer.extractShorthand("dj")
+        assertEquals("d", p9)
+        assertEquals("◌̣", t9)
+
+        val (p10, t10) = V7GPTTokenizer.extractShorthand("chf")
+        assertEquals("ch", p10)
+        assertEquals("◌̀", t10)
     }
 }

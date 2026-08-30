@@ -192,11 +192,11 @@ internal object VietnameseEngine {
                     }
                 }
                 // Direct tone marks (from Tone Popup or unicode diacritics)
-                '\u0301', '́' -> { letters.add(VLetter('́', VMark.NONE, false)); continue }
-                '\u0300', '̀' -> { letters.add(VLetter('̀', VMark.NONE, false)); continue }
-                '\u0309', '̉' -> { letters.add(VLetter('̉', VMark.NONE, false)); continue }
-                '\u0303', '̃' -> { letters.add(VLetter('̃', VMark.NONE, false)); continue }
-                '\u0323', '̣' -> { letters.add(VLetter('̣', VMark.NONE, false)); continue }
+                '\u0301', '́' -> { if (hasVowel()) tone = VTone.ACUTE else letters.add(VLetter('́', VMark.NONE, false)); continue }
+                '\u0300', '̀' -> { if (hasVowel()) tone = VTone.GRAVE else letters.add(VLetter('̀', VMark.NONE, false)); continue }
+                '\u0309', '̉' -> { if (hasVowel()) tone = VTone.HOOK else letters.add(VLetter('̉', VMark.NONE, false)); continue }
+                '\u0303', '̃' -> { if (hasVowel()) tone = VTone.TILDE else letters.add(VLetter('̃', VMark.NONE, false)); continue }
+                '\u0323', '̣' -> { if (hasVowel()) tone = VTone.DOT else letters.add(VLetter('̣', VMark.NONE, false)); continue }
                 '◌', '\u25CC' -> { letters.add(VLetter('◌', VMark.NONE, false)); continue }
                 else -> letters.add(VLetter(lc, VMark.NONE, upper))
             }

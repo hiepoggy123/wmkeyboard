@@ -8747,11 +8747,12 @@ open class WMKeyboardService : InputMethodService() {
                             maxResults = 5
                         ).map { it.word }
 
-                        val aiCandidates = if (aiEnabled && shorthandEnabled) {
-                            val (shorthandPrefix, shorthandTone) = V7GPTTokenizer.extractShorthand(typed)
+                        val (shorthandPrefix, shorthandTone) = V7GPTTokenizer.extractShorthand(typed)
+                        val effectivePrefix = shorthandPrefix.ifEmpty { composed }
+                        val aiCandidates = if (aiEnabled) {
                             aiPredictor.predict(
                                 contextText = contextBefore,
-                                prefix = shorthandPrefix.ifEmpty { typed },
+                                prefix = effectivePrefix,
                                 toneMark = shorthandTone,
                                 maxResults = 5
                             )
@@ -8760,12 +8761,18 @@ open class WMKeyboardService : InputMethodService() {
                         }
 
                         if (isComposedValid) {
-                            (listOf(composed) + telexCandidates.filterNot { it.equals(composed, ignoreCase = true) } + aiCandidates)
-                                .distinctBy { it.lowercase() }
+                            // If composed is a full valid word, put it first (or AI top word if exact match), followed by completions & telex candidates
+                            val baseList = if (aiCandidates.isNotEmpty() && aiCandidates[0].equals(composed, ignoreCase = true)) {
+                                aiCandidates + listOf(composed) + telexCandidates
+                            } else {
+                                listOf(composed) + aiCandidates + telexCandidates
+                            }
+                            baseList.distinctBy { it.lowercase() }
                         } else if (aiCandidates.isNotEmpty()) {
-                            (aiCandidates + telexCandidates).distinctBy { it.lowercase() }
+                            // If composed is an incomplete prefix or typo, AI and telex completions take top priority
+                            (aiCandidates + telexCandidates + listOf(composed)).distinctBy { it.lowercase() }
                         } else if (telexCandidates.isNotEmpty()) {
-                            telexCandidates
+                            (telexCandidates + listOf(composed)).distinctBy { it.lowercase() }
                         } else {
                             listOf(composed)
                         }
@@ -8822,9 +8829,10 @@ open class WMKeyboardService : InputMethodService() {
                         correction = null,
                     )
                     state.composer.isVietnameseTelex -> {
+                        val aiEnabled = state.settings.aiSettings.enabled
                         val shorthandEnabled = state.settings.aiSettings.shorthandPrefixMode
                         val isComposedValid = telexEngine.isWordInDictionary(composed)
-                        val topCandidate = if (shorthandEnabled) {
+                        val topCandidate = if (aiEnabled || shorthandEnabled) {
                             words.firstOrNull() ?: (if (isComposedValid) composed else telexCandidates.firstOrNull())
                         } else if (isComposedValid) {
                             composed
@@ -8837,7 +8845,7 @@ open class WMKeyboardService : InputMethodService() {
                             bengaliTop = null,
                             isTelex = true,
                             telexTop = words.firstOrNull(),
-                            correction = if (!shorthandEnabled && isComposedValid) null else topCandidate?.takeIf { it != composed },
+                            correction = if (!aiEnabled && !shorthandEnabled && isComposedValid) null else topCandidate?.takeIf { it != composed },
                         )
                     }
                     state.settings.autocorrect && state.allowsTypingIntelligence -> {
