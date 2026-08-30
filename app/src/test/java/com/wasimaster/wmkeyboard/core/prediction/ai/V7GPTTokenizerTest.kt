@@ -116,5 +116,17 @@ class V7GPTTokenizerTest {
         val (p4, t4) = V7GPTTokenizer.extractShorthand("t◌̣")
         assertEquals("t", p4)
         assertEquals("◌̣", t4)
+
+        val (p5, t5) = V7GPTTokenizer.extractShorthand("xo◌́")
+        assertEquals("xo", p5)
+        assertEquals("◌́", t5)
+
+        val (p6, t6) = V7GPTTokenizer.extractShorthand("a◌")
+        assertEquals("a", p6)
+        assertEquals("◌", t6)
+
+        val (p7, t7) = V7GPTTokenizer.extractShorthand("u◌́")
+        assertEquals("u", p7)
+        assertEquals("◌́", t7)
     }
 }

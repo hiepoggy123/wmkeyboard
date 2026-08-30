@@ -35,7 +35,7 @@ class V7GPTTokenizer {
             else if (raw.contains("◌̣") || raw.contains("̣") || raw.contains("\u0323")) tone = "◌̣"
             else if (raw.contains("◌")) tone = "◌"
 
-            val prefix = raw.filter { it.isLetter() && it != '◌' }
+            val prefix = raw.filter { it.isLetter() && it != '◌' && it !in "̣́̀̉̃\u0301\u0300\u0309\u0303\u0323" }
             return Pair(prefix, tone)
         }
 
