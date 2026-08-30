@@ -221,7 +221,12 @@ class TelexAutocorrectEngine private constructor() {
     }
 
     fun isWordInDictionary(word: String): Boolean {
-        return languageModel.unigrams.containsKey(word.lowercase())
+        val clean = word.lowercase()
+        return languageModel.unigrams.containsKey(clean) || TelexWhitelist.isWhitelisted(clean)
+    }
+
+    fun isWhitelisted(word: String): Boolean {
+        return TelexWhitelist.isWhitelisted(word)
     }
 
     @Synchronized
@@ -246,7 +251,8 @@ class TelexAutocorrectEngine private constructor() {
         if (!isReady) return emptyList()
 
         val cleanInput = rawInput.trim().lowercase()
-        if (cleanInput.length < 2 || cleanInput.length > 12) return emptyList()
+        if (cleanInput.length < 3 || cleanInput.length > 12) return emptyList()
+        if (TelexWhitelist.isWhitelisted(cleanInput)) return emptyList()
 
         val cleanPrev = previousWord?.trim()?.lowercase()
 

@@ -6711,7 +6711,7 @@ open class WMKeyboardService : InputMethodService() {
                 val composed = state.composer.composeBuffer(typed)
                 val top = if (pre != null && pre.isTelex) {
                     pre.telexTop
-                } else if (autocorrect && state.allowsTypingIntelligence && composed.length >= 2 && typed.length >= 2) {
+                } else if (autocorrect && state.allowsTypingIntelligence && composed.length >= 3 && typed.length >= 3) {
                     val isComposedValid = TelexAutocorrectEngine.getInstance().isWordInDictionary(composed)
                     if (isComposedValid) {
                         composed
@@ -8784,8 +8784,8 @@ open class WMKeyboardService : InputMethodService() {
                             emptyList()
                         }
                     } else {
-                        val isComposedValid = telexEngine.isWordInDictionary(composed)
-                        telexCandidates = if (typed.length >= 2) {
+                        val isComposedValid = telexEngine.isWordInDictionary(composed) || telexEngine.isWhitelisted(typed)
+                        telexCandidates = if (typed.length >= 3 && !isComposedValid) {
                             telexEngine.correct(
                                 rawInput = typed,
                                 previousWord = previousWord,
@@ -8826,7 +8826,7 @@ open class WMKeyboardService : InputMethodService() {
                                 // Suggestion strip freely shows top AI completion at #1
                                 (listOf(aiCandidates[0], composed) + aiCandidates.drop(1) + boostedTelexCandidates)
                             }
-                        } else if (isComposedValid || composed.length < 2) {
+                        } else if (isComposedValid || composed.length < 3) {
                             listOf(composed) + boostedTelexCandidates
                         } else if (boostedTelexCandidates.isNotEmpty()) {
                             boostedTelexCandidates + listOf(composed)
@@ -8887,8 +8887,8 @@ open class WMKeyboardService : InputMethodService() {
                         correction = null,
                     )
                     state.composer.isVietnameseTelex -> {
-                        val isComposedValid = telexEngine.isWordInDictionary(composed)
-                        val spaceWord = if (composed.length < 2 || typed.length < 2 || isComposedValid) {
+                        val isComposedValid = telexEngine.isWordInDictionary(composed) || telexEngine.isWhitelisted(typed)
+                        val spaceWord = if (composed.length < 3 || typed.length < 3 || isComposedValid) {
                             composed
                         } else {
                             telexCandidates.firstOrNull() ?: composed
