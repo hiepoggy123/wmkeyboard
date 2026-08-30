@@ -75,6 +75,32 @@ class V7GPTTokenizerTest {
         // 4. Embedded tone and vowel "tiệ" matches "tiện"
         assertTrue(tokenizer.isMatch(pattern = "tiệ", word = "tiện", idx = 4, toneMark = ""))
         assertFalse(tokenizer.isMatch(pattern = "tiệ", word = "tiểu", idx = 3, toneMark = ""))
+
+        // index 5: "như", tone code 7 (Ngang/không dấu)
+        tokenizer.renumList.add("như")
+        tokenizer.renumToneList.add(7)
+        tokenizer.renumToneMark.add("◌")
+
+        // index 6: "nhưng", tone code 7 (Ngang/không dấu)
+        tokenizer.renumList.add("nhưng")
+        tokenizer.renumToneList.add(7)
+        tokenizer.renumToneMark.add("◌")
+
+        // index 7: "những", tone code 3 (Ngã)
+        tokenizer.renumList.add("những")
+        tokenizer.renumToneList.add(3)
+        tokenizer.renumToneMark.add("◌̃")
+
+        // index 8: "nhứt", tone code 0 (Sắc)
+        tokenizer.renumList.add("nhứt")
+        tokenizer.renumToneList.add(0)
+        tokenizer.renumToneMark.add("◌́")
+
+        // 5. Unaccented marked vowel "như" matches "như" and "nhưng", strictly rejects "những" and "nhứt"
+        assertTrue(tokenizer.isMatch(pattern = "như", word = "như", idx = 5, toneMark = ""))
+        assertTrue(tokenizer.isMatch(pattern = "như", word = "nhưng", idx = 6, toneMark = ""))
+        assertFalse(tokenizer.isMatch(pattern = "như", word = "những", idx = 7, toneMark = ""))
+        assertFalse(tokenizer.isMatch(pattern = "như", word = "nhứt", idx = 8, toneMark = ""))
     }
 
     @Test

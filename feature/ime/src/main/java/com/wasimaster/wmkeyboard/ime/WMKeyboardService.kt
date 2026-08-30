@@ -2553,6 +2553,7 @@ open class WMKeyboardService : InputMethodService() {
                 onTouchKeys = ::onTouchKeys,
                 onCursorMove = ::onCursorMove,
                 onCursorMoveVertical = ::onCursorMoveVertical,
+                onSpaceSwipeUp = ::onSpaceSwipeUp,
                 onLayoutSelect = ::onLayoutSelected,
                 onClipboardKey = ::onClipboardKey,
                 canDelete = ::canDelete,
@@ -5196,10 +5197,14 @@ open class WMKeyboardService : InputMethodService() {
                     ic.beginBatchEdit()
                     ic.deleteSurroundingText(probe.length, 0)
                     if (state.composer.isVietnameseTelex || state.composer.isTransliterating) {
-                        composing = StringBuilder(revert.original)
-                        updateComposingText(ic)
+                        if (revert.original.isNotEmpty()) {
+                            composing = StringBuilder(revert.original)
+                            updateComposingText(ic)
+                        }
                     } else {
-                        ic.commitText(revert.original + tail, 1)
+                        if (revert.original.isNotEmpty()) {
+                            ic.commitText(revert.original + tail, 1)
+                        }
                     }
                     ic.endBatchEdit()
                     revertCommitted(ic, revert, state)
@@ -6676,12 +6681,17 @@ open class WMKeyboardService : InputMethodService() {
                 val top = if (pre != null && pre.isTelex) {
                     pre.telexTop
                 } else if (autocorrect && state.allowsTypingIntelligence) {
-                    TelexAutocorrectEngine.getInstance().correct(
-                        rawInput = typed,
-                        previousWord = previousWord,
-                        userLexicon = userLexicon,
-                        maxResults = 1
-                    ).firstOrNull()?.word
+                    val isComposedValid = TelexAutocorrectEngine.getInstance().isWordInDictionary(composed)
+                    if (isComposedValid) {
+                        composed
+                    } else {
+                        TelexAutocorrectEngine.getInstance().correct(
+                            rawInput = typed,
+                            previousWord = previousWord,
+                            userLexicon = userLexicon,
+                            maxResults = 1
+                        ).firstOrNull()?.word ?: composed
+                    }
                 } else {
                     null
                 }
@@ -8774,14 +8784,11 @@ open class WMKeyboardService : InputMethodService() {
                         val baseList = if (composed.equals(rejectedVietnameseWord, ignoreCase = true)) {
                             // User explicitly reverted this word with Backspace; keep exact composed at #1
                             listOf(composed) + aiCandidates.filterNot { it.equals(composed, ignoreCase = true) } + boostedTelexCandidates
-                        } else if (isComposedValid && composed.length >= 2) {
-                            // If composed is already a complete valid Vietnamese word (e.g. "như", "học", "làm"), keep composed at #1
-                            listOf(composed) + aiCandidates.filterNot { it.equals(composed, ignoreCase = true) } + boostedTelexCandidates
                         } else if (aiCandidates.isNotEmpty()) {
                             if (aiCandidates[0].equals(composed, ignoreCase = true)) {
                                 aiCandidates + listOf(composed) + boostedTelexCandidates
                             } else {
-                                // Incomplete prefix (e.g. "c", "ch", "tiể", "tiệ") -> top AI completion is #1
+                                // Suggestion strip freely shows top AI completion at #1
                                 (listOf(aiCandidates[0], composed) + aiCandidates.drop(1) + boostedTelexCandidates)
                             }
                         } else if (isComposedValid) {
@@ -8845,14 +8852,19 @@ open class WMKeyboardService : InputMethodService() {
                         correction = null,
                     )
                     state.composer.isVietnameseTelex -> {
-                        val topCandidate = words.firstOrNull() ?: composed
+                        val isComposedValid = telexEngine.isWordInDictionary(composed)
+                        val spaceWord = if (isComposedValid) {
+                            composed
+                        } else {
+                            telexCandidates.firstOrNull() ?: composed
+                        }
                         CommitResolution(
                             typed = typed,
                             isBengali = false,
                             bengaliTop = null,
                             isTelex = true,
-                            telexTop = topCandidate,
-                            correction = topCandidate.takeIf { it != composed },
+                            telexTop = spaceWord,
+                            correction = spaceWord.takeIf { it != composed },
                         )
                     }
                     state.settings.autocorrect && state.allowsTypingIntelligence -> {
@@ -9062,7 +9074,6 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         lastGestureWord = null
-        lastRevertible = null
         pendingGestureSpace = false
 
         // An emoji picked from inline search replaces the ":query" buffer
@@ -9086,6 +9097,12 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
 
+        val originalText = if (state.composer.isVietnameseTelex || state.composer.isTransliterating) {
+            state.composer.composeBuffer(composing.toString())
+        } else {
+            composing.toString()
+        }
+
         // Normally the pick lands at the end of the text and earns a trailing
         // space to start the next word. But a word resumed mid-sentence (the
         // caret moved back onto it) already has a space after it — appending
@@ -9096,6 +9113,14 @@ open class WMKeyboardService : InputMethodService() {
         // Commit in the case the strip is showing: a shift held over the strip
         // capitalizes the word the user is about to pick, matching the chip.
         val committed = displayCaseForShift(suggestion, _uiState.value.shiftState)
+
+        // Arm 1-tap Backspace undo for picked or swiped suggestions
+        lastRevertible = RevertibleCommit(
+            RevertibleCommit.Kind.AUTOCORRECT,
+            original = originalText,
+            committed = committed
+        )
+
         ic.commitText(committed + tail, 1)
         // Whole words landed without being typed out; this also disarms the
         // half-typed word so the next separator cannot count it again.
@@ -9113,6 +9138,15 @@ open class WMKeyboardService : InputMethodService() {
         _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         maybeAutoCapitalize()
         refreshSuggestions()
+    }
+
+    /**
+     * Swiping up on the spacebar commits the top suggestion currently on the strip.
+     * Armed with 1-tap Backspace revert so users can immediately undo an accidental swipe.
+     */
+    fun onSpaceSwipeUp() {
+        val top = _uiState.value.suggestions.firstOrNull() ?: return
+        onSuggestionTapped(top)
     }
 
     /**

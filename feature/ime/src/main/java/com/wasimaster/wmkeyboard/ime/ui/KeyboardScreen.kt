@@ -506,6 +506,12 @@ internal val LocalDeleteWord = staticCompositionLocalOf<() -> Unit> { {} }
 internal val LocalCursorMoveVertical = staticCompositionLocalOf<(Int) -> Unit> { {} }
 
 /**
+ * Commits the top AI/word suggestion on the suggestion strip.
+ * Fired by swiping up on the spacebar.
+ */
+internal val LocalSpaceSwipeUp = staticCompositionLocalOf<() -> Unit> { {} }
+
+/**
  * Dismisses the keyboard. Provided at the root so the spacebar's optional
  * swipe-down-to-hide gesture can reach it without threading a callback down
  * through the key grid.
@@ -748,6 +754,7 @@ fun KeyboardScreen(
     onTouchKeys: (List<KeyCenter>) -> Unit = {},
     onCursorMove: (Int) -> Unit = {},
     onCursorMoveVertical: (Int) -> Unit = {},
+    onSpaceSwipeUp: () -> Unit = {},
     onLayoutSelect: (String) -> Unit = {},
     onClipboardKey: (ClipboardKeyAction) -> Unit = {},
     canDelete: () -> Boolean = { true },
@@ -1038,6 +1045,7 @@ fun KeyboardScreen(
             LocalCanForwardDelete provides canForwardDelete,
             LocalDeleteWord provides onDeleteWord,
             LocalCursorMoveVertical provides onCursorMoveVertical,
+            LocalSpaceSwipeUp provides onSpaceSwipeUp,
             LocalHideKeyboard provides onHideKeyboard,
             LocalTouchExploration provides rememberTouchExploration(),
             LocalPassthroughService provides
@@ -12241,13 +12249,11 @@ private fun Modifier.pointerInputKey(
     scope: kotlinx.coroutines.CoroutineScope,
     smartResolve: (Key, PointerId) -> Key = { k, _ -> k },
 ): Modifier = this.then(
-    if (key.action == KeyAction.Space &&
-        (spaceShortSwipe != SpaceSwipeAction.NONE || spaceLongSwipe != SpaceSwipeAction.NONE ||
-            spaceSwipeDownHide)
-    ) {
+    if (key.action == KeyAction.Space) {
+        val onSpaceSwipeUp = LocalSpaceSwipeUp.current
         Modifier.pointerInput(
             key, spaceShortSwipe, spaceLongSwipe, enabledLayoutIds, currentLayoutId, longPressDelayMs,
-            hapticOnLongPress, vibrateOnSpace, spaceCursor2d, spaceSwipeDownHide, textEditing,
+            hapticOnLongPress, vibrateOnSpace, spaceCursor2d, spaceSwipeDownHide, textEditing, onSpaceSwipeUp,
         ) {
             val slopPx = 12.dp.toPx()
             val cursorStepPx = textEditing.spaceCursorStepDp.dp.toPx()
@@ -12393,6 +12399,16 @@ private fun Modifier.pointerInputKey(
                             onHideKeyboard()
                             break
                         }
+                    }
+                    // Swipe straight UP to commit top AI/word suggestion on the strip
+                    val totalDy = change.position.y - down.position.y
+                    val totalDx = change.position.x - down.position.x
+                    val swipeUpThresholdPx = 20.dp.toPx()
+                    if (totalDy < -swipeUpThresholdPx && -totalDy > abs(totalDx) * 1.1f) {
+                        change.consume()
+                        hidden = true
+                        onSpaceSwipeUp()
+                        break
                     }
                     if (action == null) {
                         val totalDx = change.position.x - down.position.x
