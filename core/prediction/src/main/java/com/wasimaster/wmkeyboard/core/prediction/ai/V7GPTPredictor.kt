@@ -182,7 +182,8 @@ class V7GPTPredictor private constructor() {
             val resultIds = IntArray(minHeap.size)
             var idx = resultIds.size - 1
             while (!minHeap.isEmpty()) {
-                resultIds[idx--] = minHeap.poll().index
+                val item = minHeap.poll() ?: break
+                resultIds[idx--] = item.index
             }
             return resultIds
         } catch (t: Throwable) {
