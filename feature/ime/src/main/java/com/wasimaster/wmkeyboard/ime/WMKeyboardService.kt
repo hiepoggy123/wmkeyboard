@@ -904,6 +904,9 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var correctionOfferFor: String? = null
 
+    @Volatile
+    private var rejectedVietnameseWord: String? = null
+
     /**
      * The offer waiting to be published by the next strip refresh, which is
      * where every other chip on that row is decided. Set at the commit, since
@@ -5281,6 +5284,7 @@ open class WMKeyboardService : InputMethodService() {
         commitResolution = null
         when (revert.kind) {
             RevertibleCommit.Kind.AUTOCORRECT -> {
+                rejectedVietnameseWord = revert.original
                 // Undoing the correction retires that exact pair: without
                 // this the very next space corrected the word straight back.
                 // Unconditional, unlike the personal dictionary entry below —
@@ -6737,6 +6741,7 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         composing = StringBuilder()
+        rejectedVietnameseWord = null
         // Refill the strip in the same frame the word commits. Blanking it
         // and waiting for the async refresh left it empty for a frame or
         // two after every space, which read as a flicker.
@@ -8766,11 +8771,17 @@ open class WMKeyboardService : InputMethodService() {
                             telexCandidates
                         }
 
-                        val baseList = if (aiCandidates.isNotEmpty()) {
+                        val baseList = if (composed.equals(rejectedVietnameseWord, ignoreCase = true)) {
+                            // User explicitly reverted this word with Backspace; keep exact composed at #1
+                            listOf(composed) + aiCandidates.filterNot { it.equals(composed, ignoreCase = true) } + boostedTelexCandidates
+                        } else if (isComposedValid && composed.length >= 2) {
+                            // If composed is already a complete valid Vietnamese word (e.g. "như", "học", "làm"), keep composed at #1
+                            listOf(composed) + aiCandidates.filterNot { it.equals(composed, ignoreCase = true) } + boostedTelexCandidates
+                        } else if (aiCandidates.isNotEmpty()) {
                             if (aiCandidates[0].equals(composed, ignoreCase = true)) {
                                 aiCandidates + listOf(composed) + boostedTelexCandidates
                             } else {
-                                // Put top AI completion (e.g. "chào") first, then composed ("chà"), then other AI/telex candidates
+                                // Incomplete prefix (e.g. "c", "ch", "tiể", "tiệ") -> top AI completion is #1
                                 (listOf(aiCandidates[0], composed) + aiCandidates.drop(1) + boostedTelexCandidates)
                             }
                         } else if (isComposedValid) {

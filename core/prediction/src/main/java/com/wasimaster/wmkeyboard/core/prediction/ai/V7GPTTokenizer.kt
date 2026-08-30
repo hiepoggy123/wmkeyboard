@@ -287,9 +287,12 @@ class V7GPTTokenizer {
             val p = cleanPattern[i]
             val w = cleanWord[i]
 
-            val pBase = getVowelBase(p)
-            val wBase = getVowelBase(w)
-            if (p in "ăâêôơư" || pBase in "ăâêôơư") {
+            if (p in "ăâêôơư") {
+                if (w != p && getToneCodeOfChar(w) != null) return false
+                if (getVowelBase(w) != p) return false
+            } else if (p in VOWEL_BASE_MAP && VOWEL_BASE_MAP[p] in "ăâêôơư") {
+                val pBase = VOWEL_BASE_MAP[p]
+                val wBase = getVowelBase(w)
                 if (pBase != wBase) return false
             } else {
                 if (normalizeChar(w) != normalizeChar(p)) return false
