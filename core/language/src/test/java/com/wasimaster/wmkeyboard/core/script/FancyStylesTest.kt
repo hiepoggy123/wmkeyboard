@@ -78,9 +78,16 @@ class FancyStylesTest {
         for (style in FancyStyles.all) {
             assertEquals(
                 style.id,
-                FancyStyles.transform(style.name, style),
                 style.sample,
+                FancyStyles.transform(style.name, style),
             )
         }
+    }
+
+    @Test
+    fun `bypass style inserts zero-width spaces between letters`() {
+        val bypass = FancyStyles.byId("bypass")!!
+        assertEquals("t\u200Be\u200Bs\u200Bt", FancyStyles.transform("test", bypass))
+        assertEquals("x\u200Bi\u200Bn c\u200Bh\u200Bà\u200Bo", FancyStyles.transform("xin chào", bypass))
     }
 }

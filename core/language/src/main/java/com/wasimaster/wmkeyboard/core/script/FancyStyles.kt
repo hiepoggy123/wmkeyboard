@@ -326,9 +326,9 @@ object FancyStyles {
             ),
         ),
         style(
-            "bypass", "Bypass", "B​y​p​a​s​s",
-            ('a'..'z').map { "$it\u200B" },
-            ('A'..'Z').map { "$it\u200B" },
+            "bypass", "Bypass", "B\u200By\u200Bp\u200Ba\u200Bs\u200Bs",
+            ('a'..'z').map { it.toString() },
+            ('A'..'Z').map { it.toString() },
         ),
     )
 
@@ -345,11 +345,14 @@ object FancyStyles {
         if (text.isEmpty()) return text
         if (style.id == "bypass") {
             val out = StringBuilder(text.length * 2)
-            for (ch in text) {
-                if (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t' || ch == '\u200B') {
-                    out.append(ch)
-                } else {
-                    out.append(ch).append('\u200B')
+            for (i in text.indices) {
+                val ch = text[i]
+                out.append(ch)
+                if (i < text.length - 1) {
+                    val next = text[i + 1]
+                    if (!ch.isWhitespace() && ch != '\u200B' && !next.isWhitespace() && next != '\u200B') {
+                        out.append('\u200B')
+                    }
                 }
             }
             return out.toString()
