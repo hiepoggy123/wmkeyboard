@@ -4793,7 +4793,35 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun onFancyToggle() {
         vibrate()
+        val ic = currentInputConnection
         val state = _uiState.value
+
+        // 1. Check if there is selected text in the active input field
+        val selectedText = ic?.getSelectedText(0)?.toString()
+        if (!selectedText.isNullOrEmpty()) {
+            val style = fancyStyleFor(state) ?: FancyStyles.byId(state.settings.layoutBehavior.fancyStyleId) ?: FancyStyles.all.first()
+            val transformed = FancyStyles.transform(selectedText, style)
+            ic.commitText(transformed, 1)
+            Toast.makeText(this, style.name, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 2. If no selection, check if there is text before cursor on the current line
+        val textBefore = ic?.getTextBeforeCursor(500, 0)?.toString()
+        if (!textBefore.isNullOrEmpty()) {
+            val lineStart = textBefore.lastIndexOf('\n').let { if (it >= 0) it + 1 else 0 }
+            val target = textBefore.substring(lineStart)
+            if (target.isNotEmpty()) {
+                val style = fancyStyleFor(state) ?: FancyStyles.byId(state.settings.layoutBehavior.fancyStyleId) ?: FancyStyles.all.first()
+                val transformed = FancyStyles.transform(target, style)
+                ic.deleteSurroundingText(target.length, 0)
+                ic.commitText(transformed, 1)
+                Toast.makeText(this, style.name, Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
+        // 3. Otherwise (empty field), toggle layout mode
         if (state.language.id == FancyStyles.LANG_ID) turnFancyOff(state) else turnFancyOn(state)
     }
 

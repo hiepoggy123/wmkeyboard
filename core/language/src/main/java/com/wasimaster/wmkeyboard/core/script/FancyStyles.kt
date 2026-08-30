@@ -325,6 +325,11 @@ object FancyStyles {
                 "S̲", "T̲", "U̲", "V̲", "W̲", "X̲", "Y̲", "Z̲",
             ),
         ),
+        style(
+            "bypass", "Bypass", "B​y​p​a​s​s",
+            ('a'..'z').map { "$it\u200B" },
+            ('A'..'Z').map { "$it\u200B" },
+        ),
     )
 
     private val index = all.associateBy { it.id }
@@ -338,6 +343,17 @@ object FancyStyles {
      */
     fun transform(text: String, style: FancyStyle): String {
         if (text.isEmpty()) return text
+        if (style.id == "bypass") {
+            val out = StringBuilder(text.length * 2)
+            for (ch in text) {
+                if (ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t' || ch == '\u200B') {
+                    out.append(ch)
+                } else {
+                    out.append(ch).append('\u200B')
+                }
+            }
+            return out.toString()
+        }
         val out = StringBuilder(text.length * 2)
         for (ch in text) {
             out.append(style.lower[ch] ?: style.upper[ch] ?: ch)
