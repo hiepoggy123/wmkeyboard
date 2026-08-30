@@ -3151,10 +3151,45 @@ private fun RowScope.LatinSuggestionChips(
             ) * textScale
         val kb = LocalKbTheme.current
         val isDark = kb.dark
-        val accentColor = kb.accent
-        val primaryFill = accentColor.copy(alpha = if (isDark) 0.22f else 0.14f)
-        val primaryBorderColor = accentColor.copy(alpha = if (isDark) 0.50f else 0.35f)
         val chipShape = RoundedCornerShape(12.dp)
+        val rainbowBorderBrush = if (isDark) {
+            Brush.horizontalGradient(
+                listOf(
+                    Color(0xFFA855F7),
+                    Color(0xFFEC4899),
+                    Color(0xFFFF5252),
+                    Color(0xFFFFB300),
+                    Color(0xFF00E5FF),
+                )
+            )
+        } else {
+            Brush.horizontalGradient(
+                listOf(
+                    Color(0xFF7C3AED),
+                    Color(0xFFDB2777),
+                    Color(0xFFEA580C),
+                    Color(0xFF0284C7),
+                )
+            )
+        }
+        val primaryBgBrush = if (isDark) {
+            Brush.horizontalGradient(
+                listOf(
+                    Color(0x38A855F7),
+                    Color(0x38EC4899),
+                    Color(0x38FFB300),
+                )
+            )
+        } else {
+            Brush.horizontalGradient(
+                listOf(
+                    Color(0x1EA855F7),
+                    Color(0x1EEC4899),
+                    Color(0x1EEA580C),
+                )
+            )
+        }
+        val primaryTextColor = if (isDark) Color(0xFFF472B6) else Color(0xFF7E22CE)
         val shaper = LocalEmojiShaper.current
         Row(
             modifier = Modifier.fillMaxSize(),
@@ -3175,8 +3210,8 @@ private fun RowScope.LatinSuggestionChips(
                         .fillMaxHeight()
                         .padding(vertical = 4.dp, horizontal = 3.dp)
                         .clip(chipShape)
-                        .background(primaryFill)
-                        .border(1.dp, primaryBorderColor, chipShape)
+                        .background(primaryBgBrush)
+                        .border(1.2.dp, rainbowBorderBrush, chipShape)
                         .clickable(enabled = enabled) { onSuggestion(suggestion) }
                 } else {
                     Modifier
@@ -3232,7 +3267,7 @@ private fun RowScope.LatinSuggestionChips(
                         )
                     }
                     val textColor = if (isPrimary) {
-                        accentColor
+                        primaryTextColor
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     }
