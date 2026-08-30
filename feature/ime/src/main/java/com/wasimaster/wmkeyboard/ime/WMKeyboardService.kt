@@ -6663,28 +6663,22 @@ open class WMKeyboardService : InputMethodService() {
                     ?: state.composer.composeBuffer(typed)
             state.composer.isVietnameseTelex -> {
                 val composed = state.composer.composeBuffer(typed)
-                val isComposedValid = TelexAutocorrectEngine.getInstance().isWordInDictionary(composed)
-                val telexResolved = if (autocorrect && state.allowsTypingIntelligence) {
-                    if (isComposedValid) {
-                        null
-                    } else {
-                        val top = if (pre != null && pre.isTelex) {
-                            pre.telexTop
-                        } else {
-                            TelexAutocorrectEngine.getInstance().correct(
-                                rawInput = typed,
-                                previousWord = previousWord,
-                                userLexicon = userLexicon,
-                                maxResults = 1
-                            ).firstOrNull()?.word
-                        }
-                        if (top != null && top != composed) {
-                            corrected = top
-                        }
-                        top ?: composed
-                    }
-                } else null
-                telexResolved ?: composed
+                val top = if (pre != null && pre.isTelex) {
+                    pre.telexTop
+                } else if (autocorrect && state.allowsTypingIntelligence) {
+                    TelexAutocorrectEngine.getInstance().correct(
+                        rawInput = typed,
+                        previousWord = previousWord,
+                        userLexicon = userLexicon,
+                        maxResults = 1
+                    ).firstOrNull()?.word
+                } else {
+                    null
+                }
+                if (top != null && top != composed) {
+                    corrected = top
+                }
+                top ?: composed
             }
             // Other transliterators (Hangul, VNI) commit the composed text
             // directly, with no dictionary pass.
@@ -8834,22 +8828,14 @@ open class WMKeyboardService : InputMethodService() {
                         correction = null,
                     )
                     state.composer.isVietnameseTelex -> {
-                        val aiEnabled = state.settings.aiSettings.enabled
-                        val isComposedValid = telexEngine.isWordInDictionary(composed)
-                        val topCandidate = if (aiEnabled) {
-                            words.firstOrNull() ?: (if (isComposedValid) composed else telexCandidates.firstOrNull())
-                        } else if (isComposedValid) {
-                            composed
-                        } else {
-                            telexCandidates.firstOrNull()
-                        }
+                        val topCandidate = words.firstOrNull() ?: composed
                         CommitResolution(
                             typed = typed,
                             isBengali = false,
                             bengaliTop = null,
                             isTelex = true,
-                            telexTop = words.firstOrNull(),
-                            correction = if (!aiEnabled && isComposedValid) null else topCandidate?.takeIf { it != composed },
+                            telexTop = topCandidate,
+                            correction = topCandidate.takeIf { it != composed },
                         )
                     }
                     state.settings.autocorrect && state.allowsTypingIntelligence -> {
