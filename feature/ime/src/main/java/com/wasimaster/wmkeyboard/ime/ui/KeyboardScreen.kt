@@ -11101,7 +11101,6 @@ private fun KeyButton(
     val canForwardDelete = LocalCanForwardDelete.current
     val onDeleteWord = LocalDeleteWord.current
     val onCursorMoveVertical = LocalCursorMoveVertical.current
-    val onSpaceSwipeUp = LocalSpaceSwipeUp.current
     val onHideKeyboard = LocalHideKeyboard.current
 
     // What this key would put in the shared bubble, were it pressed right now.
