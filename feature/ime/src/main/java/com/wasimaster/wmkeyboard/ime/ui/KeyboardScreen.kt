@@ -11301,7 +11301,6 @@ private fun KeyButton(
                     onClipboardKey = onClipboardKey,
                     onCursorMove = onCursorMove,
                     onCursorMoveVertical = onCursorMoveVertical,
-                    onSpaceSwipeUp = onSpaceSwipeUp,
                     onHideKeyboard = onHideKeyboard,
                     spaceCursor2d = settings.layoutBehavior.spaceCursor2d,
                     spaceSwipeDownHide = settings.layoutBehavior.spaceSwipeDownHide,
@@ -12285,7 +12284,6 @@ private fun Modifier.pointerInputKey(
     onClipboardKey: (ClipboardKeyAction) -> Unit,
     onCursorMove: (Int) -> Unit,
     onCursorMoveVertical: (Int) -> Unit,
-    onSpaceSwipeUp: () -> Unit,
     onHideKeyboard: () -> Unit,
     spaceCursor2d: Boolean,
     spaceSwipeDownHide: Boolean,
@@ -12306,7 +12304,7 @@ private fun Modifier.pointerInputKey(
     if (key.action == KeyAction.Space) {
         Modifier.pointerInput(
             key, spaceShortSwipe, spaceLongSwipe, enabledLayoutIds, currentLayoutId, longPressDelayMs,
-            hapticOnLongPress, vibrateOnSpace, spaceCursor2d, spaceSwipeDownHide, textEditing, onSpaceSwipeUp,
+            hapticOnLongPress, vibrateOnSpace, spaceCursor2d, spaceSwipeDownHide, textEditing,
         ) {
             val slopPx = 12.dp.toPx()
             val cursorStepPx = textEditing.spaceCursorStepDp.dp.toPx()
@@ -12452,16 +12450,6 @@ private fun Modifier.pointerInputKey(
                             onHideKeyboard()
                             break
                         }
-                    }
-                    // Swipe straight UP to commit top AI/word suggestion on the strip
-                    val totalDy = change.position.y - down.position.y
-                    val totalDx = change.position.x - down.position.x
-                    val swipeUpThresholdPx = 20.dp.toPx()
-                    if (totalDy < -swipeUpThresholdPx && -totalDy > abs(totalDx) * 1.1f) {
-                        change.consume()
-                        hidden = true
-                        onSpaceSwipeUp()
-                        break
                     }
                     if (action == null) {
                         val totalDx = change.position.x - down.position.x
