@@ -151,7 +151,7 @@ internal object VietnameseEngine {
                 }
                 'w' -> {
                     // Horn on uo cluster -> ươ (e.g. nuocsw -> nước, tuongw -> tương);
-                    // otherwise horn/breve on the last a/o/u; a bare w types ư.
+                    // otherwise horn/breve on the last a/o/u; a bare w types w (not ư).
                     val uIdx = letters.indexOfLast { it.base == 'u' }
                     val oIdx = letters.indexOfLast { it.base == 'o' }
                     if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1) {
@@ -162,7 +162,7 @@ internal object VietnameseEngine {
                     } else {
                         val a = applyMark(letters, "a", VMark.BREVE) ||
                             applyMark(letters, "ou", VMark.HORN)
-                        if (!a) letters.add(VLetter('u', VMark.HORN, upper))
+                        if (!a) letters.add(VLetter('w', VMark.NONE, upper))
                     }
                 }
                 'a', 'e', 'o' -> {

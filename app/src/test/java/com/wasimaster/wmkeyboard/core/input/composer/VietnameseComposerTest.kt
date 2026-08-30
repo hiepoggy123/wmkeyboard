@@ -52,7 +52,8 @@ class VietnameseComposerTest {
         assertEquals("ô", c.composeBuffer("oo"))
         assertEquals("ơ", c.composeBuffer("ow"))
         assertEquals("ư", c.composeBuffer("uw"))
-        assertEquals("ư", c.composeBuffer("w"))
+        assertEquals("w", c.composeBuffer("w"))
+        assertEquals("ww", c.composeBuffer("ww"))
         assertEquals("đ", c.composeBuffer("dd"))
     }
 

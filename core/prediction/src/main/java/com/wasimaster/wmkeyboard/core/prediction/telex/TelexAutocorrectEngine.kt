@@ -246,7 +246,7 @@ class TelexAutocorrectEngine private constructor() {
         if (!isReady) return emptyList()
 
         val cleanInput = rawInput.trim().lowercase()
-        if (cleanInput.isEmpty() || cleanInput.length > 12) return emptyList()
+        if (cleanInput.length < 2 || cleanInput.length > 12) return emptyList()
 
         val cleanPrev = previousWord?.trim()?.lowercase()
 
