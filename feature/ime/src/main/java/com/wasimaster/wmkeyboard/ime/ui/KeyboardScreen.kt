@@ -505,11 +505,6 @@ internal val LocalDeleteWord = staticCompositionLocalOf<() -> Unit> { {} }
  */
 internal val LocalCursorMoveVertical = staticCompositionLocalOf<(Int) -> Unit> { {} }
 
-/**
- * Commits the top AI/word suggestion on the suggestion strip.
- * Fired by swiping up on the spacebar.
- */
-internal val LocalSpaceSwipeUp = staticCompositionLocalOf<() -> Unit> { {} }
 
 /**
  * Dismisses the keyboard. Provided at the root so the spacebar's optional

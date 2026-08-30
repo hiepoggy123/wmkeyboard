@@ -42,7 +42,6 @@ import android.view.inputmethod.InputMethodSubtype
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
-import com.wasimaster.wmkeyboard.ime.ui.LocalSpaceSwipeUp
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.graphics.drawable.toBitmap
@@ -2540,12 +2539,11 @@ open class WMKeyboardService : InputMethodService() {
 
     @androidx.compose.runtime.Composable
     private fun ServiceKeyboardContent() {
-        CompositionLocalProvider(LocalSpaceSwipeUp provides ::onSpaceSwipeUp) {
-            KeyboardScreen(
-                stateFlow = uiState,
-                panelFocus = panelFocus,
-                onKey = ::onKey,
-                onKeyPressed = ::vibrate,
+        KeyboardScreen(
+            stateFlow = uiState,
+            panelFocus = panelFocus,
+            onKey = ::onKey,
+            onKeyPressed = ::vibrate,
                 onHaptic = ::vibrateOnly,
                 onKeySound = { role, phase -> playKeySound(role = role, phase = phase) },
                 onText = ::onText,
@@ -2700,7 +2698,6 @@ open class WMKeyboardService : InputMethodService() {
                 onToolPrefillConsumed = ::onToolPrefillConsumed,
                 onHideKeyboard = ::onHideKeyboard,
             )
-        }
     }
 
     // ---- floating mode ----
@@ -5227,17 +5224,11 @@ open class WMKeyboardService : InputMethodService() {
                 if (probe != null && probe.dropLast(tail.length) == revert.committed) {
                     ic.beginBatchEdit()
                     ic.deleteSurroundingText(probe.length, 0)
-                    if (state.composer.isVietnameseTelex || state.composer.isTransliterating) {
-                        if (revert.original.isNotEmpty()) {
-                            composing = StringBuilder(revert.original)
-                            updateComposingText(ic)
-                        }
-                    } else {
-                        if (revert.original.isNotEmpty()) {
-                            ic.commitText(revert.original + tail, 1)
-                        }
+                    if (revert.original.isNotEmpty()) {
+                        ic.commitText(revert.original + tail, 1)
                     }
                     ic.endBatchEdit()
+                    rejectedVietnameseWord = revert.original
                     revertCommitted(ic, revert, state)
                     refreshSuggestions()
                     return
@@ -8778,62 +8769,42 @@ open class WMKeyboardService : InputMethodService() {
                     val aiEnabled = state.settings.aiSettings.enabled && aiPredictor.isReady
 
                     if (typed.isEmpty()) {
-                        if (aiEnabled && contextBefore.isNotEmpty()) {
-                            aiPredictor.predict(contextText = contextBefore, maxResults = 5)
-                        } else {
-                            emptyList()
-                        }
+                        emptyList()
                     } else {
-                        val isComposedValid = telexEngine.isWordInDictionary(composed) || telexEngine.isWhitelisted(typed)
-                        telexCandidates = if (typed.length >= 3 && !isComposedValid) {
-                            telexEngine.correct(
-                                rawInput = typed,
-                                previousWord = previousWord,
-                                userLexicon = userLexicon,
-                                maxResults = 5
-                            ).map { it.word }
-                        } else {
-                            emptyList()
-                        }
+                        val isWhitelisted = telexEngine.isWhitelisted(composed) || telexEngine.isWhitelisted(typed)
+                        val isComposedValid = telexEngine.isWordInDictionary(composed) || isWhitelisted
 
-                        val aiCandidates = if (aiEnabled) {
-                            aiPredictor.predict(
-                                contextText = contextBefore,
-                                prefix = composed,
-                                maxResults = 5
-                            )
-                        } else {
-                            emptyList()
-                        }
-
-                        // If AI is enabled, boost any telex typo candidate that matches AI context predictions
-                        val boostedTelexCandidates = if (aiEnabled && contextBefore.isNotEmpty() && telexCandidates.isNotEmpty()) {
-                            val contextPredictions = aiPredictor.predict(contextText = contextBefore, maxResults = 10)
-                            val matchedInContext = telexCandidates.filter { cand -> contextPredictions.any { it.equals(cand, ignoreCase = true) } }
-                            val others = telexCandidates.filterNot { cand -> contextPredictions.any { it.equals(cand, ignoreCase = true) } }
-                            matchedInContext + others
-                        } else {
-                            telexCandidates
-                        }
-
-                        val baseList = if (composed.equals(rejectedVietnameseWord, ignoreCase = true)) {
-                            // User explicitly reverted this word with Backspace; keep exact composed at #1
-                            listOf(composed) + aiCandidates.filterNot { it.equals(composed, ignoreCase = true) } + boostedTelexCandidates
-                        } else if (aiCandidates.isNotEmpty()) {
-                            if (aiCandidates[0].equals(composed, ignoreCase = true)) {
-                                aiCandidates + listOf(composed) + boostedTelexCandidates
-                            } else {
-                                // Suggestion strip freely shows top AI completion at #1
-                                (listOf(aiCandidates[0], composed) + aiCandidates.drop(1) + boostedTelexCandidates)
-                            }
-                        } else if (isComposedValid || composed.length < 3) {
-                            listOf(composed) + boostedTelexCandidates
-                        } else if (boostedTelexCandidates.isNotEmpty()) {
-                            boostedTelexCandidates + listOf(composed)
-                        } else {
+                        if (composed.equals(rejectedVietnameseWord, ignoreCase = true) || isWhitelisted || composed.length < 3 || typed.length < 3) {
                             listOf(composed)
+                        } else {
+                            val aiCandidates = if (aiEnabled) {
+                                aiPredictor.predict(
+                                    contextText = contextBefore,
+                                    prefix = composed,
+                                    maxResults = 4
+                                )
+                            } else {
+                                emptyList()
+                            }
+
+                            telexCandidates = if (!isComposedValid) {
+                                telexEngine.correct(
+                                    rawInput = typed,
+                                    previousWord = previousWord,
+                                    userLexicon = userLexicon,
+                                    maxResults = 4
+                                ).map { it.word }
+                            } else {
+                                emptyList()
+                            }
+
+                            val baseList = if (isComposedValid) {
+                                (listOf(composed) + aiCandidates.filterNot { it.equals(composed, ignoreCase = true) })
+                            } else {
+                                (aiCandidates + telexCandidates + listOf(composed))
+                            }
+                            baseList.distinctBy { it.lowercase() }
                         }
-                        baseList.distinctBy { it.lowercase() }
                     }
                 } else {
                     engine.suggest(
@@ -8887,12 +8858,7 @@ open class WMKeyboardService : InputMethodService() {
                         correction = null,
                     )
                     state.composer.isVietnameseTelex -> {
-                        val isComposedValid = telexEngine.isWordInDictionary(composed) || telexEngine.isWhitelisted(typed)
-                        val spaceWord = if (composed.length < 3 || typed.length < 3 || isComposedValid) {
-                            composed
-                        } else {
-                            telexCandidates.firstOrNull() ?: composed
-                        }
+                        val spaceWord = words.firstOrNull() ?: composed
                         CommitResolution(
                             typed = typed,
                             isBengali = false,
@@ -9176,14 +9142,6 @@ open class WMKeyboardService : InputMethodService() {
         refreshSuggestions()
     }
 
-    /**
-     * Swiping up on the spacebar commits the top suggestion currently on the strip.
-     * Armed with 1-tap Backspace revert so users can immediately undo an accidental swipe.
-     */
-    fun onSpaceSwipeUp() {
-        val top = _uiState.value.suggestions.firstOrNull() ?: return
-        onSuggestionTapped(top)
-    }
 
     /**
      * Spacebar drag: move the cursor one position left (-1) or right (+1). The
