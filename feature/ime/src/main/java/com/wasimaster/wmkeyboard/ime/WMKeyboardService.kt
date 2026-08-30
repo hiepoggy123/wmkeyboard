@@ -5192,9 +5192,15 @@ open class WMKeyboardService : InputMethodService() {
                 if (probe != null && probe.dropLast(tail.length) == revert.committed) {
                     ic.beginBatchEdit()
                     ic.deleteSurroundingText(probe.length, 0)
-                    ic.commitText(revert.original + tail, 1)
+                    if (state.composer.isVietnameseTelex || state.composer.isTransliterating) {
+                        composing = StringBuilder(revert.original)
+                        updateComposingText(ic)
+                    } else {
+                        ic.commitText(revert.original + tail, 1)
+                    }
                     ic.endBatchEdit()
                     revertCommitted(ic, revert, state)
+                    refreshSuggestions()
                     return
                 }
             }
