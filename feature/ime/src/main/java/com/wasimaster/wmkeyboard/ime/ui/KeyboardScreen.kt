@@ -2085,6 +2085,8 @@ private fun TopBar(
         // And so does a word asking to be learned: it arrives on the space
         // that ended the word, with the candidates for that word gone.
         state.learnOffer != null ||
+        // Autocorrect revert / near-miss chip offering an undo or alternative
+        state.correctionOffer != null ||
         // A morse sequence being tapped out counts as strip content: the
         // toolbar taking the row would hide the one live view of the chord.
         // Its SOS easter-egg note counts the same way, or the toolbar would

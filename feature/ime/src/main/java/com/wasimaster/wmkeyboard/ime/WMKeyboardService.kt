@@ -28,6 +28,9 @@ import android.os.Looper
 import android.os.Process
 import android.os.SystemClock
 import android.text.InputType
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.SuggestionSpan
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.View
@@ -6753,13 +6756,32 @@ open class WMKeyboardService : InputMethodService() {
             // until the text around it settles, and is counted then.
             judgeCorrections(correctionWatch.push(revertible.original, revertible.committed))
             armRevertGuard()
+            correctionOfferFor = revertible.committed
+            pendingCorrectionOffer = "↶ " + revertible.original
+        } else {
+            // Armed before the commit lands so the strip refresh that follows it
+            // publishes the chip; cleared here too, so a commit with no near miss
+            // takes the previous word's offer down with it.
+            correctionOfferFor = offered?.let { typed }
+            pendingCorrectionOffer = offered
         }
-        // Armed before the commit lands so the strip refresh that follows it
-        // publishes the chip; cleared here too, so a commit with no near miss
-        // takes the previous word's offer down with it.
-        correctionOfferFor = offered?.let { typed }
-        pendingCorrectionOffer = offered
-        ic.commitText(output, 1)
+
+        if (revertible != null && revertible.original.isNotEmpty() && output.isNotEmpty()) {
+            val spannable = SpannableString(output)
+            try {
+                val span = SuggestionSpan(
+                    this,
+                    arrayOf(revertible.original),
+                    SuggestionSpan.FLAG_AUTO_CORRECTION,
+                )
+                val spanEnd = minOf(output.length, revertible.committed.length)
+                spannable.setSpan(span, 0, spanEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            } catch (_: Throwable) {}
+            ic.commitText(spannable, 1)
+        } else {
+            ic.commitText(output, 1)
+        }
+
         // An autocorrected word was the engine's choice, not the user's —
         // it earns no personal-dictionary reinforcement, only the bigram.
         // Conversion-IME output (Hanzi/Kanji) is never learned into the lexicon,
@@ -6774,7 +6796,12 @@ open class WMKeyboardService : InputMethodService() {
         // two after every space, which read as a flicker.
         val (nextWords, nextEmojis) = nextWordStrip()
         _uiState.update {
-            it.copy(composingPreview = "", suggestions = nextWords, emojiSuggestions = nextEmojis)
+            it.copy(
+                composingPreview = "",
+                suggestions = nextWords,
+                emojiSuggestions = nextEmojis,
+                correctionOffer = pendingCorrectionOffer,
+            )
         }
         return true
     }
@@ -7627,7 +7654,9 @@ open class WMKeyboardService : InputMethodService() {
      * evidence that the gate was too tight for this pair.
      */
     private fun applyCorrectionOffer() {
-        val replacement = _uiState.value.correctionOffer ?: return
+        val rawOffer = _uiState.value.correctionOffer ?: return
+        val isRevert = rawOffer.startsWith("↶ ")
+        val replacement = if (isRevert) rawOffer.removePrefix("↶ ") else rawOffer
         val typed = correctionOfferFor ?: return
         if (composing.isNotEmpty()) return
         val ic = currentInputConnection ?: return
@@ -7659,21 +7688,24 @@ open class WMKeyboardService : InputMethodService() {
             ic.deleteSurroundingText(original.length, 0)
             ic.commitText(committed, 1)
             previousWord = display.lowercase()
+            if (isRevert) {
+                rejectedVietnameseWord = replacement
+                userLexicon.add(replacement.lowercase())
+            }
             lastRevertible = RevertibleCommit(
                 RevertibleCommit.Kind.AUTOCORRECT, original = original, committed = committed,
             )
             armRevertGuard()
             invalidateRecentWords()
             invalidateExpectedSelection()
-            // Watched from here on like any correction that fired on its own,
-            // rather than credited outright: the user has accepted the offer,
-            // not yet the result, and backspacing it away a second later is a
-            // rejection like any other.
-            judgeCorrections(correctionWatch.push(typed, replacement))
+            if (!isRevert) {
+                judgeCorrections(correctionWatch.push(typed, replacement))
+            }
         } finally {
             ic.endBatchEdit()
         }
         clearCorrectionOffer()
+        refreshSuggestions()
     }
 
     /** Takes the near-miss chip down, answered or not. */
@@ -8941,7 +8973,7 @@ open class WMKeyboardService : InputMethodService() {
             // so it only survives while the composing buffer is still empty:
             // start the next word and the offer about the last one is gone.
             val offer = pendingCorrectionOffer
-                ?.takeIf { typed.isEmpty() && state.settings.suggestionStrip.offerNearMissCorrections }
+                ?.takeIf { typed.isEmpty() && (it.startsWith("↶ ") || state.settings.suggestionStrip.offerNearMissCorrections) }
             if (offer == null) {
                 pendingCorrectionOffer = null
                 correctionOfferFor = null
