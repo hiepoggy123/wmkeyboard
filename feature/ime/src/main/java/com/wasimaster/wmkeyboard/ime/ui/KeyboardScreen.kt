@@ -12637,16 +12637,10 @@ private fun Modifier.pointerInputKey(
                     }
                     if (swiping) {
                         change.consume()
-                        while (anchorX - change.position.x >= wordStepPx(deleted)) {
-                            anchorX -= wordStepPx(deleted)
-                            if (!canDelete()) break
-                            deleted++
+                        if (deleted == 0) {
+                            deleted = 1
                             if (vibrateOnDeleteSwipe) onKeyPress() else onKeySound()
                             onDeleteWord()
-                        }
-                        if (change.position.x > anchorX) {
-                            anchorX = change.position.x
-                            deleted = 0
                         }
                     }
                 }

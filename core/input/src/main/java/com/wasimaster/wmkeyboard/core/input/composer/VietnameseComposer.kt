@@ -136,6 +136,14 @@ internal object VietnameseEngine {
             }
             // Telex
             when (lc) {
+                'z' -> {
+                    // OpenKey standard: 'z' clears the tone mark of current syllable
+                    if (tone != VTone.NONE) {
+                        tone = VTone.NONE
+                    } else {
+                        letters.add(VLetter(lc, VMark.NONE, upper))
+                    }
+                }
                 's', 'f', 'r', 'x', 'j' -> {
                     val t = when (lc) {
                         's' -> VTone.ACUTE; 'f' -> VTone.GRAVE; 'r' -> VTone.HOOK
@@ -150,42 +158,74 @@ internal object VietnameseEngine {
                     }
                 }
                 'w' -> {
-                    // Horn on uo cluster -> ươ (e.g. nuocsw -> nước, tuongw -> tương);
-                    // otherwise horn/breve on the last a/o/u; a bare w types w (not ư).
-                    val uIdx = letters.indexOfLast { it.base == 'u' }
-                    val oIdx = letters.indexOfLast { it.base == 'o' }
-                    if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1) {
-                        val toggleOff = letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN
-                        val targetMark = if (toggleOff) VMark.NONE else VMark.HORN
-                        letters[uIdx].mark = targetMark
-                        letters[oIdx].mark = targetMark
+                    if (letters.isEmpty()) {
+                        // OpenKey standard: Standalone 'w' at start of word -> 'ư' (w -> ư, ws -> ứ, wf -> ừ, woc -> ước)
+                        letters.add(VLetter('u', VMark.HORN, upper))
+                    } else if (letters.size == 1 && letters[0].base == 'u' && letters[0].mark == VMark.HORN) {
+                        // Double 'w' at start -> 'ww' (e.g. typing "www." web URLs)
+                        letters[0].base = 'w'
+                        letters[0].mark = VMark.NONE
+                        letters.add(VLetter('w', VMark.NONE, upper))
                     } else {
-                        val a = applyMark(letters, "a", VMark.BREVE) ||
-                            applyMark(letters, "ou", VMark.HORN)
-                        if (!a) letters.add(VLetter('w', VMark.NONE, upper))
+                        // Check if 'w' is typed after uo cluster (ươ):
+                        val uIdx = letters.indexOfLast { it.base == 'u' }
+                        val oIdx = letters.indexOfLast { it.base == 'o' }
+                        if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1) {
+                            if (letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN) {
+                                // Repeating 'w' on ươ cancels the horn and appends 'w' -> uow!
+                                letters[uIdx].mark = VMark.NONE
+                                letters[oIdx].mark = VMark.NONE
+                                letters.add(VLetter('w', VMark.NONE, upper))
+                            } else {
+                                letters[uIdx].mark = VMark.HORN
+                                letters[oIdx].mark = VMark.HORN
+                            }
+                        } else {
+                            // Check if previous a, o, or u has mark:
+                            val markedVowelIdx = letters.indexOfLast {
+                                (it.base == 'a' && it.mark == VMark.BREVE) ||
+                                ((it.base == 'o' || it.base == 'u') && it.mark == VMark.HORN)
+                            }
+                            if (markedVowelIdx != -1) {
+                                // Repeating 'w' cancels horn/breve AND appends 'w'!
+                                // e.g. "ro" + 'w' -> "rơ"; "rơ" + 'w' -> "row"!
+                                // "dră" + 'w' -> "draw", "tư" + 'w' -> "tuw"
+                                letters[markedVowelIdx].mark = VMark.NONE
+                                letters.add(VLetter('w', VMark.NONE, upper))
+                            } else {
+                                // Normal first press of 'w': apply horn to 'ou' or breve to 'a':
+                                val applied = applyMark(letters, "a", VMark.BREVE) ||
+                                    applyMark(letters, "ou", VMark.HORN)
+                                if (!applied) letters.add(VLetter('w', VMark.NONE, upper))
+                            }
+                        }
                     }
                 }
                 'a', 'e', 'o' -> {
-                    val last = letters.lastOrNull()
-                    if (last != null && last.base == lc) {
-                        if (last.mark == VMark.CIRCUMFLEX) {
-                            last.mark = VMark.NONE
+                    // Free-form Telex: look for existing vowel in syllable
+                    val targetIdx = letters.indexOfLast { it.base == lc }
+                    if (targetIdx != -1) {
+                        if (letters[targetIdx].mark == VMark.CIRCUMFLEX) {
+                            // Cancel circumflex on repeat and append raw letter
+                            letters[targetIdx].mark = VMark.NONE
                             letters.add(VLetter(lc, VMark.NONE, upper))
                         } else {
-                            last.mark = VMark.CIRCUMFLEX
+                            letters[targetIdx].mark = VMark.CIRCUMFLEX
                         }
                     } else {
                         letters.add(VLetter(lc, VMark.NONE, upper))
                     }
                 }
                 'd' -> {
-                    val last = letters.lastOrNull()
-                    if (last != null && last.base == 'd') {
-                        if (last.mark == VMark.STROKE) {
-                            last.mark = VMark.NONE
+                    // Free-form Telex: look for existing 'd' in syllable (dodong -> đông, dongod -> đông, daud -> đâu)
+                    val targetIdx = letters.indexOfLast { it.base == 'd' }
+                    if (targetIdx != -1) {
+                        if (letters[targetIdx].mark == VMark.STROKE) {
+                            // Cancel stroke on repeat and append raw 'd'
+                            letters[targetIdx].mark = VMark.NONE
                             letters.add(VLetter('d', VMark.NONE, upper))
                         } else {
-                            last.mark = VMark.STROKE
+                            letters[targetIdx].mark = VMark.STROKE
                         }
                     } else {
                         letters.add(VLetter('d', VMark.NONE, upper))

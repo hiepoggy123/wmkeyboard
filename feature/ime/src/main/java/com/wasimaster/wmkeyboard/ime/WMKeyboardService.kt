@@ -7686,7 +7686,16 @@ open class WMKeyboardService : InputMethodService() {
             val original = typedActual + trailing
             val committed = display + trailing
             ic.deleteSurroundingText(original.length, 0)
-            ic.commitText(committed, 1)
+            val ss = android.text.SpannableString(committed)
+            if (display.isNotEmpty()) {
+                val span = android.text.style.SuggestionSpan(
+                    this,
+                    arrayOf(typedActual),
+                    android.text.style.SuggestionSpan.FLAG_EASY_CORRECT
+                )
+                ss.setSpan(span, 0, display.length, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            ic.commitText(ss, 1)
             previousWord = display.lowercase()
             if (isRevert) {
                 rejectedVietnameseWord = replacement

@@ -79,6 +79,43 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun telexFreeFormAndWKey() {
+        val c = VietnameseTelexComposer
+        // w cancellation for English words
+        assertEquals("row", c.composeBuffer("roww"))
+        assertEquals("draw", c.composeBuffer("draww"))
+        assertEquals("show", c.composeBuffer("showw"))
+        assertEquals("flow", c.composeBuffer("floww"))
+
+        // Free-form Telex (Unikey / EVKey / OpenKey style)
+        assertEquals("đông", c.composeBuffer("dodong"))
+        assertEquals("đông", c.composeBuffer("dongod"))
+        assertEquals("việt", c.composeBuffer("vietej"))
+        assertEquals("dương", c.composeBuffer("duongw"))
+        assertEquals("đương", c.composeBuffer("dduongw"))
+        assertEquals("đa", c.composeBuffer("dada"))
+        assertEquals("đâu", c.composeBuffer("daud"))
+
+        // OpenKey features: Standalone 'w' at start of word
+        assertEquals("ư", c.composeBuffer("w"))
+        assertEquals("ứ", c.composeBuffer("ws"))
+        assertEquals("ừ", c.composeBuffer("wf"))
+        assertEquals("ước", c.composeBuffer("woc"))
+        assertEquals("ww", c.composeBuffer("ww"))
+        assertEquals("www", c.composeBuffer("www"))
+
+        // OpenKey features: 'z' key clears tone mark
+        assertEquals("toan", c.composeBuffer("toansz"))
+        assertEquals("cho", c.composeBuffer("chowsz"))
+        assertEquals("toan", c.composeBuffer("toanz"))
+
+        // OpenKey features: 3-vowel clusters (tone on middle vowel)
+        assertEquals("xoài", c.composeBuffer("xoaif"))
+        assertEquals("khuỷu", c.composeBuffer("khuyur"))
+        assertEquals("ngoèo", c.composeBuffer("ngoeof"))
+    }
+
+    @Test
     fun telexCapitalization() {
         val c = VietnameseTelexComposer
         assertEquals("Việt", c.composeBuffer("Vieejt"))
