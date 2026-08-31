@@ -7683,6 +7683,7 @@ open class WMKeyboardService : InputMethodService() {
             } else {
                 replacement
             }
+            val original = typedActual + trailing
             val committed = display + trailing
             ic.deleteSurroundingText(original.length, 0)
             val ss = android.text.SpannableString(committed)
