@@ -136,14 +136,6 @@ internal object VietnameseEngine {
             }
             // Telex
             when (lc) {
-                'z' -> {
-                    // OpenKey standard: 'z' clears the tone mark of current syllable
-                    if (tone != VTone.NONE) {
-                        tone = VTone.NONE
-                    } else {
-                        letters.add(VLetter(lc, VMark.NONE, upper))
-                    }
-                }
                 's', 'f', 'r', 'x', 'j' -> {
                     val t = when (lc) {
                         's' -> VTone.ACUTE; 'f' -> VTone.GRAVE; 'r' -> VTone.HOOK

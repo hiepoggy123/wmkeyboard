@@ -100,9 +100,6 @@ class VietnameseComposerTest {
         assertEquals("đâu", c.composeBuffer("ddaau"))
         assertEquals("đâ", c.composeBuffer("dada"))
 
-        // OpenKey features: 'z' key clears tone mark
-        assertEquals("toan", c.composeBuffer("toansz"))
-
         // OpenKey features: 3-vowel clusters (tone on middle vowel)
         assertEquals("xoài", c.composeBuffer("xoaif"))
         assertEquals("khuỷu", c.composeBuffer("khuyur"))
