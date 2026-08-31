@@ -7696,20 +7696,16 @@ open class WMKeyboardService : InputMethodService() {
     private fun nextWordStrip(): Pair<List<String>, List<String>> {
         val engine = suggestionEngine
         val state = _uiState.value
-        if (state.secureField || state.fieldNoSuggestions ||
-            (!state.settings.suggestions && !state.settings.emojiPrediction)
+        if (engine == null || !state.settings.suggestions || state.secureField ||
+            state.fieldNoSuggestions
         ) {
             return emptyList<String>() to emptyList()
         }
-        val words = if (state.settings.suggestions && engine != null) {
-            engine
-                .suggest(composing = "", previousWord = previousWord, previousWord2 = previousWord2)
-                .filterNot { isEmojiCandidate(it) }
-        } else {
-            emptyList()
-        }
+        val (emojis, words) = engine
+            .suggest(composing = "", previousWord = previousWord, previousWord2 = previousWord2)
+            .partition { isEmojiCandidate(it) }
         return words to if (state.settings.emojiPrediction) {
-            triggerEmojiForPreviousWord().distinct()
+            (emojis + triggerEmojiForPreviousWord()).distinct()
         } else {
             emptyList()
         }
@@ -8680,7 +8676,7 @@ open class WMKeyboardService : InputMethodService() {
         // does not wait for a lexicon to have finished loading.
         refreshSnippetOffer(state)
         val engine = suggestionEngine ?: return
-        if ((!state.settings.suggestions && !state.settings.emojiPrediction) || state.secureField || state.fieldNoSuggestions) return
+        if (!state.settings.suggestions || state.secureField || state.fieldNoSuggestions) return
 
         // Inline emoji search takes over the strip entirely: word suggestions
         // for ":smi" would be noise. A bare ":" shows nothing until there is
@@ -8763,9 +8759,7 @@ open class WMKeyboardService : InputMethodService() {
                 val telexEngine = TelexAutocorrectEngine.getInstance()
                 var telexCandidates: List<String> = emptyList()
 
-                val suggested = if (!state.settings.suggestions) {
-                    emptyList()
-                } else if (state.composer.isVietnameseTelex) {
+                val suggested = if (state.composer.isVietnameseTelex) {
                     if (typed.isEmpty()) {
                         emptyList()
                     } else {
@@ -8808,16 +8802,10 @@ open class WMKeyboardService : InputMethodService() {
                         allowRerank = true,
                     )
                 }
-                // A28: a personal-dictionary shortcut or snippet typed in full offers its
-                // expansion as the top chip (e.g. "nn" → "ngủ ngon"). Prepended
-                // so it wins the primary slot; deduped against the word list.
-                val words = if (!state.settings.suggestions) {
-                    emptyList()
-                } else if (typed.isNotEmpty() && shortcutWord != null) {
-                    listOf(shortcutWord) + suggested.filterNot { w -> w == shortcutWord }
-                } else {
-                    suggested
-                }
+                // When a shortcut / snippet is defined, it is already presented
+                // as a dedicated smart chip (SnippetOfferChip / SmartChip).
+                // Keeping words as suggested prevents duplicate chips on the bar.
+                val words = suggested
                 // Next-letter distribution for smart key-hit detection. Only for
                 // plain Latin composing — conversion/transliteration IMEs commit
                 // through their own composer, where a Latin-letter nudge is wrong.
