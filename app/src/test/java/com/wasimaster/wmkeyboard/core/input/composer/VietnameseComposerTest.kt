@@ -92,9 +92,10 @@ class VietnameseComposerTest {
         assertEquals("đông", c.composeBuffer("dongod"))
         assertEquals("việt", c.composeBuffer("vietej"))
         assertEquals("dương", c.composeBuffer("duongw"))
-        assertEquals("đương", c.composeBuffer("dduongw"))
-        assertEquals("đa", c.composeBuffer("dada"))
+        assertEquals("đa", c.composeBuffer("dda"))
+        assertEquals("đa", c.composeBuffer("dad"))
         assertEquals("đâu", c.composeBuffer("daud"))
+        assertEquals("đâ", c.composeBuffer("dada"))
 
         // OpenKey features: 'z' key clears tone mark
         assertEquals("toan", c.composeBuffer("toansz"))
