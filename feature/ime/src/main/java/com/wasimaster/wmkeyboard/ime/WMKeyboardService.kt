@@ -7690,7 +7690,7 @@ open class WMKeyboardService : InputMethodService() {
             previousWord = display.lowercase()
             if (isRevert) {
                 rejectedVietnameseWord = replacement
-                userLexicon.add(replacement.lowercase())
+                userLexicon.addWord(replacement.lowercase())
             }
             lastRevertible = RevertibleCommit(
                 RevertibleCommit.Kind.AUTOCORRECT, original = original, committed = committed,
@@ -8787,9 +8787,8 @@ open class WMKeyboardService : InputMethodService() {
                     ?: snippetStore.matchTrigger(typed)?.text
                     ?: snippetStore.matchTrigger(composed)?.text
 
-                val contextBefore = listOfNotNull(previousWord2, previousWord).joinToString(" ")
                 val telexEngine = TelexAutocorrectEngine.getInstance()
-                var telexCandidates: List<String> = emptyList()
+                val telexCandidates: List<String>
 
                 val suggested = if (state.composer.isVietnameseTelex) {
                     if (typed.isEmpty()) {
