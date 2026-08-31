@@ -44,7 +44,11 @@ object TelexWhitelist {
         "vlog", "review", "unbox", "show", "live", "tour", "trip", "checkin", "selfie",
 
         // Laban Key specific whitelisted words
-        "sex", "goo", "ny"
+        "sex", "goo", "ny",
+
+        // English words with 'w'
+        "row", "show", "draw", "raw", "jaw", "view", "news", "down", "town", "brown",
+        "crown", "power", "tower", "window", "flow", "slow", "blow", "grow", "allow", "below"
     )
 
     /**
