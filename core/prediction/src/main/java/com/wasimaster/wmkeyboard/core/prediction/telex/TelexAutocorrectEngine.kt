@@ -247,7 +247,9 @@ class TelexAutocorrectEngine private constructor() {
 
     fun isWordInDictionary(word: String): Boolean {
         val clean = word.lowercase()
-        return languageModel.unigrams.containsKey(clean) || TelexWhitelist.isWhitelisted(clean)
+        return languageModel.unigrams.containsKey(clean) || 
+               TelexWhitelist.isWhitelisted(clean) || 
+               VietnameseOrthography.isValidVietnameseSyllable(clean)
     }
 
     fun isWhitelisted(word: String): Boolean {
