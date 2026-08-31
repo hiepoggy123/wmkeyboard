@@ -166,4 +166,28 @@ class TelexAutocorrectEngineTest {
         assertEquals(50, lm.getTrigramScore("trời", "thật", "buồn"))
         assertEquals(0, lm.getTrigramScore("người", "thật", "đẹp"))
     }
+
+    @Test
+    fun testBimanualDesyncCandidates() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "troif": {"word": "trời", "freq": 170},
+                "thaatj": {"word": "thật", "freq": 205},
+                "ddepj": {"word": "đẹp", "freq": 185}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+
+        val uniJson = """{"trời": 170, "thật": 205, "đẹp": 185}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // Typing swapped left-right hand "rtoif" -> desync candidates include "trời"
+        val desync1 = BimanualDesyncEngine.generateCandidates("rtoif", engine)
+        assertTrue(desync1.any { it.word == "trời" })
+
+        // Typing swapped left-right hand "htaatj" -> desync candidates include "thật"
+        val desync2 = BimanualDesyncEngine.generateCandidates("htaatj", engine)
+        assertTrue(desync2.any { it.word == "thật" })
+    }
 }

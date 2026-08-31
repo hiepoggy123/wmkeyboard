@@ -1,7 +1,5 @@
 package com.wasimaster.wmkeyboard.core.prediction.telex
 
-import com.wasimaster.wmkeyboard.core.input.composer.VietnameseTelexComposer
-
 /**
  * Bimanual Typing Desynchronization Engine.
  * Fixes keystroke transposition errors caused by speed differences between Left and Right hands.
@@ -61,10 +59,10 @@ object BimanualDesyncEngine {
             chars[i + 1] = c1
             val swappedRaw = String(chars)
 
-            // Compose with Telex Engine
-            val composed = VietnameseTelexComposer.composeBuffer(swappedRaw)
+            // Look up in Telex Trie
+            val composed = engine.trie.findWord(swappedRaw)
 
-            if (engine.isWordInDictionary(composed) || VietnameseOrthography.isValidVietnameseSyllable(composed)) {
+            if (composed != null && (engine.isWordInDictionary(composed) || VietnameseOrthography.isValidVietnameseSyllable(composed))) {
                 // Inter-hand swaps get low penalty (0.10), intra-hand gets 0.30
                 val penalty = if (isOppositeHand(c1, c2)) 0.10 else 0.30
                 val unigramScore = engine.languageModel.getUnigramScore(composed)
@@ -88,8 +86,8 @@ object BimanualDesyncEngine {
         // 2. Specialized 3-letter onset cluster desync (e.g. gnh -> ngh, nhg -> ngh)
         if (rawLower.startsWith("gnh") || rawLower.startsWith("nhg")) {
             val swappedRaw = "ngh" + rawLower.substring(3)
-            val composed = VietnameseTelexComposer.composeBuffer(swappedRaw)
-            if (engine.isWordInDictionary(composed) || VietnameseOrthography.isValidVietnameseSyllable(composed)) {
+            val composed = engine.trie.findWord(swappedRaw)
+            if (composed != null && (engine.isWordInDictionary(composed) || VietnameseOrthography.isValidVietnameseSyllable(composed))) {
                 val unigramScore = engine.languageModel.getUnigramScore(composed)
                 results.add(
                     TelexCorrectionCandidate(

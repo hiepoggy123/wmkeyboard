@@ -49,6 +49,18 @@ class TelexTrie {
         current.word = word
         current.unigramScore = unigramScore
     }
+
+    fun find(telex: String): TelexTrieNode? {
+        var current = root
+        for (char in telex) {
+            current = current.children[char] ?: return null
+        }
+        return current
+    }
+
+    fun findWord(telex: String): String? {
+        return find(telex)?.word
+    }
 }
 
 /**
@@ -268,7 +280,6 @@ class TelexAutocorrectEngine private constructor() {
      * @param previousWord Previous committed word for bigram/trigram context (e.g. "nay")
      * @param previousWord2 Second previous word for trigram context (e.g. "Hôm")
      * @param userLexicon Optional UserLexicon for dynamic user personalized learning
-     * @param userAutoFix Optional UserAutoFixStore for learned corrections
      * @param maxResults Maximum number of suggestions to return
      */
     fun correct(
@@ -276,7 +287,6 @@ class TelexAutocorrectEngine private constructor() {
         previousWord: String? = null,
         previousWord2: String? = null,
         userLexicon: UserLexicon? = null,
-        userAutoFix: com.wasimaster.wmkeyboard.core.prediction.UserAutoFixStore? = null,
         maxResults: Int = 3
     ): List<TelexCorrectionCandidate> {
         if (!isReady) return emptyList()
@@ -284,19 +294,6 @@ class TelexAutocorrectEngine private constructor() {
         val cleanInput = rawInput.trim().lowercase()
         if (cleanInput.length < 3 || cleanInput.length > 12) return emptyList()
         if (TelexWhitelist.isWhitelisted(cleanInput)) return emptyList()
-
-        // 1. Direct match from User AutoFix memory
-        userAutoFix?.getCorrection(cleanInput)?.let { learnedFix ->
-            val casedFix = applyCasing(learnedFix, rawInput)
-            return listOf(
-                TelexCorrectionCandidate(
-                    word = casedFix,
-                    telex = rawInput,
-                    penalty = 0.0,
-                    score = 99999.0
-                )
-            )
-        }
 
         val cleanPrev = previousWord?.trim()?.lowercase()
         val cleanPrev2 = previousWord2?.trim()?.lowercase()
