@@ -6708,9 +6708,11 @@ open class WMKeyboardService : InputMethodService() {
                     if (isComposedValid) {
                         composed
                     } else {
+                        val prev2 = recentWords.getOrNull(recentWords.size - 2)
                         TelexAutocorrectEngine.getInstance().correct(
                             rawInput = typed,
                             previousWord = previousWord,
+                            previousWord2 = prev2,
                             userLexicon = userLexicon,
                             maxResults = 1
                         ).firstOrNull()?.word ?: composed
@@ -8811,9 +8813,11 @@ open class WMKeyboardService : InputMethodService() {
                             listOf(composed)
                         } else {
                             telexCandidates = if (typed.length >= 3 && !isComposedValid) {
+                                val prev2 = recentSnapshot.getOrNull(recentSnapshot.size - 2)
                                 telexEngine.correct(
                                     rawInput = typed,
                                     previousWord = previousWord,
+                                    previousWord2 = prev2,
                                     userLexicon = userLexicon,
                                     maxResults = 5
                                 ).map { it.word }

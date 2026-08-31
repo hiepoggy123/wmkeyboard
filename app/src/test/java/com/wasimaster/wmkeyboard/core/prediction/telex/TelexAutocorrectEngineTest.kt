@@ -124,4 +124,46 @@ class TelexAutocorrectEngineTest {
         assertTrue(res2.isNotEmpty())
         assertEquals("thật", res2[0].word)
     }
+
+    @Test
+    fun testVietnameseOrthographyValidator() {
+        // Valid Vietnamese words
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("hôm"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("nay"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("trời"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("thật"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("đẹp"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("nghiêng"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("khuỷu"))
+
+        // Invalid phonotactics
+        org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("rtời")) // Invalid onset "rt"
+        org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("htật")) // Invalid onset "ht"
+        org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("đpe"))  // Invalid cluster "đp"
+    }
+
+    @Test
+    fun testBimanualDesyncEngineOppositeHand() {
+        // c (Left) vs h (Right) -> Opposite hand
+        assertTrue(BimanualDesyncEngine.isOppositeHand('c', 'h'))
+        assertTrue(BimanualDesyncEngine.isOppositeHand('r', 't') == false) // r and t are both Left Hand
+        assertTrue(BimanualDesyncEngine.isOppositeHand('t', 'h')) // t (Left) vs h (Right) -> Opposite hand
+        assertTrue(BimanualDesyncEngine.isOppositeHand('n', 'g')) // n (Right) vs g (Left) -> Opposite hand
+    }
+
+    @Test
+    fun testLanguageModelTrigram() {
+        val lm = TelexLanguageModel()
+        val uniJson = """{"đẹp": 900, "buồn": 300}"""
+        val biJson = """{"thật": {"đẹp": 800, "buồn": 100}}"""
+        val triJson = """{"trời thật": {"đẹp": 980, "buồn": 50}}"""
+
+        lm.loadUnigrams(uniJson)
+        lm.loadBigrams(biJson)
+        lm.loadTrigrams(triJson)
+
+        assertEquals(980, lm.getTrigramScore("trời", "thật", "đẹp"))
+        assertEquals(50, lm.getTrigramScore("trời", "thật", "buồn"))
+        assertEquals(0, lm.getTrigramScore("người", "thật", "đẹp"))
+    }
 }

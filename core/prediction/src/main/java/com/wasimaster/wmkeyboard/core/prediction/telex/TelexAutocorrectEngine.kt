@@ -93,11 +93,12 @@ class TelexProximityManager {
 }
 
 /**
- * Language Model storing Unigrams and Bigrams for Vietnamese.
+ * Language Model storing Unigrams, Bigrams, and Trigrams for Vietnamese.
  */
 class TelexLanguageModel {
     val unigrams: HashMap<String, Int> = HashMap()
     val bigrams: HashMap<String, HashMap<String, Int>> = HashMap()
+    val trigrams: HashMap<String, HashMap<String, Int>> = HashMap()
 
     fun loadUnigrams(jsonStr: String) {
         val root = Json.parseToJsonElement(jsonStr).jsonObject
@@ -118,6 +119,18 @@ class TelexLanguageModel {
         }
     }
 
+    fun loadTrigrams(jsonStr: String) {
+        val root = Json.parseToJsonElement(jsonStr).jsonObject
+        for ((prefix, element) in root) {
+            val nextWordsObj = element.jsonObject
+            val subMap = HashMap<String, Int>(nextWordsObj.size)
+            for ((w3, scoreEl) in nextWordsObj) {
+                subMap[w3] = scoreEl.jsonPrimitive.intOrNull ?: 1
+            }
+            trigrams[prefix] = subMap
+        }
+    }
+
     fun getUnigramScore(word: String): Int {
         return unigrams[word] ?: 1
     }
@@ -125,17 +138,22 @@ class TelexLanguageModel {
     fun getBigramScore(prevWord: String, currentWord: String): Int {
         return bigrams[prevWord]?.get(currentWord) ?: 0
     }
+
+    fun getTrigramScore(prevWord2: String, prevWord1: String, currentWord: String): Int {
+        return trigrams["$prevWord2 $prevWord1"]?.get(currentWord) ?: 0
+    }
 }
 
 /**
- * TELEX AUTOCORRECT ENGINE (Laban Key Principle)
+ * TELEX AUTOCORRECT ENGINE (Laban Key + OpenKey + V7 AI Model)
  *
- * Implements proximity-based error correction for Vietnamese Telex typing:
- * 1. Takes raw typing keystrokes (e.g. "yueej", with previous context "trí").
+ * Implements proximity-based and bimanual desync error correction for Vietnamese Telex typing:
+ * 1. Takes raw typing keystrokes (e.g. "yueej", "rtowfi", with previous context "trí", "Hôm nay").
  * 2. Explores valid Vietnamese syllables on the Telex Trie guided by QWERTY key proximity.
- * 3. Incorporates static Language Model (Unigram + Bigram) AND dynamic user learning (UserLexicon).
- * 4. Strictly protects exact matches (penalty == 0) so valid words are never replaced by neighbors.
- * 5. Ranks candidates and preserves original typing capitalization.
+ * 3. Incorporates Bimanual Desync Engine to fix left-right hand keystroke transposition.
+ * 4. Incorporates static Language Model (Unigram + Bigram + Trigram) AND dynamic user learning.
+ * 5. Strictly protects exact matches (penalty == 0) so valid words are never replaced by neighbors.
+ * 6. Ranks candidates and preserves original typing capitalization.
  */
 class TelexAutocorrectEngine private constructor() {
 
@@ -165,6 +183,7 @@ class TelexAutocorrectEngine private constructor() {
         private const val WEIGHT_PENALTY = 200.0        // Penalty multiplier for fat-finger keystrokes
         private const val WEIGHT_UNIGRAM = 1.0          // Base Unigram frequency weight
         private const val WEIGHT_BIGRAM = 2.5           // Context Bigram weight
+        private const val WEIGHT_TRIGRAM = 5.0          // Context Trigram weight (from V7 AI model)
         private const val WEIGHT_USER_UNIGRAM = 3.0     // Bonus weight for words learned from user
         private const val WEIGHT_USER_BIGRAM = 6.0      // Bonus weight for word pairs learned from user
         private const val MAX_PENALTY_THRESHOLD = 2.5   // Maximum allowed cumulative key distance penalty
@@ -189,6 +208,12 @@ class TelexAutocorrectEngine private constructor() {
             // 4. Bigrams
             val bigramsJson = readAsset(assets, "telex/bigrams.json")
             languageModel.loadBigrams(bigramsJson)
+
+            // 5. Trigrams (V7 AI Model)
+            try {
+                val trigramsJson = readAsset(assets, "telex/trigrams.json")
+                languageModel.loadTrigrams(trigramsJson)
+            } catch (_: Exception) {}
 
             isInitialized = true
         } catch (e: Exception) {
@@ -237,15 +262,19 @@ class TelexAutocorrectEngine private constructor() {
     /**
      * Finds the best correction candidates for a given raw keystroke buffer.
      *
-     * @param rawInput Raw keystrokes (e.g. "yueej", "trid", "caanr")
-     * @param previousWord Previous committed word for bigram context (e.g. "trí")
+     * @param rawInput Raw keystrokes (e.g. "yueej", "trid", "rtowfi")
+     * @param previousWord Previous committed word for bigram/trigram context (e.g. "nay")
+     * @param previousWord2 Second previous word for trigram context (e.g. "Hôm")
      * @param userLexicon Optional UserLexicon for dynamic user personalized learning
+     * @param userAutoFix Optional UserAutoFixStore for learned corrections
      * @param maxResults Maximum number of suggestions to return
      */
     fun correct(
         rawInput: String,
         previousWord: String? = null,
+        previousWord2: String? = null,
         userLexicon: UserLexicon? = null,
+        userAutoFix: com.wasimaster.wmkeyboard.core.prediction.UserAutoFixStore? = null,
         maxResults: Int = 3
     ): List<TelexCorrectionCandidate> {
         if (!isReady) return emptyList()
@@ -254,9 +283,60 @@ class TelexAutocorrectEngine private constructor() {
         if (cleanInput.length < 3 || cleanInput.length > 12) return emptyList()
         if (TelexWhitelist.isWhitelisted(cleanInput)) return emptyList()
 
-        val cleanPrev = previousWord?.trim()?.lowercase()
+        // 1. Direct match from User AutoFix memory
+        userAutoFix?.getCorrection(cleanInput)?.let { learnedFix ->
+            val casedFix = applyCasing(learnedFix, rawInput)
+            return listOf(
+                TelexCorrectionCandidate(
+                    word = casedFix,
+                    telex = rawInput,
+                    penalty = 0.0,
+                    score = 99999.0
+                )
+            )
+        }
 
-        // State for BFS on Trie: (Node, index, current_telex, total_penalty)
+        val cleanPrev = previousWord?.trim()?.lowercase()
+        val cleanPrev2 = previousWord2?.trim()?.lowercase()
+
+        val rawCandidates = ArrayList<TelexCorrectionCandidate>()
+
+        // 2. Bimanual Typing Desync Candidates (Left-Right hand timing errors)
+        val desyncCandidates = BimanualDesyncEngine.generateCandidates(cleanInput, this)
+        for (desync in desyncCandidates) {
+            val unicodeWord = desync.word
+            val baseUnigram = languageModel.getUnigramScore(unicodeWord)
+            var baseBigram = 0
+            var baseTrigram = 0
+            if (!cleanPrev.isNullOrEmpty()) {
+                baseBigram = languageModel.getBigramScore(cleanPrev, unicodeWord)
+                if (!cleanPrev2.isNullOrEmpty()) {
+                    baseTrigram = languageModel.getTrigramScore(cleanPrev2, cleanPrev, unicodeWord)
+                }
+            }
+            val userUnigramCount = userLexicon?.frequencyOf(unicodeWord) ?: 0
+            val userBigramCount = if (!cleanPrev.isNullOrEmpty()) {
+                userLexicon?.bigramCount(cleanPrev, unicodeWord) ?: 0
+            } else 0
+
+            val totalScore = - (desync.penalty * WEIGHT_PENALTY) +
+                    (baseUnigram * WEIGHT_UNIGRAM) +
+                    (baseBigram * WEIGHT_BIGRAM) +
+                    (baseTrigram * WEIGHT_TRIGRAM) +
+                    (userUnigramCount * WEIGHT_USER_UNIGRAM) +
+                    (userBigramCount * WEIGHT_USER_BIGRAM)
+
+            rawCandidates.add(
+                TelexCorrectionCandidate(
+                    word = applyCasing(unicodeWord, rawInput),
+                    telex = desync.telex,
+                    penalty = desync.penalty,
+                    score = totalScore
+                )
+            )
+        }
+
+        // 3. QWERTY Key Proximity Candidates (LabanKey model via Trie BFS)
         data class SearchState(
             val node: TelexTrieNode,
             val index: Int,
@@ -264,7 +344,6 @@ class TelexAutocorrectEngine private constructor() {
             val penalty: Double
         )
 
-        val rawCandidates = ArrayList<TelexCorrectionCandidate>()
         val queue = ArrayDeque<SearchState>()
         queue.add(SearchState(trie.root, 0, "", 0.0))
 
@@ -275,8 +354,12 @@ class TelexAutocorrectEngine private constructor() {
                 node.word?.let { unicodeWord ->
                     val baseUnigram = node.unigramScore
                     var baseBigram = 0
+                    var baseTrigram = 0
                     if (!cleanPrev.isNullOrEmpty()) {
                         baseBigram = languageModel.getBigramScore(cleanPrev, unicodeWord)
+                        if (!cleanPrev2.isNullOrEmpty()) {
+                            baseTrigram = languageModel.getTrigramScore(cleanPrev2, cleanPrev, unicodeWord)
+                        }
                     }
 
                     // Incorporate user learning from UserLexicon
@@ -292,6 +375,7 @@ class TelexAutocorrectEngine private constructor() {
                             (penalty * WEIGHT_PENALTY) +
                             (baseUnigram * WEIGHT_UNIGRAM) +
                             (baseBigram * WEIGHT_BIGRAM) +
+                            (baseTrigram * WEIGHT_TRIGRAM) +
                             (userUnigramCount * WEIGHT_USER_UNIGRAM) +
                             (userBigramCount * WEIGHT_USER_BIGRAM)
 
