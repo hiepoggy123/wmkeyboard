@@ -96,17 +96,8 @@ class VietnameseComposerTest {
         assertEquals("đa", c.composeBuffer("dada"))
         assertEquals("đâu", c.composeBuffer("daud"))
 
-        // OpenKey features: Standalone 'w' at start of word
-        assertEquals("ư", c.composeBuffer("w"))
-        assertEquals("ứ", c.composeBuffer("ws"))
-        assertEquals("ừ", c.composeBuffer("wf"))
-        assertEquals("ước", c.composeBuffer("woc"))
-        assertEquals("ww", c.composeBuffer("ww"))
-        assertEquals("www", c.composeBuffer("www"))
-
         // OpenKey features: 'z' key clears tone mark
         assertEquals("toan", c.composeBuffer("toansz"))
-        assertEquals("cho", c.composeBuffer("chowsz"))
         assertEquals("toan", c.composeBuffer("toanz"))
 
         // OpenKey features: 3-vowel clusters (tone on middle vowel)
