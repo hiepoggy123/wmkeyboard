@@ -2350,7 +2350,7 @@ open class WMKeyboardService : InputMethodService() {
             // typing the raw reading (pinyin letters, or kana) with no candidates.
             loadCjkConversionTables()
             withContext(Dispatchers.IO) {
-                TelexAutocorrectEngine.getInstance().initialize(assets)
+                TelexAutocorrectEngine.getInstance().initialize(assets, filesDir)
             }
             loadedDictToken = withContext(Dispatchers.Default) {
                 if (userUnlocked) DictionaryStore.stateToken(filesDir) else Int.MIN_VALUE

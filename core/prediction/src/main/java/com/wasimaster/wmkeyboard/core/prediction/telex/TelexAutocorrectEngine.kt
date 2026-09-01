@@ -2,6 +2,9 @@ package com.wasimaster.wmkeyboard.core.prediction.telex
 
 import android.content.Context
 import android.content.res.AssetManager
+import androidx.annotation.VisibleForTesting
+import com.wasimaster.wmkeyboard.core.prediction.MappedNgramPack
+import com.wasimaster.wmkeyboard.core.prediction.NgramPack
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.doubleOrNull
@@ -10,6 +13,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.BufferedReader
+import java.io.File
 import java.io.InputStreamReader
 
 /**
@@ -111,6 +115,7 @@ class TelexLanguageModel {
     val unigrams: HashMap<String, Int> = HashMap()
     val bigrams: HashMap<String, HashMap<String, Int>> = HashMap()
     val trigrams: HashMap<String, HashMap<String, Int>> = HashMap()
+    var ngramPack: NgramPack = NgramPack.EMPTY
 
     fun loadUnigrams(jsonStr: String) {
         val root = Json.parseToJsonElement(jsonStr).jsonObject
@@ -148,10 +153,14 @@ class TelexLanguageModel {
     }
 
     fun getBigramScore(prevWord: String, currentWord: String): Int {
+        val packScore = ngramPack.bigramCount(prevWord, currentWord)
+        if (packScore > 0) return packScore
         return bigrams[prevWord]?.get(currentWord) ?: 0
     }
 
     fun getTrigramScore(prevWord2: String, prevWord1: String, currentWord: String): Int {
+        val packScore = ngramPack.trigramCount(prevWord2, prevWord1, currentWord)
+        if (packScore > 0) return packScore
         return trigrams["$prevWord2 $prevWord1"]?.get(currentWord) ?: 0
     }
 }
@@ -201,8 +210,19 @@ class TelexAutocorrectEngine private constructor() {
         private const val MAX_PENALTY_THRESHOLD = 2.5   // Maximum allowed cumulative key distance penalty
     }
 
+    @VisibleForTesting
+    fun resetForTesting() {
+        trie.root.children.clear()
+        proximityManager.neighborsMap.clear()
+        languageModel.unigrams.clear()
+        languageModel.bigrams.clear()
+        languageModel.trigrams.clear()
+        languageModel.ngramPack = NgramPack.EMPTY
+        isInitialized = false
+    }
+
     @Synchronized
-    fun initialize(assets: AssetManager) {
+    fun initialize(assets: AssetManager, filesDir: File? = null) {
         if (isInitialized) return
         try {
             // 1. Syllables & Trie
@@ -217,20 +237,58 @@ class TelexAutocorrectEngine private constructor() {
             val unigramsJson = readAsset(assets, "telex/unigrams.json")
             languageModel.loadUnigrams(unigramsJson)
 
-            // 4. Bigrams
-            val bigramsJson = readAsset(assets, "telex/bigrams.json")
-            languageModel.loadBigrams(bigramsJson)
+            // 4. Binary NgramPack (.wmng) or fallback to JSON
+            var packLoaded = false
+            if (filesDir != null) {
+                val packFile = ensureBundledNgramPack(assets, filesDir)
+                if (packFile != null) {
+                    val mapped = MappedNgramPack.open(packFile)
+                    if (mapped != null) {
+                        languageModel.ngramPack = NgramPack.of(mapped)
+                        packLoaded = true
+                    }
+                }
+            }
 
-            // 5. Trigrams (V7 AI Model)
-            try {
-                val trigramsJson = readAsset(assets, "telex/trigrams.json")
-                languageModel.loadTrigrams(trigramsJson)
-            } catch (_: Exception) {}
+            if (!packLoaded) {
+                // Fallback to JSON if .wmng not available or no filesDir (e.g. test environments)
+                try {
+                    val bigramsJson = readAsset(assets, "telex/bigrams.json")
+                    languageModel.loadBigrams(bigramsJson)
+                } catch (_: Exception) {}
+
+                try {
+                    val trigramsJson = readAsset(assets, "telex/trigrams.json")
+                    languageModel.loadTrigrams(trigramsJson)
+                } catch (_: Exception) {}
+            }
 
             isInitialized = true
         } catch (e: Exception) {
             e.printStackTrace()
         }
+    }
+
+    private fun ensureBundledNgramPack(assets: AssetManager, filesDir: File): File? {
+        val dir = File(File(filesDir, "dict"), "bundled")
+        if (!dir.isDirectory && !dir.mkdirs()) return null
+        val outFile = File(dir, "telex_ngrams.wmng")
+        if (outFile.isFile && outFile.length() > 0) return outFile
+        return try {
+            val tmp = File(dir, "telex_ngrams.wmng.tmp")
+            assets.open("telex/ngrams.wmng").use { input ->
+                tmp.outputStream().use { input.copyTo(it) }
+            }
+            if (tmp.renameTo(outFile)) outFile else null
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun loadNgramPack(file: File): Boolean {
+        val mapped = MappedNgramPack.open(file) ?: return false
+        languageModel.ngramPack = NgramPack.of(mapped)
+        return true
     }
 
     fun loadSyllables(jsonStr: String) {
@@ -254,7 +312,6 @@ class TelexAutocorrectEngine private constructor() {
                 }
             }
         }
-        isInitialized = true
     }
 
     fun isWordInDictionary(word: String): Boolean {
@@ -270,7 +327,7 @@ class TelexAutocorrectEngine private constructor() {
 
     @Synchronized
     fun initialize(context: Context) {
-        initialize(context.assets)
+        initialize(context.assets, context.filesDir)
     }
 
     /**
@@ -335,20 +392,10 @@ class TelexAutocorrectEngine private constructor() {
             )
         }
 
-        // 3. QWERTY Key Proximity Candidates (LabanKey model via Trie BFS)
-        data class SearchState(
-            val node: TelexTrieNode,
-            val index: Int,
-            val currentTelex: String,
-            val penalty: Double
-        )
+        // 3. QWERTY Key Proximity Candidates (Zero-Allocation DFS)
+        val charBuffer = CharArray(16)
 
-        val queue = ArrayDeque<SearchState>()
-        queue.add(SearchState(trie.root, 0, "", 0.0))
-
-        while (queue.isNotEmpty()) {
-            val (node, idx, currStr, penalty) = queue.removeFirst()
-
+        fun dfs(node: TelexTrieNode, idx: Int, currentPenalty: Double) {
             if (idx == cleanInput.length) {
                 node.word?.let { unicodeWord ->
                     val baseUnigram = node.unigramScore
@@ -368,10 +415,10 @@ class TelexAutocorrectEngine private constructor() {
                     } else 0
 
                     // Massive bonus if exact match (penalty == 0.0)
-                    val exactBonus = if (penalty < 0.001) EXACT_MATCH_BONUS else 0.0
+                    val exactBonus = if (currentPenalty < 0.001) EXACT_MATCH_BONUS else 0.0
 
                     val totalScore = exactBonus -
-                            (penalty * WEIGHT_PENALTY) +
+                            (currentPenalty * WEIGHT_PENALTY) +
                             (baseUnigram * WEIGHT_UNIGRAM) +
                             (baseBigram * WEIGHT_BIGRAM) +
                             (baseTrigram * WEIGHT_TRIGRAM) +
@@ -384,13 +431,13 @@ class TelexAutocorrectEngine private constructor() {
                     rawCandidates.add(
                         TelexCorrectionCandidate(
                             word = casedWord,
-                            telex = currStr,
-                            penalty = penalty,
+                            telex = String(charBuffer, 0, idx),
+                            penalty = currentPenalty,
                             score = totalScore
                         )
                     )
                 }
-                continue
+                return
             }
 
             val targetChar = cleanInput[idx]
@@ -399,23 +446,19 @@ class TelexAutocorrectEngine private constructor() {
             for (neighbor in neighbors) {
                 val nextChar = neighbor.key
                 val stepPenalty = neighbor.penalty
-                val nextTotalPenalty = penalty + stepPenalty
+                val nextTotalPenalty = currentPenalty + stepPenalty
 
                 if (nextTotalPenalty <= MAX_PENALTY_THRESHOLD) {
                     val nextNode = node.children[nextChar]
                     if (nextNode != null) {
-                        queue.add(
-                            SearchState(
-                                node = nextNode,
-                                index = idx + 1,
-                                currentTelex = currStr + nextChar,
-                                penalty = nextTotalPenalty
-                            )
-                        )
+                        charBuffer[idx] = nextChar
+                        dfs(nextNode, idx + 1, nextTotalPenalty)
                     }
                 }
             }
         }
+
+        dfs(trie.root, 0, 0.0)
 
         if (rawCandidates.isEmpty()) return emptyList()
 

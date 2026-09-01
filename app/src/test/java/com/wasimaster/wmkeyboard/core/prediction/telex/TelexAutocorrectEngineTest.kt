@@ -3,9 +3,16 @@ package com.wasimaster.wmkeyboard.core.prediction.telex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
+import java.io.File
 
 class TelexAutocorrectEngineTest {
+
+    @Before
+    fun setUp() {
+        TelexAutocorrectEngine.getInstance().resetForTesting()
+    }
 
     @Test
     fun testTrieStructure() {
@@ -189,5 +196,51 @@ class TelexAutocorrectEngineTest {
         // Typing swapped left-right hand "htaatj" -> desync candidates include "thật"
         val desync2 = BimanualDesyncEngine.generateCandidates("htaatj", engine)
         assertTrue(desync2.any { it.word == "thật" })
+    }
+
+    @Test
+    fun testNewVowelCores() {
+        // The 6 newly added core vowel combinations
+        assertTrue("ngoài should be valid", VietnameseOrthography.isValidVietnameseSyllable("ngoài"))
+        assertTrue("xoay should be valid", VietnameseOrthography.isValidVietnameseSyllable("xoay"))
+        assertTrue("khuấy should be valid", VietnameseOrthography.isValidVietnameseSyllable("khuấy"))
+        assertTrue("nhiều should be valid", VietnameseOrthography.isValidVietnameseSyllable("nhiều"))
+        assertTrue("yêu should be valid", VietnameseOrthography.isValidVietnameseSyllable("yêu"))
+        assertTrue("chuối should be valid", VietnameseOrthography.isValidVietnameseSyllable("chuối"))
+    }
+
+    @Test
+    fun testNgramPackBinaryLookup() {
+        val file = File("src/main/assets/telex/ngrams.wmng")
+        if (file.exists()) {
+            val engine = TelexAutocorrectEngine.getInstance()
+            assertTrue("loadNgramPack should succeed", engine.loadNgramPack(file))
+            assertEquals(222, engine.languageModel.getBigramScore("hôm", "nay"))
+            assertEquals(216, engine.languageModel.getBigramScore("người", "việt"))
+            assertEquals(100, engine.languageModel.getTrigramScore("trời", "quang", "mây"))
+        }
+    }
+
+    @Test
+    fun testDfsProximityCandidateSearch() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """{"tueej": {"word": "tuệ", "freq": 300}}"""
+        engine.loadSyllables(syllablesJson)
+
+        val proxJson = """
+            {
+                "r": {
+                    "neighbors": [
+                        {"key": "r", "distance": 0.0, "penalty": 0.0},
+                        {"key": "t", "distance": 1.0, "penalty": 1.2}
+                    ]
+                }
+            }
+        """.trimIndent()
+        engine.proximityManager.loadFromJson(proxJson)
+
+        // Typing "rueej" with typo 'r' near 't' should be corrected to "tuệ" via DFS
+        val results = engine.correct("rueej")
+        assertTrue("DFS should find candidate tuệ", results.any { it.word == "tuệ" })
     }
 }
