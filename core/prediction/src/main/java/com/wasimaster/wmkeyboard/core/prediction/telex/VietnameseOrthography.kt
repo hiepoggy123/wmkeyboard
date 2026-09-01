@@ -28,11 +28,11 @@ object VietnameseOrthography {
         // Đơn
         "a", "ă", "â", "e", "ê", "i", "o", "ô", "ơ", "u", "ư", "y",
         // Đôi & Ba
-        "ai", "ao", "au", "ay", "ây",
+        "ai", "ao", "au", "ay", "ây", "âu",
         "eo", "êu",
         "ia", "iê", "iu", "iêu",
         "oa", "oai", "oay", "oă", "oe", "oi", "ôi", "ơi",
-        "ua", "uâ", "uay", "uô", "uôi", "uơ", "ui", "uy", "uya", "uyê", "uyu",
+        "ua", "uâ", "uay", "uây", "uô", "uôi", "uơ", "uê", "ui", "uy", "uya", "uyê", "uyu",
         "ưa", "ươ", "ưu", "ươi", "ươu",
         "ya", "yê", "yêu"
     )
