@@ -30,6 +30,7 @@ import android.os.SystemClock
 import android.text.InputType
 import android.text.SpannableString
 import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.text.style.SuggestionSpan
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
@@ -152,6 +153,7 @@ import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.prediction.WordSource
 import com.wasimaster.wmkeyboard.core.prediction.telex.TelexAutocorrectEngine
+import com.wasimaster.wmkeyboard.core.prediction.telex.VietnameseOrthography
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
@@ -414,6 +416,11 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
  * into [onKey]/[onSuggestion]/[onEmoji]/etc.
  */
 open class WMKeyboardService : InputMethodService() {
+
+    companion object {
+        private const val COLOR_AUTOCORRECT_BLUE = 0xFF1E88E5.toInt() // 🔵 Cyan / Deep Blue (#1E88E5)
+        private const val COLOR_LEARNED_GREEN = 0xFF10B981.toInt()   // 🟢 Emerald Green (#10B981)
+    }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var lifecycleOwner: KeyboardViewLifecycleOwner
@@ -5979,7 +5986,7 @@ open class WMKeyboardService : InputMethodService() {
         // Whether this ends up a newline or an editor action, it ends the
         // word the same way a space does.
         recordStat { onSeparator(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
-        commitComposing(ic, autocorrect = false, expandPatterns = true)
+        commitComposing(ic, autocorrect = state.settings.autocorrect, expandPatterns = true)
         // Same as the spacebar: a newline typed at a caret parked inside an
         // expansion would break the text the snippet just inserted.
         if (swallowTerminatorAfterCommit) {
@@ -6768,16 +6775,28 @@ open class WMKeyboardService : InputMethodService() {
             pendingCorrectionOffer = offered
         }
 
+        val isLearnedHabit = !state.composer.isConversion && !gluedToWord && (corrected == null) && learningAllowed && shouldMarkAsLearned(output, state)
+
         if (revertible != null && revertible.original.isNotEmpty() && output.isNotEmpty()) {
             val spannable = SpannableString(output)
             try {
-                val span = SuggestionSpan(
-                    this,
-                    arrayOf(revertible.original),
-                    SuggestionSpan.FLAG_AUTO_CORRECTION,
+                spannable.setSpan(
+                    ForegroundColorSpan(COLOR_AUTOCORRECT_BLUE),
+                    0,
+                    output.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
-                val spanEnd = minOf(output.length, revertible.committed.length)
-                spannable.setSpan(span, 0, spanEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            } catch (_: Throwable) {}
+            ic.commitText(spannable, 1)
+        } else if (isLearnedHabit && output.isNotEmpty()) {
+            val spannable = SpannableString(output)
+            try {
+                spannable.setSpan(
+                    ForegroundColorSpan(COLOR_LEARNED_GREEN),
+                    0,
+                    output.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
             } catch (_: Throwable) {}
             ic.commitText(spannable, 1)
         } else {
@@ -6806,6 +6825,17 @@ open class WMKeyboardService : InputMethodService() {
             )
         }
         return true
+    }
+
+    private fun shouldMarkAsLearned(output: String, state: KeyboardUiState): Boolean {
+        val isVietnamese = state.composer.isVietnameseTelex || state.language.id.startsWith("vi")
+        val cleaned = output.trim { !WordContext.isWordChar(it) }
+        if (cleaned.isEmpty()) return false
+        return if (isVietnamese) {
+            isKnownWord(cleaned) || VietnameseOrthography.isValidVietnameseSyllable(cleaned)
+        } else {
+            isKnownWord(cleaned)
+        }
     }
 
     /**
@@ -7840,11 +7870,21 @@ open class WMKeyboardService : InputMethodService() {
         // gate exists to keep out.
         var previousKnown = previous == null || isKnownWord(previous)
         var beforePreviousKnown = beforePrevious == null || isKnownWord(beforePrevious)
+        val isVietnamese = state.composer.isVietnameseTelex || state.language.id.startsWith("vi")
         for (part in word.split(' ')) {
             // Combining marks are part of the word, not a boundary: trimming
             // on isLetter alone learns Bengali হয়েছে as হয়েছ. See WordContext.
             val cleaned = part.trim { !WordContext.isWordChar(it) }
             if (cleaned.isEmpty()) continue
+
+            // Vietnamese Phonotactic Guard: Do not learn invalid syllables into userLexicon or waiting room
+            if (isVietnamese) {
+                val isValidVi = isKnownWord(cleaned) || VietnameseOrthography.isValidVietnameseSyllable(cleaned)
+                if (!isValidVi) {
+                    continue
+                }
+            }
+
             notePerAppWord(cleaned)
             // Attribute the word to whichever mixed language owns it, so the
             // secondary-dictionary weighting tracks the user's real habit.
