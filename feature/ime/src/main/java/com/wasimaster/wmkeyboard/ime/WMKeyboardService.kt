@@ -30,7 +30,6 @@ import android.os.SystemClock
 import android.text.InputType
 import android.text.SpannableString
 import android.text.Spanned
-import android.text.style.ForegroundColorSpan
 import android.text.style.SuggestionSpan
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
@@ -6770,28 +6769,16 @@ open class WMKeyboardService : InputMethodService() {
             pendingCorrectionOffer = offered
         }
 
-        val isLearnedHabit = !state.composer.isConversion && !gluedToWord && (corrected == null) && learningAllowed && shouldMarkAsLearned(output, state)
-
         if (revertible != null && revertible.original.isNotEmpty() && output.isNotEmpty()) {
             val spannable = SpannableString(output)
             try {
-                spannable.setSpan(
-                    ForegroundColorSpan(COLOR_AUTOCORRECT_BLUE),
-                    0,
-                    output.length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+                val span = SuggestionSpan(
+                    this,
+                    arrayOf(revertible.original),
+                    SuggestionSpan.FLAG_AUTO_CORRECTION,
                 )
-            } catch (_: Throwable) {}
-            ic.commitText(spannable, 1)
-        } else if (isLearnedHabit && output.isNotEmpty()) {
-            val spannable = SpannableString(output)
-            try {
-                spannable.setSpan(
-                    ForegroundColorSpan(COLOR_LEARNED_GREEN),
-                    0,
-                    output.length,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
+                val spanEnd = minOf(output.length, revertible.committed.length)
+                spannable.setSpan(span, 0, spanEnd, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             } catch (_: Throwable) {}
             ic.commitText(spannable, 1)
         } else {
@@ -6820,17 +6807,6 @@ open class WMKeyboardService : InputMethodService() {
             )
         }
         return true
-    }
-
-    private fun shouldMarkAsLearned(output: String, state: KeyboardUiState): Boolean {
-        val isVietnamese = state.composer.isVietnameseTelex || state.language.id.startsWith("vi")
-        val cleaned = output.trim { !WordContext.isWordChar(it) }
-        if (cleaned.isEmpty()) return false
-        return if (isVietnamese) {
-            isKnownWord(cleaned) || VietnameseOrthography.isValidVietnameseSyllable(cleaned)
-        } else {
-            isKnownWord(cleaned)
-        }
     }
 
     /**
@@ -17501,9 +17477,6 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     companion object {
-        private const val COLOR_AUTOCORRECT_BLUE = 0xFF1E88E5.toInt() // 🔵 Cyan / Deep Blue (#1E88E5)
-        private const val COLOR_LEARNED_GREEN = 0xFF10B981.toInt()   // 🟢 Emerald Green (#10B981)
-
         /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
         private const val MIN_HAPTIC_GAP_MS = 45L
 

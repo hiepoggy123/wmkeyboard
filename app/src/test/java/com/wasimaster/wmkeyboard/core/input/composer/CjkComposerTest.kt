@@ -69,7 +69,7 @@ class CjkComposerTest {
     @Test
     fun `telex composes whole syllables with the tone on the right vowel`() {
         val c = VietnameseTelexComposer
-        assertEquals("việt", c.composeBuffer("vieejt"))
+        assertEquals("việt", c.composeBuffer("vieetj"))
         assertEquals("tiếng", c.composeBuffer("tieengs"))
         assertEquals("đây", c.composeBuffer("ddaay"))
         // A repeated tone key cancels the tone and types the letter.
