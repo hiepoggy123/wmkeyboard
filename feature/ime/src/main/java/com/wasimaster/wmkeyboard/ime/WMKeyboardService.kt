@@ -417,11 +417,6 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
  */
 open class WMKeyboardService : InputMethodService() {
 
-    companion object {
-        private const val COLOR_AUTOCORRECT_BLUE = 0xFF1E88E5.toInt() // 🔵 Cyan / Deep Blue (#1E88E5)
-        private const val COLOR_LEARNED_GREEN = 0xFF10B981.toInt()   // 🟢 Emerald Green (#10B981)
-    }
-
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private lateinit var lifecycleOwner: KeyboardViewLifecycleOwner
 
@@ -17506,6 +17501,9 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     companion object {
+        private const val COLOR_AUTOCORRECT_BLUE = 0xFF1E88E5.toInt() // 🔵 Cyan / Deep Blue (#1E88E5)
+        private const val COLOR_LEARNED_GREEN = 0xFF10B981.toInt()   // 🟢 Emerald Green (#10B981)
+
         /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
         private const val MIN_HAPTIC_GAP_MS = 45L
 
