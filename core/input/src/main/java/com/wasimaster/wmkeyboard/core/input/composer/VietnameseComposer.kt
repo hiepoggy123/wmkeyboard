@@ -142,7 +142,7 @@ internal object VietnameseEngine {
                         'x' -> VTone.TILDE; else -> VTone.DOT
                     }
                     // Telex tone keys (s, f, r, x, j) MUST be trailing at the end of the syllable
-                    val isTrailingTone = (idx until raw.length).all { raw[it].lowercaseChar() in "sfrxj" }
+                    val isTrailingTone = (idx until raw.length).all { raw[it].lowercaseChar() in "sfrxjw" }
                     if (hasVowel() && isTrailingTone) {
                         // Repeating the tone key cancels it and types the letter.
                         if (tone == t) { tone = VTone.NONE; letters.add(VLetter(lc, VMark.NONE, upper)) }
