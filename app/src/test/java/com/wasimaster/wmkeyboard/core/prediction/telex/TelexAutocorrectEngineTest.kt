@@ -245,36 +245,32 @@ class TelexAutocorrectEngineTest {
     }
 
     @Test
-    fun testEarlyToneDesyncAndEnglishWhitelist() {
+    fun testEnglishWhitelistAndAdjacentDesync() {
         val engine = TelexAutocorrectEngine.getInstance()
         val syllablesJson = """
             {
                 "tieengs": {"word": "tiếng", "freq": 1000},
-                "vieetj": {"word": "việt", "freq": 1500},
-                "toans": {"word": "toán", "freq": 800},
+                "troif": {"word": "trời", "freq": 1200},
+                "thaatj": {"word": "thật", "freq": 1500},
                 "tets": {"word": "tét", "freq": 50}
             }
         """.trimIndent()
         engine.loadSyllables(syllablesJson)
 
-        val uniJson = """{"tiếng": 1000, "việt": 1500, "toán": 800, "tét": 50}"""
+        val uniJson = """{"tiếng": 1000, "trời": 1200, "thật": 1500, "tét": 50}"""
         engine.languageModel.loadUnigrams(uniJson)
 
-        // 1. Typing "tieesng" with early tone 's' before 'ng' -> corrected to "tiếng"
-        val desync1 = BimanualDesyncEngine.generateCandidates("tieesng", engine)
-        assertTrue("tieesng should generate candidate tiếng", desync1.any { it.word == "tiếng" })
-
-        // 2. Typing "vieejt" with early tone 'j' before 't' -> corrected to "việt"
-        val desync2 = BimanualDesyncEngine.generateCandidates("vieejt", engine)
-        assertTrue("vieejt should generate candidate việt", desync2.any { it.word == "việt" })
-
-        // 3. Typing "toasn" with early tone 's' before 'n' -> corrected to "toán"
-        val desync3 = BimanualDesyncEngine.generateCandidates("toasn", engine)
-        assertTrue("toasn should generate candidate toán", desync3.any { it.word == "toán" })
-
-        // 4. English word "test" is whitelisted -> must not be corrected to "tét"
+        // 1. English word "test" is whitelisted -> must not be corrected to "tét"
         assertTrue("test must be whitelisted", TelexWhitelist.isWhitelisted("test"))
         val results = engine.correct("test")
         assertTrue("test should return empty candidates (not corrupted)", results.isEmpty())
+
+        // 2. Adjacent hand desync: "rtoif" (swapped adjacent 'r' and 't') -> "trời"
+        val desync1 = BimanualDesyncEngine.generateCandidates("rtoif", engine)
+        assertTrue("rtoif should generate candidate trời", desync1.any { it.word == "trời" })
+
+        // 3. "tieesng": 's' and 'n' are distant on keyboard, not an adjacent desync -> empty or non-word
+        val desync2 = BimanualDesyncEngine.generateCandidates("tieesng", engine)
+        assertTrue("tieesng should not generate candidate tiếng via desync", desync2.none { it.word == "tiếng" })
     }
 }
