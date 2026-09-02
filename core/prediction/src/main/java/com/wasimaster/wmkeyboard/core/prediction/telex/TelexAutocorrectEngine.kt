@@ -293,24 +293,11 @@ class TelexAutocorrectEngine private constructor() {
 
     fun loadSyllables(jsonStr: String) {
         val root = Json.parseToJsonElement(jsonStr).jsonObject
-        val tones = charArrayOf('s', 'f', 'r', 'x', 'j')
-        val vowels = "aeiouyw"
         for ((telex, element) in root) {
             val obj = element.jsonObject
             val word = obj["word"]?.jsonPrimitive?.content ?: continue
             val freq = obj["freq"]?.jsonPrimitive?.intOrNull ?: 1
             trie.insert(telex, word, freq)
-
-            // If tone is at the end (e.g. "thaatj"), also insert variation with tone right after vowels (e.g. "thaajt")
-            if (telex.length >= 3 && telex.last() in tones) {
-                val toneChar = telex.last()
-                val body = telex.dropLast(1)
-                val lastVowelIdx = body.indexOfLast { it in vowels }
-                if (lastVowelIdx != -1 && lastVowelIdx < body.lastIndex) {
-                    val altTelex = body.substring(0, lastVowelIdx + 1) + toneChar + body.substring(lastVowelIdx + 1)
-                    trie.insert(altTelex, word, freq)
-                }
-            }
         }
     }
 

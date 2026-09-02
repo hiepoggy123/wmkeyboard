@@ -60,11 +60,28 @@ class VietnameseComposerTest {
     @Test
     fun telexFullSyllables() {
         val c = VietnameseTelexComposer
-        assertEquals("việt", c.composeBuffer("vieejt"))
+        assertEquals("việt", c.composeBuffer("vieetj"))
         assertEquals("tiếng", c.composeBuffer("tieengs"))
         assertEquals("đây", c.composeBuffer("ddaay"))
         assertEquals("nước", c.composeBuffer("nuocsw"))
         assertEquals("quả", c.composeBuffer("quar"))
+    }
+
+    @Test
+    fun telexEnglishWordsNotCorrupted() {
+        val c = VietnameseTelexComposer
+        // Tone keys inside the word (before consonants) MUST NOT turn English into Vietnamese
+        assertEquals("test", c.composeBuffer("test"))
+        assertEquals("best", c.composeBuffer("best"))
+        assertEquals("rest", c.composeBuffer("rest"))
+        assertEquals("text", c.composeBuffer("text"))
+        assertEquals("fast", c.composeBuffer("fast"))
+        assertEquals("first", c.composeBuffer("first"))
+        assertEquals("post", c.composeBuffer("post"))
+        assertEquals("cost", c.composeBuffer("cost"))
+        assertEquals("just", c.composeBuffer("just"))
+        assertEquals("cast", c.composeBuffer("cast"))
+        assertEquals("tiêsng", c.composeBuffer("tieesng"))
     }
 
     @Test
@@ -109,7 +126,7 @@ class VietnameseComposerTest {
     @Test
     fun telexCapitalization() {
         val c = VietnameseTelexComposer
-        assertEquals("Việt", c.composeBuffer("Vieejt"))
+        assertEquals("Việt", c.composeBuffer("Vieetj"))
         assertEquals("Tiếng", c.composeBuffer("Tieengs"))
         assertEquals("ĐÂY", c.composeBuffer("DDAAY"))
     }

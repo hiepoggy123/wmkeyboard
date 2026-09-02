@@ -100,7 +100,7 @@ internal object VietnameseEngine {
         fun toggleTone(t: VTone) { tone = if (tone == t) VTone.NONE else t }
         fun hasVowel() = letters.any { isVowel(it.base) }
 
-        for (ch in raw) {
+        for ((idx, ch) in raw.withIndex()) {
             val upper = ch.isUpperCase()
             val lc = ch.lowercaseChar()
             if (vni) {
@@ -141,7 +141,9 @@ internal object VietnameseEngine {
                         's' -> VTone.ACUTE; 'f' -> VTone.GRAVE; 'r' -> VTone.HOOK
                         'x' -> VTone.TILDE; else -> VTone.DOT
                     }
-                    if (hasVowel()) {
+                    // Telex tone keys (s, f, r, x, j) MUST be trailing at the end of the syllable
+                    val isTrailingTone = (idx until raw.length).all { raw[it].lowercaseChar() in "sfrxj" }
+                    if (hasVowel() && isTrailingTone) {
                         // Repeating the tone key cancels it and types the letter.
                         if (tone == t) { tone = VTone.NONE; letters.add(VLetter(lc, VMark.NONE, upper)) }
                         else tone = t

@@ -243,4 +243,38 @@ class TelexAutocorrectEngineTest {
         val results = engine.correct("rueej")
         assertTrue("DFS should find candidate tuệ", results.any { it.word == "tuệ" })
     }
+
+    @Test
+    fun testEarlyToneDesyncAndEnglishWhitelist() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "tieengs": {"word": "tiếng", "freq": 1000},
+                "vieetj": {"word": "việt", "freq": 1500},
+                "toans": {"word": "toán", "freq": 800},
+                "tets": {"word": "tét", "freq": 50}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+
+        val uniJson = """{"tiếng": 1000, "việt": 1500, "toán": 800, "tét": 50}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // 1. Typing "tieesng" with early tone 's' before 'ng' -> corrected to "tiếng"
+        val desync1 = BimanualDesyncEngine.generateCandidates("tieesng", engine)
+        assertTrue("tieesng should generate candidate tiếng", desync1.any { it.word == "tiếng" })
+
+        // 2. Typing "vieejt" with early tone 'j' before 't' -> corrected to "việt"
+        val desync2 = BimanualDesyncEngine.generateCandidates("vieejt", engine)
+        assertTrue("vieejt should generate candidate việt", desync2.any { it.word == "việt" })
+
+        // 3. Typing "toasn" with early tone 's' before 'n' -> corrected to "toán"
+        val desync3 = BimanualDesyncEngine.generateCandidates("toasn", engine)
+        assertTrue("toasn should generate candidate toán", desync3.any { it.word == "toán" })
+
+        // 4. English word "test" is whitelisted -> must not be corrected to "tét"
+        assertTrue("test must be whitelisted", TelexWhitelist.isWhitelisted("test"))
+        val results = engine.correct("test")
+        assertTrue("test should return empty candidates (not corrupted)", results.isEmpty())
+    }
 }

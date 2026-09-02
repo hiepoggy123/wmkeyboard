@@ -100,6 +100,35 @@ object BimanualDesyncEngine {
             }
         }
 
+        // 3. Early Tone Placement Desync (e.g. tieesng -> tieengs, toasn -> toans, vieejt -> vieetj, thaajt -> thaatj)
+        val tones = charArrayOf('s', 'f', 'r', 'x', 'j')
+        val codaChars = hashSetOf('c', 'g', 'h', 'm', 'n', 'p', 't')
+        for (i in 0 until chars.size - 1) {
+            val ch = chars[i]
+            if (ch in tones) {
+                val rest = rawLower.substring(i + 1)
+                if (rest.all { it in codaChars }) {
+                    val canonical = rawLower.substring(0, i) + rest + ch
+                    val composed = engine.trie.findWord(canonical)
+                    if (composed != null && (engine.isWordInDictionary(composed) || VietnameseOrthography.isValidVietnameseSyllable(composed))) {
+                        if (results.none { it.word == composed && it.telex == canonical }) {
+                            val unigramScore = engine.languageModel.getUnigramScore(composed)
+                            val penalty = 0.15
+                            val score = unigramScore.toDouble() / (1.0 + penalty * 5.0)
+                            results.add(
+                                TelexCorrectionCandidate(
+                                    word = composed,
+                                    telex = canonical,
+                                    penalty = penalty,
+                                    score = score
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         return results
     }
 }
