@@ -82,11 +82,20 @@ class VietnameseComposerTest {
         assertEquals("just", c.composeBuffer("just"))
         assertEquals("cast", c.composeBuffer("cast"))
         assertEquals("tiêsng", c.composeBuffer("tieesng"))
+        // Multi-vowel / foreign words must not be corrupted
+        assertEquals("telex", c.composeBuffer("telex"))
+        assertEquals("dad", c.composeBuffer("dad"))
+        assertEquals("dead", c.composeBuffer("dead"))
+        assertEquals("did", c.composeBuffer("did"))
+        assertEquals("relax", c.composeBuffer("relax"))
+        assertEquals("complex", c.composeBuffer("complex"))
+        assertEquals("inbox", c.composeBuffer("inbox"))
     }
 
     @Test
     fun telexToneAndMarkCancellation() {
         val c = VietnameseTelexComposer
+        // Repeating a tone key cancels it and types the letter
         assertEquals("as", c.composeBuffer("ass"))
         assertEquals("af", c.composeBuffer("aff"))
         assertEquals("dd", c.composeBuffer("ddd"))
@@ -104,18 +113,11 @@ class VietnameseComposerTest {
         assertEquals("show", c.composeBuffer("showw"))
         assertEquals("flow", c.composeBuffer("floww"))
 
-        // Free-form Telex (Unikey / EVKey / OpenKey style)
-        assertEquals("đông", c.composeBuffer("dodong"))
-        assertEquals("đông", c.composeBuffer("dongod"))
-        assertEquals("việt", c.composeBuffer("vietej"))
+        // Canonical Telex words
         assertEquals("dương", c.composeBuffer("duongw"))
         assertEquals("đương", c.composeBuffer("dduongw"))
         assertEquals("đa", c.composeBuffer("dda"))
-        assertEquals("đa", c.composeBuffer("dad"))
-        assertEquals("đau", c.composeBuffer("daud"))
-        assertEquals("đâu", c.composeBuffer("daaud"))
         assertEquals("đâu", c.composeBuffer("ddaau"))
-        assertEquals("đâ", c.composeBuffer("dada"))
 
         // OpenKey features: 3-vowel clusters (tone on middle vowel)
         assertEquals("xoài", c.composeBuffer("xoaif"))

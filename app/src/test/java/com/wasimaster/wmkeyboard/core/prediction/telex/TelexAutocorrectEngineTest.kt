@@ -252,12 +252,13 @@ class TelexAutocorrectEngineTest {
                 "tieengs": {"word": "tiếng", "freq": 1000},
                 "troif": {"word": "trời", "freq": 1200},
                 "thaatj": {"word": "thật", "freq": 1500},
+                "ddos": {"word": "đó", "freq": 2000},
                 "tets": {"word": "tét", "freq": 50}
             }
         """.trimIndent()
         engine.loadSyllables(syllablesJson)
 
-        val uniJson = """{"tiếng": 1000, "trời": 1200, "thật": 1500, "tét": 50}"""
+        val uniJson = """{"tiếng": 1000, "trời": 1200, "thật": 1500, "đó": 2000, "tét": 50}"""
         engine.languageModel.loadUnigrams(uniJson)
 
         // 1. English word "test" is whitelisted -> must not be corrected to "tét"
@@ -269,8 +270,12 @@ class TelexAutocorrectEngineTest {
         val desync1 = BimanualDesyncEngine.generateCandidates("rtoif", engine)
         assertTrue("rtoif should generate candidate trời", desync1.any { it.word == "trời" })
 
-        // 3. "tieesng": 's' and 'n' are distant on keyboard, not an adjacent desync -> empty or non-word
-        val desync2 = BimanualDesyncEngine.generateCandidates("tieesng", engine)
-        assertTrue("tieesng should not generate candidate tiếng via desync", desync2.none { it.word == "tiếng" })
+        // 3. Adjacent hand desync: "dods" (swapped adjacent 'o' and 'd') -> "đó"
+        val desync2 = BimanualDesyncEngine.generateCandidates("dods", engine)
+        assertTrue("dods should generate candidate đó", desync2.any { it.word == "đó" })
+
+        // 4. "tieesng": 's' and 'n' are distant on keyboard, not an adjacent desync -> empty or non-word
+        val desync3 = BimanualDesyncEngine.generateCandidates("tieesng", engine)
+        assertTrue("tieesng should not generate candidate tiếng via desync", desync3.none { it.word == "tiếng" })
     }
 }

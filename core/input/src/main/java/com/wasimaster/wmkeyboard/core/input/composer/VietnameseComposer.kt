@@ -99,6 +99,15 @@ internal object VietnameseEngine {
 
         fun toggleTone(t: VTone) { tone = if (tone == t) VTone.NONE else t }
         fun hasVowel() = letters.any { isVowel(it.base) }
+        fun hasValidVowelCluster(): Boolean {
+            val vIndices = letters.indices.filter { isVowel(letters[it].base) }
+            if (vIndices.isEmpty()) return false
+            if (vIndices.size == 1) return true
+            for (i in 0 until vIndices.size - 1) {
+                if (vIndices[i + 1] != vIndices[i] + 1) return false
+            }
+            return true
+        }
 
         for ((idx, ch) in raw.withIndex()) {
             val upper = ch.isUpperCase()
@@ -106,23 +115,23 @@ internal object VietnameseEngine {
             if (vni) {
                 when (lc) {
                     '1' -> {
-                        if (hasVowel()) toggleTone(VTone.ACUTE)
+                        if (hasValidVowelCluster()) toggleTone(VTone.ACUTE)
                         continue
                     }
                     '2' -> {
-                        if (hasVowel()) toggleTone(VTone.GRAVE)
+                        if (hasValidVowelCluster()) toggleTone(VTone.GRAVE)
                         continue
                     }
                     '3' -> {
-                        if (hasVowel()) toggleTone(VTone.HOOK)
+                        if (hasValidVowelCluster()) toggleTone(VTone.HOOK)
                         continue
                     }
                     '4' -> {
-                        if (hasVowel()) toggleTone(VTone.TILDE)
+                        if (hasValidVowelCluster()) toggleTone(VTone.TILDE)
                         continue
                     }
                     '5' -> {
-                        if (hasVowel()) toggleTone(VTone.DOT)
+                        if (hasValidVowelCluster()) toggleTone(VTone.DOT)
                         continue
                     }
                     '0' -> { tone = VTone.NONE; continue }
@@ -143,7 +152,7 @@ internal object VietnameseEngine {
                     }
                     // Telex tone keys (s, f, r, x, j) MUST be trailing at the end of the syllable
                     val isTrailingTone = (idx until raw.length).all { raw[it].lowercaseChar() in "sfrxjw" }
-                    if (hasVowel() && isTrailingTone) {
+                    if (hasValidVowelCluster() && isTrailingTone) {
                         // Repeating the tone key cancels it and types the letter.
                         if (tone == t) { tone = VTone.NONE; letters.add(VLetter(lc, VMark.NONE, upper)) }
                         else tone = t
@@ -156,8 +165,8 @@ internal object VietnameseEngine {
                     val uIdx = letters.indexOfLast { it.base == 'u' }
                     val oIdx = letters.indexOfLast { it.base == 'o' }
                     if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1) {
+                        // Repeating 'w' on existing ươ toggles it back to uo and appends 'w'
                         if (letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN) {
-                            // Repeating 'w' on ươ cancels the horn and appends 'w' -> uow!
                             letters[uIdx].mark = VMark.NONE
                             letters[oIdx].mark = VMark.NONE
                             letters.add(VLetter('w', VMark.NONE, upper))
@@ -166,15 +175,12 @@ internal object VietnameseEngine {
                             letters[oIdx].mark = VMark.HORN
                         }
                     } else {
-                        // Check if previous a, o, or u has mark:
+                        // Check if repeating 'w' on an already marked horn/breve vowel:
                         val markedVowelIdx = letters.indexOfLast {
                             (it.base == 'a' && it.mark == VMark.BREVE) ||
                             ((it.base == 'o' || it.base == 'u') && it.mark == VMark.HORN)
                         }
                         if (markedVowelIdx != -1) {
-                            // Repeating 'w' cancels horn/breve AND appends 'w'!
-                            // e.g. "ro" + 'w' -> "rơ"; "rơ" + 'w' -> "row"!
-                            // "dră" + 'w' -> "draw", "tư" + 'w' -> "tuw"
                             letters[markedVowelIdx].mark = VMark.NONE
                             letters.add(VLetter('w', VMark.NONE, upper))
                         } else {
@@ -195,19 +201,7 @@ internal object VietnameseEngine {
                             last.mark = VMark.CIRCUMFLEX
                         }
                     } else {
-                        // Free-form delayed circumflex at end of syllable after coda consonants (e.g. "dong" + 'o' -> "đông", "viet" + 'e' -> "việt")
-                        val targetIdx = letters.indexOfLast { it.base == lc }
-                        val isTailOfCoda = targetIdx != -1 && (targetIdx + 1..letters.lastIndex).all { !isVowel(letters[it].base) }
-                        if (isTailOfCoda && targetIdx != -1) {
-                            if (letters[targetIdx].mark == VMark.CIRCUMFLEX) {
-                                letters[targetIdx].mark = VMark.NONE
-                                letters.add(VLetter(lc, VMark.NONE, upper))
-                            } else {
-                                letters[targetIdx].mark = VMark.CIRCUMFLEX
-                            }
-                        } else {
-                            letters.add(VLetter(lc, VMark.NONE, upper))
-                        }
+                        letters.add(VLetter(lc, VMark.NONE, upper))
                     }
                 }
                 'd' -> {
@@ -218,13 +212,6 @@ internal object VietnameseEngine {
                             letters.add(VLetter('d', VMark.NONE, upper))
                         } else {
                             last.mark = VMark.STROKE
-                        }
-                    } else if (letters.isNotEmpty() && letters[0].base == 'd') {
-                        if (letters[0].mark == VMark.STROKE) {
-                            letters.add(VLetter('d', VMark.NONE, upper))
-                        } else {
-                            // Free-form delayed 'd' on first onset 'd' (dodong -> đông, dongod -> đông, daud -> đâu)
-                            letters[0].mark = VMark.STROKE
                         }
                     } else {
                         letters.add(VLetter('d', VMark.NONE, upper))
