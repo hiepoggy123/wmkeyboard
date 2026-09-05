@@ -2350,6 +2350,7 @@ open class WMKeyboardService : InputMethodService() {
             // assets are optional: an absent or unreadable file leaves the composer
             // typing the raw reading (pinyin letters, or kana) with no candidates.
             loadCjkConversionTables()
+            val state = _uiState.value
             if (state.composer.isVietnameseTelex || state.language.id.startsWith("vi")) {
                 withContext(Dispatchers.IO) {
                     TelexAutocorrectEngine.getInstance().initialize(assets, filesDir)
