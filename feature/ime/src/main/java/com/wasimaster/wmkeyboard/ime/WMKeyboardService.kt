@@ -152,6 +152,7 @@ import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.prediction.WordSource
 import com.wasimaster.wmkeyboard.core.prediction.telex.TelexAutocorrectEngine
+import com.wasimaster.wmkeyboard.core.prediction.telex.TelexWhitelist
 import com.wasimaster.wmkeyboard.core.prediction.telex.VietnameseOrthography
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
