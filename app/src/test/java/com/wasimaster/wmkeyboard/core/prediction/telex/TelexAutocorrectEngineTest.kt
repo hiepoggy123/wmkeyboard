@@ -317,4 +317,14 @@ class TelexAutocorrectEngineTest {
         assertTrue("toasn should suggest toán", results.any { it.word == "toán" })
         assertTrue("toasn must NEVER suggest hoán", results.none { it.word == "hoán" })
     }
+
+    @Test
+    fun testVietTelexEnglishCollisionsWhitelisted() {
+        assertTrue("cost must be whitelisted", TelexWhitelist.isWhitelisted("cost"))
+        assertTrue("costs must be whitelisted", TelexWhitelist.isWhitelisted("costs"))
+        assertTrue("office must be whitelisted", TelexWhitelist.isWhitelisted("office"))
+        assertTrue("boss must be whitelisted", TelexWhitelist.isWhitelisted("boss"))
+        assertTrue("class must be whitelisted", TelexWhitelist.isWhitelisted("class"))
+        assertTrue("error must be whitelisted", TelexWhitelist.isWhitelisted("error"))
+    }
 }

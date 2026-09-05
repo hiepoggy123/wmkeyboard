@@ -6703,8 +6703,11 @@ open class WMKeyboardService : InputMethodService() {
                 else suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)?.firstOrNull())
                     ?: state.composer.composeBuffer(typed)
             state.composer.isVietnameseTelex -> {
-                val composed = state.composer.composeBuffer(typed)
-                val top = if (autocorrect && state.allowsTypingIntelligence && pre != null && pre.isTelex) {
+                val isRawWhitelisted = TelexWhitelist.isWhitelisted(typed)
+                val composed = if (isRawWhitelisted) typed else state.composer.composeBuffer(typed)
+                val top = if (isRawWhitelisted) {
+                    typed
+                } else if (autocorrect && state.allowsTypingIntelligence && pre != null && pre.isTelex) {
                     pre.telexTop
                 } else if (autocorrect && state.allowsTypingIntelligence && composed.length >= 3 && typed.length >= 3) {
                     val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
@@ -8827,7 +8830,7 @@ open class WMKeyboardService : InputMethodService() {
                         val isComposedValid = telexEngine.isWordInDictionary(composed) || isUserLearned
 
                         if (composed.equals(rejectedVietnameseWord, ignoreCase = true) || isWhitelisted || typed.length < 2) {
-                            listOf(composed)
+                            if (telexEngine.isWhitelisted(typed)) listOf(typed) else listOf(composed)
                         } else {
                             telexCandidates = if (typed.length >= 3 && !isComposedValid) {
                                 val prev2 = recentSnapshot.getOrNull(recentSnapshot.size - 2)
