@@ -6,30 +6,29 @@ package com.wasimaster.wmkeyboard.core.prediction.telex
  */
 object BimanualDesyncEngine {
 
-    // QWERTY Left-Hand Keys
-    private val LEFT_HAND_KEYS = hashSetOf(
-        'q', 'w', 'e', 'r', 't',
-        'a', 's', 'd', 'f', 'g',
-        'z', 'x', 'c', 'v', 'b'
-    )
+    // Fast QWERTY Left-Hand vs Right-Hand ASCII tables (zero allocation, no autoboxing)
+    private val IS_LEFT_HAND = BooleanArray(128).apply {
+        for (c in "qwertasdfgzxcvbQWERTASDFGZXCVB") {
+            this[c.code] = true
+        }
+    }
 
-    // QWERTY Right-Hand Keys
-    private val RIGHT_HAND_KEYS = hashSetOf(
-        'y', 'u', 'i', 'o', 'p',
-        'h', 'j', 'k', 'l',
-        'n', 'm'
-    )
+    private val IS_RIGHT_HAND = BooleanArray(128).apply {
+        for (c in "yuiophjklnmYUIOPHJKLNM") {
+            this[c.code] = true
+        }
+    }
 
     /**
      * Determines whether two keys belong to opposite hands (Left vs Right).
      */
     fun isOppositeHand(c1: Char, c2: Char): Boolean {
-        val lc1 = c1.lowercaseChar()
-        val lc2 = c2.lowercaseChar()
-        val isLeft1 = LEFT_HAND_KEYS.contains(lc1)
-        val isRight1 = RIGHT_HAND_KEYS.contains(lc1)
-        val isLeft2 = LEFT_HAND_KEYS.contains(lc2)
-        val isRight2 = RIGHT_HAND_KEYS.contains(lc2)
+        val code1 = c1.code
+        val code2 = c2.code
+        val isLeft1 = code1 < 128 && IS_LEFT_HAND[code1]
+        val isRight1 = code1 < 128 && IS_RIGHT_HAND[code1]
+        val isLeft2 = code2 < 128 && IS_LEFT_HAND[code2]
+        val isRight2 = code2 < 128 && IS_RIGHT_HAND[code2]
 
         return (isLeft1 && isRight2) || (isRight1 && isLeft2)
     }
@@ -62,18 +61,16 @@ object BimanualDesyncEngine {
             // Look up in Telex Trie
             val composed = engine.trie.findWord(swappedRaw)
 
-            if (composed != null && (engine.isWordInDictionary(composed) || VietnameseOrthography.isValidVietnameseSyllable(composed))) {
+            if (composed != null && engine.isWordInDictionary(composed)) {
                 // Inter-hand swaps get low penalty (0.10), intra-hand gets 0.30
                 val penalty = if (isOppositeHand(c1, c2)) 0.10 else 0.30
-                val unigramScore = engine.languageModel.getUnigramScore(composed)
-                val score = unigramScore.toDouble() / (1.0 + penalty * 5.0)
 
                 results.add(
                     TelexCorrectionCandidate(
                         word = composed,
                         telex = swappedRaw,
                         penalty = penalty,
-                        score = score
+                        score = 0.0 // Computed downstream by TelexAutocorrectEngine
                     )
                 )
             }
@@ -87,14 +84,13 @@ object BimanualDesyncEngine {
         if (rawLower.startsWith("gnh") || rawLower.startsWith("nhg")) {
             val swappedRaw = "ngh" + rawLower.substring(3)
             val composed = engine.trie.findWord(swappedRaw)
-            if (composed != null && (engine.isWordInDictionary(composed) || VietnameseOrthography.isValidVietnameseSyllable(composed))) {
-                val unigramScore = engine.languageModel.getUnigramScore(composed)
+            if (composed != null && engine.isWordInDictionary(composed)) {
                 results.add(
                     TelexCorrectionCandidate(
                         word = composed,
                         telex = swappedRaw,
                         penalty = 0.12,
-                        score = unigramScore.toDouble() / 1.5
+                        score = 0.0
                     )
                 )
             }

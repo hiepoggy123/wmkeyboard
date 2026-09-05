@@ -142,6 +142,8 @@ class TelexAutocorrectEngineTest {
         assertTrue(VietnameseOrthography.isValidVietnameseSyllable("đẹp"))
         assertTrue(VietnameseOrthography.isValidVietnameseSyllable("nghiêng"))
         assertTrue(VietnameseOrthography.isValidVietnameseSyllable("khuỷu"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("gì"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("gìn"))
 
         // Invalid phonotactics
         org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("rtời")) // Invalid onset "rt"

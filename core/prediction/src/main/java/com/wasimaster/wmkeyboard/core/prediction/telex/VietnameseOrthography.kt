@@ -37,6 +37,10 @@ object VietnameseOrthography {
         "ya", "yê", "yêu"
     )
 
+    // Static candidate arrays to prevent garbage collection churn on every keystroke
+    private val CANDIDATE_ONSETS = arrayOf("ngh", "ng", "nh", "ch", "gh", "kh", "ph", "th", "tr", "qu", "gi")
+    private val CANDIDATE_CODAS = arrayOf("ng", "nh", "ch")
+
     /**
      * Checks if a decomposed syllable is phonotactically valid in Vietnamese.
      */
@@ -62,9 +66,16 @@ object VietnameseOrthography {
 
         // Parse: [Onset] + [Vowels] + [Coda]
         var onset = ""
-        for (candidateOnset in listOf("ngh", "ng", "nh", "ch", "gh", "kh", "ph", "th", "tr", "qu", "gi")) {
+        for (candidateOnset in CANDIDATE_ONSETS) {
             if (baseWord.startsWith(candidateOnset)) {
-                onset = candidateOnset
+                // In Vietnamese orthography, when 'gi' is followed by coda consonants or end of word (e.g. "gì", "gìn"),
+                // 'i' acts as the vowel nucleus, so the consonant onset is 'g'.
+                // If followed by another vowel (e.g. "gió", "giúp", "giường", "giếng"), the onset is "gi".
+                if (candidateOnset == "gi" && (baseWord.length == 2 || baseWord[2] !in "aeiouy\u0103\u00e2\u00ea\u00f4\u01a1\u01b0")) {
+                    onset = "g"
+                } else {
+                    onset = candidateOnset
+                }
                 break
             }
         }
@@ -77,7 +88,7 @@ object VietnameseOrthography {
 
         // Parse Coda from end
         var coda = ""
-        for (candidateCoda in listOf("ng", "nh", "ch")) {
+        for (candidateCoda in CANDIDATE_CODAS) {
             if (remainder.endsWith(candidateCoda)) {
                 coda = candidateCoda
                 break
