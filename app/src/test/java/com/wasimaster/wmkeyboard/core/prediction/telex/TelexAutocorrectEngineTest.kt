@@ -191,11 +191,11 @@ class TelexAutocorrectEngineTest {
         val uniJson = """{"trời": 170, "thật": 205, "đẹp": 185}"""
         engine.languageModel.loadUnigrams(uniJson)
 
-        // Typing swapped left-right hand "rtoif" -> desync candidates include "trời"
-        val desync1 = BimanualDesyncEngine.generateCandidates("rtoif", engine)
-        assertTrue(desync1.any { it.word == "trời" })
+        // Same-hand keys like 'r' and 't' (both Left hand) must NOT be swapped
+        val sameHandDesync = BimanualDesyncEngine.generateCandidates("rtoif", engine)
+        assertTrue("Same-hand pairs must be ignored", sameHandDesync.isEmpty())
 
-        // Typing swapped left-right hand "htaatj" -> desync candidates include "thật"
+        // Typing swapped left-right hand "htaatj" ('h' Right, 't' Left) -> desync candidates include "thật"
         val desync2 = BimanualDesyncEngine.generateCandidates("htaatj", engine)
         assertTrue(desync2.any { it.word == "thật" })
     }
@@ -268,16 +268,53 @@ class TelexAutocorrectEngineTest {
         val results = engine.correct("test")
         assertTrue("test should return empty candidates (not corrupted)", results.isEmpty())
 
-        // 2. Adjacent hand desync: "rtoif" (swapped adjacent 'r' and 't') -> "trời"
+        // 2. Same-hand keys "rtoif" ('r' and 't' both Left hand) are ignored
         val desync1 = BimanualDesyncEngine.generateCandidates("rtoif", engine)
-        assertTrue("rtoif should generate candidate trời", desync1.any { it.word == "trời" })
+        assertTrue("rtoif (same hand) should be ignored", desync1.isEmpty())
 
-        // 3. Adjacent hand desync: "dods" (swapped adjacent 'o' and 'd') -> "đó"
+        // 3. Adjacent opposite hand desync: "dods" (swapped adjacent 'o' [Right] and 'd' [Left]) -> "đó"
         val desync2 = BimanualDesyncEngine.generateCandidates("dods", engine)
         assertTrue("dods should generate candidate đó", desync2.any { it.word == "đó" })
 
         // 4. "tieesng": 's' and 'n' are distant on keyboard, not an adjacent desync -> empty or non-word
         val desync3 = BimanualDesyncEngine.generateCandidates("tieesng", engine)
         assertTrue("tieesng should not generate candidate tiếng via desync", desync3.none { it.word == "tiếng" })
+    }
+
+    @Test
+    fun testUserToasnDesyncScenario() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "toans": {"word": "toán", "freq": 500}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"toán": 500}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // "toasn": 's' (Left) and 'n' (Right) are swapped -> generates "toán"
+        // 'a' (Left) and 's' (Left) are on same hand -> ignored
+        val desync = BimanualDesyncEngine.generateCandidates("toasn", engine)
+        assertTrue("toasn should generate candidate toán via s-n swap", desync.any { it.word == "toán" })
+    }
+
+    @Test
+    fun testCompoundErrorNotAllowed() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "hoans": {"word": "hoán", "freq": 200},
+                "toans": {"word": "toán", "freq": 500}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"hoán": 200, "toán": 500}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // "toasn" should correct to "toán", but NEVER "hoán" (no compound fat-finger + swap)
+        val results = engine.correct("toasn")
+        assertTrue("toasn should suggest toán", results.any { it.word == "toán" })
+        assertTrue("toasn must NEVER suggest hoán", results.none { it.word == "hoán" })
     }
 }

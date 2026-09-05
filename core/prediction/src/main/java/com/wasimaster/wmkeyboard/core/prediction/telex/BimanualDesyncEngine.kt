@@ -53,6 +53,10 @@ object BimanualDesyncEngine {
             val c2 = chars[i + 1]
             if (c1 == c2) continue
 
+            // Only evaluate adjacent pairs belonging to opposite hands (Left vs Right).
+            // Same-hand pairs (e.g. 'a'-'s') are skipped to avoid false positives and save CPU.
+            if (!isOppositeHand(c1, c2)) continue
+
             // Swap
             chars[i] = c2
             chars[i + 1] = c1
@@ -62,14 +66,11 @@ object BimanualDesyncEngine {
             val composed = engine.trie.findWord(swappedRaw)
 
             if (composed != null && engine.isWordInDictionary(composed)) {
-                // Inter-hand swaps get low penalty (0.10), intra-hand gets 0.30
-                val penalty = if (isOppositeHand(c1, c2)) 0.10 else 0.30
-
                 results.add(
                     TelexCorrectionCandidate(
                         word = composed,
                         telex = swappedRaw,
-                        penalty = penalty,
+                        penalty = 0.10, // Inter-hand desync penalty
                         score = 0.0 // Computed downstream by TelexAutocorrectEngine
                     )
                 )

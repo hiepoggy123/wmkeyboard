@@ -207,7 +207,7 @@ class TelexAutocorrectEngine private constructor() {
         private const val WEIGHT_TRIGRAM = 5.0          // Context Trigram weight (from V7 AI model)
         private const val WEIGHT_USER_UNIGRAM = 3.0     // Bonus weight for words learned from user
         private const val WEIGHT_USER_BIGRAM = 6.0      // Bonus weight for word pairs learned from user
-        private const val MAX_PENALTY_THRESHOLD = 2.5   // Maximum allowed cumulative key distance penalty
+        private const val MAX_PENALTY_THRESHOLD = 1.4   // Maximum allowed cumulative key distance penalty (strictly enforces single-key proximity error, edit distance <= 1)
     }
 
     @VisibleForTesting
@@ -382,7 +382,7 @@ class TelexAutocorrectEngine private constructor() {
         // 3. QWERTY Key Proximity Candidates (Zero-Allocation DFS)
         val charBuffer = CharArray(16)
 
-        fun dfs(node: TelexTrieNode, idx: Int, currentPenalty: Double) {
+        fun dfs(node: TelexTrieNode, idx: Int, currentPenalty: Double, errorCount: Int) {
             if (idx == cleanInput.length) {
                 node.word?.let { unicodeWord ->
                     val baseUnigram = node.unigramScore
@@ -434,18 +434,20 @@ class TelexAutocorrectEngine private constructor() {
                 val nextChar = neighbor.key
                 val stepPenalty = neighbor.penalty
                 val nextTotalPenalty = currentPenalty + stepPenalty
+                val nextErrors = if (nextChar != targetChar) errorCount + 1 else errorCount
 
-                if (nextTotalPenalty <= MAX_PENALTY_THRESHOLD) {
+                // Strictly allow at most 1 substituted key (proximity edit distance <= 1) and penalty <= 1.4
+                if (nextErrors <= 1 && nextTotalPenalty <= MAX_PENALTY_THRESHOLD) {
                     val nextNode = node.children[nextChar]
                     if (nextNode != null) {
                         charBuffer[idx] = nextChar
-                        dfs(nextNode, idx + 1, nextTotalPenalty)
+                        dfs(nextNode, idx + 1, nextTotalPenalty, nextErrors)
                     }
                 }
             }
         }
 
-        dfs(trie.root, 0, 0.0)
+        dfs(trie.root, 0, 0.0, 0)
 
         if (rawCandidates.isEmpty()) return emptyList()
 
