@@ -8820,48 +8820,50 @@ private fun KeyPreviewOverlay(
     val headroomPx = with(density) { (bubbleHeightDp.dp + KeyPopupGap * 2).roundToPx() }
     val onKeyStyle = kbTheme.popupOnKey ?: popup.onKey
     val bubbles = state.shown.toList()
-    Popup(
-        popupPositionProvider = remember(headroomPx) { GridOverlayPositionProvider(headroomPx) },
-        properties = PreviewPopupProperties,
-    ) {
-        Layout(
-            // Keyed by the pressing key, so a bubble expiring under a finger that
-            // is still down removes that bubble rather than shuffling the rest up
-            // into its slot.
-            content = {
-                for (preview in bubbles) {
-                    key(preview.token) { KeyPreviewBubble(preview, popup, onKeyStyle) }
-                }
-            },
-        ) { measurables, constraints ->
-            val width = if (gridSize.width > 0) gridSize.width else constraints.maxWidth
-            val height = gridSize.height + headroomPx
-            val placeables = measurables.map { it.measure(Constraints()) }
-            layout(width, height) {
-                placeables.forEachIndexed { index, placeable ->
-                    val preview = bubbles[index]
-                    // The key, in this window's space: its offset inside the grid,
-                    // pushed down by the headroom the window adds on top.
-                    val keyBounds = IntRect(
-                        IntOffset(
-                            (preview.position.x - gridOrigin.x).roundToInt(),
-                            (preview.position.y - gridOrigin.y).roundToInt() + headroomPx,
-                        ),
-                        preview.size,
-                    )
-                    val provider = if (onKeyStyle) {
-                        OnKeyPopupPositionProvider
-                    } else {
-                        AboveAnchorPopupPositionProvider(gapPx)
+    if (bubbles.isNotEmpty()) {
+        Popup(
+            popupPositionProvider = remember(headroomPx) { GridOverlayPositionProvider(headroomPx) },
+            properties = PreviewPopupProperties,
+        ) {
+            Layout(
+                // Keyed by the pressing key, so a bubble expiring under a finger that
+                // is still down removes that bubble rather than shuffling the rest up
+                // into its slot.
+                content = {
+                    for (preview in bubbles) {
+                        key(preview.token) { KeyPreviewBubble(preview, popup, onKeyStyle) }
                     }
-                    placeable.place(
-                        provider.calculatePosition(
-                            keyBounds,
-                            IntSize(width, height),
-                            layoutDirection,
-                            IntSize(placeable.width, placeable.height),
-                        ),
-                    )
+                },
+            ) { measurables, constraints ->
+                val width = if (gridSize.width > 0) gridSize.width else constraints.maxWidth
+                val height = gridSize.height + headroomPx
+                val placeables = measurables.map { it.measure(Constraints()) }
+                layout(width, height) {
+                    placeables.forEachIndexed { index, placeable ->
+                        val preview = bubbles[index]
+                        // The key, in this window's space: its offset inside the grid,
+                        // pushed down by the headroom the window adds on top.
+                        val keyBounds = IntRect(
+                            IntOffset(
+                                (preview.position.x - gridOrigin.x).roundToInt(),
+                                (preview.position.y - gridOrigin.y).roundToInt() + headroomPx,
+                            ),
+                            preview.size,
+                        )
+                        val provider = if (onKeyStyle) {
+                            OnKeyPopupPositionProvider
+                        } else {
+                            AboveAnchorPopupPositionProvider(gapPx)
+                        }
+                        placeable.place(
+                            provider.calculatePosition(
+                                keyBounds,
+                                IntSize(width, height),
+                                layoutDirection,
+                                IntSize(placeable.width, placeable.height),
+                            ),
+                        )
+                    }
                 }
             }
         }

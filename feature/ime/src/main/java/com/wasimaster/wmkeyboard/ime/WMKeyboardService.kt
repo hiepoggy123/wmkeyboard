@@ -3486,9 +3486,19 @@ open class WMKeyboardService : InputMethodService() {
         requestHideSelf(0)
     }
 
+    override fun onWindowShown() {
+        super.onWindowShown()
+        lifecycleOwner.onResume()
+    }
+
+    override fun onWindowHidden() {
+        super.onWindowHidden()
+        lifecycleOwner.onStop()
+    }
+
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
-        lifecycleOwner.onPause()
+        lifecycleOwner.onStop()
         // Refilling the pool waits until the keyboard is going away, so a
         // download can never race the first frame of a session.
         topUpBackgroundPool()

@@ -31,18 +31,49 @@ class KeyboardViewLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedSta
 
     fun onCreate() {
         savedStateRegistryController.performRestore(null)
-        dispatch(Lifecycle.Event.ON_CREATE)
+        if (lifecycleRegistry.currentState == Lifecycle.State.INITIALIZED) {
+            dispatch(Lifecycle.Event.ON_CREATE)
+        }
     }
 
     fun onResume() {
-        dispatch(Lifecycle.Event.ON_RESUME)
+        if (lifecycleRegistry.currentState == Lifecycle.State.DESTROYED) return
+        if (lifecycleRegistry.currentState == Lifecycle.State.INITIALIZED) {
+            dispatch(Lifecycle.Event.ON_CREATE)
+        }
+        if (lifecycleRegistry.currentState == Lifecycle.State.CREATED) {
+            dispatch(Lifecycle.Event.ON_START)
+        }
+        if (lifecycleRegistry.currentState == Lifecycle.State.STARTED) {
+            dispatch(Lifecycle.Event.ON_RESUME)
+        }
     }
 
     fun onPause() {
-        dispatch(Lifecycle.Event.ON_PAUSE)
+        if (lifecycleRegistry.currentState == Lifecycle.State.DESTROYED) return
+        if (lifecycleRegistry.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            dispatch(Lifecycle.Event.ON_PAUSE)
+        }
+    }
+
+    fun onStop() {
+        if (lifecycleRegistry.currentState == Lifecycle.State.DESTROYED) return
+        if (lifecycleRegistry.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            dispatch(Lifecycle.Event.ON_PAUSE)
+        }
+        if (lifecycleRegistry.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            dispatch(Lifecycle.Event.ON_STOP)
+        }
     }
 
     fun onDestroy() {
+        if (lifecycleRegistry.currentState == Lifecycle.State.DESTROYED) return
+        if (lifecycleRegistry.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+            dispatch(Lifecycle.Event.ON_PAUSE)
+        }
+        if (lifecycleRegistry.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            dispatch(Lifecycle.Event.ON_STOP)
+        }
         dispatch(Lifecycle.Event.ON_DESTROY)
         store.clear()
     }
@@ -51,7 +82,7 @@ class KeyboardViewLifecycleOwner : LifecycleOwner, ViewModelStoreOwner, SavedSta
      * DESTROYED is the end of the line — LifecycleRegistry throws on any move
      * out of it. The platform walks the service through a full input teardown
      * from inside InputMethodService.onDestroy, so onFinishInputView (and with
-     * it ON_PAUSE) can arrive after the service has already said goodbye. That
+     * it ON_PAUSE/ON_STOP) can arrive after the service has already said goodbye. That
      * throw propagates out of handleStopService and takes the process with it.
      */
     private fun dispatch(event: Lifecycle.Event) {
