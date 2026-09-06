@@ -14,8 +14,8 @@ import org.junit.Test
 class FancyStylesTest {
 
     @Test
-    fun `all 23 styles are present, in the shipped order, with a default`() {
-        assertEquals(23, FancyStyles.all.size)
+    fun `all 31 styles are present, in the shipped order, with a default`() {
+        assertEquals(31, FancyStyles.all.size)
         assertEquals("bold", FancyStyles.all.first().id)
         assertEquals("bypass", FancyStyles.all.last().id)
         assertNotNull(FancyStyles.byId(FancyStyles.DEFAULT_ID))
