@@ -2263,6 +2263,13 @@ internal val KeyActionCatalog: List<KeyActionOption> = listOf(
         { it is KeyAction.Mod && it.key == ModifierKey.META },
     ),
     KeyActionOption(
+        R.string.layout_editor_action_select_mode_title,
+        R.string.layout_editor_action_group_modifiers,
+        R.string.layout_editor_action_select_mode_detail,
+        { KeyAction.SelectMode },
+        { it == KeyAction.SelectMode },
+    ),
+    KeyActionOption(
         R.string.layout_editor_action_tab_title,
         R.string.layout_editor_action_group_send_key,
         R.string.layout_editor_action_tab_detail,

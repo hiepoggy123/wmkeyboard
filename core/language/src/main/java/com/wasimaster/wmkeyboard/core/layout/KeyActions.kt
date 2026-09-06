@@ -195,6 +195,12 @@ sealed interface KeyAction {
      * handakuten / small-kana variants (か→が, は→ば→ぱ, つ→っ→づ). The 小゛゜ key
      * on the Japanese flick pad; a no-op when nothing is composing.
      */
+    /**
+     * Toggles text selection mode. While armed/active, cursor movements
+     * (including spacebar scrubbing and 2D pad) extend selection instead of moving caret.
+     */
+    @Serializable @SerialName("select_mode") data object SelectMode : KeyAction
+
     @Serializable @SerialName("kana_variant") data object KanaVariant : KeyAction
 
     /**
@@ -320,6 +326,7 @@ fun KeyAction.fallbackLabel(): String = when (this) {
     // reaches here. The alternates popup does: the entry the enter key offers
     // carries the icon, but one an author wrote by hand may not.
     KeyAction.Newline -> "⏎"
+    KeyAction.SelectMode -> "Sel"
     KeyAction.None -> ""
     is KeyAction.Mod -> when (key) {
         ModifierKey.CTRL -> "Ctrl"

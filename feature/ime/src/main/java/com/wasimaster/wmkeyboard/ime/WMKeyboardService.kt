@@ -3883,6 +3883,7 @@ open class WMKeyboardService : InputMethodService() {
             is KeyAction.Tool -> runToolFromKey((key.action as KeyAction.Tool).tool)
             is KeyAction.Mod -> onModifier((key.action as KeyAction.Mod).key)
             KeyAction.KanaVariant -> cycleKanaVariant()
+            KeyAction.SelectMode -> onSelectModeTap()
             KeyAction.Fn -> onFn()
             is KeyAction.BrailleDot -> onBrailleDot(key.action as KeyAction.BrailleDot)
             KeyAction.MorseDot -> onMorseSignal(dash = false)

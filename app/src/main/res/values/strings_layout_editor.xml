@@ -325,6 +325,8 @@
     <!-- Shown for Ctrl and for Alt. -->
     <string name="layout_editor_action_modifier_detail">Applies to the next key. Press two times to lock it</string>
     <string name="layout_editor_action_meta_detail">The ⌘ or Windows modifier</string>
+    <string name="layout_editor_action_select_mode_title">Selection mode</string>
+    <string name="layout_editor_action_select_mode_detail">Toggles text selection. While on, spacebar swipe selects text</string>
 
     <!-- Names of keys a physical keyboard also has. -->
     <string name="layout_editor_action_tab_title">Tab</string>

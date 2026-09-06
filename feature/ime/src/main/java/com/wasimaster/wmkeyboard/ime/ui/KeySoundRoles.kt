@@ -34,6 +34,7 @@ fun Key.keySoundRole(): KeySoundRole = when (action) {
     KeyAction.Numpad,
     KeyAction.Fn,
     is KeyAction.Mod,
+    KeyAction.SelectMode,
     -> KeySoundRole.MODIFIER
     // Text, the raw-key-event keys, the notation-layout keys and anything a
     // newer build introduces all land on the default set. A role guessed wrong

@@ -668,6 +668,11 @@ private fun spokenLabel(key: Key, state: KeyboardUiState): SpokenLabel = when (k
     } else {
         SpokenLabel(text = key.label)
     }
+    KeyAction.SelectMode -> if (state.selectionMode) {
+        SpokenLabel(R.string.ime_key_modifier_on, argRes = R.string.ime_tool_select_mode)
+    } else {
+        SpokenLabel(R.string.ime_tool_select_mode)
+    }
     else -> {
         val label = displayLabel(key, state)
         punctuationNames[label]?.let { SpokenLabel(it) } ?: SpokenLabel(text = label)
@@ -8435,19 +8440,22 @@ internal fun keyVisual(
     } else {
         keyOverrideId(key)?.let { palette.overrides[it] }
     }
+    val isSelectModeActive = action == KeyAction.SelectMode && state.selectionMode
     val overrideBackground = override?.background
-        ?.takeIf { latch == null || latch == ModifierState.OFF }
+        ?.takeIf { (latch == null || latch == ModifierState.OFF) && !isSelectModeActive }
         ?.let { Color(it.toInt()) }
     // Samsung-style contrast: letter keys clearly lighter than the board,
     // modifier keys a shade darker than the letters.
     val background = overrideBackground ?: when {
         latch == ModifierState.LOCKED -> palette.accent
         latch == ModifierState.ARMED -> palette.pressedKey
+        isSelectModeActive -> palette.accent
         action == KeyAction.Enter -> palette.enterKey
         action != KeyAction.Text -> palette.modifierKey
         else -> palette.key
     }
     val contentColor = override?.text?.let { Color(it.toInt()) } ?: when {
+        isSelectModeActive -> palette.enterKeyText
         action == KeyAction.Enter -> palette.enterKeyText
         action != KeyAction.Text -> palette.modifierKeyText
         else -> palette.keyText
@@ -8488,6 +8496,7 @@ internal fun keyVisual(
         iconActive = when (action) {
             KeyAction.Shift -> state.shiftState != ShiftState.OFF
             KeyAction.CapsLock -> state.shiftState == ShiftState.CAPS_LOCK
+            KeyAction.SelectMode -> state.selectionMode
             else -> false
         },
         enterLabel = state.enterActionLabel?.takeIf {
