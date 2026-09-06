@@ -46,9 +46,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -89,6 +91,10 @@ import androidx.compose.ui.util.lerp
 import com.wasimaster.wmkeyboard.core.ui.ToolPaint
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import kotlin.math.roundToInt
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Stable
 
 /*
  * The house style. Every settings surface is built from the handful of
@@ -196,9 +202,21 @@ internal fun WmIconTile(
  */
 internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "typing" to Color(0xFF42A5F5),
+    "typing/corrections" to Color(0xFF42A5F5),
+    "typing/suggestions" to Color(0xFF42A5F5),
+    "typing/autopilot" to Color(0xFF42A5F5),
+    "typing/chips" to Color(0xFF42A5F5),
+    "typing/codes" to Color(0xFF42A5F5),
+    "typing/gestures" to Color(0xFF42A5F5),
+    "typing/hardware" to Color(0xFF42A5F5),
     "keypress" to Color(0xFF7E57C2),
+    "keypress/haptics" to Color(0xFF7E57C2),
+    "keypress/popup" to Color(0xFF7E57C2),
+    "keypress/shortcuts" to Color(0xFF7E57C2),
     "languages" to Color(0xFF66BB6A),
     "appearance" to Color(0xFFEC407A),
+    "appearance/toolbar" to Color(0xFFEC407A),
+    "appearance/toolbox" to Color(0xFFEC407A),
     "themes" to Color(0xFFEC407A),
     "photos" to Color(0xFF00ACC1),
     "photo_browse" to Color(0xFF00ACC1),
@@ -207,6 +225,8 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "fonts" to Color(0xFFAB47BC),
     "icons" to Color(0xFFFF7043),
     "layout" to Color(0xFF5C6BC0),
+    "layout/size" to Color(0xFF5C6BC0),
+    "layout/onehanded" to Color(0xFF5C6BC0),
     "keymaps" to Color(0xFF26C6DA),
     "rows" to Color(0xFF26A69A),
     "ai_actions" to Color(0xFF7E57C2),
@@ -214,6 +234,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "ai_chat" to Color(0xFF7E57C2),
     "modes" to Color(0xFFFFA726),
     "emoji" to Color(0xFFFFB300),
+    "emoji/panel" to Color(0xFFFFB300),
     "voice" to Color(0xFF7E57C2),
     "clipboard" to Color(0xFF42A5F5),
     // The Snippets tool's own teal: the screen and the tool page it is opened
@@ -231,7 +252,10 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "permissions" to Color(0xFFEF5350),
     "applock" to Color(0xFFEF5350),
     "datasaver" to Color(0xFF00897B),
+    "advanced" to Color(0xFF8D6E63),
     "backup" to Color(0xFF78909C),
+    "backup/auto" to Color(0xFF78909C),
+    "backup/contents" to Color(0xFF78909C),
     "about" to Color(0xFF90A4AE),
     "licenses" to Color(0xFF90A4AE),
     // Behind the version row's seven taps, so it keeps About's grey.
@@ -246,6 +270,8 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "phoneformats" to Color(0xFF42A5F5),
     "hwshortcuts" to Color(0xFF5C6BC0),
     "emojikeywords" to Color(0xFFFFB300),
+    // A child of the media control tool, so it keeps that tool's purple.
+    "musicapps" to Color(0xFFAB47BC),
 )
 
 /** The accent for a route with no colour of its own. */
@@ -286,6 +312,80 @@ internal val LocalSharedTransition = compositionLocalOf<SharedTransitionScope?> 
 
 /** The current destination's own animation scope; null outside the graph. */
 internal val LocalNavAnimatedScope = compositionLocalOf<AnimatedVisibilityScope?> { null }
+
+/**
+ * The folds the user has opened, by "<route>/<key>", and the way to change
+ * that. Published by the nav host so [SettingsGroup] can be a fold without
+ * every screen handing it a repository.
+ */
+internal class AdvancedFolds(val open: Set<String>, val toggle: (String, Boolean) -> Unit)
+
+internal val LocalAdvancedFolds = compositionLocalOf<AdvancedFolds?> { null }
+
+/**
+ * What a screen's body hands up to its frame: a floating action button and a
+ * block pinned under the bar. The frame draws both, but the add action and
+ * the dialog it opens live inside the screen, so the screen registers them
+ * from where they are rather than the nav graph threading them through.
+ */
+@Stable
+internal class ScreenSlots {
+    var fab: (@Composable () -> Unit)? by mutableStateOf(null)
+    var pinned: (@Composable () -> Unit)? by mutableStateOf(null)
+    var refresh: ScreenRefresh? by mutableStateOf(null)
+}
+
+/**
+ * A screen's own refresh, as the frame needs it: whether one is running, and
+ * how to start another.
+ */
+internal class ScreenRefresh(val refreshing: Boolean, val onRefresh: () -> Unit)
+
+internal val LocalScreenSlots = compositionLocalOf<ScreenSlots?> { null }
+
+/** Puts [content] in the frame's FAB slot for as long as the caller is composed. */
+@Composable
+internal fun RegisterFab(content: @Composable () -> Unit) {
+    val slots = LocalScreenSlots.current ?: return
+    SideEffect { slots.fab = content }
+    DisposableEffect(slots) { onDispose { slots.fab = null } }
+}
+
+/**
+ * Hangs the screen's refresh on the frame's pull gesture for as long as the
+ * caller is composed. A screen that registers one should not also draw a
+ * refresh button: the gesture is the affordance, and two of them is two ways
+ * to do one thing.
+ *
+ * [refreshing] drives the spinner, so it has to be the screen's real "a fetch
+ * is running" state and not a flag flipped by the pull. A screen whose refresh
+ * finishes instantly can pass `false` throughout: the indicator then springs
+ * back as the finger lifts, which is the honest answer.
+ */
+@Composable
+internal fun RegisterPullRefresh(refreshing: Boolean, onRefresh: () -> Unit) {
+    val slots = LocalScreenSlots.current ?: return
+    SideEffect { slots.refresh = ScreenRefresh(refreshing, onRefresh) }
+    DisposableEffect(slots) { onDispose { slots.refresh = null } }
+}
+
+/** The one-icon FAB every list screen's "add" is: [label] is its content description. */
+@Composable
+internal fun RegisterAddFab(label: String, onClick: () -> Unit) {
+    RegisterFab {
+        FloatingActionButton(onClick = onClick) {
+            Icon(Icons.Outlined.Add, contentDescription = label)
+        }
+    }
+}
+
+/** Pins [content] under the bar, above the scrolling body, while the caller is composed. */
+@Composable
+internal fun RegisterPinned(content: @Composable () -> Unit) {
+    val slots = LocalScreenSlots.current ?: return
+    SideEffect { slots.pinned = content }
+    DisposableEffect(slots) { onDispose { slots.pinned = null } }
+}
 
 /**
  * False while this screen is still animating in, true from the frame it lands.
@@ -690,6 +790,95 @@ internal fun ResetSetting(name: String, changed: Boolean, onReset: () -> Unit) {
             contentDescription = stringResource(CommonR.string.common_reset_setting_desc, name),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(ResetGlyphSize),
+        )
+    }
+}
+
+/** [ColorSetting] for a row named by a string resource. */
+@Composable
+internal fun ColorSetting(
+    @StringRes title: Int,
+    subtitle: String? = null,
+    color: Long?,
+    fallback: Long,
+    info: String? = null,
+    icon: ImageVector? = SettingsRowIcons[title],
+    supportsAlpha: Boolean = false,
+    onChange: (Long?) -> Unit,
+) = ColorSetting(
+    title = stringResource(title),
+    subtitle = subtitle,
+    color = color,
+    fallback = fallback,
+    info = info,
+    icon = icon,
+    highlightKey = title,
+    supportsAlpha = supportsAlpha,
+    onChange = onChange,
+)
+
+/**
+ * A settings row that opens the colour picker, showing the colour it holds.
+ *
+ * [color] is null while the setting follows something else, a keyboard theme
+ * usually, and the row says "Automatic" rather than drawing a swatch: the
+ * settings app cannot paint the keyboard's palette without also repainting
+ * itself in it, so a swatch there would be a guess, and a wrong swatch reads
+ * as a wrong setting. [fallback] only seeds the picker, giving the wheel
+ * somewhere to open from on a row that has never been set.
+ *
+ * Picking a colour makes the setting explicit; the reset control clears it back
+ * to null, which is why the row needs no separate `default`.
+ *
+ * The theme editor has its own colour rows. This one is for the settings
+ * screens, where a row has to carry the icon, the info button and the reset
+ * control that every other settings row carries.
+ */
+@Composable
+internal fun ColorSetting(
+    title: String,
+    subtitle: String? = null,
+    color: Long?,
+    fallback: Long,
+    info: String? = null,
+    icon: ImageVector? = null,
+    @StringRes highlightKey: Int = 0,
+    supportsAlpha: Boolean = false,
+    onChange: (Long?) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    HighlightableRow(title, highlightKey) {
+        WmRow(
+            title = title,
+            subtitle = subtitle,
+            icon = icon,
+            trailing = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (info != null) InfoButton(title, info)
+                    ResetSetting(title, color != null) { onChange(null) }
+                    if (color == null) {
+                        Text(
+                            stringResource(CommonR.string.common_auto),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Swatch(color)
+                    }
+                }
+            },
+            onClick = { open = true },
+        )
+    }
+    if (open) {
+        ColorPickerDialog(
+            title = title,
+            initial = color ?: fallback,
+            supportsAlpha = supportsAlpha,
+            showReset = color != null,
+            onPick = { onChange(it); open = false },
+            onReset = { onChange(null); open = false },
+            onDismiss = { open = false },
         )
     }
 }
@@ -1300,6 +1489,16 @@ internal fun WmScreen(
     crumbTitle: String? = null,
     anim: AnimatedVisibilityScope? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    /**
+     * A floating action button, bottom right. The one place a screen's
+     * "add" lives: a list that can grow gets a FAB, not a button row.
+     */
+    fab: (@Composable () -> Unit)? = null,
+    /**
+     * Content pinned under the bar, above the scrolling body — a live
+     * preview that must stay in view while the rows below it change.
+     */
+    pinned: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     WmScreenFrame(
@@ -1321,6 +1520,8 @@ internal fun WmScreen(
         crumbTitle = crumbTitle,
         anim = anim,
         actions = actions,
+        fab = fab,
+        pinned = pinned,
     ) { padding ->
         val scrollLock = rememberFlightScrollLock()
         val scrollState = rememberScrollState()
@@ -1352,11 +1553,17 @@ internal fun WmScreen(
                 verticalArrangement = Arrangement.Top,
             ) {
                 content()
-                Spacer(Modifier.height(24.dp))
+                // Room for a FAB to float over the last row rather than on it:
+                // the button, its margin, and a little air.
+                val hasFab = fab != null || LocalScreenSlots.current?.fab != null
+                Spacer(Modifier.height(if (hasFab) FAB_TAIL else 24.dp))
             }
         }
     }
 }
+
+/** Height a scrolling body leaves free under a floating action button. */
+private val FAB_TAIL = 88.dp
 
 /**
  * [WmScreen] for a destination whose body is a lazy grid.
@@ -1377,6 +1584,8 @@ internal fun WmLazyScreen(
     subtitleInBar: Boolean = false,
     anim: AnimatedVisibilityScope? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    fab: (@Composable () -> Unit)? = null,
+    pinned: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     WmScreenFrame(
@@ -1388,6 +1597,8 @@ internal fun WmLazyScreen(
         subtitleInBar = subtitleInBar,
         anim = anim,
         actions = actions,
+        fab = fab,
+        pinned = pinned,
         content = content,
     )
 }
@@ -1414,6 +1625,8 @@ private fun WmScreenFrame(
     crumbTitle: String? = null,
     anim: AnimatedVisibilityScope? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    fab: (@Composable () -> Unit)? = null,
+    pinned: (@Composable () -> Unit)? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
@@ -1427,12 +1640,14 @@ private fun WmScreenFrame(
     val trail = LocalSettingsCrumbTrail.current
     val entry = currentCrumbEntry()
     RegisterSettingsCrumb(crumbTitle ?: title)
+    val slots = remember { ScreenSlots() }
     // The destination's own animation scope, published for everything the
     // screen draws — the heading above, and any row below that flies somewhere.
     CompositionLocalProvider(
         LocalNavAnimatedScope provides (anim ?: LocalNavAnimatedScope.current),
         LocalScreenRoute provides route,
         LocalFlightOrigin provides origin,
+        LocalScreenSlots provides slots,
     ) {
         Scaffold(
             modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -1469,9 +1684,40 @@ private fun WmScreenFrame(
                             tint = barTints(route, barTint).collapsed,
                         )
                     }
+                    // Inside the bar's column rather than the body: the bar is
+                    // what Scaffold measures for its content padding, so a
+                    // pinned block costs no arithmetic here and stays put
+                    // while the collapsing title above it does its thing.
+                    (pinned ?: slots.pinned)?.invoke()
                 }
             },
-            content = content,
+            floatingActionButton = { (fab ?: slots.fab)?.invoke() },
+            content = { padding ->
+                // Always wrapped, whether or not the screen has a refresh: the
+                // slot is filled by the content composing, so branching on it
+                // here would rebuild the whole screen one frame in.
+                val refresh = slots.refresh
+                val pullState = rememberPullToRefreshState()
+                Box(
+                    modifier = Modifier.pullToRefresh(
+                        isRefreshing = refresh?.refreshing == true,
+                        state = pullState,
+                        enabled = refresh != null,
+                        onRefresh = { slots.refresh?.onRefresh?.invoke() },
+                    ),
+                ) {
+                    content(padding)
+                    // Under the bar rather than at the top of the window, or a
+                    // collapsing title lands on top of the spinner.
+                    PullToRefreshDefaults.Indicator(
+                        state = pullState,
+                        isRefreshing = refresh?.refreshing == true,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = padding.calculateTopPadding()),
+                    )
+                }
+            },
         )
     }
 }

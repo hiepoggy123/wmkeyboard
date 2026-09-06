@@ -233,6 +233,14 @@ data class ThemeSpec(
     val keyText: Long = 0xFFE9E9EE,
     val modifierKeyBackground: Long = 0xFF222428,
     val modifierKeyText: Long? = null,
+    /**
+     * Colour of the corner hint: the small long-press alternate (or icon)
+     * drawn in a key's top-right. Null draws the key's own label colour at
+     * 55% alpha, which is what every theme did before the field existed
+     * (issue #72). Alpha is honoured, so a theme can keep the hint
+     * translucent in a hue of its own.
+     */
+    val hintText: Long? = null,
     val enterKeyBackground: Long = 0xFF4C8DF6,
     val enterKeyText: Long = 0xFF0B1220,
     val pressedKeyBackground: Long? = null,
@@ -345,7 +353,15 @@ data class ThemeSpec(
     val popupHeightDp: Int? = null,
     val keyHeightDp: Int? = null,
     val keyGapScale: Float? = null,
+    /**
+     * Legacy symmetric side padding. Still honoured, and still written when a
+     * theme's two edges happen to be equal, so a theme shared with an older
+     * build keeps its padding; [sidePadLeftScale] / [sidePadRightScale] win
+     * wherever they are set (issue #41).
+     */
     val sidePadScale: Float? = null,
+    val sidePadLeftScale: Float? = null,
+    val sidePadRightScale: Float? = null,
     val fontScale: Float? = null,
     val boldKeyLabels: Boolean? = null,
     val hintFontScale: Float? = null,
@@ -423,6 +439,32 @@ data class ThemeSpec(
      */
     val keyEffectImages: List<String> = emptyList(),
     /**
+     * What colour the particles draw in, as a [KeyEffectColorMode] name; null
+     * is [KeyEffectColorMode.NATURAL], which is what every theme written
+     * before this field existed means. A string for the usual forward-compat
+     * reason; read through [keyEffectColorModeOrNull].
+     */
+    val keyEffectColor: String? = null,
+    /** The colour the `CUSTOM` mode tints with; ignored by every other mode. */
+    val keyEffectCustomColor: Long? = null,
+    /** Scales a particle's size. See [EFFECT_SIZE_RANGE]. */
+    val keyEffectSize: Float = 1f,
+    /** Scales how fast a particle leaves the key. See [EFFECT_SPEED_RANGE]. */
+    val keyEffectSpeed: Float = 1f,
+    /**
+     * How wide the burst fans out, 1 being the default cone and small values
+     * a near-vertical jet. See [EFFECT_SPREAD_RANGE].
+     */
+    val keyEffectSpread: Float = 1f,
+    /**
+     * Scales gravity. Negative floats the particles upward instead of letting
+     * them fall, which is the whole point of the range going below zero. See
+     * [EFFECT_GRAVITY_RANGE].
+     */
+    val keyEffectGravity: Float = 1f,
+    /** How long a particle lives, in milliseconds. See [EFFECT_DURATION_RANGE]. */
+    val keyEffectDurationMs: Int = DEFAULT_EFFECT_DURATION_MS,
+    /**
      * Per-key style overrides — a single key's own colours, keyed by the
      * key's lowercase label (letter keys) or its action name (special keys);
      * see [KeyOverride]. One unknown JSON key to an older build, which
@@ -458,6 +500,25 @@ data class ThemeSpec(
      */
     val variants: List<ThemeSpec> = emptyList(),
 )
+
+/**
+ * Sets one edge of the theme's side padding, keeping the legacy symmetric
+ * [ThemeSpec.sidePadScale] in step (issue #41).
+ *
+ * The legacy field carries the value while the two edges agree and goes null
+ * the moment they diverge, which is the most an older build can honestly
+ * render: an even margin when there is one, and the global setting when the
+ * theme is asking for something that build has no field for.
+ */
+fun ThemeSpec.withSidePad(left: Float? = null, right: Float? = null): ThemeSpec {
+    val newLeft = left ?: sidePadLeftScale ?: sidePadScale ?: 0f
+    val newRight = right ?: sidePadRightScale ?: sidePadScale ?: 0f
+    return copy(
+        sidePadLeftScale = newLeft,
+        sidePadRightScale = newRight,
+        sidePadScale = newLeft.takeIf { it == newRight },
+    )
+}
 
 /**
  * One key's own style, overriding the class-level colours. Everything is
@@ -513,6 +574,33 @@ enum class KeyEffectKind { STARS, HEARTS, SPARKLE, CONFETTI, EMOJI, CUSTOM_IMAGE
 
 /** The most images the CUSTOM_IMAGE press effect may carry. */
 const val MAX_EFFECT_IMAGES = 6
+
+/**
+ * Where a particle's colour comes from. NATURAL leaves the glyph or image
+ * alone — the only mode that keeps a multicoloured emoji multicoloured; every
+ * other mode tints the particle flat, which turns a glyph into a silhouette.
+ * Never serialized — travels as a string.
+ */
+enum class KeyEffectColorMode { NATURAL, KEY_TEXT, ACCENT, GESTURE_TRAIL, CUSTOM, RANDOM }
+
+/**
+ * The mode behind [ThemeSpec.keyEffectColor]. An absent or unknown name is
+ * [KeyEffectColorMode.NATURAL], so a mode from a later build costs the tint,
+ * not the effect.
+ */
+fun keyEffectColorMode(name: String?): KeyEffectColorMode =
+    name?.let { wanted -> KeyEffectColorMode.entries.firstOrNull { it.name.equals(wanted, true) } }
+        ?: KeyEffectColorMode.NATURAL
+
+/** Bounds for the press effect's physics sliders; the editor and the field share them. */
+val EFFECT_SIZE_RANGE = 0.4f..3f
+val EFFECT_SPEED_RANGE = 0.3f..2.5f
+val EFFECT_SPREAD_RANGE = 0.1f..1f
+val EFFECT_GRAVITY_RANGE = -1f..3f
+val EFFECT_DURATION_RANGE = 200..2500
+
+/** A particle's lifetime before any theme says otherwise. */
+const val DEFAULT_EFFECT_DURATION_MS = 650
 
 /**
  * The effect behind [ThemeSpec.keyEffect]; null for an absent or unknown
@@ -836,6 +924,7 @@ fun ThemeSpec.reseeded(seed: Long, dark: Boolean): ThemeSpec {
         toolCircleBackground = generated.toolCircleBackground,
         chipBackground = generated.chipBackground,
         modifierKeyText = null,
+        hintText = null,
         popupText = null,
         toolbarIcon = null,
         toolCircleActiveBackground = null,

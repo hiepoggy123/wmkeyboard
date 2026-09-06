@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.prediction
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -182,5 +183,159 @@ class UserLexiconTest {
         val back = UserLexicon(f)
         assertEquals(7, back.frequencyOf("edited"))
         assertFalse(back.contains("mine"))
+    }
+
+    @Test
+    fun renameKeepsCountTagAndPairs() {
+        val f = file()
+        UserLexicon(f).apply {
+            learnWord("teh", 7, langId = "en")
+            learnWord("hello", 3)
+            learnWord("world", 3)
+            learnBigram("hello", "teh")
+            learnBigram("teh", "world")
+            learnTrigram("hello", "teh", "world")
+            assertTrue(rename("teh", "the"))
+            save()
+        }
+        val back = UserLexicon(f)
+        assertFalse(back.contains("teh"))
+        assertEquals(7, back.frequencyOf("the"))
+        assertEquals("en", back.languageOf("the"))
+        assertEquals(null, back.languageOf("teh"))
+        // Pairs where it followed, led, and sat in the middle all moved.
+        assertEquals(1, back.bigramCount("hello", "the"))
+        assertEquals(0, back.bigramCount("hello", "teh"))
+        assertEquals(listOf("world"), back.nextWords("the", 3))
+        assertEquals(1, back.trigramCount("hello", "the", "world"))
+        assertEquals(0, back.trigramCount("hello", "teh", "world"))
+    }
+
+    @Test
+    fun renameOntoExistingWordMergesCounts() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("colour", 4, langId = "en_gb")
+        lexicon.learnWord("color", 6, langId = "en")
+        lexicon.learnBigram("nice", "colour")
+        lexicon.learnBigram("nice", "color")
+        assertTrue(lexicon.rename("colour", "color"))
+        assertEquals(10, lexicon.frequencyOf("color"))
+        assertFalse(lexicon.contains("colour"))
+        // The surviving word keeps its own tag, and the follower counts add.
+        assertEquals("en", lexicon.languageOf("color"))
+        assertEquals(2, lexicon.bigramCount("nice", "color"))
+    }
+
+    @Test
+    fun renameRefusesUnknownEmptyAndSameSpelling() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("hello", 2)
+        val before = lexicon.mutationCount()
+        assertFalse(lexicon.rename("nope", "yes"))
+        assertFalse(lexicon.rename("hello", "   "))
+        assertFalse(lexicon.rename("hello", "x".repeat(33)))
+        // Case folds to the same key, and matches the spelling already stored:
+        // nothing to do (a case-only respelling that *changes* the spelling is
+        // a case edit, covered below).
+        assertFalse(lexicon.rename("hello", "hello"))
+        assertFalse(lexicon.rename("nope", "Nope"))
+        assertEquals(before, lexicon.mutationCount())
+        assertEquals(2, lexicon.frequencyOf("hello"))
+    }
+
+    @Test
+    fun setCountClampsAndReachesTheTrie() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("hello", 50)
+        assertTrue(lexicon.setCount("hello", 5))
+        assertEquals(5, lexicon.frequencyOf("hello"))
+        assertEquals(5, lexicon.complete("hel", 1).single().frequency)
+        assertTrue(lexicon.setCount("hello", 0))
+        assertEquals(1, lexicon.frequencyOf("hello"))
+        assertTrue(lexicon.setCount("hello", Int.MAX_VALUE))
+        assertEquals(UserLexicon.MAX_COUNT, lexicon.frequencyOf("hello"))
+        assertFalse(lexicon.setCount("unknown", 3))
+        assertFalse(lexicon.contains("unknown"))
+    }
+
+    // ---- case memory (#44) ----
+
+    @Test
+    fun aTrustedCapitalIsRememberedAndAnUntrustedOneIsNot() {
+        val lexicon = UserLexicon(null)
+        // Auto-capitalize's capital teaches the word but not the spelling.
+        lexicon.learnWord("Boston", caseEvidence = false)
+        assertNull(lexicon.displayOf("boston"))
+        // The user's own capital does.
+        lexicon.learnWord("Boston", caseEvidence = true)
+        assertEquals("Boston", lexicon.displayOf("boston"))
+        // Looked up under either spelling; the key is what is stored.
+        assertEquals("Boston", lexicon.displayOf("BOSTON"))
+        assertTrue("Boston" to 2 in lexicon.allWords())
+    }
+
+    @Test
+    fun ordinaryLowerCaseTypingVotesAStaleCapitalBackOut() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("SALE", caseEvidence = true)
+        assertEquals("SALE", lexicon.displayOf("sale"))
+        // One sighting in, one sighting out.
+        lexicon.learnWord("sale", caseEvidence = true)
+        assertNull(lexicon.displayOf("sale"))
+        // An untrusted sighting is not a vote either way.
+        lexicon.learnWord("Sale", caseEvidence = true)
+        lexicon.learnWord("sale", caseEvidence = false)
+        assertEquals("Sale", lexicon.displayOf("sale"))
+    }
+
+    @Test
+    fun aWordAddedByHandKeepsItsSpellingAgainstOrdinaryTyping() {
+        val lexicon = UserLexicon(null)
+        lexicon.addWord("iPhone")
+        assertEquals("iPhone", lexicon.displayOf("iphone"))
+        // A deliberate add outweighs a stray lower-case commit or two.
+        lexicon.learnWord("iphone", caseEvidence = true)
+        lexicon.learnWord("iphone", caseEvidence = true)
+        assertEquals("iPhone", lexicon.displayOf("iphone"))
+        // Adding it in lower case takes the spelling straight back off.
+        lexicon.addWord("iphone")
+        assertNull(lexicon.displayOf("iphone"))
+    }
+
+    @Test
+    fun aCaseOnlyRespellingIsACaseEditRatherThanARename() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("boston", 5)
+        assertTrue(lexicon.rename("boston", "Boston"))
+        assertEquals("Boston", lexicon.displayOf("boston"))
+        // The word itself never moved: same key, same count, same bigrams.
+        assertEquals(5, lexicon.frequencyOf("boston"))
+        assertTrue("Boston" to 5 in lexicon.allWords())
+    }
+
+    @Test
+    fun aRenameCarriesTheNewSpellingAndDropsTheOldOne() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("bostn", 3, caseEvidence = true)
+        assertTrue(lexicon.rename("bostn", "Boston"))
+        assertNull(lexicon.displayOf("bostn"))
+        assertEquals("Boston", lexicon.displayOf("boston"))
+    }
+
+    @Test
+    fun spellingsSurviveASaveAndGoWithAForgottenWord() {
+        val f = file()
+        UserLexicon(f).apply {
+            learnWord("Boston", 3, caseEvidence = true)
+            learnWord("paris", 3)
+            save()
+        }
+        val reloaded = UserLexicon(f)
+        assertEquals("Boston", reloaded.displayOf("boston"))
+        assertNull(reloaded.displayOf("paris"))
+        reloaded.forget("Boston")
+        assertNull(reloaded.displayOf("boston"))
+        reloaded.save()
+        assertNull(UserLexicon(f).displayOf("boston"))
     }
 }

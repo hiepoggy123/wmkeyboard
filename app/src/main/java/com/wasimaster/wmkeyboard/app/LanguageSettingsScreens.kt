@@ -3,7 +3,6 @@ package com.wasimaster.wmkeyboard.app
 import android.content.Context
 import android.net.ConnectivityManager
 import android.widget.Toast
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,7 +25,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -57,6 +55,8 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictStore
+import com.wasimaster.wmkeyboard.core.emoji.EmojiKeywordPacks
+import com.wasimaster.wmkeyboard.core.settings.keywordsEnabledFor
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
@@ -66,6 +66,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.KeymanBinding
+import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.prediction.BengaliSpellingMap
@@ -85,6 +86,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.TransliterationHintMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.io.File
@@ -225,13 +227,6 @@ internal fun enabledLanguagesSummary(settings: KeyboardSettings): String {
 private const val LANGUAGE_SUMMARY_LIMIT = 3
 
 /**
- * How many suggestions the Languages screen offers before the user has to go
- * through "Add language". Short enough that it reads as a shortcut rather than
- * as a second list.
- */
-internal const val LANGUAGE_SCREEN_SUGGESTIONS = 4
-
-/**
  * The languages this device suggests, minus whatever is already enabled.
  *
  * Read once and cached for as long as the screen lives: the phone's language
@@ -338,7 +333,10 @@ internal fun AddLanguageScreen(
     // Only while browsing: once someone is searching, they know what they want
     // and a suggestion block above the results is in the way.
     if (q.isEmpty() && suggested.isNotEmpty()) {
-        SettingsGroup(stringResource(R.string.languages_suggested_title)) {
+        SettingsGroup(
+            stringResource(R.string.languages_suggested_title),
+            info = stringResource(R.string.languages_suggested_info),
+        ) {
             for (suggestion in suggested) {
                 item {
                     NavRow(
@@ -347,13 +345,16 @@ internal fun AddLanguageScreen(
                     ) { add(suggestion.language) }
                 }
             }
-            item { CaptionText(stringResource(R.string.languages_suggested_info)) }
         }
     }
     val allTitle = stringResource(R.string.languages_all_title)
     val addedLabel = stringResource(R.string.languages_added_label)
     SettingsGroup(if (q.isEmpty() && suggested.isNotEmpty()) allTitle else null) {
-        for (lang in matches.take(ADD_LANGUAGE_LIMIT)) {
+        // Added languages first, then the rest in registry order: the ones
+        // already on the keyboard are the ones someone comes back here for,
+        // and past the limit below they would otherwise not be listed at all.
+        val listed = matches.sortedByDescending { it.id in enabledLangIds }
+        for (lang in listed.take(ADD_LANGUAGE_LIMIT)) {
             item {
                 val added = lang.id in enabledLangIds
                 NavRow(
@@ -958,6 +959,48 @@ internal fun LanguageDetailScreen(
         }
     }
 
+    // Key hints, for a language typed phonetically. Here rather than on the Key
+    // press screen because it is the one setting on that screen that means
+    // nothing to most boards: it exists because a phonetic layout wears a roman
+    // grid, so its keys never say what they write, and that is a fact about the
+    // language you picked rather than about how you press a key.
+    //
+    // Gated on an *enabled* transliterating layout rather than on the language:
+    // someone typing Bengali on Probhat alone has Bengali keys in front of them
+    // and nothing to hint.
+    val transliterating = settings.enabledLayoutIds.any { id ->
+        val spec = resolveLayout(settings.customLayouts, id)
+        spec.langId == langId && spec.composerType() == ComposerType.TRANSLITERATE
+    }
+    if (transliterating) {
+        SettingsGroup(stringResource(R.string.languages_translit_hints_title)) {
+            item {
+                ChoiceSetting(
+                    R.string.languages_translit_hints_row_title,
+                    subtitle = stringResource(
+                        R.string.languages_translit_hints_row_subtitle,
+                        lang.englishName,
+                    ),
+                    options = listOf(
+                        TransliterationHintMode.OFF to
+                            stringResource(R.string.languages_translit_hints_off_label),
+                        TransliterationHintMode.ADDED to
+                            stringResource(R.string.languages_translit_hints_added_label),
+                        TransliterationHintMode.CLUSTER to
+                            stringResource(R.string.languages_translit_hints_cluster_label),
+                    ),
+                    selected = settings.layoutBehavior.transliterationHints,
+                    info = stringResource(
+                        R.string.languages_translit_hints_info,
+                        lang.englishName,
+                    ),
+                    default = SettingsDefaults.layoutBehavior.transliterationHints,
+                    detail = { mode -> ChoiceDetail(stringResource(translitHintDescRes(mode))) },
+                ) { scope.launch { repository.setTransliterationHints(it) } }
+            }
+        }
+    }
+
     // Numerals are per language: Arabic can type ٠-٩ while English beside it
     // stays 0-9. Two options only — this language's own digits (stored as
     // [NumeralSystem.AUTO], which follows the language) or 0-9. The full list of
@@ -1003,12 +1046,10 @@ internal fun LanguageDetailScreen(
     val others = settings.enabledLanguages.filter { it.id != langId }
     if (others.isNotEmpty()) {
         val secondaries = settings.secondaryLanguages[langId].orEmpty()
-        SettingsGroup(stringResource(R.string.languages_secondary_title)) {
-            item {
-                CaptionText(
-                    stringResource(R.string.languages_secondary_info, lang.englishName),
-                )
-            }
+        SettingsGroup(
+            stringResource(R.string.languages_secondary_title),
+            info = stringResource(R.string.languages_secondary_info, lang.englishName),
+        ) {
             for (other in others) {
                 item {
                     ToggleSetting(other.displayName, null, other.id in secondaries) { on ->
@@ -1035,7 +1076,10 @@ internal fun LanguageDetailScreen(
     var confirmMetered by remember { mutableStateOf(false) }
     var blockedMetered by remember { mutableStateOf(false) }
     if (!downloadable.isEmpty) {
-        SettingsGroup(stringResource(R.string.languages_data_title)) {
+        SettingsGroup(
+            stringResource(R.string.languages_data_title),
+            info = stringResource(R.string.languages_data_download_all_info),
+        ) {
             item {
                 OutlinedButton(
                     onClick = {
@@ -1058,7 +1102,6 @@ internal fun LanguageDetailScreen(
                     )
                 }
             }
-            item { CaptionText(stringResource(R.string.languages_data_download_all_info)) }
         }
     }
     if (confirmMetered) {
@@ -1109,6 +1152,20 @@ internal fun LanguageDetailScreen(
                 scope.launch { repository.setDefaultWordlistSize(chosen) }
             } }
         }
+        // The word list's own switch (issue #51): the same setting the
+        // Custom dictionaries screen spells as "Use only my word lists", read
+        // the other way up, and only where there is a list to switch.
+        if (lang.bundledDictionary || DictionaryStore.isDownloaded(filesDir, langId)) {
+            item {
+                ToggleSetting(
+                    R.string.languages_dictionary_use_title,
+                    stringResource(R.string.languages_dictionary_use_subtitle),
+                    settings.suggestionStrip.shippedDictionaryEnabledFor(langId),
+                    info = stringResource(R.string.languages_dictionary_use_info),
+                    default = SettingsDefaults.suggestionStrip.shippedDictionaryEnabledFor(langId),
+                ) { scope.launch { repository.setShippedDictionaryEnabled(langId, it) } }
+            }
+        }
         item {
             NavRow(
                 R.string.languages_custom_dictionaries_title,
@@ -1137,6 +1194,21 @@ internal fun LanguageDetailScreen(
         }
         if (emojiDict != null) {
             item { EmojiDictRow(emojiDict) }
+        }
+        // The keywords' own switch (issue #51), only once there is a pack —
+        // downloaded or imported — for it to switch.
+        val emojiPackOnDevice = EmojiDictStore.isDownloaded(filesDir, langId) ||
+            EmojiKeywordPacks.packs(filesDir, langId).isNotEmpty()
+        if (emojiPackOnDevice) {
+            item {
+                ToggleSetting(
+                    R.string.languages_emoji_keywords_use_title,
+                    stringResource(R.string.languages_emoji_keywords_use_subtitle),
+                    settings.emoji.keywordsEnabledFor(langId),
+                    info = stringResource(R.string.languages_emoji_keywords_use_info),
+                    default = SettingsDefaults.emoji.keywordsEnabledFor(langId),
+                ) { scope.launch { repository.setEmojiKeywordsEnabled(langId, it) } }
+            }
         }
         item {
             NavRow(
@@ -1482,8 +1554,10 @@ private fun CjkDictPackManager(
         R.string.languages_cjk_options_title,
         LanguageRegistry.byId(langId).englishName,
     )
-    SettingsGroup(groupTitle) {
-        item { CaptionText(stringResource(R.string.languages_cjk_download_info)) }
+    SettingsGroup(
+        groupTitle,
+        info = stringResource(R.string.languages_cjk_download_info),
+    ) {
         for (pack in CjkDictCatalog.forLang(langId)) {
             item {
                 val status = states[pack.id] ?: CjkDictDownloadManager.DownloadStatus.NotDownloaded
@@ -1543,6 +1617,7 @@ private fun CjkDictPackManager(
                 R.string.languages_cjk_traditional_title,
                 stringResource(R.string.languages_cjk_traditional_subtitle),
                 settings.cjk.traditionalOutput,
+                info = stringResource(R.string.languages_cjk_region_info),
                 default = SettingsDefaults.cjk.traditionalOutput,
             ) { on -> scope.launch { repository.setCjkTraditionalOutput(on) } }
         }
@@ -1551,39 +1626,15 @@ private fun CjkDictPackManager(
         // says 計程車 where the mainland says 出租車, and no character map
         // reaches that. Only worth showing once the toggle above is on.
         if (settings.cjk.traditionalOutput) {
-            item { CaptionText(stringResource(R.string.languages_cjk_region_info)) }
-            for (region in HanVariant.HanRegion.entries) {
-                item {
-                    val titleRes = when (region) {
-                        HanVariant.HanRegion.GENERIC -> R.string.languages_cjk_region_generic_title
-                        HanVariant.HanRegion.TAIWAN -> R.string.languages_cjk_region_taiwan_title
-                        HanVariant.HanRegion.HONG_KONG ->
-                            R.string.languages_cjk_region_hong_kong_title
-                    }
-                    val subtitleRes = when (region) {
-                        HanVariant.HanRegion.GENERIC ->
-                            R.string.languages_cjk_region_generic_subtitle
-                        HanVariant.HanRegion.TAIWAN ->
-                            R.string.languages_cjk_region_taiwan_subtitle
-                        HanVariant.HanRegion.HONG_KONG ->
-                            R.string.languages_cjk_region_hong_kong_subtitle
-                    }
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { scope.launch { repository.setCjkHanRegion(region) } }
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                    ) {
-                        RadioButton(
-                            selected = settings.cjk.hanRegion == region,
-                            onClick = { scope.launch { repository.setCjkHanRegion(region) } },
-                        )
-                        Column(modifier = Modifier.padding(start = 8.dp)) {
-                            Text(stringResource(titleRes))
-                            CaptionText(stringResource(subtitleRes))
-                        }
-                    }
-                }
+            item {
+                ChoiceSetting(
+                    R.string.languages_cjk_region_title,
+                    info = stringResource(R.string.languages_cjk_region_info),
+                    options = HanVariant.HanRegion.entries.map { it to stringResource(cjkRegionLabelRes(it)) },
+                    selected = settings.cjk.hanRegion,
+                    default = SettingsDefaults.cjk.hanRegion,
+                    detail = { region -> ChoiceDetail(stringResource(cjkRegionDescRes(region))) },
+                ) { region -> scope.launch { repository.setCjkHanRegion(region) } }
             }
         }
 
@@ -1601,13 +1652,19 @@ private fun CjkDictPackManager(
             }
         }
 
-        // Chinese-only: fuzzy pinyin + Double Pinyin scheme.
-        if (langId == "zh") {
+    }
+    // Chinese-only: fuzzy pinyin + Double Pinyin scheme, in a card of their own.
+    if (langId == "zh") {
+        SettingsGroup(
+            stringResource(R.string.languages_cjk_pinyin_group_title),
+            info = stringResource(R.string.languages_cjk_double_pinyin_info),
+        ) {
             item {
                 ToggleSetting(
                     R.string.languages_cjk_fuzzy_title,
                     stringResource(R.string.languages_cjk_fuzzy_subtitle),
                     settings.cjk.pinyinFuzzy,
+                    info = stringResource(R.string.languages_cjk_fuzzy_pairs_info),
                     default = SettingsDefaults.cjk.pinyinFuzzy,
                 ) { on -> scope.launch { repository.setPinyinFuzzy(on) } }
             }
@@ -1616,7 +1673,6 @@ private fun CjkDictPackManager(
             // accent, while n↔l costs precision on every syllable starting with
             // either. Only drawn while fuzzy is on — off, they decide nothing.
             if (settings.cjk.pinyinFuzzy) {
-                item { CaptionText(stringResource(R.string.languages_cjk_fuzzy_pairs_info)) }
                 for (pair in PinyinFuzzy.PAIRS) {
                     item {
                         val on = pair.id in settings.cjk.pinyinFuzzyPairs
@@ -1653,21 +1709,13 @@ private fun CjkDictPackManager(
                     }
                 }
             }
-            item { CaptionText(stringResource(R.string.languages_cjk_double_pinyin_info)) }
-            for (scheme in DoublePinyinScheme.entries) {
-                item {
-                    val select: () -> Unit = { scope.launch { repository.setPinyinDoublePinyin(scheme) } }
-                    WmRow(
-                        title = stringResource(scheme.displayNameRes),
-                        trailing = {
-                            RadioButton(
-                                selected = settings.cjk.pinyinDoublePinyin == scheme,
-                                onClick = select,
-                            )
-                        },
-                        onClick = select,
-                    )
-                }
+            item {
+                ChoiceSetting(
+                    R.string.languages_cjk_double_pinyin_title,
+                    options = DoublePinyinScheme.entries.map { it to stringResource(it.displayNameRes) },
+                    selected = settings.cjk.pinyinDoublePinyin,
+                    default = SettingsDefaults.cjk.pinyinDoublePinyin,
+                ) { scheme -> scope.launch { repository.setPinyinDoublePinyin(scheme) } }
             }
         }
     }
@@ -1708,3 +1756,22 @@ private fun packStatusLabel(
 
 /** Turns a fraction into the whole-number percentage the pack row shows. */
 private const val PERCENT = 100L
+
+/** How much of the joined letter each hint mode draws, for the picker sheet. */
+private fun translitHintDescRes(mode: TransliterationHintMode): Int = when (mode) {
+    TransliterationHintMode.OFF -> R.string.languages_translit_hints_off_desc
+    TransliterationHintMode.ADDED -> R.string.languages_translit_hints_added_desc
+    TransliterationHintMode.CLUSTER -> R.string.languages_translit_hints_cluster_desc
+}
+
+private fun cjkRegionDescRes(region: HanVariant.HanRegion): Int = when (region) {
+    HanVariant.HanRegion.GENERIC -> R.string.languages_cjk_region_generic_subtitle
+    HanVariant.HanRegion.TAIWAN -> R.string.languages_cjk_region_taiwan_subtitle
+    HanVariant.HanRegion.HONG_KONG -> R.string.languages_cjk_region_hong_kong_subtitle
+}
+
+private fun cjkRegionLabelRes(region: HanVariant.HanRegion): Int = when (region) {
+    HanVariant.HanRegion.GENERIC -> R.string.languages_cjk_region_generic_title
+    HanVariant.HanRegion.TAIWAN -> R.string.languages_cjk_region_taiwan_title
+    HanVariant.HanRegion.HONG_KONG -> R.string.languages_cjk_region_hong_kong_title
+}

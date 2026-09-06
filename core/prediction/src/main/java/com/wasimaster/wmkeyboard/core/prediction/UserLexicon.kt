@@ -28,6 +28,13 @@ class UserLexicon(private val storageFile: File?) {
          * with no entry (legacy files, settings-app adds) are untagged and
          * treated as belonging to every language. */
         val wordLang: Map<String, String> = emptyMap(),
+        /** Surface spelling for words the user writes with capitals ("boston"
+         * -> "Boston"). Only words whose spelling differs from their key have
+         * an entry; everything else is written the way it is stored. */
+        val wordCase: Map<String, String> = emptyMap(),
+        /** How much evidence stands behind each [wordCase] entry, so a
+         * spelling the user has moved on from can be voted back out. */
+        val caseVotes: Map<String, Int> = emptyMap(),
     )
 
     /** A word's followers plus a lazily cached count-descending order, so the
@@ -40,6 +47,22 @@ class UserLexicon(private val storageFile: File?) {
             counts.merge(next, 1, Int::plus)
             sorted = null
             if (counts.size > MAX_FOLLOWERS) {
+                counts.remove(counts.minByOrNull { it.value }?.key)
+            }
+        }
+
+        /** Moves [old]'s count onto [new], adding to any count [new] already has. */
+        fun rename(old: String, new: String) {
+            val moved = counts.remove(old) ?: return
+            counts.merge(new, moved, Int::plus)
+            sorted = null
+        }
+
+        /** Folds [other]'s counts into this one, then re-applies the follower cap. */
+        fun absorb(other: Followers) {
+            for ((next, count) in other.counts) counts.merge(next, count, Int::plus)
+            sorted = null
+            while (counts.size > MAX_FOLLOWERS) {
                 counts.remove(counts.minByOrNull { it.value }?.key)
             }
         }
@@ -58,6 +81,8 @@ class UserLexicon(private val storageFile: File?) {
     private val trigrams = HashMap<String, Followers>()
     private val wordGen = HashMap<String, Long>()
     private val wordLangs = HashMap<String, String>()
+    private val wordCase = HashMap<String, String>()
+    private val caseVotes = HashMap<String, Int>()
     private var generation = 0L
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -95,9 +120,17 @@ class UserLexicon(private val storageFile: File?) {
      * committed in passing.
      */
     @Synchronized
-    fun learnWord(word: String, count: Int = 1, langId: String = "") {
+    fun learnWord(
+        word: String,
+        count: Int = 1,
+        langId: String = "",
+        caseEvidence: Boolean = false,
+    ) {
         val key = WordKey.of(word)
         if (key.length < 2 || key.length > MAX_WORD_LENGTH || count <= 0) return
+        // Only the caller knows whether the capital it is holding is the
+        // user's or the keyboard's, so the vote is cast on its say-so (#44).
+        if (caseEvidence) voteCase(key, WordKey.surface(word), weight = 1)
         val before = words[key] ?: 0
         val merged = (before.toLong() + count).coerceAtMost(MAX_COUNT.toLong()).toInt()
         words[key] = merged
@@ -122,14 +155,91 @@ class UserLexicon(private val storageFile: File?) {
     fun languageOf(word: String): String? = wordLangs[WordKey.of(word)]
 
     /**
+     * The spelling [word] should be written in — "Boston" for a key of
+     * "boston" — or null when the user writes it in lower case (#44).
+     *
+     * Everything the keyboard stores is keyed lower case, so a proper noun
+     * came back off a swipe or a completion stripped of its capital and had
+     * to be re-picked from the strip every time. This is the memory that puts
+     * the capital back, and it is only ever fed by spellings the user chose
+     * themselves: a capital that auto-capitalize put there says nothing about
+     * how the word is spelled, so the callers that know the difference say so
+     * (see `learnWord`'s `caseEvidence`).
+     */
+    @Synchronized
+    fun displayOf(word: String): String? = wordCase[WordKey.of(word)]
+
+    /**
+     * One sighting of [surface] as the spelling of [key], worth [weight]
+     * ordinary sightings.
+     *
+     * A streaming majority vote: one spelling and one counter per word. The
+     * stored spelling is reinforced by a sighting that agrees with it and
+     * worn down by one that does not, and a challenger takes the slot only
+     * once the incumbent's evidence has run out. That costs two small map
+     * entries per capitalized word — no per-spelling histogram — and it
+     * converges on whichever casing the user actually writes, so a shouted
+     * "SALE" or a stray shift is voted straight back out by ordinary typing.
+     *
+     * A [surface] equal to the key is a vote for "no capital at all", which is
+     * why lower-case sightings are what wear a stale spelling down.
+     */
+    private fun voteCase(key: String, surface: String, weight: Int) {
+        if (weight <= 0 || WordKey.of(surface) != key) return
+        val shape = surface.takeIf { it != key }
+        val current = wordCase[key]
+        if (current == null) {
+            if (shape != null) {
+                wordCase[key] = shape
+                caseVotes[key] = weight.coerceAtMost(MAX_CASE_VOTES)
+            }
+            return
+        }
+        if (shape == current) {
+            caseVotes[key] = ((caseVotes[key] ?: 0) + weight).coerceAtMost(MAX_CASE_VOTES)
+            return
+        }
+        val left = (caseVotes[key] ?: 0) - weight
+        if (left > 0) {
+            caseVotes[key] = left
+            return
+        }
+        wordCase.remove(key)
+        caseVotes.remove(key)
+        // Whatever the challenger had left over after unseating the incumbent
+        // becomes its own opening balance, so a decisive vote (a word added by
+        // hand) does not arrive on one sighting's worth of evidence.
+        if (shape != null) {
+            wordCase[key] = shape
+            caseVotes[key] = (-left).coerceIn(1, MAX_CASE_VOTES)
+        }
+    }
+
+    /** Settles [key]'s spelling outright, past whatever the vote held. */
+    private fun setCase(key: String, surface: String) {
+        if (WordKey.of(surface) != key) return
+        if (surface == key) {
+            wordCase.remove(key)
+            caseVotes.remove(key)
+        } else {
+            wordCase[key] = surface
+            caseVotes[key] = MAX_CASE_VOTES
+        }
+    }
+
+    /**
      * User-added dictionary entry: weighted like a word typed [boost]
      * times so it competes with genuinely frequent words immediately and
      * is never "corrected" away.
      */
     @Synchronized
-    fun addWord(word: String, boost: Int = 200) {
-        val key = WordKey.of(word.trim())
+    fun addWord(word: String, boost: Int = 200, caseEvidence: Boolean = true) {
+        val trimmed = word.trim()
+        val key = WordKey.of(trimmed)
         if (key.isEmpty() || key.length > MAX_WORD_LENGTH) return
+        // A word added by hand is spelled the way the user spelled it, so its
+        // casing is settled outright rather than voted on.
+        if (caseEvidence) setCase(key, WordKey.surface(trimmed))
         val before = words[key] ?: 0
         val merged = (before.toLong() + boost).coerceAtMost(MAX_COUNT.toLong()).toInt()
         words[key] = merged
@@ -137,6 +247,89 @@ class UserLexicon(private val storageFile: File?) {
         wordGen[key] = generation
         mutations++
         dirty = true
+    }
+
+    /**
+     * Respells [word] as [replacement], keeping its count, language tag and
+     * age, and carrying the word pairs and triples it took part in across
+     * with it (personal dictionary screen, #47). Respelling onto a word that
+     * already exists merges the two: counts add, clamped, and the existing
+     * word keeps its own tag. Returns false, and touches nothing, when [word]
+     * is unknown, when the new spelling is empty or too long, or when the two
+     * spellings fold to the same key.
+     */
+    @Synchronized
+    fun rename(word: String, replacement: String): Boolean {
+        val oldKey = WordKey.of(word)
+        val trimmed = replacement.trim()
+        val newKey = WordKey.of(trimmed)
+        if (newKey.isEmpty() || newKey.length > MAX_WORD_LENGTH) return false
+        // A respelling that only moves capitals about ("boston" -> "Boston")
+        // is not a rename at all — every store keys the word the same way —
+        // so it settles the word's case memory instead (#44).
+        if (oldKey == newKey) {
+            val surface = WordKey.surface(trimmed)
+            if (surface == (wordCase[oldKey] ?: oldKey) || oldKey !in words) return false
+            setCase(oldKey, surface)
+            mutations++
+            dirty = true
+            return true
+        }
+        val count = words.remove(oldKey) ?: return false
+        val existing = words[newKey] ?: 0
+        words[newKey] = (existing.toLong() + count).coerceAtMost(MAX_COUNT.toLong()).toInt()
+        val oldGen = wordGen.remove(oldKey) ?: generation
+        wordGen[newKey] = maxOf(oldGen, wordGen[newKey] ?: 0L)
+        val oldLang = wordLangs.remove(oldKey)
+        if (oldLang != null && newKey !in wordLangs) wordLangs[newKey] = oldLang
+        // The new spelling is the user's own, so it settles the new key's case
+        // outright; the old key's memory goes with the word it described.
+        wordCase.remove(oldKey)
+        caseVotes.remove(oldKey)
+        setCase(newKey, WordKey.surface(trimmed))
+        // Pairs where the word led: its follower set moves under the new key.
+        bigrams.remove(oldKey)?.let { moved ->
+            val target = bigrams[newKey]
+            if (target == null) bigrams[newKey] = moved else target.absorb(moved)
+        }
+        // Pairs where it followed: the count moves within each follower set.
+        bigrams.values.forEach { it.rename(oldKey, newKey) }
+        // Triples: rewrite every context the word is part of, merging on
+        // collision, then move it within the follower sets too.
+        val contexts = trigrams.keys.filter { key ->
+            key.split(TRIGRAM_SEPARATOR).any { it == oldKey }
+        }
+        for (context in contexts) {
+            val moved = trigrams.remove(context) ?: continue
+            val rewritten = context.split(TRIGRAM_SEPARATOR)
+                .joinToString(TRIGRAM_SEPARATOR.toString()) { if (it == oldKey) newKey else it }
+            val target = trigrams[rewritten]
+            if (target == null) trigrams[rewritten] = moved else target.absorb(moved)
+        }
+        trigrams.values.forEach { it.rename(oldKey, newKey) }
+        rebuildTrie()
+        mutations++
+        dirty = true
+        return true
+    }
+
+    /**
+     * Sets a known word's weight outright, clamped to `1..MAX_COUNT`, so the
+     * personal dictionary screen can raise or lower how hard a word competes
+     * (#47). Unknown words are left alone: use [addWord] for those. Lowering
+     * a weight has to rebuild the trie, since its per-node upper bounds only
+     * ever grow; this is a settings-app path, never the typing path.
+     */
+    @Synchronized
+    fun setCount(word: String, count: Int): Boolean {
+        val key = WordKey.of(word)
+        if (key !in words) return false
+        words[key] = count.coerceIn(1, MAX_COUNT)
+        wordGen[key] = generation
+        rebuildTrie()
+        mutations++
+        dirty = true
+        return true
     }
 
     /**
@@ -151,6 +344,8 @@ class UserLexicon(private val storageFile: File?) {
         trigrams.clear()
         wordGen.clear()
         wordLangs.clear()
+        wordCase.clear()
+        caseVotes.clear()
         rebuildTrie()
         load()
         mutations++
@@ -246,9 +441,15 @@ class UserLexicon(private val storageFile: File?) {
     @Synchronized
     fun frequencyOf(word: String): Int = trie.frequencyOf(WordKey.of(word))
 
-    /** Snapshot of all learned words with their counts. */
+    /**
+     * Snapshot of all learned words with their counts, each in the spelling it
+     * is written in — so the personal dictionary screen shows "Boston", not
+     * the "boston" it is filed under. Every write-side call takes either form:
+     * they all key through [WordKey].
+     */
     @Synchronized
-    fun allWords(): List<Pair<String, Int>> = words.toList()
+    fun allWords(): List<Pair<String, Int>> =
+        words.map { (key, count) -> (wordCase[key] ?: key) to count }
 
     @Synchronized
     fun forget(word: String) {
@@ -270,6 +471,8 @@ class UserLexicon(private val storageFile: File?) {
             words.remove(key)
             wordGen.remove(key)
             wordLangs.remove(key)
+            wordCase.remove(key)
+            caseVotes.remove(key)
             bigrams.remove(key)
         }
         bigrams.values.forEach { followers ->
@@ -293,6 +496,8 @@ class UserLexicon(private val storageFile: File?) {
         trigrams.clear()
         wordGen.clear()
         wordLangs.clear()
+        wordCase.clear()
+        caseVotes.clear()
         rebuildTrie()
         mutations++
         // The delete is the write, so there is normally nothing left to save.
@@ -315,6 +520,8 @@ class UserLexicon(private val storageFile: File?) {
             wordGen = wordGen,
             trigrams = trigrams.mapValues { it.value.counts.toMap() },
             wordLang = wordLangs,
+            wordCase = wordCase,
+            caseVotes = caseVotes,
         )
         runCatching {
             file.parentFile?.mkdirs()
@@ -343,6 +550,15 @@ class UserLexicon(private val storageFile: File?) {
             for (word in words.keys) {
                 wordGen[word] = snapshot.wordGen[word] ?: snapshot.generation
                 snapshot.wordLang[word]?.let { wordLangs[word] = it }
+                // Dropped if the file disagrees with itself: a spelling that
+                // no longer folds to its own key would be written into text.
+                snapshot.wordCase[word]
+                    ?.takeIf { WordKey.of(it) == word && it != word }
+                    ?.let {
+                        wordCase[word] = it
+                        caseVotes[word] =
+                            (snapshot.caseVotes[word] ?: 1).coerceIn(1, MAX_CASE_VOTES)
+                    }
             }
             rebuildTrie()
         }
@@ -383,6 +599,8 @@ class UserLexicon(private val storageFile: File?) {
                 words.remove(word)
                 wordGen.remove(word)
                 wordLangs.remove(word)
+                wordCase.remove(word)
+                caseVotes.remove(word)
                 bigrams.remove(word)
                 bigrams.values.forEach {
                     if (it.counts.remove(word) != null) it.sorted = null
@@ -405,26 +623,36 @@ class UserLexicon(private val storageFile: File?) {
         }
     }
 
-    private companion object {
+    companion object {
+        /** Longest word the store keeps, in folded characters. */
         const val MAX_WORD_LENGTH = 32
-        /** 1e6 x USER_WORD_WEIGHT(500) stays far inside Int range. */
+        /** Ceiling on a word's count. 1e6 x USER_WORD_WEIGHT(500) stays far
+         * inside Int range. Public so the personal dictionary screen can
+         * bound the weight it lets the user type. */
         const val MAX_COUNT = 1_000_000
-        const val MAX_WORDS = 10_000
+        private const val MAX_WORDS = 10_000
         /** Eviction target below the cap: 10% hysteresis so compaction does
          * not churn on every save once the cap is reached. */
-        const val EVICT_TO = 9_000
-        const val MAX_BIGRAM_PREVS = 5_000
-        const val MAX_TRIGRAM_CONTEXTS = 2_000
-        const val MAX_FOLLOWERS = 32
+        private const val EVICT_TO = 9_000
+        private const val MAX_BIGRAM_PREVS = 5_000
+        private const val MAX_TRIGRAM_CONTEXTS = 2_000
+        private const val MAX_FOLLOWERS = 32
 
         /** NUL, built rather than written literally. */
-        val TRIGRAM_SEPARATOR: Char = 0.toChar()
+        private val TRIGRAM_SEPARATOR: Char = 0.toChar()
 
-        fun trigramKey(prev2: String, prev1: String): String =
+        private fun trigramKey(prev2: String, prev1: String): String =
             prev2 + TRIGRAM_SEPARATOR + prev1
-        const val HALF_LIFE_GENERATIONS = 64.0
+        private const val HALF_LIFE_GENERATIONS = 64.0
         /** addWord's default boost lands at 200; organic words rarely reach
          * this, so it doubles as the "deliberately added" marker. */
-        const val STICKY_MIN_COUNT = 100
+        private const val STICKY_MIN_COUNT = 100
+
+        /**
+         * Ceiling on a spelling's evidence. Low on purpose: a capitalization
+         * the user has stopped writing should be gone within a handful of
+         * words, not defended by a count built up over months.
+         */
+        private const val MAX_CASE_VOTES = 8
     }
 }

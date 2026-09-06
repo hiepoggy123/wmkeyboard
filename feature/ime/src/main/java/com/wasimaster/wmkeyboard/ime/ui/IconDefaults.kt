@@ -26,6 +26,8 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.ContentCut
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.DarkMode
@@ -34,6 +36,7 @@ import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.Draw
 import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.OpenWith
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.EmojiFlags
@@ -116,6 +119,7 @@ object IconDefaults {
         ToolbarTool.CLIPBOARD -> Icons.Outlined.ContentPaste
         ToolbarTool.SNIPPETS -> Icons.AutoMirrored.Outlined.TextSnippet
         ToolbarTool.TEXT_EDIT -> Icons.Outlined.EditNote
+        ToolbarTool.TRACKPAD -> Icons.Outlined.OpenWith
         ToolbarTool.ONE_HANDED -> Icons.Outlined.Smartphone
         ToolbarTool.SPLIT -> Icons.Outlined.VerticalSplit
         ToolbarTool.FLOATING -> Icons.Outlined.PictureInPictureAlt
@@ -161,6 +165,7 @@ object IconDefaults {
         ToolbarTool.APP_LAUNCHER -> Icons.Outlined.Apps
         ToolbarTool.AI -> Icons.Outlined.AutoAwesome
         ToolbarTool.FANCY -> Icons.Outlined.TextFormat
+        ToolbarTool.CUSTOM_LAYOUT -> Icons.Outlined.GridView
         ToolbarTool.MODES -> Icons.Outlined.Tune
         ToolbarTool.CURSOR_LEFT -> Icons.AutoMirrored.Outlined.KeyboardArrowLeft
         ToolbarTool.CURSOR_RIGHT -> Icons.AutoMirrored.Outlined.KeyboardArrowRight
@@ -176,6 +181,9 @@ object IconDefaults {
         ToolbarTool.SELECT_WORD -> Icons.Outlined.HighlightAlt
         ToolbarTool.SELECT_LINE -> Icons.Outlined.ViewHeadline
         ToolbarTool.SELECT_MODE -> Icons.Outlined.SelectAll
+        ToolbarTool.COPY -> Icons.Outlined.ContentCopy
+        ToolbarTool.CUT -> Icons.Outlined.ContentCut
+        ToolbarTool.PASTE -> Icons.Outlined.ContentPaste
     }
 
     /**

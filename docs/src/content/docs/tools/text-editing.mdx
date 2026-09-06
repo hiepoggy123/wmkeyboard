@@ -23,6 +23,8 @@ The panel is a d-pad cluster: <KeyCap>◀</KeyCap> and <KeyCap>▶</KeyCap> span
 
 Tap <KeyCap>Select</KeyCap> to turn selection mode on. The key lights up while it's active. With Select on, every arrow, Home, or End move extends the selection instead of just moving the caret. The panel wraps each move in a real Shift press rather than a background modifier flag, since some editors only pick up Shift state from the key events themselves. Tap <KeyCap>Select</KeyCap> again to turn it off, or see below for the two actions that flip it automatically. The toolbar's [Selection mode](#selection-mode) tool is the same mode from outside the panel: either one turns it on, either one turns it off, and both light up while it's on. The difference is how long it lasts. The panel's toggle ends when the panel does, and the tool's mode stays on until you press it again.
 
+<KeyCap>Select</KeyCap> answers the same three gestures the tool does. One tap toggles, **two quick taps** select the word at the cursor, **three** select the line, and a **press and hold** turns selection mode on only for as long as your finger stays down. Both extra gestures read the same two switches under <SettingsPath path="Tools / Selection mode / Options" /> the tool does, so turning either off turns it off on both surfaces. The one thing that overrides the hold is a long press you assigned yourself: give a Select key alternates in the [layout editor](/languages/custom-layouts/) and the hold opens those instead, which the editor warns you about as you bind them. Tapping is never affected.
+
 Holding <KeyCap>◀</KeyCap>, <KeyCap>▶</KeyCap>, <KeyCap>▲</KeyCap>, <KeyCap>▼</KeyCap>, or <KeyCap>Backspace</KeyCap> auto-repeats after a fixed 400 ms delay, then keeps repeating at an interval you can tune (see [Options](#options) below).
 
 ## Copying, pasting, and cutting
@@ -33,7 +35,9 @@ The panel's second column holds <KeyCap>Select all</KeyCap>, <KeyCap>Copy</KeyCa
 - **Copy** copies the current selection and turns selection mode back off.
 - **Paste** inserts the clipboard content at the cursor (replacing any selection) and doesn't touch selection mode either way.
 
-Copy and paste run through the target field's own handling, the same as if you'd triggered them from that app's text-selection menu. What exactly gets copied, and whether a "Copied" system toast appears, therefore follows the app you're typing into. WM Keyboard can add its own **"Copied"** confirmation on top, off by default, under <SettingsPath path="Clipboard / History" /> (see [Clipboard manager](/tools/clipboard/)).
+All three also exist as their own toolbar tools, **Copy**, **Cut** and **Paste**, under the **Quick actions** group in <SettingsPath path="Tools" />. Pin any of them and the operation costs one tap with no panel to open first. They do exactly what the panel's keys do, including copy and cut ending selection mode. Copy and cut work [before you unlock the phone](/tools/overview/#which-tools-work-before-you-unlock-your-phone); paste doesn't, because the clipboard isn't readable yet.
+
+Copy and paste run through the target field's own handling, the same as if you'd triggered them from that app's text-selection menu. What exactly gets copied, and whether a "Copied" system toast appears, therefore follows the app you're typing into. WM Keyboard can add its own **"Copied"** confirmation on top, off by default, under <SettingsPath path="Clipboard / Panel" /> (see [Clipboard manager](/tools/clipboard/)).
 
 Pasting into a password field clears the system clipboard afterward by default, so a copied password doesn't linger (also configured on the [Clipboard manager](/tools/clipboard/) page, not here).
 
@@ -135,19 +139,21 @@ You don't have to open a panel at all for the most common move: sliding the curs
 
 <SettingsPath path="Tools / Text editing / Options" />
 
-**Key repeat interval**: default **60 ms**, adjustable from 30–200 ms. It sets the pause between repeats while you hold an arrow key or Backspace in the panel, and while you hold one of the toolbar's cursor tools. Lower is faster. The delay before repeating starts isn't adjustable: 400 ms in the panel, and the system's own long-press timeout on the toolbar.
+**Key repeat interval**: default **60 ms**, adjustable from 30–200 ms. It sets the pause between repeats while you hold an arrow key or Backspace in the panel, and while you hold one of the toolbar's cursor tools. Lower is faster. The delay before repeating starts is the keyboard's own key repeat delay in the panel, and the system's long-press timeout on the toolbar.
 
 ### Panel layout
 
 <SettingsPath path="Tools / Text editing / Panel layout" />
 
-The panel's grid is yours to rearrange, in the same terms a [key layout](/languages/custom-layouts/) uses. The row reads **Standard** until you change something, then **Your own**.
+The panel's grid is a [panel layout](/languages/custom-layouts/#panel-layouts): the same editor, the same key sheet and the same undo as a key layout. The row reads **Standard** until you change something, then **Your own**.
 
-The screen opens on a live preview of the grid. Press a key in it and a sheet gives you four things: **what the key does** (one of seventeen actions — the four arrows, word left/right, start/end of line, start/end of text, Select, Select all, Select word, Select line, Copy, Paste, Delete), **press and hold**, a **width** in grid units, and **covers N rows** for a key that should be taller than its row. The sheet also deletes the key or moves it along its row. Under the preview, each row can gain a key, change height (×0.4–×2.5) or be deleted, and there's an **Add a row** button up to six rows and ten keys a row.
+Every key on the panel is a key whose action is a **text editing action**, one of twenty: the four arrows, word left and right, page up and down, start and end of the line, start and end of the text, Select, Select all, Select word, Select line, Cut, Copy, Paste and Delete. Pick a key in the preview and the sheet lets you change its action, its width in grid units, how many rows it covers, and its alternates for press and hold. You can also put ordinary keys on the pad: Enter, a tool key, or anything else the Action picker offers.
 
-**Press and hold only appears on keys that don't repeat.** The four arrows, word left/right, start/end of text and Delete all repeat while you hold them, and that's the point of holding them — so those keys say as much instead of offering a second action that could never fire. Everything else (Home, End, Select, the selects, Copy, Paste) has a hold going spare, and that's where a second action goes. Change a key from Home to Left and the hold it can no longer run is dropped for you. Binding a hold to the key's own action is refused, since that's a slow tap.
+**Press and hold only works on keys that don't repeat.** The four arrows, word left and right, page up and down and Delete all repeat while you hold them, at the repeat interval above, and that's the point of holding them, so the sheet doesn't offer alternates on those. Everything else (Home, End, start and end of the text, Select, the selects, Cut, Copy, Paste) has a hold going spare, and that's where an alternate goes. Holding such a key opens the alternates popup, the way it does on any key of the keyboard, and sliding onto the entry and letting go runs it.
 
-Two of those pairings ship: **Home** and **End** hold to the start and end of the *text* rather than the line. Widths and spans mean exactly what they mean in a key layout, and the panel places them with the same geometry the keyboard draws its keys with, so the tall left and right arrows in the standard arrangement are simply a key three rows deep. **Reset** puts the shipped layout back.
+Two of those pairings ship: **Home** and **End** hold to the start and end of the *text* rather than the line. Widths and spans mean exactly what they mean in a key layout, and the panel places them with the same geometry the keyboard draws its keys with, so the tall left and right arrows in the standard arrangement are simply a key three rows deep. The pad has no component cell, so its rows share the height of the key area by their row heights. **Use the standard layout** at the bottom of the editor puts the shipped layout back.
+
+A layout you made on an earlier version, when the pad had an editor of its own, carries over the first time this version reads it, key for key.
 
 ### Hold a cursor tool to repeat
 
@@ -169,6 +175,8 @@ The **Key repeat interval** slider sits under both, the same slider the text-edi
 
 **Two presses select a word**: on by default. Two quick presses select the word at the cursor and three select the line, on the same 350 ms window the Shift key uses for caps lock. Turn it off if you flip the mode on and off faster than that and don't want a word selected on the way past.
 
+Both switches cover the panel's <KeyCap>Select</KeyCap> key as well as the toolbar tool. The two buttons count their taps separately, so alternating between them never reads as a double tap.
+
 Dragging the tool to move it works with either switch on: once your finger travels far enough to read as a drag, the mode ends and the tool picks itself up as usual.
 
 ### Numpad layout
@@ -176,6 +184,8 @@ Dragging the tool to move it works with either switch on: once your finger trave
 <SettingsPath path="Tools / Numpad / Options" />
 
 **Calculator-style layout**: off by default. It puts 7 8 9 on the top row like a desk keypad instead of 1 2 3 like a dialer.
+
+A layout that authors its own **Number** layer in the [layout editor](/languages/custom-layouts/#rows-and-layers) is drawn here instead, key for key and in the order it drew them, so this switch has nothing to flip on it. The pad follows whichever layout you're typing with.
 
 ### Undo/redo shortcut
 
@@ -187,16 +197,16 @@ Dragging the tool to move it works with either switch on: once your finger trave
 
 <SettingsPath path="Key press / Press and hold shortcuts" />
 
-Six shortcuts, each off by default, each replacing that letter key's accent popup while it's on:
+One **Hold shortcuts** row with six chips, all on by default. Each one puts its command at the end of that letter key's press-and-hold popup, after the accents:
 
-- **Press and hold A to select all**
-- **Press and hold C to copy**: copies the current selection. If nothing is selected, it selects everything first.
-- **Press and hold X to cut**: the same rule as copy, but it cuts.
-- **Press and hold V to paste**: pastes the clipboard at the cursor, replacing any selection.
-- **Press and hold Z to undo**: the same shortcut as the toolbar's Undo tool.
-- **Press and hold Y to redo**: the same shortcut as the toolbar's Redo tool.
+- **Select all**
+- **Copy**: copies the current selection. If nothing is selected, it selects everything first.
+- **Cut**: the same rule as copy, but it cuts.
+- **Paste**: pastes the clipboard at the cursor, replacing any selection.
+- **Undo**: the same shortcut as the toolbar's Undo tool.
+- **Redo**: the same shortcut as the toolbar's Redo tool.
 
-Turn any of the six on and a **Shortcut keys** row appears under them. A, C, V, X, Z and Y are the QWERTY answer, so on a layout with no Latin letters that row is where you move the six onto keys you actually have.
+A **Shortcut keys** row sits under them. A, C, V, X, Z and Y are the QWERTY answer, so on a layout with no Latin letters that row is where you move the six onto keys you actually have.
 
 This is the only place cut lives: there's no Cut button in the text-editing panel itself, and no Cut toolbar tool.
 

@@ -30,6 +30,49 @@ class SuggestionEngineTest {
         return SuggestionEngine(dictionary, bengali, UserLexicon(null))
     }
 
+    @Test fun anIndirectUndoOfANonWordIsNotBelieved() {
+        // The trap this guards: autocorrect fixed "teh" to "the", the user
+        // never saw it, went back to correct their own typo and typed the same
+        // typo again. The settled field then looks exactly like a rejection,
+        // and believing it retires the fix for a word that will now stay wrong
+        // for good. "teh" is in no dictionary and no personal store, so the
+        // reading that fits is a reproduced typo, not a defended spelling.
+        val e = engine()
+        e.rejectCorrection("teh", "the", deliberate = false)
+        assertEquals(CorrectionStats.Penalty.NONE, e.correctionStats.penalty("teh", "the"))
+        // A backspace on the correction itself is unambiguous and still counts.
+        e.rejectCorrection("teh", "the")
+        assertEquals(CorrectionStats.Penalty.BLOCKED, e.correctionStats.penalty("teh", "the"))
+    }
+
+    @Test fun anIndirectUndoOfAKnownWordIsBelieved() {
+        // "them" is a real word, so the user leaving it standing where the
+        // keyboard put "the" says what it looks like it says.
+        val e = engine()
+        e.rejectCorrection("them", "the", deliberate = false)
+        assertEquals(CorrectionStats.Penalty.PENALIZED, e.correctionStats.penalty("them", "the"))
+    }
+
+    @Test fun aLearnedPersonalWordEarnsItsIndirectUndos() {
+        val lexicon = UserLexicon(null)
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), lexicon)
+        // Before the lexicon knows the nickname, an indirect undo is thrown
+        // away with every other unknown spelling.
+        e.rejectCorrection("wasi", "was", deliberate = false)
+        assertEquals(CorrectionStats.Penalty.NONE, e.correctionStats.penalty("wasi", "was"))
+        // Once it has earned its place, its undos count in full.
+        lexicon.learnWord("wasi", count = 10)
+        e.rejectCorrection("wasi", "was", deliberate = false)
+        assertEquals(CorrectionStats.Penalty.PENALIZED, e.correctionStats.penalty("wasi", "was"))
+    }
+
+    @Test fun strictBelievesEveryIndirectUndo() {
+        val e = engine()
+        e.correctionStats.memory = UndoMemory.STRICT
+        e.rejectCorrection("teh", "the", deliberate = false)
+        assertEquals(CorrectionStats.Penalty.BLOCKED, e.correctionStats.penalty("teh", "the"))
+    }
+
     @Test fun mismatchedLanguageTagDampsLearnedWords() {
         val lexicon = UserLexicon(null)
         lexicon.learnWord("wasi", count = 10, langId = "bn_rom")
@@ -859,5 +902,71 @@ class SuggestionEngineTest {
         val e = banglishEngine()
         e.seedFieldContext(listOf("how", "are", "you"))
         assertNull(e.shouldAutocorrect("tomake"))
+    }
+
+    // ---- Android personal dictionary as a known-word source (#45) ----
+
+    @Test fun systemDictionaryWordsAreKnownAndNeverCorrected() {
+        val dictionary = Trie().apply { insert("also", 100); insert("soap", 90) }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        // Without the platform list: unknown, and a correction candidate.
+        assertFalse(e.isKnownWord("aosp"))
+        // With it: known under any casing, and left alone by autocorrect.
+        e.systemDictionary = SystemUserDictionary.index(listOf("AOSP")).source
+        assertTrue(e.isKnownWord("aosp"))
+        assertTrue(e.isKnownWord("AOSP"))
+        assertNull(e.shouldAutocorrect("aosp"))
+        // And it completes like any other known word.
+        assertTrue("aosp" in e.suggest("aos", previousWord = null))
+        // Clearing the source (setting turned off) forgets it again.
+        e.systemDictionary = PackedTrie.EMPTY
+        assertFalse(e.isKnownWord("aosp"))
+    }
+
+    @Test fun systemDictionaryIndexNormalisesAndSplitsEntries() {
+        val source =
+            SystemUserDictionary.index(listOf("AOSP", "aosp", "on my way", " x ", "")).source
+        assertTrue(source.contains("aosp"))
+        assertEquals(1, source.frequencyOf("aosp"))
+        // A multi-word entry indexes as its parts, never as one token.
+        assertTrue(source.contains("way"))
+        assertFalse(source.contains("on my way"))
+        // Single characters are not words.
+        assertFalse(source.contains("x"))
+    }
+
+    // ---- capitalization of learned and platform-dictionary words (#44) ----
+
+    @Test fun systemDictionaryEntriesKeepTheCapitalsTheyWereWrittenWith() {
+        val entries = SystemUserDictionary.index(listOf("AOSP", "Boston", "on my way"))
+        // Keys are folded; the spellings ride alongside them.
+        assertEquals("AOSP", entries.shapes["aosp"])
+        assertEquals("Boston", entries.shapes["boston"])
+        // A lower-case entry needs no spelling of its own.
+        assertFalse("way" in entries.shapes)
+
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        e.systemDictionary = entries.source
+        e.systemWordCases = entries.shapes
+        assertTrue("Boston" in e.suggest("bos", previousWord = null))
+        assertTrue("AOSP" in e.suggest("aos", previousWord = null))
+    }
+
+    @Test fun aLearnedCapitalIsPutBackOnCompletionsAndNextWords() {
+        val lexicon = UserLexicon(null)
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), lexicon)
+        lexicon.learnWord("Boston", count = 4, caseEvidence = true)
+        lexicon.learnBigram("in", "boston")
+        assertTrue("Boston" in e.suggest("bost", previousWord = null))
+        // The next-word strip too: "in" -> "Boston", not "boston".
+        assertTrue("Boston" in e.suggest("", previousWord = "in"))
+    }
+
+    @Test fun typedCapitalsStillOutrankTheRememberedSpelling() {
+        val lexicon = UserLexicon(null)
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), lexicon)
+        lexicon.learnWord("Boston", count = 4, caseEvidence = true)
+        // Shouting is the typist's call, not the memory's.
+        assertTrue("BOSTON" in e.suggest("BOST", previousWord = null))
     }
 }

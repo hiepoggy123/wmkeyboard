@@ -67,16 +67,33 @@ Backspace is the fastest way to reject a correction, but it is not the only one,
 A correction is now judged once the text around it has settled, on the same signals the [personal dictionary](/smart/personal-dictionary/#new-words-wait-their-turn) uses: you close the keyboard, send or clear the field, move to another field, or simply type far enough past it.
 
 - **You never went back into that text.** The correction stands, and counts as accepted.
-- **You did go back into it.** The keyboard reads the field once, at that point only, and looks for which spelling is there now. Your original word standing where the fix was is a rejection, exactly as though you had backspaced. The corrected word still there is an accept.
+- **You did go back into it.** The keyboard reads the field once, at that point only, and looks for which spelling is there now. Your original word standing where the fix was is a rejection. The corrected word still there is an accept. This reading counts for less than a backspace, and it is thrown away entirely when your word is not a word the keyboard knows. That case is the trap it exists to avoid: you glance back, decide you mistyped, fix it by hand without noticing the keyboard already fixed it, and make the same slip again. The field then looks exactly like a rejection while nothing was rejected at all. A word that really is yours, a name or a nickname, joins your [personal dictionary](/smart/personal-dictionary/) after a few sightings, and from then on its undos count in full.
 - **Neither is there, or the text is gone.** No verdict at all. Deleting the sentence, or sending a message before anything could be checked, teaches nothing rather than something invented.
 
 The read only ever happens at one of those settling points, never while you are typing.
+
+## How long an undo lasts
+
+Undoing a correction does two things. It puts your word back, which is immediate and never in doubt. It also tells the keyboard something about that exact pair of words, and **Remember my undos** under <SettingsPath path="Typing / Automatic corrections" /> sets how long that second part lasts. Only the pair is affected. Other fixes for the same typo carry on as before.
+
+| Level | What an undo costs the correction |
+| --- | --- |
+| Off | Nothing. The keyboard corrects the word again next time. |
+| Light | The pair needs far more confidence from then on. It is never retired. |
+| Normal | One undo stops the pair for the rest of that run of typing. Two retire it, and a retired pair is offered as a chip once more after a long quiet spell. |
+| Strict | The first undo retires the pair for good, however the keyboard read it, and it is never offered again. |
+
+Normal is the default and the level the rest of this page describes. Under it, a backspace on the correction stops that pair for the next twenty corrections and until you move to another field, whichever comes first. After that the counts on disk take over: a pair undone once fights uphill, a pair undone twice does not fire at all. Corrections you let stand count too, and three of them buy back one undo, so a pair you undid in a hurry is not sentenced for the six months the expiry clock takes.
+
+A retired pair is not gone forever. Once it has sat quiet for about forty saves of the learning file, it is let out on probation: it can reach the suggestion chip again, though it still never rewrites your word on its own. Accept it three times and it is an ordinary correction once more. This is what stops a single bad undo from silently retiring a fix you actually wanted, with nothing on the screen ever saying why.
+
+Pick **Light** if you find the keyboard gives up on corrections too easily. Pick **Strict** if you want an undo to be final. **Off** keeps the undo itself and forgets everything else.
 
 ## Corrections it offers instead of applying
 
 Applying a correction and offering one are not the same question. Applying has to be nearly certain, because being wrong rewrites what you wrote and you may not notice. Offering costs you a chip you can ignore. So everything that came close to the bar without clearing it, which used to be discarded silently, is now offered as a chip at the start of the suggestion strip instead. Tap it to apply the fix; carry on typing and it goes away.
 
-The bar for a chip is about a third of the bar for a silent replacement, and it moves with every knob above it: raise the confidence slider and both go up together. A correction you have already rejected once is never offered, because being asked twice is worse than not being helped. Turn the chips off with **Offer corrections it isn't sure about** under <SettingsPath path="Typing / Suggestions" />.
+The bar for a chip is about a third of the bar for a silent replacement, and it moves with every knob above it: raise the confidence slider and both go up together. A correction you have already rejected once is not offered, because being asked twice is worse than not being helped. The one exception is a retired pair that has sat quiet for a long time: it comes back as a chip rather than staying invisible forever. See [How long an undo lasts](#how-long-an-undo-lasts). Turn the chips off with **Offer corrections it isn't sure about** under <SettingsPath path="Typing / Suggestions" />.
 
 Tapping the chip is itself evidence that the gate is too tight for that pair, so it feeds back the same way an accepted correction does. Backspace undoes it like any other correction.
 
@@ -85,15 +102,21 @@ Tapping the chip is itself evidence that the gate is too tight for that pair, so
 Two related rules ride along with autocorrect and share its "sentence in progress" bookkeeping. Each has its own toggle:
 
 - **Double space inserts a period.** Type two spaces in a row within a fraction of a second and the first space becomes `. `. Deleting a space and retyping it "undoes" nothing here; a following [Shift](#shift-cancels-a-pending-auto-space) is what cancels it. A separate, off-by-default setting can make a double space insert a tab instead, which takes priority over the period rule when both are on.
-- **Punctuation auto-inserts the space after it.** Off by default. When it's on, a sentence-ending or clause mark inserts a trailing space automatically: period, exclamation point, question mark, comma, semicolon, colon, and the Bengali `।`. You don't need a separate spacebar tap before the next word. A run of marks like "..." or "?!" isn't pulled apart into "... !", because the space from the previous mark is taken back before the next one lands. This is also gated off in password and structured fields, same as autocorrect itself.
+- **Punctuation auto-inserts the space after it.** Off by default. When it's on, a sentence-ending or clause mark inserts a trailing space automatically: period, exclamation point, question mark, comma, semicolon, colon, and the Bengali `।`. You don't need a separate spacebar tap before the next word. A run of marks like "..." or "?!" isn't pulled apart into "... !", because the space from the previous mark is taken back before the next one lands. A closing mark does the same thing: type `"hi.` and the closing quote hugs the full stop rather than landing a space past it. This is also gated off in password and structured fields, same as autocorrect itself.
 
 ### Shift cancels a pending auto-space
 
 Right after either rule above inserts a space, the very next <KeyCap>Shift</KeyCap> press does something different from arming Shift or Caps Lock. It deletes that trailing space, as long as nothing has changed the text since, and cancels the auto-capitalization the period would otherwise have armed for the next sentence. It's a one-shot. Press any other key first and the pending state clears, after which a plain space press just confirms the space already there rather than adding a second one.
 
+### A mark takes the keyboard's space back
+
+Whenever the keyboard types a space for you rather than you typing it, a mark typed straight after it takes that space back so it hugs the word it belongs to. That covers the space after a glided word, the space after a word tapped from the suggestion strip, and the space the punctuation rule above inserts: `word:` and not `word :`. A space you typed yourself is yours, and no mark removes it.
+
+The straight double quote is the one mark that has to look at what came before it, because it is both ends of a quotation. The keyboard counts the quotes already on the line: an even count means this one opens, so the space in front of it stays, and an odd count means it closes, so the space goes. `he said "hello"` comes out right either way. The apostrophe is left out of this on purpose, since it is a letter inside a word and counting it would say nothing.
+
 ## Reducing typos before they happen
 
-Smart key-hit detection nudges which key a *borderline* tap resolves to, biasing toward whichever neighboring letter is more likely to continue the word you're typing. Fewer boundary mis-taps happen in the first place, before autocorrect would ever need to fix them. It lives in the Suggestions settings group rather than alongside autocorrect, since it needs suggestions on to have anything to bias toward, and it's off by default. See [Suggestions & prediction](/smart/suggestions/) for the rest of how the suggestion engine ranks candidates.
+Autopilot nudges which key a *borderline* tap resolves to, biasing toward whichever neighboring letter is more likely to continue the word you're typing. Fewer boundary mis-taps happen in the first place, before autocorrect would ever need to fix them. It has its own screen under the Suggestions settings group rather than sitting alongside autocorrect, since it needs suggestions on to have anything to bias toward. Its Strength slider sets how far a favoured letter reaches, and two optional views draw the touch areas it has claimed. See [Suggestions & prediction](/smart/suggestions/) for the rest of how the suggestion engine ranks candidates.
 
 ## Options
 
@@ -110,6 +133,7 @@ Smart key-hit detection nudges which key a *borderline* tap resolves to, biasing
 | Adaptive confidence | On | Autocorrect on |
 | Typing rhythm | 0% (range 0%&ndash;100%) | Autocorrect on |
 | Undo autocorrect with backspace | On | Autocorrect on |
+| Remember my undos | Normal (Off / Light / Normal / Strict) | Autocorrect on |
 | Skip words in capital letters | On | Autocorrect on |
 | Block offensive words | On | Autocorrect on |
 | Context-aware suggestions | On | Autocorrect on |
@@ -118,20 +142,20 @@ Smart key-hit detection nudges which key a *borderline* tap resolves to, biasing
 | Detection strength | Balanced (Gentle / Balanced / Aggressive) | Autocorrect on, and Detect the language you type on |
 | Fix number row slips | On | Autocorrect on, and the number row is shown |
 | Fix missing apostrophes | On | always |
-| Double space for a full stop | On | always |
-| Double space for a tab | Off | always |
-| Double space speed | 400 ms (range 200&ndash;800 ms) | either double-space rule on |
+| Double space | Full stop (Two spaces / Full stop / Tab) | always |
+| Double space speed | 400 ms (range 200&ndash;800 ms) | Double space is Full stop or Tab |
 | Automatic space after punctuation | Off | always |
 
 The table covers the rows this page is about. The same group also carries **Adapt to app tone** and **Space after a suggestion** (both described on [Suggestions & prediction](/smart/suggestions/)), **Automatic capital letters**, and the two selection rules, wrap-with-a-pair and shift-re-cases-the-selection.
 
-The **Autocorrect** toggle is the master switch for the eleven rows marked "Autocorrect on" above, from the confidence slider down to Fix number row slips. It is *not* a switch for the whole group. The apostrophe fix, both double-space rules and the auto-space after punctuation carry on working with autocorrect off, which is the point of them having their own toggles. Autocorrect is also reachable as a one-tap toolbar tool that flips the same switch without leaving the keyboard, showing a brief "Autocorrect on"/"Autocorrect off" confirmation.
+The **Autocorrect** toggle is the master switch for the twelve rows marked "Autocorrect on" above, from the confidence slider down to Fix number row slips. It is *not* a switch for the whole group. The apostrophe fix, both double-space rules and the auto-space after punctuation carry on working with autocorrect off, which is the point of them having their own toggles. Autocorrect is also reachable as a one-tap toolbar tool that flips the same switch without leaving the keyboard, showing a brief "Autocorrect on"/"Autocorrect off" confirmation.
 
 **Autocorrect confidence** is the ratio the top candidate must beat the runner-up by. It's a continuous slider from 1.5&times; to 10&times;, labeled with the exact multiplier (for example "&times;4.0"). Lower makes autocorrect fire more eagerly, on less-certain calls. Higher restricts it to only the most unambiguous typos. Two-source agreement (see [How a correction is chosen](#how-a-correction-is-chosen)) always bypasses this slider, whatever it's set to.
 
 Three more rows change what autocorrect does without you touching the slider:
 
-- **Adaptive confidence** (on) watches how often corrections get rejected and raises the bar when a lot of them do. It stays out of the way until twenty corrections have been judged, and it can move the gate anywhere from 0.85&times; the slider (a spotless record) up to 2.5&times; it, with the result always held inside the slider's own 1.5&times;&ndash;10&times; range. It also remembers each correction you rejected: one rejected once fights uphill from then on, and one rejected twice never fires again. Undoing a correction blocks that exact pair for the rest of the session too, whatever the counts on disk say. Corrections you let stand count as well, and three of them buy back one rejection, so a pair you undid in a hurry is not sentenced for the six months the expiry clock takes. See [What counts as rejecting a correction](#what-counts-as-rejecting-a-correction).
+- **Adaptive confidence** (on) watches how often corrections get rejected and raises the bar when a lot of them do. It stays out of the way until twenty corrections have been judged, and it can move the gate anywhere from 0.85&times; the slider (a spotless record) up to 2.5&times; it, with the result always held inside the slider's own 1.5&times;&ndash;10&times; range. That is the whole of this row: it moves one global gate. The memory of individual corrections you undid is a separate setting, **Remember my undos**, described in [How long an undo lasts](#how-long-an-undo-lasts).
+- **Remember my undos** (Normal) sets how long the keyboard keeps an undo. It is the row to reach for if autocorrect either forgets a fix you rejected or refuses to fix a word you want fixed. See [How long an undo lasts](#how-long-an-undo-lasts).
 - **Typing rhythm** (0%, so off until you move it) measures how fast you typed the word. A quick sloppy burst makes autocorrect a bit braver. Slow deliberate typing, as with an unusual name or a word from another language, makes it hold back. The slider is how much the rhythm is allowed to sway things.
 - **Detection strength** decides how hard the language the keyboard reads the field as leans on ranking, from a light nudge at Gentle through Balanced to a heavy tilt at Aggressive. It reweights the word lists rather than moving the confidence gate, so it changes *which* word autocorrect reaches for, not how sure it has to be. See [Mixed-language typing](/smart/mixed-language/).
 
@@ -143,10 +167,10 @@ The other new rows are corrections in their own right rather than gate tuning:
 
 ## Details & edge cases
 
-- **Structured and secure fields are a hard gate, not a per-setting one.** Autocorrect, both auto-space rules, and the smart key-hit bias all share one underlying check: the field must be a plain text field, not a password field or a keypad (email, web address, phone, number). There's no way to enable autocorrect specifically in a password field.
+- **Structured and secure fields are a hard gate, not a per-setting one.** Autocorrect, both auto-space rules, and the autopilot bias all share one underlying check: the field must be a plain text field, not a password field or a keypad (email, web address, phone, number). There's no way to enable autocorrect specifically in a password field.
 - **An autocorrected word earns no personal-dictionary credit** at the moment it's committed, so the engine's own guess isn't reinforced as if you'd typed it deliberately. Reverting it with backspace teaches the *original* word instead (see [Undoing a correction](#undoing-a-correction)).
 - **The revert window is exact, not fuzzy.** It only fires if the caret is still precisely where the correcting commit left it and the text immediately before it is still `"corrected word" + " "`, unchanged. Any cursor movement, or any edit elsewhere in the field, silently disarms it. There's no "undo history" beyond the single most recent correction.
-- **Two-source agreement bypasses the slider.** If your personal dictionary and the standard dictionary happen to name the same fix for a typo, it's applied even below the confidence slider's threshold. The slider only governs cases where the two disagree, or where only one source has an opinion. It can't resurrect a rejected fix, though: a blacklisted, filtered or twice-undone candidate is dropped from the pool before this test ever runs.
+- **Two-source agreement bypasses the slider.** If your personal dictionary and the standard dictionary happen to name the same fix for a typo, it's applied even below the confidence slider's threshold. The slider only governs cases where the two disagree, or where only one source has an opinion. It can't resurrect a rejected fix, though: a blacklisted, filtered or retired candidate is dropped from the pool before this test ever runs.
 - **The confidence check is symmetric with the engine's internal default.** The slider's default position (4.0&times;) matches the value the underlying suggestion engine falls back to if a setting were ever missing, so a fresh install and an explicitly-set default behave identically.
 
 For the rest of the suggestion strip, including completions, next-word prediction, and how learning ranks your own words over time, see [Suggestions & prediction](/smart/suggestions/). To keep a word out of both suggestions and autocorrect entirely, use the [suggestion blacklist](/smart/blacklist/).

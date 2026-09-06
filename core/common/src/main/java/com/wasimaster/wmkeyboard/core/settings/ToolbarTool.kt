@@ -25,13 +25,22 @@ enum class MediaSendMode { IMAGE, STICKER }
  * in [KeyboardSettings.enabledTools] are hidden everywhere.
  */
 enum class ToolbarTool {
-    EMOJI, CLIPBOARD, SNIPPETS, TEXT_EDIT, ONE_HANDED, SPLIT, FLOATING, SETTINGS,
+    EMOJI, CLIPBOARD, SNIPPETS, TEXT_EDIT,
+    // The key area as a pointing surface: drag to move the caret, hold and
+    // drag to select. Tap toggles it; a hold on the toolbar keeps it open only
+    // while the finger stays down (issue #39).
+    TRACKPAD,
+    ONE_HANDED, SPLIT, FLOATING, SETTINGS,
     FLASHLIGHT, COMPASS, LEVEL, UNDO, REDO, MOON_PHASE, WEATHER, CALENDAR,
     INCOGNITO, THEMES, AUTOCORRECT, SOUND_HAPTICS, NUMPAD, HANDWRITING, CAMERA,
     DICTIONARY, TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
     OCR, QR_SCAN, DOC_SCAN, VOICE, GRAMMAR,
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
     MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS, POWER_SAVING, APP_LAUNCHER, FANCY,
+    // One of the user's secondary layouts — a grid reached by a key or this
+    // tool rather than by picking a language — shown over the letters and
+    // taken off again (issue #62). Which one is a setting on the tool's page.
+    CUSTOM_LAYOUT,
     // Inline drag-resize of the docked keyboard: height, bottom padding, position.
     RESIZE,
     // One-tap cursor moves. The text-edit panel already offers these, but on
@@ -43,6 +52,10 @@ enum class ToolbarTool {
     // Selection mode: while it is on, every caret move extends the selection
     // instead of collapsing it, the way a held shift does on a physical keyboard.
     SELECT_MODE,
+    // The clipboard trio as one-tap toolbar buttons (issue #41). The text-edit
+    // panel and a long press on C/X/V already reach them; on the toolbar they
+    // cost a single tap with nothing to open first.
+    COPY, CUT, PASTE,
     // Dismiss the keyboard in one tap. Grouped with the cursor moves in the
     // toolbox (it belongs beside the caret controls, not a panel it opens).
     HIDE_KEYBOARD,
@@ -56,6 +69,18 @@ val CursorTools: List<ToolbarTool> = listOf(
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
     ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
     ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE, ToolbarTool.SELECT_MODE,
+)
+
+/**
+ * The clipboard tools, in the order they read on the toolbar.
+ *
+ * Kept apart from [CursorTools] because they are not caret moves — they act on
+ * the selection rather than on where it is — but they share every rule those
+ * have: a tap acts on the spot, nothing opens, and a hold reaches the settings
+ * page rather than repeating (a second paste is rarely what anyone means).
+ */
+val ClipboardTools: List<ToolbarTool> = listOf(
+    ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
 )
 
 /**
@@ -89,16 +114,23 @@ val HoldRepeatCursorTools: Set<ToolbarTool> = setOf(
  * controls — which is roughly what anyone wants from a lock screen anyway.
  */
 fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
-    ToolbarTool.EMOJI, ToolbarTool.TEXT_EDIT, ToolbarTool.NUMPAD, ToolbarTool.SYMBOLS,
-    ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.RESIZE,
+    ToolbarTool.EMOJI, ToolbarTool.TEXT_EDIT, ToolbarTool.TRACKPAD, ToolbarTool.NUMPAD,
+    ToolbarTool.SYMBOLS, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.RESIZE,
     ToolbarTool.HIDE_KEYBOARD,
     ToolbarTool.THEMES, ToolbarTool.AUTOCORRECT, ToolbarTool.SOUND_HAPTICS, ToolbarTool.INCOGNITO,
     ToolbarTool.MODES, ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.POWER_SAVING,
     // The fancy layout ships in the assets and its styles are code, so it
     // needs nothing the locked half of the device holds.
     ToolbarTool.FANCY,
+    // Custom layouts are settings, and settings are mirrored into the
+    // pre-unlock store.
+    ToolbarTool.CUSTOM_LAYOUT,
     ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.PASSWORD_GEN, ToolbarTool.QR_GEN,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
+    // Copy and cut only touch the field the user is already typing in. Paste is
+    // left out: the clipboard is credential-encrypted, so before the first
+    // unlock the button would be there and do nothing.
+    ToolbarTool.COPY, ToolbarTool.CUT,
     -> true
     // The cursor moves only touch the input connection.
     else -> tool in CursorTools
@@ -121,10 +153,11 @@ fun toolOpensScreen(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.RESIZE,
     ToolbarTool.FLASHLIGHT, ToolbarTool.UNDO, ToolbarTool.REDO,
     ToolbarTool.INCOGNITO, ToolbarTool.POWER_SAVING, ToolbarTool.AUTOCORRECT,
-    ToolbarTool.FANCY, ToolbarTool.HIDE_KEYBOARD,
+    ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.HIDE_KEYBOARD,
     -> false
-    // The cursor moves nudge the caret and nothing else.
-    else -> tool !in CursorTools
+    // The cursor moves nudge the caret and nothing else, and the clipboard trio
+    // acts on the selection in place.
+    else -> tool !in CursorTools && tool !in ClipboardTools
 }
 
 fun isSupportedTool(tool: ToolbarTool): Boolean = when {
@@ -165,7 +198,7 @@ val MinimalTools: Set<ToolbarTool> = setOf(
 val RecommendedTools: Set<ToolbarTool> = MinimalTools + setOf(
     ToolbarTool.THEMES, ToolbarTool.DICTIONARY, ToolbarTool.FANCY, ToolbarTool.TRANSLATE,
     ToolbarTool.AUTOCORRECT, ToolbarTool.SNIPPETS, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT,
-    ToolbarTool.TEXT_EDIT, ToolbarTool.HANDWRITING, ToolbarTool.OCR,
+    ToolbarTool.TEXT_EDIT, ToolbarTool.TRACKPAD, ToolbarTool.HANDWRITING, ToolbarTool.OCR,
     ToolbarTool.UNDO, ToolbarTool.REDO,
 )
 
@@ -200,7 +233,7 @@ val ToolTopUps: Set<ToolbarTool> = setOf(ToolbarTool.WIKIPEDIA, ToolbarTool.POWE
  */
 private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
-    ToolbarTool.TYPING_TEST, ToolbarTool.PLUGINS,
+    ToolbarTool.TYPING_TEST, ToolbarTool.PLUGINS, ToolbarTool.CUSTOM_LAYOUT,
     ToolbarTool.FLOATING, ToolbarTool.RESIZE, ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS,
     ToolbarTool.QR_SCAN, ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
@@ -211,6 +244,7 @@ private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
     ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE, ToolbarTool.SELECT_MODE,
+    ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
 )
 
 /**

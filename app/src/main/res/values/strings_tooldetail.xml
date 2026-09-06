@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:tools="http://schemas.android.com/tools">
+<resources xmlns:tools="http://schemas.android.com/tools"
+           xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- ==================================================================
          Tool detail screen: one screen for each keyboard tool. The strings
          below are grouped by tool, in the same order as the screen builds
@@ -15,10 +16,7 @@
          while "Gradient tool colors" is on. -->
     <string name="tooldetail_icon_colour_start_title">Icon colour, top left</string>
     <string name="tooldetail_icon_colour_end_title">Icon colour, bottom right</string>
-    <string name="tooldetail_icon_colour_custom_subtitle">Custom. Press to change</string>
-    <string name="tooldetail_icon_colour_default_subtitle">Default. Press to change</string>
     <!-- Title of the colour picker dialog. %1$s is the name of the tool, for example "Clipboard". -->
-    <string name="tooldetail_icon_colour_dialog_title">%1$s icon colour</string>
     <!-- Heading of the options group. Many tools use this one heading. -->
     <string name="tooldetail_options_group">Options</string>
 
@@ -53,8 +51,6 @@
 
     <!-- Emoji tool. -->
     <string name="tooldetail_emoji_group">Emoji</string>
-    <string name="tooldetail_emoji_toolbar_title">Emoji button in the toolbar</string>
-    <string name="tooldetail_emoji_toolbar_subtitle">Keep the emoji button visible next to the suggestions</string>
     <string name="tooldetail_emoji_all_title">All emoji settings</string>
     <string name="tooldetail_emoji_all_subtitle">Suggestions, the history tab, the emoji row, skin tones and favourites</string>
 
@@ -71,12 +67,8 @@
     <string name="tooldetail_clipboard_all_subtitle">History, the panel, the paste chip, and what happens to a copied password</string>
 
     <!-- Split keyboard tool. -->
-    <string name="tooldetail_split_gap_title">Split gap</string>
-    <string name="tooldetail_split_gap_subtitle">Width of the gap between the two halves</string>
 
     <!-- Floating keyboard tool. -->
-    <string name="tooldetail_floating_width_title">Floating keyboard width</string>
-    <string name="tooldetail_floating_width_subtitle">You can also drag the corner grip of the panel to change this</string>
 
     <!-- Flashlight tool. -->
     <string name="tooldetail_flashlight_auto_off_title">Turn off with the keyboard</string>
@@ -168,6 +160,22 @@
     <string name="tooldetail_select_mode_taps_info">The first press of a pair still turns selection mode on or off, in the same way the shift key gives you caps lock. Turn this off if you press the tool twice in quick succession and want no word selected.</string>
     <string name="tooldetail_select_mode_info">While selection mode is on, every cursor move selects text: the cursor tools, the text editing panel, the spacebar cursor swipe and the volume keys. Turn it off to keep what you selected and stop selecting more.</string>
 
+    <!-- Trackpad tool on the toolbar (issue #39). -->
+    <string name="tooldetail_trackpad_step_x_title">Horizontal sensitivity</string>
+    <string name="tooldetail_trackpad_step_x_subtitle">How far your finger travels for each character. A lower value moves the cursor faster</string>
+    <string name="tooldetail_trackpad_step_y_title">Vertical sensitivity</string>
+    <string name="tooldetail_trackpad_step_y_subtitle">How far your finger travels for each line. A lower value moves the cursor faster</string>
+    <string name="tooldetail_trackpad_hold_title">Press and hold to open</string>
+    <string name="tooldetail_trackpad_hold_subtitle">The trackpad stays open while you hold the tool and closes when you let go. A tap opens it until the next tap</string>
+    <string name="tooldetail_trackpad_hold_info">This spends the press and hold on the toolbar, so this page is where you change the tool, or a hold in the toolbox. To move the tool, press and hold it and then drag it, as before.</string>
+    <string name="tooldetail_trackpad_taps_title">Two taps select a word</string>
+    <string name="tooldetail_trackpad_taps_subtitle">Two quick taps on the trackpad select the word at the cursor. Three select the full line</string>
+    <string name="tooldetail_trackpad_haptics_title">Vibrate on each move</string>
+    <string name="tooldetail_trackpad_haptics_subtitle">A short tick for every character or line the cursor moves</string>
+    <string name="tooldetail_trackpad_trail_title">Show the trail</string>
+    <string name="tooldetail_trackpad_trail_subtitle">Draw your finger\'s path and a crosshair on the trackpad while you drag</string>
+    <string name="tooldetail_trackpad_info">One finger moves the cursor. Hold, then drag to select. Two fingers move a word at a time, and a two-finger tap types a space.</string>
+
     <!-- Numpad tool. -->
     <string name="tooldetail_numpad_calc_title">Calculator layout</string>
     <string name="tooldetail_numpad_calc_subtitle">7 8 9 on the top row, like a desk keypad. Off puts 1 2 3 on top, like a dialer</string>
@@ -178,18 +186,23 @@
     <string name="tooldetail_incognito_learning_subtitle">The keyboard learns no words and no emoji habits from your typing</string>
     <string name="tooldetail_incognito_clipboard_title">Pause clipboard capture</string>
     <string name="tooldetail_incognito_clipboard_subtitle">Copies do not go into the history of the clipboard tool</string>
-    <string name="tooldetail_incognito_auto_group">Automatic</string>
-    <string name="tooldetail_incognito_auto_title">Follow private browsing</string>
-    <string name="tooldetail_incognito_auto_subtitle">Turn on by itself in incognito tabs and private fields</string>
-    <string name="tooldetail_incognito_info">Press the tool to turn incognito on. Press it again to go back to normal typing. This is the same switch as Settings → Privacy.</string>
 
     <!-- Power saving tool: when power saving runs. -->
+    <string name="tooldetail_chips_nav_title">Suggestion chip</string>
+    <string name="tooldetail_chips_nav_subtitle">Offer this tool\'s answer on the suggestion strip. Set under Typing</string>
+    <string name="tooldetail_incognito_auto_nav_title">Automatic incognito</string>
+    <string name="tooldetail_incognito_auto_nav_subtitle">Set under Privacy</string>
     <string name="tooldetail_power_group">Power saving</string>
     <string name="tooldetail_power_now_title">Power saving now</string>
     <string name="tooldetail_power_now_subtitle">The same switch that the toolbar tool uses</string>
     <string name="tooldetail_power_now_info">This drops the features below until you turn it off again. It stays on after a restart and at any battery level. A full battery does not turn it off.\n\nNothing is lost. The features come back exactly as you had them, because power saving never rewrites your settings. It only hides them while it is on.</string>
     <string name="tooldetail_power_trigger_title">Turn on by itself</string>
     <string name="tooldetail_power_trigger_subtitle">As well as the switch above</string>
+    <!-- One line under each option in the power saving trigger picker. -->
+    <string name="tooldetail_power_trigger_off_desc">Only the switch above turns power saving on</string>
+    <string name="tooldetail_power_trigger_system_desc">Follows the system switch, so the keyboard saves power when you asked your device to</string>
+    <string name="tooldetail_power_trigger_low_desc">Uses your own percentage below</string>
+    <string name="tooldetail_power_trigger_either_desc">Whichever of the two happens first</string>
     <string name="tooldetail_power_trigger_info">\"Android battery saver\" follows the system switch, so the keyboard saves power exactly when you already asked your device to. \"Battery is low\" uses your own percentage below instead.</string>
     <string name="tooldetail_power_battery_title">Low battery is</string>
     <string name="tooldetail_power_battery_subtitle">Power saving starts at this level or below it</string>
@@ -198,7 +211,9 @@
     <string name="tooldetail_power_charging_info">There is nothing to save while the battery fills, so the automatic triggers stop. This does not change the switch above. If you turn power saving on by hand, it stays on.</string>
 
     <!-- Power saving tool: which features it drops. -->
-    <string name="tooldetail_power_drop_group">What to drop</string>
+    <string name="tooldetail_power_drop_group">Effects to drop</string>
+    <string name="tooldetail_power_drop_helpers_group">Typing helpers to drop</string>
+    <string name="tooldetail_power_drop_background_group">Background work to drop</string>
     <string name="tooldetail_power_drop_haptics_title">Key vibration</string>
     <string name="tooldetail_power_drop_haptics_subtitle">Stop the vibration motor</string>
     <string name="tooldetail_power_drop_sound_title">Key sounds</string>
@@ -225,6 +240,8 @@
     <string name="tooldetail_power_drop_models_title">On-device models</string>
     <string name="tooldetail_power_drop_models_subtitle">Use the system recognizer for voice typing, and glide a word instead of writing it</string>
     <string name="tooldetail_power_drop_models_info">Offline voice typing and handwriting both run a neural model on the processor, which is the most expensive work the keyboard does. Voice typing goes back to the system recognizer, and the letter swipe goes back to glide typing.</string>
+    <string name="tooldetail_power_drop_media_pin_title">Media tool pin</string>
+    <string name="tooldetail_power_drop_media_pin_subtitle">Stop putting the media tool on the toolbar while music plays</string>
     <string name="tooldetail_power_drop_stats_title">Typing statistics</string>
     <string name="tooldetail_power_drop_stats_subtitle">Stop counting your typing. Days spent saving power record nothing</string>
     <string name="tooldetail_power_info">Power saving is a view of your settings and never a rewrite of them. Everything that it turns off here comes back exactly as you had it the moment power saving ends.</string>
@@ -249,6 +266,15 @@
     <string name="tooldetail_fancy_language_nav_title">Fancy text language</string>
     <string name="tooldetail_fancy_language_nav_subtitle">The saved style, and the layout switch</string>
     <string name="tooldetail_fancy_info">The tool types with Unicode letters, not with a font. The letters stay fancy in every app, but a screen reader cannot read them and a search cannot find them.</string>
+
+    <!-- Custom layout tool. -->
+    <string name="tooldetail_custom_layout_layout_title">Layout to show</string>
+    <string name="tooldetail_custom_layout_layout_subtitle">The secondary layout the tool puts on screen</string>
+    <string name="tooldetail_custom_layout_layout_info">The tool shows this layout over the letters, and takes it off again on the next press. A key on any layout can open the other secondary layouts.</string>
+    <string name="tooldetail_custom_layout_first">First secondary layout</string>
+    <string name="tooldetail_custom_layout_keymaps_nav_title">Key layouts</string>
+    <string name="tooldetail_custom_layout_keymaps_nav_subtitle">Make and edit secondary layouts</string>
+    <string name="tooldetail_custom_layout_info">A secondary layout is a grid of your own, such as a symbols page or a macro pad. It is not a language. It keeps the dictionary of the layout you type with.</string>
 
     <!-- Sound and haptics tool. -->
     <string name="tooldetail_keypress_nav_title">All key press settings</string>
@@ -297,9 +323,15 @@
     <string name="tooldetail_media_sending_group">Sending</string>
     <string name="tooldetail_media_sticker_send_title">Send stickers as</string>
     <string name="tooldetail_media_sticker_send_subtitle">What the sticker tool gives to the chat app</string>
+    <!-- One line under each option in the "Send stickers as" picker. -->
+    <string name="tooldetail_media_sticker_send_sticker_desc">Stickers arrive as real stickers in WhatsApp. Other apps get a plain image</string>
+    <string name="tooldetail_media_sticker_send_image_desc">Always a plain image, which every app accepts</string>
     <string name="tooldetail_media_sticker_send_info">Android has no sticker mark. The only signal is the MIME type of the file, and the receiving app decides. Sticker: the keyboard offers the WhatsApp sticker type first, so stickers arrive as real stickers there. Apps that do not support it get a normal image. Image: the keyboard always sends a plain image.</string>
     <string name="tooldetail_media_gif_send_title">Send GIFs as</string>
     <string name="tooldetail_media_gif_send_subtitle">Images by default, because most chat apps animate them</string>
+    <!-- One line under each option in the "Send GIFs as" picker. -->
+    <string name="tooldetail_media_gif_send_image_desc">Always a plain image, which every app animates</string>
+    <string name="tooldetail_media_gif_send_sticker_desc">Only for GIFs that arrive in WebP form. The rest still go out as images</string>
     <string name="tooldetail_media_gif_send_info">Sticker mode works only for GIFs that the source gives in WebP form. Android ships no encoder for animated WebP, so the keyboard cannot turn a real animated GIF into a sticker. Those GIFs always go out as images.</string>
     <!-- The two ways to hand a picture to the chat app. -->
     <string name="tooldetail_media_send_sticker_option">Sticker</string>
@@ -388,28 +420,19 @@
     <string name="tooldetail_symbols_info">Fractions, math operators, Greek letters, arrows, currency signs, superscripts, subscripts and typographic marks. Everything types on your device, like a normal key.</string>
 
     <!-- Calculator tool. -->
-    <string name="tooldetail_calc_smart_title">Calculate as you type</string>
-    <string name="tooldetail_calc_smart_subtitle">Offer the result on the suggestion strip when you type a sum</string>
-    <string name="tooldetail_calc_smart_info">If you type \"12*4\", the keyboard puts 48 on the suggestion strip. Press it to replace the sum with the answer. If you end with \"=\", the keyboard adds the answer and keeps the sum. It ignores runs that can be dates (12/04) or phone numbers, unless you type the \"=\" yourself. This needs \"Smart chips\" on, under Typing.</string>
     <string name="tooldetail_calc_degrees_title">Degrees</string>
     <string name="tooldetail_calc_degrees_subtitle">Trigonometry functions use degrees. Off uses radians</string>
     <string name="tooldetail_calc_precision_title">Result precision</string>
     <string name="tooldetail_calc_precision_subtitle">Maximum number of decimal places. The unit converter uses it too</string>
 
     <!-- Unit converter tool. -->
-    <string name="tooldetail_units_smart_title">Convert as you type</string>
-    <string name="tooldetail_units_smart_subtitle">Offer the conversion on the suggestion strip when you type a measurement</string>
-    <string name="tooldetail_units_smart_info">If you type \"1 ft\" or \"1ft\", the keyboard puts the same length in metres on the suggestion strip. The button on the chip opens the converter on that category, with the pair and the amount already filled in. The unit that it converts into is the one that you paired it with last here. One-letter abbreviations count only when you write them against the number, so \"30c\" counts and \"30 c\" does not. Ordinary sentences stay untouched. This needs \"Smart chips\" on, under Typing.</string>
     <string name="tooldetail_units_compound_title">Feet and inches</string>
     <string name="tooldetail_units_compound_subtitle">Show a length in feet as feet and inches, not as a decimal</string>
     <string name="tooldetail_units_compound_info">1 metre reads as \"3 ft 3.37 in\" instead of \"3.2808399 ft\". The chip writes the units the way that you did: \"1m\" answers with \"3 ft 3.37 in\" and \"1 meter\" answers with \"3 feet 3.37 inches\". Where there is no room for either, it falls back to \"3\'3\"\". Turn this off for the plain decimal.</string>
     <string name="tooldetail_units_info">There are 14 categories: length, mass, temperature, area, volume, speed, time, data, energy, power, pressure, angle, frequency and fuel economy. All conversions run on your device. The result precision follows the calculator setting. The panel opens again on the category and the units that you used last.</string>
 
     <!-- Currency converter tool. -->
-    <string name="tooldetail_currency_smart_title">Convert as you type</string>
     <!-- %1$s is the currency code that the tool converts into, for example USD. -->
-    <string name="tooldetail_currency_smart_subtitle">Offer the amount in %1$s when you type one in another currency</string>
-    <string name="tooldetail_currency_smart_info">\"150 usd\", \"150usd\", \"150$\" and \"150 dollars\" all put the converted amount on the suggestion strip. The keyboard converts into the \"to\" currency of the pair below. If you type an amount that is already in that currency, it converts into the \"from\" one. The rate fetch starts when you type an amount, and nothing is requested before that.</string>
     <string name="tooldetail_currency_decimals_title">Decimal places</string>
     <string name="tooldetail_currency_decimals_subtitle">Rounding of the converted amount. Coins have their own setting</string>
     <string name="tooldetail_currency_refresh_title">Refresh the rates every</string>
@@ -454,6 +477,9 @@
     <string name="tooldetail_qr_gen_size_subtitle">Side length of the PNG that the keyboard inserts</string>
     <string name="tooldetail_qr_gen_send_title">Send as</string>
     <string name="tooldetail_qr_gen_send_subtitle">QR codes go out as images by default</string>
+    <!-- One line under each option in the QR code "Send as" picker. -->
+    <string name="tooldetail_qr_gen_send_image_desc">Always a plain image, which every app accepts</string>
+    <string name="tooldetail_qr_gen_send_sticker_desc">Offers the WhatsApp sticker type, where the app supports it</string>
     <string name="tooldetail_qr_gen_send_info">Some chat apps draw a plain incoming image with no bubble. That can look like a sticker, even though it was sent as an image. Sticker mode offers the WhatsApp sticker type instead, where the app supports it.</string>
     <string name="tooldetail_qr_gen_gallery_title">Save to the gallery</string>
     <string name="tooldetail_qr_gen_gallery_subtitle">Also keep generated codes in Pictures/WM Keyboard</string>
@@ -506,6 +532,11 @@
 
     <string name="tooldetail_camera_resolution_title">Photo size</string>
     <string name="tooldetail_camera_resolution_subtitle">Longest edge of the photos you take</string>
+    <!-- One line under each option in the photo size picker. -->
+    <string name="tooldetail_camera_resolution_small_desc">The smallest file, and the fastest to send</string>
+    <string name="tooldetail_camera_resolution_medium_desc">A good size for a photo in a chat</string>
+    <string name="tooldetail_camera_resolution_large_desc">Enough detail to read a page of text</string>
+    <string name="tooldetail_camera_resolution_max_desc">The most detail, and the biggest file</string>
     <string name="tooldetail_camera_resolution_info">Larger photos hold more detail, which matters for a picture of a document somebody has to read. They also take longer to capture and to send, and use more data. The camera picks the closest size its sensor offers.</string>
 
     <string name="tooldetail_qr_max_chars_title">Longest text</string>
@@ -519,4 +550,29 @@
     <string name="tooldetail_password_pool_label">Symbols to use</string>
     <string name="tooldetail_password_pool_hint">Leave empty for the usual set</string>
     <string name="tooldetail_password_pool_info">Some sites accept only a few punctuation marks. Type the ones that site allows and the generator draws from those, so you do not have to generate again and again until a password comes out clean. Leave it empty to use the full set.</string>
+
+    <!-- Row on every tool's own page: what a press and hold on the tool does
+         while it is pinned to the toolbar. -->
+    <string name="tooldetail_hold_title">Press and hold on the toolbar</string>
+    <string name="tooldetail_hold_subtitle">Do a second thing with this tool. Toolbar only: in the toolbox, press and hold always opens a tool\'s settings.</string>
+    <!-- The row's value, and the "None" choice in its picker, when nothing is bound. -->
+    <string name="tooldetail_hold_settings_value">Opens this tool\'s settings</string>
+    <string name="tooldetail_hold_repeats_subtitle">Press and hold repeats the move, so it cannot do a second action</string>
+    <string name="tooldetail_hold_selects_subtitle">Press and hold turns selection mode on, so it cannot do a second action</string>
+    <string name="tooldetail_hold_trackpad_subtitle">Press and hold opens the trackpad, so it cannot do a second action</string>
+    <!-- %1$s is the name of a tool, for example "Undo". -->
+    <string name="tooldetail_hold_pick_title">Press and hold <xliff:g id="tool" example="Undo">%1$s</xliff:g></string>
+
+    <!-- Media control tool. -->
+    <string name="tooldetail_mediactl_group">Media control</string>
+    <string name="tooldetail_mediactl_pin_title">Pin while music plays</string>
+    <string name="tooldetail_mediactl_pin_subtitle">Put the media tool on the toolbar on its own while a music app is playing</string>
+    <string name="tooldetail_mediactl_pin_info">The pin is temporary. It goes on the end of the toolbar, it never moves the tools you pinned yourself, and it disappears when the player does. If you have already pinned the media tool, nothing changes.</string>
+    <string name="tooldetail_mediactl_apps_title">Music players</string>
+    <!-- %1$d is a count of apps, for example "12". -->
+    <string name="tooldetail_mediactl_apps_subtitle">Which apps count as music. <xliff:g id="count" example="12">%1$d</xliff:g> chosen</string>
+    <string name="tooldetail_mediactl_access_title">Notification access</string>
+    <string name="tooldetail_mediactl_access_granted">Granted. The media tool can read and steer what is playing</string>
+    <string name="tooldetail_mediactl_access_missing">Needed before the keyboard can see what is playing. Tap to grant</string>
+    <string name="tooldetail_mediactl_info">Android only lets an app read other apps\' playback through a notification listener. The listener WM Keyboard registers reads no notifications at all. It exists so the media tool can find the session it steers.</string>
 </resources>

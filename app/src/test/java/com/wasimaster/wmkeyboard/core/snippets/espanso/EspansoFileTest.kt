@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.snippets.espanso
 
+import com.wasimaster.wmkeyboard.core.snippets.MultiExpand
 import com.wasimaster.wmkeyboard.core.snippets.SnippetIndex
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.snippets.SnippetVariable
@@ -74,6 +75,34 @@ class EspansoFileTest {
         assertEquals(UppercaseStyle.CAPITALIZE_WORDS, snippet.uppercaseStyle)
         // `word: true` is what this app always does, so it costs no note.
         assertEquals(0, noteCount(import, EspansoNote.MID_WORD))
+    }
+
+    @Test
+    fun `a trigger that starts with punctuation needs no mid-word note`() {
+        // The punctuation is its own boundary, so nothing is lost to the
+        // stricter rule this app applies.
+        val import = read(
+            """
+            matches:
+              - trigger: ":shrug"
+                replace: "x"
+            """,
+        )!!
+        assertEquals(0, noteCount(import, EspansoNote.MID_WORD))
+    }
+
+    @Test
+    fun `a phrase trigger is reported as needing mid-word matching`() {
+        // Its first character is a letter, so this app insists on a boundary in
+        // front of it where Espanso would not.
+        val import = read(
+            """
+            matches:
+              - trigger: "gr db"
+                replace: "x"
+            """,
+        )!!
+        assertEquals(1, noteCount(import, EspansoNote.MID_WORD))
     }
 
     @Test
@@ -195,7 +224,9 @@ class EspansoFileTest {
     }
 
     @Test
-    fun `a choice variable becomes a random token and says so`() {
+    fun `a choice match becomes a snippet with several expansions`() {
+        // Espanso's choice is "pick one of these", and so is a snippet with
+        // several expansions — nothing is lost, so nothing is reported.
         val import = read(
             """
             matches:
@@ -211,8 +242,55 @@ class EspansoFileTest {
                           id: 2
             """,
         )!!
-        assertEquals("{random:one|Two}", import.snippets.single().text)
+        val snippet = import.snippets.single()
+        assertEquals("one", snippet.text)
+        assertEquals(listOf("Two"), snippet.alternates)
+        assertEquals(MultiExpand.CHIPS_ONLY, snippet.multiExpand)
+        assertEquals(":q", snippet.trigger)
+        assertEquals(0, noteCount(import, EspansoNote.CHOICE))
+    }
+
+    @Test
+    fun `a choice inside a sentence is still a random token`() {
+        // Only part of the text would be up for choosing, and a snippet
+        // chooses the whole of what it inserts.
+        val import = read(
+            """
+            matches:
+              - trigger: ":q"
+                replace: "Yours {{out}}, Wasi"
+                vars:
+                  - name: out
+                    type: choice
+                    params:
+                      values:
+                        - "sincerely"
+                        - "truly"
+            """,
+        )!!
+        val snippet = import.snippets.single()
+        assertEquals("Yours {random:sincerely|truly}, Wasi", snippet.text)
+        assertTrue(snippet.alternates.isEmpty())
         assertEquals(1, noteCount(import, EspansoNote.CHOICE))
+    }
+
+    @Test
+    fun `a choice with one value is not a choice`() {
+        val import = read(
+            """
+            matches:
+              - trigger: ":q"
+                replace: "{{out}}"
+                vars:
+                  - name: out
+                    type: choice
+                    params:
+                      values:
+                        - "only"
+            """,
+        )!!
+        assertEquals("only", import.snippets.single().text)
+        assertTrue(import.snippets.single().alternates.isEmpty())
     }
 
     @Test
@@ -382,6 +460,33 @@ class EspansoFileTest {
         val snippet = import.snippets.single()
         assertNull(snippet.trigger)
         assertEquals("→", snippet.text)
+        assertEquals(1, noteCount(import, EspansoNote.SYMBOL_TRIGGER))
+    }
+
+    @Test
+    fun `a trigger holding a space comes across whole`() {
+        val import = read(
+            """
+            matches:
+              - trigger: "gr db"
+                replace: "./gradlew assembledebug"
+                word: true
+            """,
+        )!!
+        assertEquals("gr db", import.snippets.single().trigger)
+        assertEquals(0, noteCount(import, EspansoNote.SYMBOL_TRIGGER))
+    }
+
+    @Test
+    fun `a trigger that ends in punctuation is still dropped`() {
+        val import = read(
+            """
+            matches:
+              - trigger: "gr db:"
+                replace: "x"
+            """,
+        )!!
+        assertNull(import.snippets.single().trigger)
         assertEquals(1, noteCount(import, EspansoNote.SYMBOL_TRIGGER))
     }
 

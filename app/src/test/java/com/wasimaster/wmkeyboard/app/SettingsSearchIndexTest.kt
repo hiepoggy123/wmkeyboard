@@ -28,6 +28,20 @@ class SettingsSearchIndexTest {
     /** The two files search is built from: the index, and the matcher. */
     private val searchFiles = listOf("SettingsSearch.kt", "SettingsSearchMatch.kt")
 
+    /**
+     * The search words the root list carries. The index takes its top-level
+     * entries from `RootEntries.kt`, so the keywords those entries are found
+     * by are named there and nowhere in the index itself. That file is a
+     * screen file too — the home screen draws from it — so it stays out of
+     * [searchFiles] and is read here only for its `search_…` names.
+     */
+    private val rootSearchKeys: Set<String> by lazy {
+        Regex("""R\.string\.(search_[a-z0-9_]+)""")
+            .findAll(File(appDir, "RootEntries.kt").readText())
+            .map { it.groupValues[1] }
+            .toSet()
+    }
+
     private val indexSource: String by lazy {
         val file = File(appDir, "SettingsSearch.kt")
         assertTrue("search index not found at ${file.absolutePath}", file.isFile)
@@ -137,7 +151,7 @@ class SettingsSearchIndexTest {
             .map { it.groupValues[1] }
             .toList()
         assertTrue("no search_ strings declared", declared.isNotEmpty())
-        val unused = declared.filterNot { it in indexedKeys }
+        val unused = declared.filterNot { (it in indexedKeys || it in rootSearchKeys) }
         assertEquals("search words no entry carries", emptyList<String>(), unused)
     }
 
@@ -168,7 +182,9 @@ class SettingsSearchIndexTest {
     @Test
     fun `every screen a result can open has an icon`() {
         // The routes are the only lower-case string literals in the index.
-        val routes = Regex("\"([a-z][a-z_]*)\"")
+        // Sub-routes ("typing/corrections") are routes too; the pattern must
+        // admit a path, or a screen added under another is invisible here.
+        val routes = Regex("\"([a-z][a-z0-9_]*(?:/[a-z0-9_{}]+)*)\"")
             .findAll(indexSource)
             .map { it.groupValues[1] }
             .distinct()

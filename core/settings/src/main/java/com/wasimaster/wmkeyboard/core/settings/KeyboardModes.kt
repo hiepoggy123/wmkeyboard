@@ -7,14 +7,45 @@ import kotlinx.serialization.json.Json
 /**
  * The rows stacked above the keys, in top-to-bottom order. [TOPBAR] is the
  * suggestion/toolbar strip and is always present; the emoji and symbol rows
- * only render when their settings turn them on, but keep their slot in the
- * order either way.
+ * only render when their settings turn them on, [FANCY] (the Fancy Text
+ * style strip) only while the fancy layout is active, [TOOLS] (the tools
+ * on a row of their own) only under an own-row `ToolbarPlacement`, and
+ * [DICTIONARY] (the dictionary bar, issue #51) when `RowSettings` turns it
+ * on — but every row keeps its slot in the order either way.
+ *
+ * Stored by name. The reader drops a name it does not know and
+ * [sanitizeBarOrder] fills the gap, so a build that predates a constant
+ * still decodes an order written by a newer one.
  */
-enum class BarRow { TOPBAR, EMOJI, SYMBOL }
+enum class BarRow { TOPBAR, EMOJI, SYMBOL, FANCY, TOOLS, DICTIONARY }
 
-/** Ensures every row appears exactly once, preserving the stored order. */
-fun sanitizeBarOrder(rows: List<BarRow>): List<BarRow> =
-    rows.distinct() + BarRow.entries.filter { it !in rows }
+/**
+ * The shipped stacking: emoji on top because it is reached for most, the
+ * tools row directly over the strip whose chevron opens it, the style strip
+ * last, next to the keys whose letters it changes.
+ */
+val DefaultBarOrder: List<BarRow> = listOf(
+    BarRow.EMOJI, BarRow.TOOLS, BarRow.TOPBAR, BarRow.SYMBOL, BarRow.DICTIONARY, BarRow.FANCY,
+)
+
+/**
+ * Ensures every row appears exactly once, preserving the stored order.
+ *
+ * A row the stored order does not know goes where [DefaultBarOrder] puts it
+ * relative to the rows that *are* there: just above the first present row
+ * that follows it in the default, or at the bottom when none does. So an
+ * order saved before the tools row existed gets it over the strip, where
+ * the row already drew, rather than under the keys' nose.
+ */
+fun sanitizeBarOrder(rows: List<BarRow>): List<BarRow> {
+    val out = rows.distinct().toMutableList()
+    for (missing in DefaultBarOrder.filter { it !in out }) {
+        val successors = DefaultBarOrder.drop(DefaultBarOrder.indexOf(missing) + 1)
+        val anchor = out.indexOfFirst { it in successors }
+        if (anchor < 0) out.add(missing) else out.add(anchor, missing)
+    }
+    return out
+}
 
 /**
  * Kind of input field a keyboard mode can bind to, derived from
@@ -352,6 +383,7 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
             ToolbarTool.UNDO, ToolbarTool.REDO,
             // Ranked for whenever the user unpins one of the pinned tools above.
             ToolbarTool.AI, ToolbarTool.TEXT_EDIT, ToolbarTool.VOICE, ToolbarTool.EMOJI,
+            ToolbarTool.TRACKPAD,
         ),
         symbolRowEnabled = true,
         symbolSetIds = listOf(BuiltInSymbolSets.PUNCTUATION_ID),
@@ -364,7 +396,7 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
         name = "Coding",
         toolboxOrder = listOf(
             ToolbarTool.SNIPPETS, ToolbarTool.CLIPBOARD, ToolbarTool.TEXT_EDIT,
-            ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.NUMPAD,
+            ToolbarTool.TRACKPAD, ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.NUMPAD,
             ToolbarTool.UNDO, ToolbarTool.REDO,
             ToolbarTool.CURSOR_LEFT, ToolbarTool.CURSOR_RIGHT,
             ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
@@ -466,6 +498,29 @@ private fun KeyboardMode.matchesField(packageName: String?, fields: Set<ModeFiel
         else -> appMatch && fieldMatch
     }
 }
+
+/**
+ * The settings with the modes feature taken out of the picture, applied on the
+ * way out of the repository exactly as `underPowerSaving` and
+ * `restrictedToDirectBoot` are: a view, never a write (issue #41).
+ *
+ * Emptying [KeyboardSettings.keyboardModes] is the whole gate. Every reader of
+ * modes — [resolveKeyboardMode], the tool's panel, the per-mode theme lookup —
+ * goes through that list, so none of them needs to learn the switch exists. The
+ * tool goes with them: a Modes button that opens an empty panel is worse than
+ * no button. The user's modes stay stored, so switching the feature back on
+ * brings every one of them back.
+ */
+fun KeyboardSettings.withoutModes(): KeyboardSettings =
+    if (modesEnabled) {
+        this
+    } else {
+        copy(
+            keyboardModes = emptyList(),
+            toolbarTools = toolbarTools - ToolbarTool.MODES,
+            enabledTools = enabledTools - ToolbarTool.MODES,
+        )
+    }
 
 /**
  * Picks the active mode: a manual pick from the Modes tool wins, then the

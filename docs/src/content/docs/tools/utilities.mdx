@@ -34,7 +34,7 @@ The custom keypad (`7 8 9 ÷ ⌫`, `4 5 6 × (`, `1 2 3 − )`, `0 . % + =`) rep
 
 <SettingsPath path="Tools / Calculator / Options" />
 
-- **Calculate as you type**: on by default. This is the strip's inline chip behavior described above. The same toggle also appears under [Smart chips](/smart/chips/#options), since it's one setting surfaced in both places.
+- **Suggestion chip**: shows whether Calculate as you type is on and opens [Smart chips](/smart/chips/), where the switch lives.
 - **Degrees**: on by default. Off switches trig functions to radians.
 - **Result precision**: a slider from 0 to 12 decimal places, defaulting to **8**. Trailing zeros are stripped either way, and this same setting shapes the unit converter's output below.
 
@@ -64,12 +64,12 @@ Both converters are also reachable inline. Typing `1 ft` or `150 usd` on the str
 
 <SettingsPath path="Tools / Unit converter / Options" />
 
-- **Convert as you type**: on by default. This is the inline unit chip described above.
+- **Suggestion chip**: shows whether Convert as you type is on and opens [Smart chips](/smart/chips/), where the switch lives.
 - **Feet and inches**: on by default. Anything converting into feet is read as feet plus inches, so 1 metre comes back as `3 ft 3.37 in` rather than `3.2808399 ft`. Turn it off for the plain decimal.
 
 <SettingsPath path="Tools / Currency converter / Options" />
 
-- **Convert as you type**: on by default. This is the inline currency chip.
+- **Suggestion chip**: shows whether Convert as you type is on and opens [Smart chips](/smart/chips/), where the switch lives.
 - **Decimal places**: a slider from 0 to 6, defaulting to **2**.
 - **Refresh rates every**: a slider from 1 to 48 hours, defaulting to **6**. Upstream rates only update about once a day, so anything under 24 hours mostly changes how soon a *failed* fetch gets retried.
 - **Currency rates from**: which source to fetch fiat rates from, either ExchangeRate-API (the default), Frankfurter, Coinbase, or the jsDelivr currency-api. **Try the other sources** underneath decides whether the rest stand behind it as fallbacks.
@@ -158,7 +158,22 @@ The preview updates as you type, up to **Longest text** characters (500 to 4,000
   {/* shot: tools/typing-test-panel */}
 </PhoneFrame>
 
-Three modes decide when a run ends: **Time** (the default, 30 seconds), **Word count** (default 25 words), and **Quote** (types out one of 14 short public-domain quotations, however long it runs). Time and Word-count prompts draw from the 200 most common English words, deliberately short and high-frequency so the test measures typing rather than vocabulary. Turning on **Punctuation** or **Numbers** sprinkles capitals, commas, periods and the occasional numeral into the prompt. Both are off by default, and both are hidden entirely in Quote mode.
+Three modes decide when a run ends: **Time** (the default, 30 seconds), **Word count** (default 25 words), and **Quote** (types out one short public-domain quotation, however long it runs). Time and Word-count prompts draw from the 200 most common words of the test's language, deliberately short and high-frequency so the test measures typing rather than vocabulary. Turning on **Punctuation** or **Numbers** sprinkles capitals, commas, full stops and the occasional numeral into the prompt. Both are off by default, and both are hidden entirely in Quote mode.
+
+### Other languages
+
+The test runs in whichever language the keyboard is in. The last chip on the settings strip names that language. Tap it to pick any language your enabled layouts cover, and the keyboard switches to that language's layout and deals a fresh prompt. A spacebar language swipe during a run does the same. English and Bangla ship their own word lists and quotations. Any other language builds its prompt from the most common words of its downloaded or imported dictionary, so a language with no dictionary yet shows a note instead of a prompt, and Quote mode is greyed out for it. On a transliterating layout such as Avro you type the romanised keys as usual, and the test scores the Bangla word that comes out. It waits for the whole word before scoring it, because a key there can't be judged as it lands: `k` is ক on its way to খ, and a conjunct isn't itself until its last key. So the syllable under the cursor stays uncoloured while you spell it, and the keys behind it are marked right or wrong once the space closes the word. Keys you backspaced away still count against you, exactly as a mistyped letter does on a direct layout. A layout that converts what you type, such as Pinyin or kana, can't be scored, and the panel says so.
+
+Numbers and punctuation follow the language too: a Bangla prompt gets Bangla numerals and ends its sentences with the danda. Personal bests are kept per language, so a 30-second Bangla record never overwrites a 30-second English one. The records list in settings names the language on every non-English row.
+
+### Glide and suggestions
+
+Two more chips on the strip, **Glide** and **Suggestions**, let the keyboard's own helpers take part in a run so you can compare scores with and without them. Both are off by default.
+
+- **Glide** lets you swipe words during a test. The stroke is decoded exactly as it would be in a text field, and the word lands as if you had typed every letter, followed by its space. A stroke that decodes to the wrong word costs what mistyping it would have. The chip is greyed out where gesture typing isn't available for the language and layout at all. This switch is independent of the main **Glide typing** setting, so you can measure gestures even if you keep them off day to day.
+- **Suggestions** puts the keyboard's own suggestion strip back where it always sits, in the row directly above the keys, with next-word predictions between words. It is the real strip, in the same slots, at the same size, under your own strip settings, so practising with it is practice at the thing you actually type against. Tapping one finishes the current word and moves on. The tap counts as one keystroke, correct only if the word matched. The words go into the test and never into the field behind the panel.
+
+Both switches also live under <SettingsPath path="Tools / Typing speed test / Typing aids" />.
 
 <PhoneFrame caption="Typing test results: WPM, accuracy, consistency, and the Insert score chip.">
   {/* shot: tools/typing-test-results */}
@@ -182,4 +197,4 @@ Results show four numbers. Words per minute is correct characters ÷ 5 ÷ minute
 - **Hardware shortcuts.** With a [physical keyboard](/typing/hardware-keyboard/) attached, double-tap <KeyCap>Ctrl</KeyCap> then a letter: <KeyCap>Y</KeyCap> for Symbols, <KeyCap>L</KeyCap> for Calculator, <KeyCap>U</KeyCap> for Unit converter, <KeyCap>Q</KeyCap> for QR generator, <KeyCap>P</KeyCap> for Password generator. Currency converter and Typing test have no default letter. Reach them through the toolbox (<KeyCap>T</KeyCap>) or [assign one yourself](/reference/shortcuts/).
 - **Discoverable by typing.** Typing one of a tool's keywords as a standalone word offers a [smart chip](/smart/chips/) straight into it: `symbol`/`symbols`, `calc`/`calculator`, `convert`/`unit`, `currency`/`forex`, `qr`, `password`/`passgen`, `wpm`. Each list is editable per tool under that tool's own **Keyword shortcut** field.
 - **None of these seven are edition-gated.** Unlike the scanners and handwriting, which lean on ML Kit, Full and Lite ship all seven identically (see [Full vs Lite](/start/editions/) if you're comparing builds).
-- Every tool here has its own **Enabled** switch, and an **Icon colour** override if [colorful tool icons](/tools/overview/#browsing-all-64-tools) are on globally. Both live at the top of that tool's own settings screen, above everything documented in this page's Options sections.
+- Every tool here has its own **Enabled** switch, and an **Icon colour** override if [colorful tool icons](/tools/overview/#browsing-every-tool) are on globally. Both live at the top of that tool's own settings screen, above everything documented in this page's Options sections.

@@ -79,6 +79,7 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipSensitivity
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.ManualModeDuration
+import com.wasimaster.wmkeyboard.core.settings.CopiedCodeChip
 import com.wasimaster.wmkeyboard.core.settings.SensitiveClipHandling
 import com.wasimaster.wmkeyboard.core.settings.activeThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
@@ -144,6 +145,7 @@ import com.wasimaster.wmkeyboard.core.prediction.TouchPoint
 import com.wasimaster.wmkeyboard.core.prediction.LanguageMixConfidence
 import com.wasimaster.wmkeyboard.core.prediction.LearningBuffer
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
+import com.wasimaster.wmkeyboard.core.prediction.topWords
 import com.wasimaster.wmkeyboard.core.prediction.PendingLearn
 import com.wasimaster.wmkeyboard.core.prediction.SecondaryDictionary
 import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
@@ -188,6 +190,7 @@ import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import com.wasimaster.wmkeyboard.core.settings.interactiveTyping
 import com.wasimaster.wmkeyboard.core.settings.plainTyping
 import com.wasimaster.wmkeyboard.core.settings.restrictedToDirectBoot
+import com.wasimaster.wmkeyboard.core.settings.withoutModes
 import com.wasimaster.wmkeyboard.core.settings.PowerSavingSettings
 import com.wasimaster.wmkeyboard.core.settings.SystemMotion
 import com.wasimaster.wmkeyboard.core.settings.underPowerSaving
@@ -209,10 +212,13 @@ import com.wasimaster.wmkeyboard.core.settings.DeviceForm
 import com.wasimaster.wmkeyboard.core.settings.applyDeviceForm
 import com.wasimaster.wmkeyboard.core.settings.applyMode
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
+import com.wasimaster.wmkeyboard.core.settings.keywordsEnabledFor
 import com.wasimaster.wmkeyboard.core.settings.isUsableTool
 import com.wasimaster.wmkeyboard.core.settings.usableTools
 import com.wasimaster.wmkeyboard.core.settings.resolveKeyboardMode
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
+import com.wasimaster.wmkeyboard.core.snippets.SnippetCandidate
+import com.wasimaster.wmkeyboard.core.snippets.SnippetMatch
 import com.wasimaster.wmkeyboard.core.snippets.SnippetMatcher
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.stickers.StickerAddResult
@@ -303,10 +309,13 @@ import com.wasimaster.wmkeyboard.core.tools.TypingHistory
 import com.wasimaster.wmkeyboard.core.tools.TypingResult
 import com.wasimaster.wmkeyboard.core.tools.TypingStats
 import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
+import com.wasimaster.wmkeyboard.core.tools.TypingWordPool
+import com.wasimaster.wmkeyboard.core.tools.TypingWordPools
 import com.wasimaster.wmkeyboard.core.tools.WpmSample
 import com.wasimaster.wmkeyboard.core.tools.buildTypingPrompt
 import com.wasimaster.wmkeyboard.core.tools.compareWord
 import com.wasimaster.wmkeyboard.core.tools.scoreTypingTest
+import com.wasimaster.wmkeyboard.core.tools.settledKeystrokes
 import com.wasimaster.wmkeyboard.core.tools.typingConfigKey
 import com.wasimaster.wmkeyboard.core.tools.typingConfigLabel
 import com.wasimaster.wmkeyboard.core.tools.WikipediaClient
@@ -317,6 +326,7 @@ import com.wasimaster.wmkeyboard.core.tools.WebResult
 import com.wasimaster.wmkeyboard.core.mlkit.MlKitInit
 import com.wasimaster.wmkeyboard.core.media.MediaControlManager
 import com.wasimaster.wmkeyboard.core.media.MediaNotificationListener
+import com.wasimaster.wmkeyboard.core.media.MediaSnapshot
 import com.wasimaster.wmkeyboard.core.otp.NotificationOtp
 import com.wasimaster.wmkeyboard.core.otp.NotificationOtpBus
 import com.wasimaster.wmkeyboard.core.otp.NotificationOtpCapture
@@ -340,8 +350,11 @@ import com.wasimaster.wmkeyboard.core.keyman.ProcessorKey
 import com.wasimaster.wmkeyboard.core.keyman.ProcessorResult
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
+import com.wasimaster.wmkeyboard.core.layout.PanelKind
+import com.wasimaster.wmkeyboard.core.layout.PanelLayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.repair
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -373,6 +386,8 @@ import com.wasimaster.wmkeyboard.core.layout.layoutAfterFancy
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.layout.compile
+import com.wasimaster.wmkeyboard.core.layout.secondaryLayouts
+import com.wasimaster.wmkeyboard.ime.ui.currentLayout
 import com.wasimaster.wmkeyboard.ime.ui.IconDefaults
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.ime.ui.emojiStickerJobId
@@ -465,6 +480,8 @@ open class WMKeyboardService : InputMethodService() {
      * chip can be re-offered after a panel covers the strip.
      */
     private var learnOfferWord: String? = null
+    /** Whether [learnOfferWord]'s capitals are the user's own; see [learn]. */
+    private var learnOfferCaseTrusted = false
 
     private lateinit var languageMixConfidence: LanguageMixConfidence
     private lateinit var emojiUsage: EmojiUsage
@@ -564,6 +581,8 @@ open class WMKeyboardService : InputMethodService() {
         val power: DevicePowerState,
         val form: DeviceForm,
         val network: DeviceNetworkState,
+        /** The panel layouts (issue #63), resolved and repaired; their own flow, see [SettingsRepository.panelLayouts]. */
+        val panelLayouts: Map<PanelKind, PanelLayoutSpec>,
     )
 
     /** Manual pick from the Modes tool; wins until the user switches app. */
@@ -674,6 +693,7 @@ open class WMKeyboardService : InputMethodService() {
             // Same boundary for the typing-rhythm signal: a fresh (or
             // re-armed) word starts with no rhythm history.
             keystrokeTiming.reset()
+            publishComposingRoman()
         }
     private var previousWord: String? = null
 
@@ -722,9 +742,30 @@ open class WMKeyboardService : InputMethodService() {
         pendingTouch = TouchPoint(x, y)
     }
 
+    /**
+     * Whether the composing word's capitals are the user's own.
+     *
+     * Decided once, when the word's first character lands, because that is the
+     * only moment the answer exists: shift is spent by the keystroke, and by
+     * the time the word commits there is nothing left to ask. A capital the
+     * keyboard armed by itself — auto-capitalize at a sentence start, a field
+     * flagged all-caps — says nothing about how the word is spelled, and
+     * neither does caps lock, which is a statement about the letters rather
+     * than about the word. Only those two teach the lexicon a spelling (#44).
+     *
+     * A word re-armed from text already in the field is untrusted for the same
+     * reason: nobody knows where its capital came from.
+     */
+    private var composingCaseTrusted = false
+
     /** Appends to the composing buffer, pairing the pending tap position with
      * a single appended character (multi-char inserts get null slots). */
     private fun appendComposing(text: String) {
+        if (composing.isEmpty()) {
+            val state = _uiState.value
+            composingCaseTrusted = state.shiftState == ShiftState.OFF ||
+                (state.shiftState == ShiftState.ON && state.shiftPressedByUser)
+        }
         composing.append(text)
         if (composingTouch.size == composing.length - text.length) {
             if (text.length == 1) {
@@ -792,12 +833,41 @@ open class WMKeyboardService : InputMethodService() {
      * the setting is off.
      */
     @Volatile private var userDictShortcuts: Map<String, String> = emptyMap()
+    /**
+     * Every word in Android's personal dictionary, for
+     * [SuggestionStripSettings.useSystemDictionary] (#45). Handed to
+     * [SuggestionEngine.systemDictionary]; loaded with [userDictShortcuts] and
+     * re-read whenever [userDictObserver] reports a change, so a word added
+     * in System settings is known the moment the user comes back.
+     */
+    @Volatile private var systemDictionaryWords: SystemUserDictionary.Entries =
+        SystemUserDictionary.Entries.EMPTY
+    /** Watches [android.provider.UserDictionary.Words] for [reloadSystemDictionary]. */
+    private var userDictObserver: android.database.ContentObserver? = null
+    /**
+     * The [SuggestionStripSettings.useSystemDictionary] value the last
+     * [readSystemDictionary] ran under, so the settings collector can tell a
+     * flip from a first delivery whichever of the two lands first.
+     */
+    @Volatile private var systemDictLoadedWith: Boolean? = null
     private var lastSpaceTime = 0L
     /** uptime of the last spacebar/volume caret-scrub step; see [CARET_SCRUB_WINDOW_MS]. */
     private var lastCaretScrubMs = 0L
     private var lastShiftTapTime = 0L
     private var suggestionJob: Job? = null
     private var smartJob: Job? = null
+
+    /**
+     * Re-reads the context once a spacebar caret scrub stops moving.
+     *
+     * [CARET_SCRUB_WINDOW_MS] suppresses the re-read while the finger is still
+     * dragging, and nothing used to run afterwards — the editor reports no
+     * further selection update once the caret stops, so the strip stayed empty
+     * until the next tap or keystroke. Scrubbing onto a word gave no
+     * suggestions at all (#32). Each drag step cancels and re-arms this, so
+     * only the settle survives.
+     */
+    private var caretSettleJob: Job? = null
 
     /**
      * The read behind an asking pattern's chip. Its own job rather than
@@ -987,6 +1057,74 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var loadedSpellingMap = false
 
+    /**
+     * The languages the last dictionary load was told to read from imported
+     * word lists alone. Same story as [loadedBengali]: which tries the engine
+     * is built over is decided during the load, so moving a language in or out
+     * of the set has to run the load again to take effect.
+     */
+    private var loadedImportedOnly: Set<String> = emptySet()
+
+    /**
+     * The languages whose emoji keyword packs were left out of the merged
+     * catalogue when it was last built (issue #51); a change rebuilds it.
+     */
+    private var loadedEmojiKeywordsOff: Set<String> = emptySet()
+
+    /**
+     * The languages the offensive-word filter was last built for. The list is
+     * per language and only the enabled ones are read, so adding a language has
+     * to rebuild the set or its words go unfiltered while the setting still
+     * reads as on.
+     */
+    private var loadedOffensiveLangs: Set<String> = emptySet()
+
+    /** Ids of the languages the user has switched on. */
+    private fun enabledLanguageIds(): Set<String> =
+        _uiState.value.settings.enabledLanguages.mapTo(HashSet()) { it.id }
+
+    /**
+     * The offensive-word set for [langIds], unioned.
+     *
+     * One asset per language under `dictionaries/offensive/`, and a language
+     * with no list contributes nothing rather than failing the read. Unioned
+     * rather than kept per language because the strip mixes languages — a
+     * secondary language's words reach it too — and a candidate is offered or
+     * it is not; there is no per-candidate language to consult at the point
+     * [SuggestionEngine.suppressed] asks.
+     *
+     * Assets, so this works at a locked boot and with no network. The lists
+     * hold only entries spelled in letters; see the header on any of them.
+     */
+    private fun readOffensiveWords(langIds: Set<String>): Set<String> {
+        val words = HashSet<String>()
+        for (langId in langIds) {
+            runCatching {
+                assets.open("dictionaries/offensive/$langId.txt").bufferedReader()
+                    .useLines { lines ->
+                        for (line in lines) {
+                            val word = line.trim()
+                            if (word.isEmpty() || word.startsWith("#")) continue
+                            words.add(word.lowercase())
+                        }
+                    }
+            }
+        }
+        return words
+    }
+
+    /** Languages reading the user's imported lists alone (issue #28). */
+    private fun importedOnly(): Set<String> =
+        _uiState.value.settings.suggestionStrip.importedOnlyLangs
+
+    /**
+     * Whether [langId] still reads the vocabulary that ships with the app and
+     * the one the user downloaded, as opposed to their own imported lists
+     * alone (issue #28).
+     */
+    private fun shippedDictionaryEnabled(langId: String): Boolean =
+        _uiState.value.settings.suggestionStrip.shippedDictionaryEnabledFor(langId)
+
     /** Whether any enabled language routes through the Bengali machinery. */
     private fun bengaliEnabled(): Boolean =
         _uiState.value.settings.enabledLanguages.any { it.id == "bn" }
@@ -1000,17 +1138,57 @@ open class WMKeyboardService : InputMethodService() {
     private var lastGestureWord: String? = null
 
     /**
-     * True when the space sitting right after [lastGestureWord] was typed by
-     * the glide commit rather than by the user (see the gesture settings'
-     * `autoSpaceAfterGlide`). Punctuation typed next takes it
-     * back so the mark hugs the word, and a space press right after is spent
-     * confirming it instead of doubling it — the same one-shot contract
-     * [pendingPunctuationSpace] has, and cleared in the same places.
+     * The word the caret is sitting *inside* — [head] behind it, [tail] ahead
+     * — when it is not parked at that word's end. Null the rest of the time.
+     *
+     * Deliberately not armed as a composing region, unlike the word a caret
+     * lands at the end of ([restartSuggestionsAtCursor]). A region with the
+     * caret in the middle of it is rewritten end-first by the next
+     * `setComposingText`, which snaps the caret to the word's end and drops
+     * the letter there — the trap [onUpdateSelection] already drops mid-word
+     * compositions to avoid. So this is a read-only view of the word: the
+     * strip answers about it ([publishCaretWordSuggestions]), a tap splices
+     * the replacement over it ([onSuggestionTapped]), and typing goes through
+     * the ordinary path as if the strip were not there.
+     *
+     * Held rather than re-read at tap time because the strip is about the word
+     * as it was when the caret settled; the splice re-reads the field anyway
+     * and stands down if the text has moved on under it.
+     */
+    private class CaretWord(val head: String, val tail: String) {
+        val word: String get() = head + tail
+    }
+
+    private var caretWord: CaretWord? = null
+
+    /**
+     * Takes down the mid-word strip. Called from every path that changes the
+     * text or the buffer before its own [refreshSuggestions], so a stale word
+     * never gets a frame on screen; the caret's own settle re-derives it.
+     */
+    private fun clearCaretWord() {
+        caretWord = null
+    }
+
+    /**
+     * True when the space sitting right behind the caret was typed by the
+     * keyboard to end a word rather than by the user: the glide commit's own
+     * (see the gesture settings' `autoSpaceAfterGlide`) or the one that follows
+     * a word picked from the suggestion strip (`autoSpaceAfterSuggestion`).
+     * Punctuation typed next takes it back so the mark hugs the word, and a
+     * space press right after is spent confirming it instead of doubling it —
+     * the same one-shot contract [pendingPunctuationSpace] has, and cleared in
+     * the same places.
+     *
+     * Both sources are one flag because every site that reads it wants the same
+     * answer to the same question: "was the space behind the caret ours?". The
+     * strip's pick used not to arm anything, which is what left a colon typed
+     * after a picked word sitting behind a space it never asked for (issue #34).
      *
      * Handwriting also sets [lastGestureWord] but types no trailing space, so
      * this is what tells the two apart.
      */
-    private var pendingGestureSpace = false
+    private var pendingWordSpace = false
 
     /**
      * Live-preview requests from a glide in progress. Conflated: a preview that
@@ -1094,6 +1272,12 @@ open class WMKeyboardService : InputMethodService() {
 
     // ---- media control state ----
     private val mediaController = MediaControlManager(this)
+    /**
+     * Whether the keyboard window is on screen. Only the media auto-pin reads
+     * it: watching for playback is worth a live session listener while someone
+     * is typing, and worth nothing at all once the keyboard is gone.
+     */
+    private var keyboardVisible = false
 
     // ---- voice input state ----
     private val voiceEngine = VoiceInputEngine(this)
@@ -1126,6 +1310,29 @@ open class WMKeyboardService : InputMethodService() {
     private var hwCanvasSize = IntSize.Zero
     /** True while letter-area swipes are armed for handwriting (full builds). */
     private var hwKeyboardArmed = false
+
+    /** The blacklist as last purged from the learning stores. */
+    private var purgedBlacklist: Set<String> = emptySet()
+
+    /**
+     * Drops every newly blacklisted word from the personal dictionary and the
+     * waiting room in front of it.
+     *
+     * The blacklist used to be a filter over the strip and nothing more, so a
+     * word the user typed, then blacklisted, stayed learned — and showed up in
+     * the personal dictionary as if the keyboard had ignored them (#48). It
+     * runs against the whole list on the first emission, which is what makes
+     * an entry added while the keyboard was not running take effect too.
+     */
+    private suspend fun purgeBlacklisted(blacklist: Set<String>) {
+        val added = blacklist - purgedBlacklist
+        purgedBlacklist = blacklist
+        if (added.isEmpty() || !::userLexicon.isInitialized) return
+        withContext(Dispatchers.Default) {
+            userLexicon.forgetAll(added)
+            for (word in added) pendingLearn.forget(word)
+        }
+    }
     /** Show the "download a model" hint at most once per keyboard session. */
     private var hwModelHintShown = false
 
@@ -1673,6 +1880,7 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         startDndWatch()
+        startUserDictionaryWatch()
         attachPersonalStores()
         // Keeps the app-launcher tool's list honest across installs/removals;
         // cheap (it only drops caches), so registered unconditionally.
@@ -1763,20 +1971,34 @@ open class WMKeyboardService : InputMethodService() {
                 settingsRepository.photoRotationStates,
                 deviceForm,
                 networkWatcher.state,
-            ) { stored, power, rotation, form, network ->
+                settingsRepository.panelLayouts,
+            ) { inputs ->
+                @Suppress("UNCHECKED_CAST")
+                val stored = inputs[0] as KeyboardSettings
+                val power = inputs[1] as DevicePowerState
+                @Suppress("UNCHECKED_CAST")
+                val rotation = inputs[2] as Map<String, RotationState>
+                val form = inputs[3] as DeviceForm
+                val network = inputs[4] as DeviceNetworkState
+                @Suppress("UNCHECKED_CAST")
+                val panelLayouts = inputs[5] as Map<PanelKind, PanelLayoutSpec>
                 // Published rather than folded into the settings object: the
                 // rotating photo is laid over a theme where it is drawn, not
                 // written into the theme the user saved.
                 PhotoBackgroundManager.publishRotationStates(rotation)
-                SettingsInputs(stored, power, form, network)
-            }.collect { (stored, power, form, network) ->
+                SettingsInputs(stored, power, form, network, panelLayouts)
+            }.collect { (stored, power, form, network, panelLayouts) ->
                 // Screen size first, because these are *defaults* — the least
                 // specific thing in the chain, and every overlay below is
                 // entitled to beat them. It also has to precede direct boot: a
                 // tablet's wider default toolbar includes credential-backed
                 // tools, and re-pinning them after that filter would put them
                 // back on a lock screen that cannot read their data.
-                val formed = stored.applyDeviceForm(form)
+                // Modes first of the views: switching the feature off empties
+                // the mode list, and every overlay below reads a keyboard that
+                // simply has no modes rather than one that has to remember not
+                // to apply them (issue #41).
+                val formed = stored.withoutModes().applyDeviceForm(form)
                 // Direct boot: everything backed by credential-encrypted
                 // storage is switched off once, here, so that nothing below —
                 // nor anything reading the ui state afterwards — has to know
@@ -1885,6 +2107,16 @@ open class WMKeyboardService : InputMethodService() {
                         suggestionEngine?.apps = AppNames.EMPTY
                     }
                 }
+                // The platform personal dictionary as a known-word source
+                // (#45): the reload reads the setting, so one call serves
+                // both directions. Compared against what the last read ran
+                // under rather than the previous delivery, so it is right
+                // whether settings or the dictionaries land first.
+                if (systemDictLoadedWith != null &&
+                    settings.suggestionStrip.useSystemDictionary != systemDictLoadedWith
+                ) {
+                    reloadSystemDictionary()
+                }
                 // The settings app edited the learned-words file (personal
                 // dictionary): drop the in-memory copy for the disk state,
                 // otherwise the next save here would clobber those edits.
@@ -1944,6 +2176,7 @@ open class WMKeyboardService : InputMethodService() {
                 _uiState.update {
                     it.copy(
                         settings = modeSettings,
+                        panelLayouts = panelLayouts,
                         voice = it.voice.withBarSynced(
                             sync = voiceBarSync,
                             armed = voiceBarArmed,
@@ -1968,6 +2201,7 @@ open class WMKeyboardService : InputMethodService() {
                             it.fieldKind,
                             form,
                             modeSettings.numberRow,
+                            modeSettings.customLayouts,
                         ),
                         activeModeId = mode?.id,
                     )
@@ -1976,6 +2210,9 @@ open class WMKeyboardService : InputMethodService() {
                 // layouts. Diffed inside, so unrelated settings emissions here
                 // don't thrash the framework.
                 registerSubtypes(settings)
+                // The auto-pin's switch, its allowlist and the tool's own
+                // enable state all live in the settings that just landed.
+                syncMediaTracking()
                 // Switching the swipe action to handwriting (or turning the
                 // gesture on) while the keyboard is up checks the model now, so
                 // the first swipe writes rather than nagging.
@@ -1996,14 +2233,20 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.autocorrectConfidence =
                     settings.autocorrectConfidence.toDouble()
                 suggestionEngine?.adaptiveConfidence = settings.autocorrectAdaptive
+                correctionStats.memory = settings.autocorrectUndoMemory
                 suggestionEngine?.reranker = resolveReranker(settings)
                 suggestionEngine?.blacklist = settings.suggestionBlacklist
+                purgeBlacklisted(settings.suggestionBlacklist)
                 suggestionEngine?.blockOffensiveWords =
                     settings.suggestionStrip.blockOffensiveWords
                 suggestionEngine?.skipAllCapsAutocorrect = settings.autocorrectSkipAllCaps
                 suggestionEngine?.learnedWordMinCount =
                     settings.suggestionStrip.learnedWordMinCount
                 emojiUsage.maxRecents = settings.emoji.recentsLimit
+                // The snippet index partitions on this — which snippets rewrite
+                // text and which only offer to — so the store has to be told
+                // before the first trigger fires, not when a chip is drawn.
+                snippetStore.setMultiExpandMode(settings.suggestionStrip.snippetMultiExpand)
                 suggestionEngine?.autocorrectSplits = settings.suggestionStrip.autocorrectSplits
                 suggestionEngine?.digitSlipCorrections =
                     settings.numberRow && settings.suggestionStrip.numberRowCorrections
@@ -2041,6 +2284,31 @@ open class WMKeyboardService : InputMethodService() {
                 ) {
                     loadDictionariesAndEmoji()
                 }
+                // Switching a language to its imported lists alone (#28)
+                // changes which tries the engine is built over, so it needs the
+                // same rebuild — and the imported-list map too, which is where
+                // every language but English and Bengali keeps its download.
+                if (suggestionEngine != null && importedOnly() != loadedImportedOnly) {
+                    withContext(Dispatchers.Default) {
+                        customDictionaries = loadCustomDictionaries()
+                    }
+                    loadDictionariesAndEmoji()
+                }
+                // How much of the dictionary a swipe may answer with. Cheap to
+                // set — the engine ignores a value it already has.
+                suggestionEngine?.glideVocabularyRank = settings.gesture.vocabulary.rank
+                // The offensive-word filter is per language and reads only the
+                // enabled ones, so switching a language on has to widen it.
+                // Cheap enough to do here rather than through a full reload:
+                // one asset read per language, off the main thread.
+                val offensiveLangs = enabledLanguageIds()
+                if (suggestionEngine != null && offensiveLangs != loadedOffensiveLangs) {
+                    val widened = withContext(Dispatchers.Default) {
+                        readOffensiveWords(offensiveLangs)
+                    }
+                    suggestionEngine?.offensiveWords = widened
+                    loadedOffensiveLangs = offensiveLangs
+                }
                 // Only English drives the bundled English word list; every other
                 // language (with no bundled dictionary) drops it so autocorrect
                 // and completions never offer English for their words. Bengali
@@ -2063,6 +2331,13 @@ open class WMKeyboardService : InputMethodService() {
                     reloadEmojiCatalog()
                 }
                 emojiPackVersion = settings.emoji.keywordPackVersion
+                // A language's emoji keywords switched off or on (issue #51):
+                // the merge is what applies it, so the catalogue is rebuilt.
+                if (suggestionEngine != null &&
+                    settings.emoji.disabledKeywordLangs != loadedEmojiKeywordsOff
+                ) {
+                    reloadEmojiCatalog()
+                }
                 // And again for the emoji history, which a restored backup
                 // rewrites under the running keyboard.
                 if (emojiUsageVersion != -1 && settings.emoji.usageVersion != emojiUsageVersion) {
@@ -2071,6 +2346,7 @@ open class WMKeyboardService : InputMethodService() {
                 }
                 emojiUsageVersion = settings.emoji.usageVersion
                 refreshLanguageDataDownloads(settings)
+                refreshDictionaryBar(settings)
                 suggestionEngine?.primaryLanguageId = activeLang.id
                 suggestionEngine?.customDictionary =
                     customDictionaries[activeLang.id] ?: PackedTrie.EMPTY
@@ -2162,6 +2438,9 @@ open class WMKeyboardService : InputMethodService() {
         // personal dictionary, and half-earned sightings must survive that.
         pendingLearn = PendingLearn(store("learning/pending_learn.json"))
         correctionStats = CorrectionStats(store("learning/correction_stats.json"))
+        // The swapped-in store starts on the default level; carry the user's
+        // setting across, or it stays at NORMAL until the next settings emit.
+        correctionStats.memory = _uiState.value.settings.autocorrectUndoMemory
         suggestionEngine?.correctionStats = correctionStats
         // Its own file, so clearing one store never silently clears the other.
         CjkLearning.store = CjkUserHistory(store("learning/cjk_history.json"))
@@ -2235,6 +2514,7 @@ open class WMKeyboardService : InputMethodService() {
                 clipboardItems = clipboardStore.items(),
                 snippets = snippetStore.items(),
                 snippetFolders = snippetStore.folders(),
+                snippetCandidateCounts = snippetCandidateCounts(),
             )
         }
     }
@@ -2254,6 +2534,7 @@ open class WMKeyboardService : InputMethodService() {
         serviceScope.launch {
             val bengaliEnabled = bengaliEnabled()
             loadedBengali = bengaliEnabled
+            loadedImportedOnly = importedOnly()
             val loaded = withContext(Dispatchers.Default) {
                 AssetLayouts.load(assets)
                 // Older installs inflated the bundled lists into
@@ -2326,27 +2607,18 @@ open class WMKeyboardService : InputMethodService() {
                 }.getOrDefault(SeedBigrams.EMPTY)
                 Triple(lw, v, seeds)
             }
-            // Personal-dictionary shortcut expansions (A28): one content query,
-            // off the main thread, refreshed each time the dictionaries reload.
-            userDictShortcuts = withContext(Dispatchers.Default) {
-                runCatching { SystemUserDictionary.shortcuts(applicationContext) }
-                    .getOrDefault(emptyMap())
-            }
+            // Personal-dictionary words (#45) and shortcut expansions (A28):
+            // two content queries, off the main thread, refreshed each time the
+            // dictionaries reload and whenever the platform reports an edit.
+            withContext(Dispatchers.Default) { readSystemDictionary() }
             bengaliAssetEntries = bengaliEntries
             val customTries = withContext(Dispatchers.Default) { loadCustomDictionaries() }
             customDictionaries = customTries
-            // The offensive-word filter's fixed set — loaded once; only the
-            // on/off toggle (read from settings) ever changes afterwards.
-            val offensiveSet: Set<String> = withContext(Dispatchers.Default) {
-                runCatching {
-                    assets.open("dictionaries/offensive_en.txt").bufferedReader().useLines { lines ->
-                        lines.map { it.trim() }
-                            .filter { it.isNotEmpty() && !it.startsWith("#") }
-                            .map { it.lowercase() }
-                            .toSet()
-                    }
-                }.getOrDefault(emptySet())
+            val offensiveLangs = enabledLanguageIds()
+            val offensiveSet = withContext(Dispatchers.Default) {
+                readOffensiveWords(offensiveLangs)
             }
+            loadedOffensiveLangs = offensiveLangs
             // Chinese/Japanese conversion tables (pinyin→Hanzi, kana→Kanji). These
             // assets are optional: an absent or unreadable file leaves the composer
             // typing the raw reading (pinyin letters, or kana) with no candidates.
@@ -2371,6 +2643,8 @@ open class WMKeyboardService : InputMethodService() {
                 contacts = contactNames
                 contactEmails = this@WMKeyboardService.contactEmails
                 apps = appNames
+                systemWordCases = systemDictionaryWords.shapes
+                systemDictionary = systemDictionaryWords.source
                 proximity = KeyProximity.forLayout(
                     activeLayoutSpec(_uiState.value.settings),
                     numberRow = _uiState.value.settings.numberRow &&
@@ -2379,7 +2653,9 @@ open class WMKeyboardService : InputMethodService() {
                 autocorrectConfidence =
                     _uiState.value.settings.autocorrectConfidence.toDouble()
                 adaptiveConfidence = _uiState.value.settings.autocorrectAdaptive
-                correctionStats = this@WMKeyboardService.correctionStats
+                correctionStats = this@WMKeyboardService.correctionStats.apply {
+                    memory = _uiState.value.settings.autocorrectUndoMemory
+                }
                 blacklist = _uiState.value.settings.suggestionBlacklist
                 offensiveWords = offensiveSet
                 blockOffensiveWords = _uiState.value.settings.suggestionStrip.blockOffensiveWords
@@ -2399,6 +2675,7 @@ open class WMKeyboardService : InputMethodService() {
                     .mapNotNull { id -> customTries[id]?.let { SecondaryDictionary(id, it) } }
                 englishAsSecondary = "en" in secondaryIds && !lang.isEnglish
                 fieldDetectionShift = fieldDetectionShift(_uiState.value.settings)
+                glideVocabularyRank = _uiState.value.settings.gesture.vocabulary.rank
                 ngramReranker = NgramReranker(
                     userLexicon,
                     seedBigrams,
@@ -2472,9 +2749,16 @@ open class WMKeyboardService : InputMethodService() {
      * — and an import is a deliberate act where a download is automatic, so
      * the import is the one that gets to override.
      */
-    private fun emojiPacks(): List<EmojiKeywordPack> =
-        EmojiDictStore.loadAll(filesDir) +
+    private fun emojiPacks(): List<EmojiKeywordPack> {
+        // A language switched off in settings or on the dictionary bar (issue
+        // #51) keeps its files and loses its say: left out here, before the
+        // merge, so neither search nor suggestions see its keywords.
+        val emoji = _uiState.value.settings.emoji
+        loadedEmojiKeywordsOff = emoji.disabledKeywordLangs
+        val packs = EmojiDictStore.loadAll(filesDir) +
             EmojiKeywordPacks.languages(filesDir).flatMap { EmojiKeywordPacks.load(filesDir, it) }
+        return packs.filter { pack -> pack.langId?.let { emoji.keywordsEnabledFor(it) } ?: true }
+    }
 
     /**
      * Fetches the data an enabled language is missing — its emoji dictionary,
@@ -2564,8 +2848,9 @@ open class WMKeyboardService : InputMethodService() {
                 canDelete = ::canDelete,
                 canDeleteField = ::canDeleteField,
                 canForwardDelete = ::canForwardDelete,
-                onDeleteWord = ::onDeleteWord,
+                deleteSwipe = deleteSwipeCallbacks,
                 onSuggestion = ::onSuggestionTapped,
+                onSuggestionHold = ::onSuggestionHeld,
                 onJoinSuggestion = ::onJoinSuggestionTapped,
                 onRevisionSuggestion = ::onRevisionSuggestionTapped,
                 onCandidate = ::onCandidateTapped,
@@ -2586,7 +2871,6 @@ open class WMKeyboardService : InputMethodService() {
                 onEmojiSearchFieldDelete = ::onEmojiSearchFieldDelete,
                 onEmojiRowShown = { publishEmojiHistory() },
                 onTextArt = ::onTextArtTapped,
-                onTextEdit = ::onTextEdit,
                 onToolTap = ::onToolTap,
                 onPanelChange = ::onPanelChange,
                 onClipboardItem = ::onClipboardItemTapped,
@@ -2920,9 +3204,11 @@ open class WMKeyboardService : InputMethodService() {
             invalidateRecentWords()
             lastGestureWord = null
             lastRevertible = null
+            clearSwapOffer()
+            clearCaretWord()
             pendingAutoSpace = false
             pendingPunctuationSpace = false
-            pendingGestureSpace = false
+            pendingWordSpace = false
             // The last field's text is behind us and nobody is going back to
             // edit it, so the unknown words still waiting in it have settled.
             // This is also how a message field that was *sent* gets counted
@@ -2930,6 +3216,10 @@ open class WMKeyboardService : InputMethodService() {
             // correction verification: the editor answering reads is this new
             // field, and its text says nothing about the old one's.
             flushLearningBuffer(verifyCorrections = false)
+            // A different field is a different run of typing, and the blocks an
+            // undo puts on a correction are scoped to the run that earned them.
+            // What should outlive it is in the persisted pair counts by now.
+            correctionStats.endFieldSession()
             clearLearnOffer()
             clearCorrectionOffer()
             // A genuinely different field. Whatever a plugin was collecting
@@ -2940,7 +3230,14 @@ open class WMKeyboardService : InputMethodService() {
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        // Set before the lifecycle is resumed: a panel that reacts to ON_RESUME
+        // (the media one re-checks notification access there) would otherwise
+        // ask about a keyboard this flag still calls hidden.
+        keyboardVisible = true
         lifecycleOwner.onResume()
+        // Starts the media-session listener the toolbar's auto-pin needs, and
+        // catches music that began while the keyboard was away.
+        syncMediaTracking()
         refreshHardwareKeyboardState()
         // The battery level is read here rather than subscribed to: this is the
         // moment it can start mattering, and a keyboard that wakes on every
@@ -2988,6 +3285,8 @@ open class WMKeyboardService : InputMethodService() {
             invalidateRecentWords()
             lastGestureWord = null
             lastRevertible = null
+            clearSwapOffer()
+            clearCaretWord()
             // The last field's language mix must not color this one; the
             // entry re-read below re-seeds it from this field's own words.
             suggestionEngine?.clearFieldContext()
@@ -3140,6 +3439,7 @@ open class WMKeyboardService : InputMethodService() {
                     fieldKind,
                     deviceForm.value,
                     modeSettings.numberRow,
+                    modeSettings.customLayouts,
                 ),
                 activeModeId = activeMode?.id,
                 activeSymbolSetId = null,
@@ -3148,8 +3448,16 @@ open class WMKeyboardService : InputMethodService() {
                 activeFancyStyleId = null,
                 panel = PanelMode.NONE,
                 // A fresh field starts on the letter layer; a restart of the
-                // same field keeps whatever layer the user was on.
-                layoutMode = if (restarting) it.layoutMode else LayoutMode.LETTERS,
+                // same field keeps whatever layer the user was on. So does a
+                // layer its author marked persistent (issue #60): that one
+                // stays until a key or a tool takes the user off it, and a
+                // close-and-reopen or a change of app is neither. Judged on
+                // the grid that *was* showing, before the set is swapped.
+                layoutMode = if (restarting || currentLayout(it).persistent) {
+                    it.layoutMode
+                } else {
+                    LayoutMode.LETTERS
+                },
                 // Selection mode belongs to the text it was armed over. A
                 // restart is the same field reporting itself (a programmatic
                 // edit, a web view resetting its connection), where the mode is
@@ -3279,15 +3587,18 @@ open class WMKeyboardService : InputMethodService() {
         // arming is the commit's own echo and records the anchor, anything
         // that moves the caret afterwards disarms them.
         if (lastRevertible != null || lastGestureWord != null || pendingAutoSpace ||
-            pendingGestureSpace
+            pendingWordSpace
         ) {
             val settling = SystemClock.uptimeMillis() - revertArmedAt < REVERT_SETTLE_MS
             fun disarm() {
                 lastRevertible = null
+                // The chips describe text at a caret position that has just
+                // stopped being where the caret is.
+                clearSwapOffer()
                 lastGestureWord = null
                 pendingAutoSpace = false
                 pendingPunctuationSpace = false
-                pendingGestureSpace = false
+                pendingWordSpace = false
             }
             when {
                 // A range selection is never one of our own commit echoes.
@@ -3371,6 +3682,10 @@ open class WMKeyboardService : InputMethodService() {
         if ((!wasComposing || composingDropped) && composing.isEmpty() && newSelStart == newSelEnd) {
             currentInputConnection?.let { restartSuggestionsAtCursor(it, newSelStart) }
         } else {
+            // The mid-word strip goes the same way for the same reason: a
+            // selection dragged out over the word it was about, or a buffer
+            // now being typed, is no longer a caret parked inside that word.
+            clearCaretWord()
             refreshSmartSuggestion()
             // The snippet chip reads the same text and goes stale the same way
             // — a selection dragged out over the span it names is no longer a
@@ -3498,7 +3813,10 @@ open class WMKeyboardService : InputMethodService() {
 
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
-        lifecycleOwner.onStop()
+        keyboardVisible = false
+        lifecycleOwner.onPause()
+        // The window is gone, so the media-session listener goes with it.
+        syncMediaTracking()
         // Refilling the pool waits until the keyboard is going away, so a
         // download can never race the first frame of a session.
         topUpBackgroundPool()
@@ -3530,6 +3848,13 @@ open class WMKeyboardService : InputMethodService() {
             _uiState.update { it.copy(selectionHold = false) }
         }
         selectionTaps.reset()
+        selectKeyTaps.reset()
+        // And a held trackpad: no release is coming for it either.
+        trackpadHeld = false
+        // A backspace swipe caught mid-drag by the window going away: the
+        // preview it left in the field is the editor's business now, but the
+        // offsets it measured describe a session that has ended.
+        resetDeleteSwipe()
         resetHardwareKeyState()
         // An open resize session dies with the view, unsaved by design: Done
         // is the only path that persists.
@@ -3600,6 +3925,8 @@ open class WMKeyboardService : InputMethodService() {
         }
         zenObserver?.let { contentResolver.unregisterContentObserver(it) }
         zenObserver = null
+        userDictObserver?.let { runCatching { contentResolver.unregisterContentObserver(it) } }
+        userDictObserver = null
         // The deferred buzz used to be cancelled by serviceScope.cancel() below;
         // on a Handler it has to be taken off the queue by hand.
         feedbackHandler.removeCallbacks(deferredVibrate)
@@ -3811,18 +4138,23 @@ open class WMKeyboardService : InputMethodService() {
         // from somewhere else — a panel opening, text inserted by a tool — must
         // not leave one behind for whatever key comes next.
         swallowTerminatorAfterCommit = false
-        // Space is the other key with something to say about a just-inserted
-        // punctuation space: it consumes it rather than adding a second one.
-        if (key.action != KeyAction.Shift && key.action != KeyAction.Space) {
+        // Three keys have something to say about a just-inserted punctuation
+        // space: Space consumes it rather than adding a second one, Shift takes
+        // it back, and Text hugs a closing mark to the mark before it — `"hi."`
+        // and not `"hi. "` (issue #34). Every other key spends it.
+        if (key.action != KeyAction.Shift && key.action != KeyAction.Space &&
+            key.action != KeyAction.Text
+        ) {
             pendingPunctuationSpace = false
         }
-        // The space a glide typed survives exactly two keys: a Text key, where
-        // punctuation takes it back and anything else spends it (see
+        // The space that ended a word survives exactly two keys: a Text key,
+        // where punctuation takes it back and anything else spends it (see
         // [processTypedText]), and Space, which is swallowed rather than
-        // doubled. It cannot be cleared by action alone the way the punctuation
-        // one is, because letters and marks are the same action.
+        // doubled. Both of these are cleared by [processTypedText] itself as
+        // well, since letters and marks are the same action and only the text
+        // says which one this is.
         if (key.action != KeyAction.Text && key.action != KeyAction.Space) {
-            pendingGestureSpace = false
+            pendingWordSpace = false
         }
         // A pending Ctrl/Alt/Meta turns the next key into a shortcut, so it is
         // intercepted ahead of the normal dispatch: KeyAction.Text would
@@ -3881,6 +4213,9 @@ open class WMKeyboardService : InputMethodService() {
             // edit pad, the clipboard. Runs whether or not the tool is on the
             // toolbar; see [runToolFromKey].
             is KeyAction.Tool -> runToolFromKey((key.action as KeyAction.Tool).tool)
+            // One of the user's secondary layouts, shown over the letters the
+            // way ?123 shows the symbols; a second press takes it down again.
+            is KeyAction.Layout -> openSecondaryLayout((key.action as KeyAction.Layout).id)
             is KeyAction.Mod -> onModifier((key.action as KeyAction.Mod).key)
             KeyAction.KanaVariant -> cycleKanaVariant()
             KeyAction.SelectMode -> onSelectModeTap()
@@ -3892,6 +4227,17 @@ open class WMKeyboardService : InputMethodService() {
             is KeyAction.SendKey -> sendShortcut(key, Modifiers.None)
             // Fire the user's broadcast; types nothing.
             is KeyAction.Broadcast -> sendKeyBroadcast((key.action as KeyAction.Broadcast).action)
+            // A text-editing key on a panel layout (or on a typing grid). The
+            // key has already buzzed on the way down, so the handler must not.
+            // Select goes the long way round for its tap ladder (issue #41);
+            // everything else is one operation per press.
+            is KeyAction.Edit -> {
+                val op = (key.action as KeyAction.Edit).op
+                if (op == TextEditAction.SELECT) onSelectKeyTap() else onTextEdit(op, haptic = false)
+            }
+            // A panel component's cell. The panel grid never dispatches one;
+            // this is the exhaustive `when` insisting the case be decided.
+            is KeyAction.Field -> Unit
             // A deliberate gap in the grid, and a key from a build that knows an
             // action this one does not. Both swallow the tap: a custom layout is
             // repaired before it can be enabled, so neither should reach a
@@ -4015,20 +4361,34 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         val shift = state.shiftState != ShiftState.OFF
 
+        val action = key.action
+        val explicit = action as? KeyAction.SendKey
+
         // Ctrl+A/C/V/X have a first-class InputConnection route that works in
         // WebViews and Compose text fields, where a raw Ctrl+C reaches nothing.
         // The choice has to be made here rather than after the send:
         // InputConnection.sendKeyEvent reports that an event was queued, never
         // that anything acted on it, so "send it and check" cannot be written.
-        if (modifiers.ctrl != ModifierState.OFF && !state.settings.rawClipboardShortcuts) {
+        //
+        // Ctrl arrives two ways: latched by a press on the modifier key, or
+        // written into the key itself — a layout's own Ctrl+C key, and the chord
+        // a modifier drag builds (issue #67). Both take this route, or the drag
+        // would be the one Ctrl+C on the keyboard that copies nothing in a
+        // Compose field.
+        val ctrlHeld = modifiers.ctrl != ModifierState.OFF ||
+            ((explicit?.meta ?: 0) and KeyEvent.META_CTRL_ON) != 0
+        if (ctrlHeld && !state.settings.rawClipboardShortcuts) {
             clipboardShortcutFor(key)?.let { onClipboardKey(it); return true }
         }
 
-        val action = key.action
-        val explicit = action as? KeyAction.SendKey
-        val code = explicit?.keyCode ?: keyCodeForChar(
-            (key.output ?: key.label).singleOrNull() ?: return false,
-        ) ?: return false
+        // KEYCODE_UNKNOWN means "work it out from the label". That is how a
+        // chord built in the composable names a text key: the character map that
+        // answers "which key writes a c" is loaded here, not up there. A layout
+        // that stored a zero keycode meant nothing by it either — the event it
+        // sent was inert — so nothing that used to work changes.
+        val code = explicit?.keyCode?.takeIf { it != KeyEvent.KEYCODE_UNKNOWN }
+            ?: keyCodeForChar((key.output ?: key.label).singleOrNull() ?: return false)
+            ?: return false
 
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
@@ -4132,7 +4492,14 @@ open class WMKeyboardService : InputMethodService() {
 
     private fun onTextKey(key: Key) {
         val keyman = key.action as? KeyAction.KeymanKey
-        if (keyman != null && onKeymanKey(key, keyman)) return
+        if (keyman != null && onKeymanKey(key, keyman)) {
+            // The engine typed instead of [processTypedText], which is where a
+            // Text key normally spends these. Leaving them armed would hand a
+            // later key a space it did not earn.
+            pendingWordSpace = false
+            pendingPunctuationSpace = false
+            return
+        }
         val output = keyOutput(key, _uiState.value)
         // A converted Keyman layout owns its own dead keys, in its own context,
         // where its rules can match them. Running ours as well would apply an
@@ -4426,10 +4793,19 @@ open class WMKeyboardService : InputMethodService() {
         // Any new input ends the window in which backspace reverts the
         // previous autocorrect.
         lastRevertible = null
+        clearSwapOffer()
+        // The mid-word strip is about the field as it was before this
+        // keystroke; the caret's own settle re-derives it afterwards.
+        clearCaretWord()
         // One-shot, spent by this keystroke whatever it turns out to be: a mark
-        // takes the glide's space back, and anything else simply types past it.
-        val followsGestureSpace = pendingGestureSpace
-        pendingGestureSpace = false
+        // takes the keyboard's own space back, and anything else simply types
+        // past it. Both kinds of space count — the one that ended a word (glide
+        // or strip pick) and the one that followed a punctuation mark, which is
+        // what makes the closing quote of `"hi."` hug the full stop instead of
+        // landing a space past it (issue #34).
+        val followsWordSpace = pendingWordSpace || pendingPunctuationSpace
+        pendingWordSpace = false
+        pendingPunctuationSpace = false
 
         if (applyDeadKeys) {
             // Dead keys: the accent arms and waits, then fuses with the next
@@ -4679,11 +5055,12 @@ open class WMKeyboardService : InputMethodService() {
             // of those is not what anybody typed.
             val endsWord = text.length == 1 &&
                 (text[0] in SENTENCE_ENDERS || text[0] in AUTO_SPACE_PUNCTUATION)
-            // The space after a glided word was the keyboard's, not the user's:
-            // a mark landing on it belongs to the word ("hello." not "hello ."),
-            // so it comes back out before the mark commits. Done ahead of the
-            // pattern expansion below, which reads the text behind the caret.
-            if (followsGestureSpace && swallowsGlideSpace(text)) {
+            // The space in front of the caret was the keyboard's, not the
+            // user's: a mark landing on it belongs to the word ("hello." not
+            // "hello ."), so it comes back out before the mark commits. Done
+            // ahead of the pattern expansion below, which reads the text behind
+            // the caret. A user's own space is left alone — theirs to keep.
+            if (followsWordSpace && swallowsAutoSpace(text, state.fieldKind) { quoteContext(ic) }) {
                 if (ic.getTextBeforeCursor(1, 0)?.toString() == " ") {
                     ic.deleteSurroundingText(1, 0)
                 }
@@ -4745,8 +5122,9 @@ open class WMKeyboardService : InputMethodService() {
      * must not push a second space in.
      *
      * Arms the same one-shot cancel the ". " from a double space uses: a shift
-     * press right afterwards takes the space back (see [onShift]), and a space
-     * press is swallowed rather than doubled (see [onSpace]).
+     * press right afterwards takes the space back (see [onShift]), a space
+     * press is swallowed rather than doubled (see [onSpace]), and a closing
+     * mark takes it back the way it takes back a glide's (see [swallowsAutoSpace]).
      */
     private fun insertPunctuationSpace(ic: InputConnection) {
         if (spacedAfterCaret(ic.getTextAfterCursor(1, 0))) return
@@ -4758,6 +5136,19 @@ open class WMKeyboardService : InputMethodService() {
         // and disarms the cancel before it can ever be used.
         armRevertGuard()
     }
+
+    /**
+     * The text in front of the caret that tells an opening quote from a closing
+     * one — see [closesQuote]. Read only when the typed character is a quote,
+     * because this is an editor round trip and every other keystroke would pay
+     * for it and throw the answer away.
+     *
+     * [QUOTE_CONTEXT_CHARS] is the window. The count only has to reach back to
+     * the start of the line, and a quotation that opened more than that many
+     * characters ago is one nobody is still closing by hand.
+     */
+    private fun quoteContext(ic: InputConnection): String =
+        ic.getTextBeforeCursor(QUOTE_CONTEXT_CHARS, 0)?.toString().orEmpty()
 
     /**
      * The Fancy Text style in force, or null everywhere outside the fancy
@@ -5163,6 +5554,30 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * How much of [before] one character-sized delete takes: a whole
+     * multi-code-point emoji (☠️, 👍🏽, 👨‍👩‍👧) rather than a piece of one, a
+     * whole Bengali-style conjunct where the language asks for it, a surrogate
+     * pair rather than half of one, and otherwise a single code unit. 0 for
+     * empty text.
+     *
+     * Shared by the backspace key and the character-mode backspace swipe, so
+     * the two cannot disagree about what one character is.
+     */
+    private fun charDeleteLength(before: CharSequence): Int {
+        if (before.isEmpty()) return 0
+        val state = _uiState.value
+        val emojiLength = EmojiGraphemes.deleteLength(before)
+        return when {
+            emojiLength > 0 -> emojiLength
+            state.language.id in state.settings.conjunctBackspaceLanguages ->
+                state.composer.deleteLength(before).coerceAtLeast(1)
+            before.length >= 2 &&
+                Character.isSurrogatePair(before[before.length - 2], before[before.length - 1]) -> 2
+            else -> 1
+        }
+    }
+
+    /**
      * One backspace against the real text field, regardless of any active
      * panel search: selection first, then gesture-word / autocorrect undo,
      * then composing, then a full grapheme cluster. Split from [onDelete]
@@ -5176,6 +5591,8 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         val ic = currentInputConnection ?: return
         recordStat { onBackspace(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
+        // The mid-word strip describes the field as it was before this delete.
+        clearCaretWord()
         // Deleting with an active selection removes the selected text only.
         if (hasSelection(ic)) {
             dropComposingForSelectionEdit(ic)
@@ -5187,7 +5604,7 @@ open class WMKeyboardService : InputMethodService() {
         // a wrong swipe shouldn't cost a letter-by-letter cleanup.
         lastGestureWord?.let { word ->
             lastGestureWord = null
-            pendingGestureSpace = false
+            pendingWordSpace = false
             if (composing.isEmpty()) {
                 // The space the glide typed goes with the word: undoing the
                 // swipe must leave the caret where the swipe found it.
@@ -5214,6 +5631,7 @@ open class WMKeyboardService : InputMethodService() {
         // "I meant what I typed".
         lastRevertible?.let { revert ->
             lastRevertible = null
+            clearSwapOffer()
             val allowed = when (revert.kind) {
                 RevertibleCommit.Kind.AUTOCORRECT -> state.settings.revertAutocorrectOnBackspace
                 // A pattern snippet eats several typed words at once, so being
@@ -5272,18 +5690,9 @@ open class WMKeyboardService : InputMethodService() {
             // Bengali conjunct cluster as one unit. The lookback has to
             // outrun the longest emoji ZWJ/tag sequence, not just a pair.
             val before = ic.getTextBeforeCursor(64, 0)
-            val emojiLength = if (before.isNullOrEmpty()) 0 else EmojiGraphemes.deleteLength(before)
-            val deleteLength = when {
-                before.isNullOrEmpty() -> 1
-                // Multi-code-point emoji (☠️, 👍🏽, 👨‍👩‍👧) go in one press
-                // instead of shedding a piece per backspace.
-                emojiLength > 0 -> emojiLength
-                state.language.id in state.settings.conjunctBackspaceLanguages ->
-                    state.composer.deleteLength(before).coerceAtLeast(1)
-                before.length >= 2 &&
-                    Character.isSurrogatePair(before[before.length - 2], before[before.length - 1]) -> 2
-                else -> 1
-            }
+            // An editor that will not say what is behind the cursor still owes
+            // the press a delete, so an unknown answer is one code unit.
+            val deleteLength = charDeleteLength(before ?: "").coerceAtLeast(1)
             ic.deleteSurroundingText(deleteLength, 0)
             // Backspacing through committed text is the one way the word
             // behind the cursor changes without passing through learn(), so
@@ -5414,6 +5823,9 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun deleteForwardFromField() {
         val ic = currentInputConnection ?: return
+        // The tail this delete eats into is half of what the mid-word strip is
+        // about, so that strip goes with it.
+        clearCaretWord()
         // A selection is what gets deleted, exactly as backspace does.
         if (hasSelection(ic)) {
             dropComposingForSelectionEdit(ic)
@@ -5587,6 +5999,11 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun restartSuggestionsAtCursor(ic: InputConnection, newSelStart: Int) {
         val state = _uiState.value
+        // Whatever the caret was sitting in before this update, it is being
+        // answered again from scratch below.
+        clearCaretWord()
+        caretSettleJob?.cancel()
+        caretSettleJob = null
         // The caret settling right after a swipe is the commit's own echo:
         // keep the gesture alternates on the strip (tap-to-replace) instead
         // of re-deriving completions for the word just committed. Any real
@@ -5605,6 +6022,20 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         val scrubbing = SystemClock.uptimeMillis() - lastCaretScrubMs < CARET_SCRUB_WINDOW_MS
+        // A drag is still in progress, so this landing spot is not the one the
+        // user means. The editor sends no update when the finger finally stops,
+        // so the re-read has to be scheduled here or it never happens at all
+        // (see [caretSettleJob]).
+        if (scrubbing) {
+            caretSettleJob = serviceScope.launch {
+                delay(CARET_SCRUB_WINDOW_MS)
+                caretSettleJob = null
+                val settled = currentInputConnection
+                if (settled != null && expectedSelStart >= 0 && expectedSelStart == expectedSelEnd) {
+                    restartSuggestionsAtCursor(settled, expectedSelStart)
+                }
+            }
+        }
         // No resume while a panel owns the screen: a word re-armed as
         // composing behind an open Grammar/AI/Translate panel hijacks that
         // panel's replace-field commit onto the composing region. Write-on-
@@ -5640,7 +6071,11 @@ open class WMKeyboardService : InputMethodService() {
         if (canResume && newSelStart >= 0) {
             val before = ic.getTextBeforeCursor(64, 0)
             beforeText = before
-            val after = ic.getTextAfterCursor(1, 0)
+            // Enough to carry the rest of the word the caret may be sitting
+            // inside; the resume test below only ever looks at the first
+            // character, so the wider window costs nothing extra (one read
+            // either way).
+            val after = ic.getTextAfterCursor(CARET_WORD_AHEAD, 0)
             // The word the caret is parked at the end of, or null — see
             // [resumableWordAt], which is also where "what counts as part of a
             // word" lives now that the answer is not "a letter".
@@ -5662,6 +6097,7 @@ open class WMKeyboardService : InputMethodService() {
                     ic.setComposingRegion(newSelStart - word.length, newSelStart)
                 ) {
                     composing = StringBuilder(word)
+                    composingCaseTrusted = false
                     val ahead = before.subSequence(0, before.length - word.length)
                     setContextFrom(ahead)
                     rebuildRecentWords(ahead)
@@ -5669,6 +6105,23 @@ open class WMKeyboardService : InputMethodService() {
                     refreshSuggestions()
                     return
                 }
+            }
+            // Nothing to resume, but the caret may still be *touching* a word:
+            // dropped into the middle of one, or parked right in front of it.
+            // That word gets the strip too — a caret on a word is the user
+            // looking at that word (#32) — read-only, because a composing
+            // region cannot hold a caret in its middle (see [caretWord]).
+            val touching = caretWordAt(before, after)
+            if (touching != null) {
+                val (head, tail) = touching
+                // Context comes from the text ahead of the word, not from the
+                // caret, which is inside it — same rule as the resume above.
+                val ahead = before?.let { it.subSequence(0, it.length - head.length) }
+                setContextFrom(ahead)
+                rebuildRecentWords(ahead)
+                caretWord = CaretWord(head, tail)
+                refreshSuggestions()
+                return
             }
         }
         // No word to resume: predict from the completed word behind the caret,
@@ -5707,26 +6160,19 @@ open class WMKeyboardService : InputMethodService() {
      * through a sentence the way ctrl+backspace does on a desktop.
      */
     private fun onDeleteWord() {
-        val state = _uiState.value
         // A panel search owns the backspace key while it is open; word-deleting
         // the real field behind it would edit text the user cannot see. The
         // same goes for every other box that eats keystrokes — a plugin's text
         // box, the AI instruction, the typing test — which onDelete already
         // handles and this had drifted out of step with.
-        if (state.emojiSearchActive || state.dictionarySearchActive ||
-            state.clipboardSearchActive || state.pluginTypingActive ||
-            state.aiCustomInputActive || state.typingTestActive ||
-            state.calcTypingActive || state.converterTypingActive ||
-            (state.mediaSearchActive && state.panel.hasMediaSearch) ||
-            ((state.panel == PanelMode.HANDWRITING || keyboardHandwriteActive(state)) &&
-                state.handwriting.strokes.isNotEmpty())
-        ) {
+        if (backspaceEditsBuffer()) {
             onDelete()
             return
         }
         val ic = currentInputConnection ?: return
         // One swipe, one event — however many characters it takes with it.
         recordStat { onBackspace(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
+        clearCaretWord()
         if (hasSelection(ic)) {
             dropComposingForSelectionEdit(ic)
             invalidateExpectedSelection()
@@ -5748,6 +6194,7 @@ open class WMKeyboardService : InputMethodService() {
             ic.deleteSurroundingText(length, 0)
             lastGestureWord = null
             lastRevertible = null
+            clearSwapOffer()
             // The word that was deleted is gone as context, but whatever now
             // sits behind the cursor is the real one — nulling it outright
             // meant a swipe-delete mid-sentence stopped predicting until the
@@ -5758,6 +6205,188 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
             }
         }
+    }
+
+    /**
+     * Whether the backspace key is currently editing one of the keyboard's own
+     * text boxes — a panel search, a plugin input, the typing test — rather
+     * than the field behind it. Every one of them is a buffer the service owns
+     * in [KeyboardUiState], with no cursor of its own in the editor, so nothing
+     * that works through the input connection applies while one is up.
+     */
+    private fun backspaceEditsBuffer(): Boolean {
+        val state = _uiState.value
+        return state.emojiSearchActive || state.dictionarySearchActive ||
+            state.clipboardSearchActive || state.pluginTypingActive ||
+            state.aiCustomInputActive || state.typingTestActive ||
+            state.calcTypingActive || state.converterTypingActive ||
+            (state.mediaSearchActive && state.panel.hasMediaSearch) ||
+            ((state.panel == PanelMode.HANDWRITING || keyboardHandwriteActive(state)) &&
+                state.handwriting.strokes.isNotEmpty())
+    }
+
+    // ---- backspace swipe with preview (issue #36) ----
+
+    /**
+     * How much text behind the cursor a backspace swipe reads when it starts.
+     *
+     * Read once and kept, so dragging back to the right costs nothing and the
+     * editor is not asked the same question on every pointer event. It is also
+     * the swipe's reach: at the shipped step sizes even the character mode
+     * would need metres of dragging to walk past it.
+     */
+    private val deleteSwipeLookback = 1024
+
+    /** True once a backspace swipe has taken the field's selection over. */
+    private var deleteSwipeActive = false
+
+    /** Right edge of the preview: where the selection ended when the swipe began. */
+    private var deleteSwipeEnd = -1
+
+    /** Left edge before the swipe grew it — the old selection start, or the caret. */
+    private var deleteSwipeBase = -1
+
+    /** Units the preview currently covers, so a repeat of the same step is free. */
+    private var deleteSwipeUnits = 0
+
+    /** The text behind [deleteSwipeBase], read once when the swipe started. */
+    private var deleteSwipeBefore: CharSequence = ""
+
+    /** How far behind [deleteSwipeBase] 1, 2, 3... units reach, in UTF-16 units. */
+    private val deleteSwipeSteps = ArrayList<Int>()
+
+    /**
+     * One step of a backspace swipe that deletes as it goes (the preview
+     * turned off, or an editor that could not show one).
+     */
+    fun onDeleteSwipeUnit(byWord: Boolean) {
+        if (byWord) {
+            onDeleteWord()
+            return
+        }
+        // A swipe is not a tap: its first step must delete the character the
+        // finger asked for, not spend itself undoing an autocorrect or a
+        // glide the way a deliberate backspace press does. The word path
+        // drops both for the same reason.
+        lastGestureWord = null
+        lastRevertible = null
+        onDelete()
+    }
+
+    /**
+     * Selects the [units] units before where the swipe started, previewing
+     * what a release would delete. See [DeleteSwipeCallbacks.onSelect] for the
+     * return value.
+     */
+    fun onDeleteSwipeSelect(units: Int, byWord: Boolean): Int {
+        // Nothing to preview against a buffer the keyboard draws itself: it
+        // has no selection, so the gesture falls back to deleting as it goes.
+        if (backspaceEditsBuffer()) return -1
+        val ic = currentInputConnection ?: return -1
+        if (!deleteSwipeActive && !beginDeleteSwipe(ic)) return -1
+        val covered = minOf(units.coerceAtLeast(0), growDeleteSwipeSteps(units, byWord))
+        if (covered == deleteSwipeUnits) return covered
+        val length = if (covered <= 0) 0 else deleteSwipeSteps[covered - 1]
+        val start = (deleteSwipeBase - length).coerceAtLeast(0)
+        ic.setSelection(start, deleteSwipeEnd)
+        // Recorded directly for the reason selectWordAtCursor does it: the
+        // editor's echo is behind, and until it lands a backspace would go by
+        // the stale collapsed caret instead of the range now selected.
+        expectedSelStart = start
+        expectedSelEnd = deleteSwipeEnd
+        deleteSwipeUnits = covered
+        return covered
+    }
+
+    /** The finger lifted over a preview: delete what it selected. */
+    fun onDeleteSwipeCommit() {
+        val ic = currentInputConnection
+        if (!deleteSwipeActive || ic == null || deleteSwipeUnits <= 0) {
+            resetDeleteSwipe()
+            return
+        }
+        // One swipe, one event — however many characters it takes with it.
+        recordStat { onBackspace(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
+        clearCaretWord()
+        dropComposingForSelectionEdit(ic)
+        invalidateExpectedSelection()
+        ic.commitText("", 1)
+        lastGestureWord = null
+        lastRevertible = null
+        clearSwapOffer()
+        // What was deleted is gone as context; whatever now sits behind the
+        // cursor is the real previous word. Same reasoning as [onDeleteWord].
+        syncPreviousWordFromField(ic)
+        _uiState.update {
+            it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
+        }
+        resetDeleteSwipe()
+    }
+
+    /** The swipe ended with nothing selected: put the field back, delete nothing. */
+    fun onDeleteSwipeCancel() {
+        val ic = currentInputConnection
+        if (deleteSwipeActive && ic != null && deleteSwipeUnits > 0) {
+            ic.setSelection(deleteSwipeBase, deleteSwipeEnd)
+            expectedSelStart = deleteSwipeBase
+            expectedSelEnd = deleteSwipeEnd
+        }
+        resetDeleteSwipe()
+    }
+
+    /**
+     * Takes the selection over for a new swipe. False when this editor cannot
+     * say where its cursor is, which is the one case the preview cannot work
+     * in at all.
+     */
+    private fun beginDeleteSwipe(ic: InputConnection): Boolean {
+        // A word in progress has to become ordinary text before a selection
+        // can cover it: a selection inside a composing region is honored
+        // differently by every editor, and the preview has to show exactly
+        // what the release will take.
+        dropComposingForSelectionEdit(ic)
+        val extracted = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return false
+        val start = extracted.selectionStart
+        val end = extracted.selectionEnd
+        if (start < 0 || end < 0) return false
+        deleteSwipeBase = extracted.startOffset + minOf(start, end)
+        deleteSwipeEnd = extracted.startOffset + maxOf(start, end)
+        if (deleteSwipeBase < 0 || deleteSwipeEnd < deleteSwipeBase) return false
+        // Reads the text before the selection, which is exactly the text
+        // before [deleteSwipeBase] — the edge the swipe walks left from.
+        deleteSwipeBefore = ic.getTextBeforeCursor(deleteSwipeLookback, 0) ?: ""
+        deleteSwipeSteps.clear()
+        deleteSwipeUnits = 0
+        deleteSwipeActive = true
+        return true
+    }
+
+    /**
+     * Walks another unit back for every one [units] asks for that has not been
+     * measured yet, and returns how many are known. Fewer than asked means the
+     * swipe has reached the start of what it read.
+     */
+    private fun growDeleteSwipeSteps(units: Int, byWord: Boolean): Int {
+        val text = deleteSwipeBefore
+        while (deleteSwipeSteps.size < units) {
+            val taken = deleteSwipeSteps.lastOrNull() ?: 0
+            if (taken >= text.length) break
+            val head = text.subSequence(0, text.length - taken)
+            val step = if (byWord) WordDelete.lengthBefore(head) else charDeleteLength(head)
+            if (step <= 0) break
+            deleteSwipeSteps.add(taken + step)
+        }
+        return deleteSwipeSteps.size
+    }
+
+    /** Forgets a swipe, without touching the field. */
+    private fun resetDeleteSwipe() {
+        deleteSwipeActive = false
+        deleteSwipeUnits = 0
+        deleteSwipeBase = -1
+        deleteSwipeEnd = -1
+        deleteSwipeBefore = ""
+        deleteSwipeSteps.clear()
     }
 
     private fun onSpace() {
@@ -5793,8 +6422,11 @@ open class WMKeyboardService : InputMethodService() {
         // One-shot, spent by this press whatever it ends up doing.
         val followsPunctuationSpace = pendingPunctuationSpace
         pendingPunctuationSpace = false
-        val followsGestureSpace = pendingGestureSpace
-        pendingGestureSpace = false
+        val followsWordSpace = pendingWordSpace
+        pendingWordSpace = false
+        // Same as a typed character: the mid-word strip described the field
+        // before this press.
+        clearCaretWord()
 
         if (state.emojiSearchActive) {
             updateQuery { it.copy(emojiQuery = it.emojiQuery + " ") }
@@ -5842,11 +6474,23 @@ open class WMKeyboardService : InputMethodService() {
         // thumb reaches for the spacebar out of habit. Spending the press on
         // the space already there keeps [lastSpaceTime] armed, so a second
         // press still turns it into ". " the way it would after typing.
-        if (followsGestureSpace) {
+        if (followsWordSpace) {
             val before = ic.getTextBeforeCursor(2, 0)?.toString().orEmpty()
             if (before.length == 2 && before[1] == ' ' && !before[0].isWhitespace()) {
                 lastSpaceTime = now
                 maybeAutoCapitalize()
+                // The press also settles the word behind that space, the way a
+                // space settles a typed one: a swipe's alternates stop being the
+                // answer and the strip moves on to what comes next. Nothing is
+                // committed here, so no selection update arrives to re-derive
+                // any of it — without this the alternates stayed up and the
+                // next-word predictions only appeared on a second press (#35).
+                // The context is re-read from the field because a swipe commits
+                // without going through the paths that keep [previousWord]
+                // current.
+                lastGestureWord = null
+                syncPreviousWordFromField(ic)
+                refreshSuggestions()
                 return
             }
         }
@@ -6081,12 +6725,83 @@ open class WMKeyboardService : InputMethodService() {
                     // ?123 from the Fn layer leaves it, lock and all: the user
                     // asked for a different grid, not for Fn to persist under it.
                     LayoutMode.FN -> LayoutMode.SYMBOLS
+                    // Same from a secondary layout: its ?123 key is a way out.
+                    LayoutMode.SECONDARY -> LayoutMode.SYMBOLS
                 },
                 fnLocked = false,
                 fnReturn = null,
             )
         }
     }
+
+    /**
+     * Shows a secondary layout (issue #62) — or, when it is the one already
+     * showing, goes back to the letters, so the key that opened it is also the
+     * key that closes it. A key naming a layout this state cannot show (deleted,
+     * or no longer secondary) does nothing rather than switching to something
+     * arbitrary, the same dead-key outcome a tool key for a missing tool gets.
+     */
+    private fun openSecondaryLayout(id: String) {
+        val state = _uiState.value
+        if (id !in state.layouts.secondaries) return
+        if (state.layoutMode == LayoutMode.SECONDARY && state.secondaryLayoutId == id) {
+            closeSecondaryLayout()
+            return
+        }
+        // Leaving the letter layer ends the on-keyboard writing surface.
+        if (state.layoutMode == LayoutMode.LETTERS) dropKeyboardHandwritingInk()
+        _uiState.update {
+            it.copy(
+                layoutMode = LayoutMode.SECONDARY,
+                secondaryLayoutId = id,
+                fnLocked = false,
+                fnReturn = null,
+            )
+        }
+    }
+
+    private fun closeSecondaryLayout() {
+        _uiState.update {
+            it.copy(layoutMode = LayoutMode.LETTERS, fnLocked = false, fnReturn = null)
+        }
+    }
+
+    /**
+     * The Custom layout tool: puts the configured secondary layout on screen
+     * (the first one, until the tool's page picks another) and takes it off
+     * again. "Off" covers a secondary layout a key opened as well — the tool is
+     * lit whenever one is up, and a lit toggle has to be the way down.
+     */
+    private fun onCustomLayoutToggle() {
+        vibrate()
+        val state = _uiState.value
+        val grids = state.layouts.secondaries
+        if (grids.isEmpty()) return
+        if (state.layoutMode == LayoutMode.SECONDARY) {
+            closeSecondaryLayout()
+            return
+        }
+        val id = state.settings.layoutBehavior.customLayoutToolId?.takeIf { it in grids }
+            ?: grids.keys.first()
+        openSecondaryLayout(id)
+    }
+
+    /**
+     * The user's secondary layouts, compiled, cached against the identity of
+     * the custom-layout list: the settings object holds one instance until a
+     * layout changes, so this is a map lookup on the hot path and a rebuild of
+     * a handful of grids when the editor saves.
+     */
+    private fun secondaryGrids(customs: List<LayoutSpec>): Map<String, KeyboardLayout> {
+        secondaryGridCache?.let { (cached, grids) -> if (cached === customs) return grids }
+        val grids = secondaryLayouts(customs).associate { spec ->
+            spec.id to spec.repair().spec.compile(LayoutLayer.LETTERS)
+        }
+        secondaryGridCache = customs to grids
+        return grids
+    }
+
+    private var secondaryGridCache: Pair<List<LayoutSpec>, Map<String, KeyboardLayout>>? = null
 
     /**
      * The grids reachable from the focused field, compiled once here rather than
@@ -6180,9 +6895,15 @@ open class WMKeyboardService : InputMethodService() {
         fieldKind: FieldKind,
         form: DeviceForm,
         numberRowShown: Boolean,
+        customs: List<LayoutSpec>,
     ): LayoutSet {
         val key = LayoutSetKey(spec.id, fieldKind, form, numberRowShown)
-        layoutSetCache[key]?.let { (cached, set) -> if (cached == spec) return set }
+        // The secondary grids ride along by reference, so an edit to one of
+        // them — which re-decodes the custom list — misses the cache too.
+        val secondaries = secondaryGrids(customs)
+        layoutSetCache[key]?.let { (cached, set) ->
+            if (cached == spec && set.secondaries === secondaries) return set
+        }
         val safe = spec.repair().spec
         val letters = safe.compile(LayoutLayer.LETTERS)
         // Only the letters layer widens. The symbols and Fn layers have no shift
@@ -6204,6 +6925,9 @@ open class WMKeyboardService : InputMethodService() {
             // layout an Fn layer that is really a second copy of the letters.
             fn = safe.layer(LayoutLayer.FN)?.let { safe.compile(LayoutLayer.FN) },
             numeric = fieldKind.numericLayer?.let(safe::compile),
+            // Same "only when authored" rule as Fn: the Numpad panel draws its
+            // own hardcoded pad otherwise, with the calculator-order setting.
+            number = safe.layer(LayoutLayer.NUMBER)?.let { safe.compile(LayoutLayer.NUMBER) },
             numberRows = buildMap {
                 safe.numberRowFor(LayoutLayer.LETTERS)?.let { put(LayoutMode.LETTERS, it) }
                 safe.numberRowFor(LayoutLayer.SYMBOLS)?.let { put(LayoutMode.SYMBOLS, it) }
@@ -6212,6 +6936,7 @@ open class WMKeyboardService : InputMethodService() {
                 safe.numberRowFor(LayoutLayer.FN)?.let { put(LayoutMode.FN, it) }
             },
             gridWidth = gridWidth,
+            secondaries = secondaries,
         )
         layoutSetCache[key] = spec to set
         return set
@@ -6300,6 +7025,7 @@ open class WMKeyboardService : InputMethodService() {
                     it.fieldKind,
                     deviceForm.value,
                     it.settings.numberRow,
+                    it.settings.customLayouts,
                 ),
                 layoutMode = LayoutMode.LETTERS,
             )
@@ -6308,6 +7034,17 @@ open class WMKeyboardService : InputMethodService() {
         // into the new one (or worse, keep a dot counted as held forever).
         resetChordInputs()
         refreshKarContext()
+        // The typing test follows the language: a prompt dealt in one
+        // language cannot be typed on another's keys, so the switch re-deals.
+        // The panel's own language chip lands here too, via the same layout
+        // switch the spacebar makes.
+        _uiState.value.let { switched ->
+            if (switched.panel == PanelMode.TYPING_TEST &&
+                switched.typingTest.languageId != switched.language.id
+            ) {
+                startTypingTest()
+            }
+        }
         // The handwriting model follows the input language; a switch while
         // the panel is open — or while writing on the keys — re-checks the new
         // model and drops pending ink.
@@ -6454,6 +7191,28 @@ open class WMKeyboardService : InputMethodService() {
         val preview = composedPreview(_uiState.value, composing.toString())
         ic.setComposingText(preview, 1)
         _uiState.update { it.copy(composingPreview = preview) }
+        publishComposingRoman()
+    }
+
+    /**
+     * Mirrors the roman buffer into [KeyboardUiState.composingRoman], which is
+     * what the transliteration key hints are drawn from.
+     *
+     * Called from the two places the buffer can change: this property's setter
+     * for a wholesale replacement (commit, field change, re-arm), and
+     * [updateComposingText] for the in-place edits (append, backspace), which
+     * every one of those edits already calls.
+     *
+     * Empty unless the hints are actually on. The mirror is a `remember` key of
+     * the whole key grid, so publishing it where nothing draws it would rebuild
+     * all ~40 key bodies on every keystroke for nothing.
+     */
+    private fun publishComposingRoman() {
+        val state = _uiState.value
+        val roman = if (state.transliterationHintsShown()) composing.toString() else ""
+        if (state.composingRoman != roman) {
+            _uiState.update { it.copy(composingRoman = roman) }
+        }
     }
 
     /**
@@ -6638,20 +7397,24 @@ open class WMKeyboardService : InputMethodService() {
         }
         // A word that exactly matches a snippet trigger expands to that
         // snippet's text instead of committing literally, and a pattern
-        // snippet may then match the words behind it. The exact trigger is
-        // tried first: it is the more specific rule and the cheaper one, so a
-        // careless `^(.+)$` cannot shadow every literal trigger in the list.
+        // snippet may then match the words behind it. Most specific first: a
+        // trigger that reaches back past the buffer (`:shrug`, `gr db`) asks
+        // for everything a plain one does and more, so it goes first or a
+        // plain "db" would shadow "gr db"; a literal trigger then beats a
+        // pattern, so a careless `^(.+)$` cannot shadow the whole list.
         //
-        // Both are skipped for transliterating/conversion composers (Pinyin,
-        // Hangul, …) — their buffer holds an input spelling, not the
-        // trigger the user meant to type. Both also come before apostrophes
-        // and autocorrect, so a trigger is matched as it was actually typed.
+        // All three are skipped for transliterating/conversion composers
+        // (Pinyin, Hangul, …) — their buffer holds an input spelling, not
+        // the trigger the user meant to type. All three also come before
+        // apostrophes and autocorrect, so a trigger is matched as it was
+        // actually typed.
         if ((!state.composer.isTransliterating || state.composer.isVietnameseTelex) && !state.composer.isConversion) {
             val composed = if (state.composer.isVietnameseTelex) state.composer.composeBuffer(typed) else typed
+            if (tryPrefixExpansion(ic, typed) || (composed != typed && tryPrefixExpansion(ic, composed))) return true
             // A trigger that asks first has already put its chip on the strip
             // (see [refreshSnippetOffer]); the word it matched commits as
             // ordinary text, and the offer goes with it.
-            val snippet = (snippetStore.matchTrigger(typed) ?: snippetStore.matchTrigger(composed))?.takeIf { !it.confirm }
+            val snippet = (snippetStore.matchTrigger(typed) ?: snippetStore.matchTrigger(composed))?.takeIf { !snippetStore.offers(it) }
             if (snippet != null) {
                 val expanded = SnippetStore.expandWithCursor(
                     snippet.text,
@@ -6664,9 +7427,15 @@ open class WMKeyboardService : InputMethodService() {
                     original = null,
                     caretParked = expanded.cursorOffset < expanded.text.length,
                 )
+                publishSwapSet(
+                    snippet = snippet,
+                    typed = typed,
+                    inserted = expanded.text,
+                    insertedCaret = expanded.cursorOffset,
+                    original = null,
+                )
                 return true
             }
-            if (tryPrefixExpansion(ic, typed) || (composed != typed && tryPrefixExpansion(ic, composed))) return true
             if (expandPatterns && (tryPatternExpansion(ic, typed, state) || (composed != typed && tryPatternExpansion(ic, composed, state)))) return true
         }
         // Conversion IME (Pinyin, Japanese): flush the whole reading as a
@@ -6808,7 +7577,14 @@ open class WMKeyboardService : InputMethodService() {
         // Conversion-IME output (Hanzi/Kanji) is never learned into the lexicon,
         // and neither is a fragment glued onto an existing word.
         if (!state.composer.isConversion && !gluedToWord) {
-            learn(output, reinforcement = if (corrected != null) 0 else 1)
+            // An autocorrected word is the engine's spelling, not the user's,
+            // so it teaches no casing either — it arrives at reinforcement 0,
+            // which already keeps it out of the lexicon.
+            learn(
+                output,
+                reinforcement = if (corrected != null) 0 else 1,
+                caseTrusted = composingCaseTrusted && corrected == null,
+            )
         }
         composing = StringBuilder()
         rejectedVietnameseWord = null
@@ -6877,35 +7653,48 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Expands the snippet whose trigger is [typed] behind a run of punctuation,
-     * as in `:shrug`. Returns true when it committed something.
+     * Expands the snippet whose trigger ends in [typed] but starts before it —
+     * `:shrug` behind a run of punctuation, `gr db` behind an earlier word.
+     * Returns true when it committed something.
      *
-     * This is the path every Espanso package needs. Its trigger convention puts
-     * a `:` or `;` in front of an ordinary word, and the keyboard's composing
-     * buffer never holds one: the punctuation was committed to the field the
-     * moment it was typed, and only "shrug" is in the buffer when the space
-     * lands. So the lookup is on the buffer, and the prefix is confirmed by
-     * reading the handful of characters in front of it.
+     * This is the path every Espanso package needs, and the path a multi-word
+     * trigger needs. Espanso's convention puts a `:` or `;` in front of an
+     * ordinary word, and the keyboard's composing buffer never holds one: the
+     * punctuation was committed to the field the moment it was typed, and only
+     * "shrug" is in the buffer when the space lands. The earlier words of
+     * "gr db" are in the field for exactly the same reason. So the lookup is on
+     * the buffer, and what comes in front of it is confirmed by reading back a
+     * short span of the field.
      *
-     * The gate is the same shape as [patternGateOpen]'s. A user with no prefix
+     * The gate is the same shape as [patternGateOpen]'s. A user with no such
      * trigger pays one map lookup on a string already in memory, and the read
      * only happens once that lookup has said a match is possible at all.
      */
     private fun tryPrefixExpansion(ic: InputConnection, typed: String): Boolean {
         if (typed.isEmpty() || !snippetStore.hasPrefixTriggers()) return false
         if (!snippetStore.couldFinishPrefix(typed)) return false
-        val read = ic.getTextBeforeCursor(SnippetMatcher.MAX_PREFIX + typed.length, 0) ?: return false
+        // One character more than the longest lead-in, so the boundary check in
+        // [SnippetIndex.matchPrefix] can see what sits in front of a lead-in
+        // that fills the whole span.
+        val want = SnippetMatcher.MAX_PREFIX + typed.length + 1
+        val read = ic.getTextBeforeCursor(want, 0) ?: return false
         // The buffer is still composing, so the read ends with it. What sits in
-        // front of that is what the prefix has to match.
+        // front of that is what the lead-in has to match.
         val before = read.toString().removeSuffix(typed)
         if (before.length == read.length) return false
         val hit = snippetStore.matchPrefix(typed, before) ?: return false
         stopVoiceForManualInput()
-        val consumed = hit.prefix + typed
+        // Taken from the field rather than from the trigger: the lead-in
+        // matched case-insensitively, so what has to be deleted — and what a
+        // revert has to put back — is what the user actually typed.
+        val consumed = before.takeLast(hit.prefix.length) + typed
         val expanded = SnippetStore.expandWithCursor(
             hit.snippet.text,
             context = snippetContext(ic),
-            casing = SnippetStore.casingFor(hit.snippet, typed),
+            // The whole trigger as typed, not just its last word: "GR DB" is a
+            // shout and "gr db" is not, and the buffer alone cannot tell them
+            // apart from "Gr db".
+            casing = SnippetStore.casingFor(hit.snippet, consumed),
         )
         ic.beginBatchEdit()
         // Same reason as [tryPatternExpansion]: a live composing region and
@@ -6919,6 +7708,13 @@ open class WMKeyboardService : InputMethodService() {
             inserted = expanded.text,
             original = consumed,
             caretParked = expanded.cursorOffset < expanded.text.length,
+        )
+        publishSwapSet(
+            snippet = hit.snippet,
+            typed = consumed,
+            inserted = expanded.text,
+            insertedCaret = expanded.cursorOffset,
+            original = consumed,
         )
         return true
     }
@@ -6986,6 +7782,14 @@ open class WMKeyboardService : InputMethodService() {
             original = hit.consumedText,
             caretParked = hit.cursorOffset < hit.text.length,
         )
+        publishSwapSet(
+            snippet = hit.snippet,
+            typed = null,
+            inserted = hit.text,
+            insertedCaret = hit.cursorOffset,
+            original = hit.consumedText,
+            match = hit,
+        )
         return true
     }
 
@@ -7011,15 +7815,143 @@ open class WMKeyboardService : InputMethodService() {
     /** Takes down whatever the strip was offering, if anything. */
     private fun clearSnippetOffer() {
         snippetOfferJob?.cancel()
-        if (_uiState.value.snippetOffer != null) _uiState.update { it.copy(snippetOffer = null) }
+        if (_uiState.value.snippetOffers != null) _uiState.update { it.copy(snippetOffers = null) }
     }
 
-    /** Publishes [offer], or takes the chip down when it is null. */
-    private fun publishSnippetOffer(offer: SnippetOffer?) {
+    /**
+     * Takes down a set of swap chips, if that is what is up.
+     *
+     * Swap chips are about text already in the field rather than about the
+     * composing buffer, so nothing re-derives them: they have to be taken down
+     * by whatever changes the text they were talking about. Called from every
+     * place that ends the backspace-revert window, which is the same set of
+     * events for the same reason.
+     */
+    private fun clearSwapOffer() {
+        if (_uiState.value.snippetOffers?.kind == SnippetOfferKind.SWAP) clearSnippetOffer()
+    }
+
+    /** Publishes [offers], or takes the chips down when it is null. */
+    private fun publishSnippetOffer(offers: SnippetOfferSet?) {
         // The add-word chip answers through the same callback, so a snippet
         // offer arriving takes it down: whichever chip is up owns the answer.
-        if (offer != null) clearLearnOffer()
-        if (_uiState.value.snippetOffer != offer) _uiState.update { it.copy(snippetOffer = offer) }
+        if (offers != null) clearLearnOffer()
+        val current = _uiState.value.snippetOffers
+        // A walk into a linked snippet survives the offer being derived again
+        // for the same trigger. Without this, every refresh that lands on the
+        // identical match — a selection echo, a debounced pattern job finishing
+        // — would throw the user back to the top level mid-tap.
+        val next = if (
+            offers != null && current != null && current.path.isNotEmpty() &&
+            current.kind == offers.kind && current.rootId == offers.rootId &&
+            current.consumed == offers.consumed && current.rootChips == offers.rootChips
+        ) {
+            offers.copy(path = current.path, chips = current.chips)
+        } else {
+            offers
+        }
+        if (current != next) _uiState.update { it.copy(snippetOffers = next) }
+    }
+
+    /** A candidate as the strip draws it. */
+    private fun chipOf(candidate: SnippetCandidate): SnippetChip = SnippetChip(
+        snippetId = candidate.snippetId,
+        label = candidate.label,
+        text = candidate.text,
+        cursorOffset = candidate.cursorOffset,
+        drillable = candidate.drillable,
+    )
+
+    /**
+     * What [snippet] has to offer here: its own expansions and the default
+     * expansion of everything it links to, expanded against this field.
+     *
+     * [match] is a pattern hit, whose captures every expansion is templated
+     * with and whose own text is kept verbatim for the first candidate; [typed]
+     * is the trigger as it was actually typed, which decides the casing.
+     */
+    private fun snippetCandidates(
+        snippet: Snippet,
+        typed: String? = null,
+        match: SnippetMatch? = null,
+        withSelection: Boolean = false,
+    ): List<SnippetCandidate> {
+        val context = snippetContext(currentInputConnection, withSelection = withSelection)
+        return if (match != null) {
+            snippetStore.candidates(match, context = context)
+        } else {
+            snippetStore.candidates(snippet, typed = typed, context = context)
+        }
+    }
+
+    /**
+     * The chips for a snippet that matched but inserted nothing, or null when
+     * it has nothing to say.
+     *
+     * [consumed] is what taking a chip takes back out of the field, and
+     * [composed] whether that is exactly the word still being composed. See
+     * [SnippetOfferSet].
+     */
+    private fun pickSet(
+        snippet: Snippet,
+        typed: String?,
+        consumed: String,
+        composed: Boolean,
+        match: SnippetMatch? = null,
+    ): SnippetOfferSet? {
+        val chips = snippetCandidates(snippet, typed, match).map(::chipOf)
+        if (chips.isEmpty()) return null
+        return SnippetOfferSet(
+            kind = SnippetOfferKind.PICK,
+            rootId = snippet.id,
+            rootLabel = snippet.label,
+            consumed = consumed,
+            composed = composed,
+            rootChips = chips,
+        )
+    }
+
+    /**
+     * Offers the rest of what a snippet had to say, after its first expansion
+     * has already replaced the trigger.
+     *
+     * Only when there is more than one thing: a snippet with a single expansion
+     * behaves exactly as it always has, right down to leaving the strip alone.
+     * The same gates as the ask-first chip apply — a field that wanted a quiet
+     * strip does not get chips just because an expansion fired in it.
+     */
+    @Suppress("LongParameterList")
+    private fun publishSwapSet(
+        snippet: Snippet,
+        typed: String?,
+        inserted: String,
+        insertedCaret: Int,
+        original: String?,
+        match: SnippetMatch? = null,
+    ) {
+        val state = _uiState.value
+        if (!state.allowsTypingIntelligence || state.secureField || state.fieldNoSuggestions ||
+            state.panel != PanelMode.NONE
+        ) {
+            return
+        }
+        val candidates = snippetCandidates(snippet, typed, match)
+        if (candidates.size < 2) return
+        publishSnippetOffer(
+            SnippetOfferSet(
+                kind = SnippetOfferKind.SWAP,
+                rootId = snippet.id,
+                rootLabel = snippet.label,
+                inserted = inserted,
+                insertedCaret = insertedCaret.coerceIn(0, inserted.length),
+                original = original,
+                current = candidates.indexOfFirst { it.text == inserted },
+                rootChips = candidates.map(::chipOf),
+            ),
+        )
+        // The chips outlive the commit's own selection echo, so the window that
+        // tells an echo from a real caret move has to be open for them too.
+        armRevertGuard()
     }
 
     /**
@@ -7040,6 +7972,11 @@ open class WMKeyboardService : InputMethodService() {
      * is, because it happens on every keystroke rather than once a word.
      */
     private fun refreshSnippetOffer(state: KeyboardUiState) {
+        // Swap chips are about text that is already in the field, so they are
+        // not derived from the buffer and must not be taken down by a pass over
+        // it — the space that fired the expansion calls straight through here a
+        // line later. [clearSwapOffer] is what ends them.
+        if (_uiState.value.snippetOffers?.kind == SnippetOfferKind.SWAP) return
         snippetOfferJob?.cancel()
         // The chip needs a strip to sit on, so a field that asked for a quiet
         // one gets neither the offer nor the expansion behind it. Same fields
@@ -7055,38 +7992,25 @@ open class WMKeyboardService : InputMethodService() {
         }
         val typed = composing.toString()
         val composed = if (state.composer.isVietnameseTelex) state.composer.composeBuffer(typed) else typed
-        // A plain trigger is the cheaper and the more specific rule, so it is
-        // tried first and a match ends the search — the same order the commit
-        // path uses.
         val trigger = (
             typed.takeIf { it.isNotEmpty() && snippetStore.hasConfirmTriggers() }?.let { snippetStore.matchTrigger(it) }
                 ?: composed.takeIf { it.isNotEmpty() && snippetStore.hasConfirmTriggers() }?.let { snippetStore.matchTrigger(it) }
-        )?.takeIf { it.confirm }
-        if (trigger != null) {
-            val expanded = SnippetStore.expandWithCursor(
-                trigger.text,
-                // The selection is not worth a blocking round-trip on the
-                // typing path: a word only composes with the caret collapsed.
-                context = snippetContext(currentInputConnection, withSelection = false),
-                casing = SnippetStore.casingFor(trigger, typed),
-            )
-            publishSnippetOffer(
-                SnippetOffer(
-                    id = trigger.id,
-                    label = trigger.label,
-                    text = expanded.text,
-                    cursorOffset = expanded.cursorOffset,
-                    consumed = typed,
-                    composed = true,
-                ),
-            )
-            return
-        }
+        )?.takeIf { snippetStore.offers(it) }
         // A prefix trigger sits between the two: the lookup is free like a plain
-        // trigger's, but confirming the punctuation in front of the buffer costs
-        // the same read a pattern does. So it rides the same debounced job.
+        // trigger's, but confirming what sits in front of the buffer costs the
+        // same read a pattern does. So it rides the same debounced job.
         val wantPrefix = typed.isNotEmpty() && snippetStore.hasConfirmPrefixTriggers() &&
             snippetStore.couldFinishPrefix(typed)
+        // Most specific first, the same order the commit path uses: a trigger
+        // that reaches back past the buffer outranks a plain one that happens
+        // to be its last word. Only once no such trigger is possible can a
+        // plain match answer without a read.
+        if (trigger != null && !wantPrefix) {
+            // The selection is not worth a blocking round-trip on the typing
+            // path: a word only composes with the caret collapsed.
+            publishSnippetOffer(pickSet(trigger, typed, consumed = typed, composed = true))
+            return
+        }
         val wantPattern = snippetStore.hasConfirmPatterns() && patternGateOpen(typed)
         if (!wantPrefix && !wantPattern) {
             publishSnippetOffer(null)
@@ -7094,15 +8018,24 @@ open class WMKeyboardService : InputMethodService() {
         }
         val ic = currentInputConnection
         if (ic == null) {
-            publishSnippetOffer(null)
+            // No read is possible, so nothing can outrank the plain match that
+            // was held back above. It still stands on the buffer alone.
+            publishSnippetOffer(
+                trigger?.let { pickSet(it, typed, consumed = typed, composed = true) },
+            )
             return
         }
         // A trigger's offer is about the buffer, and the buffer has just
         // changed into something that is not that trigger, so it goes now
         // rather than after the read. A pattern's offer is left up until the
         // read answers: it usually still matches, and blanking it first is a
-        // chip that blinks on every keystroke.
-        if (_uiState.value.snippetOffer?.composed == true) publishSnippetOffer(null)
+        // chip that blinks on every keystroke. Not when a plain match is
+        // waiting on the read to see whether something beats it: that chip is
+        // about the buffer that is still there, and taking it down would make
+        // it blink once a keystroke.
+        if (_uiState.value.snippetOffers?.composed == true && trigger == null) {
+            publishSnippetOffer(null)
+        }
         snippetOfferJob = serviceScope.launch {
             // Debounced ahead of the read, for the reason spelled out in
             // [refreshSmartSuggestion]: one keystroke reaches here twice, and
@@ -7114,7 +8047,9 @@ open class WMKeyboardService : InputMethodService() {
                 ic.getTextBeforeCursor(SnippetMatcher.MAX_WINDOW, 0)?.toString()
             }
             if (window == null) {
-                publishSnippetOffer(null)
+                publishSnippetOffer(
+                    trigger?.let { pickSet(it, typed, consumed = typed, composed = true) },
+                )
                 return@launch
             }
             // The gate was read before the sleep; a panel opening or a field
@@ -7124,8 +8059,12 @@ open class WMKeyboardService : InputMethodService() {
                 publishSnippetOffer(null)
                 return@launch
             }
-            // The prefix trigger goes first, for the same reason a plain one
-            // does on the commit path: it is the more specific rule.
+            // An expansion may have fired while this was asleep; its chips are
+            // about text in the field and this job's answer is about a buffer
+            // that no longer exists.
+            if (still.snippetOffers?.kind == SnippetOfferKind.SWAP) return@launch
+            // The prefix trigger goes first, for the same reason it does on the
+            // commit path: it is the more specific rule.
             if (wantPrefix) {
                 val before = window.removeSuffix(typed)
                 val prefix = if (before.length == window.length) {
@@ -7134,28 +8073,30 @@ open class WMKeyboardService : InputMethodService() {
                     snippetStore.matchPrefix(typed, before, confirm = true)
                 }
                 if (prefix != null) {
-                    val expanded = SnippetStore.expandWithCursor(
-                        prefix.snippet.text,
-                        context = snippetContext(ic, withSelection = false),
-                        casing = SnippetStore.casingFor(prefix.snippet, typed),
-                    )
+                    // From the field, not from the trigger: the lead-in matched
+                    // case-insensitively, so this is what accepting deletes.
+                    val consumed = before.takeLast(prefix.prefix.length) + typed
                     publishSnippetOffer(
-                        SnippetOffer(
-                            id = prefix.snippet.id,
-                            label = prefix.snippet.label,
-                            text = expanded.text,
-                            cursorOffset = expanded.cursorOffset,
+                        pickSet(
+                            snippet = prefix.snippet,
+                            typed = consumed,
                             // Not `composed`: the span reaches back past the
-                            // buffer over punctuation the editor already has, so
+                            // buffer over text the editor already has, so
                             // accepting has to find and delete it the way a
                             // pattern's offer does rather than just replace the
                             // composing region.
-                            consumed = prefix.prefix + typed,
+                            consumed = consumed,
                             composed = false,
                         ),
                     )
                     return@launch
                 }
+            }
+            // No trigger reached back past the buffer after all, so the plain
+            // match held back above gets its turn.
+            if (trigger != null) {
+                publishSnippetOffer(pickSet(trigger, typed, consumed = typed, composed = true))
+                return@launch
             }
             if (!wantPattern) {
                 publishSnippetOffer(null)
@@ -7173,13 +8114,12 @@ open class WMKeyboardService : InputMethodService() {
             )
             publishSnippetOffer(
                 hit?.let {
-                    SnippetOffer(
-                        id = it.snippet.id,
-                        label = it.snippet.label,
-                        text = it.text,
-                        cursorOffset = it.cursorOffset,
+                    pickSet(
+                        snippet = it.snippet,
+                        typed = null,
                         consumed = it.consumedText,
                         composed = false,
+                        match = it,
                     )
                 },
             )
@@ -7195,12 +8135,22 @@ open class WMKeyboardService : InputMethodService() {
      * the JVM's 64K ceiling. They never share the strip: publishing either one
      * clears the other.
      */
-    fun onStripOfferAction(accepted: Boolean) {
+    fun onStripOfferAction(action: StripOfferAction) {
         if (_uiState.value.learnOffer != null) {
-            if (accepted) acceptLearnOffer() else declineLearnOffer()
+            when (action) {
+                is StripOfferAction.Accept -> acceptLearnOffer()
+                StripOfferAction.Decline -> declineLearnOffer()
+                // The add-word chip has nothing to walk into.
+                else -> Unit
+            }
             return
         }
-        if (accepted) onSnippetOfferAccept()
+        when (action) {
+            is StripOfferAction.Accept -> onSnippetOfferPick(action.index)
+            is StripOfferAction.Drill -> onSnippetOfferDrill(action.index)
+            StripOfferAction.Back -> onSnippetOfferBack()
+            StripOfferAction.Decline -> clearSnippetOffer()
+        }
     }
 
     /**
@@ -7210,9 +8160,10 @@ open class WMKeyboardService : InputMethodService() {
      * word that was just committed, so a newer one replaces it outright: the
      * chip follows the typing rather than queueing up behind it.
      */
-    private fun offerToLearn(word: String) {
+    private fun offerToLearn(word: String, caseTrusted: Boolean) {
         if (learnOfferWord == word) return
         learnOfferWord = word
+        learnOfferCaseTrusted = caseTrusted
         // The two ask-first chips answer through the same callback, so only one
         // of them may be up at a time.
         clearSnippetOffer()
@@ -7222,22 +8173,30 @@ open class WMKeyboardService : InputMethodService() {
     /** Takes the add-word chip down, whether or not it was answered. */
     private fun clearLearnOffer() {
         learnOfferWord = null
+        learnOfferCaseTrusted = false
         if (_uiState.value.learnOffer != null) _uiState.update { it.copy(learnOffer = null) }
     }
 
     /** "Yes, that is a word": into the dictionary at full strength. */
     private fun acceptLearnOffer() {
         val word = _uiState.value.learnOffer ?: return
+        val trusted = learnOfferCaseTrusted
         vibrate()
         clearLearnOffer()
         pendingLearn.forget(word)
         // addWord, not learnWord: the user was asked outright and said yes, so
         // the word competes with real vocabulary immediately and is never
         // corrected away.
-        userLexicon.addWord(word)
+        // The chip shows the word as it was committed, which at a sentence
+        // start means auto-capitalize's capital rather than the user's. Saying
+        // yes to that is a vote for the word, never for the capital — so an
+        // untrusted spelling is filed in lower case (#44), where a later
+        // deliberate "Boston" can still teach it.
+        val spelling = if (trusted) word else word.lowercase()
+        userLexicon.addWord(spelling, caseEvidence = trusted)
         if (_uiState.value.settings.addWordsToSystemDictionary) {
             serviceScope.launch(Dispatchers.IO) {
-                SystemUserDictionary.add(applicationContext, word)
+                SystemUserDictionary.add(applicationContext, spelling)
             }
         }
         refreshSuggestions()
@@ -7267,8 +8226,128 @@ open class WMKeyboardService : InputMethodService() {
      * there — and an expansion that deletes the wrong span is far worse than
      * one that does nothing.
      */
-    fun onSnippetOfferAccept() {
-        val offer = _uiState.value.snippetOffer ?: return
+    fun onSnippetOfferPick(index: Int) {
+        val offers = _uiState.value.snippetOffers ?: return
+        val chip = offers.visibleChips().getOrNull(index) ?: return
+        when (offers.kind) {
+            SnippetOfferKind.PICK -> onSnippetOfferAccept(offers, chip)
+            SnippetOfferKind.SWAP -> onSnippetSwap(offers, chip)
+        }
+    }
+
+    /**
+     * Shows what the linked snippet behind the chip at [index] has to offer.
+     *
+     * Bounded by the walk itself: a snippet already on the path is not entered
+     * again, so a loop in the graph is a dead end rather than an endless one.
+     */
+    private fun onSnippetOfferDrill(index: Int) {
+        val offers = _uiState.value.snippetOffers ?: return
+        val chip = offers.visibleChips().getOrNull(index) ?: return
+        if (!chip.drillable || !offers.canDrill(chip.snippetId)) return
+        val chips = snippetStore
+            .drillIn(chip.snippetId, context = snippetContext(currentInputConnection, false))
+            .map(::chipOf)
+        if (chips.isEmpty()) return
+        vibrate()
+        _uiState.update {
+            it.copy(
+                snippetOffers = offers.copy(path = offers.path + chip.snippetId, chips = chips),
+            )
+        }
+    }
+
+    /** Goes back up one level of a walk into linked snippets. */
+    private fun onSnippetOfferBack() {
+        val offers = _uiState.value.snippetOffers ?: return
+        if (offers.path.isEmpty()) return
+        val path = offers.path.dropLast(1)
+        val chips = if (path.isEmpty()) {
+            offers.rootChips
+        } else {
+            snippetStore
+                .drillIn(path.last(), context = snippetContext(currentInputConnection, false))
+                .map(::chipOf)
+                .ifEmpty { offers.rootChips }
+        }
+        vibrate()
+        _uiState.update { it.copy(snippetOffers = offers.copy(path = path, chips = chips)) }
+    }
+
+    /**
+     * Replaces the expansion already in the field with another of the ones the
+     * same trigger offered.
+     *
+     * The text is verified before anything is edited, exactly as the ask-first
+     * path verifies its span and for the same reason: the chips outlive the
+     * commit by design, so a tap can land after the field has moved on. What
+     * this puts in inherits the undo the expansion had, so backspace still
+     * restores the trigger rather than the expansion it replaced.
+     */
+    private fun onSnippetSwap(offers: SnippetOfferSet, chip: SnippetChip) {
+        val ic = currentInputConnection ?: return
+        val head = offers.inserted.take(offers.insertedCaret)
+        val rest = offers.inserted.drop(offers.insertedCaret)
+        val tail = if (rest.isEmpty()) {
+            val before = ic
+                .getTextBeforeCursor(SNIPPET_REVERT_MAX + SNIPPET_OFFER_TAIL_MAX, 0)
+                ?.toString()
+                .orEmpty()
+            val at = before.lastIndexOf(offers.inserted)
+            // Nothing may sit between the expansion and the cursor but the key
+            // that ended the word it replaced.
+            before
+                .takeIf { at >= 0 }
+                ?.substring(at + offers.inserted.length)
+                ?.takeIf { it.length <= SNIPPET_OFFER_TAIL_MAX && it.none(Char::isLetterOrDigit) }
+                ?: run {
+                    clearSnippetOffer()
+                    return
+                }
+        } else {
+            // The caret is parked inside the expansion, so the text straddles
+            // it and both halves have to still be there.
+            val before = ic.getTextBeforeCursor(head.length, 0)?.toString().orEmpty()
+            val after = ic.getTextAfterCursor(rest.length, 0)?.toString().orEmpty()
+            if (before != head || after != rest) {
+                clearSnippetOffer()
+                return
+            }
+            ""
+        }
+        stopVoiceForManualInput()
+        vibrate()
+        val inserted = chip.text + tail
+        val marker = chip.cursorOffset.takeIf { it < chip.text.length }
+        ic.beginBatchEdit()
+        ic.finishComposingText()
+        composing = StringBuilder()
+        ic.deleteSurroundingText(head.length + tail.length, rest.length)
+        commitSplitAtCaret(ic, inserted, marker ?: inserted.length)
+        ic.endBatchEdit()
+        afterSnippetExpansion(
+            inserted = inserted,
+            original = offers.original?.let { it + tail },
+            caretParked = false,
+        )
+        // Republished rather than taken down: the other expansions are still
+        // what this trigger had to say, and one wrong tap should be one tap
+        // from being right again.
+        publishSnippetOffer(
+            offers.copy(
+                inserted = inserted,
+                insertedCaret = marker ?: inserted.length,
+                original = offers.original,
+                current = offers.rootChips.indexOfFirst { it.text == chip.text },
+                path = emptyList(),
+                chips = offers.rootChips,
+            ),
+        )
+        armRevertGuard()
+    }
+
+    private fun onSnippetOfferAccept(offers: SnippetOfferSet, chip: SnippetChip) {
+        val offer = offers
         val ic = currentInputConnection ?: return
         val tail = if (offer.composed) {
             // The buffer is the span. Nothing follows it — a terminator would
@@ -7299,12 +8378,12 @@ open class WMKeyboardService : InputMethodService() {
         }
         stopVoiceForManualInput()
         vibrate()
-        val inserted = offer.text + tail
+        val inserted = chip.text + tail
         val original = offer.consumed + tail
         // With no marker in it the caret belongs after everything this puts in,
         // the trailing space included; a marker is an instruction about where
         // inside the snippet's own text to stop.
-        val marker = offer.cursorOffset.takeIf { it < offer.text.length }
+        val marker = chip.cursorOffset.takeIf { it < chip.text.length }
         ic.beginBatchEdit()
         if (!offer.composed) {
             // Same reason as [tryPatternExpansion]: a live composing region and
@@ -7835,8 +8914,16 @@ open class WMKeyboardService : InputMethodService() {
      * Words split two ways here. One the keyboard already recognises is
      * counted straight away, as it always was. One nothing recognises is not
      * learned at all yet — see [noteUnknownWord].
+     *
+     * [caseTrusted] says whether [word]'s capitals are the user's own. Only a
+     * trusted spelling teaches the lexicon how the word is written (#44); an
+     * auto-capitalized one is still learned as a word, just not as a spelling.
+     * It defaults to false so a new call site has to think about it, which is
+     * the safe way round: the cost of not trusting a real capital is that the
+     * user types it again, while the cost of trusting a false one is a word
+     * that comes back wrong for as long as the vote holds.
      */
-    private fun learn(word: String, reinforcement: Int = 1) {
+    private fun learn(word: String, reinforcement: Int = 1, caseTrusted: Boolean = false) {
         // The pattern gate follows what went into the field, not what the
         // lexicon was allowed to keep, so it is fed on both paths.
         for (part in word.split(' ')) pushRecentWord(part)
@@ -7879,18 +8966,31 @@ open class WMKeyboardService : InputMethodService() {
             // Attribute the word to whichever mixed language owns it, so the
             // secondary-dictionary weighting tracks the user's real habit.
             suggestionEngine?.recordUsage(cleaned)
-            val known = isKnownWord(cleaned)
+            // A word on the never-suggest list is neither counted nor parked
+            // in the waiting room: learning it would only put it back in the
+            // personal dictionary the user just took it out of (#48).
+            val blacklisted = cleaned.lowercase() in state.settings.suggestionBlacklist
+            val known = !blacklisted && isKnownWord(cleaned)
             if (known) {
                 // Tagged with the active language so a habit learned under one
                 // language can be damped when it crowds another's strip.
-                userLexicon.learnWord(cleaned, reinforcement, langId = state.language.id)
+                userLexicon.learnWord(
+                    cleaned,
+                    reinforcement,
+                    langId = state.language.id,
+                    caseEvidence = caseTrusted,
+                )
                 // Mirror genuinely typed words (not autocorrect targets, which
                 // are reinforcement 0 and already dictionary words) into
                 // Android's shared personal dictionary when the user has opted
                 // in.
                 if (reinforcement > 0 && state.settings.addWordsToSystemDictionary) {
+                    // Mirrored in a spelling we can stand behind: an
+                    // auto-capitalized word would otherwise put a bogus proper
+                    // noun into the dictionary every other keyboard reads.
+                    val mirrored = if (caseTrusted) cleaned else cleaned.lowercase()
                     serviceScope.launch(Dispatchers.IO) {
-                        SystemUserDictionary.add(applicationContext, cleaned)
+                        SystemUserDictionary.add(applicationContext, mirrored)
                     }
                 }
                 if (previousKnown) {
@@ -7901,11 +9001,11 @@ open class WMKeyboardService : InputMethodService() {
                         }
                     }
                 }
-            } else {
+            } else if (!blacklisted) {
                 // Nothing recognises this word. It goes into the waiting room
                 // instead of the dictionary, and only earns its way in once
                 // the user has typed it — and left it alone — enough times.
-                noteUnknownWord(cleaned, reinforcement, state)
+                noteUnknownWord(cleaned, reinforcement, state, caseTrusted)
             }
             beforePrevious = previous
             beforePreviousKnown = previousKnown
@@ -7940,17 +9040,24 @@ open class WMKeyboardService : InputMethodService() {
      * word learned on first sight is a word autocorrect will never fix again,
      * and most first sightings of an unknown word are typos and sloppy swipes.
      */
-    private fun noteUnknownWord(word: String, reinforcement: Int, state: KeyboardUiState) {
+    private fun noteUnknownWord(
+        word: String,
+        reinforcement: Int,
+        state: KeyboardUiState,
+        caseTrusted: Boolean,
+    ) {
         // An autocorrect target is a dictionary word by construction, so a
         // reinforcement of 0 here means the correction landed on something we
         // do not recognise — no evidence about the user's vocabulary at all.
         if (reinforcement <= 0) return
         if (pendingLearn.isDeclined(word)) return
         if (state.settings.suggestionStrip.askBeforeLearning) {
-            offerToLearn(word)
+            offerToLearn(word, caseTrusted)
             return
         }
-        settleLearned(learningBuffer.push(word, state.language.id, reinforcement))
+        settleLearned(
+            learningBuffer.push(word, state.language.id, reinforcement, caseTrusted),
+        )
     }
 
     /**
@@ -7969,7 +9076,9 @@ open class WMKeyboardService : InputMethodService() {
             // [UserLexicon.learnWord] grades its own counts: a candidate the
             // user reached up and tapped says more than one that went past.
             val seen = pendingLearn.sight(entry.word, entry.langId, weight = entry.weight)
-            if (seen >= threshold) promoteLearned(entry.word, entry.langId, seen)
+            if (seen >= threshold) {
+                promoteLearned(entry.word, entry.langId, seen, entry.caseTrusted)
+            }
         }
     }
 
@@ -7985,13 +9094,18 @@ open class WMKeyboardService : InputMethodService() {
     private fun noteRevertedWord(word: String, state: KeyboardUiState) {
         val cleaned = word.trim { !WordContext.isWordChar(it) }
         if (cleaned.isEmpty() || isKnownWord(cleaned)) return
+        // The spelling is whatever was standing in the field before the
+        // correction fired, and the shift that produced it is long spent, so
+        // it teaches the word but not its casing.
         if (state.settings.suggestionStrip.askBeforeLearning) {
-            if (!pendingLearn.isDeclined(cleaned)) offerToLearn(cleaned)
+            if (!pendingLearn.isDeclined(cleaned)) offerToLearn(cleaned, caseTrusted = false)
             return
         }
         val seen = pendingLearn.sight(cleaned, state.language.id, weight = REVERT_SIGHTINGS)
         val threshold = state.settings.suggestionStrip.newWordSightings.coerceAtLeast(1)
-        if (seen >= threshold) promoteLearned(cleaned, state.language.id, seen)
+        if (seen >= threshold) {
+            promoteLearned(cleaned, state.language.id, seen, caseTrusted = false)
+        }
     }
 
     /**
@@ -8040,8 +9154,15 @@ open class WMKeyboardService : InputMethodService() {
                 kept && undone -> Unit
                 kept -> correctionStats.recordKept(entry.typed, entry.corrected)
                 // What the user typed is standing where the fix was. This is
-                // the case the immediate-backspace path could never see.
-                undone -> suggestionEngine?.rejectCorrection(entry.typed, entry.corrected)
+                // the case the immediate-backspace path could never see, and
+                // it is read off the field rather than pressed, so it goes in
+                // as an indirect verdict: weaker than a backspace, and thrown
+                // away entirely when the surviving spelling is not a word (the
+                // user reproducing their own typo, not defending it). See
+                // [SuggestionEngine.rejectCorrection].
+                undone -> suggestionEngine?.rejectCorrection(
+                    entry.typed, entry.corrected, deliberate = false,
+                )
                 else -> Unit
             }
         }
@@ -8118,12 +9239,23 @@ open class WMKeyboardService : InputMethodService() {
      * took five uses to get here starts out weighted like the five uses it
      * was.
      */
-    private fun promoteLearned(word: String, langId: String, sightings: Int) {
+    private fun promoteLearned(
+        word: String,
+        langId: String,
+        sightings: Int,
+        caseTrusted: Boolean,
+    ) {
         pendingLearn.forget(word)
-        userLexicon.learnWord(word, count = sightings, langId = langId)
+        userLexicon.learnWord(
+            word,
+            count = sightings,
+            langId = langId,
+            caseEvidence = caseTrusted,
+        )
         if (_uiState.value.settings.addWordsToSystemDictionary) {
+            val mirrored = if (caseTrusted) word else word.lowercase()
             serviceScope.launch(Dispatchers.IO) {
-                SystemUserDictionary.add(applicationContext, word)
+                SystemUserDictionary.add(applicationContext, mirrored)
             }
         }
     }
@@ -8268,6 +9400,68 @@ open class WMKeyboardService : InputMethodService() {
             }
             appNames = loaded
             suggestionEngine?.apps = loaded
+        }
+    }
+
+    /**
+     * Reads Android's personal dictionary into [systemDictionaryWords] and
+     * [userDictShortcuts]. Content-provider I/O: call off the main thread.
+     * The words honour [SuggestionStripSettings.useSystemDictionary] here,
+     * so turning the setting off empties the source; the shortcut map is
+     * gated where it is consulted instead, as it always was.
+     */
+    private fun readSystemDictionary() {
+        val settings = _uiState.value.settings.suggestionStrip
+        systemDictLoadedWith = settings.useSystemDictionary
+        systemDictionaryWords = if (settings.useSystemDictionary) {
+            runCatching { SystemUserDictionary.words(applicationContext) }
+                .getOrDefault(SystemUserDictionary.Entries.EMPTY)
+        } else {
+            SystemUserDictionary.Entries.EMPTY
+        }
+        userDictShortcuts = runCatching { SystemUserDictionary.shortcuts(applicationContext) }
+            .getOrDefault(emptyMap())
+    }
+
+    /**
+     * Re-reads the personal dictionary and hands the words to the engine.
+     * Called when the platform reports the list changed and when the setting
+     * flips; a no-op before the dictionaries have loaded, since that load
+     * reads the list itself.
+     */
+    private fun reloadSystemDictionary() {
+        if (suggestionEngine == null) return
+        serviceScope.launch {
+            withContext(Dispatchers.IO) { readSystemDictionary() }
+            suggestionEngine?.let {
+                it.systemWordCases = systemDictionaryWords.shapes
+                it.systemDictionary = systemDictionaryWords.source
+            }
+        }
+    }
+
+    /**
+     * Keeps [systemDictionaryWords] current across edits made in System
+     * settings (or by another keyboard) while this one runs. Registered
+     * unconditionally: the observer is free, and the reload it triggers is
+     * what honours the setting.
+     */
+    private fun startUserDictionaryWatch() {
+        val observer = object : android.database.ContentObserver(
+            android.os.Handler(android.os.Looper.getMainLooper()),
+        ) {
+            override fun onChange(selfChange: Boolean, uri: android.net.Uri?) {
+                super.onChange(selfChange, uri)
+                reloadSystemDictionary()
+            }
+        }
+        userDictObserver = observer
+        runCatching {
+            contentResolver.registerContentObserver(
+                android.provider.UserDictionary.Words.CONTENT_URI,
+                true,
+                observer,
+            )
         }
     }
 
@@ -8781,6 +9975,17 @@ open class WMKeyboardService : InputMethodService() {
 
         val typed = composing.toString()
 
+        // A caret touching a word it is not parked at the end of: the strip
+        // answers about that word instead of predicting the next one (#32).
+        // Nothing is composing, so none of the buffer machinery below — the
+        // commit resolution, the next-letter bias, the join and revision chips
+        // — has anything to say about it.
+        val caret = caretWord
+        if (typed.isEmpty() && caret != null && !state.composer.isTransliterating) {
+            publishCaretWordSuggestions(engine, caret)
+            return
+        }
+
         // Conversion IMEs (Chinese Pinyin, Japanese) show the composer's own
         // reading→character candidates in the strip, not dictionary word
         // suggestions. The lookup is a cheap map read, so it runs inline.
@@ -8836,14 +10041,29 @@ open class WMKeyboardService : InputMethodService() {
 
                 val suggested = if (state.composer.isVietnameseTelex) {
                     if (typed.isEmpty()) {
-                        emptyList()
+                        engine.suggest(
+                            composing = "",
+                            previousWord = previousWord,
+                            previousWord2 = previousWord2,
+                            recentWords = recentSnapshot,
+                            allowRerank = true,
+                        )
                     } else {
+                        val dictSuggestions = engine.suggest(
+                            composing = composed,
+                            previousWord = previousWord,
+                            previousWord2 = previousWord2,
+                            recentWords = recentSnapshot,
+                            allowRerank = true,
+                        )
                         val isWhitelisted = telexEngine.isWhitelisted(composed) || telexEngine.isWhitelisted(typed)
                         val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
                         val isComposedValid = telexEngine.isWordInDictionary(composed) || isUserLearned
 
                         if (composed.equals(rejectedVietnameseWord, ignoreCase = true) || isWhitelisted || typed.length < 2) {
-                            if (telexEngine.isWhitelisted(typed)) listOf(typed) else listOf(composed)
+                            val first = if (telexEngine.isWhitelisted(typed)) typed else composed
+                            (listOf(first) + dictSuggestions.filterNot { it.equals(first, ignoreCase = true) })
+                                .distinctBy { it.lowercase() }
                         } else {
                             telexCandidates = if (typed.length >= 3 && !isComposedValid) {
                                 val prev2 = recentSnapshot.getOrNull(recentSnapshot.size - 2)
@@ -8859,11 +10079,13 @@ open class WMKeyboardService : InputMethodService() {
                             }
 
                             val baseList = if (isComposedValid) {
-                                (listOf(composed) + telexCandidates)
+                                listOf(composed) + (dictSuggestions + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) }
                             } else if (telexCandidates.isNotEmpty()) {
-                                (telexCandidates + listOf(composed))
+                                telexCandidates + listOf(composed) + dictSuggestions.filterNot { cand ->
+                                    telexCandidates.any { it.equals(cand, ignoreCase = true) } || cand.equals(composed, ignoreCase = true)
+                                }
                             } else {
-                                listOf(composed)
+                                listOf(composed) + dictSuggestions.filterNot { it.equals(composed, ignoreCase = true) }
                             }
                             baseList.distinctBy { it.lowercase() }
                         }
@@ -9039,6 +10261,45 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * The strip for a caret sitting inside a word: completions and corrections
+     * for the whole word, the word itself dropped because tapping it would
+     * replace it with itself.
+     *
+     * Its own small path rather than a detour through the composing one. There
+     * is no keystroke behind this, so there is no touch frame to rank against
+     * and no typing rhythm to weigh; and there is nothing to commit, so the
+     * space/enter resolution is cleared rather than computed.
+     */
+    private fun publishCaretWordSuggestions(engine: SuggestionEngine, caret: CaretWord) {
+        val word = caret.word
+        suggestionJob?.cancel()
+        commitResolution = null
+        val recentSnapshot = recentWords.toList()
+        suggestionJob = serviceScope.launch {
+            val results = withContext(Dispatchers.Default) {
+                engine.suggest(
+                    composing = word,
+                    previousWord = previousWord,
+                    previousWord2 = previousWord2,
+                    recentWords = recentSnapshot,
+                    allowRerank = true,
+                ).filterNot { it.equals(word, ignoreCase = true) }
+            }
+            _uiState.update {
+                it.copy(
+                    suggestions = results,
+                    emojiSuggestions = emptyList(),
+                    punctuationSuggestions = emptyList(),
+                    inlineEmoji = false,
+                    joinSuggestion = null,
+                    revisionSuggestion = null,
+                    correctionOffer = null,
+                )
+            }
+        }
+    }
+
+    /**
      * A quick-punctuation chip in the suggestion strip was tapped. Routed
      * through the ordinary text path so it is indistinguishable from typing
      * that punctuation key — the composing word commits, auto-capitalise and
@@ -9105,12 +10366,52 @@ open class WMKeyboardService : InputMethodService() {
             ic.commitText(suggestion, 1)
             lastGestureWord = null
             lastRevertible = null
+            clearSwapOffer()
             _uiState.update {
                 it.copy(
                     composingPreview = "",
                     suggestions = emptyList(),
                     emojiSuggestions = emptyList(),
                 )
+            }
+            return
+        }
+        // A caret sitting inside a word: the pick replaces that word where it
+        // is rather than landing at the caret and splitting it in two (#32).
+        // No composing region backs it (see [caretWord]), so the span is spliced
+        // by hand — and re-read first, since the chip may have outlived the word
+        // it was about. When it has, the tap does nothing: the strip was talking
+        // about text that is no longer there, and committing the word at the
+        // caret instead would be a worse guess than none.
+        caretWord?.let { caret ->
+            clearCaretWord()
+            val head = caret.head
+            val tail = caret.tail
+            val stillThere =
+                ic.getTextBeforeCursor(head.length, 0)?.toString().orEmpty() == head &&
+                    ic.getTextAfterCursor(tail.length, 0)?.toString().orEmpty() == tail
+            if (!stillThere) {
+                refreshSuggestions()
+                return
+            }
+            // Cased like the chip the user is looking at, the same as a pick
+            // that lands at the caret.
+            val replacement = displayCaseForShift(suggestion, _uiState.value.shiftState)
+            ic.beginBatchEdit()
+            ic.deleteSurroundingText(head.length, tail.length)
+            ic.commitText(replacement, 1)
+            ic.endBatchEdit()
+            invalidateExpectedSelection()
+            recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
+            consumeShift()
+            // Deliberately picked, so it is learned like any other pick — the
+            // base word, never the shift-cased form, and spelled the way the
+            // engine offered it.
+            learn(suggestion, reinforcement = 2, caseTrusted = true)
+            lastRevertible = null
+            clearSwapOffer()
+            _uiState.update {
+                it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
             }
             return
         }
@@ -9133,7 +10434,8 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         lastGestureWord = null
-        pendingGestureSpace = false
+        clearSwapOffer()
+        pendingWordSpace = false
 
         // An emoji picked from inline search replaces the ":query" buffer
         // outright: no trailing space (emoji rarely start a new word) and
@@ -9182,6 +10484,15 @@ open class WMKeyboardService : InputMethodService() {
         )
 
         ic.commitText(committed + tail, 1)
+        // That space is the keyboard's, so a mark typed next takes it back and
+        // hugs the word — "word:" and not "word :" (issue #34). Same one-shot a
+        // glide's space gets, and it needs the same guard: without it the
+        // commit's own selection echo reads as a caret move and disarms it
+        // before the next keystroke can spend it.
+        if (tail.isNotEmpty()) {
+            pendingWordSpace = true
+            armRevertGuard()
+        }
         // Whole words landed without being typed out; this also disarms the
         // half-typed word so the next separator cannot count it again.
         recordStat { onWordsCommitted(suggestion.split(' ').size, System.currentTimeMillis()) }
@@ -9193,7 +10504,7 @@ open class WMKeyboardService : InputMethodService() {
         // A contact email is the exception: it is never learned, so it stays
         // memory-only and off the disk-backed personal dictionary even when
         // tapped from an ordinary text field.
-        if ('@' !in suggestion) learn(suggestion, reinforcement = 2)
+        if ('@' !in suggestion) learn(suggestion, reinforcement = 2, caseTrusted = true)
         composing = StringBuilder()
         _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         maybeAutoCapitalize()
@@ -9269,6 +10580,21 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * How many words one stroke may come back with.
+     *
+     * The strip's own slot count, so a user who asked for six alternates gets
+     * six rather than the four a hardcoded default used to give them (#54).
+     * Floored at [GLIDE_CHOICES] so narrowing the strip to two or three slots
+     * cannot starve the ambiguity picker, which shows its own three under the
+     * fingertip and does not share the strip's width.
+     *
+     * Free: the decoder searches to `GLIDE_RERANK_POOL` whatever the caller
+     * asks for, so this only decides how many survive the rerank.
+     */
+    private fun glideCandidateLimit(): Int =
+        maxOf(_uiState.value.settings.suggestionStrip.slotCount, GLIDE_CHOICES)
+
     /** Decodes one stroke against the active language's word sources. */
     private fun glideDecode(
         points: List<GesturePoint>,
@@ -9280,6 +10606,7 @@ open class WMKeyboardService : InputMethodService() {
             path = points,
             keys = keyMapFor(keys, keyWidthPx),
             keyWidth = keyWidthPx,
+            limit = glideCandidateLimit(),
             previousWord = previousWord,
             previousWord2 = previousWord2,
             recentWords = recentWords.toList(),
@@ -9410,10 +10737,10 @@ open class WMKeyboardService : InputMethodService() {
         // The glide's own trailing space belongs to the finished word, and the
         // possessive goes inside it. Only the keyboard's own space is taken back:
         // one the user typed is theirs.
-        if (pendingGestureSpace) {
+        if (pendingWordSpace) {
             val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
             if (before == " ") ic.deleteSurroundingText(1, 0)
-            pendingGestureSpace = false
+            pendingWordSpace = false
         }
         ic.commitText(POSSESSIVE, 1)
         val possessive = word + POSSESSIVE
@@ -9434,6 +10761,19 @@ open class WMKeyboardService : InputMethodService() {
         val from = keys.firstOrNull { it.char == '\'' } ?: return false
         val to = keys.firstOrNull { it.char == 's' } ?: return false
         return possessiveFlick(points, from, to, keyWidthPx)
+    }
+
+    /**
+     * Whether a glide may run right now. During a typing test the test's own
+     * switch decides, not the keyboard's gesture setting or the field: the
+     * test exists to compare tapping against gliding, and the word never
+     * reaches the field behind the panel, so the field's say does not apply.
+     * Readiness — a word list, a letter layout, enough keys — applies always.
+     */
+    private fun glideAllowed(state: KeyboardUiState): Boolean = when {
+        !state.glideReady -> false
+        state.typingTestActive -> state.settings.typingTest.glide
+        else -> state.settings.gestureTyping && state.allowsGestureTyping
     }
 
     /**
@@ -9499,8 +10839,7 @@ open class WMKeyboardService : InputMethodService() {
     /** Mid-swipe: show the current best candidates without committing. */
     fun onGesturePreview(points: List<GesturePoint>, keys: List<KeyCenter>, keyWidthPx: Float) {
         val state = _uiState.value
-        if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
-        if (!state.glideReady || state.typingTestActive) return
+        if (!glideAllowed(state)) return
         if (keys.isEmpty()) return
         gesturePreviews.trySend(
             GesturePreviewRequest(points, keys, keyWidthPx, gestureGeneration.get()),
@@ -9562,9 +10901,13 @@ open class WMKeyboardService : InputMethodService() {
     ) {
         stopVoiceForManualInput()
         val state = _uiState.value
-        if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
-        if (!state.glideReady || state.typingTestActive) return
+        if (!glideAllowed(state)) return
         if (keys.isEmpty()) return
+        // A test run takes the word: the field behind the panel never sees it.
+        if (state.typingTestActive) {
+            typingTestGlide(listOf(points), keys, keyWidthPx, chosen)
+            return
+        }
 
         val shiftAtGesture = state.shiftState
         // Retires every preview from this stroke, in flight or queued.
@@ -9590,7 +10933,11 @@ open class WMKeyboardService : InputMethodService() {
             if (candidates.isEmpty()) return@launch
             val ic = currentInputConnection ?: return@launch
 
-            commitComposing(ic, autocorrect = false)
+            // The tapped word this glide is finishing gets the same treatment
+            // a space would have given it: without this a tapped "i" followed
+            // by a glided word committed in lower case, because the glide's own
+            // space never goes through onSpace (#46).
+            commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoApostrophe)
             val picked = chosen?.takeIf { it in candidates } ?: candidates.first()
             val word = when (shiftAtGesture) {
                 ShiftState.CAPS_LOCK -> picked.uppercase()
@@ -9604,7 +10951,14 @@ open class WMKeyboardService : InputMethodService() {
             }
             ic.commitText(word, 1)
             recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
-            learn(word)
+            // Caps lock never teaches a spelling — it says the letters are
+            // upper case, not that the word is — and neither does the shift
+            // auto-capitalize armed at a sentence start.
+            learn(
+                word,
+                caseTrusted = shiftAtGesture == ShiftState.OFF ||
+                    (shiftAtGesture == ShiftState.ON && state.shiftPressedByUser),
+            )
             lastGestureWord = word
             commitGestureSpace(ic, state)
             armRevertGuard()
@@ -9620,7 +10974,7 @@ open class WMKeyboardService : InputMethodService() {
      * after it already, and a second would leave a double gap. A line break
      * after the caret is not one of those — see [spacedAfterCaret].
      *
-     * Arms [pendingGestureSpace], which is what lets punctuation typed straight
+     * Arms [pendingWordSpace], which is what lets punctuation typed straight
      * afterwards take the space back and a space press be swallowed rather than
      * doubled.
      */
@@ -9628,7 +10982,7 @@ open class WMKeyboardService : InputMethodService() {
         if (!state.settings.gesture.autoSpaceAfterGlide) return
         if (spacedAfterCaret(ic.getTextAfterCursor(1, 0))) return
         ic.commitText(" ", 1)
-        pendingGestureSpace = true
+        pendingWordSpace = true
     }
 
     /**
@@ -9653,9 +11007,13 @@ open class WMKeyboardService : InputMethodService() {
     fun onGestureWords(segments: List<List<GesturePoint>>, keys: List<KeyCenter>, keyWidthPx: Float) {
         stopVoiceForManualInput()
         val state = _uiState.value
-        if (!state.settings.gestureTyping || !state.allowsTypingIntelligence) return
-        if (!state.glideReady || state.typingTestActive) return
+        if (!glideAllowed(state)) return
         if (keys.isEmpty() || segments.isEmpty()) return
+        // A test run takes the words: the field behind the panel never sees them.
+        if (state.typingTestActive) {
+            typingTestGlide(segments, keys, keyWidthPx, chosen = null)
+            return
+        }
 
         val shiftAtGesture = state.shiftState
         // Retires every preview from this stroke, in flight or queued.
@@ -9665,8 +11023,9 @@ open class WMKeyboardService : InputMethodService() {
         _uiState.update { it.copy(glideWord = null, glideChoices = emptyList()) }
         gestureJob = serviceScope.launch {
             val ic = currentInputConnection ?: return@launch
-            // Flush any composing text before the first glided word.
-            commitComposing(ic, autocorrect = false)
+            // Flush any composing text before the first glided word, finished
+            // the way a space would have finished it (see onGesture).
+            commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoApostrophe)
             var lastWords: List<String> = emptyList()
             var committedAny = false
             segments.forEachIndexed { index, segment ->
@@ -9693,7 +11052,11 @@ open class WMKeyboardService : InputMethodService() {
                 }
                 ic.commitText(word, 1)
                 recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
-                learn(word)
+                learn(
+                    word,
+                    caseTrusted = index > 0 || shiftAtGesture == ShiftState.OFF ||
+                        (shiftAtGesture == ShiftState.ON && state.shiftPressedByUser),
+                )
                 lastGestureWord = word
                 armRevertGuard()
                 lastWords = candidates
@@ -9748,6 +11111,20 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * A tool fired by a press and hold on a toolbar button the user bound it to.
+     *
+     * Skips [onToolTap]'s "is it on the toolbar" test for the reason
+     * [runToolFromKey] does: the binding is its own reason for the tool to run.
+     * It used to go through [onToolTap], so a hold bound to any tool the user
+     * had not also put on the bar — Select line, say, on a fresh install whose
+     * setup left most tools off — was dropped without a word (#31). The device's
+     * own gates in [runTool] still apply.
+     */
+    private fun runToolFromHold(tool: ToolbarTool) {
+        runTool(tool)
+    }
+
+    /**
      * The dispatch itself, once the caller's own gating has passed, plus the two
      * tests every caller shares: a lite build ships fewer tools than the enum
      * lists, and a search tool loses its key the moment it is cleared.
@@ -9764,6 +11141,7 @@ open class WMKeyboardService : InputMethodService() {
 
             ToolbarTool.SNIPPETS -> onPanelChange(PanelMode.SNIPPETS)
             ToolbarTool.TEXT_EDIT -> onPanelChange(PanelMode.TEXT_EDIT)
+            ToolbarTool.TRACKPAD -> onPanelChange(PanelMode.TRACKPAD)
             ToolbarTool.SETTINGS -> openSettings()
             ToolbarTool.ONE_HANDED -> onOneHandedChange(
                 if (settings.oneHandedMode == OneHandedMode.OFF) {
@@ -9789,6 +11167,7 @@ open class WMKeyboardService : InputMethodService() {
             ToolbarTool.THEMES -> onPanelChange(PanelMode.THEMES)
             ToolbarTool.AUTOCORRECT -> onAutocorrectToggle()
             ToolbarTool.FANCY -> onFancyToggle()
+            ToolbarTool.CUSTOM_LAYOUT -> onCustomLayoutToggle()
             ToolbarTool.SOUND_HAPTICS -> onPanelChange(PanelMode.SOUND_HAPTICS)
             ToolbarTool.NUMPAD -> onPanelChange(PanelMode.NUMPAD)
             ToolbarTool.HANDWRITING -> onPanelChange(PanelMode.HANDWRITING)
@@ -9835,6 +11214,12 @@ open class WMKeyboardService : InputMethodService() {
             ToolbarTool.SELECT_WORD -> onTextEdit(TextEditAction.SELECT_WORD)
             ToolbarTool.SELECT_LINE -> onTextEdit(TextEditAction.SELECT_LINE)
             ToolbarTool.SELECT_MODE -> onSelectModeTap()
+            // The same three operations the text-edit panel's keys run, so the
+            // selection bookkeeping (copy and cut end select mode, paste checks
+            // the clipboard is readable) is the one implementation (issue #41).
+            ToolbarTool.COPY -> onTextEdit(TextEditAction.COPY)
+            ToolbarTool.CUT -> onTextEdit(TextEditAction.CUT)
+            ToolbarTool.PASTE -> onTextEdit(TextEditAction.PASTE)
             ToolbarTool.HIDE_KEYBOARD -> onHideKeyboard()
         }
     }
@@ -9905,10 +11290,15 @@ open class WMKeyboardService : InputMethodService() {
                 clipboardItems = clipboardStore.items(),
                 snippets = snippetStore.items(),
                 snippetFolders = snippetStore.folders(),
+                snippetCandidateCounts = snippetCandidateCounts(),
                 // Every open of the snippets panel starts at the folders. A
                 // panel that reopened three levels into where it was last week
-                // is a panel that looks broken.
+                // is a panel that looks broken. Same for a held tile's list.
                 snippetFolderOpen = null,
+                snippetPicker = null,
+                // The strip is behind the panel, so its chips go with it for
+                // the reason [smart] does.
+                snippetOffers = null,
                 dictionarySearchActive = false,
                 clipboardSearchActive = false,
                 clipboardQuery = "",
@@ -10062,24 +11452,79 @@ open class WMKeyboardService : InputMethodService() {
         } else {
             cancelVoice()
         }
-        if (_uiState.value.panel == PanelMode.MEDIA_CONTROL) startMedia() else stopMedia()
+        syncMediaTracking()
     }
 
     // ---- media control ----
 
+    /**
+     * Whether a media session is being watched right now, and why.
+     *
+     * Two independent reasons want the tracking on: the panel being open, and
+     * the toolbar's auto-pin watching for an allowlisted player to start. This
+     * is the one place that decides, so neither reason can switch the other's
+     * tracking off. Called from the panel switch, from both ends of the
+     * keyboard's visible life, and whenever the settings change.
+     */
+    private fun syncMediaTracking() {
+        val state = _uiState.value
+        val forPanel = state.panel == PanelMode.MEDIA_CONTROL
+        val forPin = state.settings.mediaControl.pinWhilePlaying &&
+            ToolbarTool.MEDIA_CONTROL in state.settings.enabledTools
+        // Nothing on screen is worth a session listener, panel included: the
+        // panel is not being looked at either, and onStartInputView re-syncs
+        // (and so rebinds) before the keyboard is shown again.
+        if (!keyboardVisible || (!forPanel && !forPin)) {
+            stopMedia()
+            return
+        }
+        startMedia()
+        // Settings can change under a live session — the allowlist edited, the
+        // switch turned off, power saving arriving — so re-decide the pin here
+        // instead of waiting for the player to do something.
+        val pinned = pinsFor(_uiState.value.mediaControl)
+        if (pinned != _uiState.value.mediaPinned) {
+            _uiState.update { it.copy(mediaPinned = pinned) }
+        }
+    }
+
     /** Begin mirroring the active media session into [KeyboardUiState.mediaControl]. */
     private fun startMedia() {
         mediaController.start { snapshot ->
-            _uiState.update { it.copy(mediaControl = snapshot) }
+            // Decided before the update: [pinsFor] reads the *previous* frame
+            // to hold the latch across a pause, so it must not see the new one.
+            val pinned = pinsFor(snapshot)
+            _uiState.update { it.copy(mediaControl = snapshot, mediaPinned = pinned) }
         }
     }
 
     /** Stop tracking and clear the now-playing snapshot. */
     private fun stopMedia() {
         mediaController.stop()
-        if (_uiState.value.mediaControl != null) {
-            _uiState.update { it.copy(mediaControl = null) }
+        if (_uiState.value.mediaControl != null || _uiState.value.mediaPinned) {
+            _uiState.update { it.copy(mediaControl = null, mediaPinned = false) }
         }
+    }
+
+    /**
+     * Whether [snapshot] should hold the media tool on the toolbar.
+     *
+     * Arms on playback from an app the user counts as a music player, then
+     * stays armed while that same app keeps its session — so pausing to reply
+     * to a message leaves the transport where the thumb last saw it, and the
+     * pin only goes when the player does. A session handed to a different app
+     * has to earn the pin again by playing.
+     */
+    private fun pinsFor(snapshot: MediaSnapshot?): Boolean {
+        val settings = _uiState.value.settings
+        if (!settings.mediaControl.pinWhilePlaying) return false
+        if (ToolbarTool.MEDIA_CONTROL !in settings.enabledTools) return false
+        if (snapshot == null) return false
+        if (snapshot.packageName !in settings.mediaControl.musicApps) return false
+        if (snapshot.playing) return true
+        // Paused: hold the pin only for the app that armed it.
+        return _uiState.value.mediaPinned &&
+            _uiState.value.mediaControl?.packageName == snapshot.packageName
     }
 
     fun onMediaPlayPause() {
@@ -10103,10 +11548,12 @@ open class WMKeyboardService : InputMethodService() {
 
     /**
      * The panel re-checks notification access when the keyboard returns to the
-     * foreground; if it was just granted, (re)bind to the active session.
+     * foreground; if it was just granted, this is what binds to the active
+     * session — [MediaControlManager.start] refuses to do anything without it,
+     * so every earlier attempt was a no-op.
      */
     fun onMediaResume() {
-        if (_uiState.value.panel == PanelMode.MEDIA_CONTROL) startMedia()
+        syncMediaTracking()
     }
 
     /**
@@ -12035,6 +13482,21 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * The backspace swipe's four calls, bundled for the reason
+     * [converterCallbacks] is: [ServiceKeyboardContent] is at the JVM's 64K
+     * ceiling, so the gesture had to grow from one callback to four without
+     * costing a parameter.
+     */
+    private val deleteSwipeCallbacks by lazy {
+        com.wasimaster.wmkeyboard.ime.ui.DeleteSwipeCallbacks(
+            onDeleteUnit = ::onDeleteSwipeUnit,
+            onSelect = ::onDeleteSwipeSelect,
+            onCommit = ::onDeleteSwipeCommit,
+            onCancel = ::onDeleteSwipeCancel,
+        )
+    }
+
     // ---- calculator tool ----
 
     /**
@@ -12345,33 +13807,123 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var typingTestJob: Job? = null
 
-    /** Deals a fresh prompt from the current settings and arms the run. */
+    /** Deals the prompt off the main thread; see [startTypingTest]. */
+    private var typingPromptJob: Job? = null
+
+    /** Identifies the latest deal, so a slow one cannot land on a newer run. */
+    private var typingDealSeq = 0
+
+    /** The debounced suggestion lookup for the word being typed. */
+    private var typingSuggestJob: Job? = null
+
+    /**
+     * The last prompt pool built out of a dictionary, keyed by language id
+     * and the dictionary state it was built from. One entry is enough: the
+     * user runs tests in one language at a time, and a download or import
+     * changes the token and so rebuilds it.
+     */
+    private var typingPoolCache: Triple<String, Int, TypingWordPool?>? = null
+
+    /**
+     * Deals a fresh prompt from the current settings and arms the run.
+     *
+     * The prompt is dealt in the language the keyboard is in — the user types
+     * it on the keys on screen, so there is no other language it could be in.
+     * English and Bengali ship their word lists; every other language builds
+     * its pool out of its dictionary, which is a walk over a memory-mapped
+     * trie and so happens off the main thread. The panel shows an empty
+     * prompt for the beat that takes, and nothing typed in that beat counts.
+     */
     private fun startTypingTest() {
         typingTestJob?.cancel()
         typingTestJob = null
-        val settings = _uiState.value.settings
-        val words = buildTypingPrompt(
-            mode = settings.typingTestMode,
-            duration = settings.typingTestDuration,
-            wordCount = settings.typingTestWordCount,
-            punctuation = settings.typingTestPunctuation,
-            numbers = settings.typingTestNumbers,
-        )
+        typingPromptJob?.cancel()
+        typingSuggestJob?.cancel()
+        val state = _uiState.value
+        val language = state.language
+        // A conversion layout (pinyin, kana) spells readings the prompt's
+        // characters cannot be compared against keystroke by keystroke, so
+        // the test stands down rather than scoring every key as a miss.
+        val converts = state.composer.isConversion
         // Force shift off: the prompt is lowercase, and a field's auto-cap
         // would otherwise uppercase the first keystroke into a miss.
         _uiState.update {
             it.copy(
-                typingTest = TypingTestUi(words = words),
+                typingTest = TypingTestUi(languageId = language.id, unavailable = converts),
                 shiftState = ShiftState.OFF,
                 shiftPressedByUser = false,
             )
         }
+        if (converts) return
+        val options = state.settings.typingTest
+        val digits = resolveNumeralDigits(
+            state.settings.layoutBehavior.numeralSystemFor(language.id),
+            language,
+        )
+        val fullStop = state.script.fullStop
+        val seq = ++typingDealSeq
+        typingPromptJob = serviceScope.launch {
+            val pool = withContext(Dispatchers.Default) { typingWordPool(language.id) }
+            val words = pool?.let {
+                buildTypingPrompt(
+                    mode = options.mode,
+                    duration = options.duration,
+                    wordCount = options.wordCount,
+                    punctuation = options.punctuation,
+                    numbers = options.numbers,
+                    pool = it,
+                    digits = digits,
+                    fullStop = fullStop,
+                )
+            }.orEmpty()
+            if (seq != typingDealSeq) return@launch
+            _uiState.update { s ->
+                if (s.typingTest.result != null) {
+                    s
+                } else {
+                    s.copy(typingTest = s.typingTest.copy(words = words, unavailable = words.isEmpty()))
+                }
+            }
+            refreshTypingSuggestions()
+        }
     }
+
+    /**
+     * The prompt material for [languageId]: the shipped list where there is
+     * one, otherwise the most common words of the language's downloaded and
+     * imported dictionaries — or null when there is nothing to deal from.
+     * Runs off the main thread; the dictionary walk is the expensive part.
+     */
+    private fun typingWordPool(languageId: String): TypingWordPool? {
+        TypingWordPools.bundled(languageId)?.let { return it }
+        val token = loadedDictToken
+        typingPoolCache?.let { (id, cachedToken, pool) ->
+            if (id == languageId && cachedToken == token) return pool
+        }
+        val words = customDictionaries[languageId]
+            ?.topWords(TypingWordPools.DICTIONARY_POOL_SIZE, accept = TypingWordPools::acceptsPromptWord)
+            .orEmpty()
+        val pool = if (words.size >= TypingWordPools.DICTIONARY_POOL_MIN) TypingWordPool(words) else null
+        typingPoolCache = Triple(languageId, token, pool)
+        return pool
+    }
+
+    /**
+     * What the raw keystrokes of a test word read as on the current layout:
+     * the composed text on a transliterating one (Avro spells Bengali out of
+     * Latin keys), the keystrokes themselves everywhere else.
+     */
+    private fun typingComposed(state: KeyboardUiState, buffer: String): String =
+        if (state.composer.isTransliterating) state.composer.composeBuffer(buffer) else buffer
 
     /** Cancels the clock; used when the panel closes mid-run. */
     private fun stopTypingTest() {
         typingTestJob?.cancel()
         typingTestJob = null
+        typingPromptJob?.cancel()
+        typingPromptJob = null
+        typingSuggestJob?.cancel()
+        typingSuggestJob = null
     }
 
     /**
@@ -12391,8 +13943,8 @@ open class WMKeyboardService : InputMethodService() {
                 val test = state.typingTest
                 if (state.panel != PanelMode.TYPING_TEST || test.result != null) return@launch
                 val elapsed = System.currentTimeMillis() - startedAt
-                val limit = state.settings.typingTestDuration * 1000L
-                val timed = state.settings.typingTestMode == TypingTestMode.TIME
+                val limit = state.settings.typingTest.duration * 1000L
+                val timed = state.settings.typingTest.mode == TypingTestMode.TIME
                 val capped = if (timed) elapsed.coerceAtMost(limit) else elapsed
 
                 // One sample per whole second, catching up if a frame was
@@ -12450,28 +14002,53 @@ open class WMKeyboardService : InputMethodService() {
     /** One character key, scored against the letter the prompt expects. */
     private fun typingTestType(text: String) {
         if (text.isEmpty()) return
+        // Nothing to type against yet: the prompt is still being dealt, or
+        // the language has none. The keystroke is dropped rather than scored.
+        if (_uiState.value.typingTest.words.isEmpty()) return
         armTypingClock()
         _uiState.update { state ->
             val test = state.typingTest
             val expected = test.words.getOrNull(test.wordIndex).orEmpty()
+            val buffer = test.buffer + text
+            val current = typingComposed(state, buffer)
             // Right first time only if it lands on the position it was typed
             // at; anything past the end of the word is an overshoot.
-            val hit = expected.getOrNull(test.current.length)?.toString() == text
+            //
+            // A transliterating layout cannot be scored that way, and was:
+            // one keystroke reshapes the letter before it (k then h is খ, not
+            // কh; kkh is ক্ষ and neither of its first two keys spells any part
+            // of it), so asking whether the composed text is already on course
+            // marked the first key of every aspirate and every conjunct wrong.
+            // On Bengali that is most of the word. The keys are held here and
+            // judged in typingTestSpace, once the word they were building is
+            // whole.
+            val pending = state.composer.isTransliterating
+            val hit = !pending && expected.getOrNull(test.current.length)?.toString() == text
             state.copy(
                 typingTest = test.copy(
-                    current = test.current + text,
+                    buffer = buffer,
+                    current = current,
                     totalKeystrokes = test.totalKeystrokes + 1,
                     correctKeystrokes = test.correctKeystrokes + if (hit) 1 else 0,
+                    pendingKeystrokes = if (pending) test.pendingKeystrokes + 1 else 0,
                 ),
             )
         }
-        // Word and quote runs finish on the last word without waiting for a
-        // trailing space: once its final letter lands and the word matches,
-        // there is nothing left to type. The closing space never counted for
-        // the last word anyway (scoreTypingTest only credits it for earlier
-        // words), so ending here costs the run nothing.
-        val test = _uiState.value.typingTest
-        if (_uiState.value.settings.typingTestMode != TypingTestMode.TIME &&
+        refreshTypingSuggestions()
+        finishIfPromptTyped()
+    }
+
+    /**
+     * Word and quote runs finish on the last word without waiting for a
+     * trailing space: once its final letter lands and the word matches,
+     * there is nothing left to type. The closing space never counted for
+     * the last word anyway (scoreTypingTest only credits it for earlier
+     * words), so ending here costs the run nothing.
+     */
+    private fun finishIfPromptTyped() {
+        val state = _uiState.value
+        val test = state.typingTest
+        if (state.settings.typingTest.mode != TypingTestMode.TIME &&
             test.wordIndex == test.words.lastIndex &&
             test.current == test.words.getOrNull(test.wordIndex)
         ) {
@@ -12484,13 +14061,24 @@ open class WMKeyboardService : InputMethodService() {
      * into a finished word: reopening one would mean re-scoring keystrokes
      * already counted, and the accuracy figure is meant to remember the
      * mistakes rather than let them be edited away.
+     *
+     * Removes one keystroke, not one composed character: on Avro that is
+     * how backspace behaves in a field too, and it is what lets খ go back
+     * to ক rather than to nothing.
      */
     private fun typingTestBackspace() {
         _uiState.update { state ->
             val test = state.typingTest
-            if (test.current.isEmpty()) state
-            else state.copy(typingTest = test.copy(current = test.current.dropLast(1)))
+            if (test.buffer.isEmpty()) {
+                state
+            } else {
+                val buffer = test.buffer.dropLast(1)
+                state.copy(
+                    typingTest = test.copy(buffer = buffer, current = typingComposed(state, buffer)),
+                )
+            }
         }
+        refreshTypingSuggestions()
     }
 
     /** Space closes the current word and moves the caret to the next one. */
@@ -12506,22 +14094,152 @@ open class WMKeyboardService : InputMethodService() {
         // was actually right — matching how scoreTypingTest credits it.
         // Comparing lengths instead would score "teh" for "the" as a hit.
         val hit = test.current == expected
+        // A transliterating layout's keys were held rather than scored as
+        // they landed; the word is whole now, so they settle here.
+        val settled = settledKeystrokes(
+            expected = expected,
+            composed = test.current,
+            standing = test.buffer.length.coerceAtMost(test.pendingKeystrokes),
+        )
         val typedWords = test.typedWords + TypedWord(expected, test.current)
         _uiState.update {
             it.copy(
                 typingTest = it.typingTest.copy(
                     typedWords = typedWords,
                     current = "",
+                    buffer = "",
+                    pendingKeystrokes = 0,
                     totalKeystrokes = it.typingTest.totalKeystrokes + 1,
-                    correctKeystrokes = it.typingTest.correctKeystrokes + if (hit) 1 else 0,
+                    correctKeystrokes = it.typingTest.correctKeystrokes + settled +
+                        if (hit) 1 else 0,
                 ),
             )
         }
         // Word and quote runs end on the last word rather than on a clock.
-        if (state.settings.typingTestMode != TypingTestMode.TIME &&
+        if (state.settings.typingTest.mode != TypingTestMode.TIME &&
             typedWords.size >= test.words.size
         ) {
             finishTypingTest()
+        } else {
+            refreshTypingSuggestions()
+        }
+    }
+
+    /**
+     * A whole word landing at once — a glide, or a suggestion chip — and the
+     * space that follows it, the same as the gesture or the chip would give
+     * a field. Scored as [keystrokes] presses (one per letter for a glide,
+     * one tap for a chip), credited in proportion to how many of the word's
+     * letters match the prompt's, so a glide that decoded to the wrong word
+     * costs what mistyping it would have.
+     *
+     * A half-tapped word is closed first, which is what happens in a field
+     * too: the glide's leading space ends whatever was being typed.
+     */
+    private fun typingTestWholeWord(word: String, keystrokes: Int) {
+        if (word.isEmpty() || keystrokes <= 0) return
+        if (_uiState.value.typingTest.words.isEmpty()) return
+        if (_uiState.value.typingTest.current.isNotEmpty()) typingTestSpace()
+        if (!_uiState.value.typingTestActive) return
+        armTypingClock()
+        _uiState.update { state ->
+            val test = state.typingTest
+            val expected = test.words.getOrNull(test.wordIndex).orEmpty()
+            val matched = word.indices.count { expected.getOrNull(it) == word[it] }
+            val hits = keystrokes * matched / word.length
+            state.copy(
+                typingTest = test.copy(
+                    buffer = word,
+                    current = word,
+                    totalKeystrokes = test.totalKeystrokes + keystrokes,
+                    correctKeystrokes = test.correctKeystrokes + hits,
+                ),
+            )
+        }
+        typingTestSpace()
+    }
+
+    /**
+     * A glide drawn during a run, when the test's glide option is on. Decoded
+     * exactly as a field glide is — same engine, same word list — and then
+     * typed into the test as a whole word. A multi-word stroke lands one
+     * word per segment. [chosen] is the ambiguity picker's answer for a
+     * single-word stroke.
+     */
+    private fun typingTestGlide(
+        segments: List<List<GesturePoint>>,
+        keys: List<KeyCenter>,
+        keyWidthPx: Float,
+        chosen: String?,
+    ) {
+        // Retires every preview from this stroke, in flight or queued.
+        gestureGeneration.incrementAndGet()
+        gestureJob?.cancel()
+        _uiState.update { it.copy(glideWord = null, glideChoices = emptyList()) }
+        gestureJob = serviceScope.launch {
+            for ((index, segment) in segments.withIndex()) {
+                val candidates = withContext(Dispatchers.Default) {
+                    glideDecode(segment, keys, keyWidthPx)
+                }.words
+                if (candidates.isEmpty()) continue
+                val word = if (index == 0 && segments.size == 1) {
+                    chosen?.takeIf { it in candidates } ?: candidates.first()
+                } else {
+                    candidates.first()
+                }
+                typingTestWholeWord(word, keystrokes = word.length)
+            }
+        }
+    }
+
+    /**
+     * Refreshes the test's own suggestion row for the word being typed, or
+     * the next-word predictions between words. The same engine and the same
+     * lookup the strip uses, so the test measures the real thing; only the
+     * destination differs, because the strip belongs to the field and this
+     * word must never reach it.
+     */
+    private fun refreshTypingSuggestions() {
+        val state = _uiState.value
+        val test = state.typingTest
+        typingSuggestJob?.cancel()
+        if (!state.typingTestActive || !state.settings.typingTest.suggestions || test.words.isEmpty()) {
+            if (test.suggestions.isNotEmpty()) {
+                _uiState.update { it.copy(typingTest = it.typingTest.copy(suggestions = emptyList())) }
+            }
+            return
+        }
+        val engine = suggestionEngine ?: return
+        val avro = state.composer.isBengaliPhonetic
+        // The engine takes the romanised keystrokes on Avro and the word
+        // itself everywhere else — the same split the field path makes.
+        val typed = if (avro) test.buffer else test.current
+        val previous = test.typedWords.lastOrNull()?.typed
+        val previous2 = test.typedWords.getOrNull(test.typedWords.size - 2)?.typed
+        val wordIndex = test.wordIndex
+        val buffer = test.buffer
+        val suggestionSlots = state.settings.suggestionStrip.slotCount
+            .coerceAtLeast(TYPING_TEST_SUGGESTION_SLOTS)
+        typingSuggestJob = serviceScope.launch {
+            delay(TYPING_TEST_SUGGEST_DEBOUNCE_MS)
+            val words = withContext(Dispatchers.Default) {
+                engine.suggest(
+                    composing = typed,
+                    previousWord = previous,
+                    avroMode = avro,
+                    limit = suggestionSlots,
+                    previousWord2 = previous2,
+                )
+            }
+            _uiState.update { s ->
+                val now = s.typingTest
+                // Only for the word it was asked about.
+                if (now.wordIndex != wordIndex || now.buffer != buffer || now.result != null) {
+                    s
+                } else {
+                    s.copy(typingTest = now.copy(suggestions = words))
+                }
+            }
         }
     }
 
@@ -12533,56 +14251,67 @@ open class WMKeyboardService : InputMethodService() {
     private fun finishTypingTest() {
         typingTestJob?.cancel()
         typingTestJob = null
+        typingSuggestJob?.cancel()
         val state = _uiState.value
         val test = state.typingTest
         if (test.result != null) return
 
         // Whatever is half-typed still counts; the clock stopped mid-word.
+        val unfinished = test.words.getOrNull(test.wordIndex).orEmpty()
         val words = if (test.current.isEmpty()) {
             test.typedWords
         } else {
-            test.typedWords + TypedWord(test.words.getOrNull(test.wordIndex).orEmpty(), test.current)
+            test.typedWords + TypedWord(unfinished, test.current)
         }
+        // …and so do the keystrokes a transliterating layout was still
+        // holding for it: without this an Avro run that ran out the clock
+        // mid-word threw that word's keys away as misses.
+        val correctKeystrokes = test.correctKeystrokes + settledKeystrokes(
+            expected = unfinished,
+            composed = test.current,
+            standing = test.buffer.length.coerceAtMost(test.pendingKeystrokes),
+        )
         val elapsed = test.startedAtMs?.let { test.elapsedMs.coerceAtLeast(1) } ?: 0L
         if (words.isEmpty() || elapsed <= 0) {
             _uiState.update { it.copy(panel = PanelMode.NONE, typingTest = TypingTestUi()) }
             return
         }
 
-        val settings = state.settings
+        val options = state.settings.typingTest
         val configKey = typingConfigKey(
-            settings.typingTestMode, settings.typingTestDuration, settings.typingTestWordCount,
+            options.mode, options.duration, options.wordCount, test.languageId,
         )
         val result = scoreTypingTest(
             words = words,
             elapsedMs = elapsed,
             totalKeystrokes = test.totalKeystrokes,
-            correctKeystrokes = test.correctKeystrokes,
+            correctKeystrokes = correctKeystrokes,
             samples = test.samples,
-            mode = settings.typingTestMode,
+            mode = options.mode,
             configKey = configKey,
         )
-        val improved = TypingBests.improve(settings.typingTestBests, configKey, result.wpm)
+        val improved = TypingBests.improve(options.bests, configKey, result.wpm)
         // Badges the run earns; only the never-before-seen ones get the "New"
         // accent on the results screen. The prompt text decides the pangram.
         val earned = TypingAchievements.evaluate(
             result,
-            testsCompleted = settings.typingTestsCompleted + 1,
+            testsCompleted = options.completed + 1,
             isPangram = TypingAchievements.isPangram(test.words.joinToString(" ")),
         )
-        val newBadges = earned - TypingAchievements.decode(settings.typingTestAchievements)
+        val newBadges = earned - TypingAchievements.decode(options.achievements)
         _uiState.update {
             it.copy(
                 typingTest = it.typingTest.copy(
                     result = result,
                     personalBest = improved != null,
                     earnedAchievements = newBadges,
+                    suggestions = emptyList(),
                 ),
             )
         }
         serviceScope.launch {
             settingsRepository.recordTypingResult(
-                history = TypingHistory.append(settings.typingTestHistory, result.wpm),
+                history = TypingHistory.append(options.history, result.wpm),
                 bests = improved?.let { TypingBests.encode(it) },
                 achievements = earned,
             )
@@ -12605,6 +14334,17 @@ open class WMKeyboardService : InputMethodService() {
                 onPanelChange(PanelMode.TYPING_TEST)
                 return
             }
+            is TypingTestAction.Suggestion -> {
+                typingTestWholeWord(action.word, keystrokes = 1)
+                return
+            }
+            is TypingTestAction.Language -> {
+                // The layout switch re-deals the prompt itself (see
+                // onLayoutSelected): the test follows the keyboard's
+                // language, and this is the same switch the spacebar makes.
+                onLayoutSelected(action.layoutId)
+                return
+            }
             else -> Unit
         }
         // A settings change invalidates the prompt in front of the user, so
@@ -12617,6 +14357,8 @@ open class WMKeyboardService : InputMethodService() {
                 is TypingTestAction.WordCount -> settingsRepository.setTypingTestWordCount(action.value)
                 is TypingTestAction.Punctuation -> settingsRepository.setTypingTestPunctuation(action.on)
                 is TypingTestAction.Numbers -> settingsRepository.setTypingTestNumbers(action.on)
+                is TypingTestAction.Glide -> settingsRepository.setTypingTestGlide(action.on)
+                is TypingTestAction.Suggestions -> settingsRepository.setTypingTestSuggestions(action.on)
                 else -> return@launch
             }
             // settingsRepository.settings has already pushed the new value
@@ -12628,10 +14370,19 @@ open class WMKeyboardService : InputMethodService() {
 
     /** The shareable one-liner the "Insert" chip writes into the field. */
     private fun typingResultText(result: TypingResult): String {
-        val settings = _uiState.value.settings
-        val config = typingConfigLabel(
-            this, result.mode, settings.typingTestDuration, settings.typingTestWordCount,
-        )
+        val state = _uiState.value
+        val options = state.settings.typingTest
+        var config = typingConfigLabel(this, result.mode, options.duration, options.wordCount)
+        // English is the test's home language and goes unnamed, as in the
+        // personal-best keys; any other language is part of the score.
+        val languageId = state.typingTest.languageId
+        if (languageId != "en") {
+            config = getString(
+                R.string.ime_service_typing_config_language,
+                config,
+                LanguageRegistry.byId(languageId).displayName,
+            )
+        }
         return getString(
             R.string.ime_service_typing_result_text,
             result.wpm.roundToInt(),
@@ -14605,6 +16356,41 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /** The same ladder for a panel layout's Select key, counted separately. */
+    private val selectKeyTaps = SelectionTapCounter(SHIFT_DOUBLE_TAP_MS)
+
+    /**
+     * A press of a Select key on a panel layout — the text-edit pad's own
+     * toggle (issue #41).
+     *
+     * The Selection mode tool's ladder, on its own counter: two buttons that
+     * share one would read a tap on each as a double and select a word nobody
+     * asked for. One tap toggles, two select the word at the cursor, three the
+     * line, and the two selecting rungs leave the arm on so the selection can
+     * be nudged from there.
+     *
+     * Deliberately not [onSelectModeTap]: the plain toggle stays on the panel's
+     * own [KeyboardUiState.textEditSelecting], which dies with the panel, while
+     * the tool's sticky mode outlives it. Only the rung changes here, never
+     * which flag the key owns.
+     *
+     * Silent: the key buzzed on the way down like every other panel key.
+     */
+    private fun onSelectKeyTap() {
+        val multiTap = _uiState.value.settings.textEditing.selectionModeMultiTap
+        when (selectKeyTaps.tap(SystemClock.uptimeMillis(), multiTap)) {
+            SelectionTap.TOGGLE -> onTextEdit(TextEditAction.SELECT, haptic = false)
+            SelectionTap.WORD -> {
+                onTextEdit(TextEditAction.SELECT_WORD, haptic = false)
+                _uiState.update { it.copy(textEditSelecting = true) }
+            }
+            SelectionTap.LINE -> {
+                onTextEdit(TextEditAction.SELECT_LINE, haptic = false)
+                _uiState.update { it.copy(textEditSelecting = true) }
+            }
+        }
+    }
+
     /**
      * The Selection mode tool held down (true) and let go (false): selection
      * mode for exactly as long as the finger stays on the button.
@@ -14615,8 +16401,10 @@ open class WMKeyboardService : InputMethodService() {
      */
     fun onSelectionHold(down: Boolean) {
         // A hold is not a tap. Without this, the tap after a hold would count as
-        // the second of a double and select a word nobody asked for.
+        // the second of a double and select a word nobody asked for. Both
+        // counters, because either button's hold reaches this.
         selectionTaps.reset()
+        selectKeyTaps.reset()
         _uiState.update { it.copy(selectionHold = down) }
     }
 
@@ -14629,8 +16417,44 @@ open class WMKeyboardService : InputMethodService() {
     private val toolHoldCallbacks by lazy {
         com.wasimaster.wmkeyboard.ime.ui.ToolHoldCallbacks(
             onSettings = ::openToolSettings,
+            onHoldAction = ::runToolFromHold,
             onSelectionHold = ::onSelectionHold,
+            onTrackpadHold = ::onTrackpadHold,
+            dictionaryBar = com.wasimaster.wmkeyboard.ime.ui.DictionaryBarCallbacks(
+                onToggle = ::onDictionaryChipToggle,
+                onFilter = ::onDictionaryFilterSelect,
+            ),
         )
+    }
+
+    /**
+     * Whether the trackpad panel is open because the toolbar's Trackpad tool is
+     * being held, so the release closes exactly what the press opened and
+     * leaves a panel the user opened with a tap alone.
+     */
+    private var trackpadHeld = false
+
+    /**
+     * The Trackpad tool held down (true) and let go (false): the trackpad panel
+     * for as long as the finger stays on the button, for a quick nudge with the
+     * other thumb (issue #39). A hold over a panel a tap already opened does
+     * nothing on either end, so the tap's panel outlives it.
+     */
+    fun onTrackpadHold(down: Boolean) {
+        if (down) {
+            if (_uiState.value.panel != PanelMode.TRACKPAD) {
+                trackpadHeld = true
+                onPanelChange(PanelMode.TRACKPAD)
+            }
+        } else if (trackpadHeld) {
+            trackpadHeld = false
+            // onPanelChange toggles: asking for the open panel closes it. Only
+            // while it is still the one the hold opened, so a tool tapped mid-
+            // hold keeps its own panel.
+            if (_uiState.value.panel == PanelMode.TRACKPAD) {
+                onPanelChange(PanelMode.TRACKPAD, haptic = false)
+            }
+        }
     }
 
     /** Arms the toolbar's selection mode, whatever the panel's own toggle says. */
@@ -14654,17 +16478,17 @@ open class WMKeyboardService : InputMethodService() {
 
     /**
      * Text-editing panel buttons. Cursor moves go through the editor as key
-     * events so apps handle them natively; while selection mode is on (or
-     * right after Select all) the moves carry shift and extend the selection.
+     * events so apps handle them natively; while selection mode is on the
+     * moves carry shift and extend the selection.
      *
      * [extendSelection] forces that on for a single call, for callers that have
      * their own reason to extend — see [onCursorTool]. It never turns extending
      * *off*: selection mode still wins when it is on, from whichever surface
      * armed it (see [KeyboardUiState.selectingText]).
      */
-    fun onTextEdit(action: TextEditAction, extendSelection: Boolean = false) {
+    fun onTextEdit(action: TextEditAction, extendSelection: Boolean = false, haptic: Boolean = true) {
         val ic = currentInputConnection ?: return
-        vibrate()
+        if (haptic) vibrate()
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
         val selecting = extendSelection || _uiState.value.selectingText
@@ -14696,10 +16520,11 @@ open class WMKeyboardService : InputMethodService() {
                 } else {
                     _uiState.update { it.copy(textEditSelecting = true) }
                 }
-            TextEditAction.SELECT_ALL -> {
-                ic.performContextMenuAction(android.R.id.selectAll)
-                _uiState.update { it.copy(textEditSelecting = true) }
-            }
+            // Selects, and nothing else. This used to arm the panel's select
+            // mode as well, which lit the Select key and the toolbar's mode
+            // tool for a press that never asked for them, and left a mode on
+            // that the user then had to find and switch off (#40).
+            TextEditAction.SELECT_ALL -> ic.performContextMenuAction(android.R.id.selectAll)
             TextEditAction.COPY -> {
                 ic.performContextMenuAction(android.R.id.copy)
                 maybeToastCopied()
@@ -14711,6 +16536,18 @@ open class WMKeyboardService : InputMethodService() {
                 purgeAfterPasswordPaste()
             }
             TextEditAction.BACKSPACE -> sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
+            // Ctrl+Home / Ctrl+End are the editor's whole-text moves, the same
+            // way Ctrl+Arrow is its word move; with select mode on they carry
+            // shift too and extend to the end.
+            TextEditAction.DOC_START ->
+                sendEditorKey(KeyEvent.KEYCODE_MOVE_HOME, selecting, ctrl = true)
+            TextEditAction.DOC_END ->
+                sendEditorKey(KeyEvent.KEYCODE_MOVE_END, selecting, ctrl = true)
+            // Like copy, it ends the panel's select mode: the selection is gone.
+            TextEditAction.CUT -> {
+                ic.performContextMenuAction(android.R.id.cut)
+                _uiState.update { it.copy(textEditSelecting = false) }
+            }
         }
     }
 
@@ -14821,6 +16658,13 @@ open class WMKeyboardService : InputMethodService() {
      * on whitespace or punctuation (no word to grab) is left untouched. The
      * offsets from [getExtractedText] are used directly as document positions,
      * matching how the rest of this service treats them.
+     *
+     * Selects, and nothing else: it does not arm selection mode. It used to,
+     * which meant the trackpad's double tap and the Select word tool switched
+     * on a mode nobody asked for and left it on (#78). The two callers that do
+     * want the mode after selecting — the Selection mode tool's ladder and a
+     * panel's Select key — arm it themselves, the same split [TextEditAction.SELECT_ALL]
+     * got in #40.
      */
     private fun selectWordAtCursor(ic: InputConnection) {
         val et = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return
@@ -14841,14 +16685,14 @@ open class WMKeyboardService : InputMethodService() {
         // deleted the character before the selection instead of it.
         expectedSelStart = start
         expectedSelEnd = end
-        _uiState.update { it.copy(textEditSelecting = true) }
     }
 
     /**
      * Selects the entire line the cursor sits on: walks out to the nearest
      * newline on either side and sets the selection to span the line content
      * (newlines themselves are excluded). An empty line leaves the caret
-     * untouched, matching [selectWordAtCursor]'s no-op on bare whitespace.
+     * untouched, matching [selectWordAtCursor]'s no-op on bare whitespace, and
+     * like it this arms no mode of its own (#78).
      */
     private fun selectLineAtCursor(ic: InputConnection) {
         val et = ic.getExtractedText(ExtractedTextRequest(), 0) ?: return
@@ -14865,7 +16709,6 @@ open class WMKeyboardService : InputMethodService() {
         ic.setSelection(start, end)
         expectedSelStart = start
         expectedSelEnd = end
-        _uiState.update { it.copy(textEditSelecting = true) }
     }
 
     /**
@@ -14877,15 +16720,19 @@ open class WMKeyboardService : InputMethodService() {
     private val snippetPanelCallbacks by lazy {
         com.wasimaster.wmkeyboard.ime.ui.SnippetPanelCallbacks(
             onSnippet = ::onSnippetTapped,
+            onSnippetHold = ::onSnippetHeld,
             onFolderOpen = ::onSnippetFolderOpen,
             onFolderToggle = ::onSnippetFolderToggle,
+            onPickerPick = ::onSnippetPickerPick,
+            onPickerDrill = ::onSnippetPickerDrill,
+            onPickerBack = ::onSnippetPickerBack,
         )
     }
 
     /** Drills the snippets panel into a folder, or backs out of one with null. */
     fun onSnippetFolderOpen(folderId: Long?) {
         vibrate()
-        _uiState.update { it.copy(snippetFolderOpen = folderId) }
+        _uiState.update { it.copy(snippetFolderOpen = folderId, snippetPicker = null) }
     }
 
     /**
@@ -14904,6 +16751,92 @@ open class WMKeyboardService : InputMethodService() {
         serviceScope.launch {
             withContext(Dispatchers.IO) { snippetStore.save() }
             snippetsStamp = snippetsFile?.lastModified() ?: snippetsStamp
+        }
+    }
+
+    /**
+     * Hold on a snippet tile: shows everything that snippet has to offer,
+     * instead of inserting the first thing.
+     *
+     * A tap stays the fast path — one tile, one insertion, no decision — and
+     * this is where the rest of a snippet's expansions and the snippets it
+     * links to live. Nothing happens for a tile with only one thing to say.
+     */
+    fun onSnippetHeld(snippet: Snippet) {
+        val rows = snippetPickerRows(snippet)
+        if (rows.size < 2) return
+        vibrate()
+        _uiState.update {
+            it.copy(
+                snippetPicker = SnippetPickerUi(
+                    rootId = snippet.id,
+                    title = snippet.label,
+                    rows = rows,
+                ),
+            )
+        }
+    }
+
+    /**
+     * What the panel's picker lists for [snippet].
+     *
+     * A pattern snippet's captures are blanks here, exactly as a tap on its
+     * tile leaves them: there is no typed text for them to have caught.
+     */
+    private fun snippetPickerRows(snippet: Snippet): List<SnippetChip> {
+        val patternOnly = snippet.trigger.isNullOrBlank() && !snippet.triggerPattern.isNullOrBlank()
+        return snippetStore
+            .candidates(snippet, context = snippetContext(currentInputConnection), blank = patternOnly)
+            .map(::chipOf)
+    }
+
+    /** Inserts the row the picker was holding, and closes the panel. */
+    fun onSnippetPickerPick(index: Int) {
+        val picker = _uiState.value.snippetPicker ?: return
+        val chip = picker.rows.getOrNull(index) ?: return
+        insertSnippetText(chip.text, chip.cursorOffset)
+    }
+
+    /** Shows what the linked snippet in row [index] offers. */
+    fun onSnippetPickerDrill(index: Int) {
+        val picker = _uiState.value.snippetPicker ?: return
+        val chip = picker.rows.getOrNull(index) ?: return
+        if (!chip.drillable || !picker.canDrill(chip.snippetId)) return
+        val child = snippetStore.item(chip.snippetId) ?: return
+        val rows = snippetPickerRows(child)
+        if (rows.isEmpty()) return
+        vibrate()
+        _uiState.update {
+            it.copy(
+                snippetPicker = picker.copy(
+                    title = child.label,
+                    rows = rows,
+                    path = picker.path + chip.snippetId,
+                ),
+            )
+        }
+    }
+
+    /** Back out of the picker: one level up, then back to the tiles. */
+    fun onSnippetPickerBack() {
+        val picker = _uiState.value.snippetPicker ?: return
+        if (picker.path.isEmpty()) {
+            _uiState.update { it.copy(snippetPicker = null) }
+            return
+        }
+        val path = picker.path.dropLast(1)
+        val root = snippetStore.item(path.lastOrNull() ?: picker.rootId) ?: run {
+            _uiState.update { it.copy(snippetPicker = null) }
+            return
+        }
+        _uiState.update {
+            it.copy(
+                snippetPicker = picker.copy(
+                    title = root.label,
+                    rows = snippetPickerRows(root),
+                    path = path,
+                ),
+            )
         }
     }
 
@@ -14927,6 +16860,12 @@ open class WMKeyboardService : InputMethodService() {
             text = expanded.text
             caret = expanded.cursorOffset
         }
+        insertSnippetText(text, caret)
+    }
+
+    /** Puts an already-expanded snippet in the field and closes the panel. */
+    private fun insertSnippetText(text: String, caret: Int) {
+        val ic = currentInputConnection
         if (ic != null) {
             ic.beginBatchEdit()
             // A word still composing commits first — a bare commitText would
@@ -14938,7 +16877,7 @@ open class WMKeyboardService : InputMethodService() {
             invalidateExpectedSelection()
             invalidateRecentWords()
         }
-        _uiState.update { it.copy(panel = PanelMode.NONE) }
+        _uiState.update { it.copy(panel = PanelMode.NONE, snippetPicker = null) }
     }
 
     /**
@@ -14970,6 +16909,23 @@ open class WMKeyboardService : InputMethodService() {
      * field opens, which is what stops a snippet saved a moment ago from
      * looking broken until the panel happens to be opened.
      */
+    /**
+     * How many things each snippet has to offer, for the tiles that say so.
+     *
+     * Only the ones with more than one are listed: the map is published into
+     * the UI state on every reload, and a snippet with a single expansion —
+     * which is nearly all of them — has nothing for a tile to draw.
+     */
+    private fun snippetCandidateCounts(): Map<Long, Int> {
+        val out = HashMap<Long, Int>()
+        for (snippet in snippetStore.items()) {
+            if (!snippet.hasChoices()) continue
+            val count = snippetStore.candidateCount(snippet)
+            if (count > 1) out[snippet.id] = count
+        }
+        return out
+    }
+
     private fun reloadSnippetsIfChanged() {
         val file = snippetsFile ?: return
         val stamp = file.lastModified()
@@ -14977,7 +16933,12 @@ open class WMKeyboardService : InputMethodService() {
         snippetsStamp = stamp
         snippetStore.reload()
         _uiState.update {
-            it.copy(snippets = snippetStore.items(), snippetFolders = snippetStore.folders())
+            it.copy(
+                snippets = snippetStore.items(),
+                snippetFolders = snippetStore.folders(),
+                snippetCandidateCounts = snippetCandidateCounts(),
+                snippetPicker = null,
+            )
         }
     }
 
@@ -15413,6 +17374,23 @@ open class WMKeyboardService : InputMethodService() {
      * away instead of a trip to settings. With nothing composing the two modes
      * do the same thing, so a hold there is an ordinary insert.
      */
+    /**
+     * A word on the suggestion strip was held and "never suggest" chosen.
+     *
+     * Adds it to the blacklist, which is the whole of the job: the settings
+     * collector hands the new set to the engine and [purgeBlacklisted] takes
+     * the word back out of the personal lexicon and the waiting room, so a word
+     * the keyboard learned from the user stops being offered as well as one it
+     * shipped with. The word stays typeable, and the blacklist screen in
+     * settings is where it can be taken back off (issue #28).
+     */
+    fun onSuggestionHeld(word: String) {
+        val trimmed = word.trim()
+        if (trimmed.isEmpty()) return
+        vibrate()
+        serviceScope.launch { settingsRepository.addSuggestionBlacklistWord(trimmed) }
+    }
+
     fun onEmojiSuggestionTapped(emoji: String, held: Boolean = false) {
         vibrate()
         val ic = currentInputConnection ?: return
@@ -15422,7 +17400,7 @@ open class WMKeyboardService : InputMethodService() {
         if (append && word.isNotEmpty()) {
             ic.finishComposingText()
             ic.commitText(" $emoji", 1)
-            learn(word)
+            learn(word, caseTrusted = composingCaseTrusted)
         } else {
             ic.commitText(emoji, 1)
         }
@@ -15653,31 +17631,25 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Offers a *just-copied one-time code* as the paste chip, and only in a
-     * field that asks for digits.
+     * Offers a *just-copied one-time code* as the paste chip.
      *
      * This is the single hole in the rule that a sensitive clip never becomes a
-     * strip chip — see [ClipboardSettings.suggestCodesInCodeFields] for why the
-     * rule bends exactly here and nowhere else. The gates are what keep it
-     * narrow: a code field, a code-shaped clip, and a copy fresh enough to
-     * still be the one the user is holding. Anything wider and this stops being
-     * a code chip and becomes a way for a copied password to appear over the
-     * keys in the middle of a message.
+     * strip chip — see [CopiedCodeChip] for why the rule bends here and nowhere
+     * else. What keeps it a code chip rather than a way for a copied password
+     * to appear over the keys is the *shape* gate: only a bare code qualifies,
+     * never the generated-secret shape a password manager puts on the
+     * clipboard. The freshness window keeps it to the code the user is
+     * actually holding, and [CopiedCodeChip.CODE_FIELDS] narrows it further to
+     * fields that ask for digits for anyone who wants that.
      *
      * Called on every field entry, and from the copy listener for a code copied
-     * while the code box already has the focus.
+     * while the field already has the focus.
      */
     private fun maybeShowCopiedCodeSuggestion() {
         val state = _uiState.value
         val settings = state.settings
-        if (!settings.clipboard.suggestRecent || !settings.clipboard.suggestCodesInCodeFields) return
-        // The same field shape the notification chip reads as a code box, and
-        // deliberately no wider: a phone or date field asks for digits too, and
-        // neither is a reason to put a secret on the strip.
-        if (state.fieldKind != FieldKind.NUMBER) return
-        // An ordinary chip is already up: it is either this clip or a newer
-        // one, and either way it is the offer the user should see.
-        if (state.clipboardSuggestion != null) return
+        if (!settings.clipboard.suggestRecent) return
+        if (settings.clipboard.copiedCodeChip == CopiedCodeChip.OFF) return
         // Typing a code moves the focus from box to box, and every one of those
         // is a field entry that lands back here. Without these two the chip the
         // user just pressed climbs back onto the strip between digits, and
@@ -15689,8 +17661,16 @@ open class WMKeyboardService : InputMethodService() {
             .filter { it.kind.isTextual }
             .maxByOrNull { it.timestamp } ?: return
         if (clip.id == pastedCodeClipId) return
-        if (System.currentTimeMillis() - clip.timestamp > COPIED_CODE_MAX_AGE_MS) return
         if (!ClipSensitivity.isBareCode(clip.text.trim())) return
+        val allowed = offersCopiedCode(
+            mode = settings.clipboard.copiedCodeChip,
+            fieldKind = state.fieldKind,
+            clipTimestamp = clip.timestamp,
+            showingTimestamp = state.clipboardSuggestion?.timestamp,
+            now = System.currentTimeMillis(),
+            maxAgeMs = COPIED_CODE_MAX_AGE_MS,
+        )
+        if (!allowed) return
         showClipboardSuggestion(clip)
     }
 
@@ -16085,8 +18065,13 @@ open class WMKeyboardService : InputMethodService() {
                 onPluginInputFocus(null)
                 true
             }
-            // Same shape one level down: back climbs out of an open snippet
-            // folder before it closes the panel the folder is drawn in.
+            // Same shape one level down, twice: back leaves a snippet's own
+            // list of expansions, then the folder that snippet sits in, then
+            // the panel both are drawn in.
+            state.panel == PanelMode.SNIPPETS && state.snippetPicker != null -> {
+                onSnippetPickerBack()
+                true
+            }
             state.panel == PanelMode.SNIPPETS && state.snippetFolderOpen != null -> {
                 onSnippetFolderOpen(null)
                 true
@@ -16975,15 +18960,15 @@ open class WMKeyboardService : InputMethodService() {
      * can undo a whole glide. The recent-copy chip survives typing here too
      * (see [onKey]).
      *
-     * [pendingGestureSpace] is left alone on purpose: both callers are the two
-     * paths allowed to spend it ([onSpace] and [processTypedText]), and each
-     * reads and clears it itself, so a physical keyboard hugs punctuation to a
-     * glided word exactly as the soft one does.
+     * [pendingWordSpace] and [pendingPunctuationSpace] are left alone on
+     * purpose: both callers are the two paths allowed to spend them ([onSpace]
+     * and [processTypedText]), and each reads and clears them itself, so a
+     * physical keyboard hugs punctuation to the word before it exactly as the
+     * soft one does.
      */
     private fun clearForHardwareTyping() {
         lastGestureWord = null
         pendingAutoSpace = false
-        pendingPunctuationSpace = false
     }
 
     /**
@@ -17027,7 +19012,13 @@ open class WMKeyboardService : InputMethodService() {
         CustomDictionaries.migrateLegacyFolders(filesDir)
         return LanguageRegistry.all.associate { lang ->
             val imported = CustomDictionaries.trie(filesDir, lang.id)
-            val downloaded = if (lang.id == "en" || lang.id == "bn") {
+            // Dropped for a language set to read imported lists alone (#28) —
+            // that is the whole of the setting for every language but English
+            // and Bengali, whose downloads travel the primary path and are
+            // dropped by [openLanguageDictionary] instead.
+            val downloaded = if (lang.id == "en" || lang.id == "bn" ||
+                !shippedDictionaryEnabled(lang.id)
+            ) {
                 null
             } else {
                 MappedTrie.open(DictionaryStore.downloadedFile(filesDir, lang.id))
@@ -17042,6 +19033,11 @@ open class WMKeyboardService : InputMethodService() {
      * bundled binary inflated out of the APK. Memory-mapped either way.
      */
     private fun openLanguageDictionary(langId: String): MappedTrie? {
+        // "Only my word lists" (#28): both the shipped vocabulary and the
+        // downloaded one are dropped, leaving the language to whatever the user
+        // imported. Checked before either is opened rather than after, so the
+        // mapping is not paid for a file nothing will read.
+        if (!shippedDictionaryEnabled(langId)) return null
         // The bundled copy is inflated into device-protected storage, so the
         // same file serves a locked boot and a normal one. A *downloaded* list
         // is the user's own and stays credential-encrypted.
@@ -17099,6 +19095,102 @@ open class WMKeyboardService : InputMethodService() {
             // neither the language nor the layout moved to say so.
             glideSourcesEpoch.update { it + 1 }
         }
+        // A list that just arrived (or left) is a chip the bar should show (or
+        // drop), and the settings did not move to say so.
+        refreshDictionaryBar(_uiState.value.settings)
+    }
+
+    // ---- dictionary bar (issue #51) ----
+
+    /**
+     * Rebuilds [KeyboardUiState.dictionaryBar] from disk and settings: one chip
+     * per word list, emoji pack and imported list, for every enabled language.
+     * Cheap while the bar is off (nothing is walked), and off the main thread
+     * otherwise — it is a few `listFiles` and a header read per language.
+     */
+    private suspend fun refreshDictionaryBar(settings: KeyboardSettings) {
+        if (!settings.rows.dictionaryBarEnabled || !userUnlocked) {
+            if (_uiState.value.dictionaryBar.isNotEmpty()) {
+                _uiState.update { it.copy(dictionaryBar = emptyList()) }
+            }
+            return
+        }
+        val chips = withContext(Dispatchers.IO) { dictionaryInventory(settings) }
+        if (chips != _uiState.value.dictionaryBar) {
+            _uiState.update { it.copy(dictionaryBar = chips) }
+        }
+    }
+
+    private fun dictionaryInventory(settings: KeyboardSettings): List<DictionaryChip> = buildList {
+        for (lang in settings.enabledLanguages) {
+            // The shipped or downloaded word list, as one unit: which of the
+            // two is read is the engine's business, and the switch behind the
+            // chip (#28's "only my lists") already covers both.
+            val hasWords = lang.bundledDictionary || DictionaryStore.isDownloaded(filesDir, lang.id)
+            if (hasWords) {
+                add(
+                    DictionaryChip(
+                        langId = lang.id,
+                        kind = DictionaryKind.WORDS,
+                        enabled = settings.suggestionStrip.shippedDictionaryEnabledFor(lang.id),
+                    ),
+                )
+            }
+            for (file in CustomDictionaries.allLists(filesDir, lang.id)) {
+                add(
+                    DictionaryChip(
+                        langId = lang.id,
+                        kind = DictionaryKind.IMPORTED,
+                        fileName = file.name,
+                        label = CustomDictionaries.displayName(file).removeSuffix(".txt"),
+                        enabled = CustomDictionaries.isEnabled(file),
+                    ),
+                )
+            }
+            val hasEmoji = EmojiDictStore.isDownloaded(filesDir, lang.id) ||
+                EmojiKeywordPacks.packs(filesDir, lang.id).isNotEmpty()
+            if (hasEmoji) {
+                add(
+                    DictionaryChip(
+                        langId = lang.id,
+                        kind = DictionaryKind.EMOJI,
+                        enabled = settings.emoji.keywordsEnabledFor(lang.id),
+                    ),
+                )
+            }
+        }
+    }
+
+    /**
+     * A chip on the dictionary bar was tapped: flip that dictionary wherever
+     * its switch lives. Each write lands in the settings flow, whose collector
+     * already rebuilds the right thing — the engine for a word list, the
+     * emoji catalogue for a pack, the imported map for a list — and refreshes
+     * the bar, so the chip recolours from the same emission.
+     */
+    fun onDictionaryChipToggle(chip: DictionaryChip) {
+        vibrate()
+        val on = !chip.enabled
+        serviceScope.launch {
+            when (chip.kind) {
+                DictionaryKind.WORDS -> settingsRepository.setShippedDictionaryEnabled(chip.langId, on)
+                DictionaryKind.EMOJI -> settingsRepository.setEmojiKeywordsEnabled(chip.langId, on)
+                DictionaryKind.IMPORTED -> {
+                    withContext(Dispatchers.IO) {
+                        val file = CustomDictionaries.allLists(filesDir, chip.langId)
+                            .firstOrNull { it.name == chip.fileName }
+                        if (file != null) CustomDictionaries.setEnabled(file, on)
+                    }
+                    settingsRepository.bumpCustomDictVersion()
+                }
+            }
+        }
+    }
+
+    /** The bar's language filter picked; null is every language. Persisted, so it is remembered. */
+    fun onDictionaryFilterSelect(langId: String?) {
+        vibrate()
+        serviceScope.launch { settingsRepository.setDictionaryBarFilter(langId) }
     }
 
     /**
@@ -17541,9 +19633,25 @@ open class WMKeyboardService : InputMethodService() {
          * buffer first, so resuming a word one step only to re-commit it the
          * next would churn the field (and re-learn the word) on every step.
          * Longer than the gap between drag steps, so a continuous scrub stays
-         * suppressed; a genuine settle re-reads on the next tap or keystroke.
+         * suppressed; the settle re-read is scheduled this far out instead
+         * (see [caretSettleJob]).
          */
         private const val CARET_SCRUB_WINDOW_MS = 250L
+
+        /**
+         * How much text past the caret is read when deciding what word it is
+         * touching. Only the first character decides whether a word may be
+         * resumed; the rest is the tail of a word the caret landed inside, so
+         * this is a long-word budget rather than a context window.
+         */
+        private const val CARET_WORD_AHEAD = 48
+
+        /**
+         * How much text behind the caret is read to tell an opening quote from
+         * a closing one (see [quoteContext]). A line's worth, and then some:
+         * the count stops at the last line break anyway.
+         */
+        private const val QUOTE_CONTEXT_CHARS = 240
 
         /**
          * How long after arming a revert window its anchor keeps following the
@@ -17607,6 +19715,16 @@ open class WMKeyboardService : InputMethodService() {
 
         /** Inline emoji search is a local index lookup — no network wait. */
         private const val EMOJI_SEARCH_DEBOUNCE_MS = 24L
+
+        /** The typing test's suggestion row: how long a keystroke burst is left to settle. */
+        private const val TYPING_TEST_SUGGEST_DEBOUNCE_MS = 24L
+
+        /**
+         * …and how many words it asks for: the strip's own slot count, since
+         * the test draws the strip itself, with a floor so a one-slot strip
+         * still has a runner-up behind the word it shows.
+         */
+        private const val TYPING_TEST_SUGGESTION_SLOTS = 3
 
         /** See the delay in [refreshSmartSuggestion]; one frame, near enough. */
         private const val SMART_SUGGEST_DEBOUNCE_MS = 24L
@@ -17885,10 +20003,11 @@ open class WMKeyboardService : InputMethodService() {
 
         /**
          * Whether to hide the *suggestion strip* for this field. This governs
-         * the strip only — autocorrect, gesture typing, phonetic composing and
-         * learning are gated separately on the field kind
-         * ([KeyboardUiState.allowsTypingIntelligence]), so silencing the strip
-         * never disables them.
+         * the strip only — autocorrect, phonetic composing and learning are
+         * gated separately on the field kind
+         * ([KeyboardUiState.allowsTypingIntelligence], and gesture typing on
+         * [KeyboardUiState.allowsGestureTyping]), so silencing the strip never
+         * disables them.
          *
          * @param overrideAppRequest the "Suggestions in every field" setting.
          * When on, the field's plea for a silent strip (the NO_SUGGESTIONS

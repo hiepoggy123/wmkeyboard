@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
     <!-- Key names spoken by a screen reader. Each one names a key on the
          keyboard, so keep them short: a screen reader says them on every
@@ -98,11 +98,18 @@
     <string name="ime_emoji_suggestion_hold_replace">Replace the word with the emoji</string>
     <string name="ime_suggestions_show_desc">Show the suggestion strip</string>
     <string name="ime_toolbar_show_desc">Show the toolbar</string>
+    <string name="ime_toolbar_hide_desc">Hide the toolbar</string>
     <string name="ime_autofill_dismiss_desc">Hide the autofill suggestions</string>
     <string name="ime_smart_replies_dismiss_desc">Hide the smart replies</string>
     <string name="ime_candidates_more_desc">More candidates</string>
     <string name="ime_emoji_panel_open_desc">Open the emoji panel</string>
     <string name="ime_symbol_set_switch_desc">Switch the symbol set</string>
+
+    <!-- Screen reader name for pressing and holding a word on the suggestion
+         strip, which opens the menu below. -->
+    <string name="ime_suggestion_hold_label">Word options</string>
+    <!-- The one item in that menu. %1$s is the word the user held. -->
+    <string name="ime_suggestion_never_suggest">Never suggest \"<xliff:g id="word" example="mary">%1$s</xliff:g>\"</string>
     <string name="ime_incognito_on_desc">Incognito is on</string>
     <string name="ime_panel_back_desc">Back to the keyboard</string>
     <string name="ime_toolbox_desc">Toolbox</string>
@@ -120,6 +127,16 @@
     <!-- Screen reader text for the chip that offers a snippet the user marked
          "ask first". %1$s is the name that the user gave the snippet. -->
     <string name="ime_snippet_offer_desc">Insert the snippet %1$s</string>
+    <!-- Screen reader text for a chip that replaces text a snippet has already
+         put in, with one of the snippet's other expansions. %1$s is the name
+         the user gave the snippet the expansion belongs to. -->
+    <string name="ime_snippet_swap_desc">Use %1$s instead</string>
+    <!-- The arrow on a chip that stands for a linked snippet: opens what that
+         snippet has to offer. %1$s is the linked snippet's name. -->
+    <string name="ime_snippet_offer_more_desc">More from %1$s</string>
+    <!-- Goes back from a linked snippet to the one whose trigger was typed.
+         %1$s is the name of the snippet it goes back to. -->
+    <string name="ime_snippet_offer_back_desc">Back to %1$s</string>
     <!-- The chip that asks whether a word no dictionary knows should be
          remembered. %1$s is the word, spelled exactly as it was typed. -->
     <string name="ime_learn_word_offer">Add \"%1$s\"?</string>
@@ -168,6 +185,7 @@
     <string name="ime_tool_clipboard">Clipboard</string>
     <string name="ime_tool_snippets">Snippets</string>
     <string name="ime_tool_text_edit">Text editing</string>
+    <string name="ime_tool_trackpad">Trackpad</string>
     <string name="ime_tool_one_handed">One-handed</string>
     <string name="ime_tool_split">Split</string>
     <string name="ime_tool_floating">Floating</string>
@@ -220,6 +238,7 @@
     <string name="ime_tool_ai">AI</string>
     <string name="ime_tool_modes">Modes</string>
     <string name="ime_tool_fancy">Fancy text</string>
+    <string name="ime_tool_custom_layout">Custom layout</string>
     <string name="ime_tool_cursor_left">Left</string>
     <string name="ime_tool_cursor_right">Right</string>
     <string name="ime_tool_cursor_word_left">Word left</string>
@@ -234,6 +253,9 @@
     <string name="ime_tool_select_word">Select word</string>
     <string name="ime_tool_select_line">Select line</string>
     <string name="ime_tool_select_mode">Selection mode</string>
+    <string name="ime_tool_copy">Copy</string>
+    <string name="ime_tool_cut">Cut</string>
+    <string name="ime_tool_paste">Paste</string>
 
     <!-- The toolbox: the grid of every tool that is not on the toolbar. -->
     <string name="ime_toolbox_hint_drag">Press and hold a tool, then drag it. Drop it on the toolbar to pin it. Drop it in this grid to change the order. Drop it below the grid to remove it.</string>
@@ -262,6 +284,16 @@
 
     <!-- The Fancy Text style strip. -->
     <string name="ime_fancy_style_switch_desc">Switch fancy style</string>
+
+    <!-- The dictionary bar: a row of chips, one per dictionary on the device. -->
+    <string name="ime_dictionary_bar_all">All</string>
+    <string name="ime_dictionary_bar_words">Words</string>
+    <string name="ime_dictionary_bar_emoji">Emoji</string>
+    <string name="ime_dictionary_bar_filter_desc">Choose which language\'s dictionaries to show</string>
+    <string name="ime_dictionary_bar_empty">No dictionaries on this device for this language</string>
+    <!-- %1$s is the chip's label, such as "English · Words". -->
+    <string name="ime_dictionary_bar_chip_on">%1$s, on. Tap to turn off</string>
+    <string name="ime_dictionary_bar_chip_off">%1$s, off. Tap to turn on</string>
 
     <!-- The app-launcher panel. -->
     <string name="ime_launcher_search_hint">Search apps</string>
@@ -298,6 +330,12 @@
     <!-- Read out for a folder. %1$s is its name. -->
     <string name="ime_snippets_folder_desc">Folder %1$s. Press to open, press and hold to switch its automatic text on or off.</string>
     <string name="ime_snippets_folder_empty">This folder is empty.</string>
+    <!-- Read out for a snippet that has more than one thing to insert. %1$s is
+         its name and %2$d is how many things it offers. -->
+    <plurals name="ime_snippets_tile_options_desc">
+        <item quantity="one">%1$s. %2$d option. Press and hold to choose.</item>
+        <item quantity="other">%1$s. %2$d options. Press and hold to choose.</item>
+    </plurals>
 
     <!-- The emoji panel. -->
     <string name="ime_emoji_search_hint">Type to search…</string>

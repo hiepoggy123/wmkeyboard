@@ -76,12 +76,20 @@ private val PRIVACY_POLICY_URL = if (BuildConfig.FLAVOR == "lite") {
 private const val PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=${BuildConfig.APPLICATION_ID}"
 private const val FDROID_URL = "https://f-droid.org/packages/${BuildConfig.APPLICATION_ID}/"
 
-/** Opens the system share sheet with the share blurb and [url]. */
+/**
+ * Opens the system share sheet with the share blurb and [url].
+ *
+ * The blurb and the link go out on one line. A newline between them reads
+ * better, but a receiving app is free to take the two lines as two parts of a
+ * structured share: Messenger sends them on tagged with its own markers, and
+ * the friend reads `mp:Try WM Keyboard…ms:https://…`. One line has no seam to
+ * split on.
+ */
 private fun shareLink(context: android.content.Context, url: String) {
     val blurb = context.getString(R.string.about_share_blurb)
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, "$blurb\n$url")
+        putExtra(Intent.EXTRA_TEXT, "$blurb $url")
     }
     val chooserTitle = context.getString(R.string.about_share_chooser_title)
     context.startActivity(Intent.createChooser(intent, chooserTitle).apply {
@@ -576,7 +584,10 @@ internal fun AboutSettings(
     var versionTaps by remember { mutableIntStateOf(0) }
     var versionTapToast by remember { mutableStateOf<Toast?>(null) }
 
-    SettingsGroup(stringResource(R.string.about_app_title)) {
+    SettingsGroup(
+        stringResource(R.string.about_app_title),
+        info = stringResource(R.string.about_free_software_body),
+    ) {
         item {
             NavRow(
                 R.string.about_version_title,
@@ -671,13 +682,15 @@ internal fun AboutSettings(
             )
         }
     }
-    CaptionText(stringResource(R.string.about_free_software_body))
 
     // Directly under the version it is about. Present only in a Play build:
     // everywhere else the updater reports "unsupported" and this draws nothing.
     UpdateSettings()
 
-    SettingsGroup(stringResource(R.string.about_feedback_title)) {
+    SettingsGroup(
+        stringResource(R.string.about_feedback_title),
+        info = stringResource(R.string.about_feedback_body),
+    ) {
         item {
             NavRow(
                 R.string.about_report_bug_title,
@@ -698,7 +711,6 @@ internal fun AboutSettings(
             }
         }
     }
-    CaptionText(stringResource(R.string.about_feedback_body))
 
     SettingsGroup(stringResource(R.string.about_documentation_title)) {
         item {
@@ -743,8 +755,10 @@ internal fun AboutSettings(
 internal fun LicensesScreen(onOpenLicenseText: (String) -> Unit) {
     val uriHandler = LocalUriHandler.current
 
-    CaptionText(stringResource(R.string.about_licences_intro_body))
-    SettingsGroup(stringResource(R.string.about_section_bundled_title)) {
+    SettingsGroup(
+        stringResource(R.string.about_section_bundled_title),
+        info = stringResource(R.string.about_licences_intro_body),
+    ) {
         bundledAttributions.forEach { entry ->
             item {
                 NavRow(entry.name, licenceRowSubtitle(entry)) {
@@ -754,7 +768,10 @@ internal fun LicensesScreen(onOpenLicenseText: (String) -> Unit) {
             }
         }
     }
-    SettingsGroup(stringResource(R.string.about_section_data_packs_title)) {
+    SettingsGroup(
+        stringResource(R.string.about_section_data_packs_title),
+        info = stringResource(R.string.about_data_packs_body),
+    ) {
         dataPackAttributions.forEach { entry ->
             item {
                 NavRow(entry.name, licenceRowSubtitle(entry)) {
@@ -764,8 +781,10 @@ internal fun LicensesScreen(onOpenLicenseText: (String) -> Unit) {
             }
         }
     }
-    CaptionText(stringResource(R.string.about_data_packs_body))
-    SettingsGroup(stringResource(R.string.about_section_services_title)) {
+    SettingsGroup(
+        stringResource(R.string.about_section_services_title),
+        info = stringResource(R.string.about_services_body),
+    ) {
         serviceAttributions.forEach { entry ->
             item {
                 val subtitle = stringResource(
@@ -779,7 +798,6 @@ internal fun LicensesScreen(onOpenLicenseText: (String) -> Unit) {
             }
         }
     }
-    CaptionText(stringResource(R.string.about_services_body))
 }
 
 /** "What it is used for", then the copyright line and the licence name. */

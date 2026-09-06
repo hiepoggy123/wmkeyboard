@@ -12,11 +12,9 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -29,6 +27,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -93,6 +92,15 @@ internal fun DebugLogScreen() {
         value = if (showSystemLog) withContext(Dispatchers.IO) { DebugLog.systemLog() } else ""
     }
 
+    // The three reads above are what a refresh re-runs; the spinner stops when
+    // they have all landed.
+    var refreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(entries, crashes, systemLog) { refreshing = false }
+    RegisterPullRefresh(refreshing) {
+        refreshing = true
+        revision++
+    }
+
     val shown = remember(entries, query, minLevel) {
         entries.filter { it.level.ordinal >= minLevel.ordinal }
             .filter {
@@ -102,9 +110,11 @@ internal fun DebugLogScreen() {
             }
     }
 
-    CaptionText(stringResource(R.string.shell_debug_log_intro_body))
 
-    SettingsGroup(stringResource(R.string.shell_debug_log_report_title)) {
+    SettingsGroup(
+        stringResource(R.string.shell_debug_log_report_title),
+        info = stringResource(R.string.shell_debug_log_intro_body),
+    ) {
         item {
             NavRow(
                 R.string.shell_debug_log_share_title,
@@ -133,10 +143,10 @@ internal fun DebugLogScreen() {
     // builds it wants to confirm the report screen actually comes up before
     // sending the APK anywhere.
     if (BuildConfig.ENABLE_CRASH_SCREEN) {
-        SettingsGroup(stringResource(R.string.shell_debug_log_diagnostic_title)) {
-            item {
-                CaptionText(stringResource(R.string.shell_debug_log_diagnostic_body))
-            }
+        SettingsGroup(
+            stringResource(R.string.shell_debug_log_diagnostic_title),
+            info = stringResource(R.string.shell_debug_log_diagnostic_body),
+        ) {
             item {
                 NavRow(
                     R.string.shell_debug_log_crash_test_title,
@@ -192,10 +202,6 @@ internal fun DebugLogScreen() {
                         onClick = { minLevel = level },
                         label = { Text(stringResource(levelLabelRes(level))) },
                     )
-                }
-                Spacer(Modifier.width(4.dp))
-                OutlinedButton(onClick = { revision++ }) {
-                    Text(stringResource(R.string.shell_debug_log_refresh_action))
                 }
             }
         }

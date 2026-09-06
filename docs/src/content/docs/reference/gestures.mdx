@@ -41,14 +41,16 @@ Which action a spacebar swipe runs depends on *when* the drag starts relative to
 
 <SettingsPath path="Typing / Backspace" />
 
-Tap, hold-to-repeat, and word-swipe are one state machine on <KeyCap>⌫</KeyCap>, so a drag can take over from the repeat loop mid-press. Each word costs less to delete than the last: 72&nbsp;dp for the first, 56&nbsp;dp for the second, then 6&nbsp;dp less per word down to a 28&nbsp;dp floor. Full breakdown, including the character-run and selection rules, on [Gestures](/typing/gestures/#deleting-whole-words-with-backspace).
+Tap, hold-to-repeat, and the delete swipe are one state machine on <KeyCap>⌫</KeyCap>, so a drag can take over from the repeat loop mid-press. In Words mode each word costs less to delete than the last: 72&nbsp;dp for the first, 56&nbsp;dp for the second, then 6&nbsp;dp less per word down to a 28&nbsp;dp floor. In Characters mode every character costs a flat 20&nbsp;dp. Full breakdown, including the character-run and selection rules, on [Gestures](/typing/gestures/#deleting-more-than-a-character-with-backspace).
 
 | Gesture | Where | What it does | Setting |
 | --- | --- | --- | --- |
 | Tap | Backspace | Deletes one character | None |
 | Hold still | Backspace | Repeats character deletion after the repeat wait, at the delete interval | Time before a key repeats · Delete repeat interval |
-| Drag left past a small slop | Backspace | Cancels the repeat and deletes a word per step, shrinking with each word | Swipe to delete words (On) |
-| Drag right mid-swipe | Backspace | Re-anchors instead of undeleting, so the next leftward word costs full travel again | (same) |
+| Drag left past a small slop | Backspace | Cancels the repeat and takes a word (shrinking with each word) or a character per step | Swipe to delete · Swipe deletes (On · Words) |
+| Drag right mid-swipe | Backspace | Gives back one step of the highlight per step of travel | Show what you will delete (On) |
+| Lift after dragging left | Backspace | Deletes everything the swipe highlighted | (same) |
+| Drag right mid-swipe | Backspace | Re-anchors instead of undeleting, so the next leftward word costs full travel again | Show what you will delete (Off) |
 
 ## Long-pressing a key
 
@@ -63,6 +65,18 @@ The full field-by-field list (haptics, sound, popup timing, and every long-press
 | Long-press <KeyCap>A</KeyCap>/<KeyCap>C</KeyCap>/<KeyCap>X</KeyCap>/<KeyCap>V</KeyCap>/<KeyCap>Z</KeyCap>/<KeyCap>Y</KeyCap> | Those letter keys, or whichever six you rebind them to | Runs select-all / copy / cut / paste / undo / redo instead of that letter's accents | Press and hold A to select all, and its five siblings (all Off) |
 | Double-tap <KeyCap>Shift</KeyCap> within the window | Shift key | Turns on caps lock | Caps lock double press (350 ms) |
 | Hold any key still | Any key | Shows the key preview bubble | Key popup (On) |
+
+## Dragging from a modifier key
+
+A <KeyCap>Ctrl</KeyCap>, <KeyCap>Alt</KeyCap> or <KeyCap>Meta</KeyCap> key only exists on a layout you built or imported, since none of the shipped ones carry a modifier row. Add one from the [layout editor](/languages/custom-layouts/#editing-a-key). Full mechanics on [Gestures](/typing/gestures/#dragging-from-a-modifier-key-to-fire-a-shortcut).
+
+| Gesture | Where | What it does | Setting |
+| --- | --- | --- | --- |
+| Tap | A modifier key | Arms it for the next key you press | None |
+| Double-tap | A modifier key | Locks it until you tap it again | None |
+| Drag onto another key and lift | A modifier key | Sends that combination, then clears the modifier | None |
+| Drag off and back, then lift | A modifier key | Arms it, the same as a tap | None |
+| Drag off the key grid and lift | A modifier key | Cancels, and nothing is sent | None |
 
 ## Using the volume keys as a cursor
 
@@ -109,7 +123,9 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | 2-D cursor touchpad | Typing → Gestures | Off |
 | Swipe down to hide the keyboard | Typing → Gestures | Off |
 | Glide typing | Typing → Gestures | On |
-| Swipe to delete words | Typing → Backspace | On |
+| Swipe to delete | Typing → Backspace | On |
+| Swipe deletes | Typing → Backspace | Words |
+| Show what you will delete | Typing → Backspace | On |
 | Volume keys move the cursor | Typing → Volume keys | Off |
 | Release the keys while audio plays | Typing → Volume keys | On |
 | Press and hold delay | Key press → Timing | 300 ms (150–700 ms) |
@@ -120,7 +136,8 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | Press and hold hints | Key press → Press and hold shortcuts | On |
 | All accents on press and hold | Key press → Press and hold shortcuts | Off |
 | Press and hold ?123 for the number pad | Key press → Press and hold shortcuts | **On** |
-| Press and hold A/C/X/V/Z/Y to … | Key press → Press and hold shortcuts | Off (each) |
+| Press and hold A/C/X/V/Z/Y to … | Key press → Press and hold shortcuts | **On** (each) |
+| Choose without lifting | Key press → Alternate keys | **On** |
 | Emoji descriptions | Emoji → Emoji panel | On |
 | Swipe down to hide (toolbar) | Appearance → Toolbar | Off |
 | Floating keyboard width | Layout & size → One-handed, split & floating | 320 dp (240–500 dp) |

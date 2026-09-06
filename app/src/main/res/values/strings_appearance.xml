@@ -36,6 +36,9 @@
 
     <!-- Appearance screen, Toolbar group: the strip above the keys. -->
     <string name="appearance_toolbar_section_title">Toolbar</string>
+    <string name="appearance_toolbar_section_subtitle">What the bar above the keys shows, and how</string>
+    <string name="appearance_toolbox_section_title">Toolbox</string>
+    <string name="appearance_toolbox_section_subtitle">The tool grid: its layout, columns and paging</string>
     <string name="appearance_toolbar_show_title">Show the toolbar</string>
     <string name="appearance_toolbar_show_subtitle">The strip above the keys that holds the suggestions and the tools</string>
     <string name="appearance_toolbar_show_info">The toolbar is the row above the keys. It shows the word suggestions while you type. At other times it shows your pinned tools, such as emoji, clipboard and cursor keys. Turn it off to give its height to the keys. The app asks you to confirm, because this also hides the suggestions and every tool.</string>
@@ -46,23 +49,9 @@
     <string name="appearance_toolbar_placement_strip_label">The strip</string>
     <string name="appearance_toolbar_placement_button_label">A button</string>
     <string name="appearance_toolbar_placement_always_label">Always</string>
-
-    <string name="appearance_toolbar_hold_title">Press and hold a tool</string>
-    <string name="appearance_toolbar_hold_subtitle">Give each tool on the toolbar a second action</string>
-    <plurals name="appearance_toolbar_hold_count">
-        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> tool</item>
-        <item quantity="other"><xliff:g id="count" example="3">%1$d</xliff:g> tools</item>
-    </plurals>
-    <string name="appearance_toolbar_hold_tools_group_title">Tools on the toolbar</string>
-    <string name="appearance_toolbar_hold_intro_body">Press and hold a tool on the toolbar to do a second thing with it. Hold undo to redo, or hold the text editing tool to open the clipboard. This changes the toolbar only. In the toolbox, press and hold still opens a tool\'s own settings, and the Tools screen still lists every one of them.</string>
-    <string name="appearance_toolbar_hold_empty_body">There are no tools on the toolbar. Add some in Tools, then give them their second action here.</string>
-    <string name="appearance_toolbar_hold_settings_subtitle">Opens this tool\'s settings</string>
-    <string name="appearance_toolbar_hold_repeats_subtitle">Press and hold repeats the move, so it cannot do a second action</string>
-    <string name="appearance_toolbar_hold_selects_subtitle">Press and hold turns selection mode on, so it cannot do a second action</string>
-    <!-- %1$s is the name of a tool, for example "Undo". -->
-    <string name="appearance_toolbar_hold_clear_desc">Clear the press and hold action for <xliff:g id="tool" example="Undo">%1$s</xliff:g></string>
-    <!-- %1$s is the name of a tool, for example "Undo". -->
-    <string name="appearance_toolbar_hold_pick_title">Press and hold <xliff:g id="tool" example="Undo">%1$s</xliff:g></string>
+    <string name="appearance_toolbar_placement_strip_desc">The tools and the suggestions share one row, and the arrow flips between them</string>
+    <string name="appearance_toolbar_placement_button_desc">The tools get a row of their own, opened and closed from the arrow</string>
+    <string name="appearance_toolbar_placement_always_desc">The tools keep a row of their own, always open</string>
 
     <string name="appearance_toolbar_swipe_down_title">Swipe down to hide</string>
     <string name="appearance_toolbar_swipe_down_subtitle">Swipe down on the toolbar to close the keyboard</string>
@@ -71,20 +60,21 @@
     <string name="appearance_toolbar_hardware_only_subtitle">When a hardware keyboard is connected, show only the toolbar</string>
     <string name="appearance_toolbar_hardware_only_info">When you connect a Bluetooth keyboard or a dock keyboard, the on-screen keys go away and only the toolbar stays. Emoji, clipboard and the other tools stay one press away while you type on the hardware keyboard. This setting is off by default.</string>
     <string name="appearance_toolbar_rtl_title">Reverse the order for right-to-left languages</string>
-    <string name="appearance_toolbar_rtl_subtitle">Mirror the order of the tools when you type a right-to-left script</string>
-    <string name="appearance_toolbar_rtl_info">For right-to-left scripts, such as Arabic and Hebrew, the pinned tools also go from right to left, so the toolbar follows the text. This setting is on by default. The toolbox grid does not change.</string>
-    <string name="appearance_toolbar_spread_title">Spread the tools across the toolbar</string>
-    <string name="appearance_toolbar_spread_subtitle">The tools share the width of the toolbar equally</string>
-    <string name="appearance_toolbar_spread_info">When this is on, the tools share the full width of the toolbar, like the word suggestions do. When it is off, they keep a fixed size on the left. You select the tools on the toolbar from the keyboard. Open the toolbox with the grid button on the toolbar. Then press and hold a tool and drag it between the toolbar and the toolbox.</string>
+    <string name="appearance_toolbar_rtl_subtitle">Mirror the whole toolbar when you type a right-to-left script</string>
+    <string name="appearance_toolbar_rtl_info">For right-to-left scripts, such as Arabic, Hebrew and Persian, the whole toolbar goes from right to left, so it follows the text: the toolbox button moves to the right edge and the pinned tools run back from it. This setting is off by default, so that switching between a left-to-right and a right-to-left language leaves the tools where your fingers expect them. The toolbox grid does not change either way.</string>
+    <string name="appearance_toolbar_fit_title">Tool layout</string>
+    <string name="appearance_toolbar_fit_subtitle">How the pinned tools share the toolbar</string>
+    <string name="appearance_toolbar_fit_info">Fixed size keeps the tools at one size on the left. Spread out shares the full width of the toolbar between them, like the word suggestions do. Scroll keeps each tool at a comfortable size when you pin more than fit, and lets you swipe through them. You select the tools on the toolbar from the keyboard: open the toolbox with the grid button, then press and hold a tool and drag it between the toolbar and the toolbox. With Scroll, change the order from the toolbox, because a drag inside a toolbar that scrolls is difficult.</string>
+    <string name="appearance_toolbar_fit_fixed_label">Fixed size</string>
+    <string name="appearance_toolbar_fit_spread_label">Spread out</string>
+    <string name="appearance_toolbar_fit_scroll_label">Scroll</string>
+    <string name="appearance_toolbar_fit_fixed_desc">The tools keep one size, packed to the left</string>
+    <string name="appearance_toolbar_fit_spread_desc">The tools share the full width of the toolbar</string>
+    <string name="appearance_toolbar_fit_scroll_desc">Each tool keeps a comfortable size and the bar scrolls sideways</string>
     <string name="appearance_toolbar_height_title">Toolbar height</string>
     <string name="appearance_toolbar_height_subtitle">Height of the toolbar and the suggestion strip</string>
     <!-- dp is the Android unit for screen size. Keep the two letters. -->
     <string name="appearance_toolbar_height_info">The default is 44 dp. A taller toolbar gives larger targets for your finger and space for the tool labels. A shorter toolbar gives more height back to the screen. This strip shows both the word suggestions and the toolbar.</string>
-    <string name="appearance_toolbar_scroll_title">Scroll the toolbar</string>
-    <string name="appearance_toolbar_scroll_subtitle">Swipe the tools sideways instead of making them smaller</string>
-    <!-- The text in quotes is appearance_toolbar_spread_title. Use the same
-         words there and here. -->
-    <string name="appearance_toolbar_scroll_info">When you pin more tools than the toolbar can show, this keeps each tool at a comfortable size and lets you scroll through them. It puts the tools on the left and overrides \"Spread the tools across the toolbar\". Change the order from the toolbox, because a drag inside a toolbar that scrolls is difficult.</string>
     <string name="appearance_toolbar_lock_title">Hide the toolbar and the clipboard on the lock screen</string>
     <string name="appearance_toolbar_lock_subtitle">Hide the top strip and block the clipboard while your device is locked</string>
     <string name="appearance_toolbar_lock_info">The keyboard opens over your lock screen when you answer a notification or use a search box there. This setting then hides the full top strip and blocks the clipboard panel. The strip holds the word suggestions and every pinned tool, so the clipboard tool and its paste chip also go. Copied text such as one-time codes and passwords stays off a screen that anyone can wake. This setting is off by default. When your device is unlocked, the keyboard does not change.</string>
@@ -145,6 +135,10 @@
     <string name="appearance_suggestion_text_size_subtitle">How large the words in the suggestion strip are</string>
     <string name="appearance_suggestion_text_size_info">Key labels have their own size setting and the suggestions above them did not, so large keys could still come with small suggestions. This also sizes the candidate row for Chinese, Japanese and Cantonese input, since it is the same row in a different mode. This setting is 100% by default.</string>
 
+    <string name="appearance_suggestion_spacing_title">Suggestion spacing</string>
+    <string name="appearance_suggestion_spacing_subtitle">The gap on each side of a word in the suggestion strip</string>
+    <string name="appearance_suggestion_spacing_info">Lower it to fit more of a long word before it has to shrink, or to pack more suggestions onto a narrow screen. Raise it to keep neighbouring words from reading as one when the strip scrolls. This setting is 6 dp by default.</string>
+
     <string name="appearance_toolbox_label_size_title">Toolbox label size</string>
     <string name="appearance_toolbox_label_size_subtitle">The name under each tool in the full tool panel</string>
     <string name="appearance_toolbox_label_size_info">By default these follow the toolbar label size, so the two agree. Set a size here to make the toolbox names larger or smaller on their own. This setting follows the toolbar by default.</string>
@@ -153,7 +147,13 @@
 
     <string name="appearance_reset_title">Reset appearance</string>
     <string name="appearance_reset_subtitle">Put every setting on this screen back to its default</string>
-    <string name="appearance_reset_confirm">The key corner radius, the label and hint sizes, the whole toolbar group and the whole toolbox group go back to their defaults. Your theme, your font and your icon pack are not affected: they have their own screens.</string>
+    <string name="appearance_reset_confirm">The key corner radius and the label and hint sizes go back to their defaults. Your theme, your font and your icon pack are not affected: they have their own screens. The toolbar and the toolbox have resets of their own.</string>
+    <string name="appearance_toolbar_reset_title">Reset toolbar</string>
+    <string name="appearance_toolbar_reset_subtitle">Put every setting on this screen back to its default</string>
+    <string name="appearance_toolbar_reset_confirm">The toolbar, its labels, the suggestion strip and the tool shape go back to their defaults. Which tools are pinned is not affected.</string>
+    <string name="appearance_toolbox_reset_title">Reset toolbox</string>
+    <string name="appearance_toolbox_reset_subtitle">Put every setting on this screen back to its default</string>
+    <string name="appearance_toolbox_reset_confirm">The grid layout, the columns, the paging and the label size go back to their defaults. The order of the tools, and which tools are switched on, are not affected.</string>
 
     <string name="appearance_reset_toolbox_order_title">Reset toolbox order</string>
     <string name="appearance_reset_toolbox_order_subtitle">Put the tools in the toolbox grid back in their original order</string>

@@ -6,7 +6,7 @@
 -->
 <resources>
 
-    <string name="expander_intro_info">A snippet is a piece of text that you use again and again, for example an address, an email sign-off or a standard reply. You insert a snippet from the snippet panel of the keyboard with one press.</string>
+    <string name="expander_intro_info">Text you use again and again, inserted with one press from the snippet panel.</string>
 
     <string name="expander_variables_title">Template variables</string>
     <!-- Meaning of the {date:…} variable, shown next to the token itself. -->
@@ -119,5 +119,28 @@
     <string name="expander_package_author_label">Author (optional)</string>
     <string name="expander_package_description_label">Description (optional)</string>
     <string name="expander_export_notes_title">What Espanso cannot carry</string>
+
+    <!-- What the keyboard does when a snippet it expands has more than one
+         text to insert, or points at other snippets. -->
+    <string name="expander_behaviour_title">Behaviour</string>
+    <string name="expander_multi_expand_title">When a snippet has several expansions</string>
+    <string name="expander_multi_expand_subtitle">What happens after you type the trigger</string>
+    <string name="expander_multi_expand_info">A snippet can hold more than one text, and can point at other snippets. Chips only: the suggestion bar offers all of them and nothing goes in until you press one. Insert first: the keyboard inserts the default straight away and offers the rest, so pressing one swaps what it put in. Each snippet can answer this on its own.</string>
+    <string name="expander_multi_expand_chips_label">Chips only</string>
+    <string name="expander_multi_expand_insert_label">Insert first</string>
+    <!-- One line under each option in the several expansions picker. -->
+    <string name="expander_multi_expand_chips_desc">The suggestion strip offers them all. Nothing goes in until you press one</string>
+    <string name="expander_multi_expand_insert_desc">The default goes in at once. Press another chip to swap it</string>
+
+    <!-- %1$d is how many texts a snippet can insert, and picks the form. -->
+    <plurals name="expander_expansion_count">
+        <item quantity="one">%1$d expansion</item>
+        <item quantity="other">%1$d expansions</item>
+    </plurals>
+    <!-- %1$d is how many snippets this one points at, and picks the form. -->
+    <plurals name="expander_linked_count">
+        <item quantity="one">%1$d linked snippet</item>
+        <item quantity="other">%1$d linked snippets</item>
+    </plurals>
 
 </resources>

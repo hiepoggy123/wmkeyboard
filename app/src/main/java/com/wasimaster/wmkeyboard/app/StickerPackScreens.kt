@@ -66,6 +66,7 @@ import com.wasimaster.wmkeyboard.core.stickers.StickerPackFile
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
 import com.wasimaster.wmkeyboard.core.stickers.StickerSearchWords
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
+import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -105,14 +106,14 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
         scope.launch {
             val ok = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                    context.contentResolver.requireOutputStream(uri).use { out ->
                         StickerPackFile.write(
                             out,
                             pack,
                             appVersion = BuildConfig.VERSION_CODE,
                             appVersionName = BuildConfig.VERSION_NAME,
                         ) { store.fileFor(pack.id, it) }
-                    } ?: error("no stream")
+                    }
                 }.isSuccess
             }
             message = if (ok) {
@@ -184,9 +185,11 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
         }
     }
 
-    CaptionText(stringResource(R.string.import_stickers_caption))
 
-    SettingsGroup(stringResource(R.string.import_sticker_packs_section_title)) {
+    SettingsGroup(
+        stringResource(R.string.import_sticker_packs_section_title),
+        info = stringResource(R.string.import_stickers_caption),
+    ) {
         if (packs.isEmpty()) {
             item {
                 WmRow(
@@ -213,17 +216,9 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
         }
     }
 
+    RegisterAddFab(stringResource(R.string.import_sticker_pack_new_title)) { newPackName = "" }
     SettingsGroup {
         item { AddonStoreRow(AddonType.Stickers, onNavigate) }
-        item {
-            WmRow(
-                title = stringResource(R.string.import_sticker_pack_new_title),
-                subtitle = stringResource(R.string.import_sticker_pack_new_subtitle),
-                icon = Icons.Outlined.Add,
-                accent = routeAccent("sticker_packs"),
-                onClick = { newPackName = "" },
-            )
-        }
         item {
             WmRow(
                 title = stringResource(R.string.import_sticker_pack_import_title),
@@ -457,9 +452,11 @@ internal fun StickerPackScreen(packId: String, onNavigate: (String) -> Unit) {
         return
     }
 
-    CaptionText(stringResource(R.string.import_sticker_pack_caption))
 
-    SettingsGroup(stringResource(R.string.import_sticker_pack_section_title)) {
+    SettingsGroup(
+        stringResource(R.string.import_sticker_pack_section_title),
+        info = stringResource(R.string.import_sticker_pack_caption),
+    ) {
         item {
             WmRow(
                 title = pack.name,

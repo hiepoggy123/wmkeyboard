@@ -150,6 +150,40 @@ class SuggestionEngine(
         }
 
     /**
+     * Android's personal dictionary — the list under System settings →
+     * Languages & input → Dictionary — read in as one more known-word source
+     * (#45). Fed by the IME from [SystemUserDictionary.words] and refreshed
+     * when the platform reports a change; empty when the setting is off.
+     *
+     * Weighted and tiered like the personal lexicon rather than a dictionary:
+     * these are the user's own words, so they should win against the bundled
+     * list the way a learned word does, and — like the lexicon — they do not
+     * vote on glide coverage. Not gated by [englishSources] or by language:
+     * a locale-less entry is valid everywhere, and a name or acronym the user
+     * added under one locale is not something to unlearn under another.
+     */
+    @Volatile
+    private var systemDictionaryField: WordSource = PackedTrie.EMPTY
+    var systemDictionary: WordSource
+        get() = systemDictionaryField
+        set(value) {
+            systemDictionaryField = value
+            generation.incrementAndGet()
+        }
+
+    /**
+     * Surface spellings for the platform dictionary's capitalized entries
+     * ("boston" -> "Boston"), from [SystemUserDictionary.Entries.shapes].
+     *
+     * Set alongside [systemDictionary] and deliberately outside the walk's
+     * [generation]: casing decides how a candidate is *written*, never which
+     * candidates the walk finds, so a change here must not throw away cached
+     * walk results.
+     */
+    @Volatile
+    var systemWordCases: Map<String, String> = emptyMap()
+
+    /**
      * Dictionaries for the user's secondary languages, consulted alongside the
      * primary so a bilingual typist gets both without switching. These are the
      * freq-1 imported lists, weighted below every primary source; a word valid
@@ -394,15 +428,28 @@ class SuggestionEngine(
     var register: Register = Register.NEUTRAL
 
     /**
-     * Records that the user undid the autocorrect of [typed] into
-     * [corrected] (typically by backspacing over it). The exact pair is
-     * blocked for this session and penalized across sessions; other
-     * corrections of the same typed word are deliberately untouched.
+     * Records that the user undid the autocorrect of [typed] into [corrected].
+     * The exact pair is blocked for the run of typing and penalized across
+     * sessions; other corrections of the same typed word are untouched.
+     *
+     * [deliberate] is false for a verdict read back off the field once the text
+     * settled, rather than a backspace pressed on the correction itself. Those
+     * carry a trap: a user who never noticed the fix, went back to correct
+     * their own typo and produced the same typo again leaves the field looking
+     * exactly like a rejection. So an indirect verdict whose surviving spelling
+     * is not a word at all is thrown away rather than believed — nobody stands
+     * by a spelling no dictionary and no personal store has ever seen, and the
+     * one reading that fits is that the typo was reproduced. A genuinely
+     * personal word (a name, a nickname, a transliteration) reaches
+     * [isKnownWord] on its own through [PendingLearn] after a few sightings,
+     * and its rejections count in full from then on.
      */
-    fun rejectCorrection(typed: String, corrected: String) {
-        if (typed.isNotEmpty() && corrected.isNotEmpty()) {
-            correctionStats.recordRevert(typed, corrected)
+    fun rejectCorrection(typed: String, corrected: String, deliberate: Boolean = true) {
+        if (typed.isEmpty() || corrected.isEmpty()) return
+        if (!deliberate && correctionStats.memory != UndoMemory.STRICT && !isKnownWord(typed)) {
+            return
         }
+        correctionStats.recordRevert(typed, corrected, deliberate = deliberate)
     }
 
     private val emptyTrie: WordSource = PackedTrie.EMPTY
@@ -552,8 +599,23 @@ class SuggestionEngine(
     private val beam = FuzzyBeamSearch()
     private val beamWorkspace = ThreadLocal.withInitial { BeamWorkspace() }
 
-    private val glideBeam = GlideBeam()
+    @Volatile
+    private var glideBeam = GlideBeam()
     private val glideWorkspace = ThreadLocal.withInitial { GlideWorkspace() }
+
+    /**
+     * How many of a dictionary's commonest words a swipe may decode to, 0 for
+     * all of them — [GlideBeam.Tuning.vocabularyRank], which is why it rebuilds
+     * the decoder rather than being read per stroke. [GlideBeam] holds nothing
+     * but its tuning (the workspace is the caller's), so replacing it costs an
+     * allocation and no state.
+     */
+    var glideVocabularyRank: Int = 0
+        set(value) {
+            if (field == value) return
+            field = value
+            glideBeam = GlideBeam(GlideBeam.Tuning(vocabularyRank = value))
+        }
 
     /**
      * The romanization a glide is decoded through, when the layout's keys and
@@ -630,7 +692,20 @@ class SuggestionEngine(
         val words = if (romanization.isEmpty) decoded else romanization.resolve(decoded)
         val kept = words.filterNot { suppressed(it.word) }
         if (kept.isEmpty()) return kept
-        return rerankGlide(kept, previousWord, previousWord2, recentWords).take(limit)
+        return rerankGlide(kept, previousWord, previousWord2, recentWords)
+            .take(limit)
+            // The whole complaint behind #44: a swipe knew the word but not
+            // the capital, so every proper noun had to be re-picked off the
+            // strip. Applied after the rerank, which — like the decoder and
+            // the blacklist above it — matches on keys.
+            .map { c ->
+                val display = displayForm(c.word)
+                if (display == c.word) {
+                    c
+                } else {
+                    GlideBeam.Candidate(display, c.score, c.shapeCost, c.tier)
+                }
+            }
     }
 
     /**
@@ -798,6 +873,14 @@ class SuggestionEngine(
                 FuzzyBeamSearch.WalkSource(walker, LOG_USER_WORD_WEIGHT, FuzzyBeamSearch.Tier.USER)
             )
         }
+        // The platform's personal dictionary rides the user tier at the
+        // lexicon's weight: every entry is frequency 1, i.e. a word the user
+        // typed once.
+        for (walker in systemDictionary.walkers()) {
+            sources.add(
+                FuzzyBeamSearch.WalkSource(walker, LOG_USER_WORD_WEIGHT, FuzzyBeamSearch.Tier.USER)
+            )
+        }
         return sources
     }
 
@@ -819,10 +902,11 @@ class SuggestionEngine(
     val hasWordSources: Boolean
         get() = walkSources().any { it.walker.maxSubtree(it.walker.root) > 0 }
 
-    /** Best frequency for a word across the primary and secondary lists. */
+    /** Best frequency for a word across the primary, secondary and platform lists. */
     private fun dictionaryFrequencyOf(word: String): Int = maxOf(
         activeDictionary.frequencyOf(word),
         weighted(customDictionary.frequencyOf(word), CUSTOM_WORD_WEIGHT),
+        weighted(systemDictionary.frequencyOf(word), USER_WORD_WEIGHT),
         secondaryEnglishFrequencyOf(word),
         secondaryDictionaries.maxOfOrNull {
             weighted(it.source.frequencyOf(word), secondaryWeight(it.langId))
@@ -840,13 +924,14 @@ class SuggestionEngine(
 
     private fun inDictionaries(word: String): Boolean =
         activeDictionary.contains(word) || customDictionary.contains(word) ||
+            systemDictionary.contains(word) ||
             (englishAsSecondary && !englishSources && dictionary.contains(word)) ||
             secondaryDictionaries.any { it.source.contains(word) }
 
     /**
      * Whether [word] is one the keyboard already knows — from any loaded
-     * dictionary, the user's own lexicon, their contacts or their installed
-     * apps.
+     * dictionary, Android's personal dictionary, the user's own lexicon,
+     * their contacts or their installed apps.
      *
      * This is the gate in front of learning: a known word committed once is
      * ordinary evidence and is counted straight away, while an unknown one has
@@ -1255,7 +1340,10 @@ class SuggestionEngine(
             .take(limit)
             // Emails are stored verbatim; case-matching the typed prefix would
             // corrupt the address ("John" -> "John.doe@..."). Commit as stored.
-            .map { if (it.contains('@')) it else matchCase(composing, it) }
+            // Everything else is written the way the user writes it, then
+            // re-cased to follow what they have typed so far — the typed
+            // pattern still wins, so a deliberate "BOSTON" is not undone.
+            .map { if (it.contains('@')) it else matchCase(composing, displayForm(it)) }
     }
 
     /** Log-space score for the flat (non-trie) sources, comparable with the
@@ -1291,6 +1379,7 @@ class SuggestionEngine(
         }
         fold(1.0, activeDictionary::complete)
         fold(USER_WORD_WEIGHT.toDouble(), userLexicon::complete)
+        fold(USER_WORD_WEIGHT.toDouble(), systemDictionary::complete)
         fold(CUSTOM_WORD_WEIGHT.toDouble(), customDictionary::complete)
         val max = tally.values.maxOrNull() ?: return emptyMap()
         if (max <= 0.0) return emptyMap()
@@ -1452,7 +1541,9 @@ class SuggestionEngine(
         if (register == Register.FORMAL) {
             result = result.sortedBy { it.lowercase() in RegisterVocabulary.informal }
         }
-        return result
+        // Last, so nothing above has to reason about case: the ordering, the
+        // sentinel filter and the blacklist all work on keys.
+        return result.map(::displayForm)
     }
 
     /**
@@ -1574,6 +1665,17 @@ class SuggestionEngine(
                     c.completedChars, c.tier,
                     Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY,
                 )
+                // A pair on probation keeps its honest score, because the only
+                // thing it is here to do is clear the offer margin, and a
+                // handicap would quietly make sure it never did. What stops it
+                // applying itself is the explicit bar below; what stops the
+                // two-source shortcut is the same pair of dead scores the
+                // penalized case uses.
+                CorrectionStats.Penalty.PROBATION -> FuzzyBeamSearch.ScoredCandidate(
+                    c.word, c.score, c.editCost, c.edits,
+                    c.completedChars, c.tier,
+                    Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY,
+                )
                 CorrectionStats.Penalty.NONE -> c
             }
         }.sortedWith(
@@ -1617,10 +1719,22 @@ class SuggestionEngine(
         // A candidate the user has already rejected once. It still ranks, but
         // it neither fires nor gets asked about: being told twice is worse
         // than not being helped.
-        val penalized = top != null &&
-            correctionStats.penalty(lower, top.word) != CorrectionStats.Penalty.NONE
+        val topPenalty = if (top == null) {
+            CorrectionStats.Penalty.NONE
+        } else {
+            correctionStats.penalty(lower, top.word)
+        }
+        val penalized = topPenalty != CorrectionStats.Penalty.NONE
+        // A retired pair on probation is the one exception to "rejected once,
+        // never asked again": it has been quiet for months of saves, and the
+        // alternative is a word that stays wrong forever with nothing ever
+        // saying why.
+        val probation = topPenalty == CorrectionStats.Penalty.PROBATION
         val single = when {
             top == null -> null
+            // Probation buys a question, never an answer. This pair is still
+            // retired; it may only reach the offer below.
+            probation -> null
             // A penalized candidate with no competition stays a suggestion:
             // the user already told us once that this exact fix was wrong.
             candidates.size == 1 && penalized -> null
@@ -1636,8 +1750,11 @@ class SuggestionEngine(
         // asking about: this is where a correction that was probably right
         // used to be dropped on the floor because "probably" is not enough to
         // rewrite somebody's word behind their back.
+        // Being rejected once keeps a pair off the chip. Probation is the one
+        // way back onto it.
+        val mayBeOffered = probation || !penalized
         val offer = top
-            ?.takeUnless { penalized }
+            ?.takeIf { mayBeOffered }
             ?.takeIf { margin >= ln(effectiveConfidence) * OFFER_MARGIN_FRACTION }
             ?.word
         return CorrectionDecision(offer = offer?.let { matchCase(word, it) })
@@ -1697,6 +1814,33 @@ class SuggestionEngine(
     /** True when [word] has letters and every one of them is uppercase. */
     private fun isAllCaps(word: String): Boolean =
         word.length > 1 && word.any { it.isLetter() } && word.all { !it.isLetter() || it.isUpperCase() }
+
+    /**
+     * The spelling a candidate should be offered in.
+     *
+     * Every trie here is keyed lower case, so a word the user writes with a
+     * capital comes back off a completion or a swipe stripped of it and has to
+     * be re-picked from the strip every single time (#44). This puts it back
+     * from the two stores that record how the user themselves spells a word:
+     * their own learned-word case memory, and the platform dictionary they
+     * typed the entry into by hand.
+     *
+     * Only lower-case candidates are touched. A candidate that already carries
+     * case came from a source that knows better than this does — a contact
+     * name, an app label, an email address — and re-deciding it here would
+     * throw that away.
+     *
+     * Contacts and app labels deliberately do *not* feed this. They already
+     * hand their own completions over capitalized, and consulting them for
+     * every candidate would capitalize ordinary words that happen to be
+     * somebody's name or an app's ("Will", "Photos", "Files").
+     */
+    private fun displayForm(word: String): String {
+        if (word.isEmpty()) return word
+        val key = word.lowercase()
+        if (key != word) return word
+        return userLexicon.displayOf(key) ?: systemWordCases[key] ?: word
+    }
 
     /** Applies the typed word's capitalization pattern to a suggestion. */
     private fun matchCase(typed: String, suggestion: String): String = when {

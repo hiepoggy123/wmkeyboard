@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.snippets.espanso
 
 import com.wasimaster.wmkeyboard.core.content.ContentText
+import com.wasimaster.wmkeyboard.core.snippets.MultiExpand
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetMatcher
 import com.wasimaster.wmkeyboard.core.snippets.SnippetVariable
@@ -135,6 +136,15 @@ object EspansoFile {
         // so does this app: the specific rule wins over the general one.
         val pattern = if (triggers.isEmpty() && regex != null) convertRegex(regex, notes) else null
 
+        // A replacement that is nothing but one `choice` variable is Espanso
+        // asking the user to pick, and this app can now ask the same question:
+        // the values become the snippet's expansions and the strip offers them.
+        // A choice buried in a longer sentence still becomes a `{random}`,
+        // since only part of the text would be up for choosing.
+        val choices = wholeChoice(body, locals, globals)
+        if (choices.size > 1) {
+            return choiceSnippet(body, choices, match, notes, globals, locals)
+        }
         var text = body.replace(CURSOR_HINT, SnippetVariable.CURSOR.token)
         // Dollars are escaped before anything is injected, not after. In a
         // pattern snippet `$1` means a capture, and Espanso's replacement meant
@@ -202,6 +212,57 @@ object EspansoFile {
 
     private const val LABEL_MAX = 60
 
+    /**
+     * The values of the one `choice` variable [body] consists of, or an empty
+     * list when it is anything else.
+     *
+     * Deliberately narrow: the whole replacement has to be the reference and
+     * nothing besides, so what the user picks is the whole of what gets typed.
+     * Anything looser and half a sentence would silently become a menu.
+     */
+    private fun wholeChoice(
+        body: String,
+        locals: Map<String, EspansoVariable>,
+        globals: Map<String, EspansoVariable>,
+    ): List<String> {
+        val whole = INJECTION.matchEntire(body.trim()) ?: return emptyList()
+        val reference = whole.groupValues[1]
+        val variable = locals[reference] ?: globals[reference] ?: return emptyList()
+        if (variable.type != "choice" && variable.type != "list") return emptyList()
+        return EspansoYaml.asList(variable.params["values"])
+            .map(::choiceLabel)
+            .mapNotNull { EspansoYaml.asText(it)?.takeIf(String::isNotBlank) }
+            .distinct()
+    }
+
+    /** A choice-only match as a snippet whose expansions are the choices. */
+    private fun choiceSnippet(
+        body: String,
+        choices: List<String>,
+        match: Map<String, Any?>,
+        notes: EspansoNotes,
+        globals: Map<String, EspansoVariable>,
+        locals: Map<String, EspansoVariable>,
+    ): Snippet? {
+        val triggers = readTriggers(match, notes)
+        val regex = EspansoYaml.asText(match["regex"])?.trim()?.takeIf { it.isNotEmpty() }
+        val pattern = if (triggers.isEmpty() && regex != null) convertRegex(regex, notes) else null
+        val expansions = choices.map { choice ->
+            var text = choice.replace(CURSOR_HINT, SnippetVariable.CURSOR.token)
+            if (pattern != null) text = escapeDollars(text)
+            inject(text, globals + locals, groupNames(pattern), notes, depth = 0).take(MAX_TEXT_LENGTH)
+        }.filter { it.isNotBlank() }
+        if (expansions.size < 2) return null
+        val label = EspansoYaml.asText(match["label"])?.trim()?.takeIf { it.isNotEmpty() }
+            ?: expansions.first().lineSequence().first().trim().take(LABEL_MAX)
+        notes.addIf(hasBareToken(body), EspansoNote.TOKEN)
+        return snippet(label, expansions.first(), triggers, pattern, match).copy(
+            alternates = expansions.drop(1),
+            // Espanso's choice is a picker, so nothing is chosen for the user.
+            multiExpand = MultiExpand.CHIPS_ONLY,
+        )
+    }
+
     private fun snippet(
         label: String,
         text: String,
@@ -233,9 +294,9 @@ object EspansoFile {
     /**
      * The match's triggers, in the order Espanso would try them.
      *
-     * A trigger that is all punctuation (`->`) is dropped and noted: it never
-     * produces a composing word, so there would be nothing to look it up by.
-     * See [SnippetMatcher.splitPrefix].
+     * A trigger that does not end in a word (`->`, `x:`) is dropped and noted:
+     * it never produces a composing word, so there would be nothing to look it
+     * up by. See [SnippetMatcher.splitPrefix].
      */
     private fun readTriggers(match: Map<String, Any?>, notes: EspansoNotes): List<String> {
         val raw = buildList {
@@ -251,32 +312,37 @@ object EspansoFile {
             if (matchable(clean)) out.add(clean) else notes.add(EspansoNote.SYMBOL_TRIGGER)
         }
         // Espanso defaults `word` to false, meaning a trigger may fire in the
-        // middle of a word. This app always requires a boundary, and a trigger
-        // that leads with punctuation does not care either way.
+        // middle of a word. This app always requires a boundary. A trigger that
+        // starts with punctuation does not care either way; one that starts
+        // with a letter does, whether it is a plain word or a phrase.
         val wordless = EspansoYaml.asBoolean(match["word"]) == false ||
             (match["word"] == null && match["left_word"] == null && match["right_word"] == null)
-        notes.addIf(
-            wordless && out.any { SnippetMatcher.splitPrefix(it) == null },
-            EspansoNote.MID_WORD,
-        )
+        notes.addIf(wordless && out.any(::needsBoundary), EspansoNote.MID_WORD)
         return out
     }
 
     /**
      * True when this app could actually watch for [trigger].
      *
-     * Three shapes cannot be watched for, all for the same reason: the keyboard
-     * looks a trigger up by the word in its composing buffer, and that buffer
-     * only ever holds letters, digits and apostrophes. So a multi-word trigger
-     * has no single word to look up, a trigger that is all punctuation has no
-     * word at all, and one with punctuation anywhere but the front would have
-     * been broken apart before the lookup happened.
+     * The keyboard looks a trigger up by the word in its composing buffer, and
+     * that buffer only ever holds letters, digits and apostrophes. So a trigger
+     * has to end in one of those: everything in front of the last word is
+     * confirmed by reading the field, but a trigger that is all punctuation
+     * (`->`) or that ends in it (`x:`) leaves nothing to look up at all.
      */
-    private fun matchable(trigger: String): Boolean = when {
-        trigger.any(Char::isWhitespace) -> false
-        trigger.all(SnippetMatcher::isTriggerWordChar) -> true
-        else -> SnippetMatcher.splitPrefix(trigger) != null
-    }
+    private fun matchable(trigger: String): Boolean =
+        trigger.all(SnippetMatcher::isTriggerWordChar) ||
+            SnippetMatcher.splitPrefix(trigger) != null
+
+    /**
+     * True when this app would insist on a word boundary in front of [trigger]
+     * where Espanso would not.
+     *
+     * Punctuation is its own boundary, so only a trigger whose first character
+     * is a word character loses anything to the stricter rule.
+     */
+    private fun needsBoundary(trigger: String): Boolean =
+        trigger.firstOrNull()?.let(SnippetMatcher::isTriggerWordChar) == true
 
     /**
      * Espanso's regular expression as one this app will run, or null.

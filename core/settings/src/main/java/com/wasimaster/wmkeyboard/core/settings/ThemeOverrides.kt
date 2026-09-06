@@ -34,6 +34,29 @@ fun KeyboardSettings.activeThemeSpec(darkSlot: Boolean): ThemeSpec? {
 }
 
 /**
+ * The settings as they apply while a grid that names its own theme is on
+ * screen (issue #61): that theme selected, and the auto pair switched off for
+ * the same reason a mode's theme switches it off — "this layout looks like
+ * this" must not quietly mean "unless auto-theme is on". A view, never a
+ * write back; the user's own choice is untouched and returns with the next
+ * layer.
+ *
+ * [themeId] is `KeyboardLayout.themeId`, the layer-beats-layout answer. An id
+ * this device has no theme for falls through to the settings: a layout shared
+ * with its theme still remembers the pairing for when the theme arrives, and
+ * meanwhile draws the way everything else does rather than in some default.
+ *
+ * Instance-stable when there is nothing to do, for the same reason
+ * [applyThemeOverrides] is: the caller remembers on the result.
+ */
+fun KeyboardSettings.applyLayoutTheme(themeId: String?): KeyboardSettings {
+    if (themeId == null) return this
+    if (themeId != DEFAULT_THEME_ID && findThemeSpec(themeId, customThemes) == null) return this
+    if (themeId == keyboardThemeId && !autoTheme.enabled) return this
+    return copy(keyboardThemeId = themeId, autoTheme = autoTheme.copy(enabled = false))
+}
+
+/**
  * Lays the theme's layout/type overrides over the global appearance settings,
  * the way [resolvedFor] lays screen-variant sizing over them: the result is a
  * whole [KeyboardSettings], so every `settings.fontScale` downstream keeps
@@ -55,6 +78,7 @@ fun KeyboardSettings.applyThemeOverrides(spec: ThemeSpec?): KeyboardSettings {
     if (spec == null) return this
     val untouched = spec.toolbarHeightDp == null && spec.keyHeightDp == null &&
         spec.keyGapScale == null && spec.sidePadScale == null &&
+        spec.sidePadLeftScale == null && spec.sidePadRightScale == null &&
         spec.fontScale == null && spec.boldKeyLabels == null &&
         spec.hintFontScale == null && spec.gestureTrailWidthDp == null &&
         spec.gestureTrailOpacity == null && spec.toolWidthDp == null
@@ -69,9 +93,17 @@ fun KeyboardSettings.applyThemeOverrides(spec: ThemeSpec?): KeyboardSettings {
         boldKeyLabels = spec.boldKeyLabels ?: boldKeyLabels,
         toolbarBehavior = spec.toolWidthDp
             ?.let { toolbarBehavior.copy(toolWidthDp = it) } ?: toolbarBehavior,
-        layoutBehavior = if (spec.sidePadScale != null || spec.hintFontScale != null) {
+        layoutBehavior = if (
+            spec.sidePadScale != null || spec.sidePadLeftScale != null ||
+            spec.sidePadRightScale != null || spec.hintFontScale != null
+        ) {
             layoutBehavior.copy(
-                sidePadScale = spec.sidePadScale ?: layoutBehavior.sidePadScale,
+                // The per-edge overrides beat the legacy symmetric one, which
+                // stands in for whichever edge they leave unset.
+                sidePadLeftScale = spec.sidePadLeftScale ?: spec.sidePadScale
+                    ?: layoutBehavior.sidePadLeftScale,
+                sidePadRightScale = spec.sidePadRightScale ?: spec.sidePadScale
+                    ?: layoutBehavior.sidePadRightScale,
                 hintFontScale = spec.hintFontScale ?: layoutBehavior.hintFontScale,
             )
         } else {

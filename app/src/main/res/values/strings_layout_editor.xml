@@ -190,6 +190,13 @@
     <string name="layout_editor_tool_row_subtitle">The tool this key opens</string>
     <string name="layout_editor_tool_picker_title">Which tool</string>
 
+    <!-- Which secondary layout a key opens, shown when the key's action is "Open a layout". -->
+    <string name="layout_editor_layout_row_title">Layout</string>
+    <string name="layout_editor_layout_row_subtitle">The secondary layout this key opens</string>
+    <string name="layout_editor_layout_row_unset">Not set</string>
+    <string name="layout_editor_layout_picker_title">Which layout</string>
+    <string name="layout_editor_layout_picker_empty">No secondary layouts yet. Make one on the Key layouts screen first.</string>
+
     <!-- Width of one key, in grid units. %1$.2f is the width, for example 1.50. -->
     <string name="layout_editor_key_width_label">Width <xliff:g id="width" example="1.50">%1$.2f</xliff:g></string>
     <!-- Button that gives the key all the width the row has left.
@@ -219,6 +226,7 @@
 
     <string name="layout_editor_alternates_field_label">Alternates for press and hold</string>
     <!-- .com is an example of an entry with more than one character. Do not translate it. -->
+    <string name="layout_editor_select_hold_notice">Holding a Select key turns selection mode on for as long as you hold it. If you give this key alternates, the long press opens them instead and hold to select stops working on it. Tap, double tap and triple tap still work either way.</string>
     <string name="layout_editor_alternates_field_hint">Separate the entries with spaces, so an alternate cannot be a space. Entries of more than one character, such as .com, are correct. The app also draws the first one in the corner of the key.</string>
     <!-- Small badge on the first alternate, which the keyboard also draws in the corner of the key. -->
     <string name="layout_editor_alternate_hint_badge">hint</string>
@@ -229,14 +237,27 @@
     <string name="layout_editor_action_alternate_add_action">Add an action</string>
     <string name="layout_editor_action_alternate_remove_desc">Remove this action</string>
 
-    <!-- Turns off the small hint in the corner of this one key. -->
-    <string name="layout_editor_hide_hint_title">Hide the corner hint</string>
-    <string name="layout_editor_hide_hint_subtitle">This key draws no hint. Press and hold still opens the alternates</string>
+    <!-- Controls the small hint in the corner of this one key. -->
+    <string name="layout_editor_hint_title">Corner hint</string>
+    <string name="layout_editor_hint_subtitle">The small mark in the corner of this key. Press and hold still opens the alternates</string>
+    <string name="layout_editor_hint_info">Settings has one switch for the hints on every key. Use this row when you want a different answer for this key: always draw it, or never draw it.</string>
+    <!-- The key takes the answer from the switch in Settings. -->
+    <string name="layout_editor_hint_auto">From settings</string>
+    <string name="layout_editor_hint_always">Always</string>
+    <string name="layout_editor_hint_never">Never</string>
+    <!-- One line under each option in the corner hint picker. -->
+    <string name="layout_editor_hint_auto_desc">This key follows the one switch in Settings</string>
+    <string name="layout_editor_hint_always_desc">This key always draws its corner hint</string>
+    <string name="layout_editor_hint_never_desc">This key never draws its corner hint</string>
 
     <string name="layout_editor_role_title">Field adaptation</string>
     <string name="layout_editor_role_subtitle">Email and web fields put @ and / in these two slots</string>
     <string name="layout_editor_role_comma">Comma slot</string>
     <string name="layout_editor_role_period">Full stop slot</string>
+    <!-- One line under each option in the field adaptation picker. -->
+    <string name="layout_editor_role_none_desc">The key keeps its character in every field</string>
+    <string name="layout_editor_role_comma_desc">An email field puts @ here, and a web field puts /</string>
+    <string name="layout_editor_role_period_desc">An email field and a web field add .com and the other endings to the long press</string>
 
     <string name="layout_editor_delete_key_action">Delete the key</string>
     <string name="layout_editor_move_left_desc">Move left</string>
@@ -349,6 +370,8 @@
     <string name="layout_editor_action_morse_dash_title">Morse dash</string>
     <string name="layout_editor_action_morse_dash_detail">Adds a long signal. The letter commits after a pause</string>
 
+    <string name="layout_editor_action_layout_title">Open a layout</string>
+    <string name="layout_editor_action_layout_detail">Shows one of your secondary layouts over the letters. Press the key again, or an ABC key, to go back. Pick the layout below</string>
     <string name="layout_editor_action_tool_title">Open a tool</string>
     <string name="layout_editor_action_tool_detail">Opens one of the keyboard tools, such as voice typing or the editing pad. Pick the tool below</string>
     <string name="layout_editor_action_broadcast_title">Broadcast intent</string>
@@ -369,10 +392,33 @@
 
 
     <string name="layout_editor_new_layout_title">Start a new layout</string>
-    <string name="layout_editor_new_layout_subtitle">Begin from an empty grid with the usual rows</string>
     <string name="layout_editor_new_layout_name">My layout</string>
 
+    <!-- Secondary layouts: grids a key or the toolbar opens, not a language. -->
+    <string name="layout_editor_secondary_title">Secondary layouts</string>
+    <string name="layout_editor_new_secondary_title">Start a secondary layout</string>
+    <string name="layout_editor_new_secondary_name">My secondary layout</string>
+    <string name="layout_editor_secondary_group_caption">A secondary layout is not a language. It shows over the letters of the layout you type with, and it keeps that layout\'s dictionary. Open it with a key set to the Open a layout action, or with the Custom layout tool.</string>
+    <string name="layout_editor_secondary_summary_label">Secondary layout</string>
+    <string name="layout_editor_persistent_summary_label">Stays open</string>
+    <string name="layout_editor_secondary_caption">This layout is live as soon as a key or the Custom layout tool opens it. It does not appear under Languages.</string>
+
+    <!-- Keep a layer open across a close and reopen of the keyboard (issue #60). -->
+    <string name="layout_editor_persist_title">Keep this layer open</string>
+    <string name="layout_editor_persist_subtitle">The layer stays on screen when the keyboard closes or the field changes. Make sure you have a way to exit this layout.</string>
+    <string name="layout_editor_persist_info">Normally the keyboard goes back to the letters each time it opens. With this on, the layer stays until you press a key or a tool that goes somewhere else. The keyboard cannot take you off it by itself, so the layer needs an ABC key, a symbols key, or the Custom layout tool on the toolbar.</string>
+
     <string name="layout_editor_name_title">Name</string>
+
+    <!-- A theme of the layout's own, and of one layer's own (issue #61). -->
+    <string name="layout_editor_theme_title">Theme</string>
+    <string name="layout_editor_theme_inherit_subtitle">Inherit the theme that is set</string>
+    <string name="layout_editor_theme_picker_title">Theme for this layout</string>
+    <!-- %1$s is the layer name, for example "Symbols". -->
+    <string name="layout_editor_layer_theme_title">Theme for the <xliff:g id="layer" example="Symbols">%1$s</xliff:g> layer</string>
+    <string name="layout_editor_layer_theme_inherit_subtitle">Inherit the theme of the layout</string>
+    <string name="layout_editor_layer_theme_picker_title">Theme for this layer</string>
+    <string name="layout_editor_theme_override_body">While this layout is on screen, the keyboard uses this theme. It replaces the theme you set elsewhere, and an automatic light and dark pair, for as long as the layout shows. A layer with a theme of its own uses that one instead. Your own choice does not change.</string>
     <string name="layout_editor_name_label">Layout name</string>
 
     <string name="layout_editor_language_title">Language</string>
@@ -397,8 +443,93 @@
     <string name="layout_editor_composer_cangjie">Cangjie (倉頡)</string>
     <string name="layout_editor_composer_cangjie_quick">Quick (速成)</string>
     <string name="layout_editor_composer_jyutping">Jyutping (粵拼)</string>
+    <!-- One line under each option in the typing method picker. Each one says
+         what you press, with an example where an example is short enough. -->
+    <string name="layout_editor_composer_inherit_desc">The language above decides the method</string>
+    <string name="layout_editor_composer_none_desc">A key types its own character. Nothing joins</string>
+    <string name="layout_editor_composer_dead_key_desc">Press an accent key, then a letter, and the two join</string>
+    <string name="layout_editor_composer_transliterate_desc">Type roman letters and the keyboard writes the script</string>
+    <string name="layout_editor_composer_indic_desc">A consonant and a vowel sign join into one cluster</string>
+    <string name="layout_editor_composer_hangul_desc">Jamo join into a syllable block while you type</string>
+    <string name="layout_editor_composer_telex_desc">Type aa for â, and as for á</string>
+    <string name="layout_editor_composer_vni_desc">Type a6 for â, and a1 for á</string>
+    <string name="layout_editor_composer_romaji_desc">Type ka for か</string>
+    <string name="layout_editor_composer_pinyin_desc">Type the sound in roman letters, then select the character</string>
+    <string name="layout_editor_composer_stroke_desc">Type the strokes of the character in order</string>
+    <string name="layout_editor_composer_t9_pinyin_desc">Pinyin on nine keys, with several letters on each key</string>
+    <string name="layout_editor_composer_zhuyin_desc">Type the bopomofo symbols, then select the character</string>
+    <string name="layout_editor_composer_cangjie_desc">Type the shape codes of the character</string>
+    <string name="layout_editor_composer_cangjie_quick_desc">The first Cangjie code and the last one only</string>
+    <string name="layout_editor_composer_jyutping_desc">Type Cantonese sounds in roman letters</string>
 
     <string name="layout_editor_actual_size_title">Preview at your key height</string>
     <string name="layout_editor_actual_size_subtitle">Draw the grid at the height you actually type at</string>
-    <string name="layout_editor_actual_size_info">The preview normally keeps the keys within a comfortable range so the whole grid fits on this screen. Turn this on to see your real proportions, which matters if you type at a tall key height. The grid may then run off the screen and need scrolling.</string>
+    <string name="layout_editor_actual_size_info">The preview normally keeps the keys within a comfortable range so the whole grid fits on this screen. Turn this on to see your real proportions, which matters if you type at a tall key height. The preview stays at the top either way. A grid that is then taller than the space it has scrolls inside that space.</string>
+
+    <!-- Panel layouts (issue #63): the emoji, clipboard and text editing panels
+         laid out as grids in the same editor as the key layouts. A "component"
+         is a live part of a panel (the emoji grid, the clipboard history, a
+         search box) placed as a cell in the grid. -->
+    <string name="panel_layouts_title">Panel layouts</string>
+    <string name="panel_layouts_subtitle">Arrange the emoji, clipboard and text editing panels like key layouts</string>
+    <string name="panel_layout_row_title">Panel layout</string>
+    <string name="panel_layout_row_subtitle">Arrange the keys and the parts of this panel</string>
+    <string name="panel_layout_json_title">Panel layout as JSON</string>
+    <string name="panel_layout_value_default">Standard</string>
+    <string name="panel_layout_value_custom">Your own</string>
+    <string name="panel_layout_editor_caption">Press a cell to change it. Component cells hold the live parts of the panel. Rows with a component share the height that the key rows leave.</string>
+    <string name="panel_layout_live_caption">The keyboard uses your changes at once.</string>
+    <string name="panel_layout_reset_title">Use the standard layout</string>
+    <string name="panel_layout_reset_subtitle">Go back to the panel the app ships with</string>
+    <string name="panel_layout_reset_confirm_title">Use the standard layout?</string>
+    <string name="panel_layout_reset_confirm_body">The panel goes back to the layout the app ships with. Your arrangement is deleted.</string>
+    <!-- %1$s is a panel name, for example "Emoji panel". -->
+    <string name="panel_layout_reset_desc">Reset <xliff:g id="panel" example="Emoji panel">%1$s</xliff:g></string>
+    <string name="panel_name_emoji">Emoji panel</string>
+    <string name="panel_name_clipboard">Clipboard panel</string>
+    <string name="panel_name_text_edit">Text editing panel</string>
+    <string name="panel_name_trackpad">Trackpad panel</string>
+    <string name="field_name_emoji_tabs">Emoji categories</string>
+    <string name="field_name_emoji_search">Emoji search</string>
+    <string name="field_name_emoji_grid">Emoji grid</string>
+    <string name="field_name_clipboard_search">Clipboard search</string>
+    <string name="field_name_clipboard_entities">Copied fragments</string>
+    <string name="field_name_clipboard_list">Clipboard history</string>
+    <string name="field_name_trackpad">Trackpad</string>
+    <string name="field_name_unknown">Unknown component</string>
+    <string name="layout_editor_action_group_panel">Panel</string>
+    <string name="layout_editor_action_field_title">Panel component</string>
+    <string name="layout_editor_action_field_detail">A live part of the panel: the emoji grid, the clipboard history, a search box</string>
+    <string name="layout_editor_field_row_title">Component</string>
+    <string name="layout_editor_field_row_subtitle">Which part of the panel this cell shows</string>
+    <string name="layout_editor_field_picker_title">Component</string>
+    <string name="layout_editor_action_group_text_edit">Text editing</string>
+    <string name="layout_editor_action_edit_title">Text editing action</string>
+    <string name="layout_editor_action_edit_detail">Arrows, word moves, page up and down, start and end of the line and of the text, Select, Select all, Cut, Copy, Paste and Delete. Pick the operation below</string>
+    <string name="layout_editor_edit_row_title">Action</string>
+    <string name="layout_editor_edit_row_subtitle">What this key does to the text</string>
+    <string name="layout_editor_edit_picker_title">Text editing action</string>
+
+    <!-- Names of the text editing actions, in the picker and in the preview. -->
+    <string name="textedit_action_left">Left</string>
+    <string name="textedit_action_right">Right</string>
+    <string name="textedit_action_up">Up</string>
+    <string name="textedit_action_down">Down</string>
+    <string name="textedit_action_word_left">Word left</string>
+    <string name="textedit_action_word_right">Word right</string>
+    <string name="textedit_action_page_up">Page up</string>
+    <string name="textedit_action_page_down">Page down</string>
+    <string name="textedit_action_doc_start">Start of the text</string>
+    <string name="textedit_action_doc_end">End of the text</string>
+    <string name="textedit_action_cut">Cut</string>
+    <string name="textedit_action_home">Start of the line</string>
+    <string name="textedit_action_end">End of the line</string>
+    <string name="textedit_action_select">Select</string>
+    <string name="textedit_action_select_all">Select all</string>
+    <string name="textedit_action_select_word">Select the word</string>
+    <string name="textedit_action_select_line">Select the line</string>
+    <string name="textedit_action_copy">Copy</string>
+    <string name="textedit_action_paste">Paste</string>
+    <string name="textedit_action_backspace">Delete</string>
+
 </resources>

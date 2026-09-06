@@ -14,9 +14,6 @@
         <item quantity="other">Type in any of %1$d languages</item>
     </plurals>
 
-    <string name="langemoji_lang_suggested_title">Suggested for you</string>
-    <string name="langemoji_lang_suggested_source_body">The suggestions come from the language settings and the region of your device. The keyboard does not read what you type. No data leaves your device.</string>
-
     <!-- Master switch over the downloads the keyboard starts on its own. -->
     <string name="langemoji_lang_data_title">Language data</string>
     <string name="langemoji_lang_auto_download_title">Download data automatically</string>
@@ -24,7 +21,6 @@
     <string name="langemoji_lang_auto_download_info">With this on, the keyboard downloads the small files a language needs, when you add it and when a new one is published: emoji keywords, so emoji search answers in your language, and word-pair data, which makes predictions better. Word lists are never downloaded automatically. With this off, nothing is downloaded until you ask for it on a language screen.</string>
 
     <string name="langemoji_lang_switch_order_title">Switch order</string>
-    <string name="langemoji_lang_switch_order_dialog_title">Reorder input languages</string>
     <!-- One layout in the "Switch order" list. %1$s is the name of the language,
          %2$s the name of the layout, for example "English (QWERTY)". -->
     <string name="langemoji_lang_switch_order_item_label"><xliff:g id="language" example="English">%1$s</xliff:g> (<xliff:g id="layout" example="QWERTY">%2$s</xliff:g>)</string>
@@ -78,6 +74,9 @@
     <string name="langemoji_emoji_insert_mode_info">\"Replace word\" changes the word that you typed to the emoji. If you type birthday and press 🎂, only 🎂 stays, as in Gboard. \"Keep word\" adds the emoji after the word: birthday 🎂.\n\nHold an emoji suggestion to do the other one this time. With \"Replace word\" selected, a hold keeps the word. With \"Keep word\" selected, a hold replaces it.</string>
     <string name="langemoji_emoji_insert_replace_label">Replace word</string>
     <string name="langemoji_emoji_insert_append_label">Keep word</string>
+    <!-- One line under each option in the emoji suggestion picker. -->
+    <string name="langemoji_emoji_insert_replace_desc">Type birthday, press 🎂, and only 🎂 stays</string>
+    <string name="langemoji_emoji_insert_append_desc">Type birthday, press 🎂, and you get birthday 🎂</string>
 
     <string name="langemoji_emoji_skin_tone_group_title">Skin tone</string>
     <string name="langemoji_emoji_skin_tone_title">Default skin tone</string>
@@ -88,6 +87,7 @@
     <string name="langemoji_emoji_tone_override_info">When this is on, and it is on by default, an emoji that you already selected a tone for keeps that tone everywhere: in the panel, the suggestions and the search. You select that tone from the press and hold popup of the emoji in the panel. The emoji does not use the default above. When this is off, the default skin tone always wins.</string>
 
     <string name="langemoji_emoji_panel_title">Emoji panel</string>
+    <string name="langemoji_emoji_panel_subtitle">Grid size, categories, favourites and recents</string>
     <string name="langemoji_emoji_grid_size_title">Grid size</string>
     <string name="langemoji_emoji_grid_size_subtitle">How wide each cell of the emoji grid is, at least. A smaller size fits more columns</string>
     <string name="langemoji_emoji_grid_size_info">The emoji panel fits as many columns as its width allows, and each cell is at least this wide. A smaller size packs more emoji on one screen. A larger size spreads them out, and each one is easier to hit. When the emoji size below needs more room than this, the cells grow to fit it.</string>
@@ -102,6 +102,9 @@
     <string name="langemoji_emoji_tab_mode_info">\"Recent\" lists emoji in the order that you used them last. \"Most used\" puts the emoji that you use most often first. The keyboard always keeps your favourite emoji at the start of both lists.</string>
     <string name="langemoji_emoji_recent_label">Recent</string>
     <string name="langemoji_emoji_most_used_label">Most used</string>
+    <!-- One line under each option in the emoji history tab picker. -->
+    <string name="langemoji_emoji_recent_desc">In the order that you used them last</string>
+    <string name="langemoji_emoji_most_used_desc">The emoji that you use most often come first</string>
     <string name="langemoji_emoji_clear_recents_title">Clear recents button</string>
     <string name="langemoji_emoji_clear_recents_subtitle">A button on the Recent tab that deletes the recents list</string>
     <string name="langemoji_emoji_clear_recents_info">This adds a \"Clear recents\" button to the Recent tab of the emoji panel. It is off by default, to keep the tab clean.</string>
@@ -128,9 +131,17 @@
     <string name="langemoji_emoji_bar_mode_info">\"Own row\" keeps an emoji row between the toolbar and the keys at all times. \"Button\" adds a button at the right end of the toolbar. The button changes the suggestion strip to the emoji row. \"Off\" hides both.</string>
     <string name="langemoji_emoji_bar_button_label">Button</string>
     <string name="langemoji_emoji_bar_always_label">Own row</string>
+    <!-- One line under each option in the emoji row picker. -->
+    <string name="langemoji_emoji_bar_off_desc">No emoji row and no button for it</string>
+    <string name="langemoji_emoji_bar_button_desc">A button at the right end of the toolbar opens the row</string>
+    <string name="langemoji_emoji_bar_always_desc">The row stays between the toolbar and the keys</string>
     <string name="langemoji_emoji_bar_content_title">Emoji row content</string>
     <string name="langemoji_emoji_bar_content_subtitle">Favourites always come first</string>
     <string name="langemoji_emoji_favourites_label">Favourites</string>
+    <!-- One line under each option in the emoji row content picker. -->
+    <string name="langemoji_emoji_bar_content_most_used_desc">The emoji that you use most often</string>
+    <string name="langemoji_emoji_bar_content_recents_desc">The emoji that you used last</string>
+    <string name="langemoji_emoji_bar_content_favourites_desc">Only the emoji that you marked as a favourite</string>
     <string name="langemoji_emoji_bar_count_title">Emoji in the row</string>
     <string name="langemoji_emoji_bar_count_subtitle">How many fit across. A higher number packs them tighter</string>
     <string name="langemoji_emoji_bar_count_info">The row divides its width into this many slots and makes the emoji small enough to fit them. A higher number gives smaller emoji that are closer together. When scrolling is off, the row hides the emoji after the last slot. When scrolling is on, a swipe shows them.</string>
@@ -138,7 +149,6 @@
     <string name="langemoji_emoji_bar_scroll_subtitle">Swipe sideways for the emoji after the visible ones</string>
     <string name="langemoji_emoji_bar_scroll_info">When this is on, and it is on by default, you can swipe the row sideways to reach the emoji after the visible ones. When this is off, the row does not move. It shows only the emoji that fit, so a sideways swipe cannot move it under your finger.</string>
     <!-- "Rows &amp; bars" is the name of another settings screen. -->
-    <string name="langemoji_emoji_row_position_body">You set the position of the emoji row against the toolbar and the symbol row in Rows &amp; bars, on the home screen of the settings.</string>
 
     <string name="langemoji_emoji_style_title">Emoji style</string>
     <string name="langemoji_emoji_font_title">Emoji font</string>
@@ -150,6 +160,11 @@
     <string name="langemoji_emoji_font_noto_label">Google</string>
     <!-- An emoji font that the user installed from Addons. -->
     <string name="langemoji_emoji_font_installed_label">Installed</string>
+    <!-- One line under each option in the emoji font picker. -->
+    <string name="langemoji_emoji_font_system_desc">The emoji pack of your device</string>
+    <string name="langemoji_emoji_font_noto_desc">Noto Color Emoji, the standard Android look</string>
+    <string name="langemoji_emoji_font_installed_desc">An emoji font from Addons, such as Twemoji or OpenMoji</string>
+    <string name="langemoji_emoji_font_custom_desc">One emoji font file that you import below</string>
     <!-- Offers a direct download of the current Noto Color Emoji, because the
          "Google" choice above can only ask the system font provider, which
          serves an older build on many devices. -->

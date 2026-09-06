@@ -151,6 +151,20 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
             LayoutMessage(R.string.core_lang_layout_letters_empty_error),
             LayoutLayer.LETTERS,
         )
+    } else if (spec.secondary) {
+        // A secondary layout is a grid of the user's own design, not a
+        // keyboard for typing prose: a macro pad has no business being told it
+        // needs a space bar. The one thing worth saying is how to get out —
+        // and only as a warning (issue #60 asked for exactly that wording),
+        // because the Custom layout tool and a fresh field both leave it too.
+        val keys = letters.rows.flatten()
+        if (keys.none { it.leavesSecondaryLayout() }) {
+            findings += LayoutFinding(
+                LayoutSeverity.WARNING,
+                LayoutMessage(R.string.core_lang_layout_secondary_no_way_out_warning),
+                LayoutLayer.LETTERS,
+            )
+        }
     } else {
         val keys = letters.rows.flatten()
         if (keys.none { it.action == KeyAction.Delete }) {
@@ -205,6 +219,20 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
                 LayoutSeverity.BLOCKING,
                 LayoutMessage(
                     R.string.core_lang_layout_no_way_back_error,
+                    args = listOf(label),
+                ),
+                layer,
+            )
+        }
+        // The warning issue #60 asked to ship with the setting: a layer that
+        // outlives the keyboard closing is only ever left by a key or a tool,
+        // so the author has to have put one there.
+        val layerSpec = spec.layer(layer)
+        if (layerSpec?.persistent == true && (layer != LayoutLayer.LETTERS || spec.secondary)) {
+            findings += LayoutFinding(
+                LayoutSeverity.WARNING,
+                LayoutMessage(
+                    R.string.core_lang_layout_persistent_warning,
                     args = listOf(label),
                 ),
                 layer,
@@ -335,6 +363,22 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
                 layer,
             )
         }
+
+        // A panel component belongs to a panel layout; on a typing grid it is a
+        // cell nothing draws. Blocking, and `repair` drops it, like an unknown
+        // action — which is what an older build sees it as anyway.
+        val fields = rows.sumOf { row -> row.count { it.action is KeyAction.Field } }
+        if (fields > 0) {
+            findings += LayoutFinding(
+                LayoutSeverity.BLOCKING,
+                LayoutMessage(
+                    pluralsRes = R.plurals.core_lang_layout_field_key_error,
+                    quantity = fields,
+                    args = listOf(fields, label),
+                ),
+                layer,
+            )
+        }
     }
 
     return findings.sortedByDescending { it.severity == LayoutSeverity.BLOCKING }
@@ -348,12 +392,14 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
  * Emptiness, not blankness — a key labelled with a space types a space, which is
  * a key doing its job.
  */
-private fun Key.typesNothing(): Boolean =
+internal fun Key.typesNothing(): Boolean =
     action == KeyAction.Text && label.isEmpty() && output.isNullOrEmpty()
 
 /** A popup entry that does something when tapped; see [Key.actionAlternates]. */
-private fun KeyAlternate.isUsable(): Boolean = when (action) {
+internal fun KeyAlternate.isUsable(): Boolean = when (action) {
     is KeyAction.Unknown -> false
+    // A component cannot be a popup entry.
+    is KeyAction.Field -> false
     KeyAction.Text -> label.isNotEmpty()
     else -> true
 }
@@ -410,7 +456,11 @@ fun LayoutSpec.repair(): RepairedLayout {
     }.toMap().toMutableMap()
 
     val lettersKey = LayoutLayer.LETTERS.key
-    layers[lettersKey]?.let { letters ->
+    // A secondary layout is exempt from the three guarantees: it is not the
+    // grid the user types prose on, and forcing a space bar onto a macro pad
+    // would rewrite the one thing its author built it to be. See
+    // [validateLayout] for the way-out warning it gets instead.
+    if (!secondary) layers[lettersKey]?.let { letters ->
         var rows = letters.rows
         rows = rows.ensuring(KeyAction.Delete, Key("⌫", action = KeyAction.Delete, width = 1.5f)) {
             repairs += LayoutMessage(R.string.core_lang_repair_delete_key_added)
@@ -449,15 +499,40 @@ fun LayoutSpec.repair(): RepairedLayout {
 }
 
 /**
+ * Whether pressing this key can take the user off a secondary layout: back to
+ * the letters, to the symbol page, or to another layout. A tool key counts too
+ * — the Custom layout tool toggles the grid off, and a panel tool covers it.
+ */
+private fun Key.leavesSecondaryLayout(): Boolean = when (action) {
+    KeyAction.Letters, KeyAction.Symbols, KeyAction.LanguageSwitch -> true
+    is KeyAction.Layout, is KeyAction.Tool -> true
+    else -> false
+}
+
+/**
  * Fixes what can be fixed about one key, or drops it. Returning null rather than
  * a placeholder lets the row re-flow around the gap, which is less confusing
  * than a button that is visibly there and silently does nothing.
  */
-private fun Key.repairKey(label: String, repairs: MutableList<LayoutMessage>): Key? {
+internal fun Key.repairKey(
+    label: String,
+    repairs: MutableList<LayoutMessage>,
+    fieldsAllowed: Boolean = false,
+): Key? {
     if (action is KeyAction.Unknown) {
         repairs += LayoutMessage(
             R.string.core_lang_repair_unknown_key_deleted,
             args = listOf(label, (action as KeyAction.Unknown).tag),
+        )
+        return null
+    }
+    // A panel component on a typing grid: nothing on the board would draw it,
+    // so the cell would be a dead patch the width of a key. Panel layouts pass
+    // [fieldsAllowed] and check the cell's kind themselves.
+    if (!fieldsAllowed && action is KeyAction.Field) {
+        repairs += LayoutMessage(
+            R.string.core_lang_repair_field_key_deleted,
+            args = listOf(label),
         )
         return null
     }
@@ -525,7 +600,7 @@ private fun Key.repairKey(label: String, repairs: MutableList<LayoutMessage>): K
 }
 
 /** Truncates an over-long row and scales an over-wide one back into the grid. */
-private fun List<Key>.repairRow(label: String, repairs: MutableList<LayoutMessage>): List<Key> {
+internal fun List<Key>.repairRow(label: String, repairs: MutableList<LayoutMessage>): List<Key> {
     var row = this
     if (row.size > MaxKeysPerRow) {
         repairs += LayoutMessage(
@@ -572,7 +647,7 @@ private inline fun List<List<Key>>.ensuring(
  * limits at once is pathological, and being able to backspace is worth more than
  * the twenty-fourth key of the eighth row.
  */
-private fun List<List<Key>>.appendToLastRow(key: Key): List<List<Key>> = when {
+internal fun List<List<Key>>.appendToLastRow(key: Key): List<List<Key>> = when {
     isEmpty() -> listOf(listOf(key))
     last().size < MaxKeysPerRow -> dropLast(1) + listOf(last() + key)
     size < MaxRowsPerLayer -> this + listOf(listOf(key))

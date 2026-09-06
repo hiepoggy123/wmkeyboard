@@ -73,6 +73,20 @@ data class Key(
      * See [KeyAlternate] for why the two lists stay separate.
      */
     val actionAlternates: List<KeyAlternate> = emptyList(),
+    /**
+     * Draws [actionAlternates] *before* the [longPress] characters instead of
+     * after them, which puts the first of them at entry 0 — the entry a plain
+     * hold-and-release commits when hold-to-select is on.
+     *
+     * Set at resolve time from
+     * [com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions.actionFirst],
+     * not authored: it is the user saying they would rather a held `c` copy
+     * than type ç. Authoring it is harmless and does the same thing.
+     *
+     * Read only through [alternateEntries] — the order lives there so the
+     * popup's draw and its commit cannot disagree about which entry is which.
+     */
+    val actionAlternatesFirst: Boolean = false,
     /** Clipboard shortcut fired on long press instead of the alternates popup. */
     val clipboardAction: ClipboardKeyAction? = null,
     /** What this key means to field adaptation; null infers it from position. */
@@ -102,6 +116,21 @@ data class Key(
      * at once.
      */
     val hideHint: Boolean = false,
+    /**
+     * Draws this key's corner hint even when the global
+     * [KeyboardSettings.longPressHints] toggle is off (issue #33).
+     *
+     * The other half of [hideHint], and it exists for the mirror-image author:
+     * someone who turned every hint off because a full grid of them is noise,
+     * but wants the two or three keys whose alternates nobody would guess to
+     * keep saying so. Per key for the same reason [hideHint] is.
+     *
+     * [hideHint] wins when both are set. The two are separate booleans rather
+     * than one tri-state because that is what keeps a file written by an older
+     * build reading the same: `hideHint` already means what it meant, and a
+     * key that says nothing gets the toggle's answer, exactly as before.
+     */
+    val forceHint: Boolean = false,
     /**
      * Directional flick outputs for a 12-key kana pad: a flick left/up/right/down
      * from this key commits the matching kana instead of the centre tap. Empty
@@ -155,6 +184,34 @@ fun Key.opensAlternatesPopup(): Boolean =
  */
 fun Key.canHoldAlternates(): Boolean = clipboardAction == null && !action.holdIsSpokenFor()
 
+/** One entry of the alternates popup: a character to type, or an action to run. */
+sealed interface AlternateEntry {
+    /** One of [Key.longPress] — committed with the key's text path. */
+    @JvmInline
+    value class Character(val text: String) : AlternateEntry
+
+    /** One of [Key.actionAlternates] — committed as a key press. */
+    @JvmInline
+    value class Action(val alternate: KeyAlternate) : AlternateEntry
+}
+
+/**
+ * The popup's entries in the one order everything must agree on: the characters
+ * then the actions, or the reverse when [Key.actionAlternatesFirst] is set.
+ *
+ * A function rather than a rule each reader re-implements, because the index is
+ * the entry's identity. Two places consume it — the popup's draw and the
+ * hold-to-select commit — and when they disagreed by one the popup highlighted
+ * à and committed select-all. Position 0 also matters on its own: with
+ * hold-to-select on it is what a plain hold-and-release fires, which is the
+ * whole point of [Key.actionAlternatesFirst].
+ */
+fun Key.alternateEntries(): List<AlternateEntry> {
+    val characters = longPress.map { AlternateEntry.Character(it) }
+    val actions = actionAlternates.map { AlternateEntry.Action(it) }
+    return if (actionAlternatesFirst) actions + characters else characters + actions
+}
+
 /**
  * What a [Key.labelScale] is honoured at.
  *
@@ -204,6 +261,20 @@ data class KeyboardLayout(
      * draw the same thing the keyboard will.
      */
     val appearance: LayoutAppearance? = null,
+    /**
+     * Whether this grid stays on screen across a close and reopen of the
+     * keyboard; see [LayerSpec.persistent]. Carried on the compiled grid for
+     * the same reason [rowHeights] is: the service decides what to do when a
+     * field opens by looking at the grid it is showing, not at the spec.
+     */
+    val persistent: Boolean = false,
+    /**
+     * The theme this grid asks to be drawn in: the layer's own, else the
+     * layout's, else null for "whatever is set" (issue #61). Resolved here so
+     * the one place that picks the board's theme reads one field of the grid
+     * on screen rather than re-deriving the layer-beats-layout rule.
+     */
+    val themeId: String? = null,
 )
 
 /**

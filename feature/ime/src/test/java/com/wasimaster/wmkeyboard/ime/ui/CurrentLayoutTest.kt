@@ -1,11 +1,14 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import com.wasimaster.wmkeyboard.core.layout.AlternateEntry
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.KeyAlternate
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
+import com.wasimaster.wmkeyboard.core.layout.alternateEntries
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.core.layout.expandForTablet
 import com.wasimaster.wmkeyboard.core.layout.opensAlternatesPopup
@@ -16,12 +19,14 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions
+import com.wasimaster.wmkeyboard.core.settings.TextEditAction
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.FieldKind
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
+import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.LayoutSet
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -54,10 +59,10 @@ class CurrentLayoutTest {
 
     /**
      * With every adaptation off the grid is handed back as-is rather than
-     * rebuilt. The clipboard shortcuts ship off by default; globe-as-emoji,
-     * the comma/globe swap and the number row ship *on*, so all three are
-     * switched off to get here — the number row because it strips the digits
-     * from the top-row letters' long press, which is a rewrite too.
+     * rebuilt. Globe-as-emoji, the comma/globe swap, the number row and the six
+     * clipboard shortcuts all ship *on*, so every one is switched off to get
+     * here — the number row because it strips the digits from the top-row
+     * letters' long press, which is a rewrite too.
      */
     @Test
     fun `a plain text field with no adaptations returns the layout untouched`() {
@@ -65,9 +70,61 @@ class CurrentLayoutTest {
         assertEquals(s.layouts.letters, currentLayout(s))
     }
 
+    /**
+     * The hold shortcut is an ordinary popup entry, after the accents the key
+     * already had — and entry 0, the one a plain hold commits, is still the
+     * accent it has always been.
+     */
+    @Test
+    fun `a hold shortcut lands after the accents by default`() {
+        val s = state(settings = plain().copy(longPressLetterActions = copyOnC()))
+        val entries = cKeyOf(s).alternateEntries()
+        assertTrue("the c key must still offer its accents", entries.size > 1)
+        assertTrue("entry 0 stays a character", entries.first() is AlternateEntry.Character)
+        assertEquals(
+            KeyAction.Edit(TextEditAction.COPY),
+            (entries.last() as AlternateEntry.Action).alternate.action,
+        )
+    }
+
+    /**
+     * `actionFirst` is the trade the other way: the action moves to entry 0, so
+     * a plain hold-and-release copies, and the accents move one along rather
+     * than being taken away.
+     */
+    @Test
+    fun `actionFirst puts the hold shortcut at entry zero`() {
+        val actions = copyOnC().copy(actionFirst = true)
+        val s = state(settings = plain().copy(longPressLetterActions = actions))
+        val entries = cKeyOf(s).alternateEntries()
+        assertEquals(
+            KeyAction.Edit(TextEditAction.COPY),
+            (entries.first() as AlternateEntry.Action).alternate.action,
+        )
+        // The accents are still reachable, and in their own order.
+        val characters = entries.drop(1).map { (it as AlternateEntry.Character).text }
+        assertEquals(cKeyOf(s).longPress, characters)
+    }
+
+    /** Copy on `c`, every other hold shortcut off. */
+    private fun copyOnC() = LongPressLetterActions(
+        selectAll = false, copy = true, paste = false,
+        cut = false, undo = false, redo = false,
+    )
+
+    private fun cKeyOf(s: KeyboardUiState): Key =
+        currentLayout(s).keys().single { (it.output ?: it.label) == "c" }
+
     /** Settings with every default-on layout rewrite turned off. */
-    private fun plain(): KeyboardSettings =
-        KeyboardSettings(globeAsEmoji = false, swapCommaAndGlobe = false, numberRow = false)
+    private fun plain(): KeyboardSettings = KeyboardSettings(
+        globeAsEmoji = false,
+        swapCommaAndGlobe = false,
+        numberRow = false,
+        longPressLetterActions = LongPressLetterActions(
+            selectAll = false, copy = false, paste = false,
+            cut = false, undo = false, redo = false,
+        ),
+    )
 
     private fun enterKeyOf(s: KeyboardUiState): Key =
         currentLayout(s).keys().single { it.action == KeyAction.Enter }
@@ -103,6 +160,44 @@ class CurrentLayoutTest {
         // And draws no corner hint: that comes from the character alternates,
         // which this key still has none of.
         assertTrue(enterKeyOf(s).longPress.isEmpty())
+    }
+
+    private fun spaceKeyOf(s: KeyboardUiState): Key =
+        currentLayout(s).keys().single { it.action == KeyAction.Space }
+
+    /**
+     * Issue #57: the spacebar's long press is a setting, for a user who switches
+     * language some other way and wants their own keys under the hold.
+     */
+    @Test
+    fun `the spacebar takes the user's hold keys`() {
+        val s = state(
+            settings = plain().copy(
+                layoutBehavior = plain().layoutBehavior.copy(spaceHoldKeys = listOf("\uD83D\uDE42", "\u2764\uFE0F")),
+            ),
+        )
+        val space = spaceKeyOf(s)
+        assertEquals(listOf("\uD83D\uDE42", "\u2764\uFE0F"), space.longPress)
+        assertTrue("the hold has to actually open the popup", space.opensAlternatesPopup())
+    }
+
+    /** Every layer, or a hold that works on the letters dies in the symbols. */
+    @Test
+    fun `the hold keys reach the symbols layer too`() {
+        val s = state(
+            settings = plain().copy(
+                layoutBehavior = plain().layoutBehavior.copy(spaceHoldKeys = listOf("\uD83D\uDE42")),
+            ),
+        ).copy(layoutMode = LayoutMode.SYMBOLS)
+        assertEquals(listOf("\uD83D\uDE42"), spaceKeyOf(s).longPress)
+    }
+
+    /** Nobody who has not asked for it loses the space repeat or the picker. */
+    @Test
+    fun `an unset spacebar keeps its hold`() {
+        val space = spaceKeyOf(state(settings = plain()))
+        assertTrue(space.longPress.isEmpty())
+        assertTrue(!space.opensAlternatesPopup())
     }
 
     /** The same layout set, widened the way the service widens it on a tablet. */
@@ -200,40 +295,52 @@ class CurrentLayoutTest {
         assertTrue("emoji key should lead the comma", emoji < comma)
     }
 
-    /** The clipboard/undo/redo shortcuts ship off, so a plain field doesn't get them. */
+    /**
+     * The six shortcuts ship on, and as popup entries: the key keeps its accents
+     * and its popup, and the action is appended after them. Nothing takes the
+     * hold outright any more — a [Key.clipboardAction] would, and that is now
+     * only ever written into a layout by hand.
+     */
     @Test
-    fun `the default clipboard shortcuts stay off`() {
+    fun `the default clipboard shortcuts ride in the popup`() {
         val layout = currentLayout(state())
-        assertNull(layout.keys().first { it.label == "a" }.clipboardAction)
-        assertNull(layout.keys().first { it.label == "v" }.clipboardAction)
-        assertNull(layout.keys().first { it.label == "z" }.clipboardAction)
-        assertNull(layout.keys().first { it.label == "y" }.clipboardAction)
+        val c = layout.keys().first { it.label == "c" }
+        assertEquals(
+            listOf(KeyAlternate(KeyAction.Edit(TextEditAction.COPY))),
+            c.actionAlternates,
+        )
+        assertNull("the accents must survive it", c.clipboardAction)
+        assertTrue("the key's own accents come first", c.longPress.isNotEmpty())
+        assertTrue(c.opensAlternatesPopup())
     }
 
-    /** Enabling each toggle lands its shortcut on the matching key, including Z/Y. */
+    /** Each toggle lands its action on the matching key, including Z/Y. */
     @Test
     fun `enabled clipboard shortcuts land on a c v x z y`() {
+        val layout = currentLayout(state())
+        fun actionsOn(label: String) =
+            layout.keys().first { it.label == label }.actionAlternates.map { it.action }
+        assertEquals(listOf(KeyAction.Edit(TextEditAction.SELECT_ALL)), actionsOn("a"))
+        assertEquals(listOf(KeyAction.Edit(TextEditAction.COPY)), actionsOn("c"))
+        assertEquals(listOf(KeyAction.Edit(TextEditAction.PASTE)), actionsOn("v"))
+        assertEquals(listOf(KeyAction.Edit(TextEditAction.CUT)), actionsOn("x"))
+        assertEquals(listOf(KeyAction.Tool(ToolbarTool.UNDO)), actionsOn("z"))
+        assertEquals(listOf(KeyAction.Tool(ToolbarTool.REDO)), actionsOn("y"))
+        assertEquals(emptyList<KeyAction>(), actionsOn("q"))
+    }
+
+    /** Turning one off takes only its own entry away. */
+    @Test
+    fun `a switched-off clipboard shortcut leaves its key alone`() {
         val layout = currentLayout(
             state(
                 settings = KeyboardSettings(
-                    longPressLetterActions = LongPressLetterActions(
-                        selectAll = true,
-                        copy = true,
-                        paste = true,
-                        cut = true,
-                        undo = true,
-                        redo = true,
-                    ),
+                    longPressLetterActions = LongPressLetterActions(copy = false),
                 ),
             ),
         )
-        assertNotNull(layout.keys().first { it.label == "a" }.clipboardAction)
-        assertNotNull(layout.keys().first { it.label == "c" }.clipboardAction)
-        assertNotNull(layout.keys().first { it.label == "v" }.clipboardAction)
-        assertNotNull(layout.keys().first { it.label == "x" }.clipboardAction)
-        assertNotNull(layout.keys().first { it.label == "z" }.clipboardAction)
-        assertNotNull(layout.keys().first { it.label == "y" }.clipboardAction)
-        assertNull(layout.keys().first { it.label == "q" }.clipboardAction)
+        assertEquals(emptyList<KeyAlternate>(), layout.keys().first { it.label == "c" }.actionAlternates)
+        assertTrue(layout.keys().first { it.label == "x" }.actionAlternates.isNotEmpty())
     }
 
     @Test
@@ -257,6 +364,36 @@ class CurrentLayoutTest {
             "the mark the key now types must not also sit in its own popup",
             period.longPress.none { it == "।" },
         )
+    }
+
+    /**
+     * বিসর্গ is drawn as a colon and does a different job, and the symbol layers
+     * are one grid shared by every language, so the colon key's popup is the
+     * only place it can live.
+     */
+    @Test
+    fun `a bengali layout hangs bisarga on the colon key`() {
+        val s = state(BuiltInLayouts.AVRO, settings = plain())
+            .copy(script = ScriptRegistry[ScriptId.BENGALI], layoutMode = LayoutMode.SYMBOLS)
+        val colon = currentLayout(s).keys().first { (it.output ?: it.label) == ":" }
+        assertEquals(listOf("ঃ"), colon.longPress)
+    }
+
+    /** Devanagari's visarga rides the same key, for the same reason. */
+    @Test
+    fun `a devanagari layout hangs visarga on the colon key`() {
+        val s = state(settings = plain())
+            .copy(script = ScriptRegistry[ScriptId.DEVANAGARI], layoutMode = LayoutMode.SYMBOLS)
+        val colon = currentLayout(s).keys().first { (it.output ?: it.label) == ":" }
+        assertEquals(listOf("ः"), colon.longPress)
+    }
+
+    /** The same key on a Latin layout is untouched, popup and all. */
+    @Test
+    fun `a latin layout leaves the colon key alone`() {
+        val s = state(settings = plain()).copy(layoutMode = LayoutMode.SYMBOLS)
+        val colon = currentLayout(s).keys().first { (it.output ?: it.label) == ":" }
+        assertEquals(emptyList<String>(), colon.longPress)
     }
 
     @Test
@@ -353,9 +490,10 @@ class CurrentLayoutTest {
                 ),
             ),
         )
-        assertNotNull(
+        assertEquals(
             "a key labelled A that outputs a should still get select-all",
-            layout.keys().first { it.label == "A" }.clipboardAction,
+            listOf(KeyAlternate(KeyAction.Edit(TextEditAction.SELECT_ALL))),
+            layout.keys().first { it.label == "A" }.actionAlternates,
         )
     }
 

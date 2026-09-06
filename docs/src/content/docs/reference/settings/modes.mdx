@@ -18,11 +18,13 @@ You reach this screen three ways: Home → **Keyboard modes**, the settings sear
 
 ## The modes list
 
-<SettingsPath path="Keyboard modes" />
+<SettingsPath path="Advanced / Keyboard modes" />
 
-The first control on this screen is **A mode you pick by hand**, a choice of how long a manual pick from the Modes tool lasts: **Until you change app** (the default) or **Until you change it**. It sits above the list because it governs every mode. See [Rearranging tools](#rearranging-tools) below for the other list-level control.
+The first control on this screen is **Use modes**, the master switch for the whole feature, on by default. Turn it off and the keyboard uses one setup everywhere: no mode ever activates, the Modes tool disappears from the toolbar and the toolbox, and per-mode themes and tool sets stop applying. Your modes are kept, not deleted. The list below stays on screen and stays editable, and turning the switch back on restores every one of them exactly as it was. Turn it off if you found your emoji row or pinned tools different in another app and would rather they never moved.
 
-Under it, each mode's row shows its icon, its name, and a one-line summary of what triggers it. A mode with no apps and no field types bound reads **"Manual only, from the Modes tool"**. Everything else reads **"Automatic:"** followed by the app count and/or the field types it's bound to, joined with a `+` because both have to match. The shipped Chat mode reads **"Automatic: 15 apps + text, notification replies fields"**. Tap a row to open that mode's editor. Tap the trailing bin icon and a **"Delete *name*?"** dialog asks first.
+Under it, **A mode you pick by hand** chooses how long a manual pick from the Modes tool lasts: **Until you change app** (the default) or **Until you change it**. It sits above the list because it governs every mode. See [Rearranging tools](#rearranging-tools) below for the other list-level control.
+
+Below those, each mode's row shows its icon, its name, and a one-line summary of what triggers it. A mode with no apps and no field types bound reads **"Manual only, from the Modes tool"**. Everything else reads **"Automatic:"** followed by the app count and/or the field types it's bound to, joined with a `+` because both have to match. The shipped Chat mode reads **"Automatic: 15 apps + text, notification replies fields"**. Tap a row to open that mode's editor. Tap the trailing bin icon and a **"Delete *name*?"** dialog asks first.
 
 **New mode** adds a row and opens a fresh editor. The mode isn't written to disk until you make your first edit inside it; backing out of an untouched new-mode editor leaves nothing behind.
 
@@ -111,7 +113,7 @@ Both rounds run once and leave your edits alone. A mode you've deleted isn't re-
 
 ## How long a hand-picked mode lasts
 
-<SettingsPath path="Keyboard modes / A mode you pick by hand" />
+<SettingsPath path="Advanced / Keyboard modes / A mode you pick by hand" />
 
 This choice sits at the top of the modes list screen and covers every mode at once. It only applies to a mode you pick yourself from the Modes tool, never to one that switches on for an app on its own.
 
@@ -119,7 +121,7 @@ This choice sits at the top of the modes list screen and covers every mode at on
 
 ## Rearranging tools
 
-<SettingsPath path="Keyboard modes / Rearrange tools / Drags edit the active mode" />
+<SettingsPath path="Advanced / Keyboard modes / Rearrange tools / Drags edit the active mode" />
 
 This toggle sits in the **Rearrange tools** group at the foot of the modes list screen rather than inside an editor. It governs what happens when you drag a tool on the keyboard itself while a mode with its own pinned tools or toolbox order is active.
 
@@ -129,7 +131,7 @@ Tool order can differ per app: whichever mode an app resolves to decides the arr
 
 ## Options
 
-<SettingsPath path="Keyboard modes" />
+<SettingsPath path="Advanced / Keyboard modes" />
 
 | Setting | Default |
 | --- | --- |
@@ -137,7 +139,7 @@ Tool order can differ per app: whichever mode an app resolves to decides the arr
 | Keyboard modes list | 6 seeded modes (table above) |
 | Drags edit the active mode | On |
 
-<SettingsPath path="Keyboard modes / Edit mode" />
+<SettingsPath path="Advanced / Keyboard modes / Edit mode" />
 
 | Setting | Default |
 | --- | --- |

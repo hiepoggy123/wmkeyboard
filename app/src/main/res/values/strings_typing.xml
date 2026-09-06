@@ -7,10 +7,19 @@
     <string name="typing_group_suggestions_title">Suggestions</string>
     <string name="typing_group_smart_chips_title">Smart chips</string>
     <string name="typing_group_gestures_title">Gestures</string>
+    <string name="typing_group_glide_title">Glide typing</string>
+    <string name="typing_group_glide_trail_title">Glide trail and preview</string>
+    <string name="typing_group_spacebar_title">Spacebar gestures</string>
     <string name="typing_group_backspace_title">Backspace</string>
     <string name="typing_group_enter_title">Enter key</string>
     <string name="typing_group_volume_title">Volume keys</string>
     <string name="typing_group_hardware_title">Physical keyboard</string>
+    <string name="typing_group_corrections_subtitle">Autocorrect, capitals, punctuation and spacing</string>
+    <string name="typing_group_suggestions_subtitle">The suggestion strip, learning, names and app names</string>
+    <string name="typing_group_smart_chips_subtitle">Sums, currencies, units, dates and lookups</string>
+    <string name="typing_group_otp_subtitle">Codes from messages and notifications</string>
+    <string name="typing_group_gestures_subtitle">Glide typing, spacebar swipes and handwriting</string>
+    <string name="typing_group_hardware_subtitle">Shortcuts, hotkeys and the shortcut key</string>
 
     <!-- ==== Typing settings: slider value labels ==== -->
     <!-- %1$s is the already formatted number, for example 2.5 -->
@@ -56,10 +65,14 @@
     <string name="typing_language_detection_gentle">Gentle</string>
     <string name="typing_language_detection_balanced">Balanced</string>
     <string name="typing_language_detection_aggressive">Aggressive</string>
+    <!-- One line under each option in the detection strength picker. -->
+    <string name="typing_language_detection_gentle_desc">Only reorders the suggestions. Your keyboard language always wins</string>
+    <string name="typing_language_detection_balanced_desc">A clear detection takes the lead, and autocorrect follows it</string>
+    <string name="typing_language_detection_aggressive_desc">Autocorrect follows the detected language against common words too</string>
 
     <string name="typing_autocorrect_adaptive_title">Adaptive confidence</string>
     <string name="typing_autocorrect_adaptive_subtitle">Correct less eagerly when you undo corrections often</string>
-    <string name="typing_autocorrect_adaptive_info">The keyboard tracks how often you undo its corrections. When you undo corrections often, the keyboard raises the confidence it needs before it corrects a word. When you rarely undo corrections, the confidence returns to the value of the slider. The keyboard also remembers each correction you undo. A correction you undo twice never applies again.</string>
+    <string name="typing_autocorrect_adaptive_info">The keyboard tracks how often you undo its corrections. When you undo corrections often, the keyboard raises the confidence it needs before it corrects a word. When you rarely undo corrections, the confidence returns to the value of the slider. The keyboard also remembers each correction you undo, one word pair at a time. "Remember my undos" sets how long that memory lasts.</string>
 
     <string name="typing_timing_signal_title">Typing rhythm</string>
     <string name="typing_timing_signal_subtitle">Let your typing speed sway autocorrect</string>
@@ -72,6 +85,18 @@
     <string name="typing_undo_autocorrect_title">Undo autocorrect with backspace</string>
     <string name="typing_undo_autocorrect_subtitle">Backspace right after a correction restores what you typed</string>
     <string name="typing_undo_autocorrect_info">Press backspace immediately after autocorrect changes a word. The keyboard puts your original spelling back and learns it, so it does not correct that word again. Turn this off to make backspace always delete one character.</string>
+
+    <string name="typing_undo_memory_title">Remember my undos</string>
+    <string name="typing_undo_memory_subtitle">How long a correction you undo stays undone</string>
+    <string name="typing_undo_memory_info">When you undo a correction, the keyboard remembers that exact pair of words and stops making the same correction. This setting says how long the keyboard keeps that memory. The keyboard reads an undo in two ways. Backspace, pressed right after the correction, is a clear undo. The keyboard also checks the text later, and counts it as an undo when your own spelling stands where the correction was. The second reading is weaker. You can go back to fix a typo by hand without seeing that the keyboard already fixed it, and type the same typo again. On every level except Strict, the keyboard ignores that second reading when your spelling is not a word it knows.</string>
+    <string name="typing_undo_memory_off">Off</string>
+    <string name="typing_undo_memory_off_desc">The keyboard forgets the undo at once and corrects the word again next time</string>
+    <string name="typing_undo_memory_light">Light</string>
+    <string name="typing_undo_memory_light_desc">A correction you undo needs much more confidence to apply again. The keyboard never stops it for good</string>
+    <string name="typing_undo_memory_normal">Normal</string>
+    <string name="typing_undo_memory_normal_desc">One undo stops the correction for the rest of the message. Two stop it for good, and the keyboard asks you about it once more after a long quiet time</string>
+    <string name="typing_undo_memory_strict">Strict</string>
+    <string name="typing_undo_memory_strict_desc">The first undo stops the correction for good, and the keyboard never asks about it again</string>
 
     <string name="typing_skip_all_caps_title">Skip words in capital letters</string>
     <string name="typing_skip_all_caps_subtitle">Leave words typed in capital letters alone</string>
@@ -90,13 +115,7 @@
     <string name="typing_auto_capitalize_subtitle">Put a capital letter at the start of each sentence</string>
     <string name="typing_auto_capitalize_info">Shift turns on by itself at the start of a text field, and after the punctuation that ends a sentence (. ! ? ।). This happens only in the fields that ask for sentence capitals, and only in the scripts that have capital letters, which are Latin, Cyrillic, Greek and Armenian. Nothing changes in Bengali or any other script without letter case. The keyboard never changes caps lock by itself.</string>
 
-    <string name="typing_double_space_period_title">Double space for a full stop</string>
-    <string name="typing_double_space_period_subtitle">Press space two times to type a full stop and a space</string>
-    <string name="typing_double_space_period_info">Press space two times quickly at the end of a word. The keyboard replaces the first space with a full stop. You can end a sentence with no change to the symbols layout.</string>
 
-    <string name="typing_double_space_tab_title">Double space for a tab</string>
-    <string name="typing_double_space_tab_subtitle">Press space two times to type a tab</string>
-    <string name="typing_double_space_tab_info">Press space two times quickly. The keyboard replaces the first space with a tab character, which helps with indents and forms. While this setting is on, the tab has priority over the full stop.</string>
 
     <string name="typing_auto_space_punctuation_title">Automatic space after punctuation</string>
     <string name="typing_auto_space_punctuation_subtitle">The keyboard adds a space after you type . , ? ! ; or :</string>
@@ -163,9 +182,28 @@
     <string name="typing_smart_replies_subtitle">Let the system offer replies to the message you answer</string>
     <string name="typing_smart_replies_info">Android System Intelligence can read the conversation on the screen and offer short answers, such as \"On my way!\". The answers show as chips beside the word suggestions, up to three at a time. The system draws them, not the keyboard. They come over the same channel as the password manager chips, but they count and switch apart from them. You can have saved logins in the suggestion strip without the system reading your messages, or the opposite. Incognito mode turns this off by itself. This setting needs Android 11 or newer, and only some apps offer replies.</string>
 
-    <string name="typing_smart_hit_detection_title">Smart detection of key hits</string>
-    <string name="typing_smart_hit_detection_subtitle">Move a press at a key edge to the letter you probably wanted</string>
+    <string name="typing_group_autopilot_title">Autopilot</string>
+    <string name="typing_group_autopilot_subtitle">Widen the touch area of the letters you type next</string>
+
+    <string name="typing_smart_hit_detection_title">Autopilot</string>
+    <string name="typing_smart_hit_detection_subtitle">Quietly widen the touch area of letters you are likely to type next</string>
     <string name="typing_smart_hit_detection_info">As you type a word, the word list predicts the letters that come next. The keyboard makes the touch area of each key larger toward those letters. A press that lands just inside the key next to it still gives the letter you wanted, but only near the shared edge. The keyboard never changes a press in the middle of a key. This works on the letters layer only, and it needs Suggestions on.</string>
+
+    <string name="typing_autopilot_strength_title">Strength</string>
+    <string name="typing_autopilot_strength_subtitle">How far a likely letter reaches over the key next to it</string>
+    <string name="typing_autopilot_strength_info">At 1 the keyboard changes a press only at the exact edge between two keys. At 10 a likely letter claims most of the space between itself and a letter that the word list does not expect. A letter never reaches more than one key width away, whatever you set here. 5 is the value the keyboard started with.</string>
+
+    <string name="typing_autopilot_show_title">Show the effect</string>
+    <string name="typing_autopilot_show_subtitle">Draw a favoured letter at the size its touch area has grown to</string>
+    <string name="typing_autopilot_show_info">The keyboard draws each expected letter over the board at the size autopilot gave it, so you can see what Strength does while you type. The keys themselves do not move, and you press them in the same places. At most five letters are drawn at a time.</string>
+
+    <string name="typing_autopilot_size_title">Size of the effect</string>
+    <string name="typing_autopilot_size_subtitle">How much bigger than life a favoured letter is drawn</string>
+    <string name="typing_autopilot_size_info">×1.0 draws each touch area at its true size. A higher value multiplies the growth alone, so a letter that claimed no extra space stays the size of its key and only the difference gets larger. This changes the drawing and nothing else. Your presses land in the same places, and the outline always shows the true boundary.</string>
+
+    <string name="typing_autopilot_outline_title">Outline the touch areas</string>
+    <string name="typing_autopilot_outline_subtitle">Draw the exact boundary each expected letter has claimed</string>
+    <string name="typing_autopilot_outline_info">A thin line marks the area that autopilot judges your press against. Use it to tune Strength. The line is a tuning aid, so turn it off again when you are done.</string>
 
     <string name="typing_personal_dictionary_title">Personal dictionary</string>
     <string name="typing_personal_dictionary_subtitle">Review, delete or add the words that the keyboard learned</string>
@@ -244,6 +282,9 @@
     <string name="typing_letter_swipe_action_info">With Handwrite selected, the keyboard reads a swipe across the keys as handwriting. Draw a letter or a word. After a short pause the keyboard recognises it and types it, and offers other readings in the suggestion strip. This needs a handwriting model (Settings → Handwriting). A plain press still types its key.</string>
     <string name="typing_letter_swipe_type_words_label">Type words</string>
     <string name="typing_letter_swipe_handwrite_label">Handwrite</string>
+    <!-- One line under each option in the swipe over the keys picker. -->
+    <string name="typing_letter_swipe_type_words_desc">A swipe across the keys spells one word</string>
+    <string name="typing_letter_swipe_handwrite_desc">Draw a letter or a word over the keys. This needs a handwriting model</string>
 
     <string name="typing_space_glide_multiword_title">Glide across the spacebar</string>
     <string name="typing_space_glide_multiword_subtitle">Swipe over the spacebar to continue with the next word</string>
@@ -252,6 +293,13 @@
     <string name="typing_glide_picker_title">Ask when a glide is unclear</string>
     <string name="typing_glide_picker_subtitle">Hold your finger still to choose between the closest words</string>
     <string name="typing_glide_picker_info">Some swipes have no single right answer. On a fixed Bengali layout the letters ক and খ share a key, so a word and its aspirated twin are drawn exactly the same way, and on any layout a hurried swipe can fit two words equally well. When that happens, keep your finger down and hold it still for a moment: the closest words appear under your fingertip. Slide onto one and lift to type it. Lift without choosing and the keyboard types its best guess, as it always did, and the same words stay on the suggestion bar either way.</string>
+
+    <!-- One-of-four choice: how much of the dictionary a glide can produce. The
+         four labels come from core:prediction (Everything, Large, Medium,
+         Small) and the word counts from languages_wordlist_size_option. -->
+    <string name="typing_glide_vocabulary_title">Words a glide can produce</string>
+    <string name="typing_glide_vocabulary_subtitle">Limit a glide to the most common words in your dictionary</string>
+    <string name="typing_glide_vocabulary_info">A glide tells the keyboard which keys your finger went near, and in what order. Many words fit that loosely, so the keyboard uses word frequency to select one of them. A large dictionary holds many rare words, and a rare word whose shape fits a little better can win over the word you meant. This setting limits a glide to the most common words in the dictionary. It changes glide typing only. Suggestions, word completion and autocorrect still use every word, because the letters you type say much more than a swipe does. Words you teach the keyboard are never limited. The dictionary that comes with the keyboard is smaller than every limit here, so this setting does nothing until you download or import a large word list.</string>
 
     <string name="typing_space_after_glide_title">Space after a glided word</string>
     <string name="typing_space_after_glide_subtitle">Add a space when you lift your finger at the end of a glide</string>
@@ -266,6 +314,12 @@
     <string name="typing_glide_apostrophe_period_label">Full stop</string>
     <string name="typing_glide_apostrophe_space_label">Spacebar</string>
     <string name="typing_glide_apostrophe_key_label">Apostrophe key</string>
+    <!-- One line under each option in the apostrophe in a glide picker. -->
+    <string name="typing_glide_apostrophe_off_desc">A glide cannot write an apostrophe</string>
+    <string name="typing_glide_apostrophe_comma_desc">Glide through the comma key. A press still types a comma</string>
+    <string name="typing_glide_apostrophe_period_desc">Glide through the full stop key. A press still types a full stop</string>
+    <string name="typing_glide_apostrophe_space_desc">Glide through the spacebar. \"Glide across the spacebar\" stops</string>
+    <string name="typing_glide_apostrophe_key_desc">Glide through the apostrophe key, where the layout has one</string>
 
     <!-- The 's is the English possessive ending, as in "the developer's keyboard". -->
     <string name="typing_glide_apostrophe_s_title">Swipe to add \'s</string>
@@ -292,6 +346,32 @@
     <string name="typing_trail_length_title">Trail length</string>
     <string name="typing_trail_length_subtitle">How long the trail stays behind your finger</string>
 
+    <!-- Typing settings screen, Gestures group. These shape the pill that floats
+         above your finger with the word a glide has decoded so far. -->
+    <string name="typing_glide_preview_title">Word preview</string>
+    <string name="typing_glide_preview_subtitle">Float the word above your finger as you glide</string>
+    <string name="typing_glide_preview_info">While you glide, the word that the keyboard reads so far floats above your finger, and it changes as you go. Turn this off and the word appears only on the suggestion strip.\n\nThis does not change what a glide types.</string>
+
+    <string name="typing_glide_preview_height_title">Preview distance above finger</string>
+    <string name="typing_glide_preview_height_subtitle">How far above your finger the word floats</string>
+    <string name="typing_glide_preview_height_info">Your hand covers more of the screen than your fingertip does, so the word can end up behind it. Raise this until you can read the word while you glide.\n\nThe word is drawn inside the keyboard. Near the top row, a large distance stops at the top edge.</string>
+
+    <string name="typing_glide_preview_shift_title">Preview sideways shift</string>
+    <string name="typing_glide_preview_shift_subtitle">Move the word left or right of your finger</string>
+    <string name="typing_glide_preview_shift_info">Your hand covers one side of your finger more than the other. Move the word to the other side and you can read it without moving your hand.\n\nA negative value moves it to the left. A positive value moves it to the right. Near the edge of the keyboard the word stops at the edge.</string>
+
+    <string name="typing_glide_preview_size_title">Preview text size</string>
+    <string name="typing_glide_preview_size_subtitle">Size of the word that floats above your finger</string>
+    <string name="typing_glide_preview_size_info">This is the size of the text in the floating word only. The suggestion strip and the keys do not change.</string>
+
+    <string name="typing_glide_preview_color_title">Preview color</string>
+    <string name="typing_glide_preview_color_subtitle">Background behind the floating word</string>
+    <string name="typing_glide_preview_color_info">By default the floating word takes its color from the keyboard theme, which is the same color as the key popup. Pick a color here and it uses that instead. Reset the row to follow the theme again.</string>
+
+    <string name="typing_glide_preview_text_color_title">Preview text color</string>
+    <string name="typing_glide_preview_text_color_subtitle">Color of the floating word itself</string>
+    <string name="typing_glide_preview_text_color_info">By default the floating word takes its text color from the keyboard theme. Pick a color here and it uses that instead. Reset the row to follow the theme again.</string>
+
     <string name="typing_trail_opacity_title">Trail opacity</string>
 
     <string name="typing_space_short_swipe_title">Quick swipe on the spacebar</string>
@@ -306,9 +386,18 @@
     <string name="typing_space_cursor_2d_subtitle">The cursor swipe also moves up and down</string>
     <string name="typing_space_cursor_2d_info">This setting changes the spacebar cursor swipe into a touchpad. The cursor moves left and right, and a swipe up or down moves the cursor between lines. This applies only to the swipe actions set to \"Cursor\" above.</string>
 
+    <!-- One line under each option in the pickers for a swipe on the spacebar. -->
+    <string name="typing_space_swipe_none_desc">The swipe does nothing</string>
+    <string name="typing_space_swipe_language_desc">Change to your next language</string>
+    <string name="typing_space_swipe_cursor_desc">Move the cursor through the text</string>
+    <string name="typing_space_swipe_numpad_desc">Open the number pad</string>
+
     <string name="typing_space_swipe_down_hide_title">Swipe down to hide the keyboard</string>
     <string name="typing_space_swipe_down_hide_subtitle">A swipe down on the spacebar closes the keyboard</string>
     <string name="typing_space_swipe_down_hide_info">Swipe straight down on the spacebar to close the keyboard. This setting is off by default, so an accidental swipe down never closes the keyboard. When the 2-D cursor touchpad is on, a swipe down moves the cursor instead. The touchpad has priority.</string>
+
+    <string name="typing_space_hold_keys_label">Spacebar long press keys</string>
+    <string name="typing_space_hold_keys_hint">Type the characters you want on the spacebar long press, with a space between each one. Example: 🙂 ❤️ 👍. The keyboard then shows them in a popup when you press and hold the spacebar. Leave this blank to keep the normal long press, which opens the language picker or repeats spaces.</string>
 
     <string name="typing_spacebar_language_arrows_title">Arrows on the spacebar</string>
     <string name="typing_spacebar_language_arrows_subtitle">Show that a swipe switches the language</string>
@@ -326,9 +415,22 @@
     <string name="typing_spacebar_text_hint">Leave this blank to keep the normal spacebar label. Type <xliff:g id="token" example="%s">%1$s</xliff:g> to put that label in your text. Example: ~ <xliff:g id="token" example="%s">%1$s</xliff:g> ~</string>
 
     <!-- ==== Typing settings: backspace ==== -->
-    <string name="typing_backspace_swipe_title">Swipe to delete words</string>
-    <string name="typing_backspace_swipe_subtitle">Swipe sideways on backspace to delete full words</string>
-    <string name="typing_backspace_swipe_info">Press backspace and swipe left. Each step deletes one more word, not one character. A plain press, or a press and hold, still deletes one character at a time.</string>
+    <string name="typing_backspace_swipe_title">Swipe to delete</string>
+    <string name="typing_backspace_swipe_subtitle">Swipe sideways on backspace to delete more than one press</string>
+    <string name="typing_backspace_swipe_info">Press backspace and swipe left. Each step of the swipe deletes one more word, or one more character, as you set below. A plain press, or a press and hold, still deletes one character at a time.</string>
+
+    <string name="typing_backspace_unit_title">Swipe deletes</string>
+    <string name="typing_backspace_unit_subtitle">What one step of the backspace swipe takes off</string>
+    <string name="typing_backspace_unit_info">Words clear a sentence in one pull. Characters walk back a letter at a time, which is the finer tool when you must fix the middle of a word. The distance for one step is set below, and it is a different distance for each of the two.</string>
+    <string name="typing_backspace_unit_word">Words</string>
+    <string name="typing_backspace_unit_character">Characters</string>
+    <!-- One line under each option in the swipe deletes picker. -->
+    <string name="typing_backspace_unit_word_desc">Clears a sentence in one pull</string>
+    <string name="typing_backspace_unit_character_desc">Walks back one letter at a time, to fix the middle of a word</string>
+
+    <string name="typing_backspace_preview_title">Show what you will delete</string>
+    <string name="typing_backspace_preview_subtitle">Select the text as you swipe, and delete it when you lift your finger</string>
+    <string name="typing_backspace_preview_info">The swipe highlights the text it is about to delete instead of deleting as it goes, so you can see how far you have got. Swipe back to the right to give text back, and lift your finger to delete what is left highlighted. Turn this off to delete each word or character the moment you swipe past it.</string>
 
     <!-- ==== Typing settings: enter key ==== -->
     <string name="typing_shift_enter_title">Shift and Enter type a new line</string>
@@ -391,6 +493,10 @@
 
     <string name="typing_hw_suggestion_hotkeys_title">Number keys select suggestions</string>
     <string name="typing_hw_suggestion_hotkeys_subtitle">Type a suggestion by its number in the suggestion strip</string>
+    <!-- One line under each option in the number keys picker. -->
+    <string name="typing_hw_suggestion_hotkeys_off_desc">The number keys type numbers only</string>
+    <string name="typing_hw_suggestion_hotkeys_leader_desc">The safe choice. Nothing else uses the shortcut key</string>
+    <string name="typing_hw_suggestion_hotkeys_alt_desc">One key less, but many apps use Alt with a number for their tabs</string>
     <!-- The two quoted names are the choice labels of this same setting. -->
     <string name="typing_hw_suggestion_hotkeys_info">You cannot press the suggestion strip while you type on a physical keyboard. A number key selects a suggestion instead.\n\n\"After the shortcut key\" is the safe choice, because nothing else uses it. \"Alt + number\" needs one key less, but browsers, editors and chat apps use a modifier with a number to switch tabs and workspaces.</string>
 
@@ -405,6 +511,19 @@
     <string name="typing_suggestion_slots_subtitle">How many words the suggestion strip shows at once</string>
     <string name="typing_suggestion_slots_info">The strip splits its width evenly between the suggestions, so more of them means each one is narrower and long words are shrunk further to fit. Three suits a phone. A tablet or a landscape screen has room for more. This setting is 3 by default.</string>
 
+    <string name="typing_suggestion_scroll_title">Scroll the suggestions</string>
+    <string name="typing_suggestion_scroll_subtitle">Show each word at full size and scroll the strip sideways when they do not fit</string>
+    <string name="typing_suggestion_scroll_info">Normally the strip splits its width evenly and shrinks long words to fit their slot. With this on, every word keeps its natural size and the strip scrolls sideways instead. Short words still fill the strip as before, so nothing changes until a word overruns. Turn it on if you want five or six suggestions on a narrow phone. This setting is off by default.</string>
+
+    <string name="typing_double_space_title">Double space</string>
+    <string name="typing_double_space_subtitle">What two quick presses of space type</string>
+    <string name="typing_double_space_info">Press space two times quickly at the end of a word. Full stop replaces the first space with a full stop, so you can end a sentence with no change to the symbols layout. Tab replaces it with a tab character, which helps with indents and forms. Two spaces leaves both spaces as they are.</string>
+    <string name="typing_double_space_none_label">Two spaces</string>
+    <string name="typing_double_space_period_label">Full stop</string>
+    <string name="typing_double_space_tab_label">Tab</string>
+    <string name="typing_double_space_none_desc">Two presses type two spaces</string>
+    <string name="typing_double_space_period_desc">The first space becomes a full stop</string>
+    <string name="typing_double_space_tab_desc">The first space becomes a tab character</string>
     <string name="typing_double_space_window_title">Double space speed</string>
     <string name="typing_double_space_window_subtitle">How quickly the two spaces have to follow each other</string>
     <string name="typing_double_space_window_info">Two spaces closer together than this count as a double space and become a full stop or a tab. Raise it if you type slowly and never get the full stop. Lower it if you get full stops you did not mean. This setting is 400 ms by default.</string>
@@ -416,6 +535,10 @@
     <string name="typing_backspace_step_title">Word delete distance</string>
     <string name="typing_backspace_step_subtitle">How far you swipe backspace to delete the first word</string>
     <string name="typing_backspace_step_info">Later words come off faster than the first on a fixed curve, so this one distance tunes the whole gesture. Raise it if words disappear by accident, lower it if clearing a sentence takes too long a pull. This setting is 72 dp by default.</string>
+
+    <string name="typing_backspace_char_step_title">Character delete distance</string>
+    <string name="typing_backspace_char_step_subtitle">How far you swipe backspace for each character</string>
+    <string name="typing_backspace_char_step_info">Every character costs the same pull, with no speed up, so the count stays easy to follow. Raise it if letters go by too quickly, lower it if a long correction takes too much room. This setting is 20 dp by default.</string>
 
     <string name="typing_learn_threshold_title">Learn a word after</string>
     <string name="typing_learn_threshold_subtitle">How many times you type a word before autocorrect leaves it alone</string>

@@ -69,7 +69,7 @@ The button in the dialog's title swaps the wheel for **Hue** and **Saturation** 
 
 - **Key shape**: a row that opens a picker with all twelve shapes listed by name, each drawn beside its name at key proportions and at this theme's own corner radius, so you can see what you're choosing before you choose it. The full list, and which shapes react to the radius slider, is under [Key shapes](#key-shapes) below.
 - **Letter keys** sets their color, and carries an optional **Key gradient**, a subtle sheen painted over letter keys only (see [Gradients](#gradients)).
-- **Key text**, **Modifier keys**, **Modifier key text** (falls back to Key text when left on Auto), **Enter key**, **Enter key icon**.
+- **Key text**, **Modifier keys**, **Modifier key text** (falls back to Key text when left on Auto), **Key hint text** (the small long-press alternate in a key's corner; Auto draws the key's own text color at 55% opacity, and this one keeps alpha so you can pick a translucent hint in another hue), **Enter key**, **Enter key icon**.
 - **Pressed key** is the color a key flashes while held. Auto derives it from Letter keys.
 - **Key border** stays off (Auto, no visible border) until you pick a color. A **Border width** slider (0–3dp) then appears, starting at 0dp. Picking a border color on its own shows nothing until you raise the width too.
 
@@ -143,7 +143,7 @@ For a theme you plan to share, use the forms that travel. Google Font ids (`goog
 - **Accent** paints the shift-on tint, the active-tool color, and the buttons across the panels.
 - **Gesture trail** is the color of the swipe-typing trail. Auto falls back to Accent, and the field supports alpha.
 - **Popup background** and **Popup text** color the bubble that appears above a key on press. Both support Auto fallbacks, deriving from the board and key colors and from Key text respectively. Popup background supports alpha.
-- **Popup shape** sets the outline of every popup surface the keyboard draws: the character bubble, the long-press alternates, the language list, the panel menus. It's the same picker and the same twelve shapes as Key shape, drawn at this theme's popup radius. Until you pick one, the theme follows <SettingsPath path="Key press / Popup shape" />.
+- **Popup shape** sets the outline of every popup surface the keyboard draws: the character bubble, the long-press alternates, the language list, the panel menus. It's the same picker and the same twelve shapes as Key shape, drawn at this theme's popup radius. Until you pick one, the theme follows <SettingsPath path="Key press / Key popup / Popup shape" />.
 - **Popup placement** decides whether the character bubble grows out of the pressed key (the stock style) or floats detached above it. **Default** leaves the choice to <SettingsPath path="Key press" />. The other two make it part of the theme, so a bubble-popup theme looks right on every phone it lands on.
 - **Popup outline** and its width row draw a border around the bubble, off until you pick a color, exactly like the key border. It draws on every popup surface the keyboard opens: the character bubble, the long-press alternates, the spacebar language picker, the clipboard and emoji menus, and the small pickers inside the tool panels.
 - The popup can also wear an image: the **Key preview popup** row under [Key textures](#key-textures) paints one inside the bubble, clipped to the popup shape, using the same Crop/Stretch/Tile mode and opacity as the key textures.
@@ -198,7 +198,7 @@ Off by default, so keys everywhere follow the global sliders (two under Appearan
 
 ### Layout
 
-A second opt-in group, **Layout for this theme**, works the same way: one switch seeds a set of size overrides from your current global settings, and turning it off clears them all again. Tool background width, toolbar height, popup height, key height, key gap, side padding, key label size, bold labels, corner hint size, and the gesture trail's width and opacity all live here. Screen-specific sizes from Layout settings (folded, unfolded, landscape) still win over a theme's own.
+A second opt-in group, **Layout for this theme**, works the same way: one switch seeds a set of size overrides from your current global settings, and turning it off clears them all again. Tool background width, toolbar height, popup height, key height, key gap, left and right padding, key label size, bold labels, corner hint size, and the gesture trail's width and opacity all live here. Screen-specific sizes from Layout settings (folded, unfolded, landscape) still win over a theme's own.
 
 Popup height is the height of the key-preview bubble. The global slider under <SettingsPath path="Key press" /> keeps one value for the on-key bubble and another for the floating one; the theme's override applies to whichever style is switched on.
 

@@ -3,6 +3,8 @@
 
     <!-- Key press settings screen, "Haptic feedback" group. -->
     <string name="keypress_haptics_group_title">Haptic feedback</string>
+    <string name="keypress_haptics_page_title">Haptics and sound</string>
+    <string name="keypress_haptics_group_subtitle">Vibration and key sounds</string>
 
     <string name="keypress_haptics_title">Key press haptics</string>
     <string name="keypress_haptics_subtitle">Vibrate on each key press</string>
@@ -59,6 +61,7 @@
 
     <!-- Key press settings screen, "Key popup" group. -->
     <string name="keypress_popup_group_title">Key popup</string>
+    <string name="keypress_popup_group_subtitle">The bubble over a pressed key</string>
 
     <string name="keypress_popup_title">Key popup</string>
     <string name="keypress_popup_subtitle">Show a character bubble above the pressed key</string>
@@ -89,6 +92,23 @@
     <!-- "Popup on key" is the title of the setting keypress_popup_on_key_title. -->
     <string name="keypress_popup_height_info">This is the height of the character bubble. With \"Popup on key\" turned on, the keyboard measures it from the bottom of the key that you press. A bubble taller than the key goes above it and stays visible past your finger.\n\nEach of the two bubble styles keeps its own height, because a floating bubble starts above the key and needs less of it. Turn \"Popup on key\" on or off, and this slider shows the height of that style.</string>
 
+    <string name="keypress_popup_offset_y_title">Popup distance above key</string>
+    <string name="keypress_popup_offset_y_subtitle">How far the floating bubble sits above the key</string>
+    <!-- "Popup on key" is the title of the setting keypress_popup_on_key_title. -->
+    <string name="keypress_popup_offset_y_info">The floating bubble sits above the key that you press. If your finger covers it, raise this distance until you can read it.\n\nThis applies only while \"Popup on key\" is off. The on-key bubble grows out of the key itself, so it has no distance to set. Use \"Popup height\" for that style.</string>
+
+    <string name="keypress_popup_offset_x_title">Popup sideways shift</string>
+    <string name="keypress_popup_offset_x_subtitle">Move the floating bubble left or right of the key</string>
+    <string name="keypress_popup_offset_x_info">Your hand covers one side of the key more than the other. Move the bubble away from that side and you can read it without moving your hand.\n\nA negative value moves the bubble to the left. A positive value moves it to the right. Near the edge of the keyboard the bubble stops at the edge.</string>
+
+    <string name="keypress_popup_background_title">Popup color</string>
+    <string name="keypress_popup_background_subtitle">Background of the key preview bubble</string>
+    <string name="keypress_popup_background_info">By default the bubble takes its color from the keyboard theme. Pick a color here and the bubble uses it instead. Reset the row to follow the theme again.\n\nThis is only the preview bubble. The alternate keys, the language list and the menus in the panels keep the color of the theme.</string>
+
+    <string name="keypress_popup_text_color_title">Popup text color</string>
+    <string name="keypress_popup_text_color_subtitle">Color of the character inside the bubble</string>
+    <string name="keypress_popup_text_color_info">By default the character takes its color from the keyboard theme. Pick a color here and the character uses it instead. Reset the row to follow the theme again.\n\nThis is only the preview bubble, as with the popup color above.</string>
+
     <string name="keypress_popup_shape_title">Popup shape</string>
     <string name="keypress_popup_shape_subtitle">Outline of every popup, from a square to a circle</string>
     <string name="keypress_popup_shape_info">This is the outline of every popup that the keyboard draws: the character bubble, the alternate keys, the language list and the menus in the panels. Only the rounded and the cut shapes follow the corner radius below. The others size their corners from the popup itself.\n\nA theme can carry its own shape. When it does, the theme wins over this setting.</string>
@@ -96,6 +116,31 @@
     <string name="keypress_popup_radius_title">Popup corner radius</string>
     <string name="keypress_popup_radius_subtitle">How round the corners of a popup are</string>
     <string name="keypress_popup_radius_info">This is the corner radius of every popup. A value of 0 gives square corners. A high value makes the corners fully round.\n\nOnly the rounded and the cut popup shapes use this value. A theme can carry its own radius, and it wins over this setting.</string>
+
+    <!-- Key press settings screen, "Alternate keys" group. These size and arrange the
+         press and hold popup, which is a different popup from the preview bubble above. -->
+    <string name="keypress_alternates_group_title">Alternate keys</string>
+
+    <string name="keypress_alternates_size_title">Alternate key size</string>
+    <string name="keypress_alternates_size_subtitle">Text size in the press and hold popup</string>
+    <string name="keypress_alternates_size_info">This multiplies the size of the characters in the popup that opens when you press and hold a key. It reaches further than the popup font size above, because the popup of alternates grows to fit whatever you put in it.\n\nThe preview bubble keeps its own size, so a large value here does not push the character out of the bubble.</string>
+
+    <string name="keypress_alternates_padding_title">Alternate key spacing</string>
+    <string name="keypress_alternates_padding_subtitle">Room around each character in the popup</string>
+    <string name="keypress_alternates_padding_info">This is the space around each alternate. It sets the gap between them and the size of the area that you can tap, so raise it if you hit the wrong character.\n\nA higher value makes the popup wider, and a wide popup wraps onto more rows.</string>
+
+    <string name="keypress_alternates_columns_title">Alternate key columns</string>
+    <string name="keypress_alternates_columns_subtitle">How many alternates go on one row</string>
+    <string name="keypress_alternates_columns_auto">Auto</string>
+    <string name="keypress_alternates_columns_info">Auto puts as many alternates on a row as fit on the screen, so the shape of the popup follows the width of the characters.\n\nA number from 3 to 11 gives every row that many columns of the same width. A key with many alternates then reads as a block, and each alternate is in the same place each time that you open it.</string>
+
+    <string name="keypress_alternates_nearest_title">Closest to the key first</string>
+    <string name="keypress_alternates_nearest_subtitle">Fill the popup from the key outward</string>
+    <string name="keypress_alternates_nearest_info">The popup opens above the key that you hold. This decides which end of it the first alternate goes to.\n\nOff: the first alternate is at the top left and the popup fills downward, like lines of text. On a popup of several rows, the first alternate is then the furthest from your finger.\n\nOn: the first alternate is on the row nearest the key, and the rest climb away from it. This is what most stock keyboards do, and it is a shorter reach on a key with many alternates. A popup of one row looks the same either way.</string>
+
+    <string name="keypress_alternates_hold_title">Choose without lifting</string>
+    <string name="keypress_alternates_hold_subtitle">Hold, slide to the alternate you want, and let go</string>
+    <string name="keypress_alternates_hold_info">On: the first alternate is highlighted as the popup opens. Slide your finger to move the highlight, and let go to type what is highlighted. Hold a key and let go without moving to get its first alternate, which is how most keyboards work. To type nothing, slide away from the popup before you let go.\n\nOff: the popup stays open after you lift your finger, and you tap the alternate you want. That is two steps, but each one is easier to aim.</string>
 
     <!-- Key press settings screen, "Timing" group. -->
     <string name="keypress_timing_group_title">Timing</string>
@@ -118,10 +163,12 @@
 
     <!-- Key press settings screen, "Press and hold shortcuts" group. -->
     <string name="keypress_shortcuts_group_title">Press and hold shortcuts</string>
+    <string name="keypress_shortcuts_group_subtitle">What a long press on a key does</string>
 
     <string name="keypress_long_press_hints_title">Press and hold hints</string>
     <string name="keypress_long_press_hints_subtitle">Show the alternate character of each key in its corner</string>
     <string name="keypress_long_press_hints_info">A small label in the top right corner of each key shows its first press and hold character. This is the digit, symbol or accent at the start of the popup. Keys that run a clipboard shortcut below show no hint.</string>
+
 
     <string name="keypress_all_accents_title">All accents on press and hold</string>
     <string name="keypress_all_accents_subtitle">Fill the popup of every letter with its full set of accents</string>
@@ -140,30 +187,6 @@
     <string name="keypress_ctrl_raw_subtitle">For terminals. Off means that Ctrl+A, C, V and X use the clipboard</string>
     <string name="keypress_ctrl_raw_info">A Ctrl key on a custom layout normally runs A, C, V and X through the clipboard actions of Android. Those work everywhere, including web pages and apps built with Compose.\n\nA terminal needs the raw key event instead. There Ctrl+C means interrupt, not copy. The keyboard cannot tell the two apart, so this is a setting and not a guess.</string>
 
-    <string name="keypress_hold_a_title">Press and hold A to select all</string>
-    <string name="keypress_hold_a_subtitle">A press and hold on A selects all the text</string>
-    <string name="keypress_hold_a_info">This replaces the accent popup of the A key with a select all shortcut. Turn it off to get the accents back (à á â ä å).</string>
-
-    <string name="keypress_hold_c_title">Press and hold C to copy</string>
-    <string name="keypress_hold_c_subtitle">Copies the selection, or all the text if you select nothing</string>
-    <string name="keypress_hold_c_info">With text selected, a press and hold on C copies that selection only. With no selection the keyboard selects all the text first, so one hold copies the whole field. This replaces the accent popup of the C key (ç ć).</string>
-
-    <string name="keypress_hold_x_title">Press and hold X to cut</string>
-    <string name="keypress_hold_x_subtitle">Cuts the selection, or all the text if you select nothing</string>
-    <string name="keypress_hold_x_info">With text selected, a press and hold on X cuts that selection only. With no selection the keyboard selects all the text first, so one hold cuts the whole field.</string>
-
-    <string name="keypress_hold_v_title">Press and hold V to paste</string>
-    <string name="keypress_hold_v_subtitle">A press and hold on V pastes the clipboard</string>
-    <string name="keypress_hold_v_info">This pastes the current clipboard content at the cursor. It replaces any selection. It is the classic Ctrl+V, one hold away.</string>
-
-    <string name="keypress_hold_z_title">Press and hold Z to undo</string>
-    <string name="keypress_hold_z_subtitle">A press and hold on Z undoes the last edit</string>
-    <string name="keypress_hold_z_info">This sends the same undo shortcut as the Undo tool on the toolbar. It replaces the accent popup of the Z key.</string>
-
-    <string name="keypress_hold_y_title">Press and hold Y to redo</string>
-    <string name="keypress_hold_y_subtitle">A press and hold on Y redoes the last undone edit</string>
-    <string name="keypress_hold_y_info">This sends the same redo shortcut as the Redo tool on the toolbar. That is Ctrl+Y or Ctrl+Shift+Z, from the redo shortcut setting.</string>
-
     <!-- Slider readouts on the key press settings screen. -->
     <!-- %1$d is a length of time in milliseconds, for example 120.
          "ms" is a unit symbol, not a countable noun: it does not inflect. -->
@@ -176,6 +199,19 @@
          "dp" is a unit symbol, not a countable noun: it does not inflect. -->
     <string name="keypress_value_dp" tools:ignore="PluralsCandidate">%1$d dp</string>
 
+    <string name="keypress_hold_actions_title">Hold shortcuts</string>
+    <string name="keypress_hold_actions_subtitle">Edit actions in the press and hold popup of a letter key</string>
+    <string name="keypress_hold_actions_info">Each action you pick goes into the press and hold popup of its key, after the accents that the key already has. Copy and cut take the selection, or all the text if you select nothing. Undo and redo send the same shortcuts as the toolbar tools. Choose the keys under Shortcut keys. To run the action with a plain press and hold instead, turn on Action first.</string>
+
+    <string name="keypress_hold_action_first_title">Action first</string>
+    <string name="keypress_hold_action_first_subtitle">Press and hold runs the action instead of showing the accents</string>
+    <string name="keypress_hold_action_first_info">The action usually sits at the end of the popup, so a plain press and hold gives you the first accent. With this on it moves to the front, and a press and hold on one of the shortcut keys runs the action straight away. The accents are still there: keep your finger down and slide onto the one you want. This needs Hold to select, under Alternate keys.</string>
+    <string name="keypress_hold_action_select_all_label">Select all</string>
+    <string name="keypress_hold_action_copy_label">Copy</string>
+    <string name="keypress_hold_action_cut_label">Cut</string>
+    <string name="keypress_hold_action_paste_label">Paste</string>
+    <string name="keypress_hold_action_undo_label">Undo</string>
+    <string name="keypress_hold_action_redo_label">Redo</string>
     <string name="keypress_hold_letters_title">Shortcut keys</string>
     <string name="keypress_hold_letters_subtitle">Which key each hold shortcut sits on</string>
     <string name="keypress_hold_letters_dialog_note">Hold shortcuts sit on A, C, V, X, Z and Y by default, which only works on a layout that has those letters. Put them on keys your own layout actually draws.</string>

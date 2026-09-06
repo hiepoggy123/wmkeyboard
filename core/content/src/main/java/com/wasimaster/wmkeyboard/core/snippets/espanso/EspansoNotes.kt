@@ -45,7 +45,7 @@ enum class EspansoNote(@get:PluralsRes val pluralsRes: Int) {
     /** The regular expression was one this app will not run. */
     REGEX(R.plurals.core_content_espanso_note_regex),
 
-    /** The trigger was all punctuation, which cannot be matched here. */
+    /** The trigger did not end in a word, so there is nothing to look it up by. */
     SYMBOL_TRIGGER(R.plurals.core_content_espanso_note_symbol_trigger),
 
     /** The trigger was meant to fire in the middle of a word. */
@@ -74,6 +74,16 @@ enum class EspansoNote(@get:PluralsRes val pluralsRes: Int) {
 
     /** The snippet was in a folder that is switched off. */
     DISABLED_FOLDER(R.plurals.core_content_espanso_note_disabled_folder),
+
+    /**
+     * The snippet had more than one expansion and only the default could go
+     * out. Espanso can carry a plain list as a `choice`, but not one whose
+     * entries hold dates, the clipboard or a capture reference.
+     */
+    ALTERNATES(R.plurals.core_content_espanso_note_alternates),
+
+    /** The snippet linked to other snippets, which Espanso has no word for. */
+    LINKS(R.plurals.core_content_espanso_note_links),
 }
 
 /**

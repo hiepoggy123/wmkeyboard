@@ -30,6 +30,41 @@ class LayoutCodecTest {
         assertEquals(original, LayoutCodec.decode(LayoutCodec.encode(original)))
     }
 
+    /** Issue #62: a key that opens a secondary layout, and the two new flags, survive the file. */
+    @Test
+    fun `round trips an open-layout key and the secondary and persistent flags`() {
+        val original = spec(listOf(Key("Pad", action = KeyAction.Layout("custom_pad"))))
+            .let { it.copy(secondary = true, layers = it.layers.mapValues { (_, l) -> l.copy(persistent = true) }) }
+        val decoded = LayoutCodec.decode(LayoutCodec.encode(original))
+        assertEquals(original, decoded)
+        assertTrue(decoded!!.secondary)
+        assertTrue(decoded.layer(LayoutLayer.LETTERS)!!.persistent)
+    }
+
+    /** Issue #61: a layout's and a layer's theme ride the file, and resolve layer-first on the grid. */
+    @Test
+    fun `round trips a layout theme and a layer theme`() {
+        val original = spec(listOf(Key("a")))
+            .let { it.copy(themeId = "custom_t1", layers = it.layers.mapValues { (_, l) -> l.copy(themeId = "custom_t2") }) }
+        val decoded = LayoutCodec.decode(LayoutCodec.encode(original))
+        assertEquals(original, decoded)
+        assertEquals("custom_t2", decoded!!.compile(LayoutLayer.LETTERS).themeId)
+        assertEquals("custom_t1", original.copy(layers = spec(listOf(Key("a"))).layers).compile(LayoutLayer.LETTERS).themeId)
+    }
+
+    /** …and a file from before either flag existed is an ordinary layout whose layers spring back. */
+    @Test
+    fun `a layout written before secondary and persistent existed is an ordinary layout`() {
+        val old = """
+            {"id":"custom_old","name":"Old","langId":"en","version":2,
+             "layers":{"letters":{"rows":[[{"label":"a"}]]}}}
+        """.trimIndent()
+        val decoded = LayoutCodec.decode(old)
+        assertNotNull(decoded)
+        assertFalse(decoded!!.secondary)
+        assertFalse(decoded.layer(LayoutLayer.LETTERS)!!.persistent)
+    }
+
     /**
      * A file written before `tabletExpand` existed has to mean "yes". Every one
      * of the 1,256 shipped assets and every stored custom layout is such a file, so
@@ -200,6 +235,22 @@ class LayoutCodecTest {
         """.trimIndent()
         val oldKey = LayoutCodec.decode(old)!!.layers.getValue("letters").rows[0][0]
         assertEquals(false, oldKey.hideHint)
+        assertEquals(false, oldKey.forceHint)
+    }
+
+    /**
+     * The other direction (issue #33): a key that keeps its hint while the
+     * global switch is off. Separate from `hideHint` in the file, so a layout
+     * written before the field existed still reads as "follow the switch".
+     */
+    @Test
+    fun `round trips a hint-forcing key`() {
+        val original = spec(listOf(Key("a", longPress = listOf("@"), forceHint = true)))
+        val decoded = LayoutCodec.decode(LayoutCodec.encode(original))
+        assertEquals(original, decoded)
+        val key = decoded!!.layers.getValue(LayoutLayer.LETTERS.key).rows[0][0]
+        assertEquals(true, key.forceHint)
+        assertEquals(false, key.hideHint)
     }
 
     @Test
@@ -374,9 +425,15 @@ class LayoutCodecTest {
         assertTrue(Key("a", longPress = listOf("à")).opensAlternatesPopup())
 
         assertFalse("nothing to show", Key("a").opensAlternatesPopup())
+        // Issue #57: the spacebar's hold has defaults (the language picker, the
+        // space repeat), not an owner. Keys authored onto it take it over.
+        assertTrue(
+            "authored keys claim the space hold",
+            Key(" ", action = KeyAction.Space, longPress = listOf("🙂")).opensAlternatesPopup(),
+        )
         assertFalse(
-            "the hold repeats",
-            Key(" ", action = KeyAction.Space, longPress = listOf("\t")).opensAlternatesPopup(),
+            "a bare spacebar still holds to repeat",
+            Key(" ", action = KeyAction.Space).opensAlternatesPopup(),
         )
         assertFalse(
             "the hold repeats",
@@ -394,7 +451,7 @@ class LayoutCodecTest {
 
         // The editor asks the other question: not "has any" but "may have".
         assertTrue(Key("⏎", action = KeyAction.Enter).canHoldAlternates())
-        assertFalse(Key(" ", action = KeyAction.Space).canHoldAlternates())
+        assertTrue(Key(" ", action = KeyAction.Space).canHoldAlternates())
     }
 
     @Test

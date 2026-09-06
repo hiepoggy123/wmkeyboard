@@ -39,6 +39,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.wasimaster.wmkeyboard.core.settings.stopsBackgroundWork
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -95,8 +96,10 @@ fun PhotoServicesScreen(
         route = PHOTO_HUB_ROUTE,
         icon = { Icon(Icons.Outlined.Wallpaper, contentDescription = null) },
     ) {
-        SettingsGroup(stringResource(R.string.photo_providers_section_title)) {
-            item { CaptionText(stringResource(R.string.photo_providers_body)) }
+        SettingsGroup(
+            stringResource(R.string.photo_providers_section_title),
+            info = listOf(stringResource(R.string.photo_providers_body), stringResource(R.string.photo_licence_body)).joinToString("\n\n"),
+        ) {
             item {
                 ApiKeyField(
                     label = stringResource(R.string.photo_unsplash_key_label),
@@ -123,7 +126,6 @@ fun PhotoServicesScreen(
                     PhotoCache.clear()
                 }
             }
-            item { CaptionText(stringResource(R.string.photo_licence_body)) }
         }
         HighContrastNote(settings)
     }
@@ -286,8 +288,10 @@ fun PhotoRotationScreen(
         }
 
         if (photos.usesNetwork) {
-            SettingsGroup(stringResource(R.string.photo_rotation_online_section_title)) {
-                item { CaptionText(stringResource(R.string.photo_rotation_subject_body)) }
+            SettingsGroup(
+                stringResource(R.string.photo_rotation_online_section_title),
+                info = stringResource(R.string.photo_rotation_subject_body),
+            ) {
                 item {
                     NavRow(
                         title = R.string.photo_rotation_topics_title,
@@ -328,13 +332,31 @@ fun PhotoRotationScreen(
                         default = SettingsDefaults.photoBackground.safeSearch,
                     ) { scope.launch { repository.setPhotoSafeSearch(it) } }
                 }
+                // Data saver copies `false` over this switch on a metered
+                // network without touching the stored choice, so the row says
+                // so and points at the policy instead of showing a switch that
+                // does nothing there.
+                val saverStops = settings.dataSaver.photoBackgrounds.stopsBackgroundWork
                 item {
                     ToggleSetting(
                         title = R.string.photo_rotation_metered_title,
-                        subtitle = stringResource(R.string.photo_rotation_metered_subtitle),
+                        subtitle = stringResource(
+                            if (saverStops) R.string.photo_rotation_metered_saver_subtitle
+                            else R.string.photo_rotation_metered_subtitle,
+                        ),
                         checked = photos.fetchOnMetered,
                         default = SettingsDefaults.photoBackground.fetchOnMetered,
                     ) { scope.launch { repository.setPhotoFetchOnMetered(it) } }
+                }
+                if (saverStops) {
+                    item {
+                        NavRow(
+                            title = R.string.home_datasaver_title,
+                            subtitle = stringResource(R.string.photo_rotation_metered_saver_nav_subtitle),
+                            route = "datasaver",
+                            onClick = { onNavigate("datasaver") },
+                        )
+                    }
                 }
                 item {
                     NavRow(

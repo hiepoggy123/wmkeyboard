@@ -64,7 +64,7 @@
 
     <!-- Themes screen: the gallery of themes. -->
     <string name="theme_gallery_section_title">Themes</string>
-    <string name="theme_gallery_auto_on_body">Auto theme is on, so this selection does nothing. Turn it off above to select one theme yourself.</string>
+    <string name="theme_gallery_auto_on_body">Auto theme is on, so the gallery only shows what it would look like.</string>
     <!-- How the gallery shows a theme that has more than one look. Auto
          follows the answer from the setup questions. -->
     <string name="theme_gallery_style_auto_label">Auto</string>
@@ -92,7 +92,6 @@
     <string name="theme_import_done_message">The app imported <xliff:g id="theme_name" example="Midnight">%1$s</xliff:g>.</string>
     <string name="theme_custom_section_title">Your themes</string>
     <string name="theme_builtin_section_title">Built-in</string>
-    <string name="theme_builtin_section_body">Press a theme to use it. The pencil icon makes a copy that you can edit.</string>
 
     <!-- Theme editor: the looks (variations) of one theme. -->
     <string name="theme_variant_section_title">Looks</string>
@@ -178,6 +177,8 @@
     <!-- Shift, backspace, symbols and the other keys that are not letters. -->
     <string name="theme_modifier_keys_title">Modifier keys</string>
     <string name="theme_modifier_key_text_title">Modifier key text</string>
+    <!-- The small long-press alternate drawn in a key's top-right corner. -->
+    <string name="theme_hint_text_title">Key hint text</string>
     <string name="theme_enter_key_title">Enter key</string>
     <string name="theme_enter_key_icon_title">Enter key icon</string>
     <string name="theme_pressed_key_title">Pressed key</string>
@@ -244,7 +245,8 @@
     <string name="theme_popup_height_title">Popup height</string>
     <string name="theme_key_height_title">Key height</string>
     <string name="theme_key_gap_title">Key gap</string>
-    <string name="theme_side_padding_title">Side padding</string>
+    <string name="theme_side_padding_left_title">Left padding</string>
+    <string name="theme_side_padding_right_title">Right padding</string>
     <string name="theme_font_scale_title">Key label size</string>
     <string name="theme_bold_labels_title">Bold key labels</string>
     <string name="theme_hint_scale_title">Corner hint size</string>
@@ -319,6 +321,26 @@
     <string name="theme_effect_image_item_label">Particle image %1$d</string>
     <string name="theme_effect_image_add_action">Add an image</string>
     <string name="theme_effect_intensity_title">Intensity</string>
+    <string name="theme_effect_color_title">Colour</string>
+    <string name="theme_effect_color_natural_label">Natural</string>
+    <string name="theme_effect_color_key_text_label">Key text</string>
+    <string name="theme_effect_color_accent_label">Accent</string>
+    <string name="theme_effect_color_trail_label">Trail</string>
+    <string name="theme_effect_color_custom_label">Custom</string>
+    <string name="theme_effect_color_random_label">Random</string>
+    <string name="theme_effect_color_natural_desc">Every emoji or image keeps its own colours</string>
+    <string name="theme_effect_color_key_text_desc">One flat colour, the same as the key labels</string>
+    <string name="theme_effect_color_accent_desc">One flat colour, the accent of this theme</string>
+    <string name="theme_effect_color_trail_desc">One flat colour, the same as the glide trail</string>
+    <string name="theme_effect_color_custom_desc">One flat colour that you pick below</string>
+    <string name="theme_effect_color_random_desc">A different colour for every particle</string>
+    <string name="theme_effect_color_body">Natural keeps each emoji or image in its own colours. Every other choice paints the particles one flat colour, so a glyph becomes a silhouette.</string>
+    <string name="theme_effect_size_title">Size</string>
+    <string name="theme_effect_speed_title">Speed</string>
+    <string name="theme_effect_spread_title">Spread</string>
+    <string name="theme_effect_gravity_title">Gravity</string>
+    <string name="theme_effect_gravity_body">How fast the particles fall. Zero leaves them drifting, and below zero they float upward.</string>
+    <string name="theme_effect_duration_title">Duration</string>
 
     <!-- Theme editor: per-theme font and sound. -->
     <string name="theme_font_sound_section_title">Font and sound</string>

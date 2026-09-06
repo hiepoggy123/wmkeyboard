@@ -28,6 +28,7 @@
     <string name="common_undo">Undo</string>
     <string name="common_add">Add</string>
     <string name="common_copy">Copy</string>
+    <string name="common_cut">Cut</string>
     <string name="common_paste">Paste</string>
     <string name="common_share">Share</string>
     <string name="common_import">Import</string>
@@ -52,6 +53,9 @@
     <string name="common_reset_defaults">Reset to defaults</string>
     <!-- Content description of the per-setting reset control. %1$s is the setting's own name. -->
     <string name="common_reset_setting_desc">Reset %1$s to its default</string>
+    <!-- Content descriptions of the two buttons of a number stepper. %1$s is the setting's own name. -->
+    <string name="common_decrease_setting_desc">Decrease %1$s</string>
+    <string name="common_increase_setting_desc">Increase %1$s</string>
 
     <!-- ================================================================== -->
     <!-- States and values.                                                 -->

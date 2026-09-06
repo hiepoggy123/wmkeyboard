@@ -51,38 +51,40 @@ object SnippetMatcher {
     const val MAX_STEPS = 40_000
 
     /**
-     * Longest run of punctuation a trigger may lead with, in characters.
+     * Longest run a trigger may carry in front of its last word, in characters.
      *
      * Bounds the read [SnippetIndex.matchPrefix] asks the field for. Espanso's
-     * own convention is one or two characters (`:`, `;`, `//`), so this is
-     * generous rather than tight.
+     * punctuation convention is one or two characters (`:`, `;`, `//`); a
+     * multi-word trigger such as `gr db` needs room for whole words, so this is
+     * sized for a short phrase rather than for a symbol.
      */
-    const val MAX_PREFIX = 8
+    const val MAX_PREFIX = 32
 
-    /** A trigger's leading punctuation and the word it leads. */
+    /** A trigger's lead-in and the word it ends with. */
     data class Prefixed(val prefix: String, val word: String)
 
     /**
-     * [trigger] split into its punctuation prefix and the word after it, or
-     * null when it is an ordinary whole-word trigger.
+     * [trigger] split into everything in front of its final word and that word,
+     * or null when it is an ordinary whole-word trigger.
      *
-     * `:shrug` gives `(":", "shrug")`. This is the shape nearly every Espanso
-     * package uses, and it cannot go through the plain whole-word lookup: the
-     * keyboard's composing buffer only ever holds letters, digits and
-     * apostrophes, so a leading `:` has already been committed to the field by
-     * the time the word it prefixes is finished.
+     * `:shrug` gives `(":", "shrug")` and `gr db` gives `("gr ", "db")`. Neither
+     * can go through the plain whole-word lookup: the keyboard's composing
+     * buffer only ever holds letters, digits and apostrophes, so by the time the
+     * last word is finished the colon — or the earlier word and the space after
+     * it — has already been committed to the field.
      *
-     * Null for a plain word (nothing to look back at), for a trigger that is all
-     * punctuation (no composing word to gate on), and for one whose word part
-     * holds a character the buffer would break on. Those last two are reported
-     * as unsupported by the Espanso importer rather than stored and left inert.
+     * Null for a plain word (nothing to look back at) and for a trigger that
+     * does not end in a word (nothing to look up), such as `->` or `x:`. That
+     * second case is reported as unsupported by the Espanso importer rather than
+     * stored and left inert. A lead-in may hold spaces but no other whitespace:
+     * a tab or a newline is not something the keyboard can put in a field.
      */
     fun splitPrefix(trigger: String): Prefixed? {
-        val cut = trigger.indexOfFirst(::isTriggerWordChar)
-        if (cut <= 0 || cut > MAX_PREFIX) return null
-        val word = trigger.substring(cut)
-        if (!word.all(::isTriggerWordChar)) return null
-        return Prefixed(trigger.substring(0, cut), word)
+        val cut = trigger.indexOfLast { !isTriggerWordChar(it) } + 1
+        if (cut <= 0 || cut > MAX_PREFIX || cut == trigger.length) return null
+        val prefix = trigger.substring(0, cut)
+        if (prefix.any { it != ' ' && it.isWhitespace() }) return null
+        return Prefixed(prefix, trigger.substring(cut))
     }
 
     /**
@@ -452,6 +454,15 @@ data class SnippetMatch(
     val consumedChars: Int,
     /** What the match consumed, verbatim, so a revert can put it back. */
     val consumedText: String,
+    /**
+     * What the pattern captured, whole match first, so a snippet's other
+     * expansions can be templated with the same groups this one was.
+     *
+     * Carried on the match rather than looked up again later: the matcher is
+     * gone by then, and running the pattern a second time may not even give the
+     * same answer once the text has been rewritten.
+     */
+    val groups: List<String?> = emptyList(),
 )
 
 /** One compiled pattern snippet, ready to be run. */
@@ -472,8 +483,9 @@ internal class CompiledSnippet(
  * Replaces the linear scan [SnippetStore.matchTrigger] used to do.
  */
 /**
- * One trigger that leads with punctuation, ready to be checked against the text
- * behind the composing word.
+ * One trigger with something in front of its last word — punctuation, earlier
+ * words, or both — ready to be checked against the text behind the composing
+ * word.
  *
  * [typed] is the trigger as written, prefix included, which is what
  * [SnippetStore.casingFor] needs to decide whether the user shouted it.
@@ -485,7 +497,16 @@ class SnippetIndex private constructor(
     private val prefixed: Map<String, List<PrefixTrigger>>,
     private val byHead: Map<Char, List<CompiledSnippet>>,
     private val ungated: List<CompiledSnippet>,
+    /**
+     * Snippets that offer themselves rather than rewriting text: the ones told
+     * to ask first, plus the ones with several expansions that the app is set
+     * to show as chips. See [Snippet.asks].
+     */
+    private val asking: Set<Long>,
 ) {
+
+    /** True when [snippet] is on the asking half of every question below. */
+    fun asks(snippet: Snippet): Boolean = snippet.id in asking
 
     /** Snippets stopped for running away, by id. Never runs them again. */
     private val stopped = ConcurrentHashMap.newKeySet<Long>()
@@ -504,22 +525,22 @@ class SnippetIndex private constructor(
      * before it does any work at all. A user with no asking patterns never
      * pays for the keystroke path, which is the expensive one.
      */
-    val hasConfirmPatterns: Boolean = (byHead.values.flatten() + ungated).any { it.snippet.confirm }
+    val hasConfirmPatterns: Boolean = (byHead.values.flatten() + ungated).any { asks(it.snippet) }
 
     /** True when some pattern expands on its own. */
-    val hasAutoPatterns: Boolean = (byHead.values.flatten() + ungated).any { !it.snippet.confirm }
+    val hasAutoPatterns: Boolean = (byHead.values.flatten() + ungated).any { !asks(it.snippet) }
 
     /** True when some plain trigger asks before it expands. */
-    val hasConfirmTriggers: Boolean = plain.values.any { it.confirm }
+    val hasConfirmTriggers: Boolean = plain.values.any { asks(it) }
 
     /** The snippet whose plain trigger is [word], ignoring case. */
     fun matchTrigger(word: String): Snippet? = plain[word.lowercase(Locale.ROOT)]
 
-    /** True when some trigger leads with punctuation, so the keyboard need not look. */
+    /** True when some trigger reaches back past its last word, so the keyboard need not look. */
     val hasPrefixTriggers: Boolean = prefixed.isNotEmpty()
 
     /** True when some prefix trigger offers itself instead of expanding. */
-    val hasConfirmPrefixTriggers: Boolean = prefixed.values.any { list -> list.any { it.snippet.confirm } }
+    val hasConfirmPrefixTriggers: Boolean = prefixed.values.any { list -> list.any { asks(it.snippet) } }
 
     /**
      * The prefix triggers whose word part is [word], longest prefix first, or
@@ -537,17 +558,28 @@ class SnippetIndex private constructor(
      * The prefix trigger that [word] completes, given [before] is the text
      * immediately in front of it, or null.
      *
-     * Longest prefix wins, so `::x` beats `:x` when both are installed.
-     * [confirm] picks which half of the list is asked, for the same reason
-     * [matchPattern] takes one: the two are looked for at different moments and
-     * neither may answer for the other.
+     * Longest prefix wins, so `::x` beats `:x` when both are installed, and
+     * `gr db` beats `db` when the words in front line up. [confirm] picks which
+     * half of the list is asked, for the same reason [matchPattern] takes one:
+     * the two are looked for at different moments and neither may answer for
+     * the other.
+     *
+     * A lead-in that begins with a word character needs a word boundary in
+     * front of it. Punctuation is its own boundary — `hello:shrug` has always
+     * fired `:shrug` — but without this check the trigger `gr db` would fire in
+     * the middle of "xgr db".
      */
     fun matchPrefix(word: String, before: CharSequence, confirm: Boolean = false): PrefixTrigger? {
         for (candidate in prefixCandidates(word)) {
-            if (candidate.snippet.confirm != confirm) continue
+            if (asks(candidate.snippet) != confirm) continue
             val prefix = candidate.prefix
             if (before.length < prefix.length) continue
-            if (before.endsWith(prefix)) return candidate
+            if (!before.endsWith(prefix, ignoreCase = true)) continue
+            if (SnippetMatcher.isTriggerWordChar(prefix[0])) {
+                val ahead = before.getOrNull(before.length - prefix.length - 1)
+                if (ahead != null && SnippetMatcher.isTriggerWordChar(ahead)) continue
+            }
+            return candidate
         }
         return null
     }
@@ -653,7 +685,7 @@ class SnippetIndex private constructor(
             val gated = byHead[span[0].lowercaseChar()].orEmpty()
             for (pass in 0..1) {
                 for (compiled in if (pass == 0) gated else ungated) {
-                    if (compiled.snippet.confirm != confirm) continue
+                    if (asks(compiled.snippet) != confirm) continue
                     if (compiled.snippet.id in stopped) continue
                     if (back + 1 > compiled.words) continue
                     val head = compiled.head
@@ -688,12 +720,14 @@ class SnippetIndex private constructor(
         }
         if (!matched) return null
         val groups = minOf(matcher.groupCount(), SnippetMatcher.MAX_GROUPS)
+        // Read out now, while the matcher still holds the match. The snippet's
+        // other expansions are templated with exactly these, so every chip on
+        // the strip means the same thing by `$1`.
+        val captured = ArrayList<String?>(groups + 1)
+        captured.add(matcher.group())
+        for (index in 1..groups) captured.add(matcher.group(index))
         val expansion = SnippetMatcher.expandTemplate(compiled.snippet.text, now, context) { index ->
-            when {
-                index == 0 -> matcher.group()
-                index <= groups -> matcher.group(index)
-                else -> null
-            }
+            captured.getOrNull(index)
         }
         return SnippetMatch(
             snippet = compiled.snippet,
@@ -701,17 +735,23 @@ class SnippetIndex private constructor(
             cursorOffset = expansion.caret,
             consumedChars = consumed,
             consumedText = span,
+            groups = captured,
         )
     }
 
     companion object {
 
-        fun of(snippets: List<Snippet>): SnippetIndex {
+        fun of(
+            snippets: List<Snippet>,
+            multiExpand: MultiExpandMode = MultiExpandMode.CHIPS_ONLY,
+        ): SnippetIndex {
+            val asking = HashSet<Long>()
             val plain = LinkedHashMap<String, Snippet>()
             val prefixed = LinkedHashMap<String, MutableList<PrefixTrigger>>()
             val byHead = LinkedHashMap<Char, MutableList<CompiledSnippet>>()
             val ungated = ArrayList<CompiledSnippet>()
             for (snippet in snippets) {
+                if (snippet.asks(multiExpand)) asking.add(snippet.id)
                 // A plain trigger is the more specific and the cheaper rule, so
                 // a snippet carrying both never reaches the pattern side. Every
                 // alias is registered exactly as the trigger is, prefix rules
@@ -748,7 +788,7 @@ class SnippetIndex private constructor(
             // Longest prefix first, so `::x` is preferred to `:x` when a user
             // has installed both and the field ends in "::".
             for (list in prefixed.values) list.sortByDescending { it.prefix.length }
-            return SnippetIndex(plain, prefixed, byHead, ungated)
+            return SnippetIndex(plain, prefixed, byHead, ungated, asking)
         }
     }
 }

@@ -24,6 +24,10 @@ Hold past the **long-press delay** (300&nbsp;ms by default) and the key's altern
 
 A popup with more alternates than fit across the screen wraps onto a second row and a third, so nothing ever sits off the edge where you can't reach it. That's the case you meet with "All accents on press and hold" turned on, or with a raised popup text size, or on a key you gave a long list of your own.
 
+Keep your finger down and you can pick one without a second tap. The first alternate is highlighted as the popup opens, sliding the finger moves the highlight along, and letting go types whatever is lit. Hold and release without moving and you get that first alternate, which is what a hold does on any other keyboard. To back out, slide well away from the popup before you lift. If you'd rather have the older two-step popup, which stays open after you lift so you can tap the one you want, turn **Choose without lifting** off.
+
+Five settings under **Alternate keys** shape that popup. **Alternate key size** and **Alternate key spacing** make the characters bigger and give each one more room, and the size slider reaches ×3.20, well past what the preview bubble allows. **Alternate key columns** is Auto by default, fitting as many per row as the screen takes. Set it to a number from 3 to 11 instead and every row gets that many equal columns, so a long list reads as a block and each character stays put between one hold and the next. **Closest to the key first** flips which end of a wrapped popup the list starts at: off, it fills top-down like lines of text, which puts the first alternate furthest from your thumb; on, it fills from the key outward the way stock keyboards do, so the first alternate is the nearest one.
+
 The popup isn't only for characters. A key in a [custom layout](/languages/custom-layouts/) can carry action alternates too, so a hold on <KeyCap>Enter</KeyCap> can offer <KeyCap>Tab</KeyCap>, and a hold on any key can open voice typing or the editing pad. Every key can have alternates except the four that hold for something else already: <KeyCap>⌫</KeyCap>, <KeyCap>⌦</KeyCap> and <KeyCap>Space</KeyCap> hold to repeat, and a braille dot holds as part of its chord.
 
 <PhoneFrame caption="Holding a letter opens its accent and symbol alternates.">
@@ -58,12 +62,12 @@ That toggle lives on the Typing screen rather than here. See [Autocorrect](/smar
 
 <SettingsPath path="Key press / Press and hold shortcuts" />
 
-Six letters can each be armed to run an editing command on long-press instead of opening their accent popup: <KeyCap>A</KeyCap> selects all, <KeyCap>C</KeyCap> copies, <KeyCap>X</KeyCap> cuts, <KeyCap>V</KeyCap> pastes, <KeyCap>Z</KeyCap> undoes, <KeyCap>Y</KeyCap> redoes. All six are **off by default**, and you turn on the ones you want one at a time. Once a letter's shortcut is on, it **replaces** that letter's accent popup on long-press. The two never combine, so a hold on `C` either shows `'çć` or copies, never both. Copy and cut select everything first if nothing is already selected, so a bare hold on `C` in an untouched field copies the whole field.
+Six letters carry an editing command in their press-and-hold popup: <KeyCap>A</KeyCap> selects all, <KeyCap>C</KeyCap> copies, <KeyCap>X</KeyCap> cuts, <KeyCap>V</KeyCap> pastes, <KeyCap>Z</KeyCap> undoes, <KeyCap>Y</KeyCap> redoes. All six are **on by default**. They sit at the end of the popup, after the accents the key already has, so a hold on `C` offers `'çć` and then copy, and you slide onto the copy icon to run it. Copy and cut select everything first if nothing is already selected, so one hold in an untouched field copies the whole field.
 
-Those six keys are `a c v x z y` only because that is the QWERTY answer. Switch any of the shortcuts on and a **Shortcut keys** row joins the group, where you move all six onto keys your own layout actually draws. A Bengali or Russian grid has no `a` to hold, so without that row the switches would do nothing at all.
+Those six keys are `a c v x z y` only because that is the QWERTY answer. The **Shortcut keys** row in the same group is where you move them onto keys your own layout actually draws. A Bengali or Russian grid has no `a` to hold, so without that row the switches would do nothing at all.
 
-<PhoneFrame caption="With Press and hold C to copy turned on, holding C copies the selection instead of opening its accent popup.">
-  ![With Press and hold C to copy turned on, holding C copies the selection instead of opening its accent popup.](@assets/screens/typing/hold-letter-clipboard.webp)
+<PhoneFrame caption="Copy at the end of C's press-and-hold popup, after the accents.">
+  ![Copy at the end of C's press-and-hold popup, after the accents.](@assets/screens/typing/hold-letter-clipboard.webp)
 </PhoneFrame>
 
 :::note
@@ -100,11 +104,13 @@ Separately, **numeral system** decides which *glyphs* the number row and keypad 
 
 This screen's **Type native digits in** setting answers a different question: whether those native glyphs are what actually gets *committed* when you type them. **Text fields**, the default, types the native glyphs everywhere except number, phone and date/time fields, which keep plain 0-9. **Everywhere** commits the native glyphs unconditionally. **Display only** always types plain ASCII digits, whatever the keys show.
 
-## Smart key-hit detection
+## Autopilot
 
-<SettingsPath path="Typing / Suggestions" />
+<SettingsPath path="Typing / Suggestions / Autopilot" />
 
-**Smart detection of key hits** (on by default) quietly widens a key's touch target toward whichever letter the dictionary expects next as you type a word. A tap that lands just inside a neighboring key can still commit the letter you meant, but only near the shared edge. A deliberate press in the middle of a key is never second-guessed. It applies to the letters layer only, and it needs [Suggestions](/smart/suggestions/) turned on to have anything to predict from. See [Autocorrect](/smart/autocorrect/#reducing-typos-before-they-happen) for how it sits alongside autocorrect as an earlier line of defense against typos.
+**Autopilot** (on by default) quietly widens a key's touch target toward whichever letter the dictionary expects next as you type a word. A tap that lands just inside a neighboring key can still commit the letter you meant, but only near the shared edge. A deliberate press in the middle of a key is never second-guessed. It applies to the letters layer only, and it needs [Suggestions](/smart/suggestions/) turned on to have anything to predict from. See [Autocorrect](/smart/autocorrect/#reducing-typos-before-they-happen) for how it sits alongside autocorrect as an earlier line of defense against typos.
+
+**Strength** (1–10, 5 by default) sets how far an expected letter reaches over its neighbor. Two optional views show you what that reach looks like: **Show the effect** redraws each expected letter at the size its touch area has grown to, and **Outline the touch areas** traces the exact boundary each one claimed. Both are off by default and are meant for tuning the slider, not for everyday typing. **Size of the effect** (×1.0 to ×3.0) exaggerates the first of those two for readability, multiplying the growth alone; it changes the drawing and never the touch areas themselves, and the outline stays true at every value.
 
 ## Multi-touch and key repeat
 
@@ -130,6 +136,14 @@ Backspace also has a drag-to-delete-whole-words gesture, on by default, separate
 | Minimum / maximum popup duration | 140&nbsp;ms / 750&nbsp;ms |
 | Popup font size | ×1.00 |
 | Popup height | 110&nbsp;dp |
+| Alternate key size | ×1.00 (×0.70–×3.20) |
+| Alternate key spacing | 10&nbsp;dp (0–32&nbsp;dp) |
+| Alternate key columns | Auto (or 3–11) |
+| Closest to the key first | Off |
+| Choose without lifting | On |
+| Popup distance above key | 10&nbsp;dp (0–96&nbsp;dp) |
+| Popup sideways shift | 0&nbsp;dp (−64–64&nbsp;dp) |
+| Popup color / Popup text color | Automatic |
 | Press and hold delay | 300&nbsp;ms (150–700&nbsp;ms) |
 | Time before a key repeats | 300&nbsp;ms (150–800&nbsp;ms) |
 | Delete repeat interval | 50&nbsp;ms (20–200&nbsp;ms) |
@@ -141,24 +155,24 @@ Backspace also has a drag-to-delete-whole-words gesture, on by default, separate
 | Currency keys | ৳ € £ ¥ ₹ ₿ |
 | Press and hold A/C/X/V/Z/Y for select all/copy/cut/paste/undo/redo | Off (each) |
 
-Open the **Key press** tile on the settings home grid, or search "Key press" in settings search. This table covers the Key popup, Timing and Press and hold shortcuts groups. The same screen's Haptic feedback and Key press sound groups are covered on [Sound & vibration](/typing/feedback/). For the field-by-field breakdown see [Key press settings](/reference/settings/keypress/).
+Open the **Key press** tile on the settings home grid, or search "Key press" in settings search. This table covers the Key popup, Alternate keys, Timing and Press and hold shortcuts groups. The same screen's Haptic feedback and Key press sound groups are covered on [Sound & vibration](/typing/feedback/). For the field-by-field breakdown see [Key press settings](/reference/settings/keypress/).
 
 A handful of related settings live elsewhere:
 
 - **Automatic capital letters** is on by default, under <SettingsPath path="Typing / Automatic corrections" />.
-- **Smart detection of key hits** (<SettingsPath path="Typing / Suggestions" />) and **Shift and Enter type a new line** (<SettingsPath path="Typing / Enter key" />) are both on by default.
-- **Swipe to delete words** is on by default, under <SettingsPath path="Typing / Backspace" />.
+- **Autopilot** (<SettingsPath path="Typing / Suggestions / Autopilot" />) and **Shift and Enter type a new line** (<SettingsPath path="Typing / Enter key" />) are both on by default.
+- **Swipe to delete** is on by default, under <SettingsPath path="Typing / Backspace" />, and starts out deleting a word per step of the swipe.
 - **Number row** (<SettingsPath path="Layout & size / Number row" />) is on, and the numeral commit scope (<SettingsPath path="Layout & size / Numerals" />) starts on "Text fields". Full breakdown at [Layout & size settings](/reference/settings/layout/).
-- **Numeral system per language** starts on Auto, under <SettingsPath path="Languages / (a language) / Numerals" />. See [Languages](/languages/overview/).
+- **Numeral system per language** starts on Auto, under <SettingsPath path="Languages & layouts / (a language) / Numerals" />. See [Languages](/languages/overview/).
 - **Ignore repeated presses** is off by default, under <SettingsPath path="Accessibility / Touch" />. See also [Accessibility](/accessibility/overview/).
 
 ## Details & edge cases
 
-- **A hold-shortcut on A/C/X/V/Z/Y replaces that letter's accent popup rather than adding to it.** With "Press and hold C to copy" on, `c` no longer offers `'çć` on long-press at all.
+- **A hold-shortcut on A/C/X/V/Z/Y replaces that letter's accent popup rather than adding to it.** With the Copy hold shortcut on, `c` no longer offers `'çć` on long-press at all.
 - **Exiting Caps Lock only takes one tap.** The double-tap window matters only on the way *into* Caps Lock. Any single tap while Shift or Caps Lock is already active turns it off.
 - **The Enter key never lies about what it's about to do.** With Shift + Enter's newline override active, the key visibly redraws to the newline symbol first. It doesn't swap behavior behind an unchanged icon.
 - **A line break from the popup is a real one, even in apps that read Enter themselves.** Some chat apps watch for the Enter key press and send on it regardless of what the keyboard meant. The popup entry types the character straight into the field instead of pressing a key, so there's nothing for the app to catch. Shift + Enter works the same way.
-- **The long-press delay is duplicated in two places.** It's a Key press → Timing slider (150–700&nbsp;ms), and again, framed for hand tremor, under Accessibility → Touch (150–800&nbsp;ms, a slightly wider range). Both sliders move the same underlying setting.
+- **The long-press delay has one home.** It's the Key press → Timing slider (150–800&nbsp;ms). Accessibility → Touch shows the current value and links to it.
 - **Number row height is independent of key height.** Shrinking the digit row doesn't touch the letter keys below it, so you can get quick number access without paying for a full extra row of keyboard height.
 - **Ignore repeated presses only filters repeats of the *same* key.** Two different keys typed quickly are never blocked, so the setting can be raised without slowing normal typing down.
 

@@ -29,7 +29,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Category
 import androidx.compose.material.icons.outlined.Check
@@ -452,8 +451,8 @@ internal fun AddonsScreen(
     }
 
     // One fetch per visit, so a repository that published something new shows
-    // it without the user having to know to pull to refresh. Both gates are the
-    // user's; the Refresh button ignores them, because pressing it is the ask.
+    // it without anyone having to pull the list down. Both gates are the
+    // user's; a pull ignores them, because making the gesture is the ask.
     LaunchedEffect(Unit) {
         if (!store.autoRefresh()) return@LaunchedEffect
         if (store.refreshUnmeteredOnly() && isMeteredNow(context)) return@LaunchedEffect
@@ -520,43 +519,29 @@ internal fun AddonsScreen(
 
     AddonApplyPrompt()
 
-    if (typeFilter == null) {
-        CaptionText(stringResource(R.string.addon_repos_intro_body))
-    } else {
-        // Arrived from a settings screen asking for one kind of addon. Say so,
-        // because everything below is narrowed by it and a repository list that
-        // silently hides half of what it has is worse than no filter at all.
-        CaptionText(
-            stringResource(
-                R.string.addon_repos_type_intro_body,
-                stringResource(typeFilter.labelRes),
-            ),
+    // Arrived from a settings screen asking for one kind of addon: that is a
+    // state, said on a card, because everything below is narrowed by it and a
+    // repository list that silently hides half of what it has is worse than
+    // no filter at all. What a repository is rides on the list's heading.
+    if (typeFilter != null) {
+        StateBanner(
+            stringResource(R.string.addon_repos_type_intro_body, stringResource(typeFilter.labelRes)),
         )
     }
 
-    Row(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Button(onClick = { showAdd = true }) {
-            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.addon_repo_add_action))
-        }
-        OutlinedButton(onClick = ::refreshAll, enabled = !refreshing && repos.isNotEmpty()) {
-            Text(
-                if (refreshing) stringResource(R.string.addon_repo_refreshing_progress)
-                else stringResource(R.string.addon_repo_refresh_action),
-            )
-        }
-    }
+    RegisterAddFab(stringResource(R.string.addon_repo_add_action)) { showAdd = true }
+    // Pull the list down to fetch every repository again. `refreshAll` is a
+    // no-op while one is running, so a second pull cannot start a second fetch.
+    RegisterPullRefresh(refreshing, ::refreshAll)
 
     if (repos.isEmpty()) {
         CaptionText(stringResource(R.string.addon_repos_empty))
     }
 
-    SettingsGroup(if (repos.isEmpty()) null else stringResource(R.string.addon_repos_section_title)) {
+    SettingsGroup(
+        if (repos.isEmpty()) null else stringResource(R.string.addon_repos_section_title),
+        info = stringResource(R.string.addon_repos_intro_body),
+    ) {
         for (ref in repos) {
             item {
                 ScrollAnchor(ref.manifestUrl == returnTo) {
@@ -1063,6 +1048,21 @@ internal fun AddonRepoScreen(
         AddonDownloadManager.refresh(store, manifest.repo.id, manifest)
     }
 
+    // The page draws from the cached manifest, so a pull is how someone asks
+    // this repository what it has published since.
+    val repoScope = rememberCoroutineScope()
+    var repoRefreshing by remember(manifestUrl) { mutableStateOf(false) }
+    RegisterPullRefresh(repoRefreshing) {
+        if (repoRefreshing) return@RegisterPullRefresh
+        repoRefreshing = true
+        repoScope.launch {
+            withContext(Dispatchers.IO) {
+                AddonDownloadManager.fetchManifest(store, ref, context.cacheDir)
+            }
+            repoRefreshing = false
+        }
+    }
+
     if (manifest.repo.description.isNotBlank()) CaptionText(manifest.repo.description)
 
 
@@ -1516,8 +1516,8 @@ internal fun AddonDetailScreen(
         LaunchedEffect(local != null) { if (local != null) hadLocal = true }
         when {
             local != null -> InstalledAddonDetail(local.first, local.second, store, onNavigate)
-            hadLocal -> CaptionText(stringResource(R.string.addon_uninstalled_body))
-            else -> CaptionText(stringResource(R.string.addon_detail_not_found))
+            hadLocal -> StateBanner(stringResource(R.string.addon_uninstalled_body))
+            else -> StateBanner(stringResource(R.string.addon_detail_not_found), tone = BannerTone.WARNING)
         }
         return
     }
@@ -1614,7 +1614,7 @@ internal fun AddonDetailScreen(
     val minAppVersion = entry.minAppVersion
     val tooOld = minAppVersion != null && minAppVersion > BuildConfig.VERSION_CODE
     if (tooOld) {
-        CaptionText(stringResource(R.string.addon_detail_needs_newer_app))
+        StateBanner(stringResource(R.string.addon_detail_needs_newer_app), tone = BannerTone.WARNING)
     }
 
     // The plugin master switch gates installing, so say so *before* the tap
@@ -1627,24 +1627,10 @@ internal fun AddonDetailScreen(
         entry.type == AddonType.Plugin && !pluginStore.subsystemEnabled()
     }
     if (pluginsOff) {
-        CaptionText(stringResource(R.string.addon_detail_plugins_off_body))
-        OutlinedButton(
-            onClick = { AddonType.Plugin.openSettings(onNavigate) },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        ) {
-            Icon(
-                Icons.AutoMirrored.Outlined.OpenInNew,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(
-                stringResource(
-                    R.string.addon_open_screen_action,
-                    stringResource(ImeR.string.ime_tool_plugins),
-                ),
-            )
-        }
+        StateBanner(
+            stringResource(R.string.addon_detail_plugins_off_body),
+            action = stringResource(R.string.addon_open_screen_action, stringResource(ImeR.string.ime_tool_plugins)),
+        ) { AddonType.Plugin.openSettings(onNavigate) }
     }
 
     AddonActions(
@@ -1843,7 +1829,7 @@ private fun InstalledAddonDetail(
             }
         }
     }
-    CaptionText(stringResource(R.string.addon_detail_offline_body))
+    StateBanner(stringResource(R.string.addon_detail_offline_body))
 
     Row(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -2192,7 +2178,6 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
             // part of deciding whether to install it.
             if (shown.notes.isNotEmpty()) {
                 item {
-                    val context = LocalContext.current
                     CaptionText(
                         stringResource(R.string.addon_preview_snippet_changes) + "\n" +
                             shown.notes.joinToString("\n") { "• ${it.resolve(context)}" },

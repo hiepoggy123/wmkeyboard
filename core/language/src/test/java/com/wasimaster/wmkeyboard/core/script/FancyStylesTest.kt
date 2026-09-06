@@ -14,12 +14,19 @@ import org.junit.Test
 class FancyStylesTest {
 
     @Test
-    fun `all 31 styles are present, in the shipped order, with a default`() {
-        assertEquals(31, FancyStyles.all.size)
-        assertEquals("bold", FancyStyles.all.first().id)
+    fun `normal plus the 31 styles are present, in the shipped order, with a default`() {
+        assertEquals(32, FancyStyles.all.size)
+        assertEquals(FancyStyles.NORMAL_ID, FancyStyles.all.first().id)
+        assertEquals("bold", FancyStyles.all[1].id)
         assertEquals("bypass", FancyStyles.all.last().id)
         assertNotNull(FancyStyles.byId(FancyStyles.DEFAULT_ID))
         assertEquals(FancyStyles.all.size, FancyStyles.all.distinctBy { it.id }.size)
+    }
+
+    @Test
+    fun `normal leaves text exactly as typed`() {
+        val normal = FancyStyles.byId(FancyStyles.NORMAL_ID)!!
+        assertEquals("Hello World! 123", FancyStyles.transform("Hello World! 123", normal))
     }
 
     @Test

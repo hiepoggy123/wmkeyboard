@@ -55,6 +55,7 @@ internal fun DataSaverSettingsScreen(
                 selected
             },
             default = default,
+            detail = { policy -> ChoiceDetail(stringResource(meteredPolicyDescRes(policy))) },
             onChange = onChange,
         )
     }
@@ -138,7 +139,10 @@ internal fun DataSaverSettingsScreen(
         }
     }
 
-    SettingsGroup(stringResource(R.string.datasaver_ondemand_group)) {
+    SettingsGroup(
+        stringResource(R.string.datasaver_ondemand_group),
+        info = stringResource(R.string.datasaver_info),
+    ) {
         item {
             policyRow(
                 R.string.datasaver_media_title,
@@ -180,5 +184,15 @@ internal fun DataSaverSettingsScreen(
             ) { scope.launch { repository.setDataSaverCloudAi(it) } }
         }
     }
-    CaptionText(stringResource(R.string.datasaver_info))
+}
+
+/**
+ * What each answer means for one kind of fetch, one line, for the picker
+ * sheet. "Turn off" and "Ask each time" are short enough to read as vague:
+ * the line says what the panel actually does.
+ */
+private fun meteredPolicyDescRes(policy: MeteredPolicy): Int = when (policy) {
+    MeteredPolicy.ALLOW -> R.string.datasaver_policy_allow_desc
+    MeteredPolicy.ASK -> R.string.datasaver_policy_ask_desc
+    MeteredPolicy.BLOCK -> R.string.datasaver_policy_block_desc
 }

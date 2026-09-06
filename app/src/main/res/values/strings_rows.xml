@@ -25,12 +25,45 @@
     <!-- Text field label. The names in braces are variable tokens the user
          types. Keep them exactly as they are. -->
     <string name="rows_snippet_text_label">Text (supports {date} {time} {clip} {app} {cursor} …)</string>
-    <string name="rows_snippet_trigger_label">Trigger word (optional)</string>
-    <string name="rows_snippet_trigger_body">The keyboard expands this word to the text above when you type it alone. It may start with punctuation, as in :shrug.</string>
+    <!-- Every word or phrase that expands this snippet. The user types one and
+         presses enter to add it; each becomes a small removable chip. -->
+    <string name="rows_snippet_triggers_label">Triggers (optional)</string>
+    <string name="rows_snippet_triggers_body">Type a trigger and press enter to add it. The keyboard expands the snippet when you type any of them on its own. A trigger may start with punctuation, as in :shrug, and it may hold spaces, as in gr db. It must end in a word.</string>
+    <!-- The X on a chip. %1$s is the word or tag the chip holds. -->
+    <string name="rows_snippet_chip_remove_desc">Remove %1$s</string>
+    <!-- Shown when the user adds more triggers than the app keeps. %1$d is how
+         many it keeps, and is also what picks the form. -->
+    <plurals name="rows_snippet_triggers_capped_error">
+        <item quantity="one">The app keeps the first %1$d trigger.</item>
+        <item quantity="other">The app keeps the first %1$d triggers.</item>
+    </plurals>
 
-    <!-- Extra spellings of the trigger above. Each one fires the same snippet. -->
-    <string name="rows_snippet_aliases_label">Other triggers (optional)</string>
-    <string name="rows_snippet_aliases_body">Separate them with commas. Each one expands the same snippet.</string>
+    <!-- The list of texts one snippet can insert. The first is the default. -->
+    <string name="rows_snippet_expansions_label">Expansions</string>
+    <string name="rows_snippet_expansions_body">The first one is the default. Add more and the keyboard offers all of them on the suggestion bar.</string>
+    <string name="rows_snippet_expansion_default_label">Default</string>
+    <string name="rows_snippet_expansion_empty_label">Empty</string>
+    <string name="rows_snippet_expansion_add_action">Add expansion</string>
+
+    <!-- Per-snippet answer to the app-wide setting of the same name. -->
+    <string name="rows_snippet_multi_expand_label">When this snippet has several expansions</string>
+    <!-- %1$s is the choice the app-wide setting is on, such as "Chips only". -->
+    <string name="rows_snippet_multi_expand_default_label">App setting (%1$s)</string>
+    <!-- One line under the "App setting" option in a snippet's expansions picker. -->
+    <string name="rows_snippet_multi_expand_default_desc">This snippet follows the setting in Snippets</string>
+
+    <!-- Snippets this one points at. Typing its trigger offers them too. -->
+    <string name="rows_snippet_linked_label">Linked snippets</string>
+    <string name="rows_snippet_linked_body">Typing this snippet\'s trigger offers these snippets as well. Use it to put every continent under \"continent\", or every address under \"address\".</string>
+    <string name="rows_snippet_linked_add_action">Add linked snippet</string>
+    <!-- %1$s is a list of snippet names, separated by commas. -->
+    <string name="rows_snippet_linked_from_label">Linked from: %1$s</string>
+    <string name="rows_snippet_linked_picker_title">Choose snippets</string>
+    <string name="rows_snippet_linked_picker_empty">No other snippet matches.</string>
+
+    <!-- Free words the user files a snippet under, to find it again. -->
+    <string name="rows_snippet_tags_label">Tags (optional)</string>
+    <string name="rows_snippet_tags_body">Type a tag and press enter to add it. Tags help you find a snippet in a long list.</string>
 
     <!-- Carrying the trigger's own capitals into what it expands to. -->
     <string name="rows_snippet_propagate_case_label">Match the trigger\'s capitals</string>
@@ -73,6 +106,12 @@
 
     <string name="rows_bar_topbar_title">Suggestions and toolbar</string>
     <string name="rows_bar_emoji_title">Emoji row</string>
+    <string name="rows_bar_fancy_title">Fancy text styles</string>
+    <string name="rows_bar_tools_title">Tools row</string>
+    <string name="rows_bar_tools_strip_subtitle">Off. The tools share the suggestion strip; change \"Where the tools go\" under Appearance</string>
+    <string name="rows_bar_tools_button_subtitle">Behind the arrow button on the suggestion strip</string>
+    <string name="rows_bar_tools_always_subtitle">Own row</string>
+    <string name="rows_bar_fancy_off_subtitle">Shown while Fancy text is on</string>
     <string name="rows_bar_topbar_subtitle">Always shown</string>
     <string name="rows_bar_emoji_off_subtitle">Off. Turn it on in Emoji settings</string>
     <string name="rows_bar_emoji_button_subtitle">Behind a toolbar button</string>
@@ -84,6 +123,14 @@
     <string name="rows_symbol_row_height_title">Symbol row height</string>
     <string name="rows_symbol_row_height_subtitle">How tall the symbol row is</string>
     <string name="rows_symbol_row_height_info">The number row has its own height setting under Layout &amp; size. This is the same setting for the symbol row, so you can make the two rows match, or make this one shorter to give the keys below more room.</string>
+
+    <string name="rows_fancy_title">Fancy text</string>
+    <string name="rows_fancy_subtitle">Type in 𝐛𝐨𝐥𝐝, 𝘪𝘵𝘢𝘭𝘪𝘤, 𝔉𝔯𝔞𝔨𝔱𝔲𝔯 and other Unicode styles, picked from a row above the keys</string>
+    <string name="rows_fancy_info">This switches the keyboard to the Fancy text layout and back, the same as the Fancy text tool on the toolbar. While it is on, a row of styles sits above the keys; the Normal style at its start types plain letters again. Turning it off returns to the language you were typing in and takes Fancy text out of the language list, unless the tool\'s "Keep the language after you turn it off" option is on.</string>
+
+    <string name="rows_dictionary_bar_title">Dictionary bar</string>
+    <string name="rows_dictionary_bar_subtitle">A row of chips above the keys that turns each dictionary on or off</string>
+    <string name="rows_dictionary_bar_info">The bar lists every dictionary on the device: each language\'s word list, its emoji keywords, and every word list that you imported. A coloured chip is on; tap it to turn that dictionary off, and tap again to turn it back on. The chip at the left edge of the bar filters the row to one language, or shows all of them. The same switches live on each language\'s own settings screen.</string>
 
     <string name="rows_row_order_title">Row order</string>
     <string name="rows_row_order_caption">The rows stack from top to bottom in this order. A hidden row keeps its slot.</string>
@@ -97,7 +144,6 @@
     <string name="rows_symbol_sets_title">Symbol sets</string>
     <string name="rows_symbol_sets_caption">A checked set appears in the picker of the symbol row. When you edit a built-in set, the modes that use it keep its name. Reset a set to get the built-in characters back.</string>
     <string name="rows_symbol_set_new_title">New symbol set</string>
-    <string name="rows_symbol_set_new_subtitle">Your own characters and snippets</string>
     <string name="rows_symbol_set_edit_builtin_desc">Edit built-in set</string>
     <string name="rows_symbol_set_edit_desc">Edit set</string>
 
@@ -155,8 +201,10 @@
     <string name="rows_reorder_position_label">%1$d.</string>
     <!-- Screen reader label for the drag handle. %1$s is the name of the row. -->
     <string name="rows_reorder_handle_desc">Reorder %1$s</string>
+    <!-- Screen reader label for the bin that removes a row from the list.
+         %1$s is the name of the row. -->
+    <string name="rows_reorder_remove_desc">Remove %1$s</string>
     <string name="rows_reorder_empty_subtitle">Select two or more items above to set an order</string>
 
     <string name="rows_reset_order_title">Reset row order</string>
-    <string name="rows_reset_order_subtitle">Emoji row, then suggestions and toolbar, then symbol row</string>
 </resources>

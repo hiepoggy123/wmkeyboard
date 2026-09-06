@@ -8,6 +8,9 @@ import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
+import com.wasimaster.wmkeyboard.core.layout.BuiltInPanelLayouts
+import com.wasimaster.wmkeyboard.core.layout.PanelKind
+import com.wasimaster.wmkeyboard.core.layout.PanelLayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
@@ -26,6 +29,7 @@ import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.DataSaverStatus
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
+import com.wasimaster.wmkeyboard.core.settings.TransliterationHintMode
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import com.wasimaster.wmkeyboard.core.settings.interactiveTyping
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
@@ -131,7 +135,13 @@ data class Modifiers(
  * Which key map is showing. FN is the layout's own extra layer, reached from a
  * [KeyAction.Fn] key and absent from layouts that do not define one.
  */
-enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED, FN }
+/**
+ * Which grid of the [LayoutSet] is on screen. [SECONDARY] is one of the user's
+ * own secondary layouts, named by [KeyboardUiState.secondaryLayoutId]; it sits
+ * beside the symbol layers rather than replacing the active layout, so the
+ * language, dictionary and composer stay those of the layout underneath.
+ */
+enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED, FN, SECONDARY }
 
 /**
  * The layouts reachable from the focused field without a new `onStartInput`:
@@ -154,6 +164,13 @@ data class LayoutSet(
     /** Keypad for the focused field kind; null for TEXT/EMAIL/URI. */
     val numeric: KeyboardLayout? = null,
     /**
+     * The layout's own Number layer, when it authored one; null inherits. What
+     * the Numpad tool and a long press on ?123 draw (issue #55): before this
+     * the panel had a pad of its own and a custom Number layer only ever
+     * reached a field typed as numeric.
+     */
+    val number: KeyboardLayout? = null,
+    /**
      * Number rows this layout authored, by the layer they belong to. Absent
      * entries take the digits the layer has always shown.
      */
@@ -171,6 +188,15 @@ data class LayoutSet(
      * of the per-keystroke equality walk.
      */
     val gridWidth: Float? = null,
+    /**
+     * The user's secondary layouts (issue #62), compiled, by id. The same map
+     * for every layout set — a secondary grid belongs to the user, not to the
+     * language layout — and handed over by reference so the cache can tell an
+     * unchanged set from a re-decoded one.
+     *
+     * Deliberately not a term in [rowSpan]: see `reservedRowSpan`.
+     */
+    val secondaries: Map<String, KeyboardLayout> = emptyMap(),
 ) {
     /**
      * Rows the key grid reserves.
@@ -328,7 +354,7 @@ val FieldKind.numericLayer: LayoutLayer?
     }
 
 enum class PanelMode {
-    NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX, TEXT_EDIT,
+    NONE, EMOJI, CLIPBOARD, SNIPPETS, TOOLBOX, TEXT_EDIT, TRACKPAD,
     COMPASS, LEVEL, MOON_PHASE, WEATHER, CALENDAR,
     THEMES, SOUND_HAPTICS, NUMPAD, HANDWRITING, CAMERA, DICTIONARY,
     TRANSLATE, GIF, STICKER, WEB_SEARCH, IMAGE_SEARCH,
@@ -486,8 +512,9 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     // TEXT_EDIT/NUMPAD duplicate keys a physical keyboard already sends to
     // the field directly (ringing a d-pad that itself moves the caret would
     // capture the very arrows it re-implements); HANDWRITING's canvas is
-    // pointer-only and its three rare chips are not worth a ring over ink.
-    PanelMode.NONE, PanelMode.TEXT_EDIT, PanelMode.COMPASS, PanelMode.LEVEL,
+    // pointer-only and its three rare chips are not worth a ring over ink, and
+    // TRACKPAD is a pointing surface and nothing else.
+    PanelMode.NONE, PanelMode.TEXT_EDIT, PanelMode.TRACKPAD, PanelMode.COMPASS, PanelMode.LEVEL,
     PanelMode.MOON_PHASE, PanelMode.NUMPAD, PanelMode.HANDWRITING,
     -> emptyList()
 }
@@ -609,6 +636,18 @@ fun KeyboardUiState.voiceChipOnly(): Boolean =
         voice.status != VoiceStatus.NEED_PERMISSION &&
         voice.status != VoiceStatus.UNAVAILABLE &&
         voice.status != VoiceStatus.ERROR
+
+/**
+ * The keys are drawing what the transliterator is about to write with them:
+ * the layout transliterates (Avro, not Probhat), and the user left the hints
+ * on. The one gate both sides share — the service asks it before mirroring the
+ * roman buffer into [KeyboardUiState.composingRoman], and the grid asks it
+ * before reading that mirror, so the two can never disagree about whether the
+ * buffer is live.
+ */
+fun KeyboardUiState.transliterationHintsShown(): Boolean =
+    composer.isTransliterating &&
+        settings.layoutBehavior.transliterationHints != TransliterationHintMode.OFF
 
 /**
  * [VoiceUi.bar] and [VoiceUi.barInline] following the persisted flags —
@@ -956,8 +995,29 @@ data class TypingTestUi(
     val words: List<String> = emptyList(),
     /** Finished words, in prompt order — what the user actually typed for each. */
     val typedWords: List<TypedWord> = emptyList(),
-    /** The word being typed right now (the caret is at its end). */
+    /**
+     * The word being typed right now (the caret is at its end), as it reads
+     * on screen. On a transliterating layout (Avro) this is the composed
+     * script text; the Latin keystrokes behind it are [buffer].
+     */
     val current: String = "",
+    /**
+     * The raw keystrokes of the current word. Equal to [current] on a
+     * layout that types letters directly; the romanised input on one that
+     * transliterates, where backspace removes one keystroke rather than one
+     * composed character.
+     */
+    val buffer: String = "",
+    /** The language the prompt was dealt in — also the personal-best key's suffix. */
+    val languageId: String = "en",
+    /**
+     * True when the language has no word list to deal a prompt from: nothing
+     * shipped, nothing downloaded, nothing imported. The panel explains
+     * instead of showing an empty prompt.
+     */
+    val unavailable: Boolean = false,
+    /** Word suggestions for [current], when the suggestions option is on. */
+    val suggestions: List<String> = emptyList(),
     /** Elapsed-time clock start; null until the first keystroke arms it. */
     val startedAtMs: Long? = null,
     /** Milliseconds elapsed, refreshed by the service's ticker. */
@@ -966,6 +1026,14 @@ data class TypingTestUi(
     val totalKeystrokes: Int = 0,
     /** …of which landed on the right letter first time. */
     val correctKeystrokes: Int = 0,
+    /**
+     * Keystrokes spent on the word being typed, on a transliterating layout
+     * where none of them can be judged as it lands: Avro's "k" is ক on its
+     * way to খ. They are settled into [correctKeystrokes] when the word
+     * closes. Always zero on a layout that types letters directly, which
+     * scores each key as it is pressed.
+     */
+    val pendingKeystrokes: Int = 0,
     val samples: List<WpmSample> = emptyList(),
     /** Non-null once the run is over; the panel switches to the results view. */
     val result: TypingResult? = null,
@@ -988,6 +1056,18 @@ sealed interface TypingTestAction {
     data class WordCount(val value: Int) : TypingTestAction
     data class Punctuation(val on: Boolean) : TypingTestAction
     data class Numbers(val on: Boolean) : TypingTestAction
+    /** Allow glide gestures during a run. */
+    data class Glide(val on: Boolean) : TypingTestAction
+    /** Show word suggestions during a run. */
+    data class Suggestions(val on: Boolean) : TypingTestAction
+    /**
+     * Switch the test — and the keyboard under it — to the layout with this
+     * id. The panel picks a language; the layout is how the keyboard is told,
+     * since the prompt has to be typed on that language's keys.
+     */
+    data class Language(val layoutId: String) : TypingTestAction
+    /** A suggestion chip tapped: finishes the current word with [word]. */
+    data class Suggestion(val word: String) : TypingTestAction
     /** Write the finished run's score into the field the user came from. */
     data object InsertResult : TypingTestAction
 }
@@ -1013,6 +1093,159 @@ data class SnippetOffer(
     val cursorOffset: Int,
     val consumed: String,
     val composed: Boolean,
+)
+
+/** Which question the strip's snippet chips are asking. */
+enum class SnippetOfferKind {
+    /**
+     * Nothing was inserted and one of these chips has to be tapped for anything
+     * to happen. A snippet told to ask first, or one with several expansions
+     * while the app is set to show them as chips.
+     */
+    PICK,
+
+    /**
+     * The first expansion is already in the field and these chips replace it.
+     * The text is good as it stands; the chips are the rest of the answer.
+     */
+    SWAP,
+}
+
+/** One thing the strip is offering, and where the caret goes if it is taken. */
+data class SnippetChip(
+    /** The snippet the text belongs to: the matched one, or one it links to. */
+    val snippetId: Long,
+    val label: String,
+    val text: String,
+    /** Where a `{cursor}` marker asked the caret to land inside [text]. */
+    val cursorOffset: Int,
+    /** True when tapping into that linked snippet would show more. */
+    val drillable: Boolean,
+)
+
+/**
+ * Every snippet chip on the strip at once, and everything a tap on one of them
+ * needs to know.
+ *
+ * One field rather than several because the strip has exactly one snippet
+ * answer at a time, whether that answer has one part or nine: the alternative
+ * is four parallel nullable fields that can disagree with each other, and a
+ * keyboard screen that already sits at the method-size limit.
+ *
+ * [chips] is what the strip draws, which is [rootChips] until the user taps
+ * into a linked snippet, and that snippet's own offering after. [path] is how
+ * deep they have gone, ids in order, and doubles as the visited set that stops
+ * a cycle from being walked forever.
+ */
+data class SnippetOfferSet(
+    val kind: SnippetOfferKind,
+    /** The snippet whose trigger matched. */
+    val rootId: Long,
+    val rootLabel: String,
+    /** PICK: what taking a chip takes back out of the field. */
+    val consumed: String = "",
+    /** PICK: whether [consumed] is exactly the word still being composed. */
+    val composed: Boolean = false,
+    /** SWAP: what the expansion put in the field, so a swap can find it again. */
+    val inserted: String = "",
+    /** SWAP: where the caret was parked inside [inserted]. */
+    val insertedCaret: Int = 0,
+    /** SWAP: what the expansion replaced, so a swap can keep the undo honest. */
+    val original: String? = null,
+    /** SWAP: which of [rootChips] is in the field now, or -1 after a drill. */
+    val current: Int = 0,
+    val rootChips: List<SnippetChip> = emptyList(),
+    val path: List<Long> = emptyList(),
+    val chips: List<SnippetChip> = rootChips,
+) {
+
+    /**
+     * The chips to draw. At the top of a SWAP set the one already in the field
+     * is left out: offering to replace the text with what it already says is
+     * not an offer.
+     */
+    fun visibleChips(): List<SnippetChip> =
+        if (kind == SnippetOfferKind.SWAP && path.isEmpty() && current >= 0) {
+            chips.filterIndexed { index, _ -> index != current }
+        } else {
+            chips
+        }
+
+    /** True for exactly the one ask-first chip the strip has always shown. */
+    fun isSingle(): Boolean =
+        kind == SnippetOfferKind.PICK && path.isEmpty() && rootChips.size == 1
+
+    /** True when tapping into [id] would go somewhere it has not already been. */
+    fun canDrill(id: Long): Boolean = id != rootId && id !in path
+
+    /** The id one level up, or null at the top. */
+    fun parentId(): Long? = if (path.size < 2) null else path[path.size - 2]
+}
+
+/**
+ * What a tap on one of the strip's offer chips was.
+ *
+ * A sealed type rather than the boolean the strip used to send, because there
+ * are now four answers and up to nine chips asking them, and the keyboard
+ * screen cannot afford another parameter.
+ */
+sealed interface StripOfferAction {
+    /** Take the chip at [index]. The learn-word chip and single offers use 0. */
+    data class Accept(val index: Int = 0) : StripOfferAction
+
+    /** Refuse the offer. Only the learn-word chip asks this. */
+    data object Decline : StripOfferAction
+
+    /** Show what the linked snippet behind the chip at [index] offers. */
+    data class Drill(val index: Int) : StripOfferAction
+
+    /** Go back up one level of [SnippetOfferSet.path]. */
+    data object Back : StripOfferAction
+}
+
+/**
+ * The snippets panel showing what one snippet offers, after a tile was held.
+ *
+ * [rows] are drawn instead of the tile grid, and [path] tracks a walk into
+ * linked snippets exactly as [SnippetOfferSet.path] does on the strip.
+ */
+data class SnippetPickerUi(
+    val rootId: Long,
+    val title: String,
+    val rows: List<SnippetChip> = emptyList(),
+    val path: List<Long> = emptyList(),
+) {
+    /** True when tapping into [id] would go somewhere it has not already been. */
+    fun canDrill(id: Long): Boolean = id != rootId && id !in path
+}
+
+/** What kind of dictionary a [DictionaryChip] stands for. */
+enum class DictionaryKind {
+    /** The language's shipped or downloaded word list, as one unit. */
+    WORDS,
+    /** The language's emoji keyword packs (download plus imports), as one unit. */
+    EMOJI,
+    /** One imported word list, switched by renaming its file. */
+    IMPORTED,
+}
+
+/**
+ * One dictionary on the device, as the dictionary bar (issue #51) lists it.
+ *
+ * Built by the service from the file system and the settings, never by the
+ * renderer: which lists exist is a disk walk, and which are on is spread over
+ * three stores (a settings set for word lists, another for emoji packs, a file
+ * suffix for imports). The chip carries the answer, and its tap goes back to
+ * the service to be applied wherever it lives.
+ */
+data class DictionaryChip(
+    val langId: String,
+    val kind: DictionaryKind,
+    /** The imported list's file name, for [DictionaryKind.IMPORTED]; empty otherwise. */
+    val fileName: String = "",
+    /** The label drawn for an imported list; null for the two built-in kinds, which the strip names itself. */
+    val label: String? = null,
+    val enabled: Boolean = true,
 )
 
 /**
@@ -1049,6 +1282,12 @@ data class KeyboardUiState(
      */
     val layouts: LayoutSet = LayoutSet.Default,
     val layoutMode: LayoutMode = LayoutMode.LETTERS,
+    /**
+     * The secondary layout [LayoutMode.SECONDARY] shows, as a key into
+     * [LayoutSet.secondaries]. Kept when the mode changes, so an Fn spring-back
+     * returns to the same grid; an id the set no longer holds draws the letters.
+     */
+    val secondaryLayoutId: String? = null,
     /**
      * Power saving is in force, from either source: the manual switch or an
      * automatic trigger (low battery, the system's own battery saver).
@@ -1119,6 +1358,13 @@ data class KeyboardUiState(
     val fnLocked: Boolean = false,
     val panel: PanelMode = PanelMode.NONE,
     /**
+     * The grid each editable panel draws (issue #63): the user's own layout or
+     * the shipped one, already repaired. Defaults to the shipped set so a
+     * state built before the first emission — unit tests, the first frame —
+     * still draws every panel.
+     */
+    val panelLayouts: Map<PanelKind, PanelLayoutSpec> = BuiltInPanelLayouts.byKind,
+    /**
      * Conversion candidates beyond the handful the strip has room for, filled
      * only while [PanelMode.CANDIDATES] is open. The strip's own list stays in
      * [suggestions]; this is a widening of it, so the two agree on ordering.
@@ -1187,6 +1433,19 @@ data class KeyboardUiState(
      */
     val glideReady: Boolean = false,
     val composingPreview: String = "",
+    /**
+     * The roman buffer [composingPreview] was transliterated from, mirrored
+     * here for the key hints on a transliterating layout: what a key writes
+     * depends on the letters already typed, so the grid has to know them
+     * ([Composer.keyPreview]).
+     *
+     * Kept only while those hints are actually drawn — a layout that
+     * transliterates, with the hint mode on ([transliterationHintsShown]) —
+     * because it is a key of the grid's `remember`, and every keystroke that
+     * moves it rebuilds all ~40 key bodies. Empty everywhere else, so no other
+     * board pays for a feature it does not draw.
+     */
+    val composingRoman: String = "",
     /**
      * Probability weight (0..1) of each letter being typed next, given the
      * current composing word. Drives smart key-hit detection, which nudges
@@ -1308,11 +1567,11 @@ data class KeyboardUiState(
      */
     val otpSuggestion: NotificationOtp? = null,
     /**
-     * A snippet that matched but was told to ask first, waiting on the strip
-     * for a tap. Null whenever no such trigger matches the text in front of the
-     * cursor — see [SnippetOffer].
+     * The snippet chips on the strip: a match waiting to be chosen from, or the
+     * alternatives to one that has already been inserted. Null whenever no
+     * trigger has anything to offer — see [SnippetOfferSet].
      */
-    val snippetOffer: SnippetOffer? = null,
+    val snippetOffers: SnippetOfferSet? = null,
     /**
      * A word nothing recognises, just committed, waiting for the user to say
      * whether it belongs in their dictionary. Null unless "ask before
@@ -1333,6 +1592,18 @@ data class KeyboardUiState(
      */
     val snippetFolderOpen: Long? = null,
     /**
+     * The picker a held snippet tile opened, or null while the panel is showing
+     * tiles. Panel state for the same reason [snippetFolderOpen] is: back has to
+     * leave it before it leaves the folder.
+     */
+    val snippetPicker: SnippetPickerUi? = null,
+    /**
+     * How many things each snippet has to offer, by id, for the tiles that say
+     * so. Only ids with more than one are listed; the panel cannot reach the
+     * store to count for itself.
+     */
+    val snippetCandidateCounts: Map<Long, Int> = emptyMap(),
+    /**
      * MIME types the focused editor advertises for commitContent
      * (EditorInfo.contentMimeTypes). Empty means the field takes text only —
      * a GIF or sticker sent there can never arrive, so the media panels say so
@@ -1351,9 +1622,10 @@ data class KeyboardUiState(
     /**
      * The field asked the keyboard to hide the *suggestion strip*
      * (TYPE_TEXT_FLAG_NO_SUGGESTIONS, or an email/URI/filter/password
-     * variation). Strip visibility only — autocorrect, gesture typing,
-     * phonetic composing and learning are gated on [allowsTypingIntelligence]
-     * instead, so a field that silences the strip keeps all of those. The
+     * variation). Strip visibility only — autocorrect, phonetic composing
+     * and learning are gated on [allowsTypingIntelligence] and gesture typing
+     * on [allowsGestureTyping] instead, so a field that silences the strip
+     * keeps all of those. The
      * "Suggestions in every field" setting can override this for text fields.
      */
     val fieldNoSuggestions: Boolean = false,
@@ -1381,6 +1653,13 @@ data class KeyboardUiState(
      * (the tap persists immediately, so nothing is lost).
      */
     val activeFancyStyleId: String? = null,
+    /**
+     * Every dictionary the dictionary bar can offer, for every enabled
+     * language, refreshed by the service whenever the settings or the files
+     * behind them change. Empty while the bar is off, so nothing is walked
+     * for a row nobody sees.
+     */
+    val dictionaryBar: List<DictionaryChip> = emptyList(),
     val enterAction: EnterAction = EnterAction.DEFAULT,
     /**
      * The app's own label for the enter key (EditorInfo.actionLabel), set
@@ -1413,6 +1692,17 @@ data class KeyboardUiState(
      * detects itself (like the voice panel checks the mic permission).
      */
     val mediaControl: MediaSnapshot? = null,
+    /**
+     * Whether the media tool is currently auto-pinned to the toolbar because
+     * music is playing (see [KeyboardSettings.mediaControl]).
+     *
+     * A latch rather than `mediaControl?.playing`: the pin arms the first time
+     * an allowlisted player actually plays, then stays through a pause so the
+     * transport is still reachable to resume, and only clears when the session
+     * goes away. Held here rather than derived at the toolbar so pausing from
+     * the panel does not pull the panel's own button out from under the thumb.
+     */
+    val mediaPinned: Boolean = false,
     /** Query buffer for the GIF/sticker/web/image search panels. */
     val mediaQuery: String = "",
     /** While true, key presses type into [mediaQuery] and the key rows stay visible. */
@@ -1556,7 +1846,8 @@ data class KeyboardUiState(
 
     /**
      * Whether to run the full typing engine — autocorrect, apostrophe fixes,
-     * gesture typing, phonetic (Avro) composing and lexicon learning. These
+     * phonetic (Avro) composing and lexicon learning. (Gesture typing has its
+     * own, slightly wider gate: [allowsGestureTyping].) These
      * belong to prose entry, so they apply to plain text fields only and are
      * deliberately independent of [fieldNoSuggestions]: an app that hides the
      * suggestion strip (Instagram, Google Keep) must not also lose autocorrect
@@ -1566,6 +1857,20 @@ data class KeyboardUiState(
      */
     val allowsTypingIntelligence: Boolean
         get() = !secureField && fieldKind == FieldKind.TEXT
+
+    /**
+     * Whether a glide may be decoded and committed here. Wider than
+     * [allowsTypingIntelligence] by one field kind: a URL bar is a search box
+     * as much as an address box, and a browser's omnibox is typed
+     * with a swipe as often as a chat is (#37). The rest of the engine stays
+     * shut in it — the word is not learned, not autocorrected and not
+     * second-guessed — and the space the glide types after itself comes back
+     * out under the URL separators ([swallowsAutoSpace]), so "example" then
+     * "/" lands as "example/". Email fields stay out: an address has no
+     * dictionary words in it to decode.
+     */
+    val allowsGestureTyping: Boolean
+        get() = !secureField && (fieldKind == FieldKind.TEXT || fieldKind == FieldKind.URI)
 
     /**
      * Whether the focused field takes any image at all through commitContent.

@@ -19,9 +19,11 @@ The Key press screen collects everything about the physical act of pressing a ke
 
 <SettingsPath path="Key press" />
 
-The screen has five groups, top to bottom: Haptic feedback, Key press sound, Key popup, Timing, and Press and hold shortcuts.
+The Key press screen is a hub. Haptics and sound, Key popup and Press and hold shortcuts are pages of their own; Alternate keys and Timing stay on the hub.
 
-### Haptic feedback
+The screen has six groups, top to bottom: Haptic feedback, Key press sound, Key popup, Alternate keys, Timing, and Press and hold shortcuts.
+
+### Haptics and sound
 
 <SettingsPath path="Key press / Haptic feedback" />
 
@@ -84,18 +86,50 @@ Installing a [Sound addon](/addons/overview/) highlights this **Sound style** ro
 | Popup on key | Toggle | On / Off | On |
 | Popup font size | Slider | ×0.70–×1.60 | ×1.00 |
 | Popup height | Slider | 32–160 dp | 110 dp on-key, 65 dp floating |
+| Popup distance above key *(shown only while Popup on key is off)* | Slider | 0–96 dp | 10 dp |
+| Popup sideways shift *(same)* | Slider | −64–64 dp | 0 dp |
 | Popup shape | Nav row (shape picker) | the twelve key shapes | Rounded |
 | Popup corner radius | Slider | 0–40 dp | 12 dp |
+| Popup color | Color picker | any color, or Automatic | Automatic |
+| Popup text color | Color picker | any color, or Automatic | Automatic |
 
 **Minimum popup duration** keeps the bubble visible for at least that long after release, so a fast tap doesn't flash it for a single frame. **Maximum popup duration** is a safety cap rather than a comfort setting. It force-hides a bubble stranded on screen when the release event is dropped under UI lag. It's measured from the press, not from the release, and there's normally no reason to lower it. **Popup on key** switches between two looks: the bubble growing up out of the pressed key (the stock-keyboard look), or a compact bubble floating above your fingertip with a gap.
 
 **Popup height** looks like one slider, but it stores a value per bubble style, because the two want very different numbers. An on-key bubble is measured from the bottom of the key it covers, so most of its height goes on climbing back out from under your finger. A floating bubble already starts above the key. Flip **Popup on key** and the slider shows the other style's height. A drag in one mode never resizes the other. A theme can carry its own popup height too, and when it does the theme wins over whichever value the slider holds.
+
+**Popup distance above key** and **Popup sideways shift** place the floating bubble, and appear only while **Popup on key** is off. The distance is how far above the pressed key the bubble sits. Raise it when your finger covers the bubble, which is the usual complaint about the floating style, and the keyboard makes the same amount of extra room above the top row so a bubble there is still drawn in full. The sideways shift moves the bubble left (a negative value) or right (a positive value) of the key, which gets it out from behind the hand that holds the phone. It's a screen-space shift rather than a start-relative one, because it's about your hand and not about the script, so an RTL layout doesn't mirror it. Near the edge of the keyboard the bubble stops at the edge instead of leaving the screen.
+
+**Popup color** and **Popup text color** are the bubble's background and the character inside it. Both read **Automatic** until you pick one, which means the bubble follows the keyboard theme. A color picked here wins over the theme, and the reset control on the row puts it back to Automatic. Unlike the shape and the radius, these two stop at the preview bubble: press-and-hold alternates, the language picker and the panel menus stay on the theme's popup color. A per-key style from a layout still overrides both.
 
 **Popup shape** and **Popup corner radius** reach past the preview bubble. They set the outline of every popup surface the keyboard draws, press-and-hold alternates, the language picker and the panel menus included. The radius applies only to the rounded and cut shapes. The rest size their corners off the popup itself. A theme can override either one.
 
 <PhoneFrame caption="Key popup and Timing groups, mid-screen.">
   {/* shot: reference/settings/keypress-popup-timing */}
 </PhoneFrame>
+
+### Alternate keys
+
+<SettingsPath path="Key press / Alternate keys" />
+
+This group is about the press-and-hold popup, not the preview bubble above it. The two are different popups and they size separately.
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Alternate key size | Slider | ×0.70–×3.20 | ×1.00 |
+| Alternate key spacing | Slider | 0–32 dp | 10 dp |
+| Alternate key columns | Stepper | Auto, then 3–11 | Auto |
+| Closest to the key first | Toggle | On / Off | Off |
+| Choose without lifting | Toggle | On / Off | On |
+
+**Alternate key size** goes twice as far as **Popup font size** does, because the alternates popup grows to hold whatever you give it while the preview bubble has a fixed height to stay inside. If you'd already raised the popup font size before this slider existed, it starts at that value, so nothing shrank on you. From there the two are independent.
+
+**Alternate key spacing** is the room around each character. It's both the gap you see and the target you tap, so raise it if you keep hitting the neighbour. A roomier popup is a wider one, and a wider one wraps onto more rows.
+
+**Alternate key columns** is Auto by default, which fits as many per row as the screen allows and lets the popup's shape follow the width of the characters. Pick a number instead and every row gets that many equal columns, so a key with a dozen alternates reads as a block and each character stays where you last found it. The stepper walks Auto, 3, 4 and up to 11 one press at a time.
+
+**Closest to the key first** decides which end of a multi-row popup the first alternate goes to. Off, the popup fills like lines of text: first alternate top left, and on a tall popup that's the corner furthest from your thumb. On, it fills from the key outward, so the first alternate sits on the row nearest your finger and the overflow climbs away. That's the AOSP behaviour, and it's the shorter reach on keys with long lists. On a one-row popup the two look identical.
+
+**Choose without lifting** is the popup's press-and-hold behaviour, and it's on out of the box. The first alternate is highlighted the moment the popup opens, sliding your finger moves the highlight, and letting go types whatever is highlighted. So a hold and a straight release gives you the first alternate, the way every stock keyboard works. Slide well clear of the popup before you let go and nothing is typed. Turn it off and the popup goes back to waiting: it stays open after you lift, and you tap the one you want. That's two steps, but each one is easier to aim, which is worth having if your hands aren't steady.
 
 ### Timing
 
@@ -126,15 +160,10 @@ The repeat interval is two sliders, because delete and space are held for opposi
 | Press and hold ?123 for the number pad | Toggle | On / Off | On |
 | Currency keys | Free-text field, space-separated | Any characters | ৳ € £ ¥ ₹ ₿ |
 | Ctrl shortcuts as raw key events | Toggle | On / Off | Off |
-| Press and hold A to select all | Toggle | On / Off | Off |
-| Press and hold C to copy | Toggle | On / Off | Off |
-| Press and hold X to cut | Toggle | On / Off | Off |
-| Press and hold V to paste | Toggle | On / Off | Off |
-| Press and hold Z to undo | Toggle | On / Off | Off |
-| Press and hold Y to redo | Toggle | On / Off | Off |
-| Shortcut keys *(shown once at least one of the six above is on)* | Nav row → dialog | one letter per action | a c v x z y |
+| Hold shortcuts | Filter chips, any number | Select all, Copy, Cut, Paste, Undo, Redo | All six on |
+| Shortcut keys *(shown once at least one hold shortcut is on)* | Nav row → dialog | one letter per action | a c v x z y |
 
-**Press and hold hints** puts a small corner label on each key, previewing its first press-and-hold character. A key running one of the hold-letter shortcuts below shows no hint.
+**Press and hold hints** puts a small corner label on each key, previewing its first press-and-hold character.
 
 **All accents on press and hold** adds the complete accent set to every Latin letter's popup, on top of whatever the layout already lists. Letters only.
 
@@ -142,11 +171,11 @@ The repeat interval is two sliders, because delete and space are held for opposi
 
 **Currency keys** is stored empty by default. The field shows and edits the built-in set (৳ € £ ¥ ₹ ₿) until you type your own space-separated list. Clear it back to blank and the built-in set comes back.
 
-**Ctrl shortcuts as raw key events** only matters for a Ctrl key on a custom layout. Off, A/C/V/X route through Android's clipboard actions, which work in web pages and Compose apps too. On, the raw key event goes through instead. A terminal app needs that, since it reads Ctrl+C as interrupt rather than copy.
+**Ctrl shortcuts as raw key events** only matters for a Ctrl key on a custom layout, whether you tap it or [drag from it onto another key](/typing/gestures/#dragging-from-a-modifier-key-to-fire-a-shortcut). Off, A/C/V/X route through Android's clipboard actions, which work in web pages and Compose apps too. On, the raw key event goes through instead. A terminal app needs that, since it reads Ctrl+C as interrupt rather than copy.
 
-The six **Press and hold [letter] to…** toggles are all off by default, and each one replaces that letter's accent popup outright. Turn on "Press and hold C to copy" and `çć` leave C's popup entirely; the shortcut doesn't sit alongside them. Copy and cut both fall back to select-all when nothing is selected, so one hold copies or cuts the whole field.
+**Hold shortcuts** is one row of six chips, all on by default: Select all, Copy, Cut, Paste, Undo and Redo. Each one goes into that letter's press-and-hold popup, after the accents the key already has, so holding C still offers `çć` and copy sits at the end of the row. Copy and cut both fall back to select-all when nothing is selected, so one hold copies or cuts the whole field. Turn a chip off and only its own entry goes.
 
-**Shortcut keys** is one row for all six bindings rather than six rows, and it only appears once you've switched at least one of them on. The shipped `a c v x z y` is a QWERTY answer, so a layout without those letters (Bangla, Russian) needs the whole set moved onto keys it actually draws. The row's subtitle lists the keys currently bound. Tap it to open a dialog with one field per switched-on action, saved in one go.
+**Shortcut keys** is one row for all six bindings rather than six rows, and it appears whenever at least one of them is on. The shipped `a c v x z y` is a QWERTY answer, so a layout without those letters (Bangla, Russian) needs the whole set moved onto keys it actually draws. The row's subtitle lists the keys currently bound. Tap it to open a dialog with one field per switched-on action, saved in one go.
 
 <PhoneFrame caption="Press and hold shortcuts: the currency keys field and the hold-letter toggles.">
   {/* shot: reference/settings/keypress-long-press-shortcuts */}
@@ -155,10 +184,10 @@ The six **Press and hold [letter] to…** toggles are all off by default, and ea
 ## Details & edge cases
 
 - **The six per-event toggles fold away rather than grey out.** With Key press haptics off, Vibrate on space, Vibrate on delete swipe, Vibrate on key repeat, Click on key repeat, Follow the system touch feedback setting and Mute haptics in Do Not Disturb all leave the screen.
-- **Press and hold delay is duplicated in two places.** This Timing slider (150–700 ms) and a second copy under Accessibility → Touch both move the same underlying setting. The second one is framed for hand tremor and runs wider, 150–800 ms. See [Accessibility settings](/reference/settings/accessibility/).
+- **Press and hold delay lives here only.** The Timing slider runs 150–800 ms. Accessibility → Touch shows the current value and links back to this screen.
 - **A few rows on this screen aren't reachable from in-app settings search.** Haptic style, Click on key repeat, Follow the system touch feedback setting, Sound style, Key release sound, Time before a key repeats and Shortcut keys are all real, rendered rows here. They're just missing from the search index. Everything else is indexed, Key sound, Sound volume, Maximum popup duration, Popup shape, Popup corner radius and Press and hold ?123 among them.
 - **Most rows here grow a restore button once you move them, but four never do.** Change a toggle, a slider or the Shortcut keys row and a small restore control appears beside it, putting just that setting back. The two chip rows (Haptic style, Sound style), the Popup shape picker and the Currency keys field are hand-built controls with no restore of their own. Clearing Currency keys back to blank is how you get its built-in set again. See [Putting one setting back](/reference/settings/#putting-one-setting-back).
-- **The "Sound & haptics" toolbar tool isn't a separate settings surface.** Its panel reuses the same Key press sound group, plus a nav row into this full screen, so a change on either surface writes to the same settings. See [Sound & vibration](/typing/feedback/#a-toolbar-shortcut).
+- **The "Sound & haptics" toolbar tool isn't a separate settings surface.** Its page carries the Key sound switch, plus a nav row into the Haptics and sound page, so a change on either surface writes to the same settings. See [Sound & vibration](/typing/feedback/#a-toolbar-shortcut).
 - **Currency keys shows the built-in default even though the stored value is empty.** The field only starts writing your own list once you edit it. Clear it back to blank and you get the same default again, not an empty popup.
 - **No edition differences.** Haptics, key sounds, popups, timing and press-and-hold shortcuts all work identically on the full and lite builds.
 
@@ -166,5 +195,5 @@ The six **Press and hold [letter] to…** toggles are all off by default, and ea
 
 - [Sound & vibration](/typing/feedback/): the why behind the Haptic feedback and Key press sound groups, plus the ringer/DND distinction and the toolbar shortcut.
 - [Typing basics](/typing/basics/): the why behind the Key popup, Timing, and Press and hold shortcuts groups, plus multi-touch and key repeat behaviour.
-- [Accessibility settings](/reference/settings/accessibility/): the second copy of Press and hold delay, and Ignore repeated presses, which interacts with this screen's key-repeat timing.
+- [Accessibility settings](/reference/settings/accessibility/): the link back to Press and hold delay, and Ignore repeated presses, which interacts with this screen's key-repeat timing.
 - [Installing addons](/addons/installing/) and [Addons overview](/addons/overview/): how a Sound addon lands in the Key press sound library.

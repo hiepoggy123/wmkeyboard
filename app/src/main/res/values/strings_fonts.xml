@@ -10,6 +10,7 @@
     <string name="fonts_google_unavailable_body">This device does not have Google Play services, which supplies the Google fonts. The lists below show the system font, the fonts that you import and the fonts that you install from the store.</string>
 
     <!-- Header of the picker that sets the font for Latin, Cyrillic and Greek. -->
+    <string name="fonts_pick_group_title">Fonts by script</string>
     <string name="fonts_english_header">English font</string>
     <!-- Header of the picker for one script. %1$s is the name of the script, for example Bengali. -->
     <string name="fonts_script_header"><xliff:g id="script" example="Bengali">%1$s</xliff:g> font</string>
@@ -79,6 +80,7 @@
     <string name="fonts_tool_clipboard_desc">Paste from the clipboard history</string>
     <string name="fonts_tool_snippets_desc">Insert saved text snippets</string>
     <string name="fonts_tool_text_edit_desc">Cursor, selection and clipboard controls</string>
+    <string name="fonts_tool_trackpad_desc">Drag on the keys to move the cursor, hold to select</string>
     <string name="fonts_tool_one_handed_desc">Shrink the keyboard toward one edge</string>
     <string name="fonts_tool_split_desc">Split the keys into two halves</string>
     <string name="fonts_tool_floating_desc">Detach the keyboard into a panel that you can move</string>
@@ -98,6 +100,7 @@
     <string name="fonts_tool_themes_desc">Change the theme from the keyboard</string>
     <string name="fonts_tool_autocorrect_desc">One press turns autocorrect on or off</string>
     <string name="fonts_tool_fancy_desc">One press puts the Fancy text keyboard on screen, and takes it off again</string>
+    <string name="fonts_tool_custom_layout_desc">One press shows a secondary layout of your own over the letters, and takes it off again</string>
     <string name="fonts_tool_sound_haptics_desc">Adjust the key sound and the vibration from the keyboard</string>
     <string name="fonts_tool_numpad_desc">A number pad layout of its own</string>
     <string name="fonts_tool_handwriting_desc">Write words by hand with a finger or an S Pen. Your device does the recognition</string>
@@ -142,5 +145,8 @@
     <string name="fonts_tool_select_word_desc">Select the word at the cursor</string>
     <string name="fonts_tool_select_line_desc">Select the full line at the cursor</string>
     <string name="fonts_tool_select_mode_desc">Every cursor move selects text until you turn it off</string>
+    <string name="fonts_tool_copy_desc">Copy the selected text</string>
+    <string name="fonts_tool_cut_desc">Cut the selected text</string>
+    <string name="fonts_tool_paste_desc">Paste from the clipboard</string>
     <string name="fonts_tool_hide_keyboard_desc">Hide the keyboard with one press</string>
 </resources>

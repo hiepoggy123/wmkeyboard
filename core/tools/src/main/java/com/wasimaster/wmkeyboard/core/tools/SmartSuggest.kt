@@ -1343,6 +1343,7 @@ object SmartSuggest {
         ToolbarTool.NUMPAD to listOf("numpad"),
         ToolbarTool.CAMERA to listOf("camera"),
         ToolbarTool.TEXT_EDIT to listOf("edit"),
+        ToolbarTool.TRACKPAD to listOf("trackpad"),
         ToolbarTool.APP_LAUNCHER to listOf("apps", "launch"),
     )
 

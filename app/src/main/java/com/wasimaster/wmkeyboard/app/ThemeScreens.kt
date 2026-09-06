@@ -51,7 +51,6 @@ import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -112,6 +111,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.util.PlayServices
+import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
@@ -141,11 +141,19 @@ import com.wasimaster.wmkeyboard.core.settings.DefaultThemesPanelBuiltIns
 import com.wasimaster.wmkeyboard.core.theme.DecalSpec
 import com.wasimaster.wmkeyboard.core.theme.KeyEffectKind
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
+import com.wasimaster.wmkeyboard.core.theme.EFFECT_DURATION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.EFFECT_GRAVITY_RANGE
+import com.wasimaster.wmkeyboard.core.theme.EFFECT_SIZE_RANGE
+import com.wasimaster.wmkeyboard.core.theme.EFFECT_SPEED_RANGE
+import com.wasimaster.wmkeyboard.core.theme.EFFECT_SPREAD_RANGE
+import com.wasimaster.wmkeyboard.core.theme.KeyEffectColorMode
+import com.wasimaster.wmkeyboard.core.theme.keyEffectColorMode
 import com.wasimaster.wmkeyboard.core.theme.keyEffectKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.MAX_DECALS
 import com.wasimaster.wmkeyboard.core.theme.MAX_EFFECT_IMAGES
 import com.wasimaster.wmkeyboard.core.theme.MAX_THEME_VARIANTS
+import com.wasimaster.wmkeyboard.core.theme.withSidePad
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
 import com.wasimaster.wmkeyboard.core.theme.SeedSwatches
@@ -498,12 +506,14 @@ internal fun ModeThemePickerDialog(
     selectedId: String?,
     onPick: (String?) -> Unit,
     onDismiss: () -> Unit,
+    /** The layout editor borrows this picker for a layout's or a layer's theme. */
+    title: String = stringResource(R.string.theme_mode_picker_title),
 ) {
     val inheritLabel = stringResource(R.string.theme_mode_inherit_label)
     val rows = themePickerRows(settings)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.theme_mode_picker_title)) },
+        title = { Text(title) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 ScrollAnchor(selectedId == null) {
@@ -792,7 +802,7 @@ fun ThemesScreen(
         if (uri != null && theme != null) {
             scope.launch(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.openOutputStream(uri)?.use { out ->
+                    context.contentResolver.requireOutputStream(uri).use { out ->
                         out.write(ThemeCodec.encode(theme.withEmbeddedImages()).toByteArray())
                     }
                 }
@@ -919,8 +929,10 @@ fun ThemesScreen(
         }
     }
 
-    SettingsGroup(stringResource(R.string.theme_mode_section_title)) {
-        item { CaptionText(stringResource(R.string.theme_mode_section_body)) }
+    SettingsGroup(
+        stringResource(R.string.theme_mode_section_title),
+        info = stringResource(R.string.theme_mode_section_body),
+    ) {
         item {
             ChoiceControl(
                 options = ThemeMode.entries.map { it to stringResource(themeModeLabelRes(it)) },
@@ -948,8 +960,23 @@ fun ThemesScreen(
     // null = closed; true = editing when day starts, false = when night does.
     var timePickerForDay by remember { mutableStateOf<Boolean?>(null) }
     val auto = settings.autoTheme
-    SettingsGroup(stringResource(R.string.theme_auto_section_title)) {
-        item { CaptionText(stringResource(R.string.theme_auto_section_body)) }
+    // The chosen trigger's explanation rides in the section's "?" with the
+    // rest; the one state that needs doing something about — sun times with
+    // no place to compute them for — is a banner instead.
+    val hasSunLocation = settings.weatherLatitude != null && settings.weatherLongitude != null
+    val sunPlace = settings.weatherPlaceName.takeIf { it.isNotBlank() }
+        ?: stringResource(R.string.theme_auto_trigger_sun_place_fallback)
+    val triggerNote = when (auto.trigger) {
+        AutoThemeTrigger.SYSTEM -> stringResource(R.string.theme_auto_trigger_system_body)
+        AutoThemeTrigger.SUN ->
+            if (hasSunLocation) stringResource(R.string.theme_auto_trigger_sun_body, sunPlace) else null
+        else -> null
+    }
+    SettingsGroup(
+        stringResource(R.string.theme_auto_section_title),
+        info = listOfNotNull(stringResource(R.string.theme_auto_section_body), triggerNote)
+            .joinToString("\n\n"),
+    ) {
         item {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.theme_auto_title)) },
@@ -1007,8 +1034,7 @@ fun ThemesScreen(
                 ) { trigger -> scope.launch { repository.setAutoThemeTrigger(trigger) } }
             }
             when (auto.trigger) {
-                AutoThemeTrigger.SYSTEM ->
-                    item { CaptionText(stringResource(R.string.theme_auto_trigger_system_body)) }
+                AutoThemeTrigger.SYSTEM -> Unit
                 AutoThemeTrigger.SCHEDULE -> {
                     item {
                         ListItem(
@@ -1031,20 +1057,8 @@ fun ThemesScreen(
                         )
                     }
                 }
-                AutoThemeTrigger.SUN -> item {
-                    // Resolved inside the item: the group builder is a plain
-                    // lambda, not a composable one.
-                    val hasLocation =
-                        settings.weatherLatitude != null && settings.weatherLongitude != null
-                    val place = settings.weatherPlaceName.takeIf { it.isNotBlank() }
-                        ?: stringResource(R.string.theme_auto_trigger_sun_place_fallback)
-                    CaptionText(
-                        if (hasLocation) {
-                            stringResource(R.string.theme_auto_trigger_sun_body, place)
-                        } else {
-                            stringResource(R.string.theme_auto_trigger_sun_no_location_body)
-                        },
-                    )
+                AutoThemeTrigger.SUN -> if (!hasSunLocation) {
+                    item { StateBanner(stringResource(R.string.theme_auto_trigger_sun_no_location_body)) }
                 }
             }
         }
@@ -1097,17 +1111,22 @@ fun ThemesScreen(
 
     // The gallery is a grid of theme cards, which are their own surfaces, so
     // it keeps a plain header rather than being wrapped in a settings card.
-    SectionHeaderPublic(stringResource(R.string.theme_gallery_section_title))
-    if (auto.enabled) {
-        CaptionText(stringResource(R.string.theme_gallery_auto_on_body))
-    }
     val grouped = settings.themeGalleryGrouped()
-    CaptionText(
-        stringResource(
+    SectionHeaderPublic(
+        stringResource(R.string.theme_gallery_section_title),
+        info = stringResource(
             if (grouped) R.string.theme_gallery_style_grouped_body
             else R.string.theme_gallery_style_flat_body,
         ),
     )
+    if (auto.enabled) {
+        // Not a sentence telling the user where to go: the card carries the
+        // switch that makes the gallery live again.
+        StateBanner(
+            text = stringResource(R.string.theme_gallery_auto_on_body),
+            action = stringResource(CommonR.string.common_disable),
+        ) { scope.launch { repository.setAutoThemeEnabled(false) } }
+    }
     ChoiceControl(
         options = ThemeGalleryStyle.entries.map { it to stringResource(themeGalleryStyleLabelRes(it)) },
         selected = settings.appUi.themeGalleryStyle,
@@ -1115,28 +1134,24 @@ fun ThemesScreen(
     ) { style -> scope.launch { repository.setThemeGalleryStyle(style) } }
     val newThemeName = stringResource(R.string.theme_new_default_name)
     val newThemeDark = isSystemInDarkTheme()
+    RegisterAddFab(stringResource(R.string.theme_create_action)) {
+        scope.launch {
+            val id = "custom_${System.currentTimeMillis()}"
+            // Was hard-coded dark on a phone set to light, and always the
+            // first swatch. Follows whatever the keyboard is wearing now,
+            // which is the only signal available at this point.
+            repository.upsertCustomTheme(
+                themeFromSeed(id, newThemeName, SeedSwatches.first(), dark = newThemeDark)
+            )
+            repository.setKeyboardThemeId(id)
+            onEditTheme(id)
+        }
+    }
     FlowRow(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Button(onClick = {
-            scope.launch {
-                val id = "custom_${System.currentTimeMillis()}"
-                // Was hard-coded dark on a phone set to light, and always the
-                // first swatch. Follows whatever the keyboard is wearing now,
-                // which is the only signal available at this point.
-                repository.upsertCustomTheme(
-                    themeFromSeed(id, newThemeName, SeedSwatches.first(), dark = newThemeDark)
-                )
-                repository.setKeyboardThemeId(id)
-                onEditTheme(id)
-            }
-        }) {
-            Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text(stringResource(R.string.theme_create_action))
-        }
         OutlinedButton(onClick = { importLauncher.launch(ThemeCodec.IMPORT_MIME_TYPES) }) {
             Icon(Icons.Outlined.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
@@ -1229,9 +1244,10 @@ fun ThemesScreen(
             if (rowThemes.size == 1) Spacer(Modifier.weight(1f))
         }
     }
-    SectionHeaderPublic(stringResource(R.string.theme_builtin_section_title))
-    CaptionText(stringResource(R.string.theme_builtin_section_body))
-    CaptionText(stringResource(R.string.theme_panel_pin_body))
+    SectionHeaderPublic(
+        stringResource(R.string.theme_builtin_section_title),
+        info = stringResource(R.string.theme_panel_pin_body),
+    )
     val panelBuiltIns = settings.toolbarBehavior.themesPanelBuiltIns ?: DefaultThemesPanelBuiltIns
     val builtinEntries = if (grouped) BuiltInThemes else BuiltInThemes.flattenedThemes()
     for (rowThemes in builtinEntries.chunked(2)) {
@@ -1738,9 +1754,12 @@ fun ThemeEditorScreen(
         )
     }
 
-    // Live preview pinned on top.
-    Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        ThemePreview(theme)
+    // Live preview, pinned under the bar so it stays put while the sections
+    // below scroll (#43).
+    RegisterPinned {
+        Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+            ThemePreview(theme)
+        }
     }
 
     val untitledName = stringResource(R.string.theme_untitled_name)
@@ -1750,7 +1769,7 @@ fun ThemeEditorScreen(
     // variant is open — a way to delete it. Everything below the row edits
     // the open look alone.
     var confirmDeleteVariant by remember(theme.id) { mutableStateOf(false) }
-    SettingsGroup(stringResource(R.string.theme_variant_section_title)) {
+    SettingsGroup(stringResource(R.string.theme_variant_section_title), foldKey = "theme/variant") {
         item {
             Row(
                 modifier = Modifier
@@ -1881,14 +1900,17 @@ fun ThemeEditorScreen(
             .padding(horizontal = 16.dp),
     )
 
-    SettingsGroup(stringResource(R.string.theme_seed_section_title)) {
-        item { CaptionText(stringResource(R.string.theme_seed_section_body)) }
+    val seedImageNote = stringResource(R.string.photo_seed_keeps_image_body)
+        .takeIf { theme.backgroundImage != null || theme.backgroundImageLandscape != null }
+    SettingsGroup(
+        stringResource(R.string.theme_seed_section_title),
+        foldKey = "theme/seed",
+        info = listOfNotNull(stringResource(R.string.theme_seed_section_body), seedImageNote)
+            .joinToString("\n\n"),
+    ) {
         // Changing the seed or the light/dark switch rebuilds every colour. The
         // board keeps how see-through it is, so the photo stays visible -- but
         // it is worth saying, because the colours around it do all change.
-        if (theme.backgroundImage != null || theme.backgroundImageLandscape != null) {
-            item { CaptionText(stringResource(R.string.photo_seed_keeps_image_body)) }
-        }
         item {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.theme_editor_dark_title)) },
@@ -1923,7 +1945,12 @@ fun ThemeEditorScreen(
         }
     }
 
-    SettingsGroup(stringResource(R.string.theme_board_section_title)) {
+    SettingsGroup(
+        stringResource(R.string.theme_board_section_title),
+        foldKey = "theme/board",
+        info = stringResource(R.string.theme_background_image_alpha_body)
+            .takeIf { theme.backgroundImage != null },
+    ) {
         item {
             ColorRow(
                 stringResource(R.string.theme_board_background_title),
@@ -2040,7 +2067,6 @@ fun ThemeEditorScreen(
                     colors = transparentListColors(),
                 )
             }
-            item { CaptionText(stringResource(R.string.theme_background_image_alpha_body)) }
         }
         item {
             ListItem(
@@ -2263,7 +2289,7 @@ fun ThemeEditorScreen(
         )
     }
 
-    SettingsGroup(stringResource(R.string.theme_keys_section_title)) {
+    SettingsGroup(stringResource(R.string.theme_keys_section_title), foldKey = "theme/keys") {
         item {
             // A row plus a dialog, not a segmented row: eleven shapes never fit
             // side by side, and a name on its own ("Squircle", "Leaf") does not
@@ -2326,6 +2352,14 @@ fun ThemeEditorScreen(
             )
         }
         item {
+            NullableColorRow(
+                stringResource(R.string.theme_hint_text_title),
+                theme.hintText, fallback = theme.keyText,
+                supportsAlpha = true,
+                onChange = { update { t -> t.copy(hintText = it) } },
+            )
+        }
+        item {
             ColorRow(stringResource(R.string.theme_enter_key_title), theme.enterKeyBackground) {
                 update { t -> t.copy(enterKeyBackground = it) }
             }
@@ -2381,8 +2415,11 @@ fun ThemeEditorScreen(
             }
         }
     }
-    SettingsGroup(stringResource(R.string.theme_texture_section_title)) {
-        item { CaptionText(stringResource(R.string.theme_texture_section_body)) }
+    SettingsGroup(
+        stringResource(R.string.theme_texture_section_title),
+        foldKey = "theme/texture",
+        info = stringResource(R.string.theme_texture_section_body),
+    ) {
         for (slot in KeyTextureSlot.entries) {
             item {
                 val path = slot.pathIn(theme)
@@ -2460,8 +2497,11 @@ fun ThemeEditorScreen(
 
     var overrideEditorId by rememberSaveable(theme.id) { mutableStateOf<String?>(null) }
     var addOverrideOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
-    SettingsGroup(stringResource(R.string.theme_key_override_section_title)) {
-        item { CaptionText(stringResource(R.string.theme_key_override_section_body)) }
+    SettingsGroup(
+        stringResource(R.string.theme_key_override_section_title),
+        foldKey = "theme/key_override",
+        info = stringResource(R.string.theme_key_override_section_body),
+    ) {
         for (id in theme.keyOverrides.keys.sorted()) {
             item {
                 ListItem(
@@ -2537,8 +2577,11 @@ fun ThemeEditorScreen(
             }
         }
     }
-    SettingsGroup(stringResource(R.string.theme_decal_section_title)) {
-        item { CaptionText(stringResource(R.string.theme_decal_section_body)) }
+    SettingsGroup(
+        stringResource(R.string.theme_decal_section_title),
+        foldKey = "theme/decal",
+        info = stringResource(R.string.theme_decal_section_body),
+    ) {
         theme.decals.forEachIndexed { index, decal ->
             item {
                 ListItem(
@@ -2594,13 +2637,16 @@ fun ThemeEditorScreen(
         )
     }
 
-    SettingsGroup(stringResource(R.string.theme_accent_section_title)) {
+    SettingsGroup(stringResource(R.string.theme_accent_section_title), foldKey = "theme/accent") {
         item {
-            ColorRow(stringResource(R.string.theme_accent_title), theme.accent) {
+            ColorRow(
+                stringResource(R.string.theme_accent_title),
+                theme.accent,
+                info = stringResource(R.string.theme_accent_body),
+            ) {
                 update { t -> t.copy(accent = it) }
             }
         }
-        item { CaptionText(stringResource(R.string.theme_accent_body)) }
         item {
             NullableColorRow(
                 stringResource(R.string.theme_gesture_trail_title),
@@ -2718,7 +2764,7 @@ fun ThemeEditorScreen(
         }
     }
 
-    SettingsGroup(stringResource(R.string.theme_toolbar_section_title)) {
+    SettingsGroup(stringResource(R.string.theme_toolbar_section_title), foldKey = "theme/toolbar") {
         item {
             val toolShape = keyShapeKindOrNull(theme.toolShape) ?: settings.toolShape
             ListItem(
@@ -2781,7 +2827,7 @@ fun ThemeEditorScreen(
         }
     }
 
-    SettingsGroup(stringResource(R.string.theme_panels_section_title)) {
+    SettingsGroup(stringResource(R.string.theme_panels_section_title), foldKey = "theme/panels") {
         item {
             NullableColorRow(
                 stringResource(R.string.theme_cards_title),
@@ -2799,8 +2845,11 @@ fun ThemeEditorScreen(
         }
     }
 
-    SettingsGroup(stringResource(R.string.theme_chips_section_title)) {
-        item { CaptionText(stringResource(R.string.theme_chips_section_body)) }
+    SettingsGroup(
+        stringResource(R.string.theme_chips_section_title),
+        foldKey = "theme/chips",
+        info = stringResource(R.string.theme_chips_section_body),
+    ) {
         item {
             NullableColorRow(
                 stringResource(R.string.theme_chip_text_title),
@@ -2905,7 +2954,7 @@ fun ThemeEditorScreen(
     }
 
     val hasCustomRadii = theme.keyCornerRadiusDp != null
-    SettingsGroup(stringResource(R.string.theme_corners_section_title)) {
+    SettingsGroup(stringResource(R.string.theme_corners_section_title), foldKey = "theme/corners") {
         item {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.theme_custom_radii_title)) },
@@ -2971,8 +3020,11 @@ fun ThemeEditorScreen(
     // switch always seeds or clears all ten fields together, so any one of
     // them being set means the group is on.
     val hasLayoutOverrides = theme.toolbarHeightDp != null
-    SettingsGroup(stringResource(R.string.theme_layout_section_title)) {
-        item { CaptionText(stringResource(R.string.theme_layout_section_body)) }
+    SettingsGroup(
+        stringResource(R.string.theme_layout_section_title),
+        foldKey = "theme/layout",
+        info = stringResource(R.string.theme_layout_section_body),
+    ) {
         item {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.theme_custom_layout_title)) },
@@ -2989,7 +3041,12 @@ fun ThemeEditorScreen(
                                         popupHeightDp = settings.popup.heightDp,
                                         keyHeightDp = settings.keyHeightDp,
                                         keyGapScale = settings.keyGapScale,
-                                        sidePadScale = settings.layoutBehavior.sidePadScale,
+                                        sidePadScale = settings.layoutBehavior.sidePadLeftScale
+                                            .takeIf {
+                                                it == settings.layoutBehavior.sidePadRightScale
+                                            },
+                                        sidePadLeftScale = settings.layoutBehavior.sidePadLeftScale,
+                                        sidePadRightScale = settings.layoutBehavior.sidePadRightScale,
                                         fontScale = settings.fontScale,
                                         boldKeyLabels = settings.boldKeyLabels,
                                         hintFontScale = settings.layoutBehavior.hintFontScale,
@@ -3004,6 +3061,8 @@ fun ThemeEditorScreen(
                                         keyHeightDp = null,
                                         keyGapScale = null,
                                         sidePadScale = null,
+                                        sidePadLeftScale = null,
+                                        sidePadRightScale = null,
                                         fontScale = null,
                                         boldKeyLabels = null,
                                         hintFontScale = null,
@@ -3065,11 +3124,19 @@ fun ThemeEditorScreen(
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_side_padding_title),
-                    value = theme.sidePadScale ?: 0f,
+                    stringResource(R.string.theme_side_padding_left_title),
+                    value = theme.sidePadLeftScale ?: theme.sidePadScale ?: 0f,
                     range = SidePadScaleRange,
                     display = { "${(it * 100).toInt()} %" },
-                ) { update { t -> t.copy(sidePadScale = (it * 100).toInt() / 100f) } }
+                ) { update { t -> t.withSidePad(left = (it * 100).toInt() / 100f) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_side_padding_right_title),
+                    value = theme.sidePadRightScale ?: theme.sidePadScale ?: 0f,
+                    range = SidePadScaleRange,
+                    display = { "${(it * 100).toInt()} %" },
+                ) { update { t -> t.withSidePad(right = (it * 100).toInt() / 100f) } }
             }
             item {
                 SliderRow(
@@ -3118,8 +3185,11 @@ fun ThemeEditorScreen(
         }
     }
 
-    SettingsGroup(stringResource(R.string.theme_animation_section_title)) {
-        item { CaptionText(stringResource(R.string.theme_animation_section_body)) }
+    SettingsGroup(
+        stringResource(R.string.theme_animation_section_title),
+        foldKey = "theme/animation",
+        info = stringResource(R.string.theme_animation_section_body),
+    ) {
         item {
             ChoiceControl(
                 options = ThemeAnimation.entries.map { anim ->
@@ -3167,8 +3237,14 @@ fun ThemeEditorScreen(
             }
         }
     }
-    SettingsGroup(stringResource(R.string.theme_effect_section_title)) {
-        item { CaptionText(stringResource(R.string.theme_effect_section_body)) }
+    val effectImagesNote = stringResource(R.string.theme_effect_images_body)
+        .takeIf { keyEffectKindOrNull(theme.keyEffect) == KeyEffectKind.CUSTOM_IMAGE }
+    SettingsGroup(
+        stringResource(R.string.theme_effect_section_title),
+        foldKey = "theme/effect",
+        info = listOfNotNull(stringResource(R.string.theme_effect_section_body), effectImagesNote)
+            .joinToString("\n\n"),
+    ) {
         item {
             val current = keyEffectKindOrNull(theme.keyEffect)
             ChoiceControl(
@@ -3214,7 +3290,6 @@ fun ThemeEditorScreen(
             }
         }
         if (keyEffectKindOrNull(theme.keyEffect) == KeyEffectKind.CUSTOM_IMAGE) {
-            item { CaptionText(stringResource(R.string.theme_effect_images_body)) }
             theme.keyEffectImages.forEachIndexed { index, path ->
                 item {
                     ListItem(
@@ -3276,6 +3351,109 @@ fun ThemeEditorScreen(
                     display = { "%.1f×".format(it) },
                 ) { update { t -> t.copy(keyEffectIntensity = (it * 10).toInt() / 10f) } }
             }
+            item {
+                val mode = keyEffectColorMode(theme.keyEffectColor)
+                // A swatch per option, since every one of these is a colour and
+                // the words for them ("Trail", "Accent") name where the colour
+                // comes from rather than what it looks like on this theme.
+                val colourDetail = mapOf(
+                    KeyEffectColorMode.NATURAL to
+                        ChoiceDetail(stringResource(R.string.theme_effect_color_natural_desc)),
+                    KeyEffectColorMode.KEY_TEXT to
+                        ChoiceDetail(stringResource(R.string.theme_effect_color_key_text_desc)) {
+                            Swatch(theme.keyText)
+                        },
+                    KeyEffectColorMode.ACCENT to
+                        ChoiceDetail(stringResource(R.string.theme_effect_color_accent_desc)) {
+                            Swatch(theme.accent)
+                        },
+                    KeyEffectColorMode.GESTURE_TRAIL to
+                        ChoiceDetail(stringResource(R.string.theme_effect_color_trail_desc)) {
+                            Swatch(theme.gestureTrailColor ?: theme.accent)
+                        },
+                    KeyEffectColorMode.CUSTOM to
+                        ChoiceDetail(stringResource(R.string.theme_effect_color_custom_desc)) {
+                            Swatch(theme.keyEffectCustomColor ?: theme.accent)
+                        },
+                    KeyEffectColorMode.RANDOM to
+                        ChoiceDetail(stringResource(R.string.theme_effect_color_random_desc)),
+                )
+                ChoiceSetting(
+                    title = stringResource(R.string.theme_effect_color_title),
+                    info = stringResource(R.string.theme_effect_color_body),
+                    detail = { colourDetail[it] },
+                    options = KeyEffectColorMode.entries.map { option ->
+                        option to when (option) {
+                            KeyEffectColorMode.NATURAL ->
+                                stringResource(R.string.theme_effect_color_natural_label)
+                            KeyEffectColorMode.KEY_TEXT ->
+                                stringResource(R.string.theme_effect_color_key_text_label)
+                            KeyEffectColorMode.ACCENT ->
+                                stringResource(R.string.theme_effect_color_accent_label)
+                            KeyEffectColorMode.GESTURE_TRAIL ->
+                                stringResource(R.string.theme_effect_color_trail_label)
+                            KeyEffectColorMode.CUSTOM ->
+                                stringResource(R.string.theme_effect_color_custom_label)
+                            KeyEffectColorMode.RANDOM ->
+                                stringResource(R.string.theme_effect_color_random_label)
+                        }
+                    },
+                    selected = mode,
+                ) { picked -> update { t -> t.copy(keyEffectColor = picked.name) } }
+            }
+            if (keyEffectColorMode(theme.keyEffectColor) == KeyEffectColorMode.CUSTOM) {
+                item {
+                    NullableColorRow(
+                        stringResource(R.string.theme_effect_color_custom_label),
+                        theme.keyEffectCustomColor, fallback = theme.accent,
+                        onChange = { update { t -> t.copy(keyEffectCustomColor = it) } },
+                    )
+                }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_effect_size_title),
+                    value = theme.keyEffectSize,
+                    range = EFFECT_SIZE_RANGE,
+                    display = { "%.1f×".format(it) },
+                ) { update { t -> t.copy(keyEffectSize = (it * 10).toInt() / 10f) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_effect_speed_title),
+                    value = theme.keyEffectSpeed,
+                    range = EFFECT_SPEED_RANGE,
+                    display = { "%.1f×".format(it) },
+                ) { update { t -> t.copy(keyEffectSpeed = (it * 10).toInt() / 10f) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_effect_spread_title),
+                    value = theme.keyEffectSpread,
+                    range = EFFECT_SPREAD_RANGE,
+                    display = { "%d%%".format((it * 100).roundToInt()) },
+                ) { update { t -> t.copy(keyEffectSpread = (it * 20).toInt() / 20f) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_effect_gravity_title),
+                    value = theme.keyEffectGravity,
+                    range = EFFECT_GRAVITY_RANGE,
+                    display = { "%.1f×".format(it) },
+                    info = stringResource(R.string.theme_effect_gravity_body),
+                ) { update { t -> t.copy(keyEffectGravity = (it * 10).toInt() / 10f) } }
+            }
+            item {
+                SliderRow(
+                    stringResource(R.string.theme_effect_duration_title),
+                    value = theme.keyEffectDurationMs.toFloat(),
+                    range = EFFECT_DURATION_RANGE.first.toFloat()..
+                        EFFECT_DURATION_RANGE.last.toFloat(),
+                    display = { "%d ms".format(it.roundToInt()) },
+                ) { ms ->
+                    update { t -> t.copy(keyEffectDurationMs = (ms / 50).roundToInt() * 50) }
+                }
+            }
         }
     }
 
@@ -3284,8 +3462,11 @@ fun ThemeEditorScreen(
     var scriptPickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
     /** `ScriptId.name` of the per-script font row being edited, if any. */
     var scriptFontPicker by rememberSaveable(theme.id) { mutableStateOf<String?>(null) }
-    SettingsGroup(stringResource(R.string.theme_font_sound_section_title)) {
-        item { CaptionText(stringResource(R.string.theme_font_sound_section_body)) }
+    SettingsGroup(
+        stringResource(R.string.theme_font_sound_section_title),
+        foldKey = "theme/font_sound",
+        info = stringResource(R.string.theme_font_sound_section_body),
+    ) {
         item {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.theme_font_title)) },
@@ -4202,6 +4383,7 @@ internal fun SliderRow(
     value: Float,
     range: ClosedFloatingPointRange<Float>,
     display: (Float) -> String,
+    info: String? = null,
     onChange: (Float) -> Unit,
 ) {
     // Local drag state, throttled writes — see rememberLiveSlider; without it
@@ -4210,6 +4392,7 @@ internal fun SliderRow(
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.bodyLarge)
+            if (info != null) InfoButton(title = title, detail = info)
             Spacer(Modifier.weight(1f))
             Text(display(slider.value), style = MaterialTheme.typography.labelLarge)
         }
@@ -4228,12 +4411,18 @@ private fun ColorRow(
     title: String,
     color: Long,
     supportsAlpha: Boolean = false,
+    info: String? = null,
     onChange: (Long) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     ListItem(
         headlineContent = { Text(title) },
-        trailingContent = { Swatch(color) },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (info != null) InfoButton(title = title, detail = info)
+                Swatch(color)
+            }
+        },
         colors = transparentListColors(),
         modifier = Modifier.clickable { open = true },
     )
@@ -4261,6 +4450,7 @@ private fun NullableColorRow(
     color: Long?,
     fallback: Long,
     supportsAlpha: Boolean = false,
+    info: String? = null,
     onChange: (Long?) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -4276,7 +4466,12 @@ private fun NullableColorRow(
         } else {
             null
         },
-        trailingContent = { Swatch(color ?: fallback) },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (info != null) InfoButton(title = title, detail = info)
+                Swatch(color ?: fallback)
+            }
+        },
         colors = transparentListColors(),
         modifier = Modifier.clickable { open = true },
     )
@@ -4295,13 +4490,15 @@ private fun NullableColorRow(
 
 // The color picker dialog and its Swatch live in ColorPicker.kt.
 
-/** Public alias so ThemeScreens can reuse MainActivity's section header style. */
+/**
+ * [SectionHeader] with the theme screens' own inset: their cards are not
+ * inside a settings group, so the heading sits at the page margin.
+ */
 @Composable
-fun SectionHeaderPublic(text: String) {
-    Text(
+fun SectionHeaderPublic(text: String, info: String? = null) {
+    SectionHeader(
         text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
+        info = info,
         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
     )
 }

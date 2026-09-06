@@ -8,7 +8,6 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
-import com.wasimaster.wmkeyboard.core.settings.KeyFontScaleRange
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
@@ -32,6 +31,7 @@ internal fun AccessibilitySettings(
     onOpenFonts: () -> Unit,
     onOpenLayout: () -> Unit,
     onOpenKeyPress: () -> Unit,
+    onOpenAppearance: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -56,6 +56,7 @@ internal fun AccessibilitySettings(
                 ),
                 selected = settings.colorVisionFilter,
                 default = SettingsDefaults.colorVisionFilter,
+                detail = { filter -> ChoiceDetail(stringResource(colorVisionDescRes(filter))) },
             ) { scope.launch { repository.setColorVisionFilter(it) } }
         }
         item {
@@ -99,15 +100,12 @@ internal fun AccessibilitySettings(
             }
         }
         item {
-            SliderSetting(
-                title = R.string.accessibility_text_size_title,
-                subtitle = stringResource(R.string.accessibility_text_size_subtitle),
-                value = settings.fontScale,
-                range = KeyFontScaleRange,
-                display = { "${(it * 100).toInt()}%" },
-                info = stringResource(R.string.accessibility_text_size_info),
-                default = SettingsDefaults.fontScale,
-            ) { scope.launch { repository.setFontScale(it) } }
+            NavRow(
+                R.string.accessibility_text_size_title,
+                stringResource(R.string.accessibility_text_size_subtitle),
+                "${(settings.fontScale * 100).toInt()}%",
+                onClick = onOpenAppearance,
+            )
         }
         item {
             NavRow(
@@ -148,6 +146,7 @@ internal fun AccessibilitySettings(
                 ),
                 selected = settings.screenReaderMode,
                 default = SettingsDefaults.screenReaderMode,
+                detail = { mode -> ChoiceDetail(stringResource(screenReaderDescRes(mode))) },
             ) { scope.launch { repository.setScreenReaderMode(it) } }
         }
         if (settings.screenReaderMode == ScreenReaderMode.PASSTHROUGH) {
@@ -202,15 +201,12 @@ internal fun AccessibilitySettings(
             ) { scope.launch { repository.setKeyDebounceMs(it.toInt()) } }
         }
         item {
-            SliderSetting(
-                title = R.string.accessibility_long_press_title,
-                subtitle = stringResource(R.string.accessibility_long_press_subtitle),
-                value = settings.longPressDelayMs.toFloat(),
-                range = 150f..800f,
-                display = { "${it.toInt()} ms" },
-                info = stringResource(R.string.accessibility_long_press_info),
-                default = SettingsDefaults.longPressDelayMs.toFloat(),
-            ) { scope.launch { repository.setLongPressDelayMs(it.toInt()) } }
+            NavRow(
+                R.string.accessibility_long_press_title,
+                stringResource(R.string.accessibility_long_press_subtitle),
+                "${settings.longPressDelayMs} ms",
+                onClick = onOpenKeyPress,
+            )
         }
         item {
             NavRow(
@@ -229,4 +225,25 @@ internal fun AccessibilitySettings(
             )
         }
     }
+}
+
+/**
+ * What each colour vision filter does, one line, for the picker sheet. The
+ * option names are the clinical short forms, which say nothing to a reader who
+ * does not already know which type they have.
+ */
+private fun colorVisionDescRes(filter: ColorVisionFilter): Int = when (filter) {
+    ColorVisionFilter.NONE -> R.string.accessibility_color_vision_none_desc
+    ColorVisionFilter.DEUTERANOPIA -> R.string.accessibility_color_vision_deutan_desc
+    ColorVisionFilter.PROTANOPIA -> R.string.accessibility_color_vision_protan_desc
+    ColorVisionFilter.TRITANOPIA -> R.string.accessibility_color_vision_tritan_desc
+    ColorVisionFilter.GRAYSCALE -> R.string.accessibility_color_vision_grey_desc
+}
+
+/** What each screen reader mode does, one line, for the picker sheet. */
+private fun screenReaderDescRes(mode: ScreenReaderMode): Int = when (mode) {
+    ScreenReaderMode.OFF -> R.string.accessibility_talkback_mode_off_desc
+    ScreenReaderMode.LABELS -> R.string.accessibility_talkback_mode_labels_desc
+    ScreenReaderMode.EXPLORE -> R.string.accessibility_talkback_mode_explore_desc
+    ScreenReaderMode.PASSTHROUGH -> R.string.accessibility_talkback_mode_gestures_desc
 }

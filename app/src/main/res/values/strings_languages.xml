@@ -103,6 +103,20 @@
     <!-- %1$s is the English name of the language, for example "Bengali". -->
     <string name="languages_spelling_map_info">Some words are not spelled the way they sound. "Table" is written টেবিল, not তাবলে, and people type "tmr" for তোমার with no vowels at all. This setting uses a list of those spellings while you type <xliff:g id="language" example="Bengali">%1$s</xliff:g>, so you get the word people write. Turn it off to get the letter-for-letter reading instead. Other languages keep their own setting.</string>
 
+    <!-- Phonetic layouts (Avro): the corner hints that show what each roman key types. -->
+    <string name="languages_translit_hints_title">Key hints</string>
+    <string name="languages_translit_hints_row_title">Show the letter each key types</string>
+    <string name="languages_translit_hints_row_subtitle">Put the <xliff:g id="language" example="Bengali">%1$s</xliff:g> a key is about to write in its corner</string>
+    <!-- %1$s is the English name of the language, for example "Bengali". -->
+    <string name="languages_translit_hints_info">A phonetic layout types <xliff:g id="language" example="Bengali">%1$s</xliff:g> from roman keys, so the keys do not show what they write. This puts the answer in the corner of each key, and it follows the word you are typing: a k is ক at the start of a word, but after a consonant the same key joins to it. Shift changes the hints too, because a phonetic layout reads capitals as different letters. Choose how much of the joined letter to show. "Added" shows only the part the key writes. "Whole letter" repeats the consonant before it, so the hint is a shape that appears in real words.</string>
+    <string name="languages_translit_hints_off_label">Off</string>
+    <string name="languages_translit_hints_added_label">Added</string>
+    <string name="languages_translit_hints_cluster_label">Whole letter</string>
+    <!-- One line under each option in the key hints picker. -->
+    <string name="languages_translit_hints_off_desc">The keys show only their roman letter</string>
+    <string name="languages_translit_hints_added_desc">The corner shows only the part that the key writes</string>
+    <string name="languages_translit_hints_cluster_desc">The corner repeats the consonant before it, so the hint is a shape from a real word</string>
+
     <string name="languages_numerals_title">Numerals</string>
     <!-- Fancy Text: the styled-letters pseudo-language. -->
     <string name="languages_fancy_style_title">Style</string>
@@ -131,6 +145,9 @@
     <string name="languages_dictionary_none_learn">This language has no built-in dictionary. The keyboard learns your words as you type, and you can import your own word list.</string>
     <string name="languages_custom_dictionaries_title">Custom dictionaries</string>
     <string name="languages_custom_dictionaries_subtitle">Import your own word lists</string>
+    <string name="languages_dictionary_use_title">Use the word list</string>
+    <string name="languages_dictionary_use_subtitle">Suggest and correct from the bundled or downloaded list</string>
+    <string name="languages_dictionary_use_info">Off, the keyboard forgets the bundled and downloaded words for this language and reads only the word lists that you imported, plus the words it learned from you. The same switch appears on the dictionary bar (Rows &amp; bars) and, the other way round, as "Use only my word lists" under Custom dictionaries.</string>
 
     <!-- Row title for a word list the user can download. -->
     <string name="languages_wordlist_title">Downloadable dictionary</string>
@@ -174,6 +191,9 @@
     <string name="languages_emoji_keywords_unavailable">No emoji keywords are available for <xliff:g id="language" example="Bengali">%1$s</xliff:g> yet. Emoji search answers in English. You can import your own list.</string>
     <string name="languages_emoji_keywords_title">Emoji keywords</string>
     <string name="languages_emoji_keywords_subtitle">Downloads for every language, and your own imports</string>
+    <string name="languages_emoji_keywords_use_title">Use the emoji keywords</string>
+    <string name="languages_emoji_keywords_use_subtitle">Search and suggest emoji by their names in this language</string>
+    <string name="languages_emoji_keywords_use_info">Off, the downloaded keywords and any pack that you imported for this language stay on the device but are not read, so emoji search and emoji suggestions stop answering in this language. The same switch appears on the dictionary bar (Rows &amp; bars).</string>
     <!-- State of a downloaded keyword list. %1$d is the number of emoji, %2$s
          its size on your device, for example "120 KB". -->
     <plurals name="languages_emoji_dict_downloaded">
@@ -209,12 +229,13 @@
 
     <string name="languages_cjk_traditional_title">Traditional characters</string>
     <string name="languages_cjk_traditional_subtitle">The keyboard converts candidates to Traditional (繁體). It converts one character at a time, so a few forms that depend on context are wrong (发 → 發 / 髮).</string>
-    <string name="languages_cjk_region_info">Regional wording. Taiwan and Hong Kong often use different words for the same thing, not only different characters.</string>
+    <string name="languages_cjk_region_title">Regional wording</string>
+    <string name="languages_cjk_region_info">Taiwan and Hong Kong often use different words for the same thing, not only different characters.</string>
     <string name="languages_cjk_region_generic_title">Standard</string>
     <string name="languages_cjk_region_generic_subtitle">Characters only, no changes to wording</string>
     <string name="languages_cjk_region_taiwan_title">Taiwan (臺灣)</string>
-    <!-- Example word pairs. Chinese text, the same in every language. -->
     <string name="languages_cjk_region_taiwan_subtitle" translatable="false">出租車 → 計程車, 光盤 → 光碟</string>
+    <!-- Example word pairs. Chinese text, the same in every language. -->
     <string name="languages_cjk_region_hong_kong_title">Hong Kong (香港)</string>
     <string name="languages_cjk_region_hong_kong_subtitle">Character preferences of Hong Kong</string>
 
@@ -231,6 +252,8 @@
     <string name="languages_cjk_fuzzy_pair_initial">Start of a syllable</string>
     <string name="languages_cjk_fuzzy_pair_final">End of a syllable</string>
     <string name="languages_cjk_fuzzy_pairs_reset_title">Match every pair again</string>
+    <string name="languages_cjk_pinyin_group_title">Pinyin</string>
+    <string name="languages_cjk_double_pinyin_title">Double Pinyin scheme</string>
     <string name="languages_cjk_double_pinyin_info">Double Pinyin: type each syllable with exactly two keys. It needs the Pinyin dictionary above.</string>
 
     <!-- Button that takes a language off the list. %1$s is its English name. -->

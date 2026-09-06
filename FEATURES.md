@@ -49,7 +49,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Corpus pack then bundled seed pairs — 827 bundled English pairs cold-start a fresh install
     - Skip-gram rescue on an unknown previous word — Treats an OOV prev as transparent and backfills from the word before it
     - Sentence-start sentinel — U+0001 pseudo-word learned as context only; never offered, never a follower
-  - Next-letter distribution `uncommon` — nextLetterWeights feeds smart key-hit detection
+  - Next-letter distribution `uncommon` — nextLetterWeights feeds autopilot
     - Weighted across three sources — Dictionary x1, lexicon x500, custom list x100; 24 completions scanned per source
     - Boundary-tap remap at pointer-down — Distance divided by (1 + strength x bias); capped reach; the touch is never consumed
     - Letters layer only, off by default — Skipped for transliterating composers where a Latin nudge is wrong
@@ -102,8 +102,12 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Only on the path that buffers number-row digits — The standalone spell checker never rewrites genuine alphanumerics
   - Revert memory `uncommon` — Autocorrect remembers its own mistakes, per pair and in aggregate
     - Backspace restores the typed word — Also teaches it into the personal dictionary at boost 5
-    - Exact pair blocked for the session — Other corrections of the same typed word stay live
+    - Exact pair blocked for the run of typing — 20 further verdicts or the next field, whichever comes first; other corrections of the same typed word stay live
     - Second persisted revert blocks the pair outright — One revert costs a x0.25 handicap and loses shortcut privileges
+    - Deliberate and indirect undos weigh differently — Only a backspace on the correction earns the in-process block; a verdict read back off the settled field does not
+    - An indirect undo of a non-word is discarded — The reproduced-typo case: the user fixes a typo by hand, never having seen it was already fixed, and slips again. A personal word reaches the lexicon after its three sightings and its undos then count in full
+    - Retired pairs come back on probation — 40 quiet saves and the pair reaches the offer chip again, never the silent rewrite; 3 accepts make it ordinary
+    - Four memory levels `RARE` — Off keeps no pair memory, Light never retires a pair, Normal is the shipped balance, Strict retires on the first undo however it was read
     - Penalties age out — A pair untouched for 180 saves loses a count; 500-pair cap
     - Stored outside the lexicon — A rejection persists even with learning off or in incognito
 - **Personal learning** — On-device lexicon of words, bigrams and trigrams; nothing leaves the device
@@ -329,6 +333,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Two shapes — Inline preview for up to 4 layouts, scrollable tappable list beyond that
     - Hold-drag walk — Vertical drag steps the highlighted row; release commits, a still hold leaves it up for tapping
     - Never types a space — Release with the picker or preview up commits a layout instead
+  - Spacebar long-press keys `RARE` — Characters typed into one setting become the spacebar's own alternates popup, on every layer
+    - Claims the hold outright — Authored keys beat the language picker and the space repeat, because a hold cannot mean two things
+    - Editor path too — The layout editor now offers the alternates fields on a space key, so a layout can carry its own set
+    - Corner hint says so — The first key is drawn in the spacebar's corner, which is what tells you the picker moved
   - Cursor slide — 16 dp of horizontal drag per character; commits the composing buffer first and marks a scrub window
   - 2-D cursor touchpad `uncommon` — Vertical drag also steps the caret by lines; claims the down direction from swipe-to-hide
   - Swipe down to hide `uncommon` — Downward drag past 40 dp, steeper than wide, dismisses the keyboard; separate from the toolbar's own swipe-down
@@ -362,10 +370,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Action set — UP/DOWN/LEFT/RIGHT, HOME/END, PAGE_UP/PAGE_DOWN, WORD_LEFT/WORD_RIGHT, SELECT, SELECT_ALL, SELECT_WORD, SELECT_LINE, COPY, PASTE, BACKSPACE
     - Selection mode — With Select on, every move carries shift and extends the selection; word moves become Ctrl+Shift+Arrow
     - Own repeat interval — Arrow and backspace auto-repeat, default 60 ms, user-adjustable
-    - Editable grid `RARE` — TextEditLayout in settings: rows of keys with an action, a width, a row span and a per-row height, edited on its own screen with a live preview; the shipped cluster is DefaultTextEditLayout written down
-    - Same geometry as a key layout — Placed with spanSlots, so the tall left/right arrows are just a key three rows deep and the middle rows flow around them
-    - Second action on press and hold — TextEditKey.longPress, read only on keys whose action does not repeat; Home and End ship holding to the start and end of the text
-    - Repair on read, never reject — Widths, spans and heights clamp; a hold on a repeating key or on the key's own action is dropped; an empty layout falls back to the shipped one
+    - Panel layout `RARE` — The pad is a PanelLayoutSpec (issue #63): a grid of Keys with KeyAction.Edit, edited in the key layout editor with its row tools, key sheet and undo; the shipped cluster is BuiltInPanelLayouts.TEXT_EDIT
+    - Same geometry as a key layout — Drawn by PanelLayoutGrid with real KeyButtons, so the tall left/right arrows are just a key three rows deep and the middle rows flow around them
+    - Alternates on press and hold — Edit keys whose operation does not repeat open the alternates popup; Home and End ship holding to the start and end of the text
+    - Repair on read, never reject — The panel repair drops components, shift and chorded keys, clamps widths and spans, and falls back to the shipped grid; an old TextEditLayout preference migrates key for key
   - 13 one-tap cursor tools `RARE` — CursorTools list: left/right, word left/right, up/down, home/end, page up/down, select word, select line, selection mode — placeable on the toolbar
     - Shift extends the selection `RARE` — A shift the user pressed turns every toolbar cursor move into shift+arrow; auto-capitalise's own shift is excluded, and is held off the state while the selection is live
     - Hold to repeat `RARE` — The eight non-idempotent moves repeat on hold at the text-edit interval; one switch for the toolbar, defaulted on
@@ -376,6 +384,15 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Press and hold for a temporary mode — Selection mode lasts as long as the finger stays on the tool; the release stops the extending and leaves the selection intact, and drag-to-reorder still wins on travel
     - Double and triple press — Two quick presses select the word at the cursor, three the line, both leaving the mode on; the shift key's own double-tap window, and switchable off
     - Shared with the panel's Select key — Either surface arms it, either one turns it off, and both light up while it is on; the toolbar's mode outlives a panel opening, the panel's does not
+  - Trackpad tool (issue #39) — The key area as a relative pointing surface: one finger drags the caret a character per stepXDp sideways and a line per stepYDp vertically, sub-step travel carried between frames (TrackpadAxis), every move a real arrow key through onTextEdit
+    - Hold, then drag selects — The long press arms selectionHold through the Selection mode tool's own callback and the release disarms it; the selection stays in the editor
+    - Two and three taps — Select word and select line at the caret (TrackpadTapCounter: window plus a distance test, since a surface is wide); switchable off
+    - Two fingers — Drag moves by words (Ctrl+Arrow) at twice the character step; a two-finger tap types a space; a finger arriving or leaving re-anchors the centroid rather than counting as travel
+    - Tap and hold modes — Tap toggles the panel; a press and hold on the toolbar tool opens it only while the finger stays (onTrackpadHold, paired like onSelectionHold, released on drag pick-up and on onFinishInputView); a hold over a tapped-open panel is a no-op
+    - Visual feedback — Tool lit while open; finger trail and crosshair drawn from a plain-array ring buffer the draw lambda alone observes; the idle hint fades through a graphicsLayer read
+    - Its own panel layout — BuiltInPanelLayouts.TRACKPAD: the TRACKPAD field over the abc / space / backspace row, editable like the other panels; never full-bleed so the toolbar survives the hold
+    - Nested TrackpadSettings — stepXDp 12, stepYDp 28, holdToOpen, multiTap, haptics, trail; one KeyboardSettings slot, flat DataStore keys `trackpad_*`
+    - Direct-boot safe, no focus ring, no default leader letter — Only touches the input connection; pointer-only so panelFocusRegions is empty; every letter was taken, T is the toolbox
     - Survives navigation, not a new field — A caret move never cancels it; a genuinely new editor does, while a restart of the same field keeps it
   - Volume keys as cursor `RARE` — Volume down/up move the caret left/right while the keyboard is showing; off by default
     - Media-aware release — Re-checks isMusicActive on every press and hands the keys back to the system while audio plays
@@ -390,13 +407,17 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Shift re-cases the selection — lower → Title → UPPER → lower, keeping the text selected so presses walk the cycle; mixed case normalises to lower
     - Brackets and quotes wrap — 11 pairs — ( [ { < " ' ` “ ‘ « ｢ — wrap the selection and leave the inner text selected for another pass
     - Space and backspace replace — Both drop the composing region first and commit over the selection
-  - Long-press letter shortcuts `uncommon` — A/C/V/X/Z/Y can be bound to select-all, copy, paste, cut, undo, redo, replacing that key's accent popup; all six off by default
+  - Long-press letter shortcuts `uncommon` — A/C/V/X/Z/Y carry select-all, copy, paste, cut, undo and redo as entries in their own alternates popup, after the accents the key already has; all six on by default, and each key stays on any layout by naming its own letter
     - Raw-keystroke mode — Optional Ctrl+A/C/V/X as real key events instead of performContextMenuAction, for terminals
 - **Key press behaviour** — Long press, popups, repeat, chording and press feedback
   - Long-press alternates — Delay 150–700 ms (default 300); popup radius, shape and font scale all themed or user-set
     - All-accents mode — Merges the full Latin accent set into every letter popup — 16 base letters with 2–10 variants each; off by default
     - Corner hint character — First long-press alternate drawn small on the key, with its own size multiplier; drawn by every key that opens a popup, action keys included
     - Multi-row popups — A popup with more entries than fit across the display wraps onto further rows rather than running off the edge
+    - Alternates sized apart from the bubble — Own text multiplier reaching ×3.20 (the bubble stops at ×1.60, having a fixed box to stay inside) and own 0–32 dp spacing per entry, which is both the gap and the touch target
+    - Fixed column grid `uncommon` — Auto wraps on measured width; 3–11 lays every row on one column grid, so a long list reads as a block and each entry keeps its place between holds
+    - Fill from the key outward `uncommon` — Optional AOSP row order: the first alternate lands on the row nearest the finger and the overflow climbs away, instead of the popup filling top-down like lines of text
+    - Choose without lifting — The first alternate is highlighted as the popup opens, a slide moves the highlight and the lift commits it, so a hold and a straight release types the first alternate; sliding clear of the popup types nothing. On by default; off restores the popup that stays up for a second tap
     - Action alternates `RARE` — A popup entry that runs an action instead of typing: Tab, a layer switch, or any tool. Available on every key whose hold is free, which is all of them bar backspace, forward delete, space and the braille dots
     - Custom currency popup — The $ key's popup list is user-ordered; built-in set is ৳ € £ ¥ ₹ ₿
     - No-alternates fallback — A long press on a key with no popup behaves like a tap rather than doing nothing
@@ -451,12 +472,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Shift swaps digits for symbols — Holding shift on the letters layer turns the digit row into the =\<>[]{}|~ fill row
     - In-symbols toggle — The digit row can be kept on letters but dropped from ?123
     - Untouched-default tracking — Derived from DataStore key presence so tablet defaults can apply without breaking a user's explicit off
-- **Smart key-hit detection** `uncommon` — Two independent touch-position systems: a visible target nudge and an always-on typo model feed
+- **Autopilot** `uncommon` — Two independent touch-position systems: a visible target nudge and an always-on typo model feed
   - Next-letter target nudge `uncommon` — Touch target of each letter biased toward the letters most likely to come next; opt-in, letters layer only
     - Bias source — Dictionary completions from the active, user and custom lexicons, frequency-weighted and normalised to the max
     - Decided at pointer-down — Recorded on the Initial pass before keys see the touch, consumed by the owning key on release; never consumes the event
-    - Bounded reach — Strength 0.5, and never remaps to a key more than 1.3 key widths from the finger, or when the plain-nearest key already wins
+    - Bounded reach — Strength 1-10 (5 by default), and never remaps to a key more than 1.3 key widths from the finger, or when the plain-nearest key already wins
     - Invalidated on layout change — An in-flight remap is dropped so a release cannot apply a decision made against the old grid
+    - Visible touch areas `RARE` — Optional overlay draws each favoured letter at the size its area has grown to, and outlines the exact claimed boundary; both off by default
+    - Adjustable exaggeration — The drawn face multiplies each side's growth by ×1.0-×3.0 for readability; the outline and the hit test itself ignore it
   - Touch positions fed to the typo model `RARE` — Every letter-key down position is normalised by key width and paired with the character it committed
     - Live key-centre publication — Layout letter centres pushed to the engine as a KeyTouchModel, coalesced through snapshotFlow
     - Per-character tap frame — The composing buffer carries a touch point per character so autocorrect scores against where fingers actually landed
@@ -582,8 +605,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Generation counter guards cold-start caches — Anything derived from the shipped set is discarded when the 354 assets finish parsing
   - Layout model `uncommon` — 9 layers with inheritance; a layer left undefined falls back to the shipped grid
     - Nine layers — letters, symbols, symbols2, number, phone, date, time, datetime, fn
-    - Key fields — label, output, shiftLabel, action, width, rowSpan, longPress, actionAlternates, clipboardAction, role, icon, iconHint, hideHint, flick map
-    - Per-key hint suppression — hideHint drops the corner hint on one key, icon hint and first alternate alike, while press and hold keeps working
+    - Key fields — label, output, shiftLabel, action, width, rowSpan, longPress, actionAlternates, clipboardAction, role, icon, iconHint, hideHint, forceHint, flick map
+    - Per-key hint override — hideHint drops the corner hint on one key, icon hint and first alternate alike, while press and hold keeps working; forceHint draws it on one key while the global hints switch is off, and hideHint wins if a file sets both
     - 24 key actions — text, shift, caps lock, delete, forward delete, space, enter, symbols, letters, language switch, input method picker, emoji, numpad, mod, send_key, fn, kana_variant, tool, broadcast, braille_dot, morse_dot, morse_dash, none, unknown
     - Broadcast-intent key — Fires an Android broadcast so a key can drive Tasker or any receiver; user-authored only
     - Per-row height multipliers — rowHeights, index-aligned with rows; short or over-long lists tolerated
@@ -595,6 +618,17 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Backspace can never go missing — Delete only relocates to the number row when that row is actually drawn
     - All-or-nothing eligibility — Declines 14 shipped layouts - kana flick pads, braille, morse, the Chinese shape/phonetic pads, and grids with no shift key
     - Per-layout opt-out — tabletExpand flag, default true, for grids already laid out wide by hand
+  - Secondary layouts `RARE` — Grids of your own reached by a key or the Custom layout tool, never by picking a language (#62)
+    - LayoutSpec.secondary — Stored beside the other custom layouts; excluded from the language cycle, the OS subtype list and the Languages screen
+    - KeyAction.Layout(id) — Shows the named layout over the letters; a second press, ABC, or ?123 leaves it; also works as a press-and-hold alternate
+    - Custom layout tool — Toolbar toggle lit while any secondary layout is up; which one it shows is a setting on its page, the first by default
+    - From scratch — A new one is three rows of blank keys plus an ABC key; validate and repair skip the delete/space/enter guarantees for it
+  - Persistent layers `RARE` — LayerSpec.persistent keeps a symbols, Fn or secondary grid up across a close and reopen of the keyboard and across fields (#60)
+    - One switch per layer — No global "persist if…" settings; the editor's toggle carries the "make sure you have a way to exit" warning and the Problems list repeats it
+  - A theme per layout and per layer `RARE` — LayoutSpec.themeId / LayerSpec.themeId, picked from every built-in and custom theme in the editor; layer beats layout beats mode beats settings (#61)
+    - A view, not a write — applyLayoutTheme overlays keyboardThemeId and switches the auto pair off for as long as the grid shows; the user's own choice is untouched
+    - Missing theme is ignored — A layout shared with a theme this device lacks keeps the pairing and draws normally
+  - Authored Number layer reaches the Numpad tool — The panel and the ?123 long press draw the layout's own Number layer when it has one (#55)
   - Repair versus validate `RARE` — Two separate passes: one that only reports while editing, one that rewrites on import and activation
     - Repair guarantees delete, space and enter — Runs on import and when a layout becomes active, so you can never type on a layout you cannot backspace in
     - Caps enforced — MaxKeyWidth 12, MaxRowWidth 40, MaxKeysPerRow 24, MaxRowsPerLayer 8
@@ -1406,7 +1440,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - ReDoS step budget — A pathologically slow pattern is stopped rather than stalling typing
     - Skipped mid-transliteration — Composing buffer holds an input spelling, so expansion would misfire
     - Import/export .wmsnippets.json — Repairs rather than rejects rows; 500-snippet and 20k-char import caps
-  - Text editing — D-pad cursor panel with selection mode
+  - Text editing — D-pad cursor panel with selection mode; twenty operations including Cut and the start and end of the whole text (#59)
     - Real key events, not computed moves — Arrows, Home, End, Backspace sent as the events a hardware key would send
     - Select mode wraps moves in a real Shift press — Some editors only read Shift from the key events themselves
     - Select all / Copy / Paste column — Select all turns selection mode on; Copy turns it off
@@ -1626,6 +1660,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - 22 Unicode styles — Bold, italic, script, fraktur, double-struck, monospace, fullwidth, circled, squared, small caps and more
     - Enables the fancy layout on demand — Adds AssetLayouts.FANCY_ID to enabled layouts and remembers the return layout
     - Pinned style applies to the session only — Never overwrites the style the strip last chose
+  - Custom layout `RARE` — Shows one of your secondary layouts over the letters and takes it off again
+    - Which layout is a setting — Defaults to the first secondary layout; the tool is hidden until one exists
   - Incognito `uncommon` — Pauses learning and clipboard capture with one tap
     - Field-requested incognito is explained — Toast instead of a switch that looks stuck on
   - Sound & haptics `RARE` — Panel of key-feedback switches and style chips
@@ -1738,7 +1774,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Press-and-hold info popup — Relative + exact copy time, source app, type, and size/duration/char count
     - Per-card pin and delete buttons
     - Full-bleed panel — Panel takes the toolbar's row for more cards; on by default
-    - Optional abc/space/backspace bottom row
+    - Panel layout (issue #63) — search box, fragment strip and history are field cells of a PanelLayoutSpec; an abc/space/backspace row is a row of keys the user adds (the old bottom-row switch seeds it)
     - Send an image clip as a sticker — Info-popup action converts it to the 512px transparent WebP sticker format
     - Store re-read from disk on every panel open — Settings can delete history while the IME holds the same list
     - Close-after-insert option shared with the emoji panel
@@ -1762,7 +1798,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - commitContent MIME negotiation on paste — Tries the field's accepted types in order; static WebP converted to PNG if needed
     - Falls back to the system clipboard with a toast when the field refuses
     - Ctrl+A/C/V/X hardware shortcuts, plus Mac-style equivalents
-    - Long-press clipboard actions on A/C/V/X/Z/Y — 6 actions (select all, copy, paste, cut, undo, redo), each off by default
+    - Long-press clipboard actions on A/C/V/X/Z/Y — 6 actions (select all, copy, paste, cut, undo, redo) in each key's alternates popup, each on by default
     - Optional toast confirming a copy
   - Storage and backup `uncommon`
     - Own Storage-screen category with its own delete — files/clipboard, marked personal-danger
