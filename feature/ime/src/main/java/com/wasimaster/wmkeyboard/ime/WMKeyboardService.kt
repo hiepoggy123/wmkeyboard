@@ -7816,8 +7816,9 @@ open class WMKeyboardService : InputMethodService() {
      */
     private inline fun recordStat(block: TypingStats.() -> Unit) {
         val state = _uiState.value
-        typingStats.enabled = state.settings.typingStatsEnabled &&
-            !(state.incognitoOn && state.settings.incognitoPausesLearning)
+        if (!state.settings.typingStatsEnabled) return
+        if (state.incognitoOn && state.settings.incognitoPausesLearning) return
+        typingStats.enabled = true
         typingStats.block()
     }
 
@@ -17306,6 +17307,9 @@ open class WMKeyboardService : InputMethodService() {
      * "emoji inserted", which is exactly what did not happen.
      */
     private fun vibrateOnly() {
+        val settings = _uiState.value.settings
+        if (!settings.hapticFeedback) return
+        if (settings.feedback.hapticsRespectDnd && dndActive) return
         val now = SystemClock.uptimeMillis()
         val wait = MIN_HAPTIC_GAP_MS - (now - lastVibrateAt)
         if (wait <= 0) {
