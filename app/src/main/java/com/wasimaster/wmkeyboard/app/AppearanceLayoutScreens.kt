@@ -322,15 +322,15 @@ internal fun AppearanceToolbarSettings(
                     default = SettingsDefaults.toolbarBehavior.placement,
                 )
             }
-        }
-        item {
-            ToggleSetting(
-                R.string.appearance_toolbar_swipe_down_title,
-                stringResource(R.string.appearance_toolbar_swipe_down_subtitle),
-                settings.toolbarBehavior.swipeDownHide,
-                info = stringResource(R.string.appearance_toolbar_swipe_down_info),
-                default = SettingsDefaults.toolbarBehavior.swipeDownHide,
-            ) { scope.launch { repository.setToolbarSwipeDownHide(it) } }
+            item {
+                ToggleSetting(
+                    R.string.appearance_toolbar_swipe_down_title,
+                    stringResource(R.string.appearance_toolbar_swipe_down_subtitle),
+                    settings.toolbarBehavior.swipeDownHide,
+                    info = stringResource(R.string.appearance_toolbar_swipe_down_info),
+                    default = SettingsDefaults.toolbarBehavior.swipeDownHide,
+                ) { scope.launch { repository.setToolbarSwipeDownHide(it) } }
+            }
         }
         item {
             ToggleSetting(
@@ -341,7 +341,9 @@ internal fun AppearanceToolbarSettings(
                 default = SettingsDefaults.toolbarBehavior.onlyWithHardwareKeyboard,
             ) { scope.launch { repository.setToolbarOnlyWithHardwareKeyboard(it) } }
         }
-        item {
+        // Nothing here reaches the board while the toolbar is switched off:
+        // the row and the top bar are both gated on it before these are read.
+        if (settings.toolbarBehavior.enabled) item {
             ToggleSetting(
                 R.string.appearance_toolbar_rtl_title,
                 stringResource(R.string.appearance_toolbar_rtl_subtitle),
@@ -350,7 +352,7 @@ internal fun AppearanceToolbarSettings(
                 default = SettingsDefaults.toolbarBehavior.reverseForRtl,
             ) { scope.launch { repository.setReverseToolbarForRtl(it) } }
         }
-        item {
+        if (settings.toolbarBehavior.enabled) item {
             val fit = when {
                 settings.toolbarBehavior.scrollable -> ToolbarFit.SCROLL
                 settings.toolbarBehavior.greedy -> ToolbarFit.SPREAD
@@ -391,7 +393,7 @@ internal fun AppearanceToolbarSettings(
                 default = SettingsDefaults.toolbarBehavior.hideWhenLocked,
             ) { scope.launch { repository.setToolbarHideWhenLocked(it) } }
         }
-        item {
+        if (settings.toolbarBehavior.enabled) item {
             ToggleSetting(
                 R.string.appearance_toolbar_labels_title,
                 stringResource(R.string.appearance_toolbar_labels_subtitle),
@@ -400,7 +402,9 @@ internal fun AppearanceToolbarSettings(
                 default = SettingsDefaults.toolbarLabels,
             ) { scope.launch { repository.setToolbarLabels(it) } }
         }
-        if (settings.toolbarLabels) {
+        // The toolbox reads this as its own fallback, but it has a slider of
+        // its own further down, so nothing is stranded by hiding the pair.
+        if (settings.toolbarBehavior.enabled && settings.toolbarLabels) {
             item {
                 SliderSetting(
                     R.string.appearance_toolbar_label_size_title,
@@ -461,7 +465,9 @@ internal fun AppearanceToolbarSettings(
                 )
             }
         }
-        item {
+        // Only the wide tools honour it — panel headers and grids keep the
+        // fixed circle — and every wide one is drawn by the toolbar.
+        if (settings.toolbarBehavior.enabled) item {
             SliderSetting(
                 R.string.appearance_tool_width_title,
                 subtitle = stringResource(R.string.appearance_tool_width_subtitle),
@@ -1042,7 +1048,11 @@ internal fun LayoutSizeSettings(
                         display = { dpFormat.format(it.toInt()) },
                     ) { scope.launch { repository.setVariantKeyHeightDp(variant, it.toInt()) } }
                 }
-                if (settings.numberRow) {
+                // The variant may turn the number row on or off for itself,
+                // and that override is what decides whether the row is drawn
+                // on this screen shape — so it, not the global switch, is what
+                // makes the height mean something here.
+                if (values.numberRow ?: settings.numberRow) {
                     item {
                         SliderSetting(
                             R.string.layout_number_row_height_title,
@@ -1188,7 +1198,8 @@ internal fun LayoutOneHandedSettings(
         )
         for ((landscape, orientationRes) in orientations) {
             val profile = settings.oneHanded.forLandscape(landscape)
-            item {
+            val oneHanded = settings.oneHandedMode != OneHandedMode.OFF
+            if (oneHanded) item {
                 val orientationLabel = stringResource(orientationRes)
                 SliderSetting(
                     stringResource(R.string.layout_one_handed_width_title, orientationLabel),
@@ -1205,7 +1216,7 @@ internal fun LayoutOneHandedSettings(
                         .widthPercent.toFloat(),
                 ) { scope.launch { repository.setOneHandedWidthPercent(landscape, it.toInt()) } }
             }
-            item {
+            if (oneHanded) item {
                 SliderSetting(
                     stringResource(
                         R.string.layout_one_handed_height_title,
