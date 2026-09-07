@@ -89,6 +89,8 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 | Personal dictionary | Nav row | n/a | always (opens the [Personal dictionary](/smart/personal-dictionary/) screen) |
 | Custom dictionaries | Nav row | n/a | always (opens the Custom dictionaries screen) |
 | Suggestion blacklist | Nav row | n/a | always (opens the [Suggestion blacklist](/smart/blacklist/) screen) |
+| Word menu | Chips | Never suggest, Add, Delete | always |
+| Adjust rank changes | Choice | Learned weight | always |
 
 **Suggestions** is the master switch for the whole strip: word completions, typo corrections offered as candidates, and next-word prediction. **Punctuation marks** sets which marks the punctuation chips offer, one per character, in the order you want them. Leave it blank and it falls back to the shipped `.,?!'`. **Number of suggestions** splits the strip evenly, so raising it on a narrow screen buys candidates at the cost of reading each one. **Scroll the suggestions** lifts that trade: each word keeps its natural size and the strip scrolls sideways when they overrun it, so five or six candidates read fine on a narrow phone. Short words still fill the strip exactly as before. **Autocorrect word color** paints the bold first suggestion, the one autocorrect puts in for a space, in a color of your own, so a changed word stands out from the rest of the strip. Auto keeps the theme's text color.
 
@@ -99,6 +101,8 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 **Learn a word after** is a further threshold, applied to words already in your dictionary: how many reinforcements before autocorrect leaves the word alone. At the default of 1 the slider reads "Once". Suggestions are untouched either way: a word under the count can still be offered, it just isn't shielded from correction.
 
 All three are covered in full on [Personal dictionary](/smart/personal-dictionary/#new-words-wait-their-turn).
+
+**Word menu** picks which of the three optional items the press-and-hold menu on a suggested word offers; **Adjust rank** is always on it. **Adjust rank changes** decides what the word card's rank control edits: the learned weight (the personal dictionary's own count) or a separate rank adjustment that can move any word up or down. Both are covered on [Personal dictionary](/smart/personal-dictionary/#from-the-suggestion-strip).
 
 **Offer corrections it isn't sure about** puts a fix that came close to firing on the strip as a chip rather than dropping it. It never applies anything on its own, and a correction you have already undone once is never offered. See [Autocorrect](/smart/autocorrect/#corrections-it-offers-instead-of-applying).
 
