@@ -104,6 +104,30 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
          */
         val dwellPenalty: Float = 0.4f,
         /**
+         * Charge per unit of pause a finished word leaves unexplained.
+         *
+         * [dwellPenalty] reads a pause as evidence *for* a doubled letter. This
+         * reads it as evidence against every word that has no letter there at
+         * all: a finger that stopped on a key was, far more often than not,
+         * writing that key, and a candidate whose letters never go near it is
+         * explaining the stroke's shape while ignoring its clock (issue #52).
+         * Charged once per pause, on the whole word, so it is not a tax on
+         * length the way a per-letter "did you slow down here" charge would
+         * be — a long word and a short one pay the same for the same ignored
+         * pause. Zero switches it off.
+         *
+         * Swept on the graded corpus, whose only pauses are the doubled-letter
+         * hesitations and the slowing into every pivot:
+         *
+         *     0     .9467 (sloppy .890)      2.0   .9558 (sloppy .907)
+         *     1.0   .9508                    4.0   .9550 (sloppy .893)
+         *
+         * and on the same strokes with the finger resting on a third of the
+         * single letters, .9333 at zero to .9433 at 2.0 — still climbing at
+         * 4.0, but that is where the plain corpus starts paying it back.
+         */
+        val unclaimedDwell: Float = 2.0f,
+        /**
          * How much the whole stroke's *shape* counts, once its size and position
          * are taken out of it.
          *
@@ -271,7 +295,11 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
                 if (total < GlideWorkspace.UNREACHABLE &&
                     walker.frequency(node) >= minFrequency
                 ) {
-                    val shape = total + extra
+                    // Charged here and not on the way down: only a finished
+                    // word knows which pauses none of its letters claim. The
+                    // bound stays admissible since the charge can only lower
+                    // a score, never raise one.
+                    val shape = total + extra + unclaimedDwell(s, keys, ws)
                     val score = src.logWeight + ln1p(walker.frequency(node)) -
                         tuning.shapeWeight * shape
                     if (score > floor - EPS || results.size < k) {
@@ -542,16 +570,19 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
      * there, since no-evidence and no-pause should charge the same.
      */
     private fun buildDwell(keys: GlideKeyMap, ws: GlideWorkspace) {
-        if (tuning.dwellPenalty <= 0f) return
+        if (tuning.dwellPenalty <= 0f && tuning.unclaimedDwell <= 0f) return
         val n = GlideWorkspace.SAMPLE_POINTS
         val span = (ws.pathT[n - 1] - ws.pathT[0]).toFloat()
         if (span <= 0f) return
         val evenStep = span / (n - 1)
+        var runEnd = -1
         for (j in 1 until n) {
             val step = (ws.pathT[j] - ws.pathT[j - 1]).toFloat()
             val lingering = ((step / evenStep) - 1f) / DWELL_FULL
             if (lingering <= 0f) continue
             val score = if (lingering > 1f) 1f else lingering
+            recordPause(j, score, runEnd, ws)
+            runEnd = j
             for (k in 0 until keys.keyCount) {
                 val dx = ws.pathX[j] - keys.keyX[k]
                 val dy = ws.pathY[j] - keys.keyY[k]
@@ -559,6 +590,62 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
                 if (score > ws.keyDwell[k]) ws.keyDwell[k] = score
             }
         }
+    }
+
+    /**
+     * Files sample [j]'s slowness as a pause event. A true standstill puts no
+     * arc on the path, so all of its time lands in the one step that crosses
+     * it; slow *travel* smears over several adjacent steps instead, and those
+     * are one hold, not several — one event, sitting on whichever sample was
+     * slowest, so a crawl through a key is charged once. [runEnd] is the last
+     * sample filed, for telling adjacent from separate.
+     */
+    private fun recordPause(j: Int, score: Float, runEnd: Int, ws: GlideWorkspace) {
+        val count = ws.pauseCount
+        if (count > 0 && runEnd == j - 1) {
+            if (score > ws.pauseScore[count - 1]) {
+                ws.pauseScore[count - 1] = score
+                ws.pauseAt[count - 1] = j
+            }
+            return
+        }
+        ws.pauseAt[count] = j
+        ws.pauseScore[count] = score
+        ws.pauseCount = count + 1
+    }
+
+    /**
+     * The pauses along the stroke that none of state [s]'s letters sit on,
+     * summed by how still the finger was at each, times [Tuning.unclaimedDwell].
+     *
+     * A pause is claimed by a key within [DWELL_RADIUS_SQ] of where it happened —
+     * the same reach [buildDwell] gives a pause when it credits a doubled letter,
+     * so the two readings of one hold agree about which keys it could be about.
+     * The word's keys are read straight off the parent chain, so this costs a
+     * walk of the word per pause and allocates nothing.
+     */
+    private fun unclaimedDwell(s: Int, keys: GlideKeyMap, ws: GlideWorkspace): Float {
+        val weight = tuning.unclaimedDwell
+        if (weight <= 0f || ws.pauseCount == 0) return 0f
+        var charge = 0f
+        for (p in 0 until ws.pauseCount) {
+            val j = ws.pauseAt[p]
+            val px = ws.pathX[j]
+            val py = ws.pathY[j]
+            var claimed = false
+            var cur = s
+            while (cur >= 0 && !claimed) {
+                val key = ws.lastKey[cur]
+                if (key >= 0) {
+                    val dx = px - keys.keyX[key]
+                    val dy = py - keys.keyY[key]
+                    claimed = dx * dx + dy * dy <= DWELL_RADIUS_SQ
+                }
+                cur = ws.parent[cur]
+            }
+            if (!claimed) charge += ws.pauseScore[p]
+        }
+        return weight * charge
     }
 
     // ---- shape channel ----

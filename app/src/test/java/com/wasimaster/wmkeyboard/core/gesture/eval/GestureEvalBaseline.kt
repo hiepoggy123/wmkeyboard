@@ -50,15 +50,22 @@ object GestureEvalBaseline {
      * keyboard, worth .9295 -> .9265 with the decoder untouched. Then the shape
      * channel and dwell-gated doubling landed: .9265 -> .9460, and clean strokes
      * from .9620 to .9860.
+     *
+     * 2026-09-08, unclaimed pauses charged against the word (issue #52):
+     * .9460 -> .9515, with every language and every noise level up except
+     * Avro's sloppy strokes, which gave back .8840 -> .8820. The corpus only
+     * pauses on doubled letters and slows into pivots, so this is the charge's
+     * cost side measured; the sweep on strokes that pause on single letters is
+     * where its gain shows, and it is written up on `GlideBeam.Tuning`.
      */
     val ENGLISH = Floors(
-        top1 = 0.9460,
+        top1 = 0.9515,
         top3 = 0.9910,
-        mrr = 0.9678,
+        mrr = 0.9708,
         clean = 0.9860,
-        light = 0.9700,
-        typical = 0.9300,
-        sloppy = 0.8980,
+        light = 0.9800,
+        typical = 0.9360,
+        sloppy = 0.9040,
     )
 
     /**
@@ -82,13 +89,13 @@ object GestureEvalBaseline {
      * consult, and top-1 would fall a long way below what is measured here.
      */
     val BENGALI = Floors(
-        top1 = 0.7810,
-        top3 = 0.8875,
-        mrr = 0.8363,
-        clean = 0.8080,
-        light = 0.8340,
-        typical = 0.7560,
-        sloppy = 0.7260,
+        top1 = 0.7965,
+        top3 = 0.8895,
+        mrr = 0.8455,
+        clean = 0.8200,
+        light = 0.8480,
+        typical = 0.7760,
+        sloppy = 0.7420,
     )
 
     /**
@@ -99,13 +106,13 @@ object GestureEvalBaseline {
      * arrangements.
      */
     val CYRILLIC = Floors(
-        top1 = 0.9545,
-        top3 = 0.9910,
-        mrr = 0.9728,
-        clean = 0.9820,
-        light = 0.9800,
-        typical = 0.9520,
-        sloppy = 0.9040,
+        top1 = 0.9605,
+        top3 = 0.9920,
+        mrr = 0.9763,
+        clean = 0.9880,
+        light = 0.9860,
+        typical = 0.9620,
+        sloppy = 0.9060,
     )
 
     /**
@@ -122,13 +129,13 @@ object GestureEvalBaseline {
      * never are. Avro is also the layout most Bengali typists actually use.
      */
     val AVRO = Floors(
-        top1 = 0.9430,
+        top1 = 0.9450,
         top3 = 0.9930,
-        mrr = 0.9674,
-        clean = 0.9820,
-        light = 0.9640,
-        typical = 0.9420,
-        sloppy = 0.8840,
+        mrr = 0.9683,
+        clean = 0.9880,
+        light = 0.9660,
+        typical = 0.9440,
+        sloppy = 0.8820,
     )
 
     /** Run-to-run drift is nil (the corpus is seeded), so this is small. */

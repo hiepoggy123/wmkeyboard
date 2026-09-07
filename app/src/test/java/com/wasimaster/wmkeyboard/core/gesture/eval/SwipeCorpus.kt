@@ -66,6 +66,14 @@ class SwipeCorpus(
         val endSlop: Float,
         /** Fraction of base speed lost at a pivot; higher bunches samples harder. */
         val pivotSlowdown: Float,
+        /**
+         * Share of *single* letters the finger holds still on, the way it
+         * holds on a doubled one. Zero on every graded level, and drawn only
+         * when non-zero, so the gate's corpus is bit-for-bit what it was; a
+         * sweep switches it on to see what a pause-reading decoder does with
+         * strokes that actually pause.
+         */
+        val letterDwell: Float = 0f,
     )
 
     /** The four graded levels the gate measures. Reported separately, never averaged away. */
@@ -130,7 +138,7 @@ class SwipeCorpus(
         if (total <= 0f) return null
 
         val pivots = pivotArcs(dense, arc, slopped)
-        val dwells = dwellsFor(word, pivots)
+        val dwells = dwellsFor(word, pivots, profile)
         val centre = centroid(slopped)
         val scale = 1f - kotlin.math.abs(gaussian()) * profile.shrink
         val biasX = gaussian() * profile.bias
@@ -310,15 +318,25 @@ class SwipeCorpus(
         return (speed * SAMPLE_MS).coerceAtLeast(MIN_STEP)
     }
 
-    /** (arc, hold in ms) for the doubled letters this case hesitates on. */
-    private fun dwellsFor(word: String, pivots: FloatArray): List<Pair<Float, Long>> {
+    /** (arc, hold in ms) for the letters this case hesitates on: doubled ones,
+     * and single ones at [Profile.letterDwell]. */
+    private fun dwellsFor(
+        word: String,
+        pivots: FloatArray,
+        profile: Profile,
+    ): List<Pair<Float, Long>> {
         val out = ArrayList<Pair<Float, Long>>(2)
         var anchor = 0
         var i = 0
         while (i < word.length) {
             var run = 1
             while (i + run < word.length && word[i + run] == word[i]) run++
-            if (run > 1 && anchor < pivots.size && random.nextFloat() < DOUBLE_DWELL_SHARE) {
+            val hesitates = if (run > 1) {
+                random.nextFloat() < DOUBLE_DWELL_SHARE
+            } else {
+                profile.letterDwell > 0f && random.nextFloat() < profile.letterDwell
+            }
+            if (hesitates && anchor < pivots.size) {
                 out.add(pivots[anchor] to DOUBLE_DWELL_MS)
             }
             anchor++

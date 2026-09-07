@@ -75,6 +75,17 @@ class GlideWorkspace {
      */
     var keyDwell = FloatArray(INITIAL_KEYS); private set
 
+    /**
+     * The pauses themselves, as events rather than per-key maxima: the sample
+     * each hold sits on and how still the finger was there, 0 to 1. One event
+     * per hold however many samples it stretches over. [keyDwell] answers "did
+     * the finger pause on *this* key"; these answer the converse a finished
+     * word is charged for — "which pauses did it fail to account for".
+     */
+    val pauseAt = IntArray(SAMPLE_POINTS)
+    val pauseScore = FloatArray(SAMPLE_POINTS)
+    var pauseCount = 0
+
     /** Keys the drawn path passes close enough to be spelling. */
     var nearKey = BooleanArray(INITIAL_KEYS); private set
 
@@ -133,6 +144,7 @@ class GlideWorkspace {
             endKey.fill(false, 0, keyCount)
             keyDwell.fill(0f, 0, keyCount)
         }
+        pauseCount = 0
         val needed = SAMPLE_POINTS * keyCount
         if (pointCost.size < needed) pointCost = FloatArray(needed)
     }

@@ -41,6 +41,7 @@ class GlideTuningSweepTest {
         const val SEED = 42L
         const val CASES_PER_LEVEL = 300
         const val RANK_DEPTH = 8
+        const val LETTER_DWELL = 0.35f
     }
 
     private fun realEntries(): List<Pair<String, Int>> {
@@ -73,6 +74,21 @@ class GlideTuningSweepTest {
         }
         axis("dwellPenalty", listOf(0.0f, 0.2f, 0.4f, 0.7f, 1.2f, 2.0f), cases, keys, sources) {
             base.copy(dwellPenalty = it)
+        }
+        val unclaimed = listOf(0.0f, 0.25f, 0.5f, 1.0f, 2.0f, 4.0f)
+        axis("unclaimedDwell", unclaimed, cases, keys, sources) {
+            base.copy(unclaimedDwell = it)
+        }
+        // The graded corpus only ever pauses on doubled letters, so the axis
+        // above can only show what the charge costs. This one is what it buys:
+        // the same strokes with the finger resting on a third of the letters.
+        val pausing = SwipeCorpus.Noise.entries.associateWith { noise ->
+            SwipeCorpus(SEED).generate(
+                entries, noise.profile.copy(letterDwell = LETTER_DWELL), CASES_PER_LEVEL, noise,
+            )
+        }
+        axis("unclaimedDwell (letterDwell=$LETTER_DWELL)", unclaimed, pausing, keys, sources) {
+            base.copy(unclaimedDwell = it)
         }
         axis("gapWeight", listOf(0.5f, 1.0f, 2.0f, 3.0f, 4.0f, 6.0f), cases, keys, sources) {
             base.copy(gapWeight = it)

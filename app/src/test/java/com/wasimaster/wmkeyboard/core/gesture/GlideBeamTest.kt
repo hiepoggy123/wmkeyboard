@@ -124,6 +124,44 @@ class GlideBeamTest {
     }
 
     @Test
+    fun `a pause on a key no letter claims counts against the word`() {
+        // t, y and u sit in a row, so "tu" and "tyu" are the same straight
+        // stroke and the same alignment cost; "tu" leads on frequency alone.
+        val paused = GlideBeam(GlideBeam.Tuning(unclaimedDwell = 1f))
+        val src = sourcesOf(listOf("tu" to 900, "tyu" to 300))
+        val stroke = gestureFor("tyu")
+        assertEquals("tu", paused.decode(stroke, grid, keyWidth, src, workspace, 4).first().word)
+        // Resting on y is evidence the y was meant: "tu" has no letter within
+        // reach of that pause and pays for it, "tyu" does and pays nothing.
+        val rested = paused.decode(pausedAt(stroke, 'y'), grid, keyWidth, src, workspace, 4)
+        assertEquals("tyu", rested.first().word)
+    }
+
+    @Test
+    fun `a claimed pause costs nothing`() {
+        // The charge is for pauses a word ignores, so a pause on one of its
+        // own letters must leave its cost exactly where it was. A word with no
+        // doubled letter, or the pause would also be waiving dwellPenalty.
+        val paused = GlideBeam(GlideBeam.Tuning(unclaimedDwell = 1f))
+        val untimed = paused.decode(gestureFor("help"), grid, keyWidth, sources, workspace, 4)
+        val timed = paused.decode(pausedAt(gestureFor("help"), 'l'), grid, keyWidth, sources, workspace, 4)
+        assertEquals("help", timed.first().word)
+        assertEquals(untimed.first().shapeCost, timed.first().shapeCost, 1e-6)
+    }
+
+    @Test
+    fun `the charge is off by default`() {
+        // The stroke above, decoded by the shipped tuning: the default must be
+        // whatever GestureEvalBaseline was measured with, and a test here says
+        // so the day someone changes one without the other.
+        val src = sourcesOf(listOf("tu" to 900, "tyu" to 300))
+        val stroke = pausedAt(gestureFor("tyu"), 'y')
+        val default = GlideBeam.Tuning().unclaimedDwell
+        val leader = decode(stroke, from = src).first()
+        assertEquals(if (default > 0f) "tyu" else "tu", leader)
+    }
+
+    @Test
     fun `noisy trace still decodes`() {
         assertEquals("what", decode(gestureFor("what", jitter = 14f)).first())
     }
