@@ -41,11 +41,13 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.app.CaptionText
 import com.wasimaster.wmkeyboard.app.SettingsGroup
 import com.wasimaster.wmkeyboard.app.SettingsRowIcons
+import com.wasimaster.wmkeyboard.app.StateBanner
 import com.wasimaster.wmkeyboard.app.WmRow
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.settings.DefaultMusicApps
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -150,6 +152,24 @@ internal fun MusicAppsScreen(repository: SettingsRepository, settings: KeyboardS
     var query by remember { mutableStateOf("") }
 
     Spacer(Modifier.height(12.dp))
+
+    // The whole screen answers one question — which apps count as music — and
+    // that question is only asked by the pin-while-playing path, which needs
+    // the media tool switched on as well. A banner rather than fifty greyed
+    // ticks: the ticks are still worth reading and still worth editing ahead
+    // of turning the feature on, they simply do nothing yet.
+    val mediaToolOn = ToolbarTool.MEDIA_CONTROL in settings.enabledTools
+    if (!settings.mediaControl.pinWhilePlaying || !mediaToolOn) {
+        StateBanner(
+            stringResource(R.string.musicapps_off_body),
+            action = stringResource(CommonR.string.common_enable),
+        ) {
+            scope.launch {
+                if (!mediaToolOn) repository.setToolEnabled(ToolbarTool.MEDIA_CONTROL, true)
+                repository.setMediaPinWhilePlaying(true)
+            }
+        }
+    }
 
     val all = entries
     if (all == null) {

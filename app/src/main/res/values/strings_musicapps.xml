@@ -2,6 +2,8 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Music players picker, reached from the media control tool. -->
     <string name="musicapps_title">Music players</string>
+    <!-- Banner at the top of the screen while the media tool, or its pin-while-playing switch, is off — with either one off, nothing on this screen has an effect. -->
+    <string name="musicapps_off_body">These ticks do nothing until the media tool is on and set to pin itself while music plays.</string>
     <string name="musicapps_caption">Playback from these apps puts the media tool on the toolbar. Everything else that plays audio is ignored, so a video, a game or a browser tab does not take a toolbar slot.</string>
     <string name="musicapps_players_group">Players</string>
     <string name="musicapps_other_group">Other apps</string>
