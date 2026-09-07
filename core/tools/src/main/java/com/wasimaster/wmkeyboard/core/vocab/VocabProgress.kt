@@ -70,11 +70,14 @@ class VocabProgress(private var storageFile: File?) {
         val words: Map<String, WordProgress> = emptyMap(),
         /** Local epoch day → the lemma drawn for it. */
         val daily: Map<Int, String> = emptyMap(),
+        /** Local epoch day the word-of-the-day card was put away; 0 means never. */
+        val dismissedDay: Int = 0,
     )
 
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
     private val words = HashMap<String, WordProgress>()
     private val daily = HashMap<Int, String>()
+    private var dismissedDay = 0
     private var dirty = false
     private var loadedLength = -1L
     private var loadedModified = -1L
@@ -206,6 +209,21 @@ class VocabProgress(private var storageFile: File?) {
     @Synchronized
     fun pinnedWordOfTheDay(day: Int): String? = daily[day]
 
+    /**
+     * Whether the word-of-the-day card was put away for [day]. Dismissing is
+     * for one day rather than for good: tomorrow draws a different word, and
+     * the switch in the tool's settings is the way to stop the card entirely.
+     */
+    @Synchronized
+    fun isWordOfTheDayDismissed(day: Int): Boolean = dismissedDay == day
+
+    @Synchronized
+    fun dismissWordOfTheDay(day: Int) {
+        if (dismissedDay == day) return
+        dismissedDay = day
+        dirty = true
+    }
+
     @Synchronized
     fun save() {
         val file = storageFile ?: return
@@ -213,7 +231,15 @@ class VocabProgress(private var storageFile: File?) {
         runCatching {
             file.parentFile?.mkdirs()
             val part = File(file.parentFile, file.name + ".part")
-            part.writeText(json.encodeToString(Snapshot(words = words.toSortedMap(), daily = daily.toSortedMap())))
+            part.writeText(
+                json.encodeToString(
+                    Snapshot(
+                        words = words.toSortedMap(),
+                        daily = daily.toSortedMap(),
+                        dismissedDay = dismissedDay,
+                    ),
+                ),
+            )
             file.delete()
             part.renameTo(file)
             loadedLength = file.length()
@@ -240,6 +266,7 @@ class VocabProgress(private var storageFile: File?) {
     private fun load() {
         words.clear()
         daily.clear()
+        dismissedDay = 0
         dirty = false
         val file = storageFile ?: return
         loadedLength = file.length()
@@ -248,6 +275,7 @@ class VocabProgress(private var storageFile: File?) {
         val snapshot = runCatching { json.decodeFromString<Snapshot>(file.readText()) }.getOrNull() ?: return
         words.putAll(snapshot.words)
         daily.putAll(snapshot.daily)
+        dismissedDay = snapshot.dismissedDay
     }
 
     companion object {

@@ -79,6 +79,23 @@ class VocabProgressTest {
     }
 
     @Test
+    fun `dismissing the card holds for that day only`() {
+        val file = File(temp.root, "p.json")
+        val progress = VocabProgress(file)
+        assertFalse(progress.isWordOfTheDayDismissed(42))
+        progress.dismissWordOfTheDay(42)
+        assertTrue(progress.isWordOfTheDayDismissed(42))
+        assertFalse(progress.isWordOfTheDayDismissed(43))
+        progress.save()
+        val reread = VocabProgress(file)
+        assertTrue(reread.isWordOfTheDayDismissed(42))
+        assertFalse(reread.isWordOfTheDayDismissed(43))
+        // Putting today's card away leaves the pinned draw alone.
+        val picked = progress.wordOfTheDay(day = 42, candidates = listOf("a", "b"))
+        assertEquals(picked, progress.pinnedWordOfTheDay(42))
+    }
+
+    @Test
     fun `reloadIfChanged notices the other process`() {
         val file = File(temp.root, "p.json")
         val a = VocabProgress(file)

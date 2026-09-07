@@ -1658,12 +1658,11 @@ private fun AnimatedVisibilityScope.HomeScreen(
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                 UpdateCard()
             }
-            // The word of the day, when the vocabulary tool is on and asked for it.
+            // The word of the day, when the vocabulary tool is on and asked for
+            // it. The card owns its own gap and padding: put away for the day,
+            // it takes no room at all.
             if (ToolbarTool.VOCABULARY in settings.enabledTools && settings.vocabulary.wordOfTheDayCard) {
-                Spacer(Modifier.height(8.dp))
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    VocabDailyCard(settings, onNavigate)
-                }
+                VocabDailyCard(settings, onNavigate)
             }
             // One list drives this screen and the search index's root entries,
             // so a row cannot exist on one and not the other.

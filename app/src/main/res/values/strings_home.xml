@@ -164,5 +164,6 @@
     <string name="home_vocab_learnt_action">I know it</string>
     <string name="home_vocab_learnt_label">Learnt</string>
     <string name="home_vocab_open_action">Open</string>
+    <string name="home_vocab_dismiss_desc">Put away for today</string>
 
 </resources>
