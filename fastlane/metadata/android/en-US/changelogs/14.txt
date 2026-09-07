@@ -1,0 +1,7 @@
+Every layout now carries its panels as tabs, a theme of its own, and per-key alternates columns. The Numpad is a layout, and three-set Korean and Ho Warang Citi grids ship.
+
+Select text and the keyboard offers what to do with it. The Vocabulary tool teaches words from packs, and an autocorrect you did not want comes back on a chip.
+
+Settings keeps your place when you leave a search, and its path strip is a row of pills.
+
+Fixed: glide suggestions, autopilot, and a lost space on the symbols row.
