@@ -31,8 +31,15 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * One favoured letter's claimed touch area, the key cell it grew out of, and
- * how much bigger the one is than the other.
+ * One favoured letter's key [cell] grown by the ground the bias won it, and how
+ * much bigger the one is than the other.
+ *
+ * [area] is the cell plus that gain rather than the claimed region outright,
+ * because on a grid whose keys differ in width the two are not the same
+ * rectangle. The hit test is nearest-centre, so the line between a wide key and
+ * a narrow one already falls *inside* the wide key: measured against its own
+ * cell, a favoured letter on such a row reads as having shrunk. What the
+ * drawing is for is the difference the bias made, and that is what this holds.
  *
  * [scale] is the smaller of the two side ratios, so a label drawn at it stays
  * inside the area on both axes.
@@ -102,9 +109,17 @@ internal const val AutopilotIdleMs = 3_500L
  * nearest neighbour on that side — which is what the user sees as "the edge
  * moved". A side with no neighbour grows against a plain unfavoured one.
  *
- * The result is the area the finger is judged against, not a decoration: a
- * letter squeezed by a likelier neighbour comes back *smaller* than its cell,
- * and is dropped by the growth floor rather than drawn as a shrunken key.
+ * Every edge is worked out twice: once with this letter's weight, and once as
+ * if the word list had said nothing at all. The difference is the ground the
+ * bias won, and a letter that won none of it — because its neighbours are as
+ * likely as it is, or likelier — is dropped rather than drawn.
+ *
+ * The plain claim is the baseline rather than the drawn key, and that
+ * distinction is the whole of issue #76's "wrong letters": the hit test is
+ * nearest-centre, so on a row of mixed key widths the plain boundary already
+ * sits inside the wider key. Measured against the cell, every letter beside a
+ * narrow key looked shrunken and was thrown away — leaving whichever letters
+ * happened to have same-width neighbours, not the likeliest ones.
  *
  * [bounds] and [centers] are both in the key grid's own space. Letters missing
  * from either are skipped — the two maps are filled by the same positioning
@@ -165,25 +180,43 @@ internal fun autopilotAreas(
         }
         // The share of the gap this letter's weight claims. With no neighbour
         // on that side the gap is the one an identical key would sit across.
-        fun side(gap: Float, half: Float, neighbour: Float): Float {
+        fun claim(gap: Float, half: Float, neighbour: Float): Float {
             val span = if (gap > 0f) gap else half * 2f
             val other = if (gap > 0f) neighbour else 1f
             return (span * own / (own + other)).coerceAtMost(reach)
         }
+        // The same edge with nothing favoured anywhere: the plain nearest-centre
+        // boundary, which is the midpoint of the gap whatever the two keys
+        // measure. This, not the cell, is what growth is judged against.
+        fun plain(gap: Float, half: Float) = if (gap > 0f) gap / 2f else half
         val halfW = cell.width / 2f
         val halfH = cell.height / 2f
+        val claimL = claim(left, halfW, leftW)
+        val claimR = claim(right, halfW, rightW)
+        val claimU = claim(up, halfH, upW)
+        val claimD = claim(down, halfH, downW)
+        val plainL = plain(left, halfW)
+        val plainR = plain(right, halfW)
+        val plainU = plain(up, halfH)
+        val plainD = plain(down, halfH)
+        // Nothing won on an axis means nothing to draw: the neighbours are as
+        // likely as this letter, or likelier, and the boundary stayed put or
+        // moved the wrong way.
+        if (claimL + claimR <= plainL + plainR) continue
+        if (claimU + claimD <= plainU + plainD) continue
+        // Drawn as the key plus what the bias won it, so a favoured letter is
+        // never drawn smaller than the key the user is looking at.
         val area = Rect(
-            left = center.x - side(left, halfW, leftW),
-            top = center.y - side(up, halfH, upW),
-            right = center.x + side(right, halfW, rightW),
-            bottom = center.y + side(down, halfH, downW),
+            left = cell.left - (claimL - plainL).coerceAtLeast(0f),
+            top = cell.top - (claimU - plainU).coerceAtLeast(0f),
+            right = cell.right + (claimR - plainR).coerceAtLeast(0f),
+            bottom = cell.bottom + (claimD - plainD).coerceAtLeast(0f),
         )
-        val grown = minOf(area.width / cell.width, area.height / cell.height)
-        // A letter hemmed in by likelier neighbours has lost ground rather than
-        // gained it. There is nothing to show, and drawing it smaller than its
-        // own key would read as a fault in the board.
-        if (grown < 1f) continue
-        areas[ch] = AutopilotArea(area, cell, grown)
+        areas[ch] = AutopilotArea(
+            area = area,
+            cell = cell,
+            scale = minOf(area.width / cell.width, area.height / cell.height),
+        )
     }
     // Ranked by how likely the letter is, not by how much room it won. The two
     // part company on a crowded row — the likeliest letter can be boxed in by

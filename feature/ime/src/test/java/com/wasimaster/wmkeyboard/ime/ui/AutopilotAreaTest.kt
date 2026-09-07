@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.ime.ui
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -76,16 +77,51 @@ class AutopilotAreaTest {
     }
 
     /**
-     * A whole row favoured equally moves no boundary between its letters: each
-     * one is shared between two equal weights and lands where it always was.
-     * The effect is a difference between letters, not a size the strength
-     * setting dials up for all of them at once.
+     * A whole row favoured equally takes nothing from anyone: each boundary is
+     * shared between two equal weights and lands where it always was. The
+     * effect is a difference between letters, not a size the strength setting
+     * dials up for all of them at once, so the boxed-in middle letter is not
+     * drawn at all.
      */
     @Test
-    fun `a level distribution moves no boundary between its letters`() {
-        val level = areas(mapOf('a' to 1f, 'b' to 1f, 'c' to 1f))['b']!!
-        assertEquals(100f, level.area.left, 0.01f)
-        assertEquals(200f, level.area.right, 0.01f)
+    fun `a letter that took nothing from either neighbour is not drawn`() {
+        assertNull(areas(mapOf('a' to 1f, 'b' to 1f, 'c' to 1f))['b'])
+    }
+
+    /**
+     * Growth is measured against the plain nearest-centre boundary, never
+     * against the drawn key. On a row of mixed key widths the plain boundary
+     * already sits inside the wider key, so a favoured letter beside a narrow
+     * one claims less than its own cell while still having won ground. Judged
+     * against the cell it was thrown away, which is what left issue #76's
+     * reporter looking at one arbitrary letter instead of the likeliest ones.
+     */
+    @Test
+    fun `a letter beside a narrower key still counts as grown`() {
+        // A wide vowel with a narrow key either side of it, as on the layout
+        // the fault was reported from.
+        val wide = 100f
+        val narrow = 35f
+        val xs = listOf('a' to wide, '.' to narrow, 'e' to wide, ',' to narrow, 'u' to wide)
+        var x = 0f
+        val cells = LinkedHashMap<Int, Rect>()
+        val mids = LinkedHashMap<Int, Offset>()
+        for ((ch, w) in xs) {
+            cells[ch.code] = Rect(x, 100f, x + w, 200f)
+            mids[ch.code] = Offset(x + w / 2f, 150f)
+            x += w
+        }
+        // Plain rows above and below, so the vertical neighbours are ordinary.
+        for ((i, entry) in xs.withIndex()) {
+            mids[('A' + i).code] = Offset(mids[entry.first.code]!!.x, 50f)
+            mids[('P' + i).code] = Offset(mids[entry.first.code]!!.x, 250f)
+        }
+        val drawn = autopilotAreas(mids, cells, mapOf('e' to 1f), 0.5f, wide)
+        val grown = drawn['e']
+        assertNotNull("the likeliest letter is drawn beside narrow keys", grown)
+        // Its claim is narrower than its own key — the midpoint with a narrow
+        // neighbour falls inside it — and it has still won ground on both sides.
+        assertTrue(grown!!.area.width > grown.cell.width)
     }
 
     /**
