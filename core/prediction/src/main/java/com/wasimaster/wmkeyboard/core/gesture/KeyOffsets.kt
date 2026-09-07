@@ -47,6 +47,25 @@ import kotlin.math.sqrt
  * the global mean is soft-thresholded at [DEAD_ZONE]: the first 0.08 key
  * widths of it are treated as the stroke's, not the hand's.
  *
+ * **A hand that draws small, or large.** A thumb that never quite reaches
+ * the far keys on a wide phone misses every key by an amount that grows
+ * with its distance from the centre and points inward on both sides: a
+ * scale, not a shift. Per-cell means can only learn that one cell at a
+ * time, from strokes that visit each cell, and the edge cells need shifts
+ * past [MAX_SHIFT]; measured on the corpus with a hand drawing at 85%, the
+ * cells alone recover top-1 from .518 to .908 of an unscaled .964. So the
+ * whole-hand reading is a *trend*, not just a mean: the slope of the cells'
+ * means against their positions, weighted by how much each cell has seen,
+ * which is what a scale looks like to a per-key model. The trend is
+ * estimated from the cells rather than from the letters of each glide
+ * because a glide's own letters shrink toward its centre on every stroke
+ * — corners are cut inward, small words are drawn smaller — and reading
+ * that as a scale about the keyboard shrank an unbiased hand's grid by
+ * twelve percent and cost it a point. Across cells, those per-word
+ * shrinks cancel the way the corner cuts do, and only a shrink about the
+ * keyboard survives. The trend has its own dead zone and prior, and the
+ * cell residuals are taken against it.
+ *
  * **Undoable.** A glide the user backspaces was a wrong reading of the
  * stroke, and a wrong word aligned to a stroke teaches wrong offsets. So
  * [observe] hands back exactly what it changed and [retract] puts it back —
@@ -90,6 +109,13 @@ class KeyOffsets(private val storageFile: File?) {
     private val json = Json { ignoreUnknownKeys = true }
     private var dirty = false
 
+    /** The trend as of [trendVersion]: slope per key width from the cells' weighted centre, and that centre. */
+    private var trendVersion = -1
+    private var trendX = 0f
+    private var trendY = 0f
+    private var centreX = 0f
+    private var centreY = 0f
+
     /**
      * Bumped on every change. The decoder's grid is built from this model and
      * cached; the version is what tells the cache the grid has moved.
@@ -110,18 +136,34 @@ class KeyOffsets(private val storageFile: File?) {
     @Synchronized
     fun observations(): Int = global.n
 
+    /** The hand's trend along x: extra shift per key width from the cells' centre, 0 until it is trusted. */
+    @Synchronized
+    fun trendX(): Float {
+        ensureTrend()
+        return trendX
+    }
+
+    /** The hand's trend along y, as [trendX]. */
+    @Synchronized
+    fun trendY(): Float {
+        ensureTrend()
+        return trendY
+    }
+
     /**
      * The shift to apply at position ([x], [y]) in key widths, written into
-     * [out] as dx, dy. The cell's own mean where it has one, pulled toward the
-     * whole hand's by [CELL_PRIOR] observations' worth, and the whole hand's
-     * mean scaled down while it is itself still young; never longer than
-     * [MAX_SHIFT], whatever the data says.
+     * [out] as dx, dy. The whole hand's mean scaled down while it is itself
+     * still young, plus the hand's trend for how far the position is from
+     * the cells' centre, plus the cell's own residual where it has one,
+     * pulled toward that by [CELL_PRIOR] observations' worth; never longer
+     * than [MAX_SHIFT], whatever the data says.
      */
     @Synchronized
     fun offsetAt(x: Float, y: Float, out: FloatArray) {
+        ensureTrend()
         val trust = global.n / (global.n + GLOBAL_PRIOR).toFloat()
-        var ox = global.dx * trust
-        var oy = global.dy * trust
+        var ox = global.dx * trust + trendX * (x - centreX)
+        var oy = global.dy * trust + trendY * (y - centreY)
         val cell = cells[cellOf(x, y)]
         if (cell != null && cell.n > 0) {
             val w = cell.n / (cell.n + CELL_PRIOR).toFloat()
@@ -253,6 +295,63 @@ class KeyOffsets(private val storageFile: File?) {
         }
     }
 
+    /**
+     * Refits the trend when the cells have changed since it was last read:
+     * the weighted least-squares slope of each cell's mean miss against its
+     * position, per axis, cells weighted by what they have seen. Shrunk
+     * toward zero by [TREND_PRIOR] observations' worth, soft-thresholded at
+     * [TREND_DEAD_ZONE] so the small inward slope corner cutting leaves on
+     * the edge keys is read as the strokes' and not the hand's, and never
+     * steeper than [MAX_TREND]. An axis the cells do not spread along says
+     * nothing about it.
+     */
+    private fun ensureTrend() {
+        if (trendVersion == version) return
+        trendVersion = version
+        var weight = 0f
+        var sumX = 0f
+        var sumY = 0f
+        for ((id, cell) in cells) {
+            val w = cell.n.toFloat()
+            weight += w
+            sumX += w * xOf(id).toFloat() / CELLS_PER_KEY
+            sumY += w * yOf(id).toFloat() / CELLS_PER_KEY
+        }
+        if (weight <= 0f) {
+            trendX = 0f
+            trendY = 0f
+            return
+        }
+        centreX = sumX / weight
+        centreY = sumY / weight
+        var spreadX = 0f
+        var slopeX = 0f
+        var spreadY = 0f
+        var slopeY = 0f
+        for ((id, cell) in cells) {
+            val w = cell.n.toFloat()
+            val x = xOf(id).toFloat() / CELLS_PER_KEY - centreX
+            val y = yOf(id).toFloat() / CELLS_PER_KEY - centreY
+            spreadX += w * x * x
+            slopeX += w * x * cell.dx
+            spreadY += w * y * y
+            slopeY += w * y * cell.dy
+        }
+        val trust = weight / (weight + TREND_PRIOR)
+        trendX = if (spreadX >= MIN_TREND_SPREAD * weight) trend(slopeX / spreadX * trust) else 0f
+        trendY = if (spreadY >= MIN_TREND_SPREAD * weight) trend(slopeY / spreadY * trust) else 0f
+    }
+
+    /** [slope] past its dead zone, capped. */
+    private fun trend(slope: Float): Float {
+        val kept = when {
+            slope > TREND_DEAD_ZONE -> slope - TREND_DEAD_ZONE
+            slope < -TREND_DEAD_ZONE -> slope + TREND_DEAD_ZONE
+            else -> 0f
+        }
+        return kept.coerceIn(-MAX_TREND, MAX_TREND)
+    }
+
     /** A capped running mean: the newest observation is worth `1/n`, never less than `1/memory`. */
     private fun update(cell: Cell, dx: Float, dy: Float, memory: Int) {
         val n = minOf(cell.n + 1, memory)
@@ -285,8 +384,15 @@ class KeyOffsets(private val storageFile: File?) {
         /** A letter seen further than this from its key, in key widths, is a bad alignment, not a hand. */
         const val MAX_OBSERVED = 0.9f
 
-        /** The furthest a key is ever moved, in key widths, whatever was observed. */
-        const val MAX_SHIFT = 0.45f
+        /**
+         * The furthest a key is ever moved, in key widths, whatever was
+         * observed. Was 0.45 before the trend: a hand drawing at 85% puts the
+         * far keys of a wide layout seven tenths of a key inward, and capping
+         * short of that was most of what the trend could not recover. At 0.9
+         * the biased hand the harness draws went .726 to .852 on the cap
+         * alone, and the unbiased one did not move.
+         */
+        const val MAX_SHIFT = 0.9f
 
         /** Observations a cell's mean remembers; older ones fade so a changed hand is followed. */
         const val CELL_MEMORY = 40
@@ -302,6 +408,23 @@ class KeyOffsets(private val storageFile: File?) {
 
         /** Observations before the whole hand's mean is applied at full strength. */
         const val GLOBAL_PRIOR = 8
+
+        /** Cell observations' worth of pull toward no trend while the hand is young. */
+        const val TREND_PRIOR = 100f
+
+        /**
+         * Slope the trend must show before any of it is followed, in key
+         * widths of miss per key width from the centre: the inward slope
+         * corner cutting leaves on the edge keys of an unbiased hand sits
+         * inside it.
+         */
+        const val TREND_DEAD_ZONE = 0.02f
+
+        /** The steepest trend followed: a hand drawing at three quarters or five quarters of the keyboard. */
+        const val MAX_TREND = 0.25f
+
+        /** Least weighted variance of the cells' positions along an axis, in key widths squared, for a trend along it. */
+        const val MIN_TREND_SPREAD = 0.3f
 
         private const val MAX_CELLS = 512
     }

@@ -90,6 +90,39 @@ class KeyOffsetsTest {
     }
 
     @Test
+    fun `a hand that draws small is read as a trend`() {
+        // Misses that grow with the distance from the middle key and change
+        // sign across it: a scale, which the whole-hand mean cannot say and
+        // the trend can. A key never swiped, further out still, gets the
+        // trend's share.
+        val model = KeyOffsets(null)
+        repeat(40) { model.observe(listOf(seen('q', -0.2f, 0f), seen('w', 0f, 0f), seen('e', 0.2f, 0f))) }
+        assertTrue("trend ${model.trendX()}", model.trendX() > 0.05f)
+        assertEquals(0f, model.trendY(), 1e-6f)
+        val out = FloatArray(2)
+        model.offsetAt(4.5f, 0.5f, out)
+        assertTrue("far key dx ${out[0]}", out[0] > 0.2f)
+        model.offsetAt(-1.5f, 0.5f, out)
+        assertTrue("near key dx ${out[0]}", out[0] < -0.2f)
+    }
+
+    @Test
+    fun `a constant miss is no trend`() {
+        val model = KeyOffsets(null)
+        repeat(40) { model.observe(listOf(seen('q', 0.25f, 0f), seen('w', 0.25f, 0f), seen('e', 0.25f, 0f))) }
+        assertEquals(0f, model.trendX(), 1e-6f)
+        assertEquals(0f, model.trendY(), 1e-6f)
+    }
+
+    @Test
+    fun `a trend needs the keys to spread along its axis`() {
+        // One column: nothing to fit a vertical slope to, however the misses run.
+        val model = KeyOffsets(null)
+        repeat(40) { model.observe(listOf(seen('w', 0f, -0.2f), seen('s', 0f, 0.2f))) }
+        assertEquals(0f, model.trendY(), 1e-6f)
+    }
+
+    @Test
     fun `the shift is capped however far the finger lands`() {
         val model = KeyOffsets(null)
         repeat(60) { model.observe(listOf(seen('q', 0.85f, 0.85f))) }

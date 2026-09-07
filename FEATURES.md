@@ -12,7 +12,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Area | Families | Features | Capabilities |
 |---|---|---|---|
 | Typing core: prediction, autocorrect, learning, spell check | 9 | 50 | 182 |
-| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 190 |
+| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 191 |
 | Languages, scripts, layouts, transliteration | 11 | 63 | 194 |
 | Themes and appearance | 14 | 73 | 179 |
 | Emoji, GIFs, stickers, kaomoji | 16 | 88 | 94 |
@@ -23,7 +23,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Accessibility, form factors, platform integration | 13 | 60 | 108 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 201 |
-| **Total** | **132** | **793** | **2103** |
+| **Total** | **132** | **793** | **2104** |
 
 ## Typing core: prediction, autocorrect, learning, spell check
 
@@ -332,6 +332,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Swipe style learning `RARE` — Everything a kept swipe teaches apart from the word itself, behind one switch and one Forget; off freezes it, Forget deletes it without touching learned words
     - Hand adaptation — Kept swipes teach where the finger really lands on each key; later swipes decode against a grid moved to match (KeyOffsets)
     - Keyed by position, not letter — Half-key cells, so layouts with the same geometry share what either learned; a barely-swiped key follows the whole hand's mean
+    - Reads a small or large hand as a trend — The slope of the cells' misses against their positions, so a thumb that draws at 85% of the keyboard is followed to the far keys the per-key means alone could not reach; fitted across cells, where each word's own corner cutting cancels
     - Undo un-teaches — Backspacing a swiped word, or replacing it off the strip, retracts exactly what it taught; the replacement teaches instead
     - Learned shapes — A few of the user's own shapes per word, from the glides they keep, for the shape channel to compare a stroke against beside the word's ideal path (GlideShapeStore)
     - Graduated, never taken at commit — The shape rides the word through the learning buffer and lands only when the word settles as a learned word; an undone or replaced glide marks the shape that read it, and a shape rejected more than accepted goes
