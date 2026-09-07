@@ -56,6 +56,16 @@ Five built-in sets ship with it, and every one is enabled by default: **Email** 
 
 Enable or disable sets with the checkboxes in **Symbol sets**. At least one has to stay checked. Tap a set's edit icon to rename it or rewrite its characters, entering them space-separated so a snippet like `->` counts as one entry the same way a single character does. Editing a built-in set doesn't touch the shipped version: your edit is stored as an override under the same ID, so anything that references that set (a keyboard mode's `symbolSetIds` included) keeps working unchanged. Delete your override and the original characters come back, which is why the icon reads Reset rather than Delete on a built-in. **New symbol set** creates one from scratch.
 
+### Press and hold
+
+Any entry of a set can carry a popup of its own. Open the set's editor, and under **Press and hold** tap the entry's chip, then type the characters and snippets it should offer, space-separated the same way. A tap on the entry still types it; holding it opens the popup, and the popup behaves exactly like a key's alternates: the same column count, font size and padding from Key press settings, and the same hold-to-select, so you can slide onto an entry and let go. The first entry in the box is what a plain hold and release types. An entry with a popup shows its first alternate in the corner, the way a key does, under the same **Key hints** switch.
+
+### More than one line
+
+<SettingsPath path="Rows & bars / Lines of symbols" />
+
+**Lines of symbols** stacks the row up to four lines high, each one as tall as **Symbol row height**, so more of a set is on screen without scrolling. Entries are dealt down the lines in turn: the first entry on the top line, the second under it, and so on. With two or more lines a **Scrolling** choice appears. **Together** moves the lines as one grid, so a scroll on any line moves all of them. **Each line alone** lets every line scroll on its own. The two look the same until a line is actually scrolled, and the picker chip stays at the left edge whatever the count.
+
 The row hides itself automatically whenever the special-characters panel or another full-bleed panel is open. A second row of symbols on top of a symbols panel would just be noise.
 
 ## Row order

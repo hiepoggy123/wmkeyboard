@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,6 +71,10 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.DefaultKeyboardModes
 import com.wasimaster.wmkeyboard.core.settings.ManualModeDuration
 import com.wasimaster.wmkeyboard.core.settings.SymbolRowHeightRange
+import com.wasimaster.wmkeyboard.core.settings.SymbolRowLinesRange
+import com.wasimaster.wmkeyboard.core.settings.SymbolRowScroll
+import com.wasimaster.wmkeyboard.core.tools.sanitizeSymbolPopups
+import com.wasimaster.wmkeyboard.core.tools.symbolChipLabel
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.isUsableTool
@@ -88,6 +93,9 @@ import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.FindReplace
 import androidx.compose.material.icons.outlined.Keyboard
+
+/** The line counts the symbol row stepper walks, one press per line. */
+private val SymbolRowLinesSteps: List<Int> = SymbolRowLinesRange.toList()
 
 // ---- rows & bars ----
 
@@ -256,6 +264,45 @@ internal fun RowsSettings(
                     default = SettingsDefaults.rows.symbolRowHeightDp.toFloat(),
                 ) { scope.launch { repository.setSymbolRowHeightDp(it.roundToInt()) } }
             }
+            item {
+                StepperSetting(
+                    R.string.rows_symbol_row_lines_title,
+                    subtitle = stringResource(R.string.rows_symbol_row_lines_subtitle),
+                    value = settings.rows.symbolRowLines,
+                    range = SymbolRowLinesSteps,
+                    display = { it.toString() },
+                    info = stringResource(R.string.rows_symbol_row_lines_info),
+                    default = SettingsDefaults.rows.symbolRowLines,
+                ) { scope.launch { repository.setSymbolRowLines(it) } }
+            }
+            // Only a stack has a way to scroll; one line scrolls the one way.
+            if (settings.rows.symbolRowLines > 1) {
+                item {
+                    ChoiceSetting(
+                        R.string.rows_symbol_row_scroll_title,
+                        subtitle = stringResource(R.string.rows_symbol_row_scroll_subtitle),
+                        options = listOf(
+                            SymbolRowScroll.TOGETHER to
+                                stringResource(R.string.rows_symbol_row_scroll_together_label),
+                            SymbolRowScroll.SEPARATE to
+                                stringResource(R.string.rows_symbol_row_scroll_separate_label),
+                        ),
+                        selected = settings.rows.symbolRowScroll,
+                        default = SettingsDefaults.rows.symbolRowScroll,
+                        detail = { scroll ->
+                            ChoiceDetail(
+                                stringResource(
+                                    if (scroll == SymbolRowScroll.SEPARATE) {
+                                        R.string.rows_symbol_row_scroll_separate_desc
+                                    } else {
+                                        R.string.rows_symbol_row_scroll_together_desc
+                                    },
+                                ),
+                            )
+                        },
+                    ) { scope.launch { repository.setSymbolRowScroll(it) } }
+                }
+            }
         }
     }
     SettingsGroup(
@@ -346,6 +393,15 @@ internal fun SymbolSetEditor(
     val existing = override ?: builtIn
     var name by remember(setId) { mutableStateOf(existing?.name.orEmpty()) }
     var charsText by remember(setId) { mutableStateOf(existing?.chars?.joinToString(" ").orEmpty()) }
+    // The popups as typed, one text per entry, keyed by the entry so an edit
+    // to the list above that moves an entry keeps its popup with it. Only
+    // what is still an entry at save time is kept (issue #83).
+    val popupTexts = remember(setId) {
+        mutableStateMapOf<String, String>().apply {
+            existing?.popups?.forEach { (entry, alternates) -> put(entry, alternates.joinToString(" ")) }
+        }
+    }
+    var popupEntry by remember(setId) { mutableStateOf<String?>(null) }
     if (builtIn != null) {
         // The stored English name is what a shipped set is keyed on, so only
         // the drawn name is resolved here. Nothing writes it back.
@@ -385,6 +441,12 @@ internal fun SymbolSetEditor(
             )
         }
     }
+    SymbolPopupsEditor(
+        entries = splitSymbolEntries(charsText).distinct(),
+        popupTexts = popupTexts,
+        selected = popupEntry,
+        onSelect = { popupEntry = it },
+    )
     Row(modifier = Modifier.padding(horizontal = 16.dp)) {
         // Only an existing stored set can be removed — and for a built-in
         // that removal is a reset, not a delete.
@@ -416,13 +478,18 @@ internal fun SymbolSetEditor(
         Button(
             enabled = charsText.isNotBlank(),
             onClick = {
-                val chars = charsText.split(Regex("\\s+")).filter { it.isNotEmpty() }
+                val chars = splitSymbolEntries(charsText)
+                val popups = sanitizeSymbolPopups(
+                    chars,
+                    popupTexts.mapValues { (_, text) -> splitSymbolEntries(text) },
+                )
                 scope.launch {
                     repository.upsertSymbolSet(
                         SymbolSet(
                             setId,
                             name.trim().ifEmpty { builtIn?.name ?: defaultSetName },
                             chars,
+                            popups,
                         ),
                     )
                     // A new set should show up in the row right away.
@@ -435,6 +502,83 @@ internal fun SymbolSetEditor(
         ) { Text(stringResource(CommonR.string.common_save)) }
     }
 }
+/** The entries in a symbol set text box: whitespace-separated, blanks dropped. */
+private fun splitSymbolEntries(text: String): List<String> =
+    text.split(Regex("\\s+")).filter { it.isNotEmpty() }
+
+/**
+ * The press-and-hold popups of the set being edited (issue #83): one chip per
+ * entry of the characters box, and a text box for the selected chip's popup.
+ * The chips follow the box above live, so a new entry can be given a popup
+ * before the set is saved, and an entry removed above takes its chip away.
+ * The text it had stays in [popupTexts] until the save drops it, so a typo
+ * fixed above brings the popup back.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SymbolPopupsEditor(
+    entries: List<String>,
+    popupTexts: MutableMap<String, String>,
+    selected: String?,
+    onSelect: (String?) -> Unit,
+) {
+    // A chip only selects an entry that still exists.
+    val current = selected?.takeIf { it in entries }
+    SettingsGroup(
+        stringResource(R.string.rows_symbol_set_popups_title),
+        info = stringResource(R.string.rows_symbol_set_popups_caption),
+    ) {
+        item {
+            if (entries.isEmpty()) {
+                Text(
+                    stringResource(R.string.rows_symbol_set_popups_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            } else {
+                FlowRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    for (entry in entries) {
+                        val count = splitSymbolEntries(popupTexts[entry].orEmpty())
+                            .filter { it != entry }.distinct().size
+                        FilterChip(
+                            selected = entry == current,
+                            onClick = { onSelect(if (entry == current) null else entry) },
+                            label = {
+                                Text(
+                                    if (count > 0) "${symbolChipLabel(entry)}  $count" else symbolChipLabel(entry),
+                                    maxLines = 1,
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+        }
+        if (current != null) {
+            item {
+                OutlinedTextField(
+                    value = popupTexts[current].orEmpty(),
+                    onValueChange = { popupTexts[current] = it },
+                    label = {
+                        Text(stringResource(R.string.rows_symbol_set_popup_label, symbolChipLabel(current)))
+                    },
+                    supportingText = { Text(stringResource(R.string.rows_symbol_set_popup_hint)) },
+                    minLines = 2,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                )
+            }
+        }
+    }
+}
+
 // ---- keyboard modes ----
 
 /**

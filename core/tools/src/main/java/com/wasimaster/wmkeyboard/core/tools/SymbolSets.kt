@@ -20,7 +20,43 @@ data class SymbolSet(
     val id: String,
     val name: String,
     val chars: List<String>,
-)
+    /**
+     * What a press-and-hold on an entry of [chars] offers, keyed by that
+     * entry's text (issue #83). An entry with no key here has no popup and a
+     * hold on it does nothing more than a tap. Keyed by text rather than by
+     * position so an edit that inserts or reorders entries cannot silently
+     * hand one entry's popup to its neighbour; two entries with the same text
+     * share one popup, which is the only honest reading of a duplicate.
+     *
+     * Defaulted, so a set stored before the field existed decodes with none.
+     */
+    val popups: Map<String, List<String>> = emptyMap(),
+) {
+    /** The press-and-hold entries for [entry], or none. */
+    fun popupFor(entry: String): List<String> = popups[entry].orEmpty()
+}
+
+/**
+ * [popups] with nothing in it that the row could never show: keys that name
+ * no entry of [chars], the entry itself (a tap already types it), blanks and
+ * repeats. Run at every write so a stored set is exactly what the row reads,
+ * and the editor's chip list and the row can never disagree about which entry
+ * has a popup.
+ */
+fun sanitizeSymbolPopups(
+    chars: List<String>,
+    popups: Map<String, List<String>>,
+): Map<String, List<String>> {
+    if (popups.isEmpty()) return emptyMap()
+    val present = chars.toHashSet()
+    val clean = LinkedHashMap<String, List<String>>()
+    for ((entry, alternates) in popups) {
+        if (entry !in present) continue
+        val kept = alternates.filter { it.isNotEmpty() && it != entry }.distinct()
+        if (kept.isNotEmpty()) clean[entry] = kept
+    }
+    return clean
+}
 
 private val symbolSetJson = Json {
     ignoreUnknownKeys = true

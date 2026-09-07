@@ -93,6 +93,7 @@ import com.wasimaster.wmkeyboard.core.tools.parseLeader
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.tools.SymbolSetCodec
+import com.wasimaster.wmkeyboard.core.tools.sanitizeSymbolPopups
 import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import kotlinx.coroutines.Dispatchers
@@ -3343,6 +3344,22 @@ data class AppUiSettings(
 /** What the symbol row's height slider offers, matching the number row's. */
 val SymbolRowHeightRange = 28..64
 
+/**
+ * How many rows of symbols the symbol row may stack (issue #83). One is the
+ * row as it always was; four is where the stack is taller than the key grid
+ * it sits over.
+ */
+val SymbolRowLinesRange = 1..4
+
+/** How a symbol row of more than one line scrolls sideways (issue #83). */
+enum class SymbolRowScroll {
+    /** One scroll for the whole stack: the lines move as a grid. */
+    TOGETHER,
+
+    /** Each line scrolls on its own. */
+    SEPARATE,
+}
+
 /** How long a mode picked by hand from the Modes tool stays on. */
 enum class ManualModeDuration {
     /** Until the user moves to another app. What the keyboard always did. */
@@ -3366,6 +3383,18 @@ data class RowSettings(
      * slider, so the two rows could not be made to match.
      */
     val symbolRowHeightDp: Int = 40,
+    /**
+     * How many lines of symbols the symbol row stacks (issue #83); each is
+     * [symbolRowHeightDp] tall. One line is the row as shipped. More lines put
+     * more of a set on screen at once without a scroll, at a row's height each.
+     */
+    val symbolRowLines: Int = 1,
+    /**
+     * How a symbol row of more than one line scrolls (issue #83). Meaningless
+     * on one line, and left untouched by it, so a stack that is put back keeps
+     * its scroll.
+     */
+    val symbolRowScroll: SymbolRowScroll = SymbolRowScroll.TOGETHER,
     /**
      * How long a mode picked by hand from the Modes tool lasts.
      *
@@ -5098,6 +5127,8 @@ class SettingsRepository(private val context: Context) {
         private val ADVANCED_OPEN = stringSetPreferencesKey("advanced_open")
         private val DEFAULT_WORDLIST_SIZE = stringPreferencesKey("default_wordlist_size")
         private val SYMBOL_ROW_HEIGHT = intPreferencesKey("symbol_row_height")
+        private val SYMBOL_ROW_LINES = intPreferencesKey("symbol_row_lines")
+        private val SYMBOL_ROW_SCROLL = stringPreferencesKey("symbol_row_scroll")
         private val WEATHER_REFRESH_MINUTES = intPreferencesKey("weather_refresh_minutes")
         private val WIKI_LINK_LIMIT = intPreferencesKey("wiki_link_limit")
         private val QR_MAX_CHARS = intPreferencesKey("qr_max_chars")
@@ -6061,6 +6092,14 @@ class SettingsRepository(private val context: Context) {
             ),
             rows = RowSettings(
                 symbolRowHeightDp = p[SYMBOL_ROW_HEIGHT] ?: defaults.rows.symbolRowHeightDp,
+                // Clamped on the way in as well as on the way out: a value
+                // outside the range is a row the screen cannot draw.
+                symbolRowLines = p[SYMBOL_ROW_LINES]
+                    ?.coerceIn(SymbolRowLinesRange.first, SymbolRowLinesRange.last)
+                    ?: defaults.rows.symbolRowLines,
+                symbolRowScroll = p[SYMBOL_ROW_SCROLL]
+                    ?.let { runCatching { SymbolRowScroll.valueOf(it) }.getOrNull() }
+                    ?: defaults.rows.symbolRowScroll,
                 manualModeDuration = p[MANUAL_MODE_DURATION]
                     ?.let { runCatching { ManualModeDuration.valueOf(it) }.getOrNull() }
                     ?: defaults.rows.manualModeDuration,
@@ -10293,6 +10332,13 @@ class SettingsRepository(private val context: Context) {
         it[SYMBOL_ROW_HEIGHT] = value.coerceIn(SymbolRowHeightRange.first, SymbolRowHeightRange.last)
     }
 
+    suspend fun setSymbolRowLines(value: Int) = editPrefs {
+        it[SYMBOL_ROW_LINES] = value.coerceIn(SymbolRowLinesRange.first, SymbolRowLinesRange.last)
+    }
+
+    suspend fun setSymbolRowScroll(value: SymbolRowScroll) =
+        editPrefs { it[SYMBOL_ROW_SCROLL] = value.name }
+
     suspend fun setManualModeDuration(value: ManualModeDuration) =
         editPrefs { it[MANUAL_MODE_DURATION] = value.name }
 
@@ -10912,12 +10958,17 @@ class SettingsRepository(private val context: Context) {
             .firstOrNull { it.startsWith("asset_fancy_") }
             ?.removePrefix("asset_fancy_")
 
-    /** Adds the set or replaces the stored set with the same id. */
+    /**
+     * Adds the set or replaces the stored set with the same id. The popups are
+     * cleaned here rather than trusted from the caller, so a stored set never
+     * carries a popup for an entry it no longer has.
+     */
     suspend fun upsertSymbolSet(set: SymbolSet) =
         editPrefs { prefs ->
             val current = prefs[CUSTOM_SYMBOL_SETS]?.let { SymbolSetCodec.decodeList(it) }
                 .orEmpty()
-            val next = current.filter { it.id != set.id } + set
+            val clean = set.copy(popups = sanitizeSymbolPopups(set.chars, set.popups))
+            val next = current.filter { it.id != set.id } + clean
             prefs[CUSTOM_SYMBOL_SETS] = SymbolSetCodec.encodeList(next)
         }
 

@@ -130,6 +130,15 @@
     <string name="rows_symbol_row_height_title">Symbol row height</string>
     <string name="rows_symbol_row_height_subtitle">How tall the symbol row is</string>
     <string name="rows_symbol_row_height_info">The number row has its own height setting under Layout &amp; size. This is the same setting for the symbol row, so you can make the two rows match, or make this one shorter to give the keys below more room.</string>
+    <string name="rows_symbol_row_lines_title">Lines of symbols</string>
+    <string name="rows_symbol_row_lines_subtitle">How many lines the symbol row stacks</string>
+    <string name="rows_symbol_row_lines_info">Each line is one symbol row height tall and shows the next entries of the set, so more of a set is on screen without a scroll. The row keeps its picker at the left edge whatever the count.</string>
+    <string name="rows_symbol_row_scroll_title">Scrolling</string>
+    <string name="rows_symbol_row_scroll_subtitle">How the lines move when you scroll sideways</string>
+    <string name="rows_symbol_row_scroll_together_label">Together</string>
+    <string name="rows_symbol_row_scroll_separate_label">Each line alone</string>
+    <string name="rows_symbol_row_scroll_together_desc">The lines move as one grid. A scroll on any line moves all of them.</string>
+    <string name="rows_symbol_row_scroll_separate_desc">Each line scrolls on its own, so one line can be at its start while another is at its end.</string>
 
     <string name="rows_fancy_title">Fancy text</string>
     <string name="rows_fancy_subtitle">Type in 𝐛𝐨𝐥𝐝, 𝘪𝘵𝘢𝘭𝘪𝘤, 𝔉𝔯𝔞𝔨𝔱𝔲𝔯 and other Unicode styles, picked from a row above the keys</string>
@@ -160,6 +169,12 @@
     <string name="rows_symbol_set_name_label">Name</string>
     <string name="rows_symbol_set_chars_label">Characters and snippets</string>
     <string name="rows_symbol_set_chars_hint">Put a space between entries. An entry is one character (© § →) or a whole snippet (@gmail.com https://).</string>
+    <string name="rows_symbol_set_popups_title">Press and hold</string>
+    <string name="rows_symbol_set_popups_caption">Select an entry, then type the characters and snippets it offers when you press and hold it. The entries with a popup show a count.</string>
+    <string name="rows_symbol_set_popups_empty">Add entries above to give them a popup.</string>
+    <!-- %1$s is the entry the popup belongs to, for example @ or https:// -->
+    <string name="rows_symbol_set_popup_label">Popup of %1$s</string>
+    <string name="rows_symbol_set_popup_hint">Put a space between entries. A tap on the entry itself types it. The first one here is what a press and release types.</string>
     <string name="rows_symbol_set_reset_action">Reset set</string>
     <string name="rows_symbol_set_delete_action">Delete set</string>
     <!-- Name given to a new set when the user leaves the name box empty. -->

@@ -71,6 +71,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridItemScope
+import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -314,6 +315,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.HoldRepeatCursorTools
 import com.wasimaster.wmkeyboard.core.settings.GestureSettings
+import com.wasimaster.wmkeyboard.core.settings.SymbolRowScroll
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.KeyPopupSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyRepeatSettings
@@ -4551,6 +4553,15 @@ private fun StripMenuScrim(onDismiss: () -> Unit) {
  * The dedicated symbol row: one symbol set's characters and snippets a tap
  * away, with a picker chip on the left switching between the enabled sets
  * (or the sets the active keyboard mode prescribes).
+ *
+ * Since issue #83 the row can be a stack of [RowSettings.symbolRowLines] lines,
+ * each [RowSettings.symbolRowHeightDp] tall, and an entry can carry a
+ * press-and-hold popup of its own ([SymbolSet.popups]). One line is the
+ * [LazyRow] it always was; more lines are a [LazyHorizontalGrid] when the stack
+ * scrolls together and a column of independent [LazyRow]s when each line
+ * scrolls on its own. All three draw the same [SymbolCell], and the entry
+ * order is [symbolRowLineEntries]'s in both stacked forms, so the row looks the
+ * same in either until a line is actually scrolled.
  */
 @Composable
 private fun SymbolRowStrip(
@@ -4572,7 +4583,7 @@ private fun SymbolRowStrip(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(settings.rows.symbolRowHeightDp.dp),
+            .height(symbolRowHeight(settings.rows)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Only offer the picker when there is something to switch to.
@@ -4631,32 +4642,253 @@ private fun SymbolRowStrip(
             }
         }
         val hints = armedHintPlan(state)
-        LazyRow(
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            itemsIndexed(active.chars) { index, symbol ->
-                val hint = hints?.label(HintSurface.SYMBOL_ROW, index)
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = symbolChipLabel(symbol),
+        val lines = symbolRowLines(settings.rows)
+        val lineHeight = settings.rows.symbolRowHeightDp.dp
+        val cell: @Composable (Int) -> Unit = { index ->
+            SymbolCell(
+                symbol = active.chars[index],
+                set = active,
+                settings = settings,
+                hint = hints?.label(HintSurface.SYMBOL_ROW, index),
+                onInsert = onInsert,
+                modifier = Modifier.height(lineHeight),
+            )
+        }
+        when {
+            lines <= 1 -> LazyRow(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                // Positional, never keyed: a set may repeat an entry, and a
+                // duplicate key is a hard crash in a lazy list.
+                itemsIndexed(active.chars) { index, _ -> cell(index) }
+            }
+            settings.rows.symbolRowScroll == SymbolRowScroll.TOGETHER -> LazyHorizontalGrid(
+                rows = GridCells.Fixed(lines),
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                // The grid fills each column top to bottom, which is the order
+                // symbolRowLineEntries deals the separate lines in.
+                itemsIndexed(active.chars) { index, _ -> cell(index) }
+            }
+            else -> Column(modifier = Modifier.weight(1f)) {
+                for (line in symbolRowLineEntries(active.chars.size, lines)) {
+                    LazyRow(
                         modifier = Modifier
-                            // Lifted so the badge sits under the character
-                            // instead of across it; the cell keeps its size.
-                            .offset(y = if (hint != null) -(HintBadgeHeight / 2) else 0.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { onInsert(symbol) }
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        fontSize = 15.sp,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                    )
-                    if (hint != null) {
-                        HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
+                            .fillMaxWidth()
+                            .height(lineHeight),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        lazyRowItems(line) { index -> cell(index) }
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * One entry of the symbol row: a tap types it, and where the set gives it a
+ * popup ([SymbolSet.popupFor]), a hold opens that popup exactly as a hold on a
+ * key opens the key's alternates. The popup is the key grid's own
+ * [AlternatesPopup] over a stand-in [Key], so it takes the same columns, font
+ * scale, padding and hold-to-select behaviour the user set for the keys.
+ *
+ * The tap stays a [clickable] for its ripple and its slop rules; the hold is a
+ * pointer handler *inside* it, added only to a cell that has a popup. The
+ * handler consumes nothing until the hold fires, so a tap reaches the clickable
+ * and a drag reaches the list's scroll as before. Once it fires it owns the
+ * finger: every later move steers the popup and is consumed, which is what
+ * tells the clickable to give up its press and the scroll never to start.
+ */
+@Composable
+private fun SymbolCell(
+    symbol: String,
+    set: SymbolSet,
+    settings: KeyboardSettings,
+    hint: String?,
+    onInsert: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val alternates = set.popupFor(symbol)
+    val feedback = LocalKeyPressFeedback.current
+    val scope = rememberCoroutineScope()
+    // Keyed on the entry: the cells are positional in their lazy list, so a
+    // set switched under an open popup would otherwise hand that popup to
+    // whatever entry now sits in the slot.
+    var showPopup by remember(symbol) { mutableStateOf(false) }
+    val hold = remember { AlternatesHold() }
+    val holdToSelect = settings.popup.alternatesHoldToSelect
+    // The popup draws labels ([symbolChipLabel]) and the commit types the raw
+    // entry; the index is what joins the two, on both the hold and the tap path.
+    val labels = alternates.map(::symbolChipLabel)
+    hold.onCommit = { index ->
+        showPopup = false
+        alternates.getOrNull(index)?.let(onInsert)
+    }
+    val popupPosition = rememberAboveAnchorPopup()
+    // Read through state by the hold handler, never captured: the handler is a
+    // pointerInput that restarts when its keys change, and a lambda made fresh
+    // each composition as a key would restart it on the very recomposition
+    // that opening the popup causes, mid-hold, so the lift would commit nothing.
+    val openPopup = rememberUpdatedState {
+        hold.open()
+        showPopup = true
+    }
+    val press = rememberUpdatedState(feedback)
+    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        Box(
+            // Lifted so the badge sits under the character instead of across
+            // it; the cell keeps its size.
+            modifier = Modifier.offset(y = if (hint != null) -(HintBadgeHeight / 2) else 0.dp),
+        ) {
+            Text(
+                text = symbolChipLabel(symbol),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onInsert(symbol) }
+                    .then(
+                        if (alternates.isEmpty()) {
+                            Modifier
+                        } else {
+                            Modifier
+                                // Beside the pointer handler and before the
+                                // padding, like the key's own: the hold measures
+                                // the finger against this node.
+                                .onGloballyPositioned {
+                                    hold.cell = Rect(it.positionInWindow(), it.size.toSize())
+                                }
+                                .symbolHoldInput(
+                                    delayMs = settings.longPressDelayMs,
+                                    hapticOnLongPress = settings.hapticOnLongPress,
+                                    hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
+                                    hold = hold.takeIf { holdToSelect },
+                                    feedback = press,
+                                    scope = scope,
+                                    open = openPopup,
+                                )
+                        },
+                    )
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                fontSize = 15.sp,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
+            // The same corner hint a key with alternates wears, under the same
+            // switch, so a cell that holds to more says so the way a key does.
+            if (alternates.isNotEmpty() && settings.longPressHints) {
+                Text(
+                    text = labels.first(),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(top = HintTopPadding, end = 3.dp),
+                    fontSize = (HintLabelSp * settings.layoutBehavior.hintFontScale).sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    softWrap = false,
+                    style = hintTextStyle(),
+                )
+            }
+            if (showPopup) {
+                // The popup can go with the finger still down (the row
+                // recomposed away under it); nothing then delivers the lift,
+                // so the hold is cleared here for it.
+                DisposableEffect(hold) {
+                    onDispose { hold.cancel() }
+                }
+                AlternatesPopup(
+                    key = Key(label = symbol, longPress = labels),
+                    popupPosition = popupPosition,
+                    popup = settings.popup,
+                    hold = hold.takeIf { holdToSelect },
+                    onDismiss = { showPopup = false },
+                    onText = { label ->
+                        showPopup = false
+                        val index = labels.indexOf(label)
+                        onInsert(alternates.getOrElse(index) { label })
+                    },
+                    // A symbol set's popup is characters only.
+                    onAction = {},
+                )
+            }
+        }
+        if (hint != null) {
+            HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
+        }
+    }
+}
+
+/**
+ * The press-and-hold half of a [SymbolCell]'s gesture: a hold past [delayMs]
+ * opens the popup, and with [hold] set the finger then steers it and the lift
+ * commits, exactly as the key grid's hold-to-select does. With [hold] null the
+ * popup stays up after the lift for a tap, the older behaviour.
+ *
+ * Lives inside a scrolling list, which the key grid's handler never had to
+ * think about. Until the hold fires this consumes nothing and watches for its
+ * finger being taken: the list claims a drag in the same pass this cell sees
+ * it in, but after it, so each move is looked at again once the pass is over
+ * (the trick `awaitLongPressOrCancellation` uses). A finger the list took
+ * cancels the timer, and a tap is left entirely to the clickable underneath.
+ */
+private fun Modifier.symbolHoldInput(
+    delayMs: Int,
+    hapticOnLongPress: Boolean,
+    hapticOnLongPressRelease: Boolean,
+    hold: AlternatesHold?,
+    /** Both as state, so the handler survives the recomposition it causes. */
+    feedback: State<() -> Unit>,
+    scope: kotlinx.coroutines.CoroutineScope,
+    open: State<() -> Unit>,
+): Modifier = pointerInput(delayMs, hapticOnLongPress, hapticOnLongPressRelease, hold) {
+    val reachPx = AlternatesReachDp.toPx()
+    val steerPx = AlternatesSteerDp.toPx()
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        var fired = false
+        var taken = false
+        val timer = scope.launch {
+            delay(delayMs.toLong())
+            fired = true
+            if (hapticOnLongPress) feedback.value()
+            open.value()
+        }
+        try {
+            while (true) {
+                val event = awaitPointerEvent(PointerEventPass.Main)
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (fired) {
+                    // The popup's finger: nothing under it may read this.
+                    change.consume()
+                    if (!change.pressed) break
+                    hold?.moveTo(change.position, reachPx, steerPx)
+                    continue
+                }
+                if (!change.pressed) break
+                if (change.isConsumed) {
+                    taken = true
+                    break
+                }
+                val settled = awaitPointerEvent(PointerEventPass.Final)
+                if (settled.changes.any { it.id == down.id && it.isConsumed }) {
+                    taken = true
+                    break
+                }
+            }
+        } finally {
+            timer.cancel()
+        }
+        // The lift chooses what the popup has highlighted, which is the first
+        // entry when the finger never moved; a finger the list took, or one
+        // that came up before the hold fired, chooses nothing here.
+        if (fired && !taken) {
+            hold?.commit()
+            if (hapticOnLongPressRelease) feedback.value()
         }
     }
 }
@@ -7517,7 +7749,7 @@ internal fun fullBleedHiddenRows(state: KeyboardUiState): Dp =
             }
             ) +
         (if (state.settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp) +
-        (if (state.settings.symbolRowEnabled) state.settings.rows.symbolRowHeightDp.dp else 0.dp) +
+        (if (state.settings.symbolRowEnabled) symbolRowHeight(state.settings.rows) else 0.dp) +
         // The fancy style strip hides under a full-bleed panel like the rows
         // above it, so its height rides along — it depends on the active
         // layout, which is why this takes the state and not just settings.
