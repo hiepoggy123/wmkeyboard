@@ -1144,10 +1144,15 @@ private fun SettingsNavGraph(
                 }
             }
         }
-        composable("keymap_edit/{layoutId}") { backStackEntry ->
+        composable(
+            route = "keymap_edit/{layoutId}?layer={layer}",
+            arguments = listOf(navArgument("layer") { type = NavType.StringType; defaultValue = "" }),
+        ) { backStackEntry ->
             val layoutId = backStackEntry.arguments?.getString("layoutId").orEmpty()
+            // The tab to open on, from a row of the gallery's layer list.
+            val layer = backStackEntry.arguments?.getString("layer")?.takeIf { it.isNotEmpty() }
             SettingsScreen(stringResource(R.string.home_screen_layout_edit_title), { navController.popBackStack() }) {
-                KeyLayoutEditorScreen(repository, settings, layoutId) { route ->
+                KeyLayoutEditorScreen(repository, settings, layoutId, initialLayer = layer) { route ->
                     navController.navigate(route)
                 }
             }

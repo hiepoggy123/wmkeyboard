@@ -81,6 +81,8 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
@@ -120,6 +122,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyAlternate
 import com.wasimaster.wmkeyboard.core.layout.PanelFieldKind
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
+import com.wasimaster.wmkeyboard.core.layout.panelKindForLayerKey
 import com.wasimaster.wmkeyboard.core.layout.panelLayer
 import com.wasimaster.wmkeyboard.core.layout.resolvePanelLayout
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
@@ -516,10 +519,23 @@ internal fun KeyLayoutsScreen(
      * someone ends up unable to type well enough to undo it. Custom layouts go
      * live only from their toggle under Languages, and only once they validate.
      */
-    /** Opens the editor, and remembers the row to come back to. */
-    fun openEditor(id: String) {
+    /**
+     * Opens the editor, and remembers the row to come back to. [layerKey] is a
+     * typing layer's key or a panel's `layerKey`, for a row of the expanded
+     * layer list; null opens on the letters, as the layout's own row does.
+     */
+    fun openEditor(id: String, layerKey: String? = null) {
         ReturnAnchor.arm(KEYMAPS_ANCHOR, id)
-        onNavigate("keymap_edit/$id")
+        onNavigate(if (layerKey == null) "keymap_edit/$id" else "keymap_edit/$id?layer=$layerKey")
+    }
+
+    // Which layouts have their layer list open (cinnabar777's suggestion on
+    // #63): every sub-layout of a layout, a row each, right on this screen the
+    // way the panel layouts are. Collapsed by default — thirteen rows a layout
+    // would bury the list — and remembered across rotation, not across visits.
+    var expandedLayouts by rememberSaveable { mutableStateOf(setOf<String>()) }
+    fun toggleLayers(id: String) {
+        expandedLayouts = if (id in expandedLayouts) expandedLayouts - id else expandedLayouts + id
     }
 
     fun duplicateAndEdit(base: LayoutSpec) {
@@ -655,8 +671,13 @@ internal fun KeyLayoutsScreen(
                         onDuplicate = { duplicateAndEdit(layout) },
                         onDelete = { confirmDelete = layout },
                         deleteIsReset = false,
+                        expanded = layout.id in expandedLayouts,
+                        onToggleLayers = { toggleLayers(layout.id) },
                     )
                 }
+            }
+            if (layout.id in expandedLayouts) {
+                item { LayerRows(layout) { key -> openEditor(layout.id, key) } }
             }
         }
     }
@@ -740,8 +761,13 @@ internal fun KeyLayoutsScreen(
                                 null
                             },
                             deleteIsReset = true,
+                            expanded = layout.id in expandedLayouts,
+                            onToggleLayers = { toggleLayers(layout.id) },
                         )
                     }
+                }
+                if (layout.id in expandedLayouts) {
+                    item { LayerRows(layout) { key -> openEditor(layout.id, key) } }
                 }
             }
         }
@@ -941,6 +967,9 @@ private fun LayoutRow(
     onDuplicate: () -> Unit,
     onDelete: (() -> Unit)?,
     deleteIsReset: Boolean,
+    /** Whether the layer list under this row is open; null for a layout with one grid. */
+    expanded: Boolean? = null,
+    onToggleLayers: () -> Unit = {},
 ) {
     val resources = LocalContext.current.resources
     WmRow(
@@ -948,6 +977,18 @@ private fun LayoutRow(
         subtitle = layoutSummary(resources, layout, enabled),
         trailing = {
             Row {
+                if (expanded != null) {
+                    IconButton(onClick = onToggleLayers) {
+                        Icon(
+                            if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                            contentDescription = stringResource(
+                                if (expanded) R.string.layout_editor_layers_collapse_desc
+                                else R.string.layout_editor_layers_expand_desc,
+                                layout.name,
+                            ),
+                        )
+                    }
+                }
                 IconButton(onClick = onExport) {
                     Icon(
                         Icons.Outlined.Share,
@@ -977,6 +1018,60 @@ private fun LayoutRow(
             }
         },
         onClick = onEdit,
+    )
+}
+
+/**
+ * The layers of one layout, as rows under it in the gallery: the nine typing
+ * layers, then every panel. A pencil marks a layer this layout has authored;
+ * the rest say Standard, which is the shipped grid (or, for a panel, the shared
+ * panel layout). Tapping a row opens the editor on that tab.
+ */
+@Composable
+private fun LayerRows(layout: LayoutSpec, onOpen: (String) -> Unit) {
+    Column {
+        for (layer in LayoutLayer.entries) {
+            LayerRow(
+                title = stringResource(layerTitleRes(layer)),
+                authored = layout.layer(layer) != null,
+                onClick = { onOpen(layer.key) },
+            )
+        }
+        for (kind in PanelKind.entries.filter { it.shipped }) {
+            LayerRow(
+                title = stringResource(panelTitleRes(kind)),
+                authored = layout.panelLayer(kind) != null,
+                onClick = { onOpen(kind.layerKey) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun LayerRow(title: String, authored: Boolean, onClick: () -> Unit) {
+    WmRow(
+        title = title,
+        modifier = Modifier.padding(start = 24.dp),
+        subtitle = stringResource(
+            if (authored) R.string.panel_layout_value_custom else R.string.panel_layout_value_default,
+        ),
+        leading = {
+            Icon(
+                Icons.Outlined.Edit,
+                contentDescription = if (authored) {
+                    stringResource(R.string.layout_editor_customised_desc)
+                } else {
+                    null
+                },
+                modifier = Modifier.size(18.dp),
+                tint = if (authored) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                },
+            )
+        },
+        onClick = onClick,
     )
 }
 
@@ -1114,6 +1209,11 @@ internal fun KeyLayoutEditorScreen(
     repository: SettingsRepository,
     settings: KeyboardSettings,
     layoutId: String,
+    /**
+     * The tab to open on: a typing layer's key or a panel's `layerKey`, from a
+     * row of the gallery's layer list. Null or unknown opens on the letters.
+     */
+    initialLayer: String? = null,
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -1131,13 +1231,17 @@ internal fun KeyLayoutEditorScreen(
     // A secondary layout (issue #62) is one grid: no language, no layer chips,
     // no tablet widening, and it is never "on" — a key or the toolbar shows it.
     val secondary = layout.secondary
-    var layer by rememberSaveable(layoutId) { mutableStateOf(LayoutLayer.LETTERS) }
+    var layer by rememberSaveable(layoutId) {
+        mutableStateOf(LayoutLayer.entries.firstOrNull { it.key == initialLayer } ?: LayoutLayer.LETTERS)
+    }
     var selection by remember(layoutId, layer) { mutableStateOf<KeyRef?>(null) }
     // Issue #63, the per-layout half: the four panels are tabs of this editor
     // too. A panel tab set aside the typing layer; the grid, its selection and
     // its sheet are then the panel's, edited into this layout's own copy of
     // the panel grid over the user's shared one.
-    var panelTab by rememberSaveable(layoutId) { mutableStateOf<PanelKind?>(null) }
+    var panelTab by rememberSaveable(layoutId) {
+        mutableStateOf(initialLayer?.let { panelKindForLayerKey(it) }?.takeIf { it.shipped })
+    }
     var panelSelection by remember(layoutId, panelTab) { mutableStateOf<KeyRef?>(null) }
     var panelSheetOpen by remember(layoutId, panelTab) { mutableStateOf(false) }
     val customPanels by repository.customPanelLayouts.collectAsStateWithLifecycle(emptyList())
