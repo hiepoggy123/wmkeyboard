@@ -17,6 +17,8 @@ class ThemeSpecLayoutOverridesTest {
         name = "Wide",
         toolWidthDp = 56,
         toolbarHeightDp = 52,
+        popupHeightDp = 120,
+        popupFloatingHeightDp = 60,
         keyHeightDp = 54,
         keyGapScale = 0.6f,
         sidePadScale = 0.1f,
@@ -33,6 +35,9 @@ class ThemeSpecLayoutOverridesTest {
         assertNotNull(decoded)
         assertEquals(56, decoded?.toolWidthDp)
         assertEquals(52, decoded?.toolbarHeightDp)
+        // One height per bubble style (#87): both have to come back.
+        assertEquals(120, decoded?.popupHeightDp)
+        assertEquals(60, decoded?.popupFloatingHeightDp)
         assertEquals(54, decoded?.keyHeightDp)
         assertEquals(0.6f, decoded!!.keyGapScale!!, 0f)
         assertEquals(0.1f, decoded.sidePadScale!!, 0f)
@@ -52,6 +57,8 @@ class ThemeSpecLayoutOverridesTest {
         assertNotNull(decoded)
         assertNull(decoded?.toolWidthDp)
         assertNull(decoded?.toolbarHeightDp)
+        assertNull(decoded?.popupHeightDp)
+        assertNull(decoded?.popupFloatingHeightDp)
         assertNull(decoded?.keyHeightDp)
         assertNull(decoded?.keyGapScale)
         assertNull(decoded?.sidePadScale)
@@ -79,6 +86,8 @@ class ThemeSpecLayoutOverridesTest {
         val reseeded = overridden().reseeded(0xFF4C8DF6, dark = true)
         assertEquals(56, reseeded.toolWidthDp)
         assertEquals(52, reseeded.toolbarHeightDp)
+        assertEquals(120, reseeded.popupHeightDp)
+        assertEquals(60, reseeded.popupFloatingHeightDp)
         assertEquals(54, reseeded.keyHeightDp)
         assertEquals(0.6f, reseeded.keyGapScale!!, 0f)
         assertEquals(0.1f, reseeded.sidePadScale!!, 0f)

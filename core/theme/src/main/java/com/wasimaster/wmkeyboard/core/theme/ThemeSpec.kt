@@ -346,11 +346,16 @@ data class ThemeSpec(
     val toolWidthDp: Int? = null,
     val toolbarHeightDp: Int? = null,
     /**
-     * Height of the key-preview bubble, in dp. Null follows the global slider,
-     * which keeps a separate value for the on-key and the floating bubble; the
-     * override applies to whichever of the two is switched on.
+     * Height of the key-preview bubble in its on-key style, in dp; null follows
+     * the global slider's own on-key value. One field per style, the way the
+     * setting itself is stored: an on-key bubble is measured from the bottom
+     * of the key it covers and a floating one from above the key, so a single
+     * height seeded while the bubble floated (65 dp) handed the on-key bubble
+     * a height under the key's own and hid it under the finger (#87).
      */
     val popupHeightDp: Int? = null,
+    /** The floating style's bubble height, in dp; see [popupHeightDp]. */
+    val popupFloatingHeightDp: Int? = null,
     val keyHeightDp: Int? = null,
     val keyGapScale: Float? = null,
     /**

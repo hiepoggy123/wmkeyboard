@@ -141,6 +141,7 @@ import com.wasimaster.wmkeyboard.core.settings.DefaultThemesPanelBuiltIns
 import com.wasimaster.wmkeyboard.core.theme.DecalSpec
 import com.wasimaster.wmkeyboard.core.theme.KeyEffectKind
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
+import com.wasimaster.wmkeyboard.core.theme.popupOnKeyOrNull
 import com.wasimaster.wmkeyboard.core.theme.EFFECT_DURATION_RANGE
 import com.wasimaster.wmkeyboard.core.theme.EFFECT_GRAVITY_RANGE
 import com.wasimaster.wmkeyboard.core.theme.EFFECT_SIZE_RANGE
@@ -3136,7 +3137,12 @@ fun ThemeEditorScreen(
                                     t.copy(
                                         toolWidthDp = settings.toolbarBehavior.toolWidthDp,
                                         toolbarHeightDp = settings.toolbarHeightDp,
-                                        popupHeightDp = settings.popup.heightDp,
+                                        // Both styles' heights, not the one the
+                                        // setting is in: a single seed handed the
+                                        // floating height to the on-key bubble
+                                        // the moment the style flipped (#87).
+                                        popupHeightDp = settings.popup.onKeyHeightDp,
+                                        popupFloatingHeightDp = settings.popup.floatingHeightDp,
                                         keyHeightDp = settings.keyHeightDp,
                                         keyGapScale = settings.keyGapScale,
                                         sidePadScale = settings.layoutBehavior.sidePadLeftScale
@@ -3156,6 +3162,7 @@ fun ThemeEditorScreen(
                                         toolWidthDp = null,
                                         toolbarHeightDp = null,
                                         popupHeightDp = null,
+                                        popupFloatingHeightDp = null,
                                         keyHeightDp = null,
                                         keyGapScale = null,
                                         sidePadScale = null,
@@ -3193,16 +3200,28 @@ fun ThemeEditorScreen(
                 ) { update { t -> t.copy(toolbarHeightDp = it.toInt()) } }
             }
             if (settings.popup.enabled) item {
-                // One height for whichever bubble style is on, the way the
-                // setting itself works: the global slider keeps a separate
-                // value for the on-key and the floating bubble, and the
-                // override lands on the one the user is looking at.
+                // The height of the style in force for this theme — its own
+                // placement, else the global one — the way the global slider
+                // shows one style's value at a time. Each style keeps its own
+                // field, so a height dialled in while the bubble floated is
+                // never what the on-key bubble is drawn at (#87).
+                val onKey = popupOnKeyOrNull(theme.popupPlacement) ?: settings.popup.onKey
+                val height = (if (onKey) theme.popupHeightDp else theme.popupFloatingHeightDp)
+                    ?: settings.popup.heightFor(onKey)
                 SliderRow(
                     stringResource(R.string.theme_popup_height_title),
-                    value = (theme.popupHeightDp ?: settings.popup.heightDp).toFloat(),
+                    value = height.toFloat(),
                     range = 32f..160f,
                     display = { "${it.toInt()} dp" },
-                ) { update { t -> t.copy(popupHeightDp = it.toInt()) } }
+                ) { value ->
+                    update { t ->
+                        if (onKey) {
+                            t.copy(popupHeightDp = value.toInt())
+                        } else {
+                            t.copy(popupFloatingHeightDp = value.toInt())
+                        }
+                    }
+                }
             }
             item {
                 SliderRow(

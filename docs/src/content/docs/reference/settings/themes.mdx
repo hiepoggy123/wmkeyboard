@@ -280,7 +280,7 @@ Off by default, so a theme follows the three global sliders: two under Appearanc
 | Layout for this theme | Toggle | On / Off | Off |
 | Tool background width *(on)* | Slider | 38–64dp | your current global value |
 | Toolbar height *(on)* | Slider | 32–80dp | your current global value |
-| Popup height *(on)* | Slider | 32–160dp | your current global value |
+| Popup height *(on)* | Slider | 32–160dp | your current global value, one per bubble style |
 | Key height *(on)* | Slider | 32–100dp | your current global value |
 | Key gap *(on)* | Slider | 0–2× | your current global value |
 | Left padding *(on)* | Slider | 0–30% | your current global value |
@@ -293,7 +293,7 @@ Off by default, so a theme follows the three global sliders: two under Appearanc
 
 A second opt-in group, off by default. One switch seeds every value in the group from your current global settings, and turning it off clears them all again. A theme either carries its own sizes or carries none of them. Screen-specific sizes from Layout settings (folded, unfolded, landscape) still win over a theme's own.
 
-Popup height is the height of the key-preview bubble. The global slider keeps one value for the on-key bubble and another for the floating one. The theme's override applies to whichever style is switched on.
+Popup height is the height of the key-preview bubble. The global slider keeps one value for the on-key bubble and another for the floating one, and the theme stores the same pair, seeded from both global values at once. The slider shows the height of the style the theme is drawing: its own placement if it sets one under Popups, otherwise the global **Popup on key** switch. A drag changes that style's height only.
 
 ### Animation
 

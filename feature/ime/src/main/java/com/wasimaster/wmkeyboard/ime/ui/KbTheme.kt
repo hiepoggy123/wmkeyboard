@@ -587,6 +587,15 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
     val secondary = stripText.copy(alpha = 0.65f)
     val toolActive = spec.toolCircleActiveBackground?.let(::colorOf) ?: pressed
     val chipActive = spec.chipActiveBackground?.let(::colorOf) ?: toolActive
+    // The bubble style in force — the theme's own placement, else the
+    // setting's — and its height: the theme's for that style where it sets
+    // one, else the setting's own value for that style. Never the setting's
+    // "current" height, which belongs to whichever style the *setting* is in;
+    // a theme pinning the other placement would size its bubble by it (#87).
+    val popupOnKey = popupOnKeyOrNull(spec.popupPlacement)
+    val popupStyleOnKey = popupOnKey ?: settings.popup.onKey
+    val popupHeightDp = (if (popupStyleOnKey) spec.popupHeightDp else spec.popupFloatingHeightDp)
+        ?: settings.popup.heightFor(popupStyleOnKey)
     return KbTheme(
         dark = spec.dark,
         board = board,
@@ -648,7 +657,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         popup = spec.popupBackground?.let(::colorOf)
             ?: blendOver(keyText, board, if (spec.dark) 0.20f else 0.06f),
         popupText = spec.popupText?.let(::colorOf) ?: keyText,
-        popupOnKey = popupOnKeyOrNull(spec.popupPlacement),
+        popupOnKey = popupOnKey,
         popupBorder = spec.popupBorderColor?.let(::colorOf),
         popupBorderWidthDp = spec.popupBorderWidthDp,
         popupTexture = spec.popupTexture,
@@ -675,7 +684,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         popupShapeKind = keyShapeKindOrNull(spec.popupShape) ?: settings.popup.shape,
         menuShapeKind = keyShapeKindOrNull(spec.menuShape)
             ?: safeContainerKind(keyShapeKindOrNull(spec.popupShape) ?: settings.popup.shape),
-        popupHeightDp = spec.popupHeightDp ?: settings.popup.heightDp,
+        popupHeightDp = popupHeightDp,
         toolRadiusDp = spec.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
         toolShapeKind = keyShapeKindOrNull(spec.toolShape) ?: settings.toolShape,
         chipRadiusDp = spec.chipCornerRadiusDp ?: DEFAULT_CHIP_RADIUS_DP,

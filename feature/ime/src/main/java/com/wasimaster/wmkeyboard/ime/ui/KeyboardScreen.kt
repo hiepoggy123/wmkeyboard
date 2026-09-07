@@ -10371,11 +10371,21 @@ internal fun KeyPreviewOverlay(
     val floatGap = if (onKeyStyle) KeyPopupGap else popup.floatingOffsetYDp.dp
     val gapPx = with(density) { floatGap.roundToPx() }
     val offsetXPx = with(density) { popup.floatingOffsetXDp.dp.roundToPx() }
-    // Room above the grid for a floating bubble over the top row: its own height
-    // plus the distance it keeps from the key. Reads the same distance the
-    // bubble is placed by, or a bubble pushed further up would be clipped by
-    // the window that is meant to contain it.
-    val headroomPx = with(density) { (bubbleHeightDp.dp + floatGap + KeyPopupGap).roundToPx() }
+    val bubbleHeightPx = with(density) { bubbleHeightDp.dp.roundToPx() }
+    // The room an on-key label needs above the finger: its padding and its
+    // line. An on-key bubble is floored at its key plus this
+    // ([onKeyBubbleHeightPx]), so no height setting can sink it under the key.
+    val onKeyLabelLanePx = with(density) {
+        (OnKeyLabelTopPadding + OnKeyLabelBottomPadding).roundToPx() +
+            (OnKeyLabelSp * popup.fontScale * LabelLineHeightRatio).sp.roundToPx()
+    }
+    // Room above the grid for a bubble over the top row: its own height plus
+    // the distance it keeps from the key. Reads the same distance the bubble
+    // is placed by, or a bubble pushed further up would be clipped by the
+    // window that is meant to contain it. A floored on-key bubble rises past
+    // its key by at most the lane, hence the second term.
+    val headroomPx = maxOf(bubbleHeightPx, if (onKeyStyle) onKeyLabelLanePx else 0) +
+        gapPx + with(density) { KeyPopupGap.roundToPx() }
     val bubbles = state.shown.toList()
     Popup(
         popupPositionProvider = remember(headroomPx) { GridOverlayPositionProvider(headroomPx) },
@@ -10390,7 +10400,14 @@ internal fun KeyPreviewOverlay(
             // into its slot.
             content = {
                 for (preview in bubbles) {
-                    key(preview.token) { KeyPreviewBubble(preview, popup, onKeyStyle) }
+                    key(preview.token) {
+                        val heightPx = if (onKeyStyle) {
+                            onKeyBubbleHeightPx(bubbleHeightPx, preview.size.height, onKeyLabelLanePx)
+                        } else {
+                            bubbleHeightPx
+                        }
+                        KeyPreviewBubble(preview, popup, onKeyStyle, heightPx)
+                    }
                 }
             },
         ) { measurables, constraints ->
@@ -10431,10 +10448,16 @@ internal fun KeyPreviewOverlay(
 /**
  * One preview bubble. In on-key mode it is key-wide with a large label near the
  * top, clear of the finger (the stock-keyboard style where the bubble replaces
- * the key); otherwise it floats above the fingertip.
+ * the key); otherwise it floats above the fingertip. [heightPx] is the
+ * overlay's answer, floored for an on-key bubble — see [onKeyBubbleHeightPx].
  */
 @Composable
-private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKeyStyle: Boolean) {
+private fun KeyPreviewBubble(
+    preview: KeyPreview,
+    popup: KeyPopupSettings,
+    onKeyStyle: Boolean,
+    heightPx: Int,
+) {
     val kb = LocalKbTheme.current
     val density = LocalDensity.current
     val shape = kb.popupShape()
@@ -10448,7 +10471,7 @@ private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKey
     ) {
         Box(
             modifier = Modifier
-                .height(kb.popupHeightDp.dp)
+                .height(with(density) { heightPx.toDp() })
                 .widthIn(
                     min = if (onKeyStyle) with(density) { preview.size.width.toDp() } + 8.dp else 0.dp,
                 )
@@ -10458,8 +10481,8 @@ private fun KeyPreviewBubble(preview: KeyPreview, popup: KeyPopupSettings, onKey
         ) {
             Text(
                 text = preview.label,
-                modifier = if (onKeyStyle) Modifier.padding(top = 8.dp) else Modifier,
-                fontSize = ((if (onKeyStyle) 34 else 22) * popup.fontScale).sp,
+                modifier = if (onKeyStyle) Modifier.padding(top = OnKeyLabelTopPadding) else Modifier,
+                fontSize = ((if (onKeyStyle) OnKeyLabelSp else FloatingLabelSp) * popup.fontScale).sp,
                 color = preview.popupText
                     ?: popup.textColor?.let { Color(it.toInt()) }
                     ?: kb.popupText,
@@ -12743,6 +12766,20 @@ private class AboveAnchorPopupPositionProvider(
  * bubble is clipped.
  */
 private val KeyPopupGap = 10.dp
+
+/**
+ * The preview bubble's label: its size in each style, and in the on-key style
+ * the padding above and below it. The overlay floors an on-key bubble at its
+ * key plus this lane ([onKeyBubbleHeightPx]), so the label and the bubble have
+ * to agree on the numbers.
+ */
+private const val OnKeyLabelSp = 34f
+private const val FloatingLabelSp = 22f
+private val OnKeyLabelTopPadding = 8.dp
+private val OnKeyLabelBottomPadding = 4.dp
+
+/** A text line's height over its font size, for the fonts the bubble draws in. */
+private const val LabelLineHeightRatio = 1.2f
 
 @Composable
 private fun rememberAboveAnchorPopup(): PopupPositionProvider {

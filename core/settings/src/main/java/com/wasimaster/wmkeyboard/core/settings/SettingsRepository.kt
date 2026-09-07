@@ -275,17 +275,20 @@ data class KeyPopupSettings(
     val onKey: Boolean = true,
     val fontScale: Float = 1.0f,
     /**
-     * Height of the bubble in the mode that [onKey] selects. The two styles want
+     * Height of the bubble in the mode that [onKey] selects — [onKeyHeightDp]
+     * or [floatingHeightDp], resolved by the repository so a reader that wants
+     * "the bubble's height right now" has it in one field. The two styles want
      * very different numbers — an on-key bubble is measured from the bottom of
      * the key it covers, so most of its height is spent climbing back out from
      * under the finger, while a floating bubble already starts above the key and
-     * only has to hold one character. The repository resolves this field from a
-     * separate stored key per mode ([floatingHeightDp] is the default for the
-     * floating one), so each style keeps its own tuned value and a slider drag
-     * in one mode does not resize the other.
+     * only has to hold one character. Each style keeps its own stored value, so
+     * a slider drag in one mode does not resize the other; [heightFor] reads
+     * either one, for the callers that size a style the setting is not in.
      */
     val heightDp: Int = 110,
-    /** Default [heightDp] when [onKey] is off; see there. */
+    /** The on-key bubble's stored height, whichever style is on; see [heightDp]. */
+    val onKeyHeightDp: Int = 110,
+    /** The floating bubble's stored height, whichever style is on; see [heightDp]. */
     val floatingHeightDp: Int = 65,
     /**
      * How far above the key a floating bubble sits, when [onKey] is off.
@@ -395,7 +398,14 @@ data class KeyPopupSettings(
      * leaves and a second tap picks an entry.
      */
     val alternatesHoldToSelect: Boolean = true,
-)
+) {
+    /**
+     * The stored height of one style, on or off: what [heightDp] is for [onKey],
+     * for a caller sizing a style the setting is not currently in (a theme that
+     * pins its own placement).
+     */
+    fun heightFor(onKey: Boolean): Int = if (onKey) onKeyHeightDp else floatingHeightDp
+}
 
 /**
  * Hold-to-repeat cadence, per key.
@@ -8616,6 +8626,8 @@ class SettingsRepository(private val context: Context) {
      */
     private fun popupFromPrefs(p: Preferences, defaults: KeyboardSettings): KeyPopupSettings {
         val onKey = p[KEY_POPUP_ON_KEY] ?: defaults.popup.onKey
+        val onKeyHeightDp = p[KEY_POPUP_HEIGHT] ?: defaults.popup.onKeyHeightDp
+        val floatingHeightDp = p[KEY_POPUP_FLOATING_HEIGHT] ?: defaults.popup.floatingHeightDp
         return KeyPopupSettings(
             enabled = p[KEY_POPUP] ?: defaults.popup.enabled,
             minDurationMs = p[KEY_POPUP_MIN_DURATION] ?: defaults.popup.minDurationMs,
@@ -8623,11 +8635,9 @@ class SettingsRepository(private val context: Context) {
             onKey = onKey,
             inNumericFields = p[KEY_POPUP_IN_NUMERIC] ?: defaults.popup.inNumericFields,
             fontScale = p[POPUP_FONT_SCALE] ?: defaults.popup.fontScale,
-            heightDp = if (onKey) {
-                p[KEY_POPUP_HEIGHT] ?: defaults.popup.heightDp
-            } else {
-                p[KEY_POPUP_FLOATING_HEIGHT] ?: defaults.popup.floatingHeightDp
-            },
+            heightDp = if (onKey) onKeyHeightDp else floatingHeightDp,
+            onKeyHeightDp = onKeyHeightDp,
+            floatingHeightDp = floatingHeightDp,
             floatingOffsetYDp = p[KEY_POPUP_OFFSET_Y] ?: defaults.popup.floatingOffsetYDp,
             floatingOffsetXDp = p[KEY_POPUP_OFFSET_X] ?: defaults.popup.floatingOffsetXDp,
             backgroundColor = p[KEY_POPUP_BACKGROUND] ?: defaults.popup.backgroundColor,
