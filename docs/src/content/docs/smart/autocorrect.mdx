@@ -129,6 +129,12 @@ Whenever the keyboard types a space for you rather than you typing it, a mark ty
 
 The straight double quote is the one mark that has to look at what came before it, because it is both ends of a quotation. The keyboard counts the quotes already on the line: an even count means this one opens, so the space in front of it stays, and an odd count means it closes, so the space goes. `he said "hello"` comes out right either way. The apostrophe is left out of this on purpose, since it is a letter inside a word and counting it would say nothing.
 
+Getting to the mark does not spend the space. A colon and a slash live on the symbols page, so reaching either one means pressing `?123` first, and that press changes only what is drawn. The same goes for shift, the Fn and number pages, and the globe key. Any key that puts text in the field does spend it, panels included, because what comes out of a panel is text like any other.
+
+### A glided word joins an opening bracket
+
+Glide typing types a space in front of each word as well as after it, so two swiped words do not run together. That space is skipped when the character in front of it is one the word belongs against: an opening bracket, an opening quote, or the start of the line. `he said "` then a glided "hello" gives `he said "hello`. The double quote is read the same way as above, by counting the quotes on the line, so a closing quote still gets its space. In a web address field there is no leading space at all, since an address has no spaces in it.
+
 ## Reducing typos before they happen
 
 Autopilot nudges which key a *borderline* tap resolves to, biasing toward whichever neighboring letter is more likely to continue the word you're typing. Fewer boundary mis-taps happen in the first place, before autocorrect would ever need to fix them. It has its own screen under the Suggestions settings group rather than sitting alongside autocorrect, since it needs suggestions on to have anything to bias toward. Its Strength slider sets how far a favoured letter reaches, and two optional views draw the touch areas it has claimed. See [Suggestions & prediction](/smart/suggestions/) for the rest of how the suggestion engine ranks candidates.
