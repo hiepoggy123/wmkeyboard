@@ -885,15 +885,6 @@ internal fun KeyPressHapticsSettings(
             }
             item {
                 ToggleSetting(
-                    R.string.keypress_sound_repeat_title,
-                    stringResource(R.string.keypress_sound_repeat_subtitle),
-                    settings.feedback.soundOnRepeat,
-                    info = stringResource(R.string.keypress_sound_repeat_info),
-                    default = SettingsDefaults.feedback.soundOnRepeat,
-                ) { scope.launch { repository.setSoundOnRepeat(it) } }
-            }
-            item {
-                ToggleSetting(
                     R.string.keypress_system_touch_title,
                     stringResource(R.string.keypress_system_touch_subtitle),
                     settings.feedback.respectSystemTouchFeedback,
@@ -910,6 +901,19 @@ internal fun KeyPressHapticsSettings(
                     default = SettingsDefaults.feedback.hapticsRespectDnd,
                 ) { scope.launch { repository.setHapticsRespectDnd(it) } }
             }
+        }
+        // A click on each repeat is a sound, not a buzz: it belongs to the key
+        // sound switch, which is where it was drawn from until this was fixed.
+        // It sat under the haptics master, so it was both shown while it could
+        // not be heard and hidden while it could.
+        if (settings.keySound) item {
+            ToggleSetting(
+                R.string.keypress_sound_repeat_title,
+                stringResource(R.string.keypress_sound_repeat_subtitle),
+                settings.feedback.soundOnRepeat,
+                info = stringResource(R.string.keypress_sound_repeat_info),
+                default = SettingsDefaults.feedback.soundOnRepeat,
+            ) { scope.launch { repository.setSoundOnRepeat(it) } }
         }
     }
     KeySoundGroup(repository, settings, onNavigate)
@@ -978,7 +982,11 @@ internal fun KeyPressPopupSettings(
                 ) { scope.launch { repository.setKeyPopupMaxDurationMs(it.toInt()) } }
             }
         }
-        item {
+        // These stop at the preview bubble, and no bubble is published while
+        // the switch at the top of the group is off. The font size below is
+        // not among them: the flick popup and the spacebar language tooltip
+        // read it too.
+        if (settings.popup.enabled) item {
             ToggleSetting(
                 R.string.keypress_popup_on_key_title,
                 stringResource(R.string.keypress_popup_on_key_subtitle),
@@ -998,7 +1006,7 @@ internal fun KeyPressPopupSettings(
                 default = SettingsDefaults.popup.fontScale,
             ) { scope.launch { repository.setPopupFontScale(it) } }
         }
-        item {
+        if (settings.popup.enabled) item {
             SliderSetting(
                 R.string.keypress_popup_height_title,
                 subtitle = stringResource(R.string.keypress_popup_height_subtitle),
@@ -1012,7 +1020,7 @@ internal fun KeyPressPopupSettings(
         // Only the floating bubble is placed by these. The on-key one grows out
         // of the key it covers, so there is no distance to set: its height is
         // what carries it past the finger, and that slider is above.
-        if (!settings.popup.onKey) {
+        if (settings.popup.enabled && !settings.popup.onKey) {
             item {
                 SliderSetting(
                     R.string.keypress_popup_offset_y_title,
@@ -1063,7 +1071,7 @@ internal fun KeyPressPopupSettings(
         // popup colour. Seeded from the settings app's own surface, which is
         // only where the wheel opens — the keyboard's palette cannot be read
         // here without repainting this screen in it.
-        item {
+        if (settings.popup.enabled) item {
             ColorSetting(
                 R.string.keypress_popup_background_title,
                 subtitle = stringResource(R.string.keypress_popup_background_subtitle),
@@ -1072,7 +1080,7 @@ internal fun KeyPressPopupSettings(
                 info = stringResource(R.string.keypress_popup_background_info),
             ) { scope.launch { repository.setKeyPopupBackgroundColor(it) } }
         }
-        item {
+        if (settings.popup.enabled) item {
             ColorSetting(
                 R.string.keypress_popup_text_color_title,
                 subtitle = stringResource(R.string.keypress_popup_text_color_subtitle),
