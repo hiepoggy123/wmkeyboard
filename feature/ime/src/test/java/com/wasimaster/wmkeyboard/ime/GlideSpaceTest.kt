@@ -200,6 +200,32 @@ class GlideSpaceTest {
     }
 
     @Test
+    fun `a glided word joins a mark that is joined to the word before it`() {
+        // The reported case: `The/` then a glided "And" is `The/And`.
+        assertFalse(spacesBeforeGlidedWord("The/"))
+        for (joiner in listOf("/", "\\", "#", "&", "=", "@", "-", "_", "+", "~")) {
+            assertFalse(joiner, spacesBeforeGlidedWord("well$joiner"))
+        }
+    }
+
+    @Test
+    fun `a glided word is spaced from a mark standing on its own`() {
+        // "hello - world" is a sentence; the space in front of the dash is what
+        // says so, where "well-known" has none.
+        assertTrue(spacesBeforeGlidedWord("hello -"))
+        assertTrue(spacesBeforeGlidedWord("option A /"))
+    }
+
+    @Test
+    fun `a joiner with nothing at all in front of it takes no space`() {
+        // Nothing to be separated from, and nothing it is attached to either.
+        assertFalse(spacesBeforeGlidedWord("/"))
+        // A line break in front of it reads as a mark standing on its own,
+        // which is what a markdown heading is.
+        assertTrue(spacesBeforeGlidedWord("hello\n#"))
+    }
+
+    @Test
     fun `a url field never spaces a glided word`() {
         // An address has no spaces in it at all.
         assertFalse(spacesBeforeGlidedWord("example.", FieldKind.URI))

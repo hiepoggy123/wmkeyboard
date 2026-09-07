@@ -69,19 +69,34 @@ private val URI_AUTO_SPACE_SWALLOWERS =
 private val WORD_OPENERS = charArrayOf('(', '[', '{', '“', '‘', '«', '¿', '¡')
 
 /**
+ * Marks that hold two words together rather than standing between them, so a
+ * glided word landing on one joins it: `The/` then a glided "And" is `The/And`,
+ * not `The/ And` (issue #34).
+ *
+ * Unlike an opener, one of these only joins when it is itself attached to the
+ * word behind it. The same dash spells `well-known` and `hello - world`, and
+ * the space in front of it is what tells the two apart: a mark with a word up
+ * against it is building one long word, and a mark with a space in front of it
+ * is standing on its own between two.
+ */
+private val WORD_JOINERS = charArrayOf('/', '\\', '#', '&', '=', '@', '-', '_', '+', '~')
+
+/**
  * Whether a glided word landing at the end of [textBefore] earns the space a
  * glide types in front of it.
  *
- * No, in four cases: there is nothing to be separated from, the text already
- * ends in a space of its own, it ends in an opener the word belongs against, or
- * it ends in a double quote that opened a quotation rather than closing one.
+ * No, in five cases: there is nothing to be separated from, the text already
+ * ends in a space of its own, it ends in an opener the word belongs against, it
+ * ends in a double quote that opened a quotation rather than closing one, or it
+ * ends in a [WORD_JOINERS] mark that is itself joined to the word behind it.
  *
  * A URL field never earns one at all. An address has no spaces in it, so a word
  * glided into the middle of one joins whatever it lands on, whether that is a
  * dot, a slash or the tail of the host name.
  *
- * [textBefore] is the text in front of the caret, and only its last character
- * decides the answer except for the quote, which is counted over the line.
+ * [textBefore] is the text in front of the caret. Only its last character
+ * decides the answer, bar the quote, which is counted over the line, and a
+ * joiner, which also asks what is in front of it.
  */
 internal fun spacesBeforeGlidedWord(
     textBefore: String,
@@ -94,6 +109,12 @@ internal fun spacesBeforeGlidedWord(
     // The quote behind the caret opened a quotation exactly when a quote typed
     // now would close it, so the word goes straight up against it.
     if (last in AMBIGUOUS_QUOTES) return !closesQuote(textBefore, last)
+    if (last in WORD_JOINERS) {
+        // A joiner at the very start of the line has no word to be attached to,
+        // and nothing to be separated from either.
+        val beforeJoiner = textBefore.dropLast(1).lastOrNull() ?: return false
+        return beforeJoiner.isWhitespace()
+    }
     return true
 }
 
