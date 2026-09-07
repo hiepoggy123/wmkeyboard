@@ -67,6 +67,8 @@
 
     <string name="plugins_detail_enabled_title">Turned on</string>
     <string name="plugins_detail_enabled_subtitle">Show this plugin in the Plugins panel</string>
+    <!-- Subtitle of the same row while the "Allow plugins" master switch is off, which stops every plugin from running. -->
+    <string name="plugins_detail_subsystem_off_subtitle">No plugin runs while “Allow plugins” is off, under Tools then Plugins</string>
     <!-- Subtitle of the same row when the app turned the plugin off by itself. -->
     <string name="plugins_detail_stopped_subtitle">The app turned this plugin off because it stopped responding two times</string>
 

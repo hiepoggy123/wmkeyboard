@@ -267,17 +267,25 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
             )
         }
         item {
+            // This screen is a deep-link route of its own, so it can be
+            // reached while the "Allow plugins" master switch is off — and
+            // with it off nothing here runs. Greyed rather than gone: it is
+            // the page's only state control, and a page with no switch at all
+            // would say less than a switch that says why it cannot be moved.
+            val subsystemOn = remember(revision) { store.subsystemEnabled() }
             WmRow(
                 title = stringResource(R.string.plugins_detail_enabled_title),
-                subtitle = if (plugin.abandonedCount >= PluginStore.MAX_ABANDONS) {
-                    stringResource(R.string.plugins_detail_stopped_subtitle)
-                } else {
-                    stringResource(R.string.plugins_detail_enabled_subtitle)
+                subtitle = when {
+                    !subsystemOn -> stringResource(R.string.plugins_detail_subsystem_off_subtitle)
+                    plugin.abandonedCount >= PluginStore.MAX_ABANDONS ->
+                        stringResource(R.string.plugins_detail_stopped_subtitle)
+                    else -> stringResource(R.string.plugins_detail_enabled_subtitle)
                 },
                 trailing = {
                     Switch(
                         checked = plugin.enabled,
                         onCheckedChange = { store.setEnabled(pluginId, it) },
+                        enabled = subsystemOn,
                     )
                 },
             )
