@@ -111,6 +111,14 @@ fun validatePanelLayout(spec: PanelLayoutSpec): List<LayoutFinding> {
             LayoutMessage(R.string.core_lang_panel_no_letters_warning),
         )
     }
+    // Issue #60 on a panel: a panel that outlives the keyboard closing is left
+    // only by a key, a tool or Back, so say so for as long as the flag is on.
+    if (spec.grid.persistent) {
+        findings += LayoutFinding(
+            LayoutSeverity.WARNING,
+            LayoutMessage(R.string.core_lang_layout_persistent_warning, args = listOf(label)),
+        )
+    }
 
     // The shape rules every grid shares, with the panel's name where a typing
     // layout would name the layer.

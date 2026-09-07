@@ -3560,7 +3560,10 @@ open class WMKeyboardService : InputMethodService() {
                 // Harmless reset: the strip persists the pick on tap, so the
                 // persisted style takes over seamlessly on the next field.
                 activeFancyStyleId = null,
-                panel = PanelMode.NONE,
+                // A panel dies with the field — unless its layout says to keep
+                // it open (issue #60, the same switch a key layer has), in
+                // which case it stays until a key, a tool or Back closes it.
+                panel = if (panelLayoutPersists(it)) it.panel else PanelMode.NONE,
                 // A fresh field starts on the letter layer; a restart of the
                 // same field keeps whatever layer the user was on. So does a
                 // layer its author marked persistent (issue #60): that one
@@ -6867,6 +6870,8 @@ open class WMKeyboardService : InputMethodService() {
                 secondaryLayoutId = id,
                 fnLocked = false,
                 fnReturn = null,
+                // The picker's job is done the moment it has picked.
+                panel = if (it.panel == PanelMode.CUSTOM_LAYOUTS) PanelMode.NONE else it.panel,
             )
         }
     }
@@ -6878,23 +6883,46 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * The Custom layout tool: puts the configured secondary layout on screen
-     * (the first one, until the tool's page picks another) and takes it off
-     * again. "Off" covers a secondary layout a key opened as well — the tool is
-     * lit whenever one is up, and a lit toggle has to be the way down.
+     * Whether the panel on screen is a panel layout whose grid asked to stay
+     * open across a change of field (issue #60). Only the four panels that
+     * *are* layouts can; every other panel is chrome the field owns.
+     */
+    private fun panelLayoutPersists(state: KeyboardUiState): Boolean {
+        val kind = when (state.panel) {
+            PanelMode.EMOJI -> PanelKind.EMOJI
+            PanelMode.CLIPBOARD -> PanelKind.CLIPBOARD
+            PanelMode.TEXT_EDIT -> PanelKind.TEXT_EDIT
+            PanelMode.TRACKPAD -> PanelKind.TRACKPAD
+            else -> return false
+        }
+        return state.panelLayouts[kind]?.grid?.persistent == true
+    }
+
+    /**
+     * The Custom layout tool. A secondary layout up, however it got there, is
+     * taken down: the tool is lit whenever one is showing, and a lit toggle has
+     * to be the way down. Otherwise it shows the layout pinned on the tool's
+     * page, or the only one there is — and with several and nothing pinned it
+     * opens a picker of them (issue #62's follow-up: one tool tied to one grid
+     * meant re-pinning the tool for every other grid).
      */
     private fun onCustomLayoutToggle() {
-        vibrate()
         val state = _uiState.value
         val grids = state.layouts.secondaries
         if (grids.isEmpty()) return
         if (state.layoutMode == LayoutMode.SECONDARY) {
+            vibrate()
             closeSecondaryLayout()
             return
         }
-        val id = state.settings.layoutBehavior.customLayoutToolId?.takeIf { it in grids }
-            ?: grids.keys.first()
-        openSecondaryLayout(id)
+        val pinned = state.settings.layoutBehavior.customLayoutToolId?.takeIf { it in grids }
+        val id = pinned ?: grids.keys.singleOrNull()
+        if (id != null) {
+            vibrate()
+            openSecondaryLayout(id)
+        } else {
+            onPanelChange(PanelMode.CUSTOM_LAYOUTS)
+        }
     }
 
     /**

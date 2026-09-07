@@ -364,6 +364,13 @@ enum class PanelMode {
 
     /** The CJK candidate grid: the strip's overflow, opened from its chevron. */
     CANDIDATES,
+
+    /**
+     * The Custom layout tool's picker: one button per secondary layout, shown
+     * when the user has several and has not pinned one to the tool (issue
+     * #62). A tap opens that layout and closes this.
+     */
+    CUSTOM_LAYOUTS,
 }
 
 /**
@@ -522,7 +529,7 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     // pointer-only and its three rare chips are not worth a ring over ink, and
     // TRACKPAD is a pointing surface and nothing else.
     PanelMode.NONE, PanelMode.TEXT_EDIT, PanelMode.TRACKPAD, PanelMode.COMPASS, PanelMode.LEVEL,
-    PanelMode.MOON_PHASE, PanelMode.NUMPAD, PanelMode.HANDWRITING,
+    PanelMode.MOON_PHASE, PanelMode.NUMPAD, PanelMode.HANDWRITING, PanelMode.CUSTOM_LAYOUTS,
     -> emptyList()
 }
 

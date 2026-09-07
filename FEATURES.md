@@ -644,6 +644,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - From scratch — A new one is three rows of blank keys plus an ABC key; validate and repair skip the delete/space/enter guarantees for it
   - Persistent layers `RARE` — LayerSpec.persistent keeps a symbols, Fn or secondary grid up across a close and reopen of the keyboard and across fields (#60)
     - One switch per layer — No global "persist if…" settings; the editor's toggle carries the "make sure you have a way to exit" warning and the Problems list repeats it
+    - Panels too — The same LayerSpec.persistent on a panel layout's grid keeps the text-edit, emoji, clipboard or trackpad panel open across fields
   - A theme per layout and per layer `RARE` — LayoutSpec.themeId / LayerSpec.themeId, picked from every built-in and custom theme in the editor; layer beats layout beats mode beats settings (#61)
     - A view, not a write — applyLayoutTheme overlays keyboardThemeId and switches the auto pair off for as long as the grid shows; the user's own choice is untouched
     - Missing theme is ignored — A layout shared with a theme this device lacks keeps the pairing and draws normally
@@ -1688,7 +1689,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Enables the fancy layout on demand — Adds AssetLayouts.FANCY_ID to enabled layouts and remembers the return layout
     - Pinned style applies to the session only — Never overwrites the style the strip last chose
   - Custom layout `RARE` — Shows one of your secondary layouts over the letters and takes it off again
-    - Which layout is a setting — Defaults to the first secondary layout; the tool is hidden until one exists
+    - Picker when there are several — PanelMode.CUSTOM_LAYOUTS lists them by name; "Layout to show" pins one to skip it; the tool is hidden until one exists
   - Incognito `uncommon` — Pauses learning and clipboard capture with one tap
     - Field-requested incognito is explained — Toast instead of a switch that looks stuck on
   - Sound & haptics `RARE` — Panel of key-feedback switches and style chips

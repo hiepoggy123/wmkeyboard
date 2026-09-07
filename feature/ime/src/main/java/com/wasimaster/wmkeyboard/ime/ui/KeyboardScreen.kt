@@ -5314,7 +5314,8 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.FANCY -> state.language.id == FancyStyles.LANG_ID
     // Lit while any secondary layout is up, whether this tool or a key put it
     // there: the tool takes it down either way.
-    ToolbarTool.CUSTOM_LAYOUT -> state.layoutMode == LayoutMode.SECONDARY
+    ToolbarTool.CUSTOM_LAYOUT ->
+        state.layoutMode == LayoutMode.SECONDARY || state.panel == PanelMode.CUSTOM_LAYOUTS
     // Lit while a caret move would extend the selection, however that was
     // asked for: this tool, a hold on it, or the panel's own Select key. The
     // tool is the only indicator the mode has outside that panel, so it reads
@@ -8125,6 +8126,7 @@ private fun KeyboardBody(
                         .height(keyRowsHeight(state)),
                 ) { LevelPanel(state) }
                 PanelMode.MOON_PHASE -> MoonPhasePanel(state)
+                PanelMode.CUSTOM_LAYOUTS -> CustomLayoutPanel(state, onKey)
                 PanelMode.WEATHER -> WeatherPanel(
                     state = state,
                     onRefresh = onWeatherRefresh,

@@ -39,6 +39,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.verticalScroll
@@ -141,6 +142,7 @@ import com.wasimaster.wmkeyboard.ime.WeatherUi
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
+import com.wasimaster.wmkeyboard.core.layout.secondaryLayouts
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -599,6 +601,47 @@ internal fun LevelPanel(state: KeyboardUiState) {
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 4.dp),
             )
+        }
+    }
+}
+
+// ---- custom layouts ----
+
+/**
+ * The Custom layout tool's picker (issue #62): one button per secondary
+ * layout, by name. A tap goes through the ordinary key dispatch as an "open a
+ * layout" key — the service opens the grid and closes this panel — so the
+ * panel needs no callback of its own.
+ */
+@Composable
+internal fun CustomLayoutPanel(
+    state: KeyboardUiState,
+    onKey: (Key) -> Unit,
+) {
+    val height = keyRowsHeight(state)
+    val feedback = LocalKeyPressFeedback.current
+    val layouts = remember(state.settings.customLayouts, state.layouts) {
+        secondaryLayouts(state.settings.customLayouts).filter { it.id in state.layouts.secondaries }
+    }
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(minSize = 120.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(height)
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+    ) {
+        items(layouts.size, key = { layouts[it].id }) { index ->
+            val layout = layouts[index]
+            ToolPanelKey(
+                description = layout.name,
+                label = layout.name,
+                modifier = Modifier
+                    .height(48.dp)
+                    .padding(2.dp),
+            ) {
+                feedback()
+                onKey(Key(layout.name, action = KeyAction.Layout(layout.id)))
+            }
         }
     }
 }

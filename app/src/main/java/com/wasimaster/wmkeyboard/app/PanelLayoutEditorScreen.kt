@@ -439,6 +439,16 @@ internal fun PanelLayoutEditorScreen(
             ) { actualSize = it }
         }
         item {
+            // Issue #60's switch, on a panel: the same field on the same
+            // LayerSpec the key layers carry, so it needs no second model.
+            ToggleSetting(
+                R.string.layout_editor_persist_title,
+                stringResource(R.string.panel_layout_persist_subtitle),
+                spec.grid.persistent,
+                info = stringResource(R.string.panel_layout_persist_info),
+            ) { on -> editGrid { it.copy(persistent = on) } }
+        }
+        item {
             LayoutFontScaleRow(
                 scale = spec.grid.fontScale,
                 title = stringResource(R.string.layout_editor_font_scale_label, spec.grid.fontScale ?: 1f),

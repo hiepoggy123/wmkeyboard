@@ -269,9 +269,9 @@
 
     <!-- Custom layout tool. -->
     <string name="tooldetail_custom_layout_layout_title">Layout to show</string>
-    <string name="tooldetail_custom_layout_layout_subtitle">The secondary layout the tool puts on screen</string>
-    <string name="tooldetail_custom_layout_layout_info">The tool shows this layout over the letters, and takes it off again on the next press. A key on any layout can open the other secondary layouts.</string>
-    <string name="tooldetail_custom_layout_first">First secondary layout</string>
+    <string name="tooldetail_custom_layout_layout_subtitle">The secondary layout the tool puts on screen, or a list to select from</string>
+    <string name="tooldetail_custom_layout_layout_info">With no layout selected here, the tool opens a list of all your secondary layouts, or the only one you have. Select a layout and the tool shows that one directly. A press while a secondary layout is on screen always takes it off again. A key on any layout can also open a secondary layout.</string>
+    <string name="tooldetail_custom_layout_first">Ask each time</string>
     <string name="tooldetail_custom_layout_keymaps_nav_title">Key layouts</string>
     <string name="tooldetail_custom_layout_keymaps_nav_subtitle">Make and edit secondary layouts</string>
     <string name="tooldetail_custom_layout_info">A secondary layout is a grid of your own, such as a symbols page or a macro pad. It is not a language. It keeps the dictionary of the layout you type with.</string>
