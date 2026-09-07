@@ -301,6 +301,8 @@ import com.wasimaster.wmkeyboard.core.script.mapDigits
 import com.wasimaster.wmkeyboard.core.script.resolveNumeralDigits
 import com.wasimaster.wmkeyboard.core.settings.BackspaceSwipeUnit
 import com.wasimaster.wmkeyboard.core.settings.BarRow
+import com.wasimaster.wmkeyboard.core.settings.barRowsAboveKeys
+import com.wasimaster.wmkeyboard.core.settings.barRowsBelowKeys
 import com.wasimaster.wmkeyboard.core.selection.SelectionMacro
 import com.wasimaster.wmkeyboard.core.settings.SelectionMacroPlacement
 import com.wasimaster.wmkeyboard.core.settings.LatinAccents
@@ -8129,7 +8131,10 @@ private fun KeyboardBody(
             // The Fancy Text style strip is a row like the others, but its
             // visibility follows the active layout rather than a setting.
             val fancyStyle = fancyStyleFor(state)
-            for (row in state.settings.barOrder) {
+            // One row of the stack. A local composable so the two halves of the
+            // order — above the keys and below them — draw through one `when`.
+            @Composable
+            fun BarRowSlot(row: BarRow) {
                 when (row) {
                     BarRow.TOPBAR -> when {
                         !topBarVisible -> {}
@@ -8253,8 +8258,16 @@ private fun KeyboardBody(
                             ToolsRow(state, onPanelChange, onToolTap, drag)
                         }
                     }
+                    // Stands for the keys themselves: the split below draws
+                    // them, so the entry itself is never a row.
+                    BarRow.KEYBOARD -> {}
                 }
             }
+            // The keys sit where the KEYBOARD entry does (issue #83): the rows
+            // before it stack above the keys, the rows after it go below — after
+            // every key-row branch at the bottom of this column.
+            val barOrder = state.settings.barOrder
+            for (row in barRowsAboveKeys(barOrder)) BarRowSlot(row)
             // Deliberately NOT animated. A fade here was tried and reverted:
             // an alpha on this subtree covers the key rows as well as the
             // panels, so every panel close briefly rendered a translucent
@@ -8989,6 +9002,11 @@ private fun KeyboardBody(
                 }
                 KeyRows(state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect)
             }
+            // The rows the user put under the keys. Every row's own gate
+            // (full-bleed, lock screen, its setting) applies here exactly as
+            // above, so a panel that absorbs the rows' height absorbs these
+            // too and the keyboard never changes height.
+            for (row in barRowsBelowKeys(barOrder)) BarRowSlot(row)
         }
         drag.dragging?.let { tool ->
             val kb = LocalKbTheme.current

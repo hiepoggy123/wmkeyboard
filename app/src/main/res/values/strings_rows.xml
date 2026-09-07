@@ -112,17 +112,16 @@
          =================================================================== -->
 
     <string name="rows_bar_topbar_title">Suggestions and toolbar</string>
+    <!-- The entry that stands for the keys themselves in the row order. -->
+    <string name="rows_bar_keyboard_title">Keyboard</string>
     <string name="rows_bar_emoji_title">Emoji row</string>
     <string name="rows_bar_fancy_title">Fancy text styles</string>
     <string name="rows_bar_tools_title">Tools row</string>
-    <string name="rows_bar_tools_strip_subtitle">Off. The tools share the suggestion strip; change \"Where the tools go\" under Appearance</string>
+    <string name="rows_bar_tools_strip_subtitle">Off. Change \"Where the tools go\" under Appearance</string>
     <string name="rows_bar_tools_button_subtitle">Behind the arrow button on the suggestion strip</string>
-    <string name="rows_bar_tools_always_subtitle">Own row</string>
     <string name="rows_bar_fancy_off_subtitle">Shown while Fancy text is on</string>
-    <string name="rows_bar_topbar_subtitle">Always shown</string>
     <string name="rows_bar_emoji_off_subtitle">Off. Turn it on in Emoji settings</string>
     <string name="rows_bar_emoji_button_subtitle">Behind a toolbar button</string>
-    <string name="rows_bar_emoji_always_subtitle">Own row</string>
 
     <string name="rows_symbol_row_title">Symbol row</string>
     <string name="rows_symbol_row_subtitle">A row of special characters and snippets above the keys</string>
@@ -149,7 +148,7 @@
     <string name="rows_dictionary_bar_info">The bar lists every dictionary on the device: each language\'s word list, its emoji keywords, and every word list that you imported. A coloured chip is on; tap it to turn that dictionary off, and tap again to turn it back on. The chip at the left edge of the bar filters the row to one language, or shows all of them. The same switches live on each language\'s own settings screen.</string>
 
     <string name="rows_row_order_title">Row order</string>
-    <string name="rows_row_order_caption">The rows stack from top to bottom in this order. A hidden row keeps its slot.</string>
+    <string name="rows_row_order_caption">The rows stack from top to bottom in this order. Rows above Keyboard sit over the keys, rows below it sit under them. A hidden row keeps its slot.</string>
     <string name="rows_move_up_desc">Move up</string>
     <string name="rows_move_down_desc">Move down</string>
 

@@ -5,13 +5,15 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * The rows stacked above the keys, in top-to-bottom order. [TOPBAR] is the
- * suggestion/toolbar strip and is always present; the emoji and symbol rows
- * only render when their settings turn them on, [FANCY] (the Fancy Text
- * style strip) only while the fancy layout is active, [TOOLS] (the tools
- * on a row of their own) only under an own-row `ToolbarPlacement`, and
- * [DICTIONARY] (the dictionary bar, issue #51) when `RowSettings` turns it
- * on — but every row keeps its slot in the order either way.
+ * The rows stacked around the keys, in top-to-bottom order, with [KEYBOARD]
+ * standing for the keys themselves: rows before it draw above the keys, rows
+ * after it draw below (issue #83). [TOPBAR] is the suggestion/toolbar strip;
+ * the emoji and symbol rows only render when their settings turn them on,
+ * [FANCY] (the Fancy Text style strip) only while the fancy layout is active,
+ * [TOOLS] (the tools on a row of their own) only under an own-row
+ * `ToolbarPlacement`, and [DICTIONARY] (the dictionary bar, issue #51) when
+ * `RowSettings` turns it on — but every row keeps its slot in the order
+ * either way.
  *
  * [MACROS] (the selection macros, off by default) is the one row that follows
  * neither a setting alone nor the layout: it appears only while there is a
@@ -21,7 +23,7 @@ import kotlinx.serialization.json.Json
  * [sanitizeBarOrder] fills the gap, so a build that predates a constant
  * still decodes an order written by a newer one.
  */
-enum class BarRow { TOPBAR, EMOJI, SYMBOL, FANCY, TOOLS, DICTIONARY, MACROS }
+enum class BarRow { TOPBAR, EMOJI, SYMBOL, FANCY, TOOLS, DICTIONARY, MACROS, KEYBOARD }
 
 /**
  * The shipped stacking: emoji on top because it is reached for most, the
@@ -31,10 +33,14 @@ enum class BarRow { TOPBAR, EMOJI, SYMBOL, FANCY, TOOLS, DICTIONARY, MACROS }
  * The macro row goes directly above the strip, under the tools: it is the row
  * that comes and goes with a selection, so it belongs where it pushes the
  * fewest fixed rows around when it arrives.
+ *
+ * The keys come last, so every row sits above them — which is also where
+ * [sanitizeBarOrder] puts the keys for an order stored before they were an
+ * entry, keeping that user's keyboard exactly as it was.
  */
 val DefaultBarOrder: List<BarRow> = listOf(
     BarRow.EMOJI, BarRow.TOOLS, BarRow.MACROS, BarRow.TOPBAR, BarRow.SYMBOL,
-    BarRow.DICTIONARY, BarRow.FANCY,
+    BarRow.DICTIONARY, BarRow.FANCY, BarRow.KEYBOARD,
 )
 
 /**
@@ -54,6 +60,22 @@ fun sanitizeBarOrder(rows: List<BarRow>): List<BarRow> {
         if (anchor < 0) out.add(missing) else out.add(anchor, missing)
     }
     return out
+}
+
+/**
+ * The rows that draw above the keys: everything before [BarRow.KEYBOARD].
+ * An order with no keyboard entry (never after [sanitizeBarOrder], but the
+ * split must not depend on it) puts every row above, as it always did.
+ */
+fun barRowsAboveKeys(order: List<BarRow>): List<BarRow> {
+    val keys = order.indexOf(BarRow.KEYBOARD)
+    return if (keys < 0) order else order.subList(0, keys)
+}
+
+/** The rows that draw below the keys: everything after [BarRow.KEYBOARD]. */
+fun barRowsBelowKeys(order: List<BarRow>): List<BarRow> {
+    val keys = order.indexOf(BarRow.KEYBOARD)
+    return if (keys < 0) emptyList() else order.subList(keys + 1, order.size)
 }
 
 /**

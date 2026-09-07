@@ -252,7 +252,7 @@ class KeyboardModeTest {
         assertEquals(
             listOf(
                 BarRow.EMOJI, BarRow.TOOLS, BarRow.MACROS, BarRow.TOPBAR, BarRow.SYMBOL,
-                BarRow.DICTIONARY, BarRow.FANCY,
+                BarRow.DICTIONARY, BarRow.FANCY, BarRow.KEYBOARD,
             ),
             sanitizeBarOrder(listOf(BarRow.EMOJI, BarRow.EMOJI, BarRow.TOPBAR)),
         )
@@ -260,17 +260,34 @@ class KeyboardModeTest {
         // An order stored before the fancy, tools and macros rows existed: the
         // fancy row is appended, nearest the keys, and the tools and macros
         // rows land just over the strip — where tools always drew — rather
-        // than at the bottom.
+        // than at the bottom. The keys come last, so nothing moves below them.
         assertEquals(
             listOf(
                 BarRow.TOOLS, BarRow.MACROS, BarRow.TOPBAR, BarRow.EMOJI, BarRow.SYMBOL,
-                BarRow.DICTIONARY, BarRow.FANCY,
+                BarRow.DICTIONARY, BarRow.FANCY, BarRow.KEYBOARD,
             ),
             sanitizeBarOrder(listOf(BarRow.TOPBAR, BarRow.EMOJI, BarRow.SYMBOL)),
         )
         // A stored order is never reshuffled, only filled in.
         val reversed = DefaultBarOrder.reversed()
         assertEquals(reversed, sanitizeBarOrder(reversed))
+    }
+
+    @Test
+    fun `bar order splits around the keys`() {
+        val order = listOf(BarRow.TOPBAR, BarRow.EMOJI, BarRow.KEYBOARD, BarRow.TOOLS, BarRow.SYMBOL)
+        assertEquals(listOf(BarRow.TOPBAR, BarRow.EMOJI), barRowsAboveKeys(order))
+        assertEquals(listOf(BarRow.TOOLS, BarRow.SYMBOL), barRowsBelowKeys(order))
+        // Keys first: everything is below them.
+        assertEquals(emptyList<BarRow>(), barRowsAboveKeys(listOf(BarRow.KEYBOARD, BarRow.TOPBAR)))
+        assertEquals(listOf(BarRow.TOPBAR), barRowsBelowKeys(listOf(BarRow.KEYBOARD, BarRow.TOPBAR)))
+        // The default puts every row above the keys, as before the entry existed.
+        assertEquals(DefaultBarOrder.dropLast(1), barRowsAboveKeys(DefaultBarOrder))
+        assertEquals(emptyList<BarRow>(), barRowsBelowKeys(DefaultBarOrder))
+        // No keyboard entry at all: nothing goes below.
+        val noKeys = listOf(BarRow.TOPBAR, BarRow.EMOJI)
+        assertEquals(noKeys, barRowsAboveKeys(noKeys))
+        assertEquals(emptyList<BarRow>(), barRowsBelowKeys(noKeys))
     }
 
     @Test
