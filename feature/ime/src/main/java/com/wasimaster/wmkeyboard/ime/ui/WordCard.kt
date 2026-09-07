@@ -1,0 +1,385 @@
+package com.wasimaster.wmkeyboard.ime.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Contacts
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.HourglassEmpty
+import androidx.compose.material.icons.outlined.LibraryAdd
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
+import com.wasimaster.wmkeyboard.core.prediction.WordFacts
+import com.wasimaster.wmkeyboard.core.prediction.WordRanks
+import com.wasimaster.wmkeyboard.core.settings.RankControl
+import com.wasimaster.wmkeyboard.ime.R
+import com.wasimaster.wmkeyboard.ime.WordCard
+import com.wasimaster.wmkeyboard.ime.WordCardAction
+import java.text.NumberFormat
+
+/**
+ * The word card (#99): where a suggested word comes from, its place in the
+ * lists that have it, a control over its rank, and the actions the held-word
+ * menu offers, all in one place.
+ *
+ * Rendered as a [Popup] over the whole keyboard window with a scrim, like
+ * [FavouritesReorderPopup] — the keyboard cannot raise a Compose Dialog,
+ * which needs a window token the IME does not hand out. The scrim is also
+ * what keeps the keys under it from typing while the card is up.
+ *
+ * The rank control edits a working copy and hands the result over on Done,
+ * so ten presses of a stepper are one lexicon rebuild rather than ten. The
+ * actions apply at once; the service refreshes [card] after each, which is
+ * how a deleted word's row disappears and a never-suggested word's button
+ * turns into "suggest again".
+ */
+@Composable
+internal fun WordCardPopup(card: WordCard, onAction: (WordCardAction) -> Unit) {
+    val kb = LocalKbTheme.current
+    // The working values of the rank control, reset when the service hands
+    // over a refreshed card (a delete resets the weight to 0, say).
+    var weight by remember(card.word, card.learnedCount) { mutableIntStateOf(card.learnedCount) }
+    var offset by remember(card.word, card.rankOffset) { mutableIntStateOf(card.rankOffset) }
+    val done = {
+        when (card.rankControl) {
+            RankControl.LEARNED_WEIGHT ->
+                if (weight != card.learnedCount) onAction(WordCardAction.SetLearnedWeight(weight))
+            RankControl.RANK_OFFSET ->
+                if (offset != card.rankOffset) onAction(WordCardAction.SetOffset(offset))
+        }
+        onAction(WordCardAction.Dismiss)
+    }
+    val dismiss = { onAction(WordCardAction.Dismiss) }
+
+    Popup(onDismissRequest = dismiss) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.5f))
+                .pointerInput(Unit) { detectTapGestures { dismiss() } },
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                shape = kb.menuShape(),
+                color = kb.popup,
+                border = kb.popupSurfaceBorder(),
+                shadowElevation = elevationFor(kb.menuShapeKind, 8.dp),
+                modifier = Modifier
+                    .padding(12.dp)
+                    .fillMaxWidth(0.94f)
+                    .fillMaxHeight(0.94f)
+                    // Taps inside the card must not reach the scrim.
+                    .pointerInput(Unit) { detectTapGestures { } },
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = card.word,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = kb.popupText,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = dismiss, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                Icons.Outlined.Close,
+                                contentDescription = stringResource(R.string.ime_word_card_close_desc),
+                                tint = kb.popupText,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        SectionTitle(stringResource(R.string.ime_word_card_sources_title), kb.popupText)
+                        WordSources(card, kb.popupText)
+                        Spacer(Modifier.size(8.dp))
+                        when (card.rankControl) {
+                            RankControl.LEARNED_WEIGHT -> {
+                                SectionTitle(stringResource(R.string.ime_word_card_weight_title), kb.popupText)
+                                Stepper(
+                                    value = if (weight == 0) {
+                                        stringResource(R.string.ime_word_card_weight_none)
+                                    } else {
+                                        NumberFormat.getIntegerInstance().format(weight)
+                                    },
+                                    canLower = weight > 0,
+                                    canRaise = weight < UserLexicon.MAX_COUNT,
+                                    onLower = { weight = (weight - weightStep(weight - 1)).coerceAtLeast(0) },
+                                    onRaise = {
+                                        weight = (weight + weightStep(weight)).coerceAtMost(UserLexicon.MAX_COUNT)
+                                    },
+                                    color = kb.popupText,
+                                )
+                                Hint(stringResource(R.string.ime_word_card_weight_hint), kb.popupText)
+                            }
+                            RankControl.RANK_OFFSET -> {
+                                SectionTitle(stringResource(R.string.ime_word_card_offset_title), kb.popupText)
+                                Stepper(
+                                    value = if (offset == 0) {
+                                        stringResource(R.string.ime_word_card_offset_normal)
+                                    } else {
+                                        stringResource(R.string.ime_word_card_offset_value, offset)
+                                    },
+                                    canLower = offset > WordRanks.MIN_STEPS,
+                                    canRaise = offset < WordRanks.MAX_STEPS,
+                                    onLower = { offset-- },
+                                    onRaise = { offset++ },
+                                    color = kb.popupText,
+                                )
+                                Hint(stringResource(R.string.ime_word_card_offset_hint), kb.popupText)
+                            }
+                        }
+                    }
+                    Actions(card, onAction, done)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One press of the weight stepper: a single count under 10, a tenth of the
+ * next power of ten above it — the personal dictionary screen's ladder, so
+ * the two controls agree on what one press does.
+ */
+private fun weightStep(weight: Int): Int = when {
+    weight < 10 -> 1
+    weight < 100 -> 10
+    weight < 1_000 -> 100
+    weight < 10_000 -> 1_000
+    weight < 100_000 -> 10_000
+    else -> 100_000
+}
+
+@Composable
+private fun SectionTitle(text: String, color: Color) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = color.copy(alpha = 0.7f),
+        modifier = Modifier.padding(top = 6.dp, bottom = 2.dp),
+    )
+}
+
+@Composable
+private fun Hint(text: String, color: Color) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        color = color.copy(alpha = 0.7f),
+        modifier = Modifier.padding(top = 2.dp),
+    )
+}
+
+/** The list of places the word was found, one row each; or why there are none. */
+@Composable
+private fun WordSources(card: WordCard, color: Color) {
+    val facts = card.facts
+    if (facts == null) {
+        SourceRow(Icons.Outlined.HourglassEmpty, stringResource(R.string.ime_word_card_loading), color)
+        return
+    }
+    val numbers = remember { NumberFormat.getIntegerInstance() }
+    facts.learned?.let { learned ->
+        val lines = mutableListOf(
+            if (learned.count >= ADDED_BY_HAND_COUNT) {
+                stringResource(R.string.ime_word_card_learned_added)
+            } else {
+                pluralStringResource(R.plurals.ime_word_card_learned_seen, learned.count, learned.count)
+            },
+        )
+        learned.langId?.takeIf { it.isNotBlank() }?.let { id ->
+            lines += stringResource(R.string.ime_word_card_learned_language, card.packLabels[id] ?: id)
+        }
+        if (learned.casePinned) lines += stringResource(R.string.ime_word_card_case_pinned)
+        SourceRow(Icons.Outlined.Person, lines.joinToString(" · "), color)
+    }
+    if (facts.pendingSightings > 0) {
+        SourceRow(
+            Icons.Outlined.HourglassEmpty,
+            pluralStringResource(R.plurals.ime_word_card_pending, facts.pendingSightings, facts.pendingSightings),
+            color,
+        )
+    }
+    for (pack in listOfNotNull(facts.primary) + facts.secondary) {
+        val name = card.packLabels[pack.langId] ?: pack.langId
+        val text = buildString {
+            append(stringResource(R.string.ime_word_card_pack, name))
+            if (pack.rank > 0 && pack.vocabularySize > 0) {
+                append(" · ")
+                append(
+                    stringResource(
+                        R.string.ime_word_card_pack_rank,
+                        numbers.format(pack.rank),
+                        numbers.format(pack.vocabularySize),
+                    ),
+                )
+            }
+        }
+        SourceRow(Icons.AutoMirrored.Outlined.MenuBook, text, color)
+    }
+    if (facts.customFrequency > 0) {
+        SourceRow(Icons.Outlined.Description, stringResource(R.string.ime_word_card_custom), color)
+    }
+    if (facts.system) {
+        SourceRow(Icons.Outlined.PhoneAndroid, stringResource(R.string.ime_word_card_system), color)
+    }
+    if (facts.contact) SourceRow(Icons.Outlined.Contacts, stringResource(R.string.ime_word_card_contact), color)
+    if (facts.app) SourceRow(Icons.Outlined.Apps, stringResource(R.string.ime_word_card_app), color)
+    if (card.blacklisted) {
+        SourceRow(Icons.Outlined.VisibilityOff, stringResource(R.string.ime_word_card_blacklisted), color)
+    }
+    if (facts.unknown && facts.pendingSightings == 0 && !card.blacklisted) {
+        SourceRow(Icons.Outlined.HelpOutline, stringResource(R.string.ime_word_card_unknown), color)
+    }
+}
+
+@Composable
+private fun SourceRow(icon: ImageVector, text: String, color: Color) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = color.copy(alpha = 0.8f), modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(10.dp))
+        Text(text = text, style = MaterialTheme.typography.bodyMedium, color = color)
+    }
+}
+
+/** A −/+ pair around the value they change. */
+@Composable
+private fun Stepper(
+    value: String,
+    canLower: Boolean,
+    canRaise: Boolean,
+    onLower: () -> Unit,
+    onRaise: () -> Unit,
+    color: Color,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        IconButton(onClick = onLower, enabled = canLower) {
+            Icon(
+                Icons.Outlined.Remove,
+                contentDescription = stringResource(R.string.ime_word_card_step_down_desc),
+                tint = color.copy(alpha = if (canLower) 1f else 0.35f),
+            )
+        }
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium,
+            color = color,
+            modifier = Modifier.weight(1f),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+        IconButton(onClick = onRaise, enabled = canRaise) {
+            Icon(
+                Icons.Outlined.Add,
+                contentDescription = stringResource(R.string.ime_word_card_step_up_desc),
+                tint = color.copy(alpha = if (canRaise) 1f else 0.35f),
+            )
+        }
+    }
+}
+
+/** The menu's actions again, plus Done. Each applies at once except Done. */
+@Composable
+private fun Actions(card: WordCard, onAction: (WordCardAction) -> Unit, done: () -> Unit) {
+    val facts = card.facts
+    val deletable = facts != null &&
+        (facts.learned != null || facts.system || facts.pendingSightings > 0 || facts.rankOffset != 0)
+    Column(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            card.typed?.let { typed ->
+                ActionButton(Icons.Outlined.LibraryAdd, stringResource(R.string.ime_word_menu_add, typed)) {
+                    onAction(WordCardAction.Add)
+                }
+            }
+            if (deletable) {
+                ActionButton(Icons.Outlined.Delete, stringResource(CommonR.string.common_delete)) {
+                    onAction(WordCardAction.Delete)
+                }
+            }
+            if (card.blacklisted) {
+                ActionButton(Icons.Outlined.Visibility, stringResource(R.string.ime_word_menu_allow_again, card.word)) {
+                    onAction(WordCardAction.AllowAgain)
+                }
+            } else {
+                ActionButton(
+                    Icons.Outlined.VisibilityOff,
+                    stringResource(R.string.ime_suggestion_never_suggest, card.word),
+                ) { onAction(WordCardAction.NeverSuggest) }
+            }
+        }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = done) { Text(stringResource(CommonR.string.common_done)) }
+        }
+    }
+}
+
+@Composable
+private fun ActionButton(icon: ImageVector, label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(label, maxLines = 1)
+    }
+}
+
+/** [UserLexicon.addWord]'s default boost: at or past it, a word reads as added by hand. */
+private const val ADDED_BY_HAND_COUNT = 200

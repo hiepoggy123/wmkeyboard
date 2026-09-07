@@ -126,6 +126,9 @@ import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -379,6 +382,9 @@ import com.wasimaster.wmkeyboard.ime.SnippetOfferKind
 import com.wasimaster.wmkeyboard.ime.SnippetOfferSet
 import com.wasimaster.wmkeyboard.ime.SnippetPickerUi
 import com.wasimaster.wmkeyboard.ime.StripOfferAction
+import com.wasimaster.wmkeyboard.ime.WordMenuAction
+import com.wasimaster.wmkeyboard.ime.WordMenuFacts
+import com.wasimaster.wmkeyboard.core.settings.WordMenuItem
 import com.wasimaster.wmkeyboard.ime.PluginPanelUi
 import com.wasimaster.wmkeyboard.ime.ModifierState
 import com.wasimaster.wmkeyboard.ime.authoredNumberRow
@@ -826,12 +832,13 @@ fun KeyboardScreen(
     deleteSwipe: DeleteSwipeCallbacks = DeleteSwipeCallbacks(),
     onSuggestion: (String) -> Unit,
     /**
-     * A word on the strip was held rather than tapped: the user is asking
-     * for it never to be suggested again (#28). One callback and no menu
-     * state up here: the menu is the strip's own business, and this call
-     * chain is already against the 64K method ceiling.
+     * A word on the strip was held rather than tapped (#28, #99). One bundle
+     * and no menu state up here: the menu is the strip's own business, and
+     * this call chain is already against the 64K method ceiling — which is
+     * why the hold's five actions arrive as [SuggestionHoldCallbacks] rather
+     * than as parameters.
      */
-    onSuggestionHold: (String) -> Unit = {},
+    suggestionHold: SuggestionHoldCallbacks = SuggestionHoldCallbacks(),
     onJoinSuggestion: () -> Unit = {},
     onRevisionSuggestion: () -> Unit = {},
     /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
@@ -1182,7 +1189,7 @@ fun KeyboardScreen(
                 onCursorMove = onCursorMove,
                 onLayoutSelect = onLayoutSelect,
                 onSuggestion = onSuggestion,
-                onSuggestionHold = onSuggestionHold,
+                suggestionHold = suggestionHold,
                 onJoinSuggestion = onJoinSuggestion,
                 onRevisionSuggestion = onRevisionSuggestion,
                 onCandidate = onCandidate,
@@ -2189,12 +2196,13 @@ private fun TopBar(
     onToolsRowToggle: () -> Unit = {},
     onSuggestion: (String) -> Unit,
     /**
-     * A word on the strip was held rather than tapped: the user is asking
-     * for it never to be suggested again (#28). One callback and no menu
-     * state up here: the menu is the strip's own business, and this call
-     * chain is already against the 64K method ceiling.
+     * A word on the strip was held rather than tapped (#28, #99). One bundle
+     * and no menu state up here: the menu is the strip's own business, and
+     * this call chain is already against the 64K method ceiling — which is
+     * why the hold's five actions arrive as [SuggestionHoldCallbacks] rather
+     * than as parameters.
      */
-    onSuggestionHold: (String) -> Unit = {},
+    suggestionHold: SuggestionHoldCallbacks = SuggestionHoldCallbacks(),
     onJoinSuggestion: () -> Unit = {},
     onRevisionSuggestion: () -> Unit = {},
     /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
@@ -3194,8 +3202,15 @@ private fun TopBar(
                     // against a faded word would commit something else.
                     hints = if (suggestionsShowing) suggestionHintPlan(state) else null,
                     onSuggestion = onSuggestion,
-                    onSuggestionHold = onSuggestionHold,
+                    suggestionHold = suggestionHold,
+                    menuItems = state.settings.suggestionStrip.wordMenuItems,
                 )
+                // The word card (#99) is a window over the whole keyboard, so
+                // where it is composed does not matter; it lives beside the
+                // strip that opens it.
+                state.wordCard?.let { card ->
+                    WordCardPopup(card = card, onAction = suggestionHold.onCard)
+                }
             }
             // Emoji candidates ride along after the words: typing "birthday"
             // puts 🎂 🎉 🥳 🎁 one tap away. Held set, so they fade out with
@@ -3401,13 +3416,18 @@ private fun RowScope.LatinSuggestionChips(
     /** The hotkey badges, or null when no physical keyboard is asking for them. */
     hints: HintPlan? = null,
     onSuggestion: (String) -> Unit,
-    /** A word was held: offer to stop suggesting it. */
-    onSuggestionHold: (String) -> Unit = {},
+    /** A word was held: the menu's actions and the facts that pick its items. */
+    suggestionHold: SuggestionHoldCallbacks = SuggestionHoldCallbacks(),
+    /** Which optional items the held-word menu may show (#99). */
+    menuItems: Set<WordMenuItem> = emptySet(),
 ) {
     // The word a long press is asking about, or null while no menu is up. Held
     // here rather than per slot so the menu survives the strip re-laying itself
     // out underneath it, which it does on every keystroke.
     var heldWord by remember { mutableStateOf<String?>(null) }
+    // What the service knew about that word when it was held; read once, so
+    // the menu cannot change shape under a finger.
+    var heldFacts by remember { mutableStateOf(WordMenuFacts()) }
     val holdLabel = stringResource(R.string.ime_suggestion_hold_label)
     // Candidates change under the menu as the user keeps typing; a menu still
     // naming the old word would blacklist something they never held.
@@ -3493,7 +3513,10 @@ private fun RowScope.LatinSuggestionChips(
                             // is remembered rather than acted on, because a
                             // silent unrecoverable edit off a long press is not
                             // something to do without asking.
-                            onLongClick = { heldWord = suggestion },
+                            onLongClick = {
+                                heldFacts = suggestionHold.facts(suggestion)
+                                heldWord = suggestion
+                            },
                         ) { onSuggestion(suggestion) },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -3586,18 +3609,57 @@ private fun RowScope.LatinSuggestionChips(
                 // the editor underneath.
                 properties = MenuPopupProperties,
             ) {
-                DropdownMenuItem(
-                    text = {
-                        Text(stringResource(R.string.ime_suggestion_never_suggest, held))
-                    },
-                    onClick = {
-                        heldWord = null
-                        onSuggestionHold(held)
-                    },
-                )
+                val act: (WordMenuAction) -> Unit = { action ->
+                    heldWord = null
+                    suggestionHold.onMenu(action)
+                }
+                if (WordMenuItem.NEVER_SUGGEST in menuItems) {
+                    if (heldFacts.blacklisted) {
+                        WordMenuRow(
+                            label = stringResource(R.string.ime_word_menu_allow_again, held),
+                            icon = Icons.Outlined.Visibility,
+                        ) { act(WordMenuAction.AllowAgain(held)) }
+                    } else {
+                        WordMenuRow(
+                            label = stringResource(R.string.ime_suggestion_never_suggest, held),
+                            icon = Icons.Outlined.VisibilityOff,
+                        ) { act(WordMenuAction.NeverSuggest(held)) }
+                    }
+                }
+                val typed = heldFacts.typedAddable
+                if (typed != null && WordMenuItem.ADD in menuItems) {
+                    WordMenuRow(
+                        label = stringResource(R.string.ime_word_menu_add, typed),
+                        icon = Icons.Outlined.LibraryAdd,
+                    ) { act(WordMenuAction.Add(typed)) }
+                }
+                if (heldFacts.deletable && WordMenuItem.DELETE in menuItems) {
+                    WordMenuRow(
+                        label = stringResource(R.string.ime_word_menu_delete, held),
+                        icon = Icons.Outlined.Delete,
+                    ) { act(WordMenuAction.Delete(held)) }
+                }
+                // Always offered: the card carries every action above too, so
+                // a menu trimmed to this one item still reaches all of them.
+                WordMenuRow(
+                    label = stringResource(R.string.ime_word_menu_adjust_rank),
+                    icon = Icons.Outlined.Tune,
+                ) { act(WordMenuAction.Open(held)) }
             }
         }
     }
+}
+
+/** One item of the held-word menu: an icon and a label. */
+@Composable
+private fun WordMenuRow(label: String, icon: ImageVector, onClick: () -> Unit) {
+    DropdownMenuItem(
+        text = { Text(label) },
+        leadingIcon = {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        },
+        onClick = onClick,
+    )
 }
 
 /** Divider thickness between suggestion slots; subtracted from the usable slot width. */
@@ -7926,7 +7988,7 @@ private fun KeyboardBody(
     onLayoutSelect: (String) -> Unit,
     onSuggestion: (String) -> Unit,
     /** A word on the strip was held: see [KeyboardScreen]'s own. */
-    onSuggestionHold: (String) -> Unit = {},
+    suggestionHold: SuggestionHoldCallbacks = SuggestionHoldCallbacks(),
     onJoinSuggestion: () -> Unit = {},
     onRevisionSuggestion: () -> Unit = {},
     /** A conversion candidate tapped, with its position — see Composer.consumedForIndex. */
@@ -8166,7 +8228,7 @@ private fun KeyboardBody(
                             toolsRowOpen = toolsRowOpen,
                             onToolsRowToggle = { toolsRowOpen = !toolsRowOpen },
                             onSuggestion = onSuggestion,
-                            onSuggestionHold = onSuggestionHold,
+                            suggestionHold = suggestionHold,
                             onJoinSuggestion = onJoinSuggestion,
                             onRevisionSuggestion = onRevisionSuggestion,
                             onCandidate = onCandidate,

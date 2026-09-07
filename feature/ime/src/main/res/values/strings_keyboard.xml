@@ -108,8 +108,80 @@
     <!-- Screen reader name for pressing and holding a word on the suggestion
          strip, which opens the menu below. -->
     <string name="ime_suggestion_hold_label">Word options</string>
-    <!-- The one item in that menu. %1$s is the word the user held. -->
+    <!-- An item in that menu. %1$s is the word the user held. -->
     <string name="ime_suggestion_never_suggest">Never suggest \"<xliff:g id="word" example="mary">%1$s</xliff:g>\"</string>
+    <!-- Menu item that takes a word back off the never-suggest list. %1$s is
+         the word the user held. -->
+    <string name="ime_word_menu_allow_again">Suggest \"<xliff:g id="word" example="mary">%1$s</xliff:g>\" again</string>
+    <!-- Menu item that adds the word being typed to the personal dictionary.
+         %1$s is that word, as typed. -->
+    <string name="ime_word_menu_add">Add \"<xliff:g id="word" example="Wasi">%1$s</xliff:g>\"</string>
+    <!-- Menu item that forgets a word. %1$s is the word the user held. -->
+    <string name="ime_word_menu_delete">Delete \"<xliff:g id="word" example="mary">%1$s</xliff:g>\"</string>
+    <!-- Menu item that opens the word card, where the word's rank is changed. -->
+    <string name="ime_word_menu_adjust_rank">Adjust rank…</string>
+
+    <!-- The word card: a panel over the keyboard about one suggested word. -->
+    <!-- Heading over the list of places the word was found. -->
+    <string name="ime_word_card_sources_title">Where it comes from</string>
+    <!-- Shown while the engine is still looking the word up. -->
+    <string name="ime_word_card_loading">Looking it up…</string>
+    <!-- No list, dictionary or contact has the word. -->
+    <string name="ime_word_card_unknown">No word list has this word</string>
+    <!-- The personal dictionary has it; %d is how many times it was typed. -->
+    <plurals name="ime_word_card_learned_seen">
+        <item quantity="one">Personal dictionary, typed <xliff:g id="count" example="1">%d</xliff:g> time</item>
+        <item quantity="other">Personal dictionary, typed <xliff:g id="count" example="12">%d</xliff:g> times</item>
+    </plurals>
+    <!-- The personal dictionary has it because the user added it by hand. -->
+    <string name="ime_word_card_learned_added">Personal dictionary, added by hand</string>
+    <!-- Appended to a personal-dictionary row: the language the word was last
+         typed under. %1$s is the language name. -->
+    <string name="ime_word_card_learned_language">Last typed in <xliff:g id="language" example="English">%1$s</xliff:g></string>
+    <!-- Appended to a personal-dictionary row when its capitals are pinned. -->
+    <string name="ime_word_card_case_pinned">Capitals kept as written</string>
+    <!-- The word is waiting to be learned; %d is how many times it was seen. -->
+    <plurals name="ime_word_card_pending">
+        <item quantity="one">Seen <xliff:g id="count" example="1">%d</xliff:g> time, not learned yet</item>
+        <item quantity="other">Seen <xliff:g id="count" example="2">%d</xliff:g> times, not learned yet</item>
+    </plurals>
+    <!-- A downloaded or built-in word list has it. %1$s is the list's name. -->
+    <string name="ime_word_card_pack">In the <xliff:g id="list" example="English">%1$s</xliff:g> word list</string>
+    <!-- A word list's name when the list has a variant. %1$s is the language,
+         %2$s the variant ("Portuguese (Brazil)"). -->
+    <string name="ime_word_card_pack_variant"><xliff:g id="language" example="Portuguese">%1$s</xliff:g> (<xliff:g id="variant" example="Brazil">%2$s</xliff:g>)</string>
+    <!-- The word's place in that list. %1$s is its rank, %2$s the list size,
+         both already formatted as numbers. -->
+    <string name="ime_word_card_pack_rank">#<xliff:g id="rank" example="4,512">%1$s</xliff:g> of <xliff:g id="size" example="300,000">%2$s</xliff:g></string>
+    <!-- One of the user's imported word lists has it. -->
+    <string name="ime_word_card_custom">In an imported word list</string>
+    <!-- Android's own personal dictionary has it. -->
+    <string name="ime_word_card_system">In the Android personal dictionary</string>
+    <!-- The word is a contact's name. -->
+    <string name="ime_word_card_contact">A contact\'s name</string>
+    <!-- The word is an installed app's name. -->
+    <string name="ime_word_card_app">An installed app\'s name</string>
+    <!-- The word is on the never-suggest list. -->
+    <string name="ime_word_card_blacklisted">On the never-suggest list</string>
+    <!-- Heading over the control that edits the personal dictionary's count. -->
+    <string name="ime_word_card_weight_title">Learned weight</string>
+    <!-- Explains the learned-weight control. -->
+    <string name="ime_word_card_weight_hint">How strongly the personal dictionary favours the word. 0 forgets it.</string>
+    <!-- The learned-weight control's value when the word is not learned. -->
+    <string name="ime_word_card_weight_none">Not learned</string>
+    <!-- Heading over the control that moves the word up or down the strip. -->
+    <string name="ime_word_card_offset_title">Rank adjustment</string>
+    <!-- Explains the rank-adjustment control. -->
+    <string name="ime_word_card_offset_hint">Moves the word up or down the suggestion strip, whatever list it comes from.</string>
+    <!-- The rank-adjustment control's value when the word is not adjusted. -->
+    <string name="ime_word_card_offset_normal">Normal</string>
+    <!-- A rank adjustment with its sign. %1$d is the number of steps. -->
+    <string name="ime_word_card_offset_value">%1$+d</string>
+    <!-- Screen reader names of the two stepper buttons. -->
+    <string name="ime_word_card_step_up_desc">Raise</string>
+    <string name="ime_word_card_step_down_desc">Lower</string>
+    <!-- Screen reader name of the button that closes the card. -->
+    <string name="ime_word_card_close_desc">Close the word card</string>
     <!-- Screen reader name for the chip that takes an autocorrect back. The
          word on the chip is read after this, so it says what pressing does. -->
     <string name="ime_undo_correction_desc">Put back the word you typed</string>

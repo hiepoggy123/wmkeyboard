@@ -27,7 +27,9 @@ import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.DataSaverStatus
+import com.wasimaster.wmkeyboard.core.prediction.WordFacts
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.RankControl
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.TransliterationHintMode
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
@@ -1312,6 +1314,100 @@ sealed interface StripOfferAction {
 }
 
 /**
+ * What the menu on a held suggestion can ask of the service (#99).
+ *
+ * A sealed type, and a bundle of callbacks around it ([SuggestionHoldCallbacks]),
+ * rather than one parameter per action: the keyboard screen's call chain is
+ * against the 64K method ceiling, so the hold grew from one lambda to five
+ * actions without costing a parameter (see [StripOfferAction]).
+ */
+sealed interface WordMenuAction {
+    /** Put [word] on the never-suggest list (#28). */
+    data class NeverSuggest(val word: String) : WordMenuAction
+
+    /** Take [word] back off the never-suggest list. */
+    data class AllowAgain(val word: String) : WordMenuAction
+
+    /**
+     * Add the word being typed to the personal dictionary, spelled as
+     * [typed]. About the composing word, not the held chip: the chips are
+     * already known words, and the one the user wants in is the one under
+     * the caret (#100).
+     */
+    data class Add(val typed: String) : WordMenuAction
+
+    /** Forget [word] everywhere the keyboard can, and hide it where it cannot. */
+    data class Delete(val word: String) : WordMenuAction
+
+    /** Open the word card for [word]. */
+    data class Open(val word: String) : WordMenuAction
+}
+
+/** What the word card can ask of the service, once open (#99). */
+sealed interface WordCardAction {
+    /**
+     * Set the card's word's learned weight: 0 forgets it, a positive count
+     * on an unlearned word adds it at that weight.
+     */
+    data class SetLearnedWeight(val count: Int) : WordCardAction
+
+    /** Set the card's word's rank adjustment, in steps. */
+    data class SetOffset(val steps: Int) : WordCardAction
+
+    /** Add the typed word the card names, like [WordMenuAction.Add]. */
+    data object Add : WordCardAction
+
+    /** Like [WordMenuAction.Delete], for the card's word. */
+    data object Delete : WordCardAction
+
+    /** Like [WordMenuAction.NeverSuggest], for the card's word. */
+    data object NeverSuggest : WordCardAction
+
+    /** Like [WordMenuAction.AllowAgain], for the card's word. */
+    data object AllowAgain : WordCardAction
+
+    /** Close the card. */
+    data object Dismiss : WordCardAction
+}
+
+/**
+ * What the held-word menu needs to know to decide its items, answered
+ * synchronously by the service when a chip is held (#99): cheap lookups
+ * only, never a trie walk.
+ */
+data class WordMenuFacts(
+    /** The word being typed, when it is not in the personal dictionary; else null. */
+    val typedAddable: String? = null,
+    /** Whether the held word is somewhere the keyboard can forget it from. */
+    val deletable: Boolean = false,
+    /** Whether the held word is on the never-suggest list. */
+    val blacklisted: Boolean = false,
+)
+
+/**
+ * The word card (#99): everything the strip draws for one held word. [facts]
+ * is null while the engine is still describing the word, so the card can
+ * open at once and fill in. [learnedCount] and [rankOffset] are the two
+ * numbers the rank control edits; [rankControl] says which.
+ */
+data class WordCard(
+    /** The word as the chip showed it. */
+    val word: String,
+    /** The composing word, when the card may add it; else null. */
+    val typed: String? = null,
+    val facts: WordFacts? = null,
+    /** Language id -> the name of that language's word list, for the sources. */
+    val packLabels: Map<String, String> = emptyMap(),
+    /** Personal-dictionary count, 0 when the word is not learned. */
+    val learnedCount: Int = 0,
+    /** The rank adjustment in steps, 0 when none. */
+    val rankOffset: Int = 0,
+    val rankControl: RankControl = RankControl.LEARNED_WEIGHT,
+    /** On the never-suggest list right now. */
+    val blacklisted: Boolean = false,
+)
+
+/**
  * The snippets panel showing what one snippet offers, after a tile was held.
  *
  * [rows] are drawn instead of the tile grid, and [path] tracks a walk into
@@ -1710,6 +1806,8 @@ data class KeyboardUiState(
      * learning" is on and such a word is on the strip right now.
      */
     val learnOffer: String? = null,
+    /** The word card a held suggestion opened, or null while none is up (#99). */
+    val wordCard: WordCard? = null,
     /**
      * The one-tap actions offered for the current selection, or null when
      * there is no selection to act on (or the feature is off).
