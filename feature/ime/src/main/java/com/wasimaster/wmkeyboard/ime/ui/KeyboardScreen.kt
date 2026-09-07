@@ -9083,6 +9083,24 @@ internal class GlideTrail {
     var released by mutableStateOf(false)
         private set
 
+    /**
+     * The trail is a rubber band from [startX], [startY] to the head rather
+     * than the path the finger took — the modifier chord drag of issue #67.
+     * Flips once per stroke, so the body may read it.
+     */
+    var straight by mutableStateOf(false)
+        private set
+
+    /** Where a straight trail is anchored, in the key grid's own space. */
+    var startX = 0f
+        private set
+
+    var startY = 0f
+        private set
+
+    /** When a straight trail was let go, which is the clock for its fade. */
+    private var releasedAtMs = 0L
+
     /** Latest frame time, for the age fade. Plain — [revision] carries the invalidation. */
     var nowMs = 0L
         private set
@@ -9112,26 +9130,51 @@ internal class GlideTrail {
     fun begin() {
         count = 0
         released = false
+        straight = false
         visible = true
         revision++
     }
 
+    /**
+     * A modifier chord drag has taken over: a straight band anchored at [x],
+     * [y] rather than a comet (issue #67), which is how Gboard draws the same
+     * gesture. It is also the honest picture of it — the chord is the key the
+     * finger started on and the key it is over now, and the wandering in
+     * between means nothing, so a trail that follows the path says something
+     * the gesture does not.
+     */
+    fun beginLine(x: Float, y: Float) {
+        begin()
+        straight = true
+        startX = x
+        startY = y
+        headX = x
+        headY = y
+    }
+
     /** Appends the sample and drops whatever has aged past [keepMs]. */
     fun add(x: Float, y: Float, timeMs: Long, keepMs: Long) {
+        nowMs = timeMs
+        headX = x
+        headY = y
+        // A straight trail keeps no path: its two ends are the whole drawing,
+        // and ageing samples out from under it would strand the anchor.
+        if (straight) {
+            revision++
+            return
+        }
         if (count == xs.size) grow()
         xs[count] = x
         ys[count] = y
         ts[count] = timeMs
         count++
-        nowMs = timeMs
-        headX = x
-        headY = y
         expire(timeMs, keepMs)
         revision++
     }
 
     fun release() {
         released = true
+        releasedAtMs = nowMs
     }
 
     /**
@@ -9141,8 +9184,15 @@ internal class GlideTrail {
     fun tick(now: Long, keepMs: Long): Boolean {
         nowMs = now
         if (released) {
-            expire(now, keepMs)
-            if (count == 0) {
+            // A straight band has no samples to expire; it fades whole, and
+            // the release stamp is what times it out.
+            val done = if (straight) {
+                now - releasedAtMs >= keepMs
+            } else {
+                expire(now, keepMs)
+                count == 0
+            }
+            if (done) {
                 visible = false
                 revision++
                 return false
@@ -9152,10 +9202,24 @@ internal class GlideTrail {
         return true
     }
 
+    /**
+     * How alive a straight band is: 1 while the finger is down, fading to 0
+     * across [keepMs] after the lift. Takes [revision] for the same reason
+     * [sampleCount] does — the fade clock behind it is invisible to Compose.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    fun lineLife(revision: Int, keepMs: Long): Float =
+        if (!released) {
+            1f
+        } else {
+            (1f - (nowMs - releasedAtMs) / keepMs.toFloat()).coerceIn(0f, 1f)
+        }
+
     /** Abandons the trail outright — the feature switched off, or the layout changed. */
     fun clear() {
         count = 0
         released = true
+        straight = false
         visible = false
         revision++
     }
@@ -10454,6 +10518,12 @@ private fun KeyRows(
                     )
                     val source = liveRects.value.keyAt(down.position + boxOrigin)
                     if (!source.startsChordDrag()) return@awaitEachGesture
+                    // The band is anchored on the key rather than on the
+                    // fingertip: a chord is "from this key to that one", and
+                    // the cell's centre says so however the press landed in it.
+                    val anchor = liveRects.value.cellAt(down.position + boxOrigin)
+                        ?.let { it.center - boxOrigin }
+                        ?: down.position
                     val slop = viewConfiguration.touchSlop
                     var dragging = false
                     // The cell under the finger now; read per sample so the key
@@ -10471,7 +10541,7 @@ private fun KeyRows(
                             (change.position - down.position).getDistance() > slop
                         ) {
                             dragging = true
-                            trail.begin()
+                            trail.beginLine(anchor.x, anchor.y)
                         }
                         if (dragging) {
                             change.consume()
@@ -11179,6 +11249,22 @@ private fun KeyRows(
                 val count = trail.sampleCount(trail.revision)
                 val headWidth = trailHeadWidth.dp.toPx()
                 val tailWidth = headWidth * 0.3f
+                // A modifier chord drag is a rubber band, not a comet: one
+                // even line from the key it started on to the fingertip, so
+                // what it draws is the pair of keys it will fire (issue #67).
+                if (trail.straight) {
+                    val life = trail.lineLife(trail.revision, trailMs)
+                    if (life > 0f) {
+                        drawLine(
+                            color = trailColor.copy(alpha = trailOpacity * life),
+                            start = Offset(trail.startX, trail.startY),
+                            end = Offset(trail.headX, trail.headY),
+                            strokeWidth = headWidth,
+                            cap = StrokeCap.Round,
+                        )
+                    }
+                    return@Canvas
+                }
                 for (i in 1 until count) {
                     val life =
                         (1f - trail.ageAt(i) / trailMs.toFloat()).coerceIn(0f, 1f)

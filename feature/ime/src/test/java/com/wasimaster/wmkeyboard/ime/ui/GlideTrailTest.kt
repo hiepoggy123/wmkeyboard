@@ -128,6 +128,69 @@ class GlideTrailTest {
         assertEquals(0, trail.sampleCount(trail.revision))
     }
 
+    // ---- the modifier chord's straight band (issue #67) ---------------------
+
+    @Test
+    fun `a straight band keeps its anchor and follows the finger`() {
+        val trail = GlideTrail()
+        trail.beginLine(5f, 6f)
+        trail.add(80f, 90f, 10L, KEEP_MS)
+        trail.add(120f, 130f, 20L, KEEP_MS)
+        assertTrue(trail.straight)
+        assertEquals(5f, trail.startX, 0f)
+        assertEquals(6f, trail.startY, 0f)
+        assertEquals(120f, trail.headX, 0f)
+        assertEquals(130f, trail.headY, 0f)
+        // The two ends are the whole drawing: no path is kept, so nothing can
+        // age out from under the anchor however long the drag lasts.
+        assertEquals(0, trail.sampleCount(trail.revision))
+    }
+
+    @Test
+    fun `a straight band outlives the keep window while the finger is down`() {
+        val trail = GlideTrail()
+        trail.beginLine(0f, 0f)
+        trail.add(50f, 0f, 5_000L, KEEP_MS)
+        assertTrue(trail.tick(10_000L, KEEP_MS))
+        assertTrue(trail.visible)
+        assertEquals(1f, trail.lineLife(trail.revision, KEEP_MS), 0f)
+    }
+
+    @Test
+    fun `a released straight band fades whole and then finishes`() {
+        val trail = GlideTrail()
+        trail.beginLine(0f, 0f)
+        trail.add(50f, 0f, 0L, KEEP_MS)
+        trail.release()
+        assertTrue(trail.tick(50L, KEEP_MS))
+        assertEquals(0.5f, trail.lineLife(trail.revision, KEEP_MS), 0.001f)
+        assertFalse(trail.tick(100L, KEEP_MS))
+        assertFalse(trail.visible)
+        assertEquals(0f, trail.lineLife(trail.revision, KEEP_MS), 0f)
+    }
+
+    @Test
+    fun `the next glide is a comet again`() {
+        val trail = GlideTrail()
+        trail.beginLine(0f, 0f)
+        trail.begin()
+        assertFalse(trail.straight)
+        trail.add(1f, 1f, 0L, KEEP_MS)
+        assertEquals(1, trail.sampleCount(trail.revision))
+        trail.beginLine(0f, 0f)
+        trail.clear()
+        assertFalse(trail.straight)
+    }
+
+    @Test
+    fun `a straight band moves the revision on every sample`() {
+        val trail = GlideTrail()
+        trail.beginLine(0f, 0f)
+        val before = trail.revision
+        trail.add(10f, 10f, 5L, KEEP_MS)
+        assertTrue("a straight add did not move the revision", trail.revision != before)
+    }
+
     @Test
     fun `clear abandons the trail outright`() {
         val trail = trailWith(0L, 10L)
