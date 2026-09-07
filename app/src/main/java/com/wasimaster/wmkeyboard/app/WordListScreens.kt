@@ -584,11 +584,20 @@ internal fun EmojiKeywordSettings(
 
     SettingsGroup(stringResource(R.string.customdict_emoji_downloads_title)) {
         item {
+            // The app-wide switch decides whether any language data is
+            // fetched at all, and it returns before this one is read. Greyed
+            // rather than hidden: that switch is on another screen, so a row
+            // that vanished would leave nothing to explain itself.
+            val autoDownloads = settings.autoDownloadLanguageData
             ToggleSetting(
                 R.string.customdict_emoji_auto_download_title,
-                stringResource(R.string.customdict_emoji_auto_download_subtitle),
+                stringResource(
+                    if (autoDownloads) R.string.customdict_emoji_auto_download_subtitle
+                    else R.string.customdict_emoji_auto_download_blocked,
+                ),
                 settings.emoji.autoDownloadKeywords,
                 info = stringResource(R.string.customdict_emoji_auto_download_info),
+                enabled = autoDownloads,
                 default = SettingsDefaults.emoji.autoDownloadKeywords,
             ) { scope.launch { repository.setEmojiAutoDownloadKeywords(it) } }
         }
