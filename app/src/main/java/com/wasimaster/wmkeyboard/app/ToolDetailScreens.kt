@@ -108,7 +108,8 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.settings.LauncherToolSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
-import com.wasimaster.wmkeyboard.core.settings.isUsableTool
+import com.wasimaster.wmkeyboard.core.settings.ToolBlocker
+import com.wasimaster.wmkeyboard.core.settings.toolBlocker
 import com.wasimaster.wmkeyboard.core.settings.PowerSavingTrigger
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
@@ -257,15 +258,19 @@ internal fun ToolDetailSettings(
     val daysAheadFormat = stringResource(R.string.values_days_ahead)
     SettingsGroup {
         item {
-            // The search tools need a key before they can be switched on; the
-            // field that takes one is further down this same screen.
-            val usable = isUsableTool(tool, settings)
+            // A blocked tool cannot be switched on; what unblocks it is further
+            // down this same screen (the key field, the Key layouts link), and
+            // the subtitle names it rather than guessing a key.
+            val blocker = toolBlocker(tool, settings)
+            val usable = blocker == null
             ToggleSetting(
                 CommonR.string.common_enable,
-                if (usable) {
-                    stringResource(R.string.tooldetail_enabled_subtitle)
-                } else {
-                    stringResource(R.string.tooldetail_enabled_needs_key_subtitle)
+                when (blocker) {
+                    null -> stringResource(R.string.tooldetail_enabled_subtitle)
+                    ToolBlocker.NEEDS_SEARCH_KEY ->
+                        stringResource(R.string.tooldetail_enabled_needs_key_subtitle)
+                    ToolBlocker.NEEDS_SECONDARY_LAYOUT ->
+                        stringResource(R.string.tooldetail_enabled_needs_layout_subtitle)
                 },
                 usable && tool in settings.enabledTools,
                 switchKey = landingKey("switch"),

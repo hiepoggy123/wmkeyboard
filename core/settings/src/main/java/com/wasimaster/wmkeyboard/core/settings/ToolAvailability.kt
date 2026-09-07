@@ -27,12 +27,35 @@ fun hasSearchKey(settings: KeyboardSettings): Boolean =
  * or dispatches filters on both, so a tool that cannot work is never on the
  * bar, in the toolbox, or behind a hardware shortcut.
  */
-fun isUsableTool(tool: ToolbarTool, settings: KeyboardSettings): Boolean = when (tool) {
-    ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH -> hasSearchKey(settings)
+fun isUsableTool(tool: ToolbarTool, settings: KeyboardSettings): Boolean =
+    toolBlocker(tool, settings) == null
+
+/**
+ * What stands between a tool and doing its job. The settings app draws the
+ * reason on the tool's row and beside its switch, so the reason is typed
+ * rather than implied: for a long time the search tools were the only
+ * unusable ones, every screen spelled `!isUsableTool` as "needs an API key",
+ * and the first tool gated on something else was offered a key field for a
+ * problem a key could not fix. A new blocker added here fails to compile at
+ * every screen until it has words of its own.
+ */
+enum class ToolBlocker {
+    /** Web and image search: no search API key is configured. */
+    NEEDS_SEARCH_KEY,
+
+    /** The Custom layout tool: the user has not made a secondary layout yet. */
+    NEEDS_SECONDARY_LAYOUT,
+}
+
+/** Why [tool] cannot run right now, or null when it can; see [ToolBlocker]. */
+fun toolBlocker(tool: ToolbarTool, settings: KeyboardSettings): ToolBlocker? = when (tool) {
+    ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH ->
+        if (hasSearchKey(settings)) null else ToolBlocker.NEEDS_SEARCH_KEY
     // Nothing to show until the user has built a secondary layout; a button
     // that does nothing is worse than no button.
-    ToolbarTool.CUSTOM_LAYOUT -> secondaryLayouts(settings.customLayouts).isNotEmpty()
-    else -> true
+    ToolbarTool.CUSTOM_LAYOUT ->
+        if (secondaryLayouts(settings.customLayouts).isNotEmpty()) null else ToolBlocker.NEEDS_SECONDARY_LAYOUT
+    else -> null
 }
 
 /**

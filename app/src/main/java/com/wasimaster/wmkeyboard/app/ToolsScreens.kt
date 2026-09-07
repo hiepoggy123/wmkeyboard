@@ -45,7 +45,8 @@ import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import com.wasimaster.wmkeyboard.core.settings.CursorTools
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
-import com.wasimaster.wmkeyboard.core.settings.isUsableTool
+import com.wasimaster.wmkeyboard.core.settings.ToolBlocker
+import com.wasimaster.wmkeyboard.core.settings.toolBlocker
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import kotlinx.coroutines.launch
@@ -328,7 +329,6 @@ internal fun ToolsSettings(
         ToolbarTool.entries.associateWith { toolAccentPaint(it, settings) }
     }
     val optionsDesc = stringResource(R.string.tools_has_options_desc)
-    val needsKey = stringResource(R.string.tools_needs_key_subtitle)
 
     if (searching) {
         if (matches.isEmpty()) {
@@ -341,10 +341,9 @@ internal fun ToolsSettings(
                     ToolRow(
                         tool = tool,
                         paint = paints[tool],
-                        usable = isUsableTool(tool, settings),
+                        blocker = toolBlocker(tool, settings),
                         enabled = tool in settings.enabledTools,
                         optionsDesc = optionsDesc,
-                        needsKeySubtitle = needsKey,
                         onToggle = { on -> scope.launch { repository.setToolEnabled(tool, on) } },
                         onOpen = { onOpenTool(tool) },
                     )
@@ -415,14 +414,14 @@ internal fun ToolsSettings(
                     ToolRow(
                         tool = tool,
                         paint = paints[tool],
-                        // A tool with no key cannot be switched on at all: the
+                        // A blocked tool cannot be switched on at all: the
                         // keyboard would draw a button whose panel only
-                        // apologises. The row still opens, because the key
-                        // field is inside it.
-                        usable = isUsableTool(tool, settings),
+                        // apologises. The row still opens, because what
+                        // unblocks it (a key field, a link to Key layouts) is
+                        // inside.
+                        blocker = toolBlocker(tool, settings),
                         enabled = tool in settings.enabledTools,
                         optionsDesc = optionsDesc,
-                        needsKeySubtitle = needsKey,
                         onToggle = { on -> scope.launch { repository.setToolEnabled(tool, on) } },
                         onOpen = { onOpenTool(tool) },
                     )
@@ -457,17 +456,22 @@ private fun toolGroupFoldKey(resources: Resources, @StringRes titleRes: Int): St
 private fun ToolRow(
     tool: ToolbarTool,
     paint: ToolPaint?,
-    usable: Boolean,
+    /** Why the tool cannot run, or null; the row says so in place of its description. */
+    blocker: ToolBlocker?,
     enabled: Boolean,
     optionsDesc: String,
-    needsKeySubtitle: String,
     onToggle: (Boolean) -> Unit,
     onOpen: () -> Unit,
 ) {
     val route = toolRoute(tool)
+    val usable = blocker == null
     WmRow(
         title = stringResource(toolTitle(tool)),
-        subtitle = if (usable) stringResource(toolDescription(tool)) else needsKeySubtitle,
+        subtitle = when (blocker) {
+            null -> stringResource(toolDescription(tool))
+            ToolBlocker.NEEDS_SEARCH_KEY -> stringResource(R.string.tools_needs_key_subtitle)
+            ToolBlocker.NEEDS_SECONDARY_LAYOUT -> stringResource(R.string.tools_needs_layout_subtitle)
+        },
         leading = {
             SlotIcon(
                 IconSlots.forTool(tool),
