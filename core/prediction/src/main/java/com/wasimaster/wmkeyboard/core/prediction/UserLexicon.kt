@@ -35,6 +35,9 @@ class UserLexicon(private val storageFile: File?) {
         /** How much evidence stands behind each [wordCase] entry, so a
          * spelling the user has moved on from can be voted back out. */
         val caseVotes: Map<String, Int> = emptyMap(),
+        /** Words whose spelling the user settled by hand and that no vote may
+         * change (#100). Additive; old files pin nothing. */
+        val casePinned: Set<String> = emptySet(),
     )
 
     /** A word's followers plus a lazily cached count-descending order, so the
@@ -83,6 +86,7 @@ class UserLexicon(private val storageFile: File?) {
     private val wordLangs = HashMap<String, String>()
     private val wordCase = HashMap<String, String>()
     private val caseVotes = HashMap<String, Int>()
+    private val casePinned = HashSet<String>()
     private var generation = 0L
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -183,9 +187,13 @@ class UserLexicon(private val storageFile: File?) {
      *
      * A [surface] equal to the key is a vote for "no capital at all", which is
      * why lower-case sightings are what wear a stale spelling down.
+     *
+     * A pinned word takes no votes at all: the user said how it is spelled
+     * (#100), and a sentence-start capital or a shouted heading is not a
+     * counter-argument.
      */
     private fun voteCase(key: String, surface: String, weight: Int) {
-        if (weight <= 0 || WordKey.of(surface) != key) return
+        if (weight <= 0 || WordKey.of(surface) != key || key in casePinned) return
         val shape = surface.takeIf { it != key }
         val current = wordCase[key]
         if (current == null) {
@@ -231,15 +239,29 @@ class UserLexicon(private val storageFile: File?) {
      * User-added dictionary entry: weighted like a word typed [boost]
      * times so it competes with genuinely frequent words immediately and
      * is never "corrected" away.
+     *
+     * [pinCase] keeps the spelling past every later vote (#100): a word the
+     * user typed into a dialog, or chose off the strip, is spelled the way
+     * they wrote it for as long as it is in the dictionary. It defaults to
+     * following [caseEvidence], and is ignored without it — there is no
+     * spelling to pin when the capital is not trusted.
      */
     @Synchronized
-    fun addWord(word: String, boost: Int = 200, caseEvidence: Boolean = true) {
+    fun addWord(
+        word: String,
+        boost: Int = 200,
+        caseEvidence: Boolean = true,
+        pinCase: Boolean = caseEvidence,
+    ) {
         val trimmed = word.trim()
         val key = WordKey.of(trimmed)
         if (key.isEmpty() || key.length > MAX_WORD_LENGTH) return
         // A word added by hand is spelled the way the user spelled it, so its
         // casing is settled outright rather than voted on.
-        if (caseEvidence) setCase(key, WordKey.surface(trimmed))
+        if (caseEvidence) {
+            setCase(key, WordKey.surface(trimmed))
+            if (pinCase) casePinned.add(key)
+        }
         val before = words[key] ?: 0
         val merged = (before.toLong() + boost).coerceAtMost(MAX_COUNT.toLong()).toInt()
         words[key] = merged
@@ -270,7 +292,9 @@ class UserLexicon(private val storageFile: File?) {
         if (oldKey == newKey) {
             val surface = WordKey.surface(trimmed)
             if (surface == (wordCase[oldKey] ?: oldKey) || oldKey !in words) return false
+            // Respelled by hand, so the spelling is pinned as well as set (#100).
             setCase(oldKey, surface)
+            casePinned.add(oldKey)
             mutations++
             dirty = true
             return true
@@ -286,7 +310,9 @@ class UserLexicon(private val storageFile: File?) {
         // outright; the old key's memory goes with the word it described.
         wordCase.remove(oldKey)
         caseVotes.remove(oldKey)
+        casePinned.remove(oldKey)
         setCase(newKey, WordKey.surface(trimmed))
+        casePinned.add(newKey)
         // Pairs where the word led: its follower set moves under the new key.
         bigrams.remove(oldKey)?.let { moved ->
             val target = bigrams[newKey]
@@ -332,6 +358,29 @@ class UserLexicon(private val storageFile: File?) {
         return true
     }
 
+    /** Whether [word]'s spelling is pinned against the case vote (#100). */
+    @Synchronized
+    fun isCasePinned(word: String): Boolean = WordKey.of(word) in casePinned
+
+    /**
+     * Pins or releases [word]'s current spelling (#100). Pinning settles
+     * whatever the word is written as right now, so a later vote cannot move
+     * it; releasing puts it back under the ordinary vote with full evidence,
+     * so it is not flipped by the very next sighting either. Unknown words
+     * are left alone. Returns whether anything changed.
+     */
+    @Synchronized
+    fun pinCase(word: String, pinned: Boolean): Boolean {
+        val key = WordKey.of(word)
+        if (key !in words) return false
+        val changed = if (pinned) casePinned.add(key) else casePinned.remove(key)
+        if (!changed) return false
+        if (wordCase[key] != null) caseVotes[key] = MAX_CASE_VOTES
+        mutations++
+        dirty = true
+        return true
+    }
+
     /**
      * Re-reads the storage file. The settings app edits the file directly
      * (personal dictionary screen); the IME calls this when signalled so
@@ -346,6 +395,7 @@ class UserLexicon(private val storageFile: File?) {
         wordLangs.clear()
         wordCase.clear()
         caseVotes.clear()
+        casePinned.clear()
         rebuildTrie()
         load()
         mutations++
@@ -473,6 +523,7 @@ class UserLexicon(private val storageFile: File?) {
             wordLangs.remove(key)
             wordCase.remove(key)
             caseVotes.remove(key)
+            casePinned.remove(key)
             bigrams.remove(key)
         }
         bigrams.values.forEach { followers ->
@@ -498,6 +549,7 @@ class UserLexicon(private val storageFile: File?) {
         wordLangs.clear()
         wordCase.clear()
         caseVotes.clear()
+        casePinned.clear()
         rebuildTrie()
         mutations++
         // The delete is the write, so there is normally nothing left to save.
@@ -522,6 +574,7 @@ class UserLexicon(private val storageFile: File?) {
             wordLang = wordLangs,
             wordCase = wordCase,
             caseVotes = caseVotes,
+            casePinned = casePinned,
         )
         runCatching {
             file.parentFile?.mkdirs()
@@ -559,6 +612,9 @@ class UserLexicon(private val storageFile: File?) {
                         caseVotes[word] =
                             (snapshot.caseVotes[word] ?: 1).coerceIn(1, MAX_CASE_VOTES)
                     }
+                // A pin on a word no longer present is an orphan, dropped
+                // like every other orphaned entry.
+                if (word in snapshot.casePinned) casePinned.add(word)
             }
             rebuildTrie()
         }
@@ -601,6 +657,7 @@ class UserLexicon(private val storageFile: File?) {
                 wordLangs.remove(word)
                 wordCase.remove(word)
                 caseVotes.remove(word)
+                casePinned.remove(word)
                 bigrams.remove(word)
                 bigrams.values.forEach {
                     if (it.counts.remove(word) != null) it.sorted = null

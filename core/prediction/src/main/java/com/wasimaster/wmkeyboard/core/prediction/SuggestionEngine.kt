@@ -363,6 +363,26 @@ class SuggestionEngine(
     var blacklist: Set<String> = emptySet()
 
     /**
+     * Per-word rank adjustments from the word card (#99): key -> steps in
+     * [WordRanks.MIN_STEPS]..[WordRanks.MAX_STEPS], fed from
+     * [WordRanks.snapshot]. Each step moves the word by [RANK_OFFSET_STEP]
+     * in log-score — the unit one engine rank is worth to the reranker
+     * ([NgramReranker.RANK_STEP]) — so +1 is roughly "one place up against
+     * equals". It re-ranks and never hides: a word pushed to the bottom still
+     * surfaces when nothing else matches, and the blacklist is what hides
+     * one. Autocorrect never reads it: a rank the user asked for on the strip
+     * is not a licence to rewrite what they typed.
+     */
+    @Volatile
+    var rankOffsets: Map<String, Int> = emptyMap()
+
+    /** [word]'s adjustment in log-score, 0.0 for the common case of none. */
+    private fun rankOffset(word: String): Double {
+        val steps = rankOffsets[word.lowercase()] ?: return 0.0
+        return steps * RANK_OFFSET_STEP
+    }
+
+    /**
      * When on, words on the bundled [offensiveWords] set are treated like the
      * blacklist: never offered in the strip and never used as an autocorrect
      * target, so the keyboard won't suggest or "correct" a neutral typo into a
@@ -707,7 +727,7 @@ class SuggestionEngine(
         // stands for are what the rest of this — the blacklist, the reranker,
         // the caller — should ever see.
         val words = if (romanization.isEmpty) decoded else romanization.resolve(decoded)
-        val kept = words.filterNot { suppressed(it.word) }
+        val kept = shiftGlideRanks(words.filterNot { suppressed(it.word) })
         if (kept.isEmpty()) return kept
         return rerankGlide(kept, previousWord, previousWord2, recentWords)
             .take(limit)
@@ -723,6 +743,26 @@ class SuggestionEngine(
                     GlideBeam.Candidate(display, c.score, c.shapeCost, c.tier)
                 }
             }
+    }
+
+    /**
+     * Applies the user's rank adjustments ([rankOffsets]) to a stroke's
+     * candidates, the same flat shift [suggest] gives typed candidates, and
+     * puts them back in score order. Matches on keys, like the blacklist.
+     */
+    private fun shiftGlideRanks(decoded: List<GlideBeam.Candidate>): List<GlideBeam.Candidate> {
+        if (rankOffsets.isEmpty() || decoded.isEmpty()) return decoded
+        var moved = false
+        val shifted = decoded.map { c ->
+            val shift = rankOffset(c.word)
+            if (shift == 0.0) {
+                c
+            } else {
+                moved = true
+                GlideBeam.Candidate(c.word, c.score + shift, c.shapeCost, c.tier)
+            }
+        }
+        return if (moved) shifted.sortedByDescending { it.score } else decoded
     }
 
     /**
@@ -922,9 +962,17 @@ class SuggestionEngine(
     private fun weighted(frequency: Int, weight: Int): Int =
         (frequency.toLong() * weight).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
 
-    private fun inDictionaries(word: String): Boolean =
+    /**
+     * Whether a lower-case [word] is in any list the keyboard cannot edit —
+     * the active, imported, platform and secondary dictionaries — as opposed
+     * to the personal lexicon. The strip's delete action asks this to know
+     * whether forgetting a word is enough or the never-suggest list has to
+     * finish the job (#99) — with [includePlatform] off, since it can take a
+     * word out of Android's dictionary itself.
+     */
+    fun inDictionaries(word: String, includePlatform: Boolean = true): Boolean =
         activeDictionary.contains(word) || customDictionary.contains(word) ||
-            systemDictionary.contains(word) ||
+            (includePlatform && systemDictionary.contains(word)) ||
             (englishAsSecondary && !englishSources && dictionary.contains(word)) ||
             secondaryDictionaries.any { it.source.contains(word) }
 
@@ -944,6 +992,51 @@ class SuggestionEngine(
         val lower = word.lowercase()
         return inDictionaries(lower) || userLexicon.contains(lower) ||
             contacts.contains(lower) || apps.contains(lower)
+    }
+
+    /**
+     * Where [word] comes from, for the word card (#99). Reads every source
+     * once and ranks the word in each frequency list it is in; the first rank
+     * query on a list builds that list's histogram (see [RankFloorCache]), so
+     * call it off the main thread. Pure lookup: it neither walks nor caches.
+     */
+    fun describe(word: String): WordFacts {
+        val key = word.lowercase()
+        fun pack(langId: String, source: WordSource): PackFact? {
+            val frequency = source.frequencyOf(key)
+            if (frequency <= 0) return null
+            val walkers = source.walkers()
+            val rank = walkers.mapNotNull { w -> w.rankOfFrequency(frequency).takeIf { it > 0 } }
+                .minOrNull() ?: 0
+            val size = walkers.maxOfOrNull { it.vocabularySize() } ?: 0
+            return PackFact(langId, frequency, rank, size)
+        }
+        val primary = pack(primaryLanguageId.ifBlank { EN }, activeDictionary)
+        val secondaryEnglish = if (englishAsSecondary && !englishSources) pack(EN, dictionary) else null
+        val secondary = secondaryDictionaries.mapNotNull { pack(it.langId, it.source) } +
+            listOfNotNull(secondaryEnglish)
+        val learned = if (userLexicon.contains(key)) {
+            LearnedFact(
+                count = userLexicon.frequencyOf(key),
+                langId = userLexicon.languageOf(key),
+                display = userLexicon.displayOf(key),
+                casePinned = userLexicon.isCasePinned(key),
+            )
+        } else {
+            null
+        }
+        return WordFacts(
+            key = key,
+            primary = primary,
+            secondary = secondary,
+            customFrequency = customDictionary.frequencyOf(key),
+            system = systemDictionary.contains(key),
+            learned = learned,
+            contact = contacts.contains(key),
+            app = apps.contains(key),
+            blacklisted = blacklisted(key),
+            rankOffset = rankOffsets[key] ?: 0,
+        )
     }
 
     /**
@@ -976,6 +1069,14 @@ class SuggestionEngine(
     companion object {
         /** Language id of bundled English, the only special-cased secondary. */
         private const val EN = "en"
+
+        /**
+         * Log-score worth of one step of [rankOffsets]. One nat, the same
+         * unit the reranker treats one engine rank as
+         * ([NgramReranker.RANK_STEP]): ten steps span e^10, which reaches
+         * from the rarest word in a downloaded list to its commonest.
+         */
+        private const val RANK_OFFSET_STEP = 1.0
         /** Learned words get a large boost so personalization wins quickly. */
         /** Completions scanned per source when building the next-letter map. */
         private const val NEXT_LETTER_SCAN = 24
@@ -1359,6 +1460,10 @@ class SuggestionEngine(
             }
         }
 
+        // The user's own say (#99), after every evidence-based boost so it
+        // is worth the same wherever the word came from.
+        applyRankOffsets(merged)
+
         // Contact words carry their own capitalization ("Wasi"), so the
         // same word can arrive in two cases; keep the better-scored one.
         val byLower = HashMap<String, Pair<String, Double>>()
@@ -1399,6 +1504,15 @@ class SuggestionEngine(
             // re-cased to follow what they have typed so far — the typed
             // pattern still wins, so a deliberate "BOSTON" is not undone.
             .map { if (it.contains('@')) it else matchCase(composing, displayForm(it)) }
+    }
+
+    /** Adds each candidate's [rankOffsets] shift to its score in place. */
+    private fun applyRankOffsets(merged: HashMap<String, Double>) {
+        if (rankOffsets.isEmpty()) return
+        for (entry in merged.entries) {
+            val shift = rankOffset(entry.key)
+            if (shift != 0.0) entry.setValue(entry.value + shift)
+        }
     }
 
     /** Log-space score for the flat (non-trie) sources, comparable with the
@@ -1595,6 +1709,12 @@ class SuggestionEngine(
         // on offer (order-based here — this path carries no scores).
         if (register == Register.FORMAL) {
             result = result.sortedBy { it.lowercase() in RegisterVocabulary.informal }
+        }
+        // The user's rank adjustments (#99), order-based like the register
+        // above: a lifted follower leads, a sunk one trails, ties keep their
+        // source order.
+        if (rankOffsets.isNotEmpty()) {
+            result = result.sortedByDescending { rankOffsets[it.lowercase()] ?: 0 }
         }
         // Last, so nothing above has to reason about case: the ordering, the
         // sentinel filter and the blacklist all work on keys.

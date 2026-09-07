@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
+import android.content.ContentUris
 import android.content.Context
 import android.provider.UserDictionary
 
@@ -70,6 +71,47 @@ object SystemUserDictionary {
                 null,
             )
         }
+    }
+
+    /**
+     * Removes every row spelling [word] (any capitalisation) from the system
+     * dictionary, for the strip's delete action (#99). Same access rule as
+     * [add] — the current IME may write — and the same defensive wrapping:
+     * an OEM that refuses just leaves the rows in place. Returns whether a
+     * row went. Content-provider I/O; call it off the main thread.
+     */
+    fun remove(context: Context, word: String): Boolean {
+        val key = word.trim().lowercase()
+        if (key.isEmpty()) return false
+        synchronized(this) { added.remove(key) }
+        return runCatching {
+            val ids = ArrayList<Long>()
+            context.contentResolver.query(
+                UserDictionary.Words.CONTENT_URI,
+                arrayOf(UserDictionary.Words._ID, UserDictionary.Words.WORD),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                val idCol = cursor.getColumnIndex(UserDictionary.Words._ID)
+                val wordCol = cursor.getColumnIndex(UserDictionary.Words.WORD)
+                if (idCol >= 0 && wordCol >= 0) {
+                    while (cursor.moveToNext()) {
+                        val row = cursor.getString(wordCol)?.trim()?.lowercase() ?: continue
+                        if (row == key) ids.add(cursor.getLong(idCol))
+                    }
+                }
+            }
+            var deleted = 0
+            for (id in ids) {
+                deleted += context.contentResolver.delete(
+                    ContentUris.withAppendedId(UserDictionary.Words.CONTENT_URI, id),
+                    null,
+                    null,
+                )
+            }
+            deleted > 0
+        }.getOrDefault(false)
     }
 
     /**

@@ -288,6 +288,79 @@ class UserLexiconTest {
         assertEquals("Sale", lexicon.displayOf("sale"))
     }
 
+    // ---- pinned case (#100) ----
+
+    @Test
+    fun aWordAddedByHandIsPinnedAndNoVoteMovesIt() {
+        val lexicon = UserLexicon(null)
+        lexicon.addWord("you")
+        assertTrue(lexicon.isCasePinned("you"))
+        // A sentence-start capital, trusted or not, a hundred times over.
+        repeat(100) { lexicon.learnWord("You", caseEvidence = true) }
+        assertNull(lexicon.displayOf("you"))
+        // And the other way round: a pinned capital survives lower-case typing.
+        lexicon.addWord("iPhone")
+        repeat(100) { lexicon.learnWord("iphone", caseEvidence = true) }
+        assertEquals("iPhone", lexicon.displayOf("iphone"))
+    }
+
+    @Test
+    fun anUnpinnedAddStillVotes() {
+        val lexicon = UserLexicon(null)
+        lexicon.addWord("iPhone", pinCase = false)
+        assertFalse(lexicon.isCasePinned("iphone"))
+        assertEquals("iPhone", lexicon.displayOf("iphone"))
+        repeat(20) { lexicon.learnWord("iphone", caseEvidence = true) }
+        assertNull(lexicon.displayOf("iphone"))
+    }
+
+    @Test
+    fun pinningCanBeSwitchedAndForgettingDropsIt() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("Boston", caseEvidence = true)
+        assertFalse(lexicon.isCasePinned("boston"))
+        assertTrue(lexicon.pinCase("boston", true))
+        assertFalse(lexicon.pinCase("boston", true))
+        repeat(20) { lexicon.learnWord("boston", caseEvidence = true) }
+        assertEquals("Boston", lexicon.displayOf("boston"))
+        assertTrue(lexicon.pinCase("boston", false))
+        repeat(20) { lexicon.learnWord("boston", caseEvidence = true) }
+        assertNull(lexicon.displayOf("boston"))
+        // Unknown words cannot be pinned; forgetting a pinned word drops the pin.
+        assertFalse(lexicon.pinCase("nowhere", true))
+        lexicon.addWord("Wasi")
+        lexicon.forget("wasi")
+        assertFalse(lexicon.isCasePinned("wasi"))
+    }
+
+    @Test
+    fun aRespellingPinsTheNewSpelling() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("boston", 3)
+        assertTrue(lexicon.rename("boston", "Boston"))
+        assertTrue(lexicon.isCasePinned("boston"))
+        // Same spelling again is nothing to do.
+        assertFalse(lexicon.rename("boston", "Boston"))
+        assertTrue(lexicon.rename("Boston", "Bostn"))
+        assertTrue(lexicon.isCasePinned("bostn"))
+        assertFalse(lexicon.isCasePinned("boston"))
+    }
+
+    @Test
+    fun pinsRoundTripThroughTheFile() {
+        val f = file()
+        UserLexicon(f).apply {
+            addWord("iPhone")
+            learnWord("Boston", caseEvidence = true)
+            save()
+        }
+        val back = UserLexicon(f)
+        assertTrue(back.isCasePinned("iphone"))
+        assertFalse(back.isCasePinned("boston"))
+        repeat(20) { back.learnWord("iphone", caseEvidence = true) }
+        assertEquals("iPhone", back.displayOf("iphone"))
+    }
+
     @Test
     fun aWordAddedByHandKeepsItsSpellingAgainstOrdinaryTyping() {
         val lexicon = UserLexicon(null)

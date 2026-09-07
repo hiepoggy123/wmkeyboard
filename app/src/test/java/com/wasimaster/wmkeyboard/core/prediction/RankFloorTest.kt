@@ -40,6 +40,30 @@ class RankFloorTest {
         }
     }
 
+    /** The inverse question, for the word card (#99): where does this frequency sit? */
+    @Test
+    fun `a frequency names the rank of that word`() {
+        for ((name, trie) in walkers()) {
+            assertEquals("$name commonest", 1, trie.rankOfFrequency(1000))
+            assertEquals("$name third", 3, trie.rankOfFrequency(800))
+            assertEquals("$name rarest", 10, trie.rankOfFrequency(100))
+            assertEquals("$name size", 10, trie.vocabularySize())
+            // The two directions agree with each other, over the ranks the
+            // floor answers (the last word is "no floor", see below).
+            for (rank in 1..9) {
+                assertEquals("$name round trip $rank", rank, trie.rankOfFrequency(trie.frequencyAtRank(rank)))
+            }
+        }
+    }
+
+    @Test
+    fun `a frequency nothing has ranks below every word`() {
+        for ((name, trie) in walkers()) {
+            assertEquals("$name below all", 11, trie.rankOfFrequency(50))
+            assertEquals("$name none", 0, trie.rankOfFrequency(0))
+        }
+    }
+
     /** No cap is asked for, so no cap is given. */
     @Test
     fun `a rank of zero or less is no floor at all`() {

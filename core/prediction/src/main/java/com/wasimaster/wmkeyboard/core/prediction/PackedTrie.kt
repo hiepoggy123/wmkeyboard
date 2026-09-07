@@ -62,6 +62,10 @@ class PackedTrie internal constructor(
 
     override fun frequencyAtRank(rank: Int): Int = rankFloors.frequencyAtRank(rank)
 
+    override fun rankOfFrequency(frequency: Int): Int = rankFloors.rankOfFrequency(frequency)
+
+    override fun vocabularySize(): Int = rankFloors.vocabularySize()
+
     /** Node reached by walking [word] from the root, or -1 if absent. */
     private fun nodeFor(word: String): Int {
         var node = 0

@@ -124,6 +124,7 @@ import com.wasimaster.wmkeyboard.core.input.MorseInput
 import com.wasimaster.wmkeyboard.core.prediction.AppNames
 import com.wasimaster.wmkeyboard.core.prediction.ContactEmails
 import com.wasimaster.wmkeyboard.core.prediction.ContactNames
+import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryStore
 import com.wasimaster.wmkeyboard.core.prediction.CompositeWordSource
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
@@ -153,6 +154,9 @@ import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.SystemUserDictionary
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
+import com.wasimaster.wmkeyboard.core.prediction.WordFacts
+import com.wasimaster.wmkeyboard.core.prediction.WordKey
+import com.wasimaster.wmkeyboard.core.prediction.WordRanks
 import com.wasimaster.wmkeyboard.core.prediction.WordSource
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
@@ -486,6 +490,8 @@ open class WMKeyboardService : InputMethodService() {
      * and left alone a few times before [userLexicon] will take them.
      */
     private var pendingLearn = PendingLearn(null)
+    /** The user's per-word rank adjustments (#99); see [WordRanks]. */
+    private var wordRanks = WordRanks(null)
 
     /**
      * This field's committed-but-unsettled words. Nothing here has been
@@ -2232,9 +2238,11 @@ open class WMKeyboardService : InputMethodService() {
                         // once, so the same signal has to drop all the copies:
                         // any one of them saves the old data back otherwise.
                         pendingLearn.reload()
+                        wordRanks.reload()
                         emojiUsage.reload()
                         languageMixConfidence.reload()
                     }
+                    suggestionEngine?.rankOffsets = wordRanks.snapshot()
                     // Words the user just deleted from their personal
                     // dictionary must not be sitting in the buffer waiting to
                     // be written straight back.
@@ -2545,6 +2553,8 @@ open class WMKeyboardService : InputMethodService() {
         // settings app rewrites the lexicon wholesale when the user edits their
         // personal dictionary, and half-earned sightings must survive that.
         pendingLearn = PendingLearn(store("learning/pending_learn.json"))
+        wordRanks = WordRanks(store("learning/word_ranks.json"))
+        suggestionEngine?.rankOffsets = wordRanks.snapshot()
         correctionStats = CorrectionStats(store("learning/correction_stats.json"))
         // The swapped-in store starts on the default level; carry the user's
         // setting across, or it stays at NORMAL until the next settings emit.
@@ -2761,6 +2771,7 @@ open class WMKeyboardService : InputMethodService() {
                     memory = _uiState.value.settings.autocorrectUndoMemory
                 }
                 blacklist = _uiState.value.settings.suggestionBlacklist
+                rankOffsets = wordRanks.snapshot()
                 offensiveWords = offensiveSet
                 blockOffensiveWords = _uiState.value.settings.suggestionStrip.blockOffensiveWords
                 skipAllCapsAutocorrect = _uiState.value.settings.autocorrectSkipAllCaps
@@ -2965,7 +2976,7 @@ open class WMKeyboardService : InputMethodService() {
                 canForwardDelete = ::canForwardDelete,
                 deleteSwipe = deleteSwipeCallbacks,
                 onSuggestion = ::onSuggestionTapped,
-                onSuggestionHold = ::onSuggestionHeld,
+                suggestionHold = suggestionHoldCallbacks,
                 onJoinSuggestion = ::onJoinSuggestionTapped,
                 onRevisionSuggestion = ::onRevisionSuggestionTapped,
                 onCandidate = ::onCandidateTapped,
@@ -3980,6 +3991,8 @@ open class WMKeyboardService : InputMethodService() {
         KeyboardPassthrough.publishRegion(null)
         vocabSpeaker?.stop()
         vocabProgress.save()
+        // The word card is about a word on a strip that is going away.
+        if (_uiState.value.wordCard != null) _uiState.update { it.copy(wordCard = null) }
         // A word still composing settles into the field as typed. Leaving the
         // editor's region active while our mirror is wiped on the next
         // onStartInputView meant the first keystroke after a hide→reshow
@@ -4051,6 +4064,7 @@ open class WMKeyboardService : InputMethodService() {
         flushLearningBuffer()
         userLexicon.save()
         pendingLearn.save()
+        wordRanks.save()
         correctionStats.save()
         CjkLearning.store?.save()
         languageMixConfidence.save()
@@ -4091,6 +4105,7 @@ open class WMKeyboardService : InputMethodService() {
         flushLearningBuffer()
         userLexicon.save()
         pendingLearn.save()
+        wordRanks.save()
         correctionStats.save()
         CjkLearning.store?.save()
         emojiUsage.save()
@@ -10596,8 +10611,9 @@ open class WMKeyboardService : InputMethodService() {
             consumeShift()
             // Deliberately picked, so it is learned like any other pick — the
             // base word, never the shift-cased form, and spelled the way the
-            // engine offered it.
-            learn(suggestion, reinforcement = 2, caseTrusted = true)
+            // engine offered it. Re-armed from text already in the field, so
+            // nobody knows where its capital came from: untrusted (#100).
+            learn(suggestion, reinforcement = 2, caseTrusted = false)
             lastRevertible = null
             clearSwapOffer()
             _uiState.update {
@@ -10680,7 +10696,18 @@ open class WMKeyboardService : InputMethodService() {
         // A contact email is the exception: it is never learned, so it stays
         // memory-only and off the disk-backed personal dictionary even when
         // tapped from an ordinary text field.
-        if ('@' !in suggestion) learn(suggestion, reinforcement = 2, caseTrusted = true)
+        // The chip was cased to match what was typed, and at a sentence start
+        // that capital is auto-capitalize's, not the user's — so the pick
+        // teaches a spelling only when the typed word's capital was trusted
+        // (#100). A pick with nothing typed (a next-word prediction) carries
+        // no case evidence at all.
+        if ('@' !in suggestion) {
+            learn(
+                suggestion,
+                reinforcement = 2,
+                caseTrusted = composing.isNotEmpty() && composingCaseTrusted,
+            )
+        }
         composing = StringBuilder()
         _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         maybeAutoCapitalize()
@@ -18303,6 +18330,247 @@ open class WMKeyboardService : InputMethodService() {
         if (trimmed.isEmpty()) return
         vibrate()
         serviceScope.launch { settingsRepository.addSuggestionBlacklistWord(trimmed) }
+    }
+
+    /**
+     * The held-word menu and the word card, bundled (#99) — one parameter
+     * for the strip, like [deleteSwipeCallbacks].
+     */
+    private val suggestionHoldCallbacks by lazy {
+        com.wasimaster.wmkeyboard.ime.ui.SuggestionHoldCallbacks(
+            facts = ::wordMenuFacts,
+            onMenu = ::onWordMenuAction,
+            onCard = ::onWordCardAction,
+        )
+    }
+
+    /** The composing word as the learn path would see it, or "" when nothing is typed. */
+    private fun typedWord(): String = composing.toString().trim { !WordContext.isWordChar(it) }
+
+    /**
+     * The word being typed when it could be added to the personal dictionary:
+     * long enough to be a word and not in there yet. About the composing
+     * word rather than the held chip, because the chips are known words by
+     * construction and the one the user wants in is the one they are typing
+     * (#100). Null otherwise.
+     */
+    private fun addableTypedWord(): String? =
+        typedWord().takeIf { it.length >= 2 && !userLexicon.contains(WordKey.of(it)) }
+
+    /** Whether [word] is somewhere the keyboard can take it out of itself. */
+    private fun isForgettable(word: String): Boolean {
+        val key = WordKey.of(word)
+        return userLexicon.contains(key) || pendingLearn.sightings(key) > 0 ||
+            systemDictionaryWords.source.contains(key) || wordRanks.offsetOf(key) != 0
+    }
+
+    /** What the held-word menu needs to pick its items: lookups only, on the main thread. */
+    private fun wordMenuFacts(word: String): WordMenuFacts {
+        val trimmed = word.trim()
+        return WordMenuFacts(
+            typedAddable = addableTypedWord(),
+            deletable = isForgettable(trimmed),
+            blacklisted = trimmed.lowercase() in _uiState.value.settings.suggestionBlacklist,
+        )
+    }
+
+    fun onWordMenuAction(action: WordMenuAction) {
+        when (action) {
+            is WordMenuAction.NeverSuggest -> onSuggestionHeld(action.word)
+            is WordMenuAction.AllowAgain -> allowWordAgain(action.word)
+            is WordMenuAction.Add -> addTypedWord(action.typed)
+            is WordMenuAction.Delete -> deleteWord(action.word)
+            is WordMenuAction.Open -> openWordCard(action.word)
+        }
+    }
+
+    /** Takes [word] back off the never-suggest list. */
+    private fun allowWordAgain(word: String) {
+        val trimmed = word.trim()
+        if (trimmed.isEmpty()) return
+        vibrate()
+        serviceScope.launch { settingsRepository.removeSuggestionBlacklistWord(trimmed) }
+    }
+
+    /**
+     * "This is a word, and this is how it is spelled": into the personal
+     * dictionary at full strength, like [acceptLearnOffer], with the capitals
+     * pinned rather than voted on (#100) — the user chose this spelling off a
+     * menu, which is as deliberate as it gets. A word on the never-suggest
+     * list is taken off it, since adding it says the opposite.
+     */
+    private fun addTypedWord(typed: String) {
+        val word = typed.trim()
+        if (word.isEmpty()) return
+        vibrate()
+        clearLearnOffer()
+        pendingLearn.forget(word)
+        userLexicon.addWord(word, caseEvidence = true)
+        val state = _uiState.value
+        if (word.lowercase() in state.settings.suggestionBlacklist) {
+            serviceScope.launch { settingsRepository.removeSuggestionBlacklistWord(word) }
+        }
+        if (state.settings.addWordsToSystemDictionary) {
+            serviceScope.launch(Dispatchers.IO) {
+                SystemUserDictionary.add(applicationContext, word)
+            }
+        }
+        refreshSuggestions()
+    }
+
+    /**
+     * Forgets [word] everywhere the keyboard can — the personal dictionary,
+     * the waiting room, the rank adjustments, Android's dictionary — and
+     * where it cannot, a downloaded or imported list, puts it on the
+     * never-suggest list so it is gone from the strip all the same (#99).
+     * The lists are read-only files; there is no other way to unlist one
+     * word from them.
+     */
+    private fun deleteWord(word: String) {
+        val trimmed = word.trim()
+        if (trimmed.isEmpty()) return
+        vibrate()
+        userLexicon.forget(trimmed)
+        pendingLearn.forget(trimmed)
+        wordRanks.remove(trimmed)
+        suggestionEngine?.rankOffsets = wordRanks.snapshot()
+        val lower = trimmed.lowercase()
+        val state = _uiState.value
+        val stillListed = suggestionEngine?.inDictionaries(lower, includePlatform = false) == true
+        if (stillListed && lower !in state.settings.suggestionBlacklist) {
+            serviceScope.launch { settingsRepository.addSuggestionBlacklistWord(trimmed) }
+        }
+        serviceScope.launch {
+            val removed = withContext(Dispatchers.IO) {
+                SystemUserDictionary.remove(applicationContext, trimmed)
+            }
+            if (removed) reloadSystemDictionary()
+        }
+        refreshSuggestions()
+    }
+
+    private fun openWordCard(word: String) {
+        val trimmed = word.trim()
+        if (trimmed.isEmpty()) return
+        vibrate()
+        publishWordCard(trimmed)
+    }
+
+    /**
+     * Puts the card for [word] up at once with what is known cheaply, then
+     * fills in the engine's description off the main thread — the first rank
+     * lookup on a list walks the whole list (see `RankFloorCache`). A card
+     * that was closed, or moved to another word, before the walk finished
+     * is left alone.
+     */
+    private fun publishWordCard(word: String) {
+        val state = _uiState.value
+        val card = WordCard(
+            word = word,
+            typed = addableTypedWord(),
+            learnedCount = userLexicon.frequencyOf(word),
+            rankOffset = wordRanks.offsetOf(word),
+            rankControl = state.settings.suggestionStrip.rankControl,
+            blacklisted = word.lowercase() in state.settings.suggestionBlacklist,
+        )
+        _uiState.update { it.copy(wordCard = card) }
+        val engine = suggestionEngine ?: return
+        serviceScope.launch {
+            val facts = withContext(Dispatchers.Default) {
+                engine.describe(word).copy(pendingSightings = pendingLearn.sightings(word))
+            }
+            val labels = packLabels(facts)
+            _uiState.update {
+                val current = it.wordCard
+                if (current?.word != word) {
+                    it
+                } else {
+                    it.copy(wordCard = current.copy(facts = facts, packLabels = labels))
+                }
+            }
+        }
+    }
+
+    /**
+     * Names for every language id a card mentions: the language's name, with
+     * the downloaded list's variant after it when the catalogue has one
+     * ("Portuguese (Brazil)").
+     */
+    private fun packLabels(facts: WordFacts): Map<String, String> {
+        val ids = buildSet {
+            facts.primary?.let { add(it.langId) }
+            facts.secondary.forEach { add(it.langId) }
+            facts.learned?.langId?.takeIf { it.isNotBlank() }?.let { add(it) }
+        }
+        return ids.associateWith { id ->
+            val language = LanguageRegistry.byId(id).displayName
+            val variant = DictionaryStore.sourceEntryId(filesDir, id)
+                ?.let(DictionaryCatalog::byId)
+                ?.variantRes
+            if (variant == null) {
+                language
+            } else {
+                getString(R.string.ime_word_card_pack_variant, language, getString(variant))
+            }
+        }
+    }
+
+    fun onWordCardAction(action: WordCardAction) {
+        val card = _uiState.value.wordCard ?: return
+        when (action) {
+            is WordCardAction.SetLearnedWeight -> {
+                setLearnedWeight(card.word, action.count)
+                publishWordCard(card.word)
+            }
+            is WordCardAction.SetOffset -> {
+                wordRanks.set(card.word, action.steps)
+                suggestionEngine?.rankOffsets = wordRanks.snapshot()
+                refreshSuggestions()
+                publishWordCard(card.word)
+            }
+            WordCardAction.Add -> {
+                card.typed?.let(::addTypedWord)
+                publishWordCard(card.word)
+            }
+            WordCardAction.Delete -> {
+                deleteWord(card.word)
+                // The blacklist write above is asynchronous; the card shows
+                // the outcome rather than waiting for the settings echo.
+                val listed = suggestionEngine?.inDictionaries(card.word.lowercase(), includePlatform = false) == true
+                publishWordCard(card.word)
+                if (listed) _uiState.update { it.copy(wordCard = it.wordCard?.copy(blacklisted = true)) }
+            }
+            WordCardAction.NeverSuggest -> {
+                onSuggestionHeld(card.word)
+                _uiState.update { it.copy(wordCard = it.wordCard?.copy(blacklisted = true)) }
+            }
+            WordCardAction.AllowAgain -> {
+                allowWordAgain(card.word)
+                _uiState.update { it.copy(wordCard = it.wordCard?.copy(blacklisted = false)) }
+            }
+            WordCardAction.Dismiss -> _uiState.update { it.copy(wordCard = null) }
+        }
+    }
+
+    /**
+     * The card's learned-weight control (#99): 0 forgets the word, a count
+     * on a known word sets it (the dictionary screen's edit, done from the
+     * keyboard), and a count on an unknown word adds it at that weight —
+     * without case evidence, since the chip's capitals are the engine's.
+     */
+    private fun setLearnedWeight(word: String, count: Int) {
+        when {
+            count <= 0 -> {
+                userLexicon.forget(word)
+                pendingLearn.forget(word)
+            }
+            userLexicon.contains(WordKey.of(word)) -> userLexicon.setCount(word, count)
+            else -> {
+                pendingLearn.forget(word)
+                userLexicon.addWord(word, boost = count, caseEvidence = false)
+            }
+        }
+        refreshSuggestions()
     }
 
     fun onEmojiSuggestionTapped(emoji: String, held: Boolean = false) {

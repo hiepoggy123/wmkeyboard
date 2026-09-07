@@ -319,6 +319,61 @@ class SuggestionEngineTest {
         assertTrue("them" in suggestions)
     }
 
+    @Test fun aRankOffsetLiftsAWordAboveAStrongerOne() {
+        // "the" (100) outranks "them" (80) on frequency alone.
+        val plain = engine().suggest("th", previousWord = null)
+        assertTrue(plain.indexOf("the") < plain.indexOf("them"))
+        val e = engine().apply { rankOffsets = mapOf("them" to 3) }
+        val lifted = e.suggest("th", previousWord = null)
+        assertTrue(lifted.indexOf("them") < lifted.indexOf("the"))
+    }
+
+    @Test fun aRankOffsetSinksAWordBelowAWeakerOne() {
+        val e = engine().apply { rankOffsets = mapOf("the" to -3) }
+        val sunk = e.suggest("th", previousWord = null)
+        // Re-ranked, never hidden.
+        assertTrue("the" in sunk)
+        assertTrue(sunk.indexOf("they") < sunk.indexOf("the"))
+    }
+
+    @Test fun aRankOffsetMatchesOnKeys() {
+        val e = engine().apply { rankOffsets = mapOf("them" to 3) }
+        val lifted = e.suggest("Th", previousWord = null)
+        assertTrue(lifted.indexOf("Them") < lifted.indexOf("The"))
+    }
+
+    @Test fun aRankOffsetNeverResurrectsABlacklistedWord() {
+        val e = engine().apply {
+            blacklist = setOf("they")
+            rankOffsets = mapOf("they" to 10)
+        }
+        assertTrue("they" !in e.suggest("th", previousWord = null))
+    }
+
+    @Test fun describeReportsWhereAWordComesFrom() {
+        val lexicon = UserLexicon(null).apply { addWord("Wasi") }
+        val e = SuggestionEngine(
+            Trie().apply { insert("hello", 70) },
+            BengaliPhoneticIndex(emptyList()),
+            lexicon,
+        ).apply {
+            blacklist = setOf("hello")
+            rankOffsets = mapOf("wasi" to 2)
+        }
+        val hello = e.describe("Hello")
+        assertEquals("hello", hello.key)
+        assertEquals(70, hello.primary?.frequency)
+        assertNull(hello.learned)
+        assertTrue(hello.blacklisted)
+        val wasi = e.describe("wasi")
+        assertNull(wasi.primary)
+        assertEquals(200, wasi.learned?.count)
+        assertEquals("Wasi", wasi.learned?.display)
+        assertTrue(wasi.learned?.casePinned == true)
+        assertEquals(2, wasi.rankOffset)
+        assertTrue(e.describe("zzz").unknown)
+    }
+
     @Test fun blacklistMatchesCaseInsensitively() {
         val e = engine().apply { blacklist = setOf("they") }
         // Capitalized composing still filters the (capitalized) candidate.
