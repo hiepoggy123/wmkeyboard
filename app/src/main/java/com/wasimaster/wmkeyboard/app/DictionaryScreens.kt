@@ -173,8 +173,10 @@ internal fun DictionarySettings(repository: SettingsRepository) {
     }
     // Drawn in pages. The screen is not a lazy list (see WmScreen), so every
     // row here is composed at once, and a dictionary of thousands of words
-    // ran the app out of memory on the way in (#75).
-    var visible by remember(shown) { mutableIntStateOf(WORD_LIST_PAGE) }
+    // ran the app out of memory on the way in (#75). Keyed on the query and
+    // not on the list: a new search starts over at page one, but deleting or
+    // respelling a word must not fold everything the user had expanded (#85).
+    var visible by remember(query) { mutableIntStateOf(WORD_LIST_PAGE) }
     SettingsGroup {
         for ((word, count) in shown.take(visible)) {
             item {
@@ -439,7 +441,8 @@ internal fun BlacklistSettings(repository: SettingsRepository, settings: Keyboar
         val needle = query.trim().lowercase()
         if (needle.isEmpty()) words else words.filter { needle in it }
     }
-    var visible by remember(shown) { mutableIntStateOf(WORD_LIST_PAGE) }
+    // Keyed on the query, not the list, so a deletion keeps the pages open (#85).
+    var visible by remember(query) { mutableIntStateOf(WORD_LIST_PAGE) }
     if (words.isEmpty()) {
         CaptionText(stringResource(R.string.backup_blacklist_empty))
     } else if (shown.isEmpty()) {
