@@ -60,13 +60,18 @@ def entries(data: Path) -> list[dict]:
 def render(items: list[dict]) -> str:
     lines = ["    val entries: List<VocabCatalogEntry> = listOf("]
     for item in items:
-        codes = ", ".join(kotlin_string(c) for c in item["translationCodes"])
+        # Twelve codes a line keeps the table inside the style's line length.
+        codes = [kotlin_string(c) for c in item["translationCodes"]]
+        code_lines = "\n".join(
+            "                " + ", ".join(codes[i : i + 12]) + ","
+            for i in range(0, len(codes), 12)
+        )
         lines.append(
             "        VocabCatalogEntry(\n"
             f"            {kotlin_string(item['id'])}, {kotlin_string(item['name'])}, "
             f"{kotlin_string(item['langId'])}, {kotlin_string(item['sourceId'])},\n"
             f"            {item['wordCount']}, {item['approxGzBytes']}L,\n"
-            f"            listOf({codes}),\n"
+            f"            listOf(\n{code_lines}\n            ),\n"
             "        ),"
         )
     lines.append("    )")

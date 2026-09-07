@@ -1466,7 +1466,8 @@ object SmartSuggest {
      * phrase wins over its last word.
      */
     private val VOCAB_PHRASE_TAIL = Regex(
-        """((?:[\p{L}\p{M}][\p{L}\p{M}'’-]*[ ]+){0,${VocabIndex.MAX_TRIGGER_WORDS - 1}}[\p{L}\p{M}][\p{L}\p{M}'’-]*[\p{L}\p{M}])([\s\p{Punct}]{0,2})$""",
+        """((?:[\p{L}\p{M}][\p{L}\p{M}'’-]*[ ]+){0,${VocabIndex.MAX_TRIGGER_WORDS - 1}}""" +
+            """[\p{L}\p{M}][\p{L}\p{M}'’-]*[\p{L}\p{M}])([\s\p{Punct}]{0,2})$""",
     )
 
     /**
@@ -1488,17 +1489,11 @@ object SmartSuggest {
         var hit = index.hitsFor(key, ctx.vocabMinGap).firstOrNull { vocabInScope(it.lemma, ctx) }
         // A multi-word gloss: look further back, longest phrase first.
         if (hit == null && index.maxTriggerWords > 1) {
-            val phrase = VOCAB_PHRASE_TAIL.find(tail)?.groupValues?.get(1)
-            val words = phrase?.trim()?.split(SPACES).orEmpty()
-            for (count in minOf(words.size, index.maxTriggerWords) downTo 2) {
-                val candidate = words.takeLast(count).joinToString(" ")
-                val candidateKey = VocabIndex.foldKey(candidate)
-                if (candidateKey in ctx.vocabRetired) continue
-                val phraseHit = index.hitsFor(candidateKey, ctx.vocabMinGap).firstOrNull { vocabInScope(it.lemma, ctx) } ?: continue
-                typed = candidate
-                key = candidateKey
-                hit = phraseHit
-                break
+            val phraseHit = phraseHit(tail, index, ctx)
+            if (phraseHit != null) {
+                typed = phraseHit.first
+                key = VocabIndex.foldKey(typed)
+                hit = phraseHit.second
             }
         }
         if (hit != null) {
@@ -1532,6 +1527,18 @@ object SmartSuggest {
     }
 
     private val SPACES = Regex("""\s+""")
+
+    /** The longest run of words before the cursor that is a gloss in the index, with its hit. */
+    private fun phraseHit(tail: String, index: VocabIndex, ctx: Context): Pair<String, VocabIndex.TriggerHit>? {
+        val phrase = VOCAB_PHRASE_TAIL.find(tail)?.groupValues?.get(1) ?: return null
+        val words = phrase.trim().split(SPACES)
+        return (minOf(words.size, index.maxTriggerWords) downTo 2).firstNotNullOfOrNull { count ->
+            val candidate = words.takeLast(count).joinToString(" ")
+            val candidateKey = VocabIndex.foldKey(candidate)
+            if (candidateKey in ctx.vocabRetired) return@firstNotNullOfOrNull null
+            index.hitsFor(candidateKey, ctx.vocabMinGap).firstOrNull { vocabInScope(it.lemma, ctx) }?.let { candidate to it }
+        }
+    }
 
     private fun vocabInScope(lemma: String, ctx: Context): Boolean = when (ctx.vocabScope) {
         VocabNudgeScope.UNLEARNT -> !ctx.vocabLearnt(lemma)

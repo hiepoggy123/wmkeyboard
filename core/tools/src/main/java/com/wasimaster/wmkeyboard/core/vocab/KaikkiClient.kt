@@ -7,13 +7,10 @@ import java.net.URLEncoder
 import java.util.Locale
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * One word's Wiktionary entry from kaikki.org, the same per-word JSONL the
@@ -82,16 +79,8 @@ object KaikkiClient : VocabAutofill.Source {
         }
     }
 
-    /** The JSONL page folded into one record, or null when it holds no usable English entry. */
-    fun parse(body: String, lemma: String, translationCodes: List<String> = emptyList()): VocabWord? {
-        val entries = body.lineSequence()
-            .map { it.trim() }
-            .filter { it.startsWith("{") }
-            .mapNotNull { runCatching { json.parseToJsonElement(it).jsonObject }.getOrNull() }
-            .filter { (it.str("lang_code") ?: "en") == "en" }
-            .toList()
-        if (entries.isEmpty()) return null
-
+    /** Everything the entries of one page add up to, before it becomes a [VocabWord]. */
+    private class Draft(val lemma: String, val translationCodes: List<String>) {
         val pos = ArrayList<String>()
         val senses = ArrayList<VocabSense>()
         val synonyms = LinkedHashSet<String>()
@@ -109,114 +98,162 @@ object KaikkiClient : VocabAutofill.Source {
         var wikipedia: String? = null
         val translations = LinkedHashMap<String, Pair<ArrayList<String>, ArrayList<String>>>()
 
-        for (entry in entries) {
-            val rawPos = entry.str("pos")?.lowercase(Locale.ROOT) ?: continue
-            if (rawPos in POS_DROP) continue
-            val partOfSpeech = POS_MAP[rawPos] ?: rawPos
-            if (partOfSpeech !in pos) pos += partOfSpeech
+        fun toWord(): VocabWord? {
+            if (senses.isEmpty()) return null
+            fun trim(set: Set<String>) = set.filter { it.isNotEmpty() && it != lemma }.take(MAX_RELATED)
+            return VocabWord(
+                word = lemma,
+                pos = pos,
+                ipa = ipa,
+                audio = audio,
+                senses = senses,
+                synonyms = trim(synonyms),
+                antonyms = trim(antonyms),
+                family = if (derived.isEmpty() && related.isEmpty()) null else VocabFamily(trim(derived), trim(related)),
+                hypernyms = trim(hypernyms),
+                hyponyms = trim(hyponyms),
+                forms = forms.toList(),
+                hyphenation = hyphenation,
+                rhymes = rhymes,
+                etymology = etymology,
+                attested = etymology?.let { ATTESTED.find(it)?.groupValues?.get(1) },
+                wikipedia = wikipedia,
+                translations = translations.mapValues { (_, slot) ->
+                    VocabTranslation(w = slot.first, r = if (slot.second.any { it.isNotEmpty() }) slot.second else emptyList())
+                },
+            )
+        }
+    }
 
-            var kept = 0
-            for (senseElement in entry.arr("senses")) {
-                val sense = senseElement as? JsonObject ?: continue
-                if (kept >= MAX_SENSES_PER_POS) break
-                val glosses = sense.strings("glosses")
-                val definition = glosses.lastOrNull()?.trim().orEmpty()
-                if (definition.isEmpty()) continue
-                val examples = sense.arr("examples").mapNotNull { it as? JsonObject }
-                val example = examples.firstOrNull { it.str("type") != "quotation" && it.str("ref") == null }?.str("text")
-                val quotations = examples
-                    .filter { it.str("ref") != null && it.str("text") != null }
-                    .take(MAX_QUOTATIONS)
-                    .map { VocabQuotation(text = it.str("text")!!, ref = it.str("ref")!!.trimEnd(':')) }
-                val senseSynonyms = sense.arr("synonyms").words()
-                val senseAntonyms = sense.arr("antonyms").words()
-                synonyms += senseSynonyms
-                antonyms += senseAntonyms
-                senses += VocabSense(
-                    pos = partOfSpeech,
-                    definition = definition,
-                    example = example?.trim()?.takeIf { it.isNotEmpty() },
-                    quotations = quotations,
-                    synonyms = senseSynonyms,
-                    antonyms = senseAntonyms,
-                    tags = sense.strings("tags").filter { it in KEPT_TAGS },
-                    topics = sense.strings("topics").take(3),
-                )
-                kept++
-            }
-            synonyms += entry.arr("synonyms").words()
-            antonyms += entry.arr("antonyms").words()
-            derived += entry.arr("derived").words()
-            related += entry.arr("related").words()
-            hypernyms += entry.arr("hypernyms").words()
-            hyponyms += entry.arr("hyponyms").words()
-            for (formElement in entry.arr("forms")) {
-                val form = formElement as? JsonObject ?: continue
-                val tags = form.strings("tags")
-                if (tags.any { it in FORM_SKIP_TAGS }) continue
-                val text = form.str("form")?.trim() ?: continue
-                if (text.isNotEmpty() && text != lemma && text.all { it.isLetter() || it == ' ' || it == '-' || it == '\'' }) forms += text
-            }
-            for (soundElement in entry.arr("sounds")) {
-                val sound = soundElement as? JsonObject ?: continue
-                val tags = sound.strings("tags")
-                val accent = when {
-                    tags.any { it == "US" || it == "General-American" || it == "GA" } -> VocabAccent.US.key
-                    tags.any { it == "UK" || it == "Received-Pronunciation" || it == "RP" } -> VocabAccent.UK.key
-                    else -> null
-                }
-                sound.str("ipa")?.let { value ->
-                    if (accent != null) ipa.putIfAbsent(accent, value) else if (ipa.isEmpty()) ipa[VocabAccent.US.key] = value
-                }
-                sound.str("mp3_url")?.let { value ->
-                    if (accent != null) audio.putIfAbsent(accent, value) else if (audio.isEmpty()) audio[VocabAccent.US.key] = value
-                }
-                if (rhymes == null) rhymes = sound.str("rhymes")
-            }
-            if (etymology == null) etymology = entry.str("etymology_text")?.trim()?.takeIf { it.isNotEmpty() }
-            if (hyphenation.isEmpty()) {
-                hyphenation = entry.strings("hyphenation").ifEmpty {
-                    entry.arr("hyphenations").firstNotNullOfOrNull { (it as? JsonObject)?.strings("parts") }.orEmpty()
-                }
-            }
-            if (wikipedia == null) wikipedia = entry.strings("wikipedia").firstOrNull()
-            if (translationCodes.isNotEmpty()) {
-                for (trElement in entry.arr("translations")) {
-                    val tr = trElement as? JsonObject ?: continue
-                    val code = tr.str("code") ?: tr.str("lang_code") ?: continue
-                    if (code !in translationCodes) continue
-                    val word = tr.str("word")?.trim()?.takeIf { it.isNotEmpty() } ?: continue
-                    val slot = translations.getOrPut(code) { ArrayList<String>() to ArrayList() }
-                    if (word in slot.first || slot.first.size >= MAX_TRANSLATIONS_PER_LANGUAGE) continue
-                    slot.first += word
-                    slot.second += tr.str("roman")?.trim().orEmpty()
-                }
+    /** The JSONL page folded into one record, or null when it holds no usable English entry. */
+    fun parse(body: String, lemma: String, translationCodes: List<String> = emptyList()): VocabWord? {
+        val entries = body.lineSequence()
+            .map { it.trim() }
+            .filter { it.startsWith("{") }
+            .mapNotNull { runCatching { json.parseToJsonElement(it).jsonObject }.getOrNull() }
+            .filter { (it.str("lang_code") ?: "en") == "en" }
+            .toList()
+        if (entries.isEmpty()) return null
+        val draft = Draft(lemma, translationCodes)
+        for (entry in entries) addEntry(draft, entry)
+        return draft.toWord()
+    }
+
+    private fun addEntry(draft: Draft, entry: JsonObject) {
+        val rawPos = entry.str("pos")?.lowercase(Locale.ROOT) ?: return
+        if (rawPos in POS_DROP) return
+        val partOfSpeech = POS_MAP[rawPos] ?: rawPos
+        if (partOfSpeech !in draft.pos) draft.pos += partOfSpeech
+        addSenses(draft, entry, partOfSpeech)
+        draft.synonyms += entry.arr("synonyms").words()
+        draft.antonyms += entry.arr("antonyms").words()
+        draft.derived += entry.arr("derived").words()
+        draft.related += entry.arr("related").words()
+        draft.hypernyms += entry.arr("hypernyms").words()
+        draft.hyponyms += entry.arr("hyponyms").words()
+        addForms(draft, entry)
+        addSounds(draft, entry)
+        if (draft.etymology == null) draft.etymology = entry.str("etymology_text")?.trim()?.takeIf { it.isNotEmpty() }
+        if (draft.hyphenation.isEmpty()) {
+            draft.hyphenation = entry.strings("hyphenation").ifEmpty {
+                entry.arr("hyphenations").firstNotNullOfOrNull { (it as? JsonObject)?.strings("parts") }.orEmpty()
             }
         }
-        if (senses.isEmpty()) return null
-        fun trim(set: Set<String>) = set.filter { it.isNotEmpty() && it != lemma }.take(MAX_RELATED)
-        return VocabWord(
-            word = lemma,
-            pos = pos,
-            ipa = ipa,
-            audio = audio,
-            senses = senses,
-            synonyms = trim(synonyms),
-            antonyms = trim(antonyms),
-            family = if (derived.isEmpty() && related.isEmpty()) null else VocabFamily(trim(derived), trim(related)),
-            hypernyms = trim(hypernyms),
-            hyponyms = trim(hyponyms),
-            forms = forms.toList(),
-            hyphenation = hyphenation,
-            rhymes = rhymes,
-            etymology = etymology,
-            attested = etymology?.let { ATTESTED.find(it)?.groupValues?.get(1) },
-            wikipedia = wikipedia,
-            translations = translations.mapValues { (_, slot) ->
-                VocabTranslation(w = slot.first, r = if (slot.second.any { it.isNotEmpty() }) slot.second else emptyList())
-            },
+        if (draft.wikipedia == null) draft.wikipedia = entry.strings("wikipedia").firstOrNull()
+        if (draft.translationCodes.isNotEmpty()) addTranslations(draft, entry)
+    }
+
+    private fun addSenses(draft: Draft, entry: JsonObject, partOfSpeech: String) {
+        var kept = 0
+        for (senseElement in entry.arr("senses")) {
+            if (kept >= MAX_SENSES_PER_POS) break
+            val sense = senseOf(senseElement as? JsonObject ?: continue, partOfSpeech) ?: continue
+            draft.synonyms += sense.synonyms
+            draft.antonyms += sense.antonyms
+            draft.senses += sense
+            kept++
+        }
+    }
+
+    private fun senseOf(sense: JsonObject, partOfSpeech: String): VocabSense? {
+        val definition = sense.strings("glosses").lastOrNull()?.trim().orEmpty()
+        if (definition.isEmpty()) return null
+        val examples = sense.arr("examples").mapNotNull { it as? JsonObject }
+        val example = examples.firstOrNull { it.str("type") != "quotation" && it.str("ref") == null }?.str("text")
+        val quotations = examples
+            .mapNotNull { quote ->
+                val text = quote.str("text") ?: return@mapNotNull null
+                val ref = quote.str("ref") ?: return@mapNotNull null
+                VocabQuotation(text = text, ref = ref.trimEnd(':'))
+            }
+            .take(MAX_QUOTATIONS)
+        return VocabSense(
+            pos = partOfSpeech,
+            definition = definition,
+            example = example?.trim()?.takeIf { it.isNotEmpty() },
+            quotations = quotations,
+            synonyms = sense.arr("synonyms").words(),
+            antonyms = sense.arr("antonyms").words(),
+            tags = sense.strings("tags").filter { it in KEPT_TAGS },
+            topics = sense.strings("topics").take(3),
         )
     }
+
+    private fun addForms(draft: Draft, entry: JsonObject) {
+        for (formElement in entry.arr("forms")) {
+            val form = formElement as? JsonObject ?: continue
+            if (form.strings("tags").any { it in FORM_SKIP_TAGS }) continue
+            val text = form.str("form")?.trim() ?: continue
+            if (isPlainForm(text, draft.lemma)) draft.forms += text
+        }
+    }
+
+    private fun isPlainForm(text: String, lemma: String): Boolean {
+        if (text.isEmpty() || text == lemma) return false
+        return text.all { it.isLetter() || it == ' ' || it == '-' || it == '\'' }
+    }
+
+    private fun addSounds(draft: Draft, entry: JsonObject) {
+        for (soundElement in entry.arr("sounds")) {
+            val sound = soundElement as? JsonObject ?: continue
+            val accent = accentOf(sound.strings("tags"))
+            sound.str("ipa")?.let { value -> putAccented(draft.ipa, accent, value) }
+            sound.str("mp3_url")?.let { value -> putAccented(draft.audio, accent, value) }
+            if (draft.rhymes == null) draft.rhymes = sound.str("rhymes")
+        }
+    }
+
+    /** Keyed by accent when the sound names one; an unlabelled sound fills the map only while it is empty. */
+    private fun putAccented(map: HashMap<String, String>, accent: String?, value: String) {
+        if (accent != null) {
+            map.putIfAbsent(accent, value)
+        } else if (map.isEmpty()) {
+            map[VocabAccent.US.key] = value
+        }
+    }
+
+    private fun accentOf(tags: List<String>): String? = when {
+        tags.any { it in US_TAGS } -> VocabAccent.US.key
+        tags.any { it in UK_TAGS } -> VocabAccent.UK.key
+        else -> null
+    }
+
+    private fun addTranslations(draft: Draft, entry: JsonObject) {
+        entry.arr("translations").forEach { element -> (element as? JsonObject)?.let { addTranslation(draft, it) } }
+    }
+
+    private fun addTranslation(draft: Draft, tr: JsonObject) {
+        val code = tr.str("code") ?: tr.str("lang_code") ?: return
+        if (code !in draft.translationCodes) return
+        val word = tr.str("word")?.trim()?.takeIf { it.isNotEmpty() } ?: return
+        val slot = draft.translations.getOrPut(code) { ArrayList<String>() to ArrayList() }
+        if (word in slot.first || slot.first.size >= MAX_TRANSLATIONS_PER_LANGUAGE) return
+        slot.first += word
+        slot.second += tr.str("roman")?.trim().orEmpty()
+    }
+
+    private val US_TAGS = setOf("US", "General-American", "GA")
+    private val UK_TAGS = setOf("UK", "Received-Pronunciation", "RP")
 
     private val ATTESTED = Regex("""[Ff]irst attested (?:in|around|from)\s+(?:the\s+)?(\d{4})""")
 
@@ -232,7 +269,4 @@ object KaikkiClient : VocabAutofill.Source {
     /** `[{"word": "hate"}, …]` → the words. */
     private fun JsonArray.words(): List<String> =
         mapNotNull { (it as? JsonObject)?.str("word")?.trim()?.takeIf { w -> w.isNotEmpty() } }
-
-    @Suppress("unused")
-    private fun JsonElement.asObjectOrNull(): JsonObject? = this as? JsonObject
 }

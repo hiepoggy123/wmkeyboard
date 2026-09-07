@@ -994,6 +994,34 @@ class SmartSuggestVocabTest {
     }
 
     @Test
+    fun glossesInYourLanguagesNudgeTheEnglishWord() {
+        val glossed = abhor.copy(
+            translations = mapOf(
+                "bn" to com.wasimaster.wmkeyboard.core.vocab.VocabTranslation(
+                    w = listOf("ঘৃণা করা", "ঘৃণা"),
+                    r = listOf("ghrina kora", "ghrina"),
+                ),
+            ),
+        )
+        val glossIndex = com.wasimaster.wmkeyboard.core.vocab.VocabIndex.build(
+            listOf(com.wasimaster.wmkeyboard.core.vocab.VocabPack(com.wasimaster.wmkeyboard.core.vocab.VocabPackMeta(id = "ws1"), listOf(glossed))),
+            translationCodes = listOf("bn"),
+        )
+        val bengali = ctx.copy(vocab = glossIndex)
+        assertEquals("abhor", hit("আমি ঘৃণা", bengali)?.result)
+        assertEquals("ঘৃণা", hit("আমি ঘৃণা ", bengali)?.query)
+        // The romanisation as typed on a phonetic layout, and the whole phrase.
+        assertEquals("abhor", hit("ami ghrina", bengali)?.result)
+        assertEquals("ঘৃণা করা", hit("আমি ঘৃণা করা.", bengali)?.query)
+        assertEquals(ToolPrefill.Vocab("abhor"), hit("ami ghrina kora", bengali)?.prefill)
+        // Every sensitivity lets a gloss through; a retired gloss does not.
+        assertNotNull(hit("ghrina", bengali.copy(vocabMinGap = 2.0)))
+        assertNull(hit("ghrina", bengali.copy(vocabRetired = setOf("ghrina"))))
+        // Without the language asked for, the gloss is not a trigger.
+        assertNull(hit("ami ghrina"))
+    }
+
+    @Test
     fun sensitivityThresholdsTheGap() {
         assertNotNull(hit("brief"))
         assertNull(hit("brief", ctx.copy(vocabMinGap = 1.0)))
