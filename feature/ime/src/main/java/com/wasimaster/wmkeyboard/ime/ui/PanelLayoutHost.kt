@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.layout.BuiltInPanelLayouts
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.LayerSpec
 import com.wasimaster.wmkeyboard.core.layout.PanelFieldKind
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
 import com.wasimaster.wmkeyboard.core.layout.PanelLayoutSpec
@@ -68,8 +69,27 @@ internal class TrackpadFieldCallbacks(
  * else the shipped set. The one place this is decided; the service's
  * persistence check reads it too.
  */
-internal fun KeyboardUiState.panelLayout(kind: PanelKind): PanelLayoutSpec =
-    layouts.panels[kind] ?: panelLayouts[kind] ?: BuiltInPanelLayouts.default(kind)
+internal fun KeyboardUiState.panelLayout(kind: PanelKind): PanelLayoutSpec {
+    layouts.panels[kind]?.let { return it }
+    val shared = panelLayouts[kind]
+    // The shared map carries the shipped grid for a panel the user never
+    // edited; only a grid of the user's own outranks what follows.
+    if (shared != null && shared != BuiltInPanelLayouts.default(kind)) return shared
+    if (kind == PanelKind.NUMPAD) {
+        // Issue #55 kept: a layout that authored its own Number layer is drawn
+        // on the pad. Below that, the shipped pad in the digit order the
+        // Numpad tool's setting asks for.
+        layouts.number?.let { number ->
+            return PanelLayoutSpec(
+                PanelKind.NUMPAD,
+                LayerSpec(rows = number.rows, rowHeights = number.rowHeights),
+                appearance = number.appearance,
+            )
+        }
+        return BuiltInPanelLayouts.numpad(calculator = settings.numpadCalculatorLayout)
+    }
+    return shared ?: BuiltInPanelLayouts.default(kind)
+}
 
 /**
  * The theme the grid on screen asks for (issue #61, and #63's panels): an
@@ -233,6 +253,27 @@ internal fun TextEditPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCal
     ) {
         PanelLayoutGrid(
             state, state.panelLayout(PanelKind.TEXT_EDIT), callbacks, onClose,
+            fields = { _ -> },
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+/**
+ * The Numpad tool's pad, a keys-only panel layout like the text-editing pad
+ * (issue #63): the layout's own tab, the shared pad, the layout's Number
+ * layer or the shipped pad, in that order — see [panelLayout].
+ */
+@Composable
+internal fun NumpadPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCallbacks) {
+    val onClose = { callbacks.onPanelChange(PanelMode.NUMPAD) }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(keyRowsHeight(state)),
+    ) {
+        PanelLayoutGrid(
+            state, state.panelLayout(PanelKind.NUMPAD), callbacks, onClose,
             fields = { _ -> },
             modifier = Modifier.fillMaxSize(),
         )

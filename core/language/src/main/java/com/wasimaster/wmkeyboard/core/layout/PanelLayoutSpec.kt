@@ -24,6 +24,8 @@ enum class PanelKind(val shipped: Boolean = true) {
     @SerialName("clipboard") CLIPBOARD,
     @SerialName("text_edit") TEXT_EDIT,
     @SerialName("trackpad") TRACKPAD,
+    /** The Numpad tool's pad: keys only, like the text-editing pad. */
+    @SerialName("numpad") NUMPAD,
     ;
 
     /**
@@ -43,7 +45,7 @@ enum class PanelKind(val shipped: Boolean = true) {
             EMOJI -> PanelFieldKind.EMOJI_GRID
             CLIPBOARD -> PanelFieldKind.CLIPBOARD_LIST
             TRACKPAD -> PanelFieldKind.TRACKPAD
-            TEXT_EDIT -> null
+            TEXT_EDIT, NUMPAD -> null
         }
 }
 

@@ -101,6 +101,7 @@ internal fun panelTitleRes(kind: PanelKind): Int = when (kind) {
     PanelKind.CLIPBOARD -> R.string.panel_name_clipboard
     PanelKind.TEXT_EDIT -> R.string.panel_name_text_edit
     PanelKind.TRACKPAD -> R.string.panel_name_trackpad
+    PanelKind.NUMPAD -> R.string.panel_name_numpad
 }
 
 /** A component's name, in the picker, the preview cell and the reorder dialog. */
@@ -684,8 +685,11 @@ internal fun PanelEditorBody(
 }
 
 /** What "Add a key" puts on a panel: a labelled text key, or an arrow on the keys-only pad. */
-private fun newPanelKey(kind: PanelKind): Key =
-    if (kind == PanelKind.TEXT_EDIT) Key("", action = KeyAction.Edit(TextEditAction.LEFT)) else Key("new")
+private fun newPanelKey(kind: PanelKind): Key = when (kind) {
+    PanelKind.TEXT_EDIT -> Key("", action = KeyAction.Edit(TextEditAction.LEFT))
+    PanelKind.NUMPAD -> Key("0")
+    else -> Key("new")
+}
 
 /**
  * A component's cell in the preview: hatched, with the component's name, so

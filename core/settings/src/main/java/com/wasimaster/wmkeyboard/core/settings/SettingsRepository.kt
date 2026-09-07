@@ -8137,7 +8137,7 @@ class SettingsRepository(private val context: Context) {
         when (kind) {
             PanelKind.TEXT_EDIT -> prefs.remove(TEXT_EDIT_LAYOUT)
             PanelKind.CLIPBOARD -> prefs.remove(CLIPBOARD_BOTTOM_ROW)
-            PanelKind.EMOJI, PanelKind.TRACKPAD -> Unit
+            PanelKind.EMOJI, PanelKind.TRACKPAD, PanelKind.NUMPAD -> Unit
         }
     }
 

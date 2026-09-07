@@ -503,6 +503,7 @@
     <string name="panel_name_clipboard">Clipboard panel</string>
     <string name="panel_name_text_edit">Text editing panel</string>
     <string name="panel_name_trackpad">Trackpad panel</string>
+    <string name="panel_name_numpad">Numpad</string>
     <string name="field_name_emoji_tabs">Emoji categories</string>
     <string name="field_name_emoji_search">Emoji search</string>
     <string name="field_name_emoji_grid">Emoji grid</string>

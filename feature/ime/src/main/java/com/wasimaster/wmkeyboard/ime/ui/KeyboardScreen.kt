@@ -8166,7 +8166,7 @@ private fun KeyboardBody(
                     onClose = { onPanelChange(PanelMode.THEMES) },
                 )
                 PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
-                PanelMode.NUMPAD -> NumpadPanel(state, onText, onKey)
+                PanelMode.NUMPAD -> NumpadPanelHost(state, panelCallbacks)
                 PanelMode.CANDIDATES -> CandidateGridPanel(state, onCandidate)
                 PanelMode.HANDWRITING -> if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) {
                     HandwritingPanel(

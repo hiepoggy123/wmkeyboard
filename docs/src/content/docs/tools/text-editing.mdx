@@ -185,9 +185,9 @@ Dragging the tool to move it works with either switch on: once your finger trave
 
 <SettingsPath path="Tools / Numpad / Options" />
 
-**Calculator-style layout**: off by default. It puts 7 8 9 on the top row like a desk keypad instead of 1 2 3 like a dialer.
+**Calculator-style layout**: off by default. It puts 7 8 9 on the top row like a desk keypad instead of 1 2 3 like a dialer. It only reaches the shipped pad: a pad you laid out yourself is drawn as you laid it out.
 
-A layout that authors its own **Number** layer in the [layout editor](/languages/custom-layouts/#rows-and-layers) is drawn here instead, key for key and in the order it drew them, so this switch has nothing to flip on it. The pad follows whichever layout you're typing with.
+**Panel layout**: the pad is a [panel layout](/languages/custom-layouts/#panel-layouts) like the text editing pad, so it has a shared grid under Key layouts → Panel layouts, a tab in every key layout's editor for a grid of that layout's own, and with them a theme, a "keep this layer open" switch, press-and-hold alternates on its keys, and any key the Action picker offers. What the keyboard draws, in order: the typing layout's own Numpad tab, the shared Numpad layout if you changed it, the layout's own **Number** layer if it authored one (key for key, in the order it drew them), and last the shipped pad in the digit order the switch above asks for.
 
 ### Undo/redo shortcut
 

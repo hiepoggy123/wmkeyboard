@@ -391,6 +391,7 @@ val PanelMode.layoutKind: PanelKind?
         PanelMode.CLIPBOARD -> PanelKind.CLIPBOARD
         PanelMode.TEXT_EDIT -> PanelKind.TEXT_EDIT
         PanelMode.TRACKPAD -> PanelKind.TRACKPAD
+        PanelMode.NUMPAD -> PanelKind.NUMPAD
         else -> null
     }
 

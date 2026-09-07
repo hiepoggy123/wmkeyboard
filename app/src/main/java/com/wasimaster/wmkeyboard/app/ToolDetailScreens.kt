@@ -955,6 +955,22 @@ internal fun ToolDetailSettings(
                     default = SettingsDefaults.numpadCalculatorLayout,
                 ) { scope.launch { repository.setNumpadCalculatorLayout(it) } }
             }
+            item {
+                // The pad is a panel layout now (issue #63): the same editor
+                // and the same row the text-editing pad has.
+                val customPanels by repository.customPanelLayouts.collectAsStateWithLifecycle(emptyList())
+                NavRow(
+                    title = R.string.panel_layout_row_title,
+                    subtitle = stringResource(R.string.panel_layout_row_subtitle),
+                    value = stringResource(
+                        if (customPanels.none { it.panel == PanelKind.NUMPAD }) {
+                            R.string.panel_layout_value_default
+                        } else {
+                            R.string.panel_layout_value_custom
+                        },
+                    ),
+                ) { onNavigate("panel_edit/${PanelKind.NUMPAD.name}") }
+            }
         }
         ToolbarTool.INCOGNITO -> {
             SettingsGroup(stringResource(R.string.tooldetail_incognito_group)) {
