@@ -618,6 +618,16 @@ class SuggestionEngine(
         }
 
     /**
+     * The decoder a deep search runs on: the same weights with the vocabulary
+     * cap off, so a stroke the capped decode read wrongly gets a second look
+     * at every word the dictionary holds (issue #52). Never the default: the
+     * cap exists because the tail costs common words their accuracy, and a
+     * deep search is the one moment the user has said the common word was
+     * not what they meant.
+     */
+    private val deepGlideBeam = GlideBeam(GlideBeam.Tuning(vocabularyRank = 0))
+
+    /**
      * The romanization a glide is decoded through, when the layout's keys and
      * its output are different alphabets — Avro, where the grid is QWERTY and
      * the text is Bengali. [RomanizedIndex.EMPTY] everywhere else, which is the
@@ -666,6 +676,12 @@ class SuggestionEngine(
      * swipe gets the full context model — trigrams, the downloaded corpus pack,
      * seed pairs and recency — where it previously had only the user lexicon's
      * follower counts for the immediately preceding word.
+     *
+     * [deep] is the second look a user asks for by undoing the word the first
+     * decode gave them: the vocabulary cap comes off and the search keeps
+     * [GLIDE_DEEP_POOL] words instead of [GLIDE_RERANK_POOL], so the walk runs
+     * further down the lattice before its floor closes. Slower and noisier
+     * than the ordinary decode, which is why it waits to be asked.
      */
     @Suppress("LongParameterList")
     fun glide(
@@ -676,15 +692,16 @@ class SuggestionEngine(
         previousWord: String? = null,
         previousWord2: String? = null,
         recentWords: List<String> = emptyList(),
+        deep: Boolean = false,
     ): List<GlideBeam.Candidate> {
         val romanization = glideRomanization
-        val decoded = glideBeam.decode(
+        val decoded = (if (deep) deepGlideBeam else glideBeam).decode(
             path = path,
             keys = keys,
             keyWidth = keyWidth,
             sources = if (romanization.isEmpty) walkSources() else romanization.walkSources(),
             ws = glideWorkspace.get(),
-            limit = maxOf(limit, GLIDE_RERANK_POOL),
+            limit = maxOf(limit, if (deep) GLIDE_DEEP_POOL else GLIDE_RERANK_POOL),
         )
         // On a phonetic layout the stroke spelled a romanization; the words it
         // stands for are what the rest of this — the blacklist, the reranker,
@@ -1157,6 +1174,14 @@ class SuggestionEngine(
          * guess, which is exactly the case a context model is there to fix.
          */
         private const val GLIDE_RERANK_POOL = 8
+
+        /**
+         * The pool a deep search keeps. Twice the ordinary one: the decoder's
+         * internal K is twice its limit, so this holds the walk's floor open
+         * for 32 words rather than 16 and lets the words behind the leaders
+         * — the ones a first decode pruned as not worth finishing — through.
+         */
+        private const val GLIDE_DEEP_POOL = 16
 
         /**
          * How far ahead the best candidate has to be before a swipe commits it

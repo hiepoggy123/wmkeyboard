@@ -1219,6 +1219,15 @@ open class WMKeyboardService : InputMethodService() {
     private var lastGestureWord: String? = null
 
     /**
+     * The stroke behind [lastGestureWord], kept so undoing the word can send it
+     * back through the decoder for a deeper look (issue #52). Set where a glide
+     * sets [lastGestureWord] and cleared where something that is not a glide —
+     * handwriting, the possessive flick — takes that slot over, so it is only
+     * ever the stroke the word on the strip came from.
+     */
+    private var lastGestureStroke: GlideStroke? = null
+
+    /**
      * The word the caret is sitting *inside* — [head] behind it, [tail] ahead
      * — when it is not parked at that word's end. Null the rest of the time.
      *
@@ -5731,6 +5740,8 @@ open class WMKeyboardService : InputMethodService() {
         // a wrong swipe shouldn't cost a letter-by-letter cleanup.
         lastGestureWord?.let { word ->
             lastGestureWord = null
+            val stroke = lastGestureStroke
+            lastGestureStroke = null
             pendingWordSpace = false
             if (composing.isEmpty()) {
                 // The space the glide typed goes with the word: undoing the
@@ -5741,12 +5752,20 @@ open class WMKeyboardService : InputMethodService() {
                     // The undone word is gone as bigram context; whatever now
                     // precedes the caret is the real one.
                     syncPreviousWordFromField(ic)
+                    // The decode the user just took back is not evidence of
+                    // anything, the same as when the strip replaces it.
+                    learningBuffer.drop(word)
                     // Both lists: the bar is up while either has content, so
                     // clearing only the words left a stale emoji row holding
                     // it open.
                     _uiState.update {
                         it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
                     }
+                    // Undoing a swipe is the clearest "not that one" there is,
+                    // so the stroke goes back through the decoder with the
+                    // vocabulary cap off and the word it already gave ruled
+                    // out, and whatever it finds waits on the strip.
+                    if (stroke != null) glideDeepRetry(stroke, rejected = word)
                     return
                 }
             }
@@ -10783,6 +10802,45 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * The deep search behind a glide undo (issue #52): [stroke] decoded again
+     * with the vocabulary cap off and a wider pool, [rejected] — the word the
+     * user just took back — removed, and the rest put on the strip for a tap.
+     *
+     * Runs as [suggestionJob], not [gestureJob], on purpose: the next keystroke
+     * cancels [suggestionJob] and refreshes the strip for the letters being
+     * typed, which is exactly what should happen to a list the user has moved
+     * past. A glide starting meanwhile bumps [gestureGeneration] and the result
+     * is dropped on landing rather than put over the new stroke's words.
+     */
+    private fun glideDeepRetry(stroke: GlideStroke, rejected: String) {
+        val engine = suggestionEngine ?: return
+        val generation = gestureGeneration.get()
+        val slots = _uiState.value.settings.suggestionStrip.slotCount
+        suggestionJob?.cancel()
+        suggestionJob = serviceScope.launch {
+            val words = withContext(Dispatchers.Default) {
+                engine.glide(
+                    path = stroke.points,
+                    keys = keyMapFor(stroke.keys, stroke.keyWidthPx),
+                    keyWidth = stroke.keyWidthPx,
+                    // One over the strip, since the rejected word is in the list
+                    // it comes back with and leaves a slot when it goes.
+                    limit = slots + 1,
+                    previousWord = previousWord,
+                    previousWord2 = previousWord2,
+                    recentWords = recentWords.toList(),
+                    deep = true,
+                ).map { restoreApostrophe(it.word) ?: it.word }
+            }
+            if (generation != gestureGeneration.get()) return@launch
+            if (composing.isNotEmpty()) return@launch
+            val offered = words.filterNot { it.equals(rejected, ignoreCase = true) }.take(slots)
+            if (offered.isEmpty()) return@launch
+            _uiState.update { it.copy(suggestions = offered) }
+        }
+    }
+
+    /**
      * The other half of the apostrophe key: a stroke that went through it spells
      * a contraction even when the word list holds only the plain form.
      *
@@ -10907,8 +10965,10 @@ open class WMKeyboardService : InputMethodService() {
         ic.commitText(POSSESSIVE, 1)
         val possessive = word + POSSESSIVE
         // Backspace still takes the whole thing back in one press, stem included,
-        // which is what the flick built.
+        // which is what the flick built. The stroke on record drew the stem,
+        // not the possessive, so it is not offered a second look.
         lastGestureWord = possessive
+        lastGestureStroke = null
         learn(possessive)
         commitGestureSpace(ic, state)
         armRevertGuard()
@@ -11161,6 +11221,7 @@ open class WMKeyboardService : InputMethodService() {
                     (shiftAtGesture == ShiftState.ON && state.shiftPressedByUser),
             )
             lastGestureWord = word
+            lastGestureStroke = GlideStroke(points, keys, keyWidthPx)
             commitGestureSpace(ic, state)
             armRevertGuard()
             consumeShift()
@@ -11288,6 +11349,7 @@ open class WMKeyboardService : InputMethodService() {
                         (shiftAtGesture == ShiftState.ON && state.shiftPressedByUser),
                 )
                 lastGestureWord = word
+                lastGestureStroke = GlideStroke(segment, keys, keyWidthPx)
                 armRevertGuard()
                 lastWords = if (picked != null) glideStripOrder(candidates, picked) else candidates
                 committedAny = true
@@ -13013,6 +13075,8 @@ open class WMKeyboardService : InputMethodService() {
         connection.commitText(if (needsSpace) " $word" else word, 1)
         learn(word)
         lastGestureWord = word
+        // Ink, not a swipe: there is no stroke a deep retry could re-decode.
+        lastGestureStroke = null
         armRevertGuard()
         _uiState.update {
             it.copy(
@@ -20954,6 +21018,13 @@ private class GesturePreviewRequest(
     val keys: List<KeyCenter>,
     val keyWidthPx: Float,
     val generation: Int,
+)
+
+/** A committed glide as the decoder saw it, kept for a deep retry after an undo. */
+private class GlideStroke(
+    val points: List<GesturePoint>,
+    val keys: List<KeyCenter>,
+    val keyWidthPx: Float,
 )
 
 /**

@@ -73,6 +73,28 @@ class GlideAlternateCountTest {
     private fun glide(limit: Int): List<String> =
         engine().glide(gestureFor("there"), grid, keyWidth, limit = limit).map { it.word }
 
+    /**
+     * The deep search behind a glide undo (issue #52) is the ordinary decode
+     * with the vocabulary cap off. "thee" is rank 6 of 8 and the same t-h-e
+     * stroke as "the", so a cap at four words loses it and a deep look has it.
+     */
+    @Test
+    fun `a deep search ignores the vocabulary cap`() {
+        val engine = SuggestionEngine(
+            com.wasimaster.wmkeyboard.core.prediction.PackedTrie.of(lexicon),
+            BengaliPhoneticIndex(emptyList()),
+            UserLexicon(null),
+        ).apply {
+            englishSources = true
+            glideVocabularyRank = 4
+        }
+        val stroke = gestureFor("the")
+        val capped = engine.glide(stroke, grid, keyWidth, limit = 8).map { it.word }
+        val deep = engine.glide(stroke, grid, keyWidth, limit = 8, deep = true).map { it.word }
+        assertTrue("capped $capped", "the" in capped && "thee" !in capped)
+        assertTrue("deep $deep", "the" in deep && "thee" in deep)
+    }
+
     /** The contract the slot count relies on: ask for n, never get more than n. */
     @Test
     fun `a stroke never answers with more words than it was asked for`() {
