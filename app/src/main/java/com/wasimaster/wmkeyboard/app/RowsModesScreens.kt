@@ -891,6 +891,7 @@ internal fun ModesSettings(
         ) { scope.launch { repository.setModesEnabled(true) } }
     }
     SettingsGroup {
+        if (!settings.modesEnabled) return@SettingsGroup
         item {
             ChoiceSetting(
                 R.string.modes_manual_duration_title,
@@ -941,6 +942,7 @@ internal fun ModesSettings(
         onNavigate("mode_edit/mode_custom_${System.currentTimeMillis()}")
     }
     SettingsGroup(stringResource(R.string.modes_rearrange_group_title)) {
+        if (!settings.modesEnabled) return@SettingsGroup
         item {
             ToggleSetting(
                 R.string.modes_drag_edits_title,
@@ -1277,7 +1279,9 @@ internal fun ModeEditor(
                 )
             }
         }
-        item {
+        // A mode that switches the symbol row off has no row for its own sets
+        // to appear on. Inherit and "on" both leave one that may be drawn.
+        if (mode.symbolRowEnabled != false) item {
             ToggleSetting(
                 R.string.modes_symbol_sets_title,
                 stringResource(R.string.modes_symbol_sets_subtitle),
@@ -1294,7 +1298,7 @@ internal fun ModeEditor(
                 )
             }
         }
-        val modeSets = mode.symbolSetIds
+        val modeSets = mode.symbolSetIds.takeIf { mode.symbolRowEnabled != false }
         if (modeSets != null) {
             item {
                 FlowRow(

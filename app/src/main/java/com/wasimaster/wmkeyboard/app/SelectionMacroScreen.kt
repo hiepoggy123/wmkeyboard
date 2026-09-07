@@ -45,7 +45,10 @@ internal fun SelectionMacroSettingsScreen(
                 default = SettingsDefaults.selectionMacros.enabled,
             ) { scope.launch { repository.setSelectionMacrosEnabled(it) } }
         }
-        item {
+        // Where the bar draws, and everything below, only mean something once
+        // the bar exists: the service clears the offer outright while the
+        // feature is off, so these would be settings for nothing.
+        if (macros.enabled) item {
             ChoiceSetting(
                 R.string.selection_macros_placement_title,
                 subtitle = stringResource(R.string.selection_macros_placement_subtitle),
@@ -69,7 +72,10 @@ internal fun SelectionMacroSettingsScreen(
         }
     }
 
+    // The whole group goes with the switch above it — SettingsGroup draws
+    // nothing when its builder adds no rows, heading included.
     SettingsGroup(stringResource(R.string.selection_macros_actions_group)) {
+        if (!macros.enabled) return@SettingsGroup
         item {
             ToggleSetting(
                 R.string.selection_macros_detect_title,
