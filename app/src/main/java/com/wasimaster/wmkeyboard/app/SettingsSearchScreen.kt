@@ -92,6 +92,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -537,7 +538,9 @@ internal fun SettingsSearchScreen(
     onBack: () -> Unit,
     onOpen: (SettingsSearchEntry) -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
+    // Saveable, so the results are still there when the user backs out of a
+    // setting that was not the one they were after (#92).
+    var query by rememberSaveable { mutableStateOf("") }
     // Built once per context: every entry resolves its own three strings, so
     // rebuilding it on each keystroke would read ~1000 resources a character.
     // Off the main thread as well — those reads used to run during this
@@ -566,7 +569,9 @@ internal fun SettingsSearchScreen(
     }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    // Only on a fresh search: coming back to results with a query typed, the
+    // user wants to read them, not to have the keyboard cover them again.
+    LaunchedEffect(Unit) { if (query.isEmpty()) focusRequester.requestFocus() }
 
     fun open(entry: SettingsSearchEntry) {
         keyboard?.hide()

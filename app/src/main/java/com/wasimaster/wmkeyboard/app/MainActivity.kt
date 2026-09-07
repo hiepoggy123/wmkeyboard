@@ -563,9 +563,9 @@ private fun SettingsNavGraph(
                     // Arm the flash before navigating: the destination's rows
                     // read it during their first composition.
                     SettingsHighlight.request(result.titleRes)
-                    // The search screen itself is dropped from the back stack,
-                    // so backing out of the setting lands on the home list.
-                    navController.popBackStack()
+                    // The search screen stays on the back stack, so backing
+                    // out of a setting that was not the one lands on the same
+                    // results rather than on the home list (#92).
                     navController.navigate(result.route)
                 },
             )
