@@ -206,6 +206,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.layoutId
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.onSizeChanged
@@ -310,6 +311,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.HoldRepeatCursorTools
+import com.wasimaster.wmkeyboard.core.settings.GestureSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyPopupSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyRepeatSettings
 import com.wasimaster.wmkeyboard.core.settings.TextEditingSettings
@@ -11094,146 +11096,190 @@ private fun KeyRows(
             }
         }
 
-        // The ambiguity picker, when a stroke stopped to ask. Lives in a Popup
-        // because a top-row swipe has no room for it inside the grid, and the
-        // window is the only thing that can draw above the keyboard.
-        if (picker.words.isNotEmpty()) {
-            GlidePickerTargets(picker, boxOrigin, boxSize)
-        }
-
-        // Floating preview of the word the swipe currently decodes to,
-        // hovering above the finger like a key popup. Stood down while the
-        // picker is up: the pill would be answering a question the picker is
-        // still asking, and with the same word.
-        val glideWord = state.glideWord
+        // The stroke's floating layer: the word pill riding above the finger
+        // and, when a stroke stops to ask, the picker's targets. Its own
+        // window, with room above the grid — see [GlideOverlay]. The pill
+        // stands down while the picker is up: it would be answering a question
+        // the picker is still asking, and with the same word.
         val glide = state.settings.gesture
-        if (glideWord != null && glide.wordPreview &&
-            trail.visible && !trail.released && picker.words.isEmpty()
-        ) {
-            val theme = LocalKbTheme.current
-            val display = when (state.shiftState) {
-                ShiftState.CAPS_LOCK -> glideWord.uppercase()
-                ShiftState.ON -> glideWord.replaceFirstChar { it.uppercase() }
-                ShiftState.OFF -> glideWord
+        val pillWord = state.glideWord
+            ?.takeIf { glide.wordPreview && trail.visible && !trail.released && picker.words.isEmpty() }
+            ?.let { word ->
+                when (state.shiftState) {
+                    ShiftState.CAPS_LOCK -> word.uppercase()
+                    ShiftState.ON -> word.replaceFirstChar { it.uppercase() }
+                    ShiftState.OFF -> word
+                }
             }
-            var pillSize by remember { mutableStateOf(IntSize.Zero) }
-            val density = LocalDensity.current
-            // How far above the fingertip the pill rides, and how far to one
-            // side of it. Both are the user's, since the hand that covers the
-            // pill is not the one the old fixed 56dp was measured against.
-            val gapPx = with(density) { glide.wordPreviewOffsetYDp.dp.roundToPx() }
-            val shiftPx = with(density) { glide.wordPreviewOffsetXDp.dp.roundToPx() }
-            Surface(
-                modifier = Modifier
-                    .offset {
-                        // The fingertip is read here, in the placement lambda,
-                        // rather than in the body: following the finger then
-                        // costs a re-place instead of a recomposition.
-                        // Shifted before the clamp, so a pill pushed toward an
-                        // edge stops at the edge rather than leaving the grid.
-                        val x = ((trail.headX - pillSize.width / 2f).toInt() + shiftPx)
-                            .coerceIn(0, (boxSize.width - pillSize.width).coerceAtLeast(0))
-                        val y = (trail.headY - gapPx - pillSize.height).toInt().coerceAtLeast(0)
-                        IntOffset(x, y)
+        if (pillWord != null || picker.words.isNotEmpty()) {
+            GlideOverlay(trail, picker, pillWord, glide, boxSize)
+        }
+    }
+}
+
+/**
+ * The glide stroke's floating layer: the word pill riding above the fingertip
+ * and, when a stroke stops to ask, the picker's targets (issues #65 and #86).
+ *
+ * Its own window rather than the grid, because the grid ends where the keys
+ * do. Drawn inside it, a pill over a top-row stroke could only clamp to the
+ * grid's top edge and sit on the keys under the finger drawing it, and the
+ * targets for that stroke had nowhere to go at all. The window is the grid
+ * plus [headroomPx] above it — pinned and sized the way [KeyPreviewOverlay]'s
+ * is, so grid-space geometry places things in it with one added offset — and
+ * it exists only while there is something to draw: a window with nothing in it
+ * would still sit over the host app (see [PassThroughWindowOpacity]), and this
+ * one is only ever up while the finger is on the keyboard.
+ *
+ * The one [Layout] reports the full window size and places everything itself.
+ * The picker used to put an offset `Row` straight into the popup, which sized
+ * the window to the row and then moved the row out of it: the targets showed
+ * as clipped tops at the bottom of the suggestion strip, or not at all.
+ * Placing the targets here also gives their rectangles for free, in the grid's
+ * space, which is what the pointer loop hit-tests — `positionInRoot` inside a
+ * popup is the popup's root, not the keyboard's, so reading them back through
+ * `onGloballyPositioned` was never in the right space either.
+ *
+ * The finger is already held by the glide detector, so no key can fire under
+ * the targets: sliding onto one highlights it and lifting there commits it.
+ *
+ * [word] is the pill's text, already cased for display, or null for no pill.
+ */
+@Composable
+private fun GlideOverlay(
+    trail: GlideTrail,
+    picker: GlidePickerState,
+    word: String?,
+    glide: GestureSettings,
+    gridSize: IntSize,
+) {
+    val theme = LocalKbTheme.current
+    val density = LocalDensity.current
+    // How far above the fingertip the pill rides, and how far to one side of
+    // it. Both are the user's, since the hand that covers the pill is not the
+    // one the old fixed 56dp was measured against.
+    val gapPx = with(density) { glide.wordPreviewOffsetYDp.dp.roundToPx() }
+    val shiftPx = with(density) { glide.wordPreviewOffsetXDp.dp.roundToPx() }
+    val pickerGapPx = with(density) { GlidePickerGap.roundToPx() }
+    // Room above the grid: the pill at the user's distance over a top-row
+    // stroke, or the picker's row over one, whichever needs more. The window's
+    // position and its size have to agree before anything is measured, so the
+    // pill's height is estimated from its font rather than measured — and
+    // estimated high, since a few dp of transparent window cost nothing and a
+    // short one clips the pill.
+    val headroomPx = with(density) {
+        val pillHeight = glide.wordPreviewFontSp.sp.toPx() * GlidePillLineHeightRatio +
+            (GlidePillPaddingV * 2).toPx()
+        maxOf(
+            pillHeight.roundToInt() + gapPx,
+            (GlidePickerHeight + GlidePickerGap * 2).roundToPx(),
+        )
+    }
+    val words = picker.words
+    Popup(
+        popupPositionProvider = remember(headroomPx) { GridOverlayPositionProvider(headroomPx) },
+        properties = PreviewPopupProperties,
+    ) {
+        Layout(
+            content = {
+                if (word != null) {
+                    GlideWordPill(word, glide, theme, Modifier.layoutId(GlidePillId))
+                }
+                words.forEachIndexed { index, target ->
+                    GlidePickerTarget(target, picker.hover == index, theme, Modifier.layoutId(index))
+                }
+            },
+        ) { measurables, constraints ->
+            val width = if (gridSize.width > 0) gridSize.width else constraints.maxWidth
+            val height = gridSize.height + headroomPx
+            val pill = measurables.firstOrNull { it.layoutId == GlidePillId }?.measure(Constraints())
+            val targets = measurables.filter { it.layoutId != GlidePillId }.map { it.measure(Constraints()) }
+            layout(width, height) {
+                if (pill != null) {
+                    // The fingertip is read here, in placement, so following
+                    // it costs a re-place rather than a recomposition. Shifted
+                    // before the clamp, so a pill pushed toward an edge stops
+                    // at the edge rather than leaving the window.
+                    val x = ((trail.headX - pill.width / 2f).toInt() + shiftPx)
+                        .coerceIn(0, (width - pill.width).coerceAtLeast(0))
+                    val y = (trail.headY + headroomPx - gapPx - pill.height).toInt()
+                        .coerceAtLeast(0)
+                    pill.place(x, y)
+                }
+                if (targets.isNotEmpty()) {
+                    // Centred on where the finger stopped and pushed clear of
+                    // it, then clamped so the row never leaves the window.
+                    val rowWidth = targets.sumOf { it.width } + pickerGapPx * (targets.size - 1)
+                    val rowHeight = targets.maxOf { it.height }
+                    var x = (picker.anchorX - rowWidth / 2f).toInt()
+                        .coerceIn(0, (width - rowWidth).coerceAtLeast(0))
+                    val y = (picker.anchorY + headroomPx - pickerGapPx - rowHeight).toInt()
+                        .coerceAtLeast(0)
+                    targets.forEachIndexed { index, target ->
+                        target.place(x, y)
+                        // The grid's space is this window's, less the headroom
+                        // on top.
+                        val top = (y - headroomPx).toFloat()
+                        picker.place(
+                            index,
+                            Rect(x.toFloat(), top, (x + target.width).toFloat(), top + target.height),
+                        )
+                        x += target.width + pickerGapPx
                     }
-                    .onGloballyPositioned { pillSize = it.size },
-                color = glide.wordPreviewBackground?.let { Color(it.toInt()) } ?: theme.popup,
-                contentColor = glide.wordPreviewTextColor?.let { Color(it.toInt()) }
-                    ?: theme.popupText,
-                shape = theme.popupShape(),
-                shadowElevation = elevationFor(theme.popupShapeKind, 4.dp),
-            ) {
-                Text(
-                    text = display,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    fontSize = glide.wordPreviewFontSp.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                )
+                }
             }
         }
     }
 }
 
 /**
- * The words an ambiguous stroke is choosing between, laid under the fingertip.
- *
- * A row of targets rather than the single pill, anchored where the finger
- * stopped and clamped into the grid so none of them is off screen. The finger is
- * already held by the glide detector, so no key can fire underneath: sliding
- * onto a target highlights it and lifting there commits it.
- *
- * In a [Popup] with headroom above the grid for the same reason the key preview
- * is — a stroke that ends on the top row has nowhere inside the grid to put
- * this, and the pill it replaces could only ever clamp to the top edge and sit
- * on the keys.
- *
- * Each target reports its own rectangle into [picker] as it lands, in the
- * grid's coordinate space, which is what the pointer loop hit-tests against.
+ * The floating word: what the stroke decodes to so far, hovering above the
+ * finger like a key popup.
  */
 @Composable
-private fun GlidePickerTargets(
-    picker: GlidePickerState,
-    gridOrigin: Offset,
-    gridSize: IntSize,
-) {
-    val theme = LocalKbTheme.current
-    val density = LocalDensity.current
-    val headroomPx = with(density) { (GlidePickerHeight + GlidePickerGap * 2).roundToPx() }
-    val words = picker.words
-    Popup(
-        popupPositionProvider = remember(headroomPx) { GridOverlayPositionProvider(headroomPx) },
-        properties = PreviewPopupProperties,
+private fun GlideWordPill(word: String, glide: GestureSettings, theme: KbTheme, modifier: Modifier) {
+    Surface(
+        modifier = modifier,
+        color = glide.wordPreviewBackground?.let { Color(it.toInt()) } ?: theme.popup,
+        contentColor = glide.wordPreviewTextColor?.let { Color(it.toInt()) } ?: theme.popupText,
+        shape = theme.popupShape(),
+        shadowElevation = elevationFor(theme.popupShapeKind, 4.dp),
     ) {
-        var rowSize by remember { mutableStateOf(IntSize.Zero) }
-        Row(
-            modifier = Modifier
-                .offset {
-                    // Centred on the fingertip and pushed clear of it, then
-                    // clamped so the row never leaves the keyboard. Placement
-                    // lambda, not the body: the anchor is a plain field.
-                    val x = (picker.anchorX - rowSize.width / 2f).toInt()
-                        .coerceIn(0, (gridSize.width - rowSize.width).coerceAtLeast(0))
-                    val gap = with(density) { GlidePickerGap.roundToPx() }
-                    val y = (picker.anchorY + headroomPx - gap - rowSize.height).toInt()
-                        .coerceAtLeast(0)
-                    IntOffset(x, y)
-                }
-                .onGloballyPositioned { rowSize = it.size },
-            horizontalArrangement = Arrangement.spacedBy(GlidePickerGap),
-        ) {
-            words.forEachIndexed { index, word ->
-                val hovered = picker.hover == index
-                Surface(
-                    modifier = Modifier
-                        .height(GlidePickerHeight)
-                        .onGloballyPositioned { coords ->
-                            // Reported in the grid's own space, which is what
-                            // the pointer loop measures touches in — the same
-                            // root-minus-origin conversion the letter keys use,
-                            // rather than arithmetic over the popup's offsets.
-                            val topLeft = coords.positionInRoot() - gridOrigin
-                            picker.place(
-                                index,
-                                Rect(topLeft, coords.size.toSize()),
-                            )
-                        },
-                    color = if (hovered) theme.accent else theme.popup,
-                    contentColor = if (hovered) theme.keyText else theme.popupText,
-                    shape = theme.popupShape(),
-                    shadowElevation = elevationFor(theme.popupShapeKind, if (hovered) 8.dp else 4.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = word,
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                            fontSize = 18.sp,
-                            fontWeight = if (hovered) FontWeight.Bold else FontWeight.Medium,
-                            maxLines = 1,
-                        )
-                    }
-                }
-            }
+        Text(
+            text = word,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = GlidePillPaddingV),
+            fontSize = glide.wordPreviewFontSp.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+        )
+    }
+}
+
+/**
+ * One of the words an ambiguous stroke is choosing between.
+ *
+ * Highlighted the way a held alternates entry is — the pressed-key colour
+ * under the popup's own text — rather than the accent under the key text,
+ * which on a theme with a light accent went solid white with the word lost in
+ * it (issue #86).
+ */
+@Composable
+private fun GlidePickerTarget(word: String, hovered: Boolean, theme: KbTheme, modifier: Modifier) {
+    Surface(
+        modifier = modifier.height(GlidePickerHeight),
+        color = if (hovered) theme.pressedKey else theme.popup,
+        contentColor = theme.popupText,
+        shape = theme.popupShape(),
+        shadowElevation = elevationFor(theme.popupShapeKind, if (hovered) 8.dp else 4.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                text = word,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                fontSize = 18.sp,
+                fontWeight = if (hovered) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1,
+            )
         }
     }
 }
@@ -12049,6 +12095,18 @@ private const val PICKER_STILL_WIDTHS = 0.3f
 /** The picker's target height and the gaps around it. */
 private val GlidePickerHeight = 44.dp
 private val GlidePickerGap = 10.dp
+
+/** The pill's vertical padding; [GlideOverlay]'s headroom estimate counts it twice. */
+private val GlidePillPaddingV = 6.dp
+
+/**
+ * Line height per sp of the pill's font, for the same estimate. Real fonts run
+ * about 1.2–1.4; over-estimating only adds transparent window.
+ */
+private const val GlidePillLineHeightRatio = 1.5f
+
+/** The pill's id among [GlideOverlay]'s measurables; the targets carry their index. */
+private const val GlidePillId = "glide-pill"
 
 /** Vertical padding of the [KeyRows] column, mirrored into [keyRowsHeight]. */
 internal val KeyRowsPadVertical = 2.dp

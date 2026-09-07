@@ -72,7 +72,7 @@ Tap-to-replace only works while your cursor is still sitting exactly where the g
 
 Some strokes have no single right answer. On a fixed Bangla layout ক and খ share a key, so a word and its aspirated twin are drawn in exactly the same shape, and on any layout a hurried stroke can fit two words equally well. Rather than commit the likelier one and leave you to notice, **Ask when a glide is unclear** (on by default) offers the choice while your finger is still down.
 
-When a stroke's best candidate barely leads its runner-up, keep your finger down and hold it still for a moment. The closest words appear under your fingertip. Slide onto one and lift to type it. Lift without choosing and the keyboard commits its best guess exactly as it always did, and the same words are on the suggestion strip either way, so ignoring the picker costs nothing.
+When a stroke's best candidate barely leads its runner-up, keep your finger down and hold it still for a moment. The closest words appear just above your fingertip, in their own window, so a stroke that ends on the top row floats them over the suggestion strip rather than hiding them under the keys. Slide onto one and lift to type it. Lift without choosing and the keyboard commits its best guess exactly as it always did, and the same words are on the suggestion strip either way, so ignoring the picker costs nothing.
 
 The picker only arms on the strokes that are genuinely in doubt. A confident decode never shows it, and it appears only in the "Type words" swipe mode, since a handwritten stroke resolves through a different path.
 
@@ -137,7 +137,7 @@ One more shift-related detail: only the **first** word of a multi-word glide hon
 | Trail width | 10 dp | Thickness of the trail at the head (the tail tapers to about 30% of this). Range 2–24 dp. |
 | Trail length | 350 ms | How long a point on the trail lingers before fading out. Range 100–1200 ms. |
 | Trail opacity | 55% | Peak opacity of the trail. Range 0%–100%; set it to 0 to glide with no trail at all. Power saving drives the same value to 0 on its own, see [Details & edge cases](#details--edge-cases). |
-| Word preview | On | Only shown while glide typing is the active swipe mode. The word decoded so far floats above your finger and updates as you draw. Off leaves it to the suggestion strip. |
+| Word preview | On | Only shown while glide typing is the active swipe mode. The word decoded so far floats above your finger and updates as you draw. It rides in its own window, so near the top row it rises over the suggestion strip instead of sitting on the keys. Off leaves it to the suggestion strip. |
 | Preview distance above finger | 56 dp | How far above the fingertip the floating word sits. Range 0–160 dp. Raise it when your hand covers the word. |
 | Preview sideways shift | 0 dp | Moves the floating word left (negative) or right (positive) of the fingertip. Range −80–80 dp. |
 | Preview text size | 18 sp | Size of the floating word. Range 12–32 sp. |
