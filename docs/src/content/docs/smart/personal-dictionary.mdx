@@ -31,24 +31,28 @@ Within a plain text field, how hard a word is taught depends on how it was commi
 
 A word needs at least two letters to be auto-learned this way. Adding one yourself (see below) has no such floor.
 
-## New words wait their turn
+## Words wait their turn
 
-Words split two ways when you commit them.
+Nothing you type is written to your dictionary while you're still typing it. Every committed word is held first, and only counted once the text it landed in has stopped moving. That's what gives you a chance to read back what you wrote: a word you fix, delete or re-pick was never learned in the first place.
 
-A word something already recognises, whether that's the bundled dictionary, a wordlist you imported, a contact name, an app name, or your own dictionary, is counted straight away. Typing it is just more evidence for a word that was never in doubt.
+What differs between words is how many settled uses they need.
 
-A word *nothing* recognises is not saved yet. It goes into a waiting room and has to be typed **three times** before it joins your dictionary, and each of those has to settle first. Change that count with **Remember a new word after** under <SettingsPath path="Typing / Suggestions" />, anywhere from 1 (save every new word straight away, which is what older versions did) up to 10. A sighting that's undoing an autocorrect counts double, so one undo plus one ordinary use is enough at the default.
+A word something already recognises, whether that's the bundled dictionary, a wordlist you imported, a contact name, an app name, or your own dictionary, needs **one**. There was never anything in doubt about how it's spelled.
 
-Settling is the second half, and it's what stops your typos being counted at all. A word you've just typed isn't evidence of anything yet, because half the time you're about to fix it. So a new word is held, unwritten, until one of these happens:
+A word *nothing* recognises has to be typed **three times** before it joins your dictionary, and each of those has to settle. Change that count with **Remember a new word after** under <SettingsPath path="Typing / Suggestions" />, anywhere from 1 up to 10. A sighting that's undoing an autocorrect counts double, so one undo plus one ordinary use is enough at the default.
+
+Settling is what stops your slips being counted at all. A word you've just typed isn't evidence of anything yet, because half the time you're about to fix it, and a glide gives you the wrong real word often enough that counting it on the spot slowly turned the personal dictionary into a copy of the wordlist. So a word is held, unwritten, until one of these happens:
 
 - You close the keyboard.
 - You send or clear the field.
 - You move to a different field.
-- You keep typing far enough past it (about 96 words) that you're clearly not coming back.
+- You keep typing far enough past it (about 500 words) that you're clearly not coming back.
 
-If you go back into that text before any of that, by backspacing over the word or tapping into the sentence to edit it, the word is dropped and counts for nothing. Re-picking a swiped word from the strip drops it too, because you just overruled the guess.
+If you go back into that text before any of that, by backspacing over the word or tapping into the sentence to edit it, the word is dropped and counts for nothing. Re-picking a swiped word from the strip drops it too, because you just overruled the guess. So does deleting the word from your dictionary while it's still waiting.
 
-Waiting words are invisible until they graduate. They're never suggested, never shield themselves from autocorrect, and never show up on the Personal dictionary screen. Sightings also go stale on their own, so the same slip made in March and again in September never adds up to a word.
+Two things skip the queue, because in both you've told the keyboard directly rather than by leaving text alone: tapping the `Add "yourword"?` chip, and **Add word** from the word menu or the Personal dictionary screen.
+
+A word nothing recognises is invisible while it waits. It's never suggested, never shields itself from autocorrect, and never shows up on the Personal dictionary screen until it graduates. Sightings also go stale on their own, so the same slip made in March and again in September never adds up to a word. (A recognised word waiting its one turn is a different matter: it was already in a dictionary, so it's suggested and safe from autocorrect the whole time. All that's waiting is your own count of it.)
 
 ### Being asked instead
 

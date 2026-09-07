@@ -9169,9 +9169,13 @@ open class WMKeyboardService : InputMethodService() {
      * Multi-word commits ("of the" from a split suggestion) learn each word
      * and the bigrams linking them.
      *
-     * Words split two ways here. One the keyboard already recognises is
-     * counted straight away, as it always was. One nothing recognises is not
-     * learned at all yet — see [noteUnknownWord].
+     * Nothing here writes to the personal dictionary on the spot. Every word
+     * goes into [learningBuffer] and is counted once the text it landed in
+     * settles, so a word the user reads back and takes out was never learned
+     * (#101). What splits two ways is what happens *then*: one the keyboard
+     * already recognises is counted the moment it settles ([noteKnownWord]),
+     * one nothing recognises has to settle several times over before it joins
+     * the lexicon at all ([noteUnknownWord]).
      *
      * [caseTrusted] says whether [word]'s capitals are the user's own. Only a
      * trusted spelling teaches the lexicon how the word is written (#44); an
@@ -9220,27 +9224,12 @@ open class WMKeyboardService : InputMethodService() {
             val blacklisted = cleaned.lowercase() in state.settings.suggestionBlacklist
             val known = !blacklisted && isKnownWord(cleaned)
             if (known) {
-                // Tagged with the active language so a habit learned under one
-                // language can be damped when it crowds another's strip.
-                userLexicon.learnWord(
-                    cleaned,
-                    reinforcement,
-                    langId = state.language.id,
-                    caseEvidence = caseTrusted,
-                )
-                // Mirror genuinely typed words (not autocorrect targets, which
-                // are reinforcement 0 and already dictionary words) into
-                // Android's shared personal dictionary when the user has opted
-                // in.
-                if (reinforcement > 0 && state.settings.addWordsToSystemDictionary) {
-                    // Mirrored in a spelling we can stand behind: an
-                    // auto-capitalized word would otherwise put a bogus proper
-                    // noun into the dictionary every other keyboard reads.
-                    val mirrored = if (caseTrusted) cleaned else cleaned.lowercase()
-                    serviceScope.launch(Dispatchers.IO) {
-                        SystemUserDictionary.add(applicationContext, mirrored)
-                    }
-                }
+                // Counted only once the text it landed in settles — see
+                // [noteKnownWord]. The n-grams below are not deferred with it:
+                // they hang off words already in the dictionary either way, and
+                // the context they need is the run of words being committed
+                // right now, which the buffer does not keep.
+                noteKnownWord(cleaned, reinforcement, state, caseTrusted)
                 if (previousKnown) {
                     previous?.let { prev ->
                         userLexicon.learnBigram(prev, cleaned)
@@ -9274,6 +9263,38 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun isKnownWord(word: String): Boolean =
         suggestionEngine?.isKnownWord(word) ?: userLexicon.contains(word)
+
+    /**
+     * A word the keyboard already recognises has been committed.
+     *
+     * Its spelling was never in doubt — it is in a dictionary, a wordlist, the
+     * contacts — so it needs no sighting count. What *is* in doubt is whether
+     * the user meant this word, and a glide gets that wrong often enough that
+     * counting on the spot filled the personal dictionary with real words the
+     * user never typed, each one weighted up in the strip so the wrong decode
+     * came back stronger next time (#101).
+     *
+     * So it waits in [learningBuffer] with everything else and is counted when
+     * the text around it stops moving: the keyboard closing, the message being
+     * sent, moving to another field, or the buffer filling. Backspacing it or
+     * re-picking from the strip drops it before it ever counts.
+     */
+    private fun noteKnownWord(
+        word: String,
+        reinforcement: Int,
+        state: KeyboardUiState,
+        caseTrusted: Boolean,
+    ) {
+        // An autocorrect target arrives at 0 and has nothing to teach the
+        // lexicon: [UserLexicon.learnWord] would refuse the count anyway, and
+        // queuing it would only take a slot from a word that means something.
+        if (reinforcement <= 0) return
+        settleLearned(
+            learningBuffer.push(
+                word, state.language.id, reinforcement, caseTrusted, known = true,
+            ),
+        )
+    }
 
     /**
      * A word no dictionary knows has been committed.
@@ -9314,9 +9335,20 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun settleLearned(entries: List<LearningBuffer.Entry>) {
         if (entries.isEmpty()) return
-        val threshold = _uiState.value.settings.suggestionStrip.newWordSightings
-            .coerceAtLeast(1)
+        val settings = _uiState.value.settings
+        val threshold = settings.suggestionStrip.newWordSightings.coerceAtLeast(1)
         for (entry in entries) {
+            // Blacklisted since the commit: the user has just taken this word
+            // out of their dictionary, and the queue must not put it back (#48).
+            if (entry.word.lowercase() in settings.suggestionBlacklist) continue
+            if (entry.known) {
+                // Recognised when it was typed, and it has to still be
+                // recognised now: a language switched off while the word sat
+                // here would otherwise walk an unknown word into the lexicon
+                // past the sighting gate that exists to stop exactly that.
+                if (isKnownWord(entry.word)) learnSettledWord(entry, settings)
+                continue
+            }
             // The word may have been learned, imported or added by hand while
             // it sat in the buffer; there is nothing left to count.
             if (isKnownWord(entry.word)) continue
@@ -9326,6 +9358,31 @@ open class WMKeyboardService : InputMethodService() {
             val seen = pendingLearn.sight(entry.word, entry.langId, weight = entry.weight)
             if (seen >= threshold) {
                 promoteLearned(entry.word, entry.langId, seen, entry.caseTrusted)
+            }
+        }
+    }
+
+    /**
+     * A recognised word has settled: count it, at the weight its commit
+     * earned.
+     */
+    private fun learnSettledWord(entry: LearningBuffer.Entry, settings: KeyboardSettings) {
+        // Tagged with the language it was typed under so a habit learned under
+        // one language can be damped when it crowds another's strip.
+        userLexicon.learnWord(
+            entry.word,
+            entry.weight,
+            langId = entry.langId,
+            caseEvidence = entry.caseTrusted,
+        )
+        // Mirror it into Android's shared personal dictionary when the user
+        // has opted in — in a spelling we can stand behind: an
+        // auto-capitalized word would otherwise put a bogus proper noun into
+        // the dictionary every other keyboard reads.
+        if (settings.addWordsToSystemDictionary) {
+            val mirrored = if (entry.caseTrusted) entry.word else entry.word.lowercase()
+            serviceScope.launch(Dispatchers.IO) {
+                SystemUserDictionary.add(applicationContext, mirrored)
             }
         }
     }
@@ -18405,6 +18462,10 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         clearLearnOffer()
         pendingLearn.forget(word)
+        // The user has answered for this word by hand, which beats anything
+        // the queue was still holding about it — and a queued copy would come
+        // back later to vote on capitals the menu has just pinned (#100).
+        learningBuffer.drop(word)
         userLexicon.addWord(word, caseEvidence = true)
         val state = _uiState.value
         if (word.lowercase() in state.settings.suggestionBlacklist) {
@@ -18432,6 +18493,10 @@ open class WMKeyboardService : InputMethodService() {
         vibrate()
         userLexicon.forget(trimmed)
         pendingLearn.forget(trimmed)
+        // Including the copy still waiting to settle: every committed word
+        // waits there now, so without this the next flush writes back the word
+        // the user has just deleted (#101).
+        learningBuffer.drop(trimmed)
         wordRanks.remove(trimmed)
         suggestionEngine?.rankOffsets = wordRanks.snapshot()
         val lower = trimmed.lowercase()
@@ -18563,6 +18628,9 @@ open class WMKeyboardService : InputMethodService() {
             count <= 0 -> {
                 userLexicon.forget(word)
                 pendingLearn.forget(word)
+                // Same as [deleteWord]: a copy still settling would put the
+                // word back at the next flush.
+                learningBuffer.drop(word)
             }
             userLexicon.contains(WordKey.of(word)) -> userLexicon.setCount(word, count)
             else -> {

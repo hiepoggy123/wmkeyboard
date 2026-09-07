@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -106,5 +107,30 @@ class LearningBufferTest {
         val entry = buffer.drain().single()
         assertEquals("bn", entry.langId)
         assertEquals(2, entry.weight)
+    }
+
+    @Test
+    fun whetherTheWordWasRecognisedSurvivesTheQueue() {
+        val buffer = LearningBuffer()
+        buffer.push("wibble", "en", 1, caseTrusted = true, known = true)
+        buffer.push("wobble", "en", 1)
+        val (recognised, unrecognised) = buffer.drain()
+        assertTrue(recognised.known)
+        assertTrue(recognised.caseTrusted)
+        assertFalse(unrecognised.known)
+    }
+
+    /**
+     * The whole point of #101: a recognised word the user glided, read back
+     * and took out again must never reach the personal dictionary.
+     */
+    @Test
+    fun aRecognisedWordBackspacedAwayNeverSettles() {
+        val buffer = LearningBuffer()
+        buffer.push("form", "en", 1, known = true)
+        buffer.onCaret(4)
+        // Backspacing the swipe away puts the caret in front of the word.
+        buffer.onCaret(0)
+        assertTrue(buffer.isEmpty())
     }
 }

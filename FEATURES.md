@@ -108,7 +108,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Counts as a full rejection — Same path as a backspace revert: the pair is retired and the typed word is noted towards the lexicon
     - Refuses an ambiguous target — The corrected word must stand as a whole word exactly once in the 96-character lookbehind, and the caret must not have gone back through it
   - Revert memory `uncommon` — Autocorrect remembers its own mistakes, per pair and in aggregate
-    - Backspace restores the typed word — Also teaches it into the personal dictionary at boost 5
+    - Backspace restores the typed word — Also counts double towards learning it, immediately: the user said so directly, so there is nothing left to settle
     - Exact pair blocked for the run of typing — 20 further verdicts or the next field, whichever comes first; other corrections of the same typed word stay live
     - Second persisted revert blocks the pair outright — One revert costs a x0.25 handicap and loses shortcut privileges
     - Deliberate and indirect undos weigh differently — Only a backspace on the correction earns the in-process block; a verdict read back off the settled field does not
@@ -146,6 +146,13 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Learn-from-typing setting
     - Not incognito, when incognito is set to pause learning
     - Field allows typing intelligence — Password and secure fields never teach
+  - Settle before learning — Nothing reaches the dictionary while the text is still moving
+    - Every committed word queues — 500-word buffer, one field, memory only, never written out
+    - Counted at the flush points — Keyboard closed, message sent, field cleared, another field, buffer full
+    - The caret going back drops it — Backspacing over the word, tapping in to edit, re-picking a swipe; a glide that read the wrong word never counts
+    - Known words need one settled use, unknown ones three — The unknown count is the "Remember a new word after" setting
+    - Deleting a word drops its queued copy — Otherwise the flush writes back what the user just removed
+    - Add-by-hand and the Add chip skip the queue — The user answered directly instead of by leaving text alone
   - Per-app recent-word overlay `uncommon` — Words recently typed in this app get a ln(1.3) ranking edge
 - **Context ranking** `uncommon` — Layered n-gram evidence over the walk's frequency order
   - In-strip context boost `uncommon` — Bounded log-space bonus on candidates the context knows
@@ -376,7 +383,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Bypasses the tremor debounce — Repeat ticks go through an un-debounced sink so the rate is not silently capped
     - Separate repeat-buzz toggle — Only the first press buzzes when off; the key sound still plays
   - Revert-on-backspace `uncommon` — One press takes back what the keyboard put in the field
-    - Autocorrect — Restores the typed word and adds it to the personal dictionary so it is never 'fixed' again; toggleable
+    - Autocorrect — Restores the typed word and counts double towards learning it; the pair that fired is blocked on the spot either way; toggleable
     - Pattern snippet — Always revertible; reads one character past the commit and puts it back verbatim
     - Join and revision chips — Tapped word-join and revision suggestions are undone the same way
   - Context-aware targets `uncommon` — Backspace edits whatever is actually taking keystrokes

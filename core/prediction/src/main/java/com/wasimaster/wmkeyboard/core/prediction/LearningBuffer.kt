@@ -5,10 +5,17 @@ package com.wasimaster.wmkeyboard.core.prediction
  *
  * A word is not evidence of anything the moment it lands: half of them are
  * about to be backspaced, re-picked from the strip, or edited when the user
- * reads back what they wrote. So an unknown word goes here first and only
+ * reads back what they wrote. So a committed word goes here first and only
  * counts towards learning once the text around it has stopped moving —
  * "cached for proofreading", which is what the request that prompted this
  * asked for.
+ *
+ * Both kinds of word wait here, and [Entry.known] says which is which. A word
+ * nothing recognises has to be sighted several times before it joins the
+ * lexicon at all ([PendingLearn]); one the keyboard already knows only has to
+ * settle once, because there was never any doubt about its spelling — the
+ * doubt is whether the user meant *that* word, which is exactly what a glide
+ * gets wrong and what reading the text back fixes (#101).
  *
  * Settling is decided by two signals, both cheap enough to run on the typing
  * path because neither reads the field:
@@ -48,6 +55,12 @@ class LearningBuffer(private val capacity: Int = DEFAULT_CAPACITY) {
          * moment is long gone — so the answer rides along with it (#44).
          */
         val caseTrusted: Boolean = false,
+        /**
+         * Whether the keyboard already recognised [word] when it was
+         * committed. A known word settles straight into the lexicon; an
+         * unknown one still has to earn its place through [PendingLearn].
+         */
+        val known: Boolean = false,
     ) {
         internal var anchor: Int = UNANCHORED
     }
@@ -71,8 +84,9 @@ class LearningBuffer(private val capacity: Int = DEFAULT_CAPACITY) {
         langId: String,
         weight: Int,
         caseTrusted: Boolean = false,
+        known: Boolean = false,
     ): List<Entry> {
-        entries.addLast(Entry(word, langId, weight, caseTrusted))
+        entries.addLast(Entry(word, langId, weight, caseTrusted, known))
         if (entries.size <= capacity) return emptyList()
         val overflow = ArrayList<Entry>(entries.size - capacity)
         while (entries.size > capacity) overflow.add(entries.removeFirst())
@@ -135,7 +149,11 @@ class LearningBuffer(private val capacity: Int = DEFAULT_CAPACITY) {
          * cover a paragraph the user may still scroll back through, short
          * enough that someone writing an essay in one field still teaches the
          * keyboard their vocabulary before they finish.
+         *
+         * Every committed word waits here since #101, not only the ones no
+         * dictionary knows, so this is a whole message's worth rather than a
+         * handful of new words — the figure the request asked for by name.
          */
-        const val DEFAULT_CAPACITY = 96
+        const val DEFAULT_CAPACITY = 500
     }
 }

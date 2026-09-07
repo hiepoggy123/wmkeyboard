@@ -600,7 +600,7 @@
 
     <string name="typing_new_word_sightings_title">Remember a new word after</string>
     <string name="typing_new_word_sightings_subtitle">How many times you type a word nothing recognises before it is saved</string>
-    <string name="typing_new_word_sightings_info">Only words that no dictionary knows are counted. A word already in a dictionary is learned the moment you type it. A use only counts once you have moved on and left the word alone, so a typo you go back and fix is never counted. Lower this if your own names and slang take too long to stick. Set it to 1 to save every new word straight away, which is what older versions did. This setting is 3 by default.</string>
+    <string name="typing_new_word_sightings_info">Only words that no dictionary knows are counted. A word already in a dictionary needs one use, not several, because there is nothing in doubt about its spelling. Either way a use only counts once you have moved on and left the word alone, so a word you go back and fix, or a swipe that came out as the wrong word, is never counted. Nothing is saved while you are still typing: the words you left alone are added when you close the keyboard, send the message, or move to another field. Lower this if your own names and slang take too long to stick. Set it to 1 to save every new word after a single use. This setting is 3 by default.</string>
     <!-- Shown in place of a number at the lowest point of the new-word slider. -->
     <string name="typing_new_word_sightings_once">Straight away</string>
 
