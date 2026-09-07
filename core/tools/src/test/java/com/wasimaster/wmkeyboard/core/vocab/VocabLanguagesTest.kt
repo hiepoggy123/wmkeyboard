@@ -20,6 +20,17 @@ class VocabLanguagesTest {
     fun `wanted codes follow the keyboard languages unless chosen`() {
         assertEquals(listOf("bn", "cmn", "hr", "sh"), VocabLanguages.wantedCodes(emptyList(), listOf("en", "bn_rom", "bn", "zh", "hr")))
         assertEquals(listOf("de", "fr"), VocabLanguages.wantedCodes(listOf("de", " fr", "en"), listOf("bn")))
+        // A pick that is a keyboard id rather than a code still finds its sidecar.
+        assertEquals(listOf("bn"), VocabLanguages.wantedCodes(listOf("bn_rom"), listOf("en")))
+        assertEquals(listOf("cmn"), VocabLanguages.wantedCodes(listOf("zh"), listOf("en")))
+    }
+
+    @Test
+    fun `a record shows its wanted languages, else whatever it has`() {
+        assertEquals(listOf("bn"), VocabLanguages.codesToShow(listOf("bn", "hi"), listOf("de", "bn", "fr")))
+        assertEquals(listOf("bn", "hi"), VocabLanguages.codesToShow(listOf("bn", "hi"), listOf("hi", "bn")))
+        assertEquals(listOf("fr", "de"), VocabLanguages.codesToShow(listOf("bn"), listOf("de", "fr")))
+        assertTrue(VocabLanguages.codesToShow(listOf("bn"), emptyList()).isEmpty())
     }
 
     @Test

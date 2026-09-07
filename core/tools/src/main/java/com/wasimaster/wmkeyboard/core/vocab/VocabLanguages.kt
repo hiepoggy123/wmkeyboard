@@ -71,16 +71,31 @@ object VocabLanguages {
      * Croatian keyboard) come after the codes they stand in for.
      */
     fun wantedCodes(explicit: List<String>, enabledLanguageIds: List<String>, packLang: String = "en"): List<String> {
-        if (explicit.isNotEmpty()) return explicit.map { it.trim() }.filter { it.isNotEmpty() && it != packLang }.distinct()
+        // A pick may be a keyboard language id as well as a sidecar code — the
+        // picker once listed both — so picks go through the same map.
+        val ids = explicit.map { it.trim() }.filter { it.isNotEmpty() }.ifEmpty { enabledLanguageIds }
         val out = LinkedHashSet<String>()
         val fallbacks = LinkedHashSet<String>()
-        for (id in enabledLanguageIds) {
+        for (id in ids) {
             val codes = codesFor(id)
             if (codes.first() != packLang) out += codes.first()
             for (code in codes.drop(1)) if (code != packLang) fallbacks += code
         }
         out += fallbacks
         return out.toList()
+    }
+
+    /**
+     * The translation codes a record should show: the wanted ones it has,
+     * else whatever it has at all — a sidecar the user downloaded by hand is
+     * worth showing even when it is not one of "their" languages. Empty only
+     * when the record carries no translation.
+     */
+    fun codesToShow(wanted: List<String>, available: Collection<String>, registryName: (String) -> String? = { null }): List<String> {
+        val have = available.toSet()
+        val mine = wanted.filter { it in have }
+        if (mine.isNotEmpty()) return mine
+        return available.distinct().sortedBy { displayName(it, registryName) }
     }
 
     /**

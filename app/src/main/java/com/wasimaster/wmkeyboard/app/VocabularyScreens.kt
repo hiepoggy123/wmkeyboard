@@ -614,13 +614,15 @@ private fun TranslationLanguagesDialog(
     onDismiss: () -> Unit,
     onChange: (List<String>) -> Unit,
 ) {
+    // Sidecar codes only: a keyboard language maps to its code (bn_rom reads
+    // bn) so Bangla is one entry, not two, and a pick always matches a file.
     val offered = remember {
-        (VocabCatalog.entries.flatMap { it.translationCodes } + settings.enabledLanguages.map { it.id })
+        (VocabCatalog.entries.flatMap { it.translationCodes } + settings.enabledLanguages.flatMap { VocabLanguages.codesFor(it.id) })
             .filter { it != "en" }
             .distinct()
             .sortedBy { languageNameFor(it) }
     }
-    var chosen by remember { mutableStateOf(settings.vocabulary.translationLangList) }
+    var chosen by remember { mutableStateOf(settings.vocabulary.translationLangList.flatMap { VocabLanguages.codesFor(it) }.distinct()) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.tooldetail_vocab_translations_title)) },
@@ -2025,7 +2027,10 @@ private fun VocabTranslationsSection(
     enabledIds: List<String>,
     onGetTranslations: (() -> Unit)?,
 ) {
-    val rows = wantedCodes.mapNotNull { code -> word.translations[code]?.let { code to it } }
+    // The user's languages when the record has them, else whatever it has:
+    // a sidecar fetched by hand is worth showing whichever language it is.
+    val codes = VocabLanguages.codesToShow(wantedCodes, word.translations.keys) { id -> LanguageRegistry.all.firstOrNull { it.id == id }?.englishName }
+    val rows = codes.mapNotNull { code -> word.translations[code]?.let { code to it } }
     if (rows.isNotEmpty()) {
         VocabSection(title = stringResource(R.string.vocab_word_section_translations)) {
             for ((code, tr) in rows) {
@@ -2225,7 +2230,7 @@ private fun VocabQuotationBlock(quote: VocabQuotation) {
             Text("“${quote.text}”", style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
             val citation = quote.citation
             if (citation.isNotEmpty()) {
-                Text(citation, style = MaterialTheme.typography.labelSmall, color = muted, modifier = Modifier.padding(top = 2.dp))
+                Text("— $citation", style = MaterialTheme.typography.labelSmall, color = muted, modifier = Modifier.padding(top = 2.dp))
             }
         }
     }

@@ -372,7 +372,8 @@ private fun VocabCard(
         val translations = if (!shown(VocabCardField.TRANSLATIONS)) {
             emptyList()
         } else {
-            VocabLanguages.wantedCodes(settings.translationLangList, enabledIds)
+            val wanted = VocabLanguages.wantedCodes(settings.translationLangList, enabledIds)
+            VocabLanguages.codesToShow(wanted, word.translations.keys)
                 .mapNotNull { code -> word.translations[code]?.let { code to it } }
                 .take(2)
         }
@@ -514,7 +515,7 @@ private fun VocabSenseRow(
                             val citation = quote.citation
                             if (citation.isNotEmpty()) {
                                 Text(
-                                    citation,
+                                    "— $citation",
                                     color = kb.toolbarIcon,
                                     fontSize = 10.sp,
                                     lineHeight = 13.sp,
