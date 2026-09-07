@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -98,6 +99,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -2219,8 +2221,21 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
                                 }
                             }
                         },
+                        // Capped: the trigger comes out of the pack being
+                        // previewed, so its length is the author's choice, and
+                        // an uncapped one takes the row and leaves the
+                        // snippet's own name wrapping a letter to a line.
                         trailing = snippet.trigger.takeIf { it.isNotBlank() }?.let {
-                            { Text(it, style = MaterialTheme.typography.labelSmall) }
+                            {
+                                Text(
+                                    it,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.widthIn(max = RowTrailingTextMaxWidth),
+                                )
+                            }
                         },
                     )
                 }

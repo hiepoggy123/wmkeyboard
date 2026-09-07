@@ -2509,8 +2509,14 @@ internal fun NavRow(
     onClick: () -> Unit,
 ) {
     // A value only sits beside the title while it fits there; a longer one
-    // goes under the title, where it has the width to be read.
-    val beside = value != null && fitsBesideTitle(value, MaterialTheme.typography.labelLarge)
+    // goes under the title, where it has the width to be read. The chevron and
+    // the gap before it are what the row's end costs whatever the value is.
+    val beside = value != null && fitsBesideTitle(
+        value,
+        MaterialTheme.typography.labelLarge,
+        furniture = TRAILING_ICON_WIDTH + 4.dp,
+        hasIcon = icon != null,
+    )
     val below = value.takeIf { it != null && !beside }
     HighlightableRow(title, highlightKey) {
         WmRow(
@@ -2551,25 +2557,52 @@ private fun RowValueText(
         textAlign = textAlign,
         maxLines = maxLines,
         overflow = TextOverflow.Ellipsis,
-        modifier = if (textAlign == null) Modifier else Modifier.widthIn(max = NAV_ROW_VALUE_MAX_WIDTH),
+        modifier = if (textAlign == null) Modifier else Modifier.widthIn(max = RowTrailingTextMaxWidth),
     )
 }
-
-/**
- * How wide a [NavRow] value may get before it wraps and then ellipsizes.
- *
- * Roughly a third of a phone, which leaves the title the two thirds it needs to
- * stay on one or two lines. A value longer than two lines at this width was
- * never going to be read off a row anyway — it belongs in the screen the row
- * opens.
- */
-private val NAV_ROW_VALUE_MAX_WIDTH = 132.dp
 
 /** An outlined button's content padding, which its label does not get to use. */
 private val BUTTON_FURNITURE = 48.dp
 
 /**
- * Whether [text] fits beside a row's title, drawn in [style], within [max].
+ * The narrowest a row's title may be left. Below this it stops reading as
+ * words and becomes a letter or two a line, which is the failure this whole
+ * measurement exists to prevent.
+ */
+private val ROW_TITLE_FLOOR = 120.dp
+
+/** `ListItem`'s own padding: 16 dp at each end of the row. */
+private val ROW_PADDING = 32.dp
+
+/** The leading slot of a row that has one: the tile, and the gap after it. */
+private val ROW_ICON_LANE = WmIconTileSize + 16.dp
+
+/** An [InfoButton] is an `IconButton`, so 48 dp whatever the glyph inside is. */
+private val INFO_BUTTON_WIDTH = 48.dp
+
+/** A [ResetSetting]'s target, which is `ResetTargetSize` over in `SettingsUi`. */
+private val RESET_WIDTH = 36.dp
+
+/** A trailing chevron or drop-down arrow, at the default `Icon` size. */
+private val TRAILING_ICON_WIDTH = 24.dp
+
+/** The inset a group card keeps from each edge of the screen. */
+private val GROUP_CARD_INSET = 32.dp
+
+/**
+ * How wide a settings row is: the screen, less the inset its group card keeps
+ * from the edges. A row is otherwise as wide as the list it sits in, so this
+ * is the number the rows that budget their own width start from.
+ */
+@Composable
+private fun settingsRowWidth(): Dp =
+    LocalConfiguration.current.screenWidthDp.dp - GROUP_CARD_INSET
+
+/**
+ * Whether [text], drawn in [style], fits beside a row's title once the row has
+ * paid for everything else it draws: [furniture] is what the trailing controls
+ * take, [hasIcon] whether there is a leading tile, and [rowWidth] how much
+ * there was to divide.
  *
  * `ListItem` hands its trailing slot whatever width it asks for and gives the
  * headline whatever is left. So a long value or a long button label does not
@@ -2577,17 +2610,30 @@ private val BUTTON_FURNITURE = 48.dp
  * becomes unreadable while the thing that squeezed it looks fine. A row that
  * knows its own trailing text measures it here and puts it under the title
  * instead of beside it when it will not fit.
+ *
+ * What fits is what is left of [rowWidth] once the title keeps
+ * [ROW_TITLE_FLOOR], capped at [RowTrailingTextMaxWidth]. Measuring against
+ * that cap alone — which is what this did — passes a value that fits the cap
+ * and still leaves the title nothing, because the cap knows nothing about the
+ * "?", the reset, the glyph and the arrow sharing the row's end with it.
  */
 @Composable
 private fun fitsBesideTitle(
     text: String,
     style: TextStyle,
-    max: Dp = NAV_ROW_VALUE_MAX_WIDTH,
+    furniture: Dp,
+    hasIcon: Boolean,
+    rowWidth: Dp = settingsRowWidth(),
 ): Boolean {
     val measurer = rememberTextMeasurer()
     val density = LocalDensity.current
+    val lane = if (hasIcon) ROW_ICON_LANE else 0.dp
+    val max = (rowWidth - ROW_PADDING - lane - furniture - ROW_TITLE_FLOOR)
+        .coerceAtMost(RowTrailingTextMaxWidth)
     return remember(text, style, max, density) {
-        measurer.measure(text, style, maxLines = 1).size.width <= with(density) { max.toPx() }
+        max > 0.dp &&
+            measurer.measure(text, style, maxLines = 1).size.width <=
+            with(density) { max.toPx() }
     }
 }
 
@@ -3045,7 +3091,8 @@ internal fun ActionRow(
     val beside = fitsBesideTitle(
         action,
         MaterialTheme.typography.labelLarge,
-        NAV_ROW_VALUE_MAX_WIDTH - BUTTON_FURNITURE,
+        furniture = BUTTON_FURNITURE,
+        hasIcon = icon != null,
     )
     HighlightableRow(label, title) {
         WmRow(
@@ -3194,9 +3241,22 @@ internal fun <T> ChoiceSetting(
         }
         var open by rememberSaveable { mutableStateOf(false) }
         val current = options.firstOrNull { it.first == selected }?.second.orEmpty()
-        // The row already spends its trailing width on the "?" and the reset,
-        // so an option name goes under the title unless it is short.
-        val beside = fitsBesideTitle(current, MaterialTheme.typography.labelLarge)
+        val glyph = choiceIcon(selected, detail)
+        // The row already spends its trailing width on the "?", the reset, the
+        // option's glyph and the arrow, so what the option name may take is
+        // what those four leave. The reset is counted whenever the row could
+        // grow one, not only while it has one, or the value would jump under
+        // the title the moment the setting stopped matching its default.
+        val beside = fitsBesideTitle(
+            current,
+            MaterialTheme.typography.labelLarge,
+            furniture = TRAILING_ICON_WIDTH +
+                (if (info != null) INFO_BUTTON_WIDTH else 0.dp) +
+                (if (default != null) RESET_WIDTH else 0.dp) +
+                (if (glyph != null) ChoiceValueGlyphSize + ChoiceValueGlyphGap else 0.dp),
+            hasIcon = icon != null,
+            rowWidth = maxWidth,
+        )
         HighlightableRow(title, highlightKey) {
             WmRow(
                 title = title,
@@ -3206,7 +3266,7 @@ internal fun <T> ChoiceSetting(
                     if (beside) null else {
                         {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                ChoiceValueGlyph(choiceIcon(selected, detail))
+                                ChoiceValueGlyph(glyph)
                                 RowValueText(current)
                             }
                         }
@@ -3222,7 +3282,7 @@ internal fun <T> ChoiceSetting(
                         // The same glyph the sheet puts on this option, small
                         // enough to sit in a value's lane: the row and the
                         // sheet then agree at a glance about what is chosen.
-                        if (beside) ChoiceValueGlyph(choiceIcon(selected, detail))
+                        if (beside) ChoiceValueGlyph(glyph)
                         if (beside) RowValueText(current, textAlign = TextAlign.End, maxLines = 1)
                         Icon(
                             Icons.Outlined.ArrowDropDown,
@@ -3294,6 +3354,9 @@ private fun <T> choiceIcon(option: T, detail: (@Composable (T) -> ChoiceDetail?)
 /** The size an option's glyph takes beside a value on the row behind a sheet. */
 private val ChoiceValueGlyphSize = 18.dp
 
+/** The air that glyph keeps between itself and the value it belongs to. */
+private val ChoiceValueGlyphGap = 6.dp
+
 /** The lane an option's glyph occupies on a sheet row, tile or no tile. */
 private val ChoiceSheetGlyphLane = 40.dp
 
@@ -3332,7 +3395,7 @@ private fun ChoiceValueGlyph(icon: ImageVector?) {
         icon,
         contentDescription = null,
         tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(end = 6.dp).size(ChoiceValueGlyphSize),
+        modifier = Modifier.padding(end = ChoiceValueGlyphGap).size(ChoiceValueGlyphSize),
     )
 }
 

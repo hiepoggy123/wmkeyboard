@@ -765,6 +765,20 @@ internal fun WmRow(
     )
 }
 
+/**
+ * How wide text in a row's trailing slot may get before it ellipsises.
+ *
+ * Roughly a third of a phone, which leaves the title the two thirds it needs
+ * to stay on one or two lines. `ListItem` hands the trailing slot whatever
+ * width it asks for and gives the headline what is left, so uncapped text
+ * there does not shrink itself — it shrinks the title, down to a letter a
+ * line. Any row whose trailing text is longer than the words its author saw
+ * (a value in another language, a trigger out of somebody else's pack) has to
+ * cap it here. Text longer than two lines at this width was never going to be
+ * read off a row anyway.
+ */
+internal val RowTrailingTextMaxWidth = 132.dp
+
 // ---- reset to default ----
 
 /**
