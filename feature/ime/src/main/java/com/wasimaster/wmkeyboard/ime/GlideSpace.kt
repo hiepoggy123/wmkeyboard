@@ -192,6 +192,18 @@ internal fun possessiveFlick(
     return travelled <= direct * POSSESSIVE_MAX_DETOUR
 }
 
+/**
+ * The strip after a glide whose word came off the ambiguity picker: [picked]
+ * first, then the decoder's own order with it removed. The strip bolds index
+ * zero (or swaps it into the centre slot), so a picked word has to lead the
+ * list the way the decoder's leader does or the strip would bold the word the
+ * user just turned down. A pick the decode no longer holds is kept all the
+ * same: it was on screen when the finger lifted, and dropping it is exactly
+ * the bug the picker's freeze exists to prevent (#96).
+ */
+internal fun glideStripOrder(candidates: List<String>, picked: String): List<String> =
+    listOf(picked) + candidates.filterNot { it == picked }
+
 private fun within(x: Float, y: Float, cx: Float, cy: Float, reach: Float): Boolean {
     val dx = x - cx
     val dy = y - cy

@@ -1535,12 +1535,22 @@ data class KeyboardUiState(
     /** Best gesture-typing candidate mid-swipe, shown floating above the finger. */
     val glideWord: String? = null,
     /**
-     * The words a mid-swipe decode is choosing between, best first, when it is
-     * close enough to be worth asking about — and empty when it is not, which
-     * is the ordinary case. Holding the finger still while this is populated
-     * puts them under the fingertip to pick from.
+     * The words a mid-swipe decode is choosing between, best first, capped at
+     * [GestureSettings.pickerChoices]. Populated for every preview while the
+     * picker is on (empty when it is off), because a stroke that is not a
+     * close call can still be asked about by holding longer; [glideCloseCall]
+     * says which kind this one is. Holding the finger still while this is
+     * populated puts them under the fingertip to pick from.
      */
     val glideChoices: List<String> = emptyList(),
+    /**
+     * Whether the latest preview's leader barely beats its runner-up under
+     * the user's [GestureSettings.pickerSensitivity]. Drives the short dwell;
+     * false with [glideChoices] populated is the long "hold to ask" case.
+     * Always true under [GlidePickerSensitivity.EVERY_PAUSE] once there are
+     * two readings.
+     */
+    val glideCloseCall: Boolean = false,
     /**
      * Whether the active language and layout can be glided: a word list to
      * decode against, a layout that types letters rather than converting them,

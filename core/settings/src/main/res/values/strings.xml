@@ -149,4 +149,11 @@
     <string name="core_settings_photo_scope_all_label">Every theme</string>
     <string name="core_settings_photo_scope_selected_label">Themes I select</string>
 
+    <!-- The tiers of "When to ask" for the glide ambiguity picker: how close a
+         swipe's two best readings must be before holding still asks. -->
+    <string name="core_settings_glide_picker_near_ties_label">Near ties</string>
+    <string name="core_settings_glide_picker_close_calls_label">Close calls</string>
+    <string name="core_settings_glide_picker_any_doubt_label">Any doubt</string>
+    <string name="core_settings_glide_picker_every_pause_label">Every pause</string>
+
 </resources>

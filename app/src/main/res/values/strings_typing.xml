@@ -312,7 +312,32 @@
 
     <string name="typing_glide_picker_title">Ask when a glide is unclear</string>
     <string name="typing_glide_picker_subtitle">Hold your finger still to choose between the closest words</string>
-    <string name="typing_glide_picker_info">Some swipes have no single right answer. On a fixed Bengali layout the letters ক and খ share a key, so a word and its aspirated twin are drawn exactly the same way, and on any layout a hurried swipe can fit two words equally well. When that happens, keep your finger down and hold it still for a moment: the closest words appear under your fingertip. Slide onto one and lift to type it. Lift without choosing and the keyboard types its best guess, as it always did, and the same words stay on the suggestion bar either way.</string>
+    <string name="typing_glide_picker_info">Some swipes have no single right answer. On a fixed Bengali layout the letters ক and খ share a key, so a word and its aspirated twin are drawn exactly the same way, and on any layout a hurried swipe can fit two words equally well. When that happens, keep your finger down and hold it still for a moment: the closest words appear just above your fingertip. Slide onto one and lift to type it. Lift without choosing and the keyboard types its best guess, as it always did, and the same words stay on the suggestion bar either way. Once the words appear the swipe is finished, so sliding to a word does not change it. Slide down away from the words and lift to type nothing at all. The settings below decide how sure the keyboard has to be, how long to hold, and how many words to offer.</string>
+
+    <!-- Rows under "Ask when a glide is unclear"; shown only while it is on. -->
+    <!-- One-of-four choice: how close a call a swipe must be before holding
+         still asks. The four labels come from core:settings (Near ties, Close
+         calls, Any doubt, Every pause). -->
+    <string name="typing_glide_picker_sensitivity_title">When to ask</string>
+    <string name="typing_glide_picker_sensitivity_subtitle">How close a call a swipe has to be before it asks</string>
+    <string name="typing_glide_picker_sensitivity_info">After a swipe the keyboard compares its two best readings. The closer they are, the less sure it is. Near ties asks only when the two words fit almost equally well. Close calls, the default, asks when the best word barely beats the next one. Any doubt asks whenever another word comes close. Every pause asks each time you hold still, whatever the keyboard thinks. The same words are on the suggestion bar either way.</string>
+    <!-- One line under each option in the when to ask picker. -->
+    <string name="typing_glide_picker_near_ties_desc">Only when two words fit almost equally well</string>
+    <string name="typing_glide_picker_close_calls_desc">When the best word barely beats the next one</string>
+    <string name="typing_glide_picker_any_doubt_desc">Whenever another word comes close</string>
+    <string name="typing_glide_picker_every_pause_desc">Every time you hold still, whatever the keyboard thinks</string>
+
+    <string name="typing_glide_picker_dwell_title">Time to hold still</string>
+    <string name="typing_glide_picker_dwell_subtitle">How long to keep your finger still before the words appear</string>
+    <string name="typing_glide_picker_dwell_info">Hold your finger still for this long at the end of a swipe and the words appear. A short time answers faster but can open the words when you only paused to think in the middle of a word. A long time never opens them by accident but makes you wait. Small movements do not count: your finger can rest on the glass and drift a little.</string>
+
+    <string name="typing_glide_picker_hold_title">Hold longer to always ask</string>
+    <string name="typing_glide_picker_hold_subtitle">A confident swipe still asks when you hold twice as long</string>
+    <string name="typing_glide_picker_hold_info">When the keyboard is sure of a swipe it does not ask at the usual time. With this on, keep holding for twice the time and it asks anyway, so you can check any swipe before you lift. Turn it off and a swipe the keyboard is sure of never asks, however long you hold.</string>
+
+    <string name="typing_glide_picker_choices_title">Words to choose from</string>
+    <string name="typing_glide_picker_choices_subtitle">How many words appear above your finger</string>
+    <string name="typing_glide_picker_choices_info">Two to five words. Up to three fit in one row above your finger. Four or five use a second row above the first. More words give more choice, but each one is a smaller target to land on.</string>
 
     <!-- One-of-four choice: how much of the dictionary a glide can produce. The
          four labels come from core:prediction (Everything, Large, Medium,

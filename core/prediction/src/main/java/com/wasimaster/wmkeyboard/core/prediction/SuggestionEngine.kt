@@ -719,23 +719,6 @@ class SuggestionEngine(
      * decoder's guess, so reordering guesses costs nothing that was ever
      * certain.
      */
-    /**
-     * Whether a decoded stroke is a close enough call to be worth asking about.
-     *
-     * The measure is the gap between the best candidate and the runner-up, in
-     * the same log units everything else is scored in — so it reads directly as
-     * a likelihood ratio, and a gap of [AMBIGUOUS_MARGIN] means the two words
-     * are within about a factor of three of each other. Below that, calling it
-     * for the leader is a coin toss dressed up as a decision.
-     *
-     * Deliberately not a function of the shape cost. A stroke can be drawn
-     * beautifully and still be ambiguous — ক and খ are the same stroke however
-     * carefully it is made — and a scruffy stroke with only one word anywhere
-     * near it is not ambiguous at all.
-     */
-    fun glideIsAmbiguous(decoded: List<GlideBeam.Candidate>): Boolean =
-        decoded.size >= 2 && decoded[0].score - decoded[1].score < AMBIGUOUS_MARGIN
-
     private fun rerankGlide(
         decoded: List<GlideBeam.Candidate>,
         previousWord: String?,
@@ -1177,9 +1160,35 @@ class SuggestionEngine(
 
         /**
          * How far ahead the best candidate has to be before a swipe commits it
-         * without asking, in nats. About a factor of three.
+         * without asking, in nats. About a factor of three. The default for
+         * [glideIsAmbiguous], and the one tier of the user's sensitivity
+         * setting that reads exactly as every stroke was judged before there
+         * was a setting.
          */
-        private const val AMBIGUOUS_MARGIN = 1.1
+        const val AMBIGUOUS_MARGIN = 1.1
+
+        /**
+         * Whether a decoded stroke is a close enough call to be worth asking about.
+         *
+         * The measure is the gap between the best candidate and the runner-up, in
+         * the same log units everything else is scored in — so it reads directly as
+         * a likelihood ratio, and a gap of [AMBIGUOUS_MARGIN] means the two words
+         * are within about a factor of three of each other. Below that, calling it
+         * for the leader is a coin toss dressed up as a decision.
+         *
+         * [margin] is the user's tier. `Double.POSITIVE_INFINITY` means any stroke
+         * with two readings at all is a close call; it needs no special case,
+         * because every finite gap is under it.
+         *
+         * Deliberately not a function of the shape cost. A stroke can be drawn
+         * beautifully and still be ambiguous — ক and খ are the same stroke however
+         * carefully it is made — and a scruffy stroke with only one word anywhere
+         * near it is not ambiguous at all.
+         */
+        fun glideIsAmbiguous(
+            decoded: List<GlideBeam.Candidate>,
+            margin: Double = AMBIGUOUS_MARGIN,
+        ): Boolean = decoded.size >= 2 && decoded[0].score - decoded[1].score < margin
 
         /**
          * How deep the fuzzy walk ranks for the suggest path. The post-walk

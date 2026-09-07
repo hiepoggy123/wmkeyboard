@@ -110,6 +110,25 @@ class GlideTrailTest {
     }
 
     @Test
+    fun `releasing mid-stroke freezes the trail and a second release is harmless`() {
+        // The ambiguity picker releases the trail while the finger is still
+        // down, so it fades where it stopped; the lift then releases it again.
+        val trail = trailWith(0, 10)
+        trail.release()
+        assertTrue(trail.released)
+        assertTrue(trail.visible)
+        assertFalse(trail.tick(500, KEEP_MS))
+        assertFalse(trail.visible)
+        trail.release()
+        assertFalse(trail.visible)
+        // The next stroke starts clean.
+        trail.begin()
+        assertTrue(trail.visible)
+        assertFalse(trail.released)
+        assertEquals(0, trail.sampleCount(trail.revision))
+    }
+
+    @Test
     fun `clear abandons the trail outright`() {
         val trail = trailWith(0L, 10L)
         trail.clear()

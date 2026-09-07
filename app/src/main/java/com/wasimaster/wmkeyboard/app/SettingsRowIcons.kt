@@ -656,6 +656,10 @@ internal object SettingsRowIcons {
         put(R.string.typing_otp_per_digit_title) { Icons.Outlined.Pin }
         put(R.string.typing_glide_typing_title) { Icons.Outlined.Gesture }
         put(R.string.typing_glide_picker_title) { Icons.Outlined.Gesture }
+        put(R.string.typing_glide_picker_sensitivity_title) { Icons.Outlined.Tune }
+        put(R.string.typing_glide_picker_dwell_title) { Icons.Outlined.Timer }
+        put(R.string.typing_glide_picker_hold_title) { Icons.Outlined.TouchApp }
+        put(R.string.typing_glide_picker_choices_title) { Icons.Outlined.Numbers }
         put(R.string.typing_letter_swipe_action_title) { Icons.Outlined.Draw }
         put(R.string.typing_handwrite_dot_title) { Icons.Outlined.Timer }
         put(R.string.typing_gesture_cooldown_title) { Icons.Outlined.Timer }

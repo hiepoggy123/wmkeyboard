@@ -30,6 +30,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -193,6 +194,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -312,6 +314,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.HoldRepeatCursorTools
 import com.wasimaster.wmkeyboard.core.settings.GestureSettings
+import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.KeyPopupSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyRepeatSettings
 import com.wasimaster.wmkeyboard.core.settings.TextEditingSettings
@@ -802,10 +805,11 @@ fun KeyboardScreen(
     onHaptic: () -> Unit = { onKeyPressed(KeySoundRole.DEFAULT) },
     onKeySound: (KeySoundRole, KeySoundPhase) -> Unit = { _, _ -> },
     onText: (String) -> Unit = {},
-    onGesture: (List<GesturePoint>, List<KeyCenter>, Float, String?) -> Unit =
+    onGesture: (List<GesturePoint>, List<KeyCenter>, Float, GlideVerdict) -> Unit =
         { _, _, _, _ -> },
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
-    onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
+    onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float, GlideVerdict) -> Unit =
+        { _, _, _, _ -> },
     onKeyTouch: (Float, Float) -> Unit = { _, _ -> },
     onTouchKeys: (List<KeyCenter>) -> Unit = {},
     onCursorMove: (Int) -> Unit = {},
@@ -7662,9 +7666,9 @@ private fun KeyboardBody(
     onHideKeyboard: () -> Unit,
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
-    onGesture: (List<GesturePoint>, List<KeyCenter>, Float, String?) -> Unit,
+    onGesture: (List<GesturePoint>, List<KeyCenter>, Float, GlideVerdict) -> Unit,
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit,
-    onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float) -> Unit,
+    onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float, GlideVerdict) -> Unit,
     onKeyTouch: (Float, Float) -> Unit = { _, _ -> },
     onTouchKeys: (List<KeyCenter>) -> Unit = {},
     onCursorMove: (Int) -> Unit,
@@ -8937,14 +8941,20 @@ private fun DragScopeLabel(
  */
 /**
  * The ambiguity picker's live state: which words are on offer, where they are on
- * screen, and which one the finger is currently over.
+ * screen, which one the finger is currently over, and whether it has dropped
+ * out of the picker altogether.
  *
- * Split the same way [GlideTrail] is, and for the same reason. [words] and
- * [hover] are snapshot state because they change a handful of times per stroke
- * and the popup has to redraw when they do. [rects] is a plain array written by
- * the targets' own layout and read from the pointer loop, because a rect that
- * lived in snapshot state would recompose the keyboard at touch-report rate for
- * a hit test that never needed the composition to know anything.
+ * Split the same way [GlideTrail] is, and for the same reason. [words],
+ * [hover] and [cancelling] are snapshot state because they change a handful of
+ * times per stroke and the popup has to redraw when they do. [rects] is a plain
+ * array written by the targets' own layout and read from the pointer loop,
+ * because a rect that lived in snapshot state would recompose the keyboard at
+ * touch-report rate for a hit test that never needed the composition to know
+ * anything.
+ *
+ * The stroke is frozen from the moment the picker opens until the finger lifts
+ * (#96), so there is no "opened earlier this stroke" to remember: [isOpen] is
+ * the whole story, and [verdict] is what the lift commits.
  */
 @Stable
 internal class GlidePickerState {
@@ -8955,26 +8965,35 @@ internal class GlidePickerState {
 
     /** Index of the target the finger is over, or -1. */
     var hover by mutableIntStateOf(-1)
+        private set
+
+    /**
+     * The finger has dropped more than a key below the anchor: the targets dim
+     * and a lift now types nothing. Sliding back up clears it.
+     */
+    var cancelling by mutableStateOf(false)
+        private set
 
     /** Where the targets landed, in the grid's coordinate space. */
     val rects = Array(MAX_TARGETS) { Rect.Zero }
 
-    /** Where the picker is anchored: the trail head when it opened. */
+    /** Where the picker is anchored: where the finger stopped when it opened. */
     var anchorX = 0f
         private set
     var anchorY = 0f
         private set
 
-    /** True once a stroke has opened the picker, so it opens at most once. */
-    var offered = false
-        private set
+    /** True while the picker is up, which is from its open until the lift. */
+    val isOpen: Boolean
+        get() = words.isNotEmpty()
 
-    fun open(choices: List<String>, x: Float, y: Float) {
-        words = choices.take(MAX_TARGETS)
+    /** Puts the first [limit] of [choices] on offer, anchored at [x], [y]. */
+    fun open(choices: List<String>, limit: Int, x: Float, y: Float) {
+        words = choices.take(limit.coerceIn(MIN_TARGETS, MAX_TARGETS))
         anchorX = x
         anchorY = y
         hover = -1
-        offered = true
+        cancelling = false
         rects.fill(Rect.Zero)
     }
 
@@ -8982,7 +9001,7 @@ internal class GlidePickerState {
     fun close() {
         if (words.isNotEmpty()) words = emptyList()
         hover = -1
-        offered = false
+        cancelling = false
         rects.fill(Rect.Zero)
     }
 
@@ -8999,11 +9018,43 @@ internal class GlidePickerState {
         return -1
     }
 
-    /** The word the finger is over, or null — what a lift would commit. */
+    /**
+     * One move while open. Keeps [hover] and [cancelling] current, writing
+     * snapshot state only on a real change — this runs per touch report, and
+     * crossing between targets should recompose the popup while moving within
+     * one should not. Returns true when the finger has just *arrived* on a
+     * target, which is when a haptic tick is due, and never for a move within
+     * one. Below the cancel line nothing is hovered, however the rectangles
+     * fall.
+     */
+    fun track(x: Float, y: Float, cancelBelowPx: Float): Boolean {
+        val below = y - anchorY > cancelBelowPx
+        if (below != cancelling) cancelling = below
+        val over = if (below) -1 else targetAt(x, y)
+        val entered = over >= 0 && over != hover
+        if (over != hover) hover = over
+        return entered
+    }
+
+    /** The word the finger is over, or null. */
     fun picked(): String? = words.getOrNull(hover)
 
+    /**
+     * What a lift commits: nothing from the cancel zone, the hovered word from
+     * a target, and otherwise the decoder's own leader — which is also the
+     * answer from a picker that never opened, so the lift asks unconditionally.
+     */
+    fun verdict(): GlideVerdict = when {
+        cancelling -> GlideVerdict.Cancel
+        else -> picked()?.let { GlideVerdict.Word(it) } ?: GlideVerdict.Leader
+    }
+
     companion object {
-        const val MAX_TARGETS = 3
+        /** Fewer than two words is nothing to choose between. */
+        const val MIN_TARGETS = 2
+
+        /** The setting's ceiling, so the rectangles never run out. */
+        val MAX_TARGETS = GlidePickerChoicesRange.last
     }
 }
 
@@ -9023,7 +9074,11 @@ internal class GlideTrail {
     var visible by mutableStateOf(false)
         private set
 
-    /** The finger has lifted and the trail is fading in place. */
+    /**
+     * The trail is fading in place: the finger has lifted, or the ambiguity
+     * picker has opened and frozen the stroke under it (#96). Idempotent, so
+     * the lift's own release after a frozen stroke is harmless.
+     */
     var released by mutableStateOf(false)
         private set
 
@@ -9168,6 +9223,14 @@ internal class KeyRects {
     fun keyAt(point: Offset): Key? {
         for ((rect, key) in cells) {
             if (rect.contains(point)) return key
+        }
+        return null
+    }
+
+    /** The cell holding [point], or null outside the grid. Root space, like [keyAt]. */
+    fun cellAt(point: Offset): Rect? {
+        for (rect in cells.keys) {
+            if (rect.contains(point)) return rect
         }
         return null
     }
@@ -10032,12 +10095,13 @@ private fun KeyRows(
     state: KeyboardUiState,
     onKey: (Key) -> Unit,
     onText: (String) -> Unit,
-    onGesture: (List<GesturePoint>, List<KeyCenter>, Float, String?) -> Unit =
+    onGesture: (List<GesturePoint>, List<KeyCenter>, Float, GlideVerdict) -> Unit =
         { _, _, _, _ -> },
     onGesturePreview: (List<GesturePoint>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
     onCursorMove: (Int) -> Unit = {},
     onLayoutSelect: (String) -> Unit = {},
-    onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float) -> Unit = { _, _, _ -> },
+    onGestureWords: (List<List<GesturePoint>>, List<KeyCenter>, Float, GlideVerdict) -> Unit =
+        { _, _, _, _ -> },
     onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
     /** Down position of the tap that committed a letter, in key-width units
      * (keyboard space). Fired just before the matching onKey. */
@@ -10225,8 +10289,13 @@ private fun KeyRows(
     // composition local deliberately shadows.
     val pickerHaptic = LocalHapticFeedback.current
     // Read inside the pointer loop, which outlives the composition that started
-    // it — a captured value would be whatever the stroke began with.
+    // it — a captured value would be whatever the stroke began with. The
+    // choices and the close-call flag change with every preview; the picker's
+    // settings and the haptic switch can change under a finger too.
     val glideChoices = rememberUpdatedState(state.glideChoices)
+    val glideCloseCall = rememberUpdatedState(state.glideCloseCall)
+    val glideSettings = rememberUpdatedState(state.settings.gesture)
+    val hapticOn = rememberUpdatedState(state.settings.hapticFeedback)
     val kbTheme = LocalKbTheme.current
     val trailColor = kbTheme.gestureTrail
     // The board's one preview bubble. Hoisted here so pressing a key publishes to
@@ -10481,18 +10550,86 @@ private fun KeyRows(
                     // decodes a second at 60 Hz and forty at 240 Hz, so the
                     // same swipe cost four times as much on a better screen.
                     var lastPreviewMs = 0L
-                    // Where the finger last actually moved, and when — the
-                    // picker's dwell trigger measures against this rather than
-                    // against consecutive samples, so a slow drift never
-                    // accumulates into a "hold".
-                    var stillAt = down.position
-                    var stillSince = down.uptimeMillis
+                    // The picker's clock: where the finger stopped and when.
+                    // Measured against where it stopped rather than the last
+                    // sample, so a slow drift never accumulates into a "hold".
+                    val dwell = GlideDwell()
+                    // Whether this segment has asked for a preview yet. The
+                    // picker's choices are only ever the latest preview's, and
+                    // arming the timer before this segment has one would open
+                    // it on the previous stroke's words — or the previous
+                    // word's, after a spacebar crossing.
+                    var previewedSeg = false
+                    // How far below the anchor the finger has to drop before a
+                    // lift cancels the stroke: the anchor key's height, read
+                    // when the picker opens.
+                    var cancelBelowPx = 0f
                     // The letter grid, built once per stroke rather than per
                     // preview: it cannot change while a finger is down.
                     var keyList: List<KeyCenter>? = null
                     seg.add(GesturePoint(down.position.x, down.position.y, down.uptimeMillis))
+                    dwell.reset(down.position.x, down.position.y, down.uptimeMillis)
+                    // The finger has held still long enough: freeze the stroke
+                    // and ask. From here to the lift nothing is drawn — no
+                    // points, no previews, no trail — because the stroke is
+                    // finished and the finger is only choosing. Sliding to a
+                    // target used to keep feeding the decoder, so the word the
+                    // picker showed was not the word the lift decoded (#96).
+                    fun askHere() {
+                        picker.open(
+                            glideChoices.value,
+                            glideSettings.value.pickerChoices,
+                            dwell.stillX,
+                            dwell.stillY,
+                        )
+                        cancelBelowPx = liveRects.value
+                            .cellAt(Offset(dwell.stillX, dwell.stillY) + boxOrigin)?.height
+                            ?: keyWidth.value
+                        // The trail fades where it is; its head stops following
+                        // the finger.
+                        trail.release()
+                        // Fired here rather than routed through the service:
+                        // the picker is the composable's own event, and
+                        // threading a callback for it would mean another
+                        // KeyboardScreen parameter on a function already at
+                        // the method-size limit.
+                        if (hapticOn.value) pickerHaptic()
+                    }
                     while (true) {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val dwellMs = glideSettings.value.pickerDwellMs.toLong()
+                        val closeCall = previewedSeg && glideCloseCall.value
+                        val holdToAsk = previewedSeg && glideSettings.value.ambiguityPicker &&
+                            glideSettings.value.pickerHoldToAsk
+                        // Only an unfrozen stroke off the spacebar is on a
+                        // clock: a finger resting on the spacebar mid-phrase
+                        // is thinking, not asking.
+                        val timeout = if (isGesture && !picker.isOpen && !wasOverSpace) {
+                            dwell.timeout(SystemClock.uptimeMillis(), closeCall, holdToAsk, dwellMs)
+                        } else {
+                            null
+                        }
+                        val event = if (timeout == null) {
+                            awaitPointerEvent(PointerEventPass.Initial)
+                        } else {
+                            // The pointer scope's own withTimeoutOrNull, not
+                            // kotlinx's: it resumes the pending await with a
+                            // timeout and hands back null. A finger that is
+                            // genuinely still sends no events at all, which is
+                            // why the dwell is a timer and not a check on the
+                            // next move — the old check never ran for the
+                            // people holding stillest (#96).
+                            this.withTimeoutOrNull(timeout) { awaitPointerEvent(PointerEventPass.Initial) }
+                        }
+                        if (event == null) {
+                            val now = SystemClock.uptimeMillis()
+                            val choices = glideChoices.value.size
+                            when (dwell.onTimeout(now, closeCall, holdToAsk, dwellMs, choices)) {
+                                GlideDwell.Action.OPEN -> askHere()
+                                GlideDwell.Action.REARM -> dwell.reset(dwell.stillX, dwell.stillY, now)
+                                GlideDwell.Action.WAIT -> Unit
+                            }
+                            continue
+                        }
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         if (!change.pressed) {
                             if (isGesture) change.consume()
@@ -10519,8 +10656,7 @@ private fun KeyRows(
                             )
                         ) {
                             isGesture = true
-                            stillAt = change.position
-                            stillSince = change.uptimeMillis
+                            dwell.reset(change.position.x, change.position.y, change.uptimeMillis)
                             trail.begin()
                             // Built once per stroke, from the layout rather than
                             // the measured map alone: a key's shifted and
@@ -10539,6 +10675,14 @@ private fun KeyRows(
                         }
                         if (isGesture) {
                             change.consume()
+                            if (picker.isOpen) {
+                                // Frozen: the stroke is finished and the finger
+                                // is only choosing. Hover and the cancel zone
+                                // are all a move can change now.
+                                val entered = picker.track(change.position.x, change.position.y, cancelBelowPx)
+                                if (entered && hapticOn.value) pickerHaptic()
+                                continue
+                            }
                             // Crossing the spacebar ends the current word and
                             // begins the next, so a stroke can chain words
                             // without lifting. Spacebar points anchor no letter,
@@ -10552,6 +10696,7 @@ private fun KeyRows(
                                 if (!wasOverSpace && seg.size >= 3) {
                                     segments.add(seg)
                                     seg = ArrayList()
+                                    previewedSeg = false
                                 }
                             } else {
                                 seg.add(
@@ -10563,45 +10708,16 @@ private fun KeyRows(
                                 )
                             }
                             wasOverSpace = overSpace
-                            // The picker: a finger that stops moving while the
-                            // decode is a close call is asking to be asked.
-                            // Measured against where it stopped, not the last
-                            // sample, so a slow drift never counts as still.
-                            val travelled = (change.position - stillAt).getDistance()
-                            if (travelled > keyWidth.value * PICKER_STILL_WIDTHS) {
-                                stillAt = change.position
-                                stillSince = change.uptimeMillis
-                            } else if (
-                                !picker.offered &&
-                                glideChoices.value.size > 1 &&
-                                // Not on a stroke that has already chained a
-                                // word across the spacebar: the multi-word
-                                // commit path decodes each segment on its own
-                                // and has nowhere to put a hand-picked answer,
-                                // so offering one would be offering a choice
-                                // that gets quietly dropped.
-                                segments.isEmpty() &&
-                                change.uptimeMillis - stillSince >= PICKER_DWELL_MS
-                            ) {
-                                picker.open(
-                                    glideChoices.value, change.position.x, change.position.y,
-                                )
-                                // Fired here rather than routed through the
-                                // service: the picker is the composable's own
-                                // event, and threading a callback for it would
-                                // mean another KeyboardScreen parameter on a
-                                // function already at the method-size limit.
-                                if (state.settings.hapticFeedback) pickerHaptic()
-                            }
-                            if (picker.words.isNotEmpty()) {
-                                // Only on a real change. Snapshot state already
-                                // ignores an equal write, but this runs per
-                                // touch report and the intent is worth stating:
-                                // crossing between targets should recompose the
-                                // popup, moving within one should not.
-                                val over = picker.targetAt(change.position.x, change.position.y)
-                                if (over != picker.hover) picker.hover = over
-                            }
+                            // The picker's clock: a finger that stops moving is
+                            // asking to be asked. Restarted only by a move past
+                            // the still radius, so a finger resting on glass —
+                            // never perfectly still — still counts as held.
+                            dwell.sample(
+                                change.position.x,
+                                change.position.y,
+                                change.uptimeMillis,
+                                keyWidth.value * PICKER_STILL_WIDTHS,
+                            )
                             // Appends and drops the aged tail in one go; only
                             // the draw phase ever reads it back.
                             trail.add(
@@ -10613,28 +10729,38 @@ private fun KeyRows(
                             // Live preview of the word being drawn now, at a
                             // fixed wall-clock cadence.
                             val sincePreview = change.uptimeMillis - lastPreviewMs
-                            if (sincePreview >= PREVIEW_INTERVAL_MS && seg.size >= 3) {
+                            if (sincePreview >= PREVIEW_INTERVAL_MS && seg.size >= PREVIEW_MIN_POINTS) {
                                 lastPreviewMs = change.uptimeMillis
                                 keyList?.let { keys ->
+                                    previewedSeg = true
                                     onGesturePreview(seg.toList(), keys, keyWidth.value)
                                 }
                             }
                         }
                     }
                     if (isGesture) {
-                        if (seg.size >= 4) segments.add(seg)
-                        val words = segments.filter { it.size >= 4 }
-                        val keys = keyList
-                        // Lifting on a target takes that word; lifting anywhere
-                        // else takes the decoder's own first choice, so an
-                        // ignored picker costs nothing.
-                        val chosen = picker.picked()
+                        // Lifting on a target takes that word; lifting in the
+                        // cancel zone takes nothing; lifting anywhere else takes
+                        // the decoder's own first choice, so an ignored picker
+                        // costs nothing.
+                        val wasOpen = picker.isOpen
+                        val verdict = picker.verdict()
                         picker.close()
+                        // A picker opens on a preview, and a preview needs only
+                        // three points, so a frozen last segment is committed
+                        // at that floor rather than the four an ordinary lift
+                        // asks for — or the service would never hear about the
+                        // pick, or the cancel, and would keep the stroke's
+                        // previews on screen.
+                        val floor = if (wasOpen) PREVIEW_MIN_POINTS else COMMIT_MIN_POINTS
+                        if (seg.size >= floor) segments.add(seg)
+                        val words = segments.filter { it.size >= floor }
+                        val keys = keyList
                         if (words.isNotEmpty() && keys != null) {
                             if (words.size > 1) {
-                                onGestureWords(words, keys, keyWidth.value)
+                                onGestureWords(words, keys, keyWidth.value, verdict)
                             } else {
-                                onGesture(words.first(), keys, keyWidth.value, chosen)
+                                onGesture(words.first(), keys, keyWidth.value, verdict)
                             }
                         }
                         trail.release()
@@ -11180,15 +11306,19 @@ private fun GlideOverlay(
     // pill's height is estimated from its font rather than measured — and
     // estimated high, since a few dp of transparent window cost nothing and a
     // short one clips the pill.
+    val words = picker.words
+    val cancelling = picker.cancelling
+    // Four or five words may need a second row; estimated from the count
+    // rather than measured, for the same reason the pill's height is.
+    val pickerRows = if (words.size <= GlidePickerRowMax) 1 else 2
     val headroomPx = with(density) {
         val pillHeight = glide.wordPreviewFontSp.sp.toPx() * GlidePillLineHeightRatio +
             (GlidePillPaddingV * 2).toPx()
         maxOf(
             pillHeight.roundToInt() + gapPx,
-            (GlidePickerHeight + GlidePickerGap * 2).roundToPx(),
+            (GlidePickerHeight * pickerRows + GlidePickerGap * (pickerRows + 1)).roundToPx(),
         )
     }
-    val words = picker.words
     Popup(
         popupPositionProvider = remember(headroomPx) { GridOverlayPositionProvider(headroomPx) },
         properties = PreviewPopupProperties,
@@ -11199,14 +11329,35 @@ private fun GlideOverlay(
                     GlideWordPill(word, glide, theme, Modifier.layoutId(GlidePillId))
                 }
                 words.forEachIndexed { index, target ->
-                    GlidePickerTarget(target, picker.hover == index, theme, Modifier.layoutId(index))
+                    GlidePickerTarget(
+                        word = target,
+                        hovered = picker.hover == index,
+                        leader = index == 0,
+                        dimmed = cancelling,
+                        theme = theme,
+                        modifier = Modifier.layoutId(index),
+                    )
+                }
+                if (cancelling) {
+                    GlideHintPill(
+                        stringResource(R.string.ime_glide_picker_cancel_hint),
+                        theme,
+                        Modifier.layoutId(GlideHintId),
+                    )
                 }
             },
         ) { measurables, constraints ->
             val width = if (gridSize.width > 0) gridSize.width else constraints.maxWidth
             val height = gridSize.height + headroomPx
             val pill = measurables.firstOrNull { it.layoutId == GlidePillId }?.measure(Constraints())
-            val targets = measurables.filter { it.layoutId != GlidePillId }.map { it.measure(Constraints()) }
+            val hint = measurables.firstOrNull { it.layoutId == GlideHintId }?.measure(Constraints())
+            // Each target is capped at a third of the window less the gaps, so
+            // three always share a row and five split three and two; a long
+            // word ellipsizes rather than pushing its neighbours off the edge.
+            val targetMax = ((width - 2 * pickerGapPx) / GlidePickerRowMax).coerceAtLeast(0)
+            val targets = measurables
+                .filter { it.layoutId is Int }
+                .map { it.measure(Constraints(maxWidth = targetMax)) }
             layout(width, height) {
                 if (pill != null) {
                     // The fingertip is read here, in placement, so following
@@ -11220,28 +11371,74 @@ private fun GlideOverlay(
                     pill.place(x, y)
                 }
                 if (targets.isNotEmpty()) {
-                    // Centred on where the finger stopped and pushed clear of
-                    // it, then clamped so the row never leaves the window.
-                    val rowWidth = targets.sumOf { it.width } + pickerGapPx * (targets.size - 1)
                     val rowHeight = targets.maxOf { it.height }
-                    var x = (picker.anchorX - rowWidth / 2f).toInt()
-                        .coerceIn(0, (width - rowWidth).coerceAtLeast(0))
-                    val y = (picker.anchorY + headroomPx - pickerGapPx - rowHeight).toInt()
-                        .coerceAtLeast(0)
-                    targets.forEachIndexed { index, target ->
-                        target.place(x, y)
-                        // The grid's space is this window's, less the headroom
-                        // on top.
-                        val top = (y - headroomPx).toFloat()
-                        picker.place(
-                            index,
-                            Rect(x.toFloat(), top, (x + target.width).toFloat(), top + target.height),
-                        )
-                        x += target.width + pickerGapPx
+                    val leaderRow = pickerLeaderRowCount(
+                        IntArray(targets.size) { targets[it].width },
+                        pickerGapPx,
+                        width,
+                    )
+                    val rows = listOf(0 until leaderRow, leaderRow until targets.size)
+                        .filter { !it.isEmpty() }
+                    // The leader's row hugs where the finger stopped, pushed
+                    // clear of it; a second row stacks above. The headroom
+                    // already covers both, so the clamp only ever catches the
+                    // bottom row on a stroke that stopped at the top edge.
+                    val bottomY = (picker.anchorY + headroomPx - pickerGapPx - rowHeight).toInt()
+                        .coerceAtLeast((rows.size - 1) * (rowHeight + pickerGapPx))
+                    rows.forEachIndexed { r, range ->
+                        // Centred on the anchor, then clamped so the row never
+                        // leaves the window.
+                        val rowWidth = range.sumOf { targets[it].width } + pickerGapPx * (range.count() - 1)
+                        var x = (picker.anchorX - rowWidth / 2f).toInt()
+                            .coerceIn(0, (width - rowWidth).coerceAtLeast(0))
+                        val y = bottomY - r * (rowHeight + pickerGapPx)
+                        for (index in range) {
+                            val target = targets[index]
+                            target.place(x, y)
+                            // The grid's space is this window's, less the
+                            // headroom on top.
+                            val top = (y - headroomPx).toFloat()
+                            picker.place(
+                                index,
+                                Rect(x.toFloat(), top, (x + target.width).toFloat(), top + target.height),
+                            )
+                            x += target.width + pickerGapPx
+                        }
                     }
+                }
+                if (hint != null) {
+                    // Over the anchor: the finger has left it, heading down, so
+                    // nothing covers it there.
+                    val x = (picker.anchorX - hint.width / 2f).toInt()
+                        .coerceIn(0, (width - hint.width).coerceAtLeast(0))
+                    val y = (picker.anchorY + headroomPx - hint.height / 2f).toInt()
+                        .coerceIn(0, (height - hint.height).coerceAtLeast(0))
+                    hint.place(x, y)
                 }
             }
         }
+    }
+}
+
+/**
+ * The picker's one word of guidance, shown where the finger stopped once it
+ * has dropped into the cancel zone: lifting now types nothing.
+ */
+@Composable
+private fun GlideHintPill(text: String, theme: KbTheme, modifier: Modifier) {
+    Surface(
+        modifier = modifier,
+        color = theme.popup,
+        contentColor = theme.popupText.copy(alpha = GlideHintTextAlpha),
+        shape = theme.popupShape(),
+        shadowElevation = elevationFor(theme.popupShapeKind, 2.dp),
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            fontSize = 13.sp,
+            maxLines = 1,
+        )
     }
 }
 
@@ -11274,15 +11471,32 @@ private fun GlideWordPill(word: String, glide: GestureSettings, theme: KbTheme, 
  * Highlighted the way a held alternates entry is — the pressed-key colour
  * under the popup's own text — rather than the accent under the key text,
  * which on a theme with a light accent went solid white with the word lost in
- * it (issue #86).
+ * it (issue #86). The [leader] is outlined rather than filled: it is what a
+ * lift anywhere else types, and the user should be able to see that without
+ * it looking already chosen. [dimmed] is the cancel zone: every target fades
+ * together, because none of them is about to be typed.
  */
 @Composable
-private fun GlidePickerTarget(word: String, hovered: Boolean, theme: KbTheme, modifier: Modifier) {
+private fun GlidePickerTarget(
+    word: String,
+    hovered: Boolean,
+    leader: Boolean,
+    dimmed: Boolean,
+    theme: KbTheme,
+    modifier: Modifier,
+) {
     Surface(
-        modifier = modifier.height(GlidePickerHeight),
+        modifier = modifier
+            .height(GlidePickerHeight)
+            .alpha(if (dimmed) GlidePickerDimmedAlpha else 1f),
         color = if (hovered) theme.pressedKey else theme.popup,
         contentColor = theme.popupText,
         shape = theme.popupShape(),
+        border = if (leader && !hovered) {
+            BorderStroke(1.dp, theme.accent.copy(alpha = GlidePickerLeaderOutlineAlpha))
+        } else {
+            null
+        },
         shadowElevation = elevationFor(theme.popupShapeKind, if (hovered) 8.dp else 4.dp),
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -11292,6 +11506,8 @@ private fun GlidePickerTarget(word: String, hovered: Boolean, theme: KbTheme, mo
                 fontSize = 18.sp,
                 fontWeight = if (hovered) FontWeight.Bold else FontWeight.Medium,
                 maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }
@@ -12096,22 +12312,47 @@ private const val POST_TYPE_SLOP_BOOST = 2.5f
 private const val PREVIEW_INTERVAL_MS = 40L
 
 /**
- * How long the finger has to hold still before an ambiguous stroke offers its
- * choices. Long enough that pausing to think mid-word does not trip it, short
- * enough to feel like an answer rather than a delay.
+ * How many points a segment needs before it is previewed, and before an
+ * ordinary lift commits it. A frozen segment — one the ambiguity picker opened
+ * on — commits at the preview floor, since the picker's words came from a
+ * preview of exactly those points.
  */
-private const val PICKER_DWELL_MS = 250L
+private const val PREVIEW_MIN_POINTS = 3
+private const val COMMIT_MIN_POINTS = 4
 
 /**
  * How far the finger may drift and still count as held, in key widths. A finger
  * resting on glass is never perfectly still, and a threshold that demanded it
- * would mean the picker never appeared for anybody.
+ * would mean the picker never appeared for anybody. (How *long* it has to hold
+ * is the user's: `GestureSettings.pickerDwellMs`.)
  */
 private const val PICKER_STILL_WIDTHS = 0.3f
 
 /** The picker's target height and the gaps around it. */
 private val GlidePickerHeight = 44.dp
 private val GlidePickerGap = 10.dp
+
+/** How faint the targets go once the finger has dropped into the cancel zone. */
+private const val GlidePickerDimmedAlpha = 0.4f
+
+/** The accent outline on the leader target, and the cancel hint's text. */
+private const val GlidePickerLeaderOutlineAlpha = 0.6f
+private const val GlideHintTextAlpha = 0.8f
+
+/** How many targets share the picker's row at most: the width cap is a third of the window. */
+private const val GlidePickerRowMax = 3
+
+/**
+ * How many of the picker's targets go on the row nearest the finger: all of
+ * them when they fit in [maxWidth] with [gapPx] between, else the larger half,
+ * so the leader's row is the fuller one and the second row sits above it. Two
+ * rows are always enough, because each target is measured no wider than a
+ * third of the window less the gaps, so three share a row whatever the words.
+ */
+internal fun pickerLeaderRowCount(widths: IntArray, gapPx: Int, maxWidth: Int): Int {
+    val total = widths.sum() + gapPx * (widths.size - 1).coerceAtLeast(0)
+    return if (total <= maxWidth) widths.size else (widths.size + 1) / 2
+}
 
 /** The pill's vertical padding; [GlideOverlay]'s headroom estimate counts it twice. */
 private val GlidePillPaddingV = 6.dp
@@ -12124,6 +12365,9 @@ private const val GlidePillLineHeightRatio = 1.5f
 
 /** The pill's id among [GlideOverlay]'s measurables; the targets carry their index. */
 private const val GlidePillId = "glide-pill"
+
+/** The cancel hint's id among the same measurables. */
+private const val GlideHintId = "glide-hint"
 
 /** Vertical padding of the [KeyRows] column, mirrored into [keyRowsHeight]. */
 internal val KeyRowsPadVertical = 2.dp

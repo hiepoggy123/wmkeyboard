@@ -72,9 +72,18 @@ Tap-to-replace only works while your cursor is still sitting exactly where the g
 
 Some strokes have no single right answer. On a fixed Bangla layout ক and খ share a key, so a word and its aspirated twin are drawn in exactly the same shape, and on any layout a hurried stroke can fit two words equally well. Rather than commit the likelier one and leave you to notice, **Ask when a glide is unclear** (on by default) offers the choice while your finger is still down.
 
-When a stroke's best candidate barely leads its runner-up, keep your finger down and hold it still for a moment. The closest words appear just above your fingertip, in their own window, so a stroke that ends on the top row floats them over the suggestion strip rather than hiding them under the keys. Slide onto one and lift to type it. Lift without choosing and the keyboard commits its best guess exactly as it always did, and the same words are on the suggestion strip either way, so ignoring the picker costs nothing.
+When a stroke's best candidate barely leads its runner-up, keep your finger down and hold it still. After **Time to hold still** (350 ms by default) the closest words appear just above your fingertip, in their own window, so a stroke that ends on the top row floats them over the suggestion strip rather than hiding them under the keys. The keyboard's own first choice wears a thin outline, so you can see what a lift anywhere else will type. Slide onto a word and lift to type it. Lift without choosing and the keyboard commits its best guess exactly as it always did, and the same words are on the suggestion strip either way, so ignoring the picker costs nothing.
 
-The picker only arms on the strokes that are genuinely in doubt. A confident decode never shows it, and it appears only in the "Type words" swipe mode, since a handwritten stroke resolves through a different path.
+The moment the words appear, the stroke is finished. Sliding to a word does not redraw it, so the word you land on is the word that lands in the field. Change your mind about the whole swipe and slide down, more than a key below where you stopped: the words fade, a small "Lift to cancel" note appears, and lifting there types nothing at all. Slide back up and the words come back.
+
+Four settings under the toggle tune it:
+
+- **When to ask** decides how close a call a stroke has to be. *Near ties* asks only when the two words fit almost equally well. *Close calls*, the default, asks when the best word barely beats the next one. *Any doubt* asks whenever another word comes close. *Every pause* asks each time you hold still, whatever the keyboard thinks.
+- **Time to hold still** is the pause before the words appear, from 150 ms to 1 s. Small movements do not count, so a finger resting on the glass still counts as still.
+- **Hold longer to always ask** (on by default) lets a stroke the keyboard is sure of ask anyway: keep holding for twice the time and the words appear. Turn it off and a confident stroke never asks, however long you hold.
+- **Words to choose from** sets how many words appear, from two to five. Up to three share a row above your finger; four or five add a second row above the first.
+
+The picker appears only in the "Type words" swipe mode, since a handwritten stroke resolves through a different path. It works on a chained stroke too: pause on the last word of a swipe that crossed the spacebar and the choice is for that word.
 
 ## The space after a glided word
 
@@ -131,6 +140,10 @@ One more shift-related detail: only the **first** word of a multi-word glide hon
 | Glide typing | On | Master switch for glide typing. |
 | Glide across the spacebar | On | Only shown while glide typing (not handwriting) is the active swipe mode. Turn off to treat a spacebar-crossing swipe as one word. |
 | Ask when a glide is unclear | On | Only shown while glide typing is the active swipe mode. When a stroke's best word barely beats its runner-up, hold still without lifting to pick between them. See [When a swipe is a genuine toss-up](#when-a-swipe-is-a-genuine-toss-up). |
+| When to ask | Close calls | Only shown while Ask when a glide is unclear is on. How close a call a stroke has to be: Near ties, Close calls, Any doubt or Every pause. |
+| Time to hold still | 350 ms | Only shown while Ask when a glide is unclear is on. How long the finger rests before the words appear. Range 150 ms to 1000 ms. |
+| Hold longer to always ask | On | Only shown while Ask when a glide is unclear is on, and hidden under Every pause. A stroke the keyboard is sure of still asks after twice the hold time. |
+| Words to choose from | 3 | Only shown while Ask when a glide is unclear is on. How many words the picker offers, 2 to 5. |
 | Space after a glided word | On | Only shown while glide typing is the active swipe mode. A glided word is followed by a space; punctuation typed next takes it back. Turn off to commit the word bare. |
 | Swipe start distance | 2.0× | How far a touch has to travel, as a multiple of the system's touch slop, before it's read as the start of a glide rather than a tap. Range 0.5×–4×; lower is more sensitive but can mistake a stationary tap for a glide. |
 | Delay after typing | 160 ms | A brief window right after a tap where a glide needs to travel further before it takes over, so fast tapping doesn't misfire into an accidental swipe. Range 0–500 ms; 0 turns it off. |

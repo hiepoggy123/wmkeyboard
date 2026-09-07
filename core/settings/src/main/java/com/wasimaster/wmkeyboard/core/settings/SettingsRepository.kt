@@ -31,6 +31,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinFuzzy
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
+import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
 import com.wasimaster.wmkeyboard.prediction.R as PredictionR
 import com.wasimaster.wmkeyboard.core.snippets.MultiExpandMode
@@ -764,6 +765,31 @@ enum class GlideVocabulary(@StringRes val labelRes: Int, val rank: Int) {
     LARGE(PredictionR.string.core_pred_wordlist_size_large_label, 300_000),
     MEDIUM(PredictionR.string.core_pred_wordlist_size_medium_label, 150_000),
     SMALL(PredictionR.string.core_pred_wordlist_size_small_label, 50_000),
+}
+
+/**
+ * How close a swipe's two best readings have to be before the ambiguity picker
+ * asks ([GestureSettings.ambiguityPicker]).
+ *
+ * The measure is the gap between the leader and the runner-up in nats, the
+ * decoder's own log units, so each tier reads as a likelihood ratio: the picker
+ * asks when the leader is less than [margin] ahead. [CLOSE_CALLS] is
+ * [SuggestionEngine.AMBIGUOUS_MARGIN], which is what every stroke was judged by
+ * before this was a setting. [EVERY_PAUSE] has no threshold at all: any stroke
+ * with two readings asks the moment the finger holds still.
+ */
+enum class GlidePickerSensitivity(@StringRes val labelRes: Int, val margin: Double) {
+    /** Only near-ties: the two words within about 1.5× of each other. */
+    NEAR_TIES(R.string.core_settings_glide_picker_near_ties_label, 0.4),
+
+    /** Within about 3×. */
+    CLOSE_CALLS(R.string.core_settings_glide_picker_close_calls_label, SuggestionEngine.AMBIGUOUS_MARGIN),
+
+    /** Within about 12×. */
+    ANY_DOUBT(R.string.core_settings_glide_picker_any_doubt_label, 2.5),
+
+    /** Every pause asks, whatever the decoder thinks. */
+    EVERY_PAUSE(R.string.core_settings_glide_picker_every_pause_label, Double.POSITIVE_INFINITY),
 }
 
 /** What the history tab of the emoji panel shows. */
@@ -3714,6 +3740,16 @@ val EmojiRecentsRange = 8..96
 /** Bounds for [EmojiSettings.gridEmojiSize]; the settings slider shares them. */
 val EmojiGridEmojiSizeRange = 20..36
 
+/**
+ * Bounds for [GestureSettings.pickerChoices]. The settings slider, the service
+ * and the picker's own target array all share them, so the three can never
+ * disagree about how many words a stroke may offer.
+ */
+val GlidePickerChoicesRange = 2..5
+
+/** Bounds for [GestureSettings.pickerDwellMs]; the settings slider shares them. */
+val GlidePickerDwellMsRange = 150..1000
+
 /** Glide-typing behaviour and swipe-trail appearance. See [KeyboardSettings.gesture]. */
 data class GestureSettings(
     /**
@@ -3735,8 +3771,42 @@ data class GestureSettings(
      * they appear, slide onto one and lift to take it. Lifting without choosing
      * commits the leader as before, and the same words stay on the suggestion
      * strip either way, so nothing is lost by ignoring it.
+     *
+     * Once the words are up the stroke is finished: sliding to a word does not
+     * redraw it, and a finger dragged down away from the words and lifted
+     * types nothing at all.
      */
     val ambiguityPicker: Boolean = true,
+    /**
+     * How long the finger has to hold still, in ms, before an unclear stroke
+     * offers its choices. Long enough that pausing to think mid-word does not
+     * trip it, short enough to feel like an answer rather than a wait. Default
+     * 350 ms; range [GlidePickerDwellMsRange]. Does nothing while
+     * [ambiguityPicker] is off.
+     */
+    val pickerDwellMs: Int = 350,
+    /**
+     * How close a call a stroke has to be before holding still asks. See
+     * [GlidePickerSensitivity]; [GlidePickerSensitivity.CLOSE_CALLS] by
+     * default, which is the rule every stroke was judged by before this was a
+     * choice.
+     */
+    val pickerSensitivity: GlidePickerSensitivity = GlidePickerSensitivity.CLOSE_CALLS,
+    /**
+     * A stroke that is not a close call still asks if the finger holds for
+     * twice [pickerDwellMs]. On by default, so a word the decoder is sure of
+     * can still be second-guessed without lifting; off means a confident
+     * stroke never asks however long the finger rests.
+     */
+    val pickerHoldToAsk: Boolean = true,
+    /**
+     * How many words the picker offers, best first. Three by default: they fit
+     * under a fingertip in one row without the targets shrinking past what a
+     * finger can land on; four and five wrap onto a second row above. Range
+     * [GlidePickerChoicesRange]. The strip's own slot count is floored at this
+     * so a narrow strip cannot starve the picker.
+     */
+    val pickerChoices: Int = 3,
     /**
      * Which key a glide reads as an apostrophe, so "it's" can be drawn as
      * `i → t → ' → s` instead of being guessed from "its". [GlideApostropheKey.OFF]
@@ -4891,6 +4961,10 @@ class SettingsRepository(private val context: Context) {
         private val LETTER_SWIPE_ACTION = stringPreferencesKey("letter_swipe_action")
         private val GESTURE_SPACE_MULTI_WORD = booleanPreferencesKey("gesture_space_multi_word")
         private val GESTURE_AMBIGUITY_PICKER = booleanPreferencesKey("gesture_ambiguity_picker")
+        private val GESTURE_PICKER_DWELL_MS = intPreferencesKey("gesture_picker_dwell_ms")
+        private val GESTURE_PICKER_SENSITIVITY = stringPreferencesKey("gesture_picker_sensitivity")
+        private val GESTURE_PICKER_HOLD_TO_ASK = booleanPreferencesKey("gesture_picker_hold_to_ask")
+        private val GESTURE_PICKER_CHOICES = intPreferencesKey("gesture_picker_choices")
         private val GESTURE_APOSTROPHE_KEY = stringPreferencesKey("gesture_apostrophe_key")
         private val GESTURE_APOSTROPHE_S = booleanPreferencesKey("gesture_apostrophe_s")
         private val GESTURE_AUTO_SPACE = booleanPreferencesKey("gesture_auto_space")
@@ -5868,6 +5942,17 @@ class SettingsRepository(private val context: Context) {
             gesture = GestureSettings(
                 spaceGlideMultiWord = p[GESTURE_SPACE_MULTI_WORD] ?: defaults.gesture.spaceGlideMultiWord,
                 ambiguityPicker = p[GESTURE_AMBIGUITY_PICKER] ?: defaults.gesture.ambiguityPicker,
+                // Coerced on the way in as well as on the way out: a value
+                // restored from an edited backup must never index past the
+                // picker's target array.
+                pickerDwellMs = (p[GESTURE_PICKER_DWELL_MS] ?: defaults.gesture.pickerDwellMs)
+                    .coerceIn(GlidePickerDwellMsRange),
+                pickerSensitivity = p[GESTURE_PICKER_SENSITIVITY]
+                    ?.let { runCatching { GlidePickerSensitivity.valueOf(it) }.getOrNull() }
+                    ?: defaults.gesture.pickerSensitivity,
+                pickerHoldToAsk = p[GESTURE_PICKER_HOLD_TO_ASK] ?: defaults.gesture.pickerHoldToAsk,
+                pickerChoices = (p[GESTURE_PICKER_CHOICES] ?: defaults.gesture.pickerChoices)
+                    .coerceIn(GlidePickerChoicesRange),
                 apostropheKey = p[GESTURE_APOSTROPHE_KEY]
                     ?.let { runCatching { GlideApostropheKey.valueOf(it) }.getOrNull() }
                     ?: defaults.gesture.apostropheKey,
@@ -9813,6 +9898,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureAmbiguityPicker(value: Boolean) =
         editPrefs { it[GESTURE_AMBIGUITY_PICKER] = value }
+
+    suspend fun setGesturePickerDwellMs(value: Int) =
+        editPrefs { it[GESTURE_PICKER_DWELL_MS] = value.coerceIn(GlidePickerDwellMsRange) }
+
+    suspend fun setGesturePickerSensitivity(value: GlidePickerSensitivity) =
+        editPrefs { it[GESTURE_PICKER_SENSITIVITY] = value.name }
+
+    suspend fun setGesturePickerHoldToAsk(value: Boolean) =
+        editPrefs { it[GESTURE_PICKER_HOLD_TO_ASK] = value }
+
+    suspend fun setGesturePickerChoices(value: Int) =
+        editPrefs { it[GESTURE_PICKER_CHOICES] = value.coerceIn(GlidePickerChoicesRange) }
 
     suspend fun setGestureApostropheKey(value: GlideApostropheKey) =
         editPrefs { it[GESTURE_APOSTROPHE_KEY] = value.name }

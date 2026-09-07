@@ -1,4 +1,3 @@
-| Autocorrect word color | Color, or Auto | Auto | always |
 ---
 title: "Typing"
 description: "Every setting on the Typing screen: autocorrect, suggestions, smart chips, one-time codes, gestures, backspace, Enter, volume keys, and physical keyboards."
@@ -71,6 +70,7 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 | Punctuation marks | Text field | `.,?!'` | Punctuation suggestions on |
 | Number of suggestions | Slider, 2–6 | 3 | always |
 | Scroll the suggestions | Toggle | Off | always |
+| Autocorrect word color | Color, or Auto | Auto | always |
 | Learn a word after | Slider, 1–5 ("Once" at 1) | Once | always |
 | Offer corrections it isn't sure about | Toggle | On | always |
 | Ask before saving new words | Toggle | Off | always |
@@ -184,6 +184,10 @@ Full writeup: [One-time codes](/smart/one-time-codes/), and [Permissions](/priva
 | Handwrite with swipes | Choice: Type words / Handwrite | Type words | <Flavor edition="full" /> and Glide typing on |
 | Glide across the spacebar | Toggle | On | Glide typing on and swipe mode is Type words |
 | Ask when a glide is unclear | Toggle | On | Glide typing on and swipe mode is Type words |
+| When to ask | Choice: Near ties / Close calls / Any doubt / Every pause | Close calls | Ask when a glide is unclear on |
+| Time to hold still | Slider, 150–1000 ms | 350 ms | Ask when a glide is unclear on |
+| Hold longer to always ask | Toggle | On | Ask when a glide is unclear on, and When to ask is not Every pause |
+| Words to choose from | Slider, 2–5 | 3 | Ask when a glide is unclear on |
 | Space after a glided word | Toggle | On | Glide typing on and swipe mode is Type words |
 | Apostrophe in a glide | Choice: Off / Comma / Full stop / Spacebar / Apostrophe key | Off | Glide typing on and swipe mode is Type words |
 | Swipe to add 's | Toggle | On | Apostrophe in a glide is Comma, Full stop or Apostrophe key |
@@ -215,7 +219,7 @@ Full writeup: [One-time codes](/smart/one-time-codes/), and [Permissions](/priva
 
 **Handwrite with swipes** is a two-option picker rather than a toggle. It decides what a letter-area swipe *means*, and it only appears in the full edition, which is the one that bundles the ML Kit handwriting model. **Extra time for a dot or a cross** is the mirror image of **Delay after typing**. One guards against reading a tap as the start of a glide, the other against reading a tap as a handwriting dot. Only one of the pair is ever on screen, since they hang off opposite `Handwrite with swipes` choices.
 
-**Ask when a glide is unclear** covers the strokes that have no single right answer. Hold your finger still at the end of one and the closest words appear under your fingertip. Slide onto one and lift to take it. Lift without choosing and you get the best guess, as before. It matters most on a fixed Bangla layout, where ক and খ share a key, so a word and its aspirated twin are drawn identically.
+**Ask when a glide is unclear** covers the strokes that have no single right answer. Hold your finger still at the end of one and the closest words appear just above your fingertip. Slide onto one and lift to take it. Lift without choosing and you get the best guess, as before. The stroke is finished the moment the words appear, so sliding to one does not redraw it, and sliding down away from the words and lifting types nothing at all. It matters most on a fixed Bangla layout, where ক and খ share a key, so a word and its aspirated twin are drawn identically. The four rows under it set **When to ask** (how close a call a stroke has to be, from Near ties to Every pause), **Time to hold still** (the pause before the words appear), **Hold longer to always ask** (a confident stroke still asks after twice the pause) and **Words to choose from** (two to five). See [When a swipe is a genuine toss-up](/typing/glide-typing/#when-a-swipe-is-a-genuine-toss-up).
 
 <PhoneFrame caption="The Gestures group: the spacebar's Quick swipe and Hold + swipe pickers.">
   ![The Gestures group: the spacebar's Quick swipe and Hold + swipe pickers.](@assets/screens/reference/settings/typing-gestures-group.webp)

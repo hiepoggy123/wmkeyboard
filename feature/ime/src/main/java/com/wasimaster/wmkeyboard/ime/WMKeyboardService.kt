@@ -408,6 +408,7 @@ import com.wasimaster.wmkeyboard.core.layout.secondaryLayouts
 import com.wasimaster.wmkeyboard.ime.ui.panelLayout
 import com.wasimaster.wmkeyboard.core.layout.panelLayers
 import com.wasimaster.wmkeyboard.ime.ui.currentLayout
+import com.wasimaster.wmkeyboard.ime.ui.GlideVerdict
 import com.wasimaster.wmkeyboard.ime.ui.IconDefaults
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.ime.ui.emojiStickerJobId
@@ -10725,8 +10726,11 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
-    /** A decoded stroke: the words it could be, and whether it is a close call. */
-    private class GlideReading(val words: List<String>, val ambiguous: Boolean) {
+    /**
+     * A decoded stroke: the words it could be, and whether the top two are a
+     * close call under the user's sensitivity tier.
+     */
+    private class GlideReading(val words: List<String>, val closeCall: Boolean) {
         companion object {
             val NONE = GlideReading(emptyList(), false)
         }
@@ -10737,15 +10741,17 @@ open class WMKeyboardService : InputMethodService() {
      *
      * The strip's own slot count, so a user who asked for six alternates gets
      * six rather than the four a hardcoded default used to give them (#54).
-     * Floored at [GLIDE_CHOICES] so narrowing the strip to two or three slots
-     * cannot starve the ambiguity picker, which shows its own three under the
-     * fingertip and does not share the strip's width.
+     * Floored at [GestureSettings.pickerChoices] so narrowing the strip to two
+     * or three slots cannot starve the ambiguity picker, which shows its own
+     * words under the fingertip and does not share the strip's width.
      *
      * Free: the decoder searches to `GLIDE_RERANK_POOL` whatever the caller
      * asks for, so this only decides how many survive the rerank.
      */
-    private fun glideCandidateLimit(): Int =
-        maxOf(_uiState.value.settings.suggestionStrip.slotCount, GLIDE_CHOICES)
+    private fun glideCandidateLimit(): Int {
+        val settings = _uiState.value.settings
+        return maxOf(settings.suggestionStrip.slotCount, settings.gesture.pickerChoices)
+    }
 
     /** Decodes one stroke against the active language's word sources. */
     private fun glideDecode(
@@ -10765,10 +10771,11 @@ open class WMKeyboardService : InputMethodService() {
         )
         if (decoded.isEmpty()) return GlideReading.NONE
         val words = decoded.map { restoreApostrophe(it.word) ?: it.word }
+        val gesture = _uiState.value.settings.gesture
         return GlideReading(
             words = declareApostrophe(words, points, keys, keyWidthPx),
-            ambiguous = _uiState.value.settings.gesture.ambiguityPicker &&
-                engine.glideIsAmbiguous(decoded),
+            closeCall = gesture.ambiguityPicker &&
+                SuggestionEngine.glideIsAmbiguous(decoded, gesture.pickerSensitivity.margin),
         )
     }
 
@@ -11017,22 +11024,54 @@ open class WMKeyboardService : InputMethodService() {
                 // Re-checked after the decode: the finger may have lifted and
                 // the word committed while this was running.
                 if (request.generation != gestureGeneration.get()) continue
+                val gesture = _uiState.value.settings.gesture
                 _uiState.update {
                     it.copy(
                         suggestions = reading.words,
                         glideWord = reading.words.first(),
-                        // Only while the stroke is still in doubt: publishing
-                        // choices for a confident decode would arm the picker
-                        // for a stroke that has nothing to ask.
-                        glideChoices = if (reading.ambiguous) {
-                            reading.words.take(GLIDE_CHOICES)
+                        // Every preview carries choices while the picker is
+                        // on: a stroke that is not a close call can still be
+                        // asked about by holding longer, so the popup needs
+                        // the words either way. The flag is what picks the
+                        // short dwell over the long one.
+                        glideChoices = if (gesture.ambiguityPicker) {
+                            reading.words.take(gesture.pickerChoices)
                         } else {
                             emptyList()
                         },
+                        glideCloseCall = reading.closeCall,
                     )
                 }
             }
         }
+    }
+
+    /**
+     * Retires the previews a stroke published — the floating word, the
+     * picker's choices and its close-call flag — the way a commit does. The
+     * strip's suggestions are left to the caller: a commit replaces them, a
+     * cancel restores them.
+     */
+    private fun clearGlidePreview() {
+        _uiState.update {
+            it.copy(glideWord = null, glideChoices = emptyList(), glideCloseCall = false)
+        }
+    }
+
+    /**
+     * The picker was dragged out of and the finger lifted: the stroke types
+     * nothing and teaches nothing. Retires the previews the way a commit does,
+     * then puts the strip back to what the field was showing before the swipe,
+     * since the previews overwrote it with the stroke's own words. Nothing else
+     * moves: the composing text was never committed, the revert guard is not
+     * armed, and the last glided word is still the previous, real one.
+     */
+    private fun cancelGlide() {
+        gestureGeneration.incrementAndGet()
+        suggestionJob?.cancel()
+        gestureJob?.cancel()
+        clearGlidePreview()
+        refreshSuggestions()
     }
 
     /**
@@ -11044,20 +11083,27 @@ open class WMKeyboardService : InputMethodService() {
         keys: List<KeyCenter>,
         keyWidthPx: Float,
         /**
-         * The word the user picked out of the ambiguity picker, if they did.
-         * Committed in place of the decoder's own first choice, and otherwise
-         * treated identically — it is still learned, still spaced, still
-         * revertible, and its alternates still reach the strip.
+         * The ambiguity picker's answer. A [GlideVerdict.Word] is committed in
+         * place of the decoder's own first choice — unconditionally, since the
+         * stroke was frozen the moment the picker opened and the word was on
+         * screen when the finger lifted — and otherwise treated identically:
+         * it is still learned, still spaced, still revertible, and its
+         * alternates still reach the strip with it in front. A
+         * [GlideVerdict.Cancel] types nothing.
          */
-        chosen: String? = null,
+        verdict: GlideVerdict = GlideVerdict.Leader,
     ) {
         stopVoiceForManualInput()
         val state = _uiState.value
         if (!glideAllowed(state)) return
         if (keys.isEmpty()) return
+        if (verdict is GlideVerdict.Cancel) {
+            cancelGlide()
+            return
+        }
         // A test run takes the word: the field behind the panel never sees it.
         if (state.typingTestActive) {
-            typingTestGlide(listOf(points), keys, keyWidthPx, chosen)
+            typingTestGlide(listOf(points), keys, keyWidthPx, verdict)
             return
         }
 
@@ -11066,7 +11112,7 @@ open class WMKeyboardService : InputMethodService() {
         gestureGeneration.incrementAndGet()
         suggestionJob?.cancel()
         gestureJob?.cancel()
-        _uiState.update { it.copy(glideWord = null, glideChoices = emptyList()) }
+        clearGlidePreview()
         // A flick from the apostrophe key to s is not a word: it is `'s` for the
         // word already committed. Answered before the decode rather than after,
         // because there is nothing to decode and no candidate to override.
@@ -11082,7 +11128,10 @@ open class WMKeyboardService : InputMethodService() {
                     "gesture shift=$shiftAtGesture candidates=$candidates",
                 )
             }
-            if (candidates.isEmpty()) return@launch
+            // An explicit pick survives an empty decode: the picker showed the
+            // word, and the finger lifted on it.
+            val chosen = (verdict as? GlideVerdict.Word)?.word
+            if (candidates.isEmpty() && chosen == null) return@launch
             val ic = currentInputConnection ?: return@launch
 
             // The tapped word this glide is finishing gets the same treatment
@@ -11090,7 +11139,8 @@ open class WMKeyboardService : InputMethodService() {
             // by a glided word committed in lower case, because the glide's own
             // space never goes through onSpace (#46).
             commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoApostrophe)
-            val picked = chosen?.takeIf { it in candidates } ?: candidates.first()
+            val picked = chosen ?: candidates.first()
+            val strip = if (chosen != null) glideStripOrder(candidates, chosen) else candidates
             val word = when (shiftAtGesture) {
                 ShiftState.CAPS_LOCK -> picked.uppercase()
                 ShiftState.ON -> picked.replaceFirstChar { it.uppercase() }
@@ -11111,7 +11161,7 @@ open class WMKeyboardService : InputMethodService() {
             commitGestureSpace(ic, state)
             armRevertGuard()
             consumeShift()
-            _uiState.update { it.copy(suggestions = candidates) }
+            _uiState.update { it.copy(suggestions = strip) }
         }
     }
 
@@ -11167,16 +11217,27 @@ open class WMKeyboardService : InputMethodService() {
      * order, spacing between them, so the whole phrase lands from one swipe.
      * Only the first word honours a held shift; the alternates of the last
      * word go to the suggestion bar, so tapping one fixes the final word — the
-     * same as a single glide.
+     * same as a single glide. The ambiguity picker's [verdict] is about that
+     * last word too: a stroke can only pause to ask on the segment it is
+     * drawing when it stops.
      */
-    fun onGestureWords(segments: List<List<GesturePoint>>, keys: List<KeyCenter>, keyWidthPx: Float) {
+    fun onGestureWords(
+        segments: List<List<GesturePoint>>,
+        keys: List<KeyCenter>,
+        keyWidthPx: Float,
+        verdict: GlideVerdict = GlideVerdict.Leader,
+    ) {
         stopVoiceForManualInput()
         val state = _uiState.value
         if (!glideAllowed(state)) return
         if (keys.isEmpty() || segments.isEmpty()) return
+        if (verdict is GlideVerdict.Cancel) {
+            cancelGlide()
+            return
+        }
         // A test run takes the words: the field behind the panel never sees them.
         if (state.typingTestActive) {
-            typingTestGlide(segments, keys, keyWidthPx, chosen = null)
+            typingTestGlide(segments, keys, keyWidthPx, verdict)
             return
         }
 
@@ -11185,7 +11246,8 @@ open class WMKeyboardService : InputMethodService() {
         gestureGeneration.incrementAndGet()
         suggestionJob?.cancel()
         gestureJob?.cancel()
-        _uiState.update { it.copy(glideWord = null, glideChoices = emptyList()) }
+        clearGlidePreview()
+        val chosen = (verdict as? GlideVerdict.Word)?.word
         gestureJob = serviceScope.launch {
             val ic = currentInputConnection ?: return@launch
             // Flush any composing text before the first glided word, finished
@@ -11200,15 +11262,19 @@ open class WMKeyboardService : InputMethodService() {
                 val candidates = withContext(Dispatchers.Default) {
                     glideDecode(segment, keys, keyWidthPx)
                 }.words
-                if (candidates.isEmpty()) return@forEachIndexed
+                // The pick belongs to the last segment, and survives an empty
+                // decode of it the way a single glide's pick does.
+                val picked = chosen?.takeIf { index == segments.lastIndex }
+                if (candidates.isEmpty() && picked == null) return@forEachIndexed
+                val leader = picked ?: candidates.first()
                 val word = if (index == 0) {
                     when (shiftAtGesture) {
-                        ShiftState.CAPS_LOCK -> candidates.first().uppercase()
-                        ShiftState.ON -> candidates.first().replaceFirstChar { it.uppercase() }
-                        ShiftState.OFF -> candidates.first()
+                        ShiftState.CAPS_LOCK -> leader.uppercase()
+                        ShiftState.ON -> leader.replaceFirstChar { it.uppercase() }
+                        ShiftState.OFF -> leader
                     }
                 } else {
-                    candidates.first()
+                    leader
                 }
                 commitGestureLeadingSpace(ic, state)
                 ic.commitText(word, 1)
@@ -11220,7 +11286,7 @@ open class WMKeyboardService : InputMethodService() {
                 )
                 lastGestureWord = word
                 armRevertGuard()
-                lastWords = candidates
+                lastWords = if (picked != null) glideStripOrder(candidates, picked) else candidates
                 committedAny = true
             }
             if (committedAny) {
@@ -14406,30 +14472,29 @@ open class WMKeyboardService : InputMethodService() {
      * A glide drawn during a run, when the test's glide option is on. Decoded
      * exactly as a field glide is — same engine, same word list — and then
      * typed into the test as a whole word. A multi-word stroke lands one
-     * word per segment. [chosen] is the ambiguity picker's answer for a
-     * single-word stroke.
+     * word per segment. [verdict] is the ambiguity picker's answer for the
+     * last segment; a cancel types nothing.
      */
     private fun typingTestGlide(
         segments: List<List<GesturePoint>>,
         keys: List<KeyCenter>,
         keyWidthPx: Float,
-        chosen: String?,
+        verdict: GlideVerdict,
     ) {
         // Retires every preview from this stroke, in flight or queued.
         gestureGeneration.incrementAndGet()
         gestureJob?.cancel()
-        _uiState.update { it.copy(glideWord = null, glideChoices = emptyList()) }
+        clearGlidePreview()
+        if (verdict is GlideVerdict.Cancel) return
+        val chosen = (verdict as? GlideVerdict.Word)?.word
         gestureJob = serviceScope.launch {
             for ((index, segment) in segments.withIndex()) {
                 val candidates = withContext(Dispatchers.Default) {
                     glideDecode(segment, keys, keyWidthPx)
                 }.words
-                if (candidates.isEmpty()) continue
-                val word = if (index == 0 && segments.size == 1) {
-                    chosen?.takeIf { it in candidates } ?: candidates.first()
-                } else {
-                    candidates.first()
-                }
+                val picked = chosen?.takeIf { index == segments.lastIndex }
+                if (candidates.isEmpty() && picked == null) continue
+                val word = picked ?: candidates.first()
                 typingTestWholeWord(word, keystrokes = word.length)
             }
         }
@@ -20549,14 +20614,6 @@ open class WMKeyboardService : InputMethodService() {
          * always see the word a match would have to start on.
          */
         private const val RECENT_WORDS = 8
-
-        /**
-         * How many words the ambiguity picker offers. Three fits under a
-         * fingertip without the targets becoming too small to land on, and a
-         * swipe that is choosing between more than three things is a swipe
-         * nobody is going to resolve by looking at a list.
-         */
-        private const val GLIDE_CHOICES = 3
 
         /**
          * How near the apostrophe key a glide has to pass, in key widths, for the

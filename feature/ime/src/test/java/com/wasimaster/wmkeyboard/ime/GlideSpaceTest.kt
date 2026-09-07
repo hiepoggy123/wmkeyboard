@@ -12,6 +12,34 @@ import org.junit.Test
  */
 class GlideSpaceTest {
 
+    // ---- glideStripOrder ----
+
+    @Test
+    fun `a picked word leads the strip and is not repeated`() {
+        assertEquals(
+            listOf("god", "good", "food"),
+            glideStripOrder(listOf("good", "god", "food"), "god"),
+        )
+    }
+
+    @Test
+    fun `picking the leader changes nothing`() {
+        assertEquals(
+            listOf("good", "god", "food"),
+            glideStripOrder(listOf("good", "god", "food"), "good"),
+        )
+    }
+
+    @Test
+    fun `a pick the decode no longer holds is still first`() {
+        // The picker showed it, the finger lifted on it: it commits, and the
+        // strip has to agree with the field.
+        assertEquals(
+            listOf("goof", "good", "god"),
+            glideStripOrder(listOf("good", "god"), "goof"),
+        )
+    }
+
     // ---- swallowsAutoSpace ----
 
     @Test

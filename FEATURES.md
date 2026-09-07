@@ -312,10 +312,15 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Detour test — Travel must stay within 1.6× the direct key-to-key distance, so a real word drawn between the same two keys still decodes as the word
     - Takes the glide's own space back — The possessive lands inside it, and backspace still removes stem and ending in one press
     - Learned — The possessive enters the personal dictionary, so the next one is glidable in a single stroke
-  - Mid-stroke ambiguity picker `RARE` — Hold still 250 ms while the decode is a close call and the top 3 words appear under the fingertip; slide onto one and lift
+  - Mid-stroke ambiguity picker `RARE` — Hold still (350 ms by default, 150–1000) while the decode is a close call and the top 2–5 words appear above the fingertip; slide onto one and lift
+    - Frozen stroke — The picker's words are the words that commit: nothing after the open feeds the decoder, so a pick is never dropped (#96)
+    - Timer-driven — The dwell fires from a timer, not the next touch report, so a finger held genuinely still (which sends no events) still opens it
     - Drift-proof stillness — Measured against where the finger stopped, not the last sample, so slow drift never counts as a hold
-    - Free to ignore — Lifting off a target commits the decoder's own first choice
-    - Suppressed on chained strokes — Not offered once a stroke has already crossed the spacebar
+    - Sensitivity tiers — Near ties (0.4 nats), Close calls (1.1, default), Any doubt (2.5), Every pause
+    - Hold to ask — A confident stroke asks after twice the dwell, so any swipe can be second-guessed without lifting
+    - Free to ignore — Lifting off a target commits the decoder's own first choice, outlined so it can be told apart
+    - Drag down to cancel — More than a key below the anchor the targets dim and a lift types nothing
+    - Chained strokes — A pause on the last word of a spacebar-crossing stroke asks for that word
   - Live preview while swiping — Decoded word drawn over the keys and pushed to the strip at a 40 ms wall-clock cadence (rate-independent of digitizer Hz)
   - Auto-space after a glided word `uncommon` — Keyboard's own space: punctuation typed after takes it back, a space press is spent confirming it
   - One-backspace glide undo — Backspace straight after a swipe removes the whole word plus its auto-space, then re-derives bigram context

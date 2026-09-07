@@ -67,6 +67,9 @@ import com.wasimaster.wmkeyboard.core.settings.PickerTimeoutRange
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
+import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
+import com.wasimaster.wmkeyboard.core.settings.GlidePickerDwellMsRange
+import com.wasimaster.wmkeyboard.core.settings.GlidePickerSensitivity
 import com.wasimaster.wmkeyboard.core.settings.GlideVocabulary
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.LanguageDetectionStrength
@@ -1203,6 +1206,60 @@ internal fun TypingGesturesSettings(
                         default = SettingsDefaults.gesture.ambiguityPicker,
                     ) { scope.launch { repository.setGestureAmbiguityPicker(it) } }
                 }
+                // The picker's own knobs, only while it is on: how sure the
+                // keyboard has to be, how long to hold, whether a sure stroke
+                // can still be second-guessed, and how many words to offer.
+                if (settings.gesture.ambiguityPicker) {
+                    item {
+                        ChoiceSetting(
+                            title = R.string.typing_glide_picker_sensitivity_title,
+                            subtitle = stringResource(R.string.typing_glide_picker_sensitivity_subtitle),
+                            info = stringResource(R.string.typing_glide_picker_sensitivity_info),
+                            options = GlidePickerSensitivity.entries.map { it to stringResource(it.labelRes) },
+                            selected = settings.gesture.pickerSensitivity,
+                            onChange = { scope.launch { repository.setGesturePickerSensitivity(it) } },
+                            default = SettingsDefaults.gesture.pickerSensitivity,
+                            detail = { tier -> ChoiceDetail(stringResource(glidePickerSensitivityDescRes(tier))) },
+                        )
+                    }
+                    item {
+                        val msFormat = stringResource(R.string.typing_value_milliseconds)
+                        SliderSetting(
+                            R.string.typing_glide_picker_dwell_title,
+                            subtitle = stringResource(R.string.typing_glide_picker_dwell_subtitle),
+                            value = settings.gesture.pickerDwellMs.toFloat(),
+                            range = GlidePickerDwellMsRange.first.toFloat()..GlidePickerDwellMsRange.last.toFloat(),
+                            display = { msFormat.format(it.roundToInt()) },
+                            info = stringResource(R.string.typing_glide_picker_dwell_info),
+                            default = SettingsDefaults.gesture.pickerDwellMs.toFloat(),
+                        ) { scope.launch { repository.setGesturePickerDwellMs(it.roundToInt()) } }
+                    }
+                    // Redundant under "Every pause", which already asks at
+                    // the first hold.
+                    if (settings.gesture.pickerSensitivity != GlidePickerSensitivity.EVERY_PAUSE) {
+                        item {
+                            ToggleSetting(
+                                R.string.typing_glide_picker_hold_title,
+                                stringResource(R.string.typing_glide_picker_hold_subtitle),
+                                settings.gesture.pickerHoldToAsk,
+                                info = stringResource(R.string.typing_glide_picker_hold_info),
+                                default = SettingsDefaults.gesture.pickerHoldToAsk,
+                            ) { scope.launch { repository.setGesturePickerHoldToAsk(it) } }
+                        }
+                    }
+                    item {
+                        val numberFormat = stringResource(R.string.values_number)
+                        SliderSetting(
+                            R.string.typing_glide_picker_choices_title,
+                            subtitle = stringResource(R.string.typing_glide_picker_choices_subtitle),
+                            value = settings.gesture.pickerChoices.toFloat(),
+                            range = GlidePickerChoicesRange.first.toFloat()..GlidePickerChoicesRange.last.toFloat(),
+                            display = { numberFormat.format(it.roundToInt()) },
+                            info = stringResource(R.string.typing_glide_picker_choices_info),
+                            default = SettingsDefaults.gesture.pickerChoices.toFloat(),
+                        ) { scope.launch { repository.setGesturePickerChoices(it.roundToInt()) } }
+                    }
+                }
                 // How much of the dictionary a swipe may answer with. The
                 // shipped lists are smaller than every limit, so this does
                 // nothing until a large list is downloaded or imported (#28).
@@ -2113,6 +2170,15 @@ private fun glideApostropheDescRes(key: GlideApostropheKey): Int = when (key) {
     GlideApostropheKey.PERIOD -> R.string.typing_glide_apostrophe_period_desc
     GlideApostropheKey.SPACE -> R.string.typing_glide_apostrophe_space_desc
     GlideApostropheKey.APOSTROPHE -> R.string.typing_glide_apostrophe_key_desc
+}
+
+/** One line under each tier of the glide picker's "When to ask" choice. */
+@StringRes
+private fun glidePickerSensitivityDescRes(tier: GlidePickerSensitivity): Int = when (tier) {
+    GlidePickerSensitivity.NEAR_TIES -> R.string.typing_glide_picker_near_ties_desc
+    GlidePickerSensitivity.CLOSE_CALLS -> R.string.typing_glide_picker_close_calls_desc
+    GlidePickerSensitivity.ANY_DOUBT -> R.string.typing_glide_picker_any_doubt_desc
+    GlidePickerSensitivity.EVERY_PAUSE -> R.string.typing_glide_picker_every_pause_desc
 }
 
 /** What a number key does on a physical keyboard, for the sheet. */
