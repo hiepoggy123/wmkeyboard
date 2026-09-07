@@ -106,7 +106,9 @@ internal fun PrivacySettings(
                 default = SettingsDefaults.learnFromTyping,
             ) { scope.launch { repository.setLearnFromTyping(it) } }
         }
-        item {
+        // Words only reach the system dictionary through the same learn path
+        // the switch above owns, and that path returns before the mirror.
+        if (settings.learnFromTyping) item {
             ToggleSetting(
                 R.string.privacy_system_dictionary_title,
                 stringResource(R.string.privacy_system_dictionary_subtitle),
@@ -291,7 +293,9 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: KeyboardSet
                 },
             ) { scope.launch { repository.setVoiceTypingMode(it) } }
         }
-        item {
+        // Only the panel's mic reads a hold: the strip and collapsed-bar mics
+        // are plain taps, and the panel is never opened in those modes.
+        if (settings.voiceBar.mode == com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_PANEL) item {
             val holdMsFormat = stringResource(R.string.typing_value_milliseconds)
             SliderSetting(
                 R.string.voice_hold_title,
@@ -308,14 +312,20 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: KeyboardSet
             }
         }
         item {
+            // Interactive and plain typing chain sessions whatever this says,
+            // so it is drawn off rather than hidden: a missing row would read
+            // as chaining being gone, when it is in fact forced on.
+            val chainingForced =
+                settings.voiceBar.typingMode != com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_BLOCK
             ToggleSetting(
                 R.string.voice_continuous_title,
                 stringResource(R.string.voice_continuous_subtitle),
-                settings.voiceContinuous,
+                settings.voiceContinuous || chainingForced,
+                enabled = !chainingForced,
                 default = SettingsDefaults.voiceContinuous,
             ) { scope.launch { repository.setVoiceContinuous(it) } }
         }
-        item {
+        if (settings.voiceBar.typingMode != com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN) item {
             ToggleSetting(
                 R.string.voice_punctuation_title,
                 stringResource(R.string.voice_punctuation_subtitle),
@@ -407,7 +417,9 @@ internal fun ClipboardSettings(
                 default = SettingsDefaults.clipboard.pinnedLast,
             ) { scope.launch { repository.setClipboardPinnedLast(it) } }
         }
-        item {
+        // Screenshots, the source app and the paste chip are all read as a
+        // clip is being stored, and nothing is stored with history off.
+        if (settings.clipboard.history) item {
             val context = LocalContext.current
             ToggleSetting(
                 R.string.clipboard_screenshots_title,
@@ -426,7 +438,9 @@ internal fun ClipboardSettings(
         // The guard sits outside item {} on purpose: an item whose body
         // draws nothing still gets its own card, which showed up as a
         // sliver of empty surface once the permission was granted.
-        if (settings.clipboard.userScreenshots && !screenshotsGranted) {
+        if (settings.clipboard.history && settings.clipboard.userScreenshots &&
+            !screenshotsGranted
+        ) {
             item {
                 val context = LocalContext.current
                 NavRow(
@@ -443,7 +457,7 @@ internal fun ClipboardSettings(
                 }
             }
         }
-        item {
+        if (settings.clipboard.history) item {
             val context = LocalContext.current
             val usageAccess = rememberDisclosedSpecialAccess(SpecialAccess.USAGE)
             ToggleSetting(
@@ -460,7 +474,9 @@ internal fun ClipboardSettings(
                 if (on && !hasUsageAccess(context)) usageAccess()
             }
         }
-        if (settings.clipboard.trackSource && !usageAccessGranted) {
+        if (settings.clipboard.history && settings.clipboard.trackSource &&
+            !usageAccessGranted
+        ) {
             item {
                 val usageAccessRow = rememberDisclosedSpecialAccess(SpecialAccess.USAGE)
                 NavRow(
@@ -471,6 +487,7 @@ internal fun ClipboardSettings(
         }
     }
     SettingsGroup(stringResource(R.string.clipboard_suggest_group)) {
+        if (!settings.clipboard.history) return@SettingsGroup
         item {
             ToggleSetting(
                 R.string.clipboard_suggest_recent_title,
@@ -620,7 +637,10 @@ internal fun ClipboardSettings(
                 detail = { handling -> ChoiceDetail(stringResource(handling.detailRes)) },
             ) { scope.launch { repository.setClipboardSensitiveHandling(it) } }
         }
-        if (settings.clipboard.sensitiveHandling != SensitiveClipHandling.KEEP) {
+        // Detection runs in the same listener, which returns with history off.
+        if (settings.clipboard.history &&
+            settings.clipboard.sensitiveHandling != SensitiveClipHandling.KEEP
+        ) {
             item {
                 ToggleSetting(
                     R.string.clipboard_detect_sensitive_title,
