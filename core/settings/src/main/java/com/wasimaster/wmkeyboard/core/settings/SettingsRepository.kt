@@ -2473,6 +2473,7 @@ val LEARNED_DATA_FILES = listOf(
     "learning/correction_stats.json",
     "learning/cjk_history.json",
     "learning/language_mix.json",
+    "learning/word_ranks.json",
 )
 
 /**
@@ -4338,6 +4339,28 @@ val LatinAccents: Map<Char, List<String>> = mapOf(
 enum class LanguageDetectionStrength { GENTLE, BALANCED, AGGRESSIVE }
 
 /**
+ * The optional items of the menu that opens when a word on the suggestion
+ * strip is pressed and held (#99). "Adjust rank" is not here because it is
+ * always offered: it opens the word card, which carries every one of these
+ * actions too, so hiding all three still leaves everything reachable.
+ */
+enum class WordMenuItem { NEVER_SUGGEST, ADD, DELETE }
+
+/**
+ * What the word card's rank control changes (#99).
+ *
+ * [LEARNED_WEIGHT] edits the personal dictionary's count for the word, the
+ * same number the dictionary screen's edit dialog shows: a word the keyboard
+ * has not learned is added at the chosen weight, and weight 0 forgets it.
+ * It cannot push a word below a list's own ranking, since the count only ever
+ * adds. [RANK_OFFSET] keeps a separate up-or-down adjustment per word that
+ * the engine applies on top of every source, so any word — one from a
+ * downloaded list included — can be moved either way without touching what
+ * the keyboard learned.
+ */
+enum class RankControl { LEARNED_WEIGHT, RANK_OFFSET }
+
+/**
  * Suggestion-strip content options, grouped into their own object (see
  * [CameraSettings] for why the top-level class can't take more flat fields).
  * DataStore keys stay flat.
@@ -4648,6 +4671,17 @@ data class SuggestionStripSettings(
     val languageDetection: Boolean = true,
     /** How far the detected language may take over; see [LanguageDetectionStrength]. */
     val languageDetectionStrength: LanguageDetectionStrength = LanguageDetectionStrength.BALANCED,
+    /**
+     * Which optional items the held-word menu shows (#99). An item missing
+     * from the set is never drawn; "Adjust rank" is drawn regardless. All
+     * three by default: the menu is contextual (add only while typing an
+     * unlearned word, delete only for a word the keyboard can forget), so
+     * it is rarely more than two items long. Lives here rather than on the
+     * top-level class only to stay under its JVM field ceiling.
+     */
+    val wordMenuItems: Set<WordMenuItem> = WordMenuItem.entries.toSet(),
+    /** What the word card's rank control edits; see [RankControl]. */
+    val rankControl: RankControl = RankControl.LEARNED_WEIGHT,
 ) {
     /** Whether the fixed-spelling map applies to [langId]. */
     fun spellingMapEnabledFor(langId: String): Boolean = langId !in spellingMapOffLangs
@@ -5002,6 +5036,8 @@ class SettingsRepository(private val context: Context) {
         private val SUGGESTION_BLACKLIST = stringSetPreferencesKey("suggestion_blacklist")
         private val SPELLING_MAP_OFF_LANGS = stringSetPreferencesKey("spelling_map_off_langs")
         private val IMPORTED_ONLY_LANGS = stringSetPreferencesKey("imported_only_langs")
+        private val WORD_MENU_ITEMS = stringSetPreferencesKey("word_menu_items")
+        private val WORD_RANK_CONTROL = stringPreferencesKey("word_rank_control")
         private val INLINE_EMOJI_SEARCH = booleanPreferencesKey("inline_emoji_search")
         private val INLINE_AUTOFILL = booleanPreferencesKey("inline_autofill")
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
@@ -6299,6 +6335,14 @@ class SettingsRepository(private val context: Context) {
                 languageDetectionStrength = p[LANGUAGE_DETECTION_STRENGTH]
                     ?.let { runCatching { LanguageDetectionStrength.valueOf(it) }.getOrNull() }
                     ?: defaults.suggestionStrip.languageDetectionStrength,
+                // An item name this build does not know is dropped, not kept
+                // as a stale string.
+                wordMenuItems = p[WORD_MENU_ITEMS]
+                    ?.mapNotNullTo(mutableSetOf()) { runCatching { WordMenuItem.valueOf(it) }.getOrNull() }
+                    ?: defaults.suggestionStrip.wordMenuItems,
+                rankControl = p[WORD_RANK_CONTROL]
+                    ?.let { runCatching { RankControl.valueOf(it) }.getOrNull() }
+                    ?: defaults.suggestionStrip.rankControl,
             ),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
             keyRepeat = KeyRepeatSettings(
@@ -8733,6 +8777,9 @@ class SettingsRepository(private val context: Context) {
     /** Clip kinds worth exporting: the ones whose bytes/URIs survive the move. */
     private val TEXTUAL_CLIP_KINDS = setOf("TEXT", "HTML", "LINK")
 
+    /** Key the rank adjustments file is nested under in the dictionary section. */
+    private val WORD_RANKS_KEY = "wordRanks"
+
     private fun storeFile(relativePath: String) = File(context.filesDir, relativePath)
 
     /** A store's JSON file as an element, or null when it's missing or empty. */
@@ -9155,7 +9202,20 @@ class SettingsRepository(private val context: Context) {
             }
         }
         if (ConfigBackup.Section.DICTIONARY in sections) {
-            readStore("learning/user_lexicon.json")?.let { out[ConfigBackup.Section.DICTIONARY] = it }
+            readStore("learning/user_lexicon.json")?.let { lexicon ->
+                // The user's rank adjustments (#99) travel inside the
+                // dictionary section rather than as a section of their own:
+                // the lexicon's parser ignores keys it does not know, so an
+                // older build restores the words and drops the key, and a
+                // new section would have cost a label, a count and a toggle
+                // for a file of a few dozen entries.
+                val ranks = readStore("learning/word_ranks.json") as? JsonObject
+                out[ConfigBackup.Section.DICTIONARY] = if (lexicon is JsonObject && ranks != null) {
+                    JsonObject(lexicon + (WORD_RANKS_KEY to ranks))
+                } else {
+                    lexicon
+                }
+            }
         }
         if (ConfigBackup.Section.CLIPBOARD in sections) {
             readStore("clipboard/history.json")?.let { out[ConfigBackup.Section.CLIPBOARD] = portableClipboard(it) }
@@ -9285,7 +9345,12 @@ class SettingsRepository(private val context: Context) {
         }
 
         (parsed.sections[ConfigBackup.Section.DICTIONARY] as? JsonObject)?.let { obj ->
-            if (writeStore("learning/user_lexicon.json", obj)) {
+            // The rank adjustments ride along under their own key (see the
+            // export); split them back out so each store gets its own file.
+            val ranks = obj[WORD_RANKS_KEY] as? JsonObject
+            val lexicon = if (ranks != null) JsonObject(obj - WORD_RANKS_KEY) else obj
+            if (writeStore("learning/user_lexicon.json", lexicon)) {
+                if (ranks != null) writeStore("learning/word_ranks.json", ranks)
                 restored.add(ConfigBackup.Section.DICTIONARY)
                 bumpLexiconVersion()
             }
@@ -9918,6 +9983,13 @@ class SettingsRepository(private val context: Context) {
             val off = it[IMPORTED_ONLY_LANGS].orEmpty()
             it[IMPORTED_ONLY_LANGS] = if (enabled) off - langId else off + langId
         }
+
+    /** Replaces the whole set of optional held-word menu items (#99). */
+    suspend fun setWordMenuItems(value: Set<WordMenuItem>) =
+        editPrefs { it[WORD_MENU_ITEMS] = value.mapTo(mutableSetOf()) { item -> item.name } }
+
+    suspend fun setRankControl(value: RankControl) =
+        editPrefs { it[WORD_RANK_CONTROL] = value.name }
 
     suspend fun setContactSuggestions(value: Boolean) =
         editPrefs { it[CONTACT_SUGGESTIONS] = value }
