@@ -441,6 +441,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 import kotlin.random.Random
 import java.io.File
 
@@ -11779,29 +11780,31 @@ private fun GlideOverlay(
                     // which word lands in which of them, so these centres are
                     // an estimate — a slot's own width changes with its word —
                     // and an estimate is all the ranking needs.
-                    val centreX = FloatArray(targets.size)
-                    val slotLift = FloatArray(targets.size)
+                    val slotX = FloatArray(targets.size)
+                    val slotY = FloatArray(targets.size)
                     rows.forEachIndexed { r, range ->
                         val lifts = pickerRowLifts(range.count())
                         var x = rowLeft(range) { widths[it] }
                         range.forEachIndexed { p, slot ->
-                            centreX[slot] = x + widths[slot] / 2f
-                            // A second row sits above the arc's peak, so every
-                            // slot in it is further from the finger than every
-                            // slot in the leader's row.
-                            slotLift[slot] = if (r == 0) {
-                                lifts[p]
-                            } else {
-                                GlidePickerFarLift + (rowHeight + pickerGapPx) / keyPx
-                            }
+                            slotX[slot] = x + widths[slot] / 2f
+                            slotY[slot] = slotTop(r, lifts[p]) + rowHeight / 2f - headroomPx
                             x += widths[slot] + pickerGapPx
                         }
                     }
                     // Pass two: the best word into the slot nearest the finger,
                     // the next into the next nearest, and so on — so whichever
                     // way the stroke ended, the shortest move commits the
-                    // likeliest word.
-                    val wordAt = pickerWordAtSlot(centreX, slotLift, picker.anchorX)
+                    // likeliest word, with the straight-up middle slot favoured
+                    // as long as it is anywhere near the closest.
+                    val middleSlot = pickerRowLifts(rows[0].count())
+                        .indexOfFirst { it > GlidePickerNearLift }
+                    val wordAt = pickerWordAtSlot(
+                        slotX,
+                        slotY,
+                        picker.anchorX,
+                        picker.anchorY,
+                        middleSlot,
+                    )
                     rows.forEachIndexed { r, range ->
                         val lifts = pickerRowLifts(range.count())
                         var x = rowLeft(range) { targets[wordAt[it]].width }
@@ -12790,34 +12793,53 @@ internal fun pickerRowLifts(count: Int): FloatArray = FloatArray(count) { slot -
  * the finger is holding, the next into the next nearest, and so on down.
  * Returns the word's index for each slot, in slot order.
  *
- * Near means [lifts] first — how far above the finger the slot rides, in key
- * heights — and only then how far off to the side of [anchorX] its centre sits.
- * Ordering on the straight-line distance instead would have the raised middle
- * slot come out nearest whenever the words are wide, which is the one thing the
- * arc exists to prevent: a slot deliberately put a second key away should not
- * then be handed the word the user most likely wants.
+ * Nearest is the straight-line distance from the fingertip to the slot's
+ * centre, except that [middleSlot] — the one the arc raises, straight up from
+ * the finger — counts at [GlidePickerMiddleFavour] of its real distance. Going
+ * straight up is the easiest move on the board and the one the hand is already
+ * lined up for, so the middle keeps the leader unless a side slot is more than
+ * twice as close: mid-board it always is the leader, and only a stroke that
+ * ended near an edge — where the row is clamped and the middle is most of a row
+ * away — hands it over to the side slot under the finger. Pass -1 for a row
+ * with no single middle.
  *
- * Within a tier the stroke decides: one that ended against the left edge has
- * its row clamped there and the leftmost slot nearest, one that ended mid-board
- * is even between the two slots at its sides and the tie goes to the left, so
- * the leader sits left of the runner-up rather than swapping with it as the
- * words change width.
+ * Ties go to the earlier slot, so the leader sits left of the runner-up rather
+ * than swapping with it as the words change width.
  */
-internal fun pickerWordAtSlot(centreX: FloatArray, lifts: FloatArray, anchorX: Float): IntArray {
-    val slots = centreX.indices.sortedWith(
-        compareBy({ lifts[it] }, { abs(centreX[it] - anchorX) }),
-    )
-    val wordAt = IntArray(centreX.size)
+internal fun pickerWordAtSlot(
+    slotX: FloatArray,
+    slotY: FloatArray,
+    anchorX: Float,
+    anchorY: Float,
+    middleSlot: Int,
+): IntArray {
+    val slots = slotX.indices.sortedBy { slot ->
+        val dx = slotX[slot] - anchorX
+        val dy = slotY[slot] - anchorY
+        val reach = sqrt(dx * dx + dy * dy)
+        if (slot == middleSlot) reach * GlidePickerMiddleFavour else reach
+    }
+    val wordAt = IntArray(slotX.size)
     slots.forEachIndexed { word, slot -> wordAt[slot] = word }
     return wordAt
 }
 
 /**
  * The two distances a picker target sits from the fingertip, in the anchor
- * key's heights, measured centre to fingertip. See [pickerRowLifts].
+ * key's heights, measured centre to fingertip. The middle slot's extra quarter
+ * key is clearance, not a journey: it lifts the straight-up target off the line
+ * of its neighbours without putting it a key further away. See
+ * [pickerRowLifts].
  */
 private const val GlidePickerNearLift = 1f
-private const val GlidePickerFarLift = 2f
+private const val GlidePickerFarLift = 1.25f
+
+/**
+ * What the middle slot's distance counts as when the words are dealt out: half,
+ * so it keeps the leader unless a side slot is more than twice as close. See
+ * [pickerWordAtSlot].
+ */
+private const val GlidePickerMiddleFavour = 0.5f
 
 /** The pill's vertical padding; [GlideOverlay]'s headroom estimate counts it twice. */
 private val GlidePillPaddingV = 6.dp

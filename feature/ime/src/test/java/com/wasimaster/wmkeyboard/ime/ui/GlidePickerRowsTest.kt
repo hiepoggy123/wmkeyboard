@@ -16,6 +16,14 @@ class GlidePickerRowsTest {
     private companion object {
         const val GAP = 10
         const val WIDTH = 360
+
+        /** A key's height, the unit the arc is spaced in, and a target's own. */
+        const val KEY = 55f
+        const val ROW = 44f
+
+        /** The middle slot of a leader row of three, and a row without one. */
+        const val MIDDLE = 1
+        const val NO_MIDDLE = -1
     }
 
     @Test
@@ -55,8 +63,8 @@ class GlidePickerRowsTest {
     }
 
     @Test
-    fun `a row of three pushes its middle slot a second key clear`() {
-        assertArrayEquals(floatArrayOf(1f, 2f, 1f), pickerRowLifts(3), 0f)
+    fun `a row of three lifts its middle slot a quarter key clear`() {
+        assertArrayEquals(floatArrayOf(1f, 1.25f, 1f), pickerRowLifts(3), 0f)
     }
 
     @Test
@@ -67,41 +75,49 @@ class GlidePickerRowsTest {
 
     @Test
     fun `a lone slot is the middle one`() {
-        assertArrayEquals(floatArrayOf(2f), pickerRowLifts(1), 0f)
+        assertArrayEquals(floatArrayOf(1.25f), pickerRowLifts(1), 0f)
     }
 
     @Test
     fun `the likeliest word takes the slot nearest the finger`() {
-        // Three slots a key above the finger, which stopped over the left one.
+        // A flat row with no middle to favour: nearest first, either way round.
         val x = floatArrayOf(50f, 150f, 250f)
-        val flat = floatArrayOf(1f, 1f, 1f)
-        assertArrayEquals(intArrayOf(0, 1, 2), pickerWordAtSlot(x, flat, 50f))
-        // The same row with the finger under the right-hand slot.
-        assertArrayEquals(intArrayOf(2, 1, 0), pickerWordAtSlot(x, flat, 250f))
+        val y = floatArrayOf(-KEY, -KEY, -KEY)
+        assertArrayEquals(intArrayOf(0, 1, 2), pickerWordAtSlot(x, y, 50f, 0f, NO_MIDDLE))
+        assertArrayEquals(intArrayOf(2, 1, 0), pickerWordAtSlot(x, y, 250f, 0f, NO_MIDDLE))
     }
 
     @Test
-    fun `the arc keeps the middle slot last however wide the words`() {
-        // Wide targets: the middle slot's centre is closer in a straight line
-        // than either near slot, and still goes last because it rides higher.
+    fun `the middle slot keeps the leader under a finger anywhere near it`() {
+        // The arc's real shape, finger under the middle of the row.
         val x = floatArrayOf(70f, 180f, 290f)
-        val lifts = pickerRowLifts(3)
-        assertArrayEquals(intArrayOf(0, 2, 1), pickerWordAtSlot(x, lifts, 180f))
-        // Finger against the left edge: nearest near slot first, middle last.
-        assertArrayEquals(intArrayOf(0, 2, 1), pickerWordAtSlot(x, lifts, 70f))
+        val y = floatArrayOf(-KEY, -1.25f * KEY, -KEY)
+        // Word 0 goes straight up: the side slots are nowhere near twice as
+        // close (123 against 69), so the easiest move stays the likeliest word.
+        assertArrayEquals(intArrayOf(1, 0, 2), pickerWordAtSlot(x, y, 180f, 0f, MIDDLE))
     }
 
     @Test
-    fun `a second row takes the words the leader row has no slot for`() {
-        // Three near slots and two above them: 0..2 land in the leader row.
+    fun `a side slot takes the leader only when it is more than twice as close`() {
+        // A stroke that ended at the left edge: the row is clamped there and the
+        // middle is most of a row away, so the slot under the finger wins.
+        val x = floatArrayOf(70f, 180f, 290f)
+        val y = floatArrayOf(-KEY, -1.25f * KEY, -KEY)
+        assertArrayEquals(intArrayOf(0, 1, 2), pickerWordAtSlot(x, y, 70f, 0f, MIDDLE))
+    }
+
+    @Test
+    fun `a second row is further than every slot in the leader row`() {
         val x = floatArrayOf(60f, 180f, 300f, 120f, 240f)
-        val lifts = floatArrayOf(1f, 2f, 1f, 3.2f, 3.2f)
-        assertArrayEquals(intArrayOf(0, 2, 1, 3, 4), pickerWordAtSlot(x, lifts, 60f))
+        val upper = -1.25f * KEY - ROW - GAP
+        val y = floatArrayOf(-KEY, -1.25f * KEY, -KEY, upper, upper)
+        assertArrayEquals(intArrayOf(1, 0, 2, 3, 4), pickerWordAtSlot(x, y, 180f, 0f, MIDDLE))
     }
 
     @Test
     fun `ties go to the earlier slot`() {
         val x = floatArrayOf(50f, 150f)
-        assertArrayEquals(intArrayOf(0, 1), pickerWordAtSlot(x, floatArrayOf(1f, 1f), 100f))
+        val y = floatArrayOf(-KEY, -KEY)
+        assertArrayEquals(intArrayOf(0, 1), pickerWordAtSlot(x, y, 100f, 0f, NO_MIDDLE))
     }
 }
