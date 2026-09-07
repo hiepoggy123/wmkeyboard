@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
+import com.wasimaster.wmkeyboard.core.gesture.GlideShapeSample
 import kotlin.math.abs
 
 /** How a committed word got into the field. */
@@ -120,6 +121,15 @@ class LearningBuffer(private val capacity: Int = DEFAULT_CAPACITY) {
          */
         var revised: String? = revised
             internal set
+
+        /**
+         * The glide that committed the word, when one did. Rides with the
+         * word and lands in the shape store as it settles — never before,
+         * because a glide the user takes back teaches nothing about how they
+         * draw the word it was read as.
+         */
+        var glideShape: GlideShapeSample? = null
+            internal set
     }
 
     /** A word the caret went back into, kept for pairing with its replacement. */
@@ -217,6 +227,19 @@ class LearningBuffer(private val capacity: Int = DEFAULT_CAPACITY) {
             }
         }
         return dropped
+    }
+
+    /**
+     * Ties [sample], the glide that committed [word], to the newest copy of
+     * the word waiting here, so it settles with the word and never without
+     * it. False when nothing is waiting: learning off, or a word the commit
+     * did not queue.
+     */
+    fun attachGlide(word: String, sample: GlideShapeSample): Boolean {
+        val key = WordKey.of(word)
+        val entry = entries.lastOrNull { WordKey.of(it.word) == key } ?: return false
+        entry.glideShape = sample
+        return true
     }
 
     /**

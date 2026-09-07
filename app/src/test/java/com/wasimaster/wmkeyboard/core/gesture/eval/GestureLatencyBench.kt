@@ -6,6 +6,8 @@ package com.wasimaster.wmkeyboard.core.gesture.eval
 
 import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
+import com.wasimaster.wmkeyboard.core.gesture.GlideShapeSample
+import com.wasimaster.wmkeyboard.core.gesture.GlideShapeStore
 import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
 import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
@@ -115,9 +117,26 @@ class GestureLatencyBench {
             )
         }
 
+        // Every candidate compared against a full store of the user's own
+        // shapes — what a long-time user's every preview pays.
+        val store = GlideShapeStore(null)
+        val layout = GlideKeyMap.fingerprint(SwipeCorpus.keyCenters(), SwipeCorpus.KEY_WIDTH)
+        for (case in SwipeCorpus(11L).generate(entries, SwipeCorpus.Noise.TYPICAL, GlideShapeStore.MAX_WORDS)) {
+            beam.sampleShape(case.path, SwipeCorpus.KEY_WIDTH, workspace)?.let {
+                store.learn(GlideShapeSample(layout, it), case.intended)
+            }
+        }
+        val learned = store.forLayout(layout)
+        val shapesNs = measure { i ->
+            beam.decode(
+                cases[i % cases.size].path, keys, SwipeCorpus.KEY_WIDTH, sources, workspace, 4, learned,
+            )
+        }
+
         report("decode(full path)", decodeNs)
         report("stroke($PREVIEWS_PER_STROKE previews)", strokeNs)
         report("decode(4x lexicon)", wideNs)
+        report("decode(${store.wordCount()}-word shape store)", shapesNs)
         println("lexicon=${entries.size} words, wide=${wide.size} words, sampled path len=${averageLength(cases)}")
 
         if (System.getProperty("wmkeyboard.benchAssert") != "false") {

@@ -2488,17 +2488,21 @@ const val TAP_MODEL_FILE = "learning/tap_offsets.json"
 /** What the user did with the words their glides gave them (see `GlideOutcomes` in :core:prediction). */
 const val GLIDE_OUTCOMES_FILE = "learning/glide_outcomes.json"
 
+/** How the user draws each word (see `GlideShapeStore` in :core:prediction). */
+const val GLIDE_SHAPES_FILE = "learning/glide_shapes.json"
+
 /**
  * Everything the "learn my swipe style" switch governs and its Forget deletes:
  * the stores a kept swipe teaches, apart from the word itself.
  */
-val SWIPE_STYLE_FILES = listOf(HAND_MODEL_FILE, GLIDE_OUTCOMES_FILE)
+val SWIPE_STYLE_FILES = listOf(HAND_MODEL_FILE, GLIDE_OUTCOMES_FILE, GLIDE_SHAPES_FILE)
 
 val LEARNED_DATA_FILES = listOf(
     HAND_MODEL_FILE,
     LEARNED_CORRECTIONS_FILE,
     TAP_MODEL_FILE,
     GLIDE_OUTCOMES_FILE,
+    GLIDE_SHAPES_FILE,
     "learning/user_lexicon.json",
     "learning/pending_learn.json",
     "learning/emoji_usage.json",
@@ -3998,10 +4002,12 @@ data class GestureSettings(
      * Learn this user's swipe style from the swipes they keep, and read later
      * swipes by it (issue #52): where their finger actually lands on each
      * key, so a thumb that always cuts the far keys short stops paying for
-     * it on every stroke, and which word they take off the strip when a
-     * stroke is read wrongly, so the same stroke reads their word first the
-     * next time. Undoing a swipe takes its lesson back. On by default; off
-     * freezes what is learned and reads the keys as drawn.
+     * it on every stroke; how they draw each word, so a word they have
+     * swiped before is read against their own shape for it beside the ideal
+     * one; and which word they take off the strip when a stroke is read
+     * wrongly, so the same stroke reads their word first the next time.
+     * Undoing a swipe takes its lesson back. On by default; off freezes what
+     * is learned and reads the keys as drawn.
      */
     val learnSwipeStyle: Boolean = true,
     /**

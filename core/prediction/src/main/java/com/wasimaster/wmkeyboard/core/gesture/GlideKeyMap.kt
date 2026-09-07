@@ -137,5 +137,32 @@ class GlideKeyMap private constructor(
             kotlin.math.abs(a - b) < POSITION_EPSILON
 
         private const val POSITION_EPSILON = 1e-3f
+
+        /**
+         * A stable identity for the grid [keys] describe: which character sits
+         * where, to a quarter of a key. Two layouts with the same geometry
+         * share one; portrait and landscape do not, since their row pitch
+         * differs in key widths. Taken from the keys as drawn, so it does not
+         * move when the hand model moves them — it is what the learned shapes
+         * are filed under.
+         */
+        fun fingerprint(keys: List<KeyCenter>, keyWidth: Float): Long {
+            val sorted = keys.sortedWith(compareBy({ it.codePoint }, { it.x }, { it.y }))
+            var hash = FNV_OFFSET
+            for (key in sorted) {
+                hash = mix(hash, key.codePoint)
+                hash = mix(hash, kotlin.math.round(key.x / keyWidth * FINGERPRINT_GRID).toInt())
+                hash = mix(hash, kotlin.math.round(key.y / keyWidth * FINGERPRINT_GRID).toInt())
+            }
+            return hash
+        }
+
+        private fun mix(hash: Long, value: Int): Long = (hash xor value.toLong()) * FNV_PRIME
+
+        private const val FNV_OFFSET = -3750763034362895579L
+        private const val FNV_PRIME = 1099511628211L
+
+        /** Cells per key width the fingerprint resolves a position to. */
+        private const val FINGERPRINT_GRID = 4f
     }
 }

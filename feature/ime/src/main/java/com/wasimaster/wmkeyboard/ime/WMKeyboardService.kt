@@ -106,6 +106,9 @@ import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
 import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
+import com.wasimaster.wmkeyboard.core.gesture.GlideShapeSample
+import com.wasimaster.wmkeyboard.core.gesture.GlideShapeSource
+import com.wasimaster.wmkeyboard.core.gesture.GlideShapeStore
 import com.wasimaster.wmkeyboard.core.gesture.KeyOffsets
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
@@ -239,6 +242,7 @@ import com.wasimaster.wmkeyboard.core.stickers.StickerImage
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_OUTCOMES_FILE
+import com.wasimaster.wmkeyboard.core.settings.GLIDE_SHAPES_FILE
 import com.wasimaster.wmkeyboard.core.settings.HAND_MODEL_FILE
 import com.wasimaster.wmkeyboard.core.settings.LEARNED_CORRECTIONS_FILE
 import com.wasimaster.wmkeyboard.core.settings.TAP_MODEL_FILE
@@ -1340,6 +1344,12 @@ open class WMKeyboardService : InputMethodService() {
     /** The deep retry's strip after an undo, and the word it replaced; inert once the strip is any other list. */
     private var glideRetryOffer: GlideRetryOffer? = null
 
+    /** How the user draws each word, from the glides they keep (issue #52). */
+    private var glideShapes = GlideShapeStore(null)
+
+    /** The shape of the glide a strip pick is replacing, until the pick has queued its own word. */
+    private var replacedGlideShape: GlideShapeSample? = null
+
     /**
      * The word the caret is sitting *inside* — [head] behind it, [tail] ahead
      * — when it is not parked at that word's end. Null the rest of the time.
@@ -2367,6 +2377,7 @@ open class WMKeyboardService : InputMethodService() {
                         correctionMemory.reload()
                         tapOffsets.reload()
                         glideOutcomes.reload()
+                        glideShapes.reload()
                         emojiUsage.reload()
                         languageMixConfidence.reload()
                     }
@@ -2388,6 +2399,7 @@ open class WMKeyboardService : InputMethodService() {
                     lastHandAdjustment = null
                     glideOutcomes.reload()
                     glideRetryOffer = null
+                    glideShapes.reload()
                 }
                 // The Learned-corrections screen's deletes, and "forget" for
                 // the tap model: their own signal for the hand model's reason.
@@ -2726,6 +2738,7 @@ open class WMKeyboardService : InputMethodService() {
         }
         glideRetryOffer = null
         suggestionEngine?.glideOutcomes = glideOutcomes
+        glideShapes = GlideShapeStore(store(GLIDE_SHAPES_FILE))
         correctionStats = CorrectionStats(store("learning/correction_stats.json"))
         // The swapped-in store starts on the default level; carry the user's
         // setting across, or it stays at NORMAL until the next settings emit.
@@ -4259,6 +4272,7 @@ open class WMKeyboardService : InputMethodService() {
         tapOffsets.save()
         correctionMemory.save()
         glideOutcomes.save()
+        glideShapes.save()
         correctionStats.save()
         CjkLearning.store?.save()
         languageMixConfidence.save()
@@ -4305,6 +4319,7 @@ open class WMKeyboardService : InputMethodService() {
         tapOffsets.save()
         correctionMemory.save()
         glideOutcomes.save()
+        glideShapes.save()
         correctionStats.save()
         CjkLearning.store?.save()
         emojiUsage.save()
@@ -5968,8 +5983,10 @@ open class WMKeyboardService : InputMethodService() {
                     ic.deleteSurroundingText(len, 0)
                     // A word the user took back was a wrong reading of the
                     // stroke, and a wrong word laid over a stroke taught the
-                    // hand model wrong offsets.
+                    // hand model wrong offsets. The shape that read it that
+                    // way, if one of the user's own did, is marked against.
                     unlearnHand()
+                    stroke?.shape?.let { glideShapes.reject(it.layoutKey, word, it.shape) }
                     // The undone word is gone as bigram context; whatever now
                     // precedes the caret is the real one.
                     syncPreviousWordFromField(ic)
@@ -9685,6 +9702,7 @@ open class WMKeyboardService : InputMethodService() {
                     learnSettledWord(entry, settings)
                     teachRevision(entry, ::window)
                     observeTaps(entry.typed, entry.word, entry.taps, entry.keys, entry.origin)
+                    learnGlideShape(entry)
                 }
                 continue
             }
@@ -9697,6 +9715,7 @@ open class WMKeyboardService : InputMethodService() {
             val seen = pendingLearn.sight(entry.word, entry.langId, weight = entry.weight)
             if (seen >= threshold) {
                 promoteLearned(entry.word, entry.langId, seen, entry.caseTrusted)
+                learnGlideShape(entry)
             }
         }
     }
@@ -11261,6 +11280,7 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     fun onSuggestionTapped(suggestion: String) {
+        replacedGlideShape = null
         stopVoiceForManualInput()
         vibrate()
         val ic = currentInputConnection ?: return
@@ -11365,6 +11385,11 @@ open class WMKeyboardService : InputMethodService() {
                 if (lastGestureStroke != null && WordKey.of(suggestion) != WordKey.of(gestureWord)) {
                     noteGlidePreference(rejected = gestureWord, chosen = suggestion)
                 }
+                // The shape that read it that way is marked against, and the
+                // stroke's shape goes on to the word picked instead, once the
+                // pick below has queued it.
+                lastGestureStroke?.shape?.let { glideShapes.reject(it.layoutKey, gestureWord, it.shape) }
+                replacedGlideShape = lastGestureStroke?.shape
                 // Nor of where the finger lands — but the word picked in its
                 // place is, and the stroke is still here to measure it by.
                 unlearnHand()
@@ -11462,6 +11487,11 @@ open class WMKeyboardService : InputMethodService() {
                 keys = suggestionEngine?.touchModel,
             )
         }
+        // A glide this pick replaced: its stroke's shape now belongs to the
+        // word picked, and rides it to its settle the way it would have
+        // ridden the reading (issue #52).
+        replacedGlideShape?.let { learningBuffer.attachGlide(suggestion, it) }
+        replacedGlideShape = null
         composing = StringBuilder()
         _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
         maybeAutoCapitalize()
@@ -11597,6 +11627,64 @@ open class WMKeyboardService : InputMethodService() {
         if (swipeStyleLearning) glideOutcomes.observeImmediateUndo(word)
     }
 
+    private var cachedShapeKeyKeys: List<KeyCenter>? = null
+    private var cachedShapeKeyWidth = 0f
+    private var cachedShapeKey = 0L
+
+    /**
+     * The shape store's key for [keys] as drawn. Cached the way the grids
+     * are, since the UI hands the same list back for every preview of a
+     * stroke.
+     */
+    @Synchronized
+    private fun shapeKeyFor(keys: List<KeyCenter>, keyWidthPx: Float): Long {
+        if (cachedShapeKeyKeys == keys && cachedShapeKeyWidth == keyWidthPx) return cachedShapeKey
+        return GlideKeyMap.fingerprint(keys, keyWidthPx).also {
+            cachedShapeKeyKeys = keys
+            cachedShapeKeyWidth = keyWidthPx
+            cachedShapeKey = it
+        }
+    }
+
+    /** The user's own shapes for this grid, for the decoder; null while the setting is off or nothing is learned. */
+    private fun shapeSourceFor(keys: List<KeyCenter>, keyWidthPx: Float): GlideShapeSource? {
+        if (!_uiState.value.settings.gesture.learnSwipeStyle) return null
+        return glideShapes.forLayout(shapeKeyFor(keys, keyWidthPx))
+    }
+
+    /**
+     * [points] as a shape the learning buffer can carry to [word]'s settle,
+     * or null when nothing should be learned: the setting or the learning
+     * gate off, or a word the grid as drawn cannot spell (a romanized
+     * stroke's Bengali answer, a restored apostrophe), whose shape could
+     * never be matched.
+     */
+    private fun sampleGlideShape(
+        points: List<GesturePoint>,
+        keys: List<KeyCenter>,
+        keyWidthPx: Float,
+        word: String,
+    ): GlideShapeSample? {
+        if (!swipeStyleLearning) return null
+        val engine = suggestionEngine ?: return null
+        val raw = rawKeyMapFor(keys, keyWidthPx)
+        var at = 0
+        while (at < word.length) {
+            val codePoint = word.codePointAt(at)
+            at += Character.charCount(codePoint)
+            if (raw.keyIndex(codePoint) < 0) return null
+        }
+        val shape = engine.glideShapeOf(points, keyWidthPx) ?: return null
+        return GlideShapeSample(shapeKeyFor(keys, keyWidthPx), shape)
+    }
+
+    /** The glide that committed a word settles with it: its shape is now how this user draws the word. */
+    private fun learnGlideShape(entry: LearningBuffer.Entry) {
+        val sample = entry.glideShape ?: return
+        if (!_uiState.value.settings.gesture.learnSwipeStyle) return
+        glideShapes.learn(sample, entry.word)
+    }
+
     /**
      * A decoded stroke: the words it could be, and whether the top two are a
      * close call under the user's sensitivity tier.
@@ -11639,6 +11727,7 @@ open class WMKeyboardService : InputMethodService() {
             previousWord = previousWord,
             previousWord2 = previousWord2,
             recentWords = recentWords.toList(),
+            shapes = shapeSourceFor(keys, keyWidthPx),
         )
         if (decoded.isEmpty()) return GlideReading.NONE
         val words = decoded.map { restoreApostrophe(it.word) ?: it.word }
@@ -11679,6 +11768,7 @@ open class WMKeyboardService : InputMethodService() {
                     previousWord2 = previousWord2,
                     recentWords = recentWords.toList(),
                     deep = true,
+                    shapes = shapeSourceFor(stroke.keys, stroke.keyWidthPx),
                 ).map { restoreApostrophe(it.word) ?: it.word }
             }
             if (generation != gestureGeneration.get()) return@launch
@@ -12077,11 +12167,16 @@ open class WMKeyboardService : InputMethodService() {
                     (shiftAtGesture == ShiftState.ON && state.shiftPressedByUser),
                 origin = WordOrigin.GLIDE,
             )
-            lastGestureWord = word
-            lastGestureStroke = GlideStroke(points, keys, keyWidthPx)
-            lastHandAdjustment = withContext(Dispatchers.Default) {
-                learnHand(points, keys, keyWidthPx, word)
+            // The stroke's shape rides with the word in the learning buffer
+            // and reaches the shape store only when the word settles; the
+            // hand model learns on the spot and retracts on undo instead.
+            val (hand, shape) = withContext(Dispatchers.Default) {
+                learnHand(points, keys, keyWidthPx, word) to sampleGlideShape(points, keys, keyWidthPx, word)
             }
+            if (shape != null) learningBuffer.attachGlide(word, shape)
+            lastGestureWord = word
+            lastGestureStroke = GlideStroke(points, keys, keyWidthPx, shape)
+            lastHandAdjustment = hand
             commitGestureSpace(ic, state)
             armRevertGuard()
             consumeShift()
@@ -12212,12 +12307,14 @@ open class WMKeyboardService : InputMethodService() {
                         (shiftAtGesture == ShiftState.ON && state.shiftPressedByUser),
                     origin = WordOrigin.GLIDE,
                 )
-                lastGestureWord = word
-                lastGestureStroke = GlideStroke(segment, keys, keyWidthPx)
-                // Each word teaches; only the last is on the undo's reach.
-                lastHandAdjustment = withContext(Dispatchers.Default) {
-                    learnHand(segment, keys, keyWidthPx, word)
+                val (hand, shape) = withContext(Dispatchers.Default) {
+                    learnHand(segment, keys, keyWidthPx, word) to sampleGlideShape(segment, keys, keyWidthPx, word)
                 }
+                if (shape != null) learningBuffer.attachGlide(word, shape)
+                lastGestureWord = word
+                lastGestureStroke = GlideStroke(segment, keys, keyWidthPx, shape)
+                // Each word teaches; only the last is on the undo's reach.
+                lastHandAdjustment = hand
                 armRevertGuard()
                 lastWords = if (picked != null) glideStripOrder(candidates, picked) else candidates
                 committedAny = true
@@ -19291,6 +19388,7 @@ open class WMKeyboardService : InputMethodService() {
         // the user has just deleted (#101).
         learningBuffer.drop(trimmed)
         wordRanks.remove(trimmed)
+        glideShapes.forget(trimmed)
         suggestionEngine?.rankOffsets = wordRanks.snapshot()
         val lower = trimmed.lowercase()
         val state = _uiState.value
@@ -19335,7 +19433,10 @@ open class WMKeyboardService : InputMethodService() {
         val engine = suggestionEngine ?: return
         serviceScope.launch {
             val facts = withContext(Dispatchers.Default) {
-                engine.describe(word).copy(pendingSightings = pendingLearn.sightings(word))
+                engine.describe(word).copy(
+                    pendingSightings = pendingLearn.sightings(word),
+                    swipeShapes = glideShapes.countFor(word),
+                )
             }
             val labels = packLabels(facts)
             _uiState.update {
@@ -19390,6 +19491,10 @@ open class WMKeyboardService : InputMethodService() {
                 card.typed?.let(::addTypedWord)
                 publishWordCard(card.word)
             }
+            WordCardAction.ForgetShapes -> {
+                glideShapes.forget(card.word)
+                publishWordCard(card.word)
+            }
             WordCardAction.Delete -> {
                 deleteWord(card.word)
                 // The blacklist write above is asynchronous; the card shows
@@ -19424,6 +19529,7 @@ open class WMKeyboardService : InputMethodService() {
                 // Same as [deleteWord]: a copy still settling would put the
                 // word back at the next flush.
                 learningBuffer.drop(word)
+                glideShapes.forget(word)
             }
             userLexicon.contains(WordKey.of(word)) -> userLexicon.setCount(word, count)
             else -> {
@@ -22146,11 +22252,16 @@ private class GesturePreviewRequest(
     val generation: Int,
 )
 
-/** A committed glide as the decoder saw it, kept for a deep retry after an undo. */
+/**
+ * A committed glide as the decoder saw it, kept for a deep retry after an
+ * undo, with its shape as the store keeps one so an undo or a strip pick can
+ * mark the shape that read it wrongly.
+ */
 private class GlideStroke(
     val points: List<GesturePoint>,
     val keys: List<KeyCenter>,
     val keyWidthPx: Float,
+    val shape: GlideShapeSample? = null,
 )
 
 /** The strip a deep retry filled after an undo, and the word it replaced: a pick off it prefers the pair. */

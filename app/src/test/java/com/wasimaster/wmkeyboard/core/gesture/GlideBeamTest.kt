@@ -219,6 +219,28 @@ class GlideBeamTest {
     }
 
     @Test
+    fun `a shape the user drew a word in lifts that word`() {
+        // A wobbly stroke that says "god"; a store that remembers this very
+        // stroke as how the user draws "good" makes "good" the reading. A
+        // perfect trace would not do: its ideal distance is already nothing,
+        // and a learned shape can only ever bring a word nearer than that.
+        // The test also pins that the store's shape is the shape channel's
+        // own normalisation of the stroke: distance zero to itself.
+        val stroke = gestureFor("god", jitter = 14f)
+        val shape = beam.sampleShape(stroke, keyWidth, workspace) ?: error("too short")
+        val store = GlideShapeStore(null)
+        val layout = GlideKeyMap.fingerprint(keys, keyWidth)
+        store.learn(GlideShapeSample(layout, shape), "good")
+        val learned = store.forLayout(layout) ?: error("nothing learned")
+        assertEquals(0f, learned.minDistance("good", shape), 1e-6f)
+        assertEquals("god", decode(stroke).first())
+        assertEquals("good", beam.decode(stroke, grid, keyWidth, sources, workspace, 4, learned).first().word)
+        // A store for another grid says nothing.
+        val elsewhere = GlideShapeStore(null).forLayout(layout)
+        assertEquals("god", beam.decode(stroke, grid, keyWidth, sources, workspace, 4, elsewhere).first().word)
+    }
+
+    @Test
     fun `a loop on a key reads as the doubled spelling`() {
         // Same stroke and the same clock, which is none: the only difference
         // is the circle drawn on the o, Swype's mark for a letter written twice.

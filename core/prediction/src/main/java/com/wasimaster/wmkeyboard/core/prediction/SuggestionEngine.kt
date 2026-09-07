@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.prediction
 
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
+import com.wasimaster.wmkeyboard.core.gesture.GlideShapeSource
 import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
 import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
@@ -767,6 +768,7 @@ class SuggestionEngine(
         previousWord2: String? = null,
         recentWords: List<String> = emptyList(),
         deep: Boolean = false,
+        shapes: GlideShapeSource? = null,
     ): List<GlideBeam.Candidate> {
         val romanization = glideRomanization
         val decoded = (if (deep) deepGlideBeam else glideBeam).decode(
@@ -776,6 +778,7 @@ class SuggestionEngine(
             sources = if (romanization.isEmpty) walkSources() else romanization.walkSources(),
             ws = glideWorkspace.get(),
             limit = maxOf(limit, if (deep) GLIDE_DEEP_POOL else GLIDE_RERANK_POOL),
+            shapes = shapes,
         )
         // On a phonetic layout the stroke spelled a romanization; the words it
         // stands for are what the rest of this — the blacklist, the reranker,
@@ -843,6 +846,14 @@ class SuggestionEngine(
         keys: GlideKeyMap,
         keyWidth: Float,
     ): GlideBeam.Alignment? = glideBeam.align(word, path, keys, keyWidth, glideWorkspace.get())
+
+    /**
+     * [path] as the shape store keeps a stroke, for the learning buffer to
+     * carry until its word settles (issue #52). Null for a stroke too short
+     * to be a glide.
+     */
+    fun glideShapeOf(path: List<GesturePoint>, keyWidth: Float): ByteArray? =
+        glideBeam.sampleShape(path, keyWidth, glideWorkspace.get())
 
     /**
      * Reorders a decoded stroke's candidates by context, defended the way

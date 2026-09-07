@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Contacts
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.LibraryAdd
@@ -244,6 +245,13 @@ private fun WordSources(card: WordCard, color: Color) {
         if (learned.casePinned) lines += stringResource(R.string.ime_word_card_case_pinned)
         SourceRow(Icons.Outlined.Person, lines.joinToString(" · "), color)
     }
+    if (facts.swipeShapes > 0) {
+        SourceRow(
+            Icons.Outlined.Gesture,
+            pluralStringResource(R.plurals.ime_word_card_swipe_shapes, facts.swipeShapes, facts.swipeShapes),
+            color,
+        )
+    }
     if (facts.pendingSightings > 0) {
         SourceRow(
             Icons.Outlined.HourglassEmpty,
@@ -353,6 +361,11 @@ private fun Actions(card: WordCard, onAction: (WordCardAction) -> Unit, done: ()
             if (deletable) {
                 ActionButton(Icons.Outlined.Delete, stringResource(CommonR.string.common_delete)) {
                     onAction(WordCardAction.Delete)
+                }
+            }
+            if (facts != null && facts.swipeShapes > 0) {
+                ActionButton(Icons.Outlined.Gesture, stringResource(R.string.ime_word_card_forget_shapes)) {
+                    onAction(WordCardAction.ForgetShapes)
                 }
             }
             if (card.blacklisted) {

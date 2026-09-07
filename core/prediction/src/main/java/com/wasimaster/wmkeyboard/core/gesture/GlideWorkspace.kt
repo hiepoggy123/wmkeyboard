@@ -161,6 +161,9 @@ class GlideWorkspace {
      */
     val drawnShapeX = FloatArray(SAMPLE_POINTS)
     val drawnShapeY = FloatArray(SAMPLE_POINTS)
+
+    /** The drawn shape as the shape store keeps one, for comparing against learned shapes. */
+    val drawnShape8 = ByteArray(2 * SAMPLE_POINTS)
     val idealShapeX = FloatArray(SAMPLE_POINTS)
     val idealShapeY = FloatArray(SAMPLE_POINTS)
 

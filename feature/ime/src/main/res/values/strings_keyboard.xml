@@ -140,6 +140,13 @@
     <string name="ime_word_card_learned_language">Last typed in <xliff:g id="language" example="English">%1$s</xliff:g></string>
     <!-- Appended to a personal-dictionary row when its capitals are pinned. -->
     <string name="ime_word_card_case_pinned">Capitals kept as written</string>
+    <!-- The word has shapes learned from the user's own swipes; %d is how many ways of drawing it are kept. -->
+    <plurals name="ime_word_card_swipe_shapes">
+        <item quantity="one">Learned from your swipes, <xliff:g id="count" example="1">%d</xliff:g> way of drawing it</item>
+        <item quantity="other">Learned from your swipes, <xliff:g id="count" example="3">%d</xliff:g> ways of drawing it</item>
+    </plurals>
+    <!-- Word card action: drop the learned swipe shapes for this word, keeping the word. -->
+    <string name="ime_word_card_forget_shapes">Forget my swipes for it</string>
     <!-- The word is waiting to be learned; %d is how many times it was seen. -->
     <plurals name="ime_word_card_pending">
         <item quantity="one">Seen <xliff:g id="count" example="1">%d</xliff:g> time, not learned yet</item>

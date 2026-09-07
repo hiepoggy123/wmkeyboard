@@ -12,7 +12,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Area | Families | Features | Capabilities |
 |---|---|---|---|
 | Typing core: prediction, autocorrect, learning, spell check | 9 | 50 | 182 |
-| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 187 |
+| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 190 |
 | Languages, scripts, layouts, transliteration | 11 | 63 | 194 |
 | Themes and appearance | 14 | 73 | 179 |
 | Emoji, GIFs, stickers, kaomoji | 16 | 88 | 94 |
@@ -23,7 +23,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Accessibility, form factors, platform integration | 13 | 60 | 108 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 201 |
-| **Total** | **132** | **793** | **2100** |
+| **Total** | **132** | **793** | **2103** |
 
 ## Typing core: prediction, autocorrect, learning, spell check
 
@@ -333,6 +333,9 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Hand adaptation — Kept swipes teach where the finger really lands on each key; later swipes decode against a grid moved to match (KeyOffsets)
     - Keyed by position, not letter — Half-key cells, so layouts with the same geometry share what either learned; a barely-swiped key follows the whole hand's mean
     - Undo un-teaches — Backspacing a swiped word, or replacing it off the strip, retracts exactly what it taught; the replacement teaches instead
+    - Learned shapes — A few of the user's own shapes per word, from the glides they keep, for the shape channel to compare a stroke against beside the word's ideal path (GlideShapeStore)
+    - Graduated, never taken at commit — The shape rides the word through the learning buffer and lands only when the word settles as a learned word; an undone or replaced glide marks the shape that read it, and a shape rejected more than accepted goes
+    - Bounded benefit — A word's learned shape can shorten its shape distance by at most a fixed gain, so a word swiped before gets the benefit of how it is drawn and never a free pass over words that were not
     - Outcome memory — A word taken off the strip over the one a stroke was read as, a picker word that was not the leader, a pick off the deep-retry strip, or a swiped word backspaced straight away, nudges the next decode of that pair (GlideOutcomes)
     - Pairs, not words — "nor over not" says nothing about "nor" against "now"; a pick the other way is counter-evidence, and a pick repays an undo strike
     - Bounded and fading — At most one close-call margin up and under half of one down, so three consistent picks flip a close call and no habit overturns a clear reading; strength fades with use, not time

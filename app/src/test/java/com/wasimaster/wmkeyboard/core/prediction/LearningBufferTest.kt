@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
+import com.wasimaster.wmkeyboard.core.gesture.GlideShapeSample
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -14,6 +15,24 @@ class LearningBufferTest {
     private fun LearningBuffer.commit(word: String, caret: Int) {
         push(word, "en", 1)
         onCaret(caret)
+    }
+
+    @Test
+    fun aGlideShapeRidesTheNewestCopyOfItsWordAndGoesWhereItGoes() {
+        val buffer = LearningBuffer()
+        val sample = GlideShapeSample(1L, ByteArray(96))
+        assertFalse("nothing queued yet", buffer.attachGlide("wibble", sample))
+        buffer.commit("wibble", 7)
+        buffer.commit("wobble", 14)
+        buffer.commit("wibble", 21)
+        assertTrue(buffer.attachGlide("Wibble", sample))
+        val entries = buffer.drain()
+        assertEquals(listOf(null, null, sample), entries.map { it.glideShape })
+        // A copy the user takes back takes its shape with it.
+        buffer.commit("wobble", 7)
+        assertTrue(buffer.attachGlide("wobble", sample))
+        buffer.drop("wobble")
+        assertTrue(buffer.isEmpty())
     }
 
     @Test

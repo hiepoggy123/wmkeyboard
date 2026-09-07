@@ -51,7 +51,31 @@ class SwipeCorpus(
      * ever measured English keeps measuring exactly what it did.
      */
     val grid: GlideGrid = GlideGrid.of(BuiltInLayouts.QWERTY),
+    /**
+     * One synthetic user's motor habits, or null for none. Null changes
+     * nothing at all — the main random stream is untouched — so every
+     * measurement without one is what it always was.
+     */
+    private val signature: Signature? = null,
 ) {
+
+    /**
+     * How one user draws words: a fixed wobble of every interior anchor and
+     * a fixed scaling of every corner cut, drawn per word from [seed] rather
+     * than from the corpus's stream, so the same word is drawn the same way
+     * twice while the per-case tremor, bias and shrink stay fresh. A
+     * persistent *global* offset or shrink would vanish under the shape
+     * channel's normalisation and belongs to the hand model, which is why
+     * the habit here is per word. Like the dwell, a claim about hands rather
+     * than a measurement: a gain against it is an upper bound.
+     */
+    class Signature(
+        val seed: Long,
+        /** σ of each interior anchor's displacement, in key widths. */
+        val anchorWobble: Float = 0.2f,
+        /** Range the profile's corner radius is scaled by, per word. */
+        val cornerScale: ClosedFloatingPointRange<Float> = 0.6f..1.4f,
+    )
 
     /** How badly the swipe is drawn. Each axis is independent, so a sweep can
      * vary one and hold the rest — see `SwipeNoiseSweepTest`. */
@@ -140,12 +164,20 @@ class SwipeCorpus(
      * (a character off the grid, or a path too short to be a gesture at all).
      */
     fun swipe(word: String, profile: Profile): List<GesturePoint>? {
-        val anchors = anchorsOf(word) ?: return null
-        if (anchors.size < 2) return null
+        val ideal = anchorsOf(word) ?: return null
+        if (ideal.size < 2) return null
+        val habit = signature?.let { Random(it.seed xor word.hashCode().toLong()) }
+        val anchors = if (habit != null) styled(ideal, habit) else ideal
+        val cornerRadius = if (habit != null) {
+            val range = signature.cornerScale
+            profile.cornerRadius * (range.start + habit.nextFloat() * (range.endInclusive - range.start))
+        } else {
+            profile.cornerRadius
+        }
         val slopped = applyEndSlop(anchors, profile)
         val loops = loopsFor(word, slopped.size, profile)
         val loopSpans = ArrayList<IntRange>(2)
-        val dense = densePath(slopped, profile.cornerRadius, loops, loopSpans)
+        val dense = densePath(slopped, cornerRadius, loops, loopSpans)
         if (dense.size < 2) return null
         val arc = cumulativeArc(dense)
         val total = arc.last()
@@ -224,6 +256,16 @@ class SwipeCorpus(
         out[0] = shifted(anchors[0], anchors[1], gaussian() * profile.endSlop)
         val n = anchors.size
         out[n - 1] = shifted(anchors[n - 1], anchors[n - 2], gaussian() * profile.endSlop)
+        return out
+    }
+
+    /** [anchors] with every interior one displaced the way this user's habit for the word has it. */
+    private fun styled(anchors: List<Pt>, habit: Random): List<Pt> {
+        val wobble = signature?.anchorWobble ?: return anchors
+        val out = ArrayList<Pt>(anchors)
+        for (i in 1 until anchors.size - 1) {
+            out[i] = Pt(anchors[i].x + gaussian(habit) * wobble, anchors[i].y + gaussian(habit) * wobble)
+        }
         return out
     }
 
@@ -496,9 +538,11 @@ class SwipeCorpus(
     }
 
     /** Box–Muller: kotlin.random.Random has no Gaussian sampler. */
-    private fun gaussian(): Float {
-        val u1 = random.nextDouble().coerceAtLeast(1e-12)
-        val u2 = random.nextDouble()
+    private fun gaussian(): Float = gaussian(random)
+
+    private fun gaussian(from: Random): Float {
+        val u1 = from.nextDouble().coerceAtLeast(1e-12)
+        val u2 = from.nextDouble()
         return (sqrt(-2.0 * ln(u1)) * cos(2.0 * PI * u2)).toFloat()
     }
 

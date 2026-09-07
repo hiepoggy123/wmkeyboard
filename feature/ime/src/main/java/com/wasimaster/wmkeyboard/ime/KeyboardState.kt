@@ -1366,6 +1366,9 @@ sealed interface WordCardAction {
     /** Like [WordMenuAction.AllowAgain], for the card's word. */
     data object AllowAgain : WordCardAction
 
+    /** Forget how the user draws the card's word, keeping the word itself. */
+    data object ForgetShapes : WordCardAction
+
     /** Close the card. */
     data object Dismiss : WordCardAction
 }

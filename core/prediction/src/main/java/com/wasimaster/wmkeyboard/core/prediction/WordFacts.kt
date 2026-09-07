@@ -33,6 +33,8 @@ data class WordFacts(
     val blacklisted: Boolean = false,
     /** The user's rank adjustment, 0 when none ([WordRanks]). */
     val rankOffset: Int = 0,
+    /** Shapes the user's kept glides taught for the word, across layouts; filled in by the service. */
+    val swipeShapes: Int = 0,
 ) {
     /** True when nothing at all knows the word. */
     val unknown: Boolean
