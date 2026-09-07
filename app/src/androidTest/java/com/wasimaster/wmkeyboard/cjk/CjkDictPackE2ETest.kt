@@ -62,8 +62,6 @@ class CjkDictPackE2ETest {
         assertEquals(File(packDir, "pinyin.tsv").absolutePath, packFile.absolutePath)
         assertEquals(File(packDir, "pinyin.tsv.part").absolutePath, partFile.absolutePath)
 
-        val initialToken = CjkDictStore.stateToken(filesDir)
-
         // Clean any existing test pack for clean state check
         CjkDictStore.delete(filesDir, pinyinPack)
         assertFalse(CjkDictStore.isDownloaded(filesDir, pinyinPack))

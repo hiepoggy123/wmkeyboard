@@ -1584,16 +1584,14 @@ internal fun KeyLayoutEditorScreen(
             jsonRoute = "keymap_json/$layoutId",
             onNavigate = onNavigate,
             settings = settings,
-            reset = if (layout.panelLayer(panelKind) != null) {
+            reset = layout.panelLayer(panelKind)?.let {
                 ResetRow(
                     R.string.layout_editor_reset_panel_title,
                     stringResource(R.string.layout_editor_reset_panel_subtitle, panelName),
                 ) {
-                    edit { it.copy(layers = it.layers - panelKind.layerKey) }
+                    edit { spec -> spec.copy(layers = spec.layers - panelKind.layerKey) }
                     panelSelection = null
                 }
-            } else {
-                null
             },
         )
     }

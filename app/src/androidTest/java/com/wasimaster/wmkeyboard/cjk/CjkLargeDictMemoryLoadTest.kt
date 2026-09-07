@@ -4,7 +4,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
-import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -44,6 +43,7 @@ class CjkLargeDictMemoryLoadTest {
                 object : Iterator<String> {
                     override fun hasNext(): Boolean = count < 1_080_000
                     override fun next(): String {
+                        if (!hasNext()) throw NoSuchElementException()
                         count++
                         return "reading$count\tKanjiCandidate$count\t100"
                     }

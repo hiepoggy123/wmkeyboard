@@ -179,7 +179,7 @@ class SettingsSearchRankingTest {
     }
 
     @Test
-    fun `dumpRankings`() {
+    fun dumpRankings() {
         val out = File("build/reports/settings-search-rankings.txt")
         out.parentFile.mkdirs()
         val queries = (top1 + top3).map { it.query } + listOf(

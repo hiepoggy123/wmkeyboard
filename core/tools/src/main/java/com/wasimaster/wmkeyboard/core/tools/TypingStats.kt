@@ -36,7 +36,7 @@ enum class StatsPeriod { DAY, WEEK, MONTH }
  * time, so they can never dilute the average.
  *
  * Words are counted by a boundary detector on the keystroke stream itself
- * (a letter or digit arms [pendingWord]; a separator or flush counts it),
+ * (a letter or digit arms `pendingWord`; a separator or flush counts it),
  * which works identically for composing and direct-commit scripts without a
  * hook in the word-commit path. [onWordsCommitted] clears the armed flag so
  * a half-typed word completed by a suggestion pick is counted exactly once.

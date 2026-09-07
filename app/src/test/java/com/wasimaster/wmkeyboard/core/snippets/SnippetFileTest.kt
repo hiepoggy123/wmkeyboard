@@ -374,7 +374,7 @@ class SnippetFileTest {
         val asia = store.items().first { it.label == "Asia" }
         assertTrue(asia.id in continent.children)
         assertTrue(asia.id in country.children)
-        assertTrue(added.none { it.id == 1L && it.label != "Continent" })
+        assertTrue(added.all { it.id != 1L || it.label == "Continent" })
         // A cycle in the file survives as a cycle, and reading it terminates.
         assertEquals(
             listOf("Asia", "Africa"),

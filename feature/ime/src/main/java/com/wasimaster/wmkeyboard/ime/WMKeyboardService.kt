@@ -10972,12 +10972,12 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun startGlideReadinessWatcher() {
         serviceScope.launch {
-            combine(_uiState, glideSourcesEpoch) { it, epoch ->
+            combine(_uiState, glideSourcesEpoch) { state, epoch ->
                 GlideGate(
-                    languageId = it.language.id,
-                    converts = it.composer.isTransliterating || it.composer.isConversion,
-                    phonetic = it.composer.isBengaliPhonetic,
-                    alphabet = it.layouts.letterAlphabet,
+                    languageId = state.language.id,
+                    converts = state.composer.isTransliterating || state.composer.isConversion,
+                    phonetic = state.composer.isBengaliPhonetic,
+                    alphabet = state.layouts.letterAlphabet,
                     sources = epoch,
                 )
             }
@@ -20666,6 +20666,7 @@ open class WMKeyboardService : InputMethodService() {
          */
         private const val BENGALI_HW_MIN_COMMIT_DELAY_MS = 1200L
         /** Only the shipped default now; the live value is a setting. */
+        @Suppress("unused")
         private const val WEATHER_CACHE_MS = 15L * 60 * 1000
 
         /**
@@ -20735,6 +20736,7 @@ open class WMKeyboardService : InputMethodService() {
          * the user can dismiss it outright at any point.
          */
         /** Only the shipped default now; the live value is a setting. */
+        @Suppress("unused")
         private const val CLIPBOARD_SUGGESTION_TIMEOUT_MS = 5L * 60 * 1000
         /**
          * Gap between the characters of a code typed into the field (see

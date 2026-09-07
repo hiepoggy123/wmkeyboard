@@ -636,6 +636,7 @@ private fun VoiceChipAction(text: String, icon: ImageVector, onClick: () -> Unit
  * [VoiceBarSettings.holdToTalkMs], because this threshold decides which of
  * two quite different behaviours a press gets.
  */
+@Suppress("unused")
 private const val HOLD_TO_TALK_MS = 600L
 
 /**

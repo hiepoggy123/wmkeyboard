@@ -2,7 +2,6 @@ package com.wasimaster.wmkeyboard.cjk
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
@@ -10,7 +9,6 @@ import com.wasimaster.wmkeyboard.core.input.composer.JapaneseComposer
 import com.wasimaster.wmkeyboard.core.input.composer.Kana
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assume.assumeTrue
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
