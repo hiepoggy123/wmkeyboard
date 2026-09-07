@@ -955,14 +955,14 @@ private fun TranslationChips(
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
                 for (code in ordered) {
                     val status = states[VocabDownloadManager.translationKey(entry.id, code)]
-                    val have = status is VocabDownloadManager.DownloadStatus.Downloaded
+                    val downloaded = status is VocabDownloadManager.DownloadStatus.Downloaded
                     val busy = status is VocabDownloadManager.DownloadStatus.Downloading || status == VocabDownloadManager.DownloadStatus.Queued
                     FilterChip(
-                        selected = have,
+                        selected = downloaded,
                         enabled = !busy,
-                        onClick = { if (have) onRemove(code) else onFetch(code) },
+                        onClick = { if (downloaded) onRemove(code) else onFetch(code) },
                         label = { Text(languageNameFor(code)) },
-                        leadingIcon = if (have) {
+                        leadingIcon = if (downloaded) {
                             { Icon(Icons.Outlined.Check, contentDescription = null) }
                         } else {
                             null
@@ -1862,7 +1862,7 @@ internal fun VocabWordCard(
 ) {
     val v = settings.vocabulary
     val fields = remember(v.cardFields) { VocabCardFields.resolve(v.cardFields) }
-    fun shown(field: VocabCardField) = VocabCardFields.inApp(fields, field)
+    val shown: (VocabCardField) -> Boolean = { VocabCardFields.inApp(fields, it) }
     val enabledIds = remember(settings) { settings.enabledLanguages.map { it.id } }
     val wantedCodes = remember(settings) { vocabTranslationCodes(settings) }
 
@@ -1870,185 +1870,221 @@ internal fun VocabWordCard(
         Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        // ---- the headword ----
-        Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(start = 18.dp, end = 8.dp, top = 14.dp, bottom = 14.dp)) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Column(Modifier.weight(1f)) {
-                        Text(word.word, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
-                        val line = listOfNotNull(
-                            word.ipaFor(v.accent).takeIf { shown(VocabCardField.IPA) },
-                            word.respelling.takeIf { shown(VocabCardField.RESPELLING) },
-                        ).joinToString("  ·  ")
-                        if (line.isNotEmpty()) {
-                            Text(line, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
-                        }
-                    }
-                    IconButton(onClick = onSpeak) {
-                        Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = stringResource(R.string.vocab_word_speak_desc), tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                }
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(top = 6.dp, end = 10.dp),
-                ) {
-                    for (pos in word.pos) VocabTag(pos, strong = true)
-                    if (learnt) {
-                        VocabTag(stringResource(R.string.vocab_word_learnt_badge), strong = true)
-                    } else if (box != null && box > 0) {
-                        VocabTag(stringResource(R.string.vocab_word_box_badge, box + 1), strong = true)
-                    }
-                    if (shown(VocabCardField.SOURCES)) {
-                        for (id in word.sources) VocabTag(index?.sources?.get(id)?.name?.takeIf { it.isNotEmpty() } ?: id, strong = false)
-                    }
-                }
-            }
-        }
-
-        // ---- meaning ----
-        val senses = if (compact) word.senses.take(2) else word.senses
-        if (senses.isNotEmpty()) {
-            VocabSection(title = stringResource(R.string.vocab_word_section_meaning)) {
-                val grouped = senses.groupBy { it.pos }
-                var number = 0
-                for ((pos, group) in grouped) {
-                    if (pos.isNotEmpty() && grouped.size > 1) {
-                        Text(
-                            pos,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontStyle = FontStyle.Italic,
-                            modifier = Modifier.padding(top = 6.dp),
-                        )
-                    }
-                    for (sense in group) {
-                        number++
-                        VocabSenseBlock(number, sense, compact, ::shown)
-                    }
-                }
-            }
-        }
+        VocabHero(word, v.accent, index, learnt, box, shown, onSpeak)
+        VocabMeaningSection(if (compact) word.senses.take(2) else word.senses, compact, shown)
         if (compact) return@Column
-
-        // ---- related words ----
-        val chipRows = buildList {
-            if (shown(VocabCardField.SYNONYMS) && word.synonyms.isNotEmpty()) add(R.string.vocab_word_synonyms_label to word.synonyms)
-            if (shown(VocabCardField.ANTONYMS) && word.antonyms.isNotEmpty()) add(R.string.vocab_word_antonyms_label to word.antonyms)
-            if (shown(VocabCardField.FAMILY) && word.familyWords.isNotEmpty()) add(R.string.vocab_word_family_label to word.familyWords)
-            if (shown(VocabCardField.HYPERNYMS) && word.hypernyms.isNotEmpty()) add(R.string.vocab_word_hypernyms_label to word.hypernyms)
-            if (shown(VocabCardField.HYPERNYMS) && word.hyponyms.isNotEmpty()) add(R.string.vocab_word_hyponyms_label to word.hyponyms)
-        }
-        if (chipRows.isNotEmpty()) {
-            VocabSection(title = stringResource(R.string.vocab_word_section_related)) {
-                for ((labelRes, words) in chipRows) {
-                    Text(
-                        stringResource(labelRes),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 6.dp),
-                    )
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        for (related in words) {
-                            val known = index?.lookupAnyForm(related) != null
-                            AssistChip(
-                                onClick = { onRelated(related) },
-                                label = { Text(related) },
-                                trailingIcon = if (known) {
-                                    null
-                                } else {
-                                    {
-                                        Icon(
-                                            Icons.Outlined.Search,
-                                            contentDescription = stringResource(R.string.vocab_word_lookup_chip_desc),
-                                            modifier = Modifier.size(14.dp),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                },
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // ---- the mnemonic, set apart: it is the one line meant to stick ----
-        if (shown(VocabCardField.MNEMONIC) && !word.mnemonic.isNullOrBlank()) {
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
-                    Icon(Icons.Outlined.Lightbulb, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(stringResource(R.string.vocab_word_section_remember), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
-                        Text(word.mnemonic!!, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
-                    }
-                }
-            }
-        }
-
-        // ---- translations, the user's languages only, romanisation where it helps ----
-        if (shown(VocabCardField.TRANSLATIONS)) {
-            val rows = wantedCodes.mapNotNull { code -> word.translations[code]?.let { code to it } }
-            if (rows.isNotEmpty()) {
-                VocabSection(title = stringResource(R.string.vocab_word_section_translations)) {
-                    for ((code, tr) in rows) {
-                        VocabTranslationRow(code, tr, romanizedFirst = VocabLanguages.prefersRomanized(code, enabledIds))
-                    }
-                }
-            } else if (wantedCodes.isNotEmpty() && onGetTranslations != null && word.sources.isNotEmpty()) {
-                VocabSection(title = stringResource(R.string.vocab_word_section_translations)) {
-                    Text(stringResource(R.string.vocab_word_no_translations_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    TextButton(onClick = onGetTranslations, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                        Text(stringResource(R.string.vocab_word_get_translations_action))
-                    }
-                }
-            }
-        }
-
-        // ---- where it comes from: the chain up front, the story on request ----
-        val originLines = buildList {
-            if (shown(VocabCardField.ETYMOLOGY) && !word.etymology.isNullOrBlank()) add(R.string.vocab_word_etymology_label to word.etymology!!)
-            if (shown(VocabCardField.ROOT) && !word.root.isNullOrBlank()) add(R.string.vocab_word_root_label to word.root!!)
-            if (shown(VocabCardField.ATTESTED) && !word.attested.isNullOrBlank()) add(R.string.vocab_word_attested_label to word.attested!!)
-        }
-        val chain = word.origin.takeIf { shown(VocabCardField.ORIGIN) }.orEmpty()
-        if (chain.isNotEmpty() || originLines.isNotEmpty()) {
-            VocabSection(
-                title = stringResource(R.string.vocab_word_section_origin),
-                collapsible = originLines.isNotEmpty(),
-                summary = if (chain.isEmpty()) {
-                    null
-                } else {
-                    {
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
-                            chain.forEachIndexed { i, step ->
-                                if (i > 0) Text("←", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                VocabTag("${step.lang} ${step.word}", strong = false)
-                            }
-                        }
-                    }
-                },
-            ) {
-                for ((labelRes, body) in originLines) VocabLabeledText(stringResource(labelRes), body)
-            }
-        }
-
-        // ---- the rest ----
-        val more = buildList {
-            if (shown(VocabCardField.FORMS) && word.forms.isNotEmpty()) add(R.string.vocab_word_forms_label to word.forms.joinToString(", "))
-            if (shown(VocabCardField.HYPHENATION) && word.hyphenation.size > 1) add(R.string.vocab_word_hyphenation_label to word.hyphenation.joinToString("·"))
-            if (shown(VocabCardField.RHYMES) && !word.rhymes.isNullOrBlank()) add(R.string.vocab_word_rhymes_label to word.rhymes!!)
-            if (shown(VocabCardField.WIKIPEDIA) && !word.wikipedia.isNullOrBlank()) add(R.string.vocab_word_wikipedia_label to word.wikipedia!!)
-        }
-        if (more.isNotEmpty()) {
-            VocabSection(title = stringResource(R.string.vocab_word_section_more), collapsible = true) {
-                for ((labelRes, body) in more) VocabLabeledText(stringResource(labelRes), body)
-            }
-        }
+        VocabRelatedSection(word, index, shown, onRelated)
+        if (shown(VocabCardField.MNEMONIC)) word.mnemonic?.takeIf { it.isNotBlank() }?.let { VocabMnemonicCard(it) }
+        if (shown(VocabCardField.TRANSLATIONS)) VocabTranslationsSection(word, wantedCodes, enabledIds, onGetTranslations)
+        VocabOriginSection(word, shown)
+        VocabMoreSection(word, shown)
     }
     @Suppress("UNUSED_VARIABLE")
     val unusedTool = ToolbarTool.VOCABULARY
+}
+
+/** The headword, how to say it, the speaker, and the tags: parts of speech, progress, the lists it is in. */
+@Composable
+private fun VocabHero(
+    word: VocabWord,
+    accent: VocabAccent,
+    index: VocabIndex?,
+    learnt: Boolean,
+    box: Int?,
+    shown: (VocabCardField) -> Boolean,
+    onSpeak: () -> Unit,
+) {
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(start = 18.dp, end = 8.dp, top = 14.dp, bottom = 14.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text(word.word, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    val line = listOfNotNull(
+                        word.ipaFor(accent).takeIf { shown(VocabCardField.IPA) },
+                        word.respelling.takeIf { shown(VocabCardField.RESPELLING) },
+                    ).joinToString("  ·  ")
+                    if (line.isNotEmpty()) {
+                        Text(line, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f))
+                    }
+                }
+                IconButton(onClick = onSpeak) {
+                    Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = stringResource(R.string.vocab_word_speak_desc), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+            }
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.padding(top = 6.dp, end = 10.dp),
+            ) {
+                for (pos in word.pos) VocabTag(pos, strong = true)
+                if (learnt) {
+                    VocabTag(stringResource(R.string.vocab_word_learnt_badge), strong = true)
+                } else if (box != null && box > 0) {
+                    VocabTag(stringResource(R.string.vocab_word_box_badge, box + 1), strong = true)
+                }
+                if (shown(VocabCardField.SOURCES)) {
+                    for (id in word.sources) VocabTag(index?.sources?.get(id)?.name?.takeIf { it.isNotEmpty() } ?: id, strong = false)
+                }
+            }
+        }
+    }
+}
+
+/** The senses, grouped under their parts of speech when there is more than one. */
+@Composable
+private fun VocabMeaningSection(senses: List<VocabSense>, compact: Boolean, shown: (VocabCardField) -> Boolean) {
+    if (senses.isEmpty()) return
+    VocabSection(title = stringResource(R.string.vocab_word_section_meaning)) {
+        val grouped = senses.groupBy { it.pos }
+        var number = 0
+        for ((pos, group) in grouped) {
+            if (pos.isNotEmpty() && grouped.size > 1) {
+                Text(
+                    pos,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontStyle = FontStyle.Italic,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+            for (sense in group) {
+                number++
+                VocabSenseBlock(number, sense, compact, shown)
+            }
+        }
+    }
+}
+
+/** Synonyms, antonyms, the family, broader and narrower words, as chips; every one tappable. */
+@Composable
+private fun VocabRelatedSection(word: VocabWord, index: VocabIndex?, shown: (VocabCardField) -> Boolean, onRelated: (String) -> Unit) {
+    val chipRows = buildList {
+        if (shown(VocabCardField.SYNONYMS) && word.synonyms.isNotEmpty()) add(R.string.vocab_word_synonyms_label to word.synonyms)
+        if (shown(VocabCardField.ANTONYMS) && word.antonyms.isNotEmpty()) add(R.string.vocab_word_antonyms_label to word.antonyms)
+        if (shown(VocabCardField.FAMILY) && word.familyWords.isNotEmpty()) add(R.string.vocab_word_family_label to word.familyWords)
+        if (shown(VocabCardField.HYPERNYMS) && word.hypernyms.isNotEmpty()) add(R.string.vocab_word_hypernyms_label to word.hypernyms)
+        if (shown(VocabCardField.HYPERNYMS) && word.hyponyms.isNotEmpty()) add(R.string.vocab_word_hyponyms_label to word.hyponyms)
+    }
+    if (chipRows.isEmpty()) return
+    VocabSection(title = stringResource(R.string.vocab_word_section_related)) {
+        for ((labelRes, words) in chipRows) {
+            Text(
+                stringResource(labelRes),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (related in words) VocabRelatedChip(related, known = index?.lookupAnyForm(related) != null, onClick = { onRelated(related) })
+            }
+        }
+    }
+}
+
+/** A related word; the ones with no page of their own carry a look-up glyph. */
+@Composable
+private fun VocabRelatedChip(word: String, known: Boolean, onClick: () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(word) },
+        trailingIcon = if (known) {
+            null
+        } else {
+            {
+                Icon(
+                    Icons.Outlined.Search,
+                    contentDescription = stringResource(R.string.vocab_word_lookup_chip_desc),
+                    modifier = Modifier.size(14.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+    )
+}
+
+/** The mnemonic, set apart: it is the one line meant to stick. */
+@Composable
+private fun VocabMnemonicCard(mnemonic: String) {
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.tertiaryContainer, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+            Icon(Icons.Outlined.Lightbulb, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Text(stringResource(R.string.vocab_word_section_remember), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+                Text(mnemonic, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            }
+        }
+    }
+}
+
+/** The user's languages only, romanisation beside each gloss; a way to the packs screen when none is downloaded. */
+@Composable
+private fun VocabTranslationsSection(
+    word: VocabWord,
+    wantedCodes: List<String>,
+    enabledIds: List<String>,
+    onGetTranslations: (() -> Unit)?,
+) {
+    val rows = wantedCodes.mapNotNull { code -> word.translations[code]?.let { code to it } }
+    if (rows.isNotEmpty()) {
+        VocabSection(title = stringResource(R.string.vocab_word_section_translations)) {
+            for ((code, tr) in rows) {
+                VocabTranslationRow(code, tr, romanizedFirst = VocabLanguages.prefersRomanized(code, enabledIds))
+            }
+        }
+    } else if (wantedCodes.isNotEmpty() && onGetTranslations != null && word.sources.isNotEmpty()) {
+        VocabSection(title = stringResource(R.string.vocab_word_section_translations)) {
+            Text(stringResource(R.string.vocab_word_no_translations_body), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            TextButton(onClick = onGetTranslations, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
+                Text(stringResource(R.string.vocab_word_get_translations_action))
+            }
+        }
+    }
+}
+
+/** Where the word comes from: the chain up front, the etymology, root and first use folded behind it. */
+@Composable
+private fun VocabOriginSection(word: VocabWord, shown: (VocabCardField) -> Boolean) {
+    val lines = buildList {
+        if (shown(VocabCardField.ETYMOLOGY)) word.etymology?.takeIf { it.isNotBlank() }?.let { add(R.string.vocab_word_etymology_label to it) }
+        if (shown(VocabCardField.ROOT)) word.root?.takeIf { it.isNotBlank() }?.let { add(R.string.vocab_word_root_label to it) }
+        if (shown(VocabCardField.ATTESTED)) word.attested?.takeIf { it.isNotBlank() }?.let { add(R.string.vocab_word_attested_label to it) }
+    }
+    val chain = word.origin.takeIf { shown(VocabCardField.ORIGIN) }.orEmpty()
+    if (chain.isEmpty() && lines.isEmpty()) return
+    VocabSection(
+        title = stringResource(R.string.vocab_word_section_origin),
+        collapsible = lines.isNotEmpty(),
+        summary = if (chain.isEmpty()) {
+            null
+        } else {
+            {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
+                    chain.forEachIndexed { i, step ->
+                        if (i > 0) Text("←", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        VocabTag("${step.lang} ${step.word}", strong = false)
+                    }
+                }
+            }
+        },
+    ) {
+        for ((labelRes, body) in lines) VocabLabeledText(stringResource(labelRes), body)
+    }
+}
+
+/** Forms, hyphenation, rhymes and the Wikipedia title, folded away. */
+@Composable
+private fun VocabMoreSection(word: VocabWord, shown: (VocabCardField) -> Boolean) {
+    val lines = buildList {
+        if (shown(VocabCardField.FORMS) && word.forms.isNotEmpty()) add(R.string.vocab_word_forms_label to word.forms.joinToString(", "))
+        if (shown(VocabCardField.HYPHENATION) && word.hyphenation.size > 1) add(R.string.vocab_word_hyphenation_label to word.hyphenation.joinToString("·"))
+        if (shown(VocabCardField.RHYMES)) word.rhymes?.takeIf { it.isNotBlank() }?.let { add(R.string.vocab_word_rhymes_label to it) }
+        if (shown(VocabCardField.WIKIPEDIA)) word.wikipedia?.takeIf { it.isNotBlank() }?.let { add(R.string.vocab_word_wikipedia_label to it) }
+    }
+    if (lines.isEmpty()) return
+    VocabSection(title = stringResource(R.string.vocab_word_section_more), collapsible = true) {
+        for ((labelRes, body) in lines) VocabLabeledText(stringResource(labelRes), body)
+    }
 }
 
 /** One surface of the card. Collapsible ones show [summary] always and the body on a tap. */

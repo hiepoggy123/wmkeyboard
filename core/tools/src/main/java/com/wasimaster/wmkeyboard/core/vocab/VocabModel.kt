@@ -131,7 +131,7 @@ data class VocabTranslation(
     }
 
     private companion object {
-        fun isLatin(text: String): Boolean = text.none { Character.isLetter(it) && it.code > 0x24F && it.code !in 0x1E00..0x1EFF }
+        fun isLatin(text: String): Boolean = text.all { !Character.isLetter(it) || it.code <= 0x24F || it.code in 0x1E00..0x1EFF }
     }
 }
 
