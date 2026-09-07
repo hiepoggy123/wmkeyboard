@@ -4019,8 +4019,14 @@ data class LayoutBehaviorSettings(
     /**
      * Whether the dedicated number row also shows while the symbols layer is up.
      * Only meaningful when [KeyboardSettings.numberRow] is on. On by default (the
-     * long-standing behaviour); off keeps the digit row on the letters layer but
-     * drops it from ?123, where the symbols already carry their own top row.
+     * long-standing behaviour); off keeps the digit row on the letters layer and
+     * drops it from ?123.
+     *
+     * Off takes the digits away and nothing else: ?123 keeps the bracket and
+     * maths row it is given in place of its own digit row, because those digits
+     * are up on the letters layer either way. Letting the layer's digit row come
+     * back instead made the option look like it deleted a row of symbols, which
+     * is what it was reported as (issue #93).
      */
     val numberRowInSymbols: Boolean = true,
     /**

@@ -10791,6 +10791,17 @@ private fun KeyRows(
             // copy directly underneath — `bodyRows` swaps that one out for
             // the symbols the layer otherwise has no room for.
             val numberRow = numberRowShown(state)
+            // Whether the `?123` layer gives its digit row away. Keyed off the
+            // *global* number row rather than [numberRowShown], because the
+            // digits are already up on the letters layer whenever that switch
+            // is on — including when the user has kept the row off the symbol
+            // layers. That is what makes "number row in symbols" hide the
+            // digits and nothing else. Reading the visible row instead put the
+            // digit row back on top of ?123 and took the fill row away with
+            // it, so the option looked like it deleted a row of symbols
+            // (issue #93).
+            val symbolsGiveUpDigits = state.settings.numberRow &&
+                state.layoutMode != LayoutMode.SECONDARY
             // Remembered, not written inline: this and the spacebar's callback
             // above are parameters of every row and every key, so a fresh
             // instance per composition would be enough on its own to stop the
@@ -10803,7 +10814,9 @@ private fun KeyRows(
             // first key to report under a new one wipes the table. Identity
             // rather than a value, so two grids that compare equal still count
             // as two (see [KeyRects.record]).
-            val gridToken = remember(layout, boxOrigin, boxSize, split, mode, numberRow) { Any() }
+            val gridToken = remember(
+                layout, boxOrigin, boxSize, split, mode, numberRow, symbolsGiveUpDigits,
+            ) { Any() }
             // Read live rather than captured, so a grid that moves does not also
             // hand every key a new lambda and cost the whole board a skip.
             val liveToken = rememberUpdatedState(gridToken)
@@ -10843,7 +10856,7 @@ private fun KeyRows(
                         }
                     }
                 }
-            val bodyRows = remember(layout, mode, numberRow) {
+            val bodyRows = remember(layout, mode, symbolsGiveUpDigits) {
                 // Only when that first row really is the digits. A custom
                 // symbols layer that leads with something else would otherwise
                 // lose its top row outright, with nothing on screen to explain
@@ -10851,7 +10864,7 @@ private fun KeyRows(
                 val leadsWithDigits = layout.rows.firstOrNull()
                     ?.all { it.action == KeyAction.Text && (it.output ?: it.label).isSingleDigit() }
                     ?: false
-                if (numberRow && mode == LayoutMode.SYMBOLS && leadsWithDigits) {
+                if (symbolsGiveUpDigits && mode == LayoutMode.SYMBOLS && leadsWithDigits) {
                     listOf(SymbolsFillRow) + layout.rows.drop(1)
                 } else {
                     layout.rows
