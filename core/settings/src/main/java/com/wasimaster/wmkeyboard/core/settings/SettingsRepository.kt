@@ -2485,10 +2485,20 @@ const val LEARNED_CORRECTIONS_FILE = "learning/learned_corrections.json"
 /** Where this hand lands when tapping: a second `KeyOffsets`, with its own file. */
 const val TAP_MODEL_FILE = "learning/tap_offsets.json"
 
+/** What the user did with the words their glides gave them (see `GlideOutcomes` in :core:prediction). */
+const val GLIDE_OUTCOMES_FILE = "learning/glide_outcomes.json"
+
+/**
+ * Everything the "learn my swipe style" switch governs and its Forget deletes:
+ * the stores a kept swipe teaches, apart from the word itself.
+ */
+val SWIPE_STYLE_FILES = listOf(HAND_MODEL_FILE, GLIDE_OUTCOMES_FILE)
+
 val LEARNED_DATA_FILES = listOf(
     HAND_MODEL_FILE,
     LEARNED_CORRECTIONS_FILE,
     TAP_MODEL_FILE,
+    GLIDE_OUTCOMES_FILE,
     "learning/user_lexicon.json",
     "learning/pending_learn.json",
     "learning/emoji_usage.json",
@@ -3985,20 +3995,22 @@ data class GestureSettings(
      */
     val vocabulary: GlideVocabulary = GlideVocabulary.LARGE,
     /**
-     * Learn where this user's finger actually lands on each key from the
-     * swipes they keep, and decode against a grid moved to match — a thumb
-     * that always cuts the far keys short stops paying for it on every
-     * stroke (issue #52). Undoing a swipe takes its lesson back. On by
-     * default; off freezes what is learned and reads the keys as drawn.
+     * Learn this user's swipe style from the swipes they keep, and read later
+     * swipes by it (issue #52): where their finger actually lands on each
+     * key, so a thumb that always cuts the far keys short stops paying for
+     * it on every stroke, and which word they take off the strip when a
+     * stroke is read wrongly, so the same stroke reads their word first the
+     * next time. Undoing a swipe takes its lesson back. On by default; off
+     * freezes what is learned and reads the keys as drawn.
      */
-    val adaptToHand: Boolean = true,
+    val learnSwipeStyle: Boolean = true,
     /**
      * Bumped by the gestures screen's "forget" so a running keyboard drops
-     * its in-memory copy of the hand model — the contract of
+     * its in-memory copies of the swipe-style stores — the contract of
      * [KeyboardSettings.lexiconVersion], on a counter of its own so
-     * forgetting where the finger lands never touches which words it learned.
+     * forgetting a swipe style never touches which words were learned.
      */
-    val handModelVersion: Int = 0,
+    val swipeStyleVersion: Int = 0,
 )
 
 /**
@@ -5122,8 +5134,8 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_WORD_PREVIEW_TEXT_COLOR = longPreferencesKey("gesture_word_preview_text_color")
         private val GESTURE_STRIP_PREVIEW_ONLY = booleanPreferencesKey("gesture_strip_preview_only")
         private val GESTURE_VOCABULARY = stringPreferencesKey("gesture_vocabulary")
-        private val GESTURE_ADAPT_TO_HAND = booleanPreferencesKey("gesture_adapt_to_hand")
-        private val GESTURE_HAND_MODEL_VERSION = intPreferencesKey("gesture_hand_model_version")
+        private val GESTURE_LEARN_SWIPE_STYLE = booleanPreferencesKey("gesture_learn_swipe_style")
+        private val GESTURE_SWIPE_STYLE_VERSION = intPreferencesKey("gesture_swipe_style_version")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
         private val SPACE_SHORT_SWIPE = stringPreferencesKey("space_short_swipe")
@@ -6130,8 +6142,8 @@ class SettingsRepository(private val context: Context) {
                 vocabulary = p[GESTURE_VOCABULARY]
                     ?.let { runCatching { GlideVocabulary.valueOf(it) }.getOrNull() }
                     ?: defaults.gesture.vocabulary,
-                adaptToHand = p[GESTURE_ADAPT_TO_HAND] ?: defaults.gesture.adaptToHand,
-                handModelVersion = p[GESTURE_HAND_MODEL_VERSION] ?: defaults.gesture.handModelVersion,
+                learnSwipeStyle = p[GESTURE_LEARN_SWIPE_STYLE] ?: defaults.gesture.learnSwipeStyle,
+                swipeStyleVersion = p[GESTURE_SWIPE_STYLE_VERSION] ?: defaults.gesture.swipeStyleVersion,
             ),
             spaceShortSwipe = p[SPACE_SHORT_SWIPE]
                 ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
@@ -7678,7 +7690,7 @@ class SettingsRepository(private val context: Context) {
         bumpCorrectionsVersion()
     }
 
-    /** Deletes the learned tap model, the way [forgetHandModel] does the glide one. */
+    /** Deletes the learned tap model, the way [forgetSwipeStyle] does the swipe style. */
     suspend fun forgetTapModel() {
         runCatching { File(context.filesDir, TAP_MODEL_FILE).delete() }
         bumpCorrectionsVersion()
@@ -10176,18 +10188,19 @@ class SettingsRepository(private val context: Context) {
     suspend fun setGestureApostropheS(value: Boolean) =
         editPrefs { it[GESTURE_APOSTROPHE_S] = value }
 
-    suspend fun setGestureAdaptToHand(value: Boolean) =
-        editPrefs { it[GESTURE_ADAPT_TO_HAND] = value }
+    suspend fun setGestureLearnSwipeStyle(value: Boolean) =
+        editPrefs { it[GESTURE_LEARN_SWIPE_STYLE] = value }
 
     /**
-     * Deletes the learned hand model and tells a running keyboard to drop its
-     * copy, the way [clearLearnedData] does for the rest of the learning
-     * directory — without the lexicon signal, whose reload also empties the
-     * keyboard's half-learned words.
+     * Deletes everything a swipe style is made of — where the finger lands,
+     * and the readings the user corrected — and tells a running keyboard to
+     * drop its copies, the way [clearLearnedData] does for the rest of the
+     * learning directory — without the lexicon signal, whose reload also
+     * empties the keyboard's half-learned words.
      */
-    suspend fun forgetHandModel() {
-        runCatching { File(context.filesDir, HAND_MODEL_FILE).delete() }
-        editPrefs { it[GESTURE_HAND_MODEL_VERSION] = (it[GESTURE_HAND_MODEL_VERSION] ?: 0) + 1 }
+    suspend fun forgetSwipeStyle() {
+        for (path in SWIPE_STYLE_FILES) runCatching { File(context.filesDir, path).delete() }
+        editPrefs { it[GESTURE_SWIPE_STYLE_VERSION] = (it[GESTURE_SWIPE_STYLE_VERSION] ?: 0) + 1 }
     }
 
     suspend fun setGestureAutoSpace(value: Boolean) =

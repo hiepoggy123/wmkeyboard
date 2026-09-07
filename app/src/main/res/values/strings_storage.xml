@@ -148,6 +148,7 @@
     <string name="storage_file_key_offsets_label">Where your finger lands on keys</string>
     <string name="storage_file_learned_corrections_label">Fixes you taught autocorrect</string>
     <string name="storage_file_tap_offsets_label">Where your finger lands when tapping</string>
+    <string name="storage_file_glide_outcomes_label">Swipe readings you corrected</string>
 
     <!-- your own data -->
     <string name="storage_file_typing_stats_label">Your typing counts</string>

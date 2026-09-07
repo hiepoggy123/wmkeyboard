@@ -1217,13 +1217,13 @@ internal fun TypingCodesSettings(
 }
 
 /**
- * "Forget" for the learned hand model (issue #52): a confirm, then the file
- * goes and a running keyboard is told to drop its copy. Its own row rather
- * than a corner of "Delete learned words", which takes the personal
+ * "Forget" for the learned swipe style (issue #52): a confirm, then the
+ * files go and a running keyboard is told to drop its copies. Its own row
+ * rather than a corner of "Delete learned words", which takes the personal
  * dictionary with it.
  */
 /**
- * The tap model's "forget", the twin of [ForgetHandModelRow] for taps: a
+ * The tap model's "forget", the twin of [ForgetSwipeStyleRow] for taps: a
  * confirmed reset that deletes the learned tap positions and tells a running
  * keyboard through its own version signal.
  */
@@ -1256,22 +1256,22 @@ private fun ForgetTapModelRow(repository: SettingsRepository) {
 }
 
 @Composable
-private fun ForgetHandModelRow(repository: SettingsRepository) {
+private fun ForgetSwipeStyleRow(repository: SettingsRepository) {
     val scope = rememberCoroutineScope()
     var confirm by remember { mutableStateOf(false) }
     TextButton(
         onClick = { confirm = true },
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-    ) { Text(stringResource(R.string.typing_glide_adapt_hand_forget)) }
+    ) { Text(stringResource(R.string.typing_glide_swipe_style_forget)) }
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text(stringResource(R.string.typing_glide_adapt_hand_forget_title)) },
-            text = { Text(stringResource(R.string.typing_glide_adapt_hand_forget_body)) },
+            title = { Text(stringResource(R.string.typing_glide_swipe_style_forget_title)) },
+            text = { Text(stringResource(R.string.typing_glide_swipe_style_forget_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirm = false
-                    scope.launch { repository.forgetHandModel() }
+                    scope.launch { repository.forgetSwipeStyle() }
                 }) { Text(stringResource(CommonR.string.common_reset)) }
             },
             dismissButton = {
@@ -1410,14 +1410,14 @@ internal fun TypingGesturesSettings(
                 }
                 item {
                     ToggleSetting(
-                        R.string.typing_glide_adapt_hand_title,
-                        stringResource(R.string.typing_glide_adapt_hand_subtitle),
-                        settings.gesture.adaptToHand,
-                        info = stringResource(R.string.typing_glide_adapt_hand_info),
-                        default = SettingsDefaults.gesture.adaptToHand,
-                    ) { scope.launch { repository.setGestureAdaptToHand(it) } }
+                        R.string.typing_glide_swipe_style_title,
+                        stringResource(R.string.typing_glide_swipe_style_subtitle),
+                        settings.gesture.learnSwipeStyle,
+                        info = stringResource(R.string.typing_glide_swipe_style_info),
+                        default = SettingsDefaults.gesture.learnSwipeStyle,
+                    ) { scope.launch { repository.setGestureLearnSwipeStyle(it) } }
                 }
-                item { ForgetHandModelRow(repository) }
+                item { ForgetSwipeStyleRow(repository) }
                 // How much of the dictionary a swipe may answer with. The
                 // shipped lists are smaller than every limit, so this does
                 // nothing until a large list is downloaded or imported (#28).

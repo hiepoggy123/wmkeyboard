@@ -464,6 +464,14 @@ class SuggestionEngine(
     }
 
     /**
+     * What the user did with the words earlier glides gave them, as a nudge
+     * on a decode's scores (issue #52). Memory-only by default, like
+     * [correctionStats]; the IME swaps in the persisted store.
+     */
+    @Volatile
+    var glideOutcomes: GlideOutcomes = GlideOutcomes(null)
+
+    /**
      * When on, the effective confidence gate is scaled by the user's recent
      * revert rate — a keyboard being corrected-then-undone often demands more
      * certainty before forcing anything. The slider setting stays the anchor.
@@ -773,7 +781,7 @@ class SuggestionEngine(
         // stands for are what the rest of this — the blacklist, the reranker,
         // the caller — should ever see.
         val words = if (romanization.isEmpty) decoded else romanization.resolve(decoded)
-        val kept = shiftGlideRanks(words.filterNot { suppressed(it.word) })
+        val kept = shiftGlideScores(words.filterNot { suppressed(it.word) })
         if (kept.isEmpty()) return kept
         return rerankGlide(kept, previousWord, previousWord2, recentWords)
             .take(limit)
@@ -792,15 +800,24 @@ class SuggestionEngine(
     }
 
     /**
-     * Applies the user's rank adjustments ([rankOffsets]) to a stroke's
-     * candidates, the same flat shift [suggest] gives typed candidates, and
+     * Applies the user's rank adjustments ([rankOffsets]) — the same flat
+     * shift [suggest] gives typed candidates — and what they did with earlier
+     * readings of a stroke ([glideOutcomes]) to a stroke's candidates, and
      * puts them back in score order. Matches on keys, like the blacklist.
+     *
+     * In nats on the decoder's own scores rather than as a reorder after the
+     * context rerank, so a preference the user has taught also widens the
+     * gap the ambiguity picker measures: a stroke they have corrected three
+     * times stops asking. A rank adjustment is ten times anything the
+     * outcomes can say, so where the user put a word by hand always wins.
      */
-    private fun shiftGlideRanks(decoded: List<GlideBeam.Candidate>): List<GlideBeam.Candidate> {
-        if (rankOffsets.isEmpty() || decoded.isEmpty()) return decoded
+    private fun shiftGlideScores(decoded: List<GlideBeam.Candidate>): List<GlideBeam.Candidate> {
+        if (decoded.isEmpty()) return decoded
+        val nudges = glideOutcomes.view().adjustments(decoded.map { it.word })
+        if (rankOffsets.isEmpty() && nudges == null) return decoded
         var moved = false
-        val shifted = decoded.map { c ->
-            val shift = rankOffset(c.word)
+        val shifted = decoded.mapIndexed { i, c ->
+            val shift = rankOffset(c.word) + (nudges?.get(i) ?: 0.0)
             if (shift == 0.0) {
                 c
             } else {

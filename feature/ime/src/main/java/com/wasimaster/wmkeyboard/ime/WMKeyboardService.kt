@@ -141,6 +141,7 @@ import com.wasimaster.wmkeyboard.core.prediction.CorrectionMemory
 import com.wasimaster.wmkeyboard.core.prediction.CorrectionStats
 import com.wasimaster.wmkeyboard.core.prediction.CorrectionWatch
 import com.wasimaster.wmkeyboard.core.prediction.EditOps
+import com.wasimaster.wmkeyboard.core.prediction.GlideOutcomes
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackDownloadManager
 import com.wasimaster.wmkeyboard.core.prediction.NgramPack
 import com.wasimaster.wmkeyboard.core.prediction.NgramReranker
@@ -237,6 +238,7 @@ import com.wasimaster.wmkeyboard.core.support.Support
 import com.wasimaster.wmkeyboard.core.stickers.StickerImage
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
+import com.wasimaster.wmkeyboard.core.settings.GLIDE_OUTCOMES_FILE
 import com.wasimaster.wmkeyboard.core.settings.HAND_MODEL_FILE
 import com.wasimaster.wmkeyboard.core.settings.LEARNED_CORRECTIONS_FILE
 import com.wasimaster.wmkeyboard.core.settings.TAP_MODEL_FILE
@@ -1332,6 +1334,12 @@ open class WMKeyboardService : InputMethodService() {
     /** What the last kept glide taught [keyOffsets], so undoing it can un-teach. */
     private var lastHandAdjustment: KeyOffsets.Adjustment? = null
 
+    /** What the user did with the words their glides gave them, as a nudge on the next decode (issue #52). */
+    private var glideOutcomes = GlideOutcomes(null)
+
+    /** The deep retry's strip after an undo, and the word it replaced; inert once the strip is any other list. */
+    private var glideRetryOffer: GlideRetryOffer? = null
+
     /**
      * The word the caret is sitting *inside* — [head] behind it, [tail] ahead
      * — when it is not parked at that word's end. Null the rest of the time.
@@ -2156,8 +2164,8 @@ open class WMKeyboardService : InputMethodService() {
 
         serviceScope.launch {
             var lexiconVersion = -1
-            var handModelVersion = -1
             var correctionsVersion = -1
+            var swipeStyleVersion = -1
             var statsVersion = -1
             var customDictVersion = -1
             var emojiPackVersion = -1
@@ -2358,6 +2366,7 @@ open class WMKeyboardService : InputMethodService() {
                         keyOffsets.reload()
                         correctionMemory.reload()
                         tapOffsets.reload()
+                        glideOutcomes.reload()
                         emojiUsage.reload()
                         languageMixConfidence.reload()
                     }
@@ -2371,14 +2380,15 @@ open class WMKeyboardService : InputMethodService() {
                     learningBuffer.clear()
                 }
                 lexiconVersion = settings.lexiconVersion
-                // The gestures screen's "forget" for the hand model: its own
+                // The gestures screen's "forget" for the swipe style: its own
                 // signal, because the lexicon's also empties the learning
-                // buffer, which forgetting where the finger lands must not.
-                if (handModelVersion != -1 && settings.gesture.handModelVersion != handModelVersion) {
+                // buffer, which forgetting a swipe style must not.
+                if (swipeStyleVersion != -1 && settings.gesture.swipeStyleVersion != swipeStyleVersion) {
                     keyOffsets.reload()
                     lastHandAdjustment = null
+                    glideOutcomes.reload()
+                    glideRetryOffer = null
                 }
-                handModelVersion = settings.gesture.handModelVersion
                 // The Learned-corrections screen's deletes, and "forget" for
                 // the tap model: their own signal for the hand model's reason.
                 if (correctionsVersion != -1 &&
@@ -2392,6 +2402,7 @@ open class WMKeyboardService : InputMethodService() {
                     refreshTouchModelIfMoved()
                 }
                 correctionsVersion = settings.suggestionStrip.correctionsVersion
+                swipeStyleVersion = settings.gesture.swipeStyleVersion
                 // Same contract for the typing counters: the Statistics
                 // screen's delete (and the Storage screen's) bumps the
                 // version so the in-memory copy here does not save the old
@@ -2501,6 +2512,7 @@ open class WMKeyboardService : InputMethodService() {
                     settings.autocorrectConfidence.toDouble()
                 suggestionEngine?.adaptiveConfidence = settings.autocorrectAdaptive
                 correctionStats.memory = settings.autocorrectUndoMemory
+                glideOutcomes.applied = settings.gesture.learnSwipeStyle
                 suggestionEngine?.reranker = resolveReranker(settings)
                 suggestionEngine?.blacklist = settings.suggestionBlacklist
                 purgeBlacklisted(settings.suggestionBlacklist)
@@ -2709,6 +2721,11 @@ open class WMKeyboardService : InputMethodService() {
         suggestionEngine?.rankOffsets = wordRanks.snapshot()
         keyOffsets = KeyOffsets(store(HAND_MODEL_FILE))
         lastHandAdjustment = null
+        glideOutcomes = GlideOutcomes(store(GLIDE_OUTCOMES_FILE)).also {
+            it.applied = _uiState.value.settings.gesture.learnSwipeStyle
+        }
+        glideRetryOffer = null
+        suggestionEngine?.glideOutcomes = glideOutcomes
         correctionStats = CorrectionStats(store("learning/correction_stats.json"))
         // The swapped-in store starts on the default level; carry the user's
         // setting across, or it stays at NORMAL until the next settings emit.
@@ -2933,6 +2950,7 @@ open class WMKeyboardService : InputMethodService() {
                 correctionStats = this@WMKeyboardService.correctionStats.apply {
                     memory = _uiState.value.settings.autocorrectUndoMemory
                 }
+                glideOutcomes = this@WMKeyboardService.glideOutcomes
                 blacklist = _uiState.value.settings.suggestionBlacklist
                 rankOffsets = wordRanks.snapshot()
                 offensiveWords = offensiveSet
@@ -4240,6 +4258,7 @@ open class WMKeyboardService : InputMethodService() {
         keyOffsets.save()
         tapOffsets.save()
         correctionMemory.save()
+        glideOutcomes.save()
         correctionStats.save()
         CjkLearning.store?.save()
         languageMixConfidence.save()
@@ -4285,6 +4304,7 @@ open class WMKeyboardService : InputMethodService() {
         keyOffsets.save()
         tapOffsets.save()
         correctionMemory.save()
+        glideOutcomes.save()
         correctionStats.save()
         CjkLearning.store?.save()
         emojiUsage.save()
@@ -5966,7 +5986,10 @@ open class WMKeyboardService : InputMethodService() {
                     // so the stroke goes back through the decoder with the
                     // vocabulary cap off and the word it already gave ruled
                     // out, and whatever it finds waits on the strip.
-                    if (stroke != null) glideDeepRetry(stroke, rejected = word)
+                    if (stroke != null) {
+                        noteGlideUndone(word)
+                        glideDeepRetry(stroke, rejected = word)
+                    }
                     return
                 }
             }
@@ -11336,10 +11359,25 @@ open class WMKeyboardService : InputMethodService() {
                 // replacement lands at the same place the old word ended, so
                 // no caret move says it happened.
                 learningBuffer.drop(gestureWord)
+                // The pick over it is the clearest preference there is,
+                // remembered against the pair so the same stroke reads the
+                // chosen word first next time (issue #52).
+                if (lastGestureStroke != null && WordKey.of(suggestion) != WordKey.of(gestureWord)) {
+                    noteGlidePreference(rejected = gestureWord, chosen = suggestion)
+                }
                 // Nor of where the finger lands — but the word picked in its
                 // place is, and the stroke is still here to measure it by.
                 unlearnHand()
                 lastGestureStroke?.let { learnHand(it.points, it.keys, it.keyWidthPx, suggestion) }
+            }
+        }
+        // A pick off the strip the deep retry filled after an undo is a
+        // preference for the pick over the undone word. The offer is tied to
+        // the list it drew, so any other strip since makes it inert.
+        glideRetryOffer?.let { offer ->
+            glideRetryOffer = null
+            if (offer.offered === _uiState.value.suggestions && suggestion in offer.offered) {
+                noteGlidePreference(rejected = offer.rejected, chosen = suggestion)
             }
         }
         lastGestureStroke = null
@@ -11482,7 +11520,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun keyMapFor(keys: List<KeyCenter>, keyWidthPx: Float): GlideKeyMap {
         // The hand model moves the keys under the decoder (issue #52). Its
         // version is part of the cache key: every kept glide moves the grid.
-        val hand = keyOffsets.takeIf { _uiState.value.settings.gesture.adaptToHand && !it.isEmpty() }
+        val hand = keyOffsets.takeIf { _uiState.value.settings.gesture.learnSwipeStyle && !it.isEmpty() }
         val version = hand?.version ?: -1
         val cached = cachedKeyMap
         if (cached != null && cachedKeyMapWidth == keyWidthPx && cachedKeyMapKeys == keys &&
@@ -11528,7 +11566,7 @@ open class WMKeyboardService : InputMethodService() {
         keyWidthPx: Float,
         word: String,
     ): KeyOffsets.Adjustment? {
-        if (!_uiState.value.settings.gesture.adaptToHand) return null
+        if (!_uiState.value.settings.gesture.learnSwipeStyle) return null
         val engine = suggestionEngine ?: return null
         val raw = rawKeyMapFor(keys, keyWidthPx)
         val aligned = engine.alignGlide(word, points, raw, keyWidthPx) ?: return null
@@ -11543,6 +11581,20 @@ open class WMKeyboardService : InputMethodService() {
     private fun unlearnHand() {
         lastHandAdjustment?.let { keyOffsets.retract(it) }
         lastHandAdjustment = null
+    }
+
+    /** Whether a glide's outcome may be remembered: the learning gate, and the swipe-style switch. */
+    private val swipeStyleLearning: Boolean
+        get() = learningAllowed && _uiState.value.settings.gesture.learnSwipeStyle
+
+    /** The user took [chosen] in place of [rejected], the word a stroke was read as (issue #52). */
+    private fun noteGlidePreference(rejected: String, chosen: String) {
+        if (swipeStyleLearning) glideOutcomes.observeAlternative(rejected, chosen)
+    }
+
+    /** The user backspaced [word] the moment a glide committed it. */
+    private fun noteGlideUndone(word: String) {
+        if (swipeStyleLearning) glideOutcomes.observeImmediateUndo(word)
     }
 
     /**
@@ -11633,6 +11685,7 @@ open class WMKeyboardService : InputMethodService() {
             if (composing.isNotEmpty()) return@launch
             val offered = words.filterNot { it.equals(rejected, ignoreCase = true) }.take(slots)
             if (offered.isEmpty()) return@launch
+            glideRetryOffer = GlideRetryOffer(rejected, offered)
             _uiState.update { it.copy(suggestions = offered) }
         }
     }
@@ -12000,6 +12053,11 @@ open class WMKeyboardService : InputMethodService() {
             // by a glided word committed in lower case, because the glide's own
             // space never goes through onSpace (#46).
             commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoApostrophe)
+            // Lifting on a picker word that was not the leader is a pick over
+            // the leader, remembered against the pair (issue #52).
+            if (chosen != null && candidates.isNotEmpty() && chosen != candidates.first()) {
+                noteGlidePreference(rejected = candidates.first(), chosen = chosen)
+            }
             val picked = chosen ?: candidates.first()
             val strip = if (chosen != null) glideStripOrder(candidates, chosen) else candidates
             val word = when (shiftAtGesture) {
@@ -12132,6 +12190,9 @@ open class WMKeyboardService : InputMethodService() {
                 // decode of it the way a single glide's pick does.
                 val picked = chosen?.takeIf { index == segments.lastIndex }
                 if (candidates.isEmpty() && picked == null) return@forEachIndexed
+                if (picked != null && candidates.isNotEmpty() && picked != candidates.first()) {
+                    noteGlidePreference(rejected = candidates.first(), chosen = picked)
+                }
                 val leader = picked ?: candidates.first()
                 val word = if (index == 0) {
                     when (shiftAtGesture) {
@@ -22091,6 +22152,9 @@ private class GlideStroke(
     val keys: List<KeyCenter>,
     val keyWidthPx: Float,
 )
+
+/** The strip a deep retry filled after an undo, and the word it replaced: a pick off it prefers the pair. */
+private class GlideRetryOffer(val rejected: String, val offered: List<String>)
 
 /**
  * Longest selection the macro bar reads out of the field.

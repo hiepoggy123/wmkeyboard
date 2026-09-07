@@ -12,7 +12,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Area | Families | Features | Capabilities |
 |---|---|---|---|
 | Typing core: prediction, autocorrect, learning, spell check | 9 | 50 | 182 |
-| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 181 |
+| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 187 |
 | Languages, scripts, layouts, transliteration | 11 | 63 | 194 |
 | Themes and appearance | 14 | 73 | 179 |
 | Emoji, GIFs, stickers, kaomoji | 16 | 88 | 94 |
@@ -23,7 +23,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Accessibility, form factors, platform integration | 13 | 60 | 108 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 201 |
-| **Total** | **132** | **793** | **2094** |
+| **Total** | **132** | **793** | **2100** |
 
 ## Typing core: prediction, autocorrect, learning, spell check
 
@@ -329,10 +329,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Multi-word glide across the spacebar `uncommon` — One unbroken stroke crossing space commits several words; spacebar points anchor no letter and are dropped
     - Sequential context — Each segment decoded after the previous one is committed and learned, so word 2 sees word 1 as context
     - Toggleable — Off makes a spacebar-crossing stroke decode as one word
-  - Hand adaptation `RARE` — Kept swipes teach where the finger really lands on each key; later swipes decode against a grid moved to match (KeyOffsets)
+  - Swipe style learning `RARE` — Everything a kept swipe teaches apart from the word itself, behind one switch and one Forget; off freezes it, Forget deletes it without touching learned words
+    - Hand adaptation — Kept swipes teach where the finger really lands on each key; later swipes decode against a grid moved to match (KeyOffsets)
     - Keyed by position, not letter — Half-key cells, so layouts with the same geometry share what either learned; a barely-swiped key follows the whole hand's mean
     - Undo un-teaches — Backspacing a swiped word, or replacing it off the strip, retracts exactly what it taught; the replacement teaches instead
-    - Own off switch and Forget — Off freezes the model; Forget deletes it without touching learned words
+    - Outcome memory — A word taken off the strip over the one a stroke was read as, a picker word that was not the leader, a pick off the deep-retry strip, or a swiped word backspaced straight away, nudges the next decode of that pair (GlideOutcomes)
+    - Pairs, not words — "nor over not" says nothing about "nor" against "now"; a pick the other way is counter-evidence, and a pick repays an undo strike
+    - Bounded and fading — At most one close-call margin up and under half of one down, so three consistent picks flip a close call and no habit overturns a clear reading; strength fades with use, not time
+    - Nothing readable on disk — Salted fingerprints, strengths and logical ages; the salt rotates on Forget; not in the backup
   - Apostrophe in a glide `RARE` — One chosen key (comma, full stop, spacebar or a real apostrophe key) stands for `'` on the glide grid, so "it's" is drawn as i-t-'-s instead of guessed from "its"; off by default
     - Exactly one key — Emitted before every other pass so it takes the claim on `'` off the long-press alternate a layout may hide one behind; two apostrophe keys measurably blur both
     - Spacebar is exclusive — Picking it stands down the multi-word split, since one crossing cannot mean both "word ends" and "apostrophe"
