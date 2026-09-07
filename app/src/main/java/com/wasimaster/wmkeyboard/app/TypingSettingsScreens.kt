@@ -600,7 +600,9 @@ internal fun TypingSuggestionsSettings(
                 default = SettingsDefaults.suggestions,
             ) { scope.launch { repository.setSuggestions(it) } }
         }
-        item {
+        // The strip refresh returns before it reads any of this while
+        // suggestions are off, so the chips never get built.
+        if (settings.suggestions) item {
             ToggleSetting(
                 R.string.typing_punctuation_suggestions_title,
                 stringResource(R.string.typing_punctuation_suggestions_subtitle),
@@ -609,7 +611,7 @@ internal fun TypingSuggestionsSettings(
                 default = SettingsDefaults.suggestionStrip.punctuation,
             ) { scope.launch { repository.setPunctuationSuggestions(it) } }
         }
-        if (settings.suggestionStrip.punctuation) {
+        if (settings.suggestions && settings.suggestionStrip.punctuation) {
             item {
                 TextFieldSetting(
                     label = stringResource(R.string.typing_punctuation_marks_title),
@@ -660,7 +662,9 @@ internal fun TypingSuggestionsSettings(
                 default = SettingsDefaults.suggestionStrip.learnedWordMinCount.toFloat(),
             ) { scope.launch { repository.setLearnedWordMinCount(it.toInt()) } }
         }
-        item {
+        // A near miss is only ever offered from the autocorrect branch, so
+        // with autocorrect off there is nothing to widen.
+        if (settings.autocorrect) item {
             ToggleSetting(
                 R.string.typing_offer_near_miss_title,
                 stringResource(R.string.typing_offer_near_miss_subtitle),
@@ -701,7 +705,7 @@ internal fun TypingSuggestionsSettings(
                 default = SettingsDefaults.showSuggestionsInAllFields,
             ) { scope.launch { repository.setShowSuggestionsInAllFields(it) } }
         }
-        item {
+        if (settings.suggestions) item {
             ToggleSetting(
                 R.string.typing_suggestions_first_title,
                 stringResource(R.string.typing_suggestions_first_subtitle),
