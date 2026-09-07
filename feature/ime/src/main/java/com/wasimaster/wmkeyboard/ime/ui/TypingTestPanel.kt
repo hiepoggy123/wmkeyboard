@@ -25,6 +25,8 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
+import com.wasimaster.wmkeyboard.core.script.TextDirection
 import com.wasimaster.wmkeyboard.core.settings.TypingTestSettings
 import com.wasimaster.wmkeyboard.core.tools.TypingWordPools
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +47,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -62,6 +65,7 @@ import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -70,6 +74,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
@@ -179,6 +184,15 @@ private fun TypingRunView(state: KeyboardUiState, onAction: (TypingTestAction) -
                     .fillMaxWidth()
                     .verticalScroll(scrollState),
             ) {
+                // Each word is its own Text, so a word shapes right-to-left of
+                // its own accord while the row placing them stays left-to-right:
+                // a Persian prompt read backwards word by word even though every
+                // word was correct (issue #95). The row follows the prompt's
+                // script, so the first word starts at the right edge and the
+                // lines wrap leftwards.
+                CompositionLocalProvider(
+                    LocalLayoutDirection provides promptDirection(test.languageId),
+                ) {
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     // No inter-word gap here: each word carries its own trailing
@@ -206,6 +220,7 @@ private fun TypingRunView(state: KeyboardUiState, onAction: (TypingTestAction) -
                             modifier = wordModifier,
                         )
                     }
+                }
                 }
                 Spacer(Modifier.height(viewport / 2))
             }
@@ -241,6 +256,16 @@ private fun TypingUnavailableNotice(state: KeyboardUiState, modifier: Modifier =
             modifier = Modifier.padding(horizontal = 8.dp),
         )
     }
+}
+
+/**
+ * Which way the prompt's words run. Read off the language the prompt was
+ * dealt in rather than the keyboard's current one, so the row can never end
+ * up laid out against the script the words are actually written in.
+ */
+private fun promptDirection(languageId: String): LayoutDirection {
+    val script = ScriptRegistry[LanguageRegistry.byId(languageId).script]
+    return if (script.direction == TextDirection.RTL) LayoutDirection.Rtl else LayoutDirection.Ltr
 }
 
 /**
