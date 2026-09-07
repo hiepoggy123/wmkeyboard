@@ -710,17 +710,20 @@ internal fun AiActionEditor(
         if (!askEachRun) {
             item {
                 ToggleSetting(
-                    R.string.toolai_ai_action_output_only_title,
-                    stringResource(R.string.toolai_ai_action_output_only_subtitle),
-                    outputOnly,
-                ) { outputOnly = it }
-            }
-            item {
-                ToggleSetting(
                     R.string.toolai_ai_action_raw_title,
                     stringResource(R.string.toolai_ai_action_raw_subtitle),
                     rawPrompt,
                 ) { rawPrompt = it }
+            }
+            // A raw prompt is sent as written, frame and all: `AiPrompts`
+            // returns the task before it ever reads this, so the switch is
+            // inert. It sits under the raw one for that reason.
+            if (!rawPrompt) item {
+                ToggleSetting(
+                    R.string.toolai_ai_action_output_only_title,
+                    stringResource(R.string.toolai_ai_action_output_only_subtitle),
+                    outputOnly,
+                ) { outputOnly = it }
             }
         }
     }
