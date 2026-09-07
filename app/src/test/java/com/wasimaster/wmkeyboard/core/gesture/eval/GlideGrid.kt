@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.gesture.eval
 
+import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -22,6 +23,9 @@ import com.wasimaster.wmkeyboard.ime.keySpelling
  * Coordinates are in key widths. Rows narrower than the widest are centred, the
  * same rule `KeyRows` follows, so the stagger a shift or backspace key creates
  * is real rather than assumed.
+ *
+ * Keyed by code point, like the grid it models: a letter outside the BMP is one
+ * key, not two halves. The `Char` conveniences are for the Latin-only tests.
  */
 class GlideGrid private constructor(
     val name: String,
@@ -29,16 +33,22 @@ class GlideGrid private constructor(
     val keys: List<KeyCenter>,
 ) {
 
-    private val byChar: Map<Char, KeyCenter> = keys.associateBy { it.char }
+    private val byCodePoint: Map<Int, KeyCenter> = keys.associateBy { it.codePoint }
 
-    /** Characters this grid can spell. */
-    val alphabet: Set<Char> get() = byChar.keys
+    /** Code points this grid can spell. */
+    val alphabet: Set<Int> get() = byCodePoint.keys
+
+    /** Where [codePoint] sits, in key widths, or null when the grid cannot produce it. */
+    fun centerOf(codePoint: Int): KeyCenter? = byCodePoint[Character.toLowerCase(codePoint)]
 
     /** Where [ch] sits, in key widths, or null when the grid cannot produce it. */
-    fun centerOf(ch: Char): KeyCenter? = byChar[ch.lowercaseChar()]
+    fun centerOf(ch: Char): KeyCenter? = centerOf(ch.code)
 
-    /** The character whose key centre sits closest to a point, in key widths. */
-    fun nearestKey(x: Float, y: Float): Char {
+    /** Whether every letter of [word] is on this grid. */
+    fun canSpell(word: String): Boolean = GlideCoverage.spells(word, alphabet)
+
+    /** The code point whose key centre sits closest to a point, in key widths. */
+    fun nearestKey(x: Float, y: Float): Int {
         var best = keys.first()
         var bestDistance = Float.MAX_VALUE
         for (key in keys) {
@@ -48,12 +58,12 @@ class GlideGrid private constructor(
                 best = key
             }
         }
-        return best.char
+        return best.codePoint
     }
 
     /** The grid in the pixel space of a keyboard with keys [keyWidth] wide. */
     fun keyCenters(keyWidth: Float): List<KeyCenter> =
-        keys.map { KeyCenter(it.char, it.x * keyWidth, it.y * keyWidth) }
+        keys.map { KeyCenter(it.codePoint, it.x * keyWidth, it.y * keyWidth) }
 
     companion object {
 
@@ -61,7 +71,7 @@ class GlideGrid private constructor(
             val layer = spec.compile(LayoutLayer.LETTERS)
             val rowWidths = layer.rows.map { row -> row.sumOf { it.width.toDouble() }.toFloat() }
             val widest = rowWidths.maxOrNull() ?: 0f
-            val centres = HashMap<Char, Pair<Float, Float>>()
+            val centres = HashMap<Int, Pair<Float, Float>>()
             for ((index, row) in layer.rows.withIndex()) {
                 var x = (widest - rowWidths[index]) / 2f
                 for (key in row) {

@@ -89,5 +89,45 @@ class ScriptRegistryTest {
             ScriptRegistry[ScriptId.ADLAM].direction,
         )
         assertFalse("Vai is a syllabary and uncased", ScriptRegistry[ScriptId.VAI].hasLetterCase)
+        assertTrue("Warang Citi is a cased script", ScriptRegistry[ScriptId.WARANG_CITI].hasLetterCase)
+    }
+
+    /**
+     * Hangul is written from three blocks — the syllables the composer commits,
+     * and the two jamo blocks the keys emit — and a single contiguous range can
+     * hold only one of them. [ScriptDef.contains] is what a "which script is this
+     * character" question has to ask, or a grid of conjoining jamo reads as no
+     * script at all.
+     */
+    @Test
+    fun `contains answers for every block a script is written from`() {
+        val hangul = ScriptRegistry[ScriptId.HANGUL]
+        assertTrue("a syllable is Hangul", hangul.contains('한'.code))
+        assertTrue("a compatibility jamo is Hangul", hangul.contains('ㄱ'.code))
+        assertTrue("a conjoining initial is Hangul", hangul.contains(0x1100))
+        assertTrue("a conjoining final is Hangul", hangul.contains(0x11C2))
+        assertFalse("Latin is not Hangul", hangul.contains('a'.code))
+        // The main block alone stays the cluster-deletion bound.
+        assertFalse("jamo are outside the main block", 0x1100 in hangul.unicodeRange)
+
+        val warangCiti = ScriptRegistry[ScriptId.WARANG_CITI]
+        assertTrue(warangCiti.contains(0x118A0))
+        assertTrue(warangCiti.contains(0x118FF))
+        assertFalse(warangCiti.contains(0x11900))
+    }
+
+    /** A script written from more than one block must not name its main block twice. */
+    @Test
+    fun `no script lists its main block among its other blocks`() {
+        for (id in ScriptId.entries) {
+            val def = ScriptRegistry[id]
+            for (range in def.moreRanges) {
+                assertFalse("script $id declares an empty extra range", range.isEmpty())
+                assertTrue(
+                    "script $id repeats its main block ${def.unicodeRange} in moreRanges",
+                    range != def.unicodeRange,
+                )
+            }
+        }
     }
 }

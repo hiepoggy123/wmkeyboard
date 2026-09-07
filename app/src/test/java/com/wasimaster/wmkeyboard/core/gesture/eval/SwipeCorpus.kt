@@ -176,12 +176,15 @@ class SwipeCorpus(
      */
     private fun anchorsOf(word: String): List<Pt>? {
         val out = ArrayList<Pt>(word.length)
-        var previous: Char? = null
-        for (ch in word) {
-            if (ch == previous) continue
-            val key = grid.centerOf(ch) ?: return null
+        var previous = -1
+        var at = 0
+        while (at < word.length) {
+            val codePoint = word.codePointAt(at)
+            at += Character.charCount(codePoint)
+            if (codePoint == previous) continue
+            val key = grid.centerOf(codePoint) ?: return null
             out.add(Pt(key.x, key.y))
-            previous = ch
+            previous = codePoint
         }
         return out
     }
@@ -396,8 +399,7 @@ class SwipeCorpus(
      */
     private fun usable(entry: Pair<String, Int>): Boolean {
         val word = entry.first
-        return word.length in MIN_WORD..MAX_WORD &&
-            word.all { it.lowercaseChar() in grid.alphabet }
+        return word.length in MIN_WORD..MAX_WORD && grid.canSpell(word)
     }
 
     /** Cumulative-sum frequency-weighted sampling with binary search. */

@@ -141,10 +141,8 @@ object Apostrophes {
     private fun fix(word: String, table: Map<String, String>): String? {
         val fixed = table[word.lowercase()] ?: return null
         val result = when {
-            word.length > 1 && word.all { !it.isLetter() || it.isUpperCase() } ->
-                fixed.uppercase()
-            word.firstOrNull()?.isUpperCase() == true ->
-                fixed.replaceFirstChar { it.uppercase() }
+            word.codePointCount(0, word.length) > 1 && lettersAllUpper(word) -> fixed.uppercase()
+            startsUpperCase(word) -> capitalizeFirst(fixed)
             else -> fixed
         }
         return if (result == word) null else result

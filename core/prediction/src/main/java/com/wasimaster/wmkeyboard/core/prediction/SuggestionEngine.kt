@@ -637,7 +637,7 @@ class SuggestionEngine(
      * letting it vote would have a handful of leftover English words decide
      * whether Bengali is glidable.
      */
-    fun glideCoverage(alphabet: Set<Char>): Float {
+    fun glideCoverage(alphabet: Set<Int>): Float {
         val romanization = glideRomanization
         // Through the romanization when there is one: on Avro the question is
         // whether the Latin grid spells the *romanized* vocabulary, and asking
@@ -1919,8 +1919,7 @@ class SuggestionEngine(
     }
 
     /** True when [word] has letters and every one of them is uppercase. */
-    private fun isAllCaps(word: String): Boolean =
-        word.length > 1 && word.any { it.isLetter() } && word.all { !it.isLetter() || it.isUpperCase() }
+    private fun isAllCaps(word: String): Boolean = isAllCapsWord(word)
 
     /**
      * The spelling a candidate should be offered in.
@@ -1949,12 +1948,15 @@ class SuggestionEngine(
         return userLexicon.displayOf(key) ?: systemWordCases[key] ?: word
     }
 
-    /** Applies the typed word's capitalization pattern to a suggestion. */
+    /**
+     * Applies the typed word's capitalization pattern to a suggestion. Letters
+     * are judged by code point — see `WordCase.kt` — or a cased script outside
+     * the BMP reads as all capitals and every suggestion for it is shouted.
+     */
     private fun matchCase(typed: String, suggestion: String): String = when {
-        typed.length > 1 && typed.all { !it.isLetter() || it.isUpperCase() } ->
+        typed.codePointCount(0, typed.length) > 1 && lettersAllUpper(typed) ->
             suggestion.uppercase()
-        typed.firstOrNull()?.isUpperCase() == true ->
-            suggestion.replaceFirstChar { it.uppercase() }
+        startsUpperCase(typed) -> capitalizeFirst(suggestion)
         else -> suggestion
     }
 }

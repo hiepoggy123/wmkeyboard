@@ -34,13 +34,13 @@ class GlideApostropheKeyTest {
      * builds, which reports the punctuation keys precisely so this feature can
      * find them.
      */
-    private val centers: Map<Char, Pair<Float, Float>> = buildMap {
+    private val centers: Map<Int, Pair<Float, Float>> = buildMap {
         for ((rowIndex, row) in set.letters.rows.withIndex()) {
             var column = 0
             for (key in row) {
                 if (key.action == KeyAction.Text) {
                     (key.output ?: key.label).firstOrNull()?.let {
-                        putIfAbsent(it.lowercaseChar(), (column * keyWidth) to (rowIndex * keyWidth))
+                        putIfAbsent(it.lowercaseChar().code, (column * keyWidth) to (rowIndex * keyWidth))
                     }
                 }
                 column++
@@ -66,7 +66,7 @@ class GlideApostropheKeyTest {
 
     @Test
     fun `the chosen key is where the apostrophe lands`() {
-        val (commaX, commaY) = centers.getValue(',')
+        val (commaX, commaY) = centers.getValue(','.code)
         val keys = grid(commaX to commaY)
         val index = keys.keyIndex('\'')
         assertTrue("the apostrophe should be on the grid now", index >= 0)
@@ -77,7 +77,7 @@ class GlideApostropheKeyTest {
     /** A word list may spell a contraction either way, and one finger draws both. */
     @Test
     fun `both apostrophe characters land on the chosen key`() {
-        val (x, y) = centers.getValue('.')
+        val (x, y) = centers.getValue('.'.code)
         val keys = grid(x to y)
         assertEquals(keys.keyIndex('\''), keys.keyIndex('’'))
         assertEquals(x / keyWidth, keys.keyX[keys.keyIndex('’')], 0f)
@@ -87,7 +87,7 @@ class GlideApostropheKeyTest {
     @Test
     fun `choosing a key leaves every letter where it was`() {
         val before = grid()
-        val after = grid(centers.getValue(','))
+        val after = grid(centers.getValue(','.code))
         for (ch in 'a'..'z') {
             val i = before.keyIndex(ch)
             val j = after.keyIndex(ch)

@@ -51,6 +51,13 @@ enum class ScriptId {
      */
     ADLAM,
 
+    /**
+     * Warang Citi (Ho), U+118A0..118FF. Cased — U+118A0..118BF are the
+     * capitals and U+118C0..118DF the smalls — and outside the BMP like
+     * [OSAGE], so every letter is a surrogate pair.
+     */
+    WARANG_CITI,
+
     // --- Scripts reached only through the Keyman layout corpus. ---
     //
     // Each backs at least one keyboard in the Keyman release set. Ranges,
@@ -263,6 +270,15 @@ data class ScriptDef(
     val fontHint: FontHint = FontHint.GENERIC,
     val unicodeRange: IntRange = IntRange.EMPTY,
     /**
+     * Further blocks the script's characters live in, for the few scripts that
+     * are written from more than one. [unicodeRange] stays the main block —
+     * cluster deletion bounds itself by it — and [contains] is what a
+     * "which script is this character" question should ask, so a Hangul grid
+     * typed in conjoining jamo (U+1100) counts as Hangul even though the
+     * syllables it composes sit twenty thousand code points away.
+     */
+    val moreRanges: List<IntRange> = emptyList(),
+    /**
      * The mark this script ends a sentence with, for the key next to the
      * spacebar. Bengali writes দাঁড়ি (।), not a full stop, and a Bengali
      * keyboard that types "." is the single most-noticed way of being not
@@ -283,7 +299,11 @@ data class ScriptDef(
      * nothing is displaced.
      */
     val punctuationAlternates: Map<String, List<String>> = emptyMap(),
-)
+) {
+    /** Whether [codePoint] is one of this script's own characters. */
+    fun contains(codePoint: Int): Boolean =
+        codePoint in unicodeRange || moreRanges.any { codePoint in it }
+}
 
 /**
  * The scripts a shipped language uses. Seeded with the two the current five
@@ -323,6 +343,11 @@ object ScriptRegistry {
             composer = ComposerType.HANGUL,
             fontHint = FontHint.HANGUL,
             unicodeRange = 0xAC00..0xD7A3,
+            // What the keys emit, as opposed to what the composer commits:
+            // conjoining jamo from the three-set layouts and compatibility
+            // jamo from the two-set one. A grid of either has to read as
+            // Hangul, or the import guess calls it nothing at all.
+            moreRanges = listOf(0x1100..0x11FF, 0x3131..0x318E),
         ),
         ScriptDef(
             id = ScriptId.CYRILLIC,
@@ -691,6 +716,19 @@ object ScriptRegistry {
             // No fullStop override: Unicode gives Adlam an initial exclamation
             // and question mark (U+1E95E, U+1E95F) but no full stop of its own,
             // and Adlam text ends a sentence with the ASCII one.
+        ),
+        // Warang Citi is cased (U+118A0..118BF capitals, U+118C0..118DF
+        // smalls) and alphabetic — no vowel signs, no virama, no conjuncts —
+        // so it composes 1:1. Outside the BMP; see the note on
+        // [ScriptId.WARANG_CITI]. Unicode gives it digits (U+118E0..118E9) but
+        // no punctuation of its own, so the full stop stays ASCII.
+        ScriptDef(
+            id = ScriptId.WARANG_CITI,
+            direction = TextDirection.LTR,
+            hasLetterCase = true,
+            composer = ComposerType.NONE,
+            fontHint = FontHint.GENERIC,
+            unicodeRange = 0x118A0..0x118FF,
         ),
 
         // --- Scripts reached only through the Keyman layout corpus. ---

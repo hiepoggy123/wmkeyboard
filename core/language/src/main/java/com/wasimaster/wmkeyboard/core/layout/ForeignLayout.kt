@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.layout
 
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.language.R
@@ -715,11 +716,11 @@ internal fun guessLangId(rows: List<List<Key>>): String {
 }
 
 private fun scriptOf(ch: Char): ScriptId? =
-    scriptRanges.firstOrNull { (_, range) -> ch.code in range }?.first
+    scriptDefs.firstOrNull { it.contains(ch.code) }?.id
 
 /** Built once: `ScriptRegistry.all` copies its map on every read. */
-private val scriptRanges: List<Pair<ScriptId, IntRange>> by lazy {
-    ScriptRegistry.all.filter { !it.unicodeRange.isEmpty() }.map { it.id to it.unicodeRange }
+private val scriptDefs: List<ScriptDef> by lazy {
+    ScriptRegistry.all.filter { !it.unicodeRange.isEmpty() }
 }
 
 /** What the conversion had to give up, tallied as it goes. */

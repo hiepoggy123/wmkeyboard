@@ -30,7 +30,7 @@ class GlideVocabularyCapTest {
         "asdfghjkl".forEachIndexed { i, c -> add(KeyCenter(c, 60f + i * 60f, 90f)) }
         "zxcvbnm".forEachIndexed { i, c -> add(KeyCenter(c, 90f + i * 60f, 150f)) }
     }
-    private val centers = keys.associateBy { it.char }
+    private val centers = keys.associateBy { it.codePoint }
     private val grid = GlideKeyMap.of(keys, keyWidth)
 
     /**
@@ -67,7 +67,7 @@ class GlideVocabularyCapTest {
     private fun gestureFor(word: String): List<GesturePoint> {
         val anchors = word.toCharArray().toList()
             .fold(ArrayList<Char>()) { acc, c -> acc.also { if (acc.lastOrNull() != c) acc.add(c) } }
-            .map { centers.getValue(it) }
+            .map { centers.getValue(it.code) }
         val points = ArrayList<GesturePoint>()
         for (i in 0 until anchors.size - 1) {
             val a = anchors[i]

@@ -1660,14 +1660,6 @@ object KeymanLanguages {
             layoutIds = listOf("asset_kmn_ho_latin"),
         ),
         LanguageDef(
-            id = "hoc-Wara",
-            displayName = "Ho (Warang Citi)",
-            englishName = "Ho (Warang Citi)",
-            script = ScriptId.LATIN,
-            localeTag = "hoc-Wara",
-            layoutIds = listOf("asset_kmn_warang_citi"),
-        ),
-        LanguageDef(
             id = "hoi",
             displayName = "Holikachuk",
             englishName = "Holikachuk",
@@ -4342,6 +4334,7 @@ object KeymanLanguages {
             "asset_kmn_remington_gail",
             "asset_kmn_sil_devanagari_phonetic",
         ),
+        "hoc-Wara" to listOf("asset_kmn_warang_citi"),
         "hsb" to listOf(
             "asset_kmn_basic_kbdsorex",
             "asset_kmn_basic_kbdsors1",

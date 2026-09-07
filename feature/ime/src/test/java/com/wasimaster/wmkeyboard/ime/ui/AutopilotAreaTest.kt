@@ -16,14 +16,14 @@ class AutopilotAreaTest {
 
     /** Three keys in a row, 100 wide and 100 tall, centres at 50, 150 and 250. */
     private val centers = mapOf(
-        'a' to Offset(50f, 50f),
-        'b' to Offset(150f, 50f),
-        'c' to Offset(250f, 50f),
+        'a'.code to Offset(50f, 50f),
+        'b'.code to Offset(150f, 50f),
+        'c'.code to Offset(250f, 50f),
     )
     private val bounds = mapOf(
-        'a' to Rect(0f, 0f, 100f, 100f),
-        'b' to Rect(100f, 0f, 200f, 100f),
-        'c' to Rect(200f, 0f, 300f, 100f),
+        'a'.code to Rect(0f, 0f, 100f, 100f),
+        'b'.code to Rect(100f, 0f, 200f, 100f),
+        'c'.code to Rect(200f, 0f, 300f, 100f),
     )
 
     private fun areas(bias: Map<Char, Float>, strength: Float = 0.5f) =
@@ -114,9 +114,9 @@ class AutopilotAreaTest {
     @Test
     fun `at most three areas are drawn, and they are the likeliest`() {
         val many = ('a'..'z').toList()
-        val manyCenters = many.mapIndexed { i, ch -> ch to Offset(50f + i * 100f, 50f) }.toMap()
+        val manyCenters = many.mapIndexed { i, ch -> ch.code to Offset(50f + i * 100f, 50f) }.toMap()
         val manyBounds = many.mapIndexed { i, ch ->
-            ch to Rect(i * 100f, 0f, i * 100f + 100f, 100f)
+            ch.code to Rect(i * 100f, 0f, i * 100f + 100f, 100f)
         }.toMap()
         // Every other letter is expected, in descending order, so each favoured
         // letter has two plain neighbours to take ground from.

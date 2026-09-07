@@ -16,9 +16,14 @@ package com.wasimaster.wmkeyboard.core.gesture
  *
  * **Lookup is boxing-free.** The decoder resolves an edge label to a key for
  * every trie edge it considers — hundreds of thousands of times per decode — so
- * the map is a sorted [CharArray] searched by bisection rather than a
- * `HashMap<Char, Int>`, whose keys would box on every probe for any character
+ * the map is a sorted [IntArray] searched by bisection rather than a
+ * `HashMap<Int, Int>`, whose keys would box on every probe for any character
  * outside the cached ASCII range (which is to say, every non-Latin script).
+ *
+ * Keyed by code point, not `Char`, so a letter outside the BMP — every Osage,
+ * Adlam or Warang Citi key — is one entry and not two halves of one. The `Char`
+ * overloads answer for a single UTF-16 unit and say no to a lone surrogate,
+ * which is never a character the grid could produce.
  *
  * Coordinates are in key widths, the convention shared with `KeyTouchModel`, so
  * nothing downstream depends on density or keyboard size.
@@ -27,7 +32,7 @@ class GlideKeyMap private constructor(
     /** Distinct key centres, x then y, in key widths. */
     val keyX: FloatArray,
     val keyY: FloatArray,
-    private val chars: CharArray,
+    private val codePoints: IntArray,
     private val keyOf: IntArray,
 ) {
 
@@ -52,20 +57,23 @@ class GlideKeyMap private constructor(
     /** Distance between two keys in key widths. */
     fun distance(a: Int, b: Int): Float = distances[a * keyX.size + b]
 
+    /** True when [codePoint] is somewhere on the grid. */
+    fun knows(codePoint: Int): Boolean = keyIndex(codePoint) >= 0
+
     /** True when [ch] is somewhere on the grid. */
-    fun knows(ch: Char): Boolean = keyIndex(ch) >= 0
+    fun knows(ch: Char): Boolean = knows(ch.code)
 
     /**
-     * Index of the key that produces [ch], or -1 when the grid cannot. Case is
-     * folded, so a dictionary's lowercase spelling finds an uppercase key.
+     * Index of the key that produces [codePoint], or -1 when the grid cannot.
+     * Case is folded, so a dictionary's lowercase spelling finds an uppercase key.
      */
-    fun keyIndex(ch: Char): Int {
-        val folded = ch.lowercaseChar()
+    fun keyIndex(codePoint: Int): Int {
+        val folded = Character.toLowerCase(codePoint)
         var lo = 0
-        var hi = chars.size - 1
+        var hi = codePoints.size - 1
         while (lo <= hi) {
             val mid = (lo + hi) ushr 1
-            val here = chars[mid]
+            val here = codePoints[mid]
             when {
                 here < folded -> lo = mid + 1
                 here > folded -> hi = mid - 1
@@ -74,6 +82,9 @@ class GlideKeyMap private constructor(
         }
         return -1
     }
+
+    /** Index of the key that produces [ch], or -1 — always -1 for a surrogate. */
+    fun keyIndex(ch: Char): Int = keyIndex(ch.code)
 
     companion object {
 
@@ -92,7 +103,7 @@ class GlideKeyMap private constructor(
             require(keyWidth > 0f) { "keyWidth must be positive" }
             val xs = ArrayList<Float>(keys.size)
             val ys = ArrayList<Float>(keys.size)
-            val byChar = LinkedHashMap<Char, Int>(keys.size * 2)
+            val byCodePoint = LinkedHashMap<Int, Int>(keys.size * 2)
             for (key in keys) {
                 val x = key.x / keyWidth
                 val y = key.y / keyWidth
@@ -108,12 +119,12 @@ class GlideKeyMap private constructor(
                     xs.add(x)
                     ys.add(y)
                 }
-                byChar.putIfAbsent(key.char.lowercaseChar(), index)
+                byCodePoint.putIfAbsent(Character.toLowerCase(key.codePoint), index)
             }
-            val sorted = byChar.keys.sorted()
-            val chars = CharArray(sorted.size) { sorted[it] }
-            val keyOf = IntArray(sorted.size) { byChar.getValue(sorted[it]) }
-            return GlideKeyMap(xs.toFloatArray(), ys.toFloatArray(), chars, keyOf)
+            val sorted = byCodePoint.keys.sorted()
+            val codePoints = IntArray(sorted.size) { sorted[it] }
+            val keyOf = IntArray(sorted.size) { byCodePoint.getValue(sorted[it]) }
+            return GlideKeyMap(xs.toFloatArray(), ys.toFloatArray(), codePoints, keyOf)
         }
 
         /**

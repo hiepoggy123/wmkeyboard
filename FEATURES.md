@@ -725,9 +725,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Standard tone placement — A marked vowel wins; else single vowel, else last vowel of a closed cluster, else first of an open one (oa/oe/uy take the second)
     - qu/gi onsets excluded from the nucleus — The u or i is a glide unless it is the syllable's only vowel
     - VNI buffers digits — bufferDigits on, digitsStartBuffer off, so a plain number on an empty buffer still types
-  - Korean Hangul — Compatibility jamo composed into syllable blocks with re-split on a following vowel
+  - Korean Hangul — Compatibility jamo (two-set) and conjoining jamo (three-set) composed into syllable blocks
     - 19 initials, 21 medials, 28 finals — Plus 7 compound medials and 11 compound finals
-    - Re-split — 간+ㅏ gives 가나, 갉+ㅣ gives 갈기
+    - Re-split — 간+ㅏ gives 가나, 갉+ㅣ gives 갈기; two-set only, a three-set final stays where it was typed
+    - Three-set layouts — 세벌식 390 and 세벌식 최종 ship beside the two-set grid; a plain initial typed twice doubles (ᄀᄀ → 까)
     - No candidate step — Korean gets the ordinary suggestion/autocorrect strip, not a conversion bar
   - Dead keys — Any key emitting a combining mark U+0300-U+036F arms a dead key
     - NFC composition, not a table — Every precomposed pair Unicode defines is reachable, including ǹ, ẍ, ṽ

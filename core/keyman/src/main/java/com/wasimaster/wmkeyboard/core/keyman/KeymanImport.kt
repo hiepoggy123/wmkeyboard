@@ -121,7 +121,7 @@ object KeymanImport {
                 for (key in row) {
                     for (ch in (key.output ?: key.label)) {
                         if (ch.code < 0x80 || !ch.isLetter()) continue
-                        val script = ScriptRegistry.all.firstOrNull { ch.code in it.unicodeRange }
+                        val script = ScriptRegistry.all.firstOrNull { it.contains(ch.code) }
                             ?: continue
                         counts.merge(script.id, 1, Int::plus)
                     }

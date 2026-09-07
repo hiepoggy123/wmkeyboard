@@ -295,7 +295,7 @@ class KeymanPipelineTest {
                 for (key in row) {
                     for (ch in (key.output ?: key.label)) {
                         if (ch.code < 0x80 || !ch.isLetter()) continue
-                        val script = ScriptRegistry.all.firstOrNull { ch.code in it.unicodeRange }
+                        val script = ScriptRegistry.all.firstOrNull { it.contains(ch.code) }
                             ?: continue
                         counts.merge(script.id, 1, Int::plus)
                     }
@@ -343,7 +343,7 @@ class KeymanPipelineTest {
                             total++
                             continue
                         }
-                        val script = ScriptRegistry.all.firstOrNull { ch.code in it.unicodeRange }
+                        val script = ScriptRegistry.all.firstOrNull { it.contains(ch.code) }
                             ?: continue
                         counts.merge(script.id, 1, Int::plus)
                         total++
@@ -390,6 +390,7 @@ class KeymanPipelineTest {
             "Lisu" to "LISU", "Newa" to "NEWA", "Runr" to "RUNIC",
             "Copt" to "COPTIC", "Limb" to "LIMBU", "Cakm" to "CHAKMA",
             "Rohg" to "HANIFI_ROHINGYA", "Bopo" to "BOPOMOFO", "Yiii" to "YI",
+            "Wara" to "WARANG_CITI",
         )
 
         val LANGUAGE_ELEMENT = Regex("""<Language\s+ID="([^"]+)"\s*>(.*?)</Language>""")

@@ -178,8 +178,7 @@ class GlideRerankOracleTest {
         val corpus = SwipeCorpus(7L)
         val grid = corpus.grid
         val pairs = seedPairs().filter { (_, next) ->
-            next.length >= 3 && dictWords.containsKey(next) &&
-                next.all { it.lowercaseChar() in grid.alphabet }
+            next.length >= 3 && dictWords.containsKey(next) && grid.canSpell(next)
         }
         check(pairs.isNotEmpty()) { "no swipeable seed pairs" }
 

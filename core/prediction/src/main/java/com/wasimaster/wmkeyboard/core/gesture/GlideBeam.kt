@@ -249,6 +249,7 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
             node = walker.root, parent = -1, viaLabel = GlideWorkspace.NO_LABEL,
             lastKey = -1, length = 0, extra = 0f, floorCost = 0f,
             bound = src.logWeight + ln1p(walker.maxSubtree(walker.root)),
+            letterCp = 0,
         )
 
         var pops = 0
@@ -282,14 +283,13 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
             if (length >= MAX_WORD_LENGTH || length >= n) continue
 
             val count = walker.childrenInto(node, ws.children)
+            // The trie is spelled in UTF-16 units, so a letter outside the BMP
+            // is two edges: the high surrogate, then the low. A state that has
+            // taken the high half is waiting on the low, and only the pair
+            // names a key — every Warang Citi letter shares one high half.
+            val pendingHigh = ws.viaLabel[s].takeIf { it.isHighSurrogate() }
             for (i in 0 until count) {
                 val label = ws.children.labels[i]
-                val key = keys.keyIndex(label)
-                // A character the grid cannot produce makes its whole subtree
-                // unreachable; so does one the stroke never went near.
-                if (key < 0 || key >= keyCount || !ws.nearKey[key]) continue
-                if (length == 0 && !ws.startKey[key]) continue
-
                 val child = ws.children.nodes[i]
                 val subtree = walker.maxSubtree(child)
                 // Every word under here is at most `subtree` frequent, so a
@@ -297,7 +297,39 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
                 // Pruning it makes a capped decode cheaper than an uncapped
                 // one rather than merely quieter.
                 if (subtree < minFrequency) continue
-                val repeat = length > 0 && label == ws.viaLabel[s]
+
+                val codePoint: Int
+                if (pendingHigh != null) {
+                    // Anything but a low surrogate here is a malformed word,
+                    // which no grid can spell.
+                    if (!label.isLowSurrogate()) continue
+                    codePoint = Character.toCodePoint(pendingHigh, label)
+                } else if (label.isHighSurrogate()) {
+                    // Half a letter: descend without spending any of the stroke
+                    // — the alignment, the letter count and the last key all
+                    // carry over untouched — and let the low half decide.
+                    val bound = src.logWeight + ln1p(subtree) -
+                        tuning.shapeWeight * (ws.floorCost[s] + extra)
+                    if (bound < floor - EPS) continue
+                    val id = ws.push(
+                        node = child, parent = s, viaLabel = label, lastKey = lastKey,
+                        length = length, extra = extra, floorCost = ws.floorCost[s],
+                        bound = bound, letterCp = ws.letterCp[s],
+                    )
+                    if (id < 0) break
+                    ws.copyColumn(s, id)
+                    continue
+                } else {
+                    codePoint = label.code
+                }
+
+                val key = keys.keyIndex(codePoint)
+                // A character the grid cannot produce makes its whole subtree
+                // unreachable; so does one the stroke never went near.
+                if (key < 0 || key >= keyCount || !ws.nearKey[key]) continue
+                if (length == 0 && !ws.startKey[key]) continue
+
+                val repeat = length > 0 && codePoint == ws.letterCp[s]
 
                 val minCol: Float
                 var childExtra = extra
@@ -328,6 +360,7 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
                 val id = ws.push(
                     node = child, parent = s, viaLabel = label, lastKey = key,
                     length = length + 1, extra = childExtra, floorCost = minCol, bound = bound,
+                    letterCp = codePoint,
                 )
                 if (id < 0) break // pool saturated; best-first says the rest are worse
                 if (repeat) ws.copyColumn(s, id) else ws.storeScratch(id)
@@ -576,8 +609,11 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
     private fun shapeDistance(word: String, keys: GlideKeyMap, ws: GlideWorkspace): Double? {
         var count = 0
         var previous = -1
-        for (ch in word) {
-            val key = keys.keyIndex(ch)
+        var at = 0
+        while (at < word.length) {
+            val codePoint = word.codePointAt(at)
+            at += Character.charCount(codePoint)
+            val key = keys.keyIndex(codePoint)
             if (key < 0) return null
             // Consecutive letters on one key are one point of the path: the
             // finger visited it once, however many letters it stood for.

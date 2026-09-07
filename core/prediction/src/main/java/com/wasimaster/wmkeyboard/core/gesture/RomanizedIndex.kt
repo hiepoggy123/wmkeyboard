@@ -41,8 +41,8 @@ class RomanizedIndex private constructor(
     private val curated: Trie,
     private val downloaded: WordSource,
     private val resolveSpelling: (String) -> List<String>,
-    /** Characters the romanized side is written in — the coverage gate's input. */
-    val alphabet: Set<Char>,
+    /** Code points the romanized side is written in — the coverage gate's input. */
+    val alphabet: Set<Int>,
 ) {
 
     val isEmpty: Boolean get() = alphabet.isEmpty()
@@ -112,14 +112,14 @@ class RomanizedIndex private constructor(
             nativeFrequency: (String) -> Int,
         ): RomanizedIndex {
             val curated = Trie()
-            val alphabet = HashSet<Char>()
+            val alphabet = HashSet<Int>()
             for (spelling in spellings.spellings) {
                 if (spelling.length < MIN_SPELLING || !spelling.all { it.isLetter() }) continue
                 val forms = spellings.lookup(spelling)
                 if (forms.isEmpty()) continue
                 val frequency = forms.maxOf(nativeFrequency).coerceAtLeast(1)
                 curated.insert(spelling, frequency)
-                for (ch in spelling) alphabet.add(ch.lowercaseChar())
+                for (ch in spelling) alphabet.add(ch.lowercaseChar().code)
             }
             if (alphabet.isEmpty()) return EMPTY
             // Curated first: where the hand-written map and the lenient fold

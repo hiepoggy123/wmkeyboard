@@ -132,6 +132,9 @@ object KeyboardFonts {
         ScriptId.VAI to "Noto Sans Vai",
         ScriptId.OSAGE to "Noto Sans Osage",
         ScriptId.ADLAM to "Noto Sans Adlam",
+        // Warang Citi is the one script here almost no device font carries at
+        // all, so without this the Ho keys draw as tofu on nearly every phone.
+        ScriptId.WARANG_CITI to "Noto Sans Warang Citi",
 
         // Scripts that arrived with the Keyman layout corpus. Every one of
         // these was checked against the Google Fonts CSS API, which 400s on a

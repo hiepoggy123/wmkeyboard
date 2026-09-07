@@ -10077,7 +10077,7 @@ private fun KeyRows(
     // so a layout with fewer letters than the last one would otherwise keep the
     // previous grid's centres and anchor swipes on keys that are not on screen.
     // A LaunchedEffect that cleared it would race those positioning callbacks.
-    val keyCenters = remember(layout) { mutableStateMapOf<Char, Offset>() }
+    val keyCenters = remember(layout) { mutableStateMapOf<Int, Offset>() }
     // Spacebar bounds in this Box's space, for the multi-word glide split.
     // Reset per layout alongside the key centres. A split keyboard positions
     // two half-spacebars into this one slot; the last one measured wins, which
@@ -10090,7 +10090,7 @@ private fun KeyRows(
     // Each letter's whole cell in this Box's space, for the autopilot overlay:
     // it draws the area a favoured letter has claimed, and a centre alone does
     // not say how big a cell is. Per layout, like the centres above.
-    val keyBounds = remember(layout) { mutableStateMapOf<Char, Rect>() }
+    val keyBounds = remember(layout) { mutableStateMapOf<Int, Rect>() }
     // The pointer loops below are keyed on the gesture settings, not on the
     // layout, so they outlive a layout change — and both the centres map and the
     // grid they read are per-layout values. Captured bare, a loop started under
@@ -10207,8 +10207,8 @@ private fun KeyRows(
                     // (for the apostrophe setting) are not candidates for that.
                     onTouchKeys(
                         centers.entries
-                            .filter { it.key !in GlidePunctuationChars }
-                            .map { (char, c) -> KeyCenter(char, c.x / kw, c.y / kw) },
+                            .filter { it.key !in GlidePunctuationCodePoints }
+                            .map { (codePoint, c) -> KeyCenter(codePoint, c.x / kw, c.y / kw) },
                     )
                 }
             }
@@ -10515,7 +10515,7 @@ private fun KeyRows(
                                 keyWidth.value,
                                 // The apostrophe key starts a stroke too, once it
                                 // has that job: the possessive flick begins there.
-                                allow = setOfNotNull(apostropheKey.value.sourceChar),
+                                allow = setOfNotNull(apostropheKey.value.sourceChar?.code),
                             )
                         ) {
                             isGesture = true
@@ -10533,8 +10533,8 @@ private fun KeyRows(
                                     spaceRect.value,
                                     boxOrigin,
                                 ),
-                            ) { char ->
-                                liveCenters.value[char]?.let { it.x to it.y }
+                            ) { codePoint ->
+                                liveCenters.value[codePoint]?.let { it.x to it.y }
                             }
                         }
                         if (isGesture) {
@@ -10823,17 +10823,17 @@ private fun KeyRows(
                         // where they are. They are not letters and nothing treats
                         // them as letters: both consumers of the map that are
                         // about letters filter them back out (see
-                        // [GlidePunctuationChars]).
+                        // [GlidePunctuationCodePoints]).
                         val letter = key.label.takeIf { key.action == KeyAction.Text }
                             ?.let { keySpelling(it) }?.first()
-                            ?: key.glidePunctuationChar()
+                            ?: key.glidePunctuationCodePoint()
                         if (letter != null) {
                             val topLeft = coords.positionInRoot() - boxOrigin
-                            keyCenters[letter.lowercaseChar()] = Offset(
+                            keyCenters[Character.toLowerCase(letter)] = Offset(
                                 topLeft.x + coords.size.width / 2f,
                                 topLeft.y + coords.size.height / 2f,
                             )
-                            keyBounds[letter.lowercaseChar()] = Rect(
+                            keyBounds[Character.toLowerCase(letter)] = Rect(
                                 topLeft,
                                 Size(
                                     coords.size.width.toFloat(),
@@ -11532,12 +11532,12 @@ internal fun splitKeys(keys: List<Key>): Pair<List<Key>, List<Key>> {
  * "letter key" — the engine's touch model and [nearLetterKey] — so tracking them
  * cannot change where a tap lands or what starts a glide.
  */
-private val GlidePunctuationChars = setOf(',', '.', '\'')
+private val GlidePunctuationCodePoints = setOf(','.code, '.'.code, '\''.code)
 
 /** The character this key contributes to the centres map if it is punctuation. */
-private fun Key.glidePunctuationChar(): Char? =
+private fun Key.glidePunctuationCodePoint(): Int? =
     if (action == KeyAction.Text) {
-        (output ?: label).singleOrNull()?.takeIf { it in GlidePunctuationChars }
+        (output ?: label).singleOrNull()?.code?.takeIf { it in GlidePunctuationCodePoints }
     } else {
         null
     }
@@ -11555,11 +11555,11 @@ private fun Key.glidePunctuationChar(): Char? =
  */
 private fun nearLetterKey(
     position: Offset,
-    centers: Map<Char, Offset>,
+    centers: Map<Int, Offset>,
     keyWidth: Float,
-    allow: Set<Char> = emptySet(),
-): Boolean = centers.any { (ch, center) ->
-    (ch !in GlidePunctuationChars || ch in allow) &&
+    allow: Set<Int> = emptySet(),
+): Boolean = centers.any { (codePoint, center) ->
+    (codePoint !in GlidePunctuationCodePoints || codePoint in allow) &&
         (center - position).getDistance() < keyWidth
 }
 
@@ -11578,7 +11578,7 @@ private fun nearLetterKey(
  */
 private fun apostropheCenter(
     choice: GlideApostropheKey,
-    centers: Map<Char, Offset>,
+    centers: Map<Int, Offset>,
     spaceRect: Rect?,
     boxOrigin: Offset,
 ): Pair<Float, Float>? = when (choice) {
@@ -11587,7 +11587,7 @@ private fun apostropheCenter(
         (it.center.x - boxOrigin.x) to (it.center.y - boxOrigin.y)
     }
     else -> choice.sourceChar
-        ?.let { centers[it] }
+        ?.let { centers[it.code] }
         ?.let { it.x to it.y }
 }
 
@@ -11614,7 +11614,7 @@ private const val SMART_HIT_MAX_REACH = 1.3f
  */
 private fun smartHitTarget(
     pos: Offset,
-    centers: Map<Char, Offset>,
+    centers: Map<Int, Offset>,
     keyWidth: Float,
     bias: Map<Char, Float>,
     strength: Float,
@@ -11624,7 +11624,11 @@ private fun smartHitTarget(
     var nominalDist = Float.MAX_VALUE
     var best: Char? = null
     var bestScore = Float.MAX_VALUE
-    for ((ch, center) in centers) {
+    for ((codePoint, center) in centers) {
+        // The remap resolves to a single-Char letter key (see `letterKeys`),
+        // so a letter outside the BMP is never a target and never a rival.
+        if (codePoint > 0xFFFF) continue
+        val ch = codePoint.toChar()
         val d = (center - pos).getDistance()
         if (d < nominalDist) {
             nominalDist = d
@@ -11639,7 +11643,7 @@ private fun smartHitTarget(
     // The plain-nearest key already wins: nothing to remap.
     if (best == null || best == nominal) return null
     // Never yank a tap onto a key the finger is nowhere near.
-    val target = centers[best] ?: return null
+    val target = centers[best.code] ?: return null
     if ((target - pos).getDistance() > keyWidth * SMART_HIT_MAX_REACH) return null
     return best
 }

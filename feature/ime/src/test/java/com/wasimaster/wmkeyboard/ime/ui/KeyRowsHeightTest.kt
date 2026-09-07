@@ -141,7 +141,7 @@ class KeyRowsHeightTest {
     @Test
     fun `the built-in latin layouts spell the latin alphabet`() {
         for (id in listOf(BuiltInLayouts.QWERTY, BuiltInLayouts.AZERTY, BuiltInLayouts.DVORAK)) {
-            assertTrue("${id.id} should have a-z", layoutSetOf(id).letterAlphabet.containsAll(('a'..'z').toList()))
+            assertTrue("${id.id} should have a-z", layoutSetOf(id).letterAlphabet.containsAll(('a'..'z').map { it.code }))
         }
     }
 
@@ -151,7 +151,7 @@ class KeyRowsHeightTest {
             name = "partial",
             rows = listOf(listOf(Key("a"), Key("b"), Key(" ", action = KeyAction.Space))),
         )
-        assertEquals(setOf('a', 'b'), LayoutSet(partial, partial, partial).letterAlphabet)
+        assertEquals(setOf('a'.code, 'b'.code), LayoutSet(partial, partial, partial).letterAlphabet)
     }
 
     @Test
@@ -161,23 +161,23 @@ class KeyRowsHeightTest {
         // All three have to be in reach: a swipe cannot say which character of
         // a key it crossed, and dropping the shifted ones would put every
         // aspirated Bengali consonant out of a glide's reach.
-        assertTrue("base ক missing", 'ক' in alphabet)
-        assertTrue("shifted খ missing", 'খ' in alphabet)
-        assertTrue("long-press ঞ missing", 'ঞ' in alphabet)
+        assertTrue("base ক missing", 'ক'.code in alphabet)
+        assertTrue("shifted খ missing", 'খ'.code in alphabet)
+        assertTrue("long-press ঞ missing", 'ঞ'.code in alphabet)
         // The hasanta is a combining mark rather than a letter, and joins every
         // Bengali conjunct — an alphabet without it spells almost nothing.
-        assertTrue("hasanta missing", '্' in alphabet)
-        assertFalse("latin has no business here", 'q' in alphabet)
+        assertTrue("hasanta missing", '্'.code in alphabet)
+        assertFalse("latin has no business here", 'q'.code in alphabet)
     }
 
     @Test
     fun `glide keys hand a key's other characters its measured centre`() {
         val set = layoutSetOf(BuiltInLayouts.PROBHAT)
-        val keys = set.glideKeys { char -> if (char == 'ক') 5f to 7f else null }
-        val placed = keys.filter { it.x == 5f && it.y == 7f }.map { it.char }
+        val keys = set.glideKeys { codePoint -> if (codePoint == 'ক'.code) 5f to 7f else null }
+        val placed = keys.filter { it.x == 5f && it.y == 7f }.map { it.codePoint }
         assertEquals(
             "the ক/খ key should contribute both of its characters at one centre",
-            listOf('ক', 'খ'),
+            listOf('ক'.code, 'খ'.code),
             placed,
         )
     }

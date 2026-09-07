@@ -22,6 +22,15 @@ class GlideWorkspace {
     var parent = IntArray(INITIAL); private set
     var viaLabel = CharArray(INITIAL); private set
 
+    /**
+     * Code point of the last whole letter spelled on this path, 0 at the root.
+     * [viaLabel] is one trie edge, and a letter outside the BMP is two edges —
+     * the high surrogate, then the low — so a state that has consumed only the
+     * first half carries its parent's letter here, and the doubled-letter test
+     * compares letters rather than halves.
+     */
+    var letterCp = IntArray(INITIAL); private set
+
     /** Key index the last consumed character sits on; -1 at the root. */
     var lastKey = IntArray(INITIAL); private set
 
@@ -142,6 +151,7 @@ class GlideWorkspace {
         extra: Float,
         floorCost: Float,
         bound: Double,
+        letterCp: Int,
     ): Int {
         if (size >= MAX_STATES) {
             saturated = true
@@ -152,6 +162,7 @@ class GlideWorkspace {
         this.node[id] = node
         this.parent[id] = parent
         this.viaLabel[id] = viaLabel
+        this.letterCp[id] = letterCp
         this.lastKey[id] = lastKey
         this.length[id] = length.toShort()
         this.extra[id] = extra
@@ -184,7 +195,16 @@ class GlideWorkspace {
         return top
     }
 
-    /** Rebuilds the word for state [s] from its parent chain. */
+    /**
+     * Rebuilds the word for state [s] from its parent chain.
+     *
+     * The chain is walked leaf to root and reversed by hand, one UTF-16 unit at
+     * a time. `StringBuilder.reverse()` will not do: it keeps any high-low pair
+     * it finds together, and the leaf-first sequence of a word outside the BMP
+     * is full of *low-high* pairs that it reads as the pairs of the next letter
+     * along — every Osage or Warang Citi word came out with a stray surrogate
+     * at each end and its letters' halves swapped.
+     */
     fun materialize(s: Int): String {
         sb.setLength(0)
         var cur = s
@@ -193,8 +213,10 @@ class GlideWorkspace {
             if (label != NO_LABEL) sb.append(label)
             cur = parent[cur]
         }
-        sb.reverse()
-        return sb.toString()
+        val n = sb.length
+        val chars = CharArray(n)
+        for (i in 0 until n) chars[i] = sb[n - 1 - i]
+        return String(chars)
     }
 
     private fun ensure(needed: Int) {
@@ -205,6 +227,7 @@ class GlideWorkspace {
         node = node.copyOf(capacity)
         parent = parent.copyOf(capacity)
         viaLabel = viaLabel.copyOf(capacity)
+        letterCp = letterCp.copyOf(capacity)
         lastKey = lastKey.copyOf(capacity)
         length = length.copyOf(capacity)
         extra = extra.copyOf(capacity)

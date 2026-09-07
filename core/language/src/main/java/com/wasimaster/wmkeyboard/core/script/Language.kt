@@ -112,7 +112,11 @@ object LanguageRegistry {
             englishName = "Korean",
             script = ScriptId.HANGUL,
             localeTag = "ko-KR",
-            layoutIds = listOf(BuiltInLayouts.KOREAN_ID),
+            layoutIds = listOf(
+                BuiltInLayouts.KOREAN_ID,
+                AssetLayouts.KO_SEBEOLSIK_390_ID,
+                AssetLayouts.KO_SEBEOLSIK_FINAL_ID,
+            ),
         ),
         LanguageDef(
             id = "ru",
@@ -2984,6 +2988,19 @@ object LanguageRegistry {
             localeTag = "mni",
             layoutIds = listOf(AssetLayouts.MNI_ID, AssetLayouts.MNI_INSCRIPT_ID),
             numeralSystem = NumeralSystem.MEETEI,
+        ),
+        // Ho in its own script. Hand-written rather than generated because the
+        // Warang Citi grid we ship is ours; the converted Keyman keyboard for the
+        // same tag joins it through KeymanLanguages.extraLayoutIds, the way every
+        // other hand-written language picks up its Keyman conversions. The
+        // Latin-script "hoc-Latn" stays a generated entry.
+        LanguageDef(
+            id = "hoc-Wara",
+            displayName = "𑢹𑣉𑣉 · Ho",
+            englishName = "Ho (Warang Citi)",
+            script = ScriptId.WARANG_CITI,
+            localeTag = "hoc-Wara",
+            layoutIds = listOf(AssetLayouts.HOC_WARANG_CITI_ID),
         ),
         // Languages whose only layout is one of the new national-standard grids.
         LanguageDef(

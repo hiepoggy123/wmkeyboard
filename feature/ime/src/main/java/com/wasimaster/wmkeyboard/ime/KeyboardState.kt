@@ -236,15 +236,15 @@ data class LayoutSet(
      * decoding it returns confident nonsense — is now a coverage measurement
      * against the language's own word list rather than a guess about a-z.
      */
-    val letterAlphabet: Set<Char> = buildSet {
+    val letterAlphabet: Set<Int> = buildSet {
         for (row in letters.rows) {
             for (key in row) {
                 if (key.action != KeyAction.Text) continue
                 fun take(spelling: String?) {
                     val label = spelling ?: return
                     addAll(keySpelling(label) ?: return)
-                    composedKeyChar(label)?.let { add(it) }
-                    decomposedKeyChars(label)?.let(::addAll)
+                    composedKeyChar(label)?.let { add(it.code) }
+                    decomposedKeyChars(label)?.forEach { add(it.code) }
                 }
                 take(key.output ?: key.label)
                 take(key.shiftLabel)
@@ -281,12 +281,12 @@ data class LayoutSet(
      */
     fun glideKeys(
         apostropheCenter: Pair<Float, Float>? = null,
-        centerOf: (Char) -> Pair<Float, Float>?,
+        centerOf: (Int) -> Pair<Float, Float>?,
     ): List<KeyCenter> {
         val out = ArrayList<KeyCenter>(letters.rows.sumOf { it.size } * 2)
         fun emit(spelling: String?, x: Float, y: Float) {
             val label = spelling ?: return
-            for (ch in keySpelling(label) ?: return) out.add(KeyCenter(ch, x, y))
+            for (codePoint in keySpelling(label) ?: return) out.add(KeyCenter(codePoint, x, y))
             composedKeyChar(label)?.let { out.add(KeyCenter(it, x, y)) }
             decomposedKeyChars(label)?.forEach { out.add(KeyCenter(it, x, y)) }
         }
@@ -2163,14 +2163,26 @@ sealed interface PluginPanelUi {
  * longer does not. The bound matters — a key whose label is a whole word, which
  * a custom layout is free to have, must not scatter its letters across the grid
  * and let the decoder spell them from one spot.
+ *
+ * Code points, not `Char`s. A key in Osage, Adlam or Warang Citi writes one
+ * letter that is two UTF-16 units, and a lone surrogate is not a letter — so
+ * indexed per `Char` every such key vanished from the glide grid and from
+ * [LayoutSet.letterAlphabet], and typing worked while glide and the coverage
+ * gate silently did not.
  */
-fun keySpelling(label: String): List<Char>? {
-    if (label.isEmpty() || label.length > MAX_KEY_SPELLING) return null
-    if (!isLetterKeyChar(label[0])) return null
-    for (i in 1 until label.length) {
-        if (!isCombiningMark(label[i])) return null
+fun keySpelling(label: String): List<Int>? {
+    if (label.isEmpty()) return null
+    val out = ArrayList<Int>(MAX_KEY_SPELLING)
+    var at = 0
+    while (at < label.length) {
+        val codePoint = label.codePointAt(at)
+        at += Character.charCount(codePoint)
+        if (out.size >= MAX_KEY_SPELLING) return null
+        val allowed = if (out.isEmpty()) isLetterKeyCodePoint(codePoint) else isCombiningMark(codePoint)
+        if (!allowed) return null
+        out.add(Character.toLowerCase(codePoint))
     }
-    return label.map { it.lowercaseChar() }
+    return out
 }
 
 /**
@@ -2182,9 +2194,10 @@ fun keySpelling(label: String): List<Char>? {
  * them at all, and every Bengali word containing one becomes unglidable, which
  * is very nearly all of them.
  */
-private fun isLetterKeyChar(ch: Char): Boolean = ch.isLetter() || isCombiningMark(ch)
+private fun isLetterKeyCodePoint(codePoint: Int): Boolean =
+    Character.isLetter(codePoint) || isCombiningMark(codePoint)
 
-private fun isCombiningMark(ch: Char): Boolean = when (Character.getType(ch)) {
+private fun isCombiningMark(codePoint: Int): Boolean = when (Character.getType(codePoint)) {
     Character.NON_SPACING_MARK.toInt(),
     Character.COMBINING_SPACING_MARK.toInt(),
     -> true
@@ -2211,7 +2224,8 @@ private fun isCombiningMark(ch: Char): Boolean = when (Character.getType(ch)) {
  * handful of such keys and asks about each one repeatedly.
  */
 fun composedKeyChar(label: String): Char? {
-    if (label.length < 2) return null
+    // Two units that are one letter outside the BMP, not a base plus a mark.
+    if (label.length < 2 || label[0].isSurrogate()) return null
     val cached = composedCache.getOrPut(label) { searchComposed(label) ?: NOT_COMPOSED }
     return cached.takeIf { it != NOT_COMPOSED }
 }

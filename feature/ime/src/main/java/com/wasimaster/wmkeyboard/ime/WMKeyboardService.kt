@@ -803,8 +803,16 @@ open class WMKeyboardService : InputMethodService() {
 
     /** KeyboardScreen: letter-key centres of the live layout, normalised. */
     private fun onTouchKeys(keys: List<KeyCenter>) {
-        suggestionEngine?.touchModel =
-            KeyTouchModel(keys.associate { it.char to TouchPoint(it.x, it.y) })
+        // The typing beam walks the trie one UTF-16 unit at a time, so its touch
+        // model is keyed by Char: a letter outside the BMP has no single unit to
+        // file under and simply gets no tap evidence, the same as before.
+        suggestionEngine?.touchModel = KeyTouchModel(
+            buildMap {
+                for (key in keys) {
+                    if (key.codePoint <= 0xFFFF) put(key.codePoint.toChar(), TouchPoint(key.x, key.y))
+                }
+            },
+        )
     }
 
     /**
@@ -10814,7 +10822,7 @@ open class WMKeyboardService : InputMethodService() {
         keyWidthPx: Float,
     ): Boolean {
         if (keyWidthPx <= 0f || points.size < 3) return false
-        val center = keys.firstOrNull { it.char == '\'' } ?: return false
+        val center = keys.firstOrNull { it.codePoint == '\''.code } ?: return false
         val reach = keyWidthPx * APOSTROPHE_CROSS_WIDTHS
         for (i in 1 until points.size - 1) {
             val dx = points[i].x - center.x
@@ -10902,8 +10910,8 @@ open class WMKeyboardService : InputMethodService() {
         keys: List<KeyCenter>,
         keyWidthPx: Float,
     ): Boolean {
-        val from = keys.firstOrNull { it.char == '\'' } ?: return false
-        val to = keys.firstOrNull { it.char == 's' } ?: return false
+        val from = keys.firstOrNull { it.codePoint == '\''.code } ?: return false
+        val to = keys.firstOrNull { it.codePoint == 's'.code } ?: return false
         return possessiveFlick(points, from, to, keyWidthPx)
     }
 
@@ -10935,7 +10943,7 @@ open class WMKeyboardService : InputMethodService() {
         /** Avro: it converts, but into a script the keyboard has a romanization
          * for, so the reading a stroke spells can be turned back into words. */
         val phonetic: Boolean,
-        val alphabet: Set<Char>,
+        val alphabet: Set<Int>,
         /** Bumped when the word sources change under us, so a finished
          * dictionary download re-asks the coverage question. */
         val sources: Int,

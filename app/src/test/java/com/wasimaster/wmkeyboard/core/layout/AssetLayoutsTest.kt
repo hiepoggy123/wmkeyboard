@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.layout
 
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.ime.keySpelling
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -59,7 +61,7 @@ class AssetLayoutsTest {
 
     /**
      * None of the shipped files carries the field, so all of them get the
-     * default. Pinned because flipping that default would opt 1,256 layouts out of
+     * default. Pinned because flipping that default would opt 1,259 layouts out of
      * the tablet grid in one edit, and nothing else would notice.
      */
     @Test
@@ -161,6 +163,62 @@ class AssetLayoutsTest {
             // The key shows the radical but types the letter.
             assertEquals("$name: a should be 日", "日", keys.first { it.output == "a" }.label)
             assertEquals("$name: y should be 卜", "卜", keys.first { it.output == "y" }.label)
+        }
+    }
+
+    /**
+     * The three-set Korean grids have to emit *conjoining* jamo (U+1100 block):
+     * a positional keyboard distinguishes initial ᄀ from final ᆨ, which the
+     * compatibility block cannot. A key quietly swapped for its look-alike
+     * would type two-set behaviour on a three-set grid.
+     */
+    @Test
+    fun `the three-set korean layouts emit conjoining jamo and group under korean`() {
+        for (name in listOf("ko_sebeolsik_390", "ko_sebeolsik_final")) {
+            val file = layoutFiles.first { it.name == "$name.${LayoutFile.FILE_EXTENSION}" }
+            val layout = LayoutFile.decode(file.readText())!!.layout
+            assertEquals("$name: language", "ko", layout.langId)
+            assertTrue(
+                "$name: listed on the Korean language",
+                layout.id in LanguageRegistry.byId("ko").layoutIds,
+            )
+            val letters = layout.layers.getValue(LayoutLayer.LETTERS.key).rows.flatten()
+                .filter { it.action == KeyAction.Text }
+                .flatMap { listOfNotNull(it.output ?: it.label, it.shiftLabel) + it.longPress }
+                .flatMap { it.toList() }
+                .filter { it.code in 0x1100..0x11FF || it.code in 0x3131..0x318E }
+            assertTrue("$name: no jamo keys at all", letters.isNotEmpty())
+            val compat = letters.filter { it.code in 0x3131..0x318E }
+            assertEquals("$name: compatibility jamo on a three-set grid: $compat", emptyList<Char>(), compat)
+            assertTrue("$name: has initials", letters.any { it.code in 0x1100..0x1112 })
+            assertTrue("$name: has medials", letters.any { it.code in 0x1161..0x1175 })
+            assertTrue("$name: has finals", letters.any { it.code in 0x11A8..0x11C2 })
+        }
+    }
+
+    /**
+     * Ho's grid is the one shipped layout of ours written outside the BMP.
+     * Every letter key must survive [com.wasimaster.wmkeyboard.ime.keySpelling]
+     * — the Char-indexed version dropped all of them — and the language it names
+     * must draw with the Warang Citi script, not the Latin fallback.
+     */
+    @Test
+    fun `the ho warang citi layout spells its letters and names its script`() {
+        val file = layoutFiles.first { it.name == "hoc_warang_citi.${LayoutFile.FILE_EXTENSION}" }
+        val layout = LayoutFile.decode(file.readText())!!.layout
+        val language = LanguageRegistry.byId(layout.langId)
+        assertEquals(ScriptId.WARANG_CITI, language.script)
+        assertTrue(layout.id in language.layoutIds)
+        val letterKeys = layout.layers.getValue(LayoutLayer.LETTERS.key).rows.flatten()
+            .filter { it.action == KeyAction.Text && it.label.codePointAt(0) in 0x118A0..0x118FF }
+        assertTrue("no Warang Citi letter keys", letterKeys.size >= 30)
+        for (key in letterKeys) {
+            val spelled = keySpelling(key.label)
+            assertEquals("${key.label} should spell one letter", 1, spelled?.size)
+            assertEquals(Character.toLowerCase(key.label.codePointAt(0)), spelled!!.single())
+            key.shiftLabel?.let { shifted ->
+                assertEquals("${key.label}: shift is the same letter, capitalised", spelled, keySpelling(shifted))
+            }
         }
     }
 

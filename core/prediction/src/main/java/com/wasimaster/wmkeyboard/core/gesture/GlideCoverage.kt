@@ -34,7 +34,7 @@ object GlideCoverage {
      */
     fun measure(
         walkers: List<TrieWalker>,
-        alphabet: Set<Char>,
+        alphabet: Set<Int>,
         sample: Int = SAMPLE_WORDS,
     ): Float {
         if (walkers.isEmpty() || alphabet.isEmpty()) return 0f
@@ -46,12 +46,27 @@ object GlideCoverage {
         for (walker in walkers) {
             for (suggestion in TrieCompleter.top(walker, sample)) {
                 val word = suggestion.word
-                if (word.length < MIN_WORD) continue
+                if (word.codePointCount(0, word.length) < MIN_WORD) continue
                 seen++
-                if (word.all { it.lowercaseChar() in alphabet }) drawable++
+                if (spells(word, alphabet)) drawable++
             }
         }
         return if (seen == 0) 0f else drawable.toFloat() / seen
+    }
+
+    /**
+     * Whether every letter of [word] is in [alphabet], letter by letter rather
+     * than `Char` by `Char`: a word in a script outside the BMP is surrogate
+     * pairs, and no alphabet holds half a letter.
+     */
+    fun spells(word: String, alphabet: Set<Int>): Boolean {
+        var at = 0
+        while (at < word.length) {
+            val codePoint = word.codePointAt(at)
+            if (Character.toLowerCase(codePoint) !in alphabet) return false
+            at += Character.charCount(codePoint)
+        }
+        return true
     }
 
     /**
@@ -65,7 +80,7 @@ object GlideCoverage {
      */
     fun sufficient(
         walkers: List<TrieWalker>,
-        alphabet: Set<Char>,
+        alphabet: Set<Int>,
         sample: Int = SAMPLE_WORDS,
     ): Boolean = measure(walkers, alphabet, sample) >= THRESHOLD
 

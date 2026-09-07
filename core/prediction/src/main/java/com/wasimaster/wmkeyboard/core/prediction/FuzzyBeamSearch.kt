@@ -478,7 +478,16 @@ class BeamWorkspace(initialCapacity: Int = 256) {
         return top
     }
 
-    /** Rebuilds the word for state [s] from its parent chain. */
+    /**
+     * Rebuilds the word for state [s] from its parent chain.
+     *
+     * Reversed one UTF-16 unit at a time rather than with
+     * `StringBuilder.reverse()`, which keeps any high-low surrogate pair it
+     * finds together: the leaf-first chain of a word outside the BMP (Osage,
+     * Adlam, Warang Citi) is a run of *low-high* units that it reads as the
+     * pairs of the neighbouring letters, so every such suggestion came back
+     * with its letters' halves swapped and a stray surrogate at each end.
+     */
     fun materialize(s: Int): String {
         sb.setLength(0)
         var cur = s
@@ -487,8 +496,10 @@ class BeamWorkspace(initialCapacity: Int = 256) {
             if (label != NO_LABEL) sb.append(label)
             cur = parent[cur]
         }
-        sb.reverse()
-        return sb.toString()
+        val n = sb.length
+        val chars = CharArray(n)
+        for (i in 0 until n) chars[i] = sb[n - 1 - i]
+        return String(chars)
     }
 
     private fun ensure(needed: Int) {

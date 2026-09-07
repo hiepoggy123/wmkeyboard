@@ -111,8 +111,8 @@ internal const val AutopilotIdleMs = 3_500L
  * callback, but a layout change fills them key by key.
  */
 internal fun autopilotAreas(
-    centers: Map<Char, Offset>,
-    bounds: Map<Char, Rect>,
+    centers: Map<Int, Offset>,
+    bounds: Map<Int, Rect>,
     bias: Map<Char, Float>,
     strength: Float,
     keyWidth: Float,
@@ -123,8 +123,8 @@ internal fun autopilotAreas(
     val areas = LinkedHashMap<Char, AutopilotArea>()
     for ((ch, favour) in bias) {
         if (favour <= 0f) continue
-        val cell = bounds[ch] ?: continue
-        val center = centers[ch] ?: continue
+        val cell = bounds[ch.code] ?: continue
+        val center = centers[ch.code] ?: continue
         val own = weight(ch)
         // The nearest neighbour on each side, and how far away it is. A key is
         // a neighbour horizontally when the rows overlap and vertically when
@@ -138,26 +138,28 @@ internal fun autopilotAreas(
         var rightW = 1f
         var upW = 1f
         var downW = 1f
-        for ((other, otherCenter) in centers) {
-            if (other == ch) continue
+        for ((otherCp, otherCenter) in centers) {
+            if (otherCp == ch.code) continue
+            // A neighbour outside the BMP has no bias entry, so it weighs 1.
+            val other = if (otherCp <= 0xFFFF) otherCp.toChar() else null
             val dx = otherCenter.x - center.x
             val dy = otherCenter.y - center.y
             if (abs(dy) < cell.height * 0.5f) {
                 if (dx > 0f && (right == 0f || dx < right)) {
                     right = dx
-                    rightW = weight(other)
+                    rightW = other?.let(::weight) ?: 1f
                 } else if (dx < 0f && (left == 0f || -dx < left)) {
                     left = -dx
-                    leftW = weight(other)
+                    leftW = other?.let(::weight) ?: 1f
                 }
             }
             if (abs(dx) < cell.width * 0.5f) {
                 if (dy > 0f && (down == 0f || dy < down)) {
                     down = dy
-                    downW = weight(other)
+                    downW = other?.let(::weight) ?: 1f
                 } else if (dy < 0f && (up == 0f || -dy < up)) {
                     up = -dy
-                    upW = weight(other)
+                    upW = other?.let(::weight) ?: 1f
                 }
             }
         }
@@ -239,8 +241,8 @@ internal fun AutopilotArea.clampedTo(width: Float, height: Float): AutopilotArea
  */
 @Composable
 internal fun BoxScope.AutopilotOverlay(
-    centers: Map<Char, Offset>,
-    bounds: Map<Char, Rect>,
+    centers: Map<Int, Offset>,
+    bounds: Map<Int, Rect>,
     bias: Map<Char, Float>,
     strength: Float,
     keyWidth: Float,

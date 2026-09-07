@@ -16,7 +16,7 @@ class GlideBeamTest {
         "asdfghjkl".forEachIndexed { i, c -> add(KeyCenter(c, 60f + i * 60f, 90f)) }
         "zxcvbnm".forEachIndexed { i, c -> add(KeyCenter(c, 90f + i * 60f, 150f)) }
     }
-    private val centers = keys.associateBy { it.char }
+    private val centers = keys.associateBy { it.codePoint }
     private val grid = GlideKeyMap.of(keys, keyWidth)
 
     private val lexicon = listOf(
@@ -48,7 +48,7 @@ class GlideBeamTest {
 
     /** Ideal gesture: straight lines through the word's key centres, densely sampled. */
     private fun gestureFor(word: String, jitter: Float = 0f): List<GesturePoint> {
-        val anchors = word.toCharArray().distinctConsecutive().map { centers.getValue(it) }
+        val anchors = word.toCharArray().distinctConsecutive().map { centers.getValue(it.code) }
         val points = ArrayList<GesturePoint>()
         for (i in 0 until anchors.size - 1) {
             val a = anchors[i]
@@ -70,7 +70,7 @@ class GlideBeamTest {
      * as "never paused anywhere" and is the right default.
      */
     private fun pausedAt(path: List<GesturePoint>, letter: Char): List<GesturePoint> {
-        val key = centers.getValue(letter)
+        val key = centers.getValue(letter.code)
         var nearest = 0
         var best = Float.MAX_VALUE
         path.forEachIndexed { i, p ->
@@ -169,7 +169,7 @@ class GlideBeamTest {
 
     @Test
     fun `too short a path returns nothing`() {
-        val h = centers.getValue('h')
+        val h = centers.getValue('h'.code)
         val stub = listOf(
             GesturePoint(h.x, h.y),
             GesturePoint(h.x + 2, h.y),
@@ -207,7 +207,7 @@ class GlideBeamTest {
         val doubled = keys + keys.mapIndexed { i, k -> KeyCenter(other(i), k.x, k.y) }
         val doubledGrid = GlideKeyMap.of(doubled, keyWidth)
         val twin = buildString {
-            for (c in "the") append(other(keys.indexOfFirst { it.char == c }))
+            for (c in "the") append(other(keys.indexOfFirst { it.codePoint == c.code }))
         }
         val paired = sourcesOf(listOf("the" to 100, twin to 900))
 

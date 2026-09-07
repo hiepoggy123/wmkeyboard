@@ -411,6 +411,9 @@ object AssetLayouts {
     const val SAT_ID = "asset_sat"
     const val MNI_ID = "asset_mni"
 
+    /** Ho in Warang Citi, U+118A0..118FF: the one shipped grid outside the BMP that we wrote ourselves. */
+    const val HOC_WARANG_CITI_ID = "asset_hoc_warang_citi"
+
     // --- Second keymaps for languages that already ship one: national standards
     // (InScript, BDS, TS 2117, Remington), ergonomic alternatives and regional
     // variants. Each is a different arrangement of a script already supported,
@@ -438,6 +441,15 @@ object AssetLayouts {
     const val ISV_ID = "asset_isv"
     const val KA_LEGACY_ID = "asset_ka_legacy"
     const val KN_KPRAO_ID = "asset_kn_kprao"
+
+    /**
+     * The two three-set (세벌식) Korean layouts. Unlike the built-in two-set
+     * grid these emit *conjoining* jamo (U+1100 block) — a positional keyboard
+     * has to, because it distinguishes initial ᄀ from final ᆨ and those are
+     * different code points — and `HangulComposer` composes both blocks.
+     */
+    const val KO_SEBEOLSIK_390_ID = "asset_ko_sebeolsik_390"
+    const val KO_SEBEOLSIK_FINAL_ID = "asset_ko_sebeolsik_final"
     const val ML_INSCRIPT_ENHANCED_ID = "asset_ml_inscript_enhanced"
     const val MNI_INSCRIPT_ID = "asset_mni_inscript"
     const val MNS_ID = "asset_mns"

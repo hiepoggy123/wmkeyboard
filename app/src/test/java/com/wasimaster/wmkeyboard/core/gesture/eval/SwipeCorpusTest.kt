@@ -104,7 +104,7 @@ class SwipeCorpusTest {
         }
         var at = 0
         for (key in visited) {
-            if (at < word.length && key == word[at]) at++
+            if (at < word.length && key == word[at].code) at++
         }
         assertEquals("only matched ${word.take(at)} of $word in $visited", word.length, at)
     }
