@@ -57,6 +57,7 @@ import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.core.settings.DEFAULT_LONG_PRESS_LETTERS
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.LongPressLetterActions
+import com.wasimaster.wmkeyboard.core.theme.popupOnKeyOrNull
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import kotlin.math.roundToInt
 import com.wasimaster.wmkeyboard.core.feedback.SoundFile
@@ -987,11 +988,15 @@ internal fun KeyPressPopupSettings(
         // not among them: the flick popup and the spacebar language tooltip
         // read it too.
         if (settings.popup.enabled) item {
+            // A theme may name the placement itself; the row then says so
+            // rather than flipping a switch the board no longer reads (#88).
+            val pinned = themePinSubtitle(settings) { popupOnKeyOrNull(it.popupPlacement) }
             ToggleSetting(
                 R.string.keypress_popup_on_key_title,
-                stringResource(R.string.keypress_popup_on_key_subtitle),
+                pinned ?: stringResource(R.string.keypress_popup_on_key_subtitle),
                 settings.popup.onKey,
                 info = stringResource(R.string.keypress_popup_on_key_info),
+                enabled = pinned == null,
                 default = SettingsDefaults.popup.onKey,
             ) { scope.launch { repository.setKeyPopupOnKey(it) } }
         }
@@ -1007,14 +1012,24 @@ internal fun KeyPressPopupSettings(
             ) { scope.launch { repository.setPopupFontScale(it) } }
         }
         if (settings.popup.enabled) item {
+            // Pinned when the theme sizes the style the board is drawing —
+            // its own placement where it names one, else this switch's.
+            val pinned = themePinSubtitle(settings) { spec ->
+                val onKey = popupOnKeyOrNull(spec.popupPlacement) ?: settings.popup.onKey
+                if (onKey) spec.popupHeightDp else spec.popupFloatingHeightDp
+            }
             SliderSetting(
                 R.string.keypress_popup_height_title,
-                subtitle = stringResource(R.string.keypress_popup_height_subtitle),
+                subtitle = pinned ?: stringResource(R.string.keypress_popup_height_subtitle),
                 value = settings.popup.heightDp.toFloat(),
                 range = 32f..160f,
                 display = { context.getString(R.string.keypress_value_dp, it.toInt()) },
                 info = stringResource(R.string.keypress_popup_height_info),
-                default = SettingsDefaults.popup.heightDp.toFloat(),
+                enabled = pinned == null,
+                // The default of the style the slider is showing: the on-key
+                // one was handed to the floating bubble too, so a reset while
+                // floating set it to 110 dp.
+                default = SettingsDefaults.popup.heightFor(settings.popup.onKey).toFloat(),
             ) { scope.launch { repository.setKeyPopupHeightDp(it.toInt()) } }
         }
         // Only the floating bubble is placed by these. The on-key one grows out

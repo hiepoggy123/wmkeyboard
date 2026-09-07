@@ -1488,12 +1488,16 @@ internal fun TypingGesturesSettings(
         if (settings.gestureTyping) {
             item {
                 val dpFormat = stringResource(R.string.typing_value_dp)
+                // Width and opacity are among the sizes a theme's "Layout for
+                // this theme" group can pin; the row says so when one does (#88).
+                val pinned = themePinSubtitle(settings) { it.gestureTrailWidthDp }
                 SliderSetting(
                     R.string.typing_trail_width_title,
-                    subtitle = stringResource(R.string.typing_trail_width_subtitle),
+                    subtitle = pinned ?: stringResource(R.string.typing_trail_width_subtitle),
                     value = settings.gesture.trailWidthDp,
                     range = 2f..24f,
                     display = { dpFormat.format(it.roundToInt()) },
+                    enabled = pinned == null,
                     default = SettingsDefaults.gesture.trailWidthDp,
                 ) { scope.launch { repository.setGestureTrailWidthDp(it) } }
             }
@@ -1510,8 +1514,10 @@ internal fun TypingGesturesSettings(
             }
             item {
                 val percentFormat = stringResource(R.string.typing_value_percent)
+                val pinned = themePinSubtitle(settings) { it.gestureTrailOpacity }
                 SliderSetting(
                     R.string.typing_trail_opacity_title,
+                    subtitle = pinned,
                     value = settings.gesture.trailOpacity,
                     // Down to zero, which is the only way to glide with no
                     // trail at all. It used to floor at 0.1, so the one way to
@@ -1519,6 +1525,7 @@ internal fun TypingGesturesSettings(
                     // a dozen other things with it.
                     range = 0f..1f,
                     display = { percentFormat.format((it * 100).roundToInt()) },
+                    enabled = pinned == null,
                     default = SettingsDefaults.gesture.trailOpacity,
                 ) { scope.launch { repository.setGestureTrailOpacity(it) } }
             }

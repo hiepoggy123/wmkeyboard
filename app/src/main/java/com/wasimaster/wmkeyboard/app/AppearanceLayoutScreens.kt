@@ -180,25 +180,32 @@ internal fun AppearanceSettings(
                 default = SettingsDefaults.keyCornerRadiusDp.toFloat(),
             ) { scope.launch { repository.setKeyCornerRadiusDp(it.toInt()) } }
         }
+        // A row the active theme's "Layout for this theme" group replaces says
+        // so and stands down, here and on every sizing row below (#88); see
+        // [themePinSubtitle].
         item {
+            val pinned = themePinSubtitle(settings) { it.fontScale }
             SliderSetting(
                 R.string.appearance_key_label_size_title,
-                subtitle = stringResource(R.string.appearance_key_label_size_subtitle),
+                subtitle = pinned ?: stringResource(R.string.appearance_key_label_size_subtitle),
                 value = settings.fontScale,
                 range = KeyFontScaleRange,
                 display = { multiplierFormat.format(it) },
                 info = stringResource(R.string.appearance_key_label_size_info),
+                enabled = pinned == null,
                 default = SettingsDefaults.fontScale,
             ) { scope.launch { repository.setFontScale(it) } }
         }
         item {
+            val pinned = themePinSubtitle(settings) { it.hintFontScale }
             SliderSetting(
                 R.string.appearance_key_hint_size_title,
-                subtitle = stringResource(R.string.appearance_key_hint_size_subtitle),
+                subtitle = pinned ?: stringResource(R.string.appearance_key_hint_size_subtitle),
                 value = settings.layoutBehavior.hintFontScale,
                 range = 0.5f..2.0f,
                 display = { multiplierFormat.format(it) },
                 info = stringResource(R.string.appearance_key_hint_size_info),
+                enabled = pinned == null,
                 default = SettingsDefaults.layoutBehavior.hintFontScale,
             ) { scope.launch { repository.setHintFontScale(it) } }
         }
@@ -375,13 +382,15 @@ internal fun AppearanceToolbarSettings(
             }
         }
         item {
+            val pinned = themePinSubtitle(settings) { it.toolbarHeightDp }
             SliderSetting(
                 R.string.appearance_toolbar_height_title,
-                subtitle = stringResource(R.string.appearance_toolbar_height_subtitle),
+                subtitle = pinned ?: stringResource(R.string.appearance_toolbar_height_subtitle),
                 value = settings.toolbarHeightDp.toFloat(),
                 range = 32f..80f,
                 display = { dpFormat.format(it.roundToInt()) },
                 info = stringResource(R.string.appearance_toolbar_height_info),
+                enabled = pinned == null,
                 default = SettingsDefaults.toolbarHeightDp.toFloat(),
             ) { scope.launch { repository.setToolbarHeightDp(it.roundToInt()) } }
         }
@@ -469,13 +478,15 @@ internal fun AppearanceToolbarSettings(
         // Only the wide tools honour it — panel headers and grids keep the
         // fixed circle — and every wide one is drawn by the toolbar.
         if (settings.toolbarBehavior.enabled) item {
+            val pinned = themePinSubtitle(settings) { it.toolWidthDp }
             SliderSetting(
                 R.string.appearance_tool_width_title,
-                subtitle = stringResource(R.string.appearance_tool_width_subtitle),
+                subtitle = pinned ?: stringResource(R.string.appearance_tool_width_subtitle),
                 value = settings.toolbarBehavior.toolWidthDp.toFloat(),
                 range = 38f..64f,
                 display = { dpFormat.format(it.roundToInt()) },
                 info = stringResource(R.string.appearance_tool_width_info),
+                enabled = pinned == null,
                 default = SettingsDefaults.toolbarBehavior.toolWidthDp.toFloat(),
             ) { scope.launch { repository.setToolbarToolWidthDp(it.roundToInt()) } }
         }
@@ -890,13 +901,15 @@ internal fun LayoutSizeSettings(
     var expandedVariant by remember { mutableStateOf<ScreenVariant?>(null) }
     SettingsGroup(stringResource(R.string.layout_size_position_title)) {
         item {
+            val pinned = themePinSubtitle(settings) { it.keyHeightDp }
             SliderSetting(
                 R.string.layout_key_height_title,
-                subtitle = stringResource(R.string.layout_key_height_subtitle),
+                subtitle = pinned ?: stringResource(R.string.layout_key_height_subtitle),
                 value = settings.keyHeightDp.toFloat(),
                 range = 32f..100f,
                 display = { dpFormat.format(it.toInt()) },
                 info = stringResource(R.string.layout_key_height_info),
+                enabled = pinned == null,
                 default = SettingsDefaults.keyHeightDp.toFloat(),
             ) { scope.launch { repository.setKeyHeightDp(it.toInt()) } }
         }
@@ -913,35 +926,43 @@ internal fun LayoutSizeSettings(
             ) { scope.launch { repository.setBottomRowHeightDp(it.toInt()) } }
         }
         item {
+            // The legacy symmetric field pins both edges where a per-edge one
+            // is unset, the way applyThemeOverrides reads them.
+            val pinned = themePinSubtitle(settings) { it.sidePadLeftScale ?: it.sidePadScale }
             SliderSetting(
                 R.string.layout_side_padding_left_title,
-                subtitle = stringResource(R.string.layout_side_padding_left_subtitle),
+                subtitle = pinned ?: stringResource(R.string.layout_side_padding_left_subtitle),
                 value = settings.layoutBehavior.sidePadLeftScale,
                 range = SidePadScaleRange.start..SidePadScaleRange.endInclusive,
                 display = { percentFormat.format((it * 100).toInt()) },
                 info = stringResource(R.string.layout_side_padding_left_info),
+                enabled = pinned == null,
                 default = SettingsDefaults.layoutBehavior.sidePadLeftScale,
             ) { scope.launch { repository.setSidePadLeftScale(it) } }
         }
         item {
+            val pinned = themePinSubtitle(settings) { it.sidePadRightScale ?: it.sidePadScale }
             SliderSetting(
                 R.string.layout_side_padding_right_title,
-                subtitle = stringResource(R.string.layout_side_padding_right_subtitle),
+                subtitle = pinned ?: stringResource(R.string.layout_side_padding_right_subtitle),
                 value = settings.layoutBehavior.sidePadRightScale,
                 range = SidePadScaleRange.start..SidePadScaleRange.endInclusive,
                 display = { percentFormat.format((it * 100).toInt()) },
                 info = stringResource(R.string.layout_side_padding_right_info),
+                enabled = pinned == null,
                 default = SettingsDefaults.layoutBehavior.sidePadRightScale,
             ) { scope.launch { repository.setSidePadRightScale(it) } }
         }
         item {
+            val pinned = themePinSubtitle(settings) { it.keyGapScale }
             SliderSetting(
                 R.string.layout_key_spacing_title,
-                subtitle = stringResource(R.string.layout_key_spacing_subtitle),
+                subtitle = pinned ?: stringResource(R.string.layout_key_spacing_subtitle),
                 value = settings.keyGapScale,
                 range = 0f..2f,
                 display = { percentFormat.format((it * 100).toInt()) },
                 info = stringResource(R.string.layout_key_spacing_info),
+                enabled = pinned == null,
                 default = SettingsDefaults.keyGapScale,
             ) { scope.launch { repository.setKeyGapScale(it) } }
         }

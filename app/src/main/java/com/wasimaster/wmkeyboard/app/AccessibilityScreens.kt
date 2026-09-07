@@ -78,11 +78,16 @@ internal fun AccessibilitySettings(
             ) { scope.launch { repository.setKeyOutlines(it) } }
         }
         item {
+            // The active theme's "Layout for this theme" group may carry its
+            // own answer; the row then says so instead of flipping a switch
+            // the board no longer reads (#88).
+            val pinned = themePinSubtitle(settings) { it.boldKeyLabels }
             ToggleSetting(
                 R.string.accessibility_bold_labels_title,
-                stringResource(R.string.accessibility_bold_labels_subtitle),
+                pinned ?: stringResource(R.string.accessibility_bold_labels_subtitle),
                 settings.boldKeyLabels,
                 info = stringResource(R.string.accessibility_bold_labels_info),
+                enabled = pinned == null,
                 default = SettingsDefaults.boldKeyLabels,
             ) { scope.launch { repository.setBoldKeyLabels(it) } }
         }
