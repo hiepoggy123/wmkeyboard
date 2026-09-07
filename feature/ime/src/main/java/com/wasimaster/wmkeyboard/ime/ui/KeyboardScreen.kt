@@ -12758,10 +12758,12 @@ internal fun KeyButton(
             // then delivers the lift, and the board-wide gate would stay raised
             // with glide typing refusing to start. Registered only while the
             // popup is up, so it costs a node on one key rather than on all.
-            if (holdToSelect) {
-                DisposableEffect(alternatesHold) {
-                    onDispose { alternatesHold.cancel() }
-                }
+            // Not only for hold-to-select: the tap-a-second-time popup raises
+            // the gate on opening too, and its ways out (an entry tapped, a
+            // tap outside) never reach the hold, so this is the one place
+            // that lowers it for them (#89).
+            DisposableEffect(alternatesHold) {
+                onDispose { alternatesHold.cancel() }
             }
             AlternatesPopup(
                 key = key,
