@@ -2410,8 +2410,17 @@ private fun TopBar(
     if (state.suggestions.isNotEmpty() || state.emojiSuggestions.isNotEmpty()) {
         held.advance(state)
     }
+    // Issue #84: while a stroke is still down, the strip can be held to the one
+    // word the decode reads now instead of showing the whole candidate list
+    // moving under the finger. Display only, and only while the stroke is live:
+    // the lift puts the alternates back on the strip itself (see
+    // `WMKeyboardService.onGesture`). Everything the row carries beside the
+    // words — the rewrite chip, the emoji candidates, the punctuation marks —
+    // stands down with them, since those are all left over from the word before
+    // the stroke and "only the current word" is what the setting promises.
+    val glideStripOnly = state.settings.gesture.stripPreviewOnly && state.glideWord != null
     val shownSuggestions = held.suggestions
-    val shownEmojiSuggestions = held.emojiSuggestions
+    val shownEmojiSuggestions = if (glideStripOnly) emptyList() else held.emojiSuggestions
     // Held alongside the candidates: the fade-out must keep drawing the row it
     // faded in, or a cleared ":tada" buffer would flip the emoji back to text
     // chips for the length of the fade.
@@ -2419,7 +2428,7 @@ private fun TopBar(
     // Punctuation chips are held alongside the words so they fade out with them
     // rather than blanking. The service only fills them when word candidates
     // are present, so they follow the same non-empty gate.
-    val shownPunctuation = held.punctuation
+    val shownPunctuation = if (glideStripOnly) emptyList() else held.punctuation
     // Fade in when the strip shows its candidates, out when it stops. Keyed on
     // strip visibility (see [stripContentVisible]), so it fires both when
     // candidates land while the strip is up and when the strip retakes the row
@@ -3112,7 +3121,7 @@ private fun TopBar(
                 val revision = state.revisionSuggestion
                 val undo = state.correctionUndo
                 val rewriteChip = join ?: revision ?: state.correctionOffer ?: undo
-                if (rewriteChip != null && suggestionsShowing) {
+                if (rewriteChip != null && suggestionsShowing && !glideStripOnly) {
                     val undoing = join == null && revision == null &&
                         state.correctionOffer == null && undo != null
                     Box(
@@ -3163,7 +3172,13 @@ private fun TopBar(
                     }
                 }
                 LatinSuggestionChips(
-                    candidates = shownSuggestions,
+                    // One slot, so the word sits centred across the whole strip
+                    // rather than in the first of three (see [glideStripOnly]).
+                    candidates = if (glideStripOnly) {
+                        listOfNotNull(state.glideWord)
+                    } else {
+                        shownSuggestions
+                    },
                     enabled = suggestionsShowing,
                     alpha = stripContentFade,
                     slotCount = state.settings.suggestionStrip.slotCount,

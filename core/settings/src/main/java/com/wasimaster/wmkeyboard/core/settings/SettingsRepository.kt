@@ -3939,6 +3939,23 @@ data class GestureSettings(
     /** Pill label colour, as ARGB; null follows the theme. See [wordPreviewBackground]. */
     val wordPreviewTextColor: Long? = null,
     /**
+     * While a stroke is still down, the suggestion strip carries only the word
+     * the decode reads now, instead of the whole list of candidates behind it
+     * (issue #84).
+     *
+     * Off by default, which is what the strip always did: every reading of the
+     * stroke sits on it, and they all change as the finger moves. On, the strip
+     * holds one word — the same word the pill floats, and the same word a lift
+     * commits — so the row stops churning under a stroke that is still being
+     * drawn.
+     *
+     * Nothing is lost by turning it on: the finger lifting puts the alternates
+     * back on the strip as it always has, and the ambiguity picker still offers
+     * them mid-stroke. Display only, like [wordPreview]: the decode and what a
+     * glide types are untouched.
+     */
+    val stripPreviewOnly: Boolean = false,
+    /**
      * How much of the dictionary a swipe may answer with — see
      * [GlideVocabulary]. [GlideVocabulary.LARGE] by default, which is a no-op
      * on every word list of 300k words or fewer, the bundled ones included.
@@ -5010,6 +5027,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_WORD_PREVIEW_FONT_SP = intPreferencesKey("gesture_word_preview_font_sp")
         private val GESTURE_WORD_PREVIEW_BACKGROUND = longPreferencesKey("gesture_word_preview_background")
         private val GESTURE_WORD_PREVIEW_TEXT_COLOR = longPreferencesKey("gesture_word_preview_text_color")
+        private val GESTURE_STRIP_PREVIEW_ONLY = booleanPreferencesKey("gesture_strip_preview_only")
         private val GESTURE_VOCABULARY = stringPreferencesKey("gesture_vocabulary")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
@@ -6009,6 +6027,8 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.gesture.wordPreviewBackground,
                 wordPreviewTextColor = p[GESTURE_WORD_PREVIEW_TEXT_COLOR]
                     ?: defaults.gesture.wordPreviewTextColor,
+                stripPreviewOnly = p[GESTURE_STRIP_PREVIEW_ONLY]
+                    ?: defaults.gesture.stripPreviewOnly,
                 vocabulary = p[GESTURE_VOCABULARY]
                     ?.let { runCatching { GlideVocabulary.valueOf(it) }.getOrNull() }
                     ?: defaults.gesture.vocabulary,
@@ -10021,6 +10041,9 @@ class SettingsRepository(private val context: Context) {
                 it[GESTURE_WORD_PREVIEW_TEXT_COLOR] = value
             }
         }
+
+    suspend fun setGestureStripPreviewOnly(value: Boolean) =
+        editPrefs { it[GESTURE_STRIP_PREVIEW_ONLY] = value }
 
     suspend fun setGestureVocabulary(value: GlideVocabulary) =
         editPrefs { it[GESTURE_VOCABULARY] = value.name }

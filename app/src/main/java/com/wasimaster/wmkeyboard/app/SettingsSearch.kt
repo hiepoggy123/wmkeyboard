@@ -393,6 +393,10 @@ private fun SearchStrings.typingGesturesRows(): List<SettingsSearchEntry> {
             R.string.typing_glide_preview_text_color_title,
             R.string.typing_glide_preview_text_color_subtitle,
         ),
+        row(
+            R.string.typing_glide_strip_preview_title,
+            R.string.typing_glide_strip_preview_subtitle,
+        ),
         row(R.string.typing_space_short_swipe_title, R.string.typing_space_short_swipe_subtitle),
         row(R.string.typing_space_long_swipe_title, R.string.typing_space_long_swipe_subtitle),
         row(R.string.typing_space_cursor_step_title, R.string.typing_space_cursor_step_subtitle),

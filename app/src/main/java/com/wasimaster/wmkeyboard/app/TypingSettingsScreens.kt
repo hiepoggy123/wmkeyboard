@@ -1499,6 +1499,18 @@ internal fun TypingGesturesSettings(
                         ) { scope.launch { repository.setGestureWordPreviewTextColor(it) } }
                     }
                 }
+                // Issue #84. Outside the pill's own block on purpose: this is
+                // about the suggestion strip, so it stands whether the pill is
+                // on or off.
+                item {
+                    ToggleSetting(
+                        R.string.typing_glide_strip_preview_title,
+                        stringResource(R.string.typing_glide_strip_preview_subtitle),
+                        settings.gesture.stripPreviewOnly,
+                        info = stringResource(R.string.typing_glide_strip_preview_info),
+                        default = SettingsDefaults.gesture.stripPreviewOnly,
+                    ) { scope.launch { repository.setGestureStripPreviewOnly(it) } }
+                }
             }
         }
     }

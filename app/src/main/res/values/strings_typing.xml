@@ -417,6 +417,10 @@
     <string name="typing_glide_preview_text_color_subtitle">Color of the floating word itself</string>
     <string name="typing_glide_preview_text_color_info">By default the floating word takes its text color from the keyboard theme. Pick a color here and it uses that instead. Reset the row to follow the theme again.</string>
 
+    <string name="typing_glide_strip_preview_title">One word on the strip</string>
+    <string name="typing_glide_strip_preview_subtitle">While you glide, show only the current word</string>
+    <string name="typing_glide_strip_preview_info">While you glide, the suggestion strip shows every word that fits your stroke, and the words change as you move. Turn this on and the strip shows only the word that the keyboard reads now.\n\nThe other words come back on the strip when you lift your finger. If the ambiguity picker is on, it still offers them during the stroke. This does not change what a glide types.</string>
+
     <string name="typing_trail_opacity_title">Trail opacity</string>
 
     <string name="typing_space_short_swipe_title">Quick swipe on the spacebar</string>

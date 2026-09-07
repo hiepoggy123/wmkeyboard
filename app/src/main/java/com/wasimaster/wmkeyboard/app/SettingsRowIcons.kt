@@ -684,6 +684,7 @@ internal object SettingsRowIcons {
         put(R.string.typing_glide_preview_size_title) { Icons.Outlined.FormatSize }
         put(R.string.typing_glide_preview_color_title) { Icons.Outlined.Palette }
         put(R.string.typing_glide_preview_text_color_title) { Icons.Outlined.Colorize }
+        put(R.string.typing_glide_strip_preview_title) { Icons.Outlined.Lightbulb }
         put(R.string.typing_spacebar_language_arrows_title) { Icons.Outlined.SwapHoriz }
         put(R.string.typing_spacebar_display_title) { Icons.Outlined.SpaceBar }
         put(R.string.typing_space_cursor_2d_title) { Icons.Outlined.Mouse }
