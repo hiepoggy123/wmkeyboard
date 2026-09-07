@@ -471,7 +471,11 @@
          is a live part of a panel (the emoji grid, the clipboard history, a
          search box) placed as a cell in the grid. -->
     <string name="panel_layouts_title">Panel layouts</string>
-    <string name="panel_layouts_subtitle">Arrange the emoji, clipboard and text editing panels like key layouts</string>
+    <string name="panel_layouts_subtitle">The panels every layout uses unless it has a panel grid of its own. Each layout\'s editor has a tab for every panel.</string>
+    <!-- %1$s is the panel name, for example "Text editing". -->
+    <string name="layout_editor_panel_inherited_caption">This layout uses the shared <xliff:g id="panel" example="Text editing">%1$s</xliff:g> panel. Changing anything here makes a copy for this layout only. The shared panel is under Key layouts, Panel layouts.</string>
+    <string name="layout_editor_reset_panel_title">Use the shared panel</string>
+    <string name="layout_editor_reset_panel_subtitle">Drops this layout\'s own <xliff:g id="panel" example="Text editing">%1$s</xliff:g> grid. The shared panel comes back.</string>
     <string name="panel_layout_row_title">Panel layout</string>
     <string name="panel_layout_row_subtitle">Arrange the keys and the parts of this panel</string>
     <string name="panel_layout_json_title">Panel layout as JSON</string>

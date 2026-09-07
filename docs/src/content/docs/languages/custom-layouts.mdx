@@ -27,7 +27,7 @@ Layouts of your own are always listed, on or off. Shipped ones appear once you'v
   {/* shot: languages/layout-editor-grid */}
 </PhoneFrame>
 
-A layout has up to nine layers (Letters, Symbols, Symbols 2, Number, Phone, Date, Time, Date & time, and Fn), switchable with tabs across the top. None of them has to be defined. Any layer you leave untouched falls back to the built-in grid for it, the shipped QWERTY's, so a layout that only rearranges letters still gets a working number pad and symbol page without you drawing three hundred keys yourself. The Number layer is also what the Numpad tool, and a long press on <KeyCap>?123</KeyCap>, put on screen, so a layout that authors one gets its own pad there too, in the order it drew it. Letters gets one extra guarantee the others don't, though. See [Details & edge cases](#details--edge-cases). A pencil icon on a tab marks a layer this layout has authored its own copy of. An unauthored tab shows the built-in grid live, with a note that editing it will fork a copy just for this layout.
+A layout has up to nine layers (Letters, Symbols, Symbols 2, Number, Phone, Date, Time, Date & time, and Fn), switchable with tabs across the top, followed by a tab for each of the four [panels](#panel-layouts). None of them has to be defined. Any layer you leave untouched falls back to the built-in grid for it, the shipped QWERTY's, so a layout that only rearranges letters still gets a working number pad and symbol page without you drawing three hundred keys yourself. The Number layer is also what the Numpad tool, and a long press on <KeyCap>?123</KeyCap>, put on screen, so a layout that authors one gets its own pad there too, in the order it drew it. Letters gets one extra guarantee the others don't, though. See [Details & edge cases](#details--edge-cases). A pencil icon on a tab marks a layer this layout has authored its own copy of. An unauthored tab shows the built-in grid live, with a note that editing it will fork a copy just for this layout.
 
 A "Show the shift plane" toggle redraws every key with its `shiftLabel` (or an uppercased label) instead of the primary one, so you can check the shifted layer without switching layers.
 
@@ -133,11 +133,14 @@ Secondary layouts export and import like any other layout file, keys and all. Th
 
 ## Panel layouts
 
-The emoji panel, the clipboard panel and the text editing panel are layouts too. Each is a grid drawn by the same editor, with the same row tools, key sheet and undo, and the keyboard draws the panel from it. There is one layout per panel. Edit it in place, and **Use the standard layout** at the bottom of the editor puts the shipped grid back, the way Reset does on a shipped key layout.
+The emoji panel, the clipboard panel, the text editing panel and the trackpad are layouts too: grids drawn by the same editor, with the same row tools, key sheet and undo, and the keyboard draws each panel from its grid.
 
-<SettingsPath path="Languages & layouts / Key layouts / Panel layouts" />
+They live in two places, and the second inherits from the first:
 
-The group lists the three panels and says **Standard** or **Your own** under each. The same editor opens from the Emoji screen, the Clipboard screen and the Text editing tool's page.
+- **Shared panel layouts.** <SettingsPath path="Languages & layouts / Key layouts / Panel layouts" /> lists the four panels and says **Standard** or **Your own** under each. These are what every layout uses unless it has a grid of its own. The same editor opens from the Emoji screen, the Clipboard screen and the Text editing tool's page. **Use the standard layout** at the bottom puts the shipped grid back.
+- **A layout's own panels.** Every key layout's editor has a tab for each panel, after the Fn tab, on the same strip as Letters and Symbols. A panel tab shows the shared grid until you change something there, then it forks a copy that belongs to this layout only, exactly the way an untouched Symbols tab inherits the shipped page. A pencil on the tab marks a panel this layout owns. **Use the shared panel** at the bottom drops the copy again. So a Bangla layout can carry its own text editing pad while your other layouts keep the shared one, and the panel's own font size, "keep this layer open" switch and rows are all per layout there.
+
+Which grid the keyboard draws is decided when a field opens: the layout you're typing with, its own grid if it has one, else the shared one, else the shipped one.
 
 What makes a panel different from a key layout is the **component**: a cell that holds a live part of the panel rather than a key. The emoji panel has three of them (the category tabs, the search box and the emoji grid), the clipboard panel has three (the search box, the strip of copied fragments and the history), and the text editing panel has none, since it is all keys. A component is placed like any key: pick **Panel component** in the Action picker, choose which one, then give it a width and a row span. The preview draws it hatched with its name. Every other cell is an ordinary key with every option a key layout offers, so a panel can carry a bottom row of abc, space and backspace, an Enter key, a tool key, or a text editing action.
 

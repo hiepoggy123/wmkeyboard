@@ -197,6 +197,12 @@ data class LayoutSet(
      * Deliberately not a term in [rowSpan]: see `reservedRowSpan`.
      */
     val secondaries: Map<String, KeyboardLayout> = emptyMap(),
+    /**
+     * The panel grids this layout carries of its own (issue #63), repaired,
+     * by panel. Absent panels draw the user's shared panel layout, or the
+     * shipped one — see `KeyboardUiState.panelLayout`.
+     */
+    val panels: Map<PanelKind, PanelLayoutSpec> = emptyMap(),
 ) {
     /**
      * Rows the key grid reserves.

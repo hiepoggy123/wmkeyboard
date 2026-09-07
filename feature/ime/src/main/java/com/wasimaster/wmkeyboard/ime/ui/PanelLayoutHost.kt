@@ -61,9 +61,14 @@ internal class TrackpadFieldCallbacks(
     fun onSpace() = onKey(Key(" ", action = KeyAction.Space))
 }
 
-/** The layout the keyboard draws for [kind], from the state or the shipped set. */
+/**
+ * The layout the keyboard draws for [kind]: the typing layout's own grid when
+ * it carries one (issue #63, per layout), else the user's shared panel layout,
+ * else the shipped set. The one place this is decided; the service's
+ * persistence check reads it too.
+ */
 internal fun KeyboardUiState.panelLayout(kind: PanelKind): PanelLayoutSpec =
-    panelLayouts[kind] ?: BuiltInPanelLayouts.default(kind)
+    layouts.panels[kind] ?: panelLayouts[kind] ?: BuiltInPanelLayouts.default(kind)
 
 /**
  * The first row of an emoji layout when it is nothing but the tab strip and

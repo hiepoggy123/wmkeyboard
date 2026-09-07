@@ -249,48 +249,8 @@ internal fun PanelLayoutEditorScreen(
     fun editGridCoalesced(transform: (LayerSpec) -> LayerSpec) =
         editCoalesced { it.copy(grid = transform(it.grid)) }
 
-    fun editRows(transform: (List<List<Key>>) -> List<List<Key>>) =
-        editGrid { it.copy(rows = transform(it.rows)) }
-
-    fun pickHeights(heights: List<Float>?, sourceIndices: List<Int>): List<Float>? =
-        heights?.let { h -> sourceIndices.map { h.getOrNull(it) ?: 1f } }
-
-    fun setRowHeight(rowIndex: Int, value: Float) {
-        editGridCoalesced { ls ->
-            val list = MutableList(ls.rows.size) { ls.rowHeights?.getOrNull(it) ?: 1f }
-            if (rowIndex in list.indices) list[rowIndex] = value
-            ls.copy(rowHeights = if (list.all { it == 1f }) null else list.toList())
-        }
-    }
-
-    val rows = spec.grid.rows
-    val rowHeights = spec.grid.rowHeights
-    val selectedKey = selection?.let { rows.getOrNull(it.row)?.getOrNull(it.col) }
-    val compiled = KeyboardLayout(
-        name = kind.name,
-        rows = rows,
-        rowHeights = rowHeights,
-        appearance = LayoutAppearance(
-            fontId = spec.appearance?.fontId,
-            fontScale = spec.grid.fontScale ?: spec.appearance?.fontScale,
-        ).takeUnless { it.isEmpty },
-    )
-    // The preview's rows share a fixed height the way the keyboard's do: key
-    // rows at key height, component rows over the rest. Four key rows' worth,
-    // which is what the key area is on the shipped layouts.
-    val baseHeightDp = if (actualSize) settings.keyHeightDp else settings.keyHeightDp.coerceIn(38, 56)
-    val previewHeightsDp = remember(spec, baseHeightDp) {
-        if (rows.isEmpty()) {
-            emptyList()
-        } else {
-            val gap = 4
-            val fixed = IntArray(rows.size) { rowScaledKeyHeight(baseHeightDp, rowHeights?.getOrNull(it)) + gap }
-            val weights = FloatArray(rows.size) {
-                (rowHeights?.getOrNull(it) ?: 1f).coerceIn(MinRowHeightScale, MaxRowHeightScale)
-            }
-            val tops = panelRowTops(fixed, weights, panelFlexRows(rows), (baseHeightDp + gap) * 4)
-            List(rows.size) { (tops[it + 1] - tops[it] - gap).coerceAtLeast(8) }
-        }
+    val (compiled, previewHeightsDp) = remember(spec, settings.keyHeightDp, actualSize) {
+        panelPreview(kind, spec.grid, spec.appearance, settings, actualSize)
     }
 
     SectionHeaderPublic(
@@ -348,6 +308,170 @@ internal fun PanelLayoutEditorScreen(
         rowHeightsDp = previewHeightsDp,
     )
 
+    PanelEditorBody(
+        kind = kind,
+        grid = spec.grid,
+        selection = selection,
+        onSelectionChange = { selection = it },
+        sheetOpen = sheetOpen,
+        onSheetOpenChange = { sheetOpen = it },
+        actualSize = actualSize,
+        onActualSizeChange = { actualSize = it },
+        editGrid = ::editGrid,
+        editGridCoalesced = ::editGridCoalesced,
+        jsonRoute = "panel_json/${kind.name}",
+        onNavigate = onNavigate,
+        reset = if (isCustom) {
+            ResetRow(
+                R.string.panel_layout_reset_title,
+                stringResource(R.string.panel_layout_reset_subtitle),
+            ) { confirmReset = true }
+        } else {
+            null
+        },
+    )
+
+    val findings = validatePanelLayout(spec)
+    if (findings.isNotEmpty()) {
+        SettingsGroup(
+            stringResource(R.string.layout_editor_problems_title),
+            info = stringResource(R.string.panel_layout_live_caption),
+        ) {
+            for (finding in findings) {
+                item {
+                    WmRow(
+                        title = finding.text.format(context.resources),
+                        subtitle = stringResource(
+                            if (finding.severity == LayoutSeverity.BLOCKING) {
+                                R.string.layout_editor_problem_blocking_subtitle
+                            } else {
+                                R.string.layout_editor_problem_warning_subtitle
+                            },
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            title = { Text(stringResource(R.string.panel_layout_reset_confirm_title)) },
+            text = { Text(stringResource(R.string.panel_layout_reset_confirm_body)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmReset = false
+                        selection = null
+                        undo = emptyList()
+                        redo = emptyList()
+                        scope.launch { repository.resetPanelLayout(kind) }
+                    },
+                ) { Text(stringResource(R.string.panel_layout_reset_title)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmReset = false }) { Text(stringResource(CommonR.string.common_cancel)) }
+            },
+        )
+    }
+}
+
+/**
+ * The panel's grid as the preview draws it, with the row heights the keyboard
+ * would give it: key rows at key height, component rows over the rest, four
+ * key rows' worth in all — which is what the key area is on the shipped
+ * layouts. Shared by the panel's own screen and the layout editor's panel
+ * tabs (issue #63), so both previews read the same.
+ *
+ * [themeId] is the owning layout's theme, when a layout owns this grid; the
+ * preview then draws in it, the way the typing tabs do.
+ */
+internal fun panelPreview(
+    kind: PanelKind,
+    grid: LayerSpec,
+    appearance: LayoutAppearance?,
+    settings: KeyboardSettings,
+    actualSize: Boolean,
+    themeId: String? = null,
+): Pair<KeyboardLayout, List<Int>> {
+    val rows = grid.rows
+    val rowHeights = grid.rowHeights
+    val compiled = KeyboardLayout(
+        name = kind.name,
+        rows = rows,
+        rowHeights = rowHeights,
+        appearance = LayoutAppearance(
+            fontId = appearance?.fontId,
+            fontScale = grid.fontScale ?: appearance?.fontScale,
+        ).takeUnless { it.isEmpty },
+        themeId = themeId,
+    )
+    val baseHeightDp = if (actualSize) settings.keyHeightDp else settings.keyHeightDp.coerceIn(38, 56)
+    val heights = if (rows.isEmpty()) {
+        emptyList()
+    } else {
+        val gap = 4
+        val fixed = IntArray(rows.size) { rowScaledKeyHeight(baseHeightDp, rowHeights?.getOrNull(it)) + gap }
+        val weights = FloatArray(rows.size) {
+            (rowHeights?.getOrNull(it) ?: 1f).coerceIn(MinRowHeightScale, MaxRowHeightScale)
+        }
+        val tops = panelRowTops(fixed, weights, panelFlexRows(rows), (baseHeightDp + gap) * 4)
+        List(rows.size) { (tops[it + 1] - tops[it] - gap).coerceAtLeast(8) }
+    }
+    return compiled to heights
+}
+
+/** The row that puts a panel grid back: what it is called, and what it does. */
+internal class ResetRow(
+    @StringRes val titleRes: Int,
+    val subtitle: String,
+    val onClick: () -> Unit,
+)
+
+/**
+ * Everything under a panel's preview grid: the row tools for the selected
+ * row, the group of layout-wide rows, and the key sheet. Owned by neither
+ * screen that shows it — the panel's own screen edits the shared panel layout
+ * through the repository, the layout editor edits a layout's own copy through
+ * its undo stack — so every edit goes out through [editGrid] and
+ * [editGridCoalesced] and every piece of state comes in as a parameter.
+ */
+@Composable
+internal fun PanelEditorBody(
+    kind: PanelKind,
+    grid: LayerSpec,
+    selection: KeyRef?,
+    onSelectionChange: (KeyRef?) -> Unit,
+    sheetOpen: Boolean,
+    onSheetOpenChange: (Boolean) -> Unit,
+    actualSize: Boolean,
+    onActualSizeChange: (Boolean) -> Unit,
+    editGrid: ((LayerSpec) -> LayerSpec) -> Unit,
+    editGridCoalesced: ((LayerSpec) -> LayerSpec) -> Unit,
+    jsonRoute: String,
+    onNavigate: (String) -> Unit,
+    reset: ResetRow?,
+) {
+    val context = LocalContext.current
+    val rows = grid.rows
+    val rowHeights = grid.rowHeights
+    val selectedKey = selection?.let { rows.getOrNull(it.row)?.getOrNull(it.col) }
+
+    fun editRows(transform: (List<List<Key>>) -> List<List<Key>>) =
+        editGrid { it.copy(rows = transform(it.rows)) }
+
+    fun pickHeights(heights: List<Float>?, sourceIndices: List<Int>): List<Float>? =
+        heights?.let { h -> sourceIndices.map { h.getOrNull(it) ?: 1f } }
+
+    fun setRowHeight(rowIndex: Int, value: Float) {
+        editGridCoalesced { ls ->
+            val list = MutableList(ls.rows.size) { ls.rowHeights?.getOrNull(it) ?: 1f }
+            if (rowIndex in list.indices) list[rowIndex] = value
+            ls.copy(rowHeights = if (list.all { it == 1f }) null else list.toList())
+        }
+    }
+
     selection?.let { ref ->
         if (ref.row in rows.indices) {
             val spanWidth = spanRowWidths(rows)[ref.row]
@@ -370,7 +494,7 @@ internal fun PanelLayoutEditorScreen(
                         val src = ls.rows.indices.filter { it != ref.row }
                         ls.copy(rows = src.map { ls.rows[it] }, rowHeights = pickHeights(ls.rowHeights, src))
                     }
-                    selection = null
+                    onSelectionChange(null)
                 },
             )
             RowFitRow(rowWidth = spanWidth, gridWeight = gridWeightOf(rows)) {
@@ -425,7 +549,7 @@ internal fun PanelLayoutEditorScreen(
                                 if (i == ref.row && order.size == row.size) order.map { row[it] } else row
                             }
                         }
-                        selection = null
+                        onSelectionChange(null)
                     }
                 }
             }
@@ -436,7 +560,7 @@ internal fun PanelLayoutEditorScreen(
                 stringResource(R.string.layout_editor_actual_size_subtitle),
                 actualSize,
                 info = stringResource(R.string.layout_editor_actual_size_info),
-            ) { actualSize = it }
+            ) { onActualSizeChange(it) }
         }
         item {
             // Issue #60's switch, on a panel: the same field on the same
@@ -444,14 +568,14 @@ internal fun PanelLayoutEditorScreen(
             ToggleSetting(
                 R.string.layout_editor_persist_title,
                 stringResource(R.string.panel_layout_persist_subtitle),
-                spec.grid.persistent,
+                grid.persistent,
                 info = stringResource(R.string.panel_layout_persist_info),
             ) { on -> editGrid { it.copy(persistent = on) } }
         }
         item {
             LayoutFontScaleRow(
-                scale = spec.grid.fontScale,
-                title = stringResource(R.string.layout_editor_font_scale_label, spec.grid.fontScale ?: 1f),
+                scale = grid.fontScale,
+                title = stringResource(R.string.layout_editor_font_scale_label, grid.fontScale ?: 1f),
                 autoTitle = stringResource(R.string.layout_editor_font_scale_auto_label),
                 hint = stringResource(R.string.layout_editor_font_scale_hint),
                 onChange = { value -> editGridCoalesced { it.copy(fontScale = value) } },
@@ -461,64 +585,18 @@ internal fun PanelLayoutEditorScreen(
             NavRow(
                 R.string.layout_editor_json_title,
                 subtitle = stringResource(R.string.layout_editor_json_subtitle),
-            ) { onNavigate("panel_json/${kind.name}") }
+            ) { onNavigate(jsonRoute) }
         }
-        if (isCustom) {
+        if (reset != null) {
             item {
                 WmRow(
-                    title = stringResource(R.string.panel_layout_reset_title),
-                    subtitle = stringResource(R.string.panel_layout_reset_subtitle),
+                    title = stringResource(reset.titleRes),
+                    subtitle = reset.subtitle,
                     leading = { Icon(Icons.Outlined.Refresh, contentDescription = null) },
-                    onClick = { confirmReset = true },
+                    onClick = reset.onClick,
                 )
             }
         }
-    }
-
-    val findings = validatePanelLayout(spec)
-    if (findings.isNotEmpty()) {
-        SettingsGroup(
-            stringResource(R.string.layout_editor_problems_title),
-            info = stringResource(R.string.panel_layout_live_caption),
-        ) {
-            for (finding in findings) {
-                item {
-                    WmRow(
-                        title = finding.text.format(context.resources),
-                        subtitle = stringResource(
-                            if (finding.severity == LayoutSeverity.BLOCKING) {
-                                R.string.layout_editor_problem_blocking_subtitle
-                            } else {
-                                R.string.layout_editor_problem_warning_subtitle
-                            },
-                        ),
-                    )
-                }
-            }
-        }
-    }
-
-
-    if (confirmReset) {
-        AlertDialog(
-            onDismissRequest = { confirmReset = false },
-            title = { Text(stringResource(R.string.panel_layout_reset_confirm_title)) },
-            text = { Text(stringResource(R.string.panel_layout_reset_confirm_body)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmReset = false
-                        selection = null
-                        undo = emptyList()
-                        redo = emptyList()
-                        scope.launch { repository.resetPanelLayout(kind) }
-                    },
-                ) { Text(stringResource(R.string.panel_layout_reset_title)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmReset = false }) { Text(stringResource(CommonR.string.common_cancel)) }
-            },
-        )
     }
 
     val ref = selection
@@ -547,7 +625,7 @@ internal fun PanelLayoutEditorScreen(
                             if (i != ref.row) row else row.toMutableList().apply { add(target, removeAt(ref.col)) }
                         }
                     }
-                    selection = ref.copy(col = target)
+                    onSelectionChange(ref.copy(col = target))
                 }
             },
             onDuplicate = {
@@ -561,10 +639,10 @@ internal fun PanelLayoutEditorScreen(
                 editRows { r ->
                     r.mapIndexed { i, row -> if (i != ref.row) row else row.filterIndexed { c, _ -> c != ref.col } }
                 }
-                selection = null
-                sheetOpen = false
+                onSelectionChange(null)
+                onSheetOpenChange(false)
             },
-            onDismiss = { sheetOpen = false },
+            onDismiss = { onSheetOpenChange(false) },
             catalog = panelKeyActionCatalog(kind),
             fieldKinds = fieldKindsFor(kind).takeIf { it.isNotEmpty() },
         )

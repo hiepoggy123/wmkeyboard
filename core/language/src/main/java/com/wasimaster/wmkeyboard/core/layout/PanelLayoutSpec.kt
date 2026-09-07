@@ -27,6 +27,14 @@ enum class PanelKind(val shipped: Boolean = true) {
     ;
 
     /**
+     * The key under which a typing layout carries its own grid for this
+     * panel in [LayoutSpec.layers] (issue #63, the per-layout half): a layout
+     * can override the shared panel layout the way it overrides the shipped
+     * symbols page. Prefixed so it can never collide with a [LayoutLayer.key].
+     */
+    val layerKey: String get() = "panel_" + name.lowercase()
+
+    /**
      * The one component a layout of this panel cannot do without — the panel
      * *is* that component — or null for a panel that is only keys.
      */
@@ -104,6 +112,26 @@ object PanelLayoutCodec {
         }.getOrNull()
     }
 }
+
+/** The panel a [LayoutSpec.layers] key names, or null for a typing layer or an unknown key. */
+fun panelKindForLayerKey(key: String): PanelKind? = PanelKind.entries.firstOrNull { it.layerKey == key }
+
+/** This layout's own grid for [kind], or null when it uses the shared panel layout. */
+fun LayoutSpec.panelLayer(kind: PanelKind): LayerSpec? = layers[kind.layerKey]
+
+/** Every panel this layout carries a grid of its own for. */
+val LayoutSpec.panelLayers: Map<PanelKind, LayerSpec>
+    get() = layers.entries.mapNotNull { (key, grid) -> panelKindForLayerKey(key)?.let { it to grid } }.toMap()
+
+/**
+ * The panel layout the keyboard draws for [kind] while [layout] is the one
+ * typing: the layout's own grid first, then the user's shared one, then the
+ * shipped grid — the same fallback chain a typing layer has. The layout's
+ * appearance rides along so a panel inherits the layout's font.
+ */
+fun resolvePanelLayout(kind: PanelKind, layout: LayoutSpec, custom: List<PanelLayoutSpec>): PanelLayoutSpec =
+    layout.panelLayer(kind)?.let { PanelLayoutSpec(kind, it, appearance = layout.appearance) }
+        ?: resolvePanelLayout(kind, custom)
 
 /**
  * The layout the keyboard draws for [kind]: the user's own when they have one,

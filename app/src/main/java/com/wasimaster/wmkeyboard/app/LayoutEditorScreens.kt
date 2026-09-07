@@ -119,6 +119,9 @@ import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyAlternate
 import com.wasimaster.wmkeyboard.core.layout.PanelFieldKind
+import com.wasimaster.wmkeyboard.core.layout.PanelKind
+import com.wasimaster.wmkeyboard.core.layout.panelLayer
+import com.wasimaster.wmkeyboard.core.layout.resolvePanelLayout
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -1130,6 +1133,14 @@ internal fun KeyLayoutEditorScreen(
     val secondary = layout.secondary
     var layer by rememberSaveable(layoutId) { mutableStateOf(LayoutLayer.LETTERS) }
     var selection by remember(layoutId, layer) { mutableStateOf<KeyRef?>(null) }
+    // Issue #63, the per-layout half: the four panels are tabs of this editor
+    // too. A panel tab set aside the typing layer; the grid, its selection and
+    // its sheet are then the panel's, edited into this layout's own copy of
+    // the panel grid over the user's shared one.
+    var panelTab by rememberSaveable(layoutId) { mutableStateOf<PanelKind?>(null) }
+    var panelSelection by remember(layoutId, panelTab) { mutableStateOf<KeyRef?>(null) }
+    var panelSheetOpen by remember(layoutId, panelTab) { mutableStateOf(false) }
+    val customPanels by repository.customPanelLayouts.collectAsStateWithLifecycle(emptyList())
     var showShift by rememberSaveable(layoutId) { mutableStateOf(false) }
     // Draw the preview at the user's real key height instead of the clamped
     // one. Off by default because a tall setting pushes the grid off screen.
@@ -1249,6 +1260,17 @@ internal fun KeyLayoutEditorScreen(
     // copy of QWERTY into the Fn layer and took the template row away. An empty
     // grid here leaves "Add an Fn layer" as the only way in, which is what the
     // caption below already says it is.
+    val panelKind = panelTab
+    val sharedPanelGrid = panelKind?.let { resolvePanelLayout(it, customPanels).grid }
+    val panelGrid = panelKind?.let { layout.panelLayer(it) ?: sharedPanelGrid }
+    val panelPreviewPair = if (panelKind != null && panelGrid != null) {
+        remember(panelKind, panelGrid, layout.appearance, settings.keyHeightDp, actualSize, layout.themeId) {
+            panelPreview(panelKind, panelGrid, layout.appearance, settings, actualSize, layout.themeId)
+        }
+    } else {
+        null
+    }
+
     val inheritable = layout.layer(layer) != null || BuiltInLayouts.default.layer(layer) != null
     val compiled = if (inheritable) {
         layout.compile(layer)
@@ -1409,9 +1431,26 @@ internal fun KeyLayoutEditorScreen(
         )
     }
 
-    if (!secondary) LayerChips(layout, layer) { layer = it; selection = null }
+    if (!secondary) {
+        LayerChips(
+            layout = layout,
+            selected = layer,
+            selectedPanel = panelTab,
+            onSelect = { layer = it; panelTab = null; selection = null },
+            onSelectPanel = { panelTab = it; selection = null },
+        )
+    }
 
-    if (layout.layer(layer) == null) {
+    if (panelKind != null) {
+        if (layout.panelLayer(panelKind) == null) {
+            CaptionText(
+                stringResource(
+                    R.string.layout_editor_panel_inherited_caption,
+                    stringResource(panelTitleRes(panelKind)),
+                ),
+            )
+        }
+    } else if (layout.layer(layer) == null) {
         if (layer == LayoutLayer.FN) {
             // Nothing ships an Fn layer, so there is no built-in to inherit and
             // the grid above is a stand-in. Offer the template instead.
@@ -1497,21 +1536,67 @@ internal fun KeyLayoutEditorScreen(
             },
         ) {
             EditorGrid(
-                layout = compiled,
+                layout = panelPreviewPair?.first ?: compiled,
                 settings = settings,
-                selection = selection,
-                showShift = showShift,
+                selection = if (panelKind != null) panelSelection else selection,
+                showShift = showShift && panelKind == null,
                 actualSize = actualSize,
                 onSelect = { ref ->
-                    selection = ref
                     stepPushed = false
-                    sheetOpen = true
+                    if (panelKind != null) {
+                        panelSelection = ref
+                        panelSheetOpen = true
+                    } else {
+                        selection = ref
+                        sheetOpen = true
+                    }
                 },
+                rowHeightsDp = panelPreviewPair?.second,
             )
         }
     }
 
-    selection?.let { ref ->
+    if (panelKind != null) {
+        val shared = requireNotNull(sharedPanelGrid)
+        val panelName = stringResource(panelTitleRes(panelKind))
+        // Every edit lands on this layout's own copy, forked from the shared
+        // panel layout on the first touch — the same rule an inherited
+        // symbols page follows — and through the same undo stack as the keys.
+        fun panelBase(spec: LayoutSpec): LayerSpec = spec.panelLayer(panelKind) ?: shared
+        PanelEditorBody(
+            kind = panelKind,
+            grid = requireNotNull(panelGrid),
+            selection = panelSelection,
+            onSelectionChange = { panelSelection = it },
+            sheetOpen = panelSheetOpen,
+            onSheetOpenChange = { panelSheetOpen = it },
+            actualSize = actualSize,
+            onActualSizeChange = { actualSize = it },
+            editGrid = { transform ->
+                edit { spec -> spec.copy(layers = spec.layers + (panelKind.layerKey to transform(panelBase(spec)))) }
+            },
+            editGridCoalesced = { transform ->
+                editCoalesced { spec ->
+                    spec.copy(layers = spec.layers + (panelKind.layerKey to transform(panelBase(spec))))
+                }
+            },
+            jsonRoute = "keymap_json/$layoutId",
+            onNavigate = onNavigate,
+            reset = if (layout.panelLayer(panelKind) != null) {
+                ResetRow(
+                    R.string.layout_editor_reset_panel_title,
+                    stringResource(R.string.layout_editor_reset_panel_subtitle, panelName),
+                ) {
+                    edit { it.copy(layers = it.layers - panelKind.layerKey) }
+                    panelSelection = null
+                }
+            } else {
+                null
+            },
+        )
+    }
+
+    if (panelKind == null) selection?.let { ref ->
         if (ref.row in rows.indices) {
             // A row is as wide as its own keys plus the columns a spanning key
             // above holds over it — that is the number the keyboard centres it
@@ -1571,7 +1656,7 @@ internal fun KeyLayoutEditorScreen(
         }
     }
 
-    SettingsGroup {
+    if (panelKind == null) SettingsGroup {
         item {
             WmRow(
                 title = stringResource(R.string.layout_editor_add_row_title),
@@ -1812,7 +1897,7 @@ internal fun KeyLayoutEditorScreen(
     )
 
     val ref = selection
-    if (sheetOpen && ref != null && selectedKey != null) {
+    if (panelKind == null && sheetOpen && ref != null && selectedKey != null) {
         KeyEditSheet(
             key = selectedKey,
             ref = ref,
@@ -1990,32 +2075,53 @@ private fun LayerChips(
     layout: LayoutSpec,
     selected: LayoutLayer,
     onSelect: (LayoutLayer) -> Unit,
+    /** The panel tab on screen, or null while a typing layer is; see issue #63. */
+    selectedPanel: PanelKind? = null,
+    onSelectPanel: (PanelKind) -> Unit = {},
 ) {
     LazyRow(
         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         items(LayoutLayer.entries) { layer ->
-            val authored = layout.layer(layer) != null
-            FilterChip(
-                selected = layer == selected,
+            LayerChip(
+                title = stringResource(layerTitleRes(layer)),
+                selected = selectedPanel == null && layer == selected,
+                authored = layout.layer(layer) != null,
                 onClick = { onSelect(layer) },
-                label = { Text(stringResource(layerTitleRes(layer)), maxLines = 1) },
-                leadingIcon = if (authored) {
-                    {
-                        Icon(
-                            Icons.Outlined.Edit,
-                            contentDescription =
-                                stringResource(R.string.layout_editor_customised_desc),
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                } else {
-                    null
-                },
+            )
+        }
+        // The panels, after the typing layers: every sub-layout of this
+        // layout on one strip, which is what issue #63 asked for.
+        items(PanelKind.entries.filter { it.shipped }) { kind ->
+            LayerChip(
+                title = stringResource(panelTitleRes(kind)),
+                selected = kind == selectedPanel,
+                authored = layout.panelLayer(kind) != null,
+                onClick = { onSelectPanel(kind) },
             )
         }
     }
+}
+
+@Composable
+private fun LayerChip(title: String, selected: Boolean, authored: Boolean, onClick: () -> Unit) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(title, maxLines = 1) },
+        leadingIcon = if (authored) {
+            {
+                Icon(
+                    Icons.Outlined.Edit,
+                    contentDescription = stringResource(R.string.layout_editor_customised_desc),
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        } else {
+            null
+        },
+    )
 }
 
 /**

@@ -77,6 +77,50 @@ class LayoutRepairTest {
         assertTrue(pad.repair().repairNotes.isEmpty())
     }
 
+    /**
+     * Issue #63, per layout: a layout's own panel grid goes through the panel
+     * rules, so its component cell survives the repair that would drop it as
+     * a key typing nothing, an empty one is dropped to inherit the shared
+     * panel, and its problems reach the layout's list.
+     */
+    @Test
+    fun `a layout's own panel grid is repaired and validated as a panel`() {
+        // With a language, so the round trip below is not also a migration.
+        val base = letters(usableBottomRow).copy(langId = "en")
+        val emojiGrid = LayerSpec(
+            listOf(
+                listOf(Key("", action = KeyAction.Field(PanelFieldKind.EMOJI_GRID), width = 10f)),
+                listOf(Key("ABC", action = KeyAction.Letters), Key(" ", action = KeyAction.Space)),
+            ),
+        )
+        val spec = base.copy(layers = base.layers + (PanelKind.EMOJI.layerKey to emojiGrid))
+        assertEquals(emojiGrid, spec.panelLayer(PanelKind.EMOJI))
+        assertTrue(validateLayout(spec).none { it.severity == LayoutSeverity.BLOCKING })
+        val repaired = spec.repair()
+        assertEquals(emojiGrid, repaired.spec.panelLayer(PanelKind.EMOJI))
+        assertTrue(repaired.repairNotes.isEmpty())
+        assertEquals(spec, LayoutCodec.decode(LayoutCodec.encode(spec)))
+
+        // No emoji grid at all: blocked by the panel rules, and repair adds it.
+        val noGrid = base.copy(
+            layers = base.layers + (PanelKind.EMOJI.layerKey to LayerSpec(listOf(listOf(Key("ABC", action = KeyAction.Letters))))),
+        )
+        assertTrue(validateLayout(noGrid).any { it.severity == LayoutSeverity.BLOCKING && it.layer == null })
+        val fixedGrid = noGrid.repair().spec.panelLayer(PanelKind.EMOJI)!!
+        assertTrue(
+            fixedGrid.rows.flatten().any { (it.action as? KeyAction.Field)?.kind == PanelFieldKind.EMOJI_GRID },
+        )
+
+        // Empty: dropped, so the layout inherits the shared panel instead.
+        val empty = base.copy(layers = base.layers + (PanelKind.EMOJI.layerKey to LayerSpec(emptyList())))
+        assertNull(empty.repair().spec.panelLayer(PanelKind.EMOJI))
+        assertEquals(
+            "shared fallback",
+            BuiltInPanelLayouts.default(PanelKind.EMOJI),
+            resolvePanelLayout(PanelKind.EMOJI, empty.repair().spec, emptyList()),
+        )
+    }
+
     /** Issue #60: the warning that ships with the "keep this layer open" switch. */
     @Test
     fun `a persistent layer warns that it needs a way out`() {

@@ -405,6 +405,8 @@ import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.layout.compile
 import com.wasimaster.wmkeyboard.core.layout.secondaryLayouts
+import com.wasimaster.wmkeyboard.ime.ui.panelLayout
+import com.wasimaster.wmkeyboard.core.layout.panelLayers
 import com.wasimaster.wmkeyboard.ime.ui.currentLayout
 import com.wasimaster.wmkeyboard.ime.ui.IconDefaults
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
@@ -6896,7 +6898,7 @@ open class WMKeyboardService : InputMethodService() {
             PanelMode.TRACKPAD -> PanelKind.TRACKPAD
             else -> return false
         }
-        return state.panelLayouts[kind]?.grid?.persistent == true
+        return state.panelLayout(kind).grid.persistent
     }
 
     /**
@@ -7068,6 +7070,12 @@ open class WMKeyboardService : InputMethodService() {
             // Same "only when authored" rule as Fn: the Numpad panel draws its
             // own hardcoded pad otherwise, with the calculator-order setting.
             number = safe.layer(LayoutLayer.NUMBER)?.let { safe.compile(LayoutLayer.NUMBER) },
+            // The layout's own panel grids, already through the panel repair
+            // as part of `safe`. Not through the panel-layout cache: they are
+            // this layout's, so they live and die with its set.
+            panels = safe.panelLayers.mapValues { (kind, grid) ->
+                PanelLayoutSpec(kind, grid, appearance = safe.appearance)
+            },
             numberRows = buildMap {
                 safe.numberRowFor(LayoutLayer.LETTERS)?.let { put(LayoutMode.LETTERS, it) }
                 safe.numberRowFor(LayoutLayer.SYMBOLS)?.let { put(LayoutMode.SYMBOLS, it) }

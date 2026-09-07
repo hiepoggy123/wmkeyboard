@@ -381,6 +381,13 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
         }
     }
 
+    // A layout's own panel grids (issue #63) are checked by the panel rules,
+    // which know about components; the layer loop above does not see them
+    // because their keys are not a LayoutLayer's.
+    for ((kind, grid) in spec.panelLayers) {
+        findings += validatePanelLayout(PanelLayoutSpec(kind, grid))
+    }
+
     return findings.sortedByDescending { it.severity == LayoutSeverity.BLOCKING }
 }
 
@@ -424,6 +431,20 @@ fun LayoutSpec.repair(): RepairedLayout {
     val layers = layers.mapNotNull { (key, layerSpec) ->
         val layer = LayoutLayer.entries.firstOrNull { it.key == key }
         val label = layer?.key ?: key
+
+        // A panel grid of the layout's own goes through the panel repair: the
+        // typing rules below would drop its component cells as keys that type
+        // nothing. An empty one is dropped rather than reset to the shipped
+        // panel, so the layout inherits the shared panel layout instead.
+        panelKindForLayerKey(key)?.let { kind ->
+            if (layerSpec.rows.all { it.isEmpty() }) {
+                repairs += LayoutMessage(R.string.core_lang_repair_layer_replaced, args = listOf(label))
+                return@mapNotNull null
+            }
+            val fixed = PanelLayoutSpec(kind, layerSpec).repair()
+            repairs += fixed.repairNotes
+            return@mapNotNull key to fixed.spec.grid
+        }
 
         var rows = layerSpec.rows.map { row -> row.mapNotNull { it.repairKey(label, repairs) } }
             .filter { it.isNotEmpty() }

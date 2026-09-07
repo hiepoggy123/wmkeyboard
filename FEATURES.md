@@ -645,6 +645,9 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Persistent layers `RARE` — LayerSpec.persistent keeps a symbols, Fn or secondary grid up across a close and reopen of the keyboard and across fields (#60)
     - One switch per layer — No global "persist if…" settings; the editor's toggle carries the "make sure you have a way to exit" warning and the Problems list repeats it
     - Panels too — The same LayerSpec.persistent on a panel layout's grid keeps the text-edit, emoji, clipboard or trackpad panel open across fields
+  - Panels as tabs of every layout `RARE` — The four panel grids are tabs beside Letters…Fn in each layout's editor (#63, per-layout half); a layout's own copy under `panel_<kind>` in `layers` beats the shared panel layout, which beats the shipped grid
+    - Routed repair — `LayoutSpec.repair`/`validateLayout` send `panel_*` layers through the panel rules, so component cells survive and panel problems reach the layout's list
+    - One editor body — `PanelEditorBody` + `panelPreview` shared by the panel's own screen and the layout editor's tabs
   - A theme per layout and per layer `RARE` — LayoutSpec.themeId / LayerSpec.themeId, picked from every built-in and custom theme in the editor; layer beats layout beats mode beats settings (#61)
     - A view, not a write — applyLayoutTheme overlays keyboardThemeId and switches the auto pair off for as long as the grid shows; the user's own choice is untouched
     - Missing theme is ignored — A layout shared with a theme this device lacks keeps the pairing and draws normally
