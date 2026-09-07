@@ -7778,7 +7778,12 @@ open class WMKeyboardService : InputMethodService() {
         // two after every space, which read as a flicker.
         val (nextWords, nextEmojis) = nextWordStrip()
         _uiState.update {
-            it.copy(composingPreview = "", suggestions = nextWords, emojiSuggestions = nextEmojis)
+            it.copy(
+                composingPreview = "",
+                suggestions = nextWords,
+                emojiSuggestions = nextEmojis,
+                autocorrectWord = null,
+            )
         }
         return true
     }
@@ -8611,7 +8616,12 @@ open class WMKeyboardService : InputMethodService() {
         composing = StringBuilder()
         val (nextWords, nextEmojis) = nextWordStrip()
         _uiState.update {
-            it.copy(composingPreview = "", suggestions = nextWords, emojiSuggestions = nextEmojis)
+            it.copy(
+                composingPreview = "",
+                suggestions = nextWords,
+                emojiSuggestions = nextEmojis,
+                autocorrectWord = null,
+            )
         }
     }
 
@@ -8650,6 +8660,7 @@ open class WMKeyboardService : InputMethodService() {
                     composingPreview = "",
                     suggestions = nextWords,
                     emojiSuggestions = nextEmojis,
+                    autocorrectWord = null,
                     // The reading is fully committed, so there is nothing left to
                     // choose. Leaving the grid up would strand the user staring at
                     // an empty panel with the keyboard hidden behind it.
@@ -8837,7 +8848,7 @@ open class WMKeyboardService : InputMethodService() {
         }
         joinContext = null
         val (words, emojis) = nextWordStrip()
-        _uiState.update { it.copy(suggestions = words, emojiSuggestions = emojis) }
+        _uiState.update { it.copy(suggestions = words, emojiSuggestions = emojis, autocorrectWord = null) }
     }
 
     /**
@@ -10376,6 +10387,7 @@ open class WMKeyboardService : InputMethodService() {
             _uiState.update {
                 it.copy(
                     suggestions = cands,
+                    autocorrectWord = null,
                     expandedCandidates = expanded,
                     emojiSuggestions = emptyList(),
                     punctuationSuggestions = emptyList(),
@@ -10561,6 +10573,9 @@ open class WMKeyboardService : InputMethodService() {
                     revisionSuggestion = revision,
                     correctionOffer = offer,
                     correctionUndo = undo,
+                    // Only the correction this commit will keep (#90); a
+                    // resolution left over from another word promises nothing.
+                    autocorrectWord = commitResolution?.takeIf { it.typed == typed }?.correction,
                 )
             }
         }
@@ -10601,6 +10616,7 @@ open class WMKeyboardService : InputMethodService() {
                     revisionSuggestion = null,
                     correctionOffer = null,
                     correctionUndo = null,
+                    autocorrectWord = null,
                 )
             }
         }

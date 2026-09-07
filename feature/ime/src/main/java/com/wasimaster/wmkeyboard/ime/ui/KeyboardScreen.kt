@@ -3196,6 +3196,7 @@ private fun TopBar(
                     textPadding = state.settings.suggestionStrip.chipPadding.dp,
                     centerPrimaryEnabled = state.settings.suggestionStrip.suggestionPrimaryCenter,
                     primaryColor = state.settings.suggestionStrip.primaryColor?.let { Color(it.toInt()) },
+                    autocorrectWord = state.autocorrectWord,
                     shiftState = state.shiftState,
                     // Only while the live candidates are the ones on screen: the
                     // strip holds the last set behind alpha 0, and a key promised
@@ -3412,6 +3413,8 @@ private fun RowScope.LatinSuggestionChips(
     centerPrimaryEnabled: Boolean,
     /** The primary word's own colour (#90), or null for the strip's text colour. */
     primaryColor: Color? = null,
+    /** The word autocorrect has decided a space will put in, or null (#90). */
+    autocorrectWord: String? = null,
     shiftState: ShiftState,
     /** The hotkey badges, or null when no physical keyboard is asking for them. */
     hints: HintPlan? = null,
@@ -3569,9 +3572,15 @@ private fun RowScope.LatinSuggestionChips(
                     Text(
                         text = display,
                         modifier = Modifier.padding(horizontal = textPadding),
-                        // The primary in the user's own colour when they set one
-                        // (#90): bold alone is easy to miss mid-word.
-                        color = if (index == primaryIndex && primaryColor != null) {
+                        // The user's own colour on the word a space will really
+                        // put in (#90), and on no other: the primary is only the
+                        // top guess until autocorrect has decided, and "Th" bold
+                        // beside a coloured "The" would promise a fix that never
+                        // comes. The bold stays on the primary either way.
+                        color = if (
+                            primaryColor != null &&
+                                suggestion.equals(autocorrectWord, ignoreCase = true)
+                        ) {
                             primaryColor
                         } else {
                             MaterialTheme.colorScheme.onSurface
@@ -7956,7 +7965,6 @@ private fun TypingTestStrip(state: KeyboardUiState, onTypingTestAction: (TypingT
             scrollable = state.settings.suggestionStrip.scrollable,
             textPadding = state.settings.suggestionStrip.chipPadding.dp,
             centerPrimaryEnabled = state.settings.suggestionStrip.suggestionPrimaryCenter,
-            primaryColor = state.settings.suggestionStrip.primaryColor?.let { Color(it.toInt()) },
             shiftState = state.shiftState,
             onSuggestion = { onTypingTestAction(TypingTestAction.Suggestion(it)) },
         )

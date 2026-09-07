@@ -1575,6 +1575,14 @@ data class KeyboardUiState(
      */
     val expandedCandidates: List<String> = emptyList(),
     val suggestions: List<String> = emptyList(),
+    /**
+     * The word a space will put in place of what is being typed, once
+     * autocorrect has actually decided to (#90). The strip colours that chip
+     * and no other, so the colour is a promise the commit keeps. Null while
+     * nothing is composing, while the word stands as typed, and while the
+     * decision is still being made.
+     */
+    val autocorrectWord: String? = null,
     /** Missing-space join offer ("some" + "thing" -> "something"), shown as
      * a distinct leading chip; tapping rewrites the committed text. */
     val joinSuggestion: String? = null,
