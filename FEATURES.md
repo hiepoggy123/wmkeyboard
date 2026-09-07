@@ -100,6 +100,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Digit-slip correction `RARE` — One digit inside a word read as a number-row miss
     - Same-length single-digit swap only — "as3" becomes "ase"; "room3" is never shortened to "room"
     - Only on the path that buffers number-row digits — The standalone spell checker never rewrites genuine alphanumerics
+  - Learns from your own fixes `RARE` — A typo you repair by hand teaches the pair and the slip behind it
+    - Taught pairs — Fixed twice, autocorrect makes the fix for you; fixed once, it offers it and never applies a different guess over it
+    - A real word swapped for another — "form" for "from" needs three fixes and the bigram context on its side
+    - Slip habits per layout — Each fix aligned letter by letter (3 for e, b for space, a doubled letter missed) discounts that edit in the fuzzy walk, floored at the adjacent-slip tier, one-sided, after eight sightings
+    - Tap model — Where your finger lands per key, learned from every settled word and every kept correction; the glide hand model's class with its own file
+    - Three ways a fix is seen — Backspace-and-retype, tapping into a word and editing in place, selecting a word and typing over it; only the keyboard's own edits are followed and the word is checked against the field once, on leaving it
+    - Autocorrect's wrong fix, fixed by hand — The pair starts from the original typo and the wrong correction is graded as rejected
+    - Learned corrections screen — Every taught pair with its count, the slips noticed, per-pair delete, forget all; both stores ride the Dictionary export section
   - Undo chip `uncommon` — The word you typed, offered back on the strip after autocorrect rewrote it
     - Outlives backspace — Backspace reaches a correction for one keystroke; the chip stands until the sentence ends, and finds the word behind the caret rather than assuming it is still there
     - Gated on how obvious the correction was — Certainty (margin over the confidence gate, or two-source agreement) times how little it moved the word (edit cost and word length); a split correction always qualifies
@@ -150,6 +158,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Every committed word queues — 500-word buffer, one field, memory only, never written out
     - Counted at the flush points — Keyboard closed, message sent, field cleared, another field, buffer full
     - The caret going back drops it — Backspacing over the word, tapping in to edit, re-picking a swipe; a glide that read the wrong word never counts
+    - A dropped word is remembered for pairing — The word committed in its place, within a slip's distance, carries it as a suspected fix; confirmed against the field at the flush before anything is taught
     - Known words need one settled use, unknown ones three — The unknown count is the "Remember a new word after" setting
     - Deleting a word drops its queued copy — Otherwise the flush writes back what the user just removed
     - Add-by-hand and the Add chip skip the queue — The user answered directly instead of by leaving text alone

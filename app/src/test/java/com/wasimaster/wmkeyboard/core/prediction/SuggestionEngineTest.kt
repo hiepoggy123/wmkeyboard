@@ -1103,4 +1103,117 @@ class SuggestionEngineTest {
         // Shouting is the typist's call, not the memory's.
         assertTrue("BOSTON" in e.suggest("BOST", previousWord = null))
     }
+
+    // --- fixes the user taught by hand (CorrectionMemory) ---
+
+    private fun teach(e: SuggestionEngine, typed: String, fixed: String, times: Int) {
+        repeat(times) {
+            e.correctionMemory.teach(typed, fixed, "qwerty", CorrectionMemory.Kind.PAIR_ONLY)
+        }
+    }
+
+    @Test fun aFixTaughtTwiceIsApplied() {
+        // "zzq" is nothing the dictionary can explain; the user has turned it
+        // into "hello" twice, which is a fix they want made for them.
+        val e = engine()
+        assertNull(e.shouldAutocorrect("zzq"))
+        teach(e, "zzq", "hello", 2)
+        val decision = e.decideCorrection("zzq")
+        assertEquals("hello", decision.apply)
+        assertTrue(decision.certainty > 0.5)
+        // Case carries through like any other correction.
+        assertEquals("Hello", e.shouldAutocorrect("Zzq"))
+    }
+
+    @Test fun oneFixOnlyOffersAndOverrulesADifferentGuess() {
+        val e = engine()
+        assertEquals("world", e.shouldAutocorrect("wprld"))
+        // Fixed once to something else: the engine's own guess is the mistake
+        // the user was correcting, so it is asked about, not applied.
+        teach(e, "wprld", "hello", 1)
+        val decision = e.decideCorrection("wprld")
+        assertNull(decision.apply)
+        assertEquals("hello", decision.offer)
+        teach(e, "wprld", "hello", 1)
+        assertEquals("hello", e.shouldAutocorrect("wprld"))
+    }
+
+    @Test fun oneFixAgreeingWithTheEngineChangesNothing() {
+        val e = engine()
+        teach(e, "wprld", "world", 1)
+        assertEquals("world", e.decideCorrection("wprld").apply)
+    }
+
+    @Test fun aTaughtFixOfARealWordNeedsThreeFixesAndTheContext() {
+        fun build(fixes: Int): SuggestionEngine {
+            val dictionary = Trie().apply {
+                insert("form", 100)
+                insert("from", 500)
+                insert("far", 100)
+                insert("the", 100)
+            }
+            val lexicon = UserLexicon(null)
+            repeat(8) { lexicon.learnBigram("far", "from") }
+            return SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), lexicon).also {
+                teach(it, "form", "from", fixes)
+            }
+        }
+        val three = build(3)
+        // A real word never gives way without context...
+        assertNull(three.decideCorrection("form").apply)
+        assertNull(three.decideCorrection("form", previousWord = "the").apply)
+        // ...and does when the words before it say so.
+        assertEquals("from", three.decideCorrection("form", previousWord = "far").apply)
+        // Two fixes with the context: asked about, not applied.
+        val two = build(2)
+        val decision = two.decideCorrection("form", previousWord = "far")
+        assertNull(decision.apply)
+        assertEquals("from", decision.offer)
+        // One fix says nothing about a real word at all.
+        assertEquals(SuggestionEngine.NO_CORRECTION, build(1).decideCorrection("form", previousWord = "far"))
+    }
+
+    @Test fun anUndoneTaughtFixStopsFiringAndShrinks() {
+        val e = engine()
+        teach(e, "zzq", "hello", 2)
+        assertEquals("hello", e.shouldAutocorrect("zzq"))
+        e.rejectCorrection("zzq", "hello")
+        assertNull(e.shouldAutocorrect("zzq"))
+        assertEquals(1, e.correctionMemory.fixFor("zzq")?.count)
+    }
+
+    @Test fun aBlacklistedFixIsNeverTaughtBack() {
+        val e = engine().apply { blacklist = setOf("hello") }
+        teach(e, "zzq", "hello", 2)
+        assertNull(e.shouldAutocorrect("zzq"))
+    }
+
+    @Test fun aThirdWordSurvivorLetsAnIndirectVerdictThrough() {
+        val e = engine()
+        // The typo standing where the fix was: a reproduced typo, not believed.
+        e.rejectCorrection("teh", "the", deliberate = false)
+        assertEquals(CorrectionStats.Penalty.NONE, e.correctionStats.penalty("teh", "the"))
+        // The fix rewritten into a real third word: the correction was wrong.
+        e.rejectCorrection("teh", "the", deliberate = false, survivor = "them")
+        assertEquals(CorrectionStats.Penalty.PENALIZED, e.correctionStats.penalty("teh", "the"))
+    }
+
+    @Test fun aLearnedSlipPricesItsCandidateAhead() {
+        val dictionary = Trie().apply {
+            insert("hello", 100)
+            insert("hullo", 100)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        // x is far from both e and u: a tie, broken alphabetically.
+        assertEquals("hello", e.suggest("hxllo", previousWord = null).first())
+        val memory = CorrectionMemory(null)
+        repeat(EditHabits.WARMUP) {
+            memory.teach("hxllo", "hullo", "qwerty", CorrectionMemory.Kind.PAIR_AND_HABITS)
+        }
+        e.editHabits = memory.habitsFor("qwerty")
+        assertEquals("hullo", e.suggest("hxllo", previousWord = null).first())
+        // Back to nothing learned restores the shipped pricing.
+        e.editHabits = EditHabits.NONE
+        assertEquals("hello", e.suggest("hxllo", previousWord = null).first())
+    }
 }

@@ -20,6 +20,9 @@ class KeyTouchModel(private val centers: Map<Char, TouchPoint>) {
 
     fun knows(ch: Char): Boolean = centers.containsKey(ch)
 
+    /** Where [ch]'s key is drawn, in key widths, or null off the model. */
+    fun center(ch: Char): TouchPoint? = centers[ch]
+
     /**
      * ln P(tap at [p] | intended key [ch]) up to a constant that cancels in
      * ratios: `-(d^2) / (2 * sigma^2)` with sigma in key widths.

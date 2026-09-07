@@ -431,6 +431,39 @@ class SuggestionEngine(
     var correctionStats: CorrectionStats = CorrectionStats(null)
 
     /**
+     * What the user's own fixes have taught: the pairs [decideCorrection]
+     * consults first, and the slips behind them, which reach the walk as
+     * [editHabits]. Read after the walk, so no generation bump. Memory-only by
+     * default; the IME swaps in the persisted store from attachPersonalStores.
+     */
+    @Volatile
+    var correctionMemory: CorrectionMemory = CorrectionMemory(null)
+
+    /**
+     * This user's learned slips, pricing the walk's edits ([EditHabits]).
+     * Structural equality on the setter: the IME rebuilds the snapshot every
+     * time a fix settles, and only a changed one may invalidate the cached
+     * walk.
+     */
+    @Volatile
+    private var editHabitsField: EditHabits = EditHabits.NONE
+    var editHabits: EditHabits
+        get() = editHabitsField
+        set(value) {
+            if (value == editHabitsField) return
+            editHabitsField = value
+            generation.incrementAndGet()
+        }
+
+    /**
+     * Bigram witness for a taught fix of a real word ("form" → "from"): built
+     * over the same personal, corpus and seed counts the revision chip uses.
+     */
+    private val contextAdvisor: RevisionAdvisor by lazy {
+        RevisionAdvisor(userLexicon, seedBigrams) { ngramPack }
+    }
+
+    /**
      * When on, the effective confidence gate is scaled by the user's recent
      * revert rate — a keyboard being corrected-then-undone often demands more
      * certainty before forcing anything. The slider setting stays the anchor.
@@ -463,13 +496,26 @@ class SuggestionEngine(
      * personal word (a name, a nickname, a transliteration) reaches
      * [isKnownWord] on its own through [PendingLearn] after a few sightings,
      * and its rejections count in full from then on.
+     *
+     * [survivor] is the spelling actually standing where the fix was. It is
+     * [typed] for the settle verdict above; when the user rewrote the fix into
+     * a *third* word by hand it is that word, and being a real word it passes
+     * the gate — the correction was wrong, whatever the original typo was.
      */
-    fun rejectCorrection(typed: String, corrected: String, deliberate: Boolean = true) {
+    fun rejectCorrection(
+        typed: String,
+        corrected: String,
+        deliberate: Boolean = true,
+        survivor: String = typed,
+    ) {
         if (typed.isEmpty() || corrected.isEmpty()) return
-        if (!deliberate && correctionStats.memory != UndoMemory.STRICT && !isKnownWord(typed)) {
+        if (!deliberate && correctionStats.memory != UndoMemory.STRICT && !isKnownWord(survivor)) {
             return
         }
         correctionStats.recordRevert(typed, corrected, deliberate = deliberate)
+        // A fix the user taught and has now undone: the penalty above stops it
+        // firing, and this keeps the memory (and its viewer) honest about it.
+        correctionMemory.unteach(typed, corrected)
     }
 
     private val emptyTrie: WordSource = PackedTrie.EMPTY
@@ -854,7 +900,8 @@ class SuggestionEngine(
         // search() sizes its own result list as max(limit * 2, AUTOCORRECT_K);
         // k / 2 makes that exactly k.
         val walked = beam.search(
-            walkSources(), lower, proximity, k / 2, beamWorkspace.get(), touch = scoring,
+            walkSources(), lower, proximity, k / 2, beamWorkspace.get(),
+            touch = scoring, habits = editHabitsField,
         )
         val ranked = dampMismatchedLanguages(walked)
         rankedWalk = RankedWalk(lower, gen, lexGen, k, touch?.let(::ArrayList), ranked)
@@ -1634,7 +1681,11 @@ class SuggestionEngine(
                 if (tail.length >= 2) {
                     val tailFreq = freqOf(tail)
                     if (tailFreq > 0) {
-                        val score = ln(1.0 + minOf(leftFreq, tailFreq) * WEIGHT_SPLIT_DROPPED)
+                        // A key this hand is known to hit for the space bar
+                        // prices the dropped letter closer to an exact split.
+                        val slip = editHabitsField.spaceSlip(word[i]) / EditHabits.MAX_SHRINK
+                        val weight = WEIGHT_SPLIT_DROPPED + (WEIGHT_SPLIT - WEIGHT_SPLIT_DROPPED) * slip
+                        val score = ln(1.0 + minOf(leftFreq, tailFreq) * weight)
                         results.add("$left $tail" to score)
                     }
                 }
@@ -1807,17 +1858,87 @@ class SuggestionEngine(
      *        eagerly, slow deliberate typing (> 1.0) demands near-certainty.
      *        1.0 — the default, and always when the setting is off — keeps
      *        the gate exactly at the slider value.
+     * @param previousWord the word before this one, for the one case that
+     *        needs it: a fix the user has taught for a spelling that is itself
+     *        a word ("form" → "from"), which only fires when the context
+     *        agrees. Null — a sentence start, or a caller without it — never
+     *        applies such a fix.
      */
     fun decideCorrection(
         word: String,
         touch: List<TouchPoint?>? = null,
         timingMultiplier: Double = 1.0,
+        previousWord: String? = null,
     ): CorrectionDecision {
         val lower = word.lowercase()
         if (lower.length < 3) return NO_CORRECTION
         // An all-caps word is a deliberate acronym or shout, not a typo of a
         // lowercase word — don't "correct" it away when the user asked us not to.
         if (skipAllCapsAutocorrect && isAllCaps(word)) return NO_CORRECTION
+        val ordinary = decideOrdinary(word, lower, touch, timingMultiplier)
+        return withTaughtFix(word, lower, previousWord, ordinary)
+    }
+
+    /**
+     * Lays what the user has taught about [lower] over the engine's own
+     * decision [ordinary].
+     *
+     * A fix made by hand [CorrectionMemory.APPLY_AT] times is applied outright;
+     * one made once is offered, and nothing *else* is applied over it — the
+     * user has shown what they meant, and a different guess is the mistake
+     * they were correcting. The engine's own decision stands when it agrees.
+     * A spelling that is itself a word gives way only after
+     * [CorrectionMemory.APPLY_KNOWN_AT] fixes and with the bigram context as a
+     * second witness ([RevisionAdvisor.precedes]); a pair the user has since
+     * undone is the penalty memory's to hold back, and is left to it.
+     */
+    private fun withTaughtFix(
+        word: String,
+        lower: String,
+        previousWord: String?,
+        ordinary: CorrectionDecision,
+    ): CorrectionDecision {
+        val taught = correctionMemory.fixFor(lower) ?: return ordinary
+        val fixed = taught.fixed
+        if (fixed == lower || fixed.split(' ').any { suppressed(it) }) return ordinary
+        if (correctionStats.penalty(lower, fixed) != CorrectionStats.Penalty.NONE) return ordinary
+        val knownTyped = inDictionaries(lower) ||
+            userLexicon.isEstablished(lower, learnedWordMinCount) ||
+            contacts.contains(lower) || apps.contains(lower)
+        fun applied() = CorrectionDecision(
+            apply = matchCase(word, fixed),
+            // Two fixes is sure enough to act on and unsure enough to show the
+            // undo chip for; the certainty climbs with every fix after.
+            certainty = taught.count.toDouble() / (taught.count + 1),
+            complexity = complexityOfEdit(lower, fixed),
+        )
+        if (knownTyped) {
+            if (taught.count < CorrectionMemory.APPLY_AT ||
+                !contextAdvisor.precedes(previousWord, lower, fixed)
+            ) {
+                return ordinary
+            }
+            return if (taught.count >= CorrectionMemory.APPLY_KNOWN_AT) {
+                applied()
+            } else {
+                CorrectionDecision(offer = matchCase(word, fixed))
+            }
+        }
+        if (taught.count >= CorrectionMemory.APPLY_AT) return applied()
+        if (ordinary.apply?.equals(fixed, ignoreCase = true) == true) return ordinary
+        return CorrectionDecision(offer = matchCase(word, fixed))
+    }
+
+    /**
+     * The engine's own verdict on [word], from the dictionaries and the walk
+     * alone; see [decideCorrection] for the contract.
+     */
+    private fun decideOrdinary(
+        word: String,
+        lower: String,
+        touch: List<TouchPoint?>?,
+        timingMultiplier: Double,
+    ): CorrectionDecision {
         if (inDictionaries(lower) || userLexicon.isEstablished(lower, learnedWordMinCount)) {
             return NO_CORRECTION
         }
@@ -2033,6 +2154,18 @@ class SuggestionEngine(
         candidate: FuzzyBeamSearch.ScoredCandidate,
     ): Double {
         val shape = (candidate.editCost / FuzzyBeamSearch.COST_SUB_FAR).coerceIn(0.0, 1.0)
+        val length = ((lower.length - PLAIN_WORD_LENGTH) / PLAIN_WORD_SPAN).coerceIn(0.0, 1.0)
+        return COMPLEXITY_SHAPE_WEIGHT * shape + (1.0 - COMPLEXITY_SHAPE_WEIGHT) * length
+    }
+
+    /**
+     * [complexityOf] for a taught fix, which has no walk behind it to price
+     * the edit: one slip reads as a near one, two as a far one, and the word's
+     * length weighs in exactly as it does for the engine's own corrections.
+     */
+    private fun complexityOfEdit(lower: String, fixed: String): Double {
+        val edits = EditOps.distance(lower, fixed)
+        val shape = (edits.toDouble() / CorrectionMemory.MAX_EDITS).coerceIn(0.0, 1.0)
         val length = ((lower.length - PLAIN_WORD_LENGTH) / PLAIN_WORD_SPAN).coerceIn(0.0, 1.0)
         return COMPLEXITY_SHAPE_WEIGHT * shape + (1.0 - COMPLEXITY_SHAPE_WEIGHT) * length
     }

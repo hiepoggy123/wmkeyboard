@@ -243,6 +243,8 @@ private fun SearchStrings.typingCorrectionsRows(): List<SettingsSearchEntry> {
             R.string.typing_undo_chip_obviousness_subtitle,
         ),
         row(R.string.typing_undo_memory_title, R.string.typing_undo_memory_subtitle),
+        row(R.string.typing_learn_corrections_title, R.string.typing_learn_corrections_subtitle),
+        row(R.string.typing_adapt_taps_title, R.string.typing_adapt_taps_subtitle),
         row(R.string.typing_skip_all_caps_title, R.string.typing_skip_all_caps_subtitle),
         row(R.string.typing_block_offensive_title, R.string.typing_block_offensive_subtitle),
         row(R.string.typing_context_rerank_title, R.string.typing_context_rerank_subtitle),
@@ -1597,6 +1599,10 @@ private fun SearchStrings.sectionRows(): List<SettingsSearchEntry> {
         under(
             R.string.typing_blacklist_title, R.string.typing_blacklist_subtitle,
             R.string.home_typing_title, "blacklist", R.string.search_kw_blacklist,
+        ),
+        under(
+            R.string.typing_learned_corrections_title, R.string.typing_learned_corrections_subtitle,
+            R.string.home_typing_title, "learnedcorrections", R.string.search_kw_learnedcorrections,
         ),
         // A child of the media control tool's page rather than of a home
         // screen, so its breadcrumb is built by hand off the tool's own name.

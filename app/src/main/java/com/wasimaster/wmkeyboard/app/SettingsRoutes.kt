@@ -79,6 +79,7 @@ internal object SettingsRoutes {
         "customdictionaries",
         "emojikeywords",
         "blacklist",
+        "learnedcorrections",
         "musicapps",
         "phoneformats",
         "hwshortcuts",

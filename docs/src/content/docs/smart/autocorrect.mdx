@@ -104,6 +104,22 @@ A retired pair is not gone forever. Once it has sat quiet for about forty saves 
 
 Pick **Light** if you find the keyboard gives up on corrections too easily. Pick **Strict** if you want an undo to be final. **Off** keeps the undo itself and forgets everything else.
 
+## Learning from your own fixes
+
+Most typos autocorrect misses end the same way: you notice the word, go back, and fix it by hand. That fix used to teach the keyboard nothing. Now it teaches two things.
+
+**The pair.** The keyboard remembers what you typed and what you changed it to, once the text around the fix has settled the way learned words do (see [Words wait their turn](/smart/personal-dictionary/#words-wait-their-turn)). Fix the same typo a second time and autocorrect makes that fix for you from then on, with the undo chip showing the first few times so you can see it happen. After one fix it offers the fix on the strip instead of applying it, and it will not apply a different guess of its own over a word you have already shown it the answer to. If autocorrect had changed the word to the wrong thing and you fixed that by hand, the pair it learns starts from your original typo, and the wrong correction is marked as rejected.
+
+A typo that is itself a real word ("form" for "from") is held to a higher bar: three fixes, and the words before it have to agree that the other word was meant. Otherwise every "form" would turn into "from".
+
+**The slip.** Each pair is also read letter by letter, and the difference is counted as a habit of your hands on this layout: a `3` typed for an `e`, a `b` where the space bar was, a doubled letter missed. Once a layout has taught eight of those, autocorrect treats the slips you actually make as cheaper, so the same slip in a word you never fixed is understood too. A habit never makes a correction fire on its own; it only changes which words are in the running, and the confidence gate decides as before. Habits are learned only from typos you typed yourself, never from a real word swapped for another, from a swiped word, or from a word picked off the strip.
+
+**Where your taps land.** Separately, every word you type and leave standing records where your finger landed on each of its letters, and later taps are read against keys moved to match. This is the tapping twin of the glide typing hand model, and it learns from kept autocorrects as well: a correction you let stand is the plainest statement of which letter a tap was meant for.
+
+The keyboard learns a fix in three situations: you backspace into a word you just committed and retype it, you tap into a word and edit it in place, or you select a word and type over it. It follows only the edits it makes itself, and checks the word against the field once, when you leave it. A learned fix you then undo, by backspace or the undo chip, counts against the pair, and a pair undone twice is retired exactly like any other correction. Everything learned here ages out on the same clock as the rest of the personal dictionary.
+
+**Learned corrections** under <SettingsPath path="Typing / Automatic corrections" /> lists every pair you have taught, with how often, and the slips the keyboard has noticed. Delete a pair there to forget it, or forget all of them at once. **Learn from my fixes** turns the whole thing off. **Learn where my taps land** turns the tap model off on its own, with its own Forget button underneath. Both stores travel with the Dictionary section of an export, and are deleted with the rest of the learned data.
+
 ## Corrections it offers instead of applying
 
 Applying a correction and offering one are not the same question. Applying has to be nearly certain, because being wrong rewrites what you wrote and you may not notice. Offering costs you a chip you can ignore. So everything that came close to the bar without clearing it, which used to be discarded silently, is now offered as a chip at the start of the suggestion strip instead. Tap it to apply the fix; carry on typing and it goes away.
@@ -159,6 +175,9 @@ Autopilot nudges which key a *borderline* tap resolves to, biasing toward whiche
 | Undo a correction from the strip | On | Autocorrect on |
 | How often to offer the undo | 50% (range 0%&ndash;100%) | Autocorrect on, and Undo a correction from the strip on |
 | Remember my undos | Normal (Off / Light / Normal / Strict) | Autocorrect on |
+| Learn from my fixes | On | Autocorrect on |
+| Learned corrections | (a screen) | Autocorrect on |
+| Learn where my taps land | On | Autocorrect on |
 | Skip words in capital letters | On | Autocorrect on |
 | Block offensive words | On | Autocorrect on |
 | Context-aware suggestions | On | Autocorrect on |
@@ -173,7 +192,7 @@ Autopilot nudges which key a *borderline* tap resolves to, biasing toward whiche
 
 The table covers the rows this page is about. The same group also carries **Adapt to app tone** and **Space after a suggestion** (both described on [Suggestions & prediction](/smart/suggestions/)), **Automatic capital letters**, and the two selection rules, wrap-with-a-pair and shift-re-cases-the-selection.
 
-The **Autocorrect** toggle is the master switch for the fourteen rows marked "Autocorrect on" above, from the confidence slider down to Fix number row slips. It is *not* a switch for the whole group. The apostrophe fix, both double-space rules and the auto-space after punctuation carry on working with autocorrect off, which is the point of them having their own toggles. Autocorrect is also reachable as a one-tap toolbar tool that flips the same switch without leaving the keyboard, showing a brief "Autocorrect on"/"Autocorrect off" confirmation.
+The **Autocorrect** toggle is the master switch for the seventeen rows marked "Autocorrect on" above, from the confidence slider down to Fix number row slips. It is *not* a switch for the whole group. The apostrophe fix, both double-space rules and the auto-space after punctuation carry on working with autocorrect off, which is the point of them having their own toggles. Autocorrect is also reachable as a one-tap toolbar tool that flips the same switch without leaving the keyboard, showing a brief "Autocorrect on"/"Autocorrect off" confirmation.
 
 **Autocorrect confidence** is the ratio the top candidate must beat the runner-up by. It's a continuous slider from 1.5&times; to 10&times;, labeled with the exact multiplier (for example "&times;4.0"). Lower makes autocorrect fire more eagerly, on less-certain calls. Higher restricts it to only the most unambiguous typos. Two-source agreement (see [How a correction is chosen](#how-a-correction-is-chosen)) always bypasses this slider, whatever it's set to.
 
@@ -181,6 +200,7 @@ Three more rows change what autocorrect does without you touching the slider:
 
 - **Adaptive confidence** (on) watches how often corrections get rejected and raises the bar when a lot of them do. It stays out of the way until twenty corrections have been judged, and it can move the gate anywhere from 0.85&times; the slider (a spotless record) up to 2.5&times; it, with the result always held inside the slider's own 1.5&times;&ndash;10&times; range. That is the whole of this row: it moves one global gate. The memory of individual corrections you undid is a separate setting, **Remember my undos**, described in [How long an undo lasts](#how-long-an-undo-lasts).
 - **Remember my undos** (Normal) sets how long the keyboard keeps an undo. It is the row to reach for if autocorrect either forgets a fix you rejected or refuses to fix a word you want fixed. See [How long an undo lasts](#how-long-an-undo-lasts).
+- **Learn from my fixes** (on) and **Learn where my taps land** (on) are the two halves of [Learning from your own fixes](#learning-from-your-own-fixes): the first remembers the typos you repair by hand and the slips behind them, the second where your finger lands on each key. **Learned corrections** opens the list of what has been learned.
 - **Typing rhythm** (0%, so off until you move it) measures how fast you typed the word. A quick sloppy burst makes autocorrect a bit braver. Slow deliberate typing, as with an unusual name or a word from another language, makes it hold back. The slider is how much the rhythm is allowed to sway things.
 - **Detection strength** decides how hard the language the keyboard reads the field as leans on ranking, from a light nudge at Gentle through Balanced to a heavy tilt at Aggressive. It reweights the word lists rather than moving the confidence gate, so it changes *which* word autocorrect reaches for, not how sure it has to be. See [Mixed-language typing](/smart/mixed-language/).
 

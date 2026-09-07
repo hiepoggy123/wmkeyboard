@@ -156,6 +156,10 @@ internal object AppLockTargets {
             LockKind.ACTION, LockGroup.DESTRUCTIVE,
         ),
         LockTarget(
+            "action_clear_learned_corrections", R.string.typing_learned_corrections_clear_title,
+            LockKind.ACTION, LockGroup.DESTRUCTIVE,
+        ),
+        LockTarget(
             "action_forget_app_languages", R.string.langemoji_lang_forget_apps_title,
             LockKind.ACTION, LockGroup.DESTRUCTIVE,
         ),

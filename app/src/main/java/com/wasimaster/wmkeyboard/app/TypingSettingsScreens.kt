@@ -310,6 +310,7 @@ internal fun TypingSettings(
 internal fun TypingCorrectionsSettings(
     repository: SettingsRepository,
     settings: KeyboardSettings,
+    onOpenLearnedCorrections: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -405,6 +406,33 @@ internal fun TypingCorrectionsSettings(
                     detail = { level -> ChoiceDetail(stringResource(undoMemoryDescRes(level))) },
                 ) { scope.launch { repository.setAutocorrectUndoMemory(it) } }
             }
+            item {
+                ToggleSetting(
+                    R.string.typing_learn_corrections_title,
+                    stringResource(R.string.typing_learn_corrections_subtitle),
+                    settings.suggestionStrip.learnFromCorrections,
+                    info = stringResource(R.string.typing_learn_corrections_info),
+                    default = SettingsDefaults.suggestionStrip.learnFromCorrections,
+                ) { scope.launch { repository.setLearnFromCorrections(it) } }
+            }
+            item {
+                NavRow(
+                    R.string.typing_learned_corrections_title,
+                    stringResource(R.string.typing_learned_corrections_subtitle),
+                    route = "learnedcorrections",
+                    onClick = onOpenLearnedCorrections,
+                )
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_adapt_taps_title,
+                    stringResource(R.string.typing_adapt_taps_subtitle),
+                    settings.suggestionStrip.adaptToTaps,
+                    info = stringResource(R.string.typing_adapt_taps_info),
+                    default = SettingsDefaults.suggestionStrip.adaptToTaps,
+                ) { scope.launch { repository.setAdaptToTaps(it) } }
+            }
+            item { ForgetTapModelRow(repository) }
             item {
                 ToggleSetting(
                     R.string.typing_skip_all_caps_title,
@@ -1194,6 +1222,39 @@ internal fun TypingCodesSettings(
  * than a corner of "Delete learned words", which takes the personal
  * dictionary with it.
  */
+/**
+ * The tap model's "forget", the twin of [ForgetHandModelRow] for taps: a
+ * confirmed reset that deletes the learned tap positions and tells a running
+ * keyboard through its own version signal.
+ */
+@Composable
+private fun ForgetTapModelRow(repository: SettingsRepository) {
+    val scope = rememberCoroutineScope()
+    var confirm by remember { mutableStateOf(false) }
+    TextButton(
+        onClick = { confirm = true },
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+    ) { Text(stringResource(R.string.typing_adapt_taps_forget)) }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text(stringResource(R.string.typing_adapt_taps_forget_title)) },
+            text = { Text(stringResource(R.string.typing_adapt_taps_forget_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirm = false
+                    scope.launch { repository.forgetTapModel() }
+                }) { Text(stringResource(CommonR.string.common_reset)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirm = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
+}
+
 @Composable
 private fun ForgetHandModelRow(repository: SettingsRepository) {
     val scope = rememberCoroutineScope()

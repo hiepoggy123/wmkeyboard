@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
+import kotlin.math.abs
+
 /**
  * Autocorrects that have fired but whose verdict is not in yet.
  *
@@ -21,6 +23,12 @@ package com.wasimaster.wmkeyboard.core.prediction
  * the disqualifying one. Marking is generous on purpose: adding a comma three
  * words earlier disturbs everything after it, and the caller resolves that by
  * reading the field once at the flush, which is rare enough to afford.
+ *
+ * An entry also answers a question from the other direction. When the user
+ * goes back and rewrites a word by hand, the word they rewrote may be one of
+ * these corrections' *output* — the fix autocorrect made was the wrong fix,
+ * and what they typed originally is the real typo. [find] names that entry so
+ * the caller can learn the right pair and grade the wrong one.
  */
 class CorrectionWatch(private val capacity: Int = DEFAULT_CAPACITY) {
 
@@ -29,8 +37,13 @@ class CorrectionWatch(private val capacity: Int = DEFAULT_CAPACITY) {
     class Entry internal constructor(
         val typed: String,
         val corrected: String,
+        /** Tap position per character of [typed], null where unknown. */
+        val taps: List<TouchPoint?>? = null,
+        /** The key-centre model those taps were scored against. */
+        val keys: KeyTouchModel? = null,
     ) {
-        internal var anchor: Int = UNANCHORED
+        var anchor: Int = UNANCHORED
+            internal set
 
         /**
          * Whether the caret has been in front of this correction since it
@@ -51,8 +64,13 @@ class CorrectionWatch(private val capacity: Int = DEFAULT_CAPACITY) {
      * Queues a correction that has just landed in the field. Returns whatever
      * fell out of the far end of the window, which has settled by distance.
      */
-    fun push(typed: String, corrected: String): List<Entry> {
-        entries.addLast(Entry(typed, corrected))
+    fun push(
+        typed: String,
+        corrected: String,
+        taps: List<TouchPoint?>? = null,
+        keys: KeyTouchModel? = null,
+    ): List<Entry> {
+        entries.addLast(Entry(typed, corrected, taps, keys))
         if (entries.size <= capacity) return emptyList()
         val overflow = ArrayList<Entry>(entries.size - capacity)
         while (entries.size > capacity) overflow.add(entries.removeFirst())
@@ -88,6 +106,27 @@ class CorrectionWatch(private val capacity: Int = DEFAULT_CAPACITY) {
         entries.removeAll { WordKey.of(it.typed) == t && WordKey.of(it.corrected) == c }
     }
 
+    /**
+     * The correction whose output is [corrected] and which ended within
+     * [tolerance] of [nearAnchor], newest first, or null. An entry still
+     * waiting for its echo matches any position: the correction has only
+     * just landed, and the user is already rewriting it.
+     */
+    fun find(corrected: String, nearAnchor: Int, tolerance: Int = FIND_TOLERANCE): Entry? {
+        val key = WordKey.of(corrected)
+        for (i in entries.indices.reversed()) {
+            val entry = entries[i]
+            if (WordKey.of(entry.corrected) != key) continue
+            if (entry.anchor == UNANCHORED || abs(entry.anchor - nearAnchor) <= tolerance) return entry
+        }
+        return null
+    }
+
+    /** Removes [entry]: the caller has judged it by other means. */
+    fun remove(entry: Entry) {
+        entries.remove(entry)
+    }
+
     /** Everything still queued, emptying the watch. */
     fun drain(): List<Entry> {
         if (entries.isEmpty()) return emptyList()
@@ -112,5 +151,8 @@ class CorrectionWatch(private val capacity: Int = DEFAULT_CAPACITY) {
          * read.
          */
         const val DEFAULT_CAPACITY = 24
+
+        /** Anchor tolerance for [find]: the trailing space, either way. */
+        const val FIND_TOLERANCE = 2
     }
 }

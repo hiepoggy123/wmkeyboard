@@ -508,6 +508,7 @@ internal object SettingsRouteIcons {
         "dictionary" to { Icons.AutoMirrored.Outlined.MenuBook },
         "customdictionaries" to { Icons.AutoMirrored.Outlined.MenuBook },
         "blacklist" to { Icons.Outlined.VisibilityOff },
+        "learnedcorrections" to { Icons.Outlined.Spellcheck },
         "phoneformats" to { Icons.Outlined.Phone },
         "hwshortcuts" to { Icons.Outlined.Keyboard },
         "musicapps" to { Icons.Outlined.MusicNote },

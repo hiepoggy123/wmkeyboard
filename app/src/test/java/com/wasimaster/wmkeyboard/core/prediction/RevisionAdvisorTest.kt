@@ -1,7 +1,9 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RevisionAdvisorTest {
@@ -55,5 +57,19 @@ class RevisionAdvisorTest {
         assertNull(a.advise("their", null))
         assertNull(a.advise(WordContext.SENTENCE_START, "going"))
         assertNull(a.advise("their", "going!"))
+    }
+
+    @Test
+    fun precedesAsksTheWordBefore() {
+        val lexicon = UserLexicon(null)
+        repeat(8) { lexicon.learnBigram("far", "from") }
+        val a = advisor(lexicon = lexicon)
+        assertTrue(a.precedes("far", "form", "from"))
+        // No habit for "the from": silent. No context at all: silent.
+        assertFalse(a.precedes("the", "form", "from"))
+        assertFalse(a.precedes(null, "form", "from"))
+        // A real habit for the typed word keeps the ratio under dominance.
+        repeat(6) { lexicon.learnBigram("far", "form") }
+        assertFalse(a.precedes("far", "form", "from"))
     }
 }

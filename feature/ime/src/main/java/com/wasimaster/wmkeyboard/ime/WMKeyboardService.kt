@@ -137,19 +137,24 @@ import com.wasimaster.wmkeyboard.core.prediction.KeystrokeTiming
 import com.wasimaster.wmkeyboard.core.prediction.Register
 import com.wasimaster.wmkeyboard.core.prediction.RevisionAdvisor
 import com.wasimaster.wmkeyboard.core.prediction.CandidateReranker
+import com.wasimaster.wmkeyboard.core.prediction.CorrectionMemory
 import com.wasimaster.wmkeyboard.core.prediction.CorrectionStats
 import com.wasimaster.wmkeyboard.core.prediction.CorrectionWatch
+import com.wasimaster.wmkeyboard.core.prediction.EditOps
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackDownloadManager
 import com.wasimaster.wmkeyboard.core.prediction.NgramPack
 import com.wasimaster.wmkeyboard.core.prediction.NgramReranker
 import com.wasimaster.wmkeyboard.core.prediction.KeyTouchModel
 import com.wasimaster.wmkeyboard.core.prediction.WordContext
+import com.wasimaster.wmkeyboard.core.prediction.WordOrigin
+import com.wasimaster.wmkeyboard.core.prediction.WordRevision
 import com.wasimaster.wmkeyboard.core.prediction.TouchPoint
 import com.wasimaster.wmkeyboard.core.prediction.LanguageMixConfidence
 import com.wasimaster.wmkeyboard.core.prediction.LearningBuffer
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
 import com.wasimaster.wmkeyboard.core.prediction.topWords
 import com.wasimaster.wmkeyboard.core.prediction.PendingLearn
+import com.wasimaster.wmkeyboard.core.prediction.Revision
 import com.wasimaster.wmkeyboard.core.prediction.SecondaryDictionary
 import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
@@ -233,6 +238,8 @@ import com.wasimaster.wmkeyboard.core.stickers.StickerImage
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.HAND_MODEL_FILE
+import com.wasimaster.wmkeyboard.core.settings.LEARNED_CORRECTIONS_FILE
+import com.wasimaster.wmkeyboard.core.settings.TAP_MODEL_FILE
 import com.wasimaster.wmkeyboard.core.text.EmojiGraphemes
 import com.wasimaster.wmkeyboard.core.text.WordDelete
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
@@ -508,6 +515,52 @@ open class WMKeyboardService : InputMethodService() {
     private val correctionWatch = CorrectionWatch()
 
     /**
+     * What the user's own fixes have taught autocorrect: taught pairs and the
+     * slips behind them. Memory-only until the device is unlocked, like every
+     * learning store; re-pointed at its file by [attachPersonalStores].
+     */
+    private var correctionMemory = CorrectionMemory(null)
+
+    /**
+     * Where this hand lands when *tapping*, key by key, learned from every word
+     * that settles and handed to the engine as shifted key centres
+     * ([applyTouchModel]). The glide hand model's class ([KeyOffsets]) with a
+     * file of its own: a thumb tapping and a thumb sweeping do not miss alike.
+     */
+    private var tapOffsets = KeyOffsets(null)
+
+    /** The letter-key centres the layout last reported, as drawn. */
+    private var rawTouchKeys: List<KeyCenter> = emptyList()
+
+    /** The tap-model version the engine's touch model was last built from, -1 for none. */
+    private var appliedTapVersion = -1
+
+    /** Whether the touch model was last built with the tap adaptation on. */
+    private var tapAdaptApplied = true
+
+    /**
+     * The word the user has gone back into and is editing, if any; see
+     * [WordRevision]. Armed when the caret lands on a word
+     * ([restartSuggestionsAtCursor]) or a selected word is typed over,
+     * mirrored by every field edit the keyboard makes, and finished — with
+     * one read of the field — when the caret leaves.
+     */
+    private var revision: WordRevision? = null
+
+    /** How the word [revision] is following got into the field, when known. */
+    private var revisionOrigin: WordOrigin = WordOrigin.TYPED
+
+    /**
+     * The composing fragment last written into a word a field-mode [revision]
+     * is following, so the next rewrite of it is mirrored as a replacement of
+     * exactly that many characters.
+     */
+    private var revisionFragment: String = ""
+
+    /** What the last caret echo dropped from [learningBuffer], for [revisionOriginOf]. */
+    private var lastDropped: List<LearningBuffer.Dropped> = emptyList()
+
+    /**
      * The word the "add to dictionary?" chip is currently asking about, when
      * `askBeforeLearning` is on. Held here as well as in the UI state so the
      * chip can be re-offered after a panel covers the strip.
@@ -717,6 +770,10 @@ open class WMKeyboardService : InputMethodService() {
 
     private var composing = StringBuilder()
         set(value) {
+            // A word the user came back to and edited in the buffer ends here,
+            // whatever ends it: the buffer is the word as they left it.
+            finishComposingRevision(field.toString())
+            revisionFragment = ""
             field = value
             // Any wholesale replacement (commit, field change, re-arm from the
             // field) invalidates the per-character tap positions: a re-armed
@@ -815,16 +872,46 @@ open class WMKeyboardService : InputMethodService() {
 
     /** KeyboardScreen: letter-key centres of the live layout, normalised. */
     private fun onTouchKeys(keys: List<KeyCenter>) {
+        rawTouchKeys = keys
+        applyTouchModel()
+    }
+
+    /**
+     * Builds the engine's touch model from the layout's key centres, moved to
+     * where this hand actually taps when the setting allows and the tap model
+     * has learned anything ([tapOffsets]). Centres and taps are both already
+     * in key widths, so the shift needs no conversion.
+     */
+    private fun applyTouchModel() {
+        val keys = rawTouchKeys
+        if (keys.isEmpty()) return
+        val adaptSetting = _uiState.value.settings.suggestionStrip.adaptToTaps
+        val adapt = adaptSetting && !tapOffsets.isEmpty()
+        val centers = if (adapt) tapOffsets.shifted(keys, keyWidth = 1f) else keys
+        appliedTapVersion = if (adapt) tapOffsets.version else -1
+        tapAdaptApplied = adaptSetting
         // The typing beam walks the trie one UTF-16 unit at a time, so its touch
         // model is keyed by Char: a letter outside the BMP has no single unit to
         // file under and simply gets no tap evidence, the same as before.
         suggestionEngine?.touchModel = KeyTouchModel(
             buildMap {
-                for (key in keys) {
+                for (key in centers) {
                     if (key.codePoint <= 0xFFFF) put(key.codePoint.toChar(), TouchPoint(key.x, key.y))
                 }
             },
         )
+    }
+
+    /** Rebuilds the touch model when the tap model has moved since it was built. */
+    private fun refreshTouchModelIfMoved() {
+        val adapt = _uiState.value.settings.suggestionStrip.adaptToTaps && !tapOffsets.isEmpty()
+        val version = if (adapt) tapOffsets.version else -1
+        if (version != appliedTapVersion) applyTouchModel()
+    }
+
+    /** Hands the engine this layout's learned slips ([CorrectionMemory.habitsFor]). */
+    private fun pushLearnedHabits() {
+        suggestionEngine?.editHabits = correctionMemory.habitsFor(_uiState.value.layoutId)
     }
 
     /**
@@ -2070,6 +2157,7 @@ open class WMKeyboardService : InputMethodService() {
         serviceScope.launch {
             var lexiconVersion = -1
             var handModelVersion = -1
+            var correctionsVersion = -1
             var statsVersion = -1
             var customDictVersion = -1
             var emojiPackVersion = -1
@@ -2268,10 +2356,15 @@ open class WMKeyboardService : InputMethodService() {
                         pendingLearn.reload()
                         wordRanks.reload()
                         keyOffsets.reload()
+                        correctionMemory.reload()
+                        tapOffsets.reload()
                         emojiUsage.reload()
                         languageMixConfidence.reload()
                     }
                     suggestionEngine?.rankOffsets = wordRanks.snapshot()
+                    pushLearnedHabits()
+                    refreshTouchModelIfMoved()
+                    revision = null
                     // Words the user just deleted from their personal
                     // dictionary must not be sitting in the buffer waiting to
                     // be written straight back.
@@ -2286,6 +2379,19 @@ open class WMKeyboardService : InputMethodService() {
                     lastHandAdjustment = null
                 }
                 handModelVersion = settings.gesture.handModelVersion
+                // The Learned-corrections screen's deletes, and "forget" for
+                // the tap model: their own signal for the hand model's reason.
+                if (correctionsVersion != -1 &&
+                    settings.suggestionStrip.correctionsVersion != correctionsVersion
+                ) {
+                    withContext(Dispatchers.Default) {
+                        correctionMemory.reload()
+                        tapOffsets.reload()
+                    }
+                    pushLearnedHabits()
+                    refreshTouchModelIfMoved()
+                }
+                correctionsVersion = settings.suggestionStrip.correctionsVersion
                 // Same contract for the typing counters: the Statistics
                 // screen's delete (and the Storage screen's) bumps the
                 // version so the in-memory copy here does not save the old
@@ -2383,6 +2489,14 @@ open class WMKeyboardService : InputMethodService() {
                     numberRow = settings.numberRow &&
                         settings.suggestionStrip.numberRowCorrections,
                 )
+                // The letters a space-bar miss lands on follow the layout too —
+                // this was a QWERTY constant for every layout before.
+                suggestionEngine?.spaceAdjacentKeys = KeyProximity.spaceAdjacentKeys(activeSpec)
+                    .ifEmpty { SuggestionEngine.SPACE_ADJACENT_DEFAULT }
+                // Slips are a property of where the keys sit, so they follow
+                // the layout as well; the setter ignores an unchanged snapshot.
+                suggestionEngine?.editHabits = correctionMemory.habitsFor(activeSpec.id)
+                if (settings.suggestionStrip.adaptToTaps != tapAdaptApplied) applyTouchModel()
                 suggestionEngine?.autocorrectConfidence =
                     settings.autocorrectConfidence.toDouble()
                 suggestionEngine?.adaptiveConfidence = settings.autocorrectAdaptive
@@ -2425,6 +2539,7 @@ open class WMKeyboardService : InputMethodService() {
                     (settings.incognito && settings.incognitoPausesLearning)
                 ) {
                     learningBuffer.clear()
+                    revision = null
                     clearLearnOffer()
                 }
                 // Adding or removing Bengali changes what the engine was built
@@ -2598,6 +2713,11 @@ open class WMKeyboardService : InputMethodService() {
         // The swapped-in store starts on the default level; carry the user's
         // setting across, or it stays at NORMAL until the next settings emit.
         correctionStats.memory = _uiState.value.settings.autocorrectUndoMemory
+        correctionMemory = CorrectionMemory(store(LEARNED_CORRECTIONS_FILE))
+        suggestionEngine?.correctionMemory = correctionMemory
+        pushLearnedHabits()
+        tapOffsets = KeyOffsets(store(TAP_MODEL_FILE))
+        refreshTouchModelIfMoved()
         suggestionEngine?.correctionStats = correctionStats
         // Its own file, so clearing one store never silently clears the other.
         CjkLearning.store = CjkUserHistory(store("learning/cjk_history.json"))
@@ -2803,6 +2923,10 @@ open class WMKeyboardService : InputMethodService() {
                     numberRow = _uiState.value.settings.numberRow &&
                         _uiState.value.settings.suggestionStrip.numberRowCorrections,
                 )
+                spaceAdjacentKeys = KeyProximity.spaceAdjacentKeys(activeLayoutSpec(_uiState.value.settings))
+                    .ifEmpty { SuggestionEngine.SPACE_ADJACENT_DEFAULT }
+                correctionMemory = this@WMKeyboardService.correctionMemory
+                editHabits = this@WMKeyboardService.correctionMemory.habitsFor(_uiState.value.layoutId)
                 autocorrectConfidence =
                     _uiState.value.settings.autocorrectConfidence.toDouble()
                 adaptiveConfidence = _uiState.value.settings.autocorrectAdaptive
@@ -2847,6 +2971,9 @@ open class WMKeyboardService : InputMethodService() {
                 )
                 reranker = resolveReranker(_uiState.value.settings)
             }
+            // A fresh engine has no touch model until the layout next reports
+            // its key centres; the ones it last reported serve until then.
+            applyTouchModel()
             // Avro's grid is Latin and its output is Bengali, so a swipe over
             // it needs the romanized vocabulary rather than the Bengali one.
             // Empty when neither source is present — the spelling map is a
@@ -3359,6 +3486,9 @@ open class WMKeyboardService : InputMethodService() {
         // liberally and dropping it there would chop words mid-typing.
         expectedSelStart = attribute?.initialSelStart ?: -1
         expectedSelEnd = attribute?.initialSelEnd ?: -1
+        // Whatever word was being followed, its field is gone or its text has
+        // changed under it; nothing about it can be trusted from here.
+        revision = null
         if (restarting) {
             // Same field, new connection: the composing span went with the old
             // one. See [reattachComposing] — and note this runs on its own when
@@ -3447,6 +3577,7 @@ open class WMKeyboardService : InputMethodService() {
         // so the buffer has to be re-attached to a fresh one or dropped — kept
         // with no span behind it, the next setComposingText *inserts* it at the
         // caret and the half-typed word appears twice.
+        revision = null
         if (restarting) {
             reattachComposing(info?.initialSelStart ?: -1, info?.initialSelEnd ?: -1)
         } else {
@@ -3777,6 +3908,7 @@ open class WMKeyboardService : InputMethodService() {
         // would undo what the expected-selection cache exists to save.
         keymanSession?.onSelectionReported(newSelStart, newSelEnd)
         noteCaretForLearning(newSelStart, newSelEnd)
+        noteCaretForRevision(newSelStart, newSelEnd)
         // The undo chip keeps its own anchor, forgiving forwards where
         // [revertAnchor] is not: typing on is precisely what it is built to
         // survive. What it cannot survive is the caret going back through the
@@ -4100,11 +4232,14 @@ open class WMKeyboardService : InputMethodService() {
         // the saves, so anything it promotes lands in the same write.
         clearLearnOffer()
         clearCorrectionOffer()
+        finishRevisionOnLeave()
         flushLearningBuffer()
         userLexicon.save()
         pendingLearn.save()
         wordRanks.save()
         keyOffsets.save()
+        tapOffsets.save()
+        correctionMemory.save()
         correctionStats.save()
         CjkLearning.store?.save()
         languageMixConfidence.save()
@@ -4142,11 +4277,14 @@ open class WMKeyboardService : InputMethodService() {
         // The deferred buzz used to be cancelled by serviceScope.cancel() below;
         // on a Handler it has to be taken off the queue by hand.
         feedbackHandler.removeCallbacks(deferredVibrate)
+        finishRevisionOnLeave()
         flushLearningBuffer()
         userLexicon.save()
         pendingLearn.save()
         wordRanks.save()
         keyOffsets.save()
+        tapOffsets.save()
+        correctionMemory.save()
         correctionStats.save()
         CjkLearning.store?.save()
         emojiUsage.save()
@@ -5148,6 +5286,7 @@ open class WMKeyboardService : InputMethodService() {
                 }
                 return
             }
+            armSelectionRevision(ic)
             invalidateExpectedSelection()
             commitTypedCharacter(ic, text)
             consumeShift()
@@ -5244,6 +5383,7 @@ open class WMKeyboardService : InputMethodService() {
         if (state.settings.inlineEmojiSearch && text == ":" && composing.startsWith(":")) {
             val emoji = emojiShortcodes.exact(composing.substring(1))
             if (emoji != null) {
+                revision = null
                 composing = StringBuilder()
                 ic.commitText(applyEmojiTone(emoji), 1)
                 learnEmoji(emoji)
@@ -5348,6 +5488,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun insertPunctuationSpace(ic: InputConnection) {
         if (spacedAfterCaret(ic.getTextAfterCursor(1, 0))) return
+        mirrorTypedIntoRevision(ic, " ")
         ic.commitText(" ", 1)
         pendingAutoSpace = true
         pendingPunctuationSpace = true
@@ -5895,6 +6036,7 @@ open class WMKeyboardService : InputMethodService() {
             // An editor that will not say what is behind the cursor still owes
             // the press a delete, so an unknown answer is one code unit.
             val deleteLength = charDeleteLength(before ?: "").coerceAtLeast(1)
+            revision?.expectDelete(deleteLength, 0)
             ic.deleteSurroundingText(deleteLength, 0)
             // Backspacing through committed text is the one way the word
             // behind the cursor changes without passing through learn(), so
@@ -6302,6 +6444,7 @@ open class WMKeyboardService : InputMethodService() {
                 ) {
                     composing = StringBuilder(word)
                     composingCaseTrusted = false
+                    armComposingRevision(word, newSelStart)
                     val ahead = before.subSequence(0, before.length - word.length)
                     setContextFrom(ahead)
                     rebuildRecentWords(ahead)
@@ -6324,6 +6467,7 @@ open class WMKeyboardService : InputMethodService() {
                 setContextFrom(ahead)
                 rebuildRecentWords(ahead)
                 caretWord = CaretWord(head, tail)
+                armFieldRevision(head, tail, newSelStart)
                 refreshSuggestions()
                 return
             }
@@ -6395,6 +6539,7 @@ open class WMKeyboardService : InputMethodService() {
         val before = ic.getTextBeforeCursor(96, 0) ?: return
         val length = WordDelete.lengthBefore(before)
         if (length > 0) {
+            revision?.expectDelete(length, 0)
             ic.deleteSurroundingText(length, 0)
             lastGestureWord = null
             lastRevertible = null
@@ -6779,6 +6924,9 @@ open class WMKeyboardService : InputMethodService() {
                 return
             }
         }
+        // A word being followed in the field ends at this space when the caret
+        // is at its end, and gains the space when it is inside it.
+        mirrorTypedIntoRevision(ic, " ")
         ic.commitText(" ", 1)
         // The one plain-space landing: the confirm-a-space-already-there and
         // double-space returns above add no character worth counting.
@@ -7422,6 +7570,12 @@ open class WMKeyboardService : InputMethodService() {
 
     private fun updateComposingText(ic: InputConnection) {
         val preview = composedPreview(_uiState.value, composing.toString())
+        // A fragment typed into a word the user came back to rewrites itself
+        // whole on every keystroke; the field-mode revision mirrors exactly that.
+        revision?.takeIf { it.mode == WordRevision.Mode.FIELD }?.let { r ->
+            r.expectReplaceBefore(revisionFragment.length, preview)
+            revisionFragment = preview
+        }
         ic.setComposingText(preview, 1)
         _uiState.update { it.copy(composingPreview = preview) }
         publishComposingRoman()
@@ -7482,6 +7636,7 @@ open class WMKeyboardService : InputMethodService() {
      * are the only ones whose key event is unambiguous on every layout.
      */
     private fun commitTypedCharacter(ic: InputConnection, text: String) {
+        mirrorTypedIntoRevision(ic, text)
         val digit = text.singleOrNull()?.takeIf { it in '0'..'9' }
         if (digit != null) {
             sendDownUpKeyEvents(KeyEvent.KEYCODE_0 + (digit - '0'))
@@ -7617,6 +7772,10 @@ open class WMKeyboardService : InputMethodService() {
         suggestionJob?.cancel()
         val typed = composing.toString()
         val state = _uiState.value
+        // Snapshot of the taps behind this word, taken before the buffer (and
+        // with it the frame) is replaced below; it rides to the settle.
+        val taps = composingTouchFrame()
+        val tapKeys = suggestionEngine?.touchModel
 
         // An abandoned inline emoji query (":smi" then space) is literal text:
         // never transliterated, autocorrected, or learned as a word.
@@ -7730,7 +7889,10 @@ open class WMKeyboardService : InputMethodService() {
                     )
                 } else {
                     suggestionEngine?.decideCorrection(
-                        typed, touch = composingTouchFrame(), timingMultiplier = timingMultiplier(),
+                        typed,
+                        touch = taps,
+                        timingMultiplier = timingMultiplier(),
+                        previousWord = previousWord,
                     ) ?: SuggestionEngine.NO_CORRECTION
                 }
                 corrected = decision.apply?.takeIf { it != typed }
@@ -7740,6 +7902,25 @@ open class WMKeyboardService : InputMethodService() {
             }
             else -> typed
         }
+        // The word the user came back to and retyped, if this buffer was one:
+        // what the *buffer* held against what it holds now, never the output.
+        // An autocorrect landing on top is the engine's doing, and the pair it
+        // makes is not one the user taught; a fragment glued to a word is not
+        // a word at all. See [WordRevision].
+        val replaces = revision?.takeIf { it.mode == WordRevision.Mode.COMPOSING }?.let { r ->
+            revision = null
+            if (corrected != null || gluedToWord || state.composer.isTransliterating) {
+                null
+            } else {
+                r.finish(typed)?.let { resolveRevision(it) }
+            }
+        }
+        // A fragment typed into a word being followed in the field commits
+        // over its own region; the mirror has to see it land.
+        revision?.takeIf { it.mode == WordRevision.Mode.FIELD }?.let { r ->
+            r.expectReplaceBefore(revisionFragment.length, output)
+            revisionFragment = ""
+        }
         val revertible = corrected?.let {
             RevertibleCommit(RevertibleCommit.Kind.AUTOCORRECT, original = typed, committed = it)
         }
@@ -7747,8 +7928,12 @@ open class WMKeyboardService : InputMethodService() {
         if (revertible != null) {
             // The adaptive gate learns from the fired/reverted ratio, but not
             // yet: firing is not a verdict. The correction waits in the watch
-            // until the text around it settles, and is counted then.
-            judgeCorrections(correctionWatch.push(revertible.original, revertible.committed))
+            // until the text around it settles, and is counted then — with the
+            // taps behind it, which a kept correction turns into evidence of
+            // where this hand lands.
+            judgeCorrections(
+                correctionWatch.push(revertible.original, revertible.committed, taps, tapKeys),
+            )
             armRevertGuard()
         }
         armUndoChip(typed, corrected, obviousness, state)
@@ -7770,6 +7955,10 @@ open class WMKeyboardService : InputMethodService() {
                 output,
                 reinforcement = if (corrected != null) 0 else 1,
                 caseTrusted = composingCaseTrusted && corrected == null,
+                replaces = replaces,
+                typed = typed,
+                taps = taps,
+                keys = tapKeys,
             )
         }
         composing = StringBuilder()
@@ -7819,6 +8008,8 @@ open class WMKeyboardService : InputMethodService() {
      * be able to put it back, and null when the expansion cannot be undone.
      */
     private fun afterSnippetExpansion(inserted: String, original: String?, caretParked: Boolean) {
+        // The buffer became boilerplate, not a spelling of anything.
+        revision = null
         composing = StringBuilder()
         setContextFrom(inserted)
         invalidateRecentWords()
@@ -7885,6 +8076,7 @@ open class WMKeyboardService : InputMethodService() {
         // Same reason as [tryPatternExpansion]: a live composing region and
         // deleteSurroundingText disagree about which characters they mean.
         ic.finishComposingText()
+        revision = null
         composing = StringBuilder()
         ic.deleteSurroundingText(consumed.length, 0)
         commitSplitAtCaret(ic, expanded.text, expanded.cursorOffset)
@@ -7958,6 +8150,7 @@ open class WMKeyboardService : InputMethodService() {
         // different characters in an EditText and in a BasicTextField.
         // Finishing first turns the word into plain committed text for both.
         ic.finishComposingText()
+        revision = null
         composing = StringBuilder()
         ic.deleteSurroundingText(hit.consumedChars, 0)
         commitSplitAtCaret(ic, hit.text, hit.cursorOffset)
@@ -8505,6 +8698,7 @@ open class WMKeyboardService : InputMethodService() {
         val marker = chip.cursorOffset.takeIf { it < chip.text.length }
         ic.beginBatchEdit()
         ic.finishComposingText()
+        revision = null
         composing = StringBuilder()
         ic.deleteSurroundingText(head.length + tail.length, rest.length)
         commitSplitAtCaret(ic, inserted, marker ?: inserted.length)
@@ -8575,6 +8769,7 @@ open class WMKeyboardService : InputMethodService() {
             // A pattern's span ends in the word still being typed, so there
             // usually is one.
             ic.finishComposingText()
+            revision = null
             composing = StringBuilder()
             ic.deleteSurroundingText(offer.consumed.length + tail.length, 0)
         }
@@ -8827,6 +9022,7 @@ open class WMKeyboardService : InputMethodService() {
             val display = joinedCase(tail, joined)
             ic.deleteSurroundingText(span, 0)
             ic.commitText(display, 1)
+            revision = null
             composing = StringBuilder()
             setContextFrom(beforeContext)
             lastRevertible = RevertibleCommit(
@@ -9241,10 +9437,27 @@ open class WMKeyboardService : InputMethodService() {
      * user types it again, while the cost of trusting a false one is a word
      * that comes back wrong for as long as the vote holds.
      */
-    private fun learn(word: String, reinforcement: Int = 1, caseTrusted: Boolean = false) {
+    @Suppress("LongParameterList")
+    private fun learn(
+        word: String,
+        reinforcement: Int = 1,
+        caseTrusted: Boolean = false,
+        origin: WordOrigin = WordOrigin.TYPED,
+        /**
+         * The spelling this commit replaced by hand (see [resolveRevision]),
+         * taught as a fix once the word settles. Attached to the last word of a
+         * multi-word commit, which is the one that ends where the old word did.
+         */
+        replaces: String? = null,
+        /** What the buffer held at the commit, when the taps below were aimed at it. */
+        typed: String? = null,
+        taps: List<TouchPoint?>? = null,
+        keys: KeyTouchModel? = null,
+    ) {
+        val parts = word.split(' ')
         // The pattern gate follows what went into the field, not what the
         // lexicon was allowed to keep, so it is fed on both paths.
-        for (part in word.split(' ')) pushRecentWord(part)
+        for (part in parts) pushRecentWord(part)
         // A chip asking about the *previous* word has been overtaken: the user
         // typed on rather than answering, which is the answer. Cleared before
         // the gate below so it never outlives the word it was about.
@@ -9265,11 +9478,14 @@ open class WMKeyboardService : InputMethodService() {
         // gate exists to keep out.
         var previousKnown = previous == null || isKnownWord(previous)
         var beforePreviousKnown = beforePrevious == null || isKnownWord(beforePrevious)
-        for (part in word.split(' ')) {
+        for ((index, part) in parts.withIndex()) {
             // Combining marks are part of the word, not a boundary: trimming
             // on isLetter alone learns Bengali হয়েছে as হয়েছ. See WordContext.
             val cleaned = part.trim { !WordContext.isWordChar(it) }
             if (cleaned.isEmpty()) continue
+            val last = index == parts.lastIndex
+            // Taps only line up with a single word; a split commit has none.
+            val single = parts.size == 1
             notePerAppWord(cleaned)
             // Attribute the word to whichever mixed language owns it, so the
             // secondary-dictionary weighting tracks the user's real habit.
@@ -9285,7 +9501,13 @@ open class WMKeyboardService : InputMethodService() {
                 // they hang off words already in the dictionary either way, and
                 // the context they need is the run of words being committed
                 // right now, which the buffer does not keep.
-                noteKnownWord(cleaned, reinforcement, state, caseTrusted)
+                noteKnownWord(
+                    cleaned, reinforcement, state, caseTrusted, origin,
+                    replaces = replaces.takeIf { last },
+                    typed = (typed ?: cleaned).takeIf { single } ?: cleaned,
+                    taps = taps.takeIf { single },
+                    keys = keys,
+                )
                 if (previousKnown) {
                     previous?.let { prev ->
                         userLexicon.learnBigram(prev, cleaned)
@@ -9298,7 +9520,13 @@ open class WMKeyboardService : InputMethodService() {
                 // Nothing recognises this word. It goes into the waiting room
                 // instead of the dictionary, and only earns its way in once
                 // the user has typed it — and left it alone — enough times.
-                noteUnknownWord(cleaned, reinforcement, state, caseTrusted)
+                noteUnknownWord(
+                    cleaned, reinforcement, state, caseTrusted, origin,
+                    replaces = replaces.takeIf { last },
+                    typed = (typed ?: cleaned).takeIf { single } ?: cleaned,
+                    taps = taps.takeIf { single },
+                    keys = keys,
+                )
             }
             beforePrevious = previous
             beforePreviousKnown = previousKnown
@@ -9335,11 +9563,17 @@ open class WMKeyboardService : InputMethodService() {
      * sent, moving to another field, or the buffer filling. Backspacing it or
      * re-picking from the strip drops it before it ever counts.
      */
+    @Suppress("LongParameterList")
     private fun noteKnownWord(
         word: String,
         reinforcement: Int,
         state: KeyboardUiState,
         caseTrusted: Boolean,
+        origin: WordOrigin,
+        replaces: String?,
+        typed: String,
+        taps: List<TouchPoint?>?,
+        keys: KeyTouchModel?,
     ) {
         // An autocorrect target arrives at 0 and has nothing to teach the
         // lexicon: [UserLexicon.learnWord] would refuse the count anyway, and
@@ -9348,6 +9582,7 @@ open class WMKeyboardService : InputMethodService() {
         settleLearned(
             learningBuffer.push(
                 word, state.language.id, reinforcement, caseTrusted, known = true,
+                origin = origin, replaces = replaces, typed = typed, taps = taps, keys = keys,
             ),
         )
     }
@@ -9365,11 +9600,17 @@ open class WMKeyboardService : InputMethodService() {
      * word learned on first sight is a word autocorrect will never fix again,
      * and most first sightings of an unknown word are typos and sloppy swipes.
      */
+    @Suppress("LongParameterList")
     private fun noteUnknownWord(
         word: String,
         reinforcement: Int,
         state: KeyboardUiState,
         caseTrusted: Boolean,
+        origin: WordOrigin,
+        replaces: String?,
+        typed: String,
+        taps: List<TouchPoint?>?,
+        keys: KeyTouchModel?,
     ) {
         // An autocorrect target is a dictionary word by construction, so a
         // reinforcement of 0 here means the correction landed on something we
@@ -9381,7 +9622,10 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         settleLearned(
-            learningBuffer.push(word, state.language.id, reinforcement, caseTrusted),
+            learningBuffer.push(
+                word, state.language.id, reinforcement, caseTrusted,
+                origin = origin, replaces = replaces, typed = typed, taps = taps, keys = keys,
+            ),
         )
     }
 
@@ -9389,10 +9633,22 @@ open class WMKeyboardService : InputMethodService() {
      * Counts words whose text has settled, promoting any that have now been
      * seen enough times.
      */
-    private fun settleLearned(entries: List<LearningBuffer.Entry>) {
+    private fun settleLearned(entries: List<LearningBuffer.Entry>, verify: Boolean = false) {
         if (entries.isEmpty()) return
         val settings = _uiState.value.settings
         val threshold = settings.suggestionStrip.newWordSightings.coerceAtLeast(1)
+        // One bounded read of the field, only if a positional suspect needs it
+        // (see [teachRevision]) and only where the field can answer for these
+        // words; never on the typing path.
+        var window: String? = null
+        var windowRead = false
+        fun window(): String? {
+            if (!windowRead) {
+                windowRead = true
+                window = if (verify) correctionJudgementWindow() else null
+            }
+            return window
+        }
         for (entry in entries) {
             // Blacklisted since the commit: the user has just taken this word
             // out of their dictionary, and the queue must not put it back (#48).
@@ -9402,7 +9658,11 @@ open class WMKeyboardService : InputMethodService() {
                 // recognised now: a language switched off while the word sat
                 // here would otherwise walk an unknown word into the lexicon
                 // past the sighting gate that exists to stop exactly that.
-                if (isKnownWord(entry.word)) learnSettledWord(entry, settings)
+                if (isKnownWord(entry.word)) {
+                    learnSettledWord(entry, settings)
+                    teachRevision(entry, ::window)
+                    observeTaps(entry.typed, entry.word, entry.taps, entry.keys, entry.origin)
+                }
                 continue
             }
             // The word may have been learned, imported or added by hand while
@@ -9478,7 +9738,7 @@ open class WMKeyboardService : InputMethodService() {
      * needed a read simply go unjudged.
      */
     private fun flushLearningBuffer(verifyCorrections: Boolean = true) {
-        settleLearned(learningBuffer.drain())
+        settleLearned(learningBuffer.drain(), verify = verifyCorrections)
         judgeCorrections(correctionWatch.drain(), verify = verifyCorrections)
     }
 
@@ -9501,7 +9761,12 @@ open class WMKeyboardService : InputMethodService() {
     private fun judgeCorrections(entries: List<CorrectionWatch.Entry>, verify: Boolean = true) {
         if (entries.isEmpty()) return
         val undisturbed = entries.filterNot { it.disturbed }
-        for (entry in undisturbed) correctionStats.recordKept(entry.typed, entry.corrected)
+        for (entry in undisturbed) {
+            correctionStats.recordKept(entry.typed, entry.corrected)
+            // A correction that stood is the plainest word about where the
+            // finger landed: those taps were aimed at the corrected letters.
+            observeTaps(entry.typed, entry.corrected, entry.taps, entry.keys, WordOrigin.TYPED)
+        }
         val suspects = entries.filter { it.disturbed }
         if (suspects.isEmpty() || !verify) return
         val window = correctionJudgementWindow() ?: return
@@ -9513,7 +9778,10 @@ open class WMKeyboardService : InputMethodService() {
                 // used each word, and nothing here says which one replaced
                 // this correction. No verdict.
                 kept && undone -> Unit
-                kept -> correctionStats.recordKept(entry.typed, entry.corrected)
+                kept -> {
+                    correctionStats.recordKept(entry.typed, entry.corrected)
+                    observeTaps(entry.typed, entry.corrected, entry.taps, entry.keys, WordOrigin.TYPED)
+                }
                 // What the user typed is standing where the fix was. This is
                 // the case the immediate-backspace path could never see, and
                 // it is read off the field rather than pressed, so it goes in
@@ -9564,6 +9832,304 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    // ---- Learning from the user's own fixes (WordRevision, CorrectionMemory) ----
+
+    /** Whether manual fixes may be learned from at all, right now. */
+    private fun revisionsWanted(): Boolean =
+        learningAllowed && _uiState.value.settings.suggestionStrip.learnFromCorrections
+
+    /** A word a revision tracker is worth arming on: word-sized, word characters only. */
+    private fun isRevisableWord(word: String): Boolean =
+        word.length >= CorrectionMemory.MIN_TYPED_LENGTH &&
+            word.length <= CorrectionMemory.MAX_WORD_LENGTH &&
+            word.all { isComposingWordChar(it) }
+
+    /**
+     * How [word] got into the field, if the caret echo that led here dropped
+     * it from the learning buffer; TYPED when nothing says otherwise. Glide
+     * and voice output are dictionary words, so the known-original rule keeps
+     * them out of the slip counts either way; this is the belt to that brace.
+     */
+    private fun revisionOriginOf(word: String): WordOrigin =
+        lastDropped.firstOrNull { it.word.equals(word, ignoreCase = true) }?.origin
+            ?: WordOrigin.TYPED
+
+    /**
+     * The caret landed at the end of [word] and the word was re-armed as the
+     * composing buffer. A field-mode tracker already following exactly this
+     * word carries on in composing mode, keeping the spelling the user first
+     * came back to (a fix made in two sittings must teach the whole fix, not
+     * its second half); anything else is finished, and a fresh tracker armed.
+     */
+    private fun armComposingRevision(word: String, caret: Int) {
+        val start = caret - word.length
+        val live = revision
+        if (live != null && live.mode == WordRevision.Mode.FIELD && live.covers(start, word)) {
+            live.toComposing()
+            return
+        }
+        if (live != null) finishFieldRevision(currentInputConnection, caret)
+        if (!revisionsWanted() || !isRevisableWord(word)) return
+        revision = WordRevision(word, start, word.length, WordRevision.Mode.COMPOSING)
+        revisionOrigin = revisionOriginOf(word)
+    }
+
+    /**
+     * The caret landed inside a word — [head] behind it, [tail] ahead — that
+     * nothing is following yet. A tracker already live has answered this echo
+     * in [noteCaretForRevision]; it is not restarted, or the true original
+     * would be lost after the first keystroke, since every edit of ours echoes
+     * back through here.
+     */
+    private fun armFieldRevision(head: String, tail: String, caret: Int) {
+        if (revision != null || !revisionsWanted()) return
+        val word = head + tail
+        if (!isRevisableWord(word)) return
+        revisionFragment = ""
+        revision = WordRevision(word, caret - head.length, head.length, WordRevision.Mode.FIELD)
+        revisionOrigin = revisionOriginOf(word)
+    }
+
+    /**
+     * A selection is about to be replaced by typing. When it is one whole
+     * word, that word is what the mirror starts from: gone the moment the
+     * first character lands, which [commitTypedCharacter] then mirrors as an
+     * insert. One read, on a path that already reads the selection for the
+     * bracket-wrap rule.
+     */
+    private fun armSelectionRevision(ic: InputConnection) {
+        revision = null
+        if (!revisionsWanted() || expectedSelStart < 0 || expectedSelEnd <= expectedSelStart) return
+        val selected = ic.getSelectedText(0)?.toString() ?: return
+        if (!isRevisableWord(selected) || selected.length != expectedSelEnd - expectedSelStart) return
+        revisionFragment = ""
+        val r = WordRevision(selected, expectedSelStart, selected.length, WordRevision.Mode.FIELD)
+        r.expectDelete(selected.length, 0)
+        revision = r
+        revisionOrigin = revisionOriginOf(selected)
+    }
+
+    /**
+     * A character the keyboard is about to put in the field, seen by a
+     * field-mode tracker. A word character extends the mirror; so does a
+     * separator typed *inside* the word (a space put back into "thisis"). A
+     * separator at the word's end is the user done with the word, and the
+     * word is finished before the separator lands.
+     */
+    private fun mirrorTypedIntoRevision(ic: InputConnection, text: String) {
+        val r = revision?.takeIf { it.mode == WordRevision.Mode.FIELD } ?: return
+        val separator = text.isNotEmpty() && text.none { isComposingWordChar(it) }
+        if (separator && r.cursor >= r.length) {
+            finishFieldRevision(ic, r.start + r.cursor)
+        } else {
+            r.expectInsert(text)
+        }
+    }
+
+    /**
+     * The caret was reported at [selStart]..[selEnd], for the word revision
+     * tracker. A range selection ends the tracking: whatever the user does to
+     * a selection, they do to text the mirror cannot follow (typing over a
+     * single selected word arms its own tracker). A collapsed caret confirms
+     * an edit of ours, moves inside the word, or leaves it — and leaving is
+     * when the word is judged, against the field.
+     */
+    private fun noteCaretForRevision(selStart: Int, selEnd: Int) {
+        val r = revision ?: return
+        if (selStart != selEnd) {
+            revision = null
+            return
+        }
+        if (r.mode != WordRevision.Mode.FIELD) return
+        if (r.onCaret(selStart) == WordRevision.Outcome.LEFT) {
+            finishFieldRevision(currentInputConnection, selStart)
+        }
+    }
+
+    /** The keyboard is leaving the field: a word still being followed in it is judged now. */
+    private fun finishRevisionOnLeave() {
+        if (revision?.mode == WordRevision.Mode.FIELD) {
+            finishFieldRevision(currentInputConnection, expectedSelStart)
+        }
+    }
+
+    /**
+     * The composing buffer is being replaced. If it was a word the user came
+     * back to, [text] — the buffer as they left it — is what the word became.
+     * Commit paths resolve their own revision before this runs (they have to
+     * attach it to the word they learn); this catches every other way a
+     * composition ends: a tap elsewhere, the keyboard closing, a selection.
+     */
+    private fun finishComposingRevision(text: String) {
+        val r = revision ?: return
+        if (r.mode != WordRevision.Mode.COMPOSING) return
+        revision = null
+        val rev = r.finish(text) ?: return
+        noteRevision(rev, revisionOrigin)
+    }
+
+    /**
+     * The user has left a word they were editing in place. The mirror is
+     * checked against the field once; where they disagree the field wins —
+     * the word standing at the tracker's start is what the original became.
+     * That fallback is what makes edits the mirror never saw (a hardware
+     * arrow key, an editor that swallows echoes) safe rather than blinding.
+     */
+    private fun finishFieldRevision(ic: InputConnection?, caret: Int) {
+        val r = revision ?: return
+        revision = null
+        revisionFragment = ""
+        if (r.mode != WordRevision.Mode.FIELD || ic == null || caret < 0) return
+        val mirrored = r.current()
+        val standing = readSpan(ic, caret, r.start, mirrored.length)
+        val revised = if (standing != null && standing == mirrored) {
+            mirrored
+        } else {
+            readSpan(ic, caret, r.start, CorrectionMemory.MAX_WORD_LENGTH)
+                ?.takeWhile { isComposingWordChar(it) }
+                ?.takeIf { it.isNotEmpty() }
+                ?: return
+        }
+        val rev = r.finish(revised) ?: return
+        noteRevision(rev, revisionOrigin)
+    }
+
+    /**
+     * Up to [length] characters of the field from offset [start], read
+     * relative to the caret at [caret] — before it, after it, or across it.
+     * Null when the editor answers short of the caret's side; the far side
+     * may legitimately end early.
+     */
+    private fun readSpan(ic: InputConnection, caret: Int, start: Int, length: Int): String? {
+        if (start < 0 || length <= 0) return null
+        val end = start + length
+        val out = StringBuilder(length)
+        if (caret > start) {
+            val toCaret = caret - start
+            val text = ic.getTextBeforeCursor(toCaret, 0)?.toString() ?: return null
+            if (text.length < toCaret) return null
+            out.append(text, 0, minOf(caret, end) - start)
+        }
+        if (end > caret) {
+            val skip = maxOf(0, start - caret)
+            val want = end - maxOf(caret, start)
+            val text = ic.getTextAfterCursor(skip + want, 0)?.toString() ?: return null
+            if (text.length < skip) return null
+            out.append(text, skip, minOf(text.length, skip + want))
+        }
+        return out.toString()
+    }
+
+    /**
+     * What a revision teaches — the spelling to attach as `replaces` — or null
+     * when nothing. The word rewritten may be an autocorrect's *output* still
+     * on the watch: then the real typo is what the user typed before that
+     * correction, the correction was wrong (graded so, with the standing word
+     * as the survivor so the verdict is believed), and the pair to teach
+     * starts from the real typo.
+     */
+    private fun resolveRevision(rev: Revision): String? {
+        if (!revisionsWanted()) return null
+        var original = rev.original
+        // Where the original word ended, which is where the watch anchored it.
+        val originalEnd = rev.anchor - rev.revised.length + rev.original.length
+        correctionWatch.find(original, originalEnd)?.let { fired ->
+            correctionWatch.remove(fired)
+            suggestionEngine?.rejectCorrection(
+                fired.typed, fired.corrected, deliberate = false, survivor = rev.revised,
+            )
+            original = fired.typed
+        }
+        if (!CorrectionMemory.accepts(original, rev.revised, ::isKnownWord)) return null
+        val blacklist = _uiState.value.settings.suggestionBlacklist
+        if (original.lowercase() in blacklist ||
+            rev.revised.lowercase().split(' ').any { it in blacklist }
+        ) {
+            return null
+        }
+        return original
+    }
+
+    /**
+     * A word the user rewrote by hand outside any commit path: queue the
+     * revised word to settle like a committed one, carrying the spelling it
+     * replaced. Anchored at its own end, because the caret echo that follows
+     * is wherever the user went next.
+     */
+    private fun noteRevision(rev: Revision, origin: WordOrigin) {
+        val original = resolveRevision(rev) ?: return
+        val state = _uiState.value
+        val word = rev.revised.substringAfterLast(' ')
+        settleLearned(
+            learningBuffer.push(
+                word, state.language.id, 1, caseTrusted = false, known = true,
+                replaces = original, anchor = rev.anchor, typed = word,
+                replacesOrigin = origin, revised = rev.revised.takeIf { it != word },
+            ),
+        )
+    }
+
+    /**
+     * A settled word that replaced another by hand teaches the pair — and,
+     * when the original was the user's own typing of a non-word, the slip
+     * behind it. A positional suspect (see [LearningBuffer]) is believed only
+     * if the field, read once at the flush, shows the old spelling gone and
+     * the new one standing; an unreadable flush teaches nothing from it.
+     */
+    private fun teachRevision(entry: LearningBuffer.Entry, window: () -> String?) {
+        val original = entry.replaces ?: return
+        val revised = entry.revised ?: entry.word
+        if (!revisionsWanted()) return
+        if (entry.suspect) {
+            val text = window() ?: return
+            if (containsWord(text, original) || !containsWord(text, revised)) return
+        }
+        if (!CorrectionMemory.accepts(original, revised, ::isKnownWord)) return
+        val blacklist = _uiState.value.settings.suggestionBlacklist
+        if (original.lowercase() in blacklist || revised.lowercase().split(' ').any { it in blacklist }) return
+        val kind = if (entry.replacesOrigin == WordOrigin.TYPED && !isKnownWord(original)) {
+            CorrectionMemory.Kind.PAIR_AND_HABITS
+        } else {
+            CorrectionMemory.Kind.PAIR_ONLY
+        }
+        correctionMemory.teach(original, revised, _uiState.value.layoutId, kind)
+        pushLearnedHabits()
+    }
+
+    /**
+     * Teaches [tapOffsets] where the finger landed for each letter of a word
+     * that settled as [intended]: the taps were aimed at [typed]'s letters,
+     * and the alignment says which of those were the letters meant. Only a
+     * match or a substitution carries a tap; a missing or stray letter has no
+     * key to measure against, and a swapped pair says nothing about either.
+     */
+    private fun observeTaps(
+        typed: String,
+        intended: String,
+        taps: List<TouchPoint?>?,
+        keys: KeyTouchModel?,
+        origin: WordOrigin,
+    ) {
+        if (taps == null || keys == null || origin != WordOrigin.TYPED) return
+        if (!_uiState.value.settings.suggestionStrip.adaptToTaps) return
+        val t = typed.lowercase()
+        if (t.length != taps.size) return
+        val observations = ArrayList<KeyOffsets.Observation>(taps.size)
+        for (op in EditOps.align(t, intended.lowercase())) {
+            val (at, ch) = when (op) {
+                is EditOps.Op.Match -> op.at to op.ch
+                is EditOps.Op.Sub -> op.at to op.intended
+                else -> continue
+            }
+            val tap = taps.getOrNull(at) ?: continue
+            val center = keys.center(ch) ?: continue
+            observations.add(KeyOffsets.Observation(center.x, center.y, tap.x, tap.y))
+        }
+        if (observations.isEmpty()) return
+        tapOffsets.observe(observations)
+        refreshTouchModelIfMoved()
+    }
+
     /**
      * Hands the reported caret to the settle buffer, which uses it to notice
      * the user going back into text it is holding.
@@ -9577,6 +10143,7 @@ open class WMKeyboardService : InputMethodService() {
      * with words queued *and* the caret at 0, so it is not on the typing path.
      */
     private fun noteCaretForLearning(selStart: Int, selEnd: Int) {
+        lastDropped = emptyList()
         if (learningBuffer.isEmpty() && correctionWatch.isEmpty()) return
         // A range selection is a selection, not a resting place: anchoring to
         // it would point entries at text that is about to be replaced.
@@ -9589,7 +10156,7 @@ open class WMKeyboardService : InputMethodService() {
             flushLearningBuffer()
             return
         }
-        learningBuffer.onCaret(selStart)
+        lastDropped = learningBuffer.onCaret(selStart)
         correctionWatch.onCaret(selStart)
     }
 
@@ -10220,6 +10787,7 @@ open class WMKeyboardService : InputMethodService() {
         ic.commitText(insert, 1)
         ic.endBatchEdit()
         smartMutedAfter = ic.getTextBeforeCursor(SmartSuggest.LOOKBEHIND, 0)?.toString()
+        revision = null
         composing = StringBuilder()
         lastGestureWord = null
         _uiState.update {
@@ -10252,6 +10820,7 @@ open class WMKeyboardService : InputMethodService() {
             if (hit.kind != SmartSuggest.Kind.VOCAB && hit.replaceSpan > 0) ic.deleteSurroundingText(hit.replaceSpan, 0)
             ic.endBatchEdit()
         }
+        revision = null
         composing = StringBuilder()
         _uiState.update {
             it.copy(
@@ -10682,6 +11251,7 @@ open class WMKeyboardService : InputMethodService() {
             // stale buffer survives the commit below.
             if (composing.isNotEmpty()) {
                 ic.finishComposingText()
+                revision = null
                 composing = StringBuilder()
             }
             val token = emailTokenBeforeCursor(ic)
@@ -10710,6 +11280,7 @@ open class WMKeyboardService : InputMethodService() {
             clearCaretWord()
             val head = caret.head
             val tail = caret.tail
+            val wordStart = expectedSelStart - head.length
             val stillThere =
                 ic.getTextBeforeCursor(head.length, 0)?.toString().orEmpty() == head &&
                     ic.getTextAfterCursor(tail.length, 0)?.toString().orEmpty() == tail
@@ -10731,7 +11302,17 @@ open class WMKeyboardService : InputMethodService() {
             // base word, never the shift-cased form, and spelled the way the
             // engine offered it. Re-armed from text already in the field, so
             // nobody knows where its capital came from: untrusted (#100).
-            learn(suggestion, reinforcement = 2, caseTrusted = false)
+            // The word under the caret, replaced whole from the strip, is an
+            // exact fix of it; whatever was following it by hand is overtaken.
+            revision = null
+            val fix = Revision(caret.word, suggestion, wordStart + suggestion.length)
+            learn(
+                suggestion,
+                reinforcement = 2,
+                caseTrusted = false,
+                origin = WordOrigin.PICK,
+                replaces = resolveRevision(fix),
+            )
             lastRevertible = null
             clearSwapOffer()
             _uiState.update {
@@ -10772,6 +11353,7 @@ open class WMKeyboardService : InputMethodService() {
         // nothing learned, since the emoji is not a word the user typed.
         if (inlineEmojiQuery() != null) {
             ic.commitText(suggestion, 1)
+            revision = null
             composing = StringBuilder()
             _uiState.update {
                 it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
@@ -10825,10 +11407,21 @@ open class WMKeyboardService : InputMethodService() {
         // (#100). A pick with nothing typed (a next-word prediction) carries
         // no case evidence at all.
         if ('@' !in suggestion) {
+            // A word the user came back to, then finished from the strip: the
+            // pick is what the word became.
+            val replaces = revision?.takeIf { it.mode == WordRevision.Mode.COMPOSING }?.let { r ->
+                revision = null
+                r.finish(suggestion)?.let { resolveRevision(it) }
+            }
             learn(
                 suggestion,
                 reinforcement = 2,
                 caseTrusted = composing.isNotEmpty() && composingCaseTrusted,
+                origin = WordOrigin.PICK,
+                replaces = replaces,
+                typed = composing.toString(),
+                taps = composingTouchFrame(),
+                keys = suggestionEngine?.touchModel,
             )
         }
         composing = StringBuilder()
@@ -11424,6 +12017,7 @@ open class WMKeyboardService : InputMethodService() {
                 word,
                 caseTrusted = shiftAtGesture == ShiftState.OFF ||
                     (shiftAtGesture == ShiftState.ON && state.shiftPressedByUser),
+                origin = WordOrigin.GLIDE,
             )
             lastGestureWord = word
             lastGestureStroke = GlideStroke(points, keys, keyWidthPx)
@@ -11555,6 +12149,7 @@ open class WMKeyboardService : InputMethodService() {
                     word,
                     caseTrusted = index > 0 || shiftAtGesture == ShiftState.OFF ||
                         (shiftAtGesture == ShiftState.ON && state.shiftPressedByUser),
+                    origin = WordOrigin.GLIDE,
                 )
                 lastGestureWord = word
                 lastGestureStroke = GlideStroke(segment, keys, keyWidthPx)
@@ -16950,6 +17545,7 @@ open class WMKeyboardService : InputMethodService() {
         // commitText below targets the region instead of the select-all,
         // splicing the translation over one word.
         ic.finishComposingText()
+        revision = null
         composing = StringBuilder()
         ic.beginBatchEdit()
         val length = runCatching {
@@ -17020,6 +17616,7 @@ open class WMKeyboardService : InputMethodService() {
         // See onTranslateReplace: an active composing region would hijack the
         // commitText away from the select-all and splice instead of replace.
         ic.finishComposingText()
+        revision = null
         composing = StringBuilder()
         ic.beginBatchEdit()
         val length = runCatching {
@@ -17060,6 +17657,7 @@ open class WMKeyboardService : InputMethodService() {
         // See replaceFieldText: a live composing region would hijack the
         // commitText away from the selection and splice at the cursor instead.
         ic.finishComposingText()
+        revision = null
         composing = StringBuilder()
         ic.beginBatchEdit()
         for (edit in edits) {
@@ -17601,6 +18199,7 @@ open class WMKeyboardService : InputMethodService() {
         // A live composing region would take the commit instead of the
         // selection, splicing the replacement over one word.
         ic.finishComposingText()
+        revision = null
         composing = StringBuilder()
         ic.commitText(replacement, 1)
         if (start >= 0) ic.setSelection(start, start + replacement.length)

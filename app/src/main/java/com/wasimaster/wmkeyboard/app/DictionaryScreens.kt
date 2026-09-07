@@ -47,7 +47,9 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.LEARNED_CORRECTIONS_FILE
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.prediction.CorrectionMemory
 import com.wasimaster.wmkeyboard.core.prediction.PendingLearn
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
 import com.wasimaster.wmkeyboard.core.prediction.WordRanks
@@ -754,4 +756,160 @@ private fun phoneMaskFrom(raw: String): String? {
     if (trimmed.isEmpty()) return null
     val written = trimmed.any { it == 'X' || it == 'x' || it == '#' }
     return if (written) PhoneFormats.canonical(trimmed) else PhoneFormats.fromExample(trimmed)
+}
+
+// ---- learned corrections ----
+
+/**
+ * What autocorrect has learned from the user's own fixes: the typo → fix pairs
+ * they taught it, and the slips those fixes were made of. File-backed like the
+ * personal dictionary; every edit rewrites the file and bumps the corrections
+ * version, so a running keyboard reloads its copy without dropping the words
+ * it is still waiting to settle.
+ */
+@Composable
+internal fun LearnedCorrectionsSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val file = remember { java.io.File(context.filesDir, LEARNED_CORRECTIONS_FILE) }
+    var pairs by remember { mutableStateOf<List<Pair<String, CorrectionMemory.Taught>>>(emptyList()) }
+    var habits by remember { mutableStateOf<List<CorrectionMemory.Habit>>(emptyList()) }
+    var loaded by remember { mutableStateOf(false) }
+    // Re-read whenever the keyboard or this screen changes the file.
+    LaunchedEffect(settings.suggestionStrip.correctionsVersion) {
+        val memory = withContext(Dispatchers.IO) { CorrectionMemory(file) }
+        pairs = memory.pairs()
+        habits = memory.habitSummary()
+        loaded = true
+    }
+    fun persist(edit: (CorrectionMemory) -> Unit) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                val memory = CorrectionMemory(file)
+                edit(memory)
+                memory.save()
+            }
+            repository.bumpCorrectionsVersion()
+        }
+    }
+    if (!loaded) return
+
+    var query by remember { mutableStateOf("") }
+    if (pairs.size > DICTIONARY_SEARCH_THRESHOLD || query.isNotEmpty()) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = { Text(stringResource(CommonR.string.common_search)) },
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { query = "" }) {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = stringResource(CommonR.string.common_clear),
+                        )
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+    }
+    val shown = remember(pairs, query) {
+        val needle = query.trim().lowercase()
+        if (needle.isEmpty()) pairs else pairs.filter { needle in it.first || needle in it.second.fixed }
+    }
+    // Keyed on the query, not the list, so a deletion keeps the pages open (#85).
+    var visible by remember(query) { mutableIntStateOf(WORD_LIST_PAGE) }
+    if (pairs.isEmpty() && habits.isEmpty()) {
+        CaptionText(stringResource(R.string.typing_learned_corrections_empty))
+        return
+    }
+    if (pairs.isNotEmpty()) {
+        SettingsGroup {
+            item {
+                ActionRow(
+                    title = R.string.typing_learned_corrections_clear_title,
+                    subtitle = pluralStringResource(
+                        R.plurals.typing_learned_corrections_clear_subtitle,
+                        pairs.size,
+                        pairs.size,
+                    ),
+                    action = stringResource(CommonR.string.common_clear),
+                    confirm = stringResource(R.string.typing_learned_corrections_clear_confirm),
+                    lock = AppLockTargets["action_clear_learned_corrections"],
+                ) { scope.launch { repository.forgetLearnedCorrections() } }
+            }
+        }
+    }
+    if (shown.isEmpty() && query.isNotEmpty()) {
+        CaptionText(stringResource(R.string.typing_learned_corrections_no_matches, query))
+    } else if (shown.isNotEmpty()) {
+        SettingsGroup(stringResource(R.string.typing_learned_corrections_pairs_title)) {
+            for ((typed, taught) in shown.take(visible)) {
+                item {
+                    WmRow(
+                        title = "$typed → ${taught.fixed}",
+                        subtitle = pluralStringResource(
+                            R.plurals.typing_learned_corrections_times,
+                            taught.count,
+                            taught.count,
+                        ),
+                        trailing = {
+                            IconButton(onClick = { persist { it.forget(typed) } }) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = stringResource(
+                                        R.string.typing_learned_corrections_delete_desc, typed,
+                                    ),
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+            if (shown.size > visible) {
+                item { ShowMoreWordsRow(shown.size - visible) { visible += WORD_LIST_PAGE } }
+            }
+        }
+    }
+    if (habits.isNotEmpty() && query.isEmpty()) {
+        SettingsGroup(
+            stringResource(R.string.typing_habits_title),
+            info = stringResource(R.string.typing_habits_info),
+        ) {
+            for (habit in habits.take(HABITS_SHOWN)) {
+                item {
+                    WmRow(
+                        title = habitLabel(habit),
+                        subtitle = pluralStringResource(R.plurals.typing_habit_times, habit.count, habit.count),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Slips listed on the learned-corrections screen; the long tail is noise. */
+private const val HABITS_SHOWN = 12
+
+@Composable
+private fun habitLabel(habit: CorrectionMemory.Habit): String {
+    fun shown(c: Char?): String = when (c) {
+        null -> ""
+        ' ' -> "␣"
+        else -> c.toString()
+    }
+    return when (habit.kind) {
+        CorrectionMemory.HabitKind.SUBSTITUTION ->
+            stringResource(R.string.typing_habit_substitution, shown(habit.from), shown(habit.to))
+        CorrectionMemory.HabitKind.MISSING -> stringResource(R.string.typing_habit_missing, shown(habit.to))
+        CorrectionMemory.HabitKind.STRAY -> stringResource(R.string.typing_habit_stray, shown(habit.from))
+        CorrectionMemory.HabitKind.SWAP ->
+            stringResource(R.string.typing_habit_swap, shown(habit.from), shown(habit.to))
+        CorrectionMemory.HabitKind.SPACE_SLIP -> stringResource(R.string.typing_habit_space_slip, shown(habit.from))
+        CorrectionMemory.HabitKind.MISSED_SPACE -> stringResource(R.string.typing_habit_missed_space)
+    }
 }

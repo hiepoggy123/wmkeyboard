@@ -198,4 +198,27 @@ class FuzzyBeamSearchTest {
         }
         return result
     }
+
+    @Test
+    fun aLearnedHabitDiscountsItsEditButNeverBelowTheFloor() {
+        val trie = PackedTrie.of(listOf("hullo" to 100))
+        val memory = CorrectionMemory(null)
+        repeat(EditHabits.WARMUP) {
+            memory.teach("hxllo", "hullo", "qwerty", CorrectionMemory.Kind.PAIR_AND_HABITS)
+        }
+        val habits = memory.habitsFor("qwerty")
+        val plain = run(listOf(source(trie)), "hxllo").first()
+        val learned = search.search(
+            listOf(source(trie)), "hxllo", KeyProximity.QWERTY, 5, BeamWorkspace(), habits = habits,
+        ).first()
+        assertEquals(FuzzyBeamSearch.COST_SUB_FAR, plain.editCost, 1e-9)
+        assertTrue(learned.editCost < plain.editCost)
+        assertTrue(learned.editCost >= FuzzyBeamSearch.HABIT_FLOOR)
+        // An edit already on the floor is left exactly where it is.
+        val adjacentTrie = PackedTrie.of(listOf("hello" to 100))
+        val adjacent = search.search(
+            listOf(source(adjacentTrie)), "hwllo", KeyProximity.QWERTY, 5, BeamWorkspace(), habits = habits,
+        ).first()
+        assertEquals(FuzzyBeamSearch.COST_SUB_ADJACENT, adjacent.editCost, 1e-9)
+    }
 }

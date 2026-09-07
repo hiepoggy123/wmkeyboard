@@ -593,7 +593,11 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "typing/corrections",
             ) {
-                TypingCorrectionsSettings(repository, settings)
+                TypingCorrectionsSettings(
+                    repository,
+                    settings,
+                    onOpenLearnedCorrections = { navController.navigate("learnedcorrections") },
+                )
             }
         }
         composable("typing/suggestions") {
@@ -773,6 +777,16 @@ private fun SettingsNavGraph(
                 subtitle = stringResource(R.string.backup_blacklist_info),
             ) {
                 BlacklistSettings(repository, settings)
+            }
+        }
+        composable("learnedcorrections") {
+            SettingsScreen(
+                stringResource(R.string.typing_learned_corrections_title),
+                { navController.popBackStack() },
+                route = "learnedcorrections",
+                subtitle = stringResource(R.string.typing_learned_corrections_subtitle),
+            ) {
+                LearnedCorrectionsSettings(repository, settings)
             }
         }
         composable(MusicApps.ROUTE) {

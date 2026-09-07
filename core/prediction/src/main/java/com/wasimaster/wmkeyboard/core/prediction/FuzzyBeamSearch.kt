@@ -62,6 +62,7 @@ class FuzzyBeamSearch {
         workspace: BeamWorkspace,
         maxEdits: Int = defaultMaxEdits(typed.length),
         touch: TouchScoring? = null,
+        habits: EditHabits = EditHabits.NONE,
     ): List<ScoredCandidate> {
         if (typed.isEmpty() || limit <= 0) return emptyList()
         val k = maxOf(limit * 2, AUTOCORRECT_K)
@@ -76,7 +77,7 @@ class FuzzyBeamSearch {
         for (src in ordered) {
             val rootBound = src.logWeight + ln1p(src.walker.maxSubtree(src.walker.root))
             if (rootBound < floor - EPS) continue
-            floor = searchOne(src, typed, proximity, maxEdits, k, results, floor, workspace, touch)
+            floor = searchOne(src, typed, proximity, maxEdits, k, results, floor, workspace, touch, habits)
         }
 
         return results.values.sortedWith(
@@ -95,6 +96,7 @@ class FuzzyBeamSearch {
         floorIn: Double,
         ws: BeamWorkspace,
         touch: TouchScoring?,
+        habits: EditHabits,
     ): Double {
         var floor = floorIn
         val walker = src.walker
@@ -169,7 +171,7 @@ class FuzzyBeamSearch {
                 // A char that doubles its neighbour ("helllo", key auto-repeat)
                 // is the classic double-strike slip and costs far less than
                 // deleting an arbitrary stray character.
-                val delCost = if (
+                val delBase = if (
                     (pos + 1 < n && typed[pos + 1] == expected) ||
                     (pos > 0 && typed[pos - 1] == expected)
                 ) {
@@ -177,6 +179,7 @@ class FuzzyBeamSearch {
                 } else {
                     COST_DELETION
                 }
+                val delCost = discounted(delBase, habits.deletion(expected))
                 if (editSpend + delCost <= MAX_EDIT_COST) {
                     pushIfViable(
                         ws, src, walker, floor,
@@ -193,7 +196,10 @@ class FuzzyBeamSearch {
                     val label = ws.children.labels[i]
                     val child = ws.children.nodes[i]
                     if (label != expected) {
-                        val subCost = substitutionCost(touch, pos, expected, label, proximity)
+                        val subCost = discounted(
+                            substitutionCost(touch, pos, expected, label, proximity),
+                            habits.substitution(expected, label),
+                        )
                         if (editSpend + subCost <= MAX_EDIT_COST) {
                             pushIfViable(
                                 ws, src, walker, floor,
@@ -211,7 +217,10 @@ class FuzzyBeamSearch {
                     val adjacentToTyped = proximity.areAdjacent(expected, label) ||
                         (pos > 0 && (typed[pos - 1] == label ||
                             proximity.areAdjacent(typed[pos - 1], label)))
-                    val insCost = if (adjacentToTyped) COST_INSERT_ADJACENT else COST_INSERT_FAR
+                    val insCost = discounted(
+                        if (adjacentToTyped) COST_INSERT_ADJACENT else COST_INSERT_FAR,
+                        habits.insertion(label),
+                    )
                     if (editSpend + insCost <= MAX_EDIT_COST) {
                         pushIfViable(
                             ws, src, walker, floor,
@@ -304,6 +313,15 @@ class FuzzyBeamSearch {
         return COST_SUB_ADJACENT + gap.coerceIn(0.0, COST_SUB_FAR - COST_SUB_ADJACENT)
     }
 
+    /**
+     * [base] with a learned habit's [shrink] taken off, never below the
+     * cheapest edit tier. A slip this user makes every day is priced like
+     * the adjacent slip it is for them; the floor keeps it from becoming
+     * free, and an edit already at the floor is left exactly where it is.
+     */
+    private fun discounted(base: Double, shrink: Double): Double =
+        if (shrink <= 0.0) base else maxOf(HABIT_FLOOR, base * (1.0 - shrink))
+
     private fun emit(
         word: String,
         score: Double,
@@ -383,6 +401,9 @@ class FuzzyBeamSearch {
 
         /** Cap on the rank cost an off-center tap adds to an exact match. */
         const val MATCH_CAP = 1.0
+
+        /** No learned habit prices an edit under the adjacent-slip tier. */
+        val HABIT_FLOOR = COST_SUB_ADJACENT
 
         /** Runaway-state backstop; floor pruning ends healthy walks long before. */
         const val MAX_POPS = 4096

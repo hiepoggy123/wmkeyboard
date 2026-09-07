@@ -2479,8 +2479,16 @@ val KeyFontScaleRange = 0.7f..2.0f
 /** The hand model's file (see `KeyOffsets` in :core:prediction), under the learning directory. */
 const val HAND_MODEL_FILE = "learning/key_offsets.json"
 
+/** What the user's own fixes taught autocorrect (see `CorrectionMemory` in :core:prediction). */
+const val LEARNED_CORRECTIONS_FILE = "learning/learned_corrections.json"
+
+/** Where this hand lands when tapping: a second `KeyOffsets`, with its own file. */
+const val TAP_MODEL_FILE = "learning/tap_offsets.json"
+
 val LEARNED_DATA_FILES = listOf(
     HAND_MODEL_FILE,
+    LEARNED_CORRECTIONS_FILE,
+    TAP_MODEL_FILE,
     "learning/user_lexicon.json",
     "learning/pending_learn.json",
     "learning/emoji_usage.json",
@@ -4548,6 +4556,26 @@ data class SuggestionStripSettings(
      * after every correction.
      */
     val undoChipObviousness: Float = 0.5f,
+    /**
+     * Learn from the typos you fix by hand. A word you go back and change is
+     * remembered as a pair — after two such fixes the keyboard makes the fix
+     * for you, after one it offers to — and the slip behind it (a `3` where an
+     * `e` was meant, a `b` where the space bar was) teaches autocorrect what
+     * your fingers actually do.
+     */
+    val learnFromCorrections: Boolean = true,
+    /**
+     * Learn where your finger lands when tapping, key by key, from every word
+     * you type and leave standing, and read later taps against keys moved to
+     * match. The typing twin of the glide hand model.
+     */
+    val adaptToTaps: Boolean = true,
+    /**
+     * Bumped by the settings app when it edits or deletes the learned
+     * corrections or the tap model, so a running keyboard reloads its copy —
+     * its own signal, because the lexicon's also empties the learning buffer.
+     */
+    val correctionsVersion: Int = 0,
     /** Keep the suggestion strip as the default top bar even with nothing typed. */
     val suggestionsFirst: Boolean = false,
     /** Show the primary candidate in the middle slot (Gboard style) instead of the left. */
@@ -5566,6 +5594,9 @@ class SettingsRepository(private val context: Context) {
             booleanPreferencesKey("offer_near_miss_corrections")
         private val UNDO_CORRECTION_CHIP = booleanPreferencesKey("undo_correction_chip")
         private val UNDO_CHIP_OBVIOUSNESS = floatPreferencesKey("undo_chip_obviousness")
+        private val LEARN_FROM_CORRECTIONS = booleanPreferencesKey("learn_from_corrections")
+        private val ADAPT_TO_TAPS = booleanPreferencesKey("adapt_to_taps")
+        private val CORRECTIONS_VERSION = intPreferencesKey("corrections_version")
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
         private val GRAMMAR_DIALECT = stringPreferencesKey("grammar_dialect")
@@ -6333,6 +6364,11 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.suggestionStrip.undoCorrectionChip,
                 undoChipObviousness = p[UNDO_CHIP_OBVIOUSNESS]
                     ?: defaults.suggestionStrip.undoChipObviousness,
+                learnFromCorrections = p[LEARN_FROM_CORRECTIONS]
+                    ?: defaults.suggestionStrip.learnFromCorrections,
+                adaptToTaps = p[ADAPT_TO_TAPS] ?: defaults.suggestionStrip.adaptToTaps,
+                correctionsVersion = p[CORRECTIONS_VERSION]
+                    ?: defaults.suggestionStrip.correctionsVersion,
                 suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionStrip.suggestionsFirst,
                 suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
                     ?: defaults.suggestionStrip.suggestionPrimaryCenter,
@@ -7621,6 +7657,33 @@ class SettingsRepository(private val context: Context) {
     suspend fun setUndoChipObviousness(value: Float) =
         editPrefs { it[UNDO_CHIP_OBVIOUSNESS] = value.coerceIn(0f, 1f) }
 
+    suspend fun setLearnFromCorrections(value: Boolean) =
+        editPrefs { it[LEARN_FROM_CORRECTIONS] = value }
+
+    suspend fun setAdaptToTaps(value: Boolean) =
+        editPrefs { it[ADAPT_TO_TAPS] = value }
+
+    /**
+     * The Learned-corrections screen changed the learned corrections or the
+     * tap model on disk: tell a running keyboard to drop its copy — without
+     * the lexicon signal, whose reload also empties the keyboard's
+     * half-learned words.
+     */
+    suspend fun bumpCorrectionsVersion() =
+        editPrefs { it[CORRECTIONS_VERSION] = (it[CORRECTIONS_VERSION] ?: 0) + 1 }
+
+    /** Deletes everything autocorrect learned from the user's own fixes. */
+    suspend fun forgetLearnedCorrections() {
+        runCatching { File(context.filesDir, LEARNED_CORRECTIONS_FILE).delete() }
+        bumpCorrectionsVersion()
+    }
+
+    /** Deletes the learned tap model, the way [forgetHandModel] does the glide one. */
+    suspend fun forgetTapModel() {
+        runCatching { File(context.filesDir, TAP_MODEL_FILE).delete() }
+        bumpCorrectionsVersion()
+    }
+
     suspend fun setEmojiRowAboveToolbar(value: Boolean) =
         editPrefs { it[EMOJI_ROW_ABOVE_TOOLBAR] = value }
 
@@ -8813,6 +8876,11 @@ class SettingsRepository(private val context: Context) {
     /** Key the rank adjustments file is nested under in the dictionary section. */
     private val WORD_RANKS_KEY = "wordRanks"
 
+    /** The learned corrections and the tap model ride inside the dictionary
+     * section the same way, and for the same reasons, as the rank adjustments. */
+    private val LEARNED_CORRECTIONS_KEY = "learnedCorrections"
+    private val TAP_MODEL_KEY = "tapOffsets"
+
     private fun storeFile(relativePath: String) = File(context.filesDir, relativePath)
 
     /** A store's JSON file as an element, or null when it's missing or empty. */
@@ -9242,9 +9310,20 @@ class SettingsRepository(private val context: Context) {
                 // older build restores the words and drops the key, and a
                 // new section would have cost a label, a count and a toggle
                 // for a file of a few dozen entries.
+                // What the user's fixes taught autocorrect, and where their
+                // finger lands when tapping, take the same ride: personal in
+                // exactly the dictionary's way, and small.
                 val ranks = readStore("learning/word_ranks.json") as? JsonObject
-                out[ConfigBackup.Section.DICTIONARY] = if (lexicon is JsonObject && ranks != null) {
-                    JsonObject(lexicon + (WORD_RANKS_KEY to ranks))
+                val corrections = readStore(LEARNED_CORRECTIONS_FILE) as? JsonObject
+                val taps = readStore(TAP_MODEL_FILE) as? JsonObject
+                out[ConfigBackup.Section.DICTIONARY] = if (lexicon is JsonObject) {
+                    JsonObject(
+                        lexicon + listOfNotNull(
+                            ranks?.let { WORD_RANKS_KEY to it },
+                            corrections?.let { LEARNED_CORRECTIONS_KEY to it },
+                            taps?.let { TAP_MODEL_KEY to it },
+                        ),
+                    )
                 } else {
                     lexicon
                 }
@@ -9381,9 +9460,13 @@ class SettingsRepository(private val context: Context) {
             // The rank adjustments ride along under their own key (see the
             // export); split them back out so each store gets its own file.
             val ranks = obj[WORD_RANKS_KEY] as? JsonObject
-            val lexicon = if (ranks != null) JsonObject(obj - WORD_RANKS_KEY) else obj
+            val corrections = obj[LEARNED_CORRECTIONS_KEY] as? JsonObject
+            val taps = obj[TAP_MODEL_KEY] as? JsonObject
+            val lexicon = JsonObject(obj - WORD_RANKS_KEY - LEARNED_CORRECTIONS_KEY - TAP_MODEL_KEY)
             if (writeStore("learning/user_lexicon.json", lexicon)) {
                 if (ranks != null) writeStore("learning/word_ranks.json", ranks)
+                if (corrections != null) writeStore(LEARNED_CORRECTIONS_FILE, corrections)
+                if (taps != null) writeStore(TAP_MODEL_FILE, taps)
                 restored.add(ConfigBackup.Section.DICTIONARY)
                 bumpLexiconVersion()
             }

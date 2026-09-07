@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.prediction
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -107,5 +108,56 @@ class CorrectionWatchTest {
         watch.fire("teh", "the", 4)
         watch.clear()
         assertTrue(watch.isEmpty())
+    }
+
+    // --- a fix rewriting the correction's output ---
+
+    @Test
+    fun findNamesTheCorrectionWhoseOutputStandsThere() {
+        val watch = CorrectionWatch()
+        watch.fire("teh", "ten", 4)
+        watch.fire("acn", "can", 8)
+        val found = watch.find("Ten", nearAnchor = 4)
+        assertEquals("teh", found?.typed)
+        // Off by the trailing space either way is the same place.
+        assertEquals("teh", watch.find("ten", nearAnchor = 5)?.typed)
+        assertEquals("teh", watch.find("ten", nearAnchor = 3)?.typed)
+    }
+
+    @Test
+    fun findIgnoresTheSameWordSomewhereElse() {
+        val watch = CorrectionWatch()
+        watch.fire("teh", "ten", 4)
+        assertNull(watch.find("ten", nearAnchor = 20))
+        assertNull(watch.find("the", nearAnchor = 4))
+    }
+
+    @Test
+    fun aCorrectionStillWaitingForItsEchoMatchesAnywhere() {
+        val watch = CorrectionWatch()
+        watch.push("teh", "ten")
+        assertEquals("teh", watch.find("ten", nearAnchor = 99)?.typed)
+    }
+
+    @Test
+    fun removeTakesOneEntryOut() {
+        val watch = CorrectionWatch()
+        watch.fire("teh", "ten", 4)
+        watch.fire("teh", "ten", 12)
+        val newest = watch.find("ten", nearAnchor = 12)!!
+        watch.remove(newest)
+        assertEquals(1, watch.size)
+        assertEquals(4, watch.drain().single().anchor)
+    }
+
+    @Test
+    fun theTapsRideAlong() {
+        val watch = CorrectionWatch()
+        val taps = listOf(TouchPoint(0f, 0f), null, null)
+        val keys = KeyTouchModel(mapOf('t' to TouchPoint(0f, 0f)))
+        watch.push("teh", "the", taps, keys)
+        val entry = watch.drain().single()
+        assertEquals(taps, entry.taps)
+        assertTrue(keys === entry.keys)
     }
 }

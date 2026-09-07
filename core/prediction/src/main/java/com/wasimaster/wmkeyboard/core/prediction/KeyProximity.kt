@@ -96,6 +96,20 @@ class KeyProximity private constructor(rows: List<String>) {
          * followed by seven letters, and dropping those three would move the rest
          * three columns left.
          */
+        /**
+         * The letters a thumb reaching for the space bar can land on instead:
+         * the bottom letter row less its two leftmost keys, which on a phone
+         * sit above the symbol and emoji keys rather than the bar. QWERTY,
+         * QWERTZ and AZERTY all come out as the set the engine always assumed
+         * for them; other layouts finally get their own.
+         */
+        fun spaceAdjacentKeys(spec: LayoutSpec): String {
+            val bottom = letterRows(spec).lastOrNull() ?: return ""
+            return if (bottom.length > SPACE_ROW_SKIP + 2) bottom.substring(SPACE_ROW_SKIP) else bottom
+        }
+
+        private const val SPACE_ROW_SKIP = 2
+
         private fun letterRows(spec: LayoutSpec): List<String> {
             val rows = spec.layer(LayoutLayer.LETTERS)?.rows ?: return emptyList()
             return rows

@@ -65,6 +65,8 @@ internal object StorageNames {
         "learning/language_mix.json" to R.string.storage_file_language_mix_label,
         "learning/word_ranks.json" to R.string.storage_file_word_ranks_label,
         "learning/key_offsets.json" to R.string.storage_file_key_offsets_label,
+        "learning/learned_corrections.json" to R.string.storage_file_learned_corrections_label,
+        "learning/tap_offsets.json" to R.string.storage_file_tap_offsets_label,
 
         "stats/typing_stats.json" to R.string.storage_file_typing_stats_label,
         "clipboard/history.json" to R.string.storage_file_clip_history_label,

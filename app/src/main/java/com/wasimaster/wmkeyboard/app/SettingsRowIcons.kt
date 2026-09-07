@@ -605,6 +605,9 @@ internal object SettingsRowIcons {
         put(R.string.typing_undo_chip_title) { Icons.AutoMirrored.Outlined.Undo }
         put(R.string.typing_undo_chip_obviousness_title) { Icons.Outlined.Tune }
         put(R.string.typing_undo_memory_title) { Icons.Outlined.History }
+        put(R.string.typing_learn_corrections_title) { Icons.Outlined.School }
+        put(R.string.typing_learned_corrections_title) { Icons.Outlined.Spellcheck }
+        put(R.string.typing_adapt_taps_title) { Icons.Outlined.TouchApp }
         put(R.string.typing_skip_all_caps_title) { Icons.Outlined.KeyboardCapslock }
         put(R.string.typing_block_offensive_title) { Icons.Outlined.Block }
         put(R.string.typing_auto_apostrophe_title) { Icons.Outlined.Spellcheck }

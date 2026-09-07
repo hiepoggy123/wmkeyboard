@@ -633,4 +633,43 @@
     <string name="typing_rank_control_offset_desc">Moves the word up or down the strip, whatever list it comes from</string>
 
     <string name="typing_ask_before_learning_info">When a word no dictionary knows is typed, the suggestion strip asks whether to add it. Tap the chip to save the word, or the ✕ to never be asked about it again. Nothing is saved unless you tap. Off by default, because a chip after a word you never think about again gets in the way.</string>
+
+    <!-- Learning from the user's own fixes -->
+    <string name="typing_learn_corrections_title">Learn from my fixes</string>
+    <string name="typing_learn_corrections_subtitle">Typos you fix by hand teach autocorrect</string>
+    <string name="typing_learn_corrections_info">When you go back and fix a word by hand, the keyboard remembers what you typed and what you changed it to. Fix the same typo twice and autocorrect makes that fix for you from then on. After one fix it offers the fix on the strip instead. The keyboard also learns the slip behind each fix, such as hitting 3 for e or b for the space bar, so the same slip in other words is understood. Undo a learned fix and the keyboard stops making it. A word that is itself a real word, like form for from, only changes after three fixes and when the words around it agree.</string>
+    <string name="typing_learned_corrections_title">Learned corrections</string>
+    <string name="typing_learned_corrections_subtitle">Fixes you taught the keyboard, and the slips it has noticed</string>
+    <string name="typing_learned_corrections_empty">Nothing learned yet. Fix a typo by hand and the pair appears here once the text settles.</string>
+    <string name="typing_learned_corrections_no_matches">No learned corrections match \"%1$s\"</string>
+    <string name="typing_learned_corrections_pairs_title">Fixes you taught</string>
+    <plurals name="typing_learned_corrections_times">
+        <item quantity="one">Fixed %d time</item>
+        <item quantity="other">Fixed %d times</item>
+    </plurals>
+    <string name="typing_learned_corrections_delete_desc">Forget the fix of %1$s</string>
+    <string name="typing_learned_corrections_clear_title">Forget all learned corrections</string>
+    <plurals name="typing_learned_corrections_clear_subtitle">
+        <item quantity="one">%d fix and every slip the keyboard noticed</item>
+        <item quantity="other">%d fixes and every slip the keyboard noticed</item>
+    </plurals>
+    <string name="typing_learned_corrections_clear_confirm">Every fix you taught and every slip the keyboard noticed is forgotten. Learned words and undone corrections are not affected.</string>
+    <string name="typing_habits_title">Slips the keyboard has noticed</string>
+    <string name="typing_habits_info">How your fixes were made, letter by letter. Autocorrect treats these slips as likely for you, so the same slip in a word you never fixed is still understood.</string>
+    <string name="typing_habit_substitution">%1$s typed instead of %2$s</string>
+    <string name="typing_habit_missing">%1$s left out</string>
+    <string name="typing_habit_stray">An extra %1$s</string>
+    <string name="typing_habit_swap">%1$s and %2$s swapped</string>
+    <string name="typing_habit_space_slip">%1$s typed instead of space</string>
+    <string name="typing_habit_missed_space">A space left out</string>
+    <plurals name="typing_habit_times">
+        <item quantity="one">%d time</item>
+        <item quantity="other">%d times</item>
+    </plurals>
+    <string name="typing_adapt_taps_title">Learn where my taps land</string>
+    <string name="typing_adapt_taps_subtitle">Words you keep teach the keyboard how you miss each key when tapping</string>
+    <string name="typing_adapt_taps_info">Nobody taps the exact middle of every key. With this on, every word you type and leave standing records where your finger landed on each letter, and later taps are read against keys moved to match. A slip toward a neighbouring key is then corrected the way you actually make it. Swipes have their own version of this under Glide typing. Turn it off to freeze what has been learned, or use Forget below to start over.</string>
+    <string name="typing_adapt_taps_forget">Forget where my taps land</string>
+    <string name="typing_adapt_taps_forget_title">Forget learned tap positions?</string>
+    <string name="typing_adapt_taps_forget_body">Taps go back to being read against the keys exactly as drawn, and learning starts again from your next word. Learned words and corrections are not affected.</string>
 </resources>
