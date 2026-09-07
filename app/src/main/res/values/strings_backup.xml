@@ -12,7 +12,7 @@
   puts the name in the middle of a sentence, so each name has a second value in
   lower case. A translation cannot make a lower-case form on its own.
 -->
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
     <!-- ================================================================== -->
     <!-- Dictionary: the words the keyboard learned.                        -->
@@ -23,6 +23,19 @@
     <string name="backup_dictionary_empty">Nothing here yet. Words appear as you type, if \"Learn from typing\" is on in Privacy. You can also add a word above.</string>
     <!-- Row subtitle for a word the user typed into the Add word dialog. -->
     <string name="backup_dictionary_added_subtitle">You added this word</string>
+    <!-- Appended to a word's row when its capitals are kept as written (#100).
+         %1$s is the row's ordinary subtitle. -->
+    <string name="backup_dictionary_pinned_subtitle"><xliff:g id="standing" example="You added this word">%1$s</xliff:g> · capitals kept</string>
+    <!-- The switch in the edit dialog that pins a word's capitals. -->
+    <string name="backup_word_keep_case_title">Keep these capitals</string>
+    <string name="backup_word_keep_case_info">Typing the word with other capitals does not change how it is spelled</string>
+    <!-- Heading over the words moved up or down from the keyboard's word card. -->
+    <string name="backup_rank_adjustments_title">Rank adjustments</string>
+    <!-- Row subtitles under that heading. %1$d is the number of steps. -->
+    <string name="backup_rank_adjustment_up_subtitle">Moved up <xliff:g id="steps" example="3">%1$d</xliff:g></string>
+    <string name="backup_rank_adjustment_down_subtitle">Moved down <xliff:g id="steps" example="3">%1$d</xliff:g></string>
+    <!-- Screen reader name of the button that removes an adjustment. %1$s is the word. -->
+    <string name="backup_rank_reset_desc">Reset the rank of <xliff:g id="word" example="mary">%1$s</xliff:g></string>
     <!-- Row subtitle. %1$d is how many times the keyboard saw the word. -->
     <plurals name="backup_dictionary_seen_count">
         <item quantity="one">Seen %1$d time</item>

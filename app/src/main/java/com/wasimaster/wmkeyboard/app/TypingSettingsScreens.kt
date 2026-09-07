@@ -79,7 +79,9 @@ import com.wasimaster.wmkeyboard.core.settings.isUsableTool
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.NumberGrouping
+import com.wasimaster.wmkeyboard.core.settings.RankControl
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
+import com.wasimaster.wmkeyboard.core.settings.WordMenuItem
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import kotlin.math.roundToInt
@@ -855,6 +857,52 @@ internal fun TypingSuggestionsSettings(
                 route = "blacklist",
                 onClick = onOpenBlacklist,
             )
+        }
+        item {
+            val neverSuggest = stringResource(R.string.typing_word_menu_item_never_suggest)
+            val add = stringResource(R.string.typing_word_menu_item_add)
+            val delete = stringResource(R.string.typing_word_menu_item_delete)
+            MultiChoiceSetting(
+                R.string.typing_word_menu_title,
+                subtitle = stringResource(R.string.typing_word_menu_subtitle),
+                info = stringResource(R.string.typing_word_menu_info),
+                options = WordMenuItem.entries.map { item ->
+                    item to when (item) {
+                        WordMenuItem.NEVER_SUGGEST -> neverSuggest
+                        WordMenuItem.ADD -> add
+                        WordMenuItem.DELETE -> delete
+                    }
+                },
+                selected = settings.suggestionStrip.wordMenuItems,
+                default = SettingsDefaults.suggestionStrip.wordMenuItems,
+            ) { scope.launch { repository.setWordMenuItems(it) } }
+        }
+        item {
+            val weight = stringResource(R.string.typing_rank_control_weight_label)
+            val offset = stringResource(R.string.typing_rank_control_offset_label)
+            ChoiceSetting(
+                R.string.typing_rank_control_title,
+                subtitle = stringResource(R.string.typing_rank_control_subtitle),
+                info = stringResource(R.string.typing_rank_control_info),
+                options = RankControl.entries.map { control ->
+                    control to when (control) {
+                        RankControl.LEARNED_WEIGHT -> weight
+                        RankControl.RANK_OFFSET -> offset
+                    }
+                },
+                selected = settings.suggestionStrip.rankControl,
+                default = SettingsDefaults.suggestionStrip.rankControl,
+                detail = { control ->
+                    ChoiceDetail(
+                        stringResource(
+                            when (control) {
+                                RankControl.LEARNED_WEIGHT -> R.string.typing_rank_control_weight_desc
+                                RankControl.RANK_OFFSET -> R.string.typing_rank_control_offset_desc
+                            },
+                        ),
+                    )
+                },
+            ) { scope.launch { repository.setRankControl(it) } }
         }
     }
 }

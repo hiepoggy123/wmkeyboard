@@ -144,6 +144,7 @@
     <string name="storage_file_emoji_usage_label">Emoji you use most</string>
     <string name="storage_file_cjk_history_label">Chinese, Japanese and Cantonese picks</string>
     <string name="storage_file_language_mix_label">How you mix languages</string>
+    <string name="storage_file_word_ranks_label">Words you ranked higher or lower</string>
 
     <!-- your own data -->
     <string name="storage_file_typing_stats_label">Your typing counts</string>

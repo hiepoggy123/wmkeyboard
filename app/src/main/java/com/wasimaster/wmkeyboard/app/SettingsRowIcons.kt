@@ -633,6 +633,8 @@ internal object SettingsRowIcons {
         put(R.string.typing_personal_dictionary_title) { Icons.AutoMirrored.Outlined.MenuBook }
         put(R.string.typing_custom_dictionaries_title) { Icons.AutoMirrored.Outlined.MenuBook }
         put(R.string.typing_blacklist_title) { Icons.Outlined.VisibilityOff }
+        put(R.string.typing_word_menu_title) { Icons.Outlined.Tune }
+        put(R.string.typing_rank_control_title) { Icons.Outlined.SwapVert }
         put(R.string.typing_smart_chips_title) { Icons.Outlined.AutoAwesome }
         put(R.string.typing_smart_calc_title) { Icons.Outlined.Calculate }
         put(R.string.typing_smart_currency_title) { Icons.Outlined.CurrencyExchange }

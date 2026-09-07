@@ -610,5 +610,21 @@
 
     <string name="typing_ask_before_learning_title">Ask before saving new words</string>
     <string name="typing_ask_before_learning_subtitle">Offer a chip instead of counting how often you type the word</string>
+    <string name="typing_word_menu_title">Word menu</string>
+    <string name="typing_word_menu_subtitle">What pressing and holding a suggested word offers</string>
+    <string name="typing_word_menu_info">Press and hold a word on the suggestion strip to open a menu about it. "Adjust rank" is always there: it opens a card that shows where the word comes from and carries every action below, so you can turn the rest off to keep the menu short. "Add" only appears while you type a word that is not in your personal dictionary, and "Delete" only for a word the keyboard can forget.</string>
+    <!-- The three optional items of that menu, as chips. -->
+    <string name="typing_word_menu_item_never_suggest">Never suggest</string>
+    <string name="typing_word_menu_item_add">Add</string>
+    <string name="typing_word_menu_item_delete">Delete</string>
+
+    <string name="typing_rank_control_title">Adjust rank changes</string>
+    <string name="typing_rank_control_subtitle">What the word card\'s rank control edits</string>
+    <string name="typing_rank_control_info">Learned weight edits the same count the personal dictionary shows: how often the keyboard thinks you typed the word. It cannot push a word below a word list\'s own order, and 0 forgets the word. Rank adjustment keeps a separate up-or-down setting for the word that applies on top of every list, so any word can move either way without changing what the keyboard learned. Learned weight by default.</string>
+    <string name="typing_rank_control_weight_label">Learned weight</string>
+    <string name="typing_rank_control_weight_desc">Changes how often the personal dictionary thinks you typed the word</string>
+    <string name="typing_rank_control_offset_label">Rank adjustment</string>
+    <string name="typing_rank_control_offset_desc">Moves the word up or down the strip, whatever list it comes from</string>
+
     <string name="typing_ask_before_learning_info">When a word no dictionary knows is typed, the suggestion strip asks whether to add it. Tap the chip to save the word, or the ✕ to never be asked about it again. Nothing is saved unless you tap. Off by default, because a chip after a word you never think about again gets in the way.</string>
 </resources>

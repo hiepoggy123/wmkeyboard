@@ -25,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,6 +50,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.prediction.PendingLearn
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
+import com.wasimaster.wmkeyboard.core.prediction.WordRanks
 import kotlinx.coroutines.launch
 
 // ---- personal dictionary ----
@@ -84,15 +86,42 @@ internal fun DictionarySettings(repository: SettingsRepository) {
     // or on a click handler. The list draws empty for a moment then fills in.
     var lexicon by remember { mutableStateOf<UserLexicon?>(null) }
     var words by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
+    // Words whose capitals are pinned (#100), by the spelling the row shows.
+    var pinned by remember { mutableStateOf<Set<String>>(emptySet()) }
+    // The rank adjustments made from the keyboard's word card (#99): its own
+    // file, read the same way, listed under the words so they can be undone.
+    val ranksFile = remember { java.io.File(context.filesDir, "learning/word_ranks.json") }
+    var ranks by remember { mutableStateOf<WordRanks?>(null) }
+    var rankEntries by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
     var showAdd by remember { mutableStateOf(false) }
     var showTidy by remember { mutableStateOf(false) }
     // The row being edited (#47): its spelling and weight, as they are now.
     var editing by remember { mutableStateOf<Pair<String, Int>?>(null) }
 
+    fun pinnedIn(lex: UserLexicon, all: List<Pair<String, Int>>): Set<String> =
+        all.mapNotNullTo(HashSet()) { (word, _) -> word.takeIf { lex.isCasePinned(it) } }
+
     LaunchedEffect(Unit) {
         val lex = withContext(Dispatchers.IO) { UserLexicon(file) }
-        words = lex.allWords().sortedByDescending { it.second }
+        val all = lex.allWords()
+        words = all.sortedByDescending { it.second }
+        pinned = pinnedIn(lex, all)
         lexicon = lex
+        val adjustments = withContext(Dispatchers.IO) { WordRanks(ranksFile) }
+        rankEntries = adjustments.all()
+        ranks = adjustments
+    }
+
+    fun resetRank(word: String) {
+        val adjustments = ranks ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                adjustments.remove(word)
+                adjustments.save()
+            }
+            rankEntries = adjustments.all()
+            repository.bumpLexiconVersion()
+        }
     }
 
     fun persist(mutate: (UserLexicon) -> Unit) {
@@ -113,7 +142,9 @@ internal fun DictionarySettings(repository: SettingsRepository) {
                     }
                 }
             }
-            words = lex.allWords().sortedByDescending { it.second }
+            val all = lex.allWords()
+            words = all.sortedByDescending { it.second }
+            pinned = pinnedIn(lex, all)
             repository.bumpLexiconVersion()
         }
     }
@@ -180,12 +211,17 @@ internal fun DictionarySettings(repository: SettingsRepository) {
     SettingsGroup {
         for ((word, count) in shown.take(visible)) {
             item {
+                val standing = if (count >= 200) {
+                    stringResource(R.string.backup_dictionary_added_subtitle)
+                } else {
+                    pluralStringResource(R.plurals.backup_dictionary_seen_count, count, count)
+                }
                 WmRow(
                     title = word,
-                    subtitle = if (count >= 200) {
-                        stringResource(R.string.backup_dictionary_added_subtitle)
+                    subtitle = if (word in pinned) {
+                        stringResource(R.string.backup_dictionary_pinned_subtitle, standing)
                     } else {
-                        pluralStringResource(R.plurals.backup_dictionary_seen_count, count, count)
+                        standing
                     },
                     trailing = {
                         IconButton(onClick = { persist { it.forget(word) } }) {
@@ -208,8 +244,9 @@ internal fun DictionarySettings(repository: SettingsRepository) {
         EditWordDialog(
             word = word,
             weight = count,
+            pinned = word in pinned,
             onDismiss = { editing = null },
-            onConfirm = { newWord, newWeight ->
+            onConfirm = { newWord, newWeight, keepCase ->
                 persist { lex ->
                     // Respell first, so the weight lands on the word that is
                     // left. A respelling that merges into an existing word
@@ -217,10 +254,43 @@ internal fun DictionarySettings(repository: SettingsRepository) {
                     // the number the dialog showed as the outcome.
                     val target = if (lex.rename(word, newWord)) newWord else word
                     lex.setCount(target, newWeight)
+                    // Last: a respelling pins on its own, and the switch is
+                    // the user's final word on that (#100).
+                    lex.pinCase(target, keepCase)
                 }
                 editing = null
             },
         )
+    }
+
+    // Rank adjustments (#99) live under the words: few, and undone one at a
+    // time — there is nothing to edit but "no longer".
+    if (rankEntries.isNotEmpty()) {
+        SettingsGroup(title = stringResource(R.string.backup_rank_adjustments_title)) {
+            for ((word, steps) in rankEntries) {
+                item {
+                    WmRow(
+                        title = word,
+                        subtitle = stringResource(
+                            if (steps > 0) {
+                                R.string.backup_rank_adjustment_up_subtitle
+                            } else {
+                                R.string.backup_rank_adjustment_down_subtitle
+                            },
+                            kotlin.math.abs(steps),
+                        ),
+                        trailing = {
+                            IconButton(onClick = { resetRank(word) }) {
+                                Icon(
+                                    Icons.Outlined.Close,
+                                    contentDescription = stringResource(R.string.backup_rank_reset_desc, word),
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+        }
     }
 
     if (showAdd) {
@@ -305,11 +375,14 @@ private fun weightStep(weight: Int): Int = when {
 private fun EditWordDialog(
     word: String,
     weight: Int,
+    /** Whether the word's capitals are pinned against the case vote (#100). */
+    pinned: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (word: String, weight: Int) -> Unit,
+    onConfirm: (word: String, weight: Int, keepCase: Boolean) -> Unit,
 ) {
     var spelling by remember(word) { mutableStateOf(word) }
     var weightText by remember(weight) { mutableStateOf(weight.toString()) }
+    var keepCase by remember(word, pinned) { mutableStateOf(pinned) }
     val parsed = weightText.trim().toIntOrNull()
     val weightValid = parsed != null && parsed in 1..UserLexicon.MAX_COUNT
     // A respelling that folds to a blank is not a word; one over the length
@@ -379,12 +452,26 @@ private fun EditWordDialog(
                         MaterialTheme.colorScheme.error
                     },
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            stringResource(R.string.backup_word_keep_case_title),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Text(
+                            stringResource(R.string.backup_word_keep_case_info),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(checked = keepCase, onCheckedChange = { keepCase = it })
+                }
             }
         },
         confirmButton = {
             TextButton(
                 enabled = spellingValid && weightValid,
-                onClick = { onConfirm(spelling.trim(), parsed ?: weight) },
+                onClick = { onConfirm(spelling.trim(), parsed ?: weight, keepCase) },
             ) { Text(stringResource(CommonR.string.common_save)) }
         },
         dismissButton = {
