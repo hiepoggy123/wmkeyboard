@@ -413,6 +413,7 @@ import android.inputmethodservice.InputMethodService
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -1119,6 +1120,16 @@ open class WMKeyboardService : InputMethodService() {
      * of the set has to run the load again to take effect.
      */
     private var loadedImportedOnly: Set<String> = emptySet()
+
+    /**
+     * Completed once the settings collector has put the *stored* settings into
+     * [_uiState]. Until then the state holds the defaults, and a dictionary
+     * load that read them decided the shipped-list and Bengali questions for
+     * a user who had answered them differently — with the collector unable to
+     * put it right, since its rebuild waits on an engine that did not exist
+     * yet. [loadDictionariesAndEmoji] waits on this instead (#91).
+     */
+    private val storedSettingsApplied = CompletableDeferred<Unit>()
 
     /**
      * The languages whose emoji keyword packs were left out of the merged
@@ -2276,6 +2287,9 @@ open class WMKeyboardService : InputMethodService() {
                         activeModeId = mode?.id,
                     )
                 }
+                // The stored settings are in the state from here on; the
+                // dictionary load may now read them (#91).
+                storedSettingsApplied.complete(Unit)
                 // Keep the OS switcher's subtype list in step with the enabled
                 // layouts. Diffed inside, so unrelated settings emissions here
                 // don't thrash the framework.
@@ -2603,6 +2617,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun loadDictionariesAndEmoji() {
         serviceScope.launch {
+            storedSettingsApplied.await()
             val bengaliEnabled = bengaliEnabled()
             loadedBengali = bengaliEnabled
             loadedImportedOnly = importedOnly()
@@ -2777,6 +2792,17 @@ open class WMKeyboardService : InputMethodService() {
             // A new engine means new word sources; re-ask whether this
             // language and layout can be glided.
             glideSourcesEpoch.update { it + 1 }
+            // A switch flipped while this load was running — a language moved
+            // to its imported lists alone, Bengali turned on — found the
+            // collector with no engine to rebuild, so it did nothing. Asked
+            // again now that there is one, so the answer never waits for the
+            // next unrelated settings save (#91).
+            if (importedOnly() != loadedImportedOnly || bengaliEnabled() != loadedBengali ||
+                spellingMapEnabled() != loadedSpellingMap
+            ) {
+                loadDictionariesAndEmoji()
+                return@launch
+            }
             emojiEntries = catalog
             emojiSearch = EmojiSearch(catalog, emojiShortcodes)
             emojiSuggester = EmojiSuggester(catalog, emojiTriggers, emojiShortcodes)
