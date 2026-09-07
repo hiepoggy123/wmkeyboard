@@ -431,7 +431,9 @@ internal fun EmojiPanelSettings(
                 detail = { mode -> ChoiceDetail(stringResource(emojiTabModeDescRes(mode))) },
             ) { scope.launch { repository.setEmojiTabMode(it) } }
         }
-        item {
+        // The button is drawn on the recents tab only: the most-used tab is
+        // counted rather than remembered, so there is nothing there to clear.
+        if (settings.emojiTabMode == EmojiTabMode.RECENTS) item {
             ToggleSetting(
                 R.string.langemoji_emoji_clear_recents_title,
                 stringResource(R.string.langemoji_emoji_clear_recents_subtitle),
