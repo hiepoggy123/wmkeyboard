@@ -765,15 +765,22 @@ private fun AutoBackupGroup(
             }
         }
         item {
+            // The runner skips before it reads this while no folder is picked.
+            // Drawn off rather than hidden, the way the enable row above is:
+            // encryption is a security choice worth seeing during setup.
             ToggleSetting(
                 R.string.backup_auto_encrypt_title,
-                stringResource(R.string.backup_auto_encrypt_subtitle),
+                stringResource(
+                    if (configured) R.string.backup_auto_encrypt_subtitle
+                    else R.string.backup_auto_enabled_needs_folder,
+                ),
                 auto.encrypt,
                 info = stringResource(R.string.backup_auto_encrypt_info),
+                enabled = configured,
                 default = SettingsDefaults.autoBackup.encrypt,
             ) { on -> scope.launch { repository.setAutoBackupEncrypt(on) } }
         }
-        if (auto.encrypt) {
+        if (configured && auto.encrypt) {
             item {
                 StoredTextField(
                     label = stringResource(R.string.backup_auto_passphrase_label),
