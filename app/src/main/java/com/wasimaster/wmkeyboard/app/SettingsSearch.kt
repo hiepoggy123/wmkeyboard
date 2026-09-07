@@ -368,6 +368,8 @@ private fun SearchStrings.typingGesturesRows(): List<SettingsSearchEntry> {
         row(R.string.typing_glide_picker_dwell_title, R.string.typing_glide_picker_dwell_subtitle),
         row(R.string.typing_glide_picker_hold_title, R.string.typing_glide_picker_hold_subtitle),
         row(R.string.typing_glide_picker_choices_title, R.string.typing_glide_picker_choices_subtitle),
+        row(R.string.typing_glide_adapt_hand_title, R.string.typing_glide_adapt_hand_subtitle),
+        row(R.string.typing_glide_adapt_hand_forget),
         row(R.string.typing_space_glide_multiword_title, R.string.typing_space_glide_multiword_subtitle),
         row(R.string.typing_space_after_glide_title, R.string.typing_space_after_glide_subtitle),
         row(R.string.typing_glide_apostrophe_title, R.string.typing_glide_apostrophe_subtitle),

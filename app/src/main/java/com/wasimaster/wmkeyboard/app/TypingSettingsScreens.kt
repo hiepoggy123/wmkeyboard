@@ -1188,6 +1188,40 @@ internal fun TypingCodesSettings(
     }
 }
 
+/**
+ * "Forget" for the learned hand model (issue #52): a confirm, then the file
+ * goes and a running keyboard is told to drop its copy. Its own row rather
+ * than a corner of "Delete learned words", which takes the personal
+ * dictionary with it.
+ */
+@Composable
+private fun ForgetHandModelRow(repository: SettingsRepository) {
+    val scope = rememberCoroutineScope()
+    var confirm by remember { mutableStateOf(false) }
+    TextButton(
+        onClick = { confirm = true },
+        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+    ) { Text(stringResource(R.string.typing_glide_adapt_hand_forget)) }
+    if (confirm) {
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text(stringResource(R.string.typing_glide_adapt_hand_forget_title)) },
+            text = { Text(stringResource(R.string.typing_glide_adapt_hand_forget_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirm = false
+                    scope.launch { repository.forgetHandModel() }
+                }) { Text(stringResource(CommonR.string.common_reset)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirm = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
+}
+
 @Composable
 internal fun TypingGesturesSettings(
     repository: SettingsRepository,
@@ -1313,6 +1347,16 @@ internal fun TypingGesturesSettings(
                         ) { scope.launch { repository.setGesturePickerChoices(it.roundToInt()) } }
                     }
                 }
+                item {
+                    ToggleSetting(
+                        R.string.typing_glide_adapt_hand_title,
+                        stringResource(R.string.typing_glide_adapt_hand_subtitle),
+                        settings.gesture.adaptToHand,
+                        info = stringResource(R.string.typing_glide_adapt_hand_info),
+                        default = SettingsDefaults.gesture.adaptToHand,
+                    ) { scope.launch { repository.setGestureAdaptToHand(it) } }
+                }
+                item { ForgetHandModelRow(repository) }
                 // How much of the dictionary a swipe may answer with. The
                 // shipped lists are smaller than every limit, so this does
                 // nothing until a large list is downloaded or imported (#28).

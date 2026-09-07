@@ -766,6 +766,22 @@ class SuggestionEngine(
     }
 
     /**
+     * Lays [word] over [path] the way the decoder would and says where along
+     * the stroke each of its keys was visited — what the hand model learns
+     * from (issue #52). Against [keys] as handed in, which the caller makes
+     * the grid *as drawn* so a consistent miss reads as the same offset
+     * whatever the decode was already correcting for. Null when the word
+     * cannot be laid on that grid: a romanized stroke's Bengali answer, a
+     * restored apostrophe the grid has no key for.
+     */
+    fun alignGlide(
+        word: String,
+        path: List<GesturePoint>,
+        keys: GlideKeyMap,
+        keyWidth: Float,
+    ): GlideBeam.Alignment? = glideBeam.align(word, path, keys, keyWidth, glideWorkspace.get())
+
+    /**
      * Reorders a decoded stroke's candidates by context, defended the way
      * [suggest] defends its own rerank: only words the decoder actually
      * produced may appear, and anything the model does not mention keeps its

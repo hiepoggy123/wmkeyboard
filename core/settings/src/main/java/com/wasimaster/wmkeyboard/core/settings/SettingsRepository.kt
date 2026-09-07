@@ -2466,7 +2466,11 @@ val KeyFontScaleRange = 0.7f..2.0f
  * the Privacy screen's delete entirely, so a wipe left the keyboard still
  * guessing which language a user mixes.
  */
+/** The hand model's file (see `KeyOffsets` in :core:prediction), under the learning directory. */
+const val HAND_MODEL_FILE = "learning/key_offsets.json"
+
 val LEARNED_DATA_FILES = listOf(
+    HAND_MODEL_FILE,
     "learning/user_lexicon.json",
     "learning/pending_learn.json",
     "learning/emoji_usage.json",
@@ -3962,6 +3966,21 @@ data class GestureSettings(
      * on every word list of 300k words or fewer, the bundled ones included.
      */
     val vocabulary: GlideVocabulary = GlideVocabulary.LARGE,
+    /**
+     * Learn where this user's finger actually lands on each key from the
+     * swipes they keep, and decode against a grid moved to match — a thumb
+     * that always cuts the far keys short stops paying for it on every
+     * stroke (issue #52). Undoing a swipe takes its lesson back. On by
+     * default; off freezes what is learned and reads the keys as drawn.
+     */
+    val adaptToHand: Boolean = true,
+    /**
+     * Bumped by the gestures screen's "forget" so a running keyboard drops
+     * its in-memory copy of the hand model — the contract of
+     * [KeyboardSettings.lexiconVersion], on a counter of its own so
+     * forgetting where the finger lands never touches which words it learned.
+     */
+    val handModelVersion: Int = 0,
 )
 
 /**
@@ -5065,6 +5084,8 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_WORD_PREVIEW_TEXT_COLOR = longPreferencesKey("gesture_word_preview_text_color")
         private val GESTURE_STRIP_PREVIEW_ONLY = booleanPreferencesKey("gesture_strip_preview_only")
         private val GESTURE_VOCABULARY = stringPreferencesKey("gesture_vocabulary")
+        private val GESTURE_ADAPT_TO_HAND = booleanPreferencesKey("gesture_adapt_to_hand")
+        private val GESTURE_HAND_MODEL_VERSION = intPreferencesKey("gesture_hand_model_version")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
         private val SPACEBAR_CURSOR = booleanPreferencesKey("spacebar_cursor")
         private val SPACE_SHORT_SWIPE = stringPreferencesKey("space_short_swipe")
@@ -6068,6 +6089,8 @@ class SettingsRepository(private val context: Context) {
                 vocabulary = p[GESTURE_VOCABULARY]
                     ?.let { runCatching { GlideVocabulary.valueOf(it) }.getOrNull() }
                     ?: defaults.gesture.vocabulary,
+                adaptToHand = p[GESTURE_ADAPT_TO_HAND] ?: defaults.gesture.adaptToHand,
+                handModelVersion = p[GESTURE_HAND_MODEL_VERSION] ?: defaults.gesture.handModelVersion,
             ),
             spaceShortSwipe = p[SPACE_SHORT_SWIPE]
                 ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
@@ -10059,6 +10082,20 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureApostropheS(value: Boolean) =
         editPrefs { it[GESTURE_APOSTROPHE_S] = value }
+
+    suspend fun setGestureAdaptToHand(value: Boolean) =
+        editPrefs { it[GESTURE_ADAPT_TO_HAND] = value }
+
+    /**
+     * Deletes the learned hand model and tells a running keyboard to drop its
+     * copy, the way [clearLearnedData] does for the rest of the learning
+     * directory — without the lexicon signal, whose reload also empties the
+     * keyboard's half-learned words.
+     */
+    suspend fun forgetHandModel() {
+        runCatching { File(context.filesDir, HAND_MODEL_FILE).delete() }
+        editPrefs { it[GESTURE_HAND_MODEL_VERSION] = (it[GESTURE_HAND_MODEL_VERSION] ?: 0) + 1 }
+    }
 
     suspend fun setGestureAutoSpace(value: Boolean) =
         editPrefs { it[GESTURE_AUTO_SPACE] = value }

@@ -145,6 +145,7 @@
     <string name="storage_file_cjk_history_label">Chinese, Japanese and Cantonese picks</string>
     <string name="storage_file_language_mix_label">How you mix languages</string>
     <string name="storage_file_word_ranks_label">Words you ranked higher or lower</string>
+    <string name="storage_file_key_offsets_label">Where your finger lands on keys</string>
 
     <!-- your own data -->
     <string name="storage_file_typing_stats_label">Your typing counts</string>

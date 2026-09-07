@@ -190,6 +190,15 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         val nearCost: Float get() = nearRadius * nearRadius * invTwoSigmaSq
     }
 
+    /**
+     * Where a word's keys were visited along a stroke: the key index of each
+     * visit (consecutive repeats collapsed) and the resampled stroke position
+     * it was placed on, in key widths.
+     */
+    class Alignment(val keys: IntArray, val x: FloatArray, val y: FloatArray) {
+        val size: Int get() = keys.size
+    }
+
     class Candidate(
         val word: String,
         val score: Double,
@@ -240,6 +249,97 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
             compareByDescending<Candidate> { it.score }.thenBy { it.word }
         )
         return rescoreShape(ranked, keys, ws).take(limit)
+    }
+
+    /**
+     * Lays [word] over [path] the way the search would have, and says where
+     * along the stroke each of its keys landed — the evidence the hand model
+     * learns from (issue #52). The same cost model as the walk, one word
+     * instead of a lattice, with the argmin kept at every cell so the placement
+     * can be read back off the finished column. Null when the word has a
+     * character [keys] cannot produce, has fewer than two keys, or cannot reach
+     * the stroke's last sample at all.
+     */
+    @Suppress("ReturnCount", "CyclomaticComplexMethod", "NestedBlockDepth")
+    fun align(
+        word: String,
+        path: List<GesturePoint>,
+        keys: GlideKeyMap,
+        keyWidth: Float,
+        ws: GlideWorkspace,
+    ): Alignment? {
+        if (path.size < MIN_SAMPLES || keyWidth <= 0f || keys.keyCount == 0) return null
+        val visits = IntArray(GlideWorkspace.MAX_IDEAL_POINTS)
+        var count = 0
+        var previous = -1
+        var at = 0
+        while (at < word.length) {
+            val codePoint = word.codePointAt(at)
+            at += Character.charCount(codePoint)
+            val key = keys.keyIndex(codePoint)
+            if (key < 0) return null
+            if (key == previous) continue
+            if (count >= GlideWorkspace.MAX_IDEAL_POINTS) return null
+            visits[count++] = key
+            previous = key
+        }
+        if (count < 2) return null
+        if (!resample(path, keyWidth, ws)) return null
+        if (ws.arcStep <= 0f) return null
+        ws.prepareKeys(keys.keyCount)
+        buildCosts(keys, ws)
+
+        val n = GlideWorkspace.SAMPLE_POINTS
+        val keyCount = keys.keyCount
+        val cost = ws.pointCost
+        val step = ws.arcStep
+        val back = IntArray(count * n)
+        var prev = FloatArray(n)
+        var cur = FloatArray(n)
+        prev[0] = cost[visits[0]]
+        for (j in 1 until n) prev[j] = GlideWorkspace.UNREACHABLE
+        for (m in 1 until count) {
+            val key = visits[m]
+            val span = keys.distance(visits[m - 1], key)
+            val expected = span / step
+            val lo = maxOf(1, (expected - tuning.gapWindow).toInt())
+            val hi = maxOf(lo, (expected + tuning.gapWindow).toInt() + 1)
+            cur[0] = GlideWorkspace.UNREACHABLE
+            for (j in 1 until n) {
+                var best = GlideWorkspace.UNREACHABLE
+                var from = -1
+                var i = maxOf(0, j - hi)
+                val to = j - lo
+                while (i <= to) {
+                    val before = prev[i]
+                    if (before < GlideWorkspace.UNREACHABLE) {
+                        val gap = (j - i) * step - span
+                        val v = before + tuning.gapWeight * (if (gap < 0f) -gap else gap)
+                        if (v < best) {
+                            best = v
+                            from = i
+                        }
+                    }
+                    i++
+                }
+                cur[j] = if (from < 0) GlideWorkspace.UNREACHABLE else best + cost[j * keyCount + key]
+                back[m * n + j] = from
+            }
+            val swap = prev
+            prev = cur
+            cur = swap
+        }
+        if (prev[n - 1] >= GlideWorkspace.UNREACHABLE) return null
+
+        val x = FloatArray(count)
+        val y = FloatArray(count)
+        var j = n - 1
+        for (m in count - 1 downTo 0) {
+            x[m] = ws.pathX[j]
+            y[m] = ws.pathY[j]
+            if (m > 0) j = back[m * n + j]
+        }
+        return Alignment(visits.copyOf(count), x, y)
     }
 
     // ---- the walk ----

@@ -162,6 +162,38 @@ class GlideBeamTest {
     }
 
     @Test
+    fun `an alignment puts each key where the stroke passed it`() {
+        val aligned = beam.align("hello", gestureFor("hello"), grid, keyWidth, workspace)!!
+        // h-e-l-o: the doubled l is one visit.
+        assertEquals(4, aligned.size)
+        for (i in 0 until aligned.size) {
+            val k = aligned.keys[i]
+            val dx = aligned.x[i] - grid.keyX[k]
+            val dy = aligned.y[i] - grid.keyY[k]
+            // A perfect trace passes through every centre; the resampling grid
+            // is what keeps this from being exact.
+            assertTrue("key $k off by ($dx, $dy)", dx * dx + dy * dy < 0.2f * 0.2f)
+        }
+    }
+
+    @Test
+    fun `an alignment reads a consistent miss as that miss`() {
+        val off = gestureFor("what").map { GesturePoint(it.x + 15f, it.y - 9f, it.t) }
+        val aligned = beam.align("what", off, grid, keyWidth, workspace)!!
+        for (i in 0 until aligned.size) {
+            val k = aligned.keys[i]
+            assertEquals(0.25f, aligned.x[i] - grid.keyX[k], 0.12f)
+            assertEquals(-0.15f, aligned.y[i] - grid.keyY[k], 0.12f)
+        }
+    }
+
+    @Test
+    fun `a word the grid cannot spell has no alignment`() {
+        assertEquals(null, beam.align("héllo", gestureFor("hello"), grid, keyWidth, workspace))
+        assertEquals(null, beam.align("h", gestureFor("hello"), grid, keyWidth, workspace))
+    }
+
+    @Test
     fun `noisy trace still decodes`() {
         assertEquals("what", decode(gestureFor("what", jitter = 14f)).first())
     }

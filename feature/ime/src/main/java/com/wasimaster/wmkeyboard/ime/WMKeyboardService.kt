@@ -106,6 +106,7 @@ import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
 import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
+import com.wasimaster.wmkeyboard.core.gesture.KeyOffsets
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingDownloadProgress
@@ -231,6 +232,7 @@ import com.wasimaster.wmkeyboard.core.support.Support
 import com.wasimaster.wmkeyboard.core.stickers.StickerImage
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
+import com.wasimaster.wmkeyboard.core.settings.HAND_MODEL_FILE
 import com.wasimaster.wmkeyboard.core.text.EmojiGraphemes
 import com.wasimaster.wmkeyboard.core.text.WordDelete
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
@@ -1234,6 +1236,16 @@ open class WMKeyboardService : InputMethodService() {
     private var lastGestureStroke: GlideStroke? = null
 
     /**
+     * Where this user's finger lands relative to the keys, learned from the
+     * glides they keep (issue #52): the decoder reads a grid moved to match.
+     * In memory only until the device is unlocked, like every learning store.
+     */
+    private var keyOffsets = KeyOffsets(null)
+
+    /** What the last kept glide taught [keyOffsets], so undoing it can un-teach. */
+    private var lastHandAdjustment: KeyOffsets.Adjustment? = null
+
+    /**
      * The word the caret is sitting *inside* — [head] behind it, [tail] ahead
      * — when it is not parked at that word's end. Null the rest of the time.
      *
@@ -1323,6 +1335,13 @@ open class WMKeyboardService : InputMethodService() {
     private var cachedKeyMap: GlideKeyMap? = null
     private var cachedKeyMapKeys: List<KeyCenter> = emptyList()
     private var cachedKeyMapWidth = 0f
+    private var cachedKeyMapHand: KeyOffsets? = null
+    private var cachedKeyMapHandVersion = -1
+
+    /** The grid as drawn, unmoved by the hand model: what a kept glide is measured against. */
+    private var cachedRawKeyMap: GlideKeyMap? = null
+    private var cachedRawKeyMapKeys: List<KeyCenter> = emptyList()
+    private var cachedRawKeyMapWidth = 0f
 
     // ---- network tool state (translate, gif/sticker, web/image search) ----
     private var translateJob: Job? = null
@@ -2042,6 +2061,7 @@ open class WMKeyboardService : InputMethodService() {
 
         serviceScope.launch {
             var lexiconVersion = -1
+            var handModelVersion = -1
             var statsVersion = -1
             var customDictVersion = -1
             var emojiPackVersion = -1
@@ -2239,6 +2259,7 @@ open class WMKeyboardService : InputMethodService() {
                         // any one of them saves the old data back otherwise.
                         pendingLearn.reload()
                         wordRanks.reload()
+                        keyOffsets.reload()
                         emojiUsage.reload()
                         languageMixConfidence.reload()
                     }
@@ -2249,6 +2270,14 @@ open class WMKeyboardService : InputMethodService() {
                     learningBuffer.clear()
                 }
                 lexiconVersion = settings.lexiconVersion
+                // The gestures screen's "forget" for the hand model: its own
+                // signal, because the lexicon's also empties the learning
+                // buffer, which forgetting where the finger lands must not.
+                if (handModelVersion != -1 && settings.gesture.handModelVersion != handModelVersion) {
+                    keyOffsets.reload()
+                    lastHandAdjustment = null
+                }
+                handModelVersion = settings.gesture.handModelVersion
                 // Same contract for the typing counters: the Statistics
                 // screen's delete (and the Storage screen's) bumps the
                 // version so the in-memory copy here does not save the old
@@ -2555,6 +2584,8 @@ open class WMKeyboardService : InputMethodService() {
         pendingLearn = PendingLearn(store("learning/pending_learn.json"))
         wordRanks = WordRanks(store("learning/word_ranks.json"))
         suggestionEngine?.rankOffsets = wordRanks.snapshot()
+        keyOffsets = KeyOffsets(store(HAND_MODEL_FILE))
+        lastHandAdjustment = null
         correctionStats = CorrectionStats(store("learning/correction_stats.json"))
         // The swapped-in store starts on the default level; carry the user's
         // setting across, or it stays at NORMAL until the next settings emit.
@@ -4065,6 +4096,7 @@ open class WMKeyboardService : InputMethodService() {
         userLexicon.save()
         pendingLearn.save()
         wordRanks.save()
+        keyOffsets.save()
         correctionStats.save()
         CjkLearning.store?.save()
         languageMixConfidence.save()
@@ -4106,6 +4138,7 @@ open class WMKeyboardService : InputMethodService() {
         userLexicon.save()
         pendingLearn.save()
         wordRanks.save()
+        keyOffsets.save()
         correctionStats.save()
         CjkLearning.store?.save()
         emojiUsage.save()
@@ -5764,6 +5797,10 @@ open class WMKeyboardService : InputMethodService() {
                 val len = glideCommitLength(ic, word)
                 if (len > 0) {
                     ic.deleteSurroundingText(len, 0)
+                    // A word the user took back was a wrong reading of the
+                    // stroke, and a wrong word laid over a stroke taught the
+                    // hand model wrong offsets.
+                    unlearnHand()
                     // The undone word is gone as bigram context; whatever now
                     // precedes the caret is the real one.
                     syncPreviousWordFromField(ic)
@@ -10694,8 +10731,13 @@ open class WMKeyboardService : InputMethodService() {
                 // replacement lands at the same place the old word ended, so
                 // no caret move says it happened.
                 learningBuffer.drop(gestureWord)
+                // Nor of where the finger lands — but the word picked in its
+                // place is, and the stroke is still here to measure it by.
+                unlearnHand()
+                lastGestureStroke?.let { learnHand(it.points, it.keys, it.keyWidthPx, suggestion) }
             }
         }
+        lastGestureStroke = null
         lastGestureWord = null
         lastRevertible = null
         clearSwapOffer()
@@ -10821,15 +10863,69 @@ open class WMKeyboardService : InputMethodService() {
      */
     @Synchronized
     private fun keyMapFor(keys: List<KeyCenter>, keyWidthPx: Float): GlideKeyMap {
+        // The hand model moves the keys under the decoder (issue #52). Its
+        // version is part of the cache key: every kept glide moves the grid.
+        val hand = keyOffsets.takeIf { _uiState.value.settings.gesture.adaptToHand && !it.isEmpty() }
+        val version = hand?.version ?: -1
         val cached = cachedKeyMap
-        if (cached != null && cachedKeyMapWidth == keyWidthPx && cachedKeyMapKeys == keys) {
+        if (cached != null && cachedKeyMapWidth == keyWidthPx && cachedKeyMapKeys == keys &&
+            cachedKeyMapHand === hand && cachedKeyMapHandVersion == version
+        ) {
             return cached
         }
-        return GlideKeyMap.of(keys, keyWidthPx).also {
+        val centers = hand?.shifted(keys, keyWidthPx) ?: keys
+        return GlideKeyMap.of(centers, keyWidthPx).also {
             cachedKeyMap = it
             cachedKeyMapKeys = keys
             cachedKeyMapWidth = keyWidthPx
+            cachedKeyMapHand = hand
+            cachedKeyMapHandVersion = version
         }
+    }
+
+    /** [keyMapFor] without the hand model: the grid as drawn. */
+    @Synchronized
+    private fun rawKeyMapFor(keys: List<KeyCenter>, keyWidthPx: Float): GlideKeyMap {
+        val cached = cachedRawKeyMap
+        if (cached != null && cachedRawKeyMapWidth == keyWidthPx && cachedRawKeyMapKeys == keys) {
+            return cached
+        }
+        return GlideKeyMap.of(keys, keyWidthPx).also {
+            cachedRawKeyMap = it
+            cachedRawKeyMapKeys = keys
+            cachedRawKeyMapWidth = keyWidthPx
+        }
+    }
+
+    /**
+     * Teaches [keyOffsets] where the finger went for each letter of [word],
+     * the glide the user just kept — measured against the grid as drawn, so
+     * a consistent miss reads as the same offset whatever the decoder was
+     * already correcting for. Returns what changed, for an undo to retract.
+     * Null when the setting is off, or the word cannot be laid on this grid
+     * at all (a romanized stroke's Bengali answer, a restored apostrophe).
+     */
+    private fun learnHand(
+        points: List<GesturePoint>,
+        keys: List<KeyCenter>,
+        keyWidthPx: Float,
+        word: String,
+    ): KeyOffsets.Adjustment? {
+        if (!_uiState.value.settings.gesture.adaptToHand) return null
+        val engine = suggestionEngine ?: return null
+        val raw = rawKeyMapFor(keys, keyWidthPx)
+        val aligned = engine.alignGlide(word, points, raw, keyWidthPx) ?: return null
+        val observations = List(aligned.size) { i ->
+            val k = aligned.keys[i]
+            KeyOffsets.Observation(raw.keyX[k], raw.keyY[k], aligned.x[i], aligned.y[i])
+        }
+        return keyOffsets.observe(observations)
+    }
+
+    /** Takes back what the last kept glide taught the hand model, if anything. */
+    private fun unlearnHand() {
+        lastHandAdjustment?.let { keyOffsets.retract(it) }
+        lastHandAdjustment = null
     }
 
     /**
@@ -11053,6 +11149,7 @@ open class WMKeyboardService : InputMethodService() {
         // not the possessive, so it is not offered a second look.
         lastGestureWord = possessive
         lastGestureStroke = null
+        lastHandAdjustment = null
         learn(possessive)
         commitGestureSpace(ic, state)
         armRevertGuard()
@@ -11306,6 +11403,9 @@ open class WMKeyboardService : InputMethodService() {
             )
             lastGestureWord = word
             lastGestureStroke = GlideStroke(points, keys, keyWidthPx)
+            lastHandAdjustment = withContext(Dispatchers.Default) {
+                learnHand(points, keys, keyWidthPx, word)
+            }
             commitGestureSpace(ic, state)
             armRevertGuard()
             consumeShift()
@@ -11434,6 +11534,10 @@ open class WMKeyboardService : InputMethodService() {
                 )
                 lastGestureWord = word
                 lastGestureStroke = GlideStroke(segment, keys, keyWidthPx)
+                // Each word teaches; only the last is on the undo's reach.
+                lastHandAdjustment = withContext(Dispatchers.Default) {
+                    learnHand(segment, keys, keyWidthPx, word)
+                }
                 armRevertGuard()
                 lastWords = if (picked != null) glideStripOrder(candidates, picked) else candidates
                 committedAny = true
@@ -13159,8 +13263,10 @@ open class WMKeyboardService : InputMethodService() {
         connection.commitText(if (needsSpace) " $word" else word, 1)
         learn(word)
         lastGestureWord = word
-        // Ink, not a swipe: there is no stroke a deep retry could re-decode.
+        // Ink, not a swipe: there is no stroke a deep retry could re-decode,
+        // and nothing the hand model learned that an undo should take back.
         lastGestureStroke = null
+        lastHandAdjustment = null
         armRevertGuard()
         _uiState.update {
             it.copy(
