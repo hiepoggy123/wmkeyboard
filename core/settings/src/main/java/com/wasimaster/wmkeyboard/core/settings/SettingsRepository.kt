@@ -4268,6 +4268,11 @@ data class SuggestionStripSettings(
      */
     val scrollable: Boolean = false,
     /**
+     * The colour the strip draws its primary word in: the bold one autocorrect
+     * puts in for a space (#90). ARGB; null follows the theme's suggestion text.
+     */
+    val primaryColor: Long? = null,
+    /**
      * Breathing room on each side of a suggestion word inside its slot, in dp.
      *
      * Six matches what the strip always drew. Lower packs more of a long word
@@ -5310,6 +5315,7 @@ class SettingsRepository(private val context: Context) {
         private val PUNCTUATION_CHIPS = stringPreferencesKey("punctuation_chips")
         private val SUGGESTION_SLOT_COUNT = intPreferencesKey("suggestion_slot_count")
         private val SUGGESTION_SCROLLABLE = booleanPreferencesKey("suggestion_scrollable")
+        private val SUGGESTION_PRIMARY_COLOR = longPreferencesKey("suggestion_primary_color")
         private val SUGGESTION_CHIP_PADDING = intPreferencesKey("suggestion_chip_padding")
         private val NUMPAD_CALCULATOR_LAYOUT = booleanPreferencesKey("numpad_calculator_layout")
 
@@ -6090,6 +6096,7 @@ class SettingsRepository(private val context: Context) {
                 slotCount = p[SUGGESTION_SLOT_COUNT] ?: defaults.suggestionStrip.slotCount,
                 textScale = p[SUGGESTION_TEXT_SCALE] ?: defaults.suggestionStrip.textScale,
                 scrollable = p[SUGGESTION_SCROLLABLE] ?: defaults.suggestionStrip.scrollable,
+                primaryColor = p[SUGGESTION_PRIMARY_COLOR] ?: defaults.suggestionStrip.primaryColor,
                 chipPadding = p[SUGGESTION_CHIP_PADDING] ?: defaults.suggestionStrip.chipPadding,
                 learnedWordMinCount = p[LEARNED_WORD_MIN_COUNT]
                     ?: defaults.suggestionStrip.learnedWordMinCount,
@@ -10331,6 +10338,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSuggestionScrollable(value: Boolean) =
         editPrefs { it[SUGGESTION_SCROLLABLE] = value }
+
+    /** Null clears the key, so the strip follows the theme again (#90). */
+    suspend fun setSuggestionPrimaryColor(value: Long?) =
+        editPrefs {
+            if (value == null) it.remove(SUGGESTION_PRIMARY_COLOR) else it[SUGGESTION_PRIMARY_COLOR] = value
+        }
 
     /** Padding either side of a suggestion word, in dp; see [SuggestionStripSettings.chipPadding]. */
     suspend fun setSuggestionChipPadding(value: Int) =

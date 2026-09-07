@@ -3161,6 +3161,7 @@ private fun TopBar(
                     scrollable = state.settings.suggestionStrip.scrollable,
                     textPadding = state.settings.suggestionStrip.chipPadding.dp,
                     centerPrimaryEnabled = state.settings.suggestionStrip.suggestionPrimaryCenter,
+                    primaryColor = state.settings.suggestionStrip.primaryColor?.let { Color(it.toInt()) },
                     shiftState = state.shiftState,
                     // Only while the live candidates are the ones on screen: the
                     // strip holds the last set behind alpha 0, and a key promised
@@ -3368,6 +3369,8 @@ private fun RowScope.LatinSuggestionChips(
     /** Breathing room on each side of a word inside its slot. */
     textPadding: Dp = SuggestionTextPadding,
     centerPrimaryEnabled: Boolean,
+    /** The primary word's own colour (#90), or null for the strip's text colour. */
+    primaryColor: Color? = null,
     shiftState: ShiftState,
     /** The hotkey badges, or null when no physical keyboard is asking for them. */
     hints: HintPlan? = null,
@@ -3517,7 +3520,13 @@ private fun RowScope.LatinSuggestionChips(
                     Text(
                         text = display,
                         modifier = Modifier.padding(horizontal = textPadding),
-                        color = MaterialTheme.colorScheme.onSurface,
+                        // The primary in the user's own colour when they set one
+                        // (#90): bold alone is easy to miss mid-word.
+                        color = if (index == primaryIndex && primaryColor != null) {
+                            primaryColor
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        },
                         fontSize = baseSize * fit.fontScale,
                         softWrap = false,
                         // The default 0.5sp tracking is dead width once a word is
@@ -7628,6 +7637,7 @@ private fun TypingTestStrip(state: KeyboardUiState, onTypingTestAction: (TypingT
             scrollable = state.settings.suggestionStrip.scrollable,
             textPadding = state.settings.suggestionStrip.chipPadding.dp,
             centerPrimaryEnabled = state.settings.suggestionStrip.suggestionPrimaryCenter,
+            primaryColor = state.settings.suggestionStrip.primaryColor?.let { Color(it.toInt()) },
             shiftState = state.shiftState,
             onSuggestion = { onTypingTestAction(TypingTestAction.Suggestion(it)) },
         )

@@ -618,6 +618,7 @@ internal object SettingsRowIcons {
         put(R.string.typing_suggestions_first_title) { Icons.Outlined.VerticalAlignTop }
         put(R.string.typing_suggestion_slots_title) { Icons.Outlined.Numbers }
         put(R.string.typing_suggestion_scroll_title) { Icons.Outlined.SwapHoriz }
+        put(R.string.typing_suggestion_primary_color_title) { Icons.Outlined.Colorize }
         put(R.string.typing_primary_center_title) { Icons.Outlined.CenterFocusStrong }
         put(R.string.typing_contact_names_title) { Icons.Outlined.Contacts }
         put(R.string.typing_contact_emails_title) { Icons.Outlined.AlternateEmail }

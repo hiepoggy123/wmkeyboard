@@ -637,6 +637,15 @@ internal fun TypingSuggestionsSettings(
             ) { scope.launch { repository.setSuggestionScrollable(it) } }
         }
         item {
+            ColorSetting(
+                R.string.typing_suggestion_primary_color_title,
+                subtitle = stringResource(R.string.typing_suggestion_primary_color_subtitle),
+                color = settings.suggestionStrip.primaryColor,
+                fallback = MaterialTheme.colorScheme.onSurface.argbLong(),
+                info = stringResource(R.string.typing_suggestion_primary_color_info),
+            ) { scope.launch { repository.setSuggestionPrimaryColor(it) } }
+        }
+        item {
             val once = stringResource(R.string.typing_learn_threshold_once)
             SliderSetting(
                 R.string.typing_learn_threshold_title,
