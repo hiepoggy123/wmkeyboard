@@ -9,6 +9,7 @@ import androidx.compose.material.icons.outlined.OutlinedFlag
 import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.HourglassBottom
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SignalCellularAlt
 import androidx.compose.material.icons.outlined.SignalCellularAlt1Bar
@@ -23,6 +24,7 @@ import com.wasimaster.wmkeyboard.core.vocab.VocabScheduler
 import com.wasimaster.wmkeyboard.core.vocab.VocabAudioSource
 import com.wasimaster.wmkeyboard.core.vocab.VocabAccent
 import com.wasimaster.wmkeyboard.core.vocab.VocabRelatedTap
+import com.wasimaster.wmkeyboard.core.vocab.VocabWordInterval
 import com.wasimaster.wmkeyboard.core.vocab.FieldVisibility
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.automirrored.outlined.ShortText
@@ -273,6 +275,11 @@ internal object ChoiceOptionIcons {
         put(VocabRelatedTap.OPEN_CARD_ELSE_INSERT) { Icons.Outlined.Style }
         put(VocabRelatedTap.INSERT) { Icons.Outlined.Keyboard }
         put(VocabRelatedTap.DICTIONARY_LOOKUP) { Icons.Outlined.Search }
+        put(VocabWordInterval.DAILY) { Icons.Outlined.Today }
+        put(VocabWordInterval.EVERY_12_HOURS) { Icons.Outlined.Schedule }
+        put(VocabWordInterval.EVERY_6_HOURS) { Icons.Outlined.Schedule }
+        put(VocabWordInterval.EVERY_3_HOURS) { Icons.Outlined.Schedule }
+        put(VocabWordInterval.HOURLY) { Icons.Outlined.HourglassBottom }
         put(FieldVisibility.OFF) { Icons.Outlined.VisibilityOff }
         put(FieldVisibility.SETTINGS) { Icons.Outlined.Settings }
         put(FieldVisibility.KEYBOARD) { Icons.Outlined.Keyboard }

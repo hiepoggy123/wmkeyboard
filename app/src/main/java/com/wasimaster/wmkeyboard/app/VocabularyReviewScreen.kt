@@ -56,7 +56,7 @@ internal fun VocabReviewScreen(
     onNavigate: (String) -> Unit,
 ) {
     val context = LocalContext.current
-    val index = rememberVocabIndex(0)
+    val index = rememberVocabIndex(0, settings)
     val progress = rememberVocabProgress()
     val speaker = rememberVocabSpeaker()
     val today = remember { vocabToday() }

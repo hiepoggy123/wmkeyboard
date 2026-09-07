@@ -2987,6 +2987,7 @@ private fun TopBar(
             if (smart == null && daily != null) {
                 VocabDailyChip(
                     word = daily.word,
+                    hourly = state.settings.vocabulary.wordInterval != com.wasimaster.wmkeyboard.core.vocab.VocabWordInterval.DAILY,
                     modifier = Modifier.padding(start = 4.dp),
                     onOpen = {
                         vocab.onDailyOpen()

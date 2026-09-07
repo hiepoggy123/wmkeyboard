@@ -159,6 +159,9 @@
 
     <!-- The word-of-the-day card. -->
     <string name="home_vocab_title">Word of the day</string>
+    <string name="home_vocab_title_hourly">Word of the hour</string>
+    <!-- %1$s is a short duration like "5 h" or "40 min". -->
+    <string name="home_vocab_next_in">Next word in %1$s</string>
     <string name="home_vocab_install_body">Download a vocabulary pack to get a word here every day.</string>
     <string name="home_vocab_install_action">Packs</string>
     <string name="home_vocab_learnt_action">I know it</string>

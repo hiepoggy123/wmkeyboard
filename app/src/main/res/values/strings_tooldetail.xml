@@ -645,7 +645,9 @@
     <string name="tooldetail_vocab_related_lookup_label">Looks it up in the Dictionary tool</string>
     <string name="tooldetail_vocab_translations_title">Translation languages</string>
     <string name="tooldetail_vocab_translations_auto_subtitle">Your keyboard languages</string>
-    <string name="tooldetail_vocab_translations_dialog_body">Translations come from Wiktionary and are downloaded per pack and language on the packs screen.</string>
+    <!-- %1$s is a comma-separated list of language names. -->
+    <string name="tooldetail_vocab_translations_auto_named_subtitle">Your keyboard languages: <xliff:g id="languages" example="Bangla, Hindi">%1$s</xliff:g></string>
+    <string name="tooldetail_vocab_translations_dialog_body">Translations come from Wiktionary and are downloaded per pack and language, on their own once you pick them here or add a keyboard language.</string>
     <string name="tooldetail_vocab_audio_group">Speaker</string>
     <string name="tooldetail_vocab_audio_info">Wiktionary’s recordings are fetched over the network; on mobile data they follow Data saver. Speech synthesis works offline and is the fallback.</string>
     <string name="tooldetail_vocab_audio_source_title">Voice</string>
@@ -674,7 +676,16 @@
     <string name="tooldetail_vocab_wotd_card_title">Card on the home screen</string>
     <string name="tooldetail_vocab_wotd_card_subtitle">One word a day, drawn from your packs</string>
     <string name="tooldetail_vocab_wotd_chip_title">Chip on the keyboard</string>
-    <string name="tooldetail_vocab_wotd_chip_subtitle">Once a day, the first time the keyboard opens</string>
+    <string name="tooldetail_vocab_wotd_chip_subtitle">Offered on the suggestion strip until you tap or dismiss it</string>
+    <string name="tooldetail_vocab_wotd_interval_title">A new word every</string>
+    <string name="tooldetail_vocab_wotd_interval_subtitle">The same word for everyone with your packs, in that span</string>
+    <string name="tooldetail_vocab_wotd_interval_day_label">Day</string>
+    <string name="tooldetail_vocab_wotd_interval_12h_label">12 hours</string>
+    <string name="tooldetail_vocab_wotd_interval_6h_label">6 hours</string>
+    <string name="tooldetail_vocab_wotd_interval_3h_label">3 hours</string>
+    <string name="tooldetail_vocab_wotd_interval_hour_label">Hour</string>
+    <string name="tooldetail_vocab_wotd_chip_times_title">Times the chip comes back</string>
+    <string name="tooldetail_vocab_wotd_chip_times_subtitle">How many text fields may offer the same word before it stops; dismissing it stops it at once</string>
     <string name="tooldetail_vocab_field_ipa_title">Pronunciation (IPA)</string>
     <string name="tooldetail_vocab_field_respelling_title">Respelling</string>
     <string name="tooldetail_vocab_field_examples_title">Example sentences</string>

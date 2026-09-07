@@ -447,6 +447,7 @@
     <!-- A vocabulary word was typed; tapping opens its card. -->
     <string name="ime_smart_vocab_word"><xliff:g id="word" example="abhor">%1$s</xliff:g> ›</string>
     <string name="ime_smart_vocab_daily">Word of the day: <xliff:g id="word" example="alacrity">%1$s</xliff:g> ›</string>
+    <string name="ime_smart_vocab_hourly">Word of the hour: <xliff:g id="word" example="alacrity">%1$s</xliff:g> ›</string>
     <string name="ime_smart_vocab_daily_dismiss_desc">Hide the word of the day</string>
     <string name="ime_smart_wiki_word">“%1$s” on Wikipedia</string>
     <string name="ime_smart_translate_offer">Translate</string>

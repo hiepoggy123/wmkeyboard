@@ -77,4 +77,32 @@ class VocabSchedulerTest {
         assertEquals(null, WordOfDay.pick(1, emptyList()))
         assertEquals(null, WordOfDay.pick(1, words, exclude = words.toSet()))
     }
+
+    @Test
+    fun `word of the day walks every word once and ignores input order`() {
+        val words = (1..40).map { "w$it" }
+        val seen = (0 until words.size).map { WordOfDay.pick(100_000 + it, words)!! }
+        assertEquals(words.toSet(), seen.toSet())
+        assertEquals(words.size, seen.distinct().size)
+        // The same slot gives the same word however the packs were listed.
+        assertEquals(WordOfDay.pick(123, words), WordOfDay.pick(123, words.reversed()))
+        assertEquals(WordOfDay.pick(123, words), WordOfDay.pick(123, words.shuffled(java.util.Random(7))))
+        // Consecutive slots never repeat until the list is exhausted.
+        assertTrue(WordOfDay.pick(123, words) != WordOfDay.pick(124, words))
+    }
+
+    @Test
+    fun `slots divide the local day and daily slots are days`() {
+        val utc = java.util.TimeZone.getTimeZone("UTC")
+        val noon = 20_700L * 86_400_000L + 12 * 3_600_000L
+        assertEquals(20_700, WordOfDay.slot(noon, utc, VocabWordInterval.DAILY))
+        assertEquals(20_700 * 24 + 12, WordOfDay.slot(noon, utc, VocabWordInterval.HOURLY))
+        assertEquals(20_700 * 4 + 2, WordOfDay.slot(noon, utc, VocabWordInterval.EVERY_6_HOURS))
+        assertEquals(20_700, WordOfDay.dayOf(20_700 * 4 + 2, VocabWordInterval.EVERY_6_HOURS))
+        // A zone east of UTC has already turned the day at 23:00 UTC.
+        val dhaka = java.util.TimeZone.getTimeZone("Asia/Dhaka")
+        val lateUtc = 20_700L * 86_400_000L + 23 * 3_600_000L
+        assertEquals(20_701, WordOfDay.slot(lateUtc, dhaka, VocabWordInterval.DAILY))
+        assertEquals(20_700L * 86_400_000L + 18 * 3_600_000L, WordOfDay.nextSlotStart(20_700 * 4 + 2, utc, VocabWordInterval.EVERY_6_HOURS))
+    }
 }

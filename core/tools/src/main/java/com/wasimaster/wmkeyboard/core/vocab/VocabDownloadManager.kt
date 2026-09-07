@@ -119,9 +119,18 @@ object VocabDownloadManager {
 
     fun translationKey(packId: String, code: String): String = "$packId/$code"
 
-    /** Downloads (or re-downloads) one pack; the row shows progress meanwhile. */
-    fun start(filesDir: File, entry: VocabCatalogEntry) {
-        enqueue(entry.id, ::setPack) { downloadPack(filesDir, entry) }
+    /**
+     * Downloads (or re-downloads) one pack; the row shows progress meanwhile.
+     * [translations] are the sidecar codes to fetch right after it lands, so
+     * a pack arrives with the user's languages rather than waiting for a
+     * second visit to the packs screen.
+     */
+    fun start(filesDir: File, entry: VocabCatalogEntry, translations: Collection<String> = emptyList()) {
+        val wanted = translations.filter { it in entry.translationCodes }
+        enqueue(entry.id, ::setPack) {
+            downloadPack(filesDir, entry)
+            if (states.value[entry.id] is DownloadStatus.Downloaded) startTranslations(filesDir, entry, wanted)
+        }
     }
 
     /** Downloads translation sidecars for [codes] the catalogue offers for [entry]. */

@@ -1078,7 +1078,8 @@ data class VocabPanelUi(
 )
 
 /** The word-of-the-day chip on the strip; [day] is the local epoch day it was drawn for. */
-data class VocabDailyChip(val word: String, val day: Int)
+/** The word-of-the-day chip: its word and the slot ([com.wasimaster.wmkeyboard.core.vocab.WordOfDay.slot]) it was drawn for. */
+data class VocabDailyChip(val word: String, val slot: Int)
 
 /**
  * What the enter key does in the focused field, from EditorInfo.imeOptions.

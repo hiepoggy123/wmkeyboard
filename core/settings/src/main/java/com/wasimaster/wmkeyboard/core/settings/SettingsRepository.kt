@@ -128,6 +128,7 @@ import com.wasimaster.wmkeyboard.core.vocab.VocabNudgeLevel
 import com.wasimaster.wmkeyboard.core.vocab.VocabNudgeScope
 import com.wasimaster.wmkeyboard.core.vocab.VocabRelatedTap
 import com.wasimaster.wmkeyboard.core.vocab.VocabScheduler
+import com.wasimaster.wmkeyboard.core.vocab.VocabWordInterval
 import com.wasimaster.wmkeyboard.core.vocab.VocabProgress
 import com.wasimaster.wmkeyboard.core.vocab.VocabPacks
 import com.wasimaster.wmkeyboard.core.vocab.VocabPackFile
@@ -5381,6 +5382,8 @@ class SettingsRepository(private val context: Context) {
         private val VOCAB_DAILY_GOAL = intPreferencesKey("vocab_daily_goal")
         private val VOCAB_WOTD_CARD = booleanPreferencesKey("vocab_wotd_card")
         private val VOCAB_WOTD_CHIP = booleanPreferencesKey("vocab_wotd_chip")
+        private val VOCAB_WORD_INTERVAL = stringPreferencesKey("vocab_word_interval")
+        private val VOCAB_CHIP_TIMES = intPreferencesKey("vocab_chip_times")
         private val VOCAB_AUDIO_SOURCE = stringPreferencesKey("vocab_audio_source")
         private val VOCAB_ACCENT = stringPreferencesKey("vocab_accent")
         private val VOCAB_TTS_RATE = floatPreferencesKey("vocab_tts_rate")
@@ -6559,6 +6562,10 @@ class SettingsRepository(private val context: Context) {
                 dailyGoal = p[VOCAB_DAILY_GOAL] ?: defaults.vocabulary.dailyGoal,
                 wordOfTheDayCard = p[VOCAB_WOTD_CARD] ?: defaults.vocabulary.wordOfTheDayCard,
                 wordOfTheDayChip = p[VOCAB_WOTD_CHIP] ?: defaults.vocabulary.wordOfTheDayChip,
+                wordInterval = p[VOCAB_WORD_INTERVAL]?.let { runCatching { VocabWordInterval.valueOf(it) }.getOrNull() }
+                    ?: defaults.vocabulary.wordInterval,
+                chipTimesPerWord = p[VOCAB_CHIP_TIMES]?.coerceIn(VocabularySettings.MIN_CHIP_TIMES, VocabularySettings.MAX_CHIP_TIMES)
+                    ?: defaults.vocabulary.chipTimesPerWord,
                 audioSource = p[VOCAB_AUDIO_SOURCE]?.let { runCatching { VocabAudioSource.valueOf(it) }.getOrNull() }
                     ?: defaults.vocabulary.audioSource,
                 accent = p[VOCAB_ACCENT]?.let { runCatching { VocabAccent.valueOf(it) }.getOrNull() }
@@ -7320,6 +7327,11 @@ class SettingsRepository(private val context: Context) {
     suspend fun setVocabWordOfTheDayCard(value: Boolean) = editPrefs { it[VOCAB_WOTD_CARD] = value }
 
     suspend fun setVocabWordOfTheDayChip(value: Boolean) = editPrefs { it[VOCAB_WOTD_CHIP] = value }
+
+    suspend fun setVocabWordInterval(value: VocabWordInterval) = editPrefs { it[VOCAB_WORD_INTERVAL] = value.name }
+
+    suspend fun setVocabChipTimesPerWord(value: Int) =
+        editPrefs { it[VOCAB_CHIP_TIMES] = value.coerceIn(VocabularySettings.MIN_CHIP_TIMES, VocabularySettings.MAX_CHIP_TIMES) }
 
     suspend fun setVocabAudioSource(value: VocabAudioSource) = editPrefs { it[VOCAB_AUDIO_SOURCE] = value.name }
 

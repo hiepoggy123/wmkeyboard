@@ -919,6 +919,8 @@ private fun SearchStrings.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.VOCABULARY, R.string.tooldetail_vocab_goal_title, R.string.tooldetail_vocab_goal_subtitle),
     toolEntry(ToolbarTool.VOCABULARY, R.string.tooldetail_vocab_wotd_card_title, R.string.tooldetail_vocab_wotd_card_subtitle),
     toolEntry(ToolbarTool.VOCABULARY, R.string.tooldetail_vocab_wotd_chip_title, R.string.tooldetail_vocab_wotd_chip_subtitle),
+    toolEntry(ToolbarTool.VOCABULARY, R.string.tooldetail_vocab_wotd_interval_title, R.string.tooldetail_vocab_wotd_interval_subtitle),
+    toolEntry(ToolbarTool.VOCABULARY, R.string.tooldetail_vocab_wotd_chip_times_title, R.string.tooldetail_vocab_wotd_chip_times_subtitle),
     toolEntry(ToolbarTool.VOCABULARY, R.string.tooldetail_vocab_field_ipa_title),
     toolEntry(ToolbarTool.VOCABULARY, R.string.tooldetail_vocab_field_respelling_title),
     toolEntry(ToolbarTool.VOCABULARY, R.string.tooldetail_vocab_field_examples_title),

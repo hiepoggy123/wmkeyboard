@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.vocab
 
 import java.io.File
+import java.util.TimeZone
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -68,16 +69,16 @@ class VocabProgress(private var storageFile: File?) {
     private data class Snapshot(
         val version: Int = 1,
         val words: Map<String, WordProgress> = emptyMap(),
-        /** Local epoch day → the lemma drawn for it. */
+        /** Word-of-the-day slot ([WordOfDay.slot]) → the lemma drawn for it. */
         val daily: Map<Int, String> = emptyMap(),
-        /** Local epoch day the word-of-the-day card was put away; 0 means never. */
-        val dismissedDay: Int = 0,
+        /** The slot whose word-of-the-day card was put away; 0 means never. */
+        val dismissedSlot: Int = 0,
     )
 
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true }
     private val words = HashMap<String, WordProgress>()
     private val daily = HashMap<Int, String>()
-    private var dismissedDay = 0
+    private var dismissedSlot = 0
     private var dirty = false
     private var loadedLength = -1L
     private var loadedModified = -1L
@@ -189,38 +190,43 @@ class VocabProgress(private var storageFile: File?) {
     }
 
     /**
-     * The word drawn for [day], pinned once drawn so a word marked learnt in
-     * the afternoon does not change the morning's card. [candidates] are the
-     * lemmas eligible today — normally every unlearnt word of the enabled
-     * packs, sorted. Returns null when there is nothing to draw from.
+     * The word drawn for [slot] (a day, or a fraction of one — see
+     * [WordOfDay.slot]), pinned once drawn so a word marked learnt in the
+     * afternoon does not change the morning's card. [lemmas] are every word
+     * of the enabled packs; the draw itself is the same for everyone who has
+     * those packs, and only then are the words this user has learnt skipped.
+     * Returns null when there is nothing to draw from.
      */
     @Synchronized
-    fun wordOfTheDay(day: Int, candidates: List<String>): String? {
-        if (candidates.isEmpty()) return null
-        daily[day]?.let { pinned -> if (pinned in candidates) return pinned }
-        val picked = WordOfDay.pick(day, candidates) ?: return null
-        daily[day] = picked
-        daily.keys.filter { it < day - DAILY_KEEP_DAYS }.forEach { daily.remove(it) }
+    fun wordOfTheDay(slot: Int, lemmas: List<String>): String? {
+        if (lemmas.isEmpty()) return null
+        daily[slot]?.let { pinned -> if (pinned in lemmas) return pinned }
+        val learnt = lemmas.filterTo(HashSet()) { words[it]?.learnt == true }
+        val picked = WordOfDay.pick(slot, lemmas, exclude = learnt) ?: return null
+        daily[slot] = picked
+        if (daily.size > KEEP_SLOTS) {
+            daily.keys.sorted().take(daily.size - KEEP_SLOTS).forEach { daily.remove(it) }
+        }
         dirty = true
         return picked
     }
 
-    /** The word already drawn for [day], without drawing one. */
+    /** The word already drawn for [slot], without drawing one. */
     @Synchronized
-    fun pinnedWordOfTheDay(day: Int): String? = daily[day]
+    fun pinnedWordOfTheDay(slot: Int): String? = daily[slot]
 
     /**
-     * Whether the word-of-the-day card was put away for [day]. Dismissing is
-     * for one day rather than for good: tomorrow draws a different word, and
-     * the switch in the tool's settings is the way to stop the card entirely.
+     * Whether the word-of-the-day card was put away for [slot]. Dismissing is
+     * for one slot rather than for good: the next one draws a different word,
+     * and the switch in the tool's settings is the way to stop the card.
      */
     @Synchronized
-    fun isWordOfTheDayDismissed(day: Int): Boolean = dismissedDay == day
+    fun isWordOfTheDayDismissed(slot: Int): Boolean = dismissedSlot == slot
 
     @Synchronized
-    fun dismissWordOfTheDay(day: Int) {
-        if (dismissedDay == day) return
-        dismissedDay = day
+    fun dismissWordOfTheDay(slot: Int) {
+        if (dismissedSlot == slot) return
+        dismissedSlot = slot
         dirty = true
     }
 
@@ -236,7 +242,7 @@ class VocabProgress(private var storageFile: File?) {
                     Snapshot(
                         words = words.toSortedMap(),
                         daily = daily.toSortedMap(),
-                        dismissedDay = dismissedDay,
+                        dismissedSlot = dismissedSlot,
                     ),
                 ),
             )
@@ -266,7 +272,7 @@ class VocabProgress(private var storageFile: File?) {
     private fun load() {
         words.clear()
         daily.clear()
-        dismissedDay = 0
+        dismissedSlot = 0
         dirty = false
         val file = storageFile ?: return
         loadedLength = file.length()
@@ -275,13 +281,15 @@ class VocabProgress(private var storageFile: File?) {
         val snapshot = runCatching { json.decodeFromString<Snapshot>(file.readText()) }.getOrNull() ?: return
         words.putAll(snapshot.words)
         daily.putAll(snapshot.daily)
-        dismissedDay = snapshot.dismissedDay
+        dismissedSlot = snapshot.dismissedSlot
     }
 
     companion object {
         const val FILE_PATH = "vocab/progress.json"
         const val MAX_HISTORY = 50
-        private const val DAILY_KEEP_DAYS = 7
+
+        /** Pins kept: a week of hourly slots, so a re-opened card finds its word. */
+        private const val KEEP_SLOTS = 7 * 24
     }
 }
 
@@ -351,19 +359,67 @@ object Sm2Scheduler {
 }
 
 /**
- * A deterministic draw for a day: the same day and the same candidates give
- * the same word on every device and in both processes, with no state.
+ * The word-of-the-day draw. Stateless and the same everywhere: a slot number
+ * and the pack's word list give the same word on every device, in both
+ * processes, with nothing stored.
+ *
+ * The words are laid out in a fixed pseudo-random order (a hash of each
+ * word, so the order does not depend on which packs came first), and slot
+ * `s` takes the word at `s mod n`. Consecutive slots therefore walk the whole
+ * list before any word comes round again, and two people with the same packs
+ * see the same word at the same hour. Words the user has learnt are skipped
+ * by walking on to the next unlearnt one, which is the only place one
+ * device's draw can differ from another's.
  */
 object WordOfDay {
 
-    fun pick(day: Int, sortedCandidates: List<String>, exclude: Set<String> = emptySet()): String? {
-        if (sortedCandidates.isEmpty()) return null
-        val start = Math.floorMod(splitMix64(day.toLong()), sortedCandidates.size.toLong()).toInt()
-        for (offset in sortedCandidates.indices) {
-            val candidate = sortedCandidates[(start + offset) % sortedCandidates.size]
+    private const val DAY_MILLIS = 86_400_000L
+
+    /**
+     * The slot [nowMillis] falls in: the local day count times the slots per
+     * day, plus which of the day's slots it is. [VocabWordInterval.DAILY]
+     * makes a slot equal to the local epoch day, so a daily pin is a day.
+     */
+    fun slot(nowMillis: Long, zone: TimeZone, interval: VocabWordInterval): Int {
+        val local = nowMillis + zone.getOffset(nowMillis)
+        val day = Math.floorDiv(local, DAY_MILLIS)
+        val hour = Math.floorMod(local, DAY_MILLIS) / 3_600_000L
+        return (day * interval.perDay + hour / interval.hours).toInt()
+    }
+
+    /** The local epoch day a slot belongs to. */
+    fun dayOf(slot: Int, interval: VocabWordInterval): Int = Math.floorDiv(slot, interval.perDay)
+
+    /** When the slot after [slot] begins, in epoch millis, for the "next word in" line. */
+    fun nextSlotStart(slot: Int, zone: TimeZone, interval: VocabWordInterval): Long {
+        val nextSlot = slot + 1L
+        val day = Math.floorDiv(nextSlot, interval.perDay.toLong())
+        val hour = Math.floorMod(nextSlot, interval.perDay.toLong()) * interval.hours
+        val localMillis = day * DAY_MILLIS + hour * 3_600_000L
+        // The offset at roughly that instant; a DST edge inside the slot is a minute's error, not a wrong day.
+        return localMillis - zone.getOffset(localMillis)
+    }
+
+    fun pick(slot: Int, candidates: List<String>, exclude: Set<String> = emptySet()): String? {
+        if (candidates.isEmpty()) return null
+        val order = shuffled(candidates)
+        val start = Math.floorMod(slot, order.size)
+        for (offset in order.indices) {
+            val candidate = order[(start + offset) % order.size]
             if (candidate !in exclude) return candidate
         }
         return null
+    }
+
+    /** [candidates] in their fixed draw order: the same whatever order they arrived in. */
+    fun shuffled(candidates: List<String>): List<String> =
+        candidates.distinct().sortedWith(compareBy({ splitMix64(stableHash(it)) }, { it }))
+
+    /** `String.hashCode` is specified, but 32 bits collide; this is the same idea with more room. */
+    private fun stableHash(word: String): Long {
+        var h = 1125899906842597L
+        for (ch in word) h = 31 * h + ch.code
+        return h
     }
 
     private fun splitMix64(seed: Long): Long {

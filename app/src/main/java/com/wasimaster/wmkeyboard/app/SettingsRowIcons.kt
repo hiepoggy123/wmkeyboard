@@ -791,6 +791,8 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_vocab_goal_title) { Icons.Outlined.Flag }
         put(R.string.tooldetail_vocab_wotd_card_title) { Icons.Outlined.Today }
         put(R.string.tooldetail_vocab_wotd_chip_title) { Icons.Outlined.Keyboard }
+        put(R.string.tooldetail_vocab_wotd_interval_title) { Icons.Outlined.Schedule }
+        put(R.string.tooldetail_vocab_wotd_chip_times_title) { Icons.Outlined.Repeat }
         put(R.string.tooldetail_text_edit_repeat_title) { Icons.Outlined.Repeat }
         put(R.string.tooldetail_cursor_repeat_title) { Icons.Outlined.TouchApp }
         put(R.string.tooldetail_cursor_repeat_toolbox_title) { Icons.Outlined.GridView }

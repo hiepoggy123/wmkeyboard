@@ -305,6 +305,8 @@ import com.wasimaster.wmkeyboard.core.vocab.VocabAudioSource
 import com.wasimaster.wmkeyboard.core.vocab.VocabAutofill
 import com.wasimaster.wmkeyboard.core.vocab.VocabCooldown
 import com.wasimaster.wmkeyboard.core.vocab.VocabIndex
+import com.wasimaster.wmkeyboard.core.vocab.VocabIndexCache
+import com.wasimaster.wmkeyboard.core.vocab.VocabLanguages
 import com.wasimaster.wmkeyboard.core.vocab.VocabPackFile
 import com.wasimaster.wmkeyboard.core.vocab.VocabPacks
 import com.wasimaster.wmkeyboard.core.vocab.VocabPrefs
@@ -312,6 +314,7 @@ import com.wasimaster.wmkeyboard.core.vocab.VocabProgress
 import com.wasimaster.wmkeyboard.core.vocab.VocabRelatedTap
 import com.wasimaster.wmkeyboard.core.vocab.VocabSpeaker
 import com.wasimaster.wmkeyboard.core.vocab.VocabWord
+import com.wasimaster.wmkeyboard.core.vocab.WordOfDay
 import com.wasimaster.wmkeyboard.tools.R as ToolsR
 import java.util.Locale
 import java.util.TimeZone
@@ -15374,14 +15377,14 @@ open class WMKeyboardService : InputMethodService() {
         if (!userUnlocked) return
         if (ToolbarTool.VOCABULARY !in usableTools(_uiState.value.settings)) return
         val current = vocabIndex
+        val settings = _uiState.value.settings
+        // The glosses in the user's languages are triggers too, so the index
+        // is keyed on them; it is the process's one copy, shared with the
+        // settings app's screens.
+        val codes = VocabLanguages.wantedCodes(settings.vocabulary.translationLangList, settings.enabledLanguages.map { it.id })
         val next = withContext(Dispatchers.IO) {
             vocabProgress.reloadIfChanged()
-            val token = VocabPacks.stateToken(filesDir)
-            if (current != null && current.token == token) {
-                current
-            } else {
-                VocabIndex.build(VocabPacks.languages(filesDir).flatMap { VocabPacks.load(filesDir, it) }, token)
-            }
+            VocabIndexCache.get(filesDir, codes)
         }
         val available = !next.isEmpty
         if (next !== current) {
@@ -15606,7 +15609,7 @@ open class WMKeyboardService : InputMethodService() {
 
     fun onVocabDailyDismiss() {
         vibrate()
-        vocabPrefs.dailyDismissedDay = vocabToday()
+        _uiState.value.vocabDaily?.let { vocabPrefs.chipDismissedSlot = it.slot }
         _uiState.update { it.copy(vocabDaily = null) }
     }
 
@@ -15641,9 +15644,11 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * The first field of the day gets the word-of-the-day chip, once: the
-     * claim is a day stamp, so a dismissed or taken chip stays away until
-     * midnight and the draw itself is pinned in the learning record.
+     * A new field may get the word-of-the-day chip: a few times per word
+     * (the setting says how many), spread across the word's slot so one
+     * field typed past does not lose the word, and never again once it was
+     * dismissed. The draw itself is pinned in the learning record, so the
+     * chip and the settings-home card agree.
      */
     private fun maybeOfferWordOfTheDay() {
         val state = _uiState.value
@@ -15652,13 +15657,14 @@ open class WMKeyboardService : InputMethodService() {
         if (ToolbarTool.VOCABULARY !in usableTools(state.settings)) return
         val index = vocabIndex ?: return
         if (index.isEmpty) return
-        val today = vocabToday()
-        if (vocabPrefs.dailyClaimedDay == today || vocabPrefs.dailyDismissedDay == today) return
-        val candidates = index.lemmas.filter { !vocabProgress.isLearnt(it) }
-        val word = vocabProgress.wordOfTheDay(today, candidates) ?: return
+        val now = System.currentTimeMillis()
+        val slot = WordOfDay.slot(now, TimeZone.getDefault(), settings.wordInterval)
+        val minGap = settings.wordInterval.millis / (settings.chipTimesPerWord + 1)
+        if (!vocabPrefs.mayOfferChip(slot, now, settings.chipTimesPerWord, minGap)) return
+        val word = vocabProgress.wordOfTheDay(slot, index.lemmas) ?: return
         vocabProgress.save()
-        vocabPrefs.claimDaily(today)
-        _uiState.update { it.copy(vocabDaily = VocabDailyChip(word, today)) }
+        vocabPrefs.recordChipShown(slot, now)
+        _uiState.update { it.copy(vocabDaily = VocabDailyChip(word, slot)) }
     }
 
     private fun vocabCallbacks() = com.wasimaster.wmkeyboard.ime.ui.VocabCallbacks(

@@ -8,6 +8,7 @@ import com.wasimaster.wmkeyboard.core.vocab.VocabNudgeLevel
 import com.wasimaster.wmkeyboard.core.vocab.VocabNudgeScope
 import com.wasimaster.wmkeyboard.core.vocab.VocabRelatedTap
 import com.wasimaster.wmkeyboard.core.vocab.VocabScheduler
+import com.wasimaster.wmkeyboard.core.vocab.VocabWordInterval
 
 /**
  * The Vocabulary tool's settings, grouped for the reason [TrackpadSettings]
@@ -34,8 +35,16 @@ data class VocabularySettings(
     val dailyGoal: Int = 10,
     /** The word-of-the-day card on the settings home. */
     val wordOfTheDayCard: Boolean = true,
-    /** The word-of-the-day chip on the strip, once per day. */
+    /** The word-of-the-day chip on the strip. */
     val wordOfTheDayChip: Boolean = true,
+    /** How often the word changes: a day, or a fraction of one for the impatient. */
+    val wordInterval: VocabWordInterval = VocabWordInterval.DAILY,
+    /**
+     * How many fields per word the chip may come up in before it stops
+     * offering that word; dismissing it stops it sooner. One is the old
+     * "first field only" behaviour.
+     */
+    val chipTimesPerWord: Int = 3,
     val audioSource: VocabAudioSource = VocabAudioSource.AUTO,
     val accent: VocabAccent = VocabAccent.US,
     val ttsRate: Float = 1.0f,
@@ -53,6 +62,8 @@ data class VocabularySettings(
         get() = translationLangs.split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
     companion object {
+        const val MIN_CHIP_TIMES = 1
+        const val MAX_CHIP_TIMES = 6
         const val MIN_DAILY_GOAL = 5
         const val MAX_DAILY_GOAL = 100
         const val MIN_TTS = 0.5f

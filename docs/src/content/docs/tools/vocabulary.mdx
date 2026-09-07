@@ -17,11 +17,11 @@ The **Vocabulary** tool teaches you words while you type. Install a pack (the Wo
 
 ## Getting a pack
 
-Open <SettingsPath>Tools → Vocabulary → Vocabulary packs</SettingsPath> and download a list. Each pack is a study list turned into a small dictionary: for every word, the part of speech, pronunciation in American and British English, up to three senses with an example sentence and dated quotations, synonyms and antonyms, the word family, the etymology, and a mnemonic. Definitions come from Wiktionary, with WordNet filling any gaps.
+Open <SettingsPath>Tools → Vocabulary → Vocabulary packs</SettingsPath> and download a list: Word Smart 1 and 2, Barron's 333, 800 and 1100, Magoosh 1000, Kaplan 900, PowerScore 700, SparkNotes 1000, Manhattan Prep 1000 and GregMat 1100. Each pack is a study list turned into a small dictionary: for every word, the part of speech, pronunciation in American and British English, up to three senses with an example sentence and dated quotations, synonyms and antonyms, the word family, the etymology, and a mnemonic. Definitions come from Wiktionary, with WordNet filling any gaps.
 
-Packs also come from [add-on repositories](/addons/overview/) (type `vocabulary`), from a `.wmvocab.json` file opened in a file manager, or from your own lists (see below). Several packs can be on at once; a word that appears in more than one shows every list it belongs to on its card.
+Packs also come from [add-on repositories](/addons/overview/) (type `vocabulary`), from a `.wmvocab.json` file opened in a file manager (gzipped or not), or from your own lists (see below). Several packs can be on at once; a word that appears in more than one shows every list it belongs to on its card.
 
-Translations are separate, small downloads per pack and language, so you fetch only the languages you read. Pick them under **Translation languages** on the tool's page, or tap a language chip under an installed pack.
+Translations are separate, small downloads per pack and language. The languages your keyboard is set to are fetched on their own when a pack lands or when you add a language (a romanised layout such as Banglish reads the Bangla glosses; a Croatian keyboard takes the Serbo-Croatian sidecar when a pack has no closer one), and you can pick others under **Translation languages** on the tool's page. The full list of a pack's languages folds out under it on the packs screen. Every gloss in another script carries a romanisation, so the card can show "ghrina" beside ঘৃণা.
 
 ## The nudge
 
@@ -37,9 +37,11 @@ The chip appears once you have typed the whole word, stays through the space or 
 
 Nudges run last among the smart chips: a sum, a currency, "define hate", and a tool keyword all win over one.
 
+A gloss in one of your languages nudges too: type ঘৃণা on a Bangla layout, or "ghrina" on the romanised one, and the chip offers *abhor*. A gloss of more than one word ("হেয় করা") is matched as a phrase.
+
 ## The card
 
-The headword, its parts of speech and pronunciation come first, with a speaker button. The recording is Wiktionary's when it has one and the network allows; otherwise the phone's speech synthesiser says the word, in the accent you chose. Below are the senses, then rows of related words. Tapping a related word opens its own card when it is in a pack, and types it otherwise; holding always types it. The **Full dictionary** action hands the word to the [Dictionary tool](/tools/search/#looking-up-definitions).
+The headword, its pronunciation and a speaker button come first, with the parts of speech, the lists the word is in and how far along you are as small tags. The recording is Wiktionary's when it has one and the network allows; otherwise the phone's speech synthesiser says the word, in the accent you chose. In the app the rest is one section at a time: **Meaning** (senses grouped by part of speech, each with its example; quotations from print open on a tap), **Related words**, the mnemonic set apart under **Remember it**, **In your languages** for the translations, and **Where it comes from** with the origin chain up front and the etymology folded behind it. Tapping a related word opens its own card when it is in a pack, and types it otherwise; holding always types it. The **Full dictionary** action hands the word to the [Dictionary tool](/tools/search/#looking-up-definitions).
 
 Every section of the card can be shown in the keyboard and the app, in the app only, or not at all, under <SettingsPath>Tools → Vocabulary → Card sections</SettingsPath>. The quotations, rhymes, hyphenation and the Proto-Indo-European root are in the app only by default; the mnemonic, etymology and translations are everywhere.
 
@@ -47,14 +49,14 @@ Every section of the card can be shown in the keyboard and the app, in the app o
 
 Mark a word **Learnt** from its card and it stops nudging. The **Review** tab (in the keyboard) and the Review screen (in the app) run flashcards over everything due today plus a few new words: read the word, flip, grade yourself. Two schedulers are offered under <SettingsPath>Tools → Vocabulary → Flashcards</SettingsPath>: five **Leitner boxes** with gaps of 1, 3, 7, 14 and 30 days, or **SM-2**, the rule Anki uses. Both write the same record, so switching keeps your progress.
 
-The **word of the day** is drawn from the words you have not learnt, the same one on every device that shares your backup. It shows as a card on the settings home and, once a day, as a chip the first time the keyboard opens. The card's **X** puts it away until tomorrow's word; the two switches under <SettingsPath>Tools → Vocabulary → Word of the day</SettingsPath> turn the card and the chip off for good.
+The **word of the day** is the same for everyone who has the same packs: the words are laid out in a fixed order and each day takes the next, so every word comes round once before any repeats, and a device that has learnt the day's word moves on to the next unlearnt one. It shows as a card on the settings home and as a chip on the suggestion strip. The chip comes back in a few text fields spread over the day (how many is a setting) until you tap it or dismiss it. The card's **X** puts it away until the next word. Under <SettingsPath>Tools → Vocabulary → Word of the day</SettingsPath> you can turn either off, or have a new word every 12, 6 or 3 hours, or every hour.
 
 ## Your own lists
 
-<SettingsPath>Tools → Vocabulary → My lists</SettingsPath> makes a list from scratch. Type a word and the details fill in from an installed pack when one knows it, from the online dictionary when you ask (it follows [Data saver](/privacy/data-saver/) on mobile data), or you type them yourself. **Add many words** takes a pasted list, one word per line. **Add to my list** on any card files the word into a list called *My words*, and the Dictionary panel has the same chip.
+<SettingsPath>Tools → Vocabulary → My lists</SettingsPath> makes a list from scratch. Type a word and the details fill in from an installed pack when one knows it, or from the network when you tap **Look up online**: Wiktionary's full entry (through kaikki.org, the same source the packs are built from), with the free dictionary API and Wiktionary's own definition endpoint as fallbacks when it is down. A look-up is one tap and a few kilobytes, so it is not held back by [Data saver](/privacy/data-saver/). **Add many words** takes a pasted list, one word per line. **Add to my list** on any card files the word into a list called *My words*, and the Dictionary panel has the same chip.
 
 A list exports as a `.wmvocab.json` file, the same format the packs use, so it can be shared, opened on another phone, or published in an add-on repository. Lists and imported packs travel in [backups](/reference/file-formats/#backups); downloaded packs do not, since they can be downloaded again.
 
 ## Privacy
 
-Everything here runs on the phone: the packs, the index that finds triggers while you type, and your learning record. The only network requests are the ones you start: downloading a pack or a translation, looking a word up online from the list editor, and playing a Wiktionary recording, each of which respects Data saver.
+Everything here runs on the phone: the packs, the index that finds triggers while you type, and your learning record. The only network requests are the ones you start or set up: downloading a pack, the translations for the languages you set (fetched on their own only when Data saver allows downloads outright), a look-up you tap for in the list editor, and playing a Wiktionary recording.

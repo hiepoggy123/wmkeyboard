@@ -142,6 +142,8 @@ object WMFileTypes {
 
     /** First four bytes of every ZIP local file header. */
     private val ZIP_MAGIC = byteArrayOf(0x50, 0x4B, 0x03, 0x04)
+    private const val GZIP_MAGIC_1: Byte = 0x1f
+    private const val GZIP_MAGIC_2: Byte = 0x8b.toByte()
 
     /** What a file at [uri] turned out to be. */
     sealed interface Opened {
@@ -227,8 +229,16 @@ object WMFileTypes {
         // could never match anything.
         if (BackupCrypto.looksEncrypted(head)) return Opened.EncryptedConfig
 
+        // A gzipped file is read through the inflater: the data repository
+        // hosts vocabulary packs that way, and an add-on entry may point
+        // straight at one. The proposal re-opens the raw stream when it
+        // applies, and each importer inflates for itself.
+        val gzipped = head.size >= 2 && head[0] == GZIP_MAGIC_1 && head[1] == GZIP_MAGIC_2
         val text = runCatching {
-            context.contentResolver.requireInputStream(uri).use { it.readBytes().decodeToString() }
+            context.contentResolver.requireInputStream(uri).use { raw ->
+                val input = if (gzipped) java.util.zip.GZIPInputStream(raw, 32 * 1024) else raw
+                input.readBytes().decodeToString()
+            }
         }.getOrNull() ?: return Opened.Unreadable
 
         // Exports from before the truncating write could carry the tail of an

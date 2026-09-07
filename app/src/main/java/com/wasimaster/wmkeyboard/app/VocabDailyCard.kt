@@ -44,11 +44,14 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
-import com.wasimaster.wmkeyboard.core.vocab.VocabIndex
+import com.wasimaster.wmkeyboard.core.vocab.VocabIndexCache
 import com.wasimaster.wmkeyboard.core.vocab.VocabPacks
 import com.wasimaster.wmkeyboard.core.vocab.VocabProgress
 import com.wasimaster.wmkeyboard.core.vocab.VocabWord
+import com.wasimaster.wmkeyboard.core.vocab.VocabWordInterval
+import com.wasimaster.wmkeyboard.core.vocab.WordOfDay
 import java.io.File
+import java.util.TimeZone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -64,37 +67,42 @@ private data class DailyPick(
 
 /**
  * The draw survives leaving the home screen and coming back, so the card is
- * on the first frame rather than a beat later. Keyed by the day and by
+ * on the first frame rather than a beat later. Keyed by the slot (a day, or
+ * the fraction of one the interval setting picks) and by
  * [VocabPacks.stateToken] so installing or deleting a pack redraws it, and
  * held for the process only — the pinned word itself lives in the record.
  */
 private object VocabDailyCache {
-    private var day = Int.MIN_VALUE
+    private var slot = Int.MIN_VALUE
     private var token = 0
     private var pick: DailyPick? = null
 
-    /** The last draw of [today] whatever the packs were, for painting straight away. */
+    /** The last draw of [current] whatever the packs were, for painting straight away. */
     @Synchronized
-    fun peek(today: Int): DailyPick? = if (day == today) pick else null
+    fun peek(current: Int): DailyPick? = if (slot == current) pick else null
 
-    /** The draw of [today] made from exactly these packs, or null to make it again. */
+    /** The draw of [current] made from exactly these packs, or null to make it again. */
     @Synchronized
-    fun get(today: Int, stateToken: Int): DailyPick? =
-        if (day == today && token == stateToken) pick else null
+    fun get(current: Int, stateToken: Int): DailyPick? =
+        if (slot == current && token == stateToken) pick else null
 
     @Synchronized
-    fun put(today: Int, stateToken: Int, value: DailyPick) {
-        day = today
+    fun put(current: Int, stateToken: Int, value: DailyPick) {
+        slot = current
         token = stateToken
         pick = value
     }
 
     /** Keeps a dismissal without re-reading the packs it was drawn from. */
     @Synchronized
-    fun markDismissed(today: Int) {
-        if (day == today) pick = pick?.copy(dismissed = true)
+    fun markDismissed(current: Int) {
+        if (slot == current) pick = pick?.copy(dismissed = true)
     }
 }
+
+/** The word-of-the-day slot right now, for the interval the settings chose. */
+internal fun vocabSlotNow(interval: VocabWordInterval): Int =
+    WordOfDay.slot(System.currentTimeMillis(), TimeZone.getDefault(), interval)
 
 /**
  * The word-of-the-day card on the settings home. The same draw the keyboard
@@ -108,14 +116,16 @@ private object VocabDailyCache {
 @Composable
 internal fun VocabDailyCard(settings: KeyboardSettings, onNavigate: (String) -> Unit) {
     val context = LocalContext.current
-    val today = remember { vocabToday() }
+    val interval = settings.vocabulary.wordInterval
+    val today = remember(interval) { vocabSlotNow(interval) }
     val cached = remember(today) { VocabDailyCache.peek(today) }
+    val codes = remember(settings) { vocabTranslationCodes(settings) }
     val pick by produceState<DailyPick?>(initialValue = cached, key1 = today) {
         value = withContext(Dispatchers.IO) {
             val filesDir = context.filesDir
             val token = VocabPacks.stateToken(filesDir)
             VocabDailyCache.get(today, token)
-                ?: drawWordOfTheDay(filesDir, today).also { VocabDailyCache.put(today, token, it) }
+                ?: drawWordOfTheDay(filesDir, today, codes).also { VocabDailyCache.put(today, token, it) }
         }
     }
     val accent = toolAccentColor(ToolbarTool.VOCABULARY, settings.toolColorOverrides)
@@ -144,7 +154,7 @@ internal fun VocabDailyCard(settings: KeyboardSettings, onNavigate: (String) -> 
                 Icon(Icons.Outlined.AutoStories, contentDescription = null, tint = accent)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.home_vocab_title), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(vocabCardTitle(interval)), style = MaterialTheme.typography.titleMedium)
                     Text(stringResource(R.string.home_vocab_install_body), style = MaterialTheme.typography.bodyMedium)
                 }
                 TextButton(onClick = { onNavigate(VOCAB_PACKS_ROUTE) }) { Text(stringResource(R.string.home_vocab_install_action)) }
@@ -159,7 +169,7 @@ internal fun VocabDailyCard(settings: KeyboardSettings, onNavigate: (String) -> 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.AutoStories, contentDescription = null, tint = accent)
                 Spacer(Modifier.width(12.dp))
-                Text(stringResource(R.string.home_vocab_title), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(vocabCardTitle(interval)), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { speakVocabWord(context, settings, speaker, word) }) {
                     Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = stringResource(R.string.vocab_word_speak_desc))
@@ -172,6 +182,13 @@ internal fun VocabDailyCard(settings: KeyboardSettings, onNavigate: (String) -> 
             Spacer(Modifier.height(4.dp))
             Text(word.definition, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (interval != VocabWordInterval.DAILY) {
+                    Text(
+                        stringResource(R.string.home_vocab_next_in, nextWordIn(today, interval)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 Spacer(Modifier.weight(1f))
                 TextButton(
                     enabled = learnt == 0,
@@ -190,19 +207,27 @@ internal fun VocabDailyCard(settings: KeyboardSettings, onNavigate: (String) -> 
     }
 }
 
-/** Reads the packs and the record; off the main thread, and cached by the caller. */
-private fun drawWordOfTheDay(filesDir: File, today: Int): DailyPick {
+/** Reads the packs (through the process's one index) and the record; off the main thread, and cached by the caller. */
+private suspend fun drawWordOfTheDay(filesDir: File, slot: Int, translationCodes: List<String>): DailyPick {
     val progress = VocabProgress(File(filesDir, VocabProgress.FILE_PATH))
-    if (progress.isWordOfTheDayDismissed(today)) {
+    if (progress.isWordOfTheDayDismissed(slot)) {
         return DailyPick(null, null, hasPacks = true, dismissed = true)
     }
-    val packs = VocabPacks.languages(filesDir).flatMap { VocabPacks.load(filesDir, it) }
-    if (packs.none { it.words.isNotEmpty() }) return DailyPick(null, null, hasPacks = false)
-    val index = VocabIndex.build(packs)
-    val candidates = index.lemmas.filter { !progress.isLearnt(it) }
-    val lemma = progress.wordOfTheDay(today, candidates)
+    val index = VocabIndexCache.get(filesDir, translationCodes)
+    if (index.isEmpty) return DailyPick(null, null, hasPacks = false)
+    val lemma = progress.wordOfTheDay(slot, index.lemmas)
     progress.save()
     return DailyPick(lemma?.let { index.lookup(it) }, lemma?.let { index.packOf(it)?.id }, hasPacks = true)
+}
+
+private fun vocabCardTitle(interval: VocabWordInterval): Int =
+    if (interval == VocabWordInterval.DAILY) R.string.home_vocab_title else R.string.home_vocab_title_hourly
+
+/** "5 h" or "40 min" until the next slot begins. */
+private fun nextWordIn(slot: Int, interval: VocabWordInterval): String {
+    val left = (WordOfDay.nextSlotStart(slot, TimeZone.getDefault(), interval) - System.currentTimeMillis()).coerceAtLeast(0L)
+    val minutes = (left / 60_000L).toInt()
+    return if (minutes >= 60) "${minutes / 60} h" else "$minutes min"
 }
 
 /** The gap above the card, spent only when there is a card under it. */

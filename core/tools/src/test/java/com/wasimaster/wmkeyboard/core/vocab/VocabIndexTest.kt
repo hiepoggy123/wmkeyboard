@@ -59,6 +59,38 @@ class VocabIndexTest {
     }
 
     @Test
+    fun `glosses in the chosen languages are triggers, folded by script`() {
+        val abhor = VocabWord(
+            word = "abhor",
+            translations = mapOf(
+                "bn" to VocabTranslation(w = listOf("ঘৃণা করা", "ঘৃণা"), r = listOf("ghrina kora", "ghrina")),
+                "es" to VocabTranslation(w = listOf("odiar")),
+                "vi" to VocabTranslation(w = listOf("ghét")),
+            ),
+        )
+        val index = VocabIndex.build(listOf(pack("p", listOf(abhor))), translationCodes = listOf("bn", "vi"))
+        assertEquals("abhor", index.hitsFor("ঘৃণা").single().lemma)
+        assertEquals("abhor", index.hitsFor("Ghrina").single().lemma)
+        assertEquals("abhor", index.hitsFor("ঘৃণা  করা").single().lemma)
+        assertEquals("abhor", index.hitsFor("ghet").single().lemma)
+        // Above every sensitivity threshold.
+        assertEquals(1, index.hitsFor("ghrina", minGap = 5.0).size)
+        // Spanish was not asked for.
+        assertTrue(index.hitsFor("odiar").isEmpty())
+        assertEquals(2, index.maxTriggerWords)
+        assertEquals(listOf("bn", "vi"), index.translationCodes)
+        assertEquals(1, VocabIndex.build(listOf(pack("p", listOf(abhor)))).maxTriggerWords)
+    }
+
+    @Test
+    fun `fold keeps marks in other scripts and drops accents in Latin`() {
+        assertEquals("viet", VocabIndex.foldKey("Việt"))
+        assertEquals("ঘৃণা", VocabIndex.foldKey("ঘৃণা"))
+        assertEquals("hate", VocabIndex.foldKey(" HATE "))
+        assertEquals("a b", VocabIndex.foldKey("a   b"))
+    }
+
+    @Test
     fun `disabled packs are skipped`() {
         val index = VocabIndex.build(listOf(pack("off", listOf(word("alacrity")), enabled = false)))
         assertNull(index.lookup("alacrity"))

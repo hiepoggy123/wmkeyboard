@@ -40,9 +40,49 @@ object VocabCatalog {
     // GENERATED — do not edit by hand; run tools/vocab/generate_catalog.py.
     val entries: List<VocabCatalogEntry> = listOf(
         VocabCatalogEntry(
+            "b1100", "Barron's 1100", "en", "b1100",
+            1085, 675769L,
+            listOf("ar", "az", "be", "bg", "bn", "ca", "cmn", "cs", "cy", "da", "de", "el", "eo", "es", "et", "fa", "fi", "fr", "ga", "gd", "gl", "grc", "he", "hi", "hu", "hy", "id", "io", "is", "it", "ja", "ka", "kk", "ko", "la", "mi", "mk", "ms", "nb", "nl", "nn", "no", "ota", "pl", "pt", "ro", "ru", "sh", "sk", "sl", "sv", "th", "tl", "tr", "uk", "vi"),
+        ),
+        VocabCatalogEntry(
             "b333", "Barron's 333", "en", "b333",
             332, 231542L,
             listOf("ar", "az", "be", "bg", "bn", "ca", "cmn", "cs", "cy", "da", "de", "el", "eo", "es", "et", "fa", "fi", "fr", "ga", "gd", "gl", "grc", "gv", "he", "hi", "hu", "hy", "id", "io", "is", "it", "ja", "ka", "ko", "la", "mi", "mk", "ms", "nb", "nl", "nn", "no", "oc", "ota", "pl", "pt", "ro", "ru", "sh", "sk", "sv", "th", "tl", "tr", "uk", "vi"),
+        ),
+        VocabCatalogEntry(
+            "b800", "Barron's 800", "en", "b800",
+            794, 550143L,
+            listOf("ar", "az", "be", "bg", "bn", "ca", "cmn", "cs", "cy", "da", "de", "el", "eo", "es", "et", "fa", "fi", "fr", "ga", "gd", "gl", "grc", "he", "hi", "hu", "hy", "id", "io", "is", "it", "ja", "ka", "kk", "ko", "la", "lt", "mi", "mk", "ms", "nb", "nl", "nn", "no", "oc", "ota", "pl", "pt", "ro", "ru", "sh", "sk", "sl", "sv", "th", "tl", "tr", "uk", "vi"),
+        ),
+        VocabCatalogEntry(
+            "gm1100", "GregMat 1100", "en", "gm1100",
+            744, 525804L,
+            listOf("ang", "ar", "az", "be", "bg", "bn", "ca", "cmn", "cs", "cy", "da", "de", "el", "eo", "es", "et", "fa", "fi", "fr", "ga", "gd", "gl", "grc", "he", "hi", "hu", "hy", "id", "io", "is", "it", "ja", "ka", "kk", "ko", "la", "lt", "lv", "mi", "mk", "nb", "nl", "nn", "no", "oc", "ota", "pdt", "pl", "pt", "ro", "ru", "sa", "sh", "sk", "sl", "sv", "th", "tl", "tr", "uk", "vi"),
+        ),
+        VocabCatalogEntry(
+            "k900", "Kaplan 900", "en", "k900",
+            761, 539661L,
+            listOf("ar", "az", "be", "bg", "bn", "ca", "cmn", "cs", "cy", "da", "de", "el", "eo", "es", "et", "fa", "fi", "fr", "ga", "gd", "gl", "grc", "he", "hi", "hu", "hy", "id", "io", "is", "it", "ja", "ka", "kk", "ko", "la", "mi", "mk", "nb", "nl", "nn", "no", "oc", "ota", "pl", "pt", "ro", "ru", "sh", "sk", "sl", "sv", "tl", "tr", "uk", "vi"),
+        ),
+        VocabCatalogEntry(
+            "mg1000", "Magoosh 1000", "en", "mg1000",
+            1000, 705666L,
+            listOf("ar", "az", "be", "bg", "bn", "ca", "cmn", "cs", "cy", "da", "de", "el", "eo", "es", "et", "fa", "fi", "fr", "ga", "gd", "gl", "grc", "he", "hi", "hu", "hy", "id", "io", "is", "it", "ja", "ka", "kk", "ko", "la", "mi", "mk", "nb", "nl", "nn", "no", "oc", "ota", "pl", "pt", "ro", "ru", "sh", "sk", "sl", "sv", "th", "tl", "tr", "uk", "vi"),
+        ),
+        VocabCatalogEntry(
+            "mp1000", "Manhattan Prep 1000", "en", "mp1000",
+            993, 722021L,
+            listOf("ar", "az", "be", "bg", "bn", "ca", "cmn", "cs", "cy", "da", "de", "el", "eo", "es", "et", "fa", "fi", "fr", "ga", "gd", "gl", "grc", "he", "hi", "hu", "hy", "id", "io", "is", "it", "ja", "ka", "kk", "ko", "la", "lv", "mi", "mk", "ms", "nb", "nl", "nn", "no", "oc", "ota", "pl", "pt", "ro", "ru", "sh", "sk", "sl", "sv", "th", "tl", "tr", "uk", "vi"),
+        ),
+        VocabCatalogEntry(
+            "p700", "Powerscore 700", "en", "p700",
+            698, 500238L,
+            listOf("ar", "az", "be", "bg", "bn", "ca", "cmn", "cs", "cy", "da", "de", "el", "eo", "es", "et", "fa", "fi", "fr", "ga", "gd", "gl", "grc", "he", "hi", "hu", "hy", "id", "io", "is", "it", "ja", "ka", "kk", "ko", "la", "mi", "mk", "nb", "nl", "nn", "no", "oc", "ota", "pl", "pt", "ro", "ru", "sh", "sk", "sl", "sv", "tl", "tr", "uk", "vi"),
+        ),
+        VocabCatalogEntry(
+            "sn1000", "SparkNotes 1000", "en", "sn1000",
+            990, 712273L,
+            listOf("ar", "az", "be", "bg", "bn", "ca", "cmn", "cs", "cy", "da", "de", "el", "eo", "es", "et", "fa", "fi", "fr", "ga", "gd", "gl", "grc", "he", "hi", "hu", "hy", "id", "io", "is", "it", "ja", "ka", "kk", "ko", "la", "mi", "mk", "ms", "nb", "nl", "nn", "no", "oc", "ota", "pl", "pt", "ro", "ru", "sh", "sk", "sl", "sv", "th", "tl", "tr", "uk", "vi"),
         ),
         VocabCatalogEntry(
             "ws1", "Word Smart 1", "en", "ws1",

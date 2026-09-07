@@ -60,6 +60,7 @@ import com.wasimaster.wmkeyboard.core.vocab.FieldVisibility
 import com.wasimaster.wmkeyboard.core.vocab.ReviewGrade
 import com.wasimaster.wmkeyboard.core.vocab.VocabCardField
 import com.wasimaster.wmkeyboard.core.vocab.VocabCardFields
+import com.wasimaster.wmkeyboard.core.vocab.VocabLanguages
 import com.wasimaster.wmkeyboard.core.vocab.VocabScheduler
 import com.wasimaster.wmkeyboard.core.vocab.VocabSense
 import com.wasimaster.wmkeyboard.core.vocab.VocabWord
@@ -362,23 +363,31 @@ private fun VocabCard(
                 )
             }
         }
-        val translation = shown(VocabCardField.TRANSLATIONS).let { on ->
-            if (!on) null else {
-                val wanted = settings.translationLangList.ifEmpty {
-                    state.settings.enabledLanguages.map { it.id }.filter { it != "en" }
-                }
-                wanted.firstNotNullOfOrNull { code -> word.translations[code]?.let { code to it } }
-            }
+        // The user's languages, up to two, the romanisation first for someone
+        // typing on a romanised layout.
+        val enabledIds = state.settings.enabledLanguages.map { it.id }
+        val translations = if (!shown(VocabCardField.TRANSLATIONS)) {
+            emptyList()
+        } else {
+            VocabLanguages.wantedCodes(settings.translationLangList, enabledIds)
+                .mapNotNull { code -> word.translations[code]?.let { code to it } }
+                .take(2)
         }
-        if (translation != null) {
-            item(key = "translation") {
-                val (code, glosses) = translation
+        items(translations, key = { "tr${it.first}" }) { (code, glosses) ->
+            val romans = glosses.r.filter { it.isNotEmpty() }
+            val lead = if (VocabLanguages.prefersRomanized(code, enabledIds) && romans.isNotEmpty()) romans else glosses.w
+            val tail = if (lead === romans) glosses.w else romans
+            Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.Top) {
                 Text(
-                    "$code · " + glosses.w.joinToString(", ") + (glosses.r.takeIf { it.isNotEmpty() }?.let { " (${it.joinToString(", ")})" } ?: ""),
-                    color = kb.modifierKeyText,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 8.dp),
+                    VocabLanguages.displayName(code),
+                    color = kb.toolbarIcon,
+                    fontSize = 11.sp,
+                    modifier = Modifier.width(66.dp).padding(top = 2.dp),
                 )
+                Column {
+                    Text(lead.joinToString(", "), color = kb.modifierKeyText, fontSize = 13.sp)
+                    if (tail.isNotEmpty()) Text(tail.joinToString(", "), color = kb.toolbarIcon, fontSize = 11.sp)
+                }
             }
         }
         val sections = buildList {
@@ -810,6 +819,8 @@ private fun ReviewGrade.labelRes(): Int = when (this) {
 @Composable
 internal fun VocabDailyChip(
     word: String,
+    /** Whether the word changes within the day, which changes what the chip calls itself. */
+    hourly: Boolean = false,
     modifier: Modifier = Modifier,
     onOpen: () -> Unit,
     onDismiss: () -> Unit,
@@ -845,7 +856,7 @@ internal fun VocabDailyChip(
                 Icon(Icons.Outlined.School, contentDescription = null, tint = tint, modifier = Modifier.size(13.dp))
             }
             Text(
-                stringResource(R.string.ime_smart_vocab_daily, word),
+                stringResource(if (hourly) R.string.ime_smart_vocab_hourly else R.string.ime_smart_vocab_daily, word),
                 color = tint,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,

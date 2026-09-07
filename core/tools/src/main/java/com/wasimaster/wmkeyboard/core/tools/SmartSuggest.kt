@@ -1455,9 +1455,19 @@ object SmartSuggest {
      * The last whole word plus up to two trailing separators, so "hate",
      * "hate " and "hate. " all offer while "hate. I" (a new word begun) does
      * not. Two rather than one because the auto-space after punctuation
-     * arrives as one keystroke with the punctuation.
+     * arrives as one keystroke with the punctuation. Combining marks count
+     * as letters: in Bengali or Hindi a vowel sign is part of the word.
      */
-    private val VOCAB_TAIL = Regex("""(?<![\p{L}\d'’-])([\p{L}][\p{L}'’-]{1,22}[\p{L}])([\s\p{Punct}]{0,2})$""")
+    private val VOCAB_TAIL = Regex("""(?<![\p{L}\p{M}\d'’-])([\p{L}\p{M}][\p{L}\p{M}'’-]{0,22}[\p{L}\p{M}])([\s\p{Punct}]{0,2})$""")
+
+    /**
+     * Up to [VocabIndex.MAX_TRIGGER_WORDS] words before the separators, for
+     * glosses of more than one word ("হেয় করা"); tried longest first so the
+     * phrase wins over its last word.
+     */
+    private val VOCAB_PHRASE_TAIL = Regex(
+        """((?:[\p{L}\p{M}][\p{L}\p{M}'’-]*[ ]+){0,${VocabIndex.MAX_TRIGGER_WORDS - 1}}[\p{L}\p{M}][\p{L}\p{M}'’-]*[\p{L}\p{M}])([\s\p{Punct}]{0,2})$""",
+    )
 
     /**
      * "hate" → abhor: the typed word is a trigger in an installed pack. The
@@ -1471,11 +1481,26 @@ object SmartSuggest {
         val index = ctx.vocab ?: return null
         if (index.isEmpty) return null
         val match = VOCAB_TAIL.find(tail) ?: return null
-        val typed = match.groupValues[1]
+        var typed = match.groupValues[1]
         val trail = match.groupValues[2]
-        val key = typed.lowercase(Locale.ROOT)
+        var key = VocabIndex.foldKey(typed)
         if (key in ctx.vocabRetired) return null
-        val hit = index.hitsFor(key, ctx.vocabMinGap).firstOrNull { vocabInScope(it.lemma, ctx) }
+        var hit = index.hitsFor(key, ctx.vocabMinGap).firstOrNull { vocabInScope(it.lemma, ctx) }
+        // A multi-word gloss: look further back, longest phrase first.
+        if (hit == null && index.maxTriggerWords > 1) {
+            val phrase = VOCAB_PHRASE_TAIL.find(tail)?.groupValues?.get(1)
+            val words = phrase?.trim()?.split(SPACES).orEmpty()
+            for (count in minOf(words.size, index.maxTriggerWords) downTo 2) {
+                val candidate = words.takeLast(count).joinToString(" ")
+                val candidateKey = VocabIndex.foldKey(candidate)
+                if (candidateKey in ctx.vocabRetired) continue
+                val phraseHit = index.hitsFor(candidateKey, ctx.vocabMinGap).firstOrNull { vocabInScope(it.lemma, ctx) } ?: continue
+                typed = candidate
+                key = candidateKey
+                hit = phraseHit
+                break
+            }
+        }
         if (hit != null) {
             val replacement = if (typed[0].isUpperCase()) {
                 hit.replacement.replaceFirstChar { it.titlecase(Locale.ROOT) }
@@ -1505,6 +1530,8 @@ object SmartSuggest {
             prefill = ToolPrefill.Vocab(record.word),
         )
     }
+
+    private val SPACES = Regex("""\s+""")
 
     private fun vocabInScope(lemma: String, ctx: Context): Boolean = when (ctx.vocabScope) {
         VocabNudgeScope.UNLEARNT -> !ctx.vocabLearnt(lemma)

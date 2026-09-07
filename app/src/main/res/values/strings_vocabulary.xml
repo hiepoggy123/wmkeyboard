@@ -21,6 +21,11 @@
     <!-- %1$d words in the pack, %2$d of them seen, %3$d learnt. -->
     <string name="vocab_pack_progress_subtitle"><xliff:g id="words" example="850">%1$d</xliff:g> words · <xliff:g id="seen" example="40">%2$d</xliff:g> started · <xliff:g id="learnt" example="12">%3$d</xliff:g> learnt</string>
     <string name="vocab_pack_translations_caption">Translations</string>
+    <!-- %1$d languages downloaded, %2$d offered. -->
+    <string name="vocab_pack_translations_summary">Translations · <xliff:g id="have" example="2">%1$d</xliff:g> of <xliff:g id="offered" example="56">%2$d</xliff:g> languages</string>
+    <string name="vocab_pack_translations_expand_desc">Show the translation languages</string>
+    <string name="vocab_pack_translations_collapse_desc">Hide the translation languages</string>
+    <string name="vocab_packs_loading">Reading your packs…</string>
     <string name="vocab_pack_delete_title">Delete “<xliff:g id="name" example="Word Smart 1">%1$s</xliff:g>”?</string>
     <string name="vocab_pack_delete_body">The pack and its translations are removed. Your learning progress for its words is kept.</string>
     <string name="vocab_metered_confirm_body">This download uses mobile data.</string>
@@ -61,10 +66,15 @@
     <!-- %1$s is a pack name. -->
     <string name="vocab_add_found_in_pack">Use “<xliff:g id="pack" example="Word Smart 1">%1$s</xliff:g>”</string>
     <string name="vocab_add_lookup_online_action">Look up online</string>
-    <string name="vocab_add_lookup_blocked_body">Online look-ups are off on mobile data (Data saver).</string>
-    <string name="vocab_add_found_online">Filled in from the online dictionary.</string>
-    <string name="vocab_add_not_found_online">The online dictionary has no entry for that word.</string>
-    <string name="vocab_add_lookup_error">Could not reach the online dictionary.</string>
+    <string name="vocab_add_looking_up">Asking Wiktionary…</string>
+    <string name="vocab_add_found_online">Filled in from Wiktionary.</string>
+    <string name="vocab_add_not_found_online">No dictionary online has an entry for that word.</string>
+    <string name="vocab_add_lookup_error">Could not reach any dictionary online. Check the connection and try again.</string>
+    <string name="vocab_add_section_meaning">Meaning</string>
+    <string name="vocab_add_section_related">Related words</string>
+    <string name="vocab_add_section_nudge">Nudge</string>
+    <string name="vocab_add_section_remember">Remember it</string>
+    <string name="vocab_add_section_translation">Translation</string>
     <string name="vocab_add_definition_label">Definition</string>
     <string name="vocab_add_example_label">Example sentence</string>
     <string name="vocab_add_synonyms_label">Synonyms, comma-separated</string>
@@ -78,7 +88,7 @@
         <item quantity="one">%d word</item>
         <item quantity="other">%d words</item>
     </plurals>
-    <string name="vocab_bulk_online_label">Look up words no pack knows online</string>
+    <string name="vocab_bulk_online_label">Look up words no pack knows on Wiktionary</string>
     <string name="vocab_bulk_add_action">Add</string>
     <!-- %1$d words added, %2$d of them with details. -->
     <string name="vocab_bulk_done">Added <xliff:g id="added" example="12">%1$d</xliff:g> words, <xliff:g id="filled" example="9">%2$d</xliff:g> with details.</string>
@@ -132,6 +142,24 @@
     <string name="vocab_word_unlearn_action">Mark not learnt</string>
     <string name="vocab_word_reset_action">Reset progress</string>
     <string name="vocab_word_add_list_action">Add to a list</string>
+    <string name="vocab_word_section_meaning">Meaning</string>
+    <string name="vocab_word_section_related">Related words</string>
+    <string name="vocab_word_section_remember">Remember it</string>
+    <string name="vocab_word_section_origin">Where it comes from</string>
+    <string name="vocab_word_section_translations">In your languages</string>
+    <string name="vocab_word_section_more">More</string>
+    <string name="vocab_word_section_expand_desc">Show more</string>
+    <string name="vocab_word_section_collapse_desc">Show less</string>
+    <!-- %1$d quotations from print. -->
+    <plurals name="vocab_word_quotations_toggle">
+        <item quantity="one">%d quotation</item>
+        <item quantity="other">%d quotations</item>
+    </plurals>
+    <string name="vocab_word_learnt_badge">Learnt</string>
+    <!-- %1$d the Leitner box. -->
+    <string name="vocab_word_box_badge">Box <xliff:g id="box" example="2">%1$d</xliff:g></string>
+    <string name="vocab_word_no_translations_body">No translation is downloaded for this pack in your languages yet.</string>
+    <string name="vocab_word_get_translations_action">Get translations</string>
     <string name="vocab_word_synonyms_label">Synonyms</string>
     <string name="vocab_word_antonyms_label">Antonyms</string>
     <string name="vocab_word_family_label">Word family</string>

@@ -70,12 +70,12 @@ class VocabProgressTest {
         val file = File(temp.root, "p.json")
         val progress = VocabProgress(file)
         val candidates = listOf("a", "b", "c", "d")
-        val picked = progress.wordOfTheDay(day = 42, candidates = candidates)!!
-        assertEquals(picked, progress.wordOfTheDay(day = 42, candidates = candidates - picked + picked))
+        val picked = progress.wordOfTheDay(slot = 42, lemmas = candidates)!!
+        assertEquals(picked, progress.wordOfTheDay(slot = 42, lemmas = candidates - picked + picked))
         assertEquals(picked, progress.pinnedWordOfTheDay(42))
         progress.save()
         assertEquals(picked, VocabProgress(file).pinnedWordOfTheDay(42))
-        assertNull(progress.wordOfTheDay(day = 43, candidates = emptyList()))
+        assertNull(progress.wordOfTheDay(slot = 43, lemmas = emptyList()))
     }
 
     @Test
@@ -91,8 +91,23 @@ class VocabProgressTest {
         assertTrue(reread.isWordOfTheDayDismissed(42))
         assertFalse(reread.isWordOfTheDayDismissed(43))
         // Putting today's card away leaves the pinned draw alone.
-        val picked = progress.wordOfTheDay(day = 42, candidates = listOf("a", "b"))
+        val picked = progress.wordOfTheDay(slot = 42, lemmas = listOf("a", "b"))
         assertEquals(picked, progress.pinnedWordOfTheDay(42))
+    }
+
+    @Test
+    fun `word of the day skips what this user learnt but keeps the pin`() {
+        val progress = VocabProgress(null)
+        val words = listOf("a", "b", "c", "d")
+        val everyone = WordOfDay.pick(9, words)!!
+        assertEquals(everyone, progress.wordOfTheDay(slot = 9, lemmas = words))
+        val other = VocabProgress(null)
+        other.markLearnt(everyone, learnt = true, nowDay = 1)
+        val mine = other.wordOfTheDay(slot = 9, lemmas = words)!!
+        assertTrue(mine != everyone)
+        // Learning the pinned word later does not change the day's card.
+        progress.markLearnt(everyone, learnt = true, nowDay = 1)
+        assertEquals(everyone, progress.wordOfTheDay(slot = 9, lemmas = words))
     }
 
     @Test

@@ -174,3 +174,20 @@ object VocabCardFields {
     fun inApp(resolved: Map<VocabCardField, FieldVisibility>, field: VocabCardField): Boolean =
         resolved[field] != FieldVisibility.OFF
 }
+
+/**
+ * How often the word of the day changes. [hours] divides the day evenly, so a
+ * slot starts at the same local hour for everyone and the draw for it is the
+ * same on every device that has the same packs.
+ */
+enum class VocabWordInterval(val hours: Int) {
+    DAILY(24),
+    EVERY_12_HOURS(12),
+    EVERY_6_HOURS(6),
+    EVERY_3_HOURS(3),
+    HOURLY(1),
+    ;
+
+    val perDay: Int get() = 24 / hours
+    val millis: Long get() = hours * 3_600_000L
+}
