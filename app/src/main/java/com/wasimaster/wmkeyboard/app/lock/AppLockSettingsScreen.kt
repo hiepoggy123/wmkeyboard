@@ -135,7 +135,11 @@ internal fun AppLockSettingsScreen(repository: SettingsRepository) {
         stringResource(R.string.privacy_lock_behaviour_group_title),
         info = stringResource(R.string.privacy_lock_threat_info),
     ) {
-        item {
+        // When to ask again only matters once something asks at all: the gate
+        // returns before it reads this while the lock is off. The credential
+        // row below stays — it can be what makes the lock usable in the first
+        // place, so it does work while the lock is still off.
+        if (cfg.enabled) item {
             ChoiceSetting(
                 R.string.privacy_lock_relock_title,
                 info = stringResource(R.string.privacy_lock_relock_info),
