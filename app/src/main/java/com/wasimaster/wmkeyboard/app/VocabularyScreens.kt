@@ -578,7 +578,9 @@ internal fun VocabularyToolSettings(
                 scope.launch { repository.setVocabWordOfTheDayChip(it) }
             }
         }
-        item {
+        // How often the word turns over only matters where a word is shown:
+        // the card on the settings home, the chip on the keyboard, or both.
+        if (v.wordOfTheDayCard || v.wordOfTheDayChip) item {
             ChoiceSetting(
                 R.string.tooldetail_vocab_wotd_interval_title,
                 subtitle = stringResource(R.string.tooldetail_vocab_wotd_interval_subtitle),

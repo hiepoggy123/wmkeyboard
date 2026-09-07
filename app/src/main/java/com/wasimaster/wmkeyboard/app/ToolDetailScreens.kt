@@ -419,7 +419,10 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.launcher.activityDrilldown,
                     ) { scope.launch { repository.setLauncherActivityDrilldown(it) } }
                 }
-                item {
+                // Private screens are listed inside the drill-down sheet and
+                // nowhere else, so without the drill-down there is no list for
+                // this to add to.
+                if (settings.launcher.activityDrilldown) item {
                     ToggleSetting(
                         R.string.tooldetail_launcher_non_exported_title,
                         stringResource(R.string.tooldetail_launcher_non_exported_subtitle),
