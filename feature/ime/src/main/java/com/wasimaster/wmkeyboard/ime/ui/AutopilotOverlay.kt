@@ -9,10 +9,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LongState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -23,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Canvas
 import androidx.compose.material3.Text
+import android.os.SystemClock
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -70,11 +73,24 @@ internal fun AutopilotArea.drawnAt(by: Float): AutopilotArea {
  */
 private const val AutopilotMaxReach = 1.3f
 
-/** Below this much growth an area is not worth drawing: it reads as a wobble. */
-private const val AutopilotMinGrowth = 1.03f
+/**
+ * A letter is only drawn when it is this likely next, as a share of the
+ * likeliest one. Everything the word list mentions in passing is filtered out,
+ * so what is on the board is the handful of letters autopilot is really
+ * favouring rather than a wash of near-misses.
+ */
+private const val AutopilotMinBias = 0.15f
 
 /** At most this many areas are drawn at once, so the board stays readable. */
-private const val AutopilotMaxAreas = 5
+private const val AutopilotMaxAreas = 3
+
+/**
+ * How long after the last key press the drawing stays up. Autopilot itself has
+ * no such window — it goes on nudging whatever is composing — but the drawing
+ * is about the word being typed, and moving the caret into an old word starts
+ * a composing run nobody asked to see the insides of.
+ */
+internal const val AutopilotIdleMs = 3_500L
 
 /**
  * The touch area each favoured letter has claimed, keyed by letter.
@@ -161,25 +177,62 @@ internal fun autopilotAreas(
             bottom = center.y + side(down, halfH, downW),
         )
         val grown = minOf(area.width / cell.width, area.height / cell.height)
-        if (grown < AutopilotMinGrowth) continue
+        // A letter hemmed in by likelier neighbours has lost ground rather than
+        // gained it. There is nothing to show, and drawing it smaller than its
+        // own key would read as a fault in the board.
+        if (grown < 1f) continue
         areas[ch] = AutopilotArea(area, cell, grown)
     }
-    if (areas.size <= AutopilotMaxAreas) return areas
+    // Ranked by how likely the letter is, not by how much room it won. The two
+    // part company on a crowded row — the likeliest letter can be boxed in by
+    // its neighbours and grow the least of the lot — and it is the ranking the
+    // user is reading off the board.
+    val top = bias.entries.maxByOrNull { it.value }?.value ?: return emptyMap()
     return areas.entries
+        .filter { (bias[it.key] ?: 0f) >= top * AutopilotMinBias }
         .sortedByDescending { bias[it.key] ?: 0f }
         .take(AutopilotMaxAreas)
         .associate { it.key to it.value }
 }
 
 /**
+ * The area with both edges pulled inside a board [width] by [height].
+ *
+ * A letter on the first or last column has no neighbour to share a gap with, so
+ * it grows against an imaginary one and can reach past the edge of the
+ * keyboard. Nothing out there can be pressed, and a key drawn half off the
+ * screen looks like a fault rather than a hint.
+ */
+internal fun AutopilotArea.clampedTo(width: Float, height: Float): AutopilotArea {
+    if (width <= 0f || height <= 0f) return this
+    if (area.left >= 0f && area.top >= 0f && area.right <= width && area.bottom <= height) {
+        return this
+    }
+    val clamped = Rect(
+        left = area.left.coerceIn(0f, width),
+        top = area.top.coerceIn(0f, height),
+        right = area.right.coerceIn(0f, width),
+        bottom = area.bottom.coerceIn(0f, height),
+    )
+    return AutopilotArea(
+        area = clamped,
+        cell = cell,
+        scale = minOf(clamped.width / cell.width, clamped.height / cell.height),
+    )
+}
+
+/**
  * Autopilot made visible: each favoured letter drawn at the size its touch area
- * has grown to, and the exact boundary that area claimed.
+ * has grown to, and the boundary that area claimed.
  *
  * Both halves are opt-in and independent — one shows what the strength setting
- * is doing while typing, the other is for tuning it. Drawn over the keys rather
- * than by them: a key that resized itself would move the grid under the finger,
- * and reading the live next-letter distribution in a key would cost the whole
- * board its per-keystroke skip.
+ * is doing while typing, the other is for tuning it. They draw the *same*
+ * rectangle, the exaggeration included, so the outline always traces the key it
+ * is drawn around rather than sitting a gap outside it.
+ *
+ * Drawn over the keys rather than by them: a key that resized itself would move
+ * the grid under the finger, and reading the live next-letter distribution in a
+ * key would cost the whole board its per-keystroke skip.
  *
  * A plain [Canvas] and unclickable boxes take no touches, so the presses these
  * areas describe still land on the keys underneath.
@@ -191,6 +244,12 @@ internal fun BoxScope.AutopilotOverlay(
     bias: Map<Char, Float>,
     strength: Float,
     keyWidth: Float,
+    /** The key grid's own size, which nothing drawn here reaches past. */
+    boardSize: Size,
+    /** A glide stroke is on the board, so it is not this overlay's to draw on. */
+    glideActive: Boolean,
+    /** Uptime of the last tap-typed key; see [AutopilotIdleMs]. */
+    lastKeyPress: LongState,
     /** The letter as the key draws it: shift, numerals and styles applied. */
     label: (Char) -> String,
     settings: KeyboardSettings,
@@ -204,16 +263,26 @@ internal fun BoxScope.AutopilotOverlay(
     // Resolved here rather than by the caller so the live maps are read in this
     // leaf's own scope: a key reporting its position then invalidates the
     // overlay instead of the whole board.
-    val areas = autopilotAreas(centers, bounds, bias, strength, keyWidth)
-    if (areas.isEmpty()) return
+    // Typing is what this describes. A glide owns the board for the length of
+    // its stroke, and a caret dropped into an old word opens a composing run
+    // the user never asked to see the workings of — neither should light the
+    // grid up. Read here, in the leaf, so a keystroke stamp does not invalidate
+    // the board on its way past.
+    if (glideActive) return
+    if (SystemClock.uptimeMillis() - lastKeyPress.longValue > AutopilotIdleMs) return
+    val claimed = autopilotAreas(centers, bounds, bias, strength, keyWidth)
+    if (claimed.isEmpty()) return
+    // The exaggeration and the clamp are applied once, here, because the face
+    // and the outline below have to agree down to the pixel.
+    val areas = claimed.mapValues {
+        it.value.drawnAt(visualScale).clampedTo(boardSize.width, boardSize.height)
+    }
     val density = LocalDensity.current
-    val shape = kb.keyShape(bleedDp = keyGapH(settings).value)
+    val gapH = keyGapH(settings)
+    val gapV = keyGapV(settings)
+    val shape = kb.keyShape(bleedDp = gapH.value)
     if (showEffect) {
-        for ((ch, claimed) in areas) {
-            // Only the drawn face takes the user's exaggeration. The outline
-            // below stays on the true area: it is the one thing on the board
-            // that says where the boundary really is.
-            val grown = claimed.drawnAt(visualScale)
+        for ((ch, grown) in areas) {
             val area = grown.area
             Box(
                 modifier = Modifier
@@ -226,7 +295,7 @@ internal fun BoxScope.AutopilotOverlay(
                         width = with(density) { area.width.toDp() },
                         height = with(density) { area.height.toDp() },
                     )
-                    .padding(horizontal = keyGapH(settings), vertical = keyGapV(settings))
+                    .padding(horizontal = gapH, vertical = gapV)
                     .background(palette.key, shape)
                     .then(
                         // The theme's own key border, so a grown key is the same
@@ -253,11 +322,19 @@ internal fun BoxScope.AutopilotOverlay(
     if (outline) {
         Canvas(modifier = Modifier.matchParentSize()) {
             val stroke = Stroke(width = 1.dp.toPx())
+            // The same inset the face above takes from its cell, so the line
+            // lands on the drawn key's edge and not a gap outside it.
+            val insetX = gapH.toPx()
+            val insetY = gapV.toPx()
             for (grown in areas.values) {
+                val face = grown.area
+                val width = face.width - insetX * 2
+                val height = face.height - insetY * 2
+                if (width <= 0f || height <= 0f) continue
                 drawRect(
                     color = kb.accent,
-                    topLeft = grown.area.topLeft,
-                    size = grown.area.size,
+                    topLeft = Offset(face.left + insetX, face.top + insetY),
+                    size = Size(width, height),
                     style = stroke,
                 )
             }

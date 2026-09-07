@@ -76,18 +76,43 @@ class AutopilotAreaTest {
     }
 
     /**
-     * A whole row favoured equally claims nothing: every boundary is shared
-     * between two equal weights and lands where it always was. The effect is a
-     * difference between letters, not a size the strength setting dials up.
+     * A whole row favoured equally moves no boundary between its letters: each
+     * one is shared between two equal weights and lands where it always was.
+     * The effect is a difference between letters, not a size the strength
+     * setting dials up for all of them at once.
      */
     @Test
-    fun `a level distribution moves no boundary`() {
-        assertTrue(areas(mapOf('a' to 1f, 'b' to 1f, 'c' to 1f))['b'] == null)
+    fun `a level distribution moves no boundary between its letters`() {
+        val level = areas(mapOf('a' to 1f, 'b' to 1f, 'c' to 1f))['b']!!
+        assertEquals(100f, level.area.left, 0.01f)
+        assertEquals(200f, level.area.right, 0.01f)
+    }
+
+    /**
+     * Ranked by how likely the letter is, not by how much room it won: the
+     * likeliest letter can be boxed in by its neighbours and grow the least of
+     * the lot, and it is still the one the user is looking for.
+     */
+    @Test
+    fun `the likeliest letter is drawn even when its neighbours crowd it`() {
+        // 'b' is the likeliest by far, but sits between two letters the word
+        // list also expects, so it takes almost nothing from either of them.
+        val drawn = areas(mapOf('a' to 0.6f, 'b' to 1f, 'c' to 0.6f))
+        assertTrue(drawn.containsKey('b'))
+        assertEquals("likeliest first", 'b', drawn.keys.first())
+    }
+
+    /** A letter the word list barely mentions is not worth a rectangle. */
+    @Test
+    fun `an also-ran is filtered out`() {
+        val drawn = areas(mapOf('a' to 1f, 'c' to 0.05f))
+        assertTrue(drawn.containsKey('a'))
+        assertTrue(drawn.containsKey('c').not())
     }
 
     /** The board stays readable: a wide distribution is capped, likeliest first. */
     @Test
-    fun `at most five areas are drawn, and they are the likeliest`() {
+    fun `at most three areas are drawn, and they are the likeliest`() {
         val many = ('a'..'z').toList()
         val manyCenters = many.mapIndexed { i, ch -> ch to Offset(50f + i * 100f, 50f) }.toMap()
         val manyBounds = many.mapIndexed { i, ch ->
@@ -97,8 +122,24 @@ class AutopilotAreaTest {
         // letter has two plain neighbours to take ground from.
         val bias = many.mapIndexed { i, ch -> ch to if (i % 2 == 0) 1f - i / 100f else 0f }.toMap()
         val drawn = autopilotAreas(manyCenters, manyBounds, bias, 0.5f, 100f)
-        assertEquals(5, drawn.size)
-        assertEquals(listOf('a', 'c', 'e', 'g', 'i'), drawn.keys.sorted())
+        assertEquals(3, drawn.size)
+        assertEquals(listOf('a', 'c', 'e'), drawn.keys.sorted())
+    }
+
+    /** Nothing is ever drawn off the edge of the keyboard it belongs to. */
+    @Test
+    fun `an area is clamped to the board`() {
+        // 'a' is on the first column, so it grows against an imaginary
+        // neighbour and reaches past the left edge.
+        val edge = areas(mapOf('a' to 1f))['a']!!
+        assertTrue(edge.area.left < 0f)
+        val clamped = edge.clampedTo(width = 300f, height = 100f)
+        assertEquals(0f, clamped.area.left, 0.01f)
+        assertEquals(100f, clamped.area.bottom, 0.01f)
+        assertTrue("the label shrinks with the box", clamped.scale < edge.scale)
+        // An area that never left the board comes back exactly as it was.
+        val inside = AutopilotArea(Rect(10f, 10f, 60f, 60f), Rect(15f, 15f, 55f, 55f), 1.25f)
+        assertEquals(inside, inside.clampedTo(width = 300f, height = 300f))
     }
 
     /**

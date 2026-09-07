@@ -10992,6 +10992,9 @@ private fun KeyRows(
                 bias = state.nextLetterBias,
                 strength = hitStrength.value,
                 keyWidth = keyWidth.value,
+                boardSize = Size(boxSize.width.toFloat(), boxSize.height.toFloat()),
+                glideActive = trail.visible,
+                lastKeyPress = lastKeyPressTime,
                 label = { ch ->
                     letterKeys[ch]?.let { displayLabel(it, state) } ?: ch.toString()
                 },
