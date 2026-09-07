@@ -2804,6 +2804,7 @@ internal fun SliderSetting(
     display: (Float) -> String,
     info: String? = null,
     icon: ImageVector? = SettingsRowIcons[title],
+    enabled: Boolean = true,
     default: Float? = null,
     onChange: (Float) -> Unit,
 ) = SliderSetting(
@@ -2815,6 +2816,7 @@ internal fun SliderSetting(
     info = info,
     icon = icon,
     highlightKey = title,
+    enabled = enabled,
     default = default,
     onChange = onChange,
 )
@@ -2839,6 +2841,10 @@ internal fun SliderSetting(
     info: String? = null,
     icon: ImageVector? = null,
     @StringRes highlightKey: Int = 0,
+    // Off for a slider whose value cannot take effect yet — the row still
+    // reads, and the subtitle is where the caller says why. Matches
+    // [ToggleSetting]'s own `enabled`.
+    enabled: Boolean = true,
     default: Float? = null,
     onChange: (Float) -> Unit,
 ) {
@@ -2873,6 +2879,7 @@ internal fun SliderSetting(
                 onValueChange = slider::onDrag,
                 onValueChangeFinished = slider::onRelease,
                 valueRange = range,
+                enabled = enabled,
             )
         }
     }
