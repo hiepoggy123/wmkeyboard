@@ -250,15 +250,22 @@ class KeyboardModeTest {
     @Test
     fun `sanitizeBarOrder repairs missing and duplicate rows`() {
         assertEquals(
-            listOf(BarRow.EMOJI, BarRow.TOOLS, BarRow.TOPBAR, BarRow.SYMBOL, BarRow.DICTIONARY, BarRow.FANCY),
+            listOf(
+                BarRow.EMOJI, BarRow.TOOLS, BarRow.MACROS, BarRow.TOPBAR, BarRow.SYMBOL,
+                BarRow.DICTIONARY, BarRow.FANCY,
+            ),
             sanitizeBarOrder(listOf(BarRow.EMOJI, BarRow.EMOJI, BarRow.TOPBAR)),
         )
         assertEquals(DefaultBarOrder, sanitizeBarOrder(emptyList()))
-        // An order stored before the fancy and tools rows existed: the fancy
-        // row is appended, nearest the keys, and the tools row lands just over
-        // the strip — where it always drew — rather than at the bottom.
+        // An order stored before the fancy, tools and macros rows existed: the
+        // fancy row is appended, nearest the keys, and the tools and macros
+        // rows land just over the strip — where tools always drew — rather
+        // than at the bottom.
         assertEquals(
-            listOf(BarRow.TOOLS, BarRow.TOPBAR, BarRow.EMOJI, BarRow.SYMBOL, BarRow.DICTIONARY, BarRow.FANCY),
+            listOf(
+                BarRow.TOOLS, BarRow.MACROS, BarRow.TOPBAR, BarRow.EMOJI, BarRow.SYMBOL,
+                BarRow.DICTIONARY, BarRow.FANCY,
+            ),
             sanitizeBarOrder(listOf(BarRow.TOPBAR, BarRow.EMOJI, BarRow.SYMBOL)),
         )
         // A stored order is never reshuffled, only filled in.

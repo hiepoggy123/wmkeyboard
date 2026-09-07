@@ -154,6 +154,9 @@ class AddonRepoCodecTest {
                 // good" but "should I let this run at all", which is why the
                 // preview shows its capabilities rather than its content.
                 AddonType.Plugin,
+                // A vocabulary pack is a word list: a few cards from it say
+                // what the whole study list is like better than its name does.
+                AddonType.Vocabulary,
             ),
             previewable,
         )
