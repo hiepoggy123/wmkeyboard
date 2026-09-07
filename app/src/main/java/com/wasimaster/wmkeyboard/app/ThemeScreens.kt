@@ -2110,7 +2110,7 @@ fun ThemeEditorScreen(
                     // stops the animation, and the switch below zeroes the blur.
                 ) { update { t -> t.copy(backgroundImageBlur = it, backgroundAnimated = false) } }
             }
-            item {
+            if (!settings.reduceMotion) item {
                 ListItem(
                     headlineContent = {
                         Text(stringResource(R.string.theme_background_animated_title))
@@ -2488,7 +2488,12 @@ fun ThemeEditorScreen(
         foldKey = "theme/texture",
         info = stringResource(R.string.theme_texture_section_body),
     ) {
-        for (slot in KeyTextureSlot.entries) {
+        // The popup slot paints the preview bubble and nothing else, so it
+        // drops out of the list while key popups are off.
+        val slots = KeyTextureSlot.entries.filter {
+            it != KeyTextureSlot.POPUP || settings.popup.enabled
+        }
+        for (slot in slots) {
             item {
                 val path = slot.pathIn(theme)
                 ListItem(
@@ -2535,7 +2540,7 @@ fun ThemeEditorScreen(
                 )
             }
         }
-        if (KeyTextureSlot.entries.any { it.pathIn(theme) != null }) {
+        if (slots.any { it.pathIn(theme) != null }) {
             item {
                 ChoiceControl(
                     options = KeyTextureScale.entries.map { mode ->
@@ -2619,6 +2624,7 @@ fun ThemeEditorScreen(
             id = id,
             override = theme.keyOverrides[id] ?: KeyOverride(),
             theme = theme,
+            popupsShown = settings.popup.enabled,
             onChange = { changed ->
                 update { t -> t.copy(keyOverrides = t.keyOverrides + (id to changed)) }
             },
@@ -2762,7 +2768,11 @@ fun ThemeEditorScreen(
                 modifier = Modifier.clickable { popupShapePickerOpen = true },
             )
         }
-        item {
+        // The preview bubble is the only thing that reads the placement, and
+        // no bubble is ever published while key popups are switched off. The
+        // theme keeps whatever was authored here — the row is hidden, not
+        // cleared — so an exported theme is unaffected.
+        if (settings.popup.enabled) item {
             // Placement: whether the bubble grows out of the key or floats
             // detached above it; the first option leaves the global setting
             // in charge.
@@ -3182,7 +3192,7 @@ fun ThemeEditorScreen(
                     display = { "${it.toInt()} dp" },
                 ) { update { t -> t.copy(toolbarHeightDp = it.toInt()) } }
             }
-            item {
+            if (settings.popup.enabled) item {
                 // One height for whichever bubble style is on, the way the
                 // setting itself works: the global slider keeps a separate
                 // value for the on-key and the floating bubble, and the
@@ -3273,11 +3283,14 @@ fun ThemeEditorScreen(
         }
     }
 
+    // Reduce motion zeroes the animation phase and the burst count outright,
+    // so neither section can change anything the board draws.
     SettingsGroup(
         stringResource(R.string.theme_animation_section_title),
         foldKey = "theme/animation",
         info = stringResource(R.string.theme_animation_section_body),
     ) {
+        if (settings.reduceMotion) return@SettingsGroup
         item {
             ChoiceControl(
                 options = ThemeAnimation.entries.map { anim ->
@@ -3334,6 +3347,7 @@ fun ThemeEditorScreen(
         info = listOfNotNull(stringResource(R.string.theme_effect_section_body), effectImagesNote)
             .joinToString("\n\n"),
     ) {
+        if (settings.reduceMotion) return@SettingsGroup
         item {
             val current = keyEffectKindOrNull(theme.keyEffect)
             ChoiceControl(
@@ -3602,7 +3616,9 @@ fun ThemeEditorScreen(
                 colors = transparentListColors(),
             )
         }
-        item {
+        // A theme's sound is resolved past the key-sound gate, so with key
+        // sounds off there is nothing for it to replace.
+        if (settings.keySound) item {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.theme_sound_title)) },
                 supportingContent = { Text(themeSoundLabel(theme)) },
@@ -4004,6 +4020,8 @@ private fun KeyOverrideDialog(
     id: String,
     override: KeyOverride,
     theme: ThemeSpec,
+    /** Off while key popups are, which is what hides the two popup colours. */
+    popupsShown: Boolean,
     onChange: (KeyOverride) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -4028,17 +4046,19 @@ private fun KeyOverrideDialog(
                     override.border, fallback = theme.keyBorderColor ?: theme.keyText,
                     onChange = { onChange(override.copy(border = it)) },
                 )
-                NullableColorRow(
-                    stringResource(R.string.theme_popup_background_title),
-                    override.popupBackground,
-                    fallback = theme.popupBackground ?: theme.keyBackground,
-                    onChange = { onChange(override.copy(popupBackground = it)) },
-                )
-                NullableColorRow(
-                    stringResource(R.string.theme_popup_text_title),
-                    override.popupText, fallback = theme.popupText ?: theme.keyText,
-                    onChange = { onChange(override.copy(popupText = it)) },
-                )
+                if (popupsShown) {
+                    NullableColorRow(
+                        stringResource(R.string.theme_popup_background_title),
+                        override.popupBackground,
+                        fallback = theme.popupBackground ?: theme.keyBackground,
+                        onChange = { onChange(override.copy(popupBackground = it)) },
+                    )
+                    NullableColorRow(
+                        stringResource(R.string.theme_popup_text_title),
+                        override.popupText, fallback = theme.popupText ?: theme.keyText,
+                        onChange = { onChange(override.copy(popupText = it)) },
+                    )
+                }
             }
         },
         confirmButton = {
