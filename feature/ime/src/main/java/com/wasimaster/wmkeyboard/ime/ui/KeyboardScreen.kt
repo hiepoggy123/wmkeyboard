@@ -1032,7 +1032,7 @@ fun KeyboardScreen(
     // grid. Laid over the settings first so the theme that then paints and
     // reshapes the board is that one; a grid naming nothing hands back the
     // same instance, so the remembers below keep their keys.
-    val layerThemeId = currentLayout(rawState).themeId
+    val layerThemeId = screenThemeId(rawState)
     val baseSettings = remember(rawState.settings, layerThemeId) {
         rawState.settings.applyLayoutTheme(layerThemeId)
     }

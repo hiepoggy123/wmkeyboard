@@ -425,6 +425,9 @@
     <string name="layout_editor_layer_theme_title">Theme for the <xliff:g id="layer" example="Symbols">%1$s</xliff:g> layer</string>
     <string name="layout_editor_layer_theme_inherit_subtitle">Inherit the theme of the layout</string>
     <string name="layout_editor_layer_theme_picker_title">Theme for this layer</string>
+    <string name="layout_editor_panel_theme_title">Theme for this panel</string>
+    <string name="layout_editor_panel_theme_inherit_subtitle">Inherit the theme of the layout</string>
+    <string name="layout_editor_panel_theme_picker_title">Theme for this panel</string>
     <string name="layout_editor_theme_override_body">While this layout is on screen, the keyboard uses this theme. It replaces the theme you set elsewhere, and an automatic light and dark pair, for as long as the layout shows. A layer with a theme of its own uses that one instead. Your own choice does not change.</string>
     <string name="layout_editor_name_label">Layout name</string>
 

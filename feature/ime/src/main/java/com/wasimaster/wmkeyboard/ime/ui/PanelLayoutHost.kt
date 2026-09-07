@@ -21,6 +21,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.TextEditAction
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.ime.layoutKind
 import com.wasimaster.wmkeyboard.ime.R
 
 /**
@@ -69,6 +70,17 @@ internal class TrackpadFieldCallbacks(
  */
 internal fun KeyboardUiState.panelLayout(kind: PanelKind): PanelLayoutSpec =
     layouts.panels[kind] ?: panelLayouts[kind] ?: BuiltInPanelLayouts.default(kind)
+
+/**
+ * The theme the grid on screen asks for (issue #61, and #63's panels): an
+ * open panel layout's own theme first, then the typing grid's — a layer's,
+ * else its layout's — else null for whatever the settings say. A panel with
+ * no theme of its own draws in its layout's, so a themed layout's panels
+ * match it unless told otherwise.
+ */
+internal fun screenThemeId(state: KeyboardUiState): String? =
+    state.panel.layoutKind?.let { state.panelLayout(it).grid.themeId }
+        ?: currentLayout(state).themeId
 
 /**
  * The first row of an emoji layout when it is nothing but the tab strip and

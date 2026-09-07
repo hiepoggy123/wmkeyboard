@@ -6891,13 +6891,7 @@ open class WMKeyboardService : InputMethodService() {
      * *are* layouts can; every other panel is chrome the field owns.
      */
     private fun panelLayoutPersists(state: KeyboardUiState): Boolean {
-        val kind = when (state.panel) {
-            PanelMode.EMOJI -> PanelKind.EMOJI
-            PanelMode.CLIPBOARD -> PanelKind.CLIPBOARD
-            PanelMode.TEXT_EDIT -> PanelKind.TEXT_EDIT
-            PanelMode.TRACKPAD -> PanelKind.TRACKPAD
-            else -> return false
-        }
+        val kind = state.panel.layoutKind ?: return false
         return state.panelLayout(kind).grid.persistent
     }
 

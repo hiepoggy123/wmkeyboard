@@ -250,7 +250,7 @@ internal fun PanelLayoutEditorScreen(
         editCoalesced { it.copy(grid = transform(it.grid)) }
 
     val (compiled, previewHeightsDp) = remember(spec, settings.keyHeightDp, actualSize) {
-        panelPreview(kind, spec.grid, spec.appearance, settings, actualSize)
+        panelPreview(kind, spec.grid, spec.appearance, settings, actualSize, themeId = spec.grid.themeId)
     }
 
     SectionHeaderPublic(
@@ -321,6 +321,7 @@ internal fun PanelLayoutEditorScreen(
         editGridCoalesced = ::editGridCoalesced,
         jsonRoute = "panel_json/${kind.name}",
         onNavigate = onNavigate,
+        settings = settings,
         reset = if (isCustom) {
             ResetRow(
                 R.string.panel_layout_reset_title,
@@ -452,11 +453,14 @@ internal fun PanelEditorBody(
     jsonRoute: String,
     onNavigate: (String) -> Unit,
     reset: ResetRow?,
+    /** For the theme row: the picker lists this user's themes. */
+    settings: KeyboardSettings,
 ) {
     val context = LocalContext.current
     val rows = grid.rows
     val rowHeights = grid.rowHeights
     val selectedKey = selection?.let { rows.getOrNull(it.row)?.getOrNull(it.col) }
+    var themePickerOpen by remember(kind) { mutableStateOf(false) }
 
     fun editRows(transform: (List<List<Key>>) -> List<List<Key>>) =
         editGrid { it.copy(rows = transform(it.rows)) }
@@ -573,6 +577,23 @@ internal fun PanelEditorBody(
             ) { on -> editGrid { it.copy(persistent = on) } }
         }
         item {
+            // A theme of the panel's own (issue #61 on a panel): the board
+            // draws in it while this panel is open, over the layout's theme
+            // and the settings'. Same picker, same Clear, as a key layer's.
+            val clearLabel = stringResource(CommonR.string.common_clear)
+            WmRow(
+                title = stringResource(R.string.layout_editor_panel_theme_title),
+                subtitle = grid.themeId?.let { themeDisplayName(settings, it) }
+                    ?: stringResource(R.string.layout_editor_panel_theme_inherit_subtitle),
+                trailing = {
+                    if (grid.themeId != null) {
+                        TextButton(onClick = { editGrid { it.copy(themeId = null) } }) { Text(clearLabel) }
+                    }
+                },
+                onClick = { themePickerOpen = true },
+            )
+        }
+        item {
             LayoutFontScaleRow(
                 scale = grid.fontScale,
                 title = stringResource(R.string.layout_editor_font_scale_label, grid.fontScale ?: 1f),
@@ -597,6 +618,19 @@ internal fun PanelEditorBody(
                 )
             }
         }
+    }
+
+    if (themePickerOpen) {
+        ModeThemePickerDialog(
+            settings = settings,
+            selectedId = grid.themeId,
+            title = stringResource(R.string.layout_editor_panel_theme_picker_title),
+            onPick = { id ->
+                themePickerOpen = false
+                editGrid { it.copy(themeId = id) }
+            },
+            onDismiss = { themePickerOpen = false },
+        )
     }
 
     val ref = selection

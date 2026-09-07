@@ -1265,7 +1265,8 @@ internal fun KeyLayoutEditorScreen(
     val panelGrid = panelKind?.let { layout.panelLayer(it) ?: sharedPanelGrid }
     val panelPreviewPair = if (panelKind != null && panelGrid != null) {
         remember(panelKind, panelGrid, layout.appearance, settings.keyHeightDp, actualSize, layout.themeId) {
-            panelPreview(panelKind, panelGrid, layout.appearance, settings, actualSize, layout.themeId)
+            // The panel's own theme, else the layout's: what the board draws.
+            panelPreview(panelKind, panelGrid, layout.appearance, settings, actualSize, panelGrid.themeId ?: layout.themeId)
         }
     } else {
         null
@@ -1582,6 +1583,7 @@ internal fun KeyLayoutEditorScreen(
             },
             jsonRoute = "keymap_json/$layoutId",
             onNavigate = onNavigate,
+            settings = settings,
             reset = if (layout.panelLayer(panelKind) != null) {
                 ResetRow(
                     R.string.layout_editor_reset_panel_title,
