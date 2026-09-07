@@ -93,6 +93,20 @@ class SwipeCorpusTest {
     }
 
     @Test
+    fun `a looped doubled letter circles its key`() {
+        // With loopOnDoubles at 1 every doubled letter is drawn as a circle
+        // through its key, and a circle a third of a key wide is close to
+        // two key widths of arc. The plain draw passes near t on its way from
+        // l to e as well as at the t itself, so the comparison is between the
+        // two draws, not against a fixed figure.
+        val word = "letter"
+        val key = grid.centerOf('t') ?: error("no t on the grid")
+        val plain = arcNear(swipe(word), key.x, key.y)
+        val looped = arcNear(swipe(word, typical.copy(loopOnDoubles = 1f)), key.x, key.y)
+        assertTrue("looped draw spent $looped key widths near t against $plain plain", looped >= plain + 0.8f)
+    }
+
+    @Test
     fun `a clean swipe passes over the word's letters in order`() {
         // Catches a coordinate-space or key-table drift: if this ever fails, the
         // corpus and the decoder disagree about where keys are, and every
@@ -164,6 +178,20 @@ class SwipeCorpusTest {
         }.average().toFloat()
     }
 
+    /** Arc, in key widths, of the path's steps that stay within [LOOP_REACH] of ([kx], [ky]). */
+    private fun arcNear(path: List<GesturePoint>, kx: Float, ky: Float): Float {
+        fun near(p: GesturePoint): Boolean {
+            val dx = p.x / SwipeCorpus.KEY_WIDTH - kx
+            val dy = p.y / SwipeCorpus.KEY_WIDTH - ky
+            return sqrt(dx * dx + dy * dy) <= LOOP_REACH
+        }
+        var arc = 0f
+        for (i in 1 until path.size) {
+            if (near(path[i - 1]) && near(path[i])) arc += distance(path[i - 1], path[i]) / SwipeCorpus.KEY_WIDTH
+        }
+        return arc
+    }
+
     private fun CharArray.distinctConsecutive(): List<Char> {
         val out = ArrayList<Char>(size)
         for (c in this) if (out.lastOrNull() != c) out.add(c)
@@ -194,6 +222,9 @@ class SwipeCorpusTest {
     private companion object {
         const val NEAR_KEY = 0.3f
         const val FAR_FROM_KEY = 0.6f
+
+        /** A loop a third of a key wide, drawn with the corpus's bias, stays inside this. */
+        const val LOOP_REACH = 0.7f
 
         /**
          * A held finger still trembles. At TYPICAL the tremor's stationary σ is

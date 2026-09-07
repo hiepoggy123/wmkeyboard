@@ -317,8 +317,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Two-term placement cost — Distance-to-key plus disagreement between finger travel and key distance — stops 'hello' decoding as 'ho'
     - Shape channel rescore — Top candidates re-scored on stroke shape with size and position normalised out; weight 45.0
     - Dwell-aware double letters — 'good' vs 'god': doubling charged only when the finger did not pause on the key
+    - Loop-aware double letters — A small circle drawn on a key is Swype's mark for the letter twice: found on a fine resample by path-to-extent ratio and enclosed-area roundness, its arc collapsed out of the travel term, the doubling's charge waived, and every word that leaves it undoubled charged for it
+    - Unclaimed pauses charged — A finished word pays, once per pause, for each pause none of its letters sits on
     - Admissible bound pruning — logWeight + ln(1+maxSubtree) - shapeWeight*minCol; anchor radius 1.6 and near radius 1.5 key widths
-    - 10 injectable tuning weights — sigma, maxPointCost, gapWeight, gapWindow, shapeWeight, repeatCost, dwellPenalty, shapeChannel, anchorRadius, nearRadius — swept by a test harness
+    - 17 injectable tuning weights — sigma, maxPointCost, gapWeight, gapWindow, shapeWeight, repeatCost, dwellPenalty, unclaimedDwell, loopExtent, loopMinArc, wiggleExtent, wiggleWeight, unclaimedLoop, shapeChannel, anchorRadius, nearRadius, vocabularyRank — swept by a test harness
   - Per-language glide readiness gate `RARE` — Glide enables itself only where it can decode honestly; measured, not flagged
     - Coverage measurement — Top 1500 words per word source; grid must be able to spell 90% of them
     - Converting-layout block — Off on Avro, Hangul, Vietnamese and every CJK conversion layout — a stroke there spells a reading, not a word

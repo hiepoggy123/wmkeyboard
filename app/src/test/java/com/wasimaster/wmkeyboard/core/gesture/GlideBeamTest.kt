@@ -2,6 +2,11 @@ package com.wasimaster.wmkeyboard.core.gesture
 
 import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
 import com.wasimaster.wmkeyboard.core.prediction.Trie
+import kotlin.math.PI
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -95,6 +100,58 @@ class GlideBeamTest {
         return out
     }
 
+    /**
+     * The same stroke with a small circle drawn on [letter]'s key: the finger
+     * reaches the key, goes once round through it and carries on. No clock,
+     * so the loop is geometry alone and no pause reading can help it.
+     */
+    private fun loopedAt(path: List<GesturePoint>, letter: Char): List<GesturePoint> {
+        val key = centers.getValue(letter.code)
+        var nearest = 0
+        var best = Float.MAX_VALUE
+        path.forEachIndexed { i, p ->
+            val d = (p.x - key.x) * (p.x - key.x) + (p.y - key.y) * (p.y - key.y)
+            if (d < best) {
+                best = d
+                nearest = i
+            }
+        }
+        val at = path[nearest]
+        val before = path[(nearest - 1).coerceAtLeast(0)]
+        val after = path[(nearest + 1).coerceAtMost(path.lastIndex)]
+        var dx = after.x - before.x
+        var dy = after.y - before.y
+        val len = sqrt(dx * dx + dy * dy).takeIf { it > 0f } ?: 1f
+        dx /= len
+        dy /= len
+        // Centre off to one side of the line of travel, so the circle passes
+        // through the key rather than around it.
+        val cx = at.x - dy * LOOP_RADIUS_PX
+        val cy = at.y + dx * LOOP_RADIUS_PX
+        val start = atan2(at.y - cy, at.x - cx)
+        val out = ArrayList<GesturePoint>(path.size + LOOP_POINTS)
+        path.forEachIndexed { i, p ->
+            out.add(p)
+            if (i == nearest) {
+                for (s in 1..LOOP_POINTS) {
+                    val angle = start + 2.0 * PI * s / LOOP_POINTS
+                    out.add(
+                        GesturePoint(
+                            cx + LOOP_RADIUS_PX * cos(angle).toFloat(),
+                            cy + LOOP_RADIUS_PX * sin(angle).toFloat(),
+                            p.t,
+                        ),
+                    )
+                }
+            }
+        }
+        return out
+    }
+
+    /** The alignment cost [beam] charges [word] for [path]. */
+    private fun costOf(word: String, path: List<GesturePoint>, beam: GlideBeam): Double =
+        beam.decode(path, grid, keyWidth, sources, workspace, 8).first { it.word == word }.shapeCost
+
     private fun CharArray.distinctConsecutive(): List<Char> {
         val out = ArrayList<Char>()
         for (c in this) if (out.lastOrNull() != c) out.add(c)
@@ -159,6 +216,76 @@ class GlideBeamTest {
         val default = GlideBeam.Tuning().unclaimedDwell
         val leader = decode(stroke, from = src).first()
         assertEquals(if (default > 0f) "tyu" else "tu", leader)
+    }
+
+    @Test
+    fun `a loop on a key reads as the doubled spelling`() {
+        // Same stroke and the same clock, which is none: the only difference
+        // is the circle drawn on the o, Swype's mark for a letter written twice.
+        assertEquals("god", decode(gestureFor("god")).first())
+        assertEquals("good", decode(loopedAt(gestureFor("god"), 'o')).first())
+    }
+
+    @Test
+    fun `a loop outweighs frequency through the unclaimed charge`() {
+        // With the single spelling the commoner word, the waiver alone only
+        // ties the two on shape and frequency keeps "god". The charge on the
+        // word that ignores the loop is what turns it.
+        val src = sourcesOf(listOf("god" to 800, "good" to 300))
+        val stroke = loopedAt(gestureFor("god"), 'o')
+        val charged = GlideBeam(GlideBeam.Tuning(unclaimedLoop = 0.5f))
+        val waived = GlideBeam(GlideBeam.Tuning(unclaimedLoop = 0f))
+        assertEquals("good", charged.decode(stroke, grid, keyWidth, src, workspace, 4).first().word)
+        assertEquals("god", waived.decode(stroke, grid, keyWidth, src, workspace, 4).first().word)
+    }
+
+    @Test
+    fun `a loop does not penalise the single spelling more than before`() {
+        // The loop's arc is collapsed out of the travel term, so "god" costs
+        // about what it cost on the plain stroke — the window is a sample or
+        // so short of the whole circle, and that much stays as travel.
+        // Without the collapse the same arc is a detour no key distance
+        // explains, and the word pays for all of it.
+        val quiet = GlideBeam(GlideBeam.Tuning(unclaimedLoop = 0f))
+        val plain = costOf("god", gestureFor("god"), quiet)
+        val looped = loopedAt(gestureFor("god"), 'o')
+        val collapsed = costOf("god", looped, quiet)
+        val uncollapsed = costOf("god", looped, GlideBeam(GlideBeam.Tuning(loopExtent = 0f)))
+        assertTrue("collapsed $collapsed against plain $plain", collapsed <= plain + 0.8)
+        assertTrue("uncollapsed $uncollapsed against plain $plain", uncollapsed >= plain + 1.0)
+    }
+
+    @Test
+    fun `a corner is not a loop`() {
+        // p-o-p is the tightest reversal two adjacent keys allow: twice the
+        // arc of its extent, where a loop needs two and a half. A zigzag has
+        // arc to spare but its turns cancel. Only the circle reads.
+        decode(gestureFor("pop"), from = sourcesOf(listOf("pop" to 100)))
+        assertEquals(0, workspace.loopCount)
+        decode(gestureFor("what", jitter = 14f))
+        assertEquals(0, workspace.loopCount)
+        decode(loopedAt(gestureFor("god"), 'o'))
+        assertEquals(1, workspace.loopCount)
+    }
+
+    @Test
+    fun `the loop charge default is what the baseline was measured with`() {
+        val src = sourcesOf(listOf("god" to 800, "good" to 300))
+        val stroke = loopedAt(gestureFor("god"), 'o')
+        val default = GlideBeam.Tuning().unclaimedLoop
+        assertEquals(if (default > 0f) "good" else "god", decode(stroke, from = src).first())
+    }
+
+    @Test
+    fun `an alignment on a looped stroke still lands each key`() {
+        val aligned = beam.align("good", loopedAt(gestureFor("god"), 'o'), grid, keyWidth, workspace)!!
+        assertEquals(3, aligned.size)
+        for (i in 0 until aligned.size) {
+            val k = aligned.keys[i]
+            val dx = aligned.x[i] - grid.keyX[k]
+            val dy = aligned.y[i] - grid.keyY[k]
+            assertTrue("key $k off by ($dx, $dy)", dx * dx + dy * dy < 0.2f * 0.2f)
+        }
     }
 
     @Test
@@ -301,5 +428,9 @@ class GlideBeamTest {
         /** A plausible digitizer interval, and a hold long enough to read as one. */
         const val SAMPLE_MS = 8L
         const val HOLD_SAMPLES = 30
+
+        /** A loop a third of a key wide, drawn as two dozen points. */
+        const val LOOP_RADIUS_PX = 18f
+        const val LOOP_POINTS = 24
     }
 }

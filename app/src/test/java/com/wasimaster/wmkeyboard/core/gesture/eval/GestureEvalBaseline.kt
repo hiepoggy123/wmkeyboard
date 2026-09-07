@@ -57,15 +57,24 @@ object GestureEvalBaseline {
      * pauses on doubled letters and slows into pivots, so this is the charge's
      * cost side measured; the sweep on strokes that pause on single letters is
      * where its gain shows, and it is written up on `GlideBeam.Tuning`.
+     *
+     * 2026-09-08, a loop on a key read as a doubled letter (issue #52):
+     * .9515 -> .9480, all of it on sloppy strokes, .9040 -> .8900. That
+     * corpus's tremor curls tightly enough to read as a loop on one stroke
+     * in nine, and nothing about a curl's shape or speed tells it from the
+     * loop the corpus draws with the same tremor on it. The gain is on the
+     * strokes that loop, which this corpus never does: with every doubled
+     * letter drawn as a circle, top-1 on the doubled words goes .750 -> .852.
+     * The measurement is on `GlideBeam.Tuning.loopExtent`.
      */
     val ENGLISH = Floors(
-        top1 = 0.9515,
+        top1 = 0.9480,
         top3 = 0.9910,
-        mrr = 0.9708,
+        mrr = 0.9689,
         clean = 0.9860,
         light = 0.9800,
         typical = 0.9360,
-        sloppy = 0.9040,
+        sloppy = 0.8900,
     )
 
     /**

@@ -7,6 +7,8 @@ import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.ln
 import kotlin.math.sqrt
+import kotlin.math.sin
+import kotlin.math.atan2
 import kotlin.random.Random
 
 /**
@@ -74,6 +76,16 @@ class SwipeCorpus(
          * strokes that actually pause.
          */
         val letterDwell: Float = 0f,
+        /**
+         * Share of *doubled* letters drawn as a small circle through the key,
+         * Swype's mark for a letter written twice. Zero on every graded level
+         * and drawn only when non-zero, so the gate's corpus stays bit-for-bit
+         * what it was; a sweep switches it on to see what a loop-reading
+         * decoder does with strokes that loop. The same caveat as the dwell:
+         * that people loop is a claim, so any gain measured here is an upper
+         * bound until a device says so.
+         */
+        val loopOnDoubles: Float = 0f,
     )
 
     /** The four graded levels the gate measures. Reported separately, never averaged away. */
@@ -131,13 +143,21 @@ class SwipeCorpus(
         val anchors = anchorsOf(word) ?: return null
         if (anchors.size < 2) return null
         val slopped = applyEndSlop(anchors, profile)
-        val dense = densePath(slopped, profile.cornerRadius)
+        val loops = loopsFor(word, slopped.size, profile)
+        val loopSpans = ArrayList<IntRange>(2)
+        val dense = densePath(slopped, profile.cornerRadius, loops, loopSpans)
         if (dense.size < 2) return null
         val arc = cumulativeArc(dense)
         val total = arc.last()
         if (total <= 0f) return null
 
         val pivots = pivotArcs(dense, arc, slopped)
+        // A loop is drawn at pivot speed the whole way round.
+        val slow = FloatArray(loopSpans.size * 2)
+        loopSpans.forEachIndexed { i, span ->
+            slow[2 * i] = arc[span.first]
+            slow[2 * i + 1] = arc[span.last]
+        }
         val dwells = dwellsFor(word, pivots, profile)
         val centre = centroid(slopped)
         val scale = 1f - kotlin.math.abs(gaussian()) * profile.shrink
@@ -164,7 +184,7 @@ class SwipeCorpus(
                 }
                 nextDwell++
             }
-            travelled += stepAt(travelled, pivots, profile.pivotSlowdown)
+            travelled += stepAt(travelled, pivots, profile.pivotSlowdown, slow)
             clock += SAMPLE_MS
         }
         // The finger lifts where the stroke ends, not at whatever arc the last
@@ -221,10 +241,23 @@ class SwipeCorpus(
      * curve that cuts [radius] key widths off it, sampled finely enough that
      * walking it by arc length is accurate.
      */
-    private fun densePath(anchors: List<Pt>, radius: Float): List<Pt> {
+    private fun densePath(
+        anchors: List<Pt>,
+        radius: Float,
+        loops: BooleanArray?,
+        loopSpans: MutableList<IntRange>,
+    ): List<Pt> {
         val out = ArrayList<Pt>(anchors.size * DENSE_PER_CORNER)
         out.add(anchors[0])
+        if (loops != null && loops[0]) addLoop(out, anchors[0], anchors[1], loopSpans)
         for (i in 1 until anchors.size - 1) {
+            if (loops != null && loops[i]) {
+                // The loop stands in for the corner: the finger reaches the
+                // key, goes round through it and leaves from it.
+                addLine(out, out.last(), anchors[i])
+                addLoop(out, anchors[i], anchors[i + 1], loopSpans)
+                continue
+            }
             val r = cornerRadius(anchors, i, radius)
             val enter = shifted(anchors[i], anchors[i - 1], r)
             val exit = shifted(anchors[i], anchors[i + 1], r)
@@ -232,7 +265,36 @@ class SwipeCorpus(
             addQuad(out, enter, anchors[i], exit)
         }
         addLine(out, out.last(), anchors.last())
+        val last = anchors.size - 1
+        if (loops != null && loops[last]) addLoop(out, anchors[last], anchors[last - 1], loopSpans)
         return out
+    }
+
+    /**
+     * A circle of [LOOP_RADIUS] through [at], drawn once round and back to it,
+     * standing off to one side of the line toward [toward]. Records the dense
+     * indices it covers in [spans], for the speed profile.
+     */
+    private fun addLoop(out: MutableList<Pt>, at: Pt, toward: Pt, spans: MutableList<IntRange>) {
+        var dx = toward.x - at.x
+        var dy = toward.y - at.y
+        val len = sqrt(dx * dx + dy * dy)
+        if (len <= 0f) {
+            dx = 1f
+            dy = 0f
+        } else {
+            dx /= len
+            dy /= len
+        }
+        val cx = at.x - dy * LOOP_RADIUS
+        val cy = at.y + dx * LOOP_RADIUS
+        val start = atan2(at.y - cy, at.x - cx)
+        val from = out.size - 1
+        for (s in 1..LOOP_DENSE_POINTS) {
+            val angle = start + 2.0 * PI * s / LOOP_DENSE_POINTS
+            out.add(Pt(cx + LOOP_RADIUS * cos(angle).toFloat(), cy + LOOP_RADIUS * sin(angle).toFloat()))
+        }
+        spans.add(from..out.size - 1)
     }
 
     /** Never cut more than [CORNER_CAP] of either adjoining segment, or the corner inverts. */
@@ -306,16 +368,47 @@ class SwipeCorpus(
         return Pt(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f)
     }
 
-    /** Arc travelled in one sample interval: slowest at the pivots, fastest between them. */
-    private fun stepAt(at: Float, pivots: FloatArray, slowdown: Float): Float {
+    /**
+     * Arc travelled in one sample interval: slowest at the pivots, fastest
+     * between them, and pivot-slow the whole way round a loop ([slow] holds
+     * each loop's arc range as a start/end pair).
+     */
+    private fun stepAt(at: Float, pivots: FloatArray, slowdown: Float, slow: FloatArray): Float {
         var nearest = Float.MAX_VALUE
         for (p in pivots) {
             val d = kotlin.math.abs(p - at)
             if (d < nearest) nearest = d
         }
-        val closeness = exp(-(nearest / PIVOT_WIDTH) * (nearest / PIVOT_WIDTH))
+        var closeness = exp(-(nearest / PIVOT_WIDTH) * (nearest / PIVOT_WIDTH))
+        var i = 0
+        while (i < slow.size) {
+            if (at >= slow[i] && at <= slow[i + 1]) closeness = 1f
+            i += 2
+        }
         val speed = BASE_SPEED * (1f - slowdown * closeness)
         return (speed * SAMPLE_MS).coerceAtLeast(MIN_STEP)
+    }
+
+    /**
+     * Which anchors this case draws a loop on: doubled letters, at
+     * [Profile.loopOnDoubles]. Null — and no random draw at all — when the
+     * profile never loops, so the graded corpus is bit-for-bit what it was.
+     */
+    private fun loopsFor(word: String, anchorCount: Int, profile: Profile): BooleanArray? {
+        if (profile.loopOnDoubles <= 0f) return null
+        val out = BooleanArray(anchorCount)
+        var anchor = 0
+        var i = 0
+        while (i < word.length) {
+            var run = 1
+            while (i + run < word.length && word[i + run] == word[i]) run++
+            if (run > 1 && anchor < anchorCount && random.nextFloat() < profile.loopOnDoubles) {
+                out[anchor] = true
+            }
+            anchor++
+            i += run
+        }
+        return out
     }
 
     /** (arc, hold in ms) for the letters this case hesitates on: doubled ones,
@@ -475,6 +568,10 @@ class SwipeCorpus(
 
         private const val DOUBLE_DWELL_SHARE = 0.6f
         private const val DOUBLE_DWELL_MS = 90L
+
+        /** A loop a third of a key wide, as a 32-gon. */
+        private const val LOOP_RADIUS = 0.3f
+        private const val LOOP_DENSE_POINTS = 32
 
         /** Tremor autocorrelation between consecutive samples (~80 ms memory). */
         private const val RHO = 0.9f

@@ -86,6 +86,54 @@ class GlideWorkspace {
     val pauseScore = FloatArray(SAMPLE_POINTS)
     var pauseCount = 0
 
+    /**
+     * Effective arc at each sample, in key widths: `j * arcStep`, except that
+     * inside a loop window the arc is collapsed to the window's chord. The
+     * alignment reads the finger's travel between two samples off this rather
+     * than off their index gap, so a loop drawn on a key costs no word any
+     * travel — see [GlideBeam.Tuning.loopExtent].
+     */
+    val arcAt = FloatArray(SAMPLE_POINTS)
+
+    /** Samples' worth of arc the loops removed; widens the alignment band's far edge. */
+    var collapsedSamples = 0
+
+    /**
+     * The places the finger went round on itself — a loop or a back-and-forth
+     * on one key — as events: the window of samples each covers, its centroid
+     * in key widths, and how much of a doubled-letter mark it is, 0 to 1.
+     */
+    val loopFrom = IntArray(SAMPLE_POINTS)
+    val loopTo = IntArray(SAMPLE_POINTS)
+    val loopX = FloatArray(SAMPLE_POINTS)
+    val loopY = FloatArray(SAMPLE_POINTS)
+    val loopScore = FloatArray(SAMPLE_POINTS)
+    /** How much of each loop's path its chord is — what the collapse leaves of it. */
+    val loopShrink = FloatArray(SAMPLE_POINTS)
+    var loopCount = 0
+
+    /**
+     * The stroke resampled finely, for the loop search alone: [fineCount]
+     * points [fineStep] key widths apart. The alignment's samples are too
+     * coarse for it — on a long word they sit half a key apart, and a loop
+     * on a key is three of them.
+     */
+    var fineX = FloatArray(INITIAL_FINE); private set
+    var fineY = FloatArray(INITIAL_FINE); private set
+    var fineCount = 0
+    var fineStep = 0f
+
+    /** Grows the fine arrays to hold [count] points. */
+    fun prepareFine(count: Int) {
+        if (fineX.size < count) {
+            fineX = FloatArray(count)
+            fineY = FloatArray(count)
+        }
+    }
+
+    /** Per key, the strongest loop event within reach of it; the twin of [keyDwell]. */
+    var keyLoop = FloatArray(INITIAL_KEYS); private set
+
     /** Keys the drawn path passes close enough to be spelling. */
     var nearKey = BooleanArray(INITIAL_KEYS); private set
 
@@ -138,13 +186,16 @@ class GlideWorkspace {
             startKey = BooleanArray(keyCount)
             endKey = BooleanArray(keyCount)
             keyDwell = FloatArray(keyCount)
+            keyLoop = FloatArray(keyCount)
         } else {
             nearKey.fill(false, 0, keyCount)
             startKey.fill(false, 0, keyCount)
             endKey.fill(false, 0, keyCount)
             keyDwell.fill(0f, 0, keyCount)
+            keyLoop.fill(0f, 0, keyCount)
         }
         pauseCount = 0
+        loopCount = 0
         val needed = SAMPLE_POINTS * keyCount
         if (pointCost.size < needed) pointCost = FloatArray(needed)
     }
@@ -298,6 +349,11 @@ class GlideWorkspace {
 
         /** Longest key sequence a candidate's ideal path can have. */
         const val MAX_IDEAL_POINTS = 32
+
+        /** Most points the loop search's fine resample holds; a longer stroke is spaced out to fit. */
+        const val MAX_FINE_POINTS = 1024
+
+        private const val INITIAL_FINE = 256
 
         private const val INITIAL = 256
         private const val INITIAL_KEYS = 48

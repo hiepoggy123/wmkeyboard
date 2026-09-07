@@ -90,6 +90,49 @@ class GlideTuningSweepTest {
         axis("unclaimedDwell (letterDwell=$LETTER_DWELL)", unclaimed, pausing, keys, sources) {
             base.copy(unclaimedDwell = it)
         }
+        // The graded corpus never loops, so on it a loop axis can only show
+        // what a false reading costs. This corpus draws every doubled letter
+        // as a circle on its key, the way Swype taught people to, and the
+        // `dbl` column is top-1 over the words that have one — a fifth of
+        // English, so the headline number dilutes the effect five times over.
+        val looping = SwipeCorpus.Noise.entries.associateWith { noise ->
+            SwipeCorpus(SEED).generate(
+                entries, noise.profile.copy(loopOnDoubles = 1f), CASES_PER_LEVEL, noise,
+            )
+        }
+        val loopCharge = listOf(0.0f, 0.25f, 0.5f, 1.0f, 2.0f)
+        axis("unclaimedLoop", loopCharge, cases, keys, sources) {
+            base.copy(unclaimedLoop = it)
+        }
+        axis("unclaimedLoop (loopOnDoubles=1)", loopCharge, looping, keys, sources) {
+            base.copy(unclaimedLoop = it)
+        }
+        axis("unclaimedLoop (letterDwell=$LETTER_DWELL)", loopCharge, pausing, keys, sources) {
+            base.copy(unclaimedLoop = it)
+        }
+        val extents = listOf(0.0f, 0.6f, 0.8f, 1.0f, 1.2f)
+        axis("loopExtent", extents, cases, keys, sources) {
+            base.copy(loopExtent = it)
+        }
+        axis("loopExtent (loopOnDoubles=1)", extents, looping, keys, sources) {
+            base.copy(loopExtent = it)
+        }
+        axis("loopMinArc (loopOnDoubles=1)", listOf(0.7f, 1.0f, 1.3f, 1.6f), looping, keys, sources) {
+            base.copy(loopMinArc = it)
+        }
+        val wiggles = listOf(0.0f, 0.4f, 0.5f, 0.6f)
+        axis("wiggleExtent (wiggleWeight=1)", wiggles, cases, keys, sources) {
+            base.copy(wiggleExtent = it, wiggleWeight = 1f)
+        }
+        axis("wiggleExtent (wiggleWeight=1, loopOnDoubles=1)", wiggles, looping, keys, sources) {
+            base.copy(wiggleExtent = it, wiggleWeight = 1f)
+        }
+        axis("repeatCost (loopOnDoubles=1)", listOf(0.0f, 0.1f, 0.35f, 0.6f, 1.0f), looping, keys, sources) {
+            base.copy(repeatCost = it)
+        }
+        axis("dwellPenalty (loopOnDoubles=1)", listOf(0.0f, 0.2f, 0.4f, 0.7f, 1.2f), looping, keys, sources) {
+            base.copy(dwellPenalty = it)
+        }
         axis("gapWeight", listOf(0.5f, 1.0f, 2.0f, 3.0f, 4.0f, 6.0f), cases, keys, sources) {
             base.copy(gapWeight = it)
         }
@@ -137,6 +180,7 @@ class GlideTuningSweepTest {
         val beam = GlideBeam(tuning)
         val workspace = GlideWorkspace()
         val all = ArrayList<Int?>()
+        val doubled = ArrayList<Int?>()
         val perLevel = StringBuilder()
         for ((noise, level) in cases) {
             val ranks = level.map { case ->
@@ -147,6 +191,7 @@ class GlideTuningSweepTest {
                 if (at >= 0) at + 1 else null
             }
             all.addAll(ranks)
+            level.forEachIndexed { i, case -> if (hasDouble(case.intended)) doubled.add(ranks[i]) }
             perLevel.append(
                 String.format(
                     Locale.ROOT, " %s=%.3f", noise.name.take(2), EvalMetrics.suggest(ranks).top1,
@@ -154,9 +199,13 @@ class GlideTuningSweepTest {
             )
         }
         val overall = EvalMetrics.suggest(all)
+        val dbl = if (doubled.isEmpty()) 0.0 else EvalMetrics.suggest(doubled).top1
         return String.format(
-            Locale.ROOT, "top1=%.4f top3=%.4f mrr=%.4f |%s",
-            overall.top1, overall.top3, overall.mrr, perLevel,
+            Locale.ROOT, "top1=%.4f top3=%.4f mrr=%.4f dbl=%.4f |%s",
+            overall.top1, overall.top3, overall.mrr, dbl, perLevel,
         )
     }
+
+    private fun hasDouble(word: String): Boolean =
+        (1 until word.length).any { word[it] == word[it - 1] }
 }

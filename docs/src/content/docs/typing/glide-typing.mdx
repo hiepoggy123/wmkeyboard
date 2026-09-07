@@ -119,7 +119,7 @@ The decoder scores every dictionary word that could plausibly match your stroke 
 
 None of those three looks at the word that came *before*. The stroke decoder is deliberately context-free: it reads the path and the candidate's own frequency, nothing else. Context arrives one step later. The shortlist it hands back is then reordered by the words already in the field, through the same n-gram reranker the suggestion strip uses, and it's the top word *after* that reorder that commits. That step is **Context-aware suggestions** (<SettingsPath path="Typing / Automatic corrections" />, on by default and gated on autocorrect being on). Turn it off and the decoder's own order stands, so a glide commits purely on shape, anchoring and frequency.
 
-A couple of shape quirks are worth knowing. Double letters only need one pass over the key, so "good" traces g-o-d, because drawing a letter twice in a row adds nothing a shape comparison can see. And a word needing a character with no key on your current layout, an accented letter your layout doesn't have, say, is quietly left out of the running rather than causing an error.
+A couple of shape quirks are worth knowing. Double letters only need one pass over the key, so "good" traces g-o-d, because drawing a letter twice in a row adds nothing a shape comparison can see. If you want to say the letter is doubled, pause on the key for a moment, or draw a small circle on it the way Swype taught: a loop on the o reads as "good" rather than "god", and the loop itself costs the word nothing. And a word needing a character with no key on your current layout, an accented letter your layout doesn't have, say, is quietly left out of the running rather than causing an error.
 
 ## Autocorrect and learning
 

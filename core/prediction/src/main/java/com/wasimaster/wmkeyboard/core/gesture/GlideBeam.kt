@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.gesture
 
 import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
+import kotlin.math.ceil
 import kotlin.math.ln
 import kotlin.math.sqrt
 
@@ -30,8 +31,10 @@ import kotlin.math.sqrt
  * The second term is what stops a decoder from reading `ho` off a stroke drawn
  * for `hello`: both letters sit exactly where they should, but the finger
  * travelled three times as far as `h`-to-`o` asks for. It is also what makes a
- * detour expensive without any notion of curvature — a loop between two letters
- * shows up as arc length that the key distance cannot account for.
+ * detour *between* keys expensive without any notion of curvature: arc length
+ * that the key distance cannot account for. A loop drawn *on* a key is the one
+ * detour read the other way, as the mark for a doubled letter — see
+ * [Tuning.loopExtent].
  *
  * Because a prefix's column depends only on the letters spelled so far, every
  * word sharing that prefix shares the work. A beam state is `(trie node,
@@ -127,6 +130,85 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
          * 4.0, but that is where the plain corpus starts paying it back.
          */
         val unclaimedDwell: Float = 2.0f,
+        /**
+         * Widest a loop may be, in key widths, for the decoder to read it as a
+         * mark on a key; 0 switches loop reading off altogether.
+         *
+         * Swype's rule: a small circle drawn on a key means the letter twice.
+         * Before this the stroke's own geometry made the opposite true. A loop
+         * on the `o` of `good` is arc that no key distance explains, so the
+         * gap term charged `good` and `god` alike for it, and the doubling
+         * still paid [repeatCost] on top: a penalty on every word, evidence of
+         * nothing (issue #52).
+         *
+         * A loop is a stretch of the stroke whose path is at least
+         * `LOOP_RATIO` times its extent — a straight pass is 1, any single
+         * corner at most 2, a circle π — holding at least [loopMinArc] of
+         * path, no wider than this, and enclosing area the way a circle does
+         * (`LOOP_ROUNDNESS`), which a zigzag, whose signed area cancels, never
+         * does. The width matters: three keys that neighbour one another are
+         * a key pitch apart, so a word that visits them in a ring draws a real
+         * loop of extent near one — `murderer` goes r-d-e-r — and this has to
+         * sit under it. Three things happen to a loop, and each leaves the
+         * search bound admissible:
+         *
+         *  - its arc is collapsed to its chord in [GlideWorkspace.arcAt], so
+         *    the travel between the letters on either side reads as it would
+         *    without the loop — for `god` and `good` alike;
+         *  - a doubled letter on that key has its [repeatCost] and
+         *    [dwellPenalty] waived, a charge dropped rather than a credit
+         *    given, so a state's `extra` never falls below its parent's;
+         *  - every finished word that does *not* double a letter there pays
+         *    [unclaimedLoop] at emit, the way a word that ignores a pause pays
+         *    [unclaimedDwell].
+         *
+         * A credit to the repeat itself is the natural reading and was
+         * rejected on the bound: a state popped before its descendant collects
+         * the credit carries a bound too low by that much, and the walk stops
+         * at the first bound under the floor. Charging the words that ignore
+         * the loop orders the candidates identically — on any one stroke the
+         * two differ by a constant across every word.
+         *
+         * Measured on 300 strokes a level, plain corpus against the same
+         * strokes with every doubled letter drawn as a circle on its key,
+         * top-1 overall and on the words that have a doubled letter:
+         *
+         *     off        plain .9558 (sloppy .907)   looped .9217 (doubled .750)
+         *     0.8        plain .9550 (sloppy .903)   looped .9408 (doubled .852)
+         *     1.0        plain .9533 (sloppy .900)   looped .9392 (doubled .860)
+         *
+         * The plain corpus's sloppy strokes pay the difference: their tremor
+         * curls tightly enough to read as a loop one stroke in nine, and no
+         * measure of shape tells that curl from a loop the corpus draws with
+         * the same tremor on it. Timing does not either, since a loop is drawn
+         * at pivot speed. That is the price of reading loops at all, and the
+         * ten points on doubled words buy it.
+         */
+        val loopExtent: Float = 0.8f,
+        /** Least arc a window must hold to be a loop rather than tremor, in key widths. */
+        val loopMinArc: Float = 1.0f,
+        /**
+         * Widest a *wiggle* may be — a window with a loop's arc for its extent
+         * but no net turning, the back-and-forth some people draw for a
+         * doubled letter — in key widths. Must stay under one key pitch, or a
+         * word that goes x-y-x-y across two adjacent keys reads as one. 0
+         * switches wiggles off, which is the default: at the sloppy end of
+         * the corpus a slow pivot with tremor on it looks the same.
+         */
+        val wiggleExtent: Float = 0f,
+        /** A wiggle's worth as a doubled-letter mark, relative to a loop's, 0 to 1. */
+        val wiggleWeight: Float = 0f,
+        /**
+         * Charge per unit of loop a finished word leaves undoubled — the
+         * credit for looping, expressed as a charge on every other word so
+         * the bound never has to anticipate it (see [loopExtent]). Zero
+         * leaves only the waiver, which ties the doubled spelling with the
+         * single one on shape and lets frequency decide. Free on strokes
+         * with no doubled competitor, since every word then pays alike: the
+         * plain corpus reads the same at 0 and 0.5, and the looped one goes
+         * .835 to .852 on doubled words.
+         */
+        val unclaimedLoop: Float = 0.5f,
         /**
          * How much the whole stroke's *shape* counts, once its size and position
          * are taken out of it.
@@ -229,6 +311,7 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         buildCosts(keys, ws)
         buildDwell(keys, ws)
         if (ws.arcStep <= 0f) return emptyList()
+        buildLoops(path, keyWidth, keys, ws)
 
         val k = maxOf(limit * 2, RESULT_K)
         val results = HashMap<String, Candidate>()
@@ -288,11 +371,13 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         if (ws.arcStep <= 0f) return null
         ws.prepareKeys(keys.keyCount)
         buildCosts(keys, ws)
+        buildLoops(path, keyWidth, keys, ws)
 
         val n = GlideWorkspace.SAMPLE_POINTS
         val keyCount = keys.keyCount
         val cost = ws.pointCost
         val step = ws.arcStep
+        val arc = ws.arcAt
         val back = IntArray(count * n)
         var prev = FloatArray(n)
         var cur = FloatArray(n)
@@ -303,17 +388,18 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
             val span = keys.distance(visits[m - 1], key)
             val expected = span / step
             val lo = maxOf(1, (expected - tuning.gapWindow).toInt())
-            val hi = maxOf(lo, (expected + tuning.gapWindow).toInt() + 1)
+            val hi = maxOf(lo, (expected + tuning.gapWindow).toInt() + 1) + ws.collapsedSamples
             cur[0] = GlideWorkspace.UNREACHABLE
             for (j in 1 until n) {
                 var best = GlideWorkspace.UNREACHABLE
                 var from = -1
+                val arcJ = arc[j]
                 var i = maxOf(0, j - hi)
                 val to = j - lo
                 while (i <= to) {
                     val before = prev[i]
                     if (before < GlideWorkspace.UNREACHABLE) {
-                        val gap = (j - i) * step - span
+                        val gap = arcJ - arc[i] - span
                         val v = before + tuning.gapWeight * (if (gap < 0f) -gap else gap)
                         if (v < best) {
                             best = v
@@ -399,7 +485,8 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
                     // word knows which pauses none of its letters claim. The
                     // bound stays admissible since the charge can only lower
                     // a score, never raise one.
-                    val shape = total + extra + unclaimedDwell(s, keys, ws)
+                    val shape = total + extra + unclaimedDwell(s, keys, ws) +
+                        unclaimedLoop(s, keys, ws)
                     val score = src.logWeight + ln1p(walker.frequency(node)) -
                         tuning.shapeWeight * shape
                     if (score > floor - EPS || results.size < k) {
@@ -466,10 +553,10 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
                     // holds no evidence of it at all: the alignment carries
                     // over untouched and the repeat pays a flat charge instead.
                     // Without the charge every doubled spelling would shadow
-                    // its single one for free.
+                    // its single one for free. A pause or a loop on the key
+                    // is the evidence, and waives it.
                     minCol = ws.floorCost[s]
-                    childExtra += tuning.repeatCost +
-                        tuning.dwellPenalty * (1f - ws.keyDwell[lastKey])
+                    childExtra += repeatCharge(lastKey, ws)
                 } else {
                     minCol = advance(
                         ws,
@@ -535,23 +622,27 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
 
         val prev = ws.cols
         val step = ws.arcStep
+        val arc = ws.arcAt
         val span = keys.distance(prevKey, key)
         // Samples the stroke should have travelled between the two letters.
+        // A loop's collapsed arc can only make the finger's travel read as
+        // less than its sample count says, so it widens the far edge alone.
         val expected = span / step
         val lo = maxOf(1, (expected - tuning.gapWindow).toInt())
-        val hi = maxOf(lo, (expected + tuning.gapWindow).toInt() + 1)
+        val hi = maxOf(lo, (expected + tuning.gapWindow).toInt() + 1) + ws.collapsedSamples
 
         out[0] = GlideWorkspace.UNREACHABLE
         var best = GlideWorkspace.UNREACHABLE
         for (j in 1 until n) {
             val from = maxOf(0, j - hi)
             val to = j - lo
+            val arcJ = arc[j]
             var bestPrev = GlideWorkspace.UNREACHABLE
             var i = from
             while (i <= to) {
                 val at = prev[prevColumn + i]
                 if (at < GlideWorkspace.UNREACHABLE) {
-                    val travelled = (j - i) * step
+                    val travelled = arcJ - arc[i]
                     val gap = travelled - span
                     val v = at + tuning.gapWeight * (if (gap < 0f) -gap else gap)
                     if (v < bestPrev) bestPrev = v
@@ -586,6 +677,11 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
 
         val step = totalPx / (n - 1)
         ws.arcStep = step / keyWidth
+        // Travel is read off arcAt rather than off sample indices; identity
+        // until buildLoops finds something to collapse.
+        val arcStep = ws.arcStep
+        for (j in 0 until n) ws.arcAt[j] = j * arcStep
+        ws.collapsedSamples = 0
         val first = path.first()
         ws.pathX[0] = first.x / keyWidth
         ws.pathY[0] = first.y / keyWidth
@@ -744,6 +840,322 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
                 cur = ws.parent[cur]
             }
             if (!claimed) charge += ws.pauseScore[p]
+        }
+        return weight * charge
+    }
+
+    // ---- loops ----
+
+    /**
+     * Finds the places the finger went round on itself and files each as an
+     * event: the samples it covers, where it sat, and how much of a
+     * doubled-letter mark it is. Then credits the keys within reach of each
+     * and collapses the events' arc out of [GlideWorkspace.arcAt]. See
+     * [Tuning.loopExtent] for the reading. Nothing happens at zero extent, and
+     * a stroke with no loops leaves the workspace as it found it.
+     *
+     * The search runs on a fine resample of the stroke rather than on the
+     * alignment's [GlideWorkspace.SAMPLE_POINTS]: on a long word those sit
+     * half a key apart, a loop is three of them, and no three points make a
+     * circle. The first start that passes is usually a step or two early, on
+     * the way in, so once a window is found every later start inside it is
+     * tried too and the roundest wins — the loop itself rather than the loop
+     * with its approach.
+     */
+    private fun buildLoops(path: List<GesturePoint>, keyWidth: Float, keys: GlideKeyMap, ws: GlideWorkspace) {
+        ws.loopCount = 0
+        val reach = maxOf(tuning.loopExtent, tuning.wiggleExtent)
+        if (reach <= 0f) return
+        resampleFine(path, keyWidth, ws)
+        val n = ws.fineCount
+        var a = 0
+        while (a < n - 2) {
+            var window = roundestWindow(a, reach, ws)
+            if (window == NO_WINDOW) {
+                a++
+                continue
+            }
+            var from = a
+            var other = a + 1
+            while (other < windowEnd(window) - 1) {
+                val later = roundestWindow(other, reach, ws)
+                if (later != NO_WINDOW && windowRoundness(later) > windowRoundness(window)) {
+                    window = later
+                    from = other
+                }
+                other++
+            }
+            val b = windowEnd(window)
+            val extent = sqrt(extentSq(from, b, ws))
+            val score = when {
+                windowRoundness(window) >= LOOP_ROUNDNESS && extent <= tuning.loopExtent -> 1f
+                tuning.wiggleExtent > 0f && extent <= tuning.wiggleExtent -> tuning.wiggleWeight
+                else -> -1f
+            }
+            if (score < 0f) {
+                a++
+                continue
+            }
+            recordLoop(from, b, score, keys, ws)
+            a = b + 1
+        }
+        if (ws.loopCount > 0) collapseArc(ws)
+    }
+
+    /**
+     * Resamples [path] into [GlideWorkspace.fineX] and [GlideWorkspace.fineY]
+     * at [FINE_SPACING] key widths a point — coarser only when a stroke would
+     * need more than [GlideWorkspace.MAX_FINE_POINTS] of them. Position only:
+     * the loop search has no use for the clock.
+     */
+    private fun resampleFine(path: List<GesturePoint>, keyWidth: Float, ws: GlideWorkspace) {
+        var totalPx = 0f
+        for (i in 1 until path.size) totalPx += distance(path[i - 1], path[i])
+        val total = totalPx / keyWidth
+        val spacing = maxOf(FINE_SPACING, total / (GlideWorkspace.MAX_FINE_POINTS - 1))
+        val count = (total / spacing).toInt() + 1
+        ws.prepareFine(count)
+        ws.fineStep = spacing
+        val stepPx = spacing * keyWidth
+        val first = path.first()
+        ws.fineX[0] = first.x / keyWidth
+        ws.fineY[0] = first.y / keyWidth
+        var out = 1
+        var index = 0
+        var cx = first.x
+        var cy = first.y
+        var accumulated = 0f
+        while (out < count && index < path.size - 1) {
+            val next = path[index + 1]
+            val segment = sqrt((next.x - cx) * (next.x - cx) + (next.y - cy) * (next.y - cy))
+            if (accumulated + segment >= stepPx && segment > 0f) {
+                val fraction = (stepPx - accumulated) / segment
+                cx += fraction * (next.x - cx)
+                cy += fraction * (next.y - cy)
+                ws.fineX[out] = cx / keyWidth
+                ws.fineY[out] = cy / keyWidth
+                out++
+                accumulated = 0f
+            } else {
+                accumulated += segment
+                cx = next.x
+                cy = next.y
+                index++
+            }
+        }
+        ws.fineCount = out
+    }
+
+    /**
+     * Of the windows of fine points starting at [a] that stay within [reach]
+     * of themselves and hold at least [Tuning.loopMinArc] of path and
+     * `LOOP_RATIO` times their own extent, the roundest — its end and its
+     * roundness packed into one long, or [NO_WINDOW].
+     *
+     * Roundness is the isoperimetric quotient `4πA / P²` of the polygon the
+     * window's points make when closed back to the start: 1 for a circle,
+     * nothing for a path that goes out and comes back along itself, and
+     * nothing for a zigzag, whose signed area cancels. Turning was the
+     * obvious measure and the wrong one: a loop drawn on a key that sits at
+     * a reversal — the `o` of `good` on QWERTY — has the corner's own turn
+     * cancelling half of the circle's, and a loop entered on a cusp cancels
+     * all of it. Area does not care which way round the finger went.
+     *
+     * Path length is the sum of the chords, not the point count times the
+     * spacing: a sharp corner between two points has less chord than
+     * spacing, and counting the spacing turned every hairpin into a loop.
+     * The extent is the window's widest pairwise distance, which only grows
+     * as the window does, so the scan stops the moment it passes [reach].
+     */
+    private fun roundestWindow(a: Int, reach: Float, ws: GlideWorkspace): Long {
+        val n = ws.fineCount
+        val xs = ws.fineX
+        val ys = ws.fineY
+        val ax = xs[a]
+        val ay = ys[a]
+        val reachSq = reach * reach
+        var extentSq = 0f
+        var length = 0f
+        var twiceArea = 0f
+        var bestEnd = -1
+        var bestRoundness = 0f
+        var b = a + 1
+        while (b < n && b - a <= MAX_WINDOW_POINTS) {
+            val bx = xs[b]
+            val by = ys[b]
+            val sx = bx - xs[b - 1]
+            val sy = by - ys[b - 1]
+            length += sqrt(sx * sx + sy * sy)
+            twiceArea += xs[b - 1] * by - bx * ys[b - 1]
+            var i = a
+            while (i < b) {
+                val dx = xs[i] - bx
+                val dy = ys[i] - by
+                val d = dx * dx + dy * dy
+                if (d > extentSq) extentSq = d
+                i++
+            }
+            if (extentSq > reachSq) break
+            if (length >= tuning.loopMinArc && extentSq >= MIN_LOOP_EXTENT_SQ &&
+                length * length >= LOOP_RATIO * LOOP_RATIO * extentSq
+            ) {
+                val closed = twiceArea + (bx * ay - ax * by)
+                val dx = bx - ax
+                val dy = by - ay
+                val perimeter = length + sqrt(dx * dx + dy * dy)
+                val roundness = TWO_PI * (if (closed < 0f) -closed else closed) / (perimeter * perimeter)
+                if (roundness > bestRoundness) {
+                    bestRoundness = roundness
+                    bestEnd = b
+                }
+            }
+            b++
+        }
+        return if (bestEnd < 0) NO_WINDOW else (bestEnd.toLong() shl Int.SIZE_BITS) or
+            (bestRoundness.toRawBits().toLong() and 0xffffffffL)
+    }
+
+    private fun windowEnd(window: Long): Int = (window shr Int.SIZE_BITS).toInt()
+
+    private fun windowRoundness(window: Long): Float = Float.fromBits(window.toInt())
+
+    /** Squared widest pairwise distance among fine points `[a, b]`. */
+    private fun extentSq(a: Int, b: Int, ws: GlideWorkspace): Float {
+        var extent = 0f
+        for (j in a + 1..b) {
+            for (i in a until j) {
+                val dx = ws.fineX[i] - ws.fineX[j]
+                val dy = ws.fineY[i] - ws.fineY[j]
+                val d = dx * dx + dy * dy
+                if (d > extent) extent = d
+            }
+        }
+        return extent
+    }
+
+    /**
+     * Files the fine window `[from, to]` as a loop event of strength [score]:
+     * its centroid, the alignment samples it covers, and how much of its
+     * path its chord is — what the collapse leaves of it. Credits every key
+     * within `LOOP_RADIUS_SQ` of the centroid.
+     */
+    private fun recordLoop(from: Int, to: Int, score: Float, keys: GlideKeyMap, ws: GlideWorkspace) {
+        val xs = ws.fineX
+        val ys = ws.fineY
+        var cx = 0f
+        var cy = 0f
+        var length = 0f
+        for (j in from..to) {
+            cx += xs[j]
+            cy += ys[j]
+            if (j > from) {
+                val sx = xs[j] - xs[j - 1]
+                val sy = ys[j] - ys[j - 1]
+                length += sqrt(sx * sx + sy * sy)
+            }
+        }
+        val points = (to - from + 1).toFloat()
+        cx /= points
+        cy /= points
+        val dx = xs[to] - xs[from]
+        val dy = ys[to] - ys[from]
+        val chord = sqrt(dx * dx + dy * dy)
+
+        // Onto the alignment's samples: the nearest to where the window
+        // starts and ends, at least one step apart so there is something to
+        // collapse.
+        val last = GlideWorkspace.SAMPLE_POINTS - 1
+        val toSample = ws.fineStep / ws.arcStep
+        var a = minOf(last, (from * toSample + 0.5f).toInt())
+        var b = minOf(last, (to * toSample + 0.5f).toInt())
+        if (b <= a) {
+            if (a < last) b = a + 1 else a = b - 1
+        }
+        val e = ws.loopCount
+        ws.loopFrom[e] = a
+        ws.loopTo[e] = b
+        ws.loopShrink[e] = if (length > 0f) chord / length else 1f
+        ws.loopX[e] = cx
+        ws.loopY[e] = cy
+        ws.loopScore[e] = score
+        ws.loopCount = e + 1
+        for (k in 0 until keys.keyCount) {
+            val kx = cx - keys.keyX[k]
+            val ky = cy - keys.keyY[k]
+            if (kx * kx + ky * ky > LOOP_RADIUS_SQ) continue
+            if (score > ws.keyLoop[k]) ws.keyLoop[k] = score
+        }
+    }
+
+    /**
+     * Rebuilds [GlideWorkspace.arcAt] with every loop's arc shrunk to its
+     * chord, spread evenly over its samples, and counts the samples' worth of
+     * arc that removed. A closed loop's chord is near zero, so it vanishes
+     * from every word's travel alike; a loop entered on one side and left on
+     * the other still credits the finger with the distance it net-moved.
+     */
+    private fun collapseArc(ws: GlideWorkspace) {
+        val n = GlideWorkspace.SAMPLE_POINTS
+        val step = ws.arcStep
+        val arc = ws.arcAt
+        var removed = 0f
+        var e = 0
+        arc[0] = 0f
+        for (j in 1 until n) {
+            if (e < ws.loopCount && j > ws.loopFrom[e] && j <= ws.loopTo[e]) {
+                val a = ws.loopFrom[e]
+                val shrink = ws.loopShrink[e]
+                arc[j] = arc[a] + (j - a) * step * shrink
+                if (j == ws.loopTo[e]) {
+                    removed += (j - a) * step * (1f - shrink)
+                    e++
+                }
+            } else {
+                arc[j] = arc[j - 1] + step
+            }
+        }
+        ws.collapsedSamples = ceil(removed / step).toInt()
+    }
+
+    /**
+     * What a doubled letter on [key] pays: the flat [Tuning.repeatCost], plus
+     * [Tuning.dwellPenalty] to the extent the finger did not pause there, the
+     * whole of it waived to the extent the finger looped there. A charge
+     * dropped and never a credit, so `extra` only ever grows along a chain
+     * and the bound stays admissible.
+     */
+    private fun repeatCharge(key: Int, ws: GlideWorkspace): Float =
+        (tuning.repeatCost + tuning.dwellPenalty * (1f - ws.keyDwell[key])) * (1f - ws.keyLoop[key])
+
+    /**
+     * The loops along the stroke that none of state [s]'s *doubled* letters
+     * sit on, summed by strength, times [Tuning.unclaimedLoop]. A repeat is a
+     * state spelling the same letter as its parent one character further on;
+     * the half-letter state of a surrogate pair carries its parent's letter
+     * at the parent's length, which keeps it out.
+     */
+    private fun unclaimedLoop(s: Int, keys: GlideKeyMap, ws: GlideWorkspace): Float {
+        val weight = tuning.unclaimedLoop
+        if (weight <= 0f || ws.loopCount == 0) return 0f
+        var charge = 0f
+        for (e in 0 until ws.loopCount) {
+            val lx = ws.loopX[e]
+            val ly = ws.loopY[e]
+            var claimed = false
+            var cur = s
+            while (cur >= 0 && !claimed) {
+                val parent = ws.parent[cur]
+                if (parent >= 0 && ws.letterCp[cur] == ws.letterCp[parent] &&
+                    ws.length[cur].toInt() == ws.length[parent] + 1
+                ) {
+                    val key = ws.lastKey[cur]
+                    val dx = lx - keys.keyX[key]
+                    val dy = ly - keys.keyY[key]
+                    claimed = dx * dx + dy * dy <= LOOP_RADIUS_SQ
+                }
+                cur = parent
+            }
+            if (!claimed) charge += ws.loopScore[e]
         }
         return weight * charge
     }
@@ -963,6 +1375,42 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
 
         /** How near a key a pause has to happen to count as a pause on it. */
         private const val DWELL_RADIUS_SQ = 0.8f * 0.8f
+
+        /**
+         * Arc over extent a window needs to be a loop: a straight pass is 1,
+         * any single corner at most 2 — exactly 2 for a full reversal — and a
+         * circle π. Halfway between the corner and the circle.
+         */
+        private const val LOOP_RATIO = 2.5f
+
+        /**
+         * Least roundness — `4πA / P²` of the closed window, 1 for a circle —
+         * a loop must show. A loop drawn as an egg or a teardrop still clears
+         * this; a corner, a reversal and a zigzag are nowhere near it.
+         */
+        private const val LOOP_ROUNDNESS = 0.55f
+
+        /** Point spacing of the loop search's resample, in key widths. */
+        private const val FINE_SPACING = 0.08f
+
+        /** Longest window the loop search extends, in fine points: five key widths of path. */
+        private const val MAX_WINDOW_POINTS = 64
+
+        private const val TWO_PI = 2f * Math.PI.toFloat()
+
+        /** [roundestWindow]'s answer when no window starting at a sample is a loop. */
+        private const val NO_WINDOW = -1L
+
+        /** Below this extent a window is tremor, whatever its path: a loop a finger means is wider than a third of a key. */
+        private const val MIN_LOOP_EXTENT_SQ = 0.3f * 0.3f
+
+        /**
+         * How near a key a loop's centre must sit to be a loop on that key.
+         * Tighter than [DWELL_RADIUS_SQ]: a circle drawn through a key centres
+         * a third of a key off it, and the next key along must not be credited
+         * for it too.
+         */
+        private const val LOOP_RADIUS_SQ = 0.6f * 0.6f
 
         /** Runaway backstop; floor pruning ends healthy walks far earlier. */
         const val MAX_POPS = 2000
