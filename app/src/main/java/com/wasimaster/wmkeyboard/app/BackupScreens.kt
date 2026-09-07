@@ -537,6 +537,7 @@ private fun OAuthRow(
 }
 /** Authorizing this app's own hidden folder in the user's Google Drive. */
 @Composable
+@Suppress("UnusedParameter")
 private fun DriveRow(
     repository: SettingsRepository,
     auto: AutoBackupSettings,

@@ -538,9 +538,24 @@ internal fun RowScope.GifHeaderSearchBar(
 }
 
 /**
+ * @param state the live keyboard UI state, read for the gif/sticker tab.
+ * @param stickers true for the sticker tab, false for gif.
+ * @param onQueryTap the search box was tapped.
+ * @param onRetry the failed load should be retried.
+ * @param onSelect a result was picked for sending.
+ * @param onSourceSelect the gif/sticker source was switched.
+ * @param onOpenToolSettings the panel's own settings row was tapped.
  * @param fullBleed the panel is inside a [FullBleedTool], which owns the
  *   height and hosts the search box in its header — so the body draws
  *   neither.
+ * @param onCategorySelect a category chip was tapped.
+ * @param onLongPress a result was long-pressed.
+ * @param onPackFilter the sticker-pack filter changed, or was cleared.
+ * @param onSaveToPack a result should be saved into a local pack.
+ * @param onCopy a result should be copied to the clipboard.
+ * @param onReport a result should be reported.
+ * @param onDismissAction the open long-press action sheet should close.
+ * @param onOpenRoute a settings route should open.
  */
 @Composable
 internal fun GifPanel(

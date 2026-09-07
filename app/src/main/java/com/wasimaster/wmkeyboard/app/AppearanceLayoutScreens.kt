@@ -245,6 +245,7 @@ internal fun AppearanceSettings(
 }
 
 @Composable
+@Suppress("UnusedParameter")
 internal fun AppearanceToolbarSettings(
     repository: SettingsRepository,
     settings: KeyboardSettings,

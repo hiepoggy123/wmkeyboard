@@ -4922,6 +4922,7 @@ internal fun fancyStyleFor(state: KeyboardUiState): FancyStyle? =
  * setting of its own: it appears with the fancy layout and leaves with it.
  */
 @Composable
+@Suppress("UnusedParameter")
 private fun FancyStyleStrip(
     state: KeyboardUiState,
     active: FancyStyle,

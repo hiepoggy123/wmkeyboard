@@ -15,8 +15,13 @@ import com.wasimaster.wmkeyboard.core.settings.CopiedCodeChip
  * bare code, it must not be the one already pasted, and incognito and a
  * mid-entry code both silence the strip outright.
  *
+ * @param mode the setting gating which fields may show the chip.
+ * @param fieldKind the field currently focused.
+ * @param clipTimestamp when the candidate clip was copied.
  * @param showingTimestamp when the chip currently on the strip was copied, or
  * null when the strip has none.
+ * @param now the current time, so the freshness window can be checked.
+ * @param maxAgeMs how long a clip stays offerable after being copied.
  */
 internal fun offersCopiedCode(
     mode: CopiedCodeChip,

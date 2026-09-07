@@ -533,12 +533,17 @@ data class CheatRow(
  * cannot show: a tool that is neither pinned nor in the open panel still has a
  * letter, and the reader has no other way to find it.
  *
+ * @param letters the resolved letter map (see `resolvedToolLetters`).
+ * @param enabled the tools currently enabled, which gates both the digits and
+ *   the letters.
  * @param toolbarTools the pinned tools, in drawn order, so their digits read
  *   down the list in the same order the icons read across the bar.
  * @param digitChord whether `Ctrl`+digit is on, which decides how those digits
  *   are spelled here.
  * @param altSuggestionDigits true when the suggestions answer to `Alt`+digit
  *   rather than to a bare digit after the leader.
+ * @param languageSwitchChord whether the language-switch row gets its own
+ *   chord legend.
  */
 fun cheatSheetRows(
     letters: Map<Char, ToolbarTool>,

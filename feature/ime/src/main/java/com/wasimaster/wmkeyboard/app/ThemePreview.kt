@@ -259,6 +259,7 @@ private fun AnimatedThemeBadge(theme: ThemeSpec, modifier: Modifier = Modifier) 
 
 /** One row of the mock-up keyboard. Every row is the same height. */
 @Composable
+@Suppress("UnusedParameter")
 private fun ColumnScope.PreviewKeyRow(
     theme: ThemeSpec,
     keyShape: Shape,

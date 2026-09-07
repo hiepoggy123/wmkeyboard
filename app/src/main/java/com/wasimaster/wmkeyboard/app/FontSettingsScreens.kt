@@ -88,6 +88,7 @@ private data class FontMessage(
  * before the library existed; nothing migrates and nothing is lost.
  */
 @Composable
+@Suppress("UnusedParameter")
 internal fun FontSettings(
     repository: SettingsRepository,
     settings: KeyboardSettings,

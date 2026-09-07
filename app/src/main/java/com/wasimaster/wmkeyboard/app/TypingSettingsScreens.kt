@@ -124,6 +124,7 @@ private fun SpaceSwipeSetting(
 // ---- typing ----
 
 @Composable
+@Suppress("UnusedParameter")
 internal fun TypingSettings(
     repository: SettingsRepository,
     settings: KeyboardSettings,

@@ -284,6 +284,7 @@ object AiChatController {
      * for anything else. A replaced or resumed session is seeded with the
      * saved transcript so the model keeps the context.
      */
+    @Suppress("UnusedParameter")
     private fun obtainSession(
         context: Context,
         settings: AiSettings,
@@ -326,6 +327,7 @@ object AiChatController {
         }
     }
 
+    @Suppress("UnusedParameter")
     private fun runRemote(
         context: Context,
         settings: AiSettings,

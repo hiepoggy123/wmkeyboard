@@ -195,10 +195,14 @@ data class HintPlan(
  *   is prepended here, not by the caller.
  * @param toolboxTools the tools the toolbox is showing, or empty when it is shut.
  * @param toolLetters the resolved letter map (see `resolvedToolLetters`).
+ * @param symbolCells how many symbol-row cells are on screen.
+ * @param emojiCells how many emoji-row cells are on screen.
+ * @param suggestions how many suggestion-strip slots are on screen.
  * @param digitChord whether `Ctrl`+digit is on, which decides only how the
  *   toolbar badge is *spelled* — the chord itself is dispatched outside the picker.
  * @param leaderDigitsPickSuggestions true in the leader-digit suggestion mode.
  * @param suggestionAltDigits true in the Alt-digit suggestion mode.
+ * @param modifiers which hint tiers to build.
  */
 @Suppress("LongParameterList")
 fun buildHintPlan(

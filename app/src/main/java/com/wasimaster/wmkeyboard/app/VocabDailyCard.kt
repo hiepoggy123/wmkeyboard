@@ -169,7 +169,11 @@ internal fun VocabDailyCard(settings: KeyboardSettings, onNavigate: (String) -> 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.AutoStories, contentDescription = null, tint = accent)
                 Spacer(Modifier.width(12.dp))
-                Text(stringResource(vocabCardTitle(interval)), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    stringResource(vocabCardTitle(interval)),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = { speakVocabWord(context, settings, speaker, word) }) {
                     Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = stringResource(R.string.vocab_word_speak_desc))
@@ -178,7 +182,11 @@ internal fun VocabDailyCard(settings: KeyboardSettings, onNavigate: (String) -> 
             }
             Text(word.word, style = MaterialTheme.typography.headlineSmall)
             val line = listOfNotNull(word.pos.firstOrNull(), word.ipaFor(settings.vocabulary.accent), word.respelling).joinToString("  ·  ")
-            if (line.isNotEmpty()) Text(line, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (line.isNotEmpty()) Text(
+                line,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(4.dp))
             Text(word.definition, style = MaterialTheme.typography.bodyMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {

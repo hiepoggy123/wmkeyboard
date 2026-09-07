@@ -88,7 +88,11 @@ internal fun VocabReviewScreen(
             )
             Spacer(Modifier.height(4.dp))
             CaptionText(
-                if (cards.isEmpty()) stringResource(R.string.vocab_review_empty_title) else stringResource(R.string.vocab_review_progress, position.coerceAtMost(cards.size), cards.size),
+                if (cards.isEmpty()) stringResource(R.string.vocab_review_empty_title) else stringResource(
+                    R.string.vocab_review_progress,
+                    position.coerceAtMost(cards.size),
+                    cards.size,
+                ),
             )
         }
     }
@@ -111,7 +115,11 @@ internal fun VocabReviewScreen(
                             if (grade == ReviewGrade.HARD && settings.vocabulary.scheduler == VocabScheduler.LEITNER && n == 0) continue
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Text(n.toString(), style = MaterialTheme.typography.titleLarge)
-                                Text(stringResource(grade.labelRes()), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    stringResource(grade.labelRes()),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                             }
                         }
                     }
@@ -158,7 +166,11 @@ internal fun VocabReviewScreen(
                     IconButton(onClick = { speakVocabWord(context, settings, speaker, current) }) {
                         Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = stringResource(R.string.vocab_word_speak_desc))
                     }
-                    Text(stringResource(R.string.vocab_review_flip_hint), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.vocab_review_flip_hint),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             } else {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -166,7 +178,14 @@ internal fun VocabReviewScreen(
                     current.pos.firstOrNull()?.let { Text(it, style = MaterialTheme.typography.labelMedium, fontStyle = FontStyle.Italic) }
                     Text(current.definition, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center, maxLines = 5)
                     current.senses.firstOrNull()?.example?.let {
-                        Text("“$it”", style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic, textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3)
+                        Text(
+                            "“$it”",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontStyle = FontStyle.Italic,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 3,
+                        )
                     }
                 }
             }
@@ -188,12 +207,19 @@ internal fun VocabReviewScreen(
                 val preview = progress.preview(current.word, grade, today, settings.vocabulary.scheduler)
                 val days = (preview.dueDay - today).coerceAtLeast(0)
                 val label = stringResource(grade.labelRes()) + "\n" + pluralStringResource(R.plurals.vocab_review_days, days, days)
+                val onGrade = {
+                    grade(progress, current, grade, today, settings) {
+                        counts[grade.ordinal]++
+                        position++
+                        flipped = false
+                    }
+                }
                 if (grade == ReviewGrade.GOOD) {
-                    FilledTonalButton(onClick = { grade(progress, current, grade, today, settings) { counts[grade.ordinal]++; position++; flipped = false } }, modifier = Modifier.weight(1f)) {
+                    FilledTonalButton(onClick = onGrade, modifier = Modifier.weight(1f)) {
                         Text(label, textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
                     }
                 } else {
-                    OutlinedButton(onClick = { grade(progress, current, grade, today, settings) { counts[grade.ordinal]++; position++; flipped = false } }, modifier = Modifier.weight(1f)) {
+                    OutlinedButton(onClick = onGrade, modifier = Modifier.weight(1f)) {
                         Text(label, textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium)
                     }
                 }
@@ -209,7 +235,9 @@ internal fun VocabReviewScreen(
             flipped = false
         }) { Text(stringResource(R.string.vocab_review_mark_learnt_action)) }
         Spacer(Modifier.width(4.dp))
-        androidx.compose.material3.TextButton(onClick = { onNavigate(vocabWordRoute(index.packOf(current.word)?.id ?: "all", current.word)) }) {
+        androidx.compose.material3.TextButton(
+            onClick = { onNavigate(vocabWordRoute(index.packOf(current.word)?.id ?: "all", current.word)) },
+        ) {
             Text(stringResource(R.string.vocab_review_open_action))
         }
     }

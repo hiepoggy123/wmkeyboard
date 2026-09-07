@@ -64,7 +64,10 @@ class OnlineSourcesTest {
         val hit = VocabAutofill.Source { _, _ -> found }
         val result = VocabAutofill.resolve(index, "abhor", allowOnline = true, sources = listOf(down, hit))
         assertTrue(result is VocabAutofill.Result.Found && result.fromOnline)
-        assertEquals(VocabAutofill.Result.NotFound, VocabAutofill.resolve(index, "abhor", allowOnline = true, sources = listOf(down, nothing)))
+        assertEquals(
+            VocabAutofill.Result.NotFound,
+            VocabAutofill.resolve(index, "abhor", allowOnline = true, sources = listOf(down, nothing)),
+        )
         assertEquals(VocabAutofill.Result.Failed, VocabAutofill.resolve(index, "abhor", allowOnline = true, sources = listOf(down, down)))
     }
 }

@@ -162,6 +162,7 @@ class PredictionLatencyBench {
         }
     }
 
+    @Suppress("UnusedParameter")
     private inline fun measure(name: String, op: (Int) -> Any?): LongArray {
         repeat(WARMUP) { op(it) }
         val samples = LongArray(MEASURE)

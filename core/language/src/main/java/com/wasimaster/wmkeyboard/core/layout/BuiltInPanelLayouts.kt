@@ -156,7 +156,17 @@ object BuiltInPanelLayouts {
      * reaches the shipped pad; a pad the user laid out is drawn as laid out.
      */
     fun numpad(calculator: Boolean): PanelLayoutSpec {
-        val digits = if (calculator) listOf("7", "8", "9", "4", "5", "6", "1", "2", "3") else listOf("1", "2", "3", "4", "5", "6", "7", "8", "9")
+        val digits = if (calculator) listOf(
+            "7",
+            "8",
+            "9",
+            "4",
+            "5",
+            "6",
+            "1",
+            "2",
+            "3",
+        ) else listOf("1", "2", "3", "4", "5", "6", "7", "8", "9")
         return PanelLayoutSpec(
             panel = PanelKind.NUMPAD,
             grid = LayerSpec(
@@ -164,7 +174,12 @@ object BuiltInPanelLayouts {
                     listOf(Key(digits[0]), Key(digits[1]), Key(digits[2]), Key("⌫", action = KeyAction.Delete)),
                     listOf(Key(digits[3]), Key(digits[4]), Key(digits[5]), Key("+", longPress = listOf("*", "/", "%", "="))),
                     listOf(Key(digits[6]), Key(digits[7]), Key(digits[8]), Key("-", longPress = listOf("(", ")", "^"))),
-                    listOf(Key(".", longPress = listOf(":")), Key("0"), Key(",", longPress = listOf(";")), Key("⏎", action = KeyAction.Enter)),
+                    listOf(
+                        Key(".", longPress = listOf(":")),
+                        Key("0"),
+                        Key(",", longPress = listOf(";")),
+                        Key("⏎", action = KeyAction.Enter),
+                    ),
                 ),
             ),
         )

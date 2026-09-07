@@ -26,7 +26,10 @@ class VocabModelTest {
         )
         assertEquals("1975", quote.year)
         assertEquals("Judy Klemesrud, “Vegetarianism: Growing Way of Life”, in The New York Times", quote.citation)
-        val bible = VocabQuotation("x", "1611, The Holy Bible, […] (King James Version), London: […] Robert Barker, […], →OCLC, Romans 12:9:")
+        val bible = VocabQuotation(
+            "x",
+            "1611, The Holy Bible, […] (King James Version), London: […] Robert Barker, […], →OCLC, Romans 12:9:",
+        )
         assertEquals("1611", bible.year)
         assertEquals("The Holy Bible, (King James Version), London: Robert Barker, Romans 12:9", bible.citation)
         val circa = VocabQuotation("x", "c. 1350–1470, Geoffrey Chaucer, The Canterbury Tales")

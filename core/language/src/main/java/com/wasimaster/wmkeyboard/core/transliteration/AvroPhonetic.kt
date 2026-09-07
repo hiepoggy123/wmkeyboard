@@ -69,9 +69,11 @@ object AvroPhonetic {
     private enum class Kind { CONSONANT, VOWEL, SIGN, OTHER }
 
     /**
+     * @param match the Avro phonetic token this rule fires on
      * @param full independent form (word start or after a vowel)
      * @param kar vowel-sign form used after a consonant; null means the rule
      *        is not a vowel
+     * @param kind what [match] composes into; defaults off whether [kar] is set
      */
     private data class Rule(
         val match: String,

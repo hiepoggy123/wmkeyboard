@@ -653,7 +653,10 @@ private fun VocabBrowse(state: KeyboardUiState, callbacks: VocabCallbacks) {
     val browse = state.vocab.browse
     val query = state.mediaQuery.trim().lowercase()
     val rows = remember(browse.rows, query) {
-        if (query.isEmpty()) browse.rows else browse.rows.filter { it.word.contains(query) || it.definition.contains(query, ignoreCase = true) }
+        if (query.isEmpty()) browse.rows else browse.rows.filter { it.word.contains(query) || it.definition.contains(
+            query,
+            ignoreCase = true,
+        ) }
     }
     val chips = listOf<Pair<String, () -> Unit>>(
         stringResource(R.string.ime_vocab_filter_all_packs) to { callbacks.onBrowsePack(null) },
@@ -802,7 +805,12 @@ private fun VocabReview(state: KeyboardUiState, callbacks: VocabCallbacks) {
                     val ipa = current.ipaFor(settings.accent)
                     if (ipa != null) Text(ipa, color = kb.toolbarIcon, fontSize = 13.sp)
                     IconButton(onClick = { callbacks.onSpeak(current) }, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.AutoMirrored.Outlined.VolumeUp, contentDescription = null, tint = kb.accent, modifier = Modifier.size(18.dp))
+                        Icon(
+                            Icons.AutoMirrored.Outlined.VolumeUp,
+                            contentDescription = null,
+                            tint = kb.accent,
+                            modifier = Modifier.size(18.dp),
+                        )
                     }
                 } else {
                     Text(current.word, color = kb.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, fontFamily = serif)
@@ -835,7 +843,12 @@ private fun VocabReview(state: KeyboardUiState, callbacks: VocabCallbacks) {
             horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         ) {
             actions.forEachIndexed { index, (label, action) ->
-                VocabChip(label = label, filled = review.flipped && index == actions.lastIndex, focused = focused == index, onClick = action)
+                VocabChip(
+                    label = label,
+                    filled = review.flipped && index == actions.lastIndex,
+                    focused = focused == index,
+                    onClick = action,
+                )
             }
         }
     }

@@ -280,6 +280,7 @@ fun visibleAiActions(
  * would make that restored prompt invisible for good. Doing the merge every
  * time costs a map lookup and is always right.
  *
+ * @param custom the action list as it stands today.
  * @param legacy built-in id to the whole stored prompt, as it used to be saved.
  */
 fun mergeLegacyAiPrompts(
