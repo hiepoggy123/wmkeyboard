@@ -82,7 +82,12 @@ internal fun DataSaverSettingsScreen(
         }
     }
 
+    // With no trigger and no manual switch, data saver is never active, and
+    // every policy below resolves to "allowed" before it is read. The two
+    // groups vanish together rather than listing a dozen dead answers.
+    val active = ds.manual || ds.trigger != DataSaverTrigger.OFF
     SettingsGroup(stringResource(R.string.datasaver_background_group)) {
+        if (!active) return@SettingsGroup
         item {
             policyRow(
                 R.string.datasaver_link_previews_title,
@@ -143,6 +148,7 @@ internal fun DataSaverSettingsScreen(
         stringResource(R.string.datasaver_ondemand_group),
         info = stringResource(R.string.datasaver_info),
     ) {
+        if (!active) return@SettingsGroup
         item {
             policyRow(
                 R.string.datasaver_media_title,
