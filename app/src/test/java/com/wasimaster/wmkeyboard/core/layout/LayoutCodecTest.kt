@@ -454,6 +454,44 @@ class LayoutCodecTest {
         assertTrue(Key(" ", action = KeyAction.Space).canHoldAlternates())
     }
 
+    /**
+     * The keys that change the view and leave the text alone. The `?123` key is
+     * the load-bearing one: a colon and a slash live on the symbols page, and
+     * the keyboard has to still know the space behind the caret was its own
+     * once the user has pressed their way there (issue #34).
+     */
+    @Test
+    fun `a page or layer switch commits no text`() {
+        for (action in listOf(
+            KeyAction.Symbols,
+            KeyAction.Letters,
+            KeyAction.Numpad,
+            KeyAction.Fn,
+            KeyAction.Shift,
+            KeyAction.CapsLock,
+            KeyAction.LanguageSwitch,
+            KeyAction.None,
+            KeyAction.Layout("custom_1"),
+        )) {
+            assertTrue(action.toString(), action.commitsNoText())
+        }
+
+        // Everything that can put text in the field, and the panels that lead
+        // somewhere which can.
+        for (action in listOf(
+            KeyAction.Text,
+            KeyAction.Space,
+            KeyAction.Enter,
+            KeyAction.Newline,
+            KeyAction.Delete,
+            KeyAction.Emoji,
+            KeyAction.InputMethodPicker,
+            KeyAction.KanaVariant,
+        )) {
+            assertFalse(action.toString(), action.commitsNoText())
+        }
+    }
+
     @Test
     fun `malformed json decodes to null rather than throwing`() {
         assertNull(LayoutCodec.decode("{not json"))

@@ -372,6 +372,7 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
 import com.wasimaster.wmkeyboard.core.layout.PanelLayoutSpec
+import com.wasimaster.wmkeyboard.core.layout.commitsNoText
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.repair
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -4272,22 +4273,22 @@ open class WMKeyboardService : InputMethodService() {
         // from somewhere else — a panel opening, text inserted by a tool — must
         // not leave one behind for whatever key comes next.
         swallowTerminatorAfterCommit = false
-        // Three keys have something to say about a just-inserted punctuation
-        // space: Space consumes it rather than adding a second one, Shift takes
-        // it back, and Text hugs a closing mark to the mark before it — `"hi."`
-        // and not `"hi. "` (issue #34). Every other key spends it.
-        if (key.action != KeyAction.Shift && key.action != KeyAction.Space &&
-            key.action != KeyAction.Text
+        // Both records of a space the keyboard typed — the one that ended a
+        // word, and the one that followed a mark — survive the same three sorts
+        // of key. A Text key, where a closing mark takes the space back and
+        // anything else spends it (see [processTypedText]); Space, which is
+        // swallowed rather than doubled; and any key that types nothing at all,
+        // which is what puts the symbols page back in reach: `:` and `/` live
+        // there, so reaching either meant a `?123` press, and that press used to
+        // count as typing on past the space (issue #34).
+        //
+        // The Text case is cleared by [processTypedText] itself as well, since
+        // letters and marks are the same action and only the text says which
+        // one this is.
+        if (key.action != KeyAction.Text && key.action != KeyAction.Space &&
+            !key.action.commitsNoText()
         ) {
             pendingPunctuationSpace = false
-        }
-        // The space that ended a word survives exactly two keys: a Text key,
-        // where punctuation takes it back and anything else spends it (see
-        // [processTypedText]), and Space, which is swallowed rather than
-        // doubled. Both of these are cleared by [processTypedText] itself as
-        // well, since letters and marks are the same action and only the text
-        // says which one this is.
-        if (key.action != KeyAction.Text && key.action != KeyAction.Space) {
             pendingWordSpace = false
         }
         // A pending Ctrl/Alt/Meta turns the next key into a shortcut, so it is
@@ -11085,11 +11086,7 @@ open class WMKeyboardService : InputMethodService() {
                 ShiftState.ON -> picked.replaceFirstChar { it.uppercase() }
                 ShiftState.OFF -> picked
             }
-            // Auto-space between consecutive swiped words.
-            val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
-            if (before.isNotEmpty() && !before.last().isWhitespace()) {
-                ic.commitText(" ", 1)
-            }
+            commitGestureLeadingSpace(ic, state)
             ic.commitText(word, 1)
             recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
             // Caps lock never teaches a spelling — it says the letters are
@@ -11124,6 +11121,23 @@ open class WMKeyboardService : InputMethodService() {
         if (spacedAfterCaret(ic.getTextAfterCursor(1, 0))) return
         ic.commitText(" ", 1)
         pendingWordSpace = true
+    }
+
+    /**
+     * Types the space that goes *in front* of a glided word, so two swiped words
+     * do not run together and a word swiped onto the end of typed text does not
+     * either.
+     *
+     * Not every character earns one: a word swiped after an opening bracket or
+     * quote belongs against it, and `he said "` then a glided "hello" used to
+     * come out as `he said " hello` (issue #34). [spacesBeforeGlidedWord] holds
+     * that rule, and reads a line's worth of text rather than one character
+     * because the double quote is only an opener or a closer by what came before
+     * it.
+     */
+    private fun commitGestureLeadingSpace(ic: InputConnection, state: KeyboardUiState) {
+        val before = ic.getTextBeforeCursor(QUOTE_CONTEXT_CHARS, 0)?.toString().orEmpty()
+        if (spacesBeforeGlidedWord(before, state.fieldKind)) ic.commitText(" ", 1)
     }
 
     /**
@@ -11186,11 +11200,7 @@ open class WMKeyboardService : InputMethodService() {
                 } else {
                     candidates.first()
                 }
-                // Auto-space between consecutive words.
-                val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
-                if (before.isNotEmpty() && !before.last().isWhitespace()) {
-                    ic.commitText(" ", 1)
-                }
+                commitGestureLeadingSpace(ic, state)
                 ic.commitText(word, 1)
                 recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
                 learn(

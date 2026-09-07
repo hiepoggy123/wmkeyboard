@@ -27,9 +27,13 @@ import kotlin.math.hypot
  * The straight double quote is not here because it is both a closer and an
  * opener; [AMBIGUOUS_QUOTES] and [closesQuote] settle which one it is. The
  * curly close quote is unambiguous, so it stays in the plain list.
+ *
+ * The slash is here rather than only in the URL list: "and/or", "he/she" and
+ * "24/7" are prose, and a slash typed straight after a word is joining it to
+ * the next one far more often than it is standing between two spaced phrases.
  */
 private val AUTO_SPACE_SWALLOWERS =
-    charArrayOf('.', '!', '?', '।', ',', ';', ':', ')', ']', '}', '”', '…', '%')
+    charArrayOf('.', '!', '?', '।', ',', ';', ':', ')', ']', '}', '”', '…', '%', '/')
 
 /**
  * Quote characters that stand for both ends of a quotation, so whether they
@@ -45,12 +49,53 @@ private val AMBIGUOUS_QUOTES = charArrayOf('"')
 
 /**
  * The marks that join the list in a URL field, where a glided word is a host
- * or a path segment rather than a word in a sentence: "example" then "/" is
- * "example/", never "example /". The dash is here and not in the prose list
+ * or a path segment rather than a word in a sentence: "example" then "#" is
+ * "example#", never "example #". The dash is here and not in the prose list
  * because "my-site" is a hostname while "hello - world" is a sentence.
  */
 private val URI_AUTO_SPACE_SWALLOWERS =
-    charArrayOf('/', '#', '&', '=', '@', '-', '_', '+', '~')
+    charArrayOf('#', '&', '=', '@', '-', '_', '+', '~')
+
+/**
+ * Marks a glided word starts straight after, with no space between: the openers,
+ * which is the mirror of the closers in [AUTO_SPACE_SWALLOWERS].
+ *
+ * A glide commits a space in front of its word so two swiped words do not run
+ * together, and that space is wrong after an opening bracket or quote —
+ * `he said "` then a glided "hello" gave `he said " hello` (issue #34). The
+ * straight double quote is absent for the usual reason: it is both ends of a
+ * quotation, and [spacesBeforeGlidedWord] asks [closesQuote] which one it is.
+ */
+private val WORD_OPENERS = charArrayOf('(', '[', '{', '“', '‘', '«', '¿', '¡')
+
+/**
+ * Whether a glided word landing at the end of [textBefore] earns the space a
+ * glide types in front of it.
+ *
+ * No, in four cases: there is nothing to be separated from, the text already
+ * ends in a space of its own, it ends in an opener the word belongs against, or
+ * it ends in a double quote that opened a quotation rather than closing one.
+ *
+ * A URL field never earns one at all. An address has no spaces in it, so a word
+ * glided into the middle of one joins whatever it lands on, whether that is a
+ * dot, a slash or the tail of the host name.
+ *
+ * [textBefore] is the text in front of the caret, and only its last character
+ * decides the answer except for the quote, which is counted over the line.
+ */
+internal fun spacesBeforeGlidedWord(
+    textBefore: String,
+    fieldKind: FieldKind = FieldKind.TEXT,
+): Boolean {
+    if (fieldKind == FieldKind.URI) return false
+    val last = textBefore.lastOrNull() ?: return false
+    if (last.isWhitespace()) return false
+    if (last in WORD_OPENERS) return false
+    // The quote behind the caret opened a quotation exactly when a quote typed
+    // now would close it, so the word goes straight up against it.
+    if (last in AMBIGUOUS_QUOTES) return !closesQuote(textBefore, last)
+    return true
+}
 
 /**
  * Whether a [quote] typed at the end of [textBefore] closes a quotation rather

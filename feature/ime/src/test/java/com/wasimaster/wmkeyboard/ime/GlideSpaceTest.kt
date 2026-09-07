@@ -103,9 +103,15 @@ class GlideSpaceTest {
 
     @Test
     fun `url separators keep the space in a text field`() {
-        for (mark in listOf("/", "#", "&", "=", "@", "-", "_", "+", "~")) {
+        for (mark in listOf("#", "&", "=", "@", "-", "_", "+", "~")) {
             assertFalse(mark, swallowsAutoSpace(mark, FieldKind.TEXT))
         }
+    }
+
+    @Test
+    fun `a slash hugs the word in prose too`() {
+        // "and/or" and "24/7" are prose, not addresses (#34 follow-up).
+        assertTrue(swallowsAutoSpace("/", FieldKind.TEXT))
     }
 
     @Test
@@ -113,6 +119,63 @@ class GlideSpaceTest {
         assertTrue(swallowsAutoSpace(".", FieldKind.URI))
         assertTrue(swallowsAutoSpace("?", FieldKind.URI))
         assertFalse(swallowsAutoSpace("a", FieldKind.URI))
+    }
+
+    // ---- spacesBeforeGlidedWord ----
+
+    @Test
+    fun `a glided word is spaced from the word before it`() {
+        assertTrue(spacesBeforeGlidedWord("hello"))
+    }
+
+    @Test
+    fun `a glided word at the start of a field gets no space`() {
+        assertFalse(spacesBeforeGlidedWord(""))
+    }
+
+    @Test
+    fun `a glided word after a space gets no second one`() {
+        assertFalse(spacesBeforeGlidedWord("hello "))
+        assertFalse(spacesBeforeGlidedWord("hello\n"))
+    }
+
+    @Test
+    fun `a glided word after an opener goes against it`() {
+        // `(hello`, not `( hello` (#34 follow-up).
+        for (opener in listOf("(", "[", "{", "\u201c", "\u2018", "\u00ab", "\u00bf", "\u00a1")) {
+            assertFalse(opener, spacesBeforeGlidedWord("he said $opener"))
+        }
+    }
+
+    @Test
+    fun `a glided word after an opening quote goes against it`() {
+        // The reported case: `he said " hello` instead of `he said "hello`.
+        assertFalse(spacesBeforeGlidedWord("he said \""))
+    }
+
+    @Test
+    fun `a glided word after a closing quote is spaced from it`() {
+        assertTrue(spacesBeforeGlidedWord("he said \"hi\""))
+    }
+
+    @Test
+    fun `an opening quote is counted over its own line`() {
+        assertTrue(spacesBeforeGlidedWord("\"unfinished\nhe said \"hi\""))
+        assertFalse(spacesBeforeGlidedWord("\"finished\"\nhe said \""))
+    }
+
+    @Test
+    fun `a glided word after a closer is spaced from it`() {
+        // The mirror of the openers: `(hi) hello`, never `(hi)hello`.
+        assertTrue(spacesBeforeGlidedWord("(hi)"))
+        assertTrue(spacesBeforeGlidedWord("hi."))
+    }
+
+    @Test
+    fun `a url field never spaces a glided word`() {
+        // An address has no spaces in it at all.
+        assertFalse(spacesBeforeGlidedWord("example.", FieldKind.URI))
+        assertFalse(spacesBeforeGlidedWord("example", FieldKind.URI))
     }
 
     // ---- glideCommitLength ----

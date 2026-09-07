@@ -501,6 +501,30 @@ fun KeyAction.holdIsSpokenFor(): Boolean = when (this) {
 }
 
 /**
+ * Whether pressing this key only changes what the keyboard draws and leaves the
+ * text exactly as it was.
+ *
+ * The keyboard holds a few one-shot facts about the character right behind the
+ * caret — chiefly "that space is one we typed, so a mark may take it back". A
+ * key that types nothing must not spend one, and the `?123` key is why this
+ * exists: a colon and a slash live on the symbols page, so reaching either one
+ * meant a layer switch, and that switch used to count as typing on past the
+ * space. `hello ` then `:` gave `hello :` while the same colon reached by press
+ * and hold gave `hello:` (issue #34).
+ *
+ * The panel keys are deliberately absent. Emoji, a tool and the system keyboard
+ * picker all lead somewhere that can commit text of its own, so the safe
+ * reading of one of those is that the word is finished.
+ */
+fun KeyAction.commitsNoText(): Boolean = when (this) {
+    KeyAction.Symbols, KeyAction.Letters, KeyAction.Numpad, KeyAction.Fn,
+    KeyAction.Shift, KeyAction.CapsLock, KeyAction.LanguageSwitch, KeyAction.None,
+    -> true
+    is KeyAction.Layout -> true
+    else -> false
+}
+
+/**
  * The glyph an edit key falls back to when nothing draws its icon.
  *
  * Untranslated for the reason [fallbackLabel] gives; the four selection
