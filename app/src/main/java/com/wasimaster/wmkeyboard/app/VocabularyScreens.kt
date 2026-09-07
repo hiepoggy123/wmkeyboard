@@ -18,8 +18,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -35,6 +39,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.FileUpload
 import androidx.compose.material.icons.outlined.PlaylistAdd
 import androidx.compose.material.icons.outlined.Refresh
@@ -43,6 +48,7 @@ import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -76,6 +82,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.addons.AddonType
@@ -111,6 +121,7 @@ import com.wasimaster.wmkeyboard.core.vocab.VocabNudgeLevel
 import com.wasimaster.wmkeyboard.core.vocab.VocabNudgeScope
 import com.wasimaster.wmkeyboard.core.vocab.VocabPack
 import com.wasimaster.wmkeyboard.core.vocab.VocabPackFile
+import com.wasimaster.wmkeyboard.core.vocab.VocabQuotation
 import com.wasimaster.wmkeyboard.core.vocab.VocabPacks
 import com.wasimaster.wmkeyboard.core.vocab.VocabProgress
 import com.wasimaster.wmkeyboard.core.vocab.VocabRelatedTap
@@ -740,21 +751,8 @@ internal fun VocabPacksScreen(
 
     val installedIds = known.map { VocabPacks.packIdOf(it.file) }.toSet()
     val available = VocabCatalog.entries.filter { it.id !in installedIds }
-    if (available.isNotEmpty()) {
-        SettingsGroup(stringResource(R.string.vocab_packs_available_title), info = stringResource(R.string.vocab_packs_available_info)) {
-            for (entry in available) {
-                item {
-                    VocabCatalogRow(
-                        entry = entry,
-                        status = states[entry.id],
-                        onDownload = { gated { VocabDownloadManager.start(context.filesDir, entry, wantedCodes) } },
-                        onCancel = { VocabDownloadManager.cancel(entry.id) },
-                    )
-                }
-            }
-        }
-    }
-
+    // What you have first: the packs you use are the ones you come back for;
+    // the catalogue below is for the odd new one.
     SettingsGroup(stringResource(R.string.vocab_packs_installed_title), highlightKey = R.string.vocab_packs_installed_title) {
         if (known.isEmpty()) {
             item { CaptionText(stringResource(R.string.vocab_packs_installed_empty)) }
@@ -810,6 +808,21 @@ internal fun VocabPacksScreen(
             )
         }
     }
+    if (available.isNotEmpty()) {
+        SettingsGroup(stringResource(R.string.vocab_packs_available_title), info = stringResource(R.string.vocab_packs_available_info)) {
+            for (entry in available) {
+                item {
+                    VocabCatalogRow(
+                        entry = entry,
+                        status = states[entry.id],
+                        onDownload = { gated { VocabDownloadManager.start(context.filesDir, entry, wantedCodes) } },
+                        onCancel = { VocabDownloadManager.cancel(entry.id) },
+                    )
+                }
+            }
+        }
+    }
+
     Spacer(Modifier.height(16.dp))
 
     confirmDelete?.let { item ->
@@ -1645,19 +1658,38 @@ internal fun VocabWordScreen(
         return
     }
     val state = remember(tick, word.word) { progress.stateOf(word.word) }
+    var lookup by remember { mutableStateOf<String?>(null) }
+    // A related word in a pack has a page of its own; any other is looked
+    // up online and shown in a sheet, where it can be filed into My words.
+    val openRelated: (String) -> Unit = { related ->
+        val target = index.lookupAnyForm(related)
+        if (target != null) {
+            lookup = null
+            onNavigate(vocabWordRoute(index.packOf(target.word)?.id ?: packId, target.word))
+        } else {
+            lookup = related
+        }
+    }
     VocabWordCard(
         word = word,
         settings = settings,
         index = index,
         learnt = state.learnt,
         box = state.box.takeIf { state.seen },
-        onRelated = { related ->
-            val target = index.lookupAnyForm(related)
-            if (target != null) onNavigate(vocabWordRoute(index.packOf(target.word)?.id ?: packId, target.word))
-        },
+        onRelated = openRelated,
         onSpeak = { speakVocabWord(context, settings, speaker, word) },
         onGetTranslations = { onNavigate(VOCAB_PACKS_ROUTE) },
     )
+    lookup?.let { looked ->
+        VocabLookupSheet(
+            word = looked,
+            settings = settings,
+            index = index,
+            onDismiss = { lookup = null },
+            onRelated = openRelated,
+            onSaved = { revision++ },
+        )
+    }
     SettingsGroup(stringResource(R.string.vocab_word_progress_group)) {
         item {
             CaptionText(
@@ -1740,6 +1772,74 @@ internal fun VocabWordScreen(
 }
 
 /**
+ * A word that is in no pack, fetched from the network and shown as a card:
+ * kaikki.org first, Wiktionary's endpoint as the backup, the free
+ * dictionary API last. Its related words open here too when they are not
+ * in a pack, and the word can be filed into My words from the sheet.
+ */
+@Composable
+private fun VocabLookupSheet(
+    word: String,
+    settings: KeyboardSettings,
+    index: VocabIndex?,
+    onDismiss: () -> Unit,
+    onRelated: (String) -> Unit,
+    onSaved: () -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val speaker = rememberVocabSpeaker()
+    val codes = remember(settings) { vocabTranslationCodes(settings) }
+    val result by produceState<VocabAutofill.Result?>(initialValue = null, key1 = word) {
+        value = VocabAutofill.resolve(VocabIndex.EMPTY, word, allowOnline = true, translationCodes = codes)
+    }
+    var saved by remember(word) { mutableStateOf(false) }
+    val myWordsName = stringResource(com.wasimaster.wmkeyboard.tools.R.string.core_tools_vocab_my_words)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(bottom = 24.dp),
+        ) {
+            when (val current = result) {
+                null -> Row(Modifier.padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text(stringResource(R.string.vocab_lookup_loading, word), style = MaterialTheme.typography.bodyMedium)
+                }
+                is VocabAutofill.Result.Found -> {
+                    VocabWordCard(
+                        word = current.word,
+                        settings = settings,
+                        index = index,
+                        onRelated = onRelated,
+                        onSpeak = { speakVocabWord(context, settings, speaker, current.word) },
+                    )
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.End) {
+                        TextButton(
+                            enabled = !saved,
+                            onClick = {
+                                scope.launch {
+                                    withContext(Dispatchers.IO) {
+                                        VocabPacks.addToMyWords(context.filesDir, "en", current.word, myWordsName, BuildConfig.VERSION_CODE, BuildConfig.VERSION_NAME)
+                                    }
+                                    saved = true
+                                    onSaved()
+                                }
+                            },
+                        ) { Text(stringResource(if (saved) R.string.vocab_lookup_added_label else R.string.vocab_lookup_add_action)) }
+                    }
+                }
+                VocabAutofill.Result.NotFound -> CaptionText(stringResource(R.string.vocab_lookup_not_found, word), Modifier.padding(24.dp))
+                else -> CaptionText(stringResource(R.string.vocab_lookup_error), Modifier.padding(24.dp))
+            }
+        }
+    }
+}
+
+/**
  * One word's card in the app. A hero with the headword, then one section
  * per kind of thing the record knows — meaning, related words, the
  * mnemonic, translations, where the word comes from, and the rest — each
@@ -1800,10 +1900,7 @@ internal fun VocabWordCard(
                         VocabTag(stringResource(R.string.vocab_word_box_badge, box + 1), strong = true)
                     }
                     if (shown(VocabCardField.SOURCES)) {
-                        for (id in word.sources) {
-                            val source = index?.sources?.get(id)
-                            VocabTag(source?.short?.takeIf { it.isNotEmpty() } ?: source?.name ?: id, strong = false)
-                        }
+                        for (id in word.sources) VocabTag(index?.sources?.get(id)?.name?.takeIf { it.isNotEmpty() } ?: id, strong = false)
                     }
                 }
             }
@@ -1854,7 +1951,22 @@ internal fun VocabWordCard(
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         for (related in words) {
                             val known = index?.lookupAnyForm(related) != null
-                            AssistChip(onClick = { onRelated(related) }, enabled = known, label = { Text(related) })
+                            AssistChip(
+                                onClick = { onRelated(related) },
+                                label = { Text(related) },
+                                trailingIcon = if (known) {
+                                    null
+                                } else {
+                                    {
+                                        Icon(
+                                            Icons.Outlined.Search,
+                                            contentDescription = stringResource(R.string.vocab_word_lookup_chip_desc),
+                                            modifier = Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                },
+                            )
                         }
                     }
                 }
@@ -2009,10 +2121,7 @@ private fun VocabSenseBlock(number: Int, sense: VocabSense, compact: Boolean, sh
                     Text(pluralStringResource(R.plurals.vocab_word_quotations_toggle, sense.quotations.size, sense.quotations.size), style = MaterialTheme.typography.labelMedium)
                 }
                 if (open) {
-                    for (quote in sense.quotations) {
-                        Text("“${quote.text}”", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp))
-                        Text(quote.ref, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp, bottom = 4.dp))
-                    }
+                    for (quote in sense.quotations) VocabQuotationBlock(quote)
                 }
             }
             if (!compact && shown(VocabCardField.TOPICS) && sense.topics.isNotEmpty()) {
@@ -2022,23 +2131,66 @@ private fun VocabSenseBlock(number: Int, sense: VocabSense, compact: Boolean, sh
     }
 }
 
-/** Language name on the left, the gloss on the right; the romanisation leads for someone typing on a romanised layout. */
+/**
+ * Language name on the left; on the right one line per gloss with its own
+ * romanisation set smaller beside it, so "ঘৃণা করা · ghrina kora" reads as
+ * one thing. On a romanised layout the romanisation leads.
+ */
 @Composable
 private fun VocabTranslationRow(code: String, tr: VocabTranslation, romanizedFirst: Boolean) {
-    val romans = tr.r.filter { it.isNotEmpty() }
-    val words = tr.w.joinToString(", ")
-    val first = if (romanizedFirst && romans.isNotEmpty()) romans.joinToString(", ") else words
-    val second = if (romanizedFirst && romans.isNotEmpty()) words else romans.joinToString(", ")
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
     Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.Top) {
         Text(
             languageNameFor(code),
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = muted,
             modifier = Modifier.width(96.dp).padding(top = 2.dp),
         )
         Column(Modifier.weight(1f)) {
-            Text(first, style = MaterialTheme.typography.bodyMedium)
-            if (second.isNotEmpty()) Text(second, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            for (gloss in tr.glosses()) {
+                val lead = if (romanizedFirst && gloss.roman != null) gloss.roman else gloss.word
+                val trail = if (romanizedFirst && gloss.roman != null) gloss.word else gloss.roman
+                Text(
+                    buildAnnotatedString {
+                        append(lead)
+                        if (trail != null) {
+                            withStyle(SpanStyle(color = muted, fontSize = 12.sp)) { append("  ·  $trail") }
+                        }
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * One quotation from print: the year as a badge, the quote against a thin
+ * rule, and the reference stripped to who, what and where.
+ */
+@Composable
+private fun VocabQuotationBlock(quote: VocabQuotation) {
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(Modifier.padding(top = 6.dp, start = 4.dp).height(IntrinsicSize.Min), verticalAlignment = Alignment.Top) {
+        Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
+            Text(
+                quote.year ?: "·",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        androidx.compose.foundation.layout.Box(
+            Modifier.width(2.dp).fillMaxHeight().padding(vertical = 2.dp).background(muted.copy(alpha = 0.35f), MaterialTheme.shapes.extraSmall),
+        )
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text("“${quote.text}”", style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic)
+            val citation = quote.citation
+            if (citation.isNotEmpty()) {
+                Text(citation, style = MaterialTheme.typography.labelSmall, color = muted, modifier = Modifier.padding(top = 2.dp))
+            }
         }
     }
 }

@@ -25,7 +25,40 @@ data class VocabAttribution(
 data class VocabQuotation(
     val text: String,
     val ref: String = "",
-)
+) {
+    /** The year the reference opens with ("1975", "c. 1350"), or null when it has none. */
+    val year: String?
+        get() = YEAR.find(ref)?.groupValues?.get(1)?.trim()
+
+    /**
+     * The reference as a reader wants it: without the date (shown on its
+     * own), Wiktionary's catalogue links (→ISSN, →OCLC), the archive note,
+     * the elisions and the trailing colon. "Judy Klemesrud, “Vegetarianism…”,
+     * in The New York Times".
+     */
+    val citation: String
+        get() {
+            var text = ref.replace(DATE_PREFIX, "")
+            for (noise in NOISE) text = text.replace(noise, "")
+            return text
+                .replace(Regex("""\s*,(\s*,)+"""), ",")
+                .replace(Regex("""\s+"""), " ")
+                .trim()
+                .trim(',', ':', ';', ' ')
+        }
+
+    private companion object {
+        val YEAR = Regex("""^\s*((?:c\.\s*)?\d{4}(?:[–-]\d{2,4})?)""")
+        val DATE_PREFIX = Regex("""^\s*(?:c\.\s*)?\d{4}(?:[–-]\d{2,4})?(?:\s+[A-Z][a-z]+(?:\s+\d{1,2})?)?,?\s*""")
+        val NOISE = listOf(
+            Regex("""\s*→\S+"""),
+            Regex("""\s*,?\s*archived from the original on [^,:;]+"""),
+            Regex("""\s*\[…\]"""),
+            Regex("""\s*\[\.\.\.\]"""),
+            Regex("""\s*\(\s*\)"""),
+        )
+    }
+}
 
 /** One meaning of a word under one part of speech. */
 @Serializable
@@ -68,12 +101,39 @@ data class VocabTrigger(
     val gap: Double = 0.0,
 )
 
+/** One gloss with the romanisation that belongs to it, when the script needs one. */
+data class VocabGloss(val word: String, val roman: String?)
+
 /** Glosses in one language, with romanisations when the script needs them. */
 @Serializable
 data class VocabTranslation(
     val w: List<String> = emptyList(),
     val r: List<String> = emptyList(),
-)
+) {
+    /**
+     * The glosses paired with their romanisations, in order. A Latin-script
+     * entry that only repeats another entry's romanisation (Wiktionary lists
+     * Serbo-Croatian in both alphabets) is folded into that entry, and a
+     * romanisation identical to its word is dropped.
+     */
+    fun glosses(): List<VocabGloss> {
+        val romans = w.indices.map { i -> r.getOrNull(i)?.trim()?.takeIf { it.isNotEmpty() } }
+        val romanKeys = romans.filterNotNull().map { it.lowercase() }.toSet()
+        val hasScript = w.any { !isLatin(it) }
+        val out = ArrayList<VocabGloss>(w.size)
+        for ((i, raw) in w.withIndex()) {
+            val word = raw.trim()
+            if (word.isEmpty()) continue
+            if (hasScript && isLatin(word) && word.lowercase() in romanKeys) continue
+            out += VocabGloss(word, romans[i]?.takeIf { !it.equals(word, ignoreCase = true) })
+        }
+        return out
+    }
+
+    private companion object {
+        fun isLatin(text: String): Boolean = text.none { Character.isLetter(it) && it.code > 0x24F && it.code !in 0x1E00..0x1EFF }
+    }
+}
 
 /**
  * One word of a pack. Every field but [word] is optional: a pack built from

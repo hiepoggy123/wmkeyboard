@@ -159,6 +159,13 @@
     <!-- %1$d the Leitner box. -->
     <string name="vocab_word_box_badge">Box <xliff:g id="box" example="2">%1$d</xliff:g></string>
     <string name="vocab_word_no_translations_body">No translation is downloaded for this pack in your languages yet.</string>
+    <string name="vocab_word_lookup_chip_desc">Look up online</string>
+    <!-- %1$s is the word being looked up. -->
+    <string name="vocab_lookup_loading">Looking up “<xliff:g id="word" example="detest">%1$s</xliff:g>”…</string>
+    <string name="vocab_lookup_not_found">No dictionary online has “<xliff:g id="word" example="detest">%1$s</xliff:g>”.</string>
+    <string name="vocab_lookup_error">Could not reach a dictionary online. Check the connection and try again.</string>
+    <string name="vocab_lookup_add_action">Add to My words</string>
+    <string name="vocab_lookup_added_label">Added to My words</string>
     <string name="vocab_word_get_translations_action">Get translations</string>
     <string name="vocab_word_synonyms_label">Synonyms</string>
     <string name="vocab_word_antonyms_label">Antonyms</string>

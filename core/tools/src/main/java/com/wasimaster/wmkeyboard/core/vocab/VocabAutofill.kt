@@ -11,9 +11,10 @@ import kotlinx.coroutines.withContext
  * the details.
  *
  * Online, three places are asked in turn until one answers: kaikki.org
- * (Wiktionary's full entry, the packs' own source), the free dictionary API
- * the Dictionary tool uses, and Wiktionary's definition endpoint. A source
- * that is down is skipped; only a word that none of them has is "not found".
+ * (Wiktionary's full entry, the packs' own source), then Wiktionary's own
+ * definition endpoint as its backup, then the free dictionary API the
+ * Dictionary tool uses. A source that is down is skipped; only a word that
+ * none of them has is "not found".
  *
  * The online step is a plain flag here rather than a metered decision,
  * because the data-saver types live in `:core:settings`, which depends on
@@ -37,7 +38,7 @@ object VocabAutofill {
     }
 
     /** Richest first; each is only asked when the one before had nothing or could not be reached. */
-    val defaultSources: List<Source> = listOf(KaikkiClient, DictionaryApiSource, WiktionaryRestClient)
+    val defaultSources: List<Source> = listOf(KaikkiClient, WiktionaryRestClient, DictionaryApiSource)
 
     sealed interface Result {
         data class Found(val word: VocabWord, val fromOnline: Boolean) : Result

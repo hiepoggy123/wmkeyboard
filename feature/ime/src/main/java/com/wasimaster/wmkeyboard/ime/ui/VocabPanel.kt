@@ -47,6 +47,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -374,9 +377,7 @@ private fun VocabCard(
                 .take(2)
         }
         items(translations, key = { "tr${it.first}" }) { (code, glosses) ->
-            val romans = glosses.r.filter { it.isNotEmpty() }
-            val lead = if (VocabLanguages.prefersRomanized(code, enabledIds) && romans.isNotEmpty()) romans else glosses.w
-            val tail = if (lead === romans) glosses.w else romans
+            val romanizedFirst = VocabLanguages.prefersRomanized(code, enabledIds)
             Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.Top) {
                 Text(
                     VocabLanguages.displayName(code),
@@ -385,8 +386,19 @@ private fun VocabCard(
                     modifier = Modifier.width(66.dp).padding(top = 2.dp),
                 )
                 Column {
-                    Text(lead.joinToString(", "), color = kb.modifierKeyText, fontSize = 13.sp)
-                    if (tail.isNotEmpty()) Text(tail.joinToString(", "), color = kb.toolbarIcon, fontSize = 11.sp)
+                    // One line per gloss, its romanisation smaller beside it.
+                    for (gloss in glosses.glosses()) {
+                        val lead = if (romanizedFirst && gloss.roman != null) gloss.roman else gloss.word
+                        val trail = if (romanizedFirst && gloss.roman != null) gloss.word else gloss.roman
+                        Text(
+                            buildAnnotatedString {
+                                append(lead)
+                                if (trail != null) withStyle(SpanStyle(color = kb.toolbarIcon, fontSize = 11.sp)) { append("  ·  $trail") }
+                            },
+                            color = kb.modifierKeyText,
+                            fontSize = 13.sp,
+                        )
+                    }
                 }
             }
         }
@@ -482,14 +494,36 @@ private fun VocabSenseRow(
             }
             if (shown(VocabCardField.QUOTATIONS)) {
                 for (quote in sense.quotations) {
-                    Text(
-                        "“${quote.text}” — ${quote.ref}",
-                        color = kb.toolbarIcon,
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp,
-                        fontFamily = serif,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
+                    Row(modifier = Modifier.padding(top = 3.dp), verticalAlignment = Alignment.Top) {
+                        Text(
+                            quote.year ?: "·",
+                            color = kb.accent,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.width(38.dp).padding(top = 1.dp),
+                        )
+                        Column {
+                            Text(
+                                "“${quote.text}”",
+                                color = kb.toolbarIcon,
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp,
+                                fontStyle = FontStyle.Italic,
+                                fontFamily = serif,
+                            )
+                            val citation = quote.citation
+                            if (citation.isNotEmpty()) {
+                                Text(
+                                    citation,
+                                    color = kb.toolbarIcon,
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
                 }
             }
             if (shown(VocabCardField.TOPICS) && sense.topics.isNotEmpty()) {
