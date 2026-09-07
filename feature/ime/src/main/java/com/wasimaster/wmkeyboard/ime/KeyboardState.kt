@@ -1874,7 +1874,9 @@ data class KeyboardUiState(
      * and learning are gated on [allowsTypingIntelligence] and gesture typing
      * on [allowsGestureTyping] instead, so a field that silences the strip
      * keeps all of those. The
-     * "Suggestions in every field" setting can override this for text fields.
+     * "Suggestions in every field" setting can override this for text and URL
+     * fields; in a URL field the strip it shows is also what lets the words
+     * typed there compose ([composesForSuggestions]).
      */
     val fieldNoSuggestions: Boolean = false,
     /**
@@ -2100,8 +2102,9 @@ data class KeyboardUiState(
 
     /**
      * Whether to run the full typing engine — autocorrect, apostrophe fixes,
-     * phonetic (Avro) composing and lexicon learning. (Gesture typing has its
-     * own, slightly wider gate: [allowsGestureTyping].) These
+     * phonetic (Avro) composing and lexicon learning. (Gesture typing and word
+     * completion have their own, slightly wider gates: [allowsGestureTyping]
+     * and [composesForSuggestions].) These
      * belong to prose entry, so they apply to plain text fields only and are
      * deliberately independent of [fieldNoSuggestions]: an app that hides the
      * suggestion strip (Instagram, Google Keep) must not also lose autocorrect
@@ -2125,6 +2128,26 @@ data class KeyboardUiState(
      */
     val allowsGestureTyping: Boolean
         get() = !secureField && (fieldKind == FieldKind.TEXT || fieldKind == FieldKind.URI)
+
+    /**
+     * Whether the letters typed here are gathered into a word for the strip to
+     * complete. Plain text fields, and a URL bar once "Suggestions in every
+     * field" has put the strip on it (#98): a browser's address bar is typed
+     * as a search box as often as an address box, the same reading #37 gave
+     * [allowsGestureTyping]. The word composed there feeds the strip and
+     * nothing else — autocorrect, learning and the caret-word resume keep to
+     * [allowsTypingIntelligence] — so an address is completed on request and
+     * never second-guessed. Email fields stay out with the rest of the
+     * structured kinds: an address has no dictionary words to complete. With
+     * the strip hidden ([fieldNoSuggestions]) a URL bar does not compose at
+     * all, since composing there would have nothing to show; a text field
+     * still does, because autocorrect reads the same buffer.
+     */
+    val composesForSuggestions: Boolean
+        get() = settings.suggestions && !secureField && (
+            fieldKind == FieldKind.TEXT ||
+                (fieldKind == FieldKind.URI && !fieldNoSuggestions)
+            )
 
     /**
      * Whether the focused field takes any image at all through commitContent.

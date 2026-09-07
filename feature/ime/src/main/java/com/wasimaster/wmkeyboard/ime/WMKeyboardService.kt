@@ -5202,7 +5202,9 @@ open class WMKeyboardService : InputMethodService() {
         // Avro is a transliterating input method: its composing must run even
         // in password fields and with the strip off, or the roman keys commit
         // untransliterated and no Bengali is produced. English composing only
-        // exists to feed suggestions, so it stays gated on those.
+        // exists to feed suggestions, so it stays gated on those
+        // ([KeyboardUiState.composesForSuggestions] — which is also what lets a
+        // URL bar compose once the strip is on it, #98).
         //
         // Fancy Text never composes: the styled glyphs have no dictionary, and
         // half of them are astral pairs that would fail isWordChar anyway —
@@ -5216,10 +5218,8 @@ open class WMKeyboardService : InputMethodService() {
         // keypress and drops the region again. So: never starts a buffer, always
         // continues the one it was handed, and the next word boundary ends it.
         val composingMode = fancyStyle == null &&
-            (!state.composer.isClusterShaping || composing.isNotEmpty()) && (
-            state.composer.isTransliterating ||
-                (state.allowsTypingIntelligence && state.settings.suggestions)
-            )
+            (!state.composer.isClusterShaping || composing.isNotEmpty()) &&
+            (state.composer.isTransliterating || state.composesForSuggestions)
 
         // ":" on a word boundary opens inline emoji search: the colon and the
         // letters after it go into the composing buffer, and refreshSuggestions
@@ -20324,10 +20324,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun hardwareIntercepts(state: KeyboardUiState): Boolean {
         val composingMode = (!state.composer.isClusterShaping || composing.isNotEmpty()) &&
-            (
-                state.composer.isTransliterating ||
-                    (state.allowsTypingIntelligence && state.settings.suggestions)
-                )
+            (state.composer.isTransliterating || state.composesForSuggestions)
         return composingMode || state.emojiSearchActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
             state.dictionarySearchActive || state.clipboardSearchActive ||
