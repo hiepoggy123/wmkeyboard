@@ -9234,15 +9234,29 @@ internal class GlidePickerState {
     var anchorY = 0f
         private set
 
+    /**
+     * The height of the key the finger stopped on, which is the unit the
+     * targets are spaced in: one of these above the finger for the near
+     * targets, two for the middle one. Zero until the picker has opened over a
+     * key, and the overlay falls back to a target's own height there.
+     */
+    var anchorKeyPx = 0f
+        private set
+
     /** True while the picker is up, which is from its open until the lift. */
     val isOpen: Boolean
         get() = words.isNotEmpty()
 
-    /** Puts the first [limit] of [choices] on offer, anchored at [x], [y]. */
-    fun open(choices: List<String>, limit: Int, x: Float, y: Float) {
+    /**
+     * Puts the first [limit] of [choices] on offer, anchored at [x], [y], on a
+     * key [keyPx] tall — the spacing unit for the targets, and the same height
+     * the cancel zone is measured in.
+     */
+    fun open(choices: List<String>, limit: Int, x: Float, y: Float, keyPx: Float = 0f) {
         words = choices.take(limit.coerceIn(MIN_TARGETS, MAX_TARGETS))
         anchorX = x
         anchorY = y
+        anchorKeyPx = keyPx
         hover = -1
         cancelling = false
         rects.fill(Rect.Zero)
@@ -10897,15 +10911,20 @@ private fun KeyRows(
                     // target used to keep feeding the decoder, so the word the
                     // picker showed was not the word the lift decoded (#96).
                     fun askHere() {
+                        // The anchor key's height is both the cancel zone's
+                        // depth and the unit the targets are spaced in, so it
+                        // is read once and handed to the picker.
+                        val keyHeight = liveRects.value
+                            .cellAt(Offset(dwell.stillX, dwell.stillY) + boxOrigin)?.height
+                            ?: keyWidth.value
                         picker.open(
                             glideChoices.value,
                             glideSettings.value.pickerChoices,
                             dwell.stillX,
                             dwell.stillY,
+                            keyHeight,
                         )
-                        cancelBelowPx = liveRects.value
-                            .cellAt(Offset(dwell.stillX, dwell.stillY) + boxOrigin)?.height
-                            ?: keyWidth.value
+                        cancelBelowPx = keyHeight
                         // The trail fades where it is; its head stops following
                         // the finger.
                         trail.release()
@@ -11645,16 +11664,22 @@ private fun GlideOverlay(
     // short one clips the pill.
     val words = picker.words
     val cancelling = picker.cancelling
+    // The targets are spaced in the anchor key's heights, so a picker that
+    // opened off the grid falls back to a target's own height.
+    val keyPx = picker.anchorKeyPx.takeIf { it > 0f }
+        ?: with(density) { GlidePickerHeight.toPx() }
     // Four or five words may need a second row; estimated from the count
     // rather than measured, for the same reason the pill's height is.
     val pickerRows = if (words.size <= GlidePickerRowMax) 1 else 2
     val headroomPx = with(density) {
         val pillHeight = glide.wordPreviewFontSp.sp.toPx() * GlidePillLineHeightRatio +
             (GlidePillPaddingV * 2).toPx()
-        maxOf(
-            pillHeight.roundToInt() + gapPx,
-            (GlidePickerHeight * pickerRows + GlidePickerGap * (pickerRows + 1)).roundToPx(),
-        )
+        val targetPx = GlidePickerHeight.toPx()
+        // The arc's peak — the far slot's centre, plus half a target — and a
+        // second row stacked above it.
+        val pickerPx = GlidePickerFarLift * keyPx + targetPx / 2 +
+            if (pickerRows > 1) GlidePickerGap.toPx() + targetPx else 0f
+        maxOf(pillHeight.roundToInt() + gapPx, pickerPx.roundToInt())
     }
     Popup(
         popupPositionProvider = remember(headroomPx) { GridOverlayPositionProvider(headroomPx) },
@@ -11709,31 +11734,72 @@ private fun GlideOverlay(
                 }
                 if (targets.isNotEmpty()) {
                     val rowHeight = targets.maxOf { it.height }
-                    val leaderRow = pickerLeaderRowCount(
-                        IntArray(targets.size) { targets[it].width },
-                        pickerGapPx,
-                        width,
-                    )
+                    val widths = IntArray(targets.size) { targets[it].width }
+                    val leaderRow = pickerLeaderRowCount(widths, pickerGapPx, width)
                     val rows = listOf(0 until leaderRow, leaderRow until targets.size)
                         .filter { !it.isEmpty() }
-                    // The leader's row hugs where the finger stopped, pushed
-                    // clear of it; a second row stacks above. The headroom
-                    // already covers both, so the clamp only ever catches the
-                    // bottom row on a stroke that stopped at the top edge.
-                    val bottomY = (picker.anchorY + headroomPx - pickerGapPx - rowHeight).toInt()
-                        .coerceAtLeast((rows.size - 1) * (rowHeight + pickerGapPx))
-                    rows.forEachIndexed { r, range ->
-                        // Centred on the anchor, then clamped so the row never
-                        // leaves the window.
-                        val rowWidth = range.sumOf { targets[it].width } + pickerGapPx * (range.count() - 1)
-                        var x = (picker.anchorX - rowWidth / 2f).toInt()
+                    // Where a row's slots sit, given the widths that end up in
+                    // it. The leader's row arcs around the fingertip — its
+                    // middle slot a whole second key clear, so the word a
+                    // straight flick up reaches is never the one a short
+                    // diagonal does — and a second row is flat above the arc's
+                    // peak. The headroom already covers both, so the clamps
+                    // only ever catch a stroke that stopped near the top edge.
+                    fun rowLeft(range: IntRange, of: (Int) -> Int): Int {
+                        val rowWidth = range.sumOf(of) + pickerGapPx * (range.count() - 1)
+                        return (picker.anchorX - rowWidth / 2f).toInt()
                             .coerceIn(0, (width - rowWidth).coerceAtLeast(0))
-                        val y = bottomY - r * (rowHeight + pickerGapPx)
-                        for (index in range) {
+                    }
+                    fun slotTop(row: Int, lift: Float): Int {
+                        val centre = if (row == 0) {
+                            picker.anchorY - lift * keyPx
+                        } else {
+                            picker.anchorY - GlidePickerFarLift * keyPx - rowHeight - pickerGapPx
+                        }
+                        return (centre + headroomPx - rowHeight / 2f).toInt()
+                            .coerceIn(0, (height - rowHeight).coerceAtLeast(0))
+                    }
+                    // Pass one: where the slots are, measured with the words
+                    // still in decoder order. Only the ranking below decides
+                    // which word lands in which of them, so these centres are
+                    // an estimate — a slot's own width changes with its word —
+                    // and an estimate is all the ranking needs.
+                    val centreX = FloatArray(targets.size)
+                    val slotLift = FloatArray(targets.size)
+                    rows.forEachIndexed { r, range ->
+                        val lifts = pickerRowLifts(range.count())
+                        var x = rowLeft(range) { widths[it] }
+                        range.forEachIndexed { p, slot ->
+                            centreX[slot] = x + widths[slot] / 2f
+                            // A second row sits above the arc's peak, so every
+                            // slot in it is further from the finger than every
+                            // slot in the leader's row.
+                            slotLift[slot] = if (r == 0) {
+                                lifts[p]
+                            } else {
+                                GlidePickerFarLift + (rowHeight + pickerGapPx) / keyPx
+                            }
+                            x += widths[slot] + pickerGapPx
+                        }
+                    }
+                    // Pass two: the best word into the slot nearest the finger,
+                    // the next into the next nearest, and so on — so whichever
+                    // way the stroke ended, the shortest move commits the
+                    // likeliest word.
+                    val wordAt = pickerWordAtSlot(centreX, slotLift, picker.anchorX)
+                    rows.forEachIndexed { r, range ->
+                        val lifts = pickerRowLifts(range.count())
+                        var x = rowLeft(range) { targets[wordAt[it]].width }
+                        range.forEachIndexed { p, slot ->
+                            val index = wordAt[slot]
                             val target = targets[index]
+                            val y = slotTop(r, lifts[p])
                             target.place(x, y)
                             // The grid's space is this window's, less the
-                            // headroom on top.
+                            // headroom on top. The rectangle is filed under the
+                            // word's own index, not the slot's, because that is
+                            // what the pointer loop hit-tests and what a lift
+                            // commits.
                             val top = (y - headroomPx).toFloat()
                             picker.place(
                                 index,
@@ -12690,6 +12756,53 @@ internal fun pickerLeaderRowCount(widths: IntArray, gapPx: Int, maxWidth: Int): 
     val total = widths.sum() + gapPx * (widths.size - 1).coerceAtLeast(0)
     return if (total <= maxWidth) widths.size else (widths.size + 1) / 2
 }
+
+/**
+ * How far above the fingertip each slot of a row of [count] rides, in the
+ * anchor key's heights: one key for the slots off to either side, two for the
+ * one in the middle. The middle slot is the one a straight flick up runs into,
+ * and at a single key it sat so close to the near slots that the three read as
+ * one blob under the finger; a second key of clearance makes the straight move
+ * and the diagonal ones plainly different moves. A row with no single middle —
+ * two targets, or four — is all near slots.
+ */
+internal fun pickerRowLifts(count: Int): FloatArray = FloatArray(count) { slot ->
+    if (count % 2 == 1 && slot == count / 2) GlidePickerFarLift else GlidePickerNearLift
+}
+
+/**
+ * Which word goes in which slot: the likeliest into the nearest slot to where
+ * the finger is holding, the next into the next nearest, and so on down.
+ * Returns the word's index for each slot, in slot order.
+ *
+ * Near means [lifts] first — how far above the finger the slot rides, in key
+ * heights — and only then how far off to the side of [anchorX] its centre sits.
+ * Ordering on the straight-line distance instead would have the raised middle
+ * slot come out nearest whenever the words are wide, which is the one thing the
+ * arc exists to prevent: a slot deliberately put a second key away should not
+ * then be handed the word the user most likely wants.
+ *
+ * Within a tier the stroke decides: one that ended against the left edge has
+ * its row clamped there and the leftmost slot nearest, one that ended mid-board
+ * is even between the two slots at its sides and the tie goes to the left, so
+ * the leader sits left of the runner-up rather than swapping with it as the
+ * words change width.
+ */
+internal fun pickerWordAtSlot(centreX: FloatArray, lifts: FloatArray, anchorX: Float): IntArray {
+    val slots = centreX.indices.sortedWith(
+        compareBy({ lifts[it] }, { abs(centreX[it] - anchorX) }),
+    )
+    val wordAt = IntArray(centreX.size)
+    slots.forEachIndexed { word, slot -> wordAt[slot] = word }
+    return wordAt
+}
+
+/**
+ * The two distances a picker target sits from the fingertip, in the anchor
+ * key's heights, measured centre to fingertip. See [pickerRowLifts].
+ */
+private const val GlidePickerNearLift = 1f
+private const val GlidePickerFarLift = 2f
 
 /** The pill's vertical padding; [GlideOverlay]'s headroom estimate counts it twice. */
 private val GlidePillPaddingV = 6.dp
