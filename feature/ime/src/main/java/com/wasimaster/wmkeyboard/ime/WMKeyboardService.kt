@@ -1377,6 +1377,14 @@ open class WMKeyboardService : InputMethodService() {
     /** Active offline-Whisper capture, when the Whisper engine is in use. */
     private var whisperRecorder: WhisperRecorder? = null
     /**
+     * The model and language [whisperRecorder] was started against. Recording
+     * can run for up to 30 seconds, during which the user can switch the
+     * keyboard's language or pick a different Whisper model in Settings;
+     * transcription must use what the clip was actually captured for, not
+     * whatever [whisperModel] resolves to when the clip finishes.
+     */
+    private var whisperCapture: Pair<WhisperModel, String>? = null
+    /**
      * True while a key from the voice panel's own action rail is being
      * dispatched, so it does not end the dictation session the way typing on the
      * keyboard does. See [onVoiceRailKey].
@@ -4640,7 +4648,7 @@ open class WMKeyboardService : InputMethodService() {
 
     private fun onTextKey(key: Key) {
         val keyman = key.action as? KeyAction.KeymanKey
-        if (keyman != null && onKeymanKey(key, keyman)) {
+        if (keyman != null && onKeymanKey(keyman)) {
             // The engine typed instead of [processTypedText], which is where a
             // Text key normally spends these. Leaving them armed would hand a
             // later key a space it did not earn.
@@ -4663,7 +4671,7 @@ open class WMKeyboardService : InputMethodService() {
      * buffer owns the keys, or the engine declined — and the caller then types
      * the key the ordinary way.
      */
-    private fun onKeymanKey(key: Key, keyman: KeyAction.KeymanKey): Boolean {
+    private fun onKeymanKey(keyman: KeyAction.KeymanKey): Boolean {
         val session = keymanSession ?: return false
         val state = _uiState.value
         // While a search box or a typing test owns the keys, what the user types
@@ -12064,6 +12072,7 @@ open class WMKeyboardService : InputMethodService() {
      * mic level while recording.
      */
     private fun startWhisperCapture(model: WhisperModel, generation: Int) {
+        whisperCapture = model to _uiState.value.language.id
         val recorder = WhisperRecorder(
             onLevel = { level ->
                 if (generation != voiceGeneration) return@WhisperRecorder
@@ -12102,10 +12111,12 @@ open class WMKeyboardService : InputMethodService() {
     private fun finishWhisper(userStopped: Boolean) {
         val recorder = whisperRecorder ?: return
         whisperRecorder = null
+        val capture = whisperCapture
+        whisperCapture = null
+        val model = capture?.first
+        val languageId = capture?.second ?: _uiState.value.language.id
         val gen = voiceGeneration
         val tag = _uiState.value.voice.languageTag
-        val model = whisperModel()
-        val languageId = _uiState.value.language.id
         // Grouped graphs take the language as an input, so hand them the language
         // being typed in rather than letting them guess from a short clip.
         val langToken = model?.langTokenFor(languageId)
