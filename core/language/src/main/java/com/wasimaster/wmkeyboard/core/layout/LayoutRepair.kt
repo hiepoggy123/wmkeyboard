@@ -608,6 +608,19 @@ internal fun Key.repairKey(
     if (fixed.longPress.any { it.isEmpty() }) {
         fixed = fixed.copy(longPress = fixed.longPress.filter { it.isNotEmpty() })
     }
+    // Quietly, unlike the span above: a column count outside the range is not a
+    // key that cannot draw, it is a popup that would lay itself out oddly. A
+    // count below the range rounds up into it rather than falling back to the
+    // global, because a file asking for two columns wants a narrow popup.
+    if (fixed.alternateColumns != 0 && fixed.alternateColumns !in AlternateColumnsRange) {
+        fixed = fixed.copy(
+            alternateColumns = if (fixed.alternateColumns < 0) {
+                0
+            } else {
+                fixed.alternateColumns.coerceIn(AlternateColumnsRange)
+            },
+        )
+    }
     // The same treatment for the action alternates, and quietly for the same
     // reason: an entry that cannot do anything is a popup button that is visibly
     // there and silently dead. Unusable means either an action from a newer

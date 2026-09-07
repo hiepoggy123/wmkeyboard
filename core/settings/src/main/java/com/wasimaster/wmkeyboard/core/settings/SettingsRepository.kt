@@ -34,6 +34,7 @@ import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
 import com.wasimaster.wmkeyboard.prediction.R as PredictionR
 import com.wasimaster.wmkeyboard.core.snippets.MultiExpandMode
+import com.wasimaster.wmkeyboard.core.layout.AlternateColumnsRange
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
@@ -9419,10 +9420,11 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAlternatesPaddingDp(value: Int) =
         editPrefs { it[ALTERNATES_PADDING] = value.coerceIn(0, 32) }
 
-    /** 0 is the automatic wrap; anything else is clamped into 3..11. */
+    /** 0 is the automatic wrap; anything else is clamped into [AlternateColumnsRange]. */
     suspend fun setAlternatesColumns(value: Int) =
         editPrefs {
-            it[ALTERNATES_COLUMNS] = if (value <= 0) 0 else value.coerceIn(3, 11)
+            it[ALTERNATES_COLUMNS] =
+                if (value <= 0) 0 else value.coerceIn(AlternateColumnsRange)
         }
 
     suspend fun setAlternatesNearestFirst(value: Boolean) =

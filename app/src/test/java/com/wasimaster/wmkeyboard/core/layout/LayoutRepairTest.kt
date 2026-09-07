@@ -196,6 +196,33 @@ class LayoutRepairTest {
     }
 
     /**
+     * Issue #64. Quietly, unlike the braille dot: an odd column count draws a
+     * strange popup rather than a layout that cannot be enabled, so it is
+     * normalised without a note and without blocking.
+     */
+    @Test
+    fun `an alternates column count outside the range is clamped quietly`() {
+        val spec = letters(
+            listOf(
+                Key("a", longPress = listOf("@"), alternateColumns = 2),
+                Key("b", longPress = listOf("#"), alternateColumns = 40),
+                Key("c", longPress = listOf("$"), alternateColumns = -3),
+                Key("d", longPress = listOf("%"), alternateColumns = 6),
+            ) + usableBottomRow,
+        )
+
+        assertTrue(spec.canBeEnabled())
+
+        val repaired = spec.repair()
+        val keys = repaired.spec.lettersKeys().associateBy { it.label }
+        assertEquals(3, keys.getValue("a").alternateColumns)
+        assertEquals(11, keys.getValue("b").alternateColumns)
+        assertEquals(0, keys.getValue("c").alternateColumns)
+        assertEquals(6, keys.getValue("d").alternateColumns)
+        assertTrue("repair notes were ${repaired.repairNotes}", repaired.repairNotes.isEmpty())
+    }
+
+    /**
      * Repair's whole contract in one test: whatever went in, what comes out can
      * be turned on. A braille dot outside 1..6 used to slip through — validate
      * blocked it, repair had no branch for it, and the import sheet reported

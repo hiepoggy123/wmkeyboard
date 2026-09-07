@@ -87,6 +87,21 @@ data class Key(
      * popup's draw and its commit cannot disagree about which entry is which.
      */
     val actionAlternatesFirst: Boolean = false,
+    /**
+     * Columns this key's alternates popup lays itself out on, or 0 to follow the
+     * global setting (issue #64).
+     *
+     * Per key rather than only per keyboard because the popups differ in kind:
+     * the `1` key of a fractions layout carries a dozen entries that want a grid,
+     * while `e` carries four accents that want one row. A count that suits one is
+     * wrong for the other, and the point of fixing the count at all is that a
+     * given key's popup looks the same every time it opens.
+     *
+     * 0 is not a column count but the absence of one: the key defers to
+     * `KeyPopupSettings.alternatesColumns`, which is itself 0 (automatic wrap) by
+     * default. Anything else is in [AlternateColumnsRange].
+     */
+    val alternateColumns: Int = 0,
     /** Clipboard shortcut fired on long press instead of the alternates popup. */
     val clipboardAction: ClipboardKeyAction? = null,
     /** What this key means to field adaptation; null infers it from position. */
@@ -183,6 +198,16 @@ fun Key.opensAlternatesPopup(): Boolean =
  * question the layout editor asks before drawing the fields that author them.
  */
 fun Key.canHoldAlternates(): Boolean = clipboardAction == null && !action.holdIsSpokenFor()
+
+/**
+ * Column counts a fixed alternates grid may be set to, on [Key.alternateColumns]
+ * or on the global setting behind it.
+ *
+ * 0 is deliberately outside it: that value is "no count", not a count of none.
+ * Below three a popup is a list rather than a grid, and past eleven the entries
+ * are narrower than a fingertip on a phone.
+ */
+val AlternateColumnsRange: IntRange = 3..11
 
 /** One entry of the alternates popup: a character to type, or an action to run. */
 sealed interface AlternateEntry {

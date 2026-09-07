@@ -142,6 +142,7 @@ import com.wasimaster.wmkeyboard.ime.ui.rememberIconSet
 import kotlinx.coroutines.Dispatchers
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.mlkit.MlKitInit
+import com.wasimaster.wmkeyboard.core.layout.AlternateColumnsRange
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -2990,11 +2991,14 @@ internal fun StepperSetting(
 }
 
 /**
- * The column counts the alternates popup offers: the automatic wrap that shipped,
- * then 3 to 11. Fewer than three columns is a list rather than a grid, and past
- * eleven the entries are narrower than a fingertip on a phone.
+ * The steps the two column pickers walk: 0 first, then [AlternateColumnsRange].
+ *
+ * What 0 means depends on which picker it is. On the global setting it is the
+ * automatic wrap that shipped. On a key in the layout editor it is "no count of
+ * my own", which defers to that setting. The ladder is the same either way, so
+ * both read it from here.
  */
-internal val AlternatesColumnsRange: List<Int> = listOf(0) + (3..11)
+internal val AlternatesColumnsSteps: List<Int> = listOf(0) + AlternateColumnsRange
 
 /**
  * A settings row whose control is a button rather than a value: clear this,

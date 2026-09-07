@@ -41,6 +41,34 @@ class LayoutCodecTest {
         assertTrue(decoded.layer(LayoutLayer.LETTERS)!!.persistent)
     }
 
+    /** Issue #64: a key's own alternates column count rides the file, and 0 stays 0. */
+    @Test
+    fun `round trips a key's alternates column count`() {
+        val original = spec(
+            listOf(
+                Key("1", longPress = listOf("½", "⅓", "¼"), alternateColumns = 5),
+                Key("e", longPress = listOf("é", "è")),
+            ),
+        )
+        val decoded = LayoutCodec.decode(LayoutCodec.encode(original))
+        assertEquals(original, decoded)
+        val row = decoded!!.layer(LayoutLayer.LETTERS)!!.rows.first()
+        assertEquals(5, row[0].alternateColumns)
+        assertEquals(0, row[1].alternateColumns)
+    }
+
+    /** A file from before the field existed leaves every key on the global setting. */
+    @Test
+    fun `a layout written before alternate columns existed follows the setting`() {
+        val old = """
+            {"id":"custom_pre64","name":"Pre","langId":"en","version":2,
+             "layers":{"letters":{"rows":[[{"label":"a","longPress":["@"]}]]}}}
+        """.trimIndent()
+        val decoded = LayoutCodec.decode(old)
+        assertNotNull(decoded)
+        assertEquals(0, decoded!!.layer(LayoutLayer.LETTERS)!!.rows.first().first().alternateColumns)
+    }
+
     /** Issue #61: a layout's and a layer's theme ride the file, and resolve layer-first on the grid. */
     @Test
     fun `round trips a layout theme and a layer theme`() {

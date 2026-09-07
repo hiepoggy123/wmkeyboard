@@ -640,7 +640,7 @@ internal fun KeyPressSettings(
                 R.string.keypress_alternates_columns_title,
                 subtitle = stringResource(R.string.keypress_alternates_columns_subtitle),
                 value = settings.popup.alternatesColumns,
-                range = AlternatesColumnsRange,
+                range = AlternatesColumnsSteps,
                 // 0 is not a column count but the automatic wrap, so it steps in
                 // from 3 rather than 1 and reads as a word instead of a number.
                 display = {

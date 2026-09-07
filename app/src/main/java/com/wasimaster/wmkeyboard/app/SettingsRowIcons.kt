@@ -485,6 +485,7 @@ internal object SettingsRowIcons {
         put(R.string.layout_swap_comma_globe_title) { Icons.Outlined.SwapHoriz }
         put(R.string.layout_editor_action_row_title) { Icons.AutoMirrored.Outlined.KeyboardReturn }
         put(R.string.layout_editor_hint_title) { Icons.Outlined.Subtitles }
+        put(R.string.layout_editor_alternate_columns_title) { Icons.Outlined.ViewWeek }
         put(R.string.layout_editor_role_title) { Icons.Outlined.Tune }
         put(R.string.layout_editor_show_shift_title) { Icons.Outlined.KeyboardCapslock }
         put(R.string.layout_editor_tablet_expand_title) { Icons.Outlined.TabletAndroid }

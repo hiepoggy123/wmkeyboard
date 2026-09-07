@@ -231,6 +231,13 @@
     <!-- Small badge on the first alternate, which the keyboard also draws in the corner of the key. -->
     <string name="layout_editor_alternate_hint_badge">hint</string>
 
+    <!-- Per-key column count for the press and hold popup. The first step is not a
+         number: it hands the key back to the Alternate key columns setting. -->
+    <string name="layout_editor_alternate_columns_title">Columns in the popup</string>
+    <string name="layout_editor_alternate_columns_subtitle">How many alternates this key puts on a row</string>
+    <string name="layout_editor_alternate_columns_default">From settings</string>
+    <string name="layout_editor_alternate_columns_info">This is the column count for this key alone. Keys differ: a key with a dozen alternates reads better as a grid, and a key with three or four reads better as a single row.\n\nFrom settings leaves the key to the \"Alternate key columns\" setting under Key press, which is Automatic unless you changed it. A number from 3 to 11 gives this key that many columns whatever the setting says.</string>
+
     <!-- Popup entries that run something instead of typing a character. -->
     <string name="layout_editor_action_alternates_label">Actions for press and hold</string>
     <string name="layout_editor_action_alternates_hint">Extra entries in the same popup that do something instead of typing: Tab, voice typing, the editing pad. Tap one to change it.</string>

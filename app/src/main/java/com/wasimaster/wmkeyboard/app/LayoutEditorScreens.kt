@@ -2963,6 +2963,15 @@ internal fun KeyEditSheet(
                 ActionAlternatesRows(key.actionAlternates, secondaryLayouts) { alternatesList ->
                     onChange { it.copy(actionAlternates = alternatesList) }
                 }
+
+                // Only once the key has a popup to shape. A column count on a
+                // key with no alternates is a control for something the user
+                // cannot see, and this sheet is long enough already.
+                if (key.opensAlternatesPopup()) {
+                    AlternateColumnsRow(key.alternateColumns) { columns ->
+                        onChange { it.copy(alternateColumns = columns) }
+                    }
+                }
             }
 
             if (key.action == KeyAction.Text) {
@@ -3423,6 +3432,32 @@ private fun keyHintMode(key: Key): KeyHintMode = when {
     key.hideHint -> KeyHintMode.Never
     key.forceHint -> KeyHintMode.Always
     else -> KeyHintMode.Auto
+}
+
+/**
+ * This key's own alternates column count (issue #64).
+ *
+ * A key rather than the keyboard, because that is what the count is for: a `1`
+ * carrying a dozen fractions wants a grid, an `e` carrying four accents wants one
+ * row, and one number cannot be right for both. The first step is not a count at
+ * all but "follow the setting", which is where every key starts and where the
+ * global **Alternate key columns** row takes over.
+ */
+@Composable
+private fun AlternateColumnsRow(columns: Int, onChange: (Int) -> Unit) {
+    // Read out here rather than inside `display`: that is a plain lambda, and
+    // stringResource needs a composition.
+    val followsSetting = stringResource(R.string.layout_editor_alternate_columns_default)
+    StepperSetting(
+        title = R.string.layout_editor_alternate_columns_title,
+        subtitle = stringResource(R.string.layout_editor_alternate_columns_subtitle),
+        value = columns,
+        range = AlternatesColumnsSteps,
+        display = { if (it == 0) followsSetting else it.toString() },
+        info = stringResource(R.string.layout_editor_alternate_columns_info),
+        default = 0,
+        onChange = onChange,
+    )
 }
 
 /** Which slot this key fills for field adaptation, or none. */

@@ -13115,7 +13115,10 @@ private fun AlternatesPopup(
             shadowElevation = elevationFor(kb.popupShapeKind, 8.dp),
         ) {
             AlternatesGrid(
-                columns = popup.alternatesColumns,
+                // The key's own count wins, and 0 there means it has none of its
+                // own rather than "wrap": a key set to 5 keeps 5 whatever the
+                // setting says, and every other key follows the setting.
+                columns = key.alternateColumns.takeIf { it > 0 } ?: popup.alternatesColumns,
                 nearestFirst = popup.alternatesNearestFirst,
                 onRects = hold?.let { { rects: List<Rect> -> it.rects = rects } },
                 modifier = Modifier
@@ -13170,6 +13173,9 @@ private fun AlternatesPopup(
 
 /**
  * The alternates, laid out in rows.
+ *
+ * [columns] is the key's own [Key.alternateColumns] where it has one and the
+ * global setting otherwise; the popup only sees the resolved number.
  *
  * [columns] of 0 wraps on measured width — an entry starts a new row when it
  * would not fit on this one — which is the [FlowRow] behaviour this replaced,
