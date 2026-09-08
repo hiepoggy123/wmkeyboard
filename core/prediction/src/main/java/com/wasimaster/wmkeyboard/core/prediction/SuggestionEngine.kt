@@ -1464,15 +1464,6 @@ class SuggestionEngine(
         private const val PACK_COUNT_SCALE = 50
 
         /**
-         * The `limit` [octopusWords] hands [rankedFor] — deliberately the same
-         * as [suggest]'s default, because that is what makes the octopus free:
-         * the ranked walk is memoised on its arguments, so asking with the same
-         * `limit`, taps and key sets moments after the strip did is a cache hit
-         * rather than a second walk.
-         */
-        private const val OCTOPUS_WALK_LIMIT = 5
-
-        /**
          * How far below the board's best word a candidate may score and still
          * float, in the beam's log-space units — about a fifty-fold frequency
          * ratio. Without a floor, sparse mode always paints exactly as many
@@ -1488,20 +1479,17 @@ class SuggestionEngine(
          */
         private const val OCTOPUS_MIN_PREFIX = 2
 
-        /** A two-edit correction floating over a key is a guess that reads as
-         * noise, whatever its score. */
-        private const val OCTOPUS_MAX_EDITS = 1
-
         /** The strip's words arrive order-ranked, not scored; this is the
          * synthetic step between consecutive places. */
         private const val OCTOPUS_STRIP_STEP = 0.5
 
-        /** How far below the strip's worst word the walk's own extras start, so
-         * a key the strip has an opinion about always keeps the strip's. */
-        private const val OCTOPUS_EXTRA_GAP = 1.0
-
-        /** The step between consecutive extras inside that band. */
-        private const val OCTOPUS_EXTRA_STEP = 0.01
+        /**
+         * How far down the ranked list a *correction* may still float. The
+         * strip's own depth: past it the engine is no longer offering a
+         * plausible reading of the buffer, it is offering its next-best guess,
+         * and those read as noise sitting beside real completions.
+         */
+        private const val OCTOPUS_CORRECTION_DEPTH = 5
 
         /** Dense-mode filler sits this far below the worst ranked candidate, so
          * the words the engine actually ranked keep their own keys and the fan
@@ -1770,8 +1758,6 @@ class SuggestionEngine(
      * @param composing the word currently being typed (may be empty)
      * @param previousWord last committed word, for the empty-buffer case
      * @param previousWord2 the word before it, for trigram context
-     * @param touch per-character tap positions, passed through so the ranked
-     *        walk this reads is the one [suggest] already memoised
      * @param keys which letters each keystroke could have meant, on a board
      *        that puts several on a key
      * @param limit how many words may float at once — the density setting, 3
@@ -1789,7 +1775,6 @@ class SuggestionEngine(
         composing: String,
         previousWord: String?,
         previousWord2: String? = null,
-        touch: List<TouchPoint?>? = null,
         keys: KeySets? = null,
         limit: Int = 4,
         kinds: Set<OctopusKind> = OctopusKind.entries.toSet(),
@@ -1825,34 +1810,32 @@ class SuggestionEngine(
                 OctopusKind.CORRECTION
             }
             if (kind !in kinds) continue
+            // A completion is worth floating however far down the list it sits:
+            // it genuinely does carry on from what has been typed, and the key
+            // it lands on is a key nothing better wanted. A correction is not.
+            // It is the engine's guess at what was *meant*, and its twentieth
+            // guess is noise — that is where "cop" came from beside four good
+            // completions of "comp". So corrections only float from the head of
+            // the list, the part the strip itself would have shown.
+            if (kind == OctopusKind.CORRECTION && place >= OCTOPUS_CORRECTION_DEPTH) continue
             candidates.add(OctopusCandidate(word, -place * OCTOPUS_STRIP_STEP, kind))
         }
-        // Then, below every one of them, whatever else the walk can reach: the
-        // strip is a handful of words and a board has thirty keys, so the rest
-        // fills keys the strip never had room to speak for. Never above them,
-        // so a key the strip has an opinion about keeps the strip's word.
-        if (lower.length >= OCTOPUS_MIN_PREFIX) {
-            val floor = (candidates.minOfOrNull { it.score } ?: 0.0) - OCTOPUS_EXTRA_GAP
-            val ambiguous = keys?.isAmbiguous == true
-            // The same gate the strip uses: a word the dictionaries already
-            // know is not a typo, so nothing may float over it claiming a fix.
-            val known = !ambiguous && (inDictionaries(lower) || userLexicon.contains(lower))
-            val taken = candidates.mapTo(HashSet()) { it.word.lowercase() }
-            val extras = ArrayList<OctopusCandidate>()
-            for (c in rankedFor(lower, OCTOPUS_WALK_LIMIT, touch, keys)) {
-                val kind = if (c.edits == 0) OctopusKind.COMPLETION else OctopusKind.CORRECTION
-                if (kind !in kinds) continue
-                if (kind == OctopusKind.CORRECTION && (known || c.edits > OCTOPUS_MAX_EDITS)) continue
-                if (suppressed(c.word) || c.word.lowercase() in taken) continue
-                extras.add(OctopusCandidate(c.word, c.score, kind, c.edits))
-            }
-            extras.sortByDescending { it.score }
-            extras.forEachIndexed { place, extra ->
-                candidates.add(extra.copy(score = floor - place * OCTOPUS_EXTRA_STEP))
-            }
-            if (dense && OctopusKind.COMPLETION in kinds) {
-                candidates.addAll(octopusFan(lower, candidates))
-            }
+        // Nothing else is added. The raw walk was tried here, to fill the keys
+        // the strip's words left bare, and it is what made the feature feel
+        // useless: beside "help" and "held" it hung "helen", "helicopter" and
+        // "helmet" on the free keys, and for "comp" it offered "cop" — a
+        // correction — next to four good completions. Those are words the
+        // ranking had already decided against.
+        //
+        // So the board goes quiet instead. The density is a cap on how many
+        // words may float, never a quota to be met: three good words and room
+        // for six means three words. The way to fill more keys is to look
+        // further down the *same* ranked list, which is what the caller does by
+        // asking [suggest] for a deeper one — every word in it has been through
+        // the whole engine. Dense mode is the one exception, and it is asking
+        // for the board to be filled in so many words.
+        if (dense && OctopusKind.COMPLETION in kinds && lower.length >= OCTOPUS_MIN_PREFIX) {
+            candidates.addAll(octopusFan(lower, candidates))
         }
         if (candidates.isEmpty()) return emptyList()
         return assignOctopus(composing, candidates, keys, keyOf, limit, spread)

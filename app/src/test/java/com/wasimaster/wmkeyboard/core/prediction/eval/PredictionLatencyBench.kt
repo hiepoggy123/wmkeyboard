@@ -61,17 +61,20 @@ class PredictionLatencyBench {
          * because a board with the feature off must not pay for it and dense
          * mode's fan-out must not sit under `suggest`'s own ceiling.
          *
-         * Baseline 2026-09-08, same desktop JVM:
+         * Baseline 2026-09-08, same desktop JVM, measured back to back:
          * ```
-         * octopus sparse (after suggest)  p50 0.01ms   p99 0.03ms
-         * octopus sparse (cold)           p50 0.36ms   p99 0.60ms
-         * octopus dense                   p50 0.60ms   p99 1.10ms
+         * octopus keystroke (deep suggest + keys)  p50 0.82ms   p99 1.79ms
+         * strip alone, feature off                 p50 0.71ms   p99 1.25ms
+         * octopus dense                            p50 0.62ms   p99 1.28ms
          * ```
-         * Sparse after a suggest is the real hot path and is nearly free: it
-         * reads the ranked walk that call just memoised. Sparse cold is the
-         * same work with that cache missed, which is the defence that matters
-         * — if the two memoisation keys ever drift apart, every keystroke pays
-         * a second walk and this is where it shows.
+         * About a tenth of a millisecond per keystroke for the whole feature.
+         * The deeper `suggest` is most of it: the beam searches to
+         * `max(limit * 2, WALK_K)`, so asking for 24 words widens it from 32 to
+         * 48. The octopus's own half is nearly free — it reads a list the strip
+         * already had.
+         *
+         * Compare the two lines rather than either alone; a busy machine moves
+         * both together and only the gap between them is this feature's.
          */
         const val OCTOPUS_P50_CEILING_MS = 2.0
         const val OCTOPUS_P99_CEILING_MS = 8.0
@@ -151,35 +154,38 @@ class PredictionLatencyBench {
         // A 1:1 Latin board: every letter is its own key.
         val keyOf: (Int) -> Int = { it }
 
-        // The production shape: the strip's own walk, then the octopus reading
-        // it. This is what a keystroke actually costs with the feature on.
-        val warmNs = measure("octopus sparse warm") { i ->
+        // The production shape. With the octopus on, the service asks suggest
+        // for a deeper list than the strip shows — the keys have room for more
+        // words, and several ranked words want the same key — then hands that
+        // list over. Both halves are measured together because that is what one
+        // keystroke now costs.
+        val deepNs = measure("octopus sparse warm") { i ->
             val typed = cases[i % cases.size].typed
-            engine.suggest(typed, previousWord = null)
-            engine.octopusWords(typed, previousWord = null, limit = 4, keyOf = keyOf)
+            val deep = engine.suggest(typed, previousWord = null, limit = 24)
+            engine.octopusWords(typed, previousWord = null, limit = 6, pool = deep, keyOf = keyOf)
         }
-        // The same ask with the cache missed. If the two memoisation keys ever
-        // drift apart, this is what the warm case quietly becomes.
-        val coldNs = measure("octopus sparse cold") { i ->
-            engine.octopusWords(
-                cases[i % cases.size].typed, previousWord = null, limit = 4, keyOf = keyOf,
-            )
+        // The strip alone, for the difference: this is what the same keystroke
+        // costs with the feature off.
+        val stripNs = measure("strip alone") { i ->
+            engine.suggest(cases[i % cases.size].typed, previousWord = null)
         }
+        val warmNs = deepNs
+        val coldNs = stripNs
         val denseNs = measure("octopus dense") { i ->
             val typed = cases[i % cases.size].typed
-            engine.suggest(typed, previousWord = null)
+            val deep = engine.suggest(typed, previousWord = null, limit = 24)
             engine.octopusWords(
-                typed, previousWord = null, limit = 26, dense = true, keyOf = keyOf,
+                typed, previousWord = null, limit = 26, dense = true, pool = deep, keyOf = keyOf,
             )
         }
 
-        report("octopus sparse (after suggest)", warmNs)
-        report("octopus sparse (cold)", coldNs)
+        report("octopus keystroke (deep suggest + keys)", warmNs)
+        report("strip alone, feature off", coldNs)
         report("octopus dense", denseNs)
 
         if (System.getProperty("wmkeyboard.benchAssert") != "false") {
             for ((name, samples) in listOf(
-                "sparse warm" to warmNs, "sparse cold" to coldNs, "dense" to denseNs,
+                "keystroke" to warmNs, "strip alone" to coldNs, "dense" to denseNs,
             )) {
                 val p50 = percentile(samples, 50.0) / 1e6
                 val p99 = percentile(samples, 99.0) / 1e6

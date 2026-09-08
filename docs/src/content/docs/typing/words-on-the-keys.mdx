@@ -28,7 +28,7 @@ It is off by default. The suggestion strip keeps working exactly as before, so t
 A word always sits above **the key you would press next to reach it**. That one rule covers three cases:
 
 - **Completions** carry on the word you are typing.
-- **Corrections** fix it, and sit over the key where the word stops matching what you typed. They are drawn entirely in the accent colour, so a fix never looks like a continuation.
+- **Corrections** fix it, and sit over the key where the word stops matching what you typed. They are drawn entirely in the accent colour, so a fix never looks like a continuation. Only the strongest few corrections appear: further down the list the keyboard is guessing at what you meant rather than reading what you wrote.
 - **Next words** appear after a space, above their first letters, before you have typed anything at all.
 
 Any of the three can be switched off on their own.
@@ -39,9 +39,11 @@ The typed part of a word is faded and the part still to come is in the accent co
 
 The **How many words** slider runs from 3 to 26, and starts at 6.
 
-The words are the suggestion strip's own, in the strip's own order, so whatever the strip is about to offer is what the keys offer: one flick away instead of one look away. Drop to 3 or 4 for the BlackBerry's quieter board. Past 9 the keyboard also looks up a word for every remaining key it can reach, which is closer to how the Octopus keyboard did it.
+The words come from the same ranked list the suggestion strip draws from, in the same order, so what the strip offers is what the keys offer: one flick away instead of one look away. The keys just see further down the list, because they have room for more words than the strip does.
 
-Two words that carry on with the same letter cannot both appear, because a key can only say one word. The strip's order decides which one gets the key.
+Two words that carry on with the same letter cannot both appear, since a key can only say one word. `the`, `they` and `there` all continue with an `e`, and the list's order decides which one gets it.
+
+The number is a cap, not a quota. If only three words are worth showing, three appear and the rest of the board stays bare. Nothing is invented to fill a free key, because the words that would fill it are the ones the ranking already turned down.
 
 A word too wide for its key is left out rather than shortened, so a busy board never becomes a row of `…`.
 

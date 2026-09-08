@@ -56,7 +56,9 @@ class OctopusEngineTest {
 
     @Test
     fun `completions hang off the letters that reach them`() {
-        val floated = words("hel").associate { it.keyCodePoint.toChar() to it.word }
+        val e = engine()
+        val floated = words("hel", pool = strip(e, "hel"), engine = e)
+            .associate { it.keyCodePoint.toChar() to it.word }
         assertEquals("hello", floated['l'])
         assertEquals("help", floated['p'])
         assertEquals("held", floated['d'])
@@ -64,7 +66,8 @@ class OctopusEngineTest {
 
     @Test
     fun `the drawn head is what has already been typed`() {
-        val hello = words("hel").single { it.word == "hello" }
+        val e = engine()
+        val hello = words("hel", pool = strip(e, "hel"), engine = e).single { it.word == "hello" }
         assertEquals(3, hello.typedChars)
         assertEquals(OctopusKind.COMPLETION, hello.kind)
     }
@@ -74,8 +77,11 @@ class OctopusEngineTest {
         // Sparse is a few good words; dense is "fill the board". After "he"
         // this dictionary can be carried on with l, a or r, and dense finds all
         // three where a sparse board of two shows two.
-        val sparse = words("he", limit = 2).map { it.keyCodePoint }.toSet()
-        val dense = words("he", limit = 26, dense = true).map { it.keyCodePoint }.toSet()
+        val e = engine()
+        val pool = strip(e, "he")
+        val sparse = words("he", limit = 2, pool = pool, engine = e).map { it.keyCodePoint }.toSet()
+        val dense = words("he", limit = 26, dense = true, pool = pool, engine = e)
+            .map { it.keyCodePoint }.toSet()
         assertEquals(2, sparse.size)
         assertEquals(setOf('l'.code, 'a'.code, 'r'.code), dense)
         assertTrue("and it keeps everything sparse found", dense.containsAll(sparse))
@@ -140,13 +146,42 @@ class OctopusEngineTest {
     }
 
     @Test
-    fun `the walk still fills keys the strip had no room for`() {
+    fun `nothing floats that the ranking did not choose`() {
+        // The board goes quiet rather than inventing words for the free keys.
+        // Filling them from the raw trie walk is what made this feel useless:
+        // beside "help" and "held" it hung "helen" and "helmet", words the
+        // ranking had already decided against. The density is a cap, never a
+        // quota — a pool of one word floats one word, however many keys are
+        // free.
         val e = engine()
         val floated = words("hel", limit = 26, pool = listOf("hello"), engine = e)
-        assertTrue(
-            "a strip of one word still leaves p and d to be answered",
-            floated.map { it.keyCodePoint }.containsAll(listOf('p'.code, 'd'.code)),
-        )
+        assertEquals(listOf("hello"), floated.map { it.word })
+    }
+
+    @Test
+    fun `a deeper pool is what fills more keys`() {
+        // And the way to fill them is more of the same ranked list, not a
+        // different worse one.
+        val e = engine()
+        val shallow = words("hel", limit = 26, pool = strip(e, "hel").take(1), engine = e)
+        val deep = words("hel", limit = 26, pool = strip(e, "hel"), engine = e)
+        assertTrue(deep.size > shallow.size)
+        assertTrue(deep.map { it.word }.containsAll(shallow.map { it.word }))
+    }
+
+    @Test
+    fun `a correction deep in the list does not float`() {
+        // A completion is a completion however far down it sits. A correction
+        // that far down is the engine's next-best guess at what was meant, and
+        // it reads as noise beside real completions — this is where "cop"
+        // floated next to four good completions of "comp".
+        val e = engine()
+        val pool = List(6) { "hello" } .toMutableList()
+        pool[5] = "world" // a correction of "hel", sixth in the list
+        val floated = words("hel", limit = 26, pool = pool, engine = e)
+        assertFalse("world", floated.any { it.word == "world" })
+        val head = words("hel", limit = 26, pool = listOf("world"), engine = e)
+        assertTrue("but the same word at the head does", head.any { it.word == "world" })
     }
 
     @Test

@@ -11434,7 +11434,6 @@ open class WMKeyboardService : InputMethodService() {
     private fun octopusFor(
         state: KeyboardUiState,
         typed: String,
-        touch: List<TouchPoint?>?,
         keys: KeySets?,
         pool: List<String>,
     ): Map<Int, OctopusWord> {
@@ -11449,7 +11448,6 @@ open class WMKeyboardService : InputMethodService() {
             composing = typed,
             previousWord = previousWord,
             previousWord2 = previousWord2,
-            touch = touch,
             keys = keys,
             limit = octopus.density,
             kinds = octopus.kinds,
@@ -11564,29 +11562,51 @@ open class WMKeyboardService : InputMethodService() {
             // precompute actually runs.
             val timingMultiplier = timingMultiplier()
             val recentSnapshot = recentWords.toList()
+            // The strip shows a handful; the keys have room for far more, and
+            // several ranked words often want the same key ("the", "they" and
+            // "there" all continue with an e) so the ones that reach a key are
+            // fewer still. Asking for a deeper list is how those keys get
+            // filled with words the engine actually ranked, rather than with
+            // whatever a raw trie walk finds once the good ones run out. The
+            // strip is unaffected: a deeper ask does not reorder its head, and
+            // it takes the same slice it always did.
+            val octopusOn = state.settings.octopus.enabled && state.allowsTypingIntelligence
+            val askFor = if (octopusOn) {
+                maxOf(SUGGEST_LIMIT, state.settings.octopus.density * OCTOPUS_POOL_DEPTH)
+            } else {
+                SUGGEST_LIMIT
+            }
             val (results, emojis, bias, floating) = withContext(Dispatchers.Default) {
-                val suggested = engine.suggest(
+                val deep = engine.suggest(
                     composing = typed,
                     previousWord = previousWord,
                     avroMode = state.composer.isBengaliPhonetic,
+                    limit = askFor,
                     touch = touchFrame,
                     previousWord2 = previousWord2,
                     recentWords = recentSnapshot,
                     allowRerank = true,
                     keys = keyFrame,
                 )
+                val suggested = deep.take(SUGGEST_LIMIT)
                 // A28: a personal-dictionary shortcut typed in full offers its
                 // expansion as the top chip (e.g. "omw" → "on my way"). Prepended
                 // so it wins the primary slot; deduped against the word list.
-                val words = if (
+                val shortcut = if (
                     state.settings.suggestionStrip.expandUserDictShortcuts && typed.isNotEmpty()
                 ) {
                     userDictShortcuts[typed.lowercase()]
-                        ?.let { listOf(it) + suggested.filterNot { w -> w == it } }
-                        ?: suggested
                 } else {
-                    suggested
+                    null
                 }
+                fun withShortcut(list: List<String>) = shortcut
+                    ?.let { listOf(it) + list.filterNot { w -> w == it } }
+                    ?: list
+                val words = withShortcut(suggested)
+                // The same list, only longer, so the keys and the strip never
+                // disagree about what is being offered — the keys just see
+                // further down it.
+                val pool = withShortcut(deep)
                 // Next-letter distribution for smart key-hit detection. Only for
                 // plain Latin composing — conversion/transliteration IMEs commit
                 // through their own composer, where a Latin-letter nudge is wrong.
@@ -11648,7 +11668,7 @@ open class WMKeyboardService : InputMethodService() {
                     }
                     SuggestionFrame(
                         words, emojis, bias,
-                        octopusFor(state, typed, touchFrame, keyFrame, pool = words),
+                        octopusFor(state, typed, keyFrame, pool = pool),
                     )
                 } else {
                     // Next-word prediction: learned bigrams can end in an
@@ -11656,6 +11676,7 @@ open class WMKeyboardService : InputMethodService() {
                     // the strip, not among the word chips — and so does the
                     // trigger emoji of the word that just committed.
                     val (emojiNext, wordNext) = words.partition { isEmojiCandidate(it) }
+                    val poolNext = pool.filterNot { isEmojiCandidate(it) }
                     SuggestionFrame(
                         wordNext,
                         if (state.settings.emojiPrediction) {
@@ -11666,7 +11687,7 @@ open class WMKeyboardService : InputMethodService() {
                         bias,
                         // The strip's own words, hung off their first letters:
                         // whatever it is about to offer is what the keys offer.
-                        octopusFor(state, typed, touchFrame, keyFrame, pool = wordNext),
+                        octopusFor(state, typed, keyFrame, pool = poolNext),
                     )
                 }
             }
@@ -23299,6 +23320,17 @@ fun cursorLeftComposingRegion(
  * belongs to: a preview that finishes decoding after its swipe has committed is
  * stale, and putting its candidates on the strip would undo the commit's own.
  */
+/** What the strip asks for, and [SuggestionEngine.suggest]'s own default. */
+private const val SUGGEST_LIMIT = 5
+
+/**
+ * How many ranked words to fetch per key the octopus may fill. Above one
+ * because several of them want the same key — "the", "they" and "there" all
+ * continue with an e, and only one can have it — so a list the length of the
+ * density alone would leave most keys bare.
+ */
+private const val OCTOPUS_POOL_DEPTH = 4
+
 private class GesturePreviewRequest(
     val points: List<GesturePoint>,
     val keys: List<KeyCenter>,
