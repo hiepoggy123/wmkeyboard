@@ -277,6 +277,7 @@
     <string name="core_content_selection_macro_email">Email</string>
     <string name="core_content_selection_macro_open">Open</string>
     <string name="core_content_selection_macro_qr">QR</string>
+    <string name="core_content_selection_macro_fancy">Fancy</string>
     <!-- The four case options behind Format on a plain text selection. Each
          one is written in the case it applies, so the chip shows its effect. -->
     <string name="core_content_selection_macro_case_lower">lower case</string>

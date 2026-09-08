@@ -127,6 +127,16 @@ class SelectionMacrosTest {
     }
 
     @Test
+    fun `fancy is offered on plain text and on no entity`() {
+        val all = SelectionMacros.configurable.toSet()
+        assertTrue(SelectionMacro.FANCY in SelectionMacros.offer(SelectionKind.TEXT, all))
+        // A styled link is not a link and a styled number cannot be dialled.
+        for (kind in listOf(SelectionKind.PHONE, SelectionKind.EMAIL, SelectionKind.URL)) {
+            assertTrue(kind.name, SelectionMacro.FANCY !in SelectionMacros.offer(kind, all))
+        }
+    }
+
+    @Test
     fun `the case ladder is never on the bar itself`() {
         for (macro in SelectionMacros.caseMacros) {
             assertTrue(macro !in SelectionMacros.configurable)

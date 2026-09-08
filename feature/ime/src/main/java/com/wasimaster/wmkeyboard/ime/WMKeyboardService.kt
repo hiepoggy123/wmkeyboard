@@ -18526,14 +18526,31 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
-     * Whether the tool a macro opens is switched on; the rest are always
-     * available. QR is not here: [SelectionMacros.offer] asks about it by name,
-     * so it is answered at that call instead of twice.
+     * Whether what a macro needs is there; the rest are always available. QR is
+     * not here: [SelectionMacros.offer] asks about it by name, so it is
+     * answered at that call instead of twice.
      */
     private fun macroToolAvailable(macro: SelectionMacro, settings: KeyboardSettings): Boolean = when (macro) {
         SelectionMacro.SEARCH -> ToolbarTool.WEB_SEARCH in settings.enabledTools
         SelectionMacro.TRANSLATE -> ToolbarTool.TRANSLATE in settings.enabledTools
+        // Normal restyles nothing, so the chip would be a no-op. Same rule the
+        // Format chip follows on an entity that is already tidy.
+        SelectionMacro.FANCY -> macroFancyStyle() != null
         else -> true
+    }
+
+    /**
+     * The style the Fancy macro would apply: the one the user last picked,
+     * whichever keyboard they picked it on.
+     *
+     * Deliberately not [fancyStyleFor], which answers null off the fancy
+     * layout — the whole point of the macro is restyling a selection made while
+     * typing normally. Normal answers null here, since applying it is a no-op.
+     */
+    private fun macroFancyStyle(): FancyStyle? {
+        val state = _uiState.value
+        val id = state.activeFancyStyleId ?: state.settings.layoutBehavior.fancyStyleId
+        return FancyStyles.byId(id)?.takeIf { it.id != FancyStyles.NORMAL_ID }
     }
 
     /**
@@ -18562,6 +18579,7 @@ open class WMKeyboardService : InputMethodService() {
             SelectionMacro.SEARCH -> openMacroSearch(PanelMode.WEB_SEARCH, text)
             SelectionMacro.TRANSLATE -> openMacroSearch(PanelMode.TRANSLATE, text)
             SelectionMacro.QR -> onPanelChange(PanelMode.QR_GEN)
+            SelectionMacro.FANCY -> macroFancyStyle()?.let { replaceSelection(FancyStyles.transform(text, it)) }
             SelectionMacro.CALL -> startMacroActivity(
                 Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + SelectionMacros.dialDigits(text, masks))),
             )

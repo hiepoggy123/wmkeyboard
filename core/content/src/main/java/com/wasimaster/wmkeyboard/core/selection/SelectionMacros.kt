@@ -43,6 +43,15 @@ enum class SelectionMacro {
     OPEN,
     /** Turn the link into a QR code with the generator tool. */
     QR,
+    /**
+     * Rewrite the selection in the Fancy Text style the user last picked.
+     *
+     * The style itself is not chosen here — that is the fancy strip's job, and
+     * a ladder of thirty-one chips is not a thing to open over a selection.
+     * This is the one-tap "in the style I already use", which is what makes it
+     * worth having on a bar that appears out of a selection.
+     */
+    FANCY,
     CASE_LOWER,
     CASE_TITLE,
     CASE_UPPER,
@@ -64,6 +73,7 @@ enum class SelectionMacro {
             EMAIL -> R.string.core_content_selection_macro_email
             OPEN -> R.string.core_content_selection_macro_open
             QR -> R.string.core_content_selection_macro_qr
+            FANCY -> R.string.core_content_selection_macro_fancy
             CASE_LOWER -> R.string.core_content_selection_macro_case_lower
             CASE_TITLE -> R.string.core_content_selection_macro_case_title
             CASE_UPPER -> R.string.core_content_selection_macro_case_upper
@@ -182,6 +192,7 @@ object SelectionMacros {
         SelectionMacro.EMAIL,
         SelectionMacro.OPEN,
         SelectionMacro.QR,
+        SelectionMacro.FANCY,
     )
 
     /**
@@ -200,6 +211,7 @@ object SelectionMacros {
         SelectionMacro.EMAIL,
         SelectionMacro.OPEN,
         SelectionMacro.QR,
+        SelectionMacro.FANCY,
     )
 
     /** The case ladder [SelectionMacro.FORMAT] opens on a plain-text selection. */
@@ -298,9 +310,12 @@ object SelectionMacros {
             SelectionMacro.OPEN, SelectionMacro.COPY, SelectionMacro.QR,
             SelectionMacro.FORMAT, SelectionMacro.SHARE,
         )
+        // Fancy is plain text only. A styled link is not a link and a styled
+        // number cannot be dialled, so the three entity rows never offer it
+        // however the setting is left.
         SelectionKind.TEXT -> listOf(
             SelectionMacro.COPY, SelectionMacro.SHARE, SelectionMacro.FORMAT,
-            SelectionMacro.SEARCH, SelectionMacro.TRANSLATE,
+            SelectionMacro.SEARCH, SelectionMacro.TRANSLATE, SelectionMacro.FANCY,
         )
     }
 

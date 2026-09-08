@@ -16,6 +16,7 @@ import androidx.compose.foundation.lazy.items as lazyRowItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.Chat
 import androidx.compose.material.icons.outlined.ContentCopy
@@ -193,6 +194,9 @@ private fun macroIcon(macro: SelectionMacro): ImageVector? = when (macro) {
     SelectionMacro.EMAIL -> Icons.Outlined.Mail
     SelectionMacro.OPEN -> Icons.Outlined.OpenInNew
     SelectionMacro.QR -> Icons.Outlined.QrCode2
+    // Not TextFormat, which Format already wears: the two sit side by side on
+    // a plain-text selection and must not read as the same chip twice.
+    SelectionMacro.FANCY -> Icons.Outlined.AutoAwesome
     else -> null
 }
 
