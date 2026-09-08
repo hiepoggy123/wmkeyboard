@@ -10,6 +10,11 @@
 # Name, summary, description, icon and screenshots are deliberately absent:
 # F-Droid reads those from fastlane/metadata/android/en-US/ in this repo, so
 # they only have to be right in one place.
+#
+# Only the newest release is listed under Builds. F-Droid's buildserver builds
+# every entry it has not seen, so shipping the back catalogue in a first
+# submission would spend their build time on versions nobody can install any
+# more. Earlier entries (0.3.0 through 0.5.3) are in this file's git history.
 
 Categories:
   - Writing
@@ -38,9 +43,9 @@ RepoType: git
 Repo: https://github.com/wasi-master/wmkeyboard.git
 
 Builds:
-  - versionName: 0.3.0
-    versionCode: 7
-    commit: v0.3.0
+  - versionName: 0.5.4
+    versionCode: 15
+    commit: v0.5.4
     subdir: app
     # The lite flavor. Every proprietary dependency in the tree (ML Kit,
     # LiteRT, Play in-app updates, play-services-auth) is declared as
@@ -68,89 +73,12 @@ Builds:
       - core/intelligence/src/full/jniLibs
       - feature/llm/src/main/jniLibs
 
-  # Same build as 0.3.0 above, where the reasoning for each field is written
-  # out; only the version and the tag move. The Keyman corpus this release adds
-  # is data under assets, so it changes nothing about how the APK is built.
-  - versionName: 0.4.0
-    versionCode: 8
-    commit: v0.4.0
-    subdir: app
-    gradle:
-      - lite
-    gradleprops:
-      - wmkb.enablePlayStore=false
-      - wmkb.enableGms=false
-      - wmkb.enableFdroid=true
-    scandelete:
-      - core/intelligence/src/full/jniLibs
-      - feature/llm/src/main/jniLibs
-
-  # Unchanged again. The one thing worth knowing about this build is that the
-  # R8 rules gained -keeppackagenames org.luaj.**, without which the plugin
-  # sandbox fails to start in a minified build; it is in the app's own
-  # proguard rules, so this recipe needs nothing for it.
-  - versionName: 0.4.1
-    versionCode: 9
-    commit: v0.4.1
-    subdir: app
-    gradle:
-      - lite
-    gradleprops:
-      - wmkb.enablePlayStore=false
-      - wmkb.enableGms=false
-      - wmkb.enableFdroid=true
-    scandelete:
-      - core/intelligence/src/full/jniLibs
-      - feature/llm/src/main/jniLibs
-
-  # Still the same build. The Espanso support this release adds reads YAML
-  # through snakeyaml, which is an ordinary Maven dependency with no Google
-  # artifact behind it, so the lite flavour is unaffected.
-  - versionName: 0.5.0
-    versionCode: 10
-    commit: v0.5.0
-    subdir: app
-    gradle:
-      - lite
-    gradleprops:
-      - wmkb.enablePlayStore=false
-      - wmkb.enableGms=false
-      - wmkb.enableFdroid=true
-    scandelete:
-      - core/intelligence/src/full/jniLibs
-      - feature/llm/src/main/jniLibs
-
-  - versionName: 0.5.1
-    versionCode: 11
-    commit: v0.5.1
-    subdir: app
-    gradle:
-      - lite
-    gradleprops:
-      - wmkb.enablePlayStore=false
-      - wmkb.enableGms=false
-      - wmkb.enableFdroid=true
-    scandelete:
-      - core/intelligence/src/full/jniLibs
-      - feature/llm/src/main/jniLibs
-
-  - versionName: 0.5.2
-    versionCode: 13
-    commit: v0.5.2
-    subdir: app
-    gradle:
-      - lite
-    gradleprops:
-      - wmkb.enablePlayStore=false
-      - wmkb.enableGms=false
-      - wmkb.enableFdroid=true
-    scandelete:
-      - core/intelligence/src/full/jniLibs
-      - feature/llm/src/main/jniLibs
-
-# Bump both of these with every release. Alternatively switch to
-# UpdateCheckMode: Tags once the tag pattern has a couple of releases behind it.
-AutoUpdateMode: None
-UpdateCheckMode: None
-CurrentVersion: 0.5.2
-CurrentVersionCode: 13
+# Tags mode cannot read this project's version: :app takes versionCode and
+# versionName from gradle.properties through providers.gradleProperty(), so
+# the build file holds no literal for the scanner to find. HTTP mode reads
+# that file directly instead, and the tag is v<versionName>.
+AutoUpdateMode: Version v%v
+UpdateCheckMode: HTTP
+UpdateCheckData: https://raw.githubusercontent.com/wasi-master/wmkeyboard/main/gradle.properties|wmkb.versionCode=(\d+)|https://raw.githubusercontent.com/wasi-master/wmkeyboard/main/gradle.properties|wmkb.versionName=(.+)
+CurrentVersion: 0.5.4
+CurrentVersionCode: 15

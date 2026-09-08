@@ -1,0 +1,9 @@
+Predictions now sit on the keys themselves. Flick one up to take it without leaving the letters.
+
+Glide answers a stroke before you have finished it, learns how you draw each word, and asks when two words fit.
+
+A key can carry several letters, so T9 and compact boards ship.
+
+Hold a word on the strip for a word card. Autocorrect learns from the fixes you make by hand.
+
+Fixed: Vietnamese Telex, URL suggestions and a keyboard that would not stay put.
