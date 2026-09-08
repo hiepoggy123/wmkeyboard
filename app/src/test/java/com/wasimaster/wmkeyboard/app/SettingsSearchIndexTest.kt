@@ -26,7 +26,13 @@ class SettingsSearchIndexTest {
     private val valuesDir = File("src/main/res/values")
 
     /** The two files search is built from: the index, and the matcher. */
-    private val searchFiles = listOf("SettingsSearch.kt", "SettingsSearchMatch.kt")
+    private val searchFiles = listOf(
+        "SettingsSearch.kt",
+        "SettingsSearchMatch.kt",
+        // The hidden keywords are named here rather than at the rows they
+        // belong to, so this is where the index's `search_…` strings are used.
+        "SettingsSearchKeywords.kt",
+    )
 
     /**
      * The search words the root list carries. The index takes its top-level
@@ -63,11 +69,13 @@ class SettingsSearchIndexTest {
     }
 
     /**
-     * Every `R.string.…` the index names. `CommonR.string.…` is skipped: those
-     * belong to :core:common and are not in this module's resource files.
+     * Every `R.string.…` the index names. `CommonR.string.…` and `ImeR.string.…`
+     * are skipped: those belong to :core:common and :feature:ime and are not in
+     * this module's resource files. The tools are named by the keyboard itself,
+     * so the keyword table reaches for them through `ImeR`.
      */
     private val indexedKeys: List<String> by lazy {
-        Regex("""(?<!Common)R\.(?:string|array)\.([a-z0-9_]+)""")
+        Regex("""(?<!Common)(?<!Ime)R\.(?:string|array)\.([a-z0-9_]+)""")
             .findAll(searchSource)
             .map { it.groupValues[1] }
             .distinct()

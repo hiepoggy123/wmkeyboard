@@ -170,7 +170,11 @@ private fun SearchStrings.entry(
     route = route,
     weight = weight,
     titleRes = title,
-    keywords = if (keywords == 0) "" else getString(keywords),
+    // An explicit argument wins; otherwise the row's own entry in the keyword
+    // table, so a feature known by another name is found by it without the
+    // screen that owns the row having to know.
+    keywords = (if (keywords != 0) keywords else searchKeywordsFor(title))
+        .let { if (it == 0) "" else getString(it) },
     key = "$route#${resourceName(title)}",
 )
 
@@ -192,6 +196,7 @@ private fun SearchStrings.toolEntry(
     weight = weight,
     tool = tool,
     titleRes = title,
+    keywords = searchKeywordsFor(title).let { if (it == 0) "" else getString(it) },
     key = "tool/${tool.name}#${resourceName(title)}",
 )
 

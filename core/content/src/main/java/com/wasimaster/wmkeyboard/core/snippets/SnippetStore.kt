@@ -309,6 +309,17 @@ data class SnippetFolder(
     val enabled: Boolean = true,
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val createdAt: Long = 0,
+    /**
+     * Id of the icon the folder wears, from the same catalogue a keyboard mode
+     * picks from, or null for the plain folder glyph.
+     *
+     * The id and never the drawing, exactly as `KeyboardMode.icon` does: a file
+     * written by a build whose catalogue has since changed still loads, and an
+     * id this build does not know falls back to the plain folder rather than
+     * failing to draw.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val icon: String? = null,
 )
 
 /**

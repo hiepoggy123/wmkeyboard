@@ -41,6 +41,18 @@ class SettingsSearchRankingTest {
     /** The meant row must be first. */
     private val top1 = listOf(
         // The switch that is the feature, by its own name or by a synonym.
+        // Hidden keywords: a feature found by the name another keyboard gave
+        // it, which is the whole point of the table (see SettingsSearchKeywords).
+        first("octopus", "typing_group_octopus_title"),
+        first("blackberry", "typing_group_octopus_title"),
+        first("flow", "typing_glide_typing_title"),
+        first("swype", "typing_glide_typing_title"),
+        first("grammarly", "fonts_tool_grammar_title"),
+        first("monkeytype", "fonts_tool_typing_test_title"),
+        first("tenor", "ime_tool_gif"),
+        first("dyslexia", "accessibility_readable_font_title"),
+        first("jyutping", "languages_cjk_lazy_title"),
+        first("bitwarden", "typing_inline_autofill_title"),
         first("vibrate", "keypress_haptics_title"),
         first("vibration", "keypress_haptics_title"),
         first("autocorrect", "typing_autocorrect_title"),
