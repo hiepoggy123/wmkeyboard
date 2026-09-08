@@ -1395,6 +1395,15 @@ data class KeyboardSettings(
     val floatingHeightScale: Float = 1f,
     val floatingXFraction: Float = 0.5f,
     val floatingYFraction: Float = 1.0f,
+    /**
+     * Once shown, the keyboard stays up after the field that opened it is
+     * gone, and over windows that have no field at all, until the user hides
+     * it (issue #58). Keys reach a fieldless window as key events through the
+     * framework's fallback connection, which is what lets an app's keyboard
+     * shortcuts be set from the screen. Docked or floating: this only decides
+     * whether the window stays, not where it sits.
+     */
+    val persistentKeyboard: Boolean = false,
     val keyboardWidthPercent: Int = 100,
     val keyboardAlignment: KeyboardAlignment = KeyboardAlignment.CENTER,
     /**
@@ -4956,6 +4965,7 @@ class SettingsRepository(private val context: Context) {
         private val FLOATING_HEIGHT_SCALE = floatPreferencesKey("floating_height_scale")
         private val FLOATING_X = floatPreferencesKey("floating_x")
         private val FLOATING_Y = floatPreferencesKey("floating_y")
+        private val PERSISTENT_KEYBOARD = booleanPreferencesKey("persistent_keyboard")
         private val KEYBOARD_WIDTH_PERCENT = intPreferencesKey("keyboard_width_percent")
         private val KEYBOARD_ALIGNMENT = stringPreferencesKey("keyboard_alignment")
         private val KEY_CORNER_RADIUS = intPreferencesKey("key_corner_radius")
@@ -5999,6 +6009,7 @@ class SettingsRepository(private val context: Context) {
             floatingHeightScale = p[FLOATING_HEIGHT_SCALE] ?: defaults.floatingHeightScale,
             floatingXFraction = p[FLOATING_X] ?: defaults.floatingXFraction,
             floatingYFraction = p[FLOATING_Y] ?: defaults.floatingYFraction,
+            persistentKeyboard = p[PERSISTENT_KEYBOARD] ?: defaults.persistentKeyboard,
             keyboardWidthPercent = p[KEYBOARD_WIDTH_PERCENT] ?: defaults.keyboardWidthPercent,
             keyboardAlignment = p[KEYBOARD_ALIGNMENT]
                 ?.let { runCatching { KeyboardAlignment.valueOf(it) }.getOrNull() }
@@ -8488,6 +8499,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setFloatingKeyboard(value: Boolean) =
         editPrefs { it[FLOATING_KEYBOARD] = value }
+
+    suspend fun setPersistentKeyboard(value: Boolean) =
+        editPrefs { it[PERSISTENT_KEYBOARD] = value }
 
     suspend fun setFloatingWidthDp(value: Int) =
         editPrefs { it[FLOATING_WIDTH] = value.coerceIn(240, 500) }

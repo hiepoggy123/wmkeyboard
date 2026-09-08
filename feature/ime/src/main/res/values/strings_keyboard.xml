@@ -275,6 +275,7 @@
     <string name="ime_tool_one_handed">One-handed</string>
     <string name="ime_tool_split">Split</string>
     <string name="ime_tool_floating">Floating</string>
+    <string name="ime_tool_persistent">Keep on screen</string>
     <string name="ime_tool_resize">Resize</string>
     <string name="ime_resize_reset">Reset</string>
     <string name="ime_resize_done">Done</string>

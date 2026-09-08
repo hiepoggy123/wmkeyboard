@@ -5529,6 +5529,7 @@ internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.ONE_HANDED -> R.string.ime_tool_one_handed
     ToolbarTool.SPLIT -> R.string.ime_tool_split
     ToolbarTool.FLOATING -> R.string.ime_tool_floating
+    ToolbarTool.PERSISTENT -> R.string.ime_tool_persistent
     ToolbarTool.RESIZE -> R.string.ime_tool_resize
     ToolbarTool.SETTINGS -> R.string.ime_tool_settings
     ToolbarTool.FLASHLIGHT -> R.string.ime_tool_flashlight
@@ -5606,6 +5607,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.ONE_HANDED -> state.settings.oneHandedMode != OneHandedMode.OFF
     ToolbarTool.SPLIT -> state.settings.splitKeyboard
     ToolbarTool.FLOATING -> state.settings.floatingKeyboard
+    ToolbarTool.PERSISTENT -> state.settings.persistentKeyboard
     ToolbarTool.RESIZE -> state.resize
     ToolbarTool.SETTINGS -> false
     ToolbarTool.FLASHLIGHT -> state.torchOn

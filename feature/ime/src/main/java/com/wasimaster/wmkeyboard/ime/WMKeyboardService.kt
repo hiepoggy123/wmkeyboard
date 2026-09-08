@@ -3345,6 +3345,19 @@ open class WMKeyboardService : InputMethodService() {
         serviceScope.launch { settingsRepository.setFloatingKeyboard(enabled) }
     }
 
+    /**
+     * The keep-on-screen tool; the Layout screen's row writes the same
+     * setting (issue #58). Pinning again after a hide is a fresh ask, so the
+     * suspension from that hide and this field's re-show budget both start
+     * over.
+     */
+    fun onPersistentChange(enabled: Boolean) {
+        vibrate()
+        pinSuspended = false
+        pinReshowStreak = 0
+        serviceScope.launch { settingsRepository.setPersistentKeyboard(enabled) }
+    }
+
     fun onFloatingMoved(xFraction: Float, yFraction: Float) {
         serviceScope.launch { settingsRepository.setFloatingPosition(xFraction, yFraction) }
     }
@@ -3425,13 +3438,28 @@ open class WMKeyboardService : InputMethodService() {
     private fun voiceBarDockSlopPx(): Int =
         (VOICE_BAR_DOCK_SLOP_DP * resources.displayMetrics.density).toInt()
 
-    /** Never use the fullscreen (extract) editor while floating or collapsed to the bar. */
+    /**
+     * Never use the fullscreen (extract) editor while floating or collapsed to
+     * the bar — nor over a window with no editor that a pinned keyboard is
+     * kept up on, where an extract view would have nothing to extract.
+     */
     override fun onEvaluateFullscreenMode(): Boolean =
-        if (_uiState.value.settings.floatingKeyboard || voiceBarShowing()) {
+        if (_uiState.value.settings.floatingKeyboard || voiceBarShowing() ||
+            (pinnedNow() && isNullField())
+        ) {
             false
         } else {
             super.onEvaluateFullscreenMode()
         }
+
+    /**
+     * The focused window has no editor: the framework serves it through a
+     * fallback connection whose buffer no app reads, so only key events reach
+     * it. Where a pinned keyboard (issue #58) sits most of the time.
+     */
+    private fun isNullField(): Boolean =
+        (currentInputEditorInfo?.inputType ?: InputType.TYPE_NULL) and
+            InputType.TYPE_MASK_CLASS == InputType.TYPE_NULL
 
     /** A physical keyboard is attached and not folded away. */
     private fun hasHardwareKeyboard(): Boolean {
@@ -3450,6 +3478,8 @@ open class WMKeyboardService : InputMethodService() {
         // somewhere to draw it — even though a hardware keyboard would normally
         // mean no input view at all. Dropped again when the tool closes.
         if (forcedInputView) return true
+        // A pinned keyboard is wanted whatever the field — or the lack of one.
+        if (pinnedNow()) return true
         val toolbar = _uiState.value.settings.toolbarBehavior
         // Nothing to force-show when the toolbar itself is off — that would be a
         // blank sliver (no toolbar, and the keys are gated off too).
@@ -3457,6 +3487,61 @@ open class WMKeyboardService : InputMethodService() {
             return true
         }
         return super.onEvaluateInputViewShown()
+    }
+
+    /**
+     * A pinned keyboard (issue #58) the user has hidden: it stays down until
+     * the system next shows it on its own, which is the user tapping a field.
+     * Without this a pinned keyboard could never be closed at all. Cleared in
+     * [onStartInputView] — a re-show never runs while suspended, so any start
+     * that arrives then is the system's.
+     */
+    private var pinSuspended = false
+
+    /** Re-shows spent on the current field; see [reshowPinned]. */
+    private var pinReshowStreak = 0
+
+    /** A re-show is already on its way and will judge the state when it runs. */
+    private var pinReshowQueued = false
+
+    /** The keyboard should be up whether or not any field wants it. */
+    private fun pinnedNow(): Boolean =
+        _uiState.value.settings.persistentKeyboard && !pinSuspended
+
+    /**
+     * Every hide the keyboard asks for itself is the user's: the hide tool,
+     * the toolbar swipe, Back. A pinned keyboard honours those and stays down
+     * until the system next shows it. The hides an *app* asks for never come
+     * this way, and those are the ones pinning exists to override.
+     */
+    override fun requestHideSelf(flags: Int) {
+        if (_uiState.value.settings.persistentKeyboard) pinSuspended = true
+        super.requestHideSelf(flags)
+    }
+
+    /**
+     * Puts a pinned keyboard back after something other than the user took it
+     * down: a field losing focus, an app hiding the IME, a switch to a window
+     * with no editor at all. Goes through the framework's own show request
+     * rather than showWindow, so its visibility bookkeeping stays right.
+     * Posted rather than inline, since the callers run inside the framework's
+     * hide and start sequences, and one delayed request coalesces the burst a
+     * window switch produces. Bounded: at most [PIN_RESHOW_LIMIT] per field,
+     * so an app that hides the keyboard every time it appears gets a few
+     * flashes and then wins until the next field. Never over the lock screen:
+     * the clipboard and the tools must not follow the user there.
+     */
+    private fun reshowPinned() {
+        if (!pinnedNow() || pinReshowQueued || pinReshowStreak >= PIN_RESHOW_LIMIT) return
+        if (isDeviceLocked()) return
+        pinReshowQueued = true
+        serviceScope.launch {
+            delay(PIN_RESHOW_DELAY_MS)
+            pinReshowQueued = false
+            if (!pinnedNow() || isInputViewShown || isDeviceLocked()) return@launch
+            pinReshowStreak++
+            requestShowSelf(0)
+        }
     }
 
     /**
@@ -3568,11 +3653,20 @@ open class WMKeyboardService : InputMethodService() {
             // A genuinely different field. Whatever a plugin was collecting
             // belonged to the last one, and the keys belong to this one.
             stopPlugins()
+            // A new field gets its own re-show budget (see reshowPinned).
+            pinReshowStreak = 0
         }
+        // Runs for windows with no editor too, which is where a pinned
+        // keyboard most needs putting back: the system never shows it there
+        // on its own.
+        reshowPinned()
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
+        // The keyboard is up, by the system's hand or ours; a hide that
+        // suspended pinning has run its course.
+        pinSuspended = false
         // Set before the lifecycle is resumed: a panel that reacts to ON_RESUME
         // (the media one re-checks notification access there) would otherwise
         // ask about a keyboard this flag still calls hidden.
@@ -4294,6 +4388,9 @@ open class WMKeyboardService : InputMethodService() {
         if (_uiState.value.settings.flashlightAutoOff && _uiState.value.torchOn) {
             setTorch(false)
         }
+        // Last: everything above has settled the field the keyboard is
+        // leaving, and a pinned keyboard is about to be asked back.
+        reshowPinned()
     }
 
     override fun onDestroy() {
@@ -6082,6 +6179,13 @@ open class WMKeyboardService : InputMethodService() {
             repeat(length) { composingTouch.removeLastOrNull() }
             updateComposingText(ic)
             refreshSuggestions()
+        } else if (isNullField()) {
+            // A window with no editor — what a pinned keyboard (issue #58) is
+            // kept up over — is served by the framework's fallback connection,
+            // whose deleteSurroundingText edits a buffer no app ever reads.
+            // The key event is the only backspace that arrives, which is the
+            // rule the platform keyboard applies to TYPE_NULL too.
+            sendDownUpKeyEvents(KeyEvent.KEYCODE_DEL)
         } else {
             // Delete a full surrogate pair / grapheme; optionally a whole
             // Bengali conjunct cluster as one unit. The lookback has to
@@ -12443,6 +12547,7 @@ open class WMKeyboardService : InputMethodService() {
             )
             ToolbarTool.SPLIT -> onToggleSplit()
             ToolbarTool.FLOATING -> onFloatingChange(!settings.floatingKeyboard)
+            ToolbarTool.PERSISTENT -> onPersistentChange(!settings.persistentKeyboard)
             ToolbarTool.RESIZE -> onResizeToggle()
             ToolbarTool.FLASHLIGHT -> onFlashlightToggle()
             ToolbarTool.COMPASS -> onPanelChange(PanelMode.COMPASS)
@@ -21920,6 +22025,14 @@ open class WMKeyboardService : InputMethodService() {
 
         /** See [voiceBarDockSlopPx]. */
         private const val VOICE_BAR_DOCK_SLOP_DP = 72
+
+        /**
+         * See [reshowPinned]. The delay outlasts the hide animation and the
+         * focus shuffle of a window switch; the limit is how many times an
+         * app gets to take the keyboard down before it wins the argument.
+         */
+        private const val PIN_RESHOW_DELAY_MS = 250L
+        private const val PIN_RESHOW_LIMIT = 4
 
         /**
          * How many silent recognizer sessions in a row wind an open microphone

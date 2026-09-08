@@ -716,6 +716,7 @@ private fun SearchStrings.layoutOnehandedRows(): List<SettingsSearchEntry> {
         row(R.string.layout_split_gap_title, R.string.layout_split_gap_subtitle),
         row(R.string.layout_floating_title, R.string.layout_floating_subtitle, weight = EntryWeight.PRIMARY),
         row(R.string.layout_floating_width_title, R.string.layout_floating_width_subtitle),
+        row(R.string.layout_persistent_title, R.string.layout_persistent_subtitle, weight = EntryWeight.PRIMARY),
     )
 }
 
@@ -891,6 +892,12 @@ private fun SearchStrings.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
         ToolbarTool.FLOATING,
         R.string.tooldetail_layout_nav_title,
         R.string.tooldetail_layout_nav_floating_subtitle,
+        weight = EntryWeight.MIRROR,
+    ),
+    toolEntry(
+        ToolbarTool.PERSISTENT,
+        R.string.tooldetail_layout_nav_title,
+        R.string.tooldetail_layout_nav_persistent_subtitle,
         weight = EntryWeight.MIRROR,
     ),
     toolEntry(ToolbarTool.FLASHLIGHT, R.string.tooldetail_flashlight_auto_off_title, R.string.tooldetail_flashlight_auto_off_subtitle),

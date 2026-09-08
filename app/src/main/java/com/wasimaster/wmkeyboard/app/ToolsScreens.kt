@@ -99,6 +99,7 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.ONE_HANDED -> R.string.fonts_tool_one_handed_title
     ToolbarTool.SPLIT -> R.string.fonts_tool_split_title
     ToolbarTool.FLOATING -> R.string.fonts_tool_floating_title
+    ToolbarTool.PERSISTENT -> ImeR.string.ime_tool_persistent
     ToolbarTool.RESIZE -> ImeR.string.ime_tool_resize
     ToolbarTool.SETTINGS -> R.string.fonts_tool_settings_title
     ToolbarTool.FLASHLIGHT -> ImeR.string.ime_tool_flashlight
@@ -173,6 +174,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.ONE_HANDED -> R.string.fonts_tool_one_handed_desc
     ToolbarTool.SPLIT -> R.string.fonts_tool_split_desc
     ToolbarTool.FLOATING -> R.string.fonts_tool_floating_desc
+    ToolbarTool.PERSISTENT -> R.string.fonts_tool_persistent_desc
     ToolbarTool.RESIZE -> R.string.fonts_tool_resize_desc
     ToolbarTool.SETTINGS -> R.string.fonts_tool_settings_desc
     ToolbarTool.FLASHLIGHT -> R.string.fonts_tool_flashlight_desc
@@ -548,7 +550,7 @@ internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
     add(
         R.string.tools_group_modes_title to listOf(
             ToolbarTool.MODES, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING,
-            ToolbarTool.RESIZE,
+            ToolbarTool.PERSISTENT, ToolbarTool.RESIZE,
         ),
     )
     add(R.string.tools_group_cursor_title to (CursorTools + ToolbarTool.HIDE_KEYBOARD))

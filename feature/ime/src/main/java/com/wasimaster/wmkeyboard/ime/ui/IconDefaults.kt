@@ -72,6 +72,7 @@ import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.PictureInPictureAlt
 import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Schedule
@@ -124,6 +125,7 @@ object IconDefaults {
         ToolbarTool.ONE_HANDED -> Icons.Outlined.Smartphone
         ToolbarTool.SPLIT -> Icons.Outlined.VerticalSplit
         ToolbarTool.FLOATING -> Icons.Outlined.PictureInPictureAlt
+        ToolbarTool.PERSISTENT -> Icons.Outlined.PushPin
         ToolbarTool.RESIZE -> Icons.Outlined.AspectRatio
         ToolbarTool.SETTINGS -> Icons.Outlined.Settings
         ToolbarTool.FLASHLIGHT -> Icons.Outlined.FlashlightOn

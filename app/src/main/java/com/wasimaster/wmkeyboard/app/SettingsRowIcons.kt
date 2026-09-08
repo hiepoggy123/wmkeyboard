@@ -479,6 +479,7 @@ internal object SettingsRowIcons {
         put(R.string.layout_floating_width_title) { Icons.Outlined.Straighten }
         put(R.string.layout_floating_height_title) { Icons.Outlined.Height }
         put(R.string.layout_floating_reset_title) { Icons.Outlined.Restore }
+        put(R.string.layout_persistent_title) { Icons.Outlined.PushPin }
         put(R.string.layout_reset_sizing_title) { Icons.Outlined.Restore }
         put(R.string.layout_comma_emoji_title) { Icons.Outlined.EmojiEmotions }
         put(R.string.layout_globe_emoji_title) { Icons.Outlined.EmojiEmotions }

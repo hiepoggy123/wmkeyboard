@@ -585,6 +585,11 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Drag handle bar — Position stored as x/y fractions of the available slack so it re-anchors on rotation
     - Resize grip — Width 240 dp to screen width, height scale 0.6–1.6, both quantised so a drag costs a handful of recompositions
     - Touchable-region insets — Content insets say the keyboard occupies nothing and the touchable region shrinks to the panel, so the app behind neither resizes nor loses touches
+  - Keep the keyboard on screen `uncommon` — The keyboard stays up after its field is gone and over windows with no field (issue #58); docked or floating
+    - Hacker's Keyboard mechanism, no overlay permission — onEvaluateInputViewShown says yes while pinned; a posted requestShowSelf puts it back after any hide the user did not ask for
+    - User hides suspend it — The hide tool, toolbar swipe and Back all go through requestHideSelf, which parks the pin until the system next shows the keyboard on its own
+    - Bounded re-shows — At most 4 per field, 250 ms apart, so an app that force-hides on every show gets a few flashes and then wins; never re-shown over the lock screen
+    - Fieldless windows get key events — Letters commit through the framework's fallback connection as key events; backspace sends KEYCODE_DEL on TYPE_NULL, Enter and modifier chords already did
   - Inline resize tool `uncommon` — Gboard-style drag mode over the docked keyboard
     - Three drags — Top handle scales key heights (keeping the number-row ratio), bottom handle and a centre move button ride the bottom padding
     - Nothing persists until Done — All changes preview through session state; Reset returns to entry values, Cancel writes nothing
@@ -1699,7 +1704,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - 24-run rolling history — Feeds the trend bar on the results screen
     - Four achievement badges — 100 WPM, flawless run ≥30 chars, pangram quote, 50 tests
     - Insert score chip — Types '83 WPM · 96% accuracy (30s)' into the field
-- **Keyboard mode & geometry tools** `uncommon` — 5 tools in the Modes group
+- **Keyboard mode & geometry tools** `uncommon` — 6 tools in the Modes group
   - Modes `RARE` — Panel to switch keyboard modes
     - Empty state links to settings — Chip straight to the modes settings screen when none exist
     - A mode can carry its own toolbar — Switching modes swaps the whole pinned row
@@ -1707,6 +1712,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Split — Toggles the split layout, no panel
   - Floating — Toggles the floating window, no panel
     - Drag pill and corner resize grip — Handle bar with dock button, drag pill and grip
+  - Keep on screen — Toggles the persistent keyboard (issue #58), no panel; same setting as the Layout row
   - Resize `RARE` — Inline drag-resize of the docked keyboard
     - Three drags — Top handle scales key heights; bottom handle and centre move button ride bottom padding
     - Nothing persists until Done — Everything previews through the session; Reset returns to the entry values
@@ -2689,6 +2695,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - One-handed keeps a separate profile per orientation — Portrait 78% width, landscape 55%, each with its own height scale and docked side.
     - Split keyboard with a 5–40% gap, default 12%
     - Floating keyboard: draggable, resizable, 320dp default, fullscreen extract mode disabled
+    - Keep the keyboard on screen: pinned over fieldless windows until hidden by hand (issue #58); direct-boot safe, bindable as a toolbar tool
   - Toolbar-only view with a physical keyboard `RARE` — Optional: drop the key grid and keep the tool strip; the IME forces the input view shown so the platform cannot hide it.
     - Presence read from Configuration.keyboard + hardKeyboardHidden
     - Also force-shown when a hardware shortcut opens a tool — Restored as soon as the tool closes.

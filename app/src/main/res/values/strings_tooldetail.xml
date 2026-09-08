@@ -25,6 +25,7 @@
     <string name="tooldetail_layout_nav_title">All layout and size settings</string>
     <string name="tooldetail_layout_nav_split_subtitle">Keyboard height, width, alignment and split</string>
     <string name="tooldetail_layout_nav_floating_subtitle">Keyboard height, width, alignment and floating mode</string>
+    <string name="tooldetail_layout_nav_persistent_subtitle">Keyboard height, width, alignment and the keep-on-screen switch</string>
     <string name="tooldetail_layout_nav_one_handed_subtitle">Keyboard height, width, alignment and one-handed mode</string>
 
     <!-- App-launcher tool. -->

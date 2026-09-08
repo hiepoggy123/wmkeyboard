@@ -1350,6 +1350,15 @@ internal fun LayoutOneHandedSettings(
                 }
             }
         }
+        item {
+            ToggleSetting(
+                R.string.layout_persistent_title,
+                stringResource(R.string.layout_persistent_subtitle),
+                settings.persistentKeyboard,
+                info = stringResource(R.string.layout_persistent_info),
+                default = SettingsDefaults.persistentKeyboard,
+            ) { scope.launch { repository.setPersistentKeyboard(it) } }
+        }
     }
 }
 /** The name drawn on the segmented button for each [KeyboardAlignment]. */

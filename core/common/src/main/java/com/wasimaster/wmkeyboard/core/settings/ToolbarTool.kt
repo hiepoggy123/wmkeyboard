@@ -62,6 +62,11 @@ enum class ToolbarTool {
     // Dismiss the keyboard in one tap. Grouped with the cursor moves in the
     // toolbox (it belongs beside the caret controls, not a panel it opens).
     HIDE_KEYBOARD,
+    // Keep the keyboard on screen after its field is gone, and over windows
+    // with no field at all, until the user hides it (issue #58). Toggles the
+    // same setting as the Layout screen's row. Declared last: nothing stores
+    // ordinals, but the toolbox ranks by name and this stays out of its way.
+    PERSISTENT,
 }
 
 /** The cursor tools, in the order they read on the toolbar. */
@@ -119,7 +124,7 @@ val HoldRepeatCursorTools: Set<ToolbarTool> = setOf(
 fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.EMOJI, ToolbarTool.TEXT_EDIT, ToolbarTool.TRACKPAD, ToolbarTool.NUMPAD,
     ToolbarTool.SYMBOLS, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.RESIZE,
-    ToolbarTool.HIDE_KEYBOARD,
+    ToolbarTool.HIDE_KEYBOARD, ToolbarTool.PERSISTENT,
     ToolbarTool.THEMES, ToolbarTool.AUTOCORRECT, ToolbarTool.SOUND_HAPTICS, ToolbarTool.INCOGNITO,
     ToolbarTool.MODES, ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.POWER_SAVING,
     // The fancy layout ships in the assets and its styles are code, so it
@@ -153,7 +158,8 @@ fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
  */
 fun toolOpensScreen(tool: ToolbarTool): Boolean = when (tool) {
     // Toggles and one-shot actions: the keyboard stays exactly as it is.
-    ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.RESIZE,
+    ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.PERSISTENT,
+    ToolbarTool.RESIZE,
     ToolbarTool.FLASHLIGHT, ToolbarTool.UNDO, ToolbarTool.REDO,
     ToolbarTool.INCOGNITO, ToolbarTool.POWER_SAVING, ToolbarTool.AUTOCORRECT,
     ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.HIDE_KEYBOARD,
@@ -238,7 +244,8 @@ val ToolTopUps: Set<ToolbarTool> = setOf(ToolbarTool.WIKIPEDIA, ToolbarTool.POWE
 private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
     ToolbarTool.TYPING_TEST, ToolbarTool.PLUGINS, ToolbarTool.CUSTOM_LAYOUT,
-    ToolbarTool.FLOATING, ToolbarTool.RESIZE, ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS,
+    ToolbarTool.FLOATING, ToolbarTool.PERSISTENT, ToolbarTool.RESIZE, ToolbarTool.INCOGNITO,
+    ToolbarTool.SOUND_HAPTICS,
     ToolbarTool.QR_SCAN, ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // The one-tap cursor moves last: useful, but they would otherwise push

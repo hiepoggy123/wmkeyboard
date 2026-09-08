@@ -148,6 +148,18 @@ Floating mode replaces the normal layout logic rather than combining with it. Wh
 
 Touches outside the panel pass straight through to the app underneath, and the keyboard forces full-screen (extract) mode off for as long as it's floating. Pin the **Floating** tool to your toolbar and tapping it toggles floating on or off directly.
 
+## Keeping the keyboard on screen
+
+<SettingsPath path="Layout & size / One-handed, split and floating / Keep the keyboard on screen" />
+
+**Keep the keyboard on screen** stops the keyboard from closing when the text field goes away. Off by default. With it on, the keyboard stays up after a field loses focus, over screens that have no text field at all, and across app switches, until you close it yourself. It works the same docked or floating: the switch decides whether the keyboard stays, not where it sits.
+
+The point of it is apps that read keys without a text field. A notes app that asks you to press a hotkey combination, a terminal, a game with keyboard controls: normally the keyboard vanishes the moment you leave the text box, so there's no way to send Ctrl+Shift+P from the screen. With this on, the keyboard stays and every key, modifier chords included, reaches the app as a key event. Letters and backspace arrive as key presses too, so plain typing into a fieldless screen works.
+
+Closing it is deliberate rather than automatic. The **Hide keyboard** tool, a swipe down on the toolbar, and the Back button all put it away, and it stays away until you next tap a text field, at which point it comes up and sticks again. The keyboard never follows you onto the lock screen. An app that forces the keyboard closed every time it appears gets a few tries and then wins, so a badly behaved app can't leave the keyboard flickering.
+
+Pin the **Keep on screen** tool to your toolbar to toggle this directly. That tool and this row write the same setting.
+
 ## Options
 
 <SettingsPath path="Layout & size" />
@@ -173,6 +185,7 @@ Touches outside the panel pass straight through to the app underneath, and the k
 | Floating keyboard | Off |
 | Floating keyboard width | 320 dp |
 | Floating keyboard height | 100% |
+| Keep the keyboard on screen | Off |
 
 Related but not part of this settings screen: **Key label font size** lives under [Appearance settings](/reference/settings/appearance/). The **Number row** toggle itself, as opposed to its height slider above, lives in its own group at the top of this same Layout & size screen.
 

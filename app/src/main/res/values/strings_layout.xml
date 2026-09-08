@@ -130,6 +130,9 @@
     <string name="layout_floating_width_title">Floating keyboard width</string>
     <string name="layout_floating_width_subtitle">You can also drag the corner grip of the panel</string>
     <string name="layout_floating_width_info">This is the width of the floating panel. The key heights still follow the sliders above.</string>
+    <string name="layout_persistent_title">Keep the keyboard on screen</string>
+    <string name="layout_persistent_subtitle">Stay open when no text field has focus</string>
+    <string name="layout_persistent_info">After the keyboard opens, it stays on screen when the text field closes, and over apps that have no text field. This lets you send keys and keyboard shortcuts to an app, for example to set a hotkey in a notes app. To close the keyboard, press the hide key, swipe down on the toolbar, or press Back. It opens again the next time you tap a text field. The keyboard never stays on the lock screen. Works docked or floating.</string>
 
     <!-- Layout screen: the two keys of the bottom row that can change. -->
     <string name="layout_bottom_row_keys_title">Bottom row keys</string>

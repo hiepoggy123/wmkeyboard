@@ -488,6 +488,16 @@ internal fun ToolDetailSettings(
                 )
             }
         }
+        ToolbarTool.PERSISTENT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
+            item {
+                NavRow(
+                    R.string.tooldetail_layout_nav_title,
+                    stringResource(R.string.tooldetail_layout_nav_persistent_subtitle),
+                    route = "layout/onehanded",
+                    onClick = { onNavigate("layout/onehanded") },
+                )
+            }
+        }
         ToolbarTool.FLASHLIGHT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 ToggleSetting(
