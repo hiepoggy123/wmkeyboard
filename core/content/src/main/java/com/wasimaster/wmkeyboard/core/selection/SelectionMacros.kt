@@ -44,12 +44,14 @@ enum class SelectionMacro {
     /** Turn the link into a QR code with the generator tool. */
     QR,
     /**
-     * Rewrite the selection in the Fancy Text style the user last picked.
+     * Open the Fancy Text styles for the selection, and rewrite it in the one
+     * picked.
      *
-     * The style itself is not chosen here — that is the fancy strip's job, and
-     * a ladder of thirty-one chips is not a thing to open over a selection.
-     * This is the one-tap "in the style I already use", which is what makes it
-     * worth having on a bar that appears out of a selection.
+     * A door rather than an action, the way [FORMAT] is on plain text: a style
+     * is a look, and there is no answering "which one" without showing them.
+     * The ladder is drawn from `FancyStyles` rather than from members here —
+     * there are thirty-odd styles, they are data, and the bar writes each chip
+     * in its own style, which no enum could carry.
      */
     FANCY,
     CASE_LOWER,

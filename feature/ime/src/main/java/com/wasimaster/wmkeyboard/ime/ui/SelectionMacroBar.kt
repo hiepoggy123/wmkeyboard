@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,8 +43,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wasimaster.wmkeyboard.core.script.FancyStyles
 import com.wasimaster.wmkeyboard.core.selection.SelectionKind
 import com.wasimaster.wmkeyboard.core.selection.SelectionMacro
 import com.wasimaster.wmkeyboard.core.selection.SelectionMacros
@@ -64,6 +68,7 @@ import com.wasimaster.wmkeyboard.ime.R
 internal fun SelectionMacroBar(
     state: KeyboardUiState,
     onMacro: (SelectionMacro) -> Unit,
+    onFancyStyle: (String, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val offer = state.selectionMacros ?: return
@@ -77,6 +82,15 @@ internal fun SelectionMacroBar(
     // selection cleared altogether takes the whole bar out of the composition,
     // which is what resets this for the next one.
     var caseOpen by remember(offer.kind) { mutableStateOf(false) }
+    // Fancy opens a ladder of its own, and this is the selection as it stood
+    // before that ladder began rewriting it — null while the ladder is shut.
+    //
+    // Held rather than re-read from the offer for the reason the case ladder
+    // does not need to: every chip restyles the *plain* text, so a second pick
+    // replaces the first. Restyling already-styled text would do nothing at
+    // all — the style tables are keyed by ASCII and 𝐛 is not a key in any of
+    // them — which would read as a ladder that works once and then breaks.
+    var fancySource by remember(offer.kind) { mutableStateOf<String?>(null) }
     val feedback = LocalKeyPressFeedback.current
     Row(
         modifier = modifier
@@ -84,8 +98,24 @@ internal fun SelectionMacroBar(
             .height(topBarHeight(state.settings)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (caseOpen) {
-            MacroBackButton(onClick = { caseOpen = false })
+        val styling = fancySource
+        if (caseOpen || styling != null) {
+            MacroBackButton(
+                onClick = {
+                    caseOpen = false
+                    fancySource = null
+                },
+            )
+        }
+        if (styling != null) {
+            FancyStyleLadder(
+                modifier = Modifier.weight(1f),
+                onPick = { id ->
+                    feedback()
+                    onFancyStyle(id, styling)
+                },
+            )
+            return@Row
         }
         val macros = if (caseOpen) SelectionMacros.caseMacros else offer.macros
         LazyRow(
@@ -99,11 +129,14 @@ internal fun SelectionMacroBar(
                     macro = macro,
                     onClick = {
                         feedback()
-                        // The one tap the service never sees: on prose there is
-                        // nothing to reformat, so Format is the door to the
-                        // case ladder rather than an action of its own.
+                        // The two taps the service never sees: on prose there
+                        // is nothing to reformat and no one style to apply, so
+                        // both of these chips are doors to a ladder rather than
+                        // actions of their own.
                         if (macro == SelectionMacro.FORMAT && offer.kind == SelectionKind.TEXT) {
                             caseOpen = true
+                        } else if (macro == SelectionMacro.FANCY) {
+                            fancySource = offer.text
                         } else {
                             onMacro(macro)
                         }
@@ -114,7 +147,51 @@ internal fun SelectionMacroBar(
     }
 }
 
-/** Back out of the case ladder to the macros the selection was offered. */
+/**
+ * The ladder behind the Fancy chip: every style, written in itself.
+ *
+ * The same WYSIWYG chips the fancy layout's own strip uses, and for the same
+ * reason — a style is a look, and its name is a poor description of one.
+ *
+ * Nothing is drawn as selected. The ladder asks what to make *this* selection,
+ * which has nothing to do with the style the fancy keyboard is set to, and
+ * marking one would suggest the two are the same setting.
+ */
+@Composable
+private fun FancyStyleLadder(onPick: (String) -> Unit, modifier: Modifier = Modifier) {
+    val kb = LocalKbTheme.current
+    val shape = kb.chipShape()
+    // Latin glyphs whatever the locale, so mirroring the ladder under RTL
+    // would put the list order at odds with the layout — as on the fancy strip.
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        LazyRow(
+            modifier = modifier,
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            contentPadding = PaddingValues(horizontal = 6.dp),
+        ) {
+            lazyRowItems(FancyStyles.all, key = { it.id }) { style ->
+                Text(
+                    text = style.sample,
+                    modifier = Modifier
+                        .clip(shape)
+                        .background(kb.chipActive)
+                        .chipBorder(kb, shape)
+                        .clickable { onPick(style.id) }
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        // The samples are astral soup to TalkBack; speak the
+                        // plain name instead.
+                        .semantics { contentDescription = style.name },
+                    fontSize = 14.sp,
+                    color = kb.chipActiveText,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+/** Back out of a ladder to the macros the selection was offered. */
 @Composable
 private fun MacroBackButton(onClick: () -> Unit) {
     val feedback = LocalKeyPressFeedback.current
@@ -195,7 +272,8 @@ private fun macroIcon(macro: SelectionMacro): ImageVector? = when (macro) {
     SelectionMacro.OPEN -> Icons.Outlined.OpenInNew
     SelectionMacro.QR -> Icons.Outlined.QrCode2
     // Not TextFormat, which Format already wears: the two sit side by side on
-    // a plain-text selection and must not read as the same chip twice.
+    // a plain-text selection, both open a ladder, and must not read as the
+    // same chip twice.
     SelectionMacro.FANCY -> Icons.Outlined.AutoAwesome
     else -> null
 }

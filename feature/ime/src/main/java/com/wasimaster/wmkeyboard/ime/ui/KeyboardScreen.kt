@@ -5026,8 +5026,8 @@ private fun FancyStyleStrip(
 ) {
     var pickerOpen by remember { mutableStateOf(false) }
     val feedback = LocalKeyPressFeedback.current
-    // Land on the active chip when the strip appears — with 23 styles the
-    // selected one is otherwise likely off-screen to the right.
+    // Land on the active chip when the strip appears — with thirty-odd styles
+    // the selected one is otherwise likely off-screen to the right.
     //
     // Seeded into the list's initial index rather than scrolled to from a
     // LaunchedEffect. An effect runs after the first layout, so the strip drew
@@ -8240,7 +8240,11 @@ private fun KeyboardBody(
                         // the toolbar is one tap away under the macros' own gesture.
                         // Only with no panel open, because there the chevron on this
                         // row is the way back out of the panel.
-                        stripMacros -> SelectionMacroBar(state, toolHold.onSelectionMacro)
+                        stripMacros -> SelectionMacroBar(
+                            state,
+                            toolHold.onSelectionMacro,
+                            toolHold.onSelectionFancyStyle,
+                        )
                         else -> TopBar(
                             state,
                             toolsRowOpen = toolsRowOpen,
@@ -8327,7 +8331,11 @@ private fun KeyboardBody(
                                 ExitTransition.None
                             },
                         ) {
-                            SelectionMacroBar(state, toolHold.onSelectionMacro)
+                            SelectionMacroBar(
+                                state,
+                                toolHold.onSelectionMacro,
+                                toolHold.onSelectionFancyStyle,
+                            )
                         }
                     }
                     // The chevron's open/close grows and shrinks the row over
@@ -17059,6 +17067,12 @@ data class ToolHoldCallbacks(
      * caller cannot afford another parameter.
      */
     val onSelectionMacro: (SelectionMacro) -> Unit = {},
+    /**
+     * A style chip on the Fancy ladder: the style's id, and the selection as
+     * it stood before the ladder started rewriting it. Not a [SelectionMacro],
+     * because there are thirty-odd styles and they are data, not actions.
+     */
+    val onSelectionFancyStyle: (String, String) -> Unit = { _, _ -> },
 )
 
 // ---- snippets panel ----
