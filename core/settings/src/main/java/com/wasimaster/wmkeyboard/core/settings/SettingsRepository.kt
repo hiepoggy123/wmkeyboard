@@ -1612,8 +1612,16 @@ data class KeyboardSettings(
      * the prompt shown as a language is added, or the per-item rows under
      * Settings › Languages. Word lists are never fetched automatically either
      * way — they are the megabyte-sized ones, so they are always a choice.
+     *
+     * **Off by default on F-Droid**, and only there. F-Droid's reviewers check
+     * an app against a packet capture taken from first launch, and an app whose
+     * listing says the network is something you opt into had better make no
+     * connection nobody asked for — however small, however much it improves the
+     * predictions. The prompt when a language is added still offers the
+     * download, so nothing here becomes unreachable; it becomes a button press.
+     * The other channels keep the automatic behaviour.
      */
-    val autoDownloadLanguageData: Boolean = true,
+    val autoDownloadLanguageData: Boolean = !BuildConfig.ENABLE_FDROID,
     /**
      * Re-link romanized languages with the languages of their own script
      * every time a language is added (see [RomanizedPairing]).

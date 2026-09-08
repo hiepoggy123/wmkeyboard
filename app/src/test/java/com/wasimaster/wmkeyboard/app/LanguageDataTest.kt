@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.config.BuildConfig
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackCatalog
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -61,9 +62,16 @@ class LanguageDataTest {
     }
 
     @Test
-    fun `automatic downloads are on by default`() {
+    fun `automatic downloads follow the channel`() {
         // Off would leave a fresh install predicting worse than it can, which
-        // is not what someone who never opened Settings asked for either.
-        assertTrue(KeyboardSettings().autoDownloadLanguageData)
+        // is not what someone who never opened Settings asked for either — so
+        // on, everywhere but F-Droid. There the listing says the network is
+        // something you open, reviewers check that against a capture taken from
+        // first launch, and the prompt when a language is added still offers
+        // every one of these downloads.
+        assertEquals(
+            !BuildConfig.ENABLE_FDROID,
+            KeyboardSettings().autoDownloadLanguageData,
+        )
     }
 }

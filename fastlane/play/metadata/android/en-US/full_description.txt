@@ -30,7 +30,7 @@ Speech recognition with a continuous mode, fully offline Whisper dictation, hand
 
 PRIVACY
 
-Every network feature is a tool you choose to open, and each one is documented. Password and secure fields turn off learning, suggestions and clipboard capture on their own, and incognito mode does the same on demand. Backups are written where you point them, and a passphrase encrypts them.
+Every network feature is a tool you choose to open, and each one is documented. One thing does arrive on its own: a language you enable fetches its n-gram pack and emoji dictionary once, which you can switch off under Languages. Password and secure fields turn off learning, suggestions and clipboard capture on their own, and incognito mode does the same on demand. Backups are written where you point them, and a passphrase encrypts them.
 
 Handwriting, OCR, scanning and the on-device models are built on Google's ML Kit, which reports its own diagnostics to Google while you use those features. The privacy policy says exactly what: https://wmkeyboard.pages.dev/privacy/policy/
 
