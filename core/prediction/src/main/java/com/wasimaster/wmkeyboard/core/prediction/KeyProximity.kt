@@ -17,6 +17,24 @@ import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
  */
 class KeyProximity private constructor(rows: List<String>) {
 
+    /**
+     * Hand per key, by column against the widest row. Built once with
+     * [neighbors] rather than on demand: the beam asks about it per
+     * transposition edge, per candidate, per keystroke.
+     */
+    private val hands: Map<Char, Int> = buildMap {
+        val width = rows.maxOfOrNull { it.length } ?: 0
+        val split = (width + 1) / 2
+        for (row in rows) {
+            for ((i, key) in row.withIndex()) {
+                // First writer wins, so a character on two rows keeps the hand
+                // of the row it appears on first. Nothing shipped does this;
+                // an imported layout might.
+                putIfAbsent(key, if (i < split) LEFT else RIGHT)
+            }
+        }
+    }
+
     private val neighbors: Map<Char, String> = buildMap {
         for ((r, row) in rows.withIndex()) {
             for ((i, key) in row.withIndex()) {
@@ -36,6 +54,31 @@ class KeyProximity private constructor(rows: List<String>) {
     fun areAdjacent(a: Char, b: Char): Boolean = neighbors[a]?.contains(b) == true
 
     /**
+     * Which hand reaches [c]: [LEFT], [RIGHT], or [UNKNOWN] for a character
+     * this layout does not draw.
+     *
+     * The split is by column against the widest row, not by position within
+     * each row — the rows already share a column origin (that is what makes
+     * the row-above/row-below straddle in [neighbors] meaningful), and a
+     * bottom row of seven keys would otherwise put `b` on the right hand.
+     * QWERTY, QWERTZ, AZERTY and Dvorak all come out as the split a touch
+     * typist actually uses.
+     */
+    fun handOf(c: Char): Int = hands[c] ?: UNKNOWN
+
+    /**
+     * Whether [a] and [b] are typed by the same hand.
+     *
+     * False when either is unknown to the layout: a caller weighting a
+     * two-key gesture then gets the answer it had before hands existed,
+     * rather than a guess about a key this board does not have.
+     */
+    fun sameHand(a: Char, b: Char): Boolean {
+        val ha = handOf(a)
+        return ha != UNKNOWN && ha == handOf(b)
+    }
+
+    /**
      * Structural equality: two proximities derived from the same rows are the
      * same proximity. The IME rebuilds this object on every settings emission,
      * so identity comparisons silently treat every emission as a layout change
@@ -47,6 +90,10 @@ class KeyProximity private constructor(rows: List<String>) {
     override fun hashCode(): Int = neighbors.hashCode()
 
     companion object {
+
+        const val UNKNOWN = -1
+        const val LEFT = 0
+        const val RIGHT = 1
 
         /**
          * Adjacency for the grid [spec] actually draws.

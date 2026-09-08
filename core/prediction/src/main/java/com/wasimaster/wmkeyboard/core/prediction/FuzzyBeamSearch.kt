@@ -231,8 +231,22 @@ class FuzzyBeamSearch {
                     }
                 }
                 // Transposition of the next two typed chars.
+                //
+                // Priced by the hands the two keys belong to. A transposition is
+                // two keystrokes arriving out of order, and the hands are what
+                // make that possible: one hand's fingers are sequenced by the
+                // same muscle, while the two hands are only sequenced by
+                // intention, so a fast typist's swaps are overwhelmingly the
+                // cross-hand kind. Both stay well inside [MAX_EDIT_COST] — a
+                // same-hand swap is still found, it just no longer outranks the
+                // adjacent-key slip that explains the same buffer.
+                val transposeCost = if (pos + 1 < n && proximity.sameHand(typed[pos], typed[pos + 1])) {
+                    COST_TRANSPOSITION_SAME_HAND
+                } else {
+                    COST_TRANSPOSITION
+                }
                 if (pos + 1 < n && typed[pos] != typed[pos + 1] &&
-                    editSpend + COST_TRANSPOSITION <= MAX_EDIT_COST
+                    editSpend + transposeCost <= MAX_EDIT_COST
                 ) {
                     val first = walker.child(node, typed[pos + 1])
                     if (first >= 0) {
@@ -248,8 +262,8 @@ class FuzzyBeamSearch {
                             pushIfViable(
                                 ws, src, walker, floor,
                                 node = second, pos = pos + 2,
-                                cost = cost + COST_TRANSPOSITION + surcharge,
-                                editSpend = editSpend + COST_TRANSPOSITION,
+                                cost = cost + transposeCost + surcharge,
+                                editSpend = editSpend + transposeCost,
                                 edits = edits + 1, comp = comp, parent = link,
                                 viaLabel = typed[pos],
                             )
@@ -362,7 +376,17 @@ class FuzzyBeamSearch {
     companion object {
         /** -ln of the legacy multiplicative edit weights (SuggestionEngine),
          * kept exact so ranking is precisely isomorphic to the edits-1 engine. */
+        /** Two keys swapped across the hands: the ordinary racing-hands slip. */
         val COST_TRANSPOSITION = -ln(0.9)
+
+        /**
+         * The same swap within one hand, which is a rarer thing to do and a
+         * worse explanation for the buffer. Priced with the adjacent insertion
+         * and the deletion rather than with its cross-hand twin, so it loses to
+         * a one-key slip of comparable frequency and wins over a far
+         * substitution — which is where the evidence puts it.
+         */
+        val COST_TRANSPOSITION_SAME_HAND = -ln(0.7)
         val COST_SUB_ADJACENT = -ln(0.9)
         val COST_DELETION = -ln(0.7)
 
