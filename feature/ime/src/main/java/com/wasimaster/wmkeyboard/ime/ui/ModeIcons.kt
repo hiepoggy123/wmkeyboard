@@ -95,4 +95,12 @@ object ModeIcons {
 
     /** The vector for [id], or [DefaultModeIcon] for null and unknown ids. */
     fun icon(id: String?): ImageVector = id?.let { byId[it] } ?: DefaultModeIcon
+
+    /**
+     * The vector for [id], or null when there is none.
+     *
+     * For the callers whose own fallback is not a mode's: a snippet folder with
+     * no icon of its own draws a folder, not [DefaultModeIcon].
+     */
+    fun iconOrNull(id: String?): ImageVector? = id?.let { byId[it] }
 }

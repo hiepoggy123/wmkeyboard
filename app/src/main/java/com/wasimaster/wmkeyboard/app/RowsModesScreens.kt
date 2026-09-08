@@ -842,7 +842,8 @@ private val ReorderSettleSpring = spring<Float>(stiffness = Spring.StiffnessMedi
  * [onDelete] adds a bin to each row's left, for the lists where the same
  * pencil that opens the reorder is also the way out of the list — removing a
  * language, say. Null (every other caller) draws no bin, and the last item is
- * never removable: a list this edits in place has to keep one.
+ * never removable unless [keepLast] says otherwise: a bar's rows have to keep
+ * one, while a list of snippet folders is perfectly good empty.
  *
  * [content] replaces the one-line label with the caller's own row body (the
  * bar order draws a preview of each row); [label] still names the row for
@@ -855,6 +856,7 @@ internal fun <T> ReorderableColumn(
     onReorder: (List<T>) -> Unit,
     modifier: Modifier = Modifier,
     onDelete: ((T) -> Unit)? = null,
+    keepLast: Boolean = true,
     rowHeight: Dp = ReorderRowHeight,
     content: (@Composable RowScope.(T) -> Unit)? = null,
 ) {
@@ -905,7 +907,7 @@ internal fun <T> ReorderableColumn(
                     position = index + 1,
                     label = label(item),
                     onDelete = onDelete?.let { delete -> { delete(item) } },
-                    deletable = working.size > 1,
+                    deletable = !keepLast || working.size > 1,
                     handle = Modifier.pointerInput(rowPx) {
                         detectDragGestures(
                             onDragStart = {
@@ -1771,20 +1773,25 @@ internal fun ModeEditor(
     }
 }
 /**
- * Picks a mode's icon from [ModeIcons.catalog]. Chips rather than a grid of
+ * Picks an icon from [ModeIcons.catalog]. Chips rather than a grid of
  * bare icons: the selected state comes styled and the touch targets land on
  * the same size the rest of the settings use.
+ *
+ * Shared with the snippet folders, which wear the same catalogue — hence
+ * [title], the one thing the two callers disagree about.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ModeIconPickerDialog(
+internal fun ModeIconPickerDialog(
     selected: String?,
     onPick: (String?) -> Unit,
     onDismiss: () -> Unit,
+    title: String = stringResource(R.string.modes_icon_picker_title),
+    clearLabel: String? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.modes_icon_picker_title)) },
+        title = { Text(title) },
         text = {
             FlowRow(
                 modifier = Modifier
@@ -1792,6 +1799,17 @@ private fun ModeIconPickerDialog(
                     .verticalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
+                // The way back out, for the callers that have a drawing of
+                // their own to fall back to — a snippet folder draws a folder.
+                // A mode has no such thing, so it passes no label and the chip
+                // is not there.
+                if (clearLabel != null) {
+                    FilterChip(
+                        selected = selected == null,
+                        onClick = { onPick(null) },
+                        label = { Text(clearLabel) },
+                    )
+                }
                 for ((id, vector) in ModeIcons.catalog) {
                     FilterChip(
                         selected = id == selected,

@@ -11602,11 +11602,18 @@ open class WMKeyboardService : InputMethodService() {
                 fun withShortcut(list: List<String>) = shortcut
                     ?.let { listOf(it) + list.filterNot { w -> w == it } }
                     ?: list
-                val words = withShortcut(suggested)
+                // Optionally leave out the word already typed, so all three
+                // slots offer something new. The octopus drops it either way —
+                // a word the buffer already spells has no next key — so this is
+                // only about the strip.
+                val skipTyped = state.settings.suggestionStrip.skipTypedWord && typed.isNotEmpty()
+                fun dropTyped(list: List<String>) =
+                    if (skipTyped) list.filterNot { it.equals(typed, ignoreCase = true) } else list
+                val words = dropTyped(withShortcut(suggested))
                 // The same list, only longer, so the keys and the strip never
                 // disagree about what is being offered — the keys just see
                 // further down it.
-                val pool = withShortcut(deep)
+                val pool = dropTyped(withShortcut(deep))
                 // Next-letter distribution for smart key-hit detection. Only for
                 // plain Latin composing — conversion/transliteration IMEs commit
                 // through their own composer, where a Latin-letter nudge is wrong.

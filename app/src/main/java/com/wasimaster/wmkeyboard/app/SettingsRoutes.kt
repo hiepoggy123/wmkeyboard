@@ -126,6 +126,8 @@ internal object SettingsRoutes {
         "voice",
         "clipboard",
         "expander",
+        "expander/folder/{folderId}",
+        "expander/folder/{folderId}/new",
         "expander/edit/{snippetId}",
         "tools",
         "tool/{toolName}",

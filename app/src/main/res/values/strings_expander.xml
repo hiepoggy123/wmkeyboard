@@ -15,7 +15,13 @@
     <string name="expander_variables_info">A variable expands at the moment that you insert the snippet, not when you save it. Because of this, {date} always gives the current date. {date:…} takes a pattern, for example {date:EEEE} or {date:dd/MM/yy}.</string>
 
     <string name="expander_add_action">Add snippet</string>
+    <!-- Read out for the pencil that turns a list of snippets into one you
+         drag into order. -->
     <string name="expander_reorder_title">Snippet order</string>
+    <!-- Heading over the snippets that are in no folder, when there are no
+         folders at all and so nothing to tell them apart from. -->
+    <string name="expander_snippets_title">Snippets</string>
+    <string name="expander_snippets_empty">You have no snippets yet. Press the + button to write one.</string>
 
     <!-- Folders: named groups of snippets. A folder that is switched off keeps
          its snippets, but they no longer appear by themselves while you type. -->
@@ -26,8 +32,21 @@
     <string name="expander_folder_rename_title">Rename folder</string>
     <string name="expander_folder_name_label">Folder name</string>
     <string name="expander_folder_order_title">Folder order</string>
+
+    <!-- The folder's own page, opened by pressing the folder in the list. -->
+    <string name="expander_folder_title">Folder</string>
+    <string name="expander_folder_settings_title">This folder</string>
+    <string name="expander_folder_icon_title">Icon</string>
+    <string name="expander_folder_icon_subtitle">The snippet panel shows this icon on the folder</string>
+    <string name="expander_folder_icon_picker_title">Folder icon</string>
+    <!-- The choice that puts the plain folder drawing back. -->
+    <string name="expander_folder_icon_none_label">Plain folder</string>
+    <string name="expander_folder_enabled_title">Expand while you type</string>
+    <string name="expander_folder_enabled_subtitle">Off keeps the snippets in the panel, but they no longer appear by themselves</string>
+    <string name="expander_folder_empty">Nothing is in this folder yet. Press the + button to write a snippet here.</string>
     <!-- Section that holds every snippet that is in no folder. -->
     <string name="expander_no_folder_title">Not in a folder</string>
+    <string name="expander_no_folder_empty">Every snippet you have is in a folder.</string>
     <!-- Subtitle of a folder row. %1$d is how many snippets are in it. -->
     <plurals name="expander_folder_count">
         <item quantity="one">%1$d snippet</item>

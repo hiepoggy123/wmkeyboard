@@ -24,7 +24,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
@@ -44,7 +43,13 @@ import kotlin.math.roundToInt
  * the grid still receives touches.
  */
 @Immutable
-internal data class OctopusSlot(val word: OctopusWord, val area: Rect, val hit: Rect)
+internal data class OctopusSlot(
+    val word: OctopusWord,
+    val area: Rect,
+    val hit: Rect,
+    /** How much the word had to shrink to fit its space; 1 is full size. */
+    val scale: Float = 1f,
+)
 
 /**
  * Where each word draws, given the keys' measured cells.
@@ -72,18 +77,29 @@ internal fun octopusSlots(
     gapVPx: Float,
     maxOverhangPx: Float,
     boardSize: Size,
+    /** Smallest a word may be shrunk before it is dropped instead. */
+    minScale: Float,
     widthOf: (String) -> Float,
 ): List<OctopusSlot> {
     if (bounds.isEmpty() || bandHeightPx <= 0f) return emptyList()
     val kept = ArrayList<OctopusSlot>(words.size)
     for (word in words.sortedBy { it.rank }) {
         val cell = bounds[word.keyCodePoint] ?: continue
-        val text = widthOf(word.word)
-        // A word may lean into the gaps on either side, but no further: past
-        // that it stops reading as belonging to its own key. One that cannot
-        // fit even then is dropped rather than cut down to an ellipsis, which
-        // is what keeps a dense board from turning into a wall of stubs.
-        if (text <= 0f || text > cell.width + maxOverhangPx * 2) continue
+        val full = widthOf(word.word)
+        if (full <= 0f) continue
+        // A word leans into the space either side of its key — the Z10 and the
+        // Octopus tweak both let a long word run over its neighbours, and a
+        // word that may only be as wide as one key is a word that disappears
+        // the moment it has eight letters. "Downloaded" over a 36dp key is the
+        // case that found this: it was simply dropped, so the board looked
+        // empty exactly when the strip had most to offer.
+        //
+        // Past that it shrinks rather than vanishing, down to [minScale]. Only
+        // a word that still will not fit at its smallest is given up on.
+        val allowed = cell.width + maxOverhangPx * 2
+        val scale = (allowed / full).coerceAtMost(1f)
+        if (scale < minScale) continue
+        val text = full * scale
         val top = when (placement) {
             // STRIP shares FLOAT's arithmetic exactly: the reserved lane moved
             // the cell down, so "the band above the cell" is already the lane.
@@ -109,12 +125,16 @@ internal fun octopusSlots(
         // worse one goes. Shrinking or shifting the loser would leave a word
         // that no longer points at its own key, which is the one thing the
         // whole feature must not do.
-        if (kept.none { it.area.overlaps(area) }) {
+        // A little overlap is what the reference boards look like; a lot is
+        // unreadable. Two words may touch, and the worse one goes only when it
+        // would take a real bite out of the better one.
+        if (kept.none { it.area.overlaps(area) && overlapFraction(it.area, area) > OctopusMaxOverlap }) {
             val hitTop = area.top.coerceIn(0f, boardSize.height)
             val hitBottom = area.bottom.coerceIn(0f, boardSize.height)
             kept.add(
                 OctopusSlot(
                     word = word,
+                    scale = scale,
                     area = area,
                     // Only the part still over the board can be tapped; on the
                     // top row that is the lower half of the word.
@@ -155,6 +175,8 @@ internal fun octopusSlots(
 internal fun BoxScope.OctopusOverlay(
     words: Map<Int, OctopusWord>,
     bounds: Map<Int, Rect>,
+    /** One key's width, the unit a word's allowed overhang is measured in. */
+    keyWidth: Float,
     /** The key grid's own size; nothing is tapped past it. */
     boardSize: Size,
     /** A glide stroke owns the board, and the picker may be asking already. */
@@ -175,7 +197,7 @@ internal fun BoxScope.OctopusOverlay(
     val style = hintTextStyle().copy(fontSize = fontSize.sp)
     val bandHeightPx = with(density) { (fontSize * OctopusBandLines).sp.toPx() }
     val gapVPx = with(density) { keyGapV(settings).toPx() }
-    val maxOverhangPx = with(density) { OctopusOverhangDp.toPx() }
+    val maxOverhangPx = keyWidth * OctopusOverhangWidths
     val slots = octopusSlots(
         words = words.values,
         bounds = bounds,
@@ -184,6 +206,7 @@ internal fun BoxScope.OctopusOverlay(
         straddle = OctopusStraddle,
         gapVPx = gapVPx,
         maxOverhangPx = maxOverhangPx,
+        minScale = OctopusMinScale,
         boardSize = boardSize,
         widthOf = { measurer.measure(it, style, maxLines = 1).size.width.toFloat() },
     )
@@ -215,12 +238,21 @@ internal fun BoxScope.OctopusOverlay(
         ) {
             Text(
                 text = octopusLabel(slot.word, head, kb.accent),
-                style = style,
+                // Shrunk to fit where a long word would otherwise not have
+                // been drawn at all.
+                style = if (slot.scale == 1f) style else style.copy(fontSize = (fontSize * slot.scale).sp),
                 maxLines = 1,
                 softWrap = false,
             )
         }
     }
+}
+
+/** How much of the narrower of two words the wider may cover before one goes. */
+private fun overlapFraction(a: Rect, b: Rect): Float {
+    val overlap = minOf(a.right, b.right) - maxOf(a.left, b.left)
+    if (overlap <= 0f) return 0f
+    return overlap / minOf(a.width, b.width).coerceAtLeast(1f)
 }
 
 /**
@@ -273,8 +305,19 @@ private const val OctopusBandLines = 1.35f
  */
 private const val OctopusStraddle = 0.5f
 
-/** How far a word may lean into the gap on either side of its own key. */
-private val OctopusOverhangDp = 14.dp
+/**
+ * How far a word may lean past its own key, as a multiple of the key's width.
+ * Generous on purpose: the boards this copies let a long word run right over
+ * its neighbours, and the alternative is that every word of eight letters or
+ * more silently disappears.
+ */
+private const val OctopusOverhangWidths = 1f
+
+/** The smallest a word may be drawn before it is dropped instead. */
+private const val OctopusMinScale = 0.72f
+
+/** How much of the narrower word two of them may share before one is dropped. */
+private const val OctopusMaxOverlap = 0.35f
 
 /** The typed head, faded against the completion it introduces. */
 private const val OctopusHeadAlpha = 0.55f

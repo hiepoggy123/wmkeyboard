@@ -49,6 +49,33 @@ internal fun octopusFlick(
     minTravelPx: Float,
     sensitivity: OctopusFlickSensitivity,
 ): Boolean {
+    if (points.size < 2) return false
+    val direct = hypot(
+        points.last().x - points.first().x,
+        points.last().y - points.first().y,
+    )
+    return direct >= minTravelPx &&
+        octopusFlickShape(points, startX, startY, keyWidthPx, startReachPx, sensitivity)
+}
+
+/**
+ * Whether the stroke *so far* still looks like a flick, with no opinion about
+ * whether it has travelled far enough yet to be one.
+ *
+ * Asked on every sample while the finger is down, so the trail can draw itself
+ * as a flick's straight line while that is still what this might be, and turn
+ * into the ordinary comet the moment it stops being one. Splitting the distance
+ * out is the whole difference: a stroke half a key long has not disqualified
+ * itself, it has only not finished.
+ */
+internal fun octopusFlickShape(
+    points: List<GesturePoint>,
+    startX: Float,
+    startY: Float,
+    keyWidthPx: Float,
+    startReachPx: Float,
+    sensitivity: OctopusFlickSensitivity,
+): Boolean {
     if (keyWidthPx <= 0f || points.size < 2) return false
     val first = points.first()
     val last = points.last()
@@ -61,7 +88,7 @@ internal fun octopusFlick(
     // Upward, and inside the cone.
     if (dy >= 0f) return false
     val direct = hypot(dx, dy)
-    if (direct < minTravelPx) return false
+    if (direct <= 0f) return false
     if (direct > keyWidthPx * OCTOPUS_MAX_TRAVEL_WIDTHS) return false
     if (angleOffVertical(dx, dy) > sensitivity.coneDegrees) return false
 

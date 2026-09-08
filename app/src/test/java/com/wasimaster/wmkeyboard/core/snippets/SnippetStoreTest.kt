@@ -210,6 +210,25 @@ class SnippetStoreTest {
     }
 
     @Test
+    fun `a folder's icon is set, cleared and carried through the file`() {
+        val file = tmp.newFile("snippets.json")
+        val store = SnippetStore(file)
+        val work = store.addFolder("Work")
+        assertEquals(null, store.folder(work.id)?.icon)
+
+        store.setFolderIcon(work.id, "work")
+        assertEquals("work", store.folder(work.id)?.icon)
+        // Blank is not an icon id; it means the plain folder, same as null.
+        store.setFolderIcon(work.id, "  ")
+        assertEquals(null, store.folder(work.id)?.icon)
+
+        store.setFolderIcon(work.id, "work")
+        store.add(Snippet(id = 0, label = "Sig", text = "Regards", folderId = work.id))
+        store.save()
+        assertEquals("work", SnippetStore(file).folders().single().icon)
+    }
+
+    @Test
     fun `a folder that is switched off disarms its patterns too`() {
         val store = SnippetStore(null)
         val folder = store.addFolder("Greetings")

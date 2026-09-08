@@ -857,6 +857,15 @@ internal fun TypingSuggestionsSettings(
                     default = SettingsDefaults.inlineAutofill,
                 ) { scope.launch { repository.setInlineAutofill(it) } }
             }
+        item {
+            ToggleSetting(
+                R.string.typing_skip_typed_word_title,
+                stringResource(R.string.typing_skip_typed_word_subtitle),
+                settings.suggestionStrip.skipTypedWord,
+                info = stringResource(R.string.typing_skip_typed_word_info),
+                default = SettingsDefaults.suggestionStrip.skipTypedWord,
+            ) { scope.launch { repository.setSkipTypedWord(it) } }
+        }
             item {
                 ToggleSetting(
                     R.string.typing_smart_replies_title,

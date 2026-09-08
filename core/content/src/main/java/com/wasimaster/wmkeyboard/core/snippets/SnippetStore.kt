@@ -576,6 +576,16 @@ class SnippetStore(private val storageFile: File?) {
         if (index >= 0) folders[index] = folders[index].copy(name = name.trim())
     }
 
+    /**
+     * Sets the folder's icon, or clears it with null. Appearance only — the
+     * index never reads it, so the lookup stays good.
+     */
+    @Synchronized
+    fun setFolderIcon(id: Long, icon: String?) {
+        val index = folders.indexOfFirst { it.id == id }
+        if (index >= 0) folders[index] = folders[index].copy(icon = icon?.takeIf { it.isNotBlank() })
+    }
+
     /** Arms or disarms every trigger in the folder. See [SnippetFolder]. */
     @Synchronized
     fun setFolderEnabled(id: Long, enabled: Boolean) {

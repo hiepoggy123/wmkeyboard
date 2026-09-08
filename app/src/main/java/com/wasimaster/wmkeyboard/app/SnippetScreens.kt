@@ -75,6 +75,8 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.runCancellable
@@ -97,6 +99,7 @@ import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import com.wasimaster.wmkeyboard.core.snippets.SnippetPayload
 import com.wasimaster.wmkeyboard.core.snippets.SnippetVariable
 import com.wasimaster.wmkeyboard.core.snippets.UppercaseStyle
+import com.wasimaster.wmkeyboard.ime.ui.ModeIcons
 import com.wasimaster.wmkeyboard.core.snippets.espanso.EspansoFile
 import com.wasimaster.wmkeyboard.core.snippets.espanso.EspansoHub
 import com.wasimaster.wmkeyboard.core.snippets.espanso.EspansoManifest
@@ -417,54 +420,56 @@ internal fun SnippetSettings(
         ) { Text(stringResource(CommonR.string.common_export)) }
     }
     Spacer(Modifier.height(12.dp))
-    // Both this list and the snippets panel draw in stored order, and the panel
-    // has no search, so a snippet used daily sank under a year of one-off ones.
-    // The row disables itself below two snippets, where order means nothing.
-    if (snippets.isNotEmpty()) {
-        SettingsGroup {
-            item {
-                ReorderSetting(
-                    title = stringResource(R.string.expander_reorder_title),
-                    dialogTitle = stringResource(R.string.expander_reorder_title),
-                    items = snippets,
-                    label = { it.label },
-                    onReordered = { ordered -> mutate { s -> s.reorder(ordered.map { it.id }) } },
-                )
-            }
-        }
-    }
-    var reorderingFolders by rememberSaveable { mutableStateOf(false) }
+    // The pencil is the one way into every destructive or fiddly thing a list
+    // of folders can do: without it a folder row is a name, a count and one
+    // switch, and a tap opens the folder rather than a rename dialog nobody
+    // asked for.
+    var editingFolders by rememberSaveable { mutableStateOf(false) }
+    val canEditFolders = folders.isNotEmpty()
+    LaunchedEffect(canEditFolders) { if (!canEditFolders) editingFolders = false }
     SettingsGroup(
         stringResource(R.string.expander_folders_title),
         info = stringResource(R.string.expander_folders_info),
-        action = if (folders.size > 1) {
+        action = if (canEditFolders) {
             {
-                IconButton(onClick = { reorderingFolders = !reorderingFolders }) {
-                    Icon(
-                        if (reorderingFolders) Icons.Outlined.Check else Icons.Outlined.Edit,
-                        contentDescription = stringResource(R.string.expander_folder_order_title),
-                    )
-                }
+                EditListButton(
+                    editing = editingFolders,
+                    description = stringResource(R.string.expander_folder_order_title),
+                ) { editingFolders = !editingFolders }
             }
         } else null,
     ) {
-        if (reorderingFolders) {
+        if (editingFolders && canEditFolders) {
             item {
                 ReorderableColumn(
                     folders,
                     label = { it.name },
                     onReorder = { ordered -> mutate { s -> s.reorderFolders(ordered.map { it.id }) } },
+                    onDelete = { folder -> deletingFolder = folder },
+                    // A folder list is perfectly good empty, so the last one
+                    // goes the same way as the rest.
+                    keepLast = false,
                     modifier = Modifier.padding(horizontal = 16.dp),
-                )
+                ) { folder ->
+                    Icon(folderIcon(folder), contentDescription = null)
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        folder.name,
+                        style = MaterialTheme.typography.bodyLarge,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
         for (folder in folders) {
-            if (reorderingFolders) break
+            if (editingFolders) break
             item {
                 val count = snippets.count { it.folderId == folder.id }
                 WmRow(
                     title = folder.name,
-                    icon = Icons.Outlined.Folder,
+                    icon = folderIcon(folder),
                     subtitle = buildString {
                         append(
                             pluralStringResource(R.plurals.expander_folder_count, count, count),
@@ -474,28 +479,21 @@ internal fun SnippetSettings(
                             append(stringResource(R.string.expander_folder_off_label))
                         }
                     },
-                    // The row itself renames; the switch is the one action worth
-                    // its own target, and delete asks before it does anything.
-                    onClick = { namingFolder = folder },
+                    // The row opens the folder, the way the keyboard's own
+                    // snippet panel does. Renaming, the icon and deleting all
+                    // live one level in or behind the pencil.
+                    onClick = { onNavigate("expander/folder/${folder.id}") },
                     trailing = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            val switchDesc = stringResource(
-                                R.string.expander_folder_switch_desc, folder.name,
-                            )
-                            Switch(
-                                checked = folder.enabled,
-                                onCheckedChange = { on ->
-                                    mutate { it.setFolderEnabled(folder.id, on) }
-                                },
-                                modifier = Modifier.semantics { contentDescription = switchDesc },
-                            )
-                            IconButton(onClick = { deletingFolder = folder }) {
-                                Icon(
-                                    Icons.Outlined.Delete,
-                                    contentDescription = stringResource(CommonR.string.common_delete),
-                                )
-                            }
-                        }
+                        val switchDesc = stringResource(
+                            R.string.expander_folder_switch_desc, folder.name,
+                        )
+                        Switch(
+                            checked = folder.enabled,
+                            onCheckedChange = { on ->
+                                mutate { it.setFolderEnabled(folder.id, on) }
+                            },
+                            modifier = Modifier.semantics { contentDescription = switchDesc },
+                        )
                     },
                 )
             }
@@ -508,39 +506,24 @@ internal fun SnippetSettings(
             )
         }
     }
-    // One section per folder, then whatever is in none of them. A folder with
-    // nothing in it is not drawn here — it is already listed above, and an empty
-    // headed section reads as a section that failed to load.
-    for (folder in folders) {
-        val inFolder = snippets.filter { it.folderId == folder.id }
-        if (inFolder.isEmpty()) continue
-        SettingsGroup(folder.name) {
-            for (snippet in inFolder) {
-                item {
-                    SnippetRow(
-                        snippet,
-                        onEdit = { onNavigate("expander/edit/${snippet.id}") },
-                        onDelete = { mutate { it.remove(snippet.id) } },
-                    )
-                }
-            }
-        }
-    }
+    // Only what is in no folder: a folder's snippets are inside it now. The
+    // heading changes rather than disappearing, because the group carries the
+    // pencil and a heading is the only thing that can hold one.
     val loose = snippets.filter { it.folderId == 0L }
-    SettingsGroup(
-        // Only worth a heading once there is something to tell it apart from.
-        title = if (folders.isEmpty()) null else stringResource(R.string.expander_no_folder_title),
-    ) {
-        for (snippet in loose) {
-            item {
-                SnippetRow(
-                    snippet,
-                    onEdit = { onNavigate("expander/edit/${snippet.id}") },
-                    onDelete = { mutate { it.remove(snippet.id) } },
-                )
-            }
-        }
-    }
+    SnippetGroup(
+        title = stringResource(
+            if (folders.isEmpty()) R.string.expander_snippets_title else R.string.expander_no_folder_title,
+        ),
+        snippets = loose,
+        // Two different nothings: no snippets at all, and none that are loose
+        // because every one of them is filed somewhere.
+        empty = stringResource(
+            if (folders.isEmpty()) R.string.expander_snippets_empty else R.string.expander_no_folder_empty,
+        ),
+        onOpen = { snippet -> onNavigate("expander/edit/${snippet.id}") },
+        onDelete = { snippet -> mutate { it.remove(snippet.id) } },
+        onReorder = { ordered -> mutate { s -> s.reorder(regrouped(snippets, ordered)) } },
+    )
 
     namingFolder?.let { folder ->
         SnippetFolderNameDialog(
@@ -668,6 +651,121 @@ internal fun SnippetSettings(
                     Text(stringResource(CommonR.string.common_ok))
                 }
             },
+        )
+    }
+}
+/**
+ * One folder: its name, its icon, its switch, and the snippets inside it.
+ *
+ * A screen rather than the dialog the main page used to open, because a folder
+ * row there now opens the folder — the same gesture the keyboard's own snippet
+ * panel has always had — and everything the dialog held has to land somewhere.
+ * Its own [SnippetStore] for the same reason [SnippetEditor] has one: the
+ * screens are separate destinations and the file is the one thing they share.
+ *
+ * [onGone] backs out of a folder that is not there: deleted from the list
+ * behind this screen, or a link to an id that never existed.
+ */
+@Composable
+internal fun SnippetFolderScreen(
+    folderId: Long,
+    onNavigate: (String) -> Unit,
+    onGone: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val file = remember { java.io.File(context.filesDir, "snippets/snippets.json") }
+    var store by remember { mutableStateOf<SnippetStore?>(null) }
+    var snippets by remember { mutableStateOf<List<Snippet>>(emptyList()) }
+    var folder by remember { mutableStateOf<SnippetFolder?>(null) }
+    var loaded by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
+    var pickingIcon by remember { mutableStateOf(false) }
+
+    LaunchedEffect(folderId) {
+        val s = withContext(Dispatchers.IO) { SnippetStore(file) }
+        snippets = s.items()
+        folder = s.folder(folderId)
+        store = s
+        loaded = true
+    }
+
+    fun mutate(block: (SnippetStore) -> Unit) {
+        val s = store ?: return
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                block(s)
+                s.save()
+            }
+            snippets = s.items()
+            folder = s.folder(folderId)
+        }
+    }
+
+    val here = folder
+    LaunchedEffect(loaded, here) { if (loaded && here == null) onGone() }
+    if (here == null) return
+
+    RegisterAddFab(stringResource(R.string.expander_add_action)) {
+        onNavigate("expander/folder/$folderId/new")
+    }
+    SettingsGroup(stringResource(R.string.expander_folder_settings_title)) {
+        item {
+            WmRow(
+                title = stringResource(R.string.expander_folder_name_label),
+                subtitle = here.name,
+                icon = Icons.Outlined.Folder,
+                onClick = { renaming = true },
+            )
+        }
+        item {
+            WmRow(
+                title = stringResource(R.string.expander_folder_icon_title),
+                subtitle = stringResource(R.string.expander_folder_icon_subtitle),
+                icon = folderIcon(here),
+                onClick = { pickingIcon = true },
+            )
+        }
+        item {
+            ToggleSetting(
+                title = stringResource(R.string.expander_folder_enabled_title),
+                subtitle = stringResource(R.string.expander_folder_enabled_subtitle),
+                checked = here.enabled,
+                onChange = { on -> mutate { it.setFolderEnabled(folderId, on) } },
+            )
+        }
+    }
+    SnippetGroup(
+        title = stringResource(R.string.expander_snippets_title),
+        snippets = snippets.filter { it.folderId == folderId },
+        empty = stringResource(R.string.expander_folder_empty),
+        onOpen = { snippet -> onNavigate("expander/edit/${snippet.id}") },
+        onDelete = { snippet -> mutate { it.remove(snippet.id) } },
+        // The whole store's order, with only this folder's part of it rewritten
+        // — see [regrouped].
+        onReorder = { ordered -> mutate { s -> s.reorder(regrouped(snippets, ordered)) } },
+    )
+
+    if (renaming) {
+        SnippetFolderNameDialog(
+            initial = here,
+            onDismiss = { renaming = false },
+            onSave = { name ->
+                mutate { it.renameFolder(folderId, name) }
+                renaming = false
+            },
+        )
+    }
+    if (pickingIcon) {
+        ModeIconPickerDialog(
+            selected = here.icon,
+            onPick = { id ->
+                pickingIcon = false
+                mutate { it.setFolderIcon(folderId, id) }
+            },
+            onDismiss = { pickingIcon = false },
+            title = stringResource(R.string.expander_folder_icon_picker_title),
+            clearLabel = stringResource(R.string.expander_folder_icon_none_label),
         )
     }
 }
@@ -883,6 +981,127 @@ private fun SnippetPackageDialog(onDismiss: () -> Unit, onExport: (EspansoManife
         },
     )
 }
+/**
+ * The pencil that puts a list into edit mode, and the tick that takes it out.
+ *
+ * One button on a group heading rather than a control per row: in edit mode
+ * the rows themselves change — the folder switch gives way to a handle and a
+ * bin — so the heading is the only place the toggle can live without moving
+ * every time the list does.
+ */
+@Composable
+private fun EditListButton(editing: Boolean, description: String, onClick: () -> Unit) {
+    IconButton(onClick = onClick) {
+        Icon(
+            if (editing) Icons.Outlined.Check else Icons.Outlined.Edit,
+            contentDescription = description,
+        )
+    }
+}
+/**
+ * The icon a folder wears: its own when it picked one, a folder otherwise.
+ *
+ * Not [ModeIcons.icon], whose fallback is a mode's `Tune` glyph — the same
+ * catalogue, a different default.
+ */
+private fun folderIcon(folder: SnippetFolder): ImageVector =
+    ModeIcons.iconOrNull(folder.icon) ?: Icons.Outlined.Folder
+/**
+ * [all]'s ids, with the members of [ordered] rewritten into the new order.
+ *
+ * `SnippetStore.reorder` takes one order for the whole store, and a screen only
+ * ever reorders one group of it — the snippets in a folder, or the ones in
+ * none. Naively passing the group alone would lift it above everything else,
+ * so instead each of the positions the group already held is filled with the
+ * next snippet the drag put there and nothing outside the group moves.
+ *
+ * Internal rather than private so [SnippetRegroupTest] can pin that: it is the
+ * one piece of this screen with an answer that can be wrong rather than ugly.
+ */
+internal fun regrouped(all: List<Snippet>, ordered: List<Snippet>): List<Long> {
+    // Only the ones still in the store. A drag raced against a delete hands
+    // back a snippet that has gone, and with it in the queue there would be one
+    // more id to place than there are places, so the last group member would be
+    // written twice and the first would vanish. Dropping it first makes the two
+    // counts equal by construction.
+    val here = all.mapTo(HashSet()) { it.id }
+    val queue = ArrayDeque(ordered.mapNotNull { it.id.takeIf { id -> id in here } })
+    val moving = queue.toHashSet()
+    return all.map { snippet -> if (snippet.id in moving) queue.removeFirst() else snippet.id }
+}
+/**
+ * One headed group of snippet rows, and the pencil that turns it into a list
+ * you drag into order.
+ *
+ * The pencil replaced a "Snippet order" row that opened a dialog: the order
+ * matters in two places at once — this list and the keyboard's panel — and a
+ * dialog is a poor place to see either. In edit mode the rows shrink to their
+ * labels, because a drag maps to a slot only while every row is the same
+ * height.
+ *
+ * [empty] is drawn when there is nothing in the group, so the heading still
+ * appears: a group with no rows at all draws nothing, and a folder you have
+ * just opened has to say it is empty rather than look broken.
+ */
+@Composable
+private fun SnippetGroup(
+    title: String,
+    snippets: List<Snippet>,
+    empty: String,
+    onOpen: (Snippet) -> Unit,
+    onDelete: (Snippet) -> Unit,
+    onReorder: (List<Snippet>) -> Unit,
+) {
+    var editing by rememberSaveable(title) { mutableStateOf(false) }
+    // Deleting down to one snippet takes the pencil away, so the flag has to
+    // come down with it or adding a second would land straight back in a mode
+    // nothing on screen is offering to leave.
+    val canEdit = snippets.size > 1
+    LaunchedEffect(canEdit) { if (!canEdit) editing = false }
+    SettingsGroup(
+        title,
+        action = if (canEdit) {
+            {
+                EditListButton(
+                    editing = editing,
+                    description = stringResource(R.string.expander_reorder_title),
+                ) { editing = !editing }
+            }
+        } else null,
+    ) {
+        if (snippets.isEmpty()) {
+            item {
+                Text(
+                    empty,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                )
+            }
+            return@SettingsGroup
+        }
+        if (editing && canEdit) {
+            item {
+                ReorderableColumn(
+                    snippets,
+                    label = { it.label },
+                    onReorder = onReorder,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
+            return@SettingsGroup
+        }
+        for (snippet in snippets) {
+            item {
+                SnippetRow(
+                    snippet,
+                    onEdit = { onOpen(snippet) },
+                    onDelete = { onDelete(snippet) },
+                )
+            }
+        }
+    }
+}
 /** One snippet in the Text Expander list: what it inserts, and what fires it. */
 @Composable
 private fun SnippetRow(snippet: Snippet, onEdit: () -> Unit, onDelete: () -> Unit) {
@@ -980,20 +1199,16 @@ private fun SnippetRow(snippet: Snippet, onEdit: () -> Unit, onDelete: () -> Uni
                     }
                 }
             },
+            // The row opens the editor, as a folder row opens its folder. A
+            // pencil button beside a row that is already the target for the
+            // same thing is one target too many.
+            onClick = onEdit,
             trailing = {
-                Row {
-                    IconButton(onClick = onEdit) {
-                        Icon(
-                            Icons.Outlined.Edit,
-                            contentDescription = stringResource(CommonR.string.common_edit),
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            Icons.Outlined.Delete,
-                            contentDescription = stringResource(CommonR.string.common_delete),
-                        )
-                    }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = stringResource(CommonR.string.common_delete),
+                    )
                 }
             },
         )
@@ -1144,12 +1359,15 @@ private enum class SnippetTriggerMode { WORD, PATTERN }
  * has somewhere to put the soft keyboard, which a dialog holding a three-line
  * text field does not.
  *
- * [snippetId] is 0 for a snippet that does not exist yet.
+ * [snippetId] is 0 for a snippet that does not exist yet. [initialFolderId] is
+ * the folder such a snippet starts in — 0 for none, and whichever folder page
+ * the Add button was pressed on otherwise.
  */
 @Composable
 internal fun SnippetEditor(
     settings: KeyboardSettings,
     snippetId: Long,
+    initialFolderId: Long = 0,
     onDone: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -1176,6 +1394,7 @@ internal fun SnippetEditor(
         initial = initial,
         all = all,
         folders = folders,
+        initialFolderId = initialFolderId,
         onSave = { draft ->
             val s = store ?: return@SnippetEditorForm
             scope.launch {
@@ -1203,11 +1422,12 @@ private fun SnippetEditorForm(
     initial: Snippet?,
     all: List<Snippet>,
     folders: List<SnippetFolder>,
+    initialFolderId: Long,
     onSave: (Snippet) -> Unit,
     onCancel: () -> Unit,
 ) {
     var label by remember { mutableStateOf(initial?.label.orEmpty()) }
-    var folderId by remember { mutableLongStateOf(initial?.folderId ?: 0L) }
+    var folderId by remember { mutableLongStateOf(initial?.folderId ?: initialFolderId) }
     var expansions by remember {
         mutableStateOf(initial?.expansions() ?: listOf(""))
     }
@@ -1308,7 +1528,10 @@ private fun SnippetEditorForm(
             }
         }
 
-        SettingsGroup(stringResource(R.string.rows_snippet_pattern_label)) {
+        // "Trigger" and not "Pattern": a pattern is one of the two things this
+        // section can hold, and naming the section after the rarer one hid the
+        // trigger words under a heading nobody read as theirs.
+        SettingsGroup(stringResource(R.string.rows_snippet_trigger_group_label)) {
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     ChoiceControl(
@@ -1557,6 +1780,9 @@ private fun splitOnAny(text: String, separators: Set<Char>): List<String> = buil
  *
  * Both the committed [chips] and the half-typed [draft] belong to the caller,
  * so a Save that lands before Enter does can still see what was typed.
+ *
+ * Three ways to finish one, because two of them are invisible: a [separators]
+ * character, the keyboard's Enter, and the + the field draws.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -1628,6 +1854,24 @@ private fun ChipInputField(
             LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace)
         } else {
             LocalTextStyle.current
+        },
+        // The button is the whole of the fix for a real complaint: people were
+        // adding one trigger, pressing Save, reopening the snippet and adding
+        // the next, four times over, because a separator and an Enter that
+        // both work are still two things nobody can see. A + they can.
+        trailingIcon = {
+            IconButton(
+                enabled = draft.isNotBlank(),
+                onClick = {
+                    commit(draft)
+                    onDraftChange("")
+                },
+            ) {
+                Icon(
+                    Icons.Outlined.Add,
+                    contentDescription = stringResource(R.string.rows_snippet_chip_add_desc, label),
+                )
+            }
         },
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
         // Enter reaches a single-line field as an action on most keyboards and

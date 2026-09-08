@@ -28,9 +28,12 @@
     <!-- Every word or phrase that expands this snippet. The user types one and
          presses enter to add it; each becomes a small removable chip. -->
     <string name="rows_snippet_triggers_label">Triggers (optional)</string>
-    <string name="rows_snippet_triggers_body">Type a trigger and press enter to add it. The keyboard expands the snippet when you type any of them on its own. A trigger may start with punctuation, as in :shrug, and it may hold spaces, as in gr db. It must end in a word.</string>
+    <string name="rows_snippet_triggers_body">Type a trigger and press the + button next to the box to add it. A comma or the enter key adds it too, and you can add as many as you like without saving in between. The keyboard expands the snippet when you type any of them on its own. A trigger may start with punctuation, as in :shrug, and it may hold spaces, as in gr db. It must end in a word.</string>
     <!-- The X on a chip. %1$s is the word or tag the chip holds. -->
     <string name="rows_snippet_chip_remove_desc">Remove %1$s</string>
+    <!-- Read out for the + button that adds what is typed to the list above
+         it. %1$s is the name of the box, such as "Triggers (optional)". -->
+    <string name="rows_snippet_chip_add_desc">Add to %1$s</string>
     <!-- Shown when the user adds more triggers than the app keeps. %1$d is how
          many it keeps, and is also what picks the form. -->
     <plurals name="rows_snippet_triggers_capped_error">
@@ -63,7 +66,7 @@
 
     <!-- Free words the user files a snippet under, to find it again. -->
     <string name="rows_snippet_tags_label">Tags (optional)</string>
-    <string name="rows_snippet_tags_body">Type a tag and press enter to add it. Tags help you find a snippet in a long list.</string>
+    <string name="rows_snippet_tags_body">Type a tag and press the + button next to the box to add it. A comma or the enter key adds it too. Tags help you find a snippet in a long list.</string>
 
     <!-- Carrying the trigger's own capitals into what it expands to. -->
     <string name="rows_snippet_propagate_case_label">Match the trigger\'s capitals</string>
@@ -87,6 +90,8 @@
     <string name="rows_snippet_mode_word_label">Word</string>
     <string name="rows_snippet_mode_pattern_label">Pattern</string>
 
+    <!-- Heading over the whole section: the trigger words, or the pattern. -->
+    <string name="rows_snippet_trigger_group_label">Trigger</string>
     <string name="rows_snippet_pattern_label">Pattern</string>
     <!-- The symbols in this line are code. Keep them exactly as they are. -->
     <string name="rows_snippet_pattern_body">A pattern matches the words before the cursor. Write (.+) where the text changes, then put $1 in the text above to use what it matched.</string>

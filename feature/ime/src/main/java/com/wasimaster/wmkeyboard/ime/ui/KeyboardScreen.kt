@@ -279,6 +279,7 @@ import com.wasimaster.wmkeyboard.ime.OCTOPUS_SLOP_CLEARANCE
 import com.wasimaster.wmkeyboard.ime.OCTOPUS_START_REACH_WIDTHS
 import com.wasimaster.wmkeyboard.ime.OctopusSource
 import com.wasimaster.wmkeyboard.ime.octopusFlick
+import com.wasimaster.wmkeyboard.ime.octopusFlickShape
 import com.wasimaster.wmkeyboard.ime.Modifiers
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
@@ -9566,6 +9567,25 @@ internal class GlideTrail {
     var straight by mutableStateOf(false)
         private set
 
+    /**
+     * The stroke still looks like an octopus flick, so the trail draws as one
+     * even line straight up from where the finger landed (discussion #102).
+     *
+     * Unlike [straight] this flips *back*: a stroke is a flick until it leans
+     * or wanders too far, and then it is a glide. That is the whole point of
+     * drawing it — the line is the keyboard saying which of the two it thinks
+     * is happening, while there is still time to change it. So the samples are
+     * kept either way, and this only decides how they are drawn; a trail that
+     * threw its path away would have nothing to become a comet from.
+     *
+     * Drawn vertical rather than to the fingertip, because the gesture is
+     * judged inside a cone: a flick fifteen degrees off is the same flick, and
+     * a line that leaned with the finger would suggest an accuracy the test
+     * does not ask for.
+     */
+    var flick by mutableStateOf(false)
+        private set
+
     /** Where a straight trail is anchored, in the key grid's own space. */
     var startX = 0f
         private set
@@ -9606,6 +9626,7 @@ internal class GlideTrail {
         count = 0
         released = false
         straight = false
+        flick = false
         visible = true
         revision++
     }
@@ -9621,10 +9642,18 @@ internal class GlideTrail {
     fun beginLine(x: Float, y: Float) {
         begin()
         straight = true
+        flick = false
         startX = x
         startY = y
         headX = x
         headY = y
+    }
+
+    /** Whether the stroke still reads as a flick; see [flick]. */
+    fun setFlick(on: Boolean) {
+        if (flick == on) return
+        flick = on
+        revision++
     }
 
     /** Appends the sample and drops whatever has aged past [keepMs]. */
@@ -9632,6 +9661,12 @@ internal class GlideTrail {
         nowMs = timeMs
         headX = x
         headY = y
+        // The first sample anchors a flick's line, the way beginLine anchors a
+        // chord's. A comet never reads these, so recording them costs nothing.
+        if (count == 0 && !straight) {
+            startX = x
+            startY = y
+        }
         // A straight trail keeps no path: its two ends are the whole drawing,
         // and ageing samples out from under it would strand the anchor.
         if (straight) {
@@ -11334,6 +11369,9 @@ private fun KeyRows(
                     @Suppress("DoubleMutabilityForCollection")
                     var seg = ArrayList<GesturePoint>()
                     var wasOverSpace = false
+                    // The key whose word a flick off this stroke would take,
+                    // and its centre. Null when nothing is floating there.
+                    var flickAnchor: Pair<Int, Offset>? = null
                     // Wall-clock stamp of the last preview. Sample counting was
                     // digitizer-rate dependent — every sixth report is ten
                     // decodes a second at 60 Hz and forty at 240 Hz, so the
@@ -11452,6 +11490,18 @@ private fun KeyRows(
                             isGesture = true
                             dwell.reset(change.position.x, change.position.y, change.uptimeMillis)
                             trail.begin()
+                            // Which key's word this stroke could still be
+                            // reaching for, fixed at the down: the flick claims
+                            // the key the finger landed on, and a stroke that
+                            // wanders over another key has not changed its mind
+                            // about that, it has stopped being a flick.
+                            flickAnchor = if (octopusFlickWanted) {
+                                nearestOctopusCentre(
+                                    liveCenters.value, octopusLive.value.keys, down.position,
+                                )
+                            } else {
+                                null
+                            }
                             // Built once per stroke, from the layout rather than
                             // the measured map alone: a key's shifted and
                             // long-pressed characters have no centre of their
@@ -11520,6 +11570,24 @@ private fun KeyRows(
                                 change.uptimeMillis,
                                 trailMs,
                             )
+                            // Says which gesture the keyboard currently thinks
+                            // this is, while there is still time to change it:
+                            // an even line straight up for a flick, the comet
+                            // for a glide. Asked per sample against the shape
+                            // alone, so a stroke that has not travelled far
+                            // enough yet still reads as the flick it may become.
+                            flickAnchor?.let { (_, centre) ->
+                                trail.setFlick(
+                                    octopusFlickShape(
+                                        points = seg,
+                                        startX = centre.x,
+                                        startY = centre.y,
+                                        keyWidthPx = keyWidth.value,
+                                        startReachPx = keyWidth.value * OCTOPUS_START_REACH_WIDTHS,
+                                        sensitivity = octopusSettings.flickSensitivity,
+                                    )
+                                )
+                            }
                             // Live preview of the word being drawn now, at a
                             // fixed wall-clock cadence.
                             val sincePreview = change.uptimeMillis - lastPreviewMs
@@ -11997,6 +12065,7 @@ private fun KeyRows(
             // asks, at the lift, what was over the key the finger went down on.
             words = if (trail.visible) state.octopusGlide else state.octopus,
             bounds = keyBounds,
+            keyWidth = keyWidth.value,
             boardSize = Size(boxSize.width.toFloat(), boxSize.height.toFloat()),
             // A stroke does *not* hide these: mid-glide they carry the
             // alternates, hung off the keys that reach them, which is the whole
@@ -12043,13 +12112,25 @@ private fun KeyRows(
                 // A modifier chord drag is a rubber band, not a comet: one
                 // even line from the key it started on to the fingertip, so
                 // what it draws is the pair of keys it will fire (issue #67).
-                if (trail.straight) {
+                // Two gestures draw one even line rather than a comet, for the
+                // same reason: the path the finger wandered says something
+                // neither of them means. A chord runs to the fingertip, because
+                // its far end *is* the second key. A flick runs straight up
+                // from where the finger landed however far off vertical the
+                // finger actually is, because the gesture is judged inside a
+                // cone and a line that leaned with the finger would promise a
+                // precision the test never asks for (discussion #102).
+                if (trail.straight || trail.flick) {
                     val life = trail.lineLife(trail.revision, trailMs)
                     if (life > 0f) {
                         drawLine(
                             color = trailColor.copy(alpha = trailOpacity * life),
                             start = Offset(trail.startX, trail.startY),
-                            end = Offset(trail.headX, trail.headY),
+                            end = if (trail.straight) {
+                                Offset(trail.headX, trail.headY)
+                            } else {
+                                Offset(trail.startX, trail.headY)
+                            },
                             strokeWidth = headWidth,
                             cap = StrokeCap.Round,
                         )
@@ -17837,7 +17918,9 @@ private fun SnippetFolderTile(
         // below says the one thing that changed.
         val fade = if (folder.enabled) 1f else 0.55f
         Icon(
-            Icons.Outlined.Folder,
+            // The folder's own icon when it picked one; a folder otherwise. Not
+            // ModeIcons.icon(), whose fallback is a mode's and not a folder's.
+            ModeIcons.iconOrNull(folder.icon) ?: Icons.Outlined.Folder,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary.copy(alpha = fade),
             modifier = Modifier.size(20.dp),

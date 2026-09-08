@@ -48,7 +48,7 @@ Everything in front of the last word can run to 32 characters. That's room for a
 
 ### Several triggers
 
-One snippet can answer to as many triggers as you like. The **Triggers** field on the editor screen takes one at a time: type a trigger, press enter, and it becomes a small chip you can tap to edit or press the ✕ to remove. Commas work too, so pasting "brb, omw, ttyl" gives you three chips. Spaces don't split any more, since a trigger is allowed to contain them, and any run of whitespace inside one is saved as a single space. Each trigger fires the same snippet in exactly the same way. A spelling that repeats another is quietly dropped, and the app keeps the first 256.
+One snippet can answer to as many triggers as you like. The **Triggers** field on the editor screen takes one at a time: type a trigger, press the **+** button at the end of the box, and it becomes a small chip you can tap to edit or press the ✕ to remove. Enter does the same thing, and so does a comma, so pasting "brb, omw, ttyl" gives you three chips. You never have to save and reopen the snippet between triggers: add all four, then press Save once. Spaces don't split any more, since a trigger is allowed to contain them, and any run of whitespace inside one is saved as a single space. Each trigger fires the same snippet in exactly the same way. A spelling that repeats another is quietly dropped, and the app keeps the first 256.
 
 ### Matching capitals
 
@@ -180,26 +180,30 @@ Find the list under Settings → Text Expander (see [Options](#options) below fo
 The settings screen opens with a reference card listing all 18 variables plus `{date:pattern}`, each with a live example. Below it:
 
 - **Add snippet** opens the editor screen: a label, an optional folder, the [expansions](#several-expansions) it can insert, and a Word / Pattern switch for how it expands as you type.
-- Choosing **Word** gives you the [Triggers](#several-triggers) chip field and a **Match the trigger's capitals** switch that reveals its style choice when you turn it on. Choosing **Pattern** gives you the pattern itself, chips that write `(.+)`, `$1`, `^` and `$` at the cursor, a words-to-match picker, and a **Try it** box. Type into **Try it** what you'd type on the keyboard, and the result appears underneath. A pattern that won't compile is flagged as you type, with the regular-expression engine's own complaint under it. Save stays disabled until you fix it.
+- The section that holds both is called **Trigger**. Choosing **Word** gives you the [Triggers](#several-triggers) chip field and a **Match the trigger's capitals** switch that reveals its style choice when you turn it on. Choosing **Pattern** gives you the pattern itself, chips that write `(.+)`, `$1`, `^` and `$` at the cursor, a words-to-match picker, and a **Try it** box. Type into **Try it** what you'd type on the keyboard, and the result appears underneath. A pattern that won't compile is flagged as you type, with the regular-expression engine's own complaint under it. Save stays disabled until you fix it.
 - Under both is **Ask before it expands**, which turns the trigger into a suggestion-bar offer instead of an automatic rewrite (see [Ask before it expands](#ask-before-it-expands)).
 - Below that come [Linked snippets](#linked-snippets) and [Tags](#tags).
-- The pencil icon on a saved snippet reopens the same screen, filled in, to **edit** it. Nothing is saved until you press Save.
-- The trash icon **deletes** it immediately: no confirmation prompt, no undo. It sits right next to the pencil at the end of every row, a thumb's width away, which is where nearly every accidental deletion comes from. Aim before you tap, and keep an [export](#import-and-export) around if a snippet took you a while to write.
+- Pressing a saved snippet reopens the same screen, filled in, to **edit** it. Nothing is saved until you press Save.
+- The trash icon at the end of the row **deletes** it immediately: no confirmation prompt, no undo. That's where nearly every accidental deletion comes from, so aim before you tap, and keep an [export](#import-and-export) around if a snippet took you a while to write.
 - Every row also shows a live "Inserts as: …" preview whenever the expanded text would differ from what you typed, and "Expands by itself from: …" if you've set a trigger (or the pattern itself, if you set one of those). A snippet set to ask first says "Offers itself after: …" instead. A snippet with more than one expansion, or with links, counts them on a line of its own.
 
 <PhoneFrame caption="Adding a snippet: label, text with variables, and an optional trigger word.">
   ![Adding a snippet: label, text with variables, and an optional trigger word.](@assets/screens/tools/snippets-add-dialog.webp)
 </PhoneFrame>
 
-Snippets have a stored order. New ones append to the end, and the **Snippet order** row that sits above the saved list lifts the ones you use daily back to the top. That matters because the snippets panel draws in the same order and has no search of its own.
+Snippets have a stored order. New ones append to the end, and the pencil button on the heading above a list of them turns that list into one you drag into order, so the ones you use daily can go back to the top. Press the tick to leave. That matters because the snippets panel draws in the same order and has no search of its own. Each list is ordered on its own: the snippets inside a folder, and the ones in no folder at all.
 
 ### Folders
 
 Folders group snippets that belong together: a set of work replies, a pack you installed, the handful of things you only use for one project. They're one level deep, and a snippet is in at most one of them.
 
-The **Folders** section on the Text Expander screen is where you make and manage them. **New folder** asks for a name. Tapping a folder row renames it. The trash icon deletes it, and asks first: by default the snippets inside survive and become ungrouped, and a switch in that same question deletes them along with the folder if that's what you meant. An empty folder goes without being asked about. With two or more folders you also get a **Folder order** row, which sets the order they're drawn in everywhere. Below the section, the saved snippets are listed under a heading per folder, with everything else under "Not in a folder". The editor grows a **Folder** picker once at least one folder exists.
+The **Folders** section on the Text Expander screen is where you make them, and **New folder** asks for a name. Pressing a folder opens it, the same way the keyboard's snippet panel does, and inside you get the folder's own page: its name, its icon, its switch, and the snippets filed in it. So the main screen lists folders and then whatever is in no folder at all under "Not in a folder", instead of repeating every folder's contents down the page.
 
-Each folder row carries a switch, and that switch is the point of the whole feature:
+A folder can wear an icon of its own, picked from the same set a [keyboard mode](/typing/modes/) picks from. It's on the folder's page under **Icon**, and it shows up on the folder row in Settings and on the folder tile in the snippets panel. **Plain folder** in that picker puts the ordinary folder drawing back.
+
+The pencil button on the **Folders** heading is where the rest lives. Press it and each folder's switch is replaced by a drag handle and a trash icon: drag to set the order they're drawn in everywhere, or delete one. Deleting asks first. By default the snippets inside survive and become ungrouped, and a switch in that same question deletes them along with the folder if that's what you meant. An empty folder goes without being asked about. Press the tick on the heading to go back to the normal view. The editor grows a **Folder** picker once at least one folder exists, and the **+** button on a folder's own page writes a new snippet straight into that folder.
+
+Each folder row carries a switch, and that switch is the point of the whole feature. (It's also on the folder's own page, as **Expand while you type**.)
 
 - **On** is the normal state. Everything about the folder's snippets works the way it always has.
 - **Off** stops the folder's snippets expanding while you type. Their word triggers and pattern triggers don't fire, and their ask-first chips don't appear. Nothing else changes: the snippets are still there, still listed in the panel, and still insert when you tap them. It's the difference between a set of canned work replies that must not fire in the middle of a personal message, and having to delete them.

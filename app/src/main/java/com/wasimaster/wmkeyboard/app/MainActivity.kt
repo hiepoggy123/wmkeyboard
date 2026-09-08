@@ -1309,6 +1309,31 @@ private fun SettingsNavGraph(
                 SnippetSettings(repository, settings) { navController.navigate(it) }
             }
         }
+        composable("expander/folder/{folderId}") { backStackEntry ->
+            val folderId = backStackEntry.arguments?.getString("folderId")?.toLongOrNull() ?: 0L
+            SettingsScreen(
+                stringResource(R.string.expander_folder_title),
+                { navController.popBackStack() },
+            ) {
+                SnippetFolderScreen(
+                    folderId,
+                    onNavigate = { navController.navigate(it) },
+                    onGone = { navController.popBackStack() },
+                )
+            }
+        }
+        // The Add button on a folder's page. A route rather than an argument on
+        // the editor's own, so the folder a new snippet lands in survives a
+        // link, process death and the back stack exactly as the folder id does.
+        composable("expander/folder/{folderId}/new") { backStackEntry ->
+            val folderId = backStackEntry.arguments?.getString("folderId")?.toLongOrNull() ?: 0L
+            SettingsScreen(
+                stringResource(R.string.rows_snippet_new_title),
+                { navController.popBackStack() },
+            ) {
+                SnippetEditor(settings, 0L, folderId) { navController.popBackStack() }
+            }
+        }
         composable("expander/edit/{snippetId}") { backStackEntry ->
             // 0 is "a snippet that does not exist yet", which is what the Add
             // button navigates to.

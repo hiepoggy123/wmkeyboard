@@ -2002,13 +2002,16 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Two-column cards showing the raw template, not the expanded preview
     - File re-read on panel open and on field entry — Settings app and IME share snippets/snippets.json
     - Tapping a pattern snippet inserts the blank template — Captures left empty and the caret parked in the first gap
+    - Snippet order is set by a pencil on each list's heading — One order per list: inside a folder, and outside every folder
     - Folder drill-in — Folder tiles first, then the ungrouped snippets; back climbs out of the folder before it closes the panel
     - Long-press a folder tile to arm or disarm it — Persisted straight to the shared file
   - Folders `uncommon` — One level of named groups; a snippet is in at most one
     - Per-folder switch disarms triggers only — The snippets stay in the panel and still insert on a tap
     - A disarmed folder is left out of the trigger index — Every gate the index answers (hasPatterns, couldStartPattern, the confirm-chip checks) answers no for free
     - Deleting a folder keeps its snippets by default — A switch in the same question deletes them with it
-    - Folder order is its own reorder row
+    - Settings drills in too — A folder row opens the folder's own page: name, icon, switch, and the snippets inside it
+    - Per-folder icon from the keyboard-mode catalogue — Shown on the Settings row and on the panel tile; falls back to a plain folder
+    - Pencil on the Folders heading swaps each switch for a drag handle and a bin — Order and delete live behind it
     - Installed packs get a folder named after the pack — Uninstalling takes the folder too unless something else was moved into it
     - Packs installed before folders existed are adopted on the next addon-screen sweep — Skipped for a pack whose snippets the user has already filed by hand
   - Word triggers

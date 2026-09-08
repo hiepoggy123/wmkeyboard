@@ -24,7 +24,8 @@ class OctopusPlacementTest {
     /** Three quarters of the band clears the key; the rest overlaps it. */
     private val straddle = 0.75f
     private val gapV = 2f
-    private val overhang = 10f
+    /** A key's width either side, as the overlay gives it. */
+    private val overhang = 100f
     private val board = Size(300f, 200f)
 
     /** Row 1 across the top, row 2 under it; three 100-wide keys each. */
@@ -43,6 +44,7 @@ class OctopusPlacementTest {
     private fun slots(
         vararg words: OctopusWord,
         placement: OctopusPlacement = OctopusPlacement.FLOAT,
+        minScale: Float = 0.72f,
         bounds: Map<Int, Rect> = cells,
         /** Ten pixels a character, so a word's width is readable in the test. */
         widthOf: (String) -> Float = { it.length * 10f },
@@ -55,6 +57,7 @@ class OctopusPlacementTest {
         gapVPx = gapV,
         maxOverhangPx = overhang,
         boardSize = board,
+        minScale = minScale,
         widthOf = widthOf,
     )
 
@@ -99,15 +102,31 @@ class OctopusPlacementTest {
     // ---- fitting ----
 
     @Test
-    fun `a word may lean into the gaps beside its key`() {
-        // 110 wide over a 100 key: inside the key's width plus one overhang.
-        assertEquals(1, slots(word('s', "everything!")).size)
+    fun `a word may lean well past its own key`() {
+        // The reference boards let a long word run over its neighbours; a word
+        // held to one key's width is a word that vanishes at eight letters.
+        val slot = slots(word('s', "everything!")).single()
+        assertEquals("full size, it fits inside the overhang", 1f, slot.scale, 0f)
+        assertTrue("and reaches past its own key", slot.area.width > 100f)
     }
 
     @Test
-    fun `a word too wide even with the overhang is dropped, not cut down`() {
-        // A dense board of ellipsised stubs says less than a bare one.
-        assertTrue(slots(word('s', "a".repeat(13))).isEmpty())
+    fun `a long word shrinks rather than disappearing`() {
+        // The bug this pins: a word wider than its key plus the overhang was
+        // simply dropped, so "Downloaded" over a narrow key drew nothing at
+        // all — the board looked empty exactly when the strip had most to say.
+        // 350 wide against a 100 key plus a key's overhang either side: 300.
+        val long = slots(word('s', "d".repeat(35))).single()
+        assertTrue("shrunk", long.scale < 1f)
+        assertTrue("but still readable", long.scale >= 0.72f)
+        assertEquals("and fitted to the space it was given", 300f, long.area.width, 0.5f)
+    }
+
+    @Test
+    fun `a word that will not fit even at its smallest is dropped`() {
+        // Past the floor it would be unreadable, and a wall of unreadable
+        // words says less than a bare board.
+        assertTrue(slots(word('s', "a".repeat(60))).isEmpty())
     }
 
     @Test
@@ -122,13 +141,22 @@ class OctopusPlacementTest {
     // ---- collisions ----
 
     @Test
-    fun `two words reaching for the same space keep the better one`() {
+    fun `two words that would cover each other keep the better one`() {
+        // Wide enough that the two land almost on top of one another.
         val kept = slots(
-            word('s', "everything!", rank = 1),
-            word('a', "everything!", rank = 0),
+            word('s', "s".repeat(30), rank = 1),
+            word('a', "a".repeat(30), rank = 0),
         )
-        assertEquals(listOf("everything!"), kept.map { it.word.word })
+        assertEquals(1, kept.size)
         assertEquals('a'.code, kept.single().word.keyCodePoint)
+    }
+
+    @Test
+    fun `words that merely touch both stay`() {
+        // A little overlap is what the reference boards look like. Dropping on
+        // any contact at all is what left the board emptier than the strip.
+        val kept = slots(word('a', "aaaaaaaaaaa"), word('d', "ddddddddddd"))
+        assertEquals(2, kept.size)
     }
 
     @Test
