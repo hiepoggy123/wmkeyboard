@@ -174,7 +174,11 @@ classpath at all.
 
 The build recipe is staged in the repo at `fdroid/com.wasimaster.wmkeyboard.yml`.
 F-Droid never reads it from there; it is versioned next to the code so the
-recipe and the build stay in step.
+recipe and the build stay in step. It carries no comments, because fdroiddata's
+CI runs `fdroid rewritemeta` on every changed file and fails if the result
+differs by a byte — and `rewritemeta` strips comments. Field-by-field reasoning
+lives in [`fdroid/README.md`](https://github.com/wasi-master/wmkeyboard/blob/main/fdroid/README.md)
+instead.
 
 <Steps>
 
@@ -196,26 +200,36 @@ recipe and the build stay in step.
    ./gradlew clean assembleLiteRelease -Pwmkb.enablePlayStore=false -Pwmkb.enableGms=false
    ```
 
-3. **Fork [fdroiddata](https://gitlab.com/fdroid/fdroiddata)** on GitLab and
-   copy the recipe to `metadata/com.wasimaster.wmkeyboard.yml`.
+3. **Run the three checks their CI runs.** `fdroid lint` must exit 0, and
+   `fdroid rewritemeta` and `fdroid checkupdates --auto` must both leave the
+   file byte-identical — a pipeline job diffs the file after each. `lint` needs
+   fdroiddata's own `config/` directory to know the valid category and
+   anti-feature names; [`fdroid/README.md`](https://github.com/wasi-master/wmkeyboard/blob/main/fdroid/README.md)
+   has the copy-paste block that fetches it and runs all three.
 
-4. **Lint it** with their tooling, which catches format problems before a
-   human sees them:
+4. **Fork [fdroiddata](https://gitlab.com/fdroid/fdroiddata)** on GitLab, make a
+   branch named after the application id, and add the recipe as
+   `metadata/com.wasimaster.wmkeyboard.yml`. Doing it through the GitLab web UI
+   is the documented route and avoids cloning fdroiddata, which is a large
+   repository and fails to clone outright on some networks. Never commit to
+   your fork's `master`.
 
-   ```sh
-   fdroid lint com.wasimaster.wmkeyboard
-   ```
+5. **Wait for your fork's pipeline to go green** (CI/CD → Pipelines in the
+   fork), then **open a merge request** titled `New app: WM Keyboard` and fill
+   in their template. Expect review comments and a wait measured in weeks
+   rather than days. The two questions that come up most are whether every
+   network service is optional (it is, and the `NonFreeNet` anti-feature in the
+   recipe says so plainly) and whether anything prebuilt ends up in the APK
+   (nothing does).
 
-5. **Open a merge request** titled `New app: WM Keyboard`. Expect review
-   comments and a wait measured in weeks rather than days. The two questions
-   that come up most are whether every network service is optional (it is, and
-   the `NonFreeNet` anti-feature in the recipe says so plainly) and whether
-   anything prebuilt ends up in the APK (nothing does).
-
-6. **After it is accepted**, every release is just a new `Builds:` entry with
-   the new `versionName`, `versionCode` and `commit`, plus a bumped
-   `CurrentVersion`. Switching `UpdateCheckMode` to `Tags` lets their bot do
-   that for you once the tag pattern has proven itself.
+6. **After it is accepted**, releases look after themselves: `UpdateCheckMode:
+   HTTP` reads `versionCode` and `versionName` straight out of
+   `gradle.properties` on `main`, and `AutoUpdateMode: Version v%v` adds the
+   next `Builds:` entry from the tag. Tags mode cannot be used here — it scans
+   the Gradle build file for a version literal, and `:app` reads both through
+   `providers.gradleProperty()`. What that costs you is a promise: a release
+   whose build needs something the recipe does not do has to be caught before
+   the tag is pushed, because nobody reviews the entry their bot writes.
 
 </Steps>
 

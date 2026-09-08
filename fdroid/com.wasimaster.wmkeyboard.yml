@@ -1,43 +1,21 @@
-# F-Droid build metadata, staged here for review.
-#
-# This file is NOT read by F-Droid from this repository. To get the app into
-# f-droid.org you copy it to metadata/com.wasimaster.wmkeyboard.yml inside a
-# fork of https://gitlab.com/fdroid/fdroiddata and open a merge request.
-# Keeping the copy here means the build recipe is versioned next to the code
-# that has to keep satisfying it. See docs/development/releasing for the walk
-# through.
-#
-# Name, summary, description, icon and screenshots are deliberately absent:
-# F-Droid reads those from fastlane/metadata/android/en-US/ in this repo, so
-# they only have to be right in one place.
-#
-# Only the newest release is listed under Builds. F-Droid's buildserver builds
-# every entry it has not seen, so shipping the back catalogue in a first
-# submission would spend their build time on versions nobody can install any
-# more. Earlier entries (0.3.0 through 0.5.3) are in this file's git history.
-
+AntiFeatures:
+  NonFreeNet:
+    en-US: "Typing, prediction, autocorrect and learning are entirely offline. A\n\
+      set of optional tools can reach third-party services (Google Translate,\nBrave
+      Search, GIPHY and KLIPY, Unsplash and Pexels, Open-Meteo, and\nwhichever AI
+      provider you supply your own key for). Each is opt-in per\ntool and the keyboard
+      is fully usable with all of them untouched."
 Categories:
   - Writing
 License: MIT
 AuthorName: Wasi Master
 AuthorWebSite: https://github.com/wasi-master
+WebSite: https://wmkeyboard.pages.dev
 SourceCode: https://github.com/wasi-master/wmkeyboard
 IssueTracker: https://github.com/wasi-master/wmkeyboard/issues
 Changelog: https://github.com/wasi-master/wmkeyboard/releases
-WebSite: https://wmkeyboard.pages.dev
 
-# Optional tools (translate, GIF search, web search, photo backgrounds, the
-# bring-your-own-key AI providers) call third-party services. They are off
-# until opened and the app works fully without them, but the services
-# themselves are not free software, so the flag is declared honestly.
-AntiFeatures:
-  NonFreeNet:
-    en-US: |-
-      Typing, prediction, autocorrect and learning are entirely offline. A
-      set of optional tools can reach third-party services (Google Translate,
-      Brave Search, GIPHY and KLIPY, Unsplash and Pexels, Open-Meteo, and
-      whichever AI provider you supply your own key for). Each is opt-in per
-      tool and the keyboard is fully usable with all of them untouched.
+AutoName: WM Keyboard
 
 RepoType: git
 Repo: https://github.com/wasi-master/wmkeyboard.git
@@ -47,38 +25,19 @@ Builds:
     versionCode: 15
     commit: v0.5.4
     subdir: app
-    # The lite flavor. Every proprietary dependency in the tree (ML Kit,
-    # LiteRT, Play in-app updates, play-services-auth) is declared as
-    # `fullImplementation` or behind the enablePlayStore/enableGms flags, so
-    # this variant has no Google artifact on its compile classpath at all.
     gradle:
       - lite
-    # The first two default to false when local.properties is absent, which it
-    # is in a clean checkout. Stated anyway so the recipe does not depend on
-    # that. The third is not a default and has to be set here: it is what tells
-    # the built app it is an F-Droid install, which decides the channel line on
-    # bug reports and diagnostics, and which suppresses the "get it on F-Droid"
-    # row in About that would otherwise point an F-Droid user at their own
-    # install.
+    scandelete:
+      - core/intelligence/src/full/jniLibs
+      - feature/llm/src/main/jniLibs
     gradleprops:
       - wmkb.enablePlayStore=false
       - wmkb.enableGms=false
       - wmkb.enableFdroid=true
-    # Prebuilt native libraries that belong to variants this build does not
-    # produce: the Harper grammar engine lives in the full source set (its
-    # Rust sources are under native/harper-jni), and the LLM module is only
-    # assembled for the Play channel. Deleting them keeps the scanner quiet
-    # and proves neither reaches the built APK.
-    scandelete:
-      - core/intelligence/src/full/jniLibs
-      - feature/llm/src/main/jniLibs
 
-# Tags mode cannot read this project's version: :app takes versionCode and
-# versionName from gradle.properties through providers.gradleProperty(), so
-# the build file holds no literal for the scanner to find. HTTP mode reads
-# that file directly instead, and the tag is v<versionName>.
 AutoUpdateMode: Version v%v
 UpdateCheckMode: HTTP
-UpdateCheckData: https://raw.githubusercontent.com/wasi-master/wmkeyboard/main/gradle.properties|wmkb.versionCode=(\d+)|https://raw.githubusercontent.com/wasi-master/wmkeyboard/main/gradle.properties|wmkb.versionName=(.+)
+UpdateCheckData: 
+  https://raw.githubusercontent.com/wasi-master/wmkeyboard/main/gradle.properties|wmkb.versionCode=(\d+)|.|wmkb.versionName=(.+)
 CurrentVersion: 0.5.4
 CurrentVersionCode: 15
