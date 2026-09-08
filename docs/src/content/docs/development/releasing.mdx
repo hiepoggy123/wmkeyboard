@@ -200,6 +200,17 @@ instead.
    ./gradlew clean assembleLiteRelease -Pwmkb.enablePlayStore=false -Pwmkb.enableGms=false
    ```
 
+   :::caution[No module may ask for a JDK toolchain]
+   The recipe deletes the foojay resolver, because the scanner rejects anything
+   that could fetch a JDK over the network. Their builders also have
+   auto-provisioning switched off. Together that makes any `jvmToolchain(n)` in
+   the tree fatal unless `n` is a JDK their image already carries —
+   `:tools:dictc` asked for 17 and failed the build outright with
+   `Cannot find a Java installation ... matching {languageVersion=17}`. Set a **jvmTarget**
+   instead: it fixes the bytecode level without demanding a particular JDK be
+   installed.
+   :::
+
 3. **Run the three checks their CI runs.** `fdroid lint` must exit 0, and
    `fdroid rewritemeta` and `fdroid checkupdates --auto` must both leave the
    file byte-identical — a pipeline job diffs the file after each. `lint` needs

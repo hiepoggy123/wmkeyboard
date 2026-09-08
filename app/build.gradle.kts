@@ -190,8 +190,16 @@ android {
             // anything installed from such a build can never be updated by the
             // real key. Without the keystore the build produces an *unsigned*
             // release APK instead — an obvious failure rather than a silent one.
-            signingConfig = signingConfigs.getByName("release")
-                .takeIf { it.storeFile?.exists() == true }
+            //
+            // One line, and findByName, both for F-Droid's sake. Their builder
+            // strips the signingConfigs block and every line matching
+            // `^[\t ]*signingConfig\s*[= ]\s*[^ ]*$` before building — a regex
+            // whose tail allows no spaces, so it took the assignment and left a
+            // `.takeIf` continuation behind to fail on its own. Kept to one
+            // line, the statement either goes whole or stays whole. And with
+            // the block gone getByName would throw, where findByName returns
+            // null and the build comes out unsigned, which is what they want.
+            signingConfig = signingConfigs.findByName("release")?.takeIf { it.storeFile?.exists() == true }
             isMinifyEnabled = true
             isShrinkResources = true
             optimization {

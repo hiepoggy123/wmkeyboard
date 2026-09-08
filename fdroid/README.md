@@ -35,38 +35,52 @@ Rust sources are under `native/harper-jni`), and the LLM module is only assemble
 for the Play channel. Deleting them keeps F-Droid's scanner quiet and proves
 neither reaches the built APK.
 
-**`prebuild`** — F-Droid's source scanner is a text search over the build files,
-run before the build and fatal on a match. It does not know about build logic, so
-it flags four strings this build never resolves:
+**`prebuild`** — four `sed` commands, for three separate reasons. Only the first
+two are permanent; the last two exist because 0.5.4 was already tagged when the
+problems were found, and both are fixed in the source for 0.5.5 onward.
+
+*Seds one and two, for the scanner.* F-Droid's source scanner is a text search
+over the build files, run before the build and fatal on a match. It does not read
+build logic, so it flags strings this build never resolves:
 
 * `org.gradle.toolchains.foojay-resolver-convention` in `settings.gradle.kts`,
-  which would fetch a JDK over the network. Nothing here declares a Java
-  toolchain — `sourceCompatibility` and `jvmTarget` are 11 and no module calls
-  `jvmToolchain()` — so the plugin only ever served `updateDaemonJvm`, and their
-  tooling deletes the `gradle-daemon-jvm.properties` it wrote anyway. The build
-  uses whatever JDK runs Gradle.
+  which would fetch a JDK over the network. Their tooling deletes the
+  `gradle-daemon-jvm.properties` the plugin maintains, and auto-provisioning is
+  switched off on their builders regardless, so the plugin can do nothing there
+  but fail the scan.
 * `libs.play.app.update`, `libs.play.feature.delivery` and
   `libs.play.services.auth` in `app/build.gradle.kts`. All three sit inside
   `if (playStoreChannel)` / `if (gmsChannel)` blocks, which are false for this
   recipe, so they are never on the compile classpath. The blocks are left empty
   by the `sed`, which is valid Kotlin.
 
-The third `sed` is a different problem. Before building, fdroidserver strips the
-`signingConfigs { }` block and any line matching `^[\t ]*signingConfig\s*[= ]\s*[^ ]*$`
-— note that the tail must contain no spaces. `signingConfig =
-signingConfigs.getByName("release")` matches and is removed, but its continuation
-line, `.takeIf { it.storeFile?.exists() == true }`, does not and is left behind,
-so the build dies on `Unresolved reference 'storeFile'`. The `sed` deletes that
-orphan. It is anchored to a whole line beginning with `.takeIf`, so it cannot
-touch a single-line form of the same expression, and it works whichever order the
-two steps run in.
-
 Deleting the lines rather than listing the files in `scanignore` is deliberate:
 `scanignore` asks a packager to take the build file on trust, and this way the
 scanner reads a tree that genuinely does not mention them. `prebuild` runs before
 the scanner (`prepare_source` precedes `scan_source` in fdroidserver's
-`build.py`), with the working directory set to `subdir`, which is why the first
-command reaches up with `../`.
+`build.py`), with the working directory set to `subdir`, which is why three of
+the four commands reach up with `../`.
+
+*Sed three, for their signing strip. Not needed after 0.5.4.* Before building,
+fdroidserver strips the `signingConfigs { }` block and any line matching
+`^[\t ]*signingConfig\s*[= ]\s*[^ ]*$` — note that the tail must contain no
+spaces. In 0.5.4 `signingConfig = signingConfigs.getByName("release")` matched and
+was removed, but its continuation line, `.takeIf { it.storeFile?.exists() == true }`,
+did not and was left behind, so the build died on `Unresolved reference
+'storeFile'`. The `sed` deletes that orphan; it is anchored to a whole line
+beginning with `.takeIf`, so it cannot touch the single-line form the source uses
+now, and it works whichever order the two steps run in.
+
+*Sed four, for the toolchain. Not needed after 0.5.4.* `:tools:dictc` — the
+build-time compiler that turns the plain-text word lists into `.wmdict` — asked
+for `jvmToolchain(17)`. A toolchain is a request for a specific JDK to be
+installed, and F-Droid's image has no 17 and will not download one, so
+`:tools:dictc:compileJava` failed with *Cannot find a Java installation … matching
+{languageVersion=17}*. Deleting the line lets it compile on whatever JDK is
+running Gradle. Note the interaction: removing foojay above is what makes any
+unsatisfiable toolchain request fatal rather than merely slow, so **no module may
+declare a `jvmToolchain()` the builder does not already have.** The source now
+sets a jvmTarget of 17 instead, which needs no particular JDK installed.
 
 **One `Builds:` entry** — F-Droid's buildserver builds every entry it has not
 seen. Shipping the back catalogue in a first submission would spend their build

@@ -32,6 +32,7 @@ Builds:
       - sed -i -e '/libs.play.app.update/d' -e '/libs.play.feature.delivery/d' -e
         '/libs.play.services.auth/d' build.gradle.kts
       - sed -i -e '/^[[:space:]]*\.takeIf { it.storeFile?.exists() == true }$/d' build.gradle.kts
+      - sed -i -e '/jvmToolchain(17)/d' ../tools/dictc/build.gradle.kts
     scandelete:
       - core/intelligence/src/full/jniLibs
       - feature/llm/src/main/jniLibs
