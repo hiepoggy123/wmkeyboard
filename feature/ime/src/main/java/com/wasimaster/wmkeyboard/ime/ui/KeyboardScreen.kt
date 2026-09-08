@@ -6349,13 +6349,19 @@ private fun DraggableTool(
  * used for the emoji tool: a vertical move snaps (the row itself has moved,
  * see [ToolbarRowShiftPx]) and a horizontal one may travel as far as the bar
  * is wide (see [ToolbarSlideCapFraction]). The toolbox grid leaves it false —
- * its cells legitimately move between rows when the grid reflows, and its own
- * scroll and pagination are exactly the jumps [PlacementSlideCap] is there to
- * refuse.
+ * its cells legitimately move between rows when the grid reflows — and brings
+ * its own [cap] instead, because a grid cell is far bigger than the fixed one
+ * (see [toolboxSlideCap]).
+ *
+ * [cap] is the furthest a move may be and still be slid rather than snapped,
+ * given the anchor it was measured against. The default is the row/fixed rule
+ * [placementCap]; a caller whose layout has a natural step of its own passes
+ * that step instead.
  */
 private fun Modifier.animatePlacement(
     enabled: Boolean = true,
     inRow: Boolean = false,
+    cap: (LayoutCoordinates?) -> Float = { placementCap(inRow, it) },
     anchor: () -> LayoutCoordinates? = { null },
 ): Modifier =
     composed {
@@ -6420,8 +6426,8 @@ private fun Modifier.animatePlacement(
                 // on purpose here, so a move that small is rounding, not
                 // motion. A move past the cap is a layout jump (a scroll, a
                 // toolbox page flip) and animating it reads as lag.
-                val cap = placementCap(inRow, anchorCoords)
-                if (!enabled || rowShifted || jump < 2f || jump > cap) {
+                val capPx = cap(anchorCoords)
+                if (!enabled || rowShifted || jump < 2f || jump > capPx) {
                     immediate = null
                     scope.launch { animatable.snapTo(IntOffset.Zero) }
                     return@onPlaced
@@ -6457,6 +6463,37 @@ private fun placementCap(inRow: Boolean, anchorCoords: LayoutCoordinates?): Floa
     if (!inRow) return PlacementSlideCap
     val width = anchorCoords?.size?.width?.toFloat() ?: return PlacementSlideCap
     return (width * ToolbarSlideCapFraction).coerceAtLeast(PlacementSlideCap)
+}
+
+/**
+ * Headroom over one reorder step, before a toolbox move is taken for a layout
+ * jump. A step is never *exactly* a step — a cell's own padding shifts by a
+ * pixel or two between passes — so the cap has to clear it rather than sit on
+ * it.
+ */
+private const val ToolboxSlideCapSlack = 1.15f
+
+/**
+ * The furthest a toolbox cell may travel and still slide, sized off the grid's
+ * own step rather than the fixed [PlacementSlideCap].
+ *
+ * The fixed cap is a toolbar cap: 160 px is well under half an icon's slot on
+ * the bar, but it is under *one cell* of the grid on every phone (four columns
+ * of a 1080 px keyboard are 270 px each). So every reorder step the grid ever
+ * made was read as a layout jump and snapped, and the tools popped from slot to
+ * slot while the toolbar beside them slid — the whole of this bug.
+ *
+ * The real step is one slot, and the biggest one slot can be is a wrap: the
+ * last cell of a row becoming the first of the next, which is [columns] - 1
+ * cells across and one cell down. Anything past that is a reflow the grid did
+ * not ask for — the column count changed, the panel resized — and snapping
+ * those is what the cap is still for.
+ */
+private fun toolboxSlideCap(columns: Int, cell: Size): Float {
+    if (cell.width <= 0f || cell.height <= 0f) return PlacementSlideCap
+    val across = cell.width * (columns - 1).coerceAtLeast(1)
+    val wrap = Offset(across, cell.height).getDistance()
+    return (wrap * ToolboxSlideCapSlack).coerceAtLeast(PlacementSlideCap)
 }
 
 /**
@@ -7640,8 +7677,17 @@ private fun ToolboxGrid(
                     // moved every icon and restarted its spring — a per-frame
                     // coroutine storm that tanked scroll fps. Content-relative,
                     // scrolling is a no-op; reorders still slide.
+                    //
+                    // The cap is the grid's own step, not the toolbar's fixed
+                    // one — see [toolboxSlideCap] for why the fixed one snapped
+                    // every reorder the grid ever made. Read from the live cell
+                    // size inside the placement pass, so it is the size the row
+                    // actually got rather than one guessed from the settings.
                     val placement = Modifier
-                        .animatePlacement(enabled = !state.settings.reduceMotion) { gridCoords }
+                        .animatePlacement(
+                            enabled = !state.settings.reduceMotion,
+                            cap = { toolboxSlideCap(columns, drag.toolboxCellSize) },
+                        ) { gridCoords }
                     if (pills) {
                         ToolPill(
                             tool = shown,
