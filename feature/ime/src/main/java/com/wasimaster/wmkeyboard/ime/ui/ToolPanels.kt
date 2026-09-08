@@ -12,6 +12,7 @@ import android.hardware.SensorManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.annotation.StringRes
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -38,6 +39,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -50,6 +53,7 @@ import androidx.compose.material.icons.outlined.Air
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
 import androidx.compose.material.icons.outlined.Compress
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.Umbrella
@@ -98,21 +102,29 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wasimaster.wmkeyboard.core.addons.AddonType
+import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
+import com.wasimaster.wmkeyboard.core.emoji.EmojiShaper
+import com.wasimaster.wmkeyboard.core.fonts.FontStore
 import com.wasimaster.wmkeyboard.core.icons.IconPack
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.settings.DefaultThemesPanelBuiltIns
+import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.HapticStyle
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.IconSettings
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.settings.ThemeSelectionTarget
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.util.PlayServices
 import com.wasimaster.wmkeyboard.core.settings.modeThemeOwner
 import com.wasimaster.wmkeyboard.core.settings.slotThemeId
 import com.wasimaster.wmkeyboard.core.settings.themeSelectionTarget
@@ -1523,9 +1535,15 @@ internal fun hasCalendarPermission(context: Context): Boolean =
  * swatch previews what the default id would resolve to (device dynamic
  * colors), not the currently active theme.
  *
- * A second chip switches the panel to the installed icon packs — the same
- * tap-to-apply grid, drawing each pack's own glyphs. Icon packs have no
- * auto-theme or mode override, so that half is never read-only.
+ * Two more chips switch the panel to the installed icon packs and to the emoji
+ * faces — the same tap-to-apply grid, drawing each pack's own glyphs and each
+ * font's own emoji. Neither of those has an auto-theme or mode override, so
+ * those halves are never read-only.
+ *
+ * Every grid ends on the same last entry: the add-on store, filtered to the one
+ * kind that grid is showing. A quick switcher whose answer to "I want another
+ * one" is "go and find the store yourself" is a dead end, and the store already
+ * links the other way (see `AddonStoreRow` in the settings app).
  *
  * A press means "the keyboard looks like this now", and under the auto pair
  * that is the pair's live half rather than the manual selection — writing the
@@ -1539,11 +1557,12 @@ internal fun ThemesPanel(
     state: KeyboardUiState,
     onThemeSelect: (String) -> Unit,
     onIconPackSelect: (String) -> Unit,
+    onEmojiFontSelect: (EmojiFontChoice, String) -> Unit,
     onOpenRoute: (String) -> Unit,
     onClose: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    var iconsTab by remember { mutableStateOf(false) }
+    var tab by remember { mutableStateOf(ThemesPanelTab.THEMES) }
     // A mode that carries a theme owns it for as long as the mode is active, so
     // the panel shows which one is live and presses do nothing (it's read-only).
     //
@@ -1586,45 +1605,69 @@ internal fun ThemesPanel(
     val packStore = remember(context) { IconPackStore.get(context) }
     val packRevision by packStore.revision.collectAsState()
     val packs = remember(packRevision) { packStore.packs() }
+    val fontStore = remember(context) { FontStore.get(context) }
+    val fontRevision by fontStore.revision.collectAsState()
+    // The standing choice is part of the key: it decides whether the two faces
+    // that can vanish (Google's, and an imported file) still get a card.
+    val faces = remember(context, fontRevision, state.settings.emojiFont) {
+        emojiFaceOptions(context, fontStore, state.settings.emojiFont)
+    }
     // Full-bleed: the toolbar row hides and its space becomes the header —
-    // back button on the left, the Themes/Icons tabs filling the rest — so
-    // the cards get the reclaimed rows.
+    // back button on the left, the Themes/Icons/Emoji tabs filling the rest —
+    // so the cards get the reclaimed rows.
     FullBleedTool(
         state,
         title = "",
         onClose = onClose,
         headerActions = {
-            // Tab reaches the chips: the icon grid is unreachable if the
-            // keyboard can browse the themes but never switch the panel over.
+            // Tab reaches the chips: the icon and emoji grids are unreachable
+            // if the keyboard can browse the themes but never switch the panel
+            // over.
             PanelFocusTarget(
                 panel = PanelMode.THEMES,
                 region = FocusRegion.CHIPS,
-                count = 2,
-                columns = 2,
-                onActivate = { index -> iconsTab = index == 1 },
+                count = ThemesPanelTab.entries.size,
+                columns = ThemesPanelTab.entries.size,
+                onActivate = { index ->
+                    ThemesPanelTab.entries.getOrNull(index)?.let { tab = it }
+                },
             )
             ThemesTabChips(
-                iconsTab = iconsTab,
-                onSelect = { iconsTab = it },
+                tab = tab,
+                onSelect = { tab = it },
                 focused = state.focusedIndex(FocusRegion.CHIPS),
                 modifier = Modifier.weight(1f),
             )
         },
     ) {
         ThemesPanelBody(
-            state, kb, iconsTab, locked, selectedId, auto, themes,
-            packs, packStore, packRevision, modeTheme, autoOn, darkSlot, randomSlot,
-            onThemeSelect, onIconPackSelect, onOpenRoute,
+            state, kb, tab, locked, selectedId, auto, themes,
+            packs, packStore, packRevision, faces,
+            modeTheme, autoOn, darkSlot, randomSlot,
+            onThemeSelect, onIconPackSelect, onEmojiFontSelect, onOpenRoute,
         )
     }
 }
 
-/** Everything under the header: the info row, then the theme or pack grid. */
+/** Which grid of the themes panel is on screen. */
+private enum class ThemesPanelTab { THEMES, ICONS, EMOJI }
+
+/**
+ * The add-on store filtered to one kind of add-on.
+ *
+ * Spelled out here rather than imported because the store's routes belong to
+ * the settings app, which this module cannot see. It is still not a loose
+ * string: the argument is the enum's own name, which is exactly what the
+ * settings app parses the route argument back into.
+ */
+private fun addonsTypeRoute(type: AddonType): String = "addons?type=${type.name}"
+
+/** Everything under the header: the info row, then the grid for [tab]. */
 @Composable
 private fun ThemesPanelBody(
     state: KeyboardUiState,
     kb: KbTheme,
-    iconsTab: Boolean,
+    tab: ThemesPanelTab,
     locked: Boolean,
     selectedId: String,
     auto: KbTheme,
@@ -1632,12 +1675,14 @@ private fun ThemesPanelBody(
     packs: List<IconPack>,
     packStore: IconPackStore,
     packRevision: Int,
+    faces: List<EmojiFaceOption>,
     modeTheme: KeyboardMode?,
     autoOn: Boolean,
     darkSlot: Boolean,
     randomSlot: Boolean,
     onThemeSelect: (String) -> Unit,
     onIconPackSelect: (String) -> Unit,
+    onEmojiFontSelect: (EmojiFontChoice, String) -> Unit,
     onOpenRoute: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -1649,9 +1694,11 @@ private fun ThemesPanelBody(
         ) {
             Text(
                 when {
-                    iconsTab && packs.isEmpty() ->
+                    tab == ThemesPanelTab.EMOJI ->
+                        stringResource(R.string.ime_emoji_font_pick_info)
+                    tab == ThemesPanelTab.ICONS && packs.isEmpty() ->
                         stringResource(R.string.ime_icons_empty_info)
-                    iconsTab -> stringResource(R.string.ime_icons_pick_info)
+                    tab == ThemesPanelTab.ICONS -> stringResource(R.string.ime_icons_pick_info)
                     modeTheme != null -> stringResource(
                         R.string.ime_themes_mode_locked_info, modeTheme.name,
                     )
@@ -1668,28 +1715,56 @@ private fun ThemesPanelBody(
             )
             ToolPanelKey(
                 description = stringResource(
-                    if (iconsTab) R.string.ime_icons_edit_desc
-                    else R.string.ime_themes_edit_desc,
+                    when (tab) {
+                        ThemesPanelTab.THEMES -> R.string.ime_themes_edit_desc
+                        ThemesPanelTab.ICONS -> R.string.ime_icons_edit_desc
+                        ThemesPanelTab.EMOJI -> R.string.ime_emoji_font_edit_desc
+                    },
                 ),
                 label = stringResource(
-                    if (iconsTab) R.string.ime_icons_edit_action
-                    else R.string.ime_themes_edit_action,
+                    when (tab) {
+                        ThemesPanelTab.THEMES -> R.string.ime_themes_edit_action
+                        ThemesPanelTab.ICONS -> R.string.ime_icons_edit_action
+                        ThemesPanelTab.EMOJI -> R.string.ime_emoji_font_edit_action
+                    },
                 ),
                 modifier = Modifier.height(32.dp).width(120.dp),
-            ) { onOpenRoute(if (iconsTab) "icons" else "themes") }
+            ) {
+                onOpenRoute(
+                    when (tab) {
+                        ThemesPanelTab.THEMES -> "themes"
+                        ThemesPanelTab.ICONS -> "icons"
+                        ThemesPanelTab.EMOJI -> "emoji"
+                    },
+                )
+            }
         }
-        if (iconsTab) {
-            IconPacksGrid(state, packs, packStore, packRevision, onIconPackSelect)
-            return@Column
+        when (tab) {
+            ThemesPanelTab.ICONS -> {
+                IconPacksGrid(state, packs, packStore, packRevision, onIconPackSelect, onOpenRoute)
+                return@Column
+            }
+            ThemesPanelTab.EMOJI -> {
+                EmojiFacesGrid(state, faces, onEmojiFontSelect, onOpenRoute)
+                return@Column
+            }
+            ThemesPanelTab.THEMES -> Unit
         }
         // Index 0 is the leading "Auto" card, so a theme sits one past its own
-        // position. Read-only in exactly the states a press is, so the keyboard
-        // and the hardware keyboard cannot disagree about what a card does.
+        // position, and the store card closes the list one past the last theme.
+        // Read-only in exactly the states a press is, so the keyboard and the
+        // hardware keyboard cannot disagree about what a card does — except for
+        // the store card, which is a link rather than a selection and so stays
+        // live even where a theme cannot be chosen.
         PanelFocusTarget(
             panel = PanelMode.THEMES,
-            count = themes.size + 1,
+            count = themes.size + 2,
             columns = 2,
             onActivate = { index ->
+                if (index == themes.size + 1) {
+                    onOpenRoute(addonsTypeRoute(AddonType.Theme))
+                    return@PanelFocusTarget
+                }
                 if (locked) return@PanelFocusTarget
                 if (index == 0) onThemeSelect(DEFAULT_THEME_ID)
                 else themes.getOrNull(index - 1)?.let { onThemeSelect(it.id) }
@@ -1737,15 +1812,19 @@ private fun ThemesPanelBody(
                     onClick = { if (!locked) onThemeSelect(theme.id) },
                 ) { ThemePreview(theme) }
             }
+            getMoreItem(
+                labelRes = R.string.ime_themes_more_label,
+                focused = focused == themes.size + 1,
+            ) { onOpenRoute(addonsTypeRoute(AddonType.Theme)) }
         }
     }
 }
 
-/** The two chips switching the panel between themes and icon packs. */
+/** The chips switching the panel between themes, icon packs and emoji faces. */
 @Composable
 private fun ThemesTabChips(
-    iconsTab: Boolean,
-    onSelect: (Boolean) -> Unit,
+    tab: ThemesPanelTab,
+    onSelect: (ThemesPanelTab) -> Unit,
     focused: Int? = null,
     modifier: Modifier = Modifier.fillMaxWidth(),
 ) {
@@ -1758,8 +1837,9 @@ private fun ThemesTabChips(
         listOf(
             R.string.ime_themes_tab_themes,
             R.string.ime_themes_tab_icons,
+            R.string.ime_themes_tab_emoji,
         ).forEachIndexed { index, labelRes ->
-            val active = (index == 1) == iconsTab
+            val active = ThemesPanelTab.entries[index] == tab
             Text(
                 stringResource(labelRes),
                 color = if (active) kb.chipActiveText else kb.chipText,
@@ -1774,7 +1854,7 @@ private fun ThemesTabChips(
                     .background(if (active) kb.chipActive else kb.chip)
                     .chipBorder(kb, shape)
                     .focusRing(index == focused, shape)
-                    .clickable { onSelect(index == 1) }
+                    .clickable { onSelect(ThemesPanelTab.entries[index]) }
                     .padding(horizontal = 12.dp, vertical = 4.dp),
             )
         }
@@ -1783,7 +1863,8 @@ private fun ThemesTabChips(
 
 /**
  * The icon pack half of the themes panel: Built-in first, then every
- * installed pack, each card previewing a handful of the pack's own glyphs.
+ * installed pack, each card previewing a handful of the pack's own glyphs,
+ * and the store last.
  */
 @Composable
 private fun IconPacksGrid(
@@ -1792,14 +1873,18 @@ private fun IconPacksGrid(
     store: IconPackStore,
     revision: Int,
     onIconPackSelect: (String) -> Unit,
+    onOpenRoute: (String) -> Unit,
 ) {
     PanelFocusTarget(
         panel = PanelMode.THEMES,
-        count = packs.size + 1,
+        count = packs.size + 2,
         columns = 2,
         onActivate = { index ->
-            if (index == 0) onIconPackSelect("")
-            else packs.getOrNull(index - 1)?.let { onIconPackSelect(it.id) }
+            when (index) {
+                0 -> onIconPackSelect("")
+                packs.size + 1 -> onOpenRoute(addonsTypeRoute(AddonType.IconPack))
+                else -> packs.getOrNull(index - 1)?.let { onIconPackSelect(it.id) }
+            }
         },
     )
     val focused = state.focusedIndex()
@@ -1850,6 +1935,275 @@ private fun IconPacksGrid(
                 onClick = { onIconPackSelect(pack.id) },
             )
         }
+        getMoreItem(
+            labelRes = R.string.ime_icons_more_label,
+            focused = focused == packs.size + 1,
+        ) { onOpenRoute(addonsTypeRoute(AddonType.IconPack)) }
+    }
+}
+
+// ---- emoji faces ----
+
+/**
+ * One card in the emoji half: a face the keyboard can draw emoji with.
+ *
+ * [choice] and [installedId] together are what the setting stores — the
+ * installed faces all share one choice and are told apart by the store id, so
+ * neither alone identifies a card. [key] exists because the grid needs a stable
+ * item key across both kinds.
+ *
+ * A card is named either by a string resource (the three faces that are not
+ * files in the library) or by the font's own name; exactly one is ever set.
+ */
+private data class EmojiFaceOption(
+    val key: String,
+    val choice: EmojiFontChoice,
+    val installedId: String = "",
+    val name: String = "",
+    @StringRes val labelRes: Int = 0,
+)
+
+/**
+ * Every emoji face worth offering in the panel, in the order the settings
+ * screen lists them: the phone's own, Google's, the library, an imported file.
+ *
+ * [selected] is the standing choice, and it keeps a card that would otherwise
+ * be filtered out: a phone that has lost Play services must still show what it
+ * is set to, or the panel says the user is using a face that is not on it.
+ */
+private fun emojiFaceOptions(
+    context: Context,
+    store: FontStore,
+    selected: EmojiFontChoice,
+): List<EmojiFaceOption> = buildList {
+    add(
+        EmojiFaceOption(
+            key = "system",
+            choice = EmojiFontChoice.SYSTEM,
+            labelRes = R.string.ime_emoji_font_system_label,
+        ),
+    )
+    // Google's face is a file from the Play services font provider rather than
+    // one of the app's own, so it is only an answer on a device that has one.
+    if (PlayServices.hasFontProvider(context) || selected == EmojiFontChoice.NOTO) {
+        add(
+            EmojiFaceOption(
+                key = "noto",
+                choice = EmojiFontChoice.NOTO,
+                labelRes = R.string.ime_emoji_font_noto_label,
+            ),
+        )
+    }
+    // The downloaded faces: an emoji-font add-on and the one-tap Noto fetch
+    // both land in this library, so this is the whole of "what did I install".
+    store.emojiFonts().forEach { font ->
+        add(
+            EmojiFaceOption(
+                key = "installed:${font.id}",
+                choice = EmojiFontChoice.INSTALLED,
+                installedId = font.id,
+                name = font.name,
+            ),
+        )
+    }
+    // Imported by hand in the settings app. There is no importer in the
+    // keyboard, so this card only exists once a file has arrived — offering
+    // "Custom" with nothing behind it would select the system font.
+    if (KeyboardFonts.customEmojiFontFile(context).exists()) {
+        add(
+            EmojiFaceOption(
+                key = "custom",
+                choice = EmojiFontChoice.CUSTOM,
+                labelRes = CommonR.string.common_custom,
+            ),
+        )
+    }
+}
+
+/** Whether [settings] is currently drawing emoji with this face. */
+private fun EmojiFaceOption.isLive(settings: KeyboardSettings): Boolean =
+    settings.emojiFont == choice &&
+        (choice != EmojiFontChoice.INSTALLED ||
+            settings.emojiFontInstalled.installedId == installedId)
+
+/** The faces the cards draw — shapes people tell apart at a glance. */
+private val EmojiFacePreview = listOf("😀", "😂", "🥰", "😎", "👍", "🎉")
+
+/**
+ * The emoji half of the themes panel: every face the keyboard can draw emoji
+ * with, each card drawing the same handful of emoji in that font, and the
+ * store last.
+ */
+@Composable
+private fun EmojiFacesGrid(
+    state: KeyboardUiState,
+    faces: List<EmojiFaceOption>,
+    onEmojiFontSelect: (EmojiFontChoice, String) -> Unit,
+    onOpenRoute: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    PanelFocusTarget(
+        panel = PanelMode.THEMES,
+        count = faces.size + 1,
+        columns = 2,
+        onActivate = { index ->
+            val face = faces.getOrNull(index)
+            if (face == null) onOpenRoute(addonsTypeRoute(AddonType.EmojiFont))
+            else onEmojiFontSelect(face.choice, face.installedId)
+        },
+    )
+    val focused = state.focusedIndex()
+    val gridState = rememberLazyGridState()
+    ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
+    // A font's coverage tables decide how each emoji has to be spelled for it
+    // (see [EmojiFontShaping]) — ❤️ in particular comes out of the system font
+    // in a face with no variation-selector table. Read off the main thread and
+    // kept per card, the same shape the icon grid caches its parsed packs in:
+    // a card that reads a megabyte of font on the frame it draws is a stall.
+    val shapers = remember(faces) { mutableStateMapOf<String, EmojiShaper>() }
+    // Opened on the face in use, for the same reason the other two grids are.
+    LaunchedEffect(Unit) {
+        val index = faces.indexOfFirst { it.isLive(state.settings) }
+        if (index >= 0) gridState.scrollToItem(index)
+    }
+    LazyVerticalGrid(
+        state = gridState,
+        columns = GridCells.Fixed(2),
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        itemsIndexed(faces, key = { _, face -> face.key }) { index, face ->
+            LaunchedEffect(face.key) {
+                if (face.key !in shapers) {
+                    val file = KeyboardFonts.emojiFontFile(context, face.choice, face.installedId)
+                    shapers[face.key] = withContext(Dispatchers.Default) {
+                        EmojiFontShaping.warm(file)
+                        EmojiFontShaping.forFontFile(file)
+                    }
+                }
+            }
+            EmojiFaceCard(
+                name = if (face.labelRes != 0) stringResource(face.labelRes) else face.name,
+                family = remember(face.key) {
+                    KeyboardFonts.emojiFamily(context, face.choice, face.installedId)
+                },
+                shaper = shapers[face.key] ?: EmojiFontShaping.Identity,
+                selected = face.isLive(state.settings),
+                focused = focused == index,
+                onClick = { onEmojiFontSelect(face.choice, face.installedId) },
+            )
+        }
+        getMoreItem(
+            labelRes = R.string.ime_emoji_font_more_label,
+            focused = focused == faces.size,
+        ) { onOpenRoute(addonsTypeRoute(AddonType.EmojiFont)) }
+    }
+}
+
+/** [ThemeCard]'s shape and selection border around a line-up of emoji. */
+@Composable
+private fun EmojiFaceCard(
+    name: String,
+    family: FontFamily?,
+    shaper: EmojiShaper,
+    selected: Boolean,
+    focused: Boolean,
+    onClick: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(92.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .then(
+                if (selected) Modifier.border(2.dp, kb.accent, RoundedCornerShape(10.dp))
+                else Modifier.border(1.dp, kb.divider, RoundedCornerShape(10.dp))
+            )
+            .focusRing(focused, RoundedCornerShape(10.dp))
+            .background(kb.chip)
+            .clickable(onClick = onClick),
+    ) {
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            EmojiFacePreview.chunked(3).forEach { rowEmoji ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    rowEmoji.forEach { emoji ->
+                        val spelling = shaper.spelling(emoji)
+                        Text(
+                            spelling.text,
+                            // One Text per emoji: emoji fonts often have no
+                            // space glyph, so a single spaced string overlaps.
+                            fontSize = 20.sp,
+                            fontFamily = if (spelling.systemFont) null else family,
+                            maxLines = 1,
+                        )
+                    }
+                }
+            }
+        }
+        Text(
+            name,
+            color = kb.suggestionText,
+            fontSize = 10.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 8.dp, bottom = 4.dp),
+        )
+    }
+}
+
+// ---- the store link every grid ends on ----
+
+/**
+ * The last entry of every grid in this panel: a full-width row that opens the
+ * add-on store filtered to the kind of thing the grid holds.
+ *
+ * Full width rather than a card of its own, for two reasons. A card would have
+ * to guess the height of whatever it sits beside — the theme cards are as tall
+ * as their preview draws, the pack and face cards are a fixed 92dp — and a row
+ * spanning the grid reads as the end of the list rather than as one more
+ * choice in it, which is exactly what it is.
+ */
+private fun LazyGridScope.getMoreItem(
+    @StringRes labelRes: Int,
+    focused: Boolean,
+    onClick: () -> Unit,
+) = item(key = "wmkb:get-more", span = { GridItemSpan(maxLineSpan) }) {
+    val kb = LocalKbTheme.current
+    val shape = RoundedCornerShape(10.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .clip(shape)
+            .border(1.dp, kb.divider, shape)
+            .focusRing(focused, shape)
+            .background(kb.chip)
+            .clickable(onClick = onClick),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.Download,
+            contentDescription = null,
+            tint = kb.suggestionText,
+            modifier = Modifier.size(18.dp),
+        )
+        Text(
+            stringResource(labelRes),
+            color = kb.suggestionText,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 8.dp),
+        )
     }
 }
 

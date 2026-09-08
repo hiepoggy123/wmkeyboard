@@ -3254,6 +3254,7 @@ open class WMKeyboardService : InputMethodService() {
                 onDictionaryInsert = ::onDictionaryInsert,
                 onThemeSelect = ::onThemeSelect,
                 onIconPackSelect = ::onIconPackSelect,
+                onEmojiFontSelect = ::onEmojiFontSelect,
                 onSoundHaptic = ::onSoundHaptic,
                 onHandwritingStroke = ::onHandwritingStroke,
                 onKeyboardHandwritingStroke = ::onKeyboardHandwritingStroke,
@@ -14377,6 +14378,27 @@ open class WMKeyboardService : InputMethodService() {
     fun onIconPackSelect(id: String) {
         vibrate()
         serviceScope.launch { settingsRepository.setIconPack(id) }
+    }
+
+    /**
+     * Emoji face picked from the themes panel.
+     *
+     * Two writes rather than one, because the setting is two fields: which kind
+     * of face, and — for a face out of the font library — which one. Going
+     * through [com.wasimaster.wmkeyboard.core.settings.SettingsRepository.setInstalledEmojiFont]
+     * for the library case is what pairs them in a single edit, so the board
+     * never sees a frame where the choice says INSTALLED and the id still names
+     * the previous font.
+     */
+    fun onEmojiFontSelect(choice: EmojiFontChoice, installedId: String) {
+        vibrate()
+        serviceScope.launch {
+            if (choice == EmojiFontChoice.INSTALLED) {
+                settingsRepository.setInstalledEmojiFont(installedId)
+            } else {
+                settingsRepository.setEmojiFont(choice)
+            }
+        }
     }
 
     /** Sound & haptics quick panel writes straight into the shared settings. */

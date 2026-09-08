@@ -311,6 +311,7 @@ import com.wasimaster.wmkeyboard.core.settings.SelectionMacroPlacement
 import com.wasimaster.wmkeyboard.core.settings.LatinAccents
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
+import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.sourceChar
@@ -931,6 +932,7 @@ fun KeyboardScreen(
     onDictionaryInsert: (String) -> Unit = {},
     onThemeSelect: (String) -> Unit = {},
     onIconPackSelect: (String) -> Unit = {},
+    onEmojiFontSelect: (EmojiFontChoice, String) -> Unit = { _, _ -> },
     onSoundHaptic: (SoundHapticAction) -> Unit = {},
     onHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
     onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
@@ -1250,6 +1252,7 @@ fun KeyboardScreen(
                 onDictionaryInsert = onDictionaryInsert,
                 onThemeSelect = onThemeSelect,
                 onIconPackSelect = onIconPackSelect,
+                onEmojiFontSelect = onEmojiFontSelect,
                 onSoundHaptic = onSoundHaptic,
                 onHandwritingStroke = onHandwritingStroke,
                 onKeyboardHandwritingStroke = onKeyboardHandwritingStroke,
@@ -8060,6 +8063,7 @@ private fun KeyboardBody(
     onDictionaryInsert: (String) -> Unit,
     onThemeSelect: (String) -> Unit,
     onIconPackSelect: (String) -> Unit,
+    onEmojiFontSelect: (EmojiFontChoice, String) -> Unit,
     onSoundHaptic: (SoundHapticAction) -> Unit,
     onHandwritingStroke: (HwStroke, IntSize) -> Unit,
     onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit,
@@ -8500,6 +8504,7 @@ private fun KeyboardBody(
                     state,
                     onThemeSelect,
                     onIconPackSelect,
+                    onEmojiFontSelect,
                     onOpenRoute = onOpenRoute,
                     onClose = { onPanelChange(PanelMode.THEMES) },
                 )
