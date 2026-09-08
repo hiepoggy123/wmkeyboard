@@ -1,0 +1,3 @@
+The F-Droid edition now downloads nothing you did not ask for. A language's word data arrives when you accept the prompt rather than on its own, and the update check runs only when you press the button for it.
+
+In Settings, the path strip carries its steps between screens, and marks where you came from with colour instead of a blink.

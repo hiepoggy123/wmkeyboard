@@ -21,9 +21,9 @@ RepoType: git
 Repo: https://github.com/wasi-master/wmkeyboard.git
 
 Builds:
-  - versionName: 0.5.4
-    versionCode: 15
-    commit: v0.5.4
+  - versionName: 0.5.5
+    versionCode: 16
+    commit: v0.5.5
     subdir: app
     gradle:
       - lite
@@ -31,8 +31,6 @@ Builds:
       - sed -i -e '/org.gradle.toolchains.foojay-resolver-convention/d' ../settings.gradle.kts
       - sed -i -e '/libs.play.app.update/d' -e '/libs.play.feature.delivery/d' -e
         '/libs.play.services.auth/d' build.gradle.kts
-      - sed -i -e '/^[[:space:]]*\.takeIf { it.storeFile?.exists() == true }$/d' build.gradle.kts
-      - sed -i -e '/jvmToolchain(17)/d' ../tools/dictc/build.gradle.kts
     scandelete:
       - core/intelligence/src/full/jniLibs
       - feature/llm/src/main/jniLibs
@@ -45,5 +43,5 @@ AutoUpdateMode: Version v%v
 UpdateCheckMode: HTTP
 UpdateCheckData: 
   https://raw.githubusercontent.com/wasi-master/wmkeyboard/main/gradle.properties|wmkb.versionCode=(\d+)|.|wmkb.versionName=(.+)
-CurrentVersion: 0.5.4
-CurrentVersionCode: 15
+CurrentVersion: 0.5.5
+CurrentVersionCode: 16

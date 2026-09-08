@@ -35,19 +35,18 @@ Rust sources are under `native/harper-jni`), and the LLM module is only assemble
 for the Play channel. Deleting them keeps F-Droid's scanner quiet and proves
 neither reaches the built APK.
 
-**`prebuild`** — four `sed` commands, for three separate reasons. Only the first
-two are permanent; the last two exist because 0.5.4 was already tagged when the
-problems were found, and both are fixed in the source for 0.5.5 onward.
-
-*Seds one and two, for the scanner.* F-Droid's source scanner is a text search
-over the build files, run before the build and fatal on a match. It does not read
-build logic, so it flags strings this build never resolves:
+**`prebuild`** — two `sed` commands, both for the source scanner. It is a text
+search over the build files, run before the build and fatal on a match, and it
+does not read build logic, so it flags strings this build never resolves:
 
 * `org.gradle.toolchains.foojay-resolver-convention` in `settings.gradle.kts`,
   which would fetch a JDK over the network. Their tooling deletes the
   `gradle-daemon-jvm.properties` the plugin maintains, and auto-provisioning is
   switched off on their builders regardless, so the plugin can do nothing there
-  but fail the scan.
+  but fail the scan. **Consequence worth keeping in mind: with foojay gone, any
+  `jvmToolchain(n)` in the tree is fatal unless `n` is a JDK their image already
+  carries.** `:tools:dictc` learned this the hard way in 0.5.4; it sets a
+  jvmTarget instead now, which needs no particular JDK installed.
 * `libs.play.app.update`, `libs.play.feature.delivery` and
   `libs.play.services.auth` in `app/build.gradle.kts`. All three sit inside
   `if (playStoreChannel)` / `if (gmsChannel)` blocks, which are false for this
@@ -58,29 +57,13 @@ Deleting the lines rather than listing the files in `scanignore` is deliberate:
 `scanignore` asks a packager to take the build file on trust, and this way the
 scanner reads a tree that genuinely does not mention them. `prebuild` runs before
 the scanner (`prepare_source` precedes `scan_source` in fdroidserver's
-`build.py`), with the working directory set to `subdir`, which is why three of
-the four commands reach up with `../`.
+`build.py`), with the working directory set to `subdir`, which is why the first
+command reaches up with `../`.
 
-*Sed three, for their signing strip. Not needed after 0.5.4.* Before building,
-fdroidserver strips the `signingConfigs { }` block and any line matching
-`^[\t ]*signingConfig\s*[= ]\s*[^ ]*$` — note that the tail must contain no
-spaces. In 0.5.4 `signingConfig = signingConfigs.getByName("release")` matched and
-was removed, but its continuation line, `.takeIf { it.storeFile?.exists() == true }`,
-did not and was left behind, so the build died on `Unresolved reference
-'storeFile'`. The `sed` deletes that orphan; it is anchored to a whole line
-beginning with `.takeIf`, so it cannot touch the single-line form the source uses
-now, and it works whichever order the two steps run in.
-
-*Sed four, for the toolchain. Not needed after 0.5.4.* `:tools:dictc` — the
-build-time compiler that turns the plain-text word lists into `.wmdict` — asked
-for `jvmToolchain(17)`. A toolchain is a request for a specific JDK to be
-installed, and F-Droid's image has no 17 and will not download one, so
-`:tools:dictc:compileJava` failed with *Cannot find a Java installation … matching
-{languageVersion=17}*. Deleting the line lets it compile on whatever JDK is
-running Gradle. Note the interaction: removing foojay above is what makes any
-unsatisfiable toolchain request fatal rather than merely slow, so **no module may
-declare a `jvmToolchain()` the builder does not already have.** The source now
-sets a jvmTarget of 17 instead, which needs no particular JDK installed.
+The 0.5.4 entry carried two more, both since fixed in the source: one deleted the
+`.takeIf` line their signing strip orphaned, and one deleted `jvmToolchain(17)`
+from `:tools:dictc`. Neither is needed from 0.5.5 on. They are in this file's git
+history if a build of an older tag ever has to be reproduced.
 
 **One `Builds:` entry** — F-Droid's buildserver builds every entry it has not
 seen. Shipping the back catalogue in a first submission would spend their build

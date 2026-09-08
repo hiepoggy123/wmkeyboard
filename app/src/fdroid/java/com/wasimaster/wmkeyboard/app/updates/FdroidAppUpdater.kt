@@ -3,13 +3,9 @@ package com.wasimaster.wmkeyboard.app.updates
 import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
@@ -37,20 +33,20 @@ import kotlinx.coroutines.launch
  * builds from source on its own schedule, so a tag that exists here is not a
  * version F-Droid has yet. A card that named a version and then sent the user
  * to a page still showing the one they have would be worse than no card.
+ *
+ * **And it never checks on its own.** F-Droid's Tracking anti-feature names
+ * "checking for updates without your knowledge or permission" as something it
+ * is applied for, sparing only what is opt-in and off by default; a check on
+ * every resume with no switch to stop it was precisely the named case. It was
+ * also buying nothing, because the F-Droid client already tells the user when a
+ * new build exists — which is why this driver downloads nothing and only links
+ * out. The button in Settings still works: it calls [AppUpdater.check] with
+ * `userAsked = true`, which is permission in the sense the anti-feature means.
  */
 @Composable
 internal fun rememberAppUpdater(): AppUpdater {
     val context = LocalContext.current.applicationContext
-    val updater = remember(context) { FdroidAppUpdater(context) }
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(updater, lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) updater.check()
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-    return updater
+    return remember(context) { FdroidAppUpdater(context) }
 }
 
 /** Asks F-Droid what F-Droid has, and opens F-Droid. */
