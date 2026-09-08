@@ -307,7 +307,10 @@ import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.LinkPreviewClient
 import com.wasimaster.wmkeyboard.core.tools.GifSources
+import com.wasimaster.wmkeyboard.core.tools.CommonsClient
+import com.wasimaster.wmkeyboard.core.tools.LibreTranslateClient
 import com.wasimaster.wmkeyboard.core.tools.GiphyClient
+import com.wasimaster.wmkeyboard.core.tools.SearxClient
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.KlipyClient
 import com.wasimaster.wmkeyboard.core.tools.MediaCategories
@@ -18099,6 +18102,15 @@ open class WMKeyboardService : InputMethodService() {
         )
         GifSource.LOCAL ->
             stickerPackStore.searchAsGifItems(query, _uiState.value.stickerPackId)
+        // Commons has no sticker corpus at all, so the sticker tab stays empty
+        // rather than answering it with animations that are not stickers.
+        GifSource.COMMONS ->
+            if (sticker) emptyList()
+            else CommonsClient.searchGifs(
+                query,
+                limit = settings.gifResultLimit,
+                endpoint = settings.selfHosted.commonsUrl,
+            )
     }
 
     /** Provider chip on the GIF/sticker panel (tabs mode). */
@@ -18169,6 +18181,8 @@ open class WMKeyboardService : InputMethodService() {
         GifSource.KLIPY -> KlipyClient.categories(ToolApiKeys.klipy(settings), sticker)
         GifSource.GIPHY -> GiphyClient.categories(ToolApiKeys.giphy(settings), sticker)
         GifSource.LOCAL -> emptyList()
+        // No category endpoint: Commons is a search index, not a curated feed.
+        GifSource.COMMONS -> emptyList()
     }
 
     /** Category chip in the GIF/sticker default view: runs it as a search. */
@@ -18218,12 +18232,23 @@ open class WMKeyboardService : InputMethodService() {
         webSearchJob = serviceScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    BraveSearchClient.webSearch(
-                        query,
-                        ToolApiKeys.brave(settings),
-                        settings.searchResultCount,
-                        settings.searchSafe,
-                    )
+                    // A named instance wins; a key is the fallback. Neither
+                    // channel is forced into one provider.
+                    if (settings.selfHosted.searxUrl.isNotBlank()) {
+                        SearxClient.webSearch(
+                            query,
+                            settings.selfHosted.searxUrl,
+                            settings.searchResultCount,
+                            settings.searchSafe,
+                        )
+                    } else {
+                        BraveSearchClient.webSearch(
+                            query,
+                            ToolApiKeys.brave(settings),
+                            settings.searchResultCount,
+                            settings.searchSafe,
+                        )
+                    }
                 }
             }
             _uiState.update {
@@ -18268,12 +18293,23 @@ open class WMKeyboardService : InputMethodService() {
         imageSearchJob = serviceScope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    BraveSearchClient.imageSearch(
-                        query,
-                        ToolApiKeys.brave(settings),
-                        settings.searchResultCount,
-                        settings.searchSafe,
-                    )
+                    // A named instance wins; a key is the fallback. Neither
+                    // channel is forced into one provider.
+                    if (settings.selfHosted.searxUrl.isNotBlank()) {
+                        SearxClient.imageSearch(
+                            query,
+                            settings.selfHosted.searxUrl,
+                            settings.searchResultCount,
+                            settings.searchSafe,
+                        )
+                    } else {
+                        BraveSearchClient.imageSearch(
+                            query,
+                            ToolApiKeys.brave(settings),
+                            settings.searchResultCount,
+                            settings.searchSafe,
+                        )
+                    }
                 }
             }
             _uiState.update {
@@ -18716,7 +18752,21 @@ open class WMKeyboardService : InputMethodService() {
             val target = targetOverride ?: state.settings.translateTargetLang
             val key = ToolApiKeys.translate(state.settings)
             val result = withContext(Dispatchers.IO) {
-                runCatching { TranslateClient.translate(source, target, key) }
+                runCatching {
+                    // Configured instance wins. Without one the F-Droid build
+                    // still translates through the keyless public endpoint,
+                    // which is a working feature and not worth removing.
+                    if (state.settings.selfHosted.libreTranslateUrl.isNotBlank()) {
+                        LibreTranslateClient.translate(
+                            text = source,
+                            target = target,
+                            endpoint = state.settings.selfHosted.libreTranslateUrl,
+                            apiKey = state.settings.selfHosted.libreTranslateApiKey,
+                        )
+                    } else {
+                        TranslateClient.translate(source, target, key)
+                    }
+                }
             }
             if (_uiState.value.panel != PanelMode.TRANSLATE) return@launch
             _uiState.update {

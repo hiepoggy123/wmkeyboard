@@ -269,6 +269,8 @@ internal fun ToolDetailSettings(
                     null -> stringResource(R.string.tooldetail_enabled_subtitle)
                     ToolBlocker.NEEDS_SEARCH_KEY ->
                         stringResource(R.string.tooldetail_enabled_needs_key_subtitle)
+                    ToolBlocker.NEEDS_SEARCH_INSTANCE ->
+                        stringResource(R.string.tooldetail_enabled_needs_instance_subtitle)
                     ToolBlocker.NEEDS_SECONDARY_LAYOUT ->
                         stringResource(R.string.tooldetail_enabled_needs_layout_subtitle)
                 },
@@ -1399,6 +1401,32 @@ internal fun ToolDetailSettings(
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item { TranslateLanguageSetting(repository, settings) }
             }
+            if (BuildConfig.ENABLE_FDROID) {
+                // This build translates against a LibreTranslate server the
+                // user runs or trusts, so the field is an address rather than
+                // a key. The key below it is optional and often unused.
+                SettingsGroup(
+                    stringResource(R.string.tooldetail_translate_instance_group),
+                    info = stringResource(R.string.tooldetail_translate_instance_info),
+                ) {
+                    item {
+                        TextFieldSetting(
+                            label = stringResource(R.string.tooldetail_translate_instance_label),
+                            value = settings.selfHosted.libreTranslateUrl,
+                            hint = stringResource(R.string.tooldetail_translate_instance_hint),
+                            default = SettingsDefaults.selfHosted.libreTranslateUrl,
+                        ) { repository.setLibreTranslateUrl(it) }
+                    }
+                    item {
+                        ApiKeyField(
+                            label = stringResource(R.string.tooldetail_translate_instance_key_label),
+                            value = settings.selfHosted.libreTranslateApiKey,
+                            builtInAvailable = false,
+                            emptyHint = stringResource(R.string.tooldetail_translate_instance_key_hint),
+                        ) { repository.setLibreTranslateApiKey(it) }
+                    }
+                }
+            }
             SettingsGroup(
                 stringResource(R.string.tooldetail_translate_key_group),
                 info = stringResource(R.string.tooldetail_translate_info),
@@ -1414,6 +1442,21 @@ internal fun ToolDetailSettings(
             }
         }
         ToolbarTool.GIF, ToolbarTool.STICKER -> {
+            if (BuildConfig.ENABLE_FDROID && tool == ToolbarTool.GIF) {
+                SettingsGroup(
+                    stringResource(R.string.tooldetail_media_wiki_group),
+                    info = stringResource(R.string.tooldetail_media_wiki_info),
+                ) {
+                    item {
+                        TextFieldSetting(
+                            label = stringResource(R.string.tooldetail_media_wiki_label),
+                            value = settings.selfHosted.commonsUrl,
+                            hint = stringResource(R.string.tooldetail_media_wiki_hint),
+                            default = SettingsDefaults.selfHosted.commonsUrl,
+                        ) { repository.setCommonsUrl(it) }
+                    }
+                }
+            }
             if (tool == ToolbarTool.STICKER) {
                 SettingsGroup(stringResource(R.string.tooldetail_sticker_packs_group)) {
                     item {
@@ -1573,6 +1616,18 @@ internal fun ToolDetailSettings(
                 stringResource(R.string.tooldetail_search_group),
                 info = stringResource(R.string.tooldetail_search_info),
             ) {
+                if (BuildConfig.ENABLE_FDROID) {
+                    // Offered first, because it is the one that needs no key —
+                    // but the Brave field stays below it for anyone who has one.
+                    item {
+                        TextFieldSetting(
+                            label = stringResource(R.string.tooldetail_search_instance_label),
+                            value = settings.selfHosted.searxUrl,
+                            hint = stringResource(R.string.tooldetail_search_instance_hint),
+                            default = SettingsDefaults.selfHosted.searxUrl,
+                        ) { repository.setSearxUrl(it) }
+                    }
+                }
                 item {
                     ApiKeyField(
                         label = stringResource(R.string.tooldetail_search_key_label),

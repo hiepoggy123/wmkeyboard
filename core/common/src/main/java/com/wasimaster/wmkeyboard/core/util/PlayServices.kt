@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.util
 
 import android.content.Context
+import com.wasimaster.wmkeyboard.config.BuildConfig
 
 /**
  * Whether this device has Google Play services, and whether its downloadable
@@ -32,6 +33,24 @@ import android.content.Context
  */
 object PlayServices {
 
+    /**
+     * The F-Droid build answers "no" to both probes without asking the device.
+     *
+     * Not because the APK carries anything of Google's — it carries none, and
+     * the font dependency is `androidx.compose.ui:ui-text-google-fonts`, which
+     * is AndroidX and free software. The provider is reached by *name*, so the
+     * only thing in the build is the string below.
+     *
+     * It is off there because of what the request does rather than what links
+     * it: fetching a face through Play services is a connection the user did
+     * not ask for, made to a proprietary service, and that is the one thing the
+     * F-Droid listing promises does not happen. A script with no font of its own
+     * falls back to the platform face, which on any current Android carries
+     * Noto for these scripts anyway; a user who wants a specific face can still
+     * import a file or install a font addon.
+     */
+    private val channelAllowsGms: Boolean = !BuildConfig.ENABLE_FDROID
+
     private const val GMS_PACKAGE = "com.google.android.gms"
     private const val FONTS_AUTHORITY = "com.google.android.gms.fonts"
 
@@ -51,7 +70,7 @@ object PlayServices {
      * before either draws.
      */
     val available: Boolean
-        get() = installed ?: true
+        get() = installed ?: channelAllowsGms
 
     /** Answers both probes now, so later reads are free and [available] is real. */
     fun prime(context: Context) {
@@ -71,11 +90,11 @@ object PlayServices {
     fun hasFontProvider(context: Context): Boolean =
         fontProvider ?: probeFontProvider(context).also { fontProvider = it }
 
-    private fun probeInstalled(context: Context): Boolean = runCatching {
+    private fun probeInstalled(context: Context): Boolean = channelAllowsGms && runCatching {
         context.packageManager.getApplicationInfo(GMS_PACKAGE, 0).enabled
     }.getOrDefault(false)
 
-    private fun probeFontProvider(context: Context): Boolean = runCatching {
+    private fun probeFontProvider(context: Context): Boolean = channelAllowsGms && runCatching {
         context.packageManager.resolveContentProvider(FONTS_AUTHORITY, 0) != null
     }.getOrDefault(false)
 }

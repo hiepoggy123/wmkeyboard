@@ -7,6 +7,7 @@ import android.os.Looper
 import androidx.annotation.StringRes
 import androidx.core.provider.FontRequest
 import androidx.core.provider.FontsContractCompat
+import com.wasimaster.wmkeyboard.core.util.PlayServices
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -432,6 +433,12 @@ object KeyboardFonts {
         if (selectedId != DEFAULT_ID) family(context, selectedId)?.let { return it }
         if (layoutFontId != null) family(context, layoutFontId)?.let { return it }
         if (themeScriptId != null) family(context, themeScriptId)?.let { return it }
+        // Only when the provider is actually there. Without this the request is
+        // made on every device — including the many with no Play services at
+        // all, where it can do nothing but fail — and on F-Droid, where
+        // PlayServices reports absent by channel, it is a connection the
+        // listing promises is not made.
+        if (!PlayServices.hasFontProvider(context)) return null
         return scriptGoogleFonts[scriptId]?.let { googleFamily(it) }
     }
 
@@ -487,7 +494,10 @@ object KeyboardFonts {
     fun family(context: Context, id: String): FontFamily? = when {
         id == CUSTOM_ID -> fileFamily(customFontFile(context))
         id == CUSTOM_BENGALI_ID -> fileFamily(customFontFile(context, CUSTOM_BENGALI_ID))
-        id.startsWith(GOOGLE_PREFIX) -> googleFamily(id.removePrefix(GOOGLE_PREFIX))
+        // A `google:` id arrives in imported themes and layouts too, so it has
+        // to be refused here rather than only kept out of the pickers.
+        id.startsWith(GOOGLE_PREFIX) ->
+            if (PlayServices.hasFontProvider(context)) googleFamily(id.removePrefix(GOOGLE_PREFIX)) else null
         // A font installed into the library, from a repository or the user's
         // own file. Null when it has since been deleted, which falls back to
         // the system face rather than leaving keys blank.
@@ -528,7 +538,7 @@ object KeyboardFonts {
         installedId: String = "",
     ): FontFamily? = when (choice) {
         EmojiFontChoice.SYSTEM -> null
-        EmojiFontChoice.NOTO -> googleFamily(NOTO_COLOR_EMOJI)
+        EmojiFontChoice.NOTO -> if (PlayServices.hasFontProvider(context)) googleFamily(NOTO_COLOR_EMOJI) else null
         EmojiFontChoice.CUSTOM -> fileFamily(customEmojiFontFile(context))
         EmojiFontChoice.INSTALLED -> installedEmojiFile(context, installedId)?.let { fileFamily(it) }
     }

@@ -7,8 +7,13 @@ import com.wasimaster.wmkeyboard.tools.R
  * Where a GIF/sticker result came from. [LOCAL] is the user's own sticker
  * packs on device — sticker-only, always available, and never mixed into a
  * provider grid.
+ *
+ * [COMMONS] is the F-Droid build's only remote source and appears in no other
+ * channel: KLIPY and GIPHY both want an API key that build cannot carry. Its
+ * corpus is educational rather than reactive, which the panel says out loud
+ * rather than leaving the user to conclude the search is broken.
  */
-enum class GifSource { KLIPY, GIPHY, LOCAL }
+enum class GifSource { KLIPY, GIPHY, LOCAL, COMMONS }
 
 /**
  * One GIF or sticker result: a small preview for the panel grid and the
@@ -42,6 +47,7 @@ object GifSources {
         GifSource.KLIPY -> R.string.core_tools_gif_source_klipy
         GifSource.GIPHY -> R.string.core_tools_gif_source_giphy
         GifSource.LOCAL -> R.string.core_tools_gif_source_local
+        GifSource.COMMONS -> R.string.core_tools_gif_source_commons
     }
 
     /**

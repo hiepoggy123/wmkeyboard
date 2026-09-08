@@ -20,10 +20,21 @@ object ToolApiKeys {
     fun giphy(settings: KeyboardSettings): String =
         settings.giphyApiKey.ifBlank { BuildConfig.GIPHY_API_KEY }
 
-    /** Which GIF/sticker providers can actually serve requests. */
+    /**
+     * Which GIF/sticker providers can actually serve requests.
+     *
+     * Commons joins the list on the F-Droid build rather than replacing the
+     * other two. It needs no key, so it is the one that works out of the box
+     * there — but a user who has their own GIPHY or KLIPY key should still be
+     * able to use it, and taking that away would buy nothing: F-Droid's rule
+     * asks that a free alternative be *offered*, not that the others be
+     * removed. It goes last so the keyed providers, when configured, are what
+     * the panel opens on.
+     */
     fun gifSources(settings: KeyboardSettings): List<GifSource> = buildList {
         if (klipy(settings).isNotBlank()) add(GifSource.KLIPY)
         if (giphy(settings).isNotBlank()) add(GifSource.GIPHY)
+        if (BuildConfig.ENABLE_FDROID) add(GifSource.COMMONS)
     }
 
     /**
@@ -58,6 +69,8 @@ object ToolApiKeys {
     fun photoSources(settings: KeyboardSettings): List<PhotoSource> = buildList {
         if (unsplash(settings).isNotBlank()) add(PhotoSource.UNSPLASH)
         if (pexels(settings).isNotBlank()) add(PhotoSource.PEXELS)
+        // Alongside the keyed two, not instead of them — see [gifSources].
+        if (BuildConfig.ENABLE_FDROID) add(PhotoSource.COMMONS)
     }
 
     /** Resolves each provider's key for the photo client's dispatch. */
@@ -66,6 +79,11 @@ object ToolApiKeys {
             when (source) {
                 PhotoSource.UNSPLASH -> unsplash(settings)
                 PhotoSource.PEXELS -> pexels(settings)
+                // Commons is anonymous, so this slot carries the endpoint
+                // instead of a key: it is the per-source string the dispatch
+                // already threads through, and a second parallel channel for
+                // one provider would be worse than one documented reuse.
+                PhotoSource.COMMONS -> settings.selfHosted.commonsUrl
             }
         }
 

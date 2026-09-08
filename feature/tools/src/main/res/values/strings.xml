@@ -10,4 +10,9 @@
     <string name="ftools_photo_error_offline">The app cannot reach the photo service. Check your network and try again.</string>
     <string name="ftools_photo_error_timeout">The photo service took too long to answer</string>
     <string name="ftools_photo_error_failed">The app could not get the photos</string>
+
+    <!-- Search on the F-Droid build goes to a SearXNG instance the user names.
+         403 from one nearly always means its JSON format is off, which is one
+         line of its settings.yml, so say that rather than "Forbidden". -->
+    <string name="ftools_search_error_json_disabled">This SearXNG instance has not enabled its JSON API. Add <![CDATA[<b>json</b>]]> to <![CDATA[<b>search.formats</b>]]> in its settings.yml, or use another instance.</string>
 </resources>

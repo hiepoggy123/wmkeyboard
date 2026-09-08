@@ -5,11 +5,15 @@ import com.wasimaster.wmkeyboard.tools.R
 
 /**
  * Where a background photo came from. A plain enum with `when` dispatch rather
- * than a client interface, following [GifSource]: the closed set is two, there
+ * than a client interface, following [GifSource]: the closed set is small, there
  * is no dependency-injection container to hold instances, and every other
  * network client in the app is a top-level `object` with blocking functions.
+ *
+ * [COMMONS] is the F-Droid build's only source and appears in no other channel.
+ * Unsplash and Pexels both require an API key, which that build cannot carry;
+ * Wikimedia Commons requires none and is freely licensed. See [CommonsClient].
  */
-enum class PhotoSource { UNSPLASH, PEXELS }
+enum class PhotoSource { UNSPLASH, PEXELS, COMMONS }
 
 /** Which way round a photo is. [ANY] leaves the parameter off the request. */
 enum class PhotoOrientation { ANY, LANDSCAPE, PORTRAIT, SQUARE }
@@ -268,6 +272,7 @@ object PhotoLinks {
     fun homeUrl(source: PhotoSource): String = when (source) {
         PhotoSource.UNSPLASH -> credited("https://unsplash.com/", source)
         PhotoSource.PEXELS -> "https://www.pexels.com/"
+        PhotoSource.COMMONS -> "https://commons.wikimedia.org/"
     }
 
     /** The name a provider goes by on screen. The UI resolves the id. */
@@ -275,6 +280,7 @@ object PhotoLinks {
     fun displayNameRes(source: PhotoSource): Int = when (source) {
         PhotoSource.UNSPLASH -> R.string.core_tools_photo_source_unsplash
         PhotoSource.PEXELS -> R.string.core_tools_photo_source_pexels
+        PhotoSource.COMMONS -> R.string.core_tools_photo_source_commons
     }
 
     /** Stored on a theme so the credit reads the same after an import. */

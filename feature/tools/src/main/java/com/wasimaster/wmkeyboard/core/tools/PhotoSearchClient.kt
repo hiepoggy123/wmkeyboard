@@ -168,6 +168,13 @@ object PhotoSearchClient {
                     }
                     PexelsClient.parsePage(response.body, query.page, count).items
                 }
+                PhotoSource.COMMONS -> {
+                    // `keyFor` carries the endpoint for this source, not a key.
+                    val response = timed(source, nowMs) {
+                        CommonsClient.searchPhotos(query.copy(perPage = count), keys.keyFor(source))
+                    }
+                    CommonsClient.parsePage(response.body, query.copy(perPage = count)).items
+                }
             }
         }.getOrElse { emptyList() }
     }
@@ -201,6 +208,10 @@ object PhotoSearchClient {
                     } else {
                         PexelsClient.curated(effective, apiKey)
                     }
+                // One endpoint either way: a blank query browses featured
+                // pictures, which is as close as Commons comes to a feed.
+                // `apiKey` carries the endpoint for this source, not a key.
+                PhotoSource.COMMONS -> CommonsClient.searchPhotos(effective, apiKey)
             }
         }
         return when (source) {
@@ -211,6 +222,7 @@ object PhotoSearchClient {
                     UnsplashClient.parseList(response.body, effective.page, effective.perPage)
                 }
             PhotoSource.PEXELS -> PexelsClient.parsePage(response.body, effective.page, effective.perPage)
+            PhotoSource.COMMONS -> CommonsClient.parsePage(response.body, effective)
         }
     }
 

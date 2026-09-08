@@ -11,6 +11,7 @@
     <string name="tooldetail_enabled_subtitle">Show this tool on the toolbar and in the toolbox</string>
     <!-- Replaces the line above while the tool has no API key, when the switch cannot be pressed. -->
     <string name="tooldetail_enabled_needs_key_subtitle">Add the API key below to turn this tool on</string>
+    <string name="tooldetail_enabled_needs_instance_subtitle">Needs a SearXNG instance. Add its address under Search settings.</string>
     <string name="tooldetail_enabled_needs_layout_subtitle">Make a secondary layout under Key layouts below to turn this tool on</string>
     <string name="tooldetail_icon_colour_title">Icon colour</string>
     <!-- The two ends of the icon gradient, shown instead of the row above
@@ -716,4 +717,21 @@
     <string name="tooldetail_vocab_field_forms_title">Forms</string>
     <string name="tooldetail_vocab_field_wikipedia_title">Wikipedia</string>
 
+
+    <!-- F-Droid build only: the free-software services replace the keyed ones,
+         so these fields take a server address rather than an API key. Every one
+         of them is overridable, which is what F-Droid's rule on network
+         services asks for. -->
+    <string name="tooldetail_translate_instance_group">LibreTranslate server</string>
+    <string name="tooldetail_translate_instance_info">This edition translates with LibreTranslate, which is free software you can run yourself. Enter the address of an instance you trust.</string>
+    <string name="tooldetail_translate_instance_label">Server address</string>
+    <string name="tooldetail_translate_instance_hint">https://libretranslate.example.org</string>
+    <string name="tooldetail_translate_instance_key_label">API key (optional)</string>
+    <string name="tooldetail_translate_instance_key_hint">Only needed by instances that ask for one</string>
+    <string name="tooldetail_search_instance_label">SearXNG instance</string>
+    <string name="tooldetail_search_instance_hint">https://searx.example.org</string>
+    <string name="tooldetail_media_wiki_group">Media source</string>
+    <string name="tooldetail_media_wiki_info">GIFs come from Wikimedia Commons, whose collection is largely educational rather than reactive. Leave this empty for Commons, or point it at another MediaWiki.</string>
+    <string name="tooldetail_media_wiki_label">MediaWiki address</string>
+    <string name="tooldetail_media_wiki_hint">https://commons.wikimedia.org</string>
 </resources>

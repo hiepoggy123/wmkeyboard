@@ -472,6 +472,7 @@ private fun ToolRow(
         subtitle = when (blocker) {
             null -> stringResource(toolDescription(tool))
             ToolBlocker.NEEDS_SEARCH_KEY -> stringResource(R.string.tools_needs_key_subtitle)
+            ToolBlocker.NEEDS_SEARCH_INSTANCE -> stringResource(R.string.tools_needs_instance_subtitle)
             ToolBlocker.NEEDS_SECONDARY_LAYOUT -> stringResource(R.string.tools_needs_layout_subtitle)
         },
         leading = {

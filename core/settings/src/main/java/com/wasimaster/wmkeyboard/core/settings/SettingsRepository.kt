@@ -2071,6 +2071,8 @@ data class KeyboardSettings(
     val launcher: LauncherToolSettings = LauncherToolSettings(),
     /** Media-control tool settings, grouped (see [MediaControlSettings]). */
     val mediaControl: MediaControlSettings = MediaControlSettings(),
+    /** Free-software service endpoints for the F-Droid build (see [SelfHostedSettings]). */
+    val selfHosted: SelfHostedSettings = SelfHostedSettings(),
     /** Copy scanned document pages into Pictures/WM Keyboard. */
     val docScanSaveToGallery: Boolean = false,
     /** Copy generated QR codes into Pictures/WM Keyboard. */
@@ -5907,6 +5909,10 @@ class SettingsRepository(private val context: Context) {
         private val LAUNCHER_PINNED = stringPreferencesKey("launcher_pinned")
         private val LAUNCHER_RECENTS = stringPreferencesKey("launcher_recents")
         private val MEDIA_PIN_WHILE_PLAYING = booleanPreferencesKey("media_pin_while_playing")
+        private val SELF_HOSTED_LIBRETRANSLATE_URL = stringPreferencesKey("self_hosted_libretranslate_url")
+        private val SELF_HOSTED_LIBRETRANSLATE_KEY = stringPreferencesKey("self_hosted_libretranslate_key")
+        private val SELF_HOSTED_SEARX_URL = stringPreferencesKey("self_hosted_searx_url")
+        private val SELF_HOSTED_COMMONS_URL = stringPreferencesKey("self_hosted_commons_url")
         // Absent means "never chosen", which takes the seeded defaults; an
         // empty set is a real choice (nothing counts as music) and is kept.
         private val MEDIA_MUSIC_APPS = stringSetPreferencesKey("media_music_apps")
@@ -7294,6 +7300,14 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.mediaControl.pinWhilePlaying,
                 musicApps = p[MEDIA_MUSIC_APPS] ?: defaults.mediaControl.musicApps,
             ),
+            selfHosted = SelfHostedSettings(
+                libreTranslateUrl = p[SELF_HOSTED_LIBRETRANSLATE_URL]
+                    ?: defaults.selfHosted.libreTranslateUrl,
+                libreTranslateApiKey = p[SELF_HOSTED_LIBRETRANSLATE_KEY]
+                    ?: defaults.selfHosted.libreTranslateApiKey,
+                searxUrl = p[SELF_HOSTED_SEARX_URL] ?: defaults.selfHosted.searxUrl,
+                commonsUrl = p[SELF_HOSTED_COMMONS_URL] ?: defaults.selfHosted.commonsUrl,
+            ),
         )
     }
 
@@ -7443,6 +7457,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setMediaPinWhilePlaying(value: Boolean) =
         editPrefs { it[MEDIA_PIN_WHILE_PLAYING] = value }
+
+    // Endpoints are stored trimmed: a URL pasted from a README arrives with
+    // whitespace often enough, and the clients would otherwise build a request
+    // against a host with a space in it.
+    suspend fun setLibreTranslateUrl(value: String) =
+        editPrefs { it[SELF_HOSTED_LIBRETRANSLATE_URL] = value.trim() }
+
+    suspend fun setLibreTranslateApiKey(value: String) =
+        editPrefs { it[SELF_HOSTED_LIBRETRANSLATE_KEY] = value.trim() }
+
+    suspend fun setSearxUrl(value: String) =
+        editPrefs { it[SELF_HOSTED_SEARX_URL] = value.trim() }
+
+    suspend fun setCommonsUrl(value: String) =
+        editPrefs { it[SELF_HOSTED_COMMONS_URL] = value.trim() }
 
     /**
      * Ticks or unticks one package as a music player.

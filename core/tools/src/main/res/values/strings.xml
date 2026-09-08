@@ -216,4 +216,10 @@
     <string name="core_tools_vocab_error_save">Could not save the pack</string>
     <string name="core_tools_vocab_my_words">My words</string>
 
+
+    <!-- The F-Droid build's only remote GIF and photo source. Named on the
+         chip so a thin result set reads as "Commons has little of this"
+         rather than as the search being broken. -->
+    <string name="core_tools_gif_source_commons">Commons</string>
+    <string name="core_tools_photo_source_commons">Wikimedia Commons</string>
 </resources>

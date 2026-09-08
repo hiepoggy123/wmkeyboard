@@ -5,18 +5,21 @@ import com.wasimaster.wmkeyboard.core.layout.secondaryLayouts
 import com.wasimaster.wmkeyboard.config.BuildConfig
 
 /**
- * Whether the two search tools have a key to search with: the one the user
- * pasted into their settings, or the one baked into this build.
+ * Whether the two search tools have somewhere to search: a SearXNG instance the
+ * user named, or a Brave key — theirs or the one baked into this build.
  *
- * Brave is the only provider behind both of them and it has no anonymous tier,
- * so with no key there is nothing for the panel to do but apologise. The tools
+ * Either will do, and neither excludes the other. The F-Droid build ships no
+ * Brave key, so in practice its answer comes from the instance; but a user of
+ * that build who has their own key is not stopped from using it. The tools
  * module resolves the same pair for the request itself
  * (`ToolApiKeys.hasSearchProvider`); this lives down here because the toolbar,
  * the toolbox and the settings screens all have to ask the question long before
  * anything reaches a network client.
  */
 fun hasSearchKey(settings: KeyboardSettings): Boolean =
-    settings.braveApiKey.isNotBlank() || BuildConfig.BRAVE_API_KEY.isNotBlank()
+    settings.selfHosted.searxUrl.isNotBlank() ||
+        settings.braveApiKey.isNotBlank() ||
+        BuildConfig.BRAVE_API_KEY.isNotBlank()
 
 /**
  * Whether a tool can do its job right now — as opposed to [isSupportedTool],
@@ -43,6 +46,16 @@ enum class ToolBlocker {
     /** Web and image search: no search API key is configured. */
     NEEDS_SEARCH_KEY,
 
+    /**
+     * Web and image search on the F-Droid build: no SearXNG instance is named.
+     *
+     * Separate from [NEEDS_SEARCH_KEY] because the remedy is different and the
+     * screens say so: that one wants a key pasted, this one wants the address
+     * of a server. Offering a key field for a problem no key can fix is the
+     * exact mistake this enum was introduced to make impossible.
+     */
+    NEEDS_SEARCH_INSTANCE,
+
     /** The Custom layout tool: the user has not made a secondary layout yet. */
     NEEDS_SECONDARY_LAYOUT,
 }
@@ -50,7 +63,11 @@ enum class ToolBlocker {
 /** Why [tool] cannot run right now, or null when it can; see [ToolBlocker]. */
 fun toolBlocker(tool: ToolbarTool, settings: KeyboardSettings): ToolBlocker? = when (tool) {
     ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH ->
-        if (hasSearchKey(settings)) null else ToolBlocker.NEEDS_SEARCH_KEY
+        when {
+            hasSearchKey(settings) -> null
+            BuildConfig.ENABLE_FDROID -> ToolBlocker.NEEDS_SEARCH_INSTANCE
+            else -> ToolBlocker.NEEDS_SEARCH_KEY
+        }
     // Nothing to show until the user has built a secondary layout; a button
     // that does nothing is worse than no button.
     ToolbarTool.CUSTOM_LAYOUT ->

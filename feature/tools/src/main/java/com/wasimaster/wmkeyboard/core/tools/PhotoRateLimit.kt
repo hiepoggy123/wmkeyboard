@@ -144,6 +144,8 @@ object PhotoRateLimit {
         PhotoSource.UNSPLASH ->
             failure.status == HTTP_FORBIDDEN && headerInt(failure.headers, "X-Ratelimit-Remaining") == 0
         PhotoSource.PEXELS -> failure.status == HTTP_TOO_MANY_REQUESTS
+        // Commons has no key to reject, so a 429 is only ever a rate limit.
+        PhotoSource.COMMONS -> failure.status == HTTP_TOO_MANY_REQUESTS
     }
 
     /** Test seam; also the right thing to do when a user pastes a new key. */
