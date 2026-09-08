@@ -195,7 +195,16 @@ internal fun BoxScope.OctopusOverlay(
     val measurer = rememberTextMeasurer()
     val fontSize = OctopusLabelSp * settings.fontScale * octopus.fontScale
     val style = hintTextStyle().copy(fontSize = fontSize.sp)
-    val bandHeightPx = with(density) { (fontSize * OctopusBandLines).sp.toPx() }
+    // Measured, not guessed. The band used to be a multiple of the font size,
+    // and the box is sized to exactly that — so a glyph taller than the guess
+    // was clipped by its own container. Only the ones that hang below the
+    // baseline showed it: "Job" was whole and "job" lost the tail of its j.
+    // `includeFontPadding = false`, which the hint style sets, is what makes it
+    // bite — it takes away the leading that would otherwise have hidden the
+    // descender. Asking the font for a string with both a tall letter and a
+    // deep one gives the height the glyphs actually need.
+    val bandHeightPx = measurer.measure(OctopusMetricProbe, style, maxLines = 1)
+        .size.height.toFloat()
     val gapVPx = with(density) { keyGapV(settings).toPx() }
     val maxOverhangPx = keyWidth * OctopusOverhangWidths
     val slots = octopusSlots(
@@ -290,8 +299,12 @@ internal fun octopusLabel(word: OctopusWord, head: Color, accent: Color): Annota
  */
 private const val OctopusLabelSp = 12.6f
 
-/** Band height as a multiple of the font size, leaving room for descenders. */
-private const val OctopusBandLines = 1.35f
+/**
+ * Measured to size the band a word is drawn in: a capital, a letter with a
+ * descender and one with both, so the height covers everything a word can
+ * contain rather than what a multiple of the font size guesses it might.
+ */
+private const val OctopusMetricProbe = "Xjgy"
 
 /**
  * How much of that band clears the key. The rest overlaps it, so the word reads
