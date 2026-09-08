@@ -2,13 +2,15 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.RemeasureToBounds
 import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.ScaleToBounds
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,7 +39,9 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.ui.Alignment
@@ -45,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -178,6 +183,18 @@ internal class SettingsCrumbTrail {
     fun forget(entryId: String) {
         steps.removeAll { it.entryId == entryId }
     }
+
+    /**
+     * Whether the trail already knows [entryId].
+     *
+     * Read once by a screen as it composes, before its own [enter] has run,
+     * and that answer says how the screen was reached: a screen the trail has
+     * never seen is being opened, and a screen it is already holding is being
+     * returned to. Which of the two it is decides which step the accent is
+     * moving between, and the answer has to be had on the first frame — a
+     * frame later both cases look identical.
+     */
+    fun holds(entryId: String): Boolean = steps.any { it.entryId == entryId }
 
     /**
      * The steps above the home screen and below [entryId] — what the screen
@@ -334,28 +351,32 @@ internal fun SettingsBreadcrumbBar(
     tint: Color,
     modifier: Modifier = Modifier,
 ) {
+    // Which way this screen was reached, latched before its own step reaches
+    // the trail: opened, and the accent is moving off the step behind it, or
+    // returned to, and the accent is moving back onto this one. Read a frame
+    // later the two are indistinguishable, so it is remembered rather than
+    // recomputed.
+    val opened = remember(trail, entryId) { !trail.holds(entryId) }
     val crumbs = trail.ancestorsOf(entryId)
     if (crumbs.size < MinCrumbDepth) return
+    // The step that wore the accent a moment ago. Only a screen that was just
+    // opened has one on its own strip — the step it was opened from, which is
+    // the last of its ancestors. A screen being returned to left its own
+    // accent behind on a screen that is on its way out.
+    val wasHere = if (opened) crumbs.lastOrNull()?.entryId else null
     val scroll = rememberScrollState()
     // The near end of the path is the useful one, and the end a long path
     // pushes off the screen. Scrolled to whenever the path grows — and keyed
     // on the range as well, because on a screen's first frame the row has not
     // been measured yet and the range is still zero; it settles a frame later.
     //
-    // Walked rather than jumped, over the clock the screens move on: the step
-    // this navigation pushed off the left edge is one the user was looking at
-    // a moment ago, and it should be seen to leave. The pills are riding their
-    // own flights to these same positions, which retarget as the row moves
-    // under them, so the two read as one movement. A jump is what reduced
-    // motion gets, and what a screen with nothing to scroll gets either way.
-    val flying = LocalSharedTransition.current != null
-    LaunchedEffect(crumbs.size, scroll.maxValue, flying) {
-        if (flying) {
-            scroll.animateScrollTo(scroll.maxValue, CrumbFlightSpec)
-        } else {
-            scroll.scrollTo(scroll.maxValue)
-        }
-    }
+    // Jumped, not walked. The walk the eye wants is already being drawn: each
+    // pill is flying from where it sat on the screen behind to where it sits
+    // here, and here is the scrolled position. Animating the scroll as well
+    // moves those landing places while the flights are in the air, so every
+    // pill retargets mid-flight and the strip travels at a speed that depends
+    // on when the row happened to settle.
+    LaunchedEffect(crumbs.size, scroll.maxValue) { scroll.scrollTo(scroll.maxValue) }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -375,10 +396,25 @@ internal fun SettingsBreadcrumbBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             crumbs.forEach { crumb ->
-                Crumb(crumb) { trail.popTo(crumb.entryId) }
+                Crumb(
+                    crumb = crumb,
+                    here = crumbAccent(from = if (crumb.entryId == wasHere) 1f else 0f, to = 0f),
+                    accent = accent,
+                    onOpen = { trail.popTo(crumb.entryId) },
+                )
                 CrumbSeparator(crumb.entryId)
             }
-            CurrentCrumb(entryId, currentTitle, currentRoute, accent, onCurrent)
+            CurrentCrumb(
+                entryId = entryId,
+                title = currentTitle,
+                route = currentRoute,
+                // Always arrives: a step that was just opened had no accent on
+                // the screen before, and a step being returned to left its own
+                // behind. Either way the accent comes onto it here.
+                here = crumbAccent(from = 0f, to = 1f),
+                accent = accent,
+                onTop = onCurrent,
+            )
         }
     }
 }
@@ -391,7 +427,16 @@ internal fun SettingsBreadcrumbBar(
  * of the strip — the band, each pill, each chevron — carries a key, and the
  * two screens' copies of a key are the two ends of one flight: the pill walks
  * to its new place in the path while the tint that marked it as "you are here"
- * fades off it and onto the step that arrived.
+ * moves off it and onto the step that arrived.
+ *
+ * A pill is flown, not cross-faded, and that is deliberate. The two ends of a
+ * step differ only in colour, so fading one into the other spends the whole
+ * navigation drawing two pills on top of each other at partial alpha. Their
+ * fills are translucent, so the pair reads as one washed-out ghost rather than
+ * as a colour changing, and the band underneath goes visibly dark for the same
+ * reason. Instead only the arriving end is drawn, at full strength, and the
+ * colour is changed where it belongs: on that one pill, by [crumbAccent], over
+ * a curve this file chooses.
  *
  * What has no counterpart is what is new: the pill for the screen being opened
  * exists only on the arriving side, so no flight is found for it and it rides
@@ -420,12 +465,43 @@ private const val CrumbPillZ = 1f
 /** A step with nowhere to fly from, over everything: it is the newest thing on the strip. */
 private const val CrumbArrivalZ = 2f
 
-/** The strip's clock: the one the screens move on, so everything lands together. */
-private val CrumbFlightSpec = tween<Float>(NavTransitionMs, easing = NavTransitionEasing)
+/**
+ * The strip's clock: the length the screens move over, on the curve the app's
+ * other flights use.
+ *
+ * Not the screens' own curve. `NavTransitionEasing` is a push — it throws the
+ * page most of the way across in the first tenth of its time and eases the
+ * rest — and a colour put on that curve has finished changing before the eye
+ * has found it, which is what made the accent look like it was snapping rather
+ * than moving. A flight between two places is the standard curve, and a step
+ * walking up the path is a flight.
+ */
+private val CrumbFlightSpec = tween<Float>(NavTransitionMs, easing = FastOutSlowInEasing)
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 private val CrumbBounds = BoundsTransform { _, _ ->
-    tween(durationMillis = NavTransitionMs, easing = NavTransitionEasing)
+    tween(durationMillis = NavTransitionMs, easing = FastOutSlowInEasing)
+}
+
+/**
+ * How far this step is towards wearing the accent, from [from] as the screen
+ * was reached to [to] once it is settled: 1 is "you are here", 0 is a step
+ * behind you.
+ *
+ * Driven by the screen's own entrance rather than by a `sharedBounds`
+ * cross-fade, so the accent moves over a curve the eye can follow and neither
+ * end of it is ever drawn at partial alpha. Off the graph, and under reduced
+ * motion, it is simply [to] and nothing moves.
+ */
+@Composable
+private fun crumbAccent(from: Float, to: Float): Float {
+    if (from == to) return to
+    val anim = LocalNavAnimatedScope.current ?: return to
+    val here by anim.transition.animateFloat(
+        transitionSpec = { CrumbFlightSpec },
+        label = "crumbAccent",
+    ) { state -> if (state == EnterExitState.Visible) to else from }
+    return here
 }
 
 /**
@@ -437,6 +513,13 @@ private val CrumbBounds = BoundsTransform { _, _ ->
  * Remeasured rather than scaled for the one case where there is a distance:
  * leaving a screen whose bar had been scrolled shut for one whose bar is open
  * moves the strip down the window, and a stretched band would show it.
+ *
+ * Only the arriving band fades; the one being left stays at full strength
+ * underneath until it is dropped. Two opaque bands both at part alpha do not
+ * add back up to one — the page shows through the pair of them — and that was
+ * the whole band dimming by a seventh for the length of every navigation.
+ * With the floor left opaque the pair is a plain crossing of one colour into
+ * the next, which is all this was ever meant to be.
  *
  * A no-op on the home list, which draws no strip at all, and under reduced
  * motion, where the band simply travels with its screen.
@@ -451,7 +534,7 @@ private fun Modifier.crumbBand(): Modifier {
             rememberSharedContentState(CrumbBandKey),
             anim,
             enter = fadeIn(CrumbFlightSpec),
-            exit = fadeOut(CrumbFlightSpec),
+            exit = ExitTransition.None,
             boundsTransform = CrumbBounds,
             resizeMode = RemeasureToBounds,
             zIndexInOverlay = CrumbBandZ,
@@ -461,13 +544,21 @@ private fun Modifier.crumbBand(): Modifier {
 
 /**
  * Flies this piece of the strip to wherever [key] names it on the screen being
- * opened, crossing its colours over on the way — which is how the step the user
- * just left loses its accent and becomes another step behind them.
+ * opened. Both screens put a copy on that flight and only the arriving one is
+ * drawn, so the pill is solid the whole way across and its colours are
+ * whatever [crumbAccent] has made them.
  *
- * A piece with no match is a step that has only just appeared (or, going back,
- * only just left). Nothing flies it, so it moves with its own screen; it is
- * lifted into the overlay for the crossing, because the band is up there and
- * would otherwise paint over it, and faded so it arrives rather than snaps.
+ * The hiding is done here rather than by asking for `sharedElement`, which
+ * draws the arriving end only and would be exactly this. It also refuses to
+ * draw a *departing* end that has no match at all — and on the way back that
+ * is the pill for the screen being left, which then blinks out of the strip
+ * on the first frame of the pop instead of sliding away with its page.
+ *
+ * A piece with no match is a step that has only just appeared, or, going back,
+ * one that is only just leaving. Nothing flies it, so it moves with its own
+ * screen; it is lifted into the overlay for the crossing, because the band is
+ * up there and would otherwise paint over it, and faded so that it arrives and
+ * leaves rather than snapping.
  */
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -476,8 +567,8 @@ private fun Modifier.crumbFlight(key: String): Modifier {
     val anim = LocalNavAnimatedScope.current ?: return this
     return with(shared) {
         val state = rememberSharedContentState(key)
-        // Read inside the layer rather than by the composition, so a step that
-        // is arriving costs one draw a frame and not one recomposition.
+        // Read inside the layer rather than by the composition, so a step in
+        // the air costs one draw a frame and not one recomposition.
         val arrival = anim.transition.animateFloat(
             transitionSpec = { CrumbFlightSpec },
             label = "crumb",
@@ -486,8 +577,12 @@ private fun Modifier.crumbFlight(key: String): Modifier {
             .sharedBounds(
                 state,
                 anim,
-                enter = fadeIn(CrumbFlightSpec),
-                exit = fadeOut(CrumbFlightSpec),
+                // Neither end is faded by the flight. A pill's fill is
+                // translucent, so two of them at part alpha over the band read
+                // as one washed-out ghost rather than as a colour changing —
+                // which is what the accent crossing over used to look like.
+                enter = EnterTransition.None,
+                exit = ExitTransition.None,
                 boundsTransform = CrumbBounds,
                 resizeMode = ScaleToBounds(ContentScale.FillWidth, Alignment.CenterStart),
                 zIndexInOverlay = CrumbPillZ,
@@ -496,7 +591,17 @@ private fun Modifier.crumbFlight(key: String): Modifier {
                 renderInOverlay = { isTransitionActive && !state.isMatchFound },
                 zIndexInOverlay = CrumbArrivalZ,
             )
-            .graphicsLayer { alpha = if (state.isMatchFound) 1f else arrival.value }
+            .graphicsLayer {
+                alpha = when {
+                    // Riding out or in with its own screen.
+                    !state.isMatchFound -> arrival.value
+                    // Both ends are placed at the same flying bounds, so the
+                    // one being left is the redundant copy. Dropping it is
+                    // what keeps the pill from drawing over itself.
+                    anim.transition.targetState == EnterExitState.PostExit -> 0f
+                    else -> 1f
+                }
+            }
     }
 }
 
@@ -558,13 +663,12 @@ private fun CrumbSeparator(entryId: String) {
  * reads as a thing to press without shouting over the heading above.
  */
 @Composable
-private fun Crumb(crumb: SettingsCrumb, onOpen: () -> Unit) {
+private fun Crumb(crumb: SettingsCrumb, here: Float, accent: Color, onOpen: () -> Unit) {
     CrumbPill(
         title = crumb.title,
         route = crumb.route,
-        container = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
-        outline = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
-        content = MaterialTheme.colorScheme.onSurfaceVariant,
+        here = here,
+        accent = accent,
         flight = crumbKey(crumb.entryId),
         modifier = Modifier.clickable(
             onClickLabel = stringResource(R.string.shell_breadcrumb_open_desc, crumb.title),
@@ -583,15 +687,15 @@ private fun CurrentCrumb(
     entryId: String,
     title: String,
     route: String?,
+    here: Float,
     accent: Color,
     onTop: () -> Unit,
 ) {
     CrumbPill(
         title = title,
         route = route,
-        container = accent.copy(alpha = 0.14f),
-        outline = accent.copy(alpha = 0.55f),
-        content = accent,
+        here = here,
+        accent = accent,
         // The same key the next screen will draw this step under, once it is a
         // step behind: that is what carries the accent off it as it goes.
         flight = crumbKey(entryId),
@@ -606,18 +710,35 @@ private fun CurrentCrumb(
  * The pill both kinds of step are drawn as. [modifier] goes inside the clip, so
  * a ripple stays round; [flight] goes outside everything, because what crosses
  * between two screens is the whole pill — its fill and its outline as much as
- * its name, which is what makes the accent look like it slid off.
+ * its name.
+ *
+ * [here] is how far this step is towards being the one you are on: 0 is the
+ * quiet pill, a shade off the strip it sits on so it reads as a thing to press
+ * without shouting over the heading above; 1 closes the path in the section's
+ * own colour, the one the heading's tile and the collapsed bar wear. The three
+ * colours are read from the one number so the accent arrives and leaves as a
+ * single movement rather than as three that could disagree.
  */
 @Composable
 private fun CrumbPill(
     title: String,
     route: String?,
-    container: Color,
-    outline: Color,
-    content: Color,
+    here: Float,
+    accent: Color,
     flight: String,
     modifier: Modifier = Modifier,
 ) {
+    val container = lerp(
+        MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+        accent.copy(alpha = 0.14f),
+        here,
+    )
+    val outline = lerp(
+        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f),
+        accent.copy(alpha = 0.55f),
+        here,
+    )
+    val content = lerp(MaterialTheme.colorScheme.onSurfaceVariant, accent, here)
     Row(
         modifier = Modifier
             .crumbFlight(flight)

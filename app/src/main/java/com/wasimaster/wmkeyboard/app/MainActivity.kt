@@ -943,6 +943,7 @@ private fun SettingsNavGraph(
         }
         composable(PHOTO_HUB_ROUTE) {
             PhotoServicesScreen(
+                anim = this,
                 repository = repository,
                 settings = settings,
                 onBack = { navController.popBackStack() },
@@ -956,6 +957,7 @@ private fun SettingsNavGraph(
             ),
         ) { entry ->
             PhotoBrowseScreen(
+                anim = this,
                 settings = settings,
                 themeId = entry.arguments?.getString("theme").orEmpty(),
                 onOpenPhoto = { photo ->
@@ -976,6 +978,7 @@ private fun SettingsNavGraph(
             } else {
                 val browse = navController.previousBackStackEntry?.arguments
                 PhotoDetailScreen(
+                    anim = this,
                     repository = repository,
                     settings = settings,
                     photo = photo,
@@ -994,6 +997,7 @@ private fun SettingsNavGraph(
             ),
         ) { entry ->
             PhotoLibraryScreen(
+                anim = this,
                 repository = repository,
                 settings = settings,
                 themeId = entry.arguments?.getString("theme").orEmpty(),
@@ -1003,6 +1007,7 @@ private fun SettingsNavGraph(
         }
         composable(PHOTO_ROTATION_ROUTE) {
             PhotoRotationScreen(
+                anim = this,
                 repository = repository,
                 settings = settings,
                 onNavigate = { route -> navController.navigate(route) },
@@ -1499,6 +1504,7 @@ private fun SettingsNavGraph(
         composable("ai_chat") {
             LockedRoute("ai_chat", onCancel = { navController.popBackStack() }) {
                 AiChatListScreen(
+                    anim = this,
                     onOpenChat = { id -> navController.navigate("ai_chat/$id") },
                     onNewChat = { navController.navigate("ai_chat/new") },
                     // First-ever open: replace the empty list with the chat, so

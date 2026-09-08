@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -85,12 +86,14 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 /** Keys for the photo services, reached from a theme and from the picker. */
 @Composable
 fun PhotoServicesScreen(
+    anim: AnimatedVisibilityScope? = null,
     repository: SettingsRepository,
     settings: KeyboardSettings,
     onBack: () -> Unit,
 ) {
     val photos = settings.photoBackground
     WmScreen(
+        anim = anim,
         title = stringResource(R.string.photo_services_title),
         onBack = onBack,
         route = PHOTO_HUB_ROUTE,
@@ -134,6 +137,7 @@ fun PhotoServicesScreen(
 /** The background that changes on its own. Part of the theme settings. */
 @Composable
 fun PhotoRotationScreen(
+    anim: AnimatedVisibilityScope? = null,
     repository: SettingsRepository,
     settings: KeyboardSettings,
     onNavigate: (String) -> Unit,
@@ -152,6 +156,7 @@ fun PhotoRotationScreen(
     var scopeThemesOpen by remember { mutableStateOf(false) }
 
     WmScreen(
+        anim = anim,
         title = stringResource(R.string.photo_rotation_title),
         onBack = onBack,
         route = PHOTO_ROTATION_ROUTE,
@@ -510,6 +515,7 @@ fun PhotoRotationScreen(
 /** Photos the user kept, reusable on any theme. Works with no network. */
 @Composable
 fun PhotoLibraryScreen(
+    anim: AnimatedVisibilityScope? = null,
     repository: SettingsRepository,
     settings: KeyboardSettings,
     themeId: String,
@@ -536,6 +542,7 @@ fun PhotoLibraryScreen(
     }
 
     WmLazyScreen(
+        anim = anim,
         title = stringResource(R.string.photo_library_title),
         onBack = onBack,
         route = PHOTO_LIBRARY_ROUTE,

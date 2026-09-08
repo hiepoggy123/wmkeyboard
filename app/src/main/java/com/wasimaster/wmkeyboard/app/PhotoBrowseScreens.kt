@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -81,6 +82,7 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
  */
 @Composable
 fun PhotoBrowseScreen(
+    anim: AnimatedVisibilityScope? = null,
     settings: KeyboardSettings,
     themeId: String,
     onOpenPhoto: (PhotoItem) -> Unit,
@@ -167,6 +169,7 @@ fun PhotoBrowseScreen(
     }
 
     WmLazyScreen(
+        anim = anim,
         title = stringResource(R.string.photo_find_title),
         onBack = { onNavigate(BACK_ROUTE) },
         route = PHOTO_BROWSE_ROUTE,

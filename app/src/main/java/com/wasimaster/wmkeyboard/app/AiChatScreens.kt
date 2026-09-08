@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import android.content.Context
 import android.text.format.DateUtils
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -80,6 +81,7 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
  */
 @Composable
 internal fun AiChatListScreen(
+    anim: AnimatedVisibilityScope? = null,
     onOpenChat: (Long) -> Unit,
     onNewChat: () -> Unit,
     onAutoNew: () -> Unit,
@@ -100,6 +102,7 @@ internal fun AiChatListScreen(
     }
 
     WmLazyScreen(
+        anim = anim,
         title = stringResource(R.string.home_screen_ai_chat_title),
         onBack = onBack,
         route = "ai_chat",

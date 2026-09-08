@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.content.Intent
+import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -73,6 +74,7 @@ import androidx.compose.material.icons.outlined.StayCurrentPortrait
  */
 @Composable
 fun PhotoDetailScreen(
+    anim: AnimatedVisibilityScope? = null,
     repository: SettingsRepository,
     settings: KeyboardSettings,
     photo: PhotoItem,
@@ -114,6 +116,7 @@ fun PhotoDetailScreen(
     }
 
     WmScreen(
+        anim = anim,
         title = stringResource(R.string.photo_detail_title),
         onBack = onBack,
         subtitle = theme?.name,
