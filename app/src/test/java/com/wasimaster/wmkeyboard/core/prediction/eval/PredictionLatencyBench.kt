@@ -55,6 +55,26 @@ class PredictionLatencyBench {
          */
         const val SUGGEST_P50_CEILING_MS = 5.0
         const val SUGGEST_P99_CEILING_MS = 25.0
+
+        /**
+         * The octopus (discussion #102) asked separately from `suggest`,
+         * because a board with the feature off must not pay for it and dense
+         * mode's fan-out must not sit under `suggest`'s own ceiling.
+         *
+         * Baseline 2026-09-08, same desktop JVM:
+         * ```
+         * octopus sparse (after suggest)  p50 0.01ms   p99 0.03ms
+         * octopus sparse (cold)           p50 0.36ms   p99 0.60ms
+         * octopus dense                   p50 0.60ms   p99 1.10ms
+         * ```
+         * Sparse after a suggest is the real hot path and is nearly free: it
+         * reads the ranked walk that call just memoised. Sparse cold is the
+         * same work with that cache missed, which is the defence that matters
+         * — if the two memoisation keys ever drift apart, every keystroke pays
+         * a second walk and this is where it shows.
+         */
+        const val OCTOPUS_P50_CEILING_MS = 2.0
+        const val OCTOPUS_P99_CEILING_MS = 8.0
     }
 
     @get:Rule
@@ -115,6 +135,63 @@ class PredictionLatencyBench {
             val p99 = percentile(suggestNs, 99.0) / 1e6
             assertTrue("suggest P50 ${p50}ms above ceiling $SUGGEST_P50_CEILING_MS", p50 < SUGGEST_P50_CEILING_MS)
             assertTrue("suggest P99 ${p99}ms above ceiling $SUGGEST_P99_CEILING_MS", p99 < SUGGEST_P99_CEILING_MS)
+        }
+    }
+
+    @Test
+    fun octopusStaysCheap() {
+        val entries = realEntries()
+        val engine = SuggestionEngine(
+            PackedTrie.of(entries),
+            BengaliPhoneticIndex(emptyList()),
+            UserLexicon(null),
+        )
+        val corpus = TypoCorpus(7L)
+        val cases = corpus.generate(entries, 200)
+        // A 1:1 Latin board: every letter is its own key.
+        val keyOf: (Int) -> Int = { it }
+
+        // The production shape: the strip's own walk, then the octopus reading
+        // it. This is what a keystroke actually costs with the feature on.
+        val warmNs = measure("octopus sparse warm") { i ->
+            val typed = cases[i % cases.size].typed
+            engine.suggest(typed, previousWord = null)
+            engine.octopusWords(typed, previousWord = null, limit = 4, keyOf = keyOf)
+        }
+        // The same ask with the cache missed. If the two memoisation keys ever
+        // drift apart, this is what the warm case quietly becomes.
+        val coldNs = measure("octopus sparse cold") { i ->
+            engine.octopusWords(
+                cases[i % cases.size].typed, previousWord = null, limit = 4, keyOf = keyOf,
+            )
+        }
+        val denseNs = measure("octopus dense") { i ->
+            val typed = cases[i % cases.size].typed
+            engine.suggest(typed, previousWord = null)
+            engine.octopusWords(
+                typed, previousWord = null, limit = 26, dense = true, keyOf = keyOf,
+            )
+        }
+
+        report("octopus sparse (after suggest)", warmNs)
+        report("octopus sparse (cold)", coldNs)
+        report("octopus dense", denseNs)
+
+        if (System.getProperty("wmkeyboard.benchAssert") != "false") {
+            for ((name, samples) in listOf(
+                "sparse warm" to warmNs, "sparse cold" to coldNs, "dense" to denseNs,
+            )) {
+                val p50 = percentile(samples, 50.0) / 1e6
+                val p99 = percentile(samples, 99.0) / 1e6
+                assertTrue(
+                    "octopus $name P50 ${p50}ms above ceiling $OCTOPUS_P50_CEILING_MS",
+                    p50 < OCTOPUS_P50_CEILING_MS,
+                )
+                assertTrue(
+                    "octopus $name P99 ${p99}ms above ceiling $OCTOPUS_P99_CEILING_MS",
+                    p99 < OCTOPUS_P99_CEILING_MS,
+                )
+            }
         }
     }
 

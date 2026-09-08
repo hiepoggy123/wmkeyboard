@@ -536,6 +536,15 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Shift swaps digits for symbols — Holding shift on the letters layer turns the digit row into the =\<>[]{}|~ fill row
     - In-symbols toggle — The digit row can be kept on letters but dropped from ?123
     - Untouched-default tracking — Derived from DataStore key presence so tablet defaults can apply without breaking a user's explicit off
+- **Words on the keys** `RARE` — A predicted word floats over the key that would reach it, taken by a flick up or a tap; the BlackBerry Z10's in-letter prediction (discussion #102)
+  - One placement rule — The word hangs off the first character where the candidate stops agreeing with the buffer, which covers completions, corrections and next-word predictions alike; that index is also the two-tone split
+  - Never relocated — A candidate whose key is already claimed is dropped rather than moved, because a word over a key that would not type it is a lie about the affordance
+  - Sparse by default — 3-26 words, with a score floor below 9 so a board with nothing confident to say stays empty; past 9 the tries are fanned to fill every key that can be reached
+  - Three placements — Floating in the gap above the key (no height change), a reserved lane per row, or inside the key; top-row words straddle the grid and are tapped on the half still over it
+  - Flick or tap `uncommon` — Both switchable; the flick is judged at the lift against a sensitivity tier whose cone matches the glide picker's, so a glide that opens upward stays a glide
+  - Live during a glide — Mid-stroke each alternate hangs off the key where it leaves the decoder's leader, which no other surface can show; one decode, one state write
+  - Hints step aside — A key carrying a word drops its corner hint, read at draw time so the board keeps its per-keystroke recomposition skip; the transliteration hint is never hidden
+  - Off on phonetic layouts — Avro's candidates are readings of the buffer rather than words longer than it, so there is no next key to derive; needs a roman-side completion source
 - **Autopilot** `uncommon` — Two independent touch-position systems: a visible target nudge and an always-on typo model feed
   - Next-letter target nudge `uncommon` — Touch target of each letter biased toward the letters most likely to come next; opt-in, letters layer only
     - Bias source — Dictionary completions from the active, user and custom lexicons, frequency-weighted and normalised to the max

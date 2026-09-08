@@ -1,0 +1,90 @@
+---
+title: "Words on the keys"
+description: "A predicted word floats over the key that would reach it; flick up to write the whole word."
+sidebar:
+  order: 4
+---
+
+import PhoneFrame from '@components/PhoneFrame.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import KeyCap from '@components/KeyCap.astro';
+
+WM Keyboard can write a small word above the key that would carry on what you are typing. With `hel` typed, `hello` sits over the <KeyCap>L</KeyCap> and `help` over the <KeyCap>P</KeyCap>. Flick up on that key and the whole word is written.
+
+The idea is the BlackBerry Z10's, which called it in-letter prediction; the Octopus keyboard later brought it to other phones. Nothing else on WM Keyboard's board tells you *where to go next*. The suggestion strip lists words, but you have to look away from the keys to read it.
+
+<PhoneFrame caption="Words floating over the keys that reach them: the typed part is faded, the part still to come is in the accent colour.">
+  {/* shot: typing/octopus-keys */}
+</PhoneFrame>
+
+## Turning it on
+
+<SettingsPath path="Typing / Suggestions / Words on the keys" />
+
+It is off by default. The suggestion strip keeps working exactly as before, so this adds to it rather than replacing it.
+
+## What appears, and where
+
+A word always sits above **the key you would press next to reach it**. That one rule covers three cases:
+
+- **Completions** carry on the word you are typing.
+- **Corrections** fix it, and sit over the key where the word stops matching what you typed. They are drawn entirely in the accent colour, so a fix never looks like a continuation.
+- **Next words** appear after a space, above their first letters, before you have typed anything at all.
+
+Any of the three can be switched off on their own.
+
+The typed part of a word is faded and the part still to come is in the accent colour, so you can see at a glance how much of it you have already written.
+
+## How many
+
+The **How many words** slider runs from 3 to 26.
+
+At 3 or 4, which is the BlackBerry's own setting, only words the keyboard is confident about appear, and the board often stays empty. That is deliberate: it has nothing to say and says nothing. Higher values fill more keys, and past 9 the keyboard looks up a word for every key it can, which is closer to how the Octopus keyboard did it.
+
+A word too wide for its key is left out rather than shortened, so a busy board never becomes a row of `…`.
+
+## Taking a word
+
+Two gestures, each of which can be switched off:
+
+- **Flick up** from the key. The flick has to be quick and close to straight up.
+- **Tap** the small word itself.
+
+One press of <KeyCap>⌫</KeyCap> takes the whole thing back, word and trailing space together.
+
+### With glide typing on
+
+A glide also begins by dragging off a key, so the keyboard has to tell the two apart. A quick, near-vertical flick takes the word; anything slower or more sideways becomes a glide stroke. A flick that misses simply types the letter.
+
+**Flick sensitivity** moves that line. Choose **Strict** if you glide a lot and find your swipes being taken as picks, and **Relaxed** on a keyboard with glide typing switched off, where almost nothing else claims an upward stroke.
+
+### During a glide
+
+While a stroke is in progress the words follow it. Each one shows an alternative the decoder is still holding, above the key that would reach it. Mid-swipe you can see that carrying on to the <KeyCap>P</KeyCap> gives `help` where lifting now gives `hello`, and steer.
+
+## Where the words sit
+
+Three choices under **Where the words sit**:
+
+- **Above the key** (the default) puts each word in the gap over its key, half on and half above it. The keyboard stays the same height. Words on the top row hang partly above the keyboard, over the suggestion strip.
+- **Own lane** gives every row a strip of its own, so nothing ever overlaps anything. The keyboard grows a little taller.
+- **Inside the key** writes the word over the letter. Nothing can collide, but the word and the letter share a very small box.
+
+## The corner hints
+
+The small character in a key's top corner and a floating word are close enough together to read as one thing, so by default a key showing a word hides its corner hint for as long as the word is there. Keys with nothing to say keep theirs. Turn **Hide the corner hint** off to keep both.
+
+On a phonetic layout such as Avro, the corner hint is the reading of what you have typed rather than a long-press alternate, and it is never hidden.
+
+## What it does not do yet
+
+- **Phonetic layouts.** On Avro and the other transliterating layouts the keyboard's suggestions are readings of what you have already typed rather than words longer than it, so there is no next key to hang anything on. This needs a roman-side word list before it can work, and it is not built yet.
+- **Long-press characters.** By default a word only appears when a plain press of the key would write its next character. **Long-press characters too** lifts that, at the cost of some keys offering a word a press alone will not finish.
+
+## With a screen reader
+
+Hovering a key speaks its letter and then what it is offering: "L, suggests hello". An **Insert hello** action on the same key writes the word. Activating the key itself still types the letter, as it always does.
+
+## Power saving
+
+Power saving turns this off. It predicts and redraws across the whole board on every keystroke, which is the kind of work a low battery wants back, and the suggestion strip is still saying the same thing while it is gone. You can opt out under <SettingsPath path="Typing / Power saving" />.

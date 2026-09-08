@@ -1737,6 +1737,13 @@ class SuggestionEngine(
      * anyway: called right after [suggest] with the same `touch` and `keys`, it
      * reads the memoised ranked walk rather than repeating it.
      *
+     * @param composing the word currently being typed (may be empty)
+     * @param previousWord last committed word, for the empty-buffer case
+     * @param previousWord2 the word before it, for trigram context
+     * @param touch per-character tap positions, passed through so the ranked
+     *        walk this reads is the one [suggest] already memoised
+     * @param keys which letters each keystroke could have meant, on a board
+     *        that puts several on a key
      * @param limit how many words may float at once — the density setting, 3
      *        for a Z10-sparse board and up to one per key
      * @param kinds which of [OctopusKind] the user allows on the keys

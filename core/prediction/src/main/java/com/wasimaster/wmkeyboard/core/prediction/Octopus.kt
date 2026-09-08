@@ -119,31 +119,37 @@ fun assignOctopus(
     val claimedWords = HashSet<String>()
     val out = ArrayList<OctopusWord>(minOf(limit, ranked.size))
     for (candidate in ranked) {
-        if (out.size >= limit) break
-        if (candidate.score < floor) break
+        if (out.size >= limit || candidate.score < floor) break
         val at = octopusDivergence(typed, candidate.word, keys)
-        // The candidate *is* what was typed, or a prefix of it: there is no
-        // next key, so there is nowhere to float it.
-        if (at >= candidate.word.length) continue
-        val key = keyOf(candidate.word.codePointAt(at))
-        if (key < 0) continue
-        // One word per key, best claim first. A candidate whose key is taken is
-        // dropped, never moved to its second choice — moving it would break the
-        // one promise the feature makes.
-        if (!claimedKeys.add(key)) continue
-        if (!claimedWords.add(candidate.word.lowercase())) {
-            claimedKeys.remove(key)
-            continue
+        // A word the buffer already spells out, or a prefix of it, has no next
+        // key: -1 stands for "nowhere to float this", the same as a character
+        // this board cannot type in one press.
+        val key = if (at >= candidate.word.length) {
+            -1
+        } else {
+            keyOf(candidate.word.codePointAt(at))
         }
-        out.add(
-            OctopusWord(
-                keyCodePoint = key,
-                word = candidate.word,
-                typedChars = at,
-                kind = candidate.kind,
-                rank = out.size,
+        // One word per key and one key per word, best claim first. A candidate
+        // whose key is taken is dropped, never moved to its second choice:
+        // moving it would break the one promise the feature makes. Both claims
+        // are staked together so a word rejected as a duplicate does not hold
+        // its key hostage against the candidate behind it.
+        val fresh = key >= 0 &&
+            candidate.word.lowercase() !in claimedWords &&
+            key !in claimedKeys
+        if (fresh) {
+            claimedKeys.add(key)
+            claimedWords.add(candidate.word.lowercase())
+            out.add(
+                OctopusWord(
+                    keyCodePoint = key,
+                    word = candidate.word,
+                    typedChars = at,
+                    kind = candidate.kind,
+                    rank = out.size,
+                )
             )
-        )
+        }
     }
     return out
 }

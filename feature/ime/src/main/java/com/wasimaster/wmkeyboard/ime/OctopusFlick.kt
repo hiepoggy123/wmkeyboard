@@ -22,12 +22,16 @@ import kotlin.math.hypot
  * claiming it early would mean fighting the glide loop for every upward stroke
  * instead of letting it decode the ones that turn out to be glides.
  *
+ * @param points the stroke, oldest first, stamped with their arrival times
+ * @param startX the key centre's x, in the same space as [points]
+ * @param startY the key centre's y
  * @param startReachPx how near the key's centre the stroke must begin
  * @param minTravelPx the shortest stroke that counts — the caller clamps this
  *        against the glide loop's own start slop, which grows for a moment
  *        after each keystroke; below that slop the two would disagree about
  *        what has even begun
  * @param keyWidthPx the unit everything else here is measured in
+ * @param sensitivity the user's tier, which sets the cone and the least speed
  */
 internal fun octopusFlick(
     points: List<GesturePoint>,

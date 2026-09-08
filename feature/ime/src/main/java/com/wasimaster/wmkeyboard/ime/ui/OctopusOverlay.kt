@@ -78,13 +78,11 @@ internal fun octopusSlots(
     for (word in words.sortedBy { it.rank }) {
         val cell = bounds[word.keyCodePoint] ?: continue
         val text = widthOf(word.word)
-        if (text <= 0f) continue
         // A word may lean into the gaps on either side, but no further: past
         // that it stops reading as belonging to its own key. One that cannot
         // fit even then is dropped rather than cut down to an ellipsis, which
         // is what keeps a dense board from turning into a wall of stubs.
-        val allowed = cell.width + maxOverhangPx * 2
-        if (text > allowed) continue
+        if (text <= 0f || text > cell.width + maxOverhangPx * 2) continue
         val top = when (placement) {
             // STRIP shares FLOAT's arithmetic exactly: the reserved lane moved
             // the cell down, so "the band above the cell" is already the lane.
@@ -110,20 +108,23 @@ internal fun octopusSlots(
         // worse one goes. Shrinking or shifting the loser would leave a word
         // that no longer points at its own key, which is the one thing the
         // whole feature must not do.
-        if (kept.any { it.area.overlaps(area) }) continue
-        val hitTop = area.top.coerceIn(0f, boardSize.height)
-        val hitBottom = area.bottom.coerceIn(0f, boardSize.height)
-        kept.add(
-            OctopusSlot(
-                word = word,
-                area = area,
-                hit = if (hitBottom > hitTop) {
-                    Rect(area.left, hitTop, area.right, hitBottom)
-                } else {
-                    Rect.Zero
-                },
+        if (kept.none { it.area.overlaps(area) }) {
+            val hitTop = area.top.coerceIn(0f, boardSize.height)
+            val hitBottom = area.bottom.coerceIn(0f, boardSize.height)
+            kept.add(
+                OctopusSlot(
+                    word = word,
+                    area = area,
+                    // Only the part still over the board can be tapped; on the
+                    // top row that is the lower half of the word.
+                    hit = if (hitBottom > hitTop) {
+                        Rect(area.left, hitTop, area.right, hitBottom)
+                    } else {
+                        Rect.Zero
+                    },
+                )
             )
-        )
+        }
     }
     return kept
 }

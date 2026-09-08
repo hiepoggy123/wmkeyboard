@@ -1453,11 +1453,12 @@ open class WMKeyboardService : InputMethodService() {
     private var lastGestureWord: String? = null
 
     /**
-     * How many words have been taken off the keys this session (#102). Read by
-     * nothing yet; it is the number that answers whether the feature is used or
-     * merely admired, and it costs an int to keep.
+     * How many words have been taken off the keys this session, by gesture
+     * (#102). Read by nothing yet: it is the number that answers whether the
+     * feature is used or merely admired, and — split this way — whether the
+     * flick and the tap are both earning their settings.
      */
-    private var octopusPicks: Int = 0
+    private val octopusPicks = HashMap<OctopusSource, Int>()
 
     /**
      * The stroke behind [lastGestureWord], kept so undoing the word can send it
@@ -4241,7 +4242,14 @@ open class WMKeyboardService : InputMethodService() {
             composing = StringBuilder()
             currentInputConnection?.finishComposingText()
             suggestionJob?.cancel()
-            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap()) }
+            _uiState.update {
+                it.copy(
+                    composingPreview = "",
+                    suggestions = emptyList(),
+                    emojiSuggestions = emptyList(),
+                    octopus = emptyMap(),
+                )
+            }
         }
         // The editor can also finish a composition on its own: a TextWatcher
         // that restyles the text (chat apps marking mentions/markdown) drops
@@ -5598,7 +5606,14 @@ open class WMKeyboardService : InputMethodService() {
             invalidateExpectedSelection()
             commitTypedCharacter(ic, text)
             consumeShift()
-            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap()) }
+            _uiState.update {
+                it.copy(
+                    composingPreview = "",
+                    suggestions = emptyList(),
+                    emojiSuggestions = emptyList(),
+                    octopus = emptyMap(),
+                )
+            }
             if (text.length == 1 && text[0] in SENTENCE_ENDERS) {
                 previousWord = WordContext.SENTENCE_START
                 previousWord2 = null
@@ -11995,7 +12010,14 @@ open class WMKeyboardService : InputMethodService() {
         replacedGlideShape?.let { learningBuffer.attachGlide(suggestion, it) }
         replacedGlideShape = null
         composing = StringBuilder()
-        _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap()) }
+        _uiState.update {
+            it.copy(
+                composingPreview = "",
+                suggestions = emptyList(),
+                emojiSuggestions = emptyList(),
+                octopus = emptyMap(),
+            )
+        }
         maybeAutoCapitalize()
         refreshSuggestions()
     }
@@ -12052,7 +12074,7 @@ open class WMKeyboardService : InputMethodService() {
             taps = composingTouchFrame(),
             keys = suggestionEngine?.touchModel,
         )
-        octopusPicks++
+        octopusPicks.merge(via, 1, Int::plus)
         // One backspace takes the whole pick back, word and space together,
         // through the machinery a glide's own commit already uses. With no
         // stroke attached, the parts of that path which re-decode a swipe sit
