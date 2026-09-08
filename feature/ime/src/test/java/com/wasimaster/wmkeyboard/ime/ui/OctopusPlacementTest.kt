@@ -177,9 +177,11 @@ class OctopusPlacementTest {
         // The trap KeyRects documents: a stale table hit-tests the finger
         // against a board that is no longer on the screen.
         val rects = OctopusRects()
-        rects.publish(slots(word('a', "and")), gridToken = 1)
-        assertNull(rects.wordAt(Offset(50f, 90f), gridToken = 2))
-        assertNull(rects.wordFor('a'.code, gridToken = 2))
-        assertEquals("and", rects.wordAt(Offset(50f, 90f), gridToken = 1)?.word)
+        val measuredAgainst = Any()
+        val afterTheLayoutChanged = Any()
+        rects.publish(slots(word('a', "and")), gridToken = measuredAgainst)
+        assertNull(rects.wordAt(Offset(50f, 90f), gridToken = afterTheLayoutChanged))
+        assertNull(rects.wordFor('a'.code, gridToken = afterTheLayoutChanged))
+        assertEquals("and", rects.wordAt(Offset(50f, 90f), gridToken = measuredAgainst)?.word)
     }
 }

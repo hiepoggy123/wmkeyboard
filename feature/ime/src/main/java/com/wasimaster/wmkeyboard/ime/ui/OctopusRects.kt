@@ -19,14 +19,15 @@ internal class OctopusRects {
     private var slots: List<OctopusSlot> = emptyList()
 
     /**
-     * Stamped with the layout the rectangles were measured against, so a
-     * generation behind is read as nothing rather than as the old positions.
-     * The trap [KeyRects] documents: a stale table hit-tests a finger against a
-     * board that is no longer on the screen.
+     * The bounds table these rectangles were measured from, held by identity.
+     * A layout change hands the grid a fresh table, and until the overlay has
+     * republished against it this one answers nothing — the trap [KeyRects]
+     * documents, where a stale table hit-tests a finger against a board that
+     * has already left the screen.
      */
-    private var token: Int = -1
+    private var token: Any? = null
 
-    fun publish(list: List<OctopusSlot>, gridToken: Int = 0) {
+    fun publish(list: List<OctopusSlot>, gridToken: Any? = null) {
         slots = list
         token = gridToken
     }
@@ -43,14 +44,44 @@ internal class OctopusRects {
      * words overlap the likelier one wins — which is the right bias for a
      * target the user aimed at by eye.
      */
-    fun wordAt(point: Offset, gridToken: Int = 0): OctopusWord? {
-        if (token != gridToken) return null
+    fun wordAt(point: Offset, gridToken: Any? = null): OctopusWord? {
+        if (token !== gridToken) return null
         return slots.firstOrNull { it.hit.width > 0f && it.hit.contains(point) }?.word
     }
 
     /** The word floating over the key anchored at [keyCodePoint], or null. */
-    fun wordFor(keyCodePoint: Int, gridToken: Int = 0): OctopusWord? {
-        if (token != gridToken) return null
+    fun wordFor(keyCodePoint: Int, gridToken: Any? = null): OctopusWord? {
+        if (token !== gridToken) return null
         return slots.firstOrNull { it.word.keyCodePoint == keyCodePoint }?.word
     }
+}
+
+/**
+ * The key centre nearest [at] among the keys currently carrying a word, with
+ * its anchor code point.
+ *
+ * Argmin rather than a radius test, so "the key I started on" has exactly one
+ * answer and a finger landing between two keys picks one of them. Restricted to
+ * the keys that have something to offer, because a nearer key with nothing on
+ * it should not shadow the one that does — the flick's own reach test then says
+ * whether the finger was close enough to claim it.
+ */
+internal fun nearestOctopusCentre(
+    centres: Map<Int, androidx.compose.ui.geometry.Offset>,
+    keys: Set<Int>,
+    at: Offset,
+): Pair<Int, Offset>? {
+    var best: Pair<Int, Offset>? = null
+    var bestDistance = Float.MAX_VALUE
+    for (key in keys) {
+        val centre = centres[key] ?: continue
+        val dx = centre.x - at.x
+        val dy = centre.y - at.y
+        val distance = dx * dx + dy * dy
+        if (distance < bestDistance) {
+            bestDistance = distance
+            best = key to centre
+        }
+    }
+    return best
 }

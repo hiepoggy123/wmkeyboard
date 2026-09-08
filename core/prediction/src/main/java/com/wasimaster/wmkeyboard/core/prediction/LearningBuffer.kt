@@ -3,8 +3,17 @@ package com.wasimaster.wmkeyboard.core.prediction
 import com.wasimaster.wmkeyboard.core.gesture.GlideShapeSample
 import kotlin.math.abs
 
-/** How a committed word got into the field. */
-enum class WordOrigin { TYPED, GLIDE, PICK }
+/**
+ * How a committed word got into the field.
+ *
+ * [OCTOPUS] behaves exactly like [PICK] everywhere learning reads this — it is
+ * a word the user chose off a surface, not one they spelled — and is kept apart
+ * only so the question the feature has to answer can be answered: whether the
+ * words floating over the keys are actually used, or are decoration. Folded
+ * into [PICK] that number is inside the suggestion strip's and can never be
+ * recovered.
+ */
+enum class WordOrigin { TYPED, GLIDE, PICK, OCTOPUS }
 
 /**
  * Words committed into the field that have not settled yet.

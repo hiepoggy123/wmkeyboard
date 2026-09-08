@@ -269,6 +269,11 @@ import coil3.compose.AsyncImage
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.glideAnchor
+import com.wasimaster.wmkeyboard.ime.OCTOPUS_MIN_TRAVEL_WIDTHS
+import com.wasimaster.wmkeyboard.ime.OCTOPUS_SLOP_CLEARANCE
+import com.wasimaster.wmkeyboard.ime.OCTOPUS_START_REACH_WIDTHS
+import com.wasimaster.wmkeyboard.ime.OctopusSource
+import com.wasimaster.wmkeyboard.ime.octopusFlick
 import com.wasimaster.wmkeyboard.ime.Modifiers
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
@@ -527,6 +532,18 @@ internal class AlternatesGate {
 
 /** See [AlternatesGate]; provided once at the root, like every other key sink. */
 internal val LocalAlternatesGate = staticCompositionLocalOf { AlternatesGate() }
+
+/**
+ * How the key grid commits a word taken off the keys (discussion #102).
+ *
+ * A composition local rather than another parameter: [KeyRows] is reached from
+ * seven call sites, and threading one callback through all of them to be read
+ * in a single pointer loop is a lot of noise for a lambda that never changes.
+ * Static, so reading it is not an observable read and nothing recomposes on its
+ * account.
+ */
+internal val LocalOctopusPick =
+    staticCompositionLocalOf<(String, OctopusSource) -> Unit> { { _, _ -> } }
 
 /**
  * A Select key in a panel layout held down (true) and let go (false) — the
@@ -835,6 +852,13 @@ fun KeyboardScreen(
     canDeleteField: () -> Boolean = { true },
     canForwardDelete: () -> Boolean = { true },
     deleteSwipe: DeleteSwipeCallbacks = DeleteSwipeCallbacks(),
+    /**
+     * A word taken off the keys (discussion #102), by flick or by tap. Passed
+     * down rather than provided as a composition local because it is a plain
+     * callback like every other one on this screen; the geometry it needs is
+     * resolved here, in the grid, and only the word travels.
+     */
+    onOctopusPick: (String, OctopusSource) -> Unit = { _, _ -> },
     onSuggestion: (String) -> Unit,
     /**
      * A word on the strip was held rather than tapped (#28, #99). One bundle
@@ -1164,6 +1188,7 @@ fun KeyboardScreen(
             LocalKeyRoleSound provides onKeySound,
             LocalClipboardKeyAction provides onClipboardKey,
             LocalAlternatesGate provides remember { AlternatesGate() },
+            LocalOctopusPick provides onOctopusPick,
             LocalSelectionHold provides toolHold.onSelectionHold,
             LocalCanDelete provides canDelete,
             LocalCanDeleteField provides canDeleteField,
@@ -10845,6 +10870,18 @@ private fun KeyRows(
     // touch-report rate, and a rectangle in snapshot state would recompose the
     // board every time a finger moved.
     val octopusRects = remember { OctopusRects() }
+    val octopusSettings = state.settings.octopus
+    val octopusPick = LocalOctopusPick.current
+    val octopusTapHere = octopusSettings.enabled && octopusSettings.tapCommits
+    // With glide typing on, the stroke belongs to the glide loop, which asks
+    // the same question at its own lift and calls the same function to answer
+    // it. Only a board without glide needs its own flick detector.
+    val octopusFlickHere = octopusSettings.enabled &&
+        octopusSettings.flickCommits && !gestureEnabled
+    val octopusArmed = octopusTapHere || octopusFlickHere
+    // Read live rather than captured: the words change on every keystroke, and
+    // a pointer loop restarted that often would be a loop that misses touches.
+    val octopusLive = rememberUpdatedState(state.octopus)
     // The keyboard's own haptic, which already routes through the service and
     // respects the user's feedback settings — not Compose's, whose name this
     // composition local deliberately shadows.
@@ -11069,6 +11106,111 @@ private fun KeyRows(
                                 if (mod != null) chordKey(target, mod) else shiftChordKey(target)
                             fired?.let(stampedOnKey)
                         }
+                    }
+                }
+            }
+            // The octopus (discussion #102). Two gestures, one loop, sitting
+            // above the glide loop because both of them have to answer before
+            // it claims the stroke.
+            //
+            // The tap is decided at the down — a finger on a floating word is
+            // unambiguous — so it consumes immediately. The flick cannot be:
+            // it is only a flick once it is over, so this consumes *nothing*
+            // until the finger lifts. That matters. A move consumed on
+            // speculation would leave a stroke that turned out not to be a
+            // flick with no owner, and slide-off-to-cancel would break with it.
+            //
+            // The flick half only runs with glide typing off. With it on, the
+            // stroke belongs to the glide loop, which asks the same question at
+            // its own lift and calls the same function to answer it.
+            .pointerInput(
+                octopusArmed, octopusTapHere, octopusFlickHere,
+                octopusSettings.flickSensitivity, startSlop, cooldownMs,
+            ) {
+                if (!octopusArmed) return@pointerInput
+                awaitEachGesture {
+                    val down = awaitFirstDown(
+                        requireUnconsumed = false,
+                        pass = PointerEventPass.Initial,
+                    )
+                    // A drag off a modifier is a chord (#67), the same refusal
+                    // the glide loop makes and for the same reason: shift sits
+                    // against the bottom letter row, and a flick off its inner
+                    // edge must not take the neighbouring key's word.
+                    if (liveRects.value.keyAt(down.position + boxOrigin).startsChordDrag()) {
+                        return@awaitEachGesture
+                    }
+                    val floating = octopusLive.value
+                    if (floating.isEmpty()) return@awaitEachGesture
+                    val tapped = if (octopusTapHere) {
+                        octopusRects.wordAt(down.position, keyBounds)
+                    } else {
+                        null
+                    }
+                    if (tapped != null) {
+                        down.consume()
+                        var inside = true
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                            change.consume()
+                            // Slide off the word to change your mind, the way
+                            // every other target on this keyboard behaves.
+                            inside = octopusRects.wordAt(change.position, keyBounds) === tapped
+                            if (!change.pressed) break
+                        }
+                        if (inside) octopusPick(tapped.word, OctopusSource.TAP)
+                        return@awaitEachGesture
+                    }
+                    if (!octopusFlickHere) return@awaitEachGesture
+                    val startKey = nearestOctopusCentre(keyCenters, floating.keys, down.position)
+                        ?: return@awaitEachGesture
+                    val word = floating[startKey.first] ?: return@awaitEachGesture
+                    val points = ArrayList<GesturePoint>()
+                    points.add(
+                        GesturePoint(down.position.x, down.position.y, down.uptimeMillis),
+                    )
+                    var last = down
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                        last = change
+                        points.add(
+                            GesturePoint(change.position.x, change.position.y, change.uptimeMillis),
+                        )
+                        if (!change.pressed) break
+                    }
+                    // The glide loop's own start slop grows for a moment after
+                    // each keystroke; below it that loop does not consider a
+                    // stroke to have begun at all, so a flick bar underneath it
+                    // would leave the two answering about different gestures.
+                    val sinceTap = down.uptimeMillis - lastKeyPressTime.longValue
+                    val boost = if (cooldownMs > 0 && sinceTap in 0 until cooldownMs.toLong()) {
+                        1f + POST_TYPE_SLOP_BOOST * (1f - sinceTap.toFloat() / cooldownMs)
+                    } else {
+                        1f
+                    }
+                    val slop = viewConfiguration.touchSlop * startSlop * boost
+                    val width = keyWidth.value
+                    val taken = octopusFlick(
+                        points = points,
+                        startX = startKey.second.x,
+                        startY = startKey.second.y,
+                        keyWidthPx = width,
+                        startReachPx = width * OCTOPUS_START_REACH_WIDTHS,
+                        minTravelPx = maxOf(
+                            width * OCTOPUS_MIN_TRAVEL_WIDTHS,
+                            slop * OCTOPUS_SLOP_CLEARANCE,
+                        ),
+                        sensitivity = octopusSettings.flickSensitivity,
+                    )
+                    if (taken) {
+                        // Only now, and only the lift: the key's own handler
+                        // reads a consumed up as "the grid took this pointer"
+                        // and cancels its press, which is exactly right. A miss
+                        // consumed nothing, so the key types its letter.
+                        last.consume()
+                        octopusPick(word.word, OctopusSource.FLICK)
                     }
                 }
             }

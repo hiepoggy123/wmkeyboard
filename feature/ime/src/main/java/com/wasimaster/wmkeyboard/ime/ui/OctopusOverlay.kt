@@ -160,7 +160,7 @@ internal fun BoxScope.OctopusOverlay(
 ) {
     val octopus = settings.octopus
     if (hidden || words.isEmpty() || bounds.isEmpty() || boardSize.width <= 0f) {
-        rects.publish(emptyList())
+        rects.publish(emptyList(), bounds)
         return
     }
     val density = LocalDensity.current
@@ -181,7 +181,10 @@ internal fun BoxScope.OctopusOverlay(
         boardSize = boardSize,
         widthOf = { measurer.measure(it, style, maxLines = 1).size.width.toFloat() },
     )
-    rects.publish(slots)
+    // Stamped with the very table the rectangles were measured from, so a
+    // layout change — which hands the grid a fresh one — reads as nothing until
+    // this has run again against it.
+    rects.publish(slots, bounds)
     val head = palette.keyText.copy(alpha = OctopusHeadAlpha)
     for (slot in slots) {
         val area = slot.area

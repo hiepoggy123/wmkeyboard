@@ -1450,6 +1450,13 @@ open class WMKeyboardService : InputMethodService() {
     private var lastGestureWord: String? = null
 
     /**
+     * How many words have been taken off the keys this session (#102). Read by
+     * nothing yet; it is the number that answers whether the feature is used or
+     * merely admired, and it costs an int to keep.
+     */
+    private var octopusPicks: Int = 0
+
+    /**
      * The stroke behind [lastGestureWord], kept so undoing the word can send it
      * back through the decoder for a deeper look (issue #52). Set where a glide
      * sets [lastGestureWord] and cleared where something that is not a glide —
@@ -3304,6 +3311,7 @@ open class WMKeyboardService : InputMethodService() {
                 canDeleteField = ::canDeleteField,
                 canForwardDelete = ::canForwardDelete,
                 deleteSwipe = deleteSwipeCallbacks,
+                onOctopusPick = octopusPickCallback,
                 onSuggestion = ::onSuggestionTapped,
                 suggestionHold = suggestionHoldCallbacks,
                 onJoinSuggestion = ::onJoinSuggestionTapped,
@@ -11946,6 +11954,80 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * A word taken off the keys (discussion #102), by a flick up or by a tap on
+     * the word itself.
+     *
+     * Its own path rather than a detour through [onSuggestionTapped], and the
+     * reason is a bug rather than a preference: that one carries a branch for
+     * "the strip is replacing the word a glide just committed", which fires
+     * whenever nothing is composing and a gesture word is behind the caret. Glide
+     * "hello", then flick `w` for "world", and it would delete "hello " and put
+     * "world" where it stood. Its caret-word branch is wrong here for the same
+     * kind of reason. What an octopus pick means is narrower than either: finish
+     * this word, here.
+     *
+     * The composing region is replaced rather than appended to, which comes free
+     * — [InputConnection.commitText] replaces a live composing region by
+     * contract, so a completion and a correction are both written correctly and
+     * a pick with nothing composing simply inserts.
+     *
+     * [via] separates the flick from the tap for the statistics alone, so the two
+     * gestures can be judged apart.
+     */
+    fun onOctopusPick(word: String, via: OctopusSource) {
+        val ic = currentInputConnection ?: return
+        if (word.isEmpty()) return
+        stopVoiceForManualInput()
+        vibrate()
+        val state = _uiState.value
+        val autoSpace = state.settings.suggestionStrip.autoSpaceAfterSuggestion
+        val tail = if (autoSpace && !spacedAfterCaret(ic.getTextAfterCursor(1, 0))) " " else ""
+        val committed = displayCaseForShift(word, state.shiftState)
+        ic.commitText(committed + tail, 1)
+        if (tail.isNotEmpty()) {
+            // The keyboard's own space, so a mark typed next takes it back and
+            // hugs the word (#34); the guard keeps the commit's selection echo
+            // from reading as a caret move and disarming it first.
+            pendingWordSpace = true
+            armRevertGuard()
+        }
+        recordStat { onWordsCommitted(word.split(' ').size, System.currentTimeMillis()) }
+        consumeShift()
+        // Deliberately chosen, so it carries a pick's weight. The base word, not
+        // the shift-cased form, and a capital that auto-capitalize put there is
+        // not evidence of a spelling (#100).
+        learn(
+            word,
+            reinforcement = 2,
+            caseTrusted = composing.isNotEmpty() && composingCaseTrusted,
+            origin = WordOrigin.OCTOPUS,
+            typed = composing.toString(),
+            taps = composingTouchFrame(),
+            keys = suggestionEngine?.touchModel,
+        )
+        octopusPicks++
+        // One backspace takes the whole pick back, word and space together,
+        // through the machinery a glide's own commit already uses. With no
+        // stroke attached, the parts of that path which re-decode a swipe sit
+        // out, which is right: there is no swipe to re-read. This is also why a
+        // strip tap straight afterwards *replaces* the picked word rather than
+        // landing after it, which is the behaviour that branch is for.
+        lastGestureWord = word
+        lastGestureStroke = null
+        composing = StringBuilder()
+        _uiState.update {
+            it.copy(
+                composingPreview = "",
+                suggestions = emptyList(),
+                emojiSuggestions = emptyList(),
+                octopus = emptyMap(),
+            )
+        }
+        maybeAutoCapitalize()
+        refreshSuggestions()
+    }
+
+    /**
      * Spacebar drag: move the cursor one position left (-1) or right (+1). The
      * volume keys land here too when they are set to move the caret.
      *
@@ -12319,6 +12401,69 @@ open class WMKeyboardService : InputMethodService() {
      * so a flick with nothing behind it falls through and decodes as the two-key
      * stroke it is.
      */
+    /**
+     * A quick flick up off a key that is carrying a word: commit that word and
+     * tell the caller the stroke is spoken for.
+     *
+     * The key is found by nearest centre rather than by a radius, so "the key I
+     * started on" has exactly one answer. Several entries of the glide grid
+     * share a centre — a key's base letter, its shifted one, whatever its long
+     * press holds — and the octopus is keyed by the anchor, so the one that
+     * carries a word is the one to take.
+     */
+    private fun octopusFlickPick(
+        state: KeyboardUiState,
+        points: List<GesturePoint>,
+        keys: List<KeyCenter>,
+        keyWidthPx: Float,
+    ): Boolean {
+        val octopus = state.settings.octopus
+        if (!octopus.enabled || !octopus.flickCommits) return false
+        if (state.octopus.isEmpty() || points.isEmpty() || keyWidthPx <= 0f) return false
+        val start = points.first()
+        val centre = nearestOctopusKey(state, keys, start) ?: return false
+        val word = state.octopus[centre.codePoint] ?: return false
+        val taken = octopusFlick(
+            points = points,
+            startX = centre.x,
+            startY = centre.y,
+            keyWidthPx = keyWidthPx,
+            startReachPx = keyWidthPx * OCTOPUS_START_REACH_WIDTHS,
+            // No slop clamp here: this path only runs on a stroke the glide
+            // loop already accepted as begun, so the two cannot disagree.
+            minTravelPx = keyWidthPx * OCTOPUS_MIN_TRAVEL_WIDTHS,
+            sensitivity = octopus.flickSensitivity,
+        )
+        if (!taken) return false
+        onOctopusPick(word.word, OctopusSource.FLICK)
+        return true
+    }
+
+    /**
+     * The key nearest [at] that is carrying a floating word, or null when the
+     * nearest key has nothing to offer. Argmin over the grid rather than a
+     * radius test, so a finger between two keys picks one of them and not both.
+     */
+    private fun nearestOctopusKey(
+        state: KeyboardUiState,
+        keys: List<KeyCenter>,
+        at: GesturePoint,
+    ): KeyCenter? {
+        var best: KeyCenter? = null
+        var bestDistance = Float.MAX_VALUE
+        for (key in keys) {
+            if (key.codePoint !in state.octopus) continue
+            val dx = key.x - at.x
+            val dy = key.y - at.y
+            val distance = dx * dx + dy * dy
+            if (distance < bestDistance) {
+                bestDistance = distance
+                best = key
+            }
+        }
+        return best
+    }
+
     private fun appendPossessive(
         state: KeyboardUiState,
         points: List<GesturePoint>,
@@ -12568,6 +12713,16 @@ open class WMKeyboardService : InputMethodService() {
         // word already committed. Answered before the decode rather than after,
         // because there is nothing to decode and no candidate to override.
         if (appendPossessive(state, points, keys, keyWidthPx)) return
+        // A quick flick straight up off a key carrying a word takes that word.
+        // Asked here, at the lift, and after the possessive so that one keeps
+        // the behaviour it had: a flick is over in a tenth of a second, so
+        // there is nothing to win by claiming the pointer on the way down, and
+        // claiming it there would mean fighting this loop for every upward
+        // stroke instead of letting it decode the ones that are glides.
+        //
+        // Only when the picker did not answer. A frozen stroke was the user
+        // choosing, and what they chose is not a key's word.
+        if (verdict is GlideVerdict.Leader && octopusFlickPick(state, points, keys, keyWidthPx)) return
         gestureJob = serviceScope.launch {
             val candidates = withContext(Dispatchers.Default) {
                 glideDecode(points, keys, keyWidthPx)
@@ -15338,6 +15493,16 @@ open class WMKeyboardService : InputMethodService() {
      * ceiling, so the gesture had to grow from one callback to four without
      * costing a parameter.
      */
+    /**
+     * The octopus pick, bound once outside [ServiceKeyboardContent] for the
+     * reason [deleteSwipeCallbacks] gives: that method sits against the JVM's
+     * 64K size ceiling, and a lambda written at the call site is one more thing
+     * inside it.
+     */
+    private val octopusPickCallback: (String, OctopusSource) -> Unit by lazy {
+        ::onOctopusPick
+    }
+
     private val deleteSwipeCallbacks by lazy {
         com.wasimaster.wmkeyboard.ime.ui.DeleteSwipeCallbacks(
             onDeleteUnit = ::onDeleteSwipeUnit,
