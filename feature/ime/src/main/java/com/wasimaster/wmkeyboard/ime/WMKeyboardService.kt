@@ -11609,7 +11609,12 @@ open class WMKeyboardService : InputMethodService() {
                 val skipTyped = state.settings.suggestionStrip.skipTypedWord && typed.isNotEmpty()
                 fun dropTyped(list: List<String>) =
                     if (skipTyped) list.filterNot { it.equals(typed, ignoreCase = true) } else list
-                val words = dropTyped(withShortcut(suggested))
+                // Deliberately unfiltered: commitResolution below reads this,
+                // and on a Bengali or ambiguous board its first entry is what a
+                // space commits. Dropping the typed word from *that* would make
+                // the setting silently replace what was written, so the filter
+                // is applied to the strip and the keys alone.
+                val words = withShortcut(suggested)
                 // The same list, only longer, so the keys and the strip never
                 // disagree about what is being offered — the keys just see
                 // further down it.
@@ -11674,7 +11679,7 @@ open class WMKeyboardService : InputMethodService() {
                         emptyList()
                     }
                     SuggestionFrame(
-                        words, emojis, bias,
+                        dropTyped(words), emojis, bias,
                         octopusFor(state, typed, keyFrame, pool = pool),
                     )
                 } else {
