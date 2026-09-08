@@ -134,12 +134,29 @@ When `rewritemeta` does disagree with you, its job uploads what it wanted under
 `.../-/jobs/<job id>/artifacts/raw/tmp/com.wasimaster.wmkeyboard.yml`. Diffing
 against that is faster than guessing.
 
+## Why there is no `AntiFeatures` block
+
+`NonFreeNet` was declared until 0.5.6, for the tools that reached proprietary
+services. It is gone because every one of those tools now has a free,
+self-hostable option the user can point at, which is the condition F-Droid's own
+rule waives the anti-feature on: translate takes a LibreTranslate instance,
+search a SearXNG one, photos and GIFs any MediaWiki, and the AI tool has always
+taken an Ollama URL. Backups already offered WebDAV beside Dropbox.
+
+Two things still reach a proprietary service with no free instance to swap in,
+both inside optional tools that work without them: **crypto exchange rates**
+(Coinbase, CoinGecko, currency-api — fiat rates have Frankfurter, which is free
+software, but crypto has no equivalent) and the **Keyman layout catalogue**
+(`api.keyman.com` — the software is open source, the catalogue is theirs). Say
+so plainly if a packager asks rather than letting them find it; if they judge
+either one disqualifying, the field goes back.
+
 ## A note on the wrapped strings
 
 `rewritemeta` wraps any value too long for its line width, and the wrap leaves a
-trailing space on each continued line of the `AntiFeatures` description. That is
-its output, so it cannot be cleaned up without failing the job, and it is
-harmless: YAML strips a trailing space before a folded line break, so the string
-parses back with single spaces and no newlines. Keep the description free of
-real line breaks — an earlier version was written as a `|-` block and every
-wrap point became a literal `\n` in the middle of a sentence.
+trailing space on each continued line it produces. That is its output, so it
+cannot be cleaned up without failing the job, and it is harmless: YAML strips a
+trailing space before a folded line break, so the string parses back with single
+spaces and no newlines. Keep any long value free of real line breaks — an
+earlier `AntiFeatures` description was written as a `|-` block and every wrap
+point became a literal `\n` in the middle of a sentence.

@@ -1,0 +1,3 @@
+Every network tool in this edition can now point at a server you run yourself: LibreTranslate for translation, SearXNG for web and image search, and any MediaWiki for photos and GIFs, with Wikimedia Commons as the default. Providers that need a key still work if you have one.
+
+Fonts are no longer requested through Google Play services on a device that does not have it.

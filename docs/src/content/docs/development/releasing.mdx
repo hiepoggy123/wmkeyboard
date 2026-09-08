@@ -229,8 +229,9 @@ instead.
    fork), then **open a merge request** titled `New app: WM Keyboard` and fill
    in their template. Expect review comments and a wait measured in weeks
    rather than days. The two questions that come up most are whether every
-   network service is optional (it is, and the `NonFreeNet` anti-feature in the
-   recipe says so plainly) and whether anything prebuilt ends up in the APK
+   network service is optional — it is, and since 0.5.6 each one can also be
+   pointed at a server the user runs, which is why the recipe carries no
+   `AntiFeatures` block — and whether anything prebuilt ends up in the APK
    (nothing does).
 
 6. **After it is accepted**, releases look after themselves: `UpdateCheckMode:
