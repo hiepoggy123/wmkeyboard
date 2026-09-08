@@ -4285,6 +4285,26 @@ open class WMKeyboardService : InputMethodService() {
         requestHideSelf(0)
     }
 
+    /**
+     * The window is really on screen. onStartInputView has normally resumed the
+     * owner already; this is the OEM path where a window arrives without one.
+     */
+    override fun onWindowShown() {
+        super.onWindowShown()
+        lifecycleOwner.onResume()
+    }
+
+    /**
+     * The window is off screen — the last callback of a hide, after
+     * onFinishInputView has paused the owner. Stopping it here rather than
+     * there is what tells the Recomposer and every lifecycle-scoped collector
+     * that there is nothing left to keep up to date.
+     */
+    override fun onWindowHidden() {
+        super.onWindowHidden()
+        lifecycleOwner.onStop()
+    }
+
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
         keyboardVisible = false
