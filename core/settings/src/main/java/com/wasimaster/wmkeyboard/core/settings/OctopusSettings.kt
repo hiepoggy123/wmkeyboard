@@ -98,8 +98,11 @@ data class OctopusSettings(
     /**
      * Hide a key's corner hint while it is carrying a word. Per key, not per
      * board: a key with nothing to say keeps its hint.
+     *
+     * Off by default: on a real board the word sits clear of the corner, so
+     * hiding the hint gave up something for a collision that was not happening.
      */
-    val suppressHints: Boolean = true,
+    val suppressHints: Boolean = false,
     /**
      * Also float words above characters only a long press reaches. Off by
      * default, because a press of that key would not produce the word, and a
@@ -112,7 +115,7 @@ data class OctopusSettings(
     val dense: Boolean get() = density >= DENSE_FROM
 
     companion object {
-        const val SPARSE_DENSITY = 4
+        const val SPARSE_DENSITY = 6
         const val MIN_DENSITY = 3
 
         /** One per letter key on a Latin board. */

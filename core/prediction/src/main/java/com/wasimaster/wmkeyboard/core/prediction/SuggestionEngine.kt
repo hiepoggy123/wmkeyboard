@@ -1469,9 +1469,16 @@ class SuggestionEngine(
          * noise, whatever its score. */
         private const val OCTOPUS_MAX_EDITS = 1
 
-        /** Next-word predictions arrive order-ranked, not scored; this is the
+        /** The strip's words arrive order-ranked, not scored; this is the
          * synthetic step between consecutive places. */
-        private const val OCTOPUS_NEXT_WORD_STEP = 0.5
+        private const val OCTOPUS_STRIP_STEP = 0.5
+
+        /** How far below the strip's worst word the walk's own extras start, so
+         * a key the strip has an opinion about always keeps the strip's. */
+        private const val OCTOPUS_EXTRA_GAP = 1.0
+
+        /** The step between consecutive extras inside that band. */
+        private const val OCTOPUS_EXTRA_STEP = 0.01
 
         /** Dense-mode filler sits this far below the worst ranked candidate, so
          * the words the engine actually ranked keep their own keys and the fan
@@ -1750,8 +1757,8 @@ class SuggestionEngine(
      * @param dense whether to fan the tries for keys the ranked candidates
      *        left empty; also lifts the score floor, since filling the board is
      *        the whole point of asking
-     * @param nextWordPool a next-word list the caller already computed, so the
-     *        empty-buffer case costs nothing
+     * @param pool the strip's own final words, best first — the candidates
+     *        this hangs off keys before it considers any of its own
      * @param keyOf code point to the anchor code point of the key that types
      *        it, or -1 when this board cannot type it in one press
      */
@@ -1764,7 +1771,7 @@ class SuggestionEngine(
         limit: Int = 4,
         kinds: Set<OctopusKind> = OctopusKind.entries.toSet(),
         dense: Boolean = false,
-        nextWordPool: List<String>? = null,
+        pool: List<String> = emptyList(),
         keyOf: (Int) -> Int,
     ): List<OctopusWord> {
         if (limit <= 0 || kinds.isEmpty()) return emptyList()
@@ -1774,33 +1781,55 @@ class SuggestionEngine(
 
         if (composing.isEmpty()) {
             if (OctopusKind.NEXT_WORD !in kinds) return emptyList()
-            val pool = nextWordPool ?: nextWords(previousWord, previousWord2, limit * 2)
-            val candidates = pool.mapIndexed { place, word ->
-                // The list is order-ranked, not scored, so the places are
-                // spaced to be comparable with the floor above.
-                OctopusCandidate(
-                    word, -place * OCTOPUS_NEXT_WORD_STEP, OctopusKind.NEXT_WORD,
-                )
-            }
-            return assignOctopus("", candidates, keys, keyOf, limit, spread)
+            val words = pool.ifEmpty { nextWords(previousWord, previousWord2, limit * 2) }
+            return assignOctopus("", ranked(words, OctopusKind.NEXT_WORD), keys, keyOf, limit, spread)
         }
 
         val lower = composing.lowercase()
-        if (lower.length < OCTOPUS_MIN_PREFIX) return emptyList()
-        val ambiguous = keys?.isAmbiguous == true
-        // The same gate the strip uses: a word the dictionaries already know is
-        // not a typo, so nothing may float over it claiming to fix it.
-        val known = !ambiguous && (inDictionaries(lower) || userLexicon.contains(lower))
+        // The strip's own words first, in the strip's own order. They are the
+        // answer the whole engine worked out — the fuzzy walk plus every
+        // context boost, the personal ranks, contacts and app names, and the
+        // reranker — and the walk alone is only its raw first half. Ranking the
+        // keys off that half was the bug: the board disagreed with the strip
+        // beside it, and the strip was the one that was right.
         val candidates = ArrayList<OctopusCandidate>()
-        for (c in rankedFor(lower, OCTOPUS_WALK_LIMIT, touch, keys)) {
-            val kind = if (c.edits == 0) OctopusKind.COMPLETION else OctopusKind.CORRECTION
+        for ((place, word) in pool.withIndex()) {
+            // A word that carries on from the buffer is a completion; one that
+            // does not is the engine offering a fix.
+            val kind = if (word.lowercase().startsWith(lower)) {
+                OctopusKind.COMPLETION
+            } else {
+                OctopusKind.CORRECTION
+            }
             if (kind !in kinds) continue
-            if (kind == OctopusKind.CORRECTION && (known || c.edits > OCTOPUS_MAX_EDITS)) continue
-            if (suppressed(c.word)) continue
-            candidates.add(OctopusCandidate(c.word, c.score, kind, c.edits))
+            candidates.add(OctopusCandidate(word, -place * OCTOPUS_STRIP_STEP, kind))
         }
-        if (dense && OctopusKind.COMPLETION in kinds) {
-            candidates.addAll(octopusFan(lower, candidates))
+        // Then, below every one of them, whatever else the walk can reach: the
+        // strip is a handful of words and a board has thirty keys, so the rest
+        // fills keys the strip never had room to speak for. Never above them,
+        // so a key the strip has an opinion about keeps the strip's word.
+        if (lower.length >= OCTOPUS_MIN_PREFIX) {
+            val floor = (candidates.minOfOrNull { it.score } ?: 0.0) - OCTOPUS_EXTRA_GAP
+            val ambiguous = keys?.isAmbiguous == true
+            // The same gate the strip uses: a word the dictionaries already
+            // know is not a typo, so nothing may float over it claiming a fix.
+            val known = !ambiguous && (inDictionaries(lower) || userLexicon.contains(lower))
+            val taken = candidates.mapTo(HashSet()) { it.word.lowercase() }
+            val extras = ArrayList<OctopusCandidate>()
+            for (c in rankedFor(lower, OCTOPUS_WALK_LIMIT, touch, keys)) {
+                val kind = if (c.edits == 0) OctopusKind.COMPLETION else OctopusKind.CORRECTION
+                if (kind !in kinds) continue
+                if (kind == OctopusKind.CORRECTION && (known || c.edits > OCTOPUS_MAX_EDITS)) continue
+                if (suppressed(c.word) || c.word.lowercase() in taken) continue
+                extras.add(OctopusCandidate(c.word, c.score, kind, c.edits))
+            }
+            extras.sortByDescending { it.score }
+            extras.forEachIndexed { place, extra ->
+                candidates.add(extra.copy(score = floor - place * OCTOPUS_EXTRA_STEP))
+            }
+            if (dense && OctopusKind.COMPLETION in kinds) {
+                candidates.addAll(octopusFan(lower, candidates))
+            }
         }
         if (candidates.isEmpty()) return emptyList()
         return assignOctopus(composing, candidates, keys, keyOf, limit, spread)
@@ -1810,6 +1839,12 @@ class SuggestionEngine(
             // be committed and the two-tone split lands on the right glyph.
             .map { it.copy(word = matchCase(composing, displayForm(it.word))) }
     }
+
+    /** An order-ranked list as scored candidates, spaced to clear the floor. */
+    private fun ranked(words: List<String>, kind: OctopusKind): List<OctopusCandidate> =
+        words.mapIndexed { place, word ->
+            OctopusCandidate(word, -place * OCTOPUS_STRIP_STEP, kind)
+        }
 
     /**
      * Dense mode's filler: the best word under every key that could extend

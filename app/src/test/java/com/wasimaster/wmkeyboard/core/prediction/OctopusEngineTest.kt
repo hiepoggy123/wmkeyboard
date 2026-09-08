@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.core.prediction
 
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -37,14 +38,21 @@ class OctopusEngineTest {
         limit: Int = 4,
         dense: Boolean = false,
         kinds: Set<OctopusKind> = OctopusKind.entries.toSet(),
-    ) = engine().octopusWords(
+        pool: List<String> = emptyList(),
+        engine: SuggestionEngine = engine(),
+    ) = engine.octopusWords(
         composing = typed,
         previousWord = null,
         limit = limit,
         kinds = kinds,
         dense = dense,
+        pool = pool,
         keyOf = everyLetter,
     )
+
+    /** What the strip would show for this buffer, which is the octopus's pool. */
+    private fun strip(engine: SuggestionEngine, typed: String) =
+        engine.suggest(typed, previousWord = null)
 
     @Test
     fun `completions hang off the letters that reach them`() {
@@ -103,10 +111,49 @@ class OctopusEngineTest {
     }
 
     @Test
+    fun `the keys say what the strip says`() {
+        // The bug this pins: the octopus used to rank off the raw fuzzy walk,
+        // which is only the engine's first half — no context boosts, no
+        // personal ranks, no contacts, no rerank. The board then disagreed with
+        // the strip beside it, and the strip was the one that was right.
+        val e = engine()
+        val pool = strip(e, "hel")
+        val floated = words("hel", limit = 26, pool = pool, engine = e).map { it.word }
+        // Every strip word reaches a key, except where two of them want the
+        // same one: "hello" and "hellish" both carry on with an l, and a key
+        // can only say one word. The strip's order decides which.
+        assertEquals(listOf("hello", "help", "held", "her", "hellish"), pool)
+        assertTrue(floated.containsAll(listOf("hello", "help", "held", "her")))
+        assertFalse(
+            "hellish wants the l that hello is already on",
+            floated.contains("hellish"),
+        )
+    }
+
+    @Test
+    fun `a strip word keeps its key against anything the walk finds`() {
+        val e = engine()
+        // "hellish" is what the walk would put on the l; the strip's own answer
+        // for that key is "hello", and the strip wins.
+        val floated = words("hel", limit = 26, pool = listOf("hello"), engine = e)
+        assertEquals("hello", floated.single { it.keyCodePoint == 'l'.code }.word)
+    }
+
+    @Test
+    fun `the walk still fills keys the strip had no room for`() {
+        val e = engine()
+        val floated = words("hel", limit = 26, pool = listOf("hello"), engine = e)
+        assertTrue(
+            "a strip of one word still leaves p and d to be answered",
+            floated.map { it.keyCodePoint }.containsAll(listOf('p'.code, 'd'.code)),
+        )
+    }
+
+    @Test
     fun `the word floated is the word that would be committed`() {
         // Cased the way the strip cases it, so the two-tone split lands on the
         // right glyph and the flick writes what the eye read.
-        val floated = words("Hel").single { it.word.lowercase() == "hello" }
+        val floated = words("Hel", pool = listOf("hello")).single { it.word.lowercase() == "hello" }
         assertEquals("Hello", floated.word)
         assertEquals(3, floated.typedChars)
     }

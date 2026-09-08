@@ -11338,10 +11338,11 @@ open class WMKeyboardService : InputMethodService() {
      * The words to float over the keys for this buffer, keyed by the key each
      * one belongs over (discussion #102).
      *
-     * Runs inside the suggestion pass's own background block, right after the
-     * strip's own walk, which is what makes it nearly free in the sparse
-     * default: [SuggestionEngine.octopusWords] is handed the same taps and key
-     * sets, so it reads the memoised ranked walk rather than repeating it.
+     * Handed the strip's own finished list, so the keys and the strip always
+     * agree: whatever the strip is about to offer is what the keys offer, one
+     * flick away instead of one look away. Only the keys the strip has no
+     * opinion about are filled from the engine's own walk, and that walk is the
+     * one [SuggestionEngine.suggest] just memoised, so it costs nothing extra.
      *
      * Off for a conversion or transliterating composer. Both compose through
      * their own machinery, and on a phonetic board the engine's candidates are
@@ -11398,7 +11399,7 @@ open class WMKeyboardService : InputMethodService() {
         typed: String,
         touch: List<TouchPoint?>?,
         keys: KeySets?,
-        nextWordPool: List<String>? = null,
+        pool: List<String>,
     ): Map<Int, OctopusWord> {
         val octopus = state.settings.octopus
         if (!octopus.enabled || !state.allowsTypingIntelligence) return emptyMap()
@@ -11416,7 +11417,7 @@ open class WMKeyboardService : InputMethodService() {
             limit = octopus.density,
             kinds = octopus.kinds,
             dense = octopus.dense,
-            nextWordPool = nextWordPool,
+            pool = pool,
             keyOf = { codePoint -> anchors[codePoint] ?: -1 },
         ).associateBy { it.keyCodePoint }
     }
@@ -11603,7 +11604,10 @@ open class WMKeyboardService : InputMethodService() {
                     } else {
                         emptyList()
                     }
-                    SuggestionFrame(words, emojis, bias, octopusFor(state, typed, touchFrame, keyFrame))
+                    SuggestionFrame(
+                        words, emojis, bias,
+                        octopusFor(state, typed, touchFrame, keyFrame, pool = words),
+                    )
                 } else {
                     // Next-word prediction: learned bigrams can end in an
                     // emoji ("you" → ❤️). Those belong in the emoji slot of
@@ -11618,10 +11622,9 @@ open class WMKeyboardService : InputMethodService() {
                             emptyList()
                         },
                         bias,
-                        // The next-word list is already computed; the octopus
-                        // hangs those same words off their first letters rather
-                        // than asking for them again.
-                        octopusFor(state, typed, touchFrame, keyFrame, nextWordPool = wordNext),
+                        // The strip's own words, hung off their first letters:
+                        // whatever it is about to offer is what the keys offer.
+                        octopusFor(state, typed, touchFrame, keyFrame, pool = wordNext),
                     )
                 }
             }
@@ -12694,7 +12697,7 @@ open class WMKeyboardService : InputMethodService() {
                 _uiState.update {
                     it.copy(
                         suggestions = reading.words,
-                        octopus = floating,
+                        octopusGlide = floating,
                         glideWord = reading.words.first(),
                         // Every preview carries choices while the picker is
                         // on: a stroke that is not a close call can still be
@@ -12726,9 +12729,11 @@ open class WMKeyboardService : InputMethodService() {
                 glideChoices = emptyList(),
                 glideCloseCall = false,
                 // Every exit from a stroke comes through here, so one line
-                // covers the commit, the cancel and the picker alike. Whatever
-                // republishes the strip republishes the keys with it.
-                octopus = emptyMap(),
+                // covers the commit, the cancel and the picker alike. Only the
+                // stroke's own words go: the idle ones belong to the buffer,
+                // which this stroke has not changed, and clearing them here is
+                // what used to leave the flick with nothing to pick.
+                octopusGlide = emptyMap(),
             )
         }
     }

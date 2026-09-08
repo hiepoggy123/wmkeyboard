@@ -26,6 +26,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -199,6 +200,12 @@ internal fun BoxScope.OctopusOverlay(
                 // reaches TalkBack through that key's own custom action, so a
                 // node here would only offer a target it could never activate.
                 .clearAndSetSemantics { }
+                // Declared after the key grid, so it already draws over it —
+                // but stated rather than inherited from declaration order,
+                // because a word half-swallowed by the key under it is the one
+                // failure this layer cannot recover from, and z-order is
+                // exactly the kind of thing a later refactor moves by accident.
+                .zIndex(1f)
                 .offset { IntOffset(area.left.roundToInt(), area.top.roundToInt()) }
                 .size(
                     width = with(density) { area.width.toDp() },
@@ -245,11 +252,11 @@ internal fun octopusLabel(word: OctopusWord, head: Color, accent: Color): Annota
 
 /**
  * Base size of a floating word, before the board's own font scale and the
- * user's octopus size. A step above the corner hint's 8.5sp: a hint is one
+ * user's octopus size. Well above the corner hint's 8.5sp: a hint is one
  * character read off a key already under the eye, and these are whole words
- * read across a board.
+ * read across a board at a glance.
  */
-private const val OctopusLabelSp = 10.5f
+private const val OctopusLabelSp = 12.6f
 
 /** Band height as a multiple of the font size, leaving room for descenders. */
 private const val OctopusBandLines = 1.35f
@@ -259,8 +266,12 @@ private const val OctopusBandLines = 1.35f
  * as belonging to the key rather than floating between two rows — and so the top
  * row, whose band would otherwise be entirely off the grid, keeps a strip of
  * itself inside the only area that receives touches.
+ *
+ * Half, rather than the three quarters it started at: reaching further up put
+ * the word well inside the cell of the row above, where it competed with that
+ * row's key for the same few pixels.
  */
-private const val OctopusStraddle = 0.72f
+private const val OctopusStraddle = 0.5f
 
 /** How far a word may lean into the gap on either side of its own key. */
 private val OctopusOverhangDp = 14.dp

@@ -1831,6 +1831,18 @@ data class KeyboardUiState(
      * board the recomposition skip that class exists to buy.
      */
     val octopus: Map<Int, OctopusWord> = emptyMap(),
+    /**
+     * The same, for a stroke that is still being drawn: each alternate the
+     * decoder is still holding, over the key that would reach it.
+     *
+     * Its own field rather than sharing [octopus], and that separation is
+     * load-bearing. The flick asks, at the lift, what was floating over the key
+     * the finger went down on — and a stroke long enough to be a flick is long
+     * enough to have published a preview, so sharing one field meant the answer
+     * had already been overwritten by the alternates and every flick fell
+     * through to the decoder.
+     */
+    val octopusGlide: Map<Int, OctopusWord> = emptyMap(),
     /** Text-edit panel: arrows extend the selection instead of moving the cursor. */
     val textEditSelecting: Boolean = false,
     /**

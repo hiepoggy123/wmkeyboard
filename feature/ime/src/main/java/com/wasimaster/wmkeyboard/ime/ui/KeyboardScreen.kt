@@ -11920,7 +11920,10 @@ private fun KeyRows(
         // floating over that key. Above autopilot, because a key face grown
         // over a word would hide it, and below everything a finger owns.
         OctopusOverlay(
-            words = state.octopus,
+            // A stroke's own alternates while one is being drawn, the buffer's
+            // words otherwise. Two fields rather than one because the flick
+            // asks, at the lift, what was over the key the finger went down on.
+            words = if (trail.visible) state.octopusGlide else state.octopus,
             bounds = keyBounds,
             boardSize = Size(boxSize.width.toFloat(), boxSize.height.toFloat()),
             // A stroke does *not* hide these: mid-glide they carry the

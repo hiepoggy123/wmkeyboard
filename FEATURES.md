@@ -539,7 +539,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 - **Words on the keys** `RARE` — A predicted word floats over the key that would reach it, taken by a flick up or a tap; the BlackBerry Z10's in-letter prediction (discussion #102)
   - One placement rule — The word hangs off the first character where the candidate stops agreeing with the buffer, which covers completions, corrections and next-word predictions alike; that index is also the two-tone split
   - Never relocated — A candidate whose key is already claimed is dropped rather than moved, because a word over a key that would not type it is a lie about the affordance
-  - Sparse by default — 3-26 words, with a score floor below 9 so a board with nothing confident to say stays empty; past 9 the tries are fanned to fill every key that can be reached
+  - The strip's own words — the pool is `suggest`'s finished list, so the keys and the strip never disagree; the engine's raw walk only fills keys the strip had no room for, and past a density of 9 the tries are fanned for the rest
   - Three placements — Floating in the gap above the key (no height change), a reserved lane per row, or inside the key; top-row words straddle the grid and are tapped on the half still over it
   - Flick or tap `uncommon` — Both switchable; the flick is judged at the lift against a sensitivity tier whose cone matches the glide picker's, so a glide that opens upward stays a glide
   - Live during a glide — Mid-stroke each alternate hangs off the key where it leaves the decoder's leader, which no other surface can show; one decode, one state write
