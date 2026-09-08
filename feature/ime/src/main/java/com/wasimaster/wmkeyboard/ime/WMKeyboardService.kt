@@ -28,6 +28,9 @@ import android.os.Looper
 import android.os.Process
 import android.os.SystemClock
 import android.text.InputType
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.SuggestionSpan
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.View
@@ -1182,6 +1185,55 @@ open class WMKeyboardService : InputMethodService() {
     private class RevertibleCommit(val kind: Kind, val original: String, val committed: String) {
 
         enum class Kind { AUTOCORRECT, SNIPPET, JOIN, REVISION }
+    }
+
+    /**
+     * [text] carrying the platform's own autocorrection mark over its first
+     * [wordEnd] characters, offering [original] as the alternative.
+     *
+     * This is the half of an undo the keyboard cannot provide on its own. Our
+     * chip lives on the strip and dies with the next word; the span lives in
+     * the field, so a host that supports it draws the brief autocorrect
+     * highlight and lets a tap on the word — a paragraph later, from anywhere —
+     * offer back what was typed. Every stock keyboard commits this mark, and a
+     * plain commitText is why a corrected word here looked like a word the user
+     * had chosen.
+     *
+     * Decoration only. Nothing reads it back, a host that ignores spans gets
+     * exactly the text it would have got, and a framework that refuses to build
+     * one falls through to the plain string: a commit that does not happen is
+     * far worse than a commit without a mark.
+     */
+    private fun markAutoCorrection(
+        text: String,
+        original: String,
+        wordEnd: Int = text.length,
+    ): CharSequence {
+        val end = wordEnd.coerceIn(0, text.length)
+        // Nothing to offer back: the "correction" is the word, or a case change
+        // the span would present as a choice between two spellings of one word.
+        if (end == 0 || original.isEmpty() || original.equals(text.take(end), ignoreCase = true)) {
+            return text
+        }
+        return try {
+            SpannableString(text).apply {
+                setSpan(
+                    SuggestionSpan(
+                        this@WMKeyboardService,
+                        arrayOf(original),
+                        // AUTO_CORRECTION draws the highlight; EASY_CORRECT is
+                        // what makes one tap on the word open the alternative
+                        // rather than needing a long press first.
+                        SuggestionSpan.FLAG_AUTO_CORRECTION or SuggestionSpan.FLAG_EASY_CORRECT,
+                    ),
+                    0,
+                    end,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
+        } catch (_: Throwable) {
+            text
+        }
     }
 
     private var lastRevertible: RevertibleCommit? = null
@@ -8140,7 +8192,16 @@ open class WMKeyboardService : InputMethodService() {
         // takes the previous word's offer down with it.
         correctionOfferFor = offered?.let { typed }
         pendingCorrectionOffer = offered
-        ic.commitText(output, 1)
+        ic.commitText(
+            if (revertible == null) {
+                output
+            } else {
+                // The mark covers the corrected word, not whatever the commit
+                // glued after it.
+                markAutoCorrection(output, revertible.original, revertible.committed.length)
+            },
+            1,
+        )
         // An autocorrected word was the engine's choice, not the user's —
         // it earns no personal-dictionary reinforcement, only the bigram.
         // Conversion-IME output (Hanzi/Kanji) is never learned into the lexicon,
@@ -9374,7 +9435,10 @@ open class WMKeyboardService : InputMethodService() {
             val original = typedActual + trailing
             val committed = display + trailing
             ic.deleteSurroundingText(original.length, 0)
-            ic.commitText(committed, 1)
+            // Marked like a correction that fired on its own: the user picked
+            // the chip, but the word in the field is still not the word they
+            // typed, and the span is what says so to the host.
+            ic.commitText(markAutoCorrection(committed, typedActual, display.length), 1)
             previousWord = display.lowercase()
             lastRevertible = RevertibleCommit(
                 RevertibleCommit.Kind.AUTOCORRECT, original = original, committed = committed,
