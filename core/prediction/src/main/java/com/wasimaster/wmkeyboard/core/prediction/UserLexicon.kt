@@ -497,6 +497,15 @@ class UserLexicon(private val storageFile: File?) {
      * the "boston" it is filed under. Every write-side call takes either form:
      * they all key through [WordKey].
      */
+    /**
+     * How many words this user has learned. [allWords] answers the same
+     * question by building the whole list, which is fine for the personal
+     * dictionary screen and far too much for a caller that only wants the
+     * count — the sandbox ladder asks once a stroke.
+     */
+    @Synchronized
+    fun wordCount(): Int = words.size
+
     @Synchronized
     fun allWords(): List<Pair<String, Int>> =
         words.map { (key, count) -> (wordCase[key] ?: key) to count }

@@ -106,6 +106,7 @@ import com.wasimaster.wmkeyboard.core.feedback.KeySoundPhase
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundRole
 import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
+import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
 import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
@@ -253,6 +254,13 @@ import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_OUTCOMES_FILE
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_SHAPES_FILE
+import com.wasimaster.wmkeyboard.core.settings.GLIDE_SANDBOX_FILE
+import com.wasimaster.wmkeyboard.core.settings.GlideLookAhead
+import com.wasimaster.wmkeyboard.core.settings.GlidePreviewSteadiness
+import com.wasimaster.wmkeyboard.core.settings.GlideSandbox
+import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
+import com.wasimaster.wmkeyboard.core.prediction.GlideSandboxLadder
+import com.wasimaster.wmkeyboard.core.prediction.GlideSandboxPolicy
 import com.wasimaster.wmkeyboard.core.settings.APP_LANGUAGE_MIX_FILE
 import com.wasimaster.wmkeyboard.core.settings.HAND_MODEL_FILE
 import com.wasimaster.wmkeyboard.core.settings.LEARNED_CORRECTIONS_FILE
@@ -1488,6 +1496,19 @@ open class WMKeyboardService : InputMethodService() {
     /** How the user draws each word, from the glides they keep (issue #52). */
     private var glideShapes = GlideShapeStore(null)
 
+    /**
+     * How far up the sandbox ladder this user has climbed, and how often their
+     * learned words could answer a swipe on their own — the measurement
+     * [GlideSandbox.AUTOMATIC] promotes on.
+     */
+    private var glideSandbox = GlideSandboxLadder(null)
+
+    /** A sandbox rung earned and not yet answered, while its chip is up. */
+    private var sandboxOfferPolicy: GlideSandboxPolicy? = null
+
+    /** Keeps the mid-stroke word from changing under the finger (see [GlidePreviewGate]). */
+    private val previewGate = GlidePreviewGate()
+
     /** The shape of the glide a strip pick is replacing, until the pick has queued its own word. */
     private var replacedGlideShape: GlideShapeSample? = null
 
@@ -2519,6 +2540,7 @@ open class WMKeyboardService : InputMethodService() {
                         tapOffsets.reload()
                         glideOutcomes.reload()
                         glideShapes.reload()
+                        glideSandbox.reload()
                         emojiUsage.reload()
                         languageMixConfidence.reload()
                         appLanguageMix.reload()
@@ -2540,6 +2562,7 @@ open class WMKeyboardService : InputMethodService() {
                     keyOffsets.reload()
                     lastHandAdjustment = null
                     glideOutcomes.reload()
+                    glideSandbox.reload()
                     glideRetryOffer = null
                     glideShapes.reload()
                 }
@@ -2881,6 +2904,8 @@ open class WMKeyboardService : InputMethodService() {
         glideRetryOffer = null
         suggestionEngine?.glideOutcomes = glideOutcomes
         glideShapes = GlideShapeStore(store(GLIDE_SHAPES_FILE))
+        glideSandbox = GlideSandboxLadder(store(GLIDE_SANDBOX_FILE))
+        sandboxOfferPolicy = null
         correctionStats = CorrectionStats(store("learning/correction_stats.json"))
         // The swapped-in store starts on the default level; carry the user's
         // setting across, or it stays at NORMAL until the next settings emit.
@@ -4542,6 +4567,7 @@ open class WMKeyboardService : InputMethodService() {
         appLanguageMix.save()
         glideOutcomes.save()
         glideShapes.save()
+        glideSandbox.save()
         correctionStats.save()
         CjkLearning.store?.save()
         languageMixConfidence.save()
@@ -4593,6 +4619,7 @@ open class WMKeyboardService : InputMethodService() {
         appLanguageMix.save()
         glideOutcomes.save()
         glideShapes.save()
+        glideSandbox.save()
         correctionStats.save()
         CjkLearning.store?.save()
         emojiUsage.save()
@@ -8927,11 +8954,12 @@ open class WMKeyboardService : InputMethodService() {
     /**
      * An ask-first chip on the strip was answered.
      *
-     * One entry point for both of them — the snippet offer and the add-word
-     * offer — picked apart by state here rather than by a second parameter on
-     * [ui.KeyboardScreen], whose argument list already compiles to a method at
-     * the JVM's 64K ceiling. They never share the strip: publishing either one
-     * clears the other.
+     * One entry point for all of them — the snippet offer, the add-word offer
+     * and the sandbox offer — picked apart by state here rather than by more
+     * parameters on [ui.KeyboardScreen], whose argument list already compiles
+     * to a method at the JVM's 64K ceiling. They never share the strip: the
+     * chip that is up is the one this answers, and the UI renders them in this
+     * same order of precedence.
      */
     fun onStripOfferAction(action: StripOfferAction) {
         if (_uiState.value.learnOffer != null) {
@@ -8939,6 +8967,15 @@ open class WMKeyboardService : InputMethodService() {
                 is StripOfferAction.Accept -> acceptLearnOffer()
                 StripOfferAction.Decline -> declineLearnOffer()
                 // The add-word chip has nothing to walk into.
+                else -> Unit
+            }
+            return
+        }
+        if (_uiState.value.sandboxOffer != null) {
+            when (action) {
+                is StripOfferAction.Accept -> acceptSandboxOffer()
+                StripOfferAction.Decline -> declineSandboxOffer()
+                // Nor has the sandbox chip.
                 else -> Unit
             }
             return
@@ -11433,6 +11470,11 @@ open class WMKeyboardService : InputMethodService() {
         // waiting on their own trigger, not a guess the dictionary made, so it
         // does not wait for a lexicon to have finished loading.
         refreshSnippetOffer(state)
+        // The ladder's first rung is earned by the lexicon growing rather than
+        // by any stroke, so nothing on the glide path notices it. Asked here,
+        // where the strip is being rebuilt anyway and a chip has somewhere to
+        // land.
+        maybeOfferFirstSandboxRung()
         val engine = suggestionEngine ?: return
         if (!state.settings.suggestions || state.secureField || state.fieldNoSuggestions) return
 
@@ -12290,7 +12332,49 @@ open class WMKeyboardService : InputMethodService() {
      * A decoded stroke: the words it could be, and whether the top two are a
      * close call under the user's sensitivity tier.
      */
-    private class GlideReading(val words: List<String>, val closeCall: Boolean) {
+    private class GlideReading(
+        val words: List<String>,
+        val closeCall: Boolean,
+        /**
+         * Whether the learned words alone produced the word this reading
+         * leads with — the measurement the sandbox ladder promotes on. Null
+         * when the stroke was not decoded under
+         * [GlideSandboxPolicy.PREFER_LEARNED] and so measured nothing.
+         *
+         * Carried on the reading rather than kept in a field because a stroke
+         * publishes a preview for every touch move: a field would be
+         * overwritten by previews of the stroke still being drawn, and the
+         * ladder would count each of them.
+         */
+        val sandboxAnswered: Boolean? = null,
+        /**
+         * Each word's decoder score, in nats, aligned with [words] — what the
+         * preview's steadiness gate compares a challenger against.
+         *
+         * Only ever compared *within* one reading. Scores from two readings of
+         * the same stroke are not comparable: a longer stroke has more samples
+         * to explain and every candidate's cost grows with it, so "the leader
+         * beat last frame's leader" says nothing while "the leader beats the
+         * word on screen, right now, on this evidence" says exactly the right
+         * thing.
+         */
+        val scores: List<Double> = emptyList(),
+    ) {
+        /** [word]'s score in this reading, or null when it is not in it. */
+        fun scoreOf(word: String): Double? {
+            val at = words.indexOfFirst { it.equals(word, ignoreCase = true) }
+            return if (at >= 0) scores.getOrNull(at) else null
+        }
+
+        /** This reading with [word] moved to the front, for a gate that held it. */
+        fun leading(word: String): GlideReading {
+            val at = words.indexOfFirst { it.equals(word, ignoreCase = true) }
+            if (at <= 0) return this
+            val order = words.toMutableList().apply { add(0, removeAt(at)) }
+            val rescored = scores.toMutableList().apply { if (at < size) add(0, removeAt(at)) }
+            return GlideReading(order, closeCall, sandboxAnswered, rescored)
+        }
+
         companion object {
             val NONE = GlideReading(emptyList(), false)
         }
@@ -12313,14 +12397,93 @@ open class WMKeyboardService : InputMethodService() {
         return maxOf(settings.suggestionStrip.slotCount, settings.gesture.pickerChoices)
     }
 
+    /**
+     * One stroke's worth of evidence for the sandbox ladder, and the offer it
+     * may have earned.
+     *
+     * Only ever called under [GlideSandboxPolicy.PREFER_LEARNED], which is the
+     * only rung that measures anything, and only on [GlideSandbox.AUTOMATIC]
+     * does an earned rung become an offer — someone who picked a policy by
+     * hand has said what they want and should not be asked to change it.
+     */
+    private fun noteSandboxOutcome(answered: Boolean) {
+        glideSandbox.observe(answered)
+        if (_uiState.value.settings.gesture.sandbox != GlideSandbox.AUTOMATIC) return
+        if (sandboxOfferPolicy != null) return
+        val earned = glideSandbox.pending(userLexicon.wordCount()) ?: return
+        sandboxOfferPolicy = earned
+        _uiState.update { it.copy(sandboxOffer = earned) }
+    }
+
+    /**
+     * The lexicon has grown enough to earn the first rung, which no stroke
+     * measures — [noteSandboxOutcome] only runs once the ladder is already on
+     * the measuring rung. Asked where the strip is refreshed, so the chip
+     * appears at a word boundary rather than mid-stroke.
+     */
+    private fun maybeOfferFirstSandboxRung() {
+        if (_uiState.value.settings.gesture.sandbox != GlideSandbox.AUTOMATIC) return
+        if (sandboxOfferPolicy != null || _uiState.value.sandboxOffer != null) return
+        if (glideSandbox.accepted() != GlideSandboxPolicy.OFF) return
+        val earned = glideSandbox.pending(userLexicon.wordCount()) ?: return
+        sandboxOfferPolicy = earned
+        _uiState.update { it.copy(sandboxOffer = earned) }
+    }
+
+    /** Takes the sandbox chip down, whether or not it was answered. */
+    private fun clearSandboxOffer() {
+        sandboxOfferPolicy = null
+        if (_uiState.value.sandboxOffer != null) _uiState.update { it.copy(sandboxOffer = null) }
+    }
+
+    /** "Yes": the ladder climbs, and the next stroke decodes under the new rung. */
+    private fun acceptSandboxOffer() {
+        val policy = sandboxOfferPolicy ?: return
+        vibrate()
+        clearSandboxOffer()
+        glideSandbox.accept(policy)
+        glideSandbox.save()
+    }
+
+    /** "No": the rung is never offered again. */
+    private fun declineSandboxOffer() {
+        val policy = sandboxOfferPolicy ?: return
+        vibrate()
+        clearSandboxOffer()
+        glideSandbox.decline(policy)
+        glideSandbox.save()
+    }
+
+    /**
+     * The sandbox policy in force right now: the user's setting, with
+     * [GlideSandbox.AUTOMATIC] resolving to whichever rung the ladder has
+     * been allowed to reach.
+     */
+    private fun sandboxPolicy(): GlideSandboxPolicy =
+        when (_uiState.value.settings.gesture.sandbox) {
+            GlideSandbox.NORMAL -> GlideSandboxPolicy.OFF
+            GlideSandbox.PREFER_LEARNED -> GlideSandboxPolicy.PREFER_LEARNED
+            GlideSandbox.LEARNED_ONLY -> GlideSandboxPolicy.LEARNED_ONLY
+            GlideSandbox.AUTOMATIC -> glideSandbox.accepted()
+        }
+
+    /** The sources a sandbox decode is restricted to: the words this user has written. */
+    private val LEARNED_TIER = setOf(FuzzyBeamSearch.Tier.USER)
+
     /** Decodes one stroke against the active language's word sources. */
     private fun glideDecode(
         points: List<GesturePoint>,
         keys: List<KeyCenter>,
         keyWidthPx: Float,
+        preview: Boolean = false,
     ): GlideReading {
         val engine = suggestionEngine ?: return GlideReading.NONE
-        val decoded = engine.glide(
+        val policy = sandboxPolicy()
+        // Only a preview may guess ahead. The decode behind a lift has the
+        // whole stroke and no reason to invent letters; what a lift *types* is
+        // decided by the preview gate, from what was on screen.
+        val lookAhead = if (preview) glideCandidateLimit() else 0
+        fun decode(tiers: Set<FuzzyBeamSearch.Tier>?) = engine.glide(
             path = points,
             keys = keyMapFor(keys, keyWidthPx),
             keyWidth = keyWidthPx,
@@ -12329,15 +12492,83 @@ open class WMKeyboardService : InputMethodService() {
             previousWord2 = previousWord2,
             recentWords = recentWords.toList(),
             shapes = shapeSourceFor(keys, keyWidthPx),
+            tiers = tiers,
+            lookAhead = lookAhead,
         )
+
+        // Under LEARNED_ONLY the learned words are the whole search; under
+        // PREFER_LEARNED they are a second, much smaller one run beside it.
+        val learned = if (policy == GlideSandboxPolicy.OFF) {
+            emptyList()
+        } else {
+            decode(LEARNED_TIER)
+        }
+        var answered: Boolean? = null
+        val decoded = when (policy) {
+            GlideSandboxPolicy.LEARNED_ONLY -> learned
+            GlideSandboxPolicy.OFF -> decode(null)
+            GlideSandboxPolicy.PREFER_LEARNED -> {
+                val full = decode(null)
+                // Cost, not score: the two searches weight their sources
+                // differently and only the geometry means the same thing in
+                // both (see GlideSandboxLadder.SANDBOX_MARGIN).
+                val best = learned.firstOrNull()
+                val takeLearned = best != null && (
+                    full.isEmpty() ||
+                        best.shapeCost <= full[0].shapeCost + GlideSandboxLadder.SANDBOX_MARGIN
+                    )
+                answered = best != null &&
+                    best.word.equals(
+                        (if (takeLearned) learned else full).firstOrNull()?.word,
+                        ignoreCase = true,
+                    )
+                if (takeLearned) learned else full
+            }
+        }
         if (decoded.isEmpty()) return GlideReading.NONE
-        val words = decoded.map { restoreApostrophe(it.word) ?: it.word }
         val gesture = _uiState.value.settings.gesture
+        val kept = admitLookAhead(decoded, gesture.lookAhead)
+        if (kept.isEmpty()) return GlideReading.NONE
+        val words = kept.map { restoreApostrophe(it.word) ?: it.word }
+        val declared = declareApostrophe(words, points, keys, keyWidthPx)
+        // Scores follow the words through both rewrites. `declareApostrophe`
+        // can put a spelling in front that the decoder never ranked — "it's"
+        // read off a stroke that spelled "its" — and that word stands exactly
+        // where the leader stood, so it inherits the leader's score.
+        val byWord = words.withIndex().associate { (i, w) -> w to kept[i].score }
+        val leaderScore = kept.first().score
         return GlideReading(
-            words = declareApostrophe(words, points, keys, keyWidthPx),
+            words = declared,
             closeCall = gesture.ambiguityPicker &&
-                SuggestionEngine.glideIsAmbiguous(decoded, gesture.pickerSensitivity.margin),
+                SuggestionEngine.glideIsAmbiguous(kept, gesture.pickerSensitivity.margin),
+            sandboxAnswered = answered,
+            scores = declared.map { byWord[it] ?: leaderScore },
         )
+    }
+
+    /**
+     * [decoded] with the decoder's guesses — candidates carrying letters the
+     * stroke has not drawn — kept only where they clear the user's confidence
+     * tier, and dropped entirely when the tier is off.
+     *
+     * The measure is the gap to the best *ordinary* reading, in the decoder's
+     * own log units, which is the only comparison that answers the question the
+     * user is really asking: is the keyboard surer about a word I have not
+     * finished than about anything I have? A guess that merely outranks other
+     * guesses has cleared nothing.
+     *
+     * The list keeps its order, so a guess that clears the bar and outscores
+     * every reading leads — which is the whole point of the feature — and one
+     * that clears the bar without leading sits on the strip as an alternate.
+     */
+    private fun admitLookAhead(
+        decoded: List<GlideBeam.Candidate>,
+        tier: GlideLookAhead,
+    ): List<GlideBeam.Candidate> {
+        if (decoded.none { it.ahead > 0 }) return decoded
+        if (tier == GlideLookAhead.OFF) return decoded.filter { it.ahead == 0 }
+        val bestRead = decoded.firstOrNull { it.ahead == 0 } ?: return decoded
+        return decoded.filter { it.ahead == 0 || it.score - bestRead.score >= tier.margin }
     }
 
     /**
@@ -12686,34 +12917,54 @@ open class WMKeyboardService : InputMethodService() {
                 val reading = withContext(Dispatchers.Default) {
                     // Same sources as the final decode, so the previewed word
                     // never differs from the one that commits on finger-up.
-                    glideDecode(request.points, request.keys, request.keyWidthPx)
+                    glideDecode(
+                        request.points, request.keys, request.keyWidthPx, preview = true,
+                    )
                 }
                 if (reading.words.isEmpty()) continue
                 // Re-checked after the decode: the finger may have lifted and
                 // the word committed while this was running.
                 if (request.generation != gestureGeneration.get()) continue
                 val gesture = _uiState.value.settings.gesture
-                val floating = octopusForGlide(_uiState.value, reading.words)
+                // Applied before anything is published, so the strip, the keys,
+                // the pill and the picker all show the same word: they are all
+                // built from this one list.
+                val steadied = steadyPreview(reading, gesture.previewSteadiness)
+                val floating = octopusForGlide(_uiState.value, steadied.words)
                 _uiState.update {
                     it.copy(
-                        suggestions = reading.words,
+                        suggestions = steadied.words,
                         octopusGlide = floating,
-                        glideWord = reading.words.first(),
+                        glideWord = steadied.words.first(),
                         // Every preview carries choices while the picker is
                         // on: a stroke that is not a close call can still be
                         // asked about by holding longer, so the popup needs
                         // the words either way. The flag is what picks the
                         // short dwell over the long one.
                         glideChoices = if (gesture.ambiguityPicker) {
-                            reading.words.take(gesture.pickerChoices)
+                            steadied.words.take(gesture.pickerChoices)
                         } else {
                             emptyList()
                         },
-                        glideCloseCall = reading.closeCall,
+                        glideCloseCall = steadied.closeCall,
                     )
                 }
             }
         }
+    }
+
+    /**
+     * [reading], with the word already on screen kept in front of it unless a
+     * challenger has earned the swap — see [GlidePreviewGate].
+     */
+    private fun steadyPreview(
+        reading: GlideReading,
+        steadiness: GlidePreviewSteadiness,
+    ): GlideReading {
+        val at = previewGate.steady(
+            reading.words, reading.scores, steadiness, SystemClock.elapsedRealtime(),
+        )
+        return if (at == 0) reading else reading.leading(reading.words[at])
     }
 
     /**
@@ -12723,6 +12974,10 @@ open class WMKeyboardService : InputMethodService() {
      * cancel restores them.
      */
     private fun clearGlidePreview() {
+        // Every exit from a stroke comes through here, so the steadiness gate
+        // is reset here too: a new stroke must never inherit the last one's
+        // word, or its first reading would be judged against a stranger.
+        previewGate.reset()
         _uiState.update {
             it.copy(
                 glideWord = null,
@@ -12808,9 +13063,14 @@ open class WMKeyboardService : InputMethodService() {
         // choosing, and what they chose is not a key's word.
         if (verdict is GlideVerdict.Leader && octopusFlickPick(state, points, keys, keyWidthPx)) return
         gestureJob = serviceScope.launch {
-            val candidates = withContext(Dispatchers.Default) {
+            val reading = withContext(Dispatchers.Default) {
                 glideDecode(points, keys, keyWidthPx)
-            }.words
+            }
+            val candidates = reading.words
+            // One stroke, one observation: recorded here on the committing
+            // decode rather than in `glideDecode`, which also runs for every
+            // preview of a stroke still being drawn.
+            reading.sandboxAnswered?.let { noteSandboxOutcome(it) }
             // Debug builds only: typed content must never be logged in release.
             if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
                 android.util.Log.d(
@@ -12834,7 +13094,14 @@ open class WMKeyboardService : InputMethodService() {
             if (chosen != null && candidates.isNotEmpty() && chosen != candidates.first()) {
                 noteGlidePreference(rejected = candidates.first(), chosen = chosen)
             }
-            val picked = chosen ?: candidates.first()
+            // An explicit pick beats everything. Otherwise the word on
+            // screen wins the lift while the finished stroke still ranks it
+            // near its own leader, so what was shown is what gets typed.
+            val picked = chosen
+                ?: previewGate.commit(
+                    candidates, reading.scores, state.settings.gesture.previewSteadiness,
+                )
+                ?: candidates.first()
             val strip = if (chosen != null) glideStripOrder(candidates, chosen) else candidates
             val word = when (shiftAtGesture) {
                 ShiftState.CAPS_LOCK -> picked.uppercase()

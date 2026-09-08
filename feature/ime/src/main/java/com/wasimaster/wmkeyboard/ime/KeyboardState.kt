@@ -30,6 +30,7 @@ import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.DataSaverStatus
+import com.wasimaster.wmkeyboard.core.prediction.GlideSandboxPolicy
 import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import com.wasimaster.wmkeyboard.core.prediction.WordFacts
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -1970,6 +1971,13 @@ data class KeyboardUiState(
      * learning" is on and such a word is on the strip right now.
      */
     val learnOffer: String? = null,
+    /**
+     * A sandbox rung the ladder has earned and is asking about, or null while
+     * nothing is being offered. Only ever set under
+     * [com.wasimaster.wmkeyboard.core.settings.GlideSandbox.AUTOMATIC]: a
+     * policy picked by hand is the user's answer already.
+     */
+    val sandboxOffer: GlideSandboxPolicy? = null,
     /** The word card a held suggestion opened, or null while none is up (#99). */
     val wordCard: WordCard? = null,
     /**

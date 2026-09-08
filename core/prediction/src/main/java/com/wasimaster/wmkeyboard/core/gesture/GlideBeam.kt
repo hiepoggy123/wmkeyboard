@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.gesture
 
 import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
+import com.wasimaster.wmkeyboard.core.prediction.TrieWalker
 import kotlin.math.ceil
 import kotlin.math.ln
 import kotlin.math.sqrt
@@ -58,6 +59,20 @@ import kotlin.math.sqrt
  * one systematically displaced *inside* the corner and away from the key it
  * belongs to. Leaning on those samples leans on the error. The arc-length term
  * already carries what the timing would have said about where letters fall.
+ *
+ * **A second thing that was tried and did not work.** Edge keys were given
+ * extra anchor tolerance *inward*, on the reasoning that a finger aiming at `q`
+ * cannot land above or left of the keyboard, so the touches an outer key
+ * collects are the inward half of an interior key's spread with their centre of
+ * mass pushed inward too. The reasoning is sound and the effect is not there:
+ * swept from 0 to 0.8 key widths it moved no metric by a single case, and it
+ * still moved none against a corpus modified to clamp every sample to the board
+ * the way a digitiser does. The reason is the magnitudes. Endpoint slop is
+ * σ ≈ 0.3 key widths at the sloppiest graded level and the outermost key
+ * centres sit half a key inside the board's edge, so a touch that would have
+ * landed off the board is already rare, and one far enough off to change which
+ * keys an anchor admits is rarer still. The truncation is real and it is too
+ * small to correct for.
  *
  * Scores are in the same log space as the typing beam
  * (`logWeight + ln(1 + frequency) - cost`), so `FuzzyBeamSearch.WalkSource`
@@ -232,9 +247,27 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
          * it drawn in that shape? Zero switches it off.
          */
         val shapeChannel: Double = 45.0,
-        /** How far the stroke's first/last sample may sit from the word's
-         * first/last key, in key widths. */
-        val anchorRadius: Float = 1.6f,
+        /**
+         * How far the stroke's *first* sample may sit from the word's first
+         * key, in key widths.
+         *
+         * Split from [endRadius] because the two ends of a stroke are not the
+         * same event: a touch-down is a deliberate placement, and a lift-off is
+         * where a movement happened to stop.
+         *
+         * The split is expressible rather than load-bearing, and that is the
+         * measurement rather than an omission. Swept independently, both sit on
+         * a flat plateau — start .9550 from 1.3 to 2.0 and end .9550 from 1.6
+         * all the way to 3.0, against .9508 and .9517 at 1.0 — so the one
+         * number they replaced was not a compromise between them after all, and
+         * there is no asymmetry here to exploit yet. The only thing either says
+         * is that a *tight* anchor costs accuracy: whatever an anchor is for, it
+         * is not for being strict.
+         */
+        val startRadius: Float = 1.6f,
+        /** How far the stroke's *last* sample may sit from the word's last key,
+         * in key widths. See [startRadius]. */
+        val endRadius: Float = 1.6f,
         /** How close the stroke must pass to a key for that key's subtree to be
          * worth walking at all, in key widths. */
         val nearRadius: Float = 1.5f,
@@ -276,9 +309,36 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
          * glidable however rare it is.
          */
         val vocabularyRank: Int = 0,
+        /**
+         * Nats charged per character a look-ahead candidate carries beyond what
+         * the stroke has drawn.
+         *
+         * A completion competes against readings that explain the whole stroke
+         * with nothing left over, and it has a structural advantage over them:
+         * fewer letters to place means fewer chances to place one badly, and
+         * `ln(1 + frequency)` of the best word under a prefix is an upper bound
+         * on any single word's. Without a charge the decoder would answer every
+         * two-letter stroke with the commonest long word starting that way.
+         *
+         * Per character rather than a flat charge because the guess really does
+         * get weaker with length: two letters ahead is a near certainty on a
+         * word the user writes daily, eight is a bet on their sentence.
+         */
+        val lookAheadCost: Double = 1.4,
+        /**
+         * How many prefix states may be expanded into a completion in one
+         * decode.
+         *
+         * Each costs a walk down the trie to find the best word under the
+         * prefix, which is cheap but not free, and the search pops best-first —
+         * so the states worth asking about come early and a budget spent in
+         * order loses nothing that would have won.
+         */
+        val lookAheadBudget: Int = 48,
     ) {
         val invTwoSigmaSq: Float get() = 1f / (2f * sigma * sigma)
-        val anchorRadiusSq: Float get() = anchorRadius * anchorRadius
+        val startRadiusSq: Float get() = startRadius * startRadius
+        val endRadiusSq: Float get() = endRadius * endRadius
         val nearCost: Float get() = nearRadius * nearRadius * invTwoSigmaSq
     }
 
@@ -298,6 +358,18 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
          * read this word off it. A confidence signal, low is good. */
         val shapeCost: Double,
         val tier: FuzzyBeamSearch.Tier,
+        /**
+         * Characters this word carries beyond what the stroke has drawn, or 0
+         * when the stroke spells it out.
+         *
+         * Non-zero only when [decode] was asked for a look-ahead: the stroke so
+         * far is a *prefix* of this word and the rest is a guess about where
+         * the finger is going — "dictionary" off a stroke that has reached the
+         * `c`. Worth keeping apart from an ordinary reading at every point
+         * downstream, because the evidence behind it is different in kind:
+         * everything after the prefix rests on the language model alone.
+         */
+        val ahead: Int = 0,
     )
 
     /**
@@ -316,6 +388,7 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         ws: GlideWorkspace,
         limit: Int = 4,
         shapes: GlideShapeSource? = null,
+        lookAhead: Int = 0,
     ): List<Candidate> {
         if (path.size < MIN_SAMPLES || keyWidth <= 0f) return emptyList()
         if (keys.keyCount == 0 || sources.isEmpty() || limit <= 0) return emptyList()
@@ -328,6 +401,15 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
 
         val k = maxOf(limit * 2, RESULT_K)
         val results = HashMap<String, Candidate>()
+        // Completions are collected apart from the readings and never touch
+        // `floor`. The floor is what makes the walk's bound admissible for
+        // *words*; a completion scores on a prefix's alignment plus a guess,
+        // and letting one raise the floor would prune real words that the
+        // guess merely outscored.
+        val ahead = if (lookAhead > 0) HashMap<String, Candidate>() else null
+        // One budget across every source, carried in a box so `searchOne` can
+        // spend from it without threading a return value back.
+        val budget = intArrayOf(tuning.lookAheadBudget)
         var floor = Double.NEGATIVE_INFINITY
 
         // Heaviest source first, so its emissions raise the floor before the
@@ -338,13 +420,23 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         for (src in ordered) {
             val rootBound = src.logWeight + ln1p(src.walker.maxSubtree(src.walker.root))
             if (rootBound < floor - EPS) continue
-            floor = searchOne(src, keys, ws, k, results, floor)
+            floor = searchOne(src, keys, ws, k, results, floor, ahead, budget)
         }
 
         val ranked = results.values.sortedWith(
             compareByDescending<Candidate> { it.score }.thenBy { it.word }
         )
-        return rescoreShape(ranked, keys, ws, shapes).take(limit)
+        val read = rescoreShape(ranked, keys, ws, shapes).take(limit)
+        if (ahead.isNullOrEmpty()) return read
+        // Merged into one ranked list so a caller sees the decoder's whole
+        // opinion in score order; `Candidate.ahead` is what tells the two
+        // apart, and every caller that cares checks it.
+        val completions = ahead.values
+            .sortedWith(compareByDescending<Candidate> { it.score }.thenBy { it.word })
+            .take(lookAhead)
+        return (read + completions).sortedWith(
+            compareByDescending<Candidate> { it.score }.thenBy { it.word }
+        )
     }
 
     /**
@@ -473,6 +565,8 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         k: Int,
         results: HashMap<String, Candidate>,
         floorIn: Double,
+        ahead: HashMap<String, Candidate>?,
+        budget: IntArray,
     ): Double {
         var floor = floorIn
         val walker = src.walker
@@ -501,26 +595,34 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
             val extra = ws.extra[s]
             val lastKey = ws.lastKey[s]
 
-            if (length >= MIN_WORD_LENGTH && walker.isWord(node) && ws.endKey[lastKey]) {
-                // The last letter must land on the last sample: that is where
-                // the finger lifted, and it is the end anchor the old decoder
-                // had to apply as a separate filter.
+            // The prefix's last letter must land on the last sample. For a
+            // finished word that is where the finger lifted; for a look-ahead
+            // it is where the finger is *now*, which is the same condition and
+            // the same anchor.
+            // `lastKey` is -1 at the root, which has spelled nothing and can
+            // be neither a word nor a prefix worth guessing from.
+            val atEnd = lastKey >= 0 && ws.endKey[lastKey] &&
+                ws.cols[ws.columnOf(s) + n - 1] < GlideWorkspace.UNREACHABLE
+            if (atEnd) {
                 val total = ws.cols[ws.columnOf(s) + n - 1]
-                if (total < GlideWorkspace.UNREACHABLE &&
+                // Charged here and not on the way down: only a finished
+                // word knows which pauses none of its letters claim. The
+                // bound stays admissible since the charge can only lower
+                // a score, never raise one.
+                val shape = total + extra + unclaimedDwell(s, keys, ws) +
+                    unclaimedLoop(s, keys, ws)
+                if (length >= MIN_WORD_LENGTH && walker.isWord(node) &&
                     walker.frequency(node) >= minFrequency
                 ) {
-                    // Charged here and not on the way down: only a finished
-                    // word knows which pauses none of its letters claim. The
-                    // bound stays admissible since the charge can only lower
-                    // a score, never raise one.
-                    val shape = total + extra + unclaimedDwell(s, keys, ws) +
-                        unclaimedLoop(s, keys, ws)
                     val score = src.logWeight + ln1p(walker.frequency(node)) -
                         tuning.shapeWeight * shape
                     if (score > floor - EPS || results.size < k) {
                         emit(ws.materialize(s), score, shape.toDouble(), src.tier, results)
                         if (results.size >= k) floor = kthBest(results, k)
                     }
+                }
+                if (ahead != null && budget[0] > 0 && length >= MIN_LOOKAHEAD_PREFIX) {
+                    lookAhead(src, walker, node, s, shape, minFrequency, ws, ahead, budget)
                 }
             }
             if (length >= MAX_WORD_LENGTH || length >= n) continue
@@ -610,6 +712,69 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
             }
         }
         return floor
+    }
+
+    /**
+     * Offers the commonest word under the prefix at state [s] as a look-ahead
+     * candidate — the stroke drawn so far explains that prefix, and the rest of
+     * the word is the language model's guess about where the finger is going.
+     *
+     * The word is found by descending from [node] always into a child whose
+     * subtree bound equals this node's, which by construction arrives at a word
+     * carrying that bound: the walker's `maxSubtree` is the greatest frequency
+     * anywhere beneath, so the branch holding it is the branch that still
+     * reports it. That makes the frequency in the score the *actual* word's
+     * rather than an upper bound over a subtree, which matters because the two
+     * differ by exactly the amount that would make a long shot look certain.
+     *
+     * A prefix that is already the commonest thing under it offers nothing —
+     * the ordinary emit above has that word, drawn rather than guessed.
+     */
+    @Suppress("LongParameterList")
+    private fun lookAhead(
+        src: FuzzyBeamSearch.WalkSource,
+        walker: TrieWalker,
+        node: Int,
+        s: Int,
+        shape: Float,
+        minFrequency: Int,
+        ws: GlideWorkspace,
+        ahead: HashMap<String, Candidate>,
+        budget: IntArray,
+    ) {
+        val best = walker.maxSubtree(node)
+        if (best < minFrequency || best <= walker.frequency(node)) return
+        budget[0]--
+        val prefix = ws.materialize(s)
+        val word = StringBuilder(prefix)
+        var at = node
+        var steps = 0
+        while (steps < MAX_WORD_LENGTH) {
+            if (walker.isWord(at) && walker.frequency(at) == best) break
+            val count = walker.childrenInto(at, ws.children)
+            var next = -1
+            var label = '\u0000'
+            for (i in 0 until count) {
+                if (walker.maxSubtree(ws.children.nodes[i]) == best) {
+                    next = ws.children.nodes[i]
+                    label = ws.children.labels[i]
+                    break
+                }
+            }
+            if (next < 0) return
+            word.append(label)
+            at = next
+            steps++
+        }
+        if (steps == 0 || word.length <= prefix.length) return
+        val spelled = word.toString()
+        val extra = spelled.length - prefix.length
+        val score = src.logWeight + ln1p(best) - tuning.shapeWeight * shape -
+            tuning.lookAheadCost * extra
+        val existing = ahead[spelled]
+        if (existing == null || score > existing.score) {
+            ahead[spelled] = Candidate(spelled, score, shape.toDouble(), src.tier, extra)
+        }
     }
 
     /**
@@ -776,8 +941,8 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
                 if (scaled <= nearCost) ws.nearKey[k] = true
             }
         }
-        anchorMask(ws.pathX[0], ws.pathY[0], keys, ws.startKey)
-        anchorMask(ws.pathX[n - 1], ws.pathY[n - 1], keys, ws.endKey)
+        anchorMask(ws.pathX[0], ws.pathY[0], keys, ws.startKey, tuning.startRadiusSq)
+        anchorMask(ws.pathX[n - 1], ws.pathY[n - 1], keys, ws.endKey, tuning.endRadiusSq)
     }
 
     /**
@@ -1213,8 +1378,17 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
 
         val rescored = ArrayList<Candidate>(ranked.size)
         for (candidate in ranked) {
-            val distance = shapeDistance(candidate.word, keys, ws)
+            // A look-ahead candidate's ideal path runs through letters the
+            // finger has not drawn, so comparing the whole shape against the
+            // whole word asks it to account for a stroke that does not exist
+            // yet. The channel has nothing to say about a prefix.
+            val distance = if (candidate.ahead > 0) {
+                null
+            } else {
+                shapeDistance(candidate.word, keys, ws)
+            }
                 ?.let { ideal -> learnedDistance(candidate.word, ideal, learned, ws) }
+
             rescored.add(
                 if (distance == null) {
                     candidate
@@ -1224,6 +1398,7 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
                         candidate.score - weight * distance,
                         candidate.shapeCost,
                         candidate.tier,
+                        candidate.ahead,
                     )
                 }
             )
@@ -1377,11 +1552,18 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         }
     }
 
-    private fun anchorMask(x: Float, y: Float, keys: GlideKeyMap, out: BooleanArray) {
+    /** Which keys the anchor at ([x], [y]) could have meant, within [radiusSq]. */
+    private fun anchorMask(
+        x: Float,
+        y: Float,
+        keys: GlideKeyMap,
+        out: BooleanArray,
+        radiusSq: Float,
+    ) {
         for (k in 0 until keys.keyCount) {
             val dx = x - keys.keyX[k]
             val dy = y - keys.keyY[k]
-            out[k] = dx * dx + dy * dy <= tuning.anchorRadiusSq
+            out[k] = dx * dx + dy * dy <= radiusSq
         }
     }
 
@@ -1422,6 +1604,18 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
 
         private const val MIN_SAMPLES = 3
         private const val MIN_WORD_LENGTH = 2
+
+        /**
+         * Letters a stroke must have spelled before the decoder will guess what
+         * it is going to spell next.
+         *
+         * Three, because two is not evidence. A stroke that has reached its
+         * second letter has been through one direction change at most, and
+         * every long word starting with those two letters fits it about as
+         * well — guessing there is guessing from frequency alone, dressed up as
+         * a reading of a gesture.
+         */
+        private const val MIN_LOOKAHEAD_PREFIX = 3
         private const val MAX_WORD_LENGTH = 24
 
         /** Below this spread a path is a dot, and dividing by its size is noise. */

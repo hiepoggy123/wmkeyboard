@@ -156,6 +156,24 @@
     <string name="core_settings_glide_picker_any_doubt_label">Any doubt</string>
     <string name="core_settings_glide_picker_every_pause_label">Every pause</string>
 
+    <!-- Whose words a swipe may answer with: the whole dictionary, or only the
+         words this keyboard has learned from what the user writes. -->
+    <string name="core_settings_glide_sandbox_normal_label">Every word</string>
+    <string name="core_settings_glide_sandbox_prefer_label">Prefer my words</string>
+    <string name="core_settings_glide_sandbox_only_label">Only my words</string>
+    <string name="core_settings_glide_sandbox_automatic_label">Automatic</string>
+
+    <!-- How hard the word shown mid-glide resists being replaced. -->
+    <string name="core_settings_glide_steadiness_off_label">Off</string>
+    <string name="core_settings_glide_steadiness_light_label">Light</string>
+    <string name="core_settings_glide_steadiness_steady_label">Steady</string>
+    <string name="core_settings_glide_steadiness_very_steady_label">Very steady</string>
+
+    <!-- Whether a glide may offer a word the stroke has not finished spelling. -->
+    <string name="core_settings_glide_lookahead_off_label">Off</string>
+    <string name="core_settings_glide_lookahead_confident_label">When sure</string>
+    <string name="core_settings_glide_lookahead_eager_label">Eager</string>
+
     <!-- Octopus: where a floating word is drawn (discussion #102). -->
     <string name="core_settings_octopus_placement_float_label">Above the key</string>
     <string name="core_settings_octopus_placement_strip_label">Own lane</string>
