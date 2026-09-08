@@ -35,6 +35,29 @@ Rust sources are under `native/harper-jni`), and the LLM module is only assemble
 for the Play channel. Deleting them keeps F-Droid's scanner quiet and proves
 neither reaches the built APK.
 
+**`prebuild`** — F-Droid's source scanner is a text search over the build files,
+run before the build and fatal on a match. It does not know about build logic, so
+it flags four strings this build never resolves:
+
+* `org.gradle.toolchains.foojay-resolver-convention` in `settings.gradle.kts`,
+  which would fetch a JDK over the network. Nothing here declares a Java
+  toolchain — `sourceCompatibility` and `jvmTarget` are 11 and no module calls
+  `jvmToolchain()` — so the plugin only ever served `updateDaemonJvm`, and their
+  tooling deletes the `gradle-daemon-jvm.properties` it wrote anyway. The build
+  uses whatever JDK runs Gradle.
+* `libs.play.app.update`, `libs.play.feature.delivery` and
+  `libs.play.services.auth` in `app/build.gradle.kts`. All three sit inside
+  `if (playStoreChannel)` / `if (gmsChannel)` blocks, which are false for this
+  recipe, so they are never on the compile classpath. The blocks are left empty
+  by the `sed`, which is valid Kotlin.
+
+Deleting the lines rather than listing the files in `scanignore` is deliberate:
+`scanignore` asks a packager to take the build file on trust, and this way the
+scanner reads a tree that genuinely does not mention them. `prebuild` runs before
+the scanner (`prepare_source` precedes `scan_source` in fdroidserver's
+`build.py`), with the working directory set to `subdir`, which is why the first
+command reaches up with `../`.
+
 **One `Builds:` entry** — F-Droid's buildserver builds every entry it has not
 seen. Shipping the back catalogue in a first submission would spend their build
 time on versions nobody can install any more. Entries for 0.3.0 through 0.5.3 are
