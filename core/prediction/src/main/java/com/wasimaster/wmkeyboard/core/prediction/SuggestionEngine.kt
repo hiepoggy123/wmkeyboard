@@ -1439,6 +1439,48 @@ class SuggestionEngine(
         /** Corpus n-gram counts divided by this before joining the personal
          * evidence scale: one personal use ~ this many corpus sightings. */
         private const val PACK_COUNT_SCALE = 50
+
+        /**
+         * The `limit` [octopusWords] hands [rankedFor] — deliberately the same
+         * as [suggest]'s default, because that is what makes the octopus free:
+         * the ranked walk is memoised on its arguments, so asking with the same
+         * `limit`, taps and key sets moments after the strip did is a cache hit
+         * rather than a second walk.
+         */
+        private const val OCTOPUS_WALK_LIMIT = 5
+
+        /**
+         * How far below the board's best word a candidate may score and still
+         * float, in the beam's log-space units — about a fifty-fold frequency
+         * ratio. Without a floor, sparse mode always paints exactly as many
+         * words as it is allowed, two of them rubbish, and the board never goes
+         * quiet; the Z10 shows nothing when it knows nothing.
+         */
+        private const val OCTOPUS_SCORE_SPREAD = 4.0
+
+        /**
+         * No octopus until this much has been typed. After a single letter the
+         * completions are essentially the unigram list, so every key lights up
+         * with a word that says nothing about what the user is writing.
+         */
+        private const val OCTOPUS_MIN_PREFIX = 2
+
+        /** A two-edit correction floating over a key is a guess that reads as
+         * noise, whatever its score. */
+        private const val OCTOPUS_MAX_EDITS = 1
+
+        /** Next-word predictions arrive order-ranked, not scored; this is the
+         * synthetic step between consecutive places. */
+        private const val OCTOPUS_NEXT_WORD_STEP = 0.5
+
+        /** Dense-mode filler sits this far below the worst ranked candidate, so
+         * the words the engine actually ranked keep their own keys and the fan
+         * only fills what is left. */
+        private const val OCTOPUS_DENSE_GAP = 1.0
+
+        /** The step between consecutive filler words, which preserves their
+         * order inside the band [OCTOPUS_DENSE_GAP] opens. */
+        private const val OCTOPUS_DENSE_STEP = 0.01
     }
 
     /**
@@ -1676,6 +1718,124 @@ class SuggestionEngine(
         val max = tally.values.maxOrNull() ?: return emptyMap()
         if (max <= 0.0) return emptyMap()
         return tally.mapValues { (it.value / max).toFloat() }
+    }
+
+    /**
+     * The words that float over the keys: discussion #102's octopus, the
+     * BlackBerry Z10's "In-Letter" prediction.
+     *
+     * Every word is hung off *the key you would press next to reach it*, so
+     * flicking up on that key is the same gesture as pressing it, only
+     * finished. That one rule covers all three kinds — a completion of what is
+     * typed, a correction of it, and, on an empty buffer, a prediction of the
+     * whole next word over its first letter — because all three are "the first
+     * place this word stops agreeing with the buffer" (see [assignOctopus]).
+     *
+     * Deliberately *not* a branch inside [suggest]. It is off by default, and
+     * folding it in would charge every user for it and put dense mode's
+     * fan-out under `suggest`'s latency ceiling. Sparse mode is close to free
+     * anyway: called right after [suggest] with the same `touch` and `keys`, it
+     * reads the memoised ranked walk rather than repeating it.
+     *
+     * @param limit how many words may float at once — the density setting, 3
+     *        for a Z10-sparse board and up to one per key
+     * @param kinds which of [OctopusKind] the user allows on the keys
+     * @param dense whether to fan the tries for keys the ranked candidates
+     *        left empty; also lifts the score floor, since filling the board is
+     *        the whole point of asking
+     * @param nextWordPool a next-word list the caller already computed, so the
+     *        empty-buffer case costs nothing
+     * @param keyOf code point to the anchor code point of the key that types
+     *        it, or -1 when this board cannot type it in one press
+     */
+    fun octopusWords(
+        composing: String,
+        previousWord: String?,
+        previousWord2: String? = null,
+        touch: List<TouchPoint?>? = null,
+        keys: KeySets? = null,
+        limit: Int = 4,
+        kinds: Set<OctopusKind> = OctopusKind.entries.toSet(),
+        dense: Boolean = false,
+        nextWordPool: List<String>? = null,
+        keyOf: (Int) -> Int,
+    ): List<OctopusWord> {
+        if (limit <= 0 || kinds.isEmpty()) return emptyList()
+        // Dense mode means "fill the board", so the quietening floor that makes
+        // sparse mode feel like a Z10 would be working against it.
+        val spread = if (dense) Double.POSITIVE_INFINITY else OCTOPUS_SCORE_SPREAD
+
+        if (composing.isEmpty()) {
+            if (OctopusKind.NEXT_WORD !in kinds) return emptyList()
+            val pool = nextWordPool ?: nextWords(previousWord, previousWord2, limit * 2)
+            val candidates = pool.mapIndexed { place, word ->
+                // The list is order-ranked, not scored, so the places are
+                // spaced to be comparable with the floor above.
+                OctopusCandidate(
+                    word, -place * OCTOPUS_NEXT_WORD_STEP, OctopusKind.NEXT_WORD,
+                )
+            }
+            return assignOctopus("", candidates, keys, keyOf, limit, spread)
+        }
+
+        val lower = composing.lowercase()
+        if (lower.length < OCTOPUS_MIN_PREFIX) return emptyList()
+        val ambiguous = keys?.isAmbiguous == true
+        // The same gate the strip uses: a word the dictionaries already know is
+        // not a typo, so nothing may float over it claiming to fix it.
+        val known = !ambiguous && (inDictionaries(lower) || userLexicon.contains(lower))
+        val candidates = ArrayList<OctopusCandidate>()
+        for (c in rankedFor(lower, OCTOPUS_WALK_LIMIT, touch, keys)) {
+            val kind = if (c.edits == 0) OctopusKind.COMPLETION else OctopusKind.CORRECTION
+            if (kind !in kinds) continue
+            if (kind == OctopusKind.CORRECTION && (known || c.edits > OCTOPUS_MAX_EDITS)) continue
+            if (suppressed(c.word)) continue
+            candidates.add(OctopusCandidate(c.word, c.score, kind, c.edits))
+        }
+        if (dense && OctopusKind.COMPLETION in kinds) {
+            candidates.addAll(octopusFan(lower, candidates))
+        }
+        if (candidates.isEmpty()) return emptyList()
+        return assignOctopus(composing, candidates, keys, keyOf, limit, spread)
+            // Written the way the user writes it, then re-cased to follow what
+            // they have typed — the same treatment the strip gives, so the word
+            // drawn over the key is character-for-character the word that will
+            // be committed and the two-tone split lands on the right glyph.
+            .map { it.copy(word = matchCase(composing, displayForm(it.word))) }
+    }
+
+    /**
+     * Dense mode's filler: the best word under every key that could extend
+     * [lower], scored below everything [ranked] already claimed so the words
+     * the engine really ranked keep their own keys and the fan only fills what
+     * is left.
+     */
+    private fun octopusFan(
+        lower: String,
+        ranked: List<OctopusCandidate>,
+    ): List<OctopusCandidate> {
+        val best = HashMap<String, Double>()
+        for (source in walkSources()) {
+            for ((_, found) in octopusTrieFan(source.walker, lower)) {
+                if (suppressed(found.word)) continue
+                // The beam's own shape, so a filler word from the personal
+                // lexicon outranks a rarer one from the bundled list for the
+                // same reason it would in a walk.
+                val score = source.logWeight + ln(1.0 + found.frequency.toDouble())
+                best.merge(found.word, score, ::maxOf)
+            }
+        }
+        if (best.isEmpty()) return emptyList()
+        val claimed = ranked.mapTo(HashSet()) { it.word.lowercase() }
+        val ceiling = (ranked.minOfOrNull { it.score } ?: 0.0) - OCTOPUS_DENSE_GAP
+        return best.entries
+            .filterNot { it.key.lowercase() in claimed }
+            .sortedWith(compareByDescending<Map.Entry<String, Double>> { it.value }.thenBy { it.key })
+            .mapIndexed { place, entry ->
+                OctopusCandidate(
+                    entry.key, ceiling - place * OCTOPUS_DENSE_STEP, OctopusKind.COMPLETION,
+                )
+            }
     }
 
     /**
