@@ -14,6 +14,8 @@ import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutSet
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.ShiftState
+import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
+import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -69,6 +71,9 @@ class KeyVisualTest {
             nextLetterBias = mapOf('l' to 0.8f, 'p' to 0.3f),
             glideWord = "hello",
             expandedCandidates = listOf("hello"),
+            octopus = mapOf(
+                'l'.code to OctopusWord('l'.code, "hello", 3, OctopusKind.COMPLETION, 0),
+            ),
         )
         assertNotEquals(before, after)
         assertEquals(visuals(before), visuals(after))

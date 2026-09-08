@@ -140,6 +140,7 @@ import com.wasimaster.wmkeyboard.core.prediction.MappedNgramPack
 import com.wasimaster.wmkeyboard.core.prediction.MappedTrie
 import com.wasimaster.wmkeyboard.core.prediction.BengaliSpellingMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
+import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import com.wasimaster.wmkeyboard.core.prediction.KeystrokeTiming
 import com.wasimaster.wmkeyboard.core.prediction.Register
 import com.wasimaster.wmkeyboard.core.prediction.RevisionAdvisor
@@ -4066,6 +4067,7 @@ open class WMKeyboardService : InputMethodService() {
                 grammar = GrammarUi(available = grammarAvailable || grammarProbePending()),
                 composingPreview = "",
                 suggestions = emptyList(),
+                octopus = emptyMap(),
                 emojiSuggestions = emptyList(),
                 morsePending = "",
                 // A tool-keyword chip ("wiki") belongs to the field it was
@@ -4228,7 +4230,7 @@ open class WMKeyboardService : InputMethodService() {
             composing = StringBuilder()
             currentInputConnection?.finishComposingText()
             suggestionJob?.cancel()
-            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
+            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap()) }
         }
         // The editor can also finish a composition on its own: a TextWatcher
         // that restyles the text (chat apps marking mentions/markdown) drops
@@ -4450,7 +4452,7 @@ open class WMKeyboardService : InputMethodService() {
             currentInputConnection?.finishComposingText()
             composing = StringBuilder()
             _uiState.update {
-                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
             }
         }
         // A pending morse commit timer must not fire into whatever field the
@@ -5577,7 +5579,7 @@ open class WMKeyboardService : InputMethodService() {
                 ic.endBatchEdit()
                 consumeShift()
                 _uiState.update {
-                    it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+                    it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
                 }
                 return
             }
@@ -5585,7 +5587,7 @@ open class WMKeyboardService : InputMethodService() {
             invalidateExpectedSelection()
             commitTypedCharacter(ic, text)
             consumeShift()
-            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
+            _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap()) }
             if (text.length == 1 && text[0] in SENTENCE_ENDERS) {
                 previousWord = WordContext.SENTENCE_START
                 previousWord2 = null
@@ -5687,6 +5689,7 @@ open class WMKeyboardService : InputMethodService() {
                     it.copy(
                         composingPreview = "",
                         suggestions = emptyList(),
+                        octopus = emptyMap(),
                         emojiSuggestions = emptyList(),
                         inlineEmoji = false,
                     )
@@ -6257,7 +6260,7 @@ open class WMKeyboardService : InputMethodService() {
                     // clearing only the words left a stale emoji row holding
                     // it open.
                     _uiState.update {
-                        it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
+                        it.copy(suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
                     }
                     // Undoing a swipe is the clearest "not that one" there is,
                     // so the stroke goes back through the decoder with the
@@ -6880,7 +6883,7 @@ open class WMKeyboardService : InputMethodService() {
             syncPreviousWordFromField(ic)
             // Both lists; see the gesture-undo path above.
             _uiState.update {
-                it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
+                it.copy(suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
             }
         }
     }
@@ -6996,7 +6999,7 @@ open class WMKeyboardService : InputMethodService() {
         // cursor is the real previous word. Same reasoning as [onDeleteWord].
         syncPreviousWordFromField(ic)
         _uiState.update {
-            it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
+            it.copy(suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
         }
         resetDeleteSwipe()
     }
@@ -8084,7 +8087,7 @@ open class WMKeyboardService : InputMethodService() {
         // longer being composed, so predictions carry on from it.
         if (ic != null) syncPreviousWordFromField(ic)
         _uiState.update {
-            it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+            it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
         }
     }
 
@@ -8103,7 +8106,7 @@ open class WMKeyboardService : InputMethodService() {
         composing = StringBuilder()
         suggestionJob?.cancel()
         _uiState.update {
-            it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+            it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
         }
     }
 
@@ -8149,7 +8152,7 @@ open class WMKeyboardService : InputMethodService() {
             ic.commitText(typed, 1)
             composing = StringBuilder()
             _uiState.update {
-                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
             }
             return true
         }
@@ -8416,7 +8419,7 @@ open class WMKeyboardService : InputMethodService() {
             ?.let { RevertibleCommit(RevertibleCommit.Kind.SNIPPET, original = it, committed = inserted) }
         if (lastRevertible != null) armRevertGuard()
         _uiState.update {
-            it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+            it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
         }
     }
 
@@ -9430,6 +9433,7 @@ open class WMKeyboardService : InputMethodService() {
             it.copy(
                 composingPreview = "",
                 suggestions = emptyList(),
+                octopus = emptyMap(),
                 emojiSuggestions = emptyList(),
                 joinSuggestion = null,
             )
@@ -11200,6 +11204,7 @@ open class WMKeyboardService : InputMethodService() {
             it.copy(
                 composingPreview = "", smart = null,
                 suggestions = emptyList(), emojiSuggestions = emptyList(),
+                octopus = emptyMap(),
             )
         }
         refreshSuggestions()
@@ -11232,6 +11237,7 @@ open class WMKeyboardService : InputMethodService() {
             it.copy(
                 composingPreview = "", smart = null, toolPrefill = hit.prefill,
                 suggestions = emptyList(), emojiSuggestions = emptyList(),
+                octopus = emptyMap(),
             )
         }
     }
@@ -11276,7 +11282,7 @@ open class WMKeyboardService : InputMethodService() {
         if (token.length < EMAIL_FIELD_MIN_PREFIX) {
             _uiState.update {
                 if (it.suggestions.isEmpty()) it
-                else it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
+                else it.copy(suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
             }
             return
         }
@@ -11288,6 +11294,61 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(suggestions = results, emojiSuggestions = emptyList(), inlineEmoji = false)
             }
         }
+    }
+
+    /**
+     * What one suggestion pass produces, all of it worked out off the main
+     * thread. A Triple until the octopus needed a fourth thing, and four
+     * unnamed positions is one too many to read.
+     */
+    private data class SuggestionFrame(
+        val words: List<String>,
+        val emojis: List<String>,
+        val bias: Map<Char, Float>,
+        val octopus: Map<Int, OctopusWord>,
+    )
+
+    /**
+     * The words to float over the keys for this buffer, keyed by the key each
+     * one belongs over (discussion #102).
+     *
+     * Runs inside the suggestion pass's own background block, right after the
+     * strip's own walk, which is what makes it nearly free in the sparse
+     * default: [SuggestionEngine.octopusWords] is handed the same taps and key
+     * sets, so it reads the memoised ranked walk rather than repeating it.
+     *
+     * Off for a conversion or transliterating composer. Both compose through
+     * their own machinery, and on a phonetic board the engine's candidates are
+     * readings of what is already typed rather than words longer than it — so
+     * there is no next key to hang anything off. Bengali wants a roman-side
+     * completion source before it can join in.
+     */
+    private fun octopusFor(
+        state: KeyboardUiState,
+        typed: String,
+        touch: List<TouchPoint?>?,
+        keys: KeySets?,
+        nextWordPool: List<String>? = null,
+    ): Map<Int, OctopusWord> {
+        val octopus = state.settings.octopus
+        if (!octopus.enabled || !state.allowsTypingIntelligence) return emptyMap()
+        if (state.composer.isConversion || state.composer.isTransliterating) return emptyMap()
+        if (state.layoutMode != LayoutMode.LETTERS) return emptyMap()
+        val engine = suggestionEngine ?: return emptyMap()
+        val anchors = state.layouts.keyAnchors(octopus.longPressKeys)
+        if (anchors.isEmpty()) return emptyMap()
+        return engine.octopusWords(
+            composing = typed,
+            previousWord = previousWord,
+            previousWord2 = previousWord2,
+            touch = touch,
+            keys = keys,
+            limit = octopus.density,
+            kinds = octopus.kinds,
+            dense = octopus.dense,
+            nextWordPool = nextWordPool,
+            keyOf = { codePoint -> anchors[codePoint] ?: -1 },
+        ).associateBy { it.keyCodePoint }
     }
 
     private fun refreshSuggestions() {
@@ -11390,7 +11451,7 @@ open class WMKeyboardService : InputMethodService() {
             // precompute actually runs.
             val timingMultiplier = timingMultiplier()
             val recentSnapshot = recentWords.toList()
-            val (results, emojis, bias) = withContext(Dispatchers.Default) {
+            val (results, emojis, bias, floating) = withContext(Dispatchers.Default) {
                 val suggested = engine.suggest(
                     composing = typed,
                     previousWord = previousWord,
@@ -11472,14 +11533,14 @@ open class WMKeyboardService : InputMethodService() {
                     } else {
                         emptyList()
                     }
-                    Triple(words, emojis, bias)
+                    SuggestionFrame(words, emojis, bias, octopusFor(state, typed, touchFrame, keyFrame))
                 } else {
                     // Next-word prediction: learned bigrams can end in an
                     // emoji ("you" → ❤️). Those belong in the emoji slot of
                     // the strip, not among the word chips — and so does the
                     // trigger emoji of the word that just committed.
                     val (emojiNext, wordNext) = words.partition { isEmojiCandidate(it) }
-                    Triple(
+                    SuggestionFrame(
                         wordNext,
                         if (state.settings.emojiPrediction) {
                             (emojiNext + triggerEmojiForPreviousWord()).distinct()
@@ -11487,6 +11548,10 @@ open class WMKeyboardService : InputMethodService() {
                             emptyList()
                         },
                         bias,
+                        // The next-word list is already computed; the octopus
+                        // hangs those same words off their first letters rather
+                        // than asking for them again.
+                        octopusFor(state, typed, touchFrame, keyFrame, nextWordPool = wordNext),
                     )
                 }
             }
@@ -11559,6 +11624,7 @@ open class WMKeyboardService : InputMethodService() {
                     emojiSuggestions = shownEmojis,
                     punctuationSuggestions = punct,
                     nextLetterBias = bias,
+                    octopus = floating,
                     inlineEmoji = false,
                     joinSuggestion = join,
                     revisionSuggestion = revision,
@@ -11687,6 +11753,7 @@ open class WMKeyboardService : InputMethodService() {
                 it.copy(
                     composingPreview = "",
                     suggestions = emptyList(),
+                    octopus = emptyMap(),
                     emojiSuggestions = emptyList(),
                 )
             }
@@ -11739,7 +11806,7 @@ open class WMKeyboardService : InputMethodService() {
             lastRevertible = null
             clearSwapOffer()
             _uiState.update {
-                it.copy(suggestions = emptyList(), emojiSuggestions = emptyList())
+                it.copy(suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
             }
             return
         }
@@ -11799,7 +11866,7 @@ open class WMKeyboardService : InputMethodService() {
             revision = null
             composing = StringBuilder()
             _uiState.update {
-                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList())
+                it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap())
             }
             return
         }
@@ -11873,7 +11940,7 @@ open class WMKeyboardService : InputMethodService() {
         replacedGlideShape?.let { learningBuffer.attachGlide(suggestion, it) }
         replacedGlideShape = null
         composing = StringBuilder()
-        _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList()) }
+        _uiState.update { it.copy(composingPreview = "", suggestions = emptyList(), emojiSuggestions = emptyList(), octopus = emptyMap()) }
         maybeAutoCapitalize()
         refreshSuggestions()
     }
@@ -14297,6 +14364,7 @@ open class WMKeyboardService : InputMethodService() {
                 // Stale candidates from the previous word must not be
                 // tappable while new ink is on the canvas.
                 suggestions = emptyList(),
+                octopus = emptyMap(),
                 emojiSuggestions = emptyList(),
             )
         }
@@ -20014,6 +20082,7 @@ open class WMKeyboardService : InputMethodService() {
             it.copy(
                 composingPreview = "",
                 suggestions = emptyList(),
+                octopus = emptyMap(),
                 emojiSuggestions = emptyList(),
                 morsePending = "",
             )

@@ -30,6 +30,7 @@ import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.DataSaverStatus
+import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import com.wasimaster.wmkeyboard.core.prediction.WordFacts
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.RankControl
@@ -265,6 +266,69 @@ data class LayoutSet(
     }
 
     /**
+     * Every character the letters layer can write, mapped to the anchor code
+     * point of the key that writes it — the octopus's lookup (discussion #102).
+     *
+     * Answers "which key would type this next character", which is the whole of
+     * the octopus's promise: a word floats over the key that continues it, and
+     * a character with no key here simply does not get a word.
+     *
+     * The same three passes and the same spelling helpers as [glideKeys], so
+     * composed and decomposed spellings (ড়, ঢ়, য়), combining marks and letters
+     * outside the BMP all resolve to a key. Base and shift always; long presses
+     * only when [longPress] asks, because a press of that key would not produce
+     * the character and a word promising otherwise is a lie about the key.
+     *
+     * Earlier passes win, matching [glideKeys]: a character that is one key's
+     * base label and another's long-press alternate belongs to the key that
+     * shows it.
+     *
+     * `by lazy` rather than a constructor property, unlike its two neighbours:
+     * the octopus is off by default and a board that never draws it should not
+     * pay for this, and a lazy field stays out of equals/hashCode/copy.
+     */
+    fun keyAnchors(longPress: Boolean): Map<Int, Int> =
+        if (longPress) anchorsWithLongPress else anchorsByPress
+
+    private val anchorsByPress: Map<Int, Int> by lazy { buildKeyAnchors(longPress = false) }
+    private val anchorsWithLongPress: Map<Int, Int> by lazy { buildKeyAnchors(longPress = true) }
+
+    private fun buildKeyAnchors(longPress: Boolean): Map<Int, Int> {
+        val out = HashMap<Int, Int>()
+        fun claim(spelling: String?, anchor: Int) {
+            val label = spelling ?: return
+            fun put(codePoint: Int) = out.putIfAbsent(codePoint, anchor)
+            keySpelling(label)?.forEach(::put) ?: return
+            composedKeyChar(label)?.let { put(it.code) }
+            decomposedKeyChars(label)?.forEach { put(it.code) }
+        }
+        val passes = if (longPress) PASSES else LONG_PRESS_PASS
+        for (pass in 0 until passes) {
+            for (row in letters.rows) {
+                for (key in row) {
+                    if (key.action != KeyAction.Text) continue
+                    val anchor = key.glideAnchor() ?: continue
+                    when (pass) {
+                        // An ambiguous key's whole set answers to its one
+                        // anchor, so a word continuing with any letter of a T9
+                        // key floats over that key.
+                        BASE_PASS -> if (key.isAmbiguous()) {
+                            for (letter in key.letterSet()) {
+                                out.putIfAbsent(Character.toLowerCase(letter.code), anchor)
+                            }
+                        } else {
+                            claim(key.output ?: key.label, anchor)
+                        }
+                        SHIFT_PASS -> claim(key.shiftLabel, anchor)
+                        else -> for (alternate in key.longPress) claim(alternate, anchor)
+                    }
+                }
+            }
+        }
+        return out
+    }
+
+    /**
      * Whether the letters grid puts more than one letter on a key, so a tap
      * cannot say which of them was meant and the decoder has to read the
      * keystrokes as key sets rather than as characters (discussion #103).
@@ -359,6 +423,9 @@ data class LayoutSet(
         /** Base labels, then shifted, then long presses — see [glideKeys]. */
         private const val BASE_PASS = 0
         private const val SHIFT_PASS = 1
+
+        /** Where the long-press pass begins, and so how many passes precede it. */
+        private const val LONG_PRESS_PASS = 2
         private const val PASSES = 3
 
         /** The shipped grids, for a state built before the first resolution. */
@@ -1749,6 +1816,21 @@ data class KeyboardUiState(
      * off, the field is not composing, or nothing is predicted.
      */
     val nextLetterBias: Map<Char, Float> = emptyMap(),
+    /**
+     * The word floating over each key: the prediction a press of that key is on
+     * its way to (discussion #102). Keyed by the key's anchor code point — an
+     * Int, not a Char, so a letter outside the BMP is one key and not two
+     * halves of a surrogate pair.
+     *
+     * At most one word per key, and no word appears twice. Empty when the
+     * octopus is off, in a conversion or transliterating composer, off the
+     * letters layer, or when nothing is confident enough to float.
+     *
+     * Read by the overlay and by the flick, never by a key — see [KeyVisual].
+     * It changes on every keystroke, so a key that read it would cost the whole
+     * board the recomposition skip that class exists to buy.
+     */
+    val octopus: Map<Int, OctopusWord> = emptyMap(),
     /** Text-edit panel: arrows extend the selection instead of moving the cursor. */
     val textEditSelecting: Boolean = false,
     /**
