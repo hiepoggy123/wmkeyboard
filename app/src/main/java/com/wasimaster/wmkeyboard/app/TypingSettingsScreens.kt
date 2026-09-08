@@ -21,6 +21,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
+import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
 import com.wasimaster.wmkeyboard.core.settings.BackspaceSwipeUnit
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
@@ -71,6 +72,9 @@ import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerDwellMsRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerSensitivity
 import com.wasimaster.wmkeyboard.core.settings.GlideVocabulary
+import com.wasimaster.wmkeyboard.core.settings.OctopusFlickSensitivity
+import com.wasimaster.wmkeyboard.core.settings.OctopusPlacement
+import com.wasimaster.wmkeyboard.core.settings.OctopusSettings
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.LanguageDetectionStrength
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -628,6 +632,7 @@ internal fun TypingSuggestionsSettings(
     onOpenCustomDictionaries: () -> Unit,
     onOpenBlacklist: () -> Unit,
     onOpenAutopilot: () -> Unit,
+    onOpenOctopus: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     SettingsGroup(stringResource(R.string.typing_group_suggestions_title)) {
@@ -868,6 +873,14 @@ internal fun TypingSuggestionsSettings(
         }
         item {
             NavRow(
+                R.string.typing_group_octopus_title,
+                stringResource(R.string.typing_group_octopus_subtitle),
+                route = "typing/octopus",
+                onClick = onOpenOctopus,
+            )
+        }
+        item {
+            NavRow(
                 R.string.typing_personal_dictionary_title,
                 stringResource(R.string.typing_personal_dictionary_subtitle),
                 route = "dictionary",
@@ -1011,6 +1024,137 @@ internal fun TypingAutopilotSettings(
                     info = stringResource(R.string.typing_autopilot_outline_info),
                     default = SettingsDefaults.layoutBehavior.autopilotOutline,
                 ) { scope.launch { repository.setAutopilotOutline(it) } }
+            }
+        }
+    }
+}
+
+/**
+ * The octopus (discussion #102): a predicted word drawn over the key that would
+ * reach it, and the two gestures that take it.
+ *
+ * Its own page for the same reason autopilot has one — every row below the
+ * first is meaningless with the feature off, and the suggestions page is full.
+ */
+@Composable
+internal fun TypingOctopusSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val octopus = settings.octopus
+    SettingsGroup {
+        item {
+            ToggleSetting(
+                R.string.typing_octopus_enabled_title,
+                stringResource(R.string.typing_octopus_enabled_subtitle),
+                octopus.enabled,
+                info = stringResource(R.string.typing_octopus_enabled_info),
+                default = SettingsDefaults.octopus.enabled,
+            ) { scope.launch { repository.setOctopusEnabled(it) } }
+        }
+        if (octopus.enabled) {
+            item {
+                ChoiceSetting(
+                    R.string.typing_octopus_placement_title,
+                    subtitle = stringResource(R.string.typing_octopus_placement_subtitle),
+                    info = stringResource(R.string.typing_octopus_placement_info),
+                    options = OctopusPlacement.entries.map { it to stringResource(it.labelRes) },
+                    selected = octopus.placement,
+                    default = SettingsDefaults.octopus.placement,
+                ) { scope.launch { repository.setOctopusPlacement(it) } }
+            }
+            item {
+                SliderSetting(
+                    R.string.typing_octopus_density_title,
+                    subtitle = stringResource(R.string.typing_octopus_density_subtitle),
+                    value = octopus.density.toFloat(),
+                    range = OctopusSettings.MIN_DENSITY.toFloat()..
+                        OctopusSettings.MAX_DENSITY.toFloat(),
+                    display = { context.getString(R.string.values_number, it.toInt()) },
+                    info = stringResource(R.string.typing_octopus_density_info),
+                    default = SettingsDefaults.octopus.density.toFloat(),
+                ) { scope.launch { repository.setOctopusDensity(it.toInt()) } }
+            }
+            item {
+                MultiChoiceSetting(
+                    R.string.typing_octopus_kinds_title,
+                    subtitle = stringResource(R.string.typing_octopus_kinds_subtitle),
+                    info = stringResource(R.string.typing_octopus_kinds_info),
+                    options = listOf(
+                        OctopusKind.COMPLETION to
+                            stringResource(R.string.typing_octopus_kind_completion),
+                        OctopusKind.CORRECTION to
+                            stringResource(R.string.typing_octopus_kind_correction),
+                        OctopusKind.NEXT_WORD to
+                            stringResource(R.string.typing_octopus_kind_next_word),
+                    ),
+                    selected = octopus.kinds,
+                    default = SettingsDefaults.octopus.kinds,
+                ) { scope.launch { repository.setOctopusKinds(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_octopus_flick_title,
+                    stringResource(R.string.typing_octopus_flick_subtitle),
+                    octopus.flickCommits,
+                    info = stringResource(R.string.typing_octopus_flick_info),
+                    default = SettingsDefaults.octopus.flickCommits,
+                ) { scope.launch { repository.setOctopusFlickCommits(it) } }
+            }
+            if (octopus.flickCommits) {
+                item {
+                    ChoiceSetting(
+                        R.string.typing_octopus_sensitivity_title,
+                        subtitle = stringResource(R.string.typing_octopus_sensitivity_subtitle),
+                        info = stringResource(R.string.typing_octopus_sensitivity_info),
+                        options = OctopusFlickSensitivity.entries.map {
+                            it to stringResource(it.labelRes)
+                        },
+                        selected = octopus.flickSensitivity,
+                        default = SettingsDefaults.octopus.flickSensitivity,
+                    ) { scope.launch { repository.setOctopusFlickSensitivity(it) } }
+                }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_octopus_tap_title,
+                    stringResource(R.string.typing_octopus_tap_subtitle),
+                    octopus.tapCommits,
+                    info = stringResource(R.string.typing_octopus_tap_info),
+                    default = SettingsDefaults.octopus.tapCommits,
+                ) { scope.launch { repository.setOctopusTapCommits(it) } }
+            }
+            item {
+                val valueFormat = stringResource(R.string.typing_value_multiplier_prefix)
+                SliderSetting(
+                    R.string.typing_octopus_size_title,
+                    subtitle = stringResource(R.string.typing_octopus_size_subtitle),
+                    value = octopus.fontScale,
+                    range = OctopusSettings.FONT_SCALE_RANGE,
+                    display = { valueFormat.format("%.1f".format(it)) },
+                    info = stringResource(R.string.typing_octopus_size_info),
+                    default = SettingsDefaults.octopus.fontScale,
+                ) { scope.launch { repository.setOctopusFontScale(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_octopus_hints_title,
+                    stringResource(R.string.typing_octopus_hints_subtitle),
+                    octopus.suppressHints,
+                    info = stringResource(R.string.typing_octopus_hints_info),
+                    default = SettingsDefaults.octopus.suppressHints,
+                ) { scope.launch { repository.setOctopusSuppressHints(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_octopus_long_press_title,
+                    stringResource(R.string.typing_octopus_long_press_subtitle),
+                    octopus.longPressKeys,
+                    info = stringResource(R.string.typing_octopus_long_press_info),
+                    default = SettingsDefaults.octopus.longPressKeys,
+                ) { scope.launch { repository.setOctopusLongPressKeys(it) } }
             }
         }
     }

@@ -64,6 +64,7 @@ internal object SettingsRoutes {
         "typing/corrections",
         "typing/suggestions",
         "typing/autopilot",
+        "typing/octopus",
         "typing/chips",
         "typing/codes",
         "typing/gestures",

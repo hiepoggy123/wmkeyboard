@@ -448,6 +448,7 @@ internal object SettingsRouteIcons {
         "typing/corrections" to { Icons.Outlined.Spellcheck },
         "typing/suggestions" to { Icons.Outlined.Lightbulb },
         "typing/autopilot" to { Icons.Outlined.AdsClick },
+        "typing/octopus" to { Icons.Outlined.Keyboard },
         "typing/chips" to { Icons.Outlined.AutoAwesome },
         "typing/codes" to { Icons.Outlined.Password },
         "typing/gestures" to { Icons.Outlined.Gesture },

@@ -156,4 +156,13 @@
     <string name="core_settings_glide_picker_any_doubt_label">Any doubt</string>
     <string name="core_settings_glide_picker_every_pause_label">Every pause</string>
 
+    <!-- Octopus: where a floating word is drawn (discussion #102). -->
+    <string name="core_settings_octopus_placement_float_label">Above the key</string>
+    <string name="core_settings_octopus_placement_strip_label">Own lane</string>
+    <string name="core_settings_octopus_placement_in_key_label">Inside the key</string>
+    <!-- Octopus: how readily an up-flick picks a word rather than starting a glide. -->
+    <string name="core_settings_octopus_flick_strict_label">Strict</string>
+    <string name="core_settings_octopus_flick_balanced_label">Balanced</string>
+    <string name="core_settings_octopus_flick_relaxed_label">Relaxed</string>
+
 </resources>

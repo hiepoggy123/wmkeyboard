@@ -196,6 +196,53 @@
     <string name="typing_group_autopilot_title">Autopilot</string>
     <string name="typing_group_autopilot_subtitle">Widen the touch area of the letters you type next</string>
 
+    <string name="typing_group_octopus_title">Words on the keys</string>
+    <string name="typing_group_octopus_subtitle">Float the next word over the key that would reach it</string>
+
+    <string name="typing_octopus_enabled_title">Words on the keys</string>
+    <string name="typing_octopus_enabled_subtitle">Float a predicted word over the key you would press next</string>
+    <string name="typing_octopus_enabled_info">The keyboard writes a small word above the key that would carry on the word you are typing. With \"hel\" typed, \"hello\" sits over the l, \"help\" over the p. Flick up on that key, or tap the word itself, and the whole word is written. After a space the keyboard offers whole next words above their first letters instead. The suggestion strip keeps working as before; this only adds to it. The BlackBerry Z10 typed this way, and it is what the Octopus keyboard copied.</string>
+
+    <string name="typing_octopus_placement_title">Where the words sit</string>
+    <string name="typing_octopus_placement_subtitle">Above the key, in a lane of their own, or inside the key</string>
+    <string name="typing_octopus_placement_info">Above the key puts each word in the gap over its key, half on the key and half above it, and the keyboard stays the same height. Own lane gives every row a strip of its own so nothing overlaps anything, and the keyboard grows a little taller. Inside the key writes the word over the letter, which never overlaps but leaves both very little room.</string>
+
+    <string name="typing_octopus_density_title">How many words</string>
+    <string name="typing_octopus_density_subtitle">How many words may sit on the keys at once</string>
+    <string name="typing_octopus_density_info">At 3 or 4 only the words the keyboard is confident about appear, which is how the BlackBerry did it, and the board often stays empty. Higher values fill more keys, and past 9 the keyboard looks up a word for every key it can, which is how the Octopus keyboard did it. The board never shows a word it cannot fit; a key too narrow for the word is left bare.</string>
+
+    <string name="typing_octopus_kinds_title">What may appear</string>
+    <string name="typing_octopus_kinds_subtitle">Which kinds of guess are allowed onto the keys</string>
+    <string name="typing_octopus_kinds_info">Completions carry on the word you are typing. Corrections fix it, and sit over the key where the word stops matching what you typed, so they are drawn in a different colour. Next words appear after a space, above their first letters, before you have typed anything. Turning all three off leaves the keys bare, the same as turning the whole feature off.</string>
+
+    <string name="typing_octopus_kind_completion">Completions</string>
+    <string name="typing_octopus_kind_correction">Corrections</string>
+    <string name="typing_octopus_kind_next_word">Next words</string>
+
+    <string name="typing_octopus_flick_title">Flick up to pick</string>
+    <string name="typing_octopus_flick_subtitle">A quick upward flick off a key writes its word</string>
+    <string name="typing_octopus_flick_info">Flick up from a key carrying a word and the whole word is written. The flick has to be quick and close to straight up; anything slower or more sideways is treated as the start of a glide, so glide typing keeps working. A flick that misses simply types the letter.</string>
+
+    <string name="typing_octopus_tap_title">Tap the word to pick</string>
+    <string name="typing_octopus_tap_subtitle">Tapping the small word itself writes it</string>
+    <string name="typing_octopus_tap_info">Tap directly on a floating word to write it. This is easier to find than the flick, but the words are small targets. Words on the top row hang partly above the keyboard, and only the half over the key can be tapped; the flick works on all of them.</string>
+
+    <string name="typing_octopus_sensitivity_title">Flick sensitivity</string>
+    <string name="typing_octopus_sensitivity_subtitle">How readily an upward flick counts as picking a word</string>
+    <string name="typing_octopus_sensitivity_info">Strict asks for an unmistakably vertical, quick flick, which is what you want if you glide a lot and find your swipes being taken as picks. Relaxed accepts a looser flick, which suits a keyboard with glide typing switched off, where almost nothing else claims an upward stroke. Balanced sits between the two, and its cone matches the one the glide word picker already uses.</string>
+
+    <string name="typing_octopus_size_title">Word size</string>
+    <string name="typing_octopus_size_subtitle">How large the floating words are drawn</string>
+    <string name="typing_octopus_size_info">A multiple of the size the small corner hints use. Larger words are easier to read but overlap their neighbours sooner, and a word that no longer fits over its key is dropped rather than shortened past reading.</string>
+
+    <string name="typing_octopus_hints_title">Hide the corner hint</string>
+    <string name="typing_octopus_hints_subtitle">A key carrying a word drops its long-press hint</string>
+    <string name="typing_octopus_hints_info">The small character in a key\'s top corner and a floating word are close enough together to read as one thing. With this on, a key showing a word hides its corner hint for as long as the word is there; keys with nothing to say keep theirs.</string>
+
+    <string name="typing_octopus_long_press_title">Long-press characters too</string>
+    <string name="typing_octopus_long_press_subtitle">Allow words that need a long press to reach their next letter</string>
+    <string name="typing_octopus_long_press_info">Off by default. A word floating over a key promises that pressing that key writes the next part of it, and a character you can only reach by holding the key breaks that promise. Turning this on reaches more words, at the cost of some keys offering a word that a press alone will not finish.</string>
+
     <string name="typing_smart_hit_detection_title">Autopilot</string>
     <string name="typing_smart_hit_detection_subtitle">Quietly widen the touch area of letters you are likely to type next</string>
     <string name="typing_smart_hit_detection_info">As you type a word, the word list predicts the letters that come next. The keyboard makes the touch area of each key larger toward those letters. A press that lands just inside the key next to it still gives the letter you wanted, but only near the shared edge. The keyboard never changes a press in the middle of a key. This works on the letters layer only, and it needs Suggestions on.</string>

@@ -619,6 +619,7 @@ private fun SettingsNavGraph(
                     onOpenCustomDictionaries = { navController.navigate("customdictionaries") },
                     onOpenBlacklist = { navController.navigate("blacklist") },
                     onOpenAutopilot = { navController.navigate("typing/autopilot") },
+                    onOpenOctopus = { navController.navigate("typing/octopus") },
                 )
             }
         }
@@ -629,6 +630,15 @@ private fun SettingsNavGraph(
                 route = "typing/autopilot",
             ) {
                 TypingAutopilotSettings(repository, settings)
+            }
+        }
+        composable("typing/octopus") {
+            SettingsScreen(
+                stringResource(R.string.typing_group_octopus_title),
+                { navController.popBackStack() },
+                route = "typing/octopus",
+            ) {
+                TypingOctopusSettings(repository, settings)
             }
         }
         composable("typing/chips") {

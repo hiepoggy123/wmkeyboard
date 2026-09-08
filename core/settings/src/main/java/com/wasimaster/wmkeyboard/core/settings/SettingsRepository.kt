@@ -31,6 +31,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinFuzzy
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
+import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
 import com.wasimaster.wmkeyboard.prediction.R as PredictionR
@@ -1748,6 +1749,11 @@ data class KeyboardSettings(
     val longPressHints: Boolean = true,
     /** Assorted layout & gesture behaviours (see [LayoutBehaviorSettings]). */
     val layoutBehavior: LayoutBehaviorSettings = LayoutBehaviorSettings(),
+    /**
+     * A predicted word over the key that would reach it, picked by flicking up
+     * on that key (see [OctopusSettings]). Off by default.
+     */
+    val octopus: OctopusSettings = OctopusSettings(),
     /** Long-pressing A selects all text in the field. */
     /**
      * Send Ctrl+A/C/V/X to the app as raw key events instead of using the
@@ -4846,6 +4852,18 @@ private fun encodeNumeralSystems(map: Map<String, NumeralSystem>): String =
         .filter { it.key.isNotEmpty() && it.value != NumeralSystem.AUTO }
         .joinToString(";") { (language, system) -> "$language=${system.name}" }
 
+/**
+ * The octopus's allowed candidate kinds, newline-separated like every other
+ * stored list. An empty stored value is a real answer — the user unticked
+ * everything, which is a slower way of turning the feature off — so it is kept
+ * rather than falling back to the default set.
+ */
+private fun decodeOctopusKinds(raw: String): Set<OctopusKind> =
+    raw.split('\n')
+        .filter { it.isNotEmpty() }
+        .mapNotNull { runCatching { OctopusKind.valueOf(it) }.getOrNull() }
+        .toSet()
+
 private fun decodeNumeralSystems(raw: String): Map<String, NumeralSystem> =
     raw.split(';')
         .filter { it.isNotEmpty() }
@@ -5205,6 +5223,16 @@ class SettingsRepository(private val context: Context) {
         private val AUTOPILOT_STRENGTH = intPreferencesKey("autopilot_strength")
         private val AUTOPILOT_SHOW_EFFECT = booleanPreferencesKey("autopilot_show_effect")
         private val AUTOPILOT_OUTLINE = booleanPreferencesKey("autopilot_outline")
+        private val OCTOPUS_ENABLED = booleanPreferencesKey("octopus_enabled")
+        private val OCTOPUS_PLACEMENT = stringPreferencesKey("octopus_placement")
+        private val OCTOPUS_DENSITY = intPreferencesKey("octopus_density")
+        private val OCTOPUS_KINDS = stringPreferencesKey("octopus_kinds")
+        private val OCTOPUS_FLICK_COMMITS = booleanPreferencesKey("octopus_flick_commits")
+        private val OCTOPUS_TAP_COMMITS = booleanPreferencesKey("octopus_tap_commits")
+        private val OCTOPUS_FLICK_SENSITIVITY = stringPreferencesKey("octopus_flick_sensitivity")
+        private val OCTOPUS_FONT_SCALE = floatPreferencesKey("octopus_font_scale")
+        private val OCTOPUS_SUPPRESS_HINTS = booleanPreferencesKey("octopus_suppress_hints")
+        private val OCTOPUS_LONG_PRESS_KEYS = booleanPreferencesKey("octopus_long_press_keys")
         private val AUTOPILOT_VISUAL_SCALE = floatPreferencesKey("autopilot_visual_scale")
         private val SPACEBAR_DISPLAY = stringPreferencesKey("spacebar_display")
         private val NUMERAL_SYSTEM_BY_LANG = stringPreferencesKey("numeral_system_by_lang")
@@ -6464,6 +6492,22 @@ class SettingsRepository(private val context: Context) {
                 startDelayMs = p[KEY_REPEAT_START_DELAY] ?: defaults.keyRepeat.startDelayMs,
             ),
             longPressHints = p[LONG_PRESS_HINTS] ?: defaults.longPressHints,
+            octopus = OctopusSettings(
+                enabled = p[OCTOPUS_ENABLED] ?: defaults.octopus.enabled,
+                placement = p[OCTOPUS_PLACEMENT]
+                    ?.let { runCatching { OctopusPlacement.valueOf(it) }.getOrNull() }
+                    ?: defaults.octopus.placement,
+                density = p[OCTOPUS_DENSITY] ?: defaults.octopus.density,
+                kinds = p[OCTOPUS_KINDS]?.let(::decodeOctopusKinds) ?: defaults.octopus.kinds,
+                flickCommits = p[OCTOPUS_FLICK_COMMITS] ?: defaults.octopus.flickCommits,
+                tapCommits = p[OCTOPUS_TAP_COMMITS] ?: defaults.octopus.tapCommits,
+                flickSensitivity = p[OCTOPUS_FLICK_SENSITIVITY]
+                    ?.let { runCatching { OctopusFlickSensitivity.valueOf(it) }.getOrNull() }
+                    ?: defaults.octopus.flickSensitivity,
+                fontScale = p[OCTOPUS_FONT_SCALE] ?: defaults.octopus.fontScale,
+                suppressHints = p[OCTOPUS_SUPPRESS_HINTS] ?: defaults.octopus.suppressHints,
+                longPressKeys = p[OCTOPUS_LONG_PRESS_KEYS] ?: defaults.octopus.longPressKeys,
+            ),
             layoutBehavior = LayoutBehaviorSettings(
                 symbolsLongPressNumpad =
                     p[SYMBOLS_LONGPRESS_NUMPAD] ?: defaults.layoutBehavior.symbolsLongPressNumpad,
@@ -10331,6 +10375,44 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSmartHitDetection(value: Boolean) =
         editPrefs { it[SMART_HIT_DETECTION] = value }
+
+    suspend fun setOctopusEnabled(value: Boolean) =
+        editPrefs { it[OCTOPUS_ENABLED] = value }
+
+    suspend fun setOctopusPlacement(value: OctopusPlacement) =
+        editPrefs { it[OCTOPUS_PLACEMENT] = value.name }
+
+    suspend fun setOctopusDensity(value: Int) = editPrefs {
+        it[OCTOPUS_DENSITY] =
+            value.coerceIn(OctopusSettings.MIN_DENSITY, OctopusSettings.MAX_DENSITY)
+    }
+
+    suspend fun setOctopusKinds(value: Set<OctopusKind>) = editPrefs {
+        // Written even when empty: unticking everything is the user saying the
+        // board should stay bare, not asking for the defaults back.
+        it[OCTOPUS_KINDS] = value.joinToString("\n") { kind -> kind.name }
+    }
+
+    suspend fun setOctopusFlickCommits(value: Boolean) =
+        editPrefs { it[OCTOPUS_FLICK_COMMITS] = value }
+
+    suspend fun setOctopusTapCommits(value: Boolean) =
+        editPrefs { it[OCTOPUS_TAP_COMMITS] = value }
+
+    suspend fun setOctopusFlickSensitivity(value: OctopusFlickSensitivity) =
+        editPrefs { it[OCTOPUS_FLICK_SENSITIVITY] = value.name }
+
+    suspend fun setOctopusFontScale(value: Float) = editPrefs {
+        it[OCTOPUS_FONT_SCALE] = value.coerceIn(
+            OctopusSettings.FONT_SCALE_RANGE.start, OctopusSettings.FONT_SCALE_RANGE.endInclusive,
+        )
+    }
+
+    suspend fun setOctopusSuppressHints(value: Boolean) =
+        editPrefs { it[OCTOPUS_SUPPRESS_HINTS] = value }
+
+    suspend fun setOctopusLongPressKeys(value: Boolean) =
+        editPrefs { it[OCTOPUS_LONG_PRESS_KEYS] = value }
 
     suspend fun setAutopilotStrength(value: Int) =
         editPrefs { it[AUTOPILOT_STRENGTH] = value.coerceIn(1, 10) }

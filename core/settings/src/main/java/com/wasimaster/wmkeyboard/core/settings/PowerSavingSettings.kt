@@ -85,6 +85,13 @@ data class PowerSavingSettings(
     val dropAnimations: Boolean = true,
     /** Stop drawing the comet trail behind a glide. */
     val dropGlideTrail: Boolean = true,
+    /**
+     * Stop floating predicted words over the keys (the octopus). On by default:
+     * it predicts and redraws across the whole board on every keystroke, which
+     * is exactly the kind of work a flat battery wants back, and the suggestion
+     * strip is still saying the same thing.
+     */
+    val dropOctopus: Boolean = true,
     /** Stop drawing the character bubble over each pressed key. Off by default — it is cheap. */
     val dropKeyPopup: Boolean = false,
     /**
@@ -147,6 +154,7 @@ data class PowerSavingSettings(
     val dropsAnything: Boolean
         get() = dropHaptics || dropKeySound || dropAnimations || dropGlideTrail ||
             dropKeyPopup || dropGestureTyping || dropEmojiPrediction || dropSmartChips ||
+            dropOctopus ||
             dropBackgroundNetwork || dropScreenshotWatch || dropOnDeviceModels ||
             dropTypingStats || dropMediaPin
 }
@@ -178,6 +186,7 @@ fun KeyboardSettings.underPowerSaving(): KeyboardSettings {
         // while the per-frame overlay stops.
         gesture = if (ps.dropGlideTrail) gesture.copy(trailOpacity = 0f) else gesture,
         gestureTyping = if (ps.dropGestureTyping) false else gestureTyping,
+        octopus = if (ps.dropOctopus) octopus.copy(enabled = false) else octopus,
         emojiPrediction = if (ps.dropEmojiPrediction) false else emojiPrediction,
         smartSuggestions = if (ps.dropSmartChips) false else smartSuggestions,
         clipboard = clipboard.copy(

@@ -301,6 +301,7 @@ private fun SearchStrings.typingSuggestionsRows(): List<SettingsSearchEntry> {
         row(R.string.typing_inline_autofill_title, R.string.typing_inline_autofill_subtitle),
         row(R.string.typing_smart_replies_title, R.string.typing_smart_replies_subtitle),
         row(R.string.typing_group_autopilot_title, R.string.typing_group_autopilot_subtitle),
+        row(R.string.typing_group_octopus_title, R.string.typing_group_octopus_subtitle),
         row(R.string.typing_word_menu_title, R.string.typing_word_menu_subtitle),
         row(R.string.typing_rank_control_title, R.string.typing_rank_control_subtitle),
     )
@@ -318,6 +319,26 @@ private fun SearchStrings.typingAutopilotRows(): List<SettingsSearchEntry> {
         row(R.string.typing_autopilot_show_title, R.string.typing_autopilot_show_subtitle),
         row(R.string.typing_autopilot_size_title, R.string.typing_autopilot_size_subtitle),
         row(R.string.typing_autopilot_outline_title, R.string.typing_autopilot_outline_subtitle),
+    )
+}
+
+/** Rows on the typing/octopus page, in screen order. */
+private fun SearchStrings.typingOctopusRows(): List<SettingsSearchEntry> {
+    fun row(@StringRes title: Int, @StringRes subtitle: Int = 0, weight: EntryWeight = EntryWeight.NORMAL) = entry(
+        title, subtitle, R.string.typing_group_octopus_title, "typing/octopus", screenParent = R.string.home_typing_title,
+        weight = weight,
+    )
+    return listOf(
+        row(R.string.typing_octopus_enabled_title, R.string.typing_octopus_enabled_subtitle, weight = EntryWeight.PRIMARY),
+        row(R.string.typing_octopus_placement_title, R.string.typing_octopus_placement_subtitle),
+        row(R.string.typing_octopus_density_title, R.string.typing_octopus_density_subtitle),
+        row(R.string.typing_octopus_kinds_title, R.string.typing_octopus_kinds_subtitle),
+        row(R.string.typing_octopus_flick_title, R.string.typing_octopus_flick_subtitle),
+        row(R.string.typing_octopus_sensitivity_title, R.string.typing_octopus_sensitivity_subtitle),
+        row(R.string.typing_octopus_tap_title, R.string.typing_octopus_tap_subtitle),
+        row(R.string.typing_octopus_size_title, R.string.typing_octopus_size_subtitle),
+        row(R.string.typing_octopus_hints_title, R.string.typing_octopus_hints_subtitle),
+        row(R.string.typing_octopus_long_press_title, R.string.typing_octopus_long_press_subtitle),
     )
 }
 
@@ -1538,6 +1559,10 @@ private fun SearchStrings.sectionRows(): List<SettingsSearchEntry> {
             R.string.home_typing_title, "typing/autopilot",
         ),
         under(
+            R.string.typing_group_octopus_title, R.string.typing_group_octopus_subtitle,
+            R.string.home_typing_title, "typing/octopus",
+        ),
+        under(
             R.string.typing_group_smart_chips_title, R.string.typing_group_smart_chips_subtitle,
             R.string.home_typing_title, "typing/chips",
         ),
@@ -1782,6 +1807,7 @@ internal fun settingsSearchIndex(strings: SearchStrings): List<SettingsSearchEnt
         typingCorrectionsRows() +
         typingSuggestionsRows() +
         typingAutopilotRows() +
+        typingOctopusRows() +
         typingChipsRows() +
         typingCodesRows() +
         typingGesturesRows() +

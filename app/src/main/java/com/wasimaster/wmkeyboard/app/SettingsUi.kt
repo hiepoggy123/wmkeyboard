@@ -209,6 +209,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "typing/corrections" to Color(0xFF42A5F5),
     "typing/suggestions" to Color(0xFF42A5F5),
     "typing/autopilot" to Color(0xFF42A5F5),
+    "typing/octopus" to Color(0xFF29B6F6),
     "typing/chips" to Color(0xFF42A5F5),
     "typing/codes" to Color(0xFF42A5F5),
     "typing/gestures" to Color(0xFF42A5F5),

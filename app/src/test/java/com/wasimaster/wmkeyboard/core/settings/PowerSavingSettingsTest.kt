@@ -61,9 +61,26 @@ class PowerSavingSettingsTest {
                 dropHaptics = false, dropKeySound = false, dropAnimations = false,
                 dropGlideTrail = false, dropKeyPopup = false, dropGestureTyping = false,
                 dropEmojiPrediction = false, dropSmartChips = false,
+                dropOctopus = false,
                 dropBackgroundNetwork = false, dropScreenshotWatch = false,
                 dropOnDeviceModels = false, dropMediaPin = false,
             ).dropsAnything,
+        )
+    }
+
+    @Test
+    fun `power saving takes back the words on the keys`() {
+        val on = KeyboardSettings(octopus = OctopusSettings(enabled = true, density = 12))
+        val saving = on.underPowerSaving()
+        assertFalse("the octopus is off", saving.octopus.enabled)
+        assertEquals(
+            "and nothing else about it is rewritten, so the charger brings it back as it was",
+            12, saving.octopus.density,
+        )
+        assertTrue(
+            "opting out keeps it",
+            on.copy(powerSaving = PowerSavingSettings(dropOctopus = false))
+                .underPowerSaving().octopus.enabled,
         )
     }
 
