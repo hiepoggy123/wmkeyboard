@@ -80,6 +80,7 @@ import com.wasimaster.wmkeyboard.core.settings.OctopusPlacement
 import com.wasimaster.wmkeyboard.core.settings.OctopusSettings
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.settings.LanguageDetectionStrength
+import kotlinx.coroutines.CoroutineScope
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.isUsableTool
@@ -1600,46 +1601,10 @@ internal fun TypingGesturesSettings(
                         default = SettingsDefaults.gesture.vocabulary,
                     )
                 }
-                // Whose words a swipe may answer with — the same question as
-                // the row above, asked on the other axis.
-                item {
-                    ChoiceSetting(
-                        title = R.string.typing_glide_sandbox_title,
-                        subtitle = stringResource(R.string.typing_glide_sandbox_subtitle),
-                        info = stringResource(R.string.typing_glide_sandbox_info),
-                        options = GlideSandbox.entries.map { it to stringResource(it.labelRes) },
-                        selected = settings.gesture.sandbox,
-                        onChange = { scope.launch { repository.setGestureSandbox(it) } },
-                        default = SettingsDefaults.gesture.sandbox,
-                    )
-                }
-                // How hard the word shown mid-stroke resists being replaced.
-                item {
-                    ChoiceSetting(
-                        title = R.string.typing_glide_steadiness_title,
-                        subtitle = stringResource(R.string.typing_glide_steadiness_subtitle),
-                        info = stringResource(R.string.typing_glide_steadiness_info),
-                        options = GlidePreviewSteadiness.entries.map {
-                            it to stringResource(it.labelRes)
-                        },
-                        selected = settings.gesture.previewSteadiness,
-                        onChange = { scope.launch { repository.setGesturePreviewSteadiness(it) } },
-                        default = SettingsDefaults.gesture.previewSteadiness,
-                    )
-                }
-                // Whether a glide may offer a word the stroke has not finished
-                // spelling — the tap typist's head start, for a swipe.
-                item {
-                    ChoiceSetting(
-                        title = R.string.typing_glide_lookahead_title,
-                        subtitle = stringResource(R.string.typing_glide_lookahead_subtitle),
-                        info = stringResource(R.string.typing_glide_lookahead_info),
-                        options = GlideLookAhead.entries.map { it to stringResource(it.labelRes) },
-                        selected = settings.gesture.lookAhead,
-                        onChange = { scope.launch { repository.setGestureLookAhead(it) } },
-                        default = SettingsDefaults.gesture.lookAhead,
-                    )
-                }
+                // The three questions about *what a swipe may answer with*,
+                // kept together and out of line: this screen's body is already
+                // past its length budget and these belong to one another.
+                glideVocabularyRows(settings, repository, scope)
                 item {
                     ToggleSetting(
                         R.string.typing_space_after_glide_title,
@@ -2559,4 +2524,57 @@ private fun suggestionHotkeyDescRes(mode: SuggestionHotkeyMode): Int = when (mod
     SuggestionHotkeyMode.OFF -> R.string.typing_hw_suggestion_hotkeys_off_desc
     SuggestionHotkeyMode.LEADER_DIGIT -> R.string.typing_hw_suggestion_hotkeys_leader_desc
     SuggestionHotkeyMode.ALT_DIGIT -> R.string.typing_hw_suggestion_hotkeys_alt_desc
+}
+
+/**
+ * Whose words a swipe may answer with, how steady the word it shows is, and
+ * whether it may finish a word early — three settings that only make sense
+ * beside one another, so they are written and read together.
+ */
+@Suppress("LongMethod")
+private fun SettingsGroupScope.glideVocabularyRows(
+    settings: KeyboardSettings,
+    repository: SettingsRepository,
+    scope: CoroutineScope,
+) {
+    // Whose words a swipe may answer with — the same question as
+    // the row above, asked on the other axis.
+    item {
+        ChoiceSetting(
+            title = R.string.typing_glide_sandbox_title,
+            subtitle = stringResource(R.string.typing_glide_sandbox_subtitle),
+            info = stringResource(R.string.typing_glide_sandbox_info),
+            options = GlideSandbox.entries.map { it to stringResource(it.labelRes) },
+            selected = settings.gesture.sandbox,
+            onChange = { scope.launch { repository.setGestureSandbox(it) } },
+            default = SettingsDefaults.gesture.sandbox,
+        )
+    }
+    // How hard the word shown mid-stroke resists being replaced.
+    item {
+        ChoiceSetting(
+            title = R.string.typing_glide_steadiness_title,
+            subtitle = stringResource(R.string.typing_glide_steadiness_subtitle),
+            info = stringResource(R.string.typing_glide_steadiness_info),
+            options = GlidePreviewSteadiness.entries.map {
+                it to stringResource(it.labelRes)
+            },
+            selected = settings.gesture.previewSteadiness,
+            onChange = { scope.launch { repository.setGesturePreviewSteadiness(it) } },
+            default = SettingsDefaults.gesture.previewSteadiness,
+        )
+    }
+    // Whether a glide may offer a word the stroke has not finished
+    // spelling — the tap typist's head start, for a swipe.
+    item {
+        ChoiceSetting(
+            title = R.string.typing_glide_lookahead_title,
+            subtitle = stringResource(R.string.typing_glide_lookahead_subtitle),
+            info = stringResource(R.string.typing_glide_lookahead_info),
+            options = GlideLookAhead.entries.map { it to stringResource(it.labelRes) },
+            selected = settings.gesture.lookAhead,
+            onChange = { scope.launch { repository.setGestureLookAhead(it) } },
+            default = SettingsDefaults.gesture.lookAhead,
+        )
+    }
 }
