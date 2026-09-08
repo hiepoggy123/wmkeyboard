@@ -295,7 +295,10 @@
     <string name="ime_tool_calendar">Calendar</string>
     <string name="ime_tool_incognito">Incognito</string>
     <string name="ime_tool_power_saving">Power saving</string>
-    <string name="ime_tool_themes">Themes</string>
+    <!-- The tool that changes how the keyboard looks: its theme, its icons,
+         its emoji face and the font on its keys. Named for what it covers
+         rather than for the theme grid it opened with. -->
+    <string name="ime_tool_themes">Appearance</string>
     <string name="ime_tool_autocorrect">Autocorrect</string>
     <string name="ime_tool_sound_haptics">Sound &amp; haptics</string>
     <string name="ime_tool_numpad">Numpad</string>

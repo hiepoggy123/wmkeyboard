@@ -311,6 +311,7 @@ import com.wasimaster.wmkeyboard.core.settings.SelectionMacroPlacement
 import com.wasimaster.wmkeyboard.core.settings.LatinAccents
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
+import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
@@ -933,6 +934,7 @@ fun KeyboardScreen(
     onThemeSelect: (String) -> Unit = {},
     onIconPackSelect: (String) -> Unit = {},
     onEmojiFontSelect: (EmojiFontChoice, String) -> Unit = { _, _ -> },
+    onFontSelect: (ScriptId, String) -> Unit = { _, _ -> },
     onSoundHaptic: (SoundHapticAction) -> Unit = {},
     onHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
     onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit = { _, _ -> },
@@ -1253,6 +1255,7 @@ fun KeyboardScreen(
                 onThemeSelect = onThemeSelect,
                 onIconPackSelect = onIconPackSelect,
                 onEmojiFontSelect = onEmojiFontSelect,
+                onFontSelect = onFontSelect,
                 onSoundHaptic = onSoundHaptic,
                 onHandwritingStroke = onHandwritingStroke,
                 onKeyboardHandwritingStroke = onKeyboardHandwritingStroke,
@@ -8066,6 +8069,7 @@ private fun KeyboardBody(
     onThemeSelect: (String) -> Unit,
     onIconPackSelect: (String) -> Unit,
     onEmojiFontSelect: (EmojiFontChoice, String) -> Unit,
+    onFontSelect: (ScriptId, String) -> Unit,
     onSoundHaptic: (SoundHapticAction) -> Unit,
     onHandwritingStroke: (HwStroke, IntSize) -> Unit,
     onKeyboardHandwritingStroke: (HwStroke, IntSize) -> Unit,
@@ -8507,10 +8511,11 @@ private fun KeyboardBody(
                     onThemeSelect,
                     onIconPackSelect,
                     onEmojiFontSelect,
+                    onFontSelect,
                     onOpenRoute = onOpenRoute,
                     onClose = { onPanelChange(PanelMode.THEMES) },
                 )
-                PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic)
+                PanelMode.SOUND_HAPTICS -> SoundHapticsPanel(state, onSoundHaptic, onOpenRoute)
                 PanelMode.NUMPAD -> NumpadPanelHost(state, panelCallbacks)
                 PanelMode.CANDIDATES -> CandidateGridPanel(state, onCandidate)
                 PanelMode.HANDWRITING -> if (BuildConfig.ENABLE_ML_KIT_HANDWRITING) {
@@ -10394,13 +10399,20 @@ internal fun KeyPreviewOverlay(
     val headroomPx = maxOf(bubbleHeightPx, if (onKeyStyle) onKeyLabelLanePx else 0) +
         gapPx + with(density) { KeyPopupGap.roundToPx() }
     val bubbles = state.shown.toList()
+    // No window at all while nothing is previewing. An overlay that is always
+    // there costs a surface for the whole life of the keyboard, and on 12/13 it
+    // is the thing that ate taps meant for the app behind it — an empty window
+    // made see-through is still a window. Composition tears it down with the
+    // last bubble and puts it back on the next press.
+    if (bubbles.isEmpty()) return
     Popup(
         popupPositionProvider = remember(headroomPx) { GridOverlayPositionProvider(headroomPx) },
         properties = PreviewPopupProperties,
     ) {
-        // An empty overlay must not occlude the app behind the keyboard — see
+        // Still asked for by name: the window survives a frame or two past the
+        // last bubble, and must not occlude anything in them — see
         // [PassThroughWindowOpacity].
-        PassThroughWindowOpacity(bubbles.isNotEmpty())
+        PassThroughWindowOpacity(true)
         Layout(
             // Keyed by the pressing key, so a bubble expiring under a finger that
             // is still down removes that bubble rather than shuffling the rest up

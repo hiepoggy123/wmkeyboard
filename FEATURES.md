@@ -932,9 +932,12 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Grouped or flat — ThemeGalleryStyle AUTO/GROUPED/FLAT; AUTO follows the onboarding persona depth
     - Two-column cards — Default card, then customs, then built-ins, each with a live mini-preview
     - Per-card actions — Apply, edit (duplicates a built-in), export, delete, pin to keyboard panel
-  - Keyboard-side Themes tool `uncommon` — Full-bleed panel with live mini-previews over the keys
+  - Keyboard-side Appearance tool `uncommon` — Full-bleed panel with live mini-previews over the keys
     - Shortlist, not gallery — All custom/downloaded themes plus user-pinned built-ins; 6 pinned by default
     - Icons tab — Same panel switches to icon-pack selection
+    - Emoji tab — System, Google, every installed emoji face and an imported file, each card drawn in that font
+    - Fonts tab — Key label fonts per script, opening on the script being typed
+    - Store link — Every grid ends on the add-on repository filtered to that kind
     - Read-only while locked — Auto theme or a mode-carried theme makes taps preview-only
 - **Variant families** `RARE` — One theme carries up to 12 alternate looks (MAX_THEME_VARIANTS)
   - Family model `RARE`

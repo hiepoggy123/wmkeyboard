@@ -25,7 +25,7 @@ The rest of the card behaves the way a single-theme card does, with one wrinkle 
 - **The pencil** on a built-in family asks **Make a copy** first, offering **Only this look** or **All looks**. On a family of your own it just opens the editor, on the look the card is showing.
 - **Export** saves the whole family as one file while the gallery is grouped, and the single look the card shows while it's separate.
 - **Delete** goes by the card, not by the look showing on it. A grouped family card deletes the whole family. To drop one look, either switch the gallery to Separate and delete that look's own card, or use the bin beside the Looks chips in the editor. The one card that still takes the whole family with it is the first look's, since that's the theme the others hang off.
-- **The pin** (built-ins only) is per look, not per family, because the keyboard's Themes tool lists looks.
+- **The pin** (built-ins only) is per look, not per family, because the keyboard's Appearance tool lists looks.
 
 ## Grouped or separate
 
@@ -77,7 +77,7 @@ Looks don't nest. A look can't have looks of its own, and anything that would cr
 Because every look keeps its own id rather than being an index into a family, a look is addressable everywhere a theme is:
 
 - **Auto theme's** light and dark slots name looks, one each or a whole set. The picker lists them flat with the family's name as a heading above its members, so you can put Solarized Light in one slot and Solarized Dark in the other. In Random mode the family's name carries a checkbox of its own that ticks every look under it, which is the quick way to say "any of the four Catppuccins". See [Theming overview](/themes/overview/#one-theme-or-a-set).
-- **The Themes tool's** pin list holds look ids, so you can pin Aurora without pinning the rest of the gradient family.
+- **The Appearance tool's** pin list holds look ids, so you can pin Aurora without pinning the rest of the gradient family.
 - **Per-mode themes** name a look the same way.
 
 The ids didn't change when families landed, either. Every built-in id that ever shipped still resolves, so a selection, a pin or an auto-theme slot set before the grouping still points at the same colours.

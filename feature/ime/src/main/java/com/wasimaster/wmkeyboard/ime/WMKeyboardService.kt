@@ -173,6 +173,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.HardwareKeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.LanguageDetectionStrength
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
@@ -3255,6 +3256,7 @@ open class WMKeyboardService : InputMethodService() {
                 onThemeSelect = ::onThemeSelect,
                 onIconPackSelect = ::onIconPackSelect,
                 onEmojiFontSelect = ::onEmojiFontSelect,
+                onFontSelect = ::onFontSelect,
                 onSoundHaptic = ::onSoundHaptic,
                 onHandwritingStroke = ::onHandwritingStroke,
                 onKeyboardHandwritingStroke = ::onKeyboardHandwritingStroke,
@@ -14506,6 +14508,27 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * Key label font picked from the appearance panel.
+     *
+     * Which setting it writes is the same split the font settings screen makes:
+     * a script with a curated list of its own gets a per-script override, and
+     * every other script — Latin, and the Cyrillic and Greek that ride it —
+     * shares the keyboard's one `keyFontId`. Asking [KeyboardFonts] rather than
+     * testing for LATIN keeps the two screens from disagreeing about which
+     * scripts have an override to write.
+     */
+    fun onFontSelect(script: ScriptId, fontId: String) {
+        vibrate()
+        serviceScope.launch {
+            if (KeyboardFonts.scriptFontChoices(script) == null) {
+                settingsRepository.setKeyFontId(fontId)
+            } else {
+                settingsRepository.setScriptFontId(script.name, fontId)
+            }
+        }
+    }
+
     /** Sound & haptics quick panel writes straight into the shared settings. */
     fun onSoundHaptic(action: SoundHapticAction) {
         serviceScope.launch {
@@ -14517,6 +14540,10 @@ open class WMKeyboardService : InputMethodService() {
                 is SoundHapticAction.Sound -> settingsRepository.setKeySound(action.on)
                 is SoundHapticAction.SoundStyleChange -> settingsRepository.setKeySoundStyle(action.style)
                 is SoundHapticAction.SoundVolume -> settingsRepository.setKeySoundVolume(action.volume)
+                is SoundHapticAction.SoundCustomChange ->
+                    settingsRepository.setKeySoundCustomId(action.id)
+                is SoundHapticAction.SoundPackChange ->
+                    settingsRepository.setKeySoundPackId(action.id)
             }
         }
         // Preview the result right away so the user can dial it in by feel.
@@ -14543,6 +14570,15 @@ open class WMKeyboardService : InputMethodService() {
             is SoundHapticAction.Sound -> if (action.on) playKeySound(force = true)
             is SoundHapticAction.SoundStyleChange -> playKeySound(style = action.style, force = true)
             is SoundHapticAction.SoundVolume -> playKeySound(volume = action.volume, force = true)
+            // Style and id both passed, because the write above has not landed
+            // yet: the preview has to be of the sound just pressed, not of the
+            // one the settings still name.
+            is SoundHapticAction.SoundCustomChange -> playKeySound(
+                style = KeySoundStyle.CUSTOM, id = action.id, force = true,
+            )
+            is SoundHapticAction.SoundPackChange -> playKeySound(
+                style = KeySoundStyle.PACK, id = action.id, force = true,
+            )
         }
     }
 
@@ -21729,6 +21765,9 @@ open class WMKeyboardService : InputMethodService() {
         force: Boolean = false,
         role: KeySoundRole = KeySoundRole.DEFAULT,
         phase: KeySoundPhase = KeySoundPhase.PRESS,
+        // Overrides the sources `resolvedId` would otherwise read below, so a
+        // preview can play the sound just pressed rather than the stored one.
+        id: String? = null,
     ) {
         val settings = _uiState.value.settings
         if (!force && !settings.keySound) return
@@ -21740,16 +21779,20 @@ open class WMKeyboardService : InputMethodService() {
         val resolved = style ?: theme?.first ?: settings.keySoundStyle
         // Custom and Pack read their id from different fields, and a theme
         // carrying a sound names whichever kind it chose in the same slot.
-        val id = theme?.second ?: if (resolved == com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.PACK) {
-            settings.keySoundCustom.packId
-        } else {
-            settings.keySoundCustom.customId
-        }
+        // An explicit id wins over the theme's for the same reason an explicit
+        // [style] does: both only ever come from a preview, which is about the
+        // press that just happened rather than about what is stored.
+        val resolvedId = id ?: theme?.second
+            ?: if (resolved == com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.PACK) {
+                settings.keySoundCustom.packId
+            } else {
+                settings.keySoundCustom.customId
+            }
         KeySoundPlayer.play(
             this,
             resolved,
             volume ?: settings.keySoundVolume,
-            id,
+            resolvedId,
             role,
             phase,
         )

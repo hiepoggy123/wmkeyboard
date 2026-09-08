@@ -111,7 +111,12 @@ import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import com.wasimaster.wmkeyboard.core.emoji.EmojiShaper
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
+import com.wasimaster.wmkeyboard.core.feedback.SoundStore
 import com.wasimaster.wmkeyboard.core.fonts.FontStore
+import com.wasimaster.wmkeyboard.core.fonts.InstalledFont
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.icons.IconPack
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
@@ -1558,6 +1563,7 @@ internal fun ThemesPanel(
     onThemeSelect: (String) -> Unit,
     onIconPackSelect: (String) -> Unit,
     onEmojiFontSelect: (EmojiFontChoice, String) -> Unit,
+    onFontSelect: (ScriptId, String) -> Unit,
     onOpenRoute: (String) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -1612,6 +1618,17 @@ internal fun ThemesPanel(
     val faces = remember(context, fontRevision, state.settings.emojiFont) {
         emojiFaceOptions(context, fontStore, state.settings.emojiFont)
     }
+    val scriptTabs = rememberFontScriptTabs(state.settings)
+    // The fonts tab opens on the script being typed, because that is the one
+    // whose keys the user can see the effect on. A script with no picker (most
+    // of them: only a curated set has alternatives worth listing) falls back to
+    // the English tab, which is also where Cyrillic and Greek are chosen.
+    var fontScript by remember(scriptTabs) {
+        mutableStateOf(
+            scriptTabs.firstOrNull { it.script == state.settings.script.id }?.script
+                ?: ScriptId.LATIN,
+        )
+    }
     // Full-bleed: the toolbar row hides and its space becomes the header —
     // back button on the left, the Themes/Icons/Emoji tabs filling the rest —
     // so the cards get the reclaimed rows.
@@ -1643,14 +1660,15 @@ internal fun ThemesPanel(
         ThemesPanelBody(
             state, kb, tab, locked, selectedId, auto, themes,
             packs, packStore, packRevision, faces,
+            scriptTabs, fontScript, { fontScript = it }, fontStore, fontRevision,
             modeTheme, autoOn, darkSlot, randomSlot,
-            onThemeSelect, onIconPackSelect, onEmojiFontSelect, onOpenRoute,
+            onThemeSelect, onIconPackSelect, onEmojiFontSelect, onFontSelect, onOpenRoute,
         )
     }
 }
 
-/** Which grid of the themes panel is on screen. */
-private enum class ThemesPanelTab { THEMES, ICONS, EMOJI }
+/** Which grid of the appearance panel is on screen. */
+private enum class ThemesPanelTab { THEMES, ICONS, EMOJI, FONTS }
 
 /**
  * The add-on store filtered to one kind of add-on.
@@ -1676,6 +1694,11 @@ private fun ThemesPanelBody(
     packStore: IconPackStore,
     packRevision: Int,
     faces: List<EmojiFaceOption>,
+    scriptTabs: List<FontScriptTab>,
+    fontScript: ScriptId,
+    onFontScriptSelect: (ScriptId) -> Unit,
+    fontStore: FontStore,
+    fontRevision: Int,
     modeTheme: KeyboardMode?,
     autoOn: Boolean,
     darkSlot: Boolean,
@@ -1683,6 +1706,7 @@ private fun ThemesPanelBody(
     onThemeSelect: (String) -> Unit,
     onIconPackSelect: (String) -> Unit,
     onEmojiFontSelect: (EmojiFontChoice, String) -> Unit,
+    onFontSelect: (ScriptId, String) -> Unit,
     onOpenRoute: (String) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -1694,6 +1718,8 @@ private fun ThemesPanelBody(
         ) {
             Text(
                 when {
+                    tab == ThemesPanelTab.FONTS ->
+                        stringResource(R.string.ime_font_pick_info)
                     tab == ThemesPanelTab.EMOJI ->
                         stringResource(R.string.ime_emoji_font_pick_info)
                     tab == ThemesPanelTab.ICONS && packs.isEmpty() ->
@@ -1719,6 +1745,7 @@ private fun ThemesPanelBody(
                         ThemesPanelTab.THEMES -> R.string.ime_themes_edit_desc
                         ThemesPanelTab.ICONS -> R.string.ime_icons_edit_desc
                         ThemesPanelTab.EMOJI -> R.string.ime_emoji_font_edit_desc
+                        ThemesPanelTab.FONTS -> R.string.ime_font_edit_desc
                     },
                 ),
                 label = stringResource(
@@ -1726,6 +1753,7 @@ private fun ThemesPanelBody(
                         ThemesPanelTab.THEMES -> R.string.ime_themes_edit_action
                         ThemesPanelTab.ICONS -> R.string.ime_icons_edit_action
                         ThemesPanelTab.EMOJI -> R.string.ime_emoji_font_edit_action
+                        ThemesPanelTab.FONTS -> R.string.ime_font_edit_action
                     },
                 ),
                 modifier = Modifier.height(32.dp).width(120.dp),
@@ -1735,6 +1763,10 @@ private fun ThemesPanelBody(
                         ThemesPanelTab.THEMES -> "themes"
                         ThemesPanelTab.ICONS -> "icons"
                         ThemesPanelTab.EMOJI -> "emoji"
+                        // Straight to the script on screen, not to the list of
+                        // scripts: the panel already knows which one is being
+                        // looked at.
+                        ThemesPanelTab.FONTS -> "fonts/${fontScript.name}"
                     },
                 )
             }
@@ -1746,6 +1778,13 @@ private fun ThemesPanelBody(
             }
             ThemesPanelTab.EMOJI -> {
                 EmojiFacesGrid(state, faces, onEmojiFontSelect, onOpenRoute)
+                return@Column
+            }
+            ThemesPanelTab.FONTS -> {
+                FontsGrid(
+                    state, scriptTabs, fontScript, onFontScriptSelect,
+                    fontStore, fontRevision, onFontSelect, onOpenRoute,
+                )
                 return@Column
             }
             ThemesPanelTab.THEMES -> Unit
@@ -1838,6 +1877,7 @@ private fun ThemesTabChips(
             R.string.ime_themes_tab_themes,
             R.string.ime_themes_tab_icons,
             R.string.ime_themes_tab_emoji,
+            R.string.ime_themes_tab_fonts,
         ).forEachIndexed { index, labelRes ->
             val active = ThemesPanelTab.entries[index] == tab
             Text(
@@ -2159,6 +2199,292 @@ private fun EmojiFaceCard(
     }
 }
 
+// ---- key label fonts ----
+
+/**
+ * One script's font picker in the fonts tab.
+ *
+ * [ScriptId.LATIN] is the odd one: it has no entry in
+ * [KeyboardFonts.scriptFontChoices] because it is not a per-script override at
+ * all — it is the keyboard's own `keyFontId`, which Cyrillic and Greek ride
+ * too. Every other tab writes one key of `scriptFontIds`.
+ */
+private data class FontScriptTab(
+    val script: ScriptId,
+    @StringRes val labelRes: Int,
+    val sample: String,
+    /** Google Fonts names offered here, before the provider check. */
+    val googleNames: List<String>,
+)
+
+/**
+ * The script chips the fonts tab offers: English first, then every enabled
+ * language's script that has a curated list of its own.
+ *
+ * Enabled rather than all of them, exactly as the settings screen filters —
+ * twenty-two chips for scripts the user does not type is not a picker. A
+ * script with no curated alternatives (Thaana, say) has no chip at all: its
+ * automatic Noto face is the only sensible answer and there is nothing to
+ * choose between.
+ */
+@Composable
+private fun rememberFontScriptTabs(settings: KeyboardSettings): List<FontScriptTab> {
+    val latinSample = stringResource(R.string.ime_font_latin_sample)
+    return remember(settings.enabledLanguages, latinSample) {
+        val enabled = settings.enabledLanguages.mapTo(mutableSetOf()) { it.script }
+        buildList {
+            add(
+                FontScriptTab(
+                    ScriptId.LATIN,
+                    R.string.ime_font_script_latin_label,
+                    latinSample,
+                    KeyboardFonts.googleFonts,
+                ),
+            )
+            for (choices in KeyboardFonts.scriptFontChoices) {
+                if (choices.script !in enabled) continue
+                add(
+                    FontScriptTab(
+                        choices.script, choices.labelRes, choices.sample, choices.fonts,
+                    ),
+                )
+            }
+        }
+    }
+}
+
+/** One selectable face in the fonts tab; [labelRes] names it when [name] cannot. */
+private data class FontOption(
+    val id: String,
+    val name: String = "",
+    @StringRes val labelRes: Int = 0,
+)
+
+/**
+ * The faces one script tab offers: the automatic one, the library, the curated
+ * Google Fonts, then the file this script's picker imported before fonts moved
+ * into the library.
+ *
+ * The library is filtered the way the settings screen filters it — a font that
+ * declared its languages is only offered for the scripts it claims, so a Latin
+ * display face never turns up in the Devanagari list about to blank the board.
+ * A font that declared nothing is offered everywhere, which is the honest
+ * reading of "no claim".
+ */
+private fun fontOptions(
+    context: Context,
+    tab: FontScriptTab,
+    installed: List<InstalledFont>,
+    customName: String,
+): List<FontOption> = buildList {
+    add(FontOption(KeyboardFonts.DEFAULT_ID, labelRes = R.string.ime_font_system_default_label))
+    // English also drives Cyrillic and Greek, which have no picker of their own.
+    val scripts = if (tab.script == ScriptId.LATIN) {
+        setOf(ScriptId.LATIN, ScriptId.CYRILLIC, ScriptId.GREEK)
+    } else {
+        setOf(tab.script)
+    }
+    for (font in installed) {
+        val claims = font.langIds.isEmpty() ||
+            font.langIds.any { LanguageRegistry.byId(it).script in scripts }
+        if (claims) add(FontOption(FontStore.fontIdFor(font.id), name = font.name))
+    }
+    // Every Google Fonts entry is a file from the Play services font provider.
+    // Without one each would resolve to the system face, so picking it would
+    // change nothing on screen — the rows come out rather than sit there.
+    if (PlayServices.hasFontProvider(context)) {
+        for (name in tab.googleNames) add(FontOption(KeyboardFonts.googleId(name), name = name))
+    }
+    val customId = if (tab.script == ScriptId.LATIN) {
+        KeyboardFonts.CUSTOM_ID.takeIf { KeyboardFonts.customFontFile(context).exists() }
+    } else {
+        KeyboardFonts.customScriptFontId(tab.script)
+            ?.takeIf { KeyboardFonts.customScriptFontFile(context, tab.script)?.exists() == true }
+    }
+    if (customId != null) {
+        add(FontOption(customId, name = customName, labelRes = R.string.ime_font_custom_label))
+    }
+}
+
+/** Which face [settings] draws this script's key labels with. */
+private fun selectedFontId(settings: KeyboardSettings, script: ScriptId): String =
+    if (script == ScriptId.LATIN) {
+        settings.keyFontId
+    } else {
+        settings.scriptFontIds[script.name] ?: KeyboardFonts.DEFAULT_ID
+    }
+
+/**
+ * The fonts half of the appearance panel: a chip per script, then that
+ * script's faces, each row drawn in the face it offers.
+ *
+ * One column rather than two, unlike every other grid here. A font is judged by
+ * reading text in it, and a sample line for a script — "আমি ভালো আছি · কখগঘঙ
+ * চছজঝঞ" — has nowhere to go in half a phone's width.
+ */
+@Composable
+private fun FontsGrid(
+    state: KeyboardUiState,
+    scriptTabs: List<FontScriptTab>,
+    script: ScriptId,
+    onScriptSelect: (ScriptId) -> Unit,
+    store: FontStore,
+    revision: Int,
+    onFontSelect: (ScriptId, String) -> Unit,
+    onOpenRoute: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val tab = scriptTabs.firstOrNull { it.script == script } ?: scriptTabs.first()
+    val installed = remember(revision) { store.textFonts() }
+    val customName = if (tab.script == ScriptId.LATIN) {
+        state.settings.customFontName
+    } else {
+        state.settings.customScriptFontNames[tab.script.name].orEmpty()
+    }
+    val options = remember(tab, installed, customName) {
+        fontOptions(context, tab, installed, customName)
+    }
+    val selected = selectedFontId(state.settings, tab.script)
+    // Its own region, not a second CHIPS row: the focus controller keys a
+    // region's activation by region, so two rows under one name would leave
+    // Enter running the wrong row's action. Empty when the row is not drawn —
+    // a user typing only Latin has one tab and no row, and a ring stop with
+    // nothing on screen under it is a dead press.
+    val scriptChips = if (scriptTabs.size > 1) scriptTabs else emptyList()
+    PanelFocusTarget(
+        panel = PanelMode.THEMES,
+        region = FocusRegion.CATEGORIES,
+        count = scriptChips.size,
+        columns = scriptChips.size.coerceAtLeast(1),
+        onActivate = { index -> scriptChips.getOrNull(index)?.let { onScriptSelect(it.script) } },
+    )
+    PanelFocusTarget(
+        panel = PanelMode.THEMES,
+        count = options.size + 1,
+        columns = 1,
+        onActivate = { index ->
+            val option = options.getOrNull(index)
+            if (option == null) onOpenRoute(addonsTypeRoute(AddonType.Font))
+            else onFontSelect(tab.script, option.id)
+        },
+    )
+    if (scriptChips.isNotEmpty()) {
+        FontScriptChips(
+            tabs = scriptChips,
+            script = tab.script,
+            focused = state.focusedIndex(FocusRegion.CATEGORIES),
+            onSelect = onScriptSelect,
+        )
+    }
+    val focused = state.focusedIndex()
+    val gridState = rememberLazyGridState()
+    ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
+    // Opened on the face in use, for the same reason the other grids are. Keyed
+    // on the tab so switching script re-places the list rather than leaving it
+    // scrolled to a row belonging to the script before it.
+    LaunchedEffect(tab) {
+        val index = options.indexOfFirst { it.id == selected }
+        if (index >= 0) gridState.scrollToItem(index)
+    }
+    LazyVerticalGrid(
+        state = gridState,
+        columns = GridCells.Fixed(1),
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        itemsIndexed(options, key = { _, option -> option.id }) { index, option ->
+            FontCard(
+                name = option.name.ifBlank {
+                    if (option.labelRes != 0) stringResource(option.labelRes) else option.id
+                },
+                sample = tab.sample,
+                family = remember(option.id, revision) {
+                    KeyboardFonts.family(context, option.id)
+                },
+                selected = selected == option.id,
+                focused = focused == index,
+                onClick = { onFontSelect(tab.script, option.id) },
+            )
+        }
+        getMoreItem(
+            labelRes = R.string.ime_font_more_label,
+            focused = focused == options.size,
+        ) { onOpenRoute(addonsTypeRoute(AddonType.Font)) }
+    }
+}
+
+/** The scrollable script row above the font list. */
+@Composable
+private fun FontScriptChips(
+    tabs: List<FontScriptTab>,
+    script: ScriptId,
+    focused: Int?,
+    onSelect: (ScriptId) -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+    ) {
+        for ((index, tab) in tabs.withIndex()) {
+            StyleChip(
+                label = stringResource(tab.labelRes),
+                selected = tab.script == script,
+                focused = index == focused,
+            ) { onSelect(tab.script) }
+        }
+    }
+}
+
+/**
+ * One font row: its name and a sample line, both drawn in the font itself, so
+ * the row is its own preview.
+ */
+@Composable
+private fun FontCard(
+    name: String,
+    sample: String,
+    family: FontFamily?,
+    selected: Boolean,
+    focused: Boolean,
+    onClick: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    val shape = RoundedCornerShape(10.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .then(
+                if (selected) Modifier.border(2.dp, kb.accent, shape)
+                else Modifier.border(1.dp, kb.divider, shape)
+            )
+            .focusRing(focused, shape)
+            .background(kb.chip)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+    ) {
+        Text(
+            name,
+            color = kb.suggestionText,
+            fontFamily = family,
+            fontSize = 14.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            sample,
+            color = kb.toolbarIcon,
+            fontFamily = family,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
 // ---- the store link every grid ends on ----
 
 /**
@@ -2414,6 +2740,53 @@ private fun StyleChip(
 }
 
 /**
+ * The installed sounds, or the installed sound packs, under the style chips.
+ *
+ * Custom and Pack are the two key sounds that name a file the user installed
+ * rather than a waveform the app generates, and until this row existed neither
+ * could be *chosen* from the keyboard — the chips could only show a selection
+ * already made in Settings, so a freshly installed sound pack was invisible
+ * here. Scrolls sideways for the same reason the style chips do: a name is as
+ * long as its author made it.
+ *
+ * The store link closes the row rather than opening it, so an empty library
+ * reads as "here is where more come from" instead of as a broken picker.
+ */
+@Composable
+private fun SoundChoiceRow(
+    choices: List<Pair<String, String>>,
+    selectedId: String,
+    focused: Int?,
+    @StringRes emptyRes: Int,
+    @StringRes moreRes: Int,
+    onMore: () -> Unit,
+    onSelect: (String) -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    if (choices.isEmpty()) {
+        Text(stringResource(emptyRes), color = kb.toolbarIcon, fontSize = 11.sp)
+    }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+    ) {
+        for ((index, choice) in choices.withIndex()) {
+            StyleChip(
+                label = choice.first,
+                selected = selectedId == choice.second,
+                focused = index == focused,
+            ) { onSelect(choice.second) }
+        }
+        StyleChip(
+            label = stringResource(moreRes),
+            selected = false,
+            focused = focused == choices.size,
+            onClick = onMore,
+        )
+    }
+}
+
+/**
  * Quick sound & haptics controls without leaving the keyboard. Every change
  * lands in the same DataStore settings the full settings app edits.
  */
@@ -2421,6 +2794,7 @@ private fun StyleChip(
 internal fun SoundHapticsPanel(
     state: KeyboardUiState,
     onAction: (SoundHapticAction) -> Unit,
+    onOpenRoute: (String) -> Unit,
 ) {
     val height = keyRowsHeight(state)
     val kb = LocalKbTheme.current
@@ -2461,17 +2835,53 @@ internal fun SoundHapticsPanel(
         }
     }
     val hapticChipCount = if (settings.hapticFeedback) HapticStyle.entries.size else 0
+    val soundStore = remember(context) { SoundStore.get(context) }
+    val soundRevision by soundStore.revision.collectAsState()
+    val sounds = remember(soundRevision) { soundStore.sounds() }
+    val soundPackStore = remember(context) { SoundPackStore.get(context) }
+    val packRevision by soundPackStore.revision.collectAsState()
+    val soundPacks = remember(packRevision) { soundPackStore.packs() }
     // Custom and Pack both name something the user installed rather than a
-    // fixed style, and neither has a picker on the keyboard — so each appears
-    // here only when it is already the choice, to show what is selected and to
-    // let the user step off it.
+    // fixed style, so each is offered once there is anything for it to name —
+    // and kept when it is the standing choice even if that thing has since been
+    // deleted, so the user can see what is selected and step off it.
     val soundStyles = KeySoundStyle.entries.filter {
         when (it) {
-            KeySoundStyle.CUSTOM, KeySoundStyle.PACK -> settings.keySoundStyle == it
+            KeySoundStyle.CUSTOM -> sounds.isNotEmpty() || settings.keySoundStyle == it
+            KeySoundStyle.PACK -> soundPacks.isNotEmpty() || settings.keySoundStyle == it
             else -> true
         }
     }
     val soundChipCount = if (settings.keySound) soundStyles.size else 0
+    // What the chosen style picks from, as name/id pairs — empty for the five
+    // built-in styles, which are waveforms rather than files.
+    val soundChoices: List<Pair<String, String>> = when {
+        !settings.keySound -> emptyList()
+        settings.keySoundStyle == KeySoundStyle.CUSTOM -> sounds.map { it.name to it.id }
+        settings.keySoundStyle == KeySoundStyle.PACK -> soundPacks.map { it.name to it.id }
+        else -> emptyList()
+    }
+    val soundChoiceRoute = if (settings.keySoundStyle == KeySoundStyle.PACK) {
+        addonsTypeRoute(AddonType.SoundPack)
+    } else {
+        addonsTypeRoute(AddonType.Sound)
+    }
+    // The list, then the store link that closes it — the same last entry every
+    // grid in the appearance panel ends on.
+    PanelFocusTarget(
+        panel = PanelMode.SOUND_HAPTICS,
+        region = FocusRegion.RESULTS,
+        count = if (soundChoices.isEmpty()) 0 else soundChoices.size + 1,
+        columns = (soundChoices.size + 1).coerceAtLeast(1),
+    ) { index ->
+        val choice = soundChoices.getOrNull(index)
+        when {
+            choice == null -> onOpenRoute(soundChoiceRoute)
+            settings.keySoundStyle == KeySoundStyle.PACK ->
+                onAction(SoundHapticAction.SoundPackChange(choice.second))
+            else -> onAction(SoundHapticAction.SoundCustomChange(choice.second))
+        }
+    }
     PanelFocusTarget(
         panel = PanelMode.SOUND_HAPTICS,
         region = FocusRegion.CHIPS,
@@ -2610,11 +3020,10 @@ internal fun SoundHapticsPanel(
         }
         if (settings.keySound) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // CUSTOM names an installed file rather than a fixed style, and
-                // there is no file picker on the keyboard — so it only appears
-                // here when it is already the choice, to show what is selected
-                // and to let the user step off it. The chip list here must
-                // stay [soundStyles], which the CHIPS publisher indexes.
+                // Custom and Pack name an installed file rather than a fixed
+                // style; the row under this one picks which file. The chip list
+                // here must stay [soundStyles], which the CHIPS publisher
+                // indexes.
                 for ((index, style) in soundStyles.withIndex()) {
                     StyleChip(
                         label = when (style) {
@@ -2635,6 +3044,36 @@ internal fun SoundHapticsPanel(
                         selected = settings.keySoundStyle == style,
                         focused = focusedChip != null && focusedChip - hapticChipCount == index,
                     ) { onAction(SoundHapticAction.SoundStyleChange(style)) }
+                }
+            }
+            if (settings.keySoundStyle == KeySoundStyle.CUSTOM ||
+                settings.keySoundStyle == KeySoundStyle.PACK
+            ) {
+                SoundChoiceRow(
+                    choices = soundChoices,
+                    selectedId = if (settings.keySoundStyle == KeySoundStyle.PACK) {
+                        settings.keySoundCustom.packId
+                    } else {
+                        settings.keySoundCustom.customId
+                    },
+                    focused = state.focusedIndex(FocusRegion.RESULTS),
+                    emptyRes = if (settings.keySoundStyle == KeySoundStyle.PACK) {
+                        R.string.ime_sound_packs_empty
+                    } else {
+                        R.string.ime_sound_customs_empty
+                    },
+                    moreRes = if (settings.keySoundStyle == KeySoundStyle.PACK) {
+                        R.string.ime_sound_packs_more_label
+                    } else {
+                        R.string.ime_sound_customs_more_label
+                    },
+                    onMore = { onOpenRoute(soundChoiceRoute) },
+                ) { id ->
+                    if (settings.keySoundStyle == KeySoundStyle.PACK) {
+                        onAction(SoundHapticAction.SoundPackChange(id))
+                    } else {
+                        onAction(SoundHapticAction.SoundCustomChange(id))
+                    }
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {

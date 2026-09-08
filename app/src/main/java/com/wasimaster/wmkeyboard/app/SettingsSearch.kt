@@ -1119,6 +1119,24 @@ private fun SearchStrings.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
         weight = EntryWeight.MIRROR,
     ),
     toolEntry(
+        ToolbarTool.THEMES,
+        R.string.tooldetail_appearance_icons_nav_title,
+        R.string.tooldetail_appearance_icons_nav_subtitle,
+        weight = EntryWeight.MIRROR,
+    ),
+    toolEntry(
+        ToolbarTool.THEMES,
+        R.string.tooldetail_appearance_emoji_nav_title,
+        R.string.tooldetail_appearance_emoji_nav_subtitle,
+        weight = EntryWeight.MIRROR,
+    ),
+    toolEntry(
+        ToolbarTool.THEMES,
+        R.string.tooldetail_appearance_fonts_nav_title,
+        R.string.tooldetail_appearance_fonts_nav_subtitle,
+        weight = EntryWeight.MIRROR,
+    ),
+    toolEntry(
         ToolbarTool.ONE_HANDED,
         R.string.tooldetail_layout_nav_title,
         R.string.tooldetail_layout_nav_one_handed_subtitle,

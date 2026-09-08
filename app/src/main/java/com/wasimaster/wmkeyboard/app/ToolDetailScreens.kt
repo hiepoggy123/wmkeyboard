@@ -1352,12 +1352,36 @@ internal fun ToolDetailSettings(
                 }
             }
         }
+        // One row per grid the tool holds. The tool opened as a theme switcher
+        // and grew the other three, so a page offering only "All theme
+        // settings" would leave three of its four grids with nowhere to go.
         ToolbarTool.THEMES -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
                 NavRow(
                     R.string.tooldetail_themes_nav_title,
                     stringResource(R.string.tooldetail_themes_nav_subtitle),
                     onClick = { onNavigate("themes") },
+                )
+            }
+            item {
+                NavRow(
+                    R.string.tooldetail_appearance_icons_nav_title,
+                    stringResource(R.string.tooldetail_appearance_icons_nav_subtitle),
+                    onClick = { onNavigate("icons") },
+                )
+            }
+            item {
+                NavRow(
+                    R.string.tooldetail_appearance_emoji_nav_title,
+                    stringResource(R.string.tooldetail_appearance_emoji_nav_subtitle),
+                    onClick = { onNavigate("emoji") },
+                )
+            }
+            item {
+                NavRow(
+                    R.string.tooldetail_appearance_fonts_nav_title,
+                    stringResource(R.string.tooldetail_appearance_fonts_nav_subtitle),
+                    onClick = { onNavigate("fonts") },
                 )
             }
         }

@@ -300,6 +300,13 @@
 
     <!-- Themes tool. -->
     <string name="tooldetail_themes_nav_title">All theme settings</string>
+    <!-- The tool's other three grids, each pointing at the screen that owns it. -->
+    <string name="tooldetail_appearance_icons_nav_title">Icon packs</string>
+    <string name="tooldetail_appearance_icons_nav_subtitle">Install and choose the icons on the keys and tools</string>
+    <string name="tooldetail_appearance_emoji_nav_title">Emoji font</string>
+    <string name="tooldetail_appearance_emoji_nav_subtitle">Choose which set the keyboard draws emoji with</string>
+    <string name="tooldetail_appearance_fonts_nav_title">Key fonts</string>
+    <string name="tooldetail_appearance_fonts_nav_subtitle">Choose the font the keys are lettered in</string>
     <string name="tooldetail_themes_nav_subtitle">Create, edit, import and export keyboard themes</string>
 
     <!-- Translate tool. -->

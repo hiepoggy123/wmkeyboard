@@ -878,6 +878,9 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_typing_nav_title) { Icons.Outlined.Keyboard }
         put(R.string.tooldetail_keypress_nav_title) { Icons.Outlined.TouchApp }
         put(R.string.tooldetail_themes_nav_title) { Icons.Outlined.Palette }
+        put(R.string.tooldetail_appearance_icons_nav_title) { Icons.Outlined.Category }
+        put(R.string.tooldetail_appearance_emoji_nav_title) { Icons.Outlined.EmojiEmotions }
+        put(R.string.tooldetail_appearance_fonts_nav_title) { Icons.Outlined.TextFields }
         put(R.string.tooldetail_handwriting_stylus_title) { Icons.Outlined.Draw }
         put(R.string.tooldetail_handwriting_auto_space_title) { Icons.Outlined.SpaceBar }
         put(R.string.tooldetail_handwriting_pause_title) { Icons.Outlined.Timer }

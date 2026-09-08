@@ -486,8 +486,12 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
         FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.CATEGORIES, FocusRegion.RESULTS,
     )
     PanelMode.SYMBOLS -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS)
-    // Chips switch between the theme grid and the icon pack grid.
-    PanelMode.THEMES -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS)
+    // Chips switch between the grids; the fonts grid adds a second chip row
+    // for the script whose font it is showing. Listed whether or not that tab
+    // is open, the same way the GIF panel lists a row only its default view
+    // has: the region is empty until something publishes into it.
+    PanelMode.THEMES ->
+        listOf(FocusRegion.CHIPS, FocusRegion.CATEGORIES, FocusRegion.RESULTS)
     // The clipboard's chips are the fragments pulled out of its history.
     PanelMode.CLIPBOARD ->
         listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS)
@@ -538,7 +542,10 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.CALENDAR -> listOf(FocusRegion.ACTIONS, FocusRegion.RESULTS)
     // The two master switches, then the style chips. Sliders stay touch-only:
     // Enter means nothing on one, and the arrows are the ring's own keys.
-    PanelMode.SOUND_HAPTICS -> listOf(FocusRegion.ACTIONS, FocusRegion.CHIPS)
+    // The two switches, the style chips, then the installed sounds or packs
+    // the chosen style picks from (absent under the five built-in styles).
+    PanelMode.SOUND_HAPTICS ->
+        listOf(FocusRegion.ACTIONS, FocusRegion.CHIPS, FocusRegion.RESULTS)
     // Mic first, then whatever chips the state has (undo, language, model).
     PanelMode.VOICE -> listOf(FocusRegion.ACTIONS)
     // The confirm/result stages' buttons (Retake/Send, Scan again/Copy/
@@ -795,6 +802,18 @@ sealed interface SoundHapticAction {
     data class Sound(val on: Boolean) : SoundHapticAction
     data class SoundStyleChange(val style: com.wasimaster.wmkeyboard.core.settings.KeySoundStyle) : SoundHapticAction
     data class SoundVolume(val volume: Float) : SoundHapticAction
+
+    /**
+     * An installed key sound, picked from the panel's own list.
+     *
+     * Carries the id rather than only switching the style, because the two are
+     * one decision: the repository pairs them in a single write so that picking
+     * a sound and hearing it are the same press.
+     */
+    data class SoundCustomChange(val id: String) : SoundHapticAction
+
+    /** An installed sound pack, the [SoundCustomChange] of the other style. */
+    data class SoundPackChange(val id: String) : SoundHapticAction
 }
 
 /** GIF / sticker panel state, owned by the service (it does the fetching). */

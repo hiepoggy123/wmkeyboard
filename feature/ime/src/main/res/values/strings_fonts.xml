@@ -17,6 +17,11 @@
       for one writing system, and is shown only while a language that uses that
       script is on. These name a script, not a font.
     -->
+    <!-- The English font, which Cyrillic and Greek also follow. -->
+    <string name="ime_font_script_latin_label">English</string>
+    <!-- Sample line the English font rows are drawn in: a pangram, so every
+         letter of the alphabet shows in the face being offered. -->
+    <string name="ime_font_latin_sample">The quick brown fox jumps over the lazy dog</string>
     <string name="ime_font_script_bengali_label">Bengali</string>
     <string name="ime_font_script_arabic_label">Arabic</string>
     <string name="ime_font_script_hebrew_label">Hebrew</string>
