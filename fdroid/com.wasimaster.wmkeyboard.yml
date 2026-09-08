@@ -1,10 +1,10 @@
 AntiFeatures:
   NonFreeNet:
-    en-US: Typing, prediction, autocorrect and learning are entirely offline. A 
-      set of optional tools can reach third-party services (Google Translate, 
-      Brave Search, GIPHY and KLIPY, Unsplash and Pexels, Open-Meteo, and 
-      whichever AI provider you supply your own key for). Each is opt-in per 
-      tool and the keyboard is fully usable with all of them untouched.
+    en-US: Typing, prediction, autocorrect and learning are entirely offline. A set
+      of optional tools can reach third-party services (Google Translate, Brave Search,
+      GIPHY and KLIPY, Unsplash and Pexels, Open-Meteo, and whichever AI provider
+      you supply your own key for). Each is opt-in per tool and the keyboard is fully
+      usable with all of them untouched.
 Categories:
   - Writing
 License: MIT
@@ -28,10 +28,10 @@ Builds:
     gradle:
       - lite
     prebuild:
-      - sed -i -e '/org.gradle.toolchains.foojay-resolver-convention/d' 
-        ../settings.gradle.kts
-      - sed -i -e '/libs.play.app.update/d' -e '/libs.play.feature.delivery/d' 
-        -e '/libs.play.services.auth/d' build.gradle.kts
+      - sed -i -e '/org.gradle.toolchains.foojay-resolver-convention/d' ../settings.gradle.kts
+      - sed -i -e '/libs.play.app.update/d' -e '/libs.play.feature.delivery/d' -e
+        '/libs.play.services.auth/d' build.gradle.kts
+      - sed -i -e '/^[[:space:]]*\.takeIf { it.storeFile?.exists() == true }$/d' build.gradle.kts
     scandelete:
       - core/intelligence/src/full/jniLibs
       - feature/llm/src/main/jniLibs

@@ -51,6 +51,16 @@ it flags four strings this build never resolves:
   recipe, so they are never on the compile classpath. The blocks are left empty
   by the `sed`, which is valid Kotlin.
 
+The third `sed` is a different problem. Before building, fdroidserver strips the
+`signingConfigs { }` block and any line matching `^[\t ]*signingConfig\s*[= ]\s*[^ ]*$`
+— note that the tail must contain no spaces. `signingConfig =
+signingConfigs.getByName("release")` matches and is removed, but its continuation
+line, `.takeIf { it.storeFile?.exists() == true }`, does not and is left behind,
+so the build dies on `Unresolved reference 'storeFile'`. The `sed` deletes that
+orphan. It is anchored to a whole line beginning with `.takeIf`, so it cannot
+touch a single-line form of the same expression, and it works whichever order the
+two steps run in.
+
 Deleting the lines rather than listing the files in `scanignore` is deliberate:
 `scanignore` asks a packager to take the build file on trust, and this way the
 scanner reads a tree that genuinely does not mention them. `prebuild` runs before
@@ -84,10 +94,15 @@ out makes fdroiddata's CI add it and fail on the resulting diff.
 fdroiddata's CI runs four jobs against a changed metadata file, and all four can
 be run locally. Two things have to be right first.
 
-**Use fdroidserver from git master, not a packaged release.** Their CI installs
-it straight from the repository, and the two disagree about formatting: Homebrew's
-2.4.5 wrote a `\` line continuation into the `AntiFeatures` string that master
-does not, which is a one-character diff and a failed `rewritemeta` job.
+**Use fdroidserver from git master, and pin `ruamel.yaml` to 0.18.6.** Both
+matter, and each cost a failed pipeline to find. Their CI installs Debian's
+`fdroidserver` package first and then overlays master's source on `PATH`, so the
+*code* is master but the *YAML library* is Debian trixie's. Homebrew's 2.4.5
+wrote a `\` line continuation into the `AntiFeatures` string that master does
+not; and ruamel 0.19 wraps at a different column than 0.18, which rewrites every
+wrapped line. Either one is enough to fail the `rewritemeta` job, whose test is a
+byte-for-byte diff. With master plus 0.18.6 the local output matches CI's
+artifact exactly.
 
 **`fdroid lint` needs fdroiddata's own `config/` directory** — the valid category
 and anti-feature name lists live there, and without them lint rejects both. A
@@ -96,6 +111,7 @@ plain `git clone` of fdroiddata fails on some networks; the archive does not.
 ```sh
 python3 -m venv /tmp/fdsvenv
 /tmp/fdsvenv/bin/pip install git+https://gitlab.com/fdroid/fdroidserver.git check-jsonschema
+/tmp/fdsvenv/bin/pip install 'ruamel.yaml==0.18.6'   # pin AFTER, see below
 mkdir -p /tmp/fd && cd /tmp/fd
 curl -sS --http1.1 -o config.tar.gz \
   'https://gitlab.com/fdroid/fdroiddata/-/archive/master/fdroiddata-master.tar.gz?path=config'
