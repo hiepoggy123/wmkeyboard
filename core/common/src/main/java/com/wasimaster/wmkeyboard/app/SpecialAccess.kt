@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import androidx.core.net.toUri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.StringRes
@@ -54,6 +55,19 @@ enum class SpecialAccess {
 
     /** The touch-passthrough accessibility service, for keyboard gestures under TalkBack. */
     ACCESSIBILITY,
+
+    /**
+     * Permission to install packages, for the builds that update themselves
+     * from this project's GitHub releases.
+     *
+     * The odd one out here in that it is not about reading anything. It is
+     * still a switch on a system screen rather than a prompt, so it belongs to
+     * the same flow, and its disclosure has more work to do than the others':
+     * the system screen says this app may install apps, and what it actually
+     * does with that is install one app, itself, from one place, after
+     * checking the file against the release checksum and its own signing key.
+     */
+    INSTALL_UPDATES,
     ;
 
     /** Dialog heading: the grant and the feature that wants it. */
@@ -64,6 +78,7 @@ enum class SpecialAccess {
             NOTIFICATION_CODES -> R.string.common_special_access_notification_codes_title
             USAGE -> R.string.common_special_access_usage_title
             ACCESSIBILITY -> R.string.common_special_access_accessibility_title
+            INSTALL_UPDATES -> R.string.common_special_access_install_updates_title
         }
 
     /** What is read, why, where it goes, and that the feature is optional. */
@@ -74,6 +89,7 @@ enum class SpecialAccess {
             NOTIFICATION_CODES -> R.string.common_special_access_notification_codes_body
             USAGE -> R.string.common_special_access_usage_body
             ACCESSIBILITY -> R.string.common_special_access_accessibility_body
+            INSTALL_UPDATES -> R.string.common_special_access_install_updates_body
         }
 
     /**
@@ -81,7 +97,7 @@ enum class SpecialAccess {
      * devices where the deep link is missing — the per-app notification-listener
      * page only exists from API 30, and some OEMs ship neither.
      */
-    internal fun intents(component: ComponentName?): List<Intent> = when (this) {
+    internal fun intents(component: ComponentName?, packageName: String): List<Intent> = when (this) {
         // The version check is spelled out rather than folded into a takeIf so
         // that Lint can see it: both constants are Strings, so they inline into
         // the APK and would be used unguarded on API 24 otherwise.
@@ -99,12 +115,30 @@ enum class SpecialAccess {
         )
         USAGE -> listOf(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
         ACCESSIBILITY -> listOf(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        // The per-app "install unknown apps" page arrived with API 26. Below
+        // that the setting is one global switch with no page to send anyone
+        // to, so the list is empty and the system installer asks for itself.
+        // The version check is spelled out for the same reason as above.
+        INSTALL_UPDATES -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            listOf(
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    "package:$packageName".toUri(),
+                ),
+                // Some early Oreo skins ship the action without the per-app
+                // page, where the bare intent lands on the list of apps.
+                Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES),
+                Intent(Settings.ACTION_SECURITY_SETTINGS),
+            )
+        } else {
+            emptyList()
+        }
     }.map { it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
 }
 
 /** Opens the first Settings screen that this device actually has. */
 internal fun SpecialAccess.openSettings(context: Context, component: ComponentName? = null) {
-    intents(component).firstOrNull { intent ->
+    intents(component, context.packageName).firstOrNull { intent ->
         runCatching { context.startActivity(intent) }.isSuccess
     }
 }

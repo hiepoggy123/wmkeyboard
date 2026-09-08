@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.app.updates.UpdateChannel
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 
@@ -118,6 +119,18 @@ internal fun PermissionsSettings() {
                 SpecialAccess.ACCESSIBILITY,
                 KeyboardPassthrough::isServiceEnabled,
             )
+        }
+        // Only where the app can install a new version of itself, and only
+        // where Android has a per-app switch to send anyone to. Below API 26
+        // it is one global setting the system installer raises by itself.
+        if (UpdateChannel.GITHUB && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            item {
+                SpecialAccessRow(
+                    R.string.privacy_permissions_install_updates_title,
+                    R.string.privacy_permissions_install_updates_subtitle,
+                    SpecialAccess.INSTALL_UPDATES,
+                ) { it.packageManager.canRequestPackageInstalls() }
+            }
         }
     }
 

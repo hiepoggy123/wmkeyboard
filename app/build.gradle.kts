@@ -30,16 +30,31 @@ fun flag(propertyName: String, envName: String): Boolean =
         ?: System.getenv(envName)
         ?: "false").toBoolean()
 
-// Whether this build is going to the Play Store. It decides more than a label:
-// Play In-App Updates only works for an install that came from Play, and the
-// library is a Google binary that F-Droid will not accept, so it must be
-// absent from every other channel rather than merely unused. The flag
-// therefore selects a source directory as well as a dependency —
-// `src/play/java` drives the real AppUpdateManager, `src/noplay/java` declares
-// the same entry point and does nothing. Everything else lives in
-// `src/main/java` and compiles either way.
+// Which store this build is going to. It decides more than a label: each
+// channel gets a different updater, and each updater is a liability in the
+// other two channels. Play In-App Updates is a Google binary F-Droid will not
+// accept and only works for an install Play made; the GitHub updater installs
+// an APK, which Play's Device and Network Abuse policy forbids outright for an
+// app distributed through Play. So the choice selects source directories and a
+// manifest overlay, not just a dependency, and the code that is wrong for a
+// channel is absent from its APK rather than merely unreachable.
 val playStoreChannel = flag("wmkb.enablePlayStore", "WMKB_ENABLE_PLAY_STORE")
-val updateChannelSourceDir = if (playStoreChannel) "src/play/java" else "src/noplay/java"
+val fdroidChannel = flag("wmkb.enableFdroid", "WMKB_ENABLE_FDROID")
+
+// Seam one: which Play *services* are linked. SplitInstall for the on-demand
+// :feature:llm module, and PlayAppUpdater, which lives here too.
+val playServicesSourceDir = if (playStoreChannel) "src/play/java" else "src/noplay/java"
+
+// Seam two: which updater a non-Play build gets. Play needs no second
+// directory, its driver is already in src/play/java. F-Droid signs its own
+// builds, so an APK from our GitHub release can never install over an F-Droid
+// install; that channel gets a checker that links out and downloads nothing.
+val updaterSourceDir: String? = when {
+    playStoreChannel -> null
+    fdroidChannel -> "src/fdroid/java"
+    else -> "src/github/java"
+}
+val githubChannel = updaterSourceDir == "src/github/java"
 
 // Whether Google Play services may be compiled in. Separate from the store
 // channel above, and deliberately: a sideloaded build on an ordinary phone
@@ -51,6 +66,16 @@ val updateChannelSourceDir = if (playStoreChannel) "src/play/java" else "src/nop
 // :core:settings and compile everywhere.
 val gmsChannel = flag("wmkb.enableGms", "WMKB_ENABLE_GMS")
 val gmsSourceDir = if (gmsChannel) "src/gms/java" else "src/nogms/java"
+
+val channelSourceDirs = listOfNotNull(playServicesSourceDir, updaterSourceDir, gmsSourceDir)
+
+// Manifest entries that belong to exactly one channel. REQUEST_INSTALL_PACKAGES
+// and the install-result receiver must not exist in a Play or F-Droid APK, and
+// the Play Store package query is pointless anywhere but Play.
+val channelManifests = listOfNotNull(
+    "src/play/AndroidManifest.xml".takeIf { playStoreChannel },
+    "src/github/AndroidManifest.xml".takeIf { githubChannel },
+)
 
 // Sideload packaging. With `-Pwmkb.splitApks=true`, assemble<Variant> emits one
 // APK per ABI plus a universal fallback instead of a single fat APK — the
@@ -94,8 +119,12 @@ android {
         buildConfigField("String", "TRANSLATE_API_KEY", "\"${apiKey("wmkb.translateApiKey", "WMKB_TRANSLATE_API_KEY")}\"")
         buildConfigField("String", "UNSPLASH_API_KEY", "\"${apiKey("wmkb.unsplashApiKey", "WMKB_UNSPLASH_API_KEY")}\"")
         buildConfigField("String", "PEXELS_API_KEY", "\"${apiKey("wmkb.pexelsApiKey", "WMKB_PEXELS_API_KEY")}\"")
-        buildConfigField("Boolean", "ENABLE_PLAY_STORE", "${flag("wmkb.enablePlayStore", "WMKB_ENABLE_PLAY_STORE")}")
-        buildConfigField("Boolean", "ENABLE_FDROID", "${flag("wmkb.enableFdroid", "WMKB_ENABLE_FDROID")}")
+        buildConfigField("Boolean", "ENABLE_PLAY_STORE", "$playStoreChannel")
+        buildConfigField("Boolean", "ENABLE_FDROID", "$fdroidChannel")
+        // The third channel is the absence of the other two, which is a fact
+        // the update UI and the settings search index both have to test. Named
+        // once here so they cannot disagree about the boolean algebra.
+        buildConfigField("Boolean", "ENABLE_GITHUB_UPDATES", "$githubChannel")
         buildConfigField("Boolean", "ENABLE_GMS", "$gmsChannel")
         // OAuth client ids for the Dropbox and OneDrive backup destinations.
         // Not secrets: the sign-in uses PKCE so no client secret ships. A
@@ -373,9 +402,12 @@ androidComponents {
         // The store channel is not a flavour of its own on purpose: it is
         // orthogonal to full/lite, and a second dimension would double every
         // variant and every Gradle task name in the project for one file.
-        variant.sources.kotlin?.addStaticSourceDirectory(updateChannelSourceDir)
-        // Same reasoning, same mechanism, for the Drive authorizer.
-        variant.sources.kotlin?.addStaticSourceDirectory(gmsSourceDir)
+        channelSourceDirs.forEach { variant.sources.kotlin?.addStaticSourceDirectory(it) }
+        // The GitHub channel also needs two permissions and a receiver that
+        // must not appear in any other APK, so its manifest is added the same
+        // way. addStaticManifestFile appends, and a merged manifest overlays,
+        // so the entries land on top of src/main's.
+        channelManifests.forEach { variant.sources.manifests?.addStaticManifestFile(it) }
     }
 }
 
@@ -447,10 +479,9 @@ detekt {
             "src/main/java",
             "src/full/java",
             "src/lite/java",
-            // Only the channel this build compiles: the other directory names
-            // Play Core types that are not on any classpath here.
-            updateChannelSourceDir,
-            gmsSourceDir,
+            // Only the channels this build compiles: the other directories
+            // name types that are not on any classpath here.
+            channelSourceDirs,
             "src/test/java",
             "src/testFull/java",
             "src/androidTest/java",
@@ -526,14 +557,14 @@ fun registerTypeResolvedDetekt(
 registerTypeResolvedDetekt(
     taskName = "detektFullDebug",
     description = "Runs detekt with type resolution over the fullDebug variant's sources.",
-    sourceDirs = listOf("src/main/java", "src/full/java", updateChannelSourceDir, gmsSourceDir),
+    sourceDirs = listOf("src/main/java", "src/full/java") + channelSourceDirs,
     compileTaskName = "compileFullDebugKotlin",
 )
 
 registerTypeResolvedDetekt(
     taskName = "detektLiteDebug",
     description = "Runs detekt with type resolution over the liteDebug variant's sources.",
-    sourceDirs = listOf("src/main/java", "src/lite/java", updateChannelSourceDir, gmsSourceDir),
+    sourceDirs = listOf("src/main/java", "src/lite/java") + channelSourceDirs,
     compileTaskName = "compileLiteDebugKotlin",
 )
 

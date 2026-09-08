@@ -105,6 +105,20 @@ in detail.
 The full set of third-party hosts a WM Keyboard install can reach, beyond
 what's already in the table above:
 
+- **`api.github.com`**, on a build downloaded from the project's GitHub
+  releases, is where the update check asks what the newest release is. It runs
+  at most once every six hours, and only while you have the settings app open.
+  The request carries nothing but a version string identifying the app, and it
+  is a conditional request, so an unchanged list of releases sends no data back
+  and costs nothing against the limit GitHub applies to everyone sharing your
+  IP address. Press **Download** and the APK comes from
+  **`github.com`** (which redirects to **`objects.githubusercontent.com`**),
+  and **`raw.githubusercontent.com`** serves the release notes when you press
+  **What's new**. Play Store and F-Droid builds never make any of these
+  requests. See [Updating the app](/reference/settings/about/#updating-the-app).
+- **`f-droid.org`**, on an F-Droid build and no other, is asked what version
+  F-Droid has, on the same six-hour schedule. That build downloads nothing: it
+  can only point you back at the F-Droid client.
 - **`raw.githubusercontent.com/wasi-master/wmkeyboard-data`** is the
   project's own data repository, source for downloadable dictionaries,
   word-pair (n-gram) packs, emoji keyword packs, and CJK conversion tables.
@@ -207,8 +221,9 @@ some are.
 | On-device AI models | Hugging Face, per model | no checksum, a file-size floor only | Yes, at 500 MB. See [AI tools](/tools/ai/#local-models) |
 | Addons (themes, icon packs, plugins, sounds, layouts, sticker packs) | whichever repository you added | **SHA-256 verified when the manifest supplies one**, and mandatory for plugins specifically, since they run code | No |
 | Addon repository manifests themselves | the repository URL you added | none: it's the trust root, so there's nothing to check it against. Capped at a fixed size instead | No |
+| App updates (GitHub builds only) | this project's GitHub releases | **SHA-256 verified** against the checksum published in the release, and then the APK's signing key is compared against the key your install is signed with. A release with no checksum is refused rather than installed on trust | Yes, and it names the size before it starts |
 
-Only CJK packs and addons with a declared hash get cryptographic
+Only CJK packs, app updates, and addons with a declared hash get cryptographic
 verification. Wordlists, emoji packs, Whisper models, and on-device AI
 models rely on HTTPS transport integrity plus a basic size check rather than
 a checksum. That's worth knowing if you're deciding how much to trust a
@@ -229,6 +244,8 @@ choice is whether to use the feature.
 | **ML Kit** (handwriting, OCR, QR/barcode scanning, document scanning, sticker background removal) | full edition only | when you use one of those features | Per [Google's own disclosure](https://developers.google.com/ml-kit/android-data-disclosure): device make, model, OS build and available ML accelerators; the app's package name and version; a per-install identifier; latency figures, the API settings and input/output sizes; the SDK version, the kind of event (init, model download, detection) and any error codes. Google describes this as diagnostics and usage analytics, says it's encrypted in transit and not passed to third parties, and provides no switch to disable it. |
 | **Downloadable fonts** | every build with Play services present | the first time a script's default keyboard font is needed, and whenever you pick a Google font in the theme editor | the font family name and this app's package name, asked of the Play services font provider. Play services makes the actual request, not this app. |
 | **Play Store libraries** (in-app updates, and the on-demand download of the on-device AI runtime) | Play Store builds only | on the update check, and when you first use an on-device AI model | the app's package and version, handled by the Play Store app that installed it |
+
+On a Play Store build the update check is the only thing that library is asked, and it is asked only when the app can see that the Play Store installed this copy. Sideload a Play-flagged APK and the app doesn't ask at all, because the answer can only ever be a refusal.
 
 Google Drive as a backup destination adds a fourth, but only if you connect
 it: signing in is a Google sign-in, and after that the app talks to Drive

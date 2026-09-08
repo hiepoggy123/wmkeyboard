@@ -58,6 +58,8 @@ import com.wasimaster.wmkeyboard.app.media.MusicApps
 import com.wasimaster.wmkeyboard.app.media.MusicAppsScreen
 import com.wasimaster.wmkeyboard.app.updates.LocalAppUpdater
 import com.wasimaster.wmkeyboard.app.updates.UpdateCard
+import com.wasimaster.wmkeyboard.app.updates.UpdatePromptDialog
+import com.wasimaster.wmkeyboard.app.updates.UpdatedCard
 import com.wasimaster.wmkeyboard.app.updates.rememberAppUpdater
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Remove
@@ -294,6 +296,10 @@ class MainActivity : FragmentActivity() {
                             pending = pending,
                             onPendingHandled = { pendingNav.value = null },
                         )
+                        // Here rather than beside the card on the home screen,
+                        // which is the one screen the user may not be on when
+                        // the offer arrives.
+                        UpdatePromptDialog(loaded)
                     }
                 }
             }
@@ -1519,6 +1525,7 @@ private fun SettingsNavGraph(
                 route = "about",
             ) {
                 AboutSettings(
+                    settings = settings,
                     persona = settings.onboarding,
                     onOpenLicenses = { navController.navigate("licenses") },
                     onOpenLicenseText = { navController.navigate("license_text/$it") },
@@ -1673,9 +1680,14 @@ private fun AnimatedVisibilityScope.HomeScreen(
             }
             // Below the setup card on purpose: a keyboard that is not switched on
             // yet has a more pressing problem than being one version behind. Draws
-            // nothing at all unless Play is offering something.
+            // nothing at all unless there is an update to act on.
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                UpdateCard()
+                // Shown once, in the first launch after this app installed an
+                // update of itself. On Android 12 and up that install can
+                // finish without a screen of its own, so this is the only sign
+                // the user gets that it happened at all.
+                UpdatedCard()
+                UpdateCard(settings)
             }
             // The word of the day, when the vocabulary tool is on and asked for
             // it. The card owns its own gap and padding: put away for the day,

@@ -11,7 +11,7 @@ import Flavor from '@components/Flavor.astro';
 
 About has its own group on the Settings home screen: one tap gets you the build you're running, every licence bundled into the app, and a diagnostics screen for pulling a shareable report when something needs debugging.
 
-<PhoneFrame caption="The About screen: Share, App, Feedback, Documentation, Third party, and Word lists groups, plus Updates on a Play build.">
+<PhoneFrame caption="The About screen: Share, App, Updates, Feedback, Documentation, Third party, and Word lists groups.">
   {/* shot: reference/settings/about-screen */}
 </PhoneFrame>
 
@@ -36,21 +36,51 @@ Underneath the group, a caption spells out what the MIT licence means in practic
 
 ## Updating the app
 
-Directly under that caption sits an **Updates** group, on Play builds only. Every other build has no updater behind it, so the group draws nothing at all and you update the way you installed: F-Droid, or a new APK.
+Directly under that caption sits an **Updates** group. What it can do depends on where your copy came from, because that decides who is allowed to install a new one:
 
-Its first row follows whatever the updater is currently doing, and its label always matches what pressing it will do:
+| Your build | What the group does |
+|---|---|
+| **Play Store** | Asks the Play Store, and hands the update over to it |
+| **GitHub release** | Asks this project's releases page, downloads the APK that matches your phone, and installs it |
+| **F-Droid** | Asks F-Droid what F-Droid has, and opens F-Droid |
+
+The F-Droid build deliberately doesn't download anything itself. F-Droid signs its builds with its own key, so an APK from the GitHub releases page can't install over an F-Droid install even if you fetch it by hand. Asking F-Droid rather than GitHub also means the version you're offered is one you can actually get: F-Droid builds from source on its own schedule, so a tag can exist on GitHub days before F-Droid has it.
+
+The first row follows whatever the updater is currently doing, and its label always matches what pressing it will do:
 
 | Row | When you see it | What it does |
 |---|---|---|
-| **Check for updates** | Nothing in flight. The subtitle reads "Ask the Play Store if a newer version is out", "Asking the Play Store…", "This is the newest version", or "The Play Store did not answer. Press to try again" | Asks the Play Store |
-| **Download the update** | A newer version is out. The subtitle names its version code and, when Play says, the download size | Starts the download |
-| **Downloading the update** | While it downloads. The subtitle counts bytes once Play reports them | Nothing; it isn't pressable |
-| **Install the update** | The download finished | Installs it |
+| **Check for updates** | Nothing in flight. The subtitle reads "Ask if a newer version is out", "Checking…", "This is the newest version", or a line naming what went wrong last time | Checks now, ignoring the six-hour gap between automatic checks |
+| **Download the update** | A newer version is out. The subtitle names its version and download size | Starts the download |
+| **Get the update** | The same thing on an F-Droid build, naming the version | Opens F-Droid |
+| **Downloading the update** | While it downloads. The subtitle counts bytes | Nothing; it isn't pressable. A **Cancel** button on the home-screen card stops it, and what's downloaded so far is kept |
+| **Install the update** | The download finished and passed its checks | Installs it |
 | **Installing the update** | While it installs | Nothing; it isn't pressable |
 
-Installing restarts the app *and* the keyboard, which the Install row says out loud, so the moment is yours to pick rather than something that happens mid-sentence.
+Underneath, a **Release page** row appears whenever an update is on offer, so you can read the notes or fetch the file yourself.
 
-Below the row is **Ask me about updates**, on by default. It lets the Play Store offer a new version when you open the app. Turn it off and nothing arrives uninvited. The update card on the settings home screen and this row are still there when you go looking. High-priority releases ask anyway. This one switch lives in its own small preferences file rather than in the main settings store, so it doesn't travel in a settings export or a backup. It still resets like any other row.
+### What a GitHub build checks before it installs
+
+Downloading an APK and handing it to Android is the one thing in this app that replaces the app, so it's worth knowing exactly what's checked and in what order:
+
+1. The file name has to match the release and your phone: the right edition, and the right CPU, falling back to the universal build if your CPU has no build of its own.
+2. The downloaded bytes are hashed and compared against the checksum published in the release. A file that doesn't match is deleted, not installed. A release that publishes no checksum at all is refused rather than trusted.
+3. The APK's signing key is compared against the key your current install is signed with. A mismatch stops there and tells you to fetch the file yourself, which is also what happens if you're running a build you compiled locally.
+4. Android is asked to install it, and shows its own confirmation.
+
+The download goes to the app's own storage and shows up on the [storage screen](#seeing-what-the-app-is-using) as **Downloaded update**, so you can delete it. Deleting it costs you the download and nothing else.
+
+Android asks you to confirm the first update this way. After that, your phone knows this app is the one that updates itself and may skip its confirmation screen, so the update installs when you press **Install** and nothing else appears. That's why the button warns you: installing closes the app and restarts your keyboard, so the moment is yours to pick rather than something that happens mid-sentence. The next time you open the app it shows an **Updated to** card once, so a quiet update still leaves a trace. Some phones, Xiaomi and Oppo among them, show their own confirmation every time regardless.
+
+### The two switches
+
+**Ask me about updates**, on by default, lets the app put a new version in front of you when you open it. Turn it off and nothing arrives uninvited: the card on the home screen and this row are still there when you go looking. The app never downloads anything without being asked either way.
+
+**Include pre-releases** appears on GitHub builds only, and is off. Turn it on to be offered test versions before they're finished.
+
+Both live in their own small preferences file rather than in the main settings store, so they don't travel in a settings export or a theme share. They still reset like any other row.
+
+Automatic checks happen at most once every six hours, and only while you have the settings app open. There's no background check and no notification. A check sends nothing but a request for the list of releases, and the app asks for it conditionally, so an unchanged list costs no data and doesn't count against the limit GitHub applies to everyone sharing your IP address.
 
 ## Seeing what the app is using
 
@@ -125,13 +155,14 @@ The **app log** itself is a free-text filter field plus one level chip per sever
 
 ## Options
 
-There are only two switches in this whole tree. Everything else is either a display-only row (Version, Dictionaries) or a read-only browser (the licence and diagnostics screens).
+There are only three switches in this whole tree. Everything else is either a display-only row (Version, Dictionaries) or a read-only browser (the licence and diagnostics screens).
 
 <SettingsPath path="About / Updates" />
 
 | Setting | Control | Default |
 |---|---|---|
 | Ask me about updates | Toggle | **On** |
+| Include pre-releases | Toggle | **Off** (GitHub builds only) |
 
 <SettingsPath path="About / Diagnostics" />
 

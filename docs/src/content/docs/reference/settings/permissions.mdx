@@ -48,15 +48,18 @@ Tap a row that isn't granted and you get that permission's own explanation, then
 
 <SettingsPath path="Privacy / Permissions / Special access" />
 
-The three grants Android won't prompt for. Each one is a switch on a system screen, so all the app can do is explain itself and then take you there. The **Granted** and **Not granted** labels work the same way here.
+The grants Android won't prompt for. Each one is a switch on a system screen, so all the app can do is explain itself and then take you there. The **Granted** and **Not granted** labels work the same way here.
 
 | Row | Subtitle | Where it sends you |
 |---|---|---|
 | Notification access | Media controls on the keyboard, and one-time codes from your notifications | Android's full notification-listener list, where you find WM Keyboard yourself |
 | Usage access | Show which app a clipboard entry was copied from | Android's usage-access list |
 | Accessibility service | Keep the keyboard gestures while TalkBack is on | Android's accessibility list |
+| Install updates | Install a new version of this app that you downloaded from its release page | Android's "install unknown apps" page for WM Keyboard |
 
-These three go through the explanation every time, granted or not, because the system screen you land on is also where you turn them off.
+They all go through the explanation every time, granted or not, because the system screen you land on is also where you turn them off.
+
+**Install updates** is the one row that depends on where your copy came from. It's drawn only on a build downloaded from the project's GitHub releases, which is the only build that installs its own updates, and only on Android 8 and later, where the switch is per app rather than one global setting. A Play Store build hands updates to the Play Store and an F-Droid build hands them to F-Droid, so neither one asks for this and neither one declares the permission behind it. What the app does with it is narrow: it installs one app, itself, from one place, after checking the file against the release checksum and against your install's own signing key. See [Updating the app](/reference/settings/about/#updating-the-app).
 
 Notification access is the one place a row from this screen lands somewhere broader than the equivalent row inside the keyboard. Asked for from here, it opens the whole listener list. Asked for by the media tool on the keyboard itself, it opens WM Keyboard's own row on the per-app listener page where Android has one (API 30 and up).
 

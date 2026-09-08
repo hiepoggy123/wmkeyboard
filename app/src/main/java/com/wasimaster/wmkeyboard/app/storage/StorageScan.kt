@@ -44,6 +44,14 @@ internal data class StorageRoots(
     val files: File,
     val cache: File,
     val codeCache: File,
+    /**
+     * `no_backup/`, where the downloaded app update waits to be installed. Its
+     * own root because it is the one place in the app holding a file measured
+     * in tens of megabytes that the user did not ask to keep, and the cache is
+     * not an option for it: Android empties the cache under exactly the
+     * storage pressure a download that size creates.
+     */
+    val noBackupFiles: File,
     /** Device-protected `files/`; readable from boot. See [DirectBoot]. */
     val deFiles: File,
     val deCache: File,
@@ -63,6 +71,7 @@ internal fun storageRoots(context: Context): StorageRoots {
         files = context.filesDir,
         cache = context.cacheDir,
         codeCache = context.codeCacheDir,
+        noBackupFiles = context.noBackupFilesDir,
         deFiles = de.filesDir,
         deCache = de.cacheDir,
         prefs = File(dataDir, "shared_prefs"),

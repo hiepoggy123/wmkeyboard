@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.app.updates.UpdateSettings
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.OnboardingSettings
 import com.wasimaster.wmkeyboard.core.settings.PersonaDepth
 import com.wasimaster.wmkeyboard.core.settings.PersonaLanguages
@@ -61,12 +62,11 @@ internal const val DOCS_URL = "https://wmkeyboard.pages.dev"
  * holding. Opening the wrong one would disclose collection that does not
  * happen, or worse, fail to disclose collection that does.
  *
- * Keyed on the flavour rather than on `BuildConfig.ENABLE_FDROID`: the F-Droid
- * build recipe sets `wmkb.enablePlayStore=false` and `wmkb.enableGms=false`
- * but not `wmkb.enableFdroid`, so that flag is false in an F-Droid install.
- * The flavour is also the more honest key — a lite APK downloaded from GitHub
- * wants exactly the same page as an F-Droid install, because it is the same
- * binary.
+ * Keyed on the flavour rather than on `BuildConfig.ENABLE_FDROID`, which the
+ * F-Droid recipe does set. The flavour is the more honest key: a lite APK
+ * downloaded from GitHub wants exactly the same page as an F-Droid install,
+ * because it is the same binary, and the page is about what the binary can do
+ * rather than about where it came from.
  */
 private val PRIVACY_POLICY_URL = if (BuildConfig.FLAVOR == "lite") {
     "$DOCS_URL/privacy/policy-fdroid/"
@@ -526,6 +526,7 @@ private fun personaSummary(persona: OnboardingSettings): String {
 
 @Composable
 internal fun AboutSettings(
+    settings: KeyboardSettings,
     persona: OnboardingSettings,
     onOpenLicenses: () -> Unit,
     onOpenLicenseText: (String) -> Unit,
@@ -683,9 +684,12 @@ internal fun AboutSettings(
         }
     }
 
-    // Directly under the version it is about. Present only in a Play build:
-    // everywhere else the updater reports "unsupported" and this draws nothing.
-    UpdateSettings()
+    // Directly under the version it is about. What it can offer depends on the
+    // channel: a Play build hands off to the Play Store, a direct-download
+    // build downloads and installs the new version itself, and an F-Droid
+    // build points at F-Droid. A build with no update source reports
+    // "unsupported" and this draws nothing.
+    UpdateSettings(settings)
 
     SettingsGroup(
         stringResource(R.string.about_feedback_title),

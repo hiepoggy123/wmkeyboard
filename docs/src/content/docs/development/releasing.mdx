@@ -24,7 +24,7 @@ of it, so nothing here needs a branch or a patched source tree.
 | Artifact | one APK per ABI, for both flavors, plus `SHA256SUMS.txt` | one APK, built by F-Droid | one AAB |
 | ML Kit | bundled in the APK | absent | unbundled, fetched from Play services |
 | Local LLM | bundled | absent | on-demand `:feature:llm` module |
-| In-app updates | no | no | yes |
+| In-app updates | GitHub releases, downloads and installs | checks F-Droid, links out | Play In-App Updates |
 
 The flags read from a `-P` Gradle property first, then `local.properties`, then
 the environment, then default to `false`. `-P` winning is what lets a fastlane
@@ -39,11 +39,62 @@ install. The F-Droid recipe sets it explicitly, since `false` is the default
 everywhere else.
 
 :::caution[Keep the flags matched to the channel]
+The flags pick the updater, and the wrong updater is worse than none.
+
 `wmkb.enablePlayStore=true` links Play's in-app update library. That library
 only works for an install that actually came from Play, and calling
 `completeUpdate()` restarts the process, which kills a running keyboard. Never
 ship a Play-flagged build anywhere but Play.
+
+With neither flag set the build gets the GitHub updater, which downloads an
+APK and installs it. Two things follow. Play's Device and Network Abuse policy
+forbids an app distributed through Play from updating itself by any other
+route, so that code and its two permissions must never reach a Play build,
+which is what the source-set and manifest split below enforces. And a
+GitHub-channel build has to be **signed with the release key**, or it can
+never install over the published APK: Android refuses an update signed with a
+different key, and the app checks for that itself so the refusal at least
+arrives as a sentence rather than a silent failure.
+
+`wmkb.enableFdroid=true` gets a checker that asks F-Droid and opens F-Droid,
+and no installer at all, since F-Droid signs its own builds.
 :::
+
+## Where the updater code lives
+
+The channel picks source directories and a manifest overlay, wired through the
+Variant API in `app/build.gradle.kts` (`channelSourceDirs` and
+`channelManifests`). There is no product flavour for it: the channel is
+orthogonal to `full`/`lite`, and a second dimension would double every variant
+and task name in the project.
+
+| Directory | Compiled when | Holds |
+|---|---|---|
+| `app/src/play/java` | `enablePlayStore` | `PlayAppUpdater`, and SplitInstall for `:feature:llm` |
+| `app/src/noplay/java` | otherwise | the no-op SplitInstall stub |
+| `app/src/github/java` | neither flag | the release check, the download, and the package installer |
+| `app/src/fdroid/java` | `enableFdroid` | the F-Droid index check |
+| `app/src/play/AndroidManifest.xml` | `enablePlayStore` | a `<queries>` entry for the Play Store, so the app can see who installed it |
+| `app/src/github/AndroidManifest.xml` | neither flag | `REQUEST_INSTALL_PACKAGES`, `UPDATE_PACKAGES_WITHOUT_USER_ACTION`, and the install-result receiver |
+
+Each of the three declares the same `rememberAppUpdater()`, against the
+`AppUpdater` interface in `app/src/main`. Everything worth unit testing (the
+asset-name parser, the release picker, the check interval, the install-status
+mapping) lives in `src/main` too, because `src/test` is compiled in every
+channel and a test that named a class from `src/github/java` would break
+`check` on a Play build.
+
+To confirm the split holds, read the merged manifest rather than trusting the
+build file:
+
+```bash
+rm -rf app/build/intermediates/merged_manifest
+./gradlew :app:processFullDebugMainManifest -Pwmkb.enablePlayStore=true
+grep -c REQUEST_INSTALL_PACKAGES \
+  app/build/intermediates/merged_manifest/fullDebug/processFullDebugMainManifest/AndroidManifest.xml
+```
+
+That has to print `0` for a Play build and `1` for a GitHub one.
 
 ## Cutting a GitHub release
 

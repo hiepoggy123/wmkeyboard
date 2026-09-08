@@ -220,6 +220,7 @@ class StorageScanTest {
             files = dir("files"),
             cache = dir("cache"),
             codeCache = dir("code_cache"),
+            noBackupFiles = dir("no_backup"),
             deFiles = dir("de/files"),
             deCache = dir("de/cache"),
             prefs = dir("shared_prefs"),

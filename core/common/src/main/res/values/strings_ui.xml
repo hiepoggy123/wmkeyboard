@@ -65,6 +65,10 @@
     <string name="common_special_access_usage_title">Usage access for clipboard source apps</string>
     <string name="common_special_access_usage_body">With usage access, the keyboard records which app was in front when you copied something. It shows that app when you press and hold the clip. The keyboard reads the front app only at the moment of a copy. It does not read your history or your time in an app. The keyboard keeps the answer with the clip, on your device only. Nothing about your app usage leaves your device. The setting is optional. It stays off until you turn it on.</string>
 
+    <!-- The install permission, on builds that update themselves from GitHub. -->
+    <string name="common_special_access_install_updates_title">Permission to install updates</string>
+    <string name="common_special_access_install_updates_body">To install a new version, Android must let this app install apps. The app uses that permission for one thing: a new version of itself that you downloaded from the project releases page and pressed Install on. Before it asks, the app compares the file against the checksum in the release and against the key this install is signed with. Android shows its own confirmation for the first update. The app never installs another app, and it never installs anything you did not press Install on.</string>
+
     <string name="common_special_access_accessibility_title">Accessibility service for keyboard gestures</string>
     <string name="common_special_access_accessibility_body">This service keeps the keyboard gestures available while a screen reader runs. The gestures are the spacebar cursor slide, the backspace word swipe, glide typing and handwriting. Only an accessibility service can arrange this. The service subscribes to no accessibility events. It cannot read window content. It marks nothing but the keyboard\'s own key grid. It collects no data. Android\'s accessibility screen warns about the full power of this category. This service declares none of that power.</string>
 

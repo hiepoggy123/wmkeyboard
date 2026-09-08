@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app.updates
 
+import android.content.Context
 import android.text.format.Formatter
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.LinearProgressIndicator
@@ -19,36 +21,48 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.app.MeteredBlockedDialog
 import com.wasimaster.wmkeyboard.app.NavRow
 import com.wasimaster.wmkeyboard.app.SettingsGroup
 import com.wasimaster.wmkeyboard.app.SettingsRowIcons
+import com.wasimaster.wmkeyboard.app.SpecialAccess
 import com.wasimaster.wmkeyboard.app.ToggleSetting
 import com.wasimaster.wmkeyboard.app.WmRow
+import com.wasimaster.wmkeyboard.app.downloadDecisionNow
+import com.wasimaster.wmkeyboard.app.isMeteredNow
+import com.wasimaster.wmkeyboard.app.rememberDisclosedSpecialAccess
+import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 
 /**
  * The update card on the settings home screen.
  *
  * Draws nothing unless there is something to act on, which is most of the
- * time: a build with no Play behind it sits on [UpdateState.Unsupported], and
- * an up-to-date install sits on [UpdateState.UpToDate]. A failed check draws
- * nothing either — the About row is where a retry belongs, not the front page.
+ * time: an up-to-date install sits on [UpdateState.UpToDate] and a build with
+ * no update source behind it on [UpdateState.Unsupported]. A failed check
+ * draws nothing either. The About row is where a retry belongs, not the front
+ * page.
  */
 @Composable
-internal fun UpdateCard(modifier: Modifier = Modifier) {
+internal fun UpdateCard(settings: KeyboardSettings, modifier: Modifier = Modifier) {
     val updater = LocalAppUpdater.current
     val state by updater.state.collectAsStateWithLifecycle()
     when (val current = state) {
         is UpdateState.Available ->
-            if (current.dismissed) Unit else AvailableCard(current, updater, modifier)
-        is UpdateState.Downloading -> DownloadingCard(current, modifier)
+            if (current.dismissed) Unit else AvailableCard(current, updater, settings, modifier)
+        is UpdateState.Downloading -> DownloadingCard(current, updater, modifier)
         UpdateState.Downloaded -> ReadyCard(updater, modifier)
-        UpdateState.Installing -> InstallingCard(modifier)
+        UpdateState.Installing -> InstallingCard(updater, modifier)
         UpdateState.Unsupported,
         UpdateState.Idle,
         UpdateState.Checking,
@@ -58,28 +72,89 @@ internal fun UpdateCard(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * "Updated to 0.5.3", once, after this app has replaced itself.
+ *
+ * The reason it exists is the quiet install: from Android 12 an update this
+ * app installs can finish with no screen of its own, so without this the whole
+ * thing would happen with no sign that anything had. Reads and clears in one
+ * go, so it appears in exactly one composition of one launch.
+ */
+@Composable
+internal fun UpdatedCard(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    val justUpdated = remember {
+        UpdatePrefs(context).takeJustUpdated(BuildConfig.VERSION_CODE, System.currentTimeMillis())
+    }
+    var showing by remember { mutableStateOf(justUpdated) }
+    if (!showing) return
+    UpdateCardFrame(
+        title = stringResource(R.string.update_card_updated_title, BuildConfig.VERSION_NAME),
+        body = stringResource(R.string.update_card_updated_body),
+        modifier = modifier,
+    ) {
+        Button(onClick = { showing = false }) {
+            Text(stringResource(R.string.update_action_dismiss))
+        }
+        Spacer(Modifier.width(8.dp))
+        TextButton(
+            onClick = {
+                uriHandler.openUri(GithubReleases.releasePage("v" + BuildConfig.VERSION_NAME))
+            },
+        ) {
+            Text(stringResource(R.string.update_action_notes))
+        }
+    }
+}
+
+/**
+ * The offer, put in front of the user once rather than waited for on a card
+ * they may never scroll to.
+ *
+ * Hosted at the root of the settings activity rather than inside [UpdateCard],
+ * which only composes on the home screen: a dialog that could only open on one
+ * screen would open on whichever screen the user happened not to be on.
+ */
+@Composable
+internal fun UpdatePromptDialog(settings: KeyboardSettings) {
+    val updater = LocalAppUpdater.current
+    val state by updater.state.collectAsStateWithLifecycle()
+    val notes by updater.releaseNotes.collectAsStateWithLifecycle()
+    val available = state as? UpdateState.Available ?: return
+    if (!available.promptOpen) return
+    val download = rememberUpdateDownloadRequest(updater, available.sizeBytes, settings)
+    AlertDialog(
+        onDismissRequest = updater::dismiss,
+        title = { Text(stringResource(R.string.update_card_available_title)) },
+        text = { Text(availableBody(available, updater) + notesTail(notes)) },
+        confirmButton = {
+            TextButton(onClick = download) { Text(startActionLabel(updater)) }
+        },
+        dismissButton = {
+            TextButton(onClick = updater::dismiss) {
+                Text(stringResource(R.string.update_action_later))
+            }
+        },
+    )
+}
+
 @Composable
 private fun AvailableCard(
     state: UpdateState.Available,
     updater: AppUpdater,
+    settings: KeyboardSettings,
     modifier: Modifier = Modifier,
 ) {
+    val notes by updater.releaseNotes.collectAsStateWithLifecycle()
+    var showNotes by remember(state.versionCode) { mutableStateOf(false) }
+    val download = rememberUpdateDownloadRequest(updater, state.sizeBytes, settings)
     UpdateCardFrame(
         title = stringResource(R.string.update_card_available_title),
-        body = stringResource(
-            if (state.immediate) R.string.update_card_urgent_body
-            else R.string.update_card_available_body,
-        ),
+        body = availableBody(state, updater) + if (showNotes) notesTail(notes) else "",
         modifier = modifier,
     ) {
-        Button(onClick = updater::start) {
-            Text(
-                stringResource(
-                    if (state.immediate) R.string.update_action_update
-                    else R.string.update_action_download,
-                ),
-            )
-        }
+        Button(onClick = download) { Text(startActionLabel(updater)) }
         // An urgent release gets no "Not now": the button would write a snooze
         // that [UpdatePolicy] ignores for that release anyway, so it would be
         // a control that does nothing.
@@ -89,48 +164,96 @@ private fun AvailableCard(
                 Text(stringResource(R.string.update_action_later))
             }
         }
+        if (state.releaseUrl != null && !showNotes) {
+            Spacer(Modifier.width(8.dp))
+            TextButton(
+                onClick = {
+                    showNotes = true
+                    updater.loadNotes()
+                },
+            ) {
+                Text(stringResource(R.string.update_action_notes))
+            }
+        }
     }
 }
 
 @Composable
-private fun DownloadingCard(state: UpdateState.Downloading, modifier: Modifier = Modifier) {
+private fun DownloadingCard(
+    state: UpdateState.Downloading,
+    updater: AppUpdater,
+    modifier: Modifier = Modifier,
+) {
     val fraction = state.fraction
     UpdateCardFrame(
         title = stringResource(R.string.update_card_downloading_title),
-        // Nothing to say yet while the download is only queued: Play reports no
+        // Nothing to say yet while the download is only queued: there are no
         // byte counts until it starts, and "0 B of 0 B" is worse than silence.
         body = state.progressText(),
         modifier = modifier,
     ) {
-        if (fraction == null) {
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        } else {
-            LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+        Column(Modifier.fillMaxWidth()) {
+            if (fraction == null) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            } else {
+                LinearProgressIndicator(progress = { fraction }, modifier = Modifier.fillMaxWidth())
+            }
+            // Only where this app is the one downloading. A store's download
+            // is the store's to stop.
+            if (updater.ownsDownload) {
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = updater::cancel) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            }
         }
     }
 }
 
 @Composable
 private fun ReadyCard(updater: AppUpdater, modifier: Modifier = Modifier) {
+    val grant = updater.installGrant
+    val requestGrant = rememberDisclosedSpecialAccess(SpecialAccess.INSTALL_UPDATES)
     UpdateCardFrame(
         title = stringResource(R.string.update_card_ready_title),
         // The warning is the point of this card. Installing kills the process
-        // the keyboard runs in, so the user has to be the one who picks the
-        // moment; see [AppUpdater].
-        body = stringResource(R.string.update_card_ready_body),
+        // the keyboard runs in, and on a build that installs for itself Android
+        // may not show a screen of its own at all, so this sentence is the only
+        // warning the user gets. See [AppUpdater].
+        body = stringResource(
+            if (updater.ownsDownload) {
+                R.string.update_card_ready_body_self
+            } else {
+                R.string.update_card_ready_body
+            },
+        ),
         modifier = modifier,
     ) {
-        Button(onClick = updater::install) {
+        Button(
+            onClick = {
+                // Records the press either way. When Android still has to be
+                // told this app may install, the disclosure goes first and the
+                // install picks up on the way back.
+                updater.install()
+                if (grant != null) requestGrant()
+            },
+        ) {
             Text(stringResource(R.string.update_action_install))
         }
     }
 }
 
 @Composable
-private fun InstallingCard(modifier: Modifier = Modifier) {
+private fun InstallingCard(updater: AppUpdater, modifier: Modifier = Modifier) {
     UpdateCardFrame(
         title = stringResource(R.string.update_card_installing_title),
-        body = stringResource(R.string.update_card_installing_body),
+        body = stringResource(
+            if (updater.ownsDownload) {
+                R.string.update_card_installing_body_self
+            } else {
+                R.string.update_card_installing_body
+            },
+        ),
         modifier = modifier,
     ) {
         LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
@@ -158,7 +281,94 @@ private fun UpdateCardFrame(
     }
 }
 
-/** "12 MB of 30 MB", or null while Play has not said how big the download is. */
+/**
+ * Starting a download, with the user's data saving setting in the way.
+ *
+ * Only where this app does the downloading: a store runs its own data policy,
+ * and asking twice about one download would be this app second-guessing it.
+ * The check itself is never gated, being a few kilobytes of JSON.
+ */
+@Composable
+private fun rememberUpdateDownloadRequest(
+    updater: AppUpdater,
+    sizeBytes: Long,
+    settings: KeyboardSettings,
+): () -> Unit {
+    val context = LocalContext.current
+    var blocked by remember { mutableStateOf(false) }
+    var confirming by remember { mutableStateOf(false) }
+    if (blocked) MeteredBlockedDialog { blocked = false }
+    if (confirming) {
+        val size = Formatter.formatShortFileSize(context, sizeBytes)
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text(stringResource(R.string.update_metered_title)) },
+            text = { Text(stringResource(R.string.update_metered_body, size)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirming = false
+                        updater.start()
+                    },
+                ) {
+                    Text(stringResource(R.string.update_action_download))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
+    return {
+        if (!updater.ownsDownload) {
+            updater.start()
+        } else {
+            when (downloadDecisionNow(context, settings)) {
+                MeteredDecision.BLOCKED -> blocked = true
+                MeteredDecision.ASK -> confirming = true
+                MeteredDecision.ALLOWED ->
+                    if (isMeteredNow(context)) confirming = true else updater.start()
+            }
+        }
+    }
+}
+
+/** What the button that starts an update says, which depends on where it goes. */
+@Composable
+private fun startActionLabel(updater: AppUpdater): String = when {
+    updater.startsExternally ->
+        stringResource(R.string.update_action_open_source, stringResource(updater.sourceNameRes))
+    updater.ownsDownload -> stringResource(R.string.update_action_download)
+    else -> stringResource(R.string.update_action_update)
+}
+
+/** The sentence describing what is on offer, with a version when there is one. */
+@Composable
+private fun availableBody(state: UpdateState.Available, updater: AppUpdater): String {
+    val source = stringResource(updater.sourceNameRes)
+    return when {
+        state.immediate -> stringResource(R.string.update_card_urgent_body, source)
+        state.versionName.isNullOrBlank() ->
+            stringResource(R.string.update_card_available_body, source)
+        else -> stringResource(
+            R.string.update_card_available_body_versioned,
+            state.versionName,
+            source,
+        )
+    }
+}
+
+/** The release notes appended to a card body, or a line saying there are none. */
+@Composable
+private fun notesTail(notes: String?): String = when {
+    notes == null -> ""
+    notes.isBlank() -> "\n\n" + stringResource(R.string.update_notes_empty)
+    else -> "\n\n$notes"
+}
+
+/** "12 MB of 30 MB", or null while the size is still unknown. */
 @Composable
 private fun UpdateState.Downloading.progressText(): String? {
     if (totalBytes <= 0L) return null
@@ -172,25 +382,29 @@ private fun UpdateState.Downloading.progressText(): String? {
 
 /**
  * The Updates group on the About screen: one row that always says where things
- * stand, and the setting that decides whether Play may interrupt.
+ * stand, and the settings that decide what arrives uninvited.
  *
  * The row's action follows its state rather than always meaning "check". A row
  * that reads "Install the update" and then only re-checks for one would be
  * lying about what pressing it does.
  */
 @Composable
-internal fun UpdateSettings() {
+internal fun UpdateSettings(settings: KeyboardSettings) {
     val updater = LocalAppUpdater.current
     val state by updater.state.collectAsStateWithLifecycle()
     if (state is UpdateState.Unsupported) return
 
-    // The setting lives in SharedPreferences, not in the settings DataStore, so
-    // it is not snapshot state and a write would not recompose anything on its
-    // own. The switch keeps its own copy and writes through.
+    // These settings live in SharedPreferences, not in the settings DataStore,
+    // so they are not snapshot state and a write would not recompose anything
+    // on its own. Each switch keeps its own copy and writes through.
     val autoPrompt = remember { mutableStateOf(updater.autoPrompt) }
+    val prereleases = remember { mutableStateOf(updater.includePrereleases) }
 
     SettingsGroup(stringResource(R.string.update_section_title)) {
-        item { UpdateRow(state, updater) }
+        item { UpdateRow(state, updater, settings) }
+        (state as? UpdateState.Available)?.releaseUrl?.let { url ->
+            item { ReleasePageRow(url) }
+        }
         item {
             ToggleSetting(
                 R.string.update_row_prompts_title,
@@ -203,34 +417,34 @@ internal fun UpdateSettings() {
                 },
             )
         }
+        if (updater.supportsPrereleases) {
+            item {
+                ToggleSetting(
+                    R.string.update_row_prereleases_title,
+                    stringResource(R.string.update_row_prereleases_subtitle),
+                    checked = prereleases.value,
+                    default = UpdatePrefs.DEFAULT_PRERELEASES,
+                    onChange = {
+                        prereleases.value = it
+                        updater.includePrereleases = it
+                    },
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun UpdateRow(state: UpdateState, updater: AppUpdater) {
+private fun UpdateRow(state: UpdateState, updater: AppUpdater, settings: KeyboardSettings) {
     val context = LocalContext.current
     when (state) {
-        is UpdateState.Available -> {
-            val size = Formatter.formatShortFileSize(context, state.sizeBytes)
-            NavRow(
-                R.string.update_row_available_title,
-                subtitle = if (state.sizeBytes > 0L) {
-                    stringResource(R.string.update_row_available_subtitle, state.versionCode, size)
-                } else {
-                    stringResource(R.string.update_row_available_subtitle_plain, state.versionCode)
-                },
-                onClick = updater::start,
-            )
-        }
-        // Nothing to press while Play is working, so these two are rows rather
-        // than [NavRow]s: a chevron would promise an action that is not there.
+        is UpdateState.Available -> AvailableRow(state, updater, settings, context)
+        // Nothing to press while the download runs, so this is a plain row
+        // rather than a [NavRow]: a chevron would promise an action that is
+        // not there.
         is UpdateState.Downloading ->
             ProgressRow(R.string.update_row_downloading_title, state.progressText())
-        UpdateState.Downloaded -> NavRow(
-            R.string.update_row_install_title,
-            subtitle = stringResource(R.string.update_row_install_subtitle),
-            onClick = updater::install,
-        )
+        UpdateState.Downloaded -> InstallRow(updater)
         UpdateState.Installing -> ProgressRow(R.string.update_row_installing_title, null)
         // Every quiet state, where the row's job is to offer a check and to
         // report the last one.
@@ -245,6 +459,62 @@ private fun UpdateRow(state: UpdateState, updater: AppUpdater) {
             onClick = { updater.check(userAsked = true) },
         )
     }
+}
+
+@Composable
+private fun AvailableRow(
+    state: UpdateState.Available,
+    updater: AppUpdater,
+    settings: KeyboardSettings,
+    context: Context,
+) {
+    val download = rememberUpdateDownloadRequest(updater, state.sizeBytes, settings)
+    if (updater.startsExternally) {
+        NavRow(
+            R.string.update_row_available_title_external,
+            subtitle = stringResource(
+                R.string.update_row_available_subtitle_external,
+                state.versionName.orEmpty(),
+                stringResource(updater.sourceNameRes),
+            ),
+            onClick = download,
+        )
+        return
+    }
+    val size = Formatter.formatShortFileSize(context, state.sizeBytes)
+    NavRow(
+        R.string.update_row_available_title,
+        subtitle = if (state.sizeBytes > 0L) {
+            stringResource(R.string.update_row_available_subtitle, state.versionCode, size)
+        } else {
+            stringResource(R.string.update_row_available_subtitle_plain, state.versionCode)
+        },
+        onClick = download,
+    )
+}
+
+@Composable
+private fun InstallRow(updater: AppUpdater) {
+    val grant = updater.installGrant
+    val requestGrant = rememberDisclosedSpecialAccess(SpecialAccess.INSTALL_UPDATES)
+    NavRow(
+        R.string.update_row_install_title,
+        subtitle = stringResource(R.string.update_row_install_subtitle),
+        onClick = {
+            updater.install()
+            if (grant != null) requestGrant()
+        },
+    )
+}
+
+@Composable
+private fun ReleasePageRow(url: String) {
+    val uriHandler = LocalUriHandler.current
+    NavRow(
+        R.string.update_row_release_page_title,
+        subtitle = stringResource(R.string.update_row_release_page_subtitle),
+        onClick = { uriHandler.openUri(url) },
+    )
 }
 
 /** A row that reports work in progress and cannot be pressed. */
@@ -265,11 +535,7 @@ private fun UpdateState.checkSubtitle(): Int = when (this) {
     is UpdateState.UpToDate -> R.string.update_row_current_subtitle
     // A cancelled flow is the user's own answer, so the row goes back to its
     // resting words rather than reporting their decision back at them.
-    is UpdateState.Failed -> if (cancelled) {
-        R.string.update_row_check_subtitle
-    } else {
-        R.string.update_row_failed_subtitle
-    }
+    is UpdateState.Failed -> if (cancelled) R.string.update_row_check_subtitle else reason.subtitle()
     UpdateState.Unsupported,
     UpdateState.Idle,
     UpdateState.Downloaded,
@@ -277,4 +543,20 @@ private fun UpdateState.checkSubtitle(): Int = when (this) {
     is UpdateState.Available,
     is UpdateState.Downloading,
     -> R.string.update_row_check_subtitle
+}
+
+/**
+ * One sentence per way an update can fail, because they ask for different
+ * things: wait, make room, try again, or go and fetch it by hand.
+ */
+@StringRes
+private fun UpdateFailure?.subtitle(): Int = when (this) {
+    UpdateFailure.RATE_LIMITED -> R.string.update_row_failed_rate_limited_subtitle
+    UpdateFailure.NO_ASSET -> R.string.update_row_failed_no_asset_subtitle
+    UpdateFailure.NO_SPACE -> R.string.update_row_failed_no_space_subtitle
+    UpdateFailure.CORRUPT -> R.string.update_row_failed_corrupt_subtitle
+    UpdateFailure.SIGNATURE_MISMATCH -> R.string.update_row_failed_signature_subtitle
+    UpdateFailure.INSTALL_BLOCKED -> R.string.update_row_failed_blocked_subtitle
+    UpdateFailure.INSTALL_FAILED -> R.string.update_row_failed_install_subtitle
+    UpdateFailure.NETWORK, null -> R.string.update_row_failed_subtitle
 }

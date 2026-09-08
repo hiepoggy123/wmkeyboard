@@ -242,6 +242,10 @@
     <string name="privacy_permissions_accessibility_title">Accessibility service</string>
     <string name="privacy_permissions_accessibility_subtitle">Keep the keyboard gestures while TalkBack is on</string>
 
+    <!-- Direct-download builds only. The keyboard can install a new version of itself. -->
+    <string name="privacy_permissions_install_updates_title">Install updates</string>
+    <string name="privacy_permissions_install_updates_subtitle">Install a new version of this app that you downloaded from its release page</string>
+
     <string name="privacy_permissions_internet_title">Internet</string>
     <string name="privacy_permissions_internet_subtitle">Only the network tools use it: translate, weather, search, GIFs, stickers, dictionary and the AI tools</string>
 

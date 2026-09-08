@@ -5,6 +5,7 @@ import androidx.annotation.ArrayRes
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.app.updates.UpdateChannel
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
@@ -1410,6 +1411,15 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
             R.string.privacy_permissions_accessibility_title,
             R.string.privacy_permissions_accessibility_subtitle,
         ),
+        // Only the channel that installs its own updates asks for this one.
+        if (UpdateChannel.GITHUB) {
+            permission(
+                R.string.privacy_permissions_install_updates_title,
+                R.string.privacy_permissions_install_updates_subtitle,
+            )
+        } else {
+            null
+        },
         permission(R.string.privacy_permissions_internet_title, R.string.privacy_permissions_internet_subtitle),
         permission(R.string.privacy_permissions_vibrate_title, R.string.privacy_permissions_vibrate_subtitle),
         permission(R.string.privacy_permissions_biometric_title, R.string.privacy_permissions_biometric_subtitle),
@@ -1462,17 +1472,24 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
         debug(R.string.shell_debug_log_system_title, R.string.shell_debug_log_system_subtitle),
         debug(R.string.shell_debug_log_crash_test_title, R.string.shell_debug_log_crash_test_subtitle),
         about(R.string.about_dictionaries_title, R.string.about_dictionaries_subtitle),
-        // Play builds only: nowhere else has an Updates group to land on. The
-        // check row is indexed under its resting name — the resource is what a
-        // search result matches on, and the row wears three other names while
-        // a download is running.
-        if (BuildConfig.ENABLE_PLAY_STORE) {
+        // Only a build with an update source behind it has an Updates group to
+        // land on. The check row is indexed under its resting name — the
+        // resource is what a search result matches on, and the row wears four
+        // other names while a download is running.
+        if (UpdateChannel.ANY) {
             about(R.string.update_row_check_title, R.string.update_row_check_subtitle)
         } else {
             null
         },
-        if (BuildConfig.ENABLE_PLAY_STORE) {
+        if (UpdateChannel.ANY) {
             about(R.string.update_row_prompts_title, R.string.update_row_prompts_subtitle)
+        } else {
+            null
+        },
+        // The pre-release switch exists only where there are pre-releases to
+        // offer, which is the channel that reads GitHub's own release list.
+        if (UpdateChannel.GITHUB) {
+            about(R.string.update_row_prereleases_title, R.string.update_row_prereleases_subtitle)
         } else {
             null
         },

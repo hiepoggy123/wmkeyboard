@@ -17,10 +17,13 @@ import com.google.android.play.core.appupdate.AppUpdateInfo
 import com.google.android.play.core.appupdate.AppUpdateManager
 import com.google.android.play.core.appupdate.AppUpdateManagerFactory
 import com.google.android.play.core.appupdate.AppUpdateOptions
+import com.google.android.play.core.install.InstallException
 import com.google.android.play.core.install.InstallStateUpdatedListener
 import com.google.android.play.core.install.model.AppUpdateType
+import com.google.android.play.core.install.model.InstallErrorCode
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
+import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +39,14 @@ import kotlinx.coroutines.flow.asStateFlow
 @Composable
 internal fun rememberAppUpdater(): AppUpdater {
     val activity = LocalContext.current.findActivity() ?: return NoAppUpdater
+    // Asked before Play Core is touched at all, not after it has failed. An
+    // install Play did not make can never be updated by Play, so there is
+    // nothing here to degrade to, and asking anyway wrote a warning to the log
+    // on every resume for the whole life of the install. See [installedByPlay].
+    if (!remember(activity) { activity.installedByPlay() }) {
+        DebugLog.d(TAG, "not a Play install, in-app updates are off")
+        return NoAppUpdater
+    }
     val updater = remember(activity) {
         PlayAppUpdater(
             manager = AppUpdateManagerFactory.create(activity),
@@ -140,7 +151,10 @@ internal class PlayAppUpdater(
             InstallStatus.INSTALLING -> _state.value = UpdateState.Installing
             InstallStatus.FAILED -> {
                 DebugLog.w(TAG, "flexible update failed: error ${installState.installErrorCode()}")
-                _state.value = UpdateState.Failed(cancelled = false)
+                _state.value = UpdateState.Failed(
+                    cancelled = false,
+                    reason = UpdateFailure.INSTALL_FAILED,
+                )
             }
             InstallStatus.CANCELED -> _state.value = UpdateState.Failed(cancelled = true)
             else -> Unit
@@ -162,11 +176,30 @@ internal class PlayAppUpdater(
         manager.appUpdateInfo
             .addOnSuccessListener { info -> onInfo(info, userAsked) }
             .addOnFailureListener { error ->
-                // Not an error worth a dialog. No Play on the device, an
-                // install that did not come from Play, no network: all of them
-                // land here, and none of them are the user's problem.
+                val code = (error as? InstallException)?.errorCode
+                if (code == InstallErrorCode.ERROR_APP_NOT_OWNED ||
+                    code == InstallErrorCode.ERROR_PLAY_STORE_NOT_FOUND
+                ) {
+                    // Not a failure, a fact: this install has no Play behind
+                    // it. [installedByPlay] catches almost every case of this
+                    // before Play Core is ever built, and this is the rest,
+                    // such as a device whose Play Store has been removed since.
+                    // Saying so puts the whole Updates group away instead of
+                    // leaving a row that can only ever fail.
+                    DebugLog.d(TAG, "no Play Store behind this install, updates are off")
+                    _state.value = UpdateState.Unsupported
+                    return@addOnFailureListener
+                }
+                // Everything else is worth a line but not a dialog: no
+                // network, a Play Store that is busy, a transient internal
+                // error. None of them are the user's problem.
                 DebugLog.w(TAG, "update check failed: ${error.message.orEmpty()}")
-                if (userAsked) _state.value = UpdateState.Failed(cancelled = false)
+                if (userAsked) {
+                    _state.value = UpdateState.Failed(
+                        cancelled = false,
+                        reason = UpdateFailure.NETWORK,
+                    )
+                }
             }
     }
 
@@ -193,6 +226,16 @@ internal class PlayAppUpdater(
         set(value) {
             prefs.autoPrompt = value
         }
+
+    override val sourceNameRes: Int = R.string.update_source_play
+
+    // Play does the downloading and the installing, inside its own flow, so
+    // none of the controls that belong to a download this app owns apply here.
+    // A Play release is also whatever Play is serving: there is no channel to
+    // opt into, so the pre-release switch does not exist in this build.
+    override var includePrereleases: Boolean
+        get() = false
+        set(@Suppress("UNUSED_PARAMETER") value) = Unit
 
     /**
      * Everything the resume path decides, in the order the cases have to be
@@ -292,7 +335,9 @@ internal class PlayAppUpdater(
             DebugLog.w(TAG, "could not start update flow: ${error.message.orEmpty()}")
             false
         }
-        if (!started) _state.value = UpdateState.Failed(cancelled = false)
+        if (!started) {
+            _state.value = UpdateState.Failed(cancelled = false, reason = UpdateFailure.INSTALL_FAILED)
+        }
     }
 
     /** The result of Play's own dialog or full-screen page. */
@@ -307,12 +352,14 @@ internal class PlayAppUpdater(
             Activity.RESULT_CANCELED -> dismiss()
             else -> {
                 DebugLog.w(TAG, "update flow failed with result $resultCode")
-                _state.value = UpdateState.Failed(cancelled = false)
+                _state.value = UpdateState.Failed(
+                    cancelled = false,
+                    reason = UpdateFailure.INSTALL_FAILED,
+                )
             }
         }
     }
 
-    private companion object {
-        const val TAG = "AppUpdates"
-    }
 }
+
+private const val TAG = "AppUpdates"

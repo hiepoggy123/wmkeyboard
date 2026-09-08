@@ -55,6 +55,7 @@ and the source it builds from.
 |---|---|---|
 | **Google ML Kit** | reports device and app information, a per-install identifier, and timing and error data to Google whenever one of its features runs | handwriting input, OCR, QR and barcode scanning, document scanning, sticker background removal |
 | **Google Play in-app updates** | asks the Play Store whether a newer version exists | nothing: F-Droid's own client handles updates |
+| **The self-updater** | downloads an APK from the project's GitHub releases and installs it | nothing, and it could not have worked here anyway: F-Droid signs its builds with its own key, so an APK from GitHub cannot install over an F-Droid install. This build has no `REQUEST_INSTALL_PACKAGES` permission and no installer code. What it has instead is a check that asks F-Droid, described below |
 | **Play Feature Delivery** | downloads the on-device AI runtime as a separate module | nothing: this edition has no on-device AI |
 | **Google Play services auth** | gets an OAuth token for Google Drive | Drive as a backup destination. Local storage, Dropbox, OneDrive and WebDAV all still work |
 | **LiteRT-LM** | runs a language model on the device | on-device AI models. Cloud AI providers still work if you supply your own key |
@@ -137,6 +138,18 @@ Voice typing is the one row worth reading twice. This edition has no offline
 Whisper, so dictation goes through Android's own `SpeechRecognizer`. On most
 devices that is a Google component and your audio may leave the device. If
 that matters to you, do not use voice typing on this edition.
+
+
+### The update check
+
+One request in this build is not a tool. About once every six hours, and only
+while you have the settings app open, it asks **`f-droid.org`** which version
+of WM Keyboard F-Droid has. If that is newer than yours, a card offers to open
+F-Droid. It downloads nothing and installs nothing; the F-Droid client does
+that, the same as it would without this check. Turn the card off with **Ask me
+about updates** under About, and the check stops asking on its own initiative.
+It asks F-Droid rather than GitHub deliberately, so the version you are offered
+is one you can actually install from where you installed this.
 
 ## Permissions
 

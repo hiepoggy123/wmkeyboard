@@ -2,14 +2,6 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoStories
-import androidx.compose.material.icons.outlined.FilterList
-import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.PlaylistAdd
-import androidx.compose.material.icons.outlined.Style
-import androidx.compose.material.icons.outlined.Today
-import androidx.compose.material.icons.outlined.AltRoute
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.automirrored.outlined.Chat
@@ -31,6 +23,7 @@ import androidx.compose.material.icons.outlined.Abc
 import androidx.compose.material.icons.outlined.Accessibility
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AdsClick
+import androidx.compose.material.icons.outlined.AltRoute
 import androidx.compose.material.icons.outlined.AlternateEmail
 import androidx.compose.material.icons.outlined.Animation
 import androidx.compose.material.icons.outlined.AppShortcut
@@ -39,6 +32,7 @@ import androidx.compose.material.icons.outlined.Architecture
 import androidx.compose.material.icons.outlined.AspectRatio
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.AutoMode
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.BatteryAlert
 import androidx.compose.material.icons.outlined.BatteryChargingFull
@@ -69,14 +63,11 @@ import androidx.compose.material.icons.outlined.Contacts
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Contrast
-import androidx.compose.material.icons.outlined.CurrencyBitcoin
 import androidx.compose.material.icons.outlined.CropFree
+import androidx.compose.material.icons.outlined.CurrencyBitcoin
 import androidx.compose.material.icons.outlined.CurrencyExchange
 import androidx.compose.material.icons.outlined.DataArray
 import androidx.compose.material.icons.outlined.DataObject
-import androidx.compose.material.icons.outlined.HighlightAlt
-import androidx.compose.material.icons.outlined.Sensors
-import androidx.compose.material.icons.outlined.TabletAndroid
 import androidx.compose.material.icons.outlined.DataSaverOn
 import androidx.compose.material.icons.outlined.DataUsage
 import androidx.compose.material.icons.outlined.DeleteSweep
@@ -92,7 +83,9 @@ import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Extension
 import androidx.compose.material.icons.outlined.FilterAlt
+import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Fingerprint
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.FlashlightOff
 import androidx.compose.material.icons.outlined.Flip
 import androidx.compose.material.icons.outlined.Folder
@@ -113,9 +106,11 @@ import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Height
 import androidx.compose.material.icons.outlined.HelpOutline
+import androidx.compose.material.icons.outlined.HighlightAlt
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.InstallMobile
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.Keyboard
@@ -139,10 +134,10 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.NotificationsOff
 import androidx.compose.material.icons.outlined.Numbers
 import androidx.compose.material.icons.outlined.Opacity
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.OpenWith
 import androidx.compose.material.icons.outlined.Padding
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.PhotoSizeSelectActual
 import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.Person
@@ -150,17 +145,21 @@ import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.PhoneAndroid
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.PhotoSizeSelectActual
 import androidx.compose.material.icons.outlined.PhotoSizeSelectLarge
 import androidx.compose.material.icons.outlined.PhotoSizeSelectSmall
 import androidx.compose.material.icons.outlined.PictureInPicture
-import androidx.compose.material.icons.outlined.Pin
-import androidx.compose.material.icons.outlined.PowerSettingsNew
 import androidx.compose.material.icons.outlined.PieChart
-import androidx.compose.material.icons.outlined.QueryStats
+import androidx.compose.material.icons.outlined.Pin
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.PlaylistAdd
+import androidx.compose.material.icons.outlined.PowerSettingsNew
+import androidx.compose.material.icons.outlined.Preview
 import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.QuestionAnswer
 import androidx.compose.material.icons.outlined.Quickreply
 import androidx.compose.material.icons.outlined.RecordVoiceOver
@@ -170,30 +169,35 @@ import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Restore
-import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.RoundedCorner
+import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.Science
 import androidx.compose.material.icons.outlined.ScreenRotation
 import androidx.compose.material.icons.outlined.Screenshot
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material.icons.outlined.Sensors
 import androidx.compose.material.icons.outlined.SentimentSatisfied
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Shortcut
 import androidx.compose.material.icons.outlined.SignalCellularAlt
 import androidx.compose.material.icons.outlined.SpaceBar
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.Spellcheck
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Straighten
+import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Swipe
 import androidx.compose.material.icons.outlined.SwipeDown
 import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material.icons.outlined.TabletAndroid
 import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.TextFields
@@ -201,6 +205,7 @@ import androidx.compose.material.icons.outlined.TextFormat
 import androidx.compose.material.icons.outlined.Thermostat
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.Today
 import androidx.compose.material.icons.outlined.Toll
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Translate
@@ -209,6 +214,8 @@ import androidx.compose.material.icons.outlined.VerticalAlignTop
 import androidx.compose.material.icons.outlined.VerticalSplit
 import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.outlined.ViewCarousel
+import androidx.compose.material.icons.outlined.ViewDay
 import androidx.compose.material.icons.outlined.ViewStream
 import androidx.compose.material.icons.outlined.ViewWeek
 import androidx.compose.material.icons.outlined.Visibility
@@ -218,10 +225,6 @@ import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.Weekend
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material.icons.outlined.ZoomOutMap
-import androidx.compose.material.icons.outlined.Preview
-import androidx.compose.material.icons.outlined.Shortcut
-import androidx.compose.material.icons.outlined.ViewDay
-import androidx.compose.material.icons.outlined.ViewCarousel
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
@@ -268,15 +271,18 @@ internal object SettingsRowIcons {
         put(R.string.about_share_github_link) { Icons.Outlined.Share }
         put(R.string.about_share_fdroid_link) { Icons.Outlined.Share }
 
-        // ---- Updates (Play builds only; the rows are absent everywhere else) ----
+        // ---- Updates (absent in a build with no update source behind it) ----
         // The same glyph on every state of the one row, so it does not appear to
         // jump between rows as the download runs.
         put(R.string.update_row_check_title) { Icons.Outlined.SystemUpdate }
         put(R.string.update_row_available_title) { Icons.Outlined.SystemUpdate }
+        put(R.string.update_row_available_title_external) { Icons.Outlined.SystemUpdate }
         put(R.string.update_row_downloading_title) { Icons.Outlined.SystemUpdate }
         put(R.string.update_row_install_title) { Icons.Outlined.SystemUpdate }
         put(R.string.update_row_installing_title) { Icons.Outlined.SystemUpdate }
         put(R.string.update_row_prompts_title) { Icons.Outlined.Notifications }
+        put(R.string.update_row_prereleases_title) { Icons.Outlined.Science }
+        put(R.string.update_row_release_page_title) { Icons.AutoMirrored.Outlined.OpenInNew }
 
         // ---- Accessibility ----
         put(R.string.accessibility_color_vision_title) { Icons.Outlined.Palette }
@@ -574,6 +580,7 @@ internal object SettingsRowIcons {
         put(R.string.privacy_permissions_notifications_title) { Icons.Outlined.Notifications }
         put(R.string.privacy_permissions_usage_title) { Icons.Outlined.DataUsage }
         put(R.string.privacy_permissions_accessibility_title) { Icons.Outlined.Accessibility }
+        put(R.string.privacy_permissions_install_updates_title) { Icons.Outlined.InstallMobile }
         put(R.string.privacy_permissions_internet_title) { Icons.Outlined.Public }
         put(R.string.privacy_permissions_network_state_title) { Icons.Outlined.SignalCellularAlt }
         put(R.string.privacy_permissions_vibrate_title) { Icons.Outlined.Vibration }

@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app.storage
 import android.content.Context
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.AutoStories
 import com.wasimaster.wmkeyboard.core.vocab.VocabDownloadManager
 import com.wasimaster.wmkeyboard.core.vocab.VocabPacks
@@ -205,6 +206,7 @@ internal object StorageCategories {
     const val APP_PACKAGE = "app_package"
     const val OTHER_CACHE = "other_cache"
     const val OTHER_DATA = "other_data"
+    const val UPDATES = "updates"
 
     /**
      * The kept sticker sources, listed beside the packs in the sticker
@@ -853,6 +855,19 @@ internal object StorageCategories {
             // somewhere to write itself down.
             pathsOf = { listOf(File(it.deFiles, "debug")) },
             clearOf = { DebugLog.clearCrashes() },
+        ),
+        StorageCategory(
+            id = UPDATES,
+            title = R.string.storage_updates_title,
+            subtitle = R.string.storage_updates_subtitle,
+            icon = Icons.Outlined.SystemUpdate,
+            accent = Color(0xFF4DB6AC),
+            group = StorageGroup.SYSTEM,
+            // Only ever holds a downloaded update waiting to be installed, and
+            // the updater deletes it once Android has taken it. Deleting it by
+            // hand costs the download again and nothing else, which is why
+            // this row exists rather than the file being invisible.
+            pathsOf = { listOf(File(it.noBackupFiles, "updates")) },
         ),
         StorageCategory(
             id = OTHER_DATA,

@@ -100,6 +100,13 @@
 
     <string name="storage_logs_title">Diagnostics</string>
     <string name="storage_logs_subtitle">The crash log, kept on your device only</string>
+    <!-- The cached list of releases the update check reads. -->
+    <string name="storage_file_releases_label">Release list</string>
+
+    <!-- The downloaded app update, on builds that install their own updates. -->
+    <string name="storage_updates_title">Downloaded update</string>
+    <string name="storage_updates_subtitle">A new version waiting to be installed. Deleting it only costs the download</string>
+
     <string name="storage_other_data_title">Other data</string>
     <string name="storage_other_data_subtitle">Files your device counts that the app does not name</string>
 

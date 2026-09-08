@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Play-channel builds only, added by `channelManifests` in build.gradle.kts.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+       PlayAppUpdater asks who installed the app before it touches Play Core,
+       because Play's update API only works for an install Play made and fails
+       noisily for every other one. From API 30 package visibility hides the
+       Play Store from getInstallSourceInfo() unless it is named here.
+    -->
+    <queries>
+        <package android:name="com.android.vending" />
+    </queries>
+
+</manifest>

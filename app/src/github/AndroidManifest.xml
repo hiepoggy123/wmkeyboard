@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   GitHub-channel builds only. Added by `channelManifests` in build.gradle.kts,
+   so none of it reaches a Play APK (where a self-updater is against policy) or
+   an F-Droid APK (where it could not work: F-Droid signs its own builds, so an
+   APK from our release can never install over one).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+       Lets the app hand Android an update of itself. The file comes from this
+       project's own GitHub release, the app checks it against the checksum in
+       that release and against its own signing key before it offers to
+       install it, and nothing is installed until the user presses Install.
+       The app never installs any other package.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!--
+       API 31 and up. Lets Android skip its own install screen once this app is
+       the installer of record for itself. It is a request, not a guarantee:
+       the first self-update always shows the screen, because the install that
+       is being replaced was made by a browser or by adb, and some devices show
+       it every time regardless. The flow treats the confirmation as normal.
+    -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+
+    <application>
+        <!--
+           Where PackageInstaller reports what happened. Not exported: the
+           system reaches it through a PendingIntent that names it, and nothing
+           else may.
+        -->
+        <receiver
+            android:name="com.wasimaster.wmkeyboard.app.updates.InstallResultReceiver"
+            android:exported="false" />
+    </application>
+
+</manifest>
