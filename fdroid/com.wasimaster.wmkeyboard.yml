@@ -1,10 +1,10 @@
 AntiFeatures:
   NonFreeNet:
-    en-US: "Typing, prediction, autocorrect and learning are entirely offline. A\n\
-      set of optional tools can reach third-party services (Google Translate,\nBrave
-      Search, GIPHY and KLIPY, Unsplash and Pexels, Open-Meteo, and\nwhichever AI
-      provider you supply your own key for). Each is opt-in per\ntool and the keyboard
-      is fully usable with all of them untouched."
+    en-US: Typing, prediction, autocorrect and learning are entirely offline. A 
+      set of optional tools can reach third-party services (Google Translate, 
+      Brave Search, GIPHY and KLIPY, Unsplash and Pexels, Open-Meteo, and 
+      whichever AI provider you supply your own key for). Each is opt-in per 
+      tool and the keyboard is fully usable with all of them untouched.
 Categories:
   - Writing
 License: MIT

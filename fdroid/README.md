@@ -58,23 +58,52 @@ out makes fdroiddata's CI add it and fail on the resulting diff.
 
 ## Checking a change before submitting it
 
-fdroiddata's CI runs three jobs against a changed metadata file. All three can be
-run locally, but `fdroid lint` needs fdroiddata's own `config/` directory (its
-category and anti-feature name lists), so fetch that first — a plain `git clone`
-of fdroiddata fails on some networks, the archive does not:
+fdroiddata's CI runs four jobs against a changed metadata file, and all four can
+be run locally. Two things have to be right first.
+
+**Use fdroidserver from git master, not a packaged release.** Their CI installs
+it straight from the repository, and the two disagree about formatting: Homebrew's
+2.4.5 wrote a `\` line continuation into the `AntiFeatures` string that master
+does not, which is a one-character diff and a failed `rewritemeta` job.
+
+**`fdroid lint` needs fdroiddata's own `config/` directory** — the valid category
+and anti-feature name lists live there, and without them lint rejects both. A
+plain `git clone` of fdroiddata fails on some networks; the archive does not.
 
 ```sh
+python3 -m venv /tmp/fdsvenv
+/tmp/fdsvenv/bin/pip install git+https://gitlab.com/fdroid/fdroidserver.git check-jsonschema
 mkdir -p /tmp/fd && cd /tmp/fd
 curl -sS --http1.1 -o config.tar.gz \
   'https://gitlab.com/fdroid/fdroiddata/-/archive/master/fdroiddata-master.tar.gz?path=config'
 tar xzf config.tar.gz && mv fdroiddata-master-config/config .
+curl -sS --http1.1 -o metadata.json \
+  'https://gitlab.com/fdroid/fdroiddata/-/raw/master/schemas/metadata.json'
 mkdir -p metadata && cp ~/Work/WMKeyboard/fdroid/com.wasimaster.wmkeyboard.yml metadata/
-fdroid lint com.wasimaster.wmkeyboard        # must exit 0
+export PATH=/tmp/fdsvenv/bin:$PATH
+fdroid lint com.wasimaster.wmkeyboard        # must exit 0 and print nothing
 fdroid rewritemeta com.wasimaster.wmkeyboard # must leave the file unchanged
 fdroid checkupdates --auto com.wasimaster.wmkeyboard  # must leave the file unchanged
+check-jsonschema --schemafile metadata.json metadata/com.wasimaster.wmkeyboard.yml
 ```
 
-`fdroid lint` reports one `trailing spaces` warning on the `UpdateCheckData:`
-line. That whitespace is written by `rewritemeta` itself, which wraps any value
-too long for its line width, so it cannot be removed without failing the
-`rewritemeta` job. The warning does not affect lint's exit status.
+The fifth job, `fdroid build`, runs the real build in an image provisioned like
+the production buildserver. There is no local stand-in for it, but building the
+tag in a clean worktree with no `local.properties` and the `scandelete`
+directories removed is the same thing in miniature — see the F-Droid steps in
+`docs/development/releasing`.
+
+When `rewritemeta` does disagree with you, its job uploads what it wanted under
+`tmp/` in the job artifacts, reachable at
+`.../-/jobs/<job id>/artifacts/raw/tmp/com.wasimaster.wmkeyboard.yml`. Diffing
+against that is faster than guessing.
+
+## A note on the wrapped strings
+
+`rewritemeta` wraps any value too long for its line width, and the wrap leaves a
+trailing space on each continued line of the `AntiFeatures` description. That is
+its output, so it cannot be cleaned up without failing the job, and it is
+harmless: YAML strips a trailing space before a folded line break, so the string
+parses back with single spaces and no newlines. Keep the description free of
+real line breaks — an earlier version was written as a `|-` block and every
+wrap point became a literal `\n` in the middle of a sentence.
