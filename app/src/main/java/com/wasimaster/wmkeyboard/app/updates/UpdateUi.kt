@@ -442,10 +442,16 @@ private fun UpdateRow(state: UpdateState, updater: AppUpdater, settings: Keyboar
         // Nothing to press while the download runs, so this is a plain row
         // rather than a [NavRow]: a chevron would promise an action that is
         // not there.
-        is UpdateState.Downloading ->
-            ProgressRow(R.string.update_row_downloading_title, state.progressText())
+        is UpdateState.Downloading -> ProgressRow(
+            R.string.update_row_downloading_title,
+            state.progressText(),
+            state.fraction,
+        )
         UpdateState.Downloaded -> InstallRow(updater)
-        UpdateState.Installing -> ProgressRow(R.string.update_row_installing_title, null)
+        // An install reports no progress of its own, so the bar runs
+        // indeterminate: the row's job here is to say the app is working, not
+        // to claim it knows how far along Android is.
+        UpdateState.Installing -> ProgressRow(R.string.update_row_installing_title, null, null)
         // Every quiet state, where the row's job is to offer a check and to
         // report the last one.
         UpdateState.Unsupported,
@@ -517,16 +523,43 @@ private fun ReleasePageRow(url: String) {
     )
 }
 
-/** A row that reports work in progress and cannot be pressed. */
+/**
+ * A row that reports work in progress and cannot be pressed, with the bar its
+ * words cannot draw.
+ *
+ * "12 MB of 30 MB" is only as informative as the arithmetic the reader does on
+ * it, and while the total is unknown it says nothing at all. The bar under the
+ * row is the same shape every other download in this app draws, so an update
+ * in flight looks like a dictionary or a model in flight.
+ *
+ * [fraction] is null for work whose end is not known — an install, or a
+ * download whose source never reported a size — and the bar then runs
+ * indeterminate rather than sitting convincingly at zero.
+ */
 @Composable
-private fun ProgressRow(@StringRes title: Int, subtitle: String?) {
-    WmRow(
-        title = stringResource(title),
-        subtitle = subtitle,
-        icon = SettingsRowIcons[title],
-        highlightKey = title,
-    )
+private fun ProgressRow(@StringRes title: Int, subtitle: String?, fraction: Float?) {
+    Column {
+        WmRow(
+            title = stringResource(title),
+            subtitle = subtitle,
+            icon = SettingsRowIcons[title],
+            highlightKey = title,
+        )
+        if (fraction == null) {
+            LinearProgressIndicator(modifier = ProgressBarModifier)
+        } else {
+            LinearProgressIndicator(progress = { fraction }, modifier = ProgressBarModifier)
+        }
+    }
 }
+
+/**
+ * Where the progress bar sits under its row: inset to the row's own text
+ * margin, with enough air under it to keep it off the next row's title.
+ */
+private val ProgressBarModifier = Modifier
+    .fillMaxWidth()
+    .padding(horizontal = 16.dp, vertical = 4.dp)
 
 /** What the "Check for updates" row says under its name, for the quiet states. */
 @StringRes
@@ -548,9 +581,13 @@ private fun UpdateState.checkSubtitle(): Int = when (this) {
 /**
  * One sentence per way an update can fail, because they ask for different
  * things: wait, make room, try again, or go and fetch it by hand.
+ *
+ * Internal rather than private because the notification the download posts
+ * says the same sentences, and a shade that explained a failure differently
+ * from the row behind it would be two answers to one question.
  */
 @StringRes
-private fun UpdateFailure?.subtitle(): Int = when (this) {
+internal fun UpdateFailure?.subtitle(): Int = when (this) {
     UpdateFailure.RATE_LIMITED -> R.string.update_row_failed_rate_limited_subtitle
     UpdateFailure.NO_ASSET -> R.string.update_row_failed_no_asset_subtitle
     UpdateFailure.NO_SPACE -> R.string.update_row_failed_no_space_subtitle

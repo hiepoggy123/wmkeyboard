@@ -2214,6 +2214,9 @@ open class WMKeyboardService : InputMethodService() {
         // scan — stays broken until it is initialized by hand.
         if (userUnlocked) MlKitInit.ensure(this)
         settingsRepository = SettingsRepository(this)
+        // The shade's buttons reach the keyboard through this, and only while
+        // there is a keyboard for them to reach. See [KeyboardControls].
+        KeyboardControls.host = keyboardControlHost
         // Decode the synthesized key sounds up front so the first press plays,
         // and resolve the audio/vibrator services here rather than from the
         // pointer-down handler of whichever key the user hits first.
@@ -2352,6 +2355,7 @@ open class WMKeyboardService : InputMethodService() {
             var pinnedLastEnabled: Boolean? = null
             var userScreenshotsEnabled: Boolean? = null
             var otpCaptureEnabled: Boolean? = null
+            var keyboardControlsPinned: Boolean? = null
             var voiceBarPersisted: Pair<Boolean, Boolean>? = null
             // Recompute the hidden-emoji set only when the toggle or the font
             // behind it actually changes, not on every unrelated settings save.
@@ -2475,6 +2479,20 @@ open class WMKeyboardService : InputMethodService() {
                         settings.otp.enabled,
                     )
                     if (!settings.otp.enabled) clearOtpSuggestion()
+                }
+                // Same reason, for the notification switches: the settings
+                // repository writes the mirror as each one is flipped, but a
+                // restored backup writes the store underneath it. The keyboard
+                // is the one thing that reads settings on every launch, so it
+                // is where the two are reconciled.
+                // The shade's keyboard controls name the pin state, so they are
+                // redrawn when it changes. Whether they are wanted at all is the
+                // settings app's own switch, in device-protected preferences
+                // (see [NotificationSwitches]) rather than in the settings
+                // store, and it is that screen that draws and clears them.
+                if (keyboardControlsPinned != settings.persistentKeyboard) {
+                    keyboardControlsPinned = settings.persistentKeyboard
+                    updateKeyboardControls(settings.persistentKeyboard)
                 }
                 // Turning previews off throws away what was already fetched, so
                 // the panel stops showing metadata the user opted out of.
@@ -3660,6 +3678,38 @@ open class WMKeyboardService : InputMethodService() {
      */
     private var pinSuspended = false
 
+    /**
+     * What the notification's buttons do, which is what the toolbar's own
+     * controls already do.
+     *
+     * "Show" goes through the same posted [requestShowSelf] a pinned keyboard
+     * uses rather than [showWindow]: it is an explicit show request, so the
+     * framework's own bookkeeping stays right, and it clears the suspension a
+     * user-initiated hide left behind — pressing "Show" is that user changing
+     * their mind.
+     */
+    private val keyboardControlHost = object : KeyboardControls.Host {
+        override fun showKeyboard() {
+            pinSuspended = false
+            pinReshowStreak = 0
+            requestShowSelf(0)
+        }
+
+        override fun setPinned(pinned: Boolean) {
+            onPersistentChange(pinned)
+        }
+    }
+
+    /**
+     * Redraws the shade's controls for the current pin state, which decides
+     * both the words and whether there is an "Unpin" button.
+     */
+    private fun updateKeyboardControls(pinned: Boolean) {
+        // A post the user does not want is a no-op: the switch is checked
+        // inside [WmNotifications.post], not here.
+        KeyboardControls.post(this, pinned)
+    }
+
     /** Re-shows spent on the current field; see [reshowPinned]. */
     private var pinReshowStreak = 0
 
@@ -4586,6 +4636,10 @@ open class WMKeyboardService : InputMethodService() {
 
     override fun onDestroy() {
         DebugLog.i("ime", "service destroyed")
+        // The controls promise a keyboard to come back to; without one running
+        // they are three buttons that do nothing.
+        KeyboardControls.host = null
+        KeyboardControls.clear(this)
         pluginRuntime?.shutdown()
         pluginRuntime = null
         vocabSpeaker?.shutdown()

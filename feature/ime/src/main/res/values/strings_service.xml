@@ -188,4 +188,13 @@
     <!-- Stands in for the name of a copied file when the file has no name. -->
     <string name="ime_service_clip_file_unnamed_label">Unnamed</string>
 
+    <!-- The optional keyboard controls in the notification shade: a way back to
+         the keyboard from a window that has no text field in it. -->
+    <string name="ime_controls_title">Keyboard controls</string>
+    <string name="ime_controls_body">Tap to bring the keyboard back</string>
+    <string name="ime_controls_pinned_body">Kept on screen. Tap to bring it back.</string>
+    <string name="ime_controls_show">Show</string>
+    <string name="ime_controls_unpin">Unpin</string>
+    <string name="ime_controls_switch">Switch keyboard</string>
+
 </resources>

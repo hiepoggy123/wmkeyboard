@@ -20,7 +20,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Clipboard, snippets, text expansion | 7 | 37 | 188 |
 | AI, voice, handwriting, scanning | 11 | 70 | 162 |
 | Privacy, backup, storage, statistics | 13 | 59 | 146 |
-| Accessibility, form factors, platform integration | 13 | 60 | 108 |
+| Accessibility, form factors, platform integration | 13 | 61 | 116 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 201 |
 | **Total** | **132** | **794** | **2115** |
@@ -2693,6 +2693,15 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Grants are session state — Dropped whenever the network changes; the settings app asks separately from the keyboard.
   - Default-network callback rather than polling `uncommon` — Metered, temporarily-not-metered and roaming come off NetworkCapabilities; Android's Data Saver has no capability bit, so it arrives as ACTION_RESTRICT_BACKGROUND_CHANGED and is re-read when the keyboard opens.
   - Absorbed two older switches — "Ask before downloading on mobile data" (Languages) and "Only download over Wi-Fi" (AI models) migrate into the Downloads row on first read; their DataStore keys are still read once for the migration.
+- **Notifications** `uncommon` — Four kinds, four switches, and nothing else: the app posts no tips, suggestions or advertising.
+  - Downloads report themselves `uncommon` — Dictionaries, emoji names, voice and AI models, CJK packs and the emoji font each get a progress row, a "ready to use" line, and the failure sentence the settings row would have shown.
+    - Progress notifications expire by themselves — The app does no background work, so a download whose process is killed takes its notification with it rather than freezing at 43%.
+  - Update notifications `uncommon` — Downloading, ready to install, and "Updated to 0.5.7" after the fact, the last of which fires on every channel through MY_PACKAGE_REPLACED.
+    - No Install button in the shade `RARE` — Installing restarts the process the keyboard runs in, so the shade tap opens the app where the warning is; only Cancel is safe to press from a notification.
+  - Automatic backup failures `RARE` — The one failure with nowhere else to appear: the job runs with no screen, and a revoked folder grant otherwise stops every backup silently.
+  - Keyboard controls in the shade `RARE` — Hacker's Keyboard's answer to a pinned keyboard that has gone down over a window with no text field: Show, Unpin and Switch keyboard, off by default.
+  - Quick Settings tile `RARE` — "Keep keyboard on screen", the same setting as the pin tool, needing no permission at all.
+  - Asked for at the first useful moment `uncommon` — The permission request comes with the first download or the first shade control, never on launch, and never twice.
 - **Form factors: tablets and foldables** `RARE` — Two independent screen questions — device form (size) and screen variant (posture).
   - DeviceForm buckets `uncommon` — PHONE / SMALL_TABLET / LARGE_TABLET at AOSP's 600dp and 768dp smallest-width thresholds.
     - Read from smallestScreenWidthDp — A phone in landscape is still a phone; a tablet is a tablet either way up.

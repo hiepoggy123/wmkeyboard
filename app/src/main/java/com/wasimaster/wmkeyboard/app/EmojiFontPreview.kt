@@ -130,6 +130,16 @@ internal fun EmojiFontDownloadRow(
         FontStore.get(context).emojiFonts().firstOrNull(EmojiFontCatalog::isNoto)
     }
     val update = installed != null && published != null && published?.version != installed.version
+    val notifyDownload = rememberDownloadNotifier()
+    val downloadName = stringResource(R.string.notify_download_emoji_font)
+    val startDownload = {
+        EmojiFontDownload.start(context)
+        notifyDownload(
+            EMOJI_FONT_DOWNLOAD_KEY,
+            downloadName,
+            DownloadProgressFlows.emojiFont(context),
+        )
+    }
     if (installed != null && !update && status !is EmojiFontDownload.Status.Failed) return
     Column(
         modifier = modifier
@@ -177,11 +187,11 @@ internal fun EmojiFontDownloadRow(
             }
             is EmojiFontDownload.Status.Failed -> {
                 CaptionText(stringResource(state.messageRes), error = true)
-                Button(onClick = { EmojiFontDownload.start(context) }) {
+                Button(onClick = startDownload) {
                     Text(stringResource(CommonR.string.common_retry))
                 }
             }
-            else -> Button(onClick = { EmojiFontDownload.start(context) }) {
+            else -> Button(onClick = startDownload) {
                 Text(
                     stringResource(
                         if (update) R.string.langemoji_emoji_font_update_action
@@ -326,3 +336,12 @@ private fun MissingEmojiRow(label: String, sample: List<String>, family: FontFam
         }
     }
 }
+
+/**
+ * The notification key for the emoji font.
+ *
+ * A constant rather than an id from the catalog because there is only ever one
+ * emoji font download in flight: [EmojiFontDownload] publishes a single state,
+ * not a map.
+ */
+private const val EMOJI_FONT_DOWNLOAD_KEY = "emoji-font"

@@ -211,9 +211,10 @@ private fun AddLanguageSection(repository: SettingsRepository, settings: Keyboar
     // every language was three taps per language and a wall of choices before
     // the user had typed anything; the notice under this list says what the
     // page does instead, and the data can be deleted later.
-    val filesDir = LocalContext.current.filesDir
+    val context = LocalContext.current
+    val notifyDownload = rememberDownloadNotifier()
     val fetchData: (LanguageDef) -> Unit = { language ->
-        startLanguageDataDownload(filesDir, languageData(language.id))
+        startLanguageDataDownload(context, languageData(language.id), notifyDownload)
     }
     val add: (LanguageDef) -> Unit = { language ->
         if (language.layoutIds.size > 1) {

@@ -765,6 +765,8 @@ internal fun VocabPacksScreen(
         }
     }
 
+    val notifyDownload = rememberDownloadNotifier()
+
     fun gated(action: () -> Unit) {
         when (downloadDecision()) {
             MeteredDecision.ALLOWED -> action()
@@ -853,7 +855,16 @@ internal fun VocabPacksScreen(
                     VocabCatalogRow(
                         entry = entry,
                         status = states[entry.id],
-                        onDownload = { gated { VocabDownloadManager.start(context.filesDir, entry, wantedCodes) } },
+                        onDownload = {
+                            gated {
+                                VocabDownloadManager.start(context.filesDir, entry, wantedCodes)
+                                notifyDownload(
+                                    entry.id,
+                                    entry.name,
+                                    DownloadProgressFlows.vocab(context, entry.id),
+                                )
+                            }
+                        },
                         onCancel = { VocabDownloadManager.cancel(entry.id) },
                     )
                 }

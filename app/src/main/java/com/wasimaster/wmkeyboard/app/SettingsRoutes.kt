@@ -136,6 +136,7 @@ internal object SettingsRoutes {
         "permissions",
         "applock",
         "datasaver",
+        "notifications",
         "selection_macros",
         "advanced",
         "rows",

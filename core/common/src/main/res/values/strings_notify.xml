@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+   Notification channels and the words the shade shows. The channel names and
+   descriptions are read in Android's own settings, where they sit next to
+   every other app's, so they say what arrives rather than which feature sends
+   it.
+-->
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <string name="common_notify_channel_downloads_title">Downloads</string>
+    <string name="common_notify_channel_downloads_body">Progress for dictionaries, voice models, add-ons and other files the keyboard fetches, and a line when one finishes or fails.</string>
+
+    <string name="common_notify_channel_updates_title">App updates</string>
+    <string name="common_notify_channel_updates_body">A new version to install, an update waiting for you to press install, and confirmation once one is installed.</string>
+
+    <string name="common_notify_channel_backup_title">Backup problems</string>
+    <string name="common_notify_channel_backup_body">Only when an automatic backup fails. Successful backups are silent.</string>
+
+    <string name="common_notify_channel_keyboard_title">Keyboard controls</string>
+    <string name="common_notify_channel_keyboard_body">A permanent entry in the shade for showing the keyboard and unpinning it. Only while you turn it on.</string>
+
+    <!-- %1$s is the bytes downloaded, %2$s the total, both already formatted. -->
+    <string name="common_notify_download_progress">
+        <xliff:g id="downloaded" example="12 MB">%1$s</xliff:g> of <xliff:g id="total" example="30 MB">%2$s</xliff:g>
+    </string>
+    <string name="common_notify_download_done">Ready to use</string>
+    <!-- %1$s is what was being downloaded, e.g. "Bangla dictionary". -->
+    <string name="common_notify_download_failed">
+        <xliff:g id="name" example="Bangla dictionary">%1$s</xliff:g> could not be downloaded
+    </string>
+
+    <string name="common_permission_notifications_title">Show notifications</string>
+    <string name="common_permission_notifications_body">The keyboard uses notifications to tell you about things that finish while you are somewhere else: a dictionary or voice model that has downloaded, an update waiting to be installed, an automatic backup that failed. It sends nothing else — no tips, no suggestions, no advertising — and every kind can be switched off separately in Settings › Notifications. Refusing changes nothing about how the keyboard types.</string>
+
+</resources>

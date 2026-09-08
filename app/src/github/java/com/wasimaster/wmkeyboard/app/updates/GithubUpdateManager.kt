@@ -77,6 +77,10 @@ internal object GithubUpdateManager {
         started = true
         val app = context.applicationContext
         val prefs = UpdatePrefs(app)
+        // The shade follows the state for as long as this process lives. Here
+        // rather than in the composable driver because a download outlives the
+        // screen that started it, which is the whole reason to notify at all.
+        scope.launch { _state.collect { UpdateNotifications.render(app, it) } }
         scope.launch {
             ApkStaging.sweep(app, BuildConfig.VERSION_CODE)
             ApkInstall.abandonStale(app, keepSessionId = prefs.sessionId)

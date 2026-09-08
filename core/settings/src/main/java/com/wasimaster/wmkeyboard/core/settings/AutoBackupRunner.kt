@@ -116,18 +116,22 @@ object AutoBackupRunner {
 
         val sink = sinkFor(appContext, settings)
             ?: return@withLock fail(
+                appContext,
                 repository,
                 BackupSinkException(SinkError.NOT_CONFIGURED),
                 nowMs,
+                announce = !force,
             )
         sink.readiness().exceptionOrNull()?.let { failure ->
-            return@withLock fail(repository, failure, nowMs)
+            return@withLock fail(appContext, repository, failure, nowMs, announce = !force)
         }
 
         val outcome = runCancellable {
-            backUp(appContext, repository, sink, settings, nowMs)
+            backUp(appContext, repository, sink, settings, nowMs, announce = !force)
         }
-        outcome.getOrElse { failure -> fail(repository, failure, nowMs) }
+        outcome.getOrElse { failure ->
+            fail(appContext, repository, failure, nowMs, announce = !force)
+        }
     }
 
     /**
@@ -181,6 +185,7 @@ object AutoBackupRunner {
         sink: BackupSink,
         settings: AutoBackupSettings,
         nowMs: Long,
+        announce: Boolean,
     ): Outcome {
         val encrypt = settings.encrypt && settings.passphrase.isNotEmpty()
         val requested = settings.sectionSet
@@ -216,7 +221,7 @@ object AutoBackupRunner {
             val mime =
                 if (encrypt) ConfigBackup.ENCRYPTED_MIME_TYPE else ConfigBackup.MIME_TYPE
             val written = sink.write(name, mime) { out -> staged.inputStream().use { it.copyTo(out) } }
-                .getOrElse { return fail(repository, it, nowMs) }
+                .getOrElse { return fail(appContext, repository, it, nowMs, announce) }
 
             // Last, and only now. Everything above can fail without costing the
             // user a generation; this is the only step that destroys one.
@@ -306,13 +311,27 @@ object AutoBackupRunner {
         }
     }
 
+    /**
+     * Records a failed run, and says so in the shade when nobody was watching.
+     *
+     * [announce] is false for the "Back up now" button: the user is looking at
+     * the screen that is about to show the same sentence, and a notification
+     * for something they just watched fail is the kind that teaches people to
+     * turn the channel off. [SinkError.NOT_CONFIGURED] is never announced
+     * either — no destination is a setting, not a fault.
+     */
     private suspend fun fail(
+        context: Context,
         repository: SettingsRepository,
         failure: Throwable,
         nowMs: Long,
+        announce: Boolean,
     ): Outcome {
         val reason = (failure as? BackupSinkException)?.reason ?: SinkError.IO
         repository.setAutoBackupOutcome(ranAtMs = nowMs, error = reason.name)
+        if (announce && reason != SinkError.NOT_CONFIGURED) {
+            BackupNotification.post(context, reason)
+        }
         return Outcome.Failed(reason)
     }
 }

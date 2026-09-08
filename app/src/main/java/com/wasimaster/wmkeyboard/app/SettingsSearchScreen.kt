@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
@@ -496,6 +497,7 @@ internal object SettingsRouteIcons {
         "permissions" to { Icons.Outlined.Key },
         "applock" to { Icons.Outlined.Fingerprint },
         "datasaver" to { Icons.Outlined.DataSaverOn },
+        "notifications" to { Icons.Outlined.Notifications },
         "selection_macros" to { Icons.Outlined.HighlightAlt },
         "advanced" to { Icons.Outlined.Tune },
         "backup" to { Icons.Outlined.Save },

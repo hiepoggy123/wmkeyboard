@@ -495,9 +495,36 @@ internal fun isMeteredNow(context: Context): Boolean =
  * All three managers queue internally and skip what is already on disk, so
  * this is safe to call for a language that is half downloaded already.
  */
-internal fun startLanguageDataDownload(filesDir: File, data: LanguageData) {
-    data.wordlist?.let { WordlistDownloadManager.start(filesDir, it, AUTO_DOWNLOAD_SIZE) }
-    data.emojiDict?.let { EmojiDictDownloadManager.start(filesDir, it) }
+internal fun startLanguageDataDownload(
+    context: Context,
+    data: LanguageData,
+    notify: DownloadNotifier? = null,
+) {
+    val filesDir = context.filesDir
+    data.wordlist?.let { entry ->
+        WordlistDownloadManager.start(filesDir, entry, AUTO_DOWNLOAD_SIZE)
+        notify?.invoke(
+            entry.id,
+            context.getString(
+                R.string.notify_download_wordlist,
+                LanguageRegistry.byId(entry.languageId).displayName,
+            ),
+            DownloadProgressFlows.wordlist(context, entry.id),
+        )
+    }
+    data.emojiDict?.let { entry ->
+        EmojiDictDownloadManager.start(filesDir, entry)
+        notify?.invoke(
+            entry.languageId,
+            context.getString(
+                R.string.notify_download_emoji_names,
+                LanguageRegistry.byId(entry.languageId).displayName,
+            ),
+            DownloadProgressFlows.emojiDict(context, entry.languageId),
+        )
+    }
+    // The n-gram pack has no per-language progress to follow — the manager
+    // publishes completions and nothing else — so it downloads unannounced.
     data.ngram?.let { NgramPackDownloadManager.start(filesDir, it.languageId) }
 }
 
@@ -523,7 +550,8 @@ private fun downloadedLanguageBytes(filesDir: File, langId: String): Long =
  */
 @Composable
 internal fun rememberLanguageDataPrompt(): LanguageDataPrompt {
-    val filesDir = LocalContext.current.filesDir
+    val context = LocalContext.current
+    val notifyDownload = rememberDownloadNotifier()
     val prompt = remember { LanguageDataPrompt() }
     prompt.pending?.let { (language, proceed) ->
         val data = remember(language.id) { languageData(language.id) }
@@ -536,7 +564,7 @@ internal fun rememberLanguageDataPrompt(): LanguageDataPrompt {
                 proceed()
             },
             onDownload = {
-                startLanguageDataDownload(filesDir, data)
+                startLanguageDataDownload(context, data, notifyDownload)
                 prompt.dismiss()
                 proceed()
             },
@@ -853,7 +881,9 @@ internal fun LanguageDetailScreen(
     onRemoved: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val filesDir = LocalContext.current.filesDir
+    val context = LocalContext.current
+    val filesDir = context.filesDir
+    val notifyDownload = rememberDownloadNotifier()
     val lang = LanguageRegistry.byId(langId)
     var pendingDelete by remember { mutableStateOf(false) }
 
@@ -1088,7 +1118,7 @@ internal fun LanguageDetailScreen(
                             MeteredDecision.ASK -> confirmMetered = true
                             MeteredDecision.BLOCKED -> blockedMetered = true
                             MeteredDecision.ALLOWED ->
-                                startLanguageDataDownload(filesDir, downloadable)
+                                startLanguageDataDownload(context, downloadable, notifyDownload)
                         }
                     },
                     modifier = Modifier
@@ -1120,7 +1150,7 @@ internal fun LanguageDetailScreen(
             confirmButton = {
                 TextButton(onClick = {
                     confirmMetered = false
-                    startLanguageDataDownload(filesDir, downloadable)
+                    startLanguageDataDownload(context, downloadable, notifyDownload)
                 }) { Text(stringResource(CommonR.string.common_download)) }
             },
             dismissButton = {
@@ -1258,7 +1288,13 @@ internal fun LanguageDetailScreen(
  */
 @Composable
 internal fun EmojiDictRow(entry: EmojiDictEntry) {
-    val filesDir = LocalContext.current.filesDir
+    val context = LocalContext.current
+    val filesDir = context.filesDir
+    val notifyDownload = rememberDownloadNotifier()
+    val downloadName = stringResource(
+        R.string.notify_download_emoji_names,
+        LanguageRegistry.byId(entry.languageId).displayName,
+    )
     val states by EmojiDictDownloadManager.states.collectAsState()
     LaunchedEffect(entry.languageId) { EmojiDictDownloadManager.refresh(filesDir) }
     val status = states[entry.languageId]
@@ -1324,7 +1360,16 @@ internal fun EmojiDictRow(entry: EmojiDictEntry) {
                     }
                 EmojiDictDownloadManager.DownloadStatus.NotDownloaded,
                 is EmojiDictDownloadManager.DownloadStatus.Failed,
-                -> TextButton(onClick = { EmojiDictDownloadManager.start(filesDir, entry) }) {
+                -> TextButton(
+                    onClick = {
+                        EmojiDictDownloadManager.start(filesDir, entry)
+                        notifyDownload(
+                            entry.languageId,
+                            downloadName,
+                            DownloadProgressFlows.emojiDict(context, entry.languageId),
+                        )
+                    },
+                ) {
                     Text(
                         if (status is EmojiDictDownloadManager.DownloadStatus.Failed) {
                             stringResource(CommonR.string.common_retry)
@@ -1367,7 +1412,13 @@ private fun WordlistRow(
     defaultSize: DictionaryCatalog.DictionarySize,
     onDefaultSizeChange: (DictionaryCatalog.DictionarySize) -> Unit,
 ) {
-    val filesDir = LocalContext.current.filesDir
+    val context = LocalContext.current
+    val filesDir = context.filesDir
+    val notifyDownload = rememberDownloadNotifier()
+    val downloadName = stringResource(
+        R.string.notify_download_wordlist,
+        LanguageRegistry.byId(entry.languageId).displayName,
+    )
     val states by WordlistDownloadManager.states.collectAsState()
     LaunchedEffect(entry.id) { WordlistDownloadManager.refresh(filesDir) }
     val status = states[entry.id] ?: WordlistDownloadManager.DownloadStatus.NotDownloaded
@@ -1480,7 +1531,14 @@ private fun WordlistRow(
                         }
                     }
                     TextButton(
-                        onClick = { WordlistDownloadManager.start(filesDir, entry, size) },
+                        onClick = {
+                            WordlistDownloadManager.start(filesDir, entry, size)
+                            notifyDownload(
+                                entry.id,
+                                downloadName,
+                                DownloadProgressFlows.wordlist(context, entry.id),
+                            )
+                        },
                         enabled = !WordlistDownloadManager.isBusy,
                     ) {
                         Text(
@@ -1546,6 +1604,7 @@ private fun CjkDictPackManager(
     val context = LocalContext.current
     val filesDir = context.filesDir
     val scope = rememberCoroutineScope()
+    val notifyDownload = rememberDownloadNotifier()
     val states by CjkDictDownloadManager.states.collectAsState()
     LaunchedEffect(langId) { CjkDictDownloadManager.refresh(filesDir) }
 
@@ -1562,6 +1621,7 @@ private fun CjkDictPackManager(
         for (pack in CjkDictCatalog.forLang(langId)) {
             item {
                 val status = states[pack.id] ?: CjkDictDownloadManager.DownloadStatus.NotDownloaded
+                val packName = stringResource(pack.displayNameRes)
                 WmRow(
                     title = stringResource(pack.displayNameRes),
                     subtitle = packStatusLabel(pack, status),
@@ -1595,7 +1655,14 @@ private fun CjkDictPackManager(
                             is CjkDictDownloadManager.DownloadStatus.Failed,
                             -> TextButton(
                                 enabled = pack.available && !CjkDictDownloadManager.isBusy,
-                                onClick = { CjkDictDownloadManager.start(filesDir, pack) },
+                                onClick = {
+                                    CjkDictDownloadManager.start(filesDir, pack)
+                                    notifyDownload(
+                                        pack.id,
+                                        packName,
+                                        DownloadProgressFlows.cjkDict(context, pack.id),
+                                    )
+                                },
                             ) {
                                 Text(
                                     if (status is CjkDictDownloadManager.DownloadStatus.Paused) {

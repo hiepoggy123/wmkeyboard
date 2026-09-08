@@ -104,6 +104,8 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
         }
     }
 
+    val notifyDownload = rememberDownloadNotifier()
+
     val totalRamMb = remember {
         val info = ActivityManager.MemoryInfo()
         (context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).getMemoryInfo(info)
@@ -112,6 +114,11 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Keyb
 
     fun startDownload(model: LocalLlmModel) {
         LocalLlmDownloadManager.start(filesDir, model, settings.ai.hfToken)
+        notifyDownload(
+            model.id,
+            context.getString(R.string.notify_download_ai_model, model.displayName),
+            DownloadProgressFlows.localLlm(context, model.id),
+        )
     }
 
     fun requestDownload(model: LocalLlmModel) {

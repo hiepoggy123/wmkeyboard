@@ -1327,6 +1327,10 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
         entry(title, subtitle, R.string.home_privacy_title, "privacy", weight = weight)
     fun dataSaver(@StringRes title: Int, @StringRes subtitle: Int) =
         entry(title, subtitle, R.string.home_datasaver_title, "datasaver")
+    fun notifications(@StringRes title: Int, @StringRes subtitle: Int) = entry(
+        title, subtitle, R.string.home_notifications_title, "notifications",
+        screenParent = R.string.home_advanced_title,
+    )
     fun selectionMacro(@StringRes title: Int, @StringRes subtitle: Int) = entry(
         title, subtitle, R.string.selection_macros_title, "selection_macros",
         screenParent = R.string.home_advanced_title,
@@ -1417,6 +1421,12 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
         ),
         dataSaver(R.string.datasaver_downloads_title, R.string.datasaver_downloads_subtitle),
         dataSaver(R.string.datasaver_ai_title, R.string.datasaver_ai_subtitle),
+        // The four kinds of notification, each one a thing someone will come
+        // looking for by name the first time it arrives or stops arriving.
+        notifications(R.string.notify_downloads_title, R.string.notify_downloads_subtitle),
+        notifications(R.string.notify_updates_title, R.string.notify_updates_subtitle),
+        notifications(R.string.notify_backup_title, R.string.notify_backup_subtitle),
+        notifications(R.string.notify_controls_title, R.string.notify_controls_subtitle),
         // Selection actions. The screen's own row is indexed as a section
         // above; these are the three switches on it.
         selectionMacro(R.string.selection_macros_placement_title, R.string.selection_macros_placement_subtitle),
@@ -1619,6 +1629,10 @@ private fun SearchStrings.sectionRows(): List<SettingsSearchEntry> {
         under(
             R.string.home_datasaver_title, R.string.home_datasaver_subtitle,
             R.string.home_advanced_title, "datasaver", R.string.search_kw_datasaver,
+        ),
+        under(
+            R.string.home_notifications_title, R.string.home_notifications_subtitle,
+            R.string.home_advanced_title, "notifications", R.string.search_kw_notifications,
         ),
         under(
             R.string.selection_macros_title, R.string.selection_macros_subtitle,

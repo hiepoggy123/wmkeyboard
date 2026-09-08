@@ -92,4 +92,16 @@
     <string name="update_row_prereleases_title">Include pre-releases</string>
     <string name="update_row_prereleases_subtitle">Offer test versions before they are finished</string>
 
+    <!-- The shade. An update the user started can outlive the settings screen
+         they started it from, and a quiet install leaves nothing behind. -->
+    <string name="update_notify_downloading_title">Downloading the update</string>
+    <string name="update_notify_ready_title">Update ready to install</string>
+    <string name="update_notify_ready_body">Tap to install it. The keyboard restarts.</string>
+    <string name="update_notify_failed_title">The update did not finish</string>
+    <!-- %1$s is the new version name, e.g. "0.5.7". -->
+    <string name="update_notify_updated_title">
+        Updated to <xliff:g id="version" example="0.5.7">%1$s</xliff:g>
+    </string>
+    <string name="update_notify_updated_body">Tap to see what changed</string>
+
 </resources>

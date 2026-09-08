@@ -120,6 +120,26 @@ object PermissionDisclosures {
     )
 
     /**
+     * The shade. Not a data permission at all — nothing is read, only posted —
+     * but it goes through the same disclosure as the rest so there stays
+     * exactly one way this app asks Android for anything, and so the user
+     * learns what will arrive before they say yes to it.
+     *
+     * Null below API 33, where notifications need no grant and the dialog
+     * would be a dialog about nothing.
+     */
+    val NOTIFICATIONS: PermissionDisclosure? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            PermissionDisclosure(
+                permission = Manifest.permission.POST_NOTIFICATIONS,
+                titleRes = R.string.common_permission_notifications_title,
+                bodyRes = R.string.common_permission_notifications_body,
+            )
+        } else {
+            null
+        }
+
+    /**
      * Save-to-gallery below API 29. The old permission covers reading as well as
      * writing, which the copy admits rather than glossing over.
      */
@@ -269,10 +289,16 @@ fun PermissionDisclosureDialog(
  * Settings-app entry point: returns a lambda that shows the disclosure and, if
  * the user continues, asks Android for the permission. [onGranted] runs only on
  * a grant, so the caller can flip its setting on there and nowhere else.
+ *
+ * [disclosure] is nullable for the permissions that do not exist on every
+ * Android version — notifications, below API 33. A null one has nothing to ask
+ * for, so the returned lambda reports the grant it already has. Nullable
+ * rather than left to the caller because the caller would have to branch
+ * around a composable call, which is the one thing a composable may not do.
  */
 @Composable
 fun rememberDisclosedPermissionRequest(
-    disclosure: PermissionDisclosure,
+    disclosure: PermissionDisclosure?,
     onGranted: () -> Unit,
 ): () -> Unit {
     val context = LocalContext.current
@@ -280,7 +306,7 @@ fun rememberDisclosedPermissionRequest(
         ActivityResultContracts.RequestPermission(),
     ) { granted -> if (granted) onGranted() }
     var showing by remember { mutableStateOf(false) }
-    if (showing) {
+    if (showing && disclosure != null) {
         // Read at show time, not at composition time: the user may have changed
         // the permission in Settings since this screen was drawn.
         val activity = context.findActivity()
@@ -301,7 +327,7 @@ fun rememberDisclosedPermissionRequest(
             onDismiss = { showing = false },
         )
     }
-    return { showing = true }
+    return { if (disclosure == null) onGranted() else showing = true }
 }
 
 /** The Activity behind a Compose context, for the calls that only Activity has. */

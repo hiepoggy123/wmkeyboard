@@ -107,6 +107,8 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
     var sizeFilter by remember { mutableStateOf<WhisperSize?>(null) }
     val expanded = remember { mutableStateMapOf<String, Boolean>() }
 
+    val notifyDownload = rememberDownloadNotifier()
+
     LaunchedEffect(Unit) { WhisperDownloadManager.refresh(filesDir) }
     LaunchedEffect(states) {
         storageUsed = withContext(Dispatchers.IO) { WhisperStore.totalBytesUsed(filesDir) }
@@ -120,6 +122,13 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: Keybo
 
     fun startDownload(model: WhisperModel) {
         WhisperDownloadManager.start(filesDir, model)
+        // These are the app's slowest downloads by far, and nobody watches a
+        // 400 MB transfer on the screen that started it.
+        notifyDownload(
+            model.id,
+            context.getString(R.string.notify_download_voice_model, model.displayName),
+            DownloadProgressFlows.whisper(context, model.id),
+        )
     }
 
     fun requestDownload(model: WhisperModel) {

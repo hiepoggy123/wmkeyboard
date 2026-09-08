@@ -52,6 +52,7 @@ import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.CloudDownload
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.CloudSync
@@ -283,6 +284,14 @@ internal object SettingsRowIcons {
         put(R.string.update_row_prompts_title) { Icons.Outlined.Notifications }
         put(R.string.update_row_prereleases_title) { Icons.Outlined.Science }
         put(R.string.update_row_release_page_title) { Icons.AutoMirrored.Outlined.OpenInNew }
+
+        // ---- Notifications ----
+        put(R.string.notify_permission_title) { Icons.Outlined.Notifications }
+        put(R.string.notify_downloads_title) { Icons.Outlined.CloudDownload }
+        put(R.string.notify_updates_title) { Icons.Outlined.SystemUpdate }
+        put(R.string.notify_backup_title) { Icons.Outlined.Backup }
+        put(R.string.notify_controls_title) { Icons.Outlined.Keyboard }
+        put(R.string.notify_system_title) { Icons.Outlined.Tune }
 
         // ---- Accessibility ----
         put(R.string.accessibility_color_vision_title) { Icons.Outlined.Palette }
@@ -987,6 +996,7 @@ internal object SettingsRowIcons {
         put(R.string.fonts_english_header) { Icons.Outlined.TextFields }
         put(R.string.home_addons_title) { Icons.Outlined.Extension }
         put(R.string.home_datasaver_title) { Icons.Outlined.DataSaverOn }
+        put(R.string.home_notifications_title) { Icons.Outlined.Notifications }
         put(R.string.home_modes_title) { Icons.Outlined.ViewCarousel }
         put(R.string.home_rows_title) { Icons.Outlined.ViewAgenda }
         put(R.string.keypress_haptics_page_title) { Icons.Outlined.Vibration }

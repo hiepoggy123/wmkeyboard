@@ -34,6 +34,14 @@
         <receiver
             android:name="com.wasimaster.wmkeyboard.app.updates.InstallResultReceiver"
             android:exported="false" />
+
+        <!--
+           The Cancel button on the update's own notification. Not exported for
+           the same reason: the notification names it, nothing else may.
+        -->
+        <receiver
+            android:name="com.wasimaster.wmkeyboard.app.updates.UpdateActionReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

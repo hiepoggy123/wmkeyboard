@@ -1442,6 +1442,15 @@ private fun SettingsNavGraph(
                 AppLockSettingsScreen(repository)
             }
         }
+        composable("notifications") {
+            SettingsScreen(
+                stringResource(R.string.home_notifications_title),
+                { navController.popBackStack() },
+                route = "notifications",
+            ) {
+                NotificationSettingsScreen(settings)
+            }
+        }
         composable("datasaver") {
             SettingsScreen(
                 stringResource(R.string.home_datasaver_title),
@@ -1992,6 +2001,13 @@ internal fun AdvancedSettings(onNavigate: (String) -> Unit) {
             NavRow(
                 R.string.home_datasaver_title, stringResource(R.string.home_datasaver_subtitle), route = "datasaver",
             ) { onNavigate("datasaver") }
+        }
+        item {
+            NavRow(
+                R.string.home_notifications_title,
+                stringResource(R.string.home_notifications_subtitle),
+                route = "notifications",
+            ) { onNavigate("notifications") }
         }
         item {
             NavRow(

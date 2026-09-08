@@ -64,6 +64,15 @@
          Nothing requests it when the lock is off. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- Notifications, from API 33. Used for things that finish while the user
+         is somewhere else: a dictionary or model that has downloaded, an update
+         waiting to be installed, an automatic backup that failed, and the
+         optional keyboard controls in the shade. Every kind is a switch in
+         Settings > Notifications, the app posts nothing promotional, and it is
+         asked for at the moment one of those would first have been useful
+         rather than on launch. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
@@ -554,6 +563,40 @@
                 <data android:scheme="wmkeyboard" android:host="oauth" />
             </intent-filter>
         </activity>
+
+        <!-- The buttons on the keyboard-controls notification. Not exported:
+             the notification's own PendingIntents name this class, and nothing
+             else has any business pressing them. The class lives in
+             :feature:ime, next to the keyboard it talks to. -->
+        <receiver
+            android:name="com.wasimaster.wmkeyboard.ime.KeyboardControlReceiver"
+            android:exported="false" />
+
+        <!-- "Keep keyboard on screen" as a Quick Settings tile (issue #58).
+             Needs no permission of its own, which is the point: it is the
+             control that still works for someone who refused notifications. -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.app.PinKeyboardTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_qs_pin_keyboard"
+            android:label="@string/qs_pin_keyboard_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- Notices that this app has just been updated, whichever channel did
+             it, and says so in the shade. The quiet self-install (see
+             app/updates) can otherwise finish with no sign anywhere that it
+             happened. -->
+        <receiver
+            android:name="com.wasimaster.wmkeyboard.app.updates.PackageReplacedReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!-- Runs the automatic backup. Scheduled by AutoBackupScheduler, which
              names this class as a string because it lives in :app and the
