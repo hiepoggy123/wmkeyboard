@@ -904,6 +904,64 @@ enum class GlidePreviewSteadiness(
     VERY_STEADY(R.string.core_settings_glide_steadiness_very_steady_label, 3.0, 260),
 }
 
+/**
+ * Whether a glide may show a word the stroke has not finished spelling, and how
+ * sure it has to be first.
+ *
+ * A swipe decoder reads a word by putting its first letter on the first sample
+ * and its last on the last, which is exact and is why "dictionary" cannot
+ * appear until the finger has reached the `y` — while a tap typist sees it four
+ * letters in. Early prediction lifts the end anchor for a *prefix*: the stroke
+ * so far explains the start of the word, and the rest is the language model's
+ * guess about where the finger is going.
+ *
+ * The guess is only worth showing when it is well clear of the best ordinary
+ * reading, which is what [margin] is. The research on this is unanimous that
+ * the failure mode is not a wrong guess but a *flickering* one — a preview that
+ * offers a long word, withdraws it, and offers another breaks the motor flow it
+ * was meant to help — so the tiers are confidence tiers, and the steadiness
+ * gate ([GlidePreviewSteadiness]) applies on top of whatever this admits.
+ *
+ * Lifting takes the word on screen, guess included. That is the feature: a long
+ * word costs the few letters it took to make the keyboard sure, rather than all
+ * of them.
+ *
+ * **How well it works, measured.** Full strokes for words of six letters or
+ * more, cut short and decoded as if the finger were still moving; the figure is
+ * how often the guess on screen is the word that was meant:
+ *
+ * | vocabulary          | 40% drawn | 60% drawn | 80% drawn |
+ * |---------------------|-----------|-----------|-----------|
+ * | the 17k dictionary  | .069      | .234      | .460      |
+ * | a 2k personal one   | .183      | .345      | .640      |
+ *
+ * Two things follow, and both are why this ships off. It is wrong more often
+ * than right until a stroke is most of the way through the word, so it is a
+ * feature for people who want it rather than one to give everybody. And it is
+ * roughly twice as accurate answering out of one person's vocabulary as out of
+ * a dictionary — so it belongs with [GlideSandbox.LEARNED_ONLY], which is what
+ * the proposal it comes from guessed without being able to measure it.
+ *
+ * The cost of a wrong guess is smaller than that table makes it look: it is a
+ * word *shown*, not a word typed, and the user rejects it by carrying on
+ * drawing. [GlidePreviewSteadiness] governs how much it may churn while they
+ * do. But it is not nothing, which is what [margin] is for.
+ */
+enum class GlideLookAhead(
+    @StringRes val labelRes: Int,
+    /** Nats a guess must beat the best ordinary reading by; 0 disables. */
+    val margin: Double,
+) {
+    /** No guessing: a stroke answers with what it has spelled. */
+    OFF(R.string.core_settings_glide_lookahead_off_label, 0.0),
+
+    /** Only when the guess is far ahead of anything the stroke actually spells. */
+    CONFIDENT(R.string.core_settings_glide_lookahead_confident_label, 4.0),
+
+    /** Whenever the guess is ahead at all. */
+    EAGER(R.string.core_settings_glide_lookahead_eager_label, 1.0),
+}
+
 /** What the history tab of the emoji panel shows. */
 enum class EmojiTabMode { RECENTS, MOST_USED }
 
@@ -4132,6 +4190,13 @@ data class GestureSettings(
      */
     val previewSteadiness: GlidePreviewSteadiness = GlidePreviewSteadiness.LIGHT,
     /**
+     * Whether a glide may offer a word the stroke has not finished spelling —
+     * see [GlideLookAhead]. [GlideLookAhead.OFF] by default: it changes what a
+     * lift types, and the research it comes from is clear that a badly tuned
+     * version is worse than none.
+     */
+    val lookAhead: GlideLookAhead = GlideLookAhead.OFF,
+    /**
      * Learn this user's swipe style from the swipes they keep, and read later
      * swipes by it (issue #52): where their finger actually lands on each
      * key, so a thumb that always cuts the far keys short stops paying for
@@ -5295,6 +5360,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_VOCABULARY = stringPreferencesKey("gesture_vocabulary")
         private val GESTURE_SANDBOX = stringPreferencesKey("gesture_sandbox")
         private val GESTURE_PREVIEW_STEADINESS = stringPreferencesKey("gesture_preview_steadiness")
+        private val GESTURE_LOOK_AHEAD = stringPreferencesKey("gesture_look_ahead")
         private val GESTURE_LEARN_SWIPE_STYLE = booleanPreferencesKey("gesture_learn_swipe_style")
         private val GESTURE_SWIPE_STYLE_VERSION = intPreferencesKey("gesture_swipe_style_version")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
@@ -6320,6 +6386,9 @@ class SettingsRepository(private val context: Context) {
                 previewSteadiness = p[GESTURE_PREVIEW_STEADINESS]
                     ?.let { runCatching { GlidePreviewSteadiness.valueOf(it) }.getOrNull() }
                     ?: defaults.gesture.previewSteadiness,
+                lookAhead = p[GESTURE_LOOK_AHEAD]
+                    ?.let { runCatching { GlideLookAhead.valueOf(it) }.getOrNull() }
+                    ?: defaults.gesture.lookAhead,
                 learnSwipeStyle = p[GESTURE_LEARN_SWIPE_STYLE] ?: defaults.gesture.learnSwipeStyle,
                 swipeStyleVersion = p[GESTURE_SWIPE_STYLE_VERSION] ?: defaults.gesture.swipeStyleVersion,
             ),
@@ -10470,6 +10539,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGesturePreviewSteadiness(value: GlidePreviewSteadiness) =
         editPrefs { it[GESTURE_PREVIEW_STEADINESS] = value.name }
+
+    suspend fun setGestureLookAhead(value: GlideLookAhead) =
+        editPrefs { it[GESTURE_LOOK_AHEAD] = value.name }
 
     suspend fun setSpaceShortSwipe(value: SpaceSwipeAction) =
         editPrefs { it[SPACE_SHORT_SWIPE] = value.name }

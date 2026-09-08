@@ -791,6 +791,7 @@ class SuggestionEngine(
         deep: Boolean = false,
         shapes: GlideShapeSource? = null,
         tiers: Set<FuzzyBeamSearch.Tier>? = null,
+        lookAhead: Int = 0,
     ): List<GlideBeam.Candidate> {
         val romanization = glideRomanization
         val sources = if (romanization.isEmpty) {
@@ -807,6 +808,12 @@ class SuggestionEngine(
             ws = glideWorkspace.get(),
             limit = maxOf(limit, if (deep) GLIDE_DEEP_POOL else GLIDE_RERANK_POOL),
             shapes = shapes,
+            // Never on a phonetic layout. There the stroke spells a
+            // romanization and the answer is Bengali, so a guess would be
+            // counted in Latin characters the user never sees and applied to a
+            // word whose length has nothing to do with them. Guessing ahead in
+            // that pipeline needs its own design, not this one bolted on.
+            lookAhead = if (romanization.isEmpty) lookAhead else 0,
         )
         // On a phonetic layout the stroke spelled a romanization; the words it
         // stands for are what the rest of this — the blacklist, the reranker,
@@ -825,7 +832,7 @@ class SuggestionEngine(
                 if (display == c.word) {
                     c
                 } else {
-                    GlideBeam.Candidate(display, c.score, c.shapeCost, c.tier)
+                    GlideBeam.Candidate(display, c.score, c.shapeCost, c.tier, c.ahead)
                 }
             }
     }
@@ -853,7 +860,7 @@ class SuggestionEngine(
                 c
             } else {
                 moved = true
-                GlideBeam.Candidate(c.word, c.score + shift, c.shapeCost, c.tier)
+                GlideBeam.Candidate(c.word, c.score + shift, c.shapeCost, c.tier, c.ahead)
             }
         }
         return if (moved) shifted.sortedByDescending { it.score } else decoded

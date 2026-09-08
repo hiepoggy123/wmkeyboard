@@ -71,6 +71,7 @@ import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerDwellMsRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerSensitivity
+import com.wasimaster.wmkeyboard.core.settings.GlideLookAhead
 import com.wasimaster.wmkeyboard.core.settings.GlidePreviewSteadiness
 import com.wasimaster.wmkeyboard.core.settings.GlideSandbox
 import com.wasimaster.wmkeyboard.core.settings.GlideVocabulary
@@ -1624,6 +1625,19 @@ internal fun TypingGesturesSettings(
                         selected = settings.gesture.previewSteadiness,
                         onChange = { scope.launch { repository.setGesturePreviewSteadiness(it) } },
                         default = SettingsDefaults.gesture.previewSteadiness,
+                    )
+                }
+                // Whether a glide may offer a word the stroke has not finished
+                // spelling — the tap typist's head start, for a swipe.
+                item {
+                    ChoiceSetting(
+                        title = R.string.typing_glide_lookahead_title,
+                        subtitle = stringResource(R.string.typing_glide_lookahead_subtitle),
+                        info = stringResource(R.string.typing_glide_lookahead_info),
+                        options = GlideLookAhead.entries.map { it to stringResource(it.labelRes) },
+                        selected = settings.gesture.lookAhead,
+                        onChange = { scope.launch { repository.setGestureLookAhead(it) } },
+                        default = SettingsDefaults.gesture.lookAhead,
                     )
                 }
                 item {

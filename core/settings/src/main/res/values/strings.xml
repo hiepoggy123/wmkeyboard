@@ -169,6 +169,11 @@
     <string name="core_settings_glide_steadiness_steady_label">Steady</string>
     <string name="core_settings_glide_steadiness_very_steady_label">Very steady</string>
 
+    <!-- Whether a glide may offer a word the stroke has not finished spelling. -->
+    <string name="core_settings_glide_lookahead_off_label">Off</string>
+    <string name="core_settings_glide_lookahead_confident_label">When sure</string>
+    <string name="core_settings_glide_lookahead_eager_label">Eager</string>
+
     <!-- Octopus: where a floating word is drawn (discussion #102). -->
     <string name="core_settings_octopus_placement_float_label">Above the key</string>
     <string name="core_settings_octopus_placement_strip_label">Own lane</string>

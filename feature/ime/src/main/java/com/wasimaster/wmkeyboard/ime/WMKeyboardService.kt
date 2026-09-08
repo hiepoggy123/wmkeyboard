@@ -106,6 +106,7 @@ import com.wasimaster.wmkeyboard.core.feedback.KeySoundPhase
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundRole
 import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
+import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
 import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
@@ -254,6 +255,7 @@ import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_OUTCOMES_FILE
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_SHAPES_FILE
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_SANDBOX_FILE
+import com.wasimaster.wmkeyboard.core.settings.GlideLookAhead
 import com.wasimaster.wmkeyboard.core.settings.GlidePreviewSteadiness
 import com.wasimaster.wmkeyboard.core.settings.GlideSandbox
 import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
@@ -12470,9 +12472,14 @@ open class WMKeyboardService : InputMethodService() {
         points: List<GesturePoint>,
         keys: List<KeyCenter>,
         keyWidthPx: Float,
+        preview: Boolean = false,
     ): GlideReading {
         val engine = suggestionEngine ?: return GlideReading.NONE
         val policy = sandboxPolicy()
+        // Only a preview may guess ahead. The decode behind a lift has the
+        // whole stroke and no reason to invent letters; what a lift *types* is
+        // decided by the preview gate, from what was on screen.
+        val lookAhead = if (preview) glideCandidateLimit() else 0
         fun decode(tiers: Set<FuzzyBeamSearch.Tier>?) = engine.glide(
             path = points,
             keys = keyMapFor(keys, keyWidthPx),
@@ -12483,6 +12490,7 @@ open class WMKeyboardService : InputMethodService() {
             recentWords = recentWords.toList(),
             shapes = shapeSourceFor(keys, keyWidthPx),
             tiers = tiers,
+            lookAhead = lookAhead,
         )
 
         // Under LEARNED_ONLY the learned words are the whole search; under
@@ -12515,22 +12523,49 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         if (decoded.isEmpty()) return GlideReading.NONE
-        val words = decoded.map { restoreApostrophe(it.word) ?: it.word }
         val gesture = _uiState.value.settings.gesture
+        val kept = admitLookAhead(decoded, gesture.lookAhead)
+        if (kept.isEmpty()) return GlideReading.NONE
+        val words = kept.map { restoreApostrophe(it.word) ?: it.word }
         val declared = declareApostrophe(words, points, keys, keyWidthPx)
         // Scores follow the words through both rewrites. `declareApostrophe`
         // can put a spelling in front that the decoder never ranked — "it's"
         // read off a stroke that spelled "its" — and that word stands exactly
         // where the leader stood, so it inherits the leader's score.
-        val byWord = words.withIndex().associate { (i, w) -> w to decoded[i].score }
-        val leaderScore = decoded.first().score
+        val byWord = words.withIndex().associate { (i, w) -> w to kept[i].score }
+        val leaderScore = kept.first().score
         return GlideReading(
             words = declared,
             closeCall = gesture.ambiguityPicker &&
-                SuggestionEngine.glideIsAmbiguous(decoded, gesture.pickerSensitivity.margin),
+                SuggestionEngine.glideIsAmbiguous(kept, gesture.pickerSensitivity.margin),
             sandboxAnswered = answered,
             scores = declared.map { byWord[it] ?: leaderScore },
         )
+    }
+
+    /**
+     * [decoded] with the decoder's guesses — candidates carrying letters the
+     * stroke has not drawn — kept only where they clear the user's confidence
+     * tier, and dropped entirely when the tier is off.
+     *
+     * The measure is the gap to the best *ordinary* reading, in the decoder's
+     * own log units, which is the only comparison that answers the question the
+     * user is really asking: is the keyboard surer about a word I have not
+     * finished than about anything I have? A guess that merely outranks other
+     * guesses has cleared nothing.
+     *
+     * The list keeps its order, so a guess that clears the bar and outscores
+     * every reading leads — which is the whole point of the feature — and one
+     * that clears the bar without leading sits on the strip as an alternate.
+     */
+    private fun admitLookAhead(
+        decoded: List<GlideBeam.Candidate>,
+        tier: GlideLookAhead,
+    ): List<GlideBeam.Candidate> {
+        if (decoded.none { it.ahead > 0 }) return decoded
+        if (tier == GlideLookAhead.OFF) return decoded.filter { it.ahead == 0 }
+        val bestRead = decoded.firstOrNull { it.ahead == 0 } ?: return decoded
+        return decoded.filter { it.ahead == 0 || it.score - bestRead.score >= tier.margin }
     }
 
     /**
@@ -12879,7 +12914,9 @@ open class WMKeyboardService : InputMethodService() {
                 val reading = withContext(Dispatchers.Default) {
                     // Same sources as the final decode, so the previewed word
                     // never differs from the one that commits on finger-up.
-                    glideDecode(request.points, request.keys, request.keyWidthPx)
+                    glideDecode(
+                        request.points, request.keys, request.keyWidthPx, preview = true,
+                    )
                 }
                 if (reading.words.isEmpty()) continue
                 // Re-checked after the decode: the finger may have lifted and
