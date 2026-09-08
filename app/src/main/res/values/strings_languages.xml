@@ -229,6 +229,10 @@
 
     <string name="languages_cjk_traditional_title">Traditional characters</string>
     <string name="languages_cjk_traditional_subtitle">The keyboard converts candidates to Traditional (繁體). It converts one character at a time, so a few forms that depend on context are wrong (发 → 發 / 髮).</string>
+    <!-- Info text for the Traditional characters toggle. The Chinese characters
+         are examples and stay as they are. 发 is the Simplified form, 發 means
+         "to send" and 髮 means "hair". -->
+    <string name="languages_cjk_traditional_info">The keyboard converts each candidate from Simplified (简体) to Traditional (繁體) before it shows the candidate. The conversion reads one character at a time. A few Simplified characters have more than one Traditional form, and the keyboard always writes the more common one. 发 becomes 發, which is correct in 發展 but wrong in 頭髮. Correct those words by hand.</string>
     <string name="languages_cjk_region_title">Regional wording</string>
     <string name="languages_cjk_region_info">Taiwan and Hong Kong often use different words for the same thing, not only different characters.</string>
     <string name="languages_cjk_region_generic_title">Standard</string>

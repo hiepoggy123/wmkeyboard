@@ -1618,7 +1618,7 @@ private fun CjkDictPackManager(
                 R.string.languages_cjk_traditional_title,
                 stringResource(R.string.languages_cjk_traditional_subtitle),
                 settings.cjk.traditionalOutput,
-                info = stringResource(R.string.languages_cjk_region_info),
+                info = stringResource(R.string.languages_cjk_traditional_info),
                 default = SettingsDefaults.cjk.traditionalOutput,
             ) { on -> scope.launch { repository.setCjkTraditionalOutput(on) } }
         }
