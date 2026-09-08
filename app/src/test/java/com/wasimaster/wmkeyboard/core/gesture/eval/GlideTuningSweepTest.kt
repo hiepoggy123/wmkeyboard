@@ -133,6 +133,16 @@ class GlideTuningSweepTest {
         axis("dwellPenalty (loopOnDoubles=1)", listOf(0.0f, 0.2f, 0.4f, 0.7f, 1.2f), looping, keys, sources) {
             base.copy(dwellPenalty = it)
         }
+        // The two ends of a stroke, held apart: a touch-down is a placement
+        // and a lift-off is the end of a movement, so one number for both was
+        // always a compromise between two different events.
+        val radii = listOf(1.0f, 1.3f, 1.6f, 2.0f, 2.5f, 3.0f)
+        axis("startRadius", radii, cases, keys, sources) {
+            base.copy(startRadius = it)
+        }
+        axis("endRadius", radii, cases, keys, sources) {
+            base.copy(endRadius = it)
+        }
         axis("gapWeight", listOf(0.5f, 1.0f, 2.0f, 3.0f, 4.0f, 6.0f), cases, keys, sources) {
             base.copy(gapWeight = it)
         }
@@ -147,9 +157,6 @@ class GlideTuningSweepTest {
         }
         axis("repeatCost", listOf(0.0f, 0.2f, 0.35f, 0.6f, 1.0f, 2.0f), cases, keys, sources) {
             base.copy(repeatCost = it)
-        }
-        axis("anchorRadius", listOf(1.0f, 1.3f, 1.6f, 2.0f, 2.5f), cases, keys, sources) {
-            base.copy(anchorRadius = it)
         }
         axis("nearRadius", listOf(0.9f, 1.1f, 1.25f, 1.5f, 2.0f), cases, keys, sources) {
             base.copy(nearRadius = it)

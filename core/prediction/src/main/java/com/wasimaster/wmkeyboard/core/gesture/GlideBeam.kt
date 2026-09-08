@@ -59,6 +59,20 @@ import kotlin.math.sqrt
  * belongs to. Leaning on those samples leans on the error. The arc-length term
  * already carries what the timing would have said about where letters fall.
  *
+ * **A second thing that was tried and did not work.** Edge keys were given
+ * extra anchor tolerance *inward*, on the reasoning that a finger aiming at `q`
+ * cannot land above or left of the keyboard, so the touches an outer key
+ * collects are the inward half of an interior key's spread with their centre of
+ * mass pushed inward too. The reasoning is sound and the effect is not there:
+ * swept from 0 to 0.8 key widths it moved no metric by a single case, and it
+ * still moved none against a corpus modified to clamp every sample to the board
+ * the way a digitiser does. The reason is the magnitudes. Endpoint slop is
+ * σ ≈ 0.3 key widths at the sloppiest graded level and the outermost key
+ * centres sit half a key inside the board's edge, so a touch that would have
+ * landed off the board is already rare, and one far enough off to change which
+ * keys an anchor admits is rarer still. The truncation is real and it is too
+ * small to correct for.
+ *
  * Scores are in the same log space as the typing beam
  * (`logWeight + ln(1 + frequency) - cost`), so `FuzzyBeamSearch.WalkSource`
  * weights carry over unchanged and a caller can build one source list for both.
@@ -232,9 +246,27 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
          * it drawn in that shape? Zero switches it off.
          */
         val shapeChannel: Double = 45.0,
-        /** How far the stroke's first/last sample may sit from the word's
-         * first/last key, in key widths. */
-        val anchorRadius: Float = 1.6f,
+        /**
+         * How far the stroke's *first* sample may sit from the word's first
+         * key, in key widths.
+         *
+         * Split from [endRadius] because the two ends of a stroke are not the
+         * same event: a touch-down is a deliberate placement, and a lift-off is
+         * where a movement happened to stop.
+         *
+         * The split is expressible rather than load-bearing, and that is the
+         * measurement rather than an omission. Swept independently, both sit on
+         * a flat plateau — start .9550 from 1.3 to 2.0 and end .9550 from 1.6
+         * all the way to 3.0, against .9508 and .9517 at 1.0 — so the one
+         * number they replaced was not a compromise between them after all, and
+         * there is no asymmetry here to exploit yet. The only thing either says
+         * is that a *tight* anchor costs accuracy: whatever an anchor is for, it
+         * is not for being strict.
+         */
+        val startRadius: Float = 1.6f,
+        /** How far the stroke's *last* sample may sit from the word's last key,
+         * in key widths. See [startRadius]. */
+        val endRadius: Float = 1.6f,
         /** How close the stroke must pass to a key for that key's subtree to be
          * worth walking at all, in key widths. */
         val nearRadius: Float = 1.5f,
@@ -278,7 +310,8 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         val vocabularyRank: Int = 0,
     ) {
         val invTwoSigmaSq: Float get() = 1f / (2f * sigma * sigma)
-        val anchorRadiusSq: Float get() = anchorRadius * anchorRadius
+        val startRadiusSq: Float get() = startRadius * startRadius
+        val endRadiusSq: Float get() = endRadius * endRadius
         val nearCost: Float get() = nearRadius * nearRadius * invTwoSigmaSq
     }
 
@@ -776,8 +809,8 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
                 if (scaled <= nearCost) ws.nearKey[k] = true
             }
         }
-        anchorMask(ws.pathX[0], ws.pathY[0], keys, ws.startKey)
-        anchorMask(ws.pathX[n - 1], ws.pathY[n - 1], keys, ws.endKey)
+        anchorMask(ws.pathX[0], ws.pathY[0], keys, ws.startKey, tuning.startRadiusSq)
+        anchorMask(ws.pathX[n - 1], ws.pathY[n - 1], keys, ws.endKey, tuning.endRadiusSq)
     }
 
     /**
@@ -1377,11 +1410,18 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         }
     }
 
-    private fun anchorMask(x: Float, y: Float, keys: GlideKeyMap, out: BooleanArray) {
+    /** Which keys the anchor at ([x], [y]) could have meant, within [radiusSq]. */
+    private fun anchorMask(
+        x: Float,
+        y: Float,
+        keys: GlideKeyMap,
+        out: BooleanArray,
+        radiusSq: Float,
+    ) {
         for (k in 0 until keys.keyCount) {
             val dx = x - keys.keyX[k]
             val dy = y - keys.keyY[k]
-            out[k] = dx * dx + dy * dy <= tuning.anchorRadiusSq
+            out[k] = dx * dx + dy * dy <= radiusSq
         }
     }
 
