@@ -71,6 +71,7 @@ import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerDwellMsRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerSensitivity
+import com.wasimaster.wmkeyboard.core.settings.GlidePreviewSteadiness
 import com.wasimaster.wmkeyboard.core.settings.GlideSandbox
 import com.wasimaster.wmkeyboard.core.settings.GlideVocabulary
 import com.wasimaster.wmkeyboard.core.settings.OctopusFlickSensitivity
@@ -1609,6 +1610,20 @@ internal fun TypingGesturesSettings(
                         selected = settings.gesture.sandbox,
                         onChange = { scope.launch { repository.setGestureSandbox(it) } },
                         default = SettingsDefaults.gesture.sandbox,
+                    )
+                }
+                // How hard the word shown mid-stroke resists being replaced.
+                item {
+                    ChoiceSetting(
+                        title = R.string.typing_glide_steadiness_title,
+                        subtitle = stringResource(R.string.typing_glide_steadiness_subtitle),
+                        info = stringResource(R.string.typing_glide_steadiness_info),
+                        options = GlidePreviewSteadiness.entries.map {
+                            it to stringResource(it.labelRes)
+                        },
+                        selected = settings.gesture.previewSteadiness,
+                        onChange = { scope.launch { repository.setGesturePreviewSteadiness(it) } },
+                        default = SettingsDefaults.gesture.previewSteadiness,
                     )
                 }
                 item {

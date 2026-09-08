@@ -254,6 +254,7 @@ import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_OUTCOMES_FILE
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_SHAPES_FILE
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_SANDBOX_FILE
+import com.wasimaster.wmkeyboard.core.settings.GlidePreviewSteadiness
 import com.wasimaster.wmkeyboard.core.settings.GlideSandbox
 import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
 import com.wasimaster.wmkeyboard.core.prediction.GlideSandboxLadder
@@ -1502,6 +1503,9 @@ open class WMKeyboardService : InputMethodService() {
 
     /** A sandbox rung earned and not yet answered, while its chip is up. */
     private var sandboxOfferPolicy: GlideSandboxPolicy? = null
+
+    /** Keeps the mid-stroke word from changing under the finger (see [GlidePreviewGate]). */
+    private val previewGate = GlidePreviewGate()
 
     /** The shape of the glide a strip pick is replacing, until the pick has queued its own word. */
     private var replacedGlideShape: GlideShapeSample? = null
@@ -12338,7 +12342,34 @@ open class WMKeyboardService : InputMethodService() {
          * ladder would count each of them.
          */
         val sandboxAnswered: Boolean? = null,
+        /**
+         * Each word's decoder score, in nats, aligned with [words] — what the
+         * preview's steadiness gate compares a challenger against.
+         *
+         * Only ever compared *within* one reading. Scores from two readings of
+         * the same stroke are not comparable: a longer stroke has more samples
+         * to explain and every candidate's cost grows with it, so "the leader
+         * beat last frame's leader" says nothing while "the leader beats the
+         * word on screen, right now, on this evidence" says exactly the right
+         * thing.
+         */
+        val scores: List<Double> = emptyList(),
     ) {
+        /** [word]'s score in this reading, or null when it is not in it. */
+        fun scoreOf(word: String): Double? {
+            val at = words.indexOfFirst { it.equals(word, ignoreCase = true) }
+            return if (at >= 0) scores.getOrNull(at) else null
+        }
+
+        /** This reading with [word] moved to the front, for a gate that held it. */
+        fun leading(word: String): GlideReading {
+            val at = words.indexOfFirst { it.equals(word, ignoreCase = true) }
+            if (at <= 0) return this
+            val order = words.toMutableList().apply { add(0, removeAt(at)) }
+            val rescored = scores.toMutableList().apply { if (at < size) add(0, removeAt(at)) }
+            return GlideReading(order, closeCall, sandboxAnswered, rescored)
+        }
+
         companion object {
             val NONE = GlideReading(emptyList(), false)
         }
@@ -12486,11 +12517,19 @@ open class WMKeyboardService : InputMethodService() {
         if (decoded.isEmpty()) return GlideReading.NONE
         val words = decoded.map { restoreApostrophe(it.word) ?: it.word }
         val gesture = _uiState.value.settings.gesture
+        val declared = declareApostrophe(words, points, keys, keyWidthPx)
+        // Scores follow the words through both rewrites. `declareApostrophe`
+        // can put a spelling in front that the decoder never ranked — "it's"
+        // read off a stroke that spelled "its" — and that word stands exactly
+        // where the leader stood, so it inherits the leader's score.
+        val byWord = words.withIndex().associate { (i, w) -> w to decoded[i].score }
+        val leaderScore = decoded.first().score
         return GlideReading(
-            words = declareApostrophe(words, points, keys, keyWidthPx),
+            words = declared,
             closeCall = gesture.ambiguityPicker &&
                 SuggestionEngine.glideIsAmbiguous(decoded, gesture.pickerSensitivity.margin),
             sandboxAnswered = answered,
+            scores = declared.map { byWord[it] ?: leaderScore },
         )
     }
 
@@ -12847,27 +12886,45 @@ open class WMKeyboardService : InputMethodService() {
                 // the word committed while this was running.
                 if (request.generation != gestureGeneration.get()) continue
                 val gesture = _uiState.value.settings.gesture
-                val floating = octopusForGlide(_uiState.value, reading.words)
+                // Applied before anything is published, so the strip, the keys,
+                // the pill and the picker all show the same word: they are all
+                // built from this one list.
+                val steadied = steadyPreview(reading, gesture.previewSteadiness)
+                val floating = octopusForGlide(_uiState.value, steadied.words)
                 _uiState.update {
                     it.copy(
-                        suggestions = reading.words,
+                        suggestions = steadied.words,
                         octopus = floating,
-                        glideWord = reading.words.first(),
+                        glideWord = steadied.words.first(),
                         // Every preview carries choices while the picker is
                         // on: a stroke that is not a close call can still be
                         // asked about by holding longer, so the popup needs
                         // the words either way. The flag is what picks the
                         // short dwell over the long one.
                         glideChoices = if (gesture.ambiguityPicker) {
-                            reading.words.take(gesture.pickerChoices)
+                            steadied.words.take(gesture.pickerChoices)
                         } else {
                             emptyList()
                         },
-                        glideCloseCall = reading.closeCall,
+                        glideCloseCall = steadied.closeCall,
                     )
                 }
             }
         }
+    }
+
+    /**
+     * [reading], with the word already on screen kept in front of it unless a
+     * challenger has earned the swap — see [GlidePreviewGate].
+     */
+    private fun steadyPreview(
+        reading: GlideReading,
+        steadiness: GlidePreviewSteadiness,
+    ): GlideReading {
+        val at = previewGate.steady(
+            reading.words, reading.scores, steadiness, SystemClock.elapsedRealtime(),
+        )
+        return if (at == 0) reading else reading.leading(reading.words[at])
     }
 
     /**
@@ -12877,6 +12934,10 @@ open class WMKeyboardService : InputMethodService() {
      * cancel restores them.
      */
     private fun clearGlidePreview() {
+        // Every exit from a stroke comes through here, so the steadiness gate
+        // is reset here too: a new stroke must never inherit the last one's
+        // word, or its first reading would be judged against a stranger.
+        previewGate.reset()
         _uiState.update {
             it.copy(
                 glideWord = null,
@@ -12991,7 +13052,14 @@ open class WMKeyboardService : InputMethodService() {
             if (chosen != null && candidates.isNotEmpty() && chosen != candidates.first()) {
                 noteGlidePreference(rejected = candidates.first(), chosen = chosen)
             }
-            val picked = chosen ?: candidates.first()
+            // An explicit pick beats everything. Otherwise the word on
+            // screen wins the lift while the finished stroke still ranks it
+            // near its own leader, so what was shown is what gets typed.
+            val picked = chosen
+                ?: previewGate.commit(
+                    candidates, reading.scores, state.settings.gesture.previewSteadiness,
+                )
+                ?: candidates.first()
             val strip = if (chosen != null) glideStripOrder(candidates, chosen) else candidates
             val word = when (shiftAtGesture) {
                 ShiftState.CAPS_LOCK -> picked.uppercase()

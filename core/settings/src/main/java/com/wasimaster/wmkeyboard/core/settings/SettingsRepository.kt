@@ -860,6 +860,50 @@ enum class GlideSandbox(@StringRes val labelRes: Int) {
     AUTOMATIC(R.string.core_settings_glide_sandbox_automatic_label),
 }
 
+/**
+ * How hard the word a stroke is being read as resists being replaced while the
+ * finger is still down.
+ *
+ * A glide decodes on every touch move, and early in a stroke the leader is
+ * genuinely unstable: two letters in, half the dictionary fits. Shown raw, that
+ * is a strip — and now a set of words drawn on the keys — churning several
+ * times a second under a finger that is still moving. The HCI work on mid-swipe
+ * prediction is blunt that this is its main cost: people report having to look
+ * back and forth between the finger and the preview, which breaks the motor
+ * flow the preview was supposed to help.
+ *
+ * The gate is the standard answer: a challenger must beat the word on screen by
+ * [margin] nats, measured *within one reading* so the comparison is like for
+ * like, and the word on screen gets [holdMs] to itself before any challenger is
+ * heard at all. A word that drops out of the candidates entirely is replaced
+ * immediately whatever the tier says — it is not a reading of this stroke any
+ * more.
+ *
+ * Display and commit stay in agreement: a lift takes the word that is on
+ * screen, provided the final decode still ranks it within [margin] of its own
+ * leader. Seeing one word and getting another is the failure this whole setting
+ * exists to avoid, so the gate must not introduce it.
+ */
+enum class GlidePreviewSteadiness(
+    @StringRes val labelRes: Int,
+    /** Nats a challenger must beat the shown word by. */
+    val margin: Double,
+    /** How long the shown word is safe from any challenger, in ms. */
+    val holdMs: Int,
+) {
+    /** Every reading goes straight to the screen, as it always did. */
+    OFF(R.string.core_settings_glide_steadiness_off_label, 0.0, 0),
+
+    /** Enough to absorb the churn of a near-tie without holding a beaten word. */
+    LIGHT(R.string.core_settings_glide_steadiness_light_label, 0.6, 90),
+
+    /** A word stays put unless it is clearly beaten. */
+    STEADY(R.string.core_settings_glide_steadiness_steady_label, 1.5, 160),
+
+    /** For a hand that finds any movement distracting. */
+    VERY_STEADY(R.string.core_settings_glide_steadiness_very_steady_label, 3.0, 260),
+}
+
 /** What the history tab of the emoji panel shows. */
 enum class EmojiTabMode { RECENTS, MOST_USED }
 
@@ -4081,6 +4125,13 @@ data class GestureSettings(
      */
     val sandbox: GlideSandbox = GlideSandbox.NORMAL,
     /**
+     * How hard the mid-stroke word resists replacement — see
+     * [GlidePreviewSteadiness]. [GlidePreviewSteadiness.LIGHT] by default: the
+     * words now drawn on the keys during a stroke make the churn much more
+     * visible than it was when only the strip moved.
+     */
+    val previewSteadiness: GlidePreviewSteadiness = GlidePreviewSteadiness.LIGHT,
+    /**
      * Learn this user's swipe style from the swipes they keep, and read later
      * swipes by it (issue #52): where their finger actually lands on each
      * key, so a thumb that always cuts the far keys short stops paying for
@@ -5243,6 +5294,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_STRIP_PREVIEW_ONLY = booleanPreferencesKey("gesture_strip_preview_only")
         private val GESTURE_VOCABULARY = stringPreferencesKey("gesture_vocabulary")
         private val GESTURE_SANDBOX = stringPreferencesKey("gesture_sandbox")
+        private val GESTURE_PREVIEW_STEADINESS = stringPreferencesKey("gesture_preview_steadiness")
         private val GESTURE_LEARN_SWIPE_STYLE = booleanPreferencesKey("gesture_learn_swipe_style")
         private val GESTURE_SWIPE_STYLE_VERSION = intPreferencesKey("gesture_swipe_style_version")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
@@ -6265,6 +6317,9 @@ class SettingsRepository(private val context: Context) {
                 sandbox = p[GESTURE_SANDBOX]
                     ?.let { runCatching { GlideSandbox.valueOf(it) }.getOrNull() }
                     ?: defaults.gesture.sandbox,
+                previewSteadiness = p[GESTURE_PREVIEW_STEADINESS]
+                    ?.let { runCatching { GlidePreviewSteadiness.valueOf(it) }.getOrNull() }
+                    ?: defaults.gesture.previewSteadiness,
                 learnSwipeStyle = p[GESTURE_LEARN_SWIPE_STYLE] ?: defaults.gesture.learnSwipeStyle,
                 swipeStyleVersion = p[GESTURE_SWIPE_STYLE_VERSION] ?: defaults.gesture.swipeStyleVersion,
             ),
@@ -10412,6 +10467,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureSandbox(value: GlideSandbox) =
         editPrefs { it[GESTURE_SANDBOX] = value.name }
+
+    suspend fun setGesturePreviewSteadiness(value: GlidePreviewSteadiness) =
+        editPrefs { it[GESTURE_PREVIEW_STEADINESS] = value.name }
 
     suspend fun setSpaceShortSwipe(value: SpaceSwipeAction) =
         editPrefs { it[SPACE_SHORT_SWIPE] = value.name }
