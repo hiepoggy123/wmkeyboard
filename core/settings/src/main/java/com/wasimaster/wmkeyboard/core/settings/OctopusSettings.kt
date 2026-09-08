@@ -36,32 +36,33 @@ enum class OctopusPlacement(@StringRes val labelRes: Int) {
  * How readily a flick up off a key is taken as picking its word rather than as
  * the start of a glide stroke.
  *
- * Two numbers move together, because they are two ways of saying the same
- * thing: how far off vertical the stroke may point, and how fast it has to be
- * going. A glide that happens to open upward is the failure this guards
- * against, and a heavy glider wants a narrower cone than someone who has
- * gesture typing switched off entirely.
+ * **Direction decides, not speed.** Speed was the first thing tried and it was
+ * wrong: a flick ends by decelerating as the finger leaves the screen, so any
+ * rule about how fast the last few milliseconds were rejects exactly the
+ * gesture it is meant to accept. What separates the two reliably is where the
+ * stroke went — up, and more or less straight.
  *
- * [BALANCED]'s 30° is chosen against the glide picker rather than by feel: its
- * near slots sit about 45° off vertical and its far slot is dead centre of a
- * 30° cone, so both of the keyboard's up-flicks agree on what straight up
- * means. A user who conflates the two gestures is then right to.
+ * So a tier is a cone and a straightness. Inside the cone and straight enough,
+ * the word is taken however long the stroke took; outside either, it is a
+ * glide. This does make a glide that opens straight upward off a key carrying a
+ * word harder to start, and that is the deliberate trade: a board with words on
+ * the keys is a board whose owner asked for them.
  */
 enum class OctopusFlickSensitivity(
     @StringRes val labelRes: Int,
     /** Half-width of the upward cone, in degrees. */
     val coneDegrees: Float,
-    /** Minimum mean speed, in key widths per millisecond. */
-    val minSpeedWidthsPerMs: Float,
+    /** How much longer than the straight line the stroke may wander. */
+    val maxDetour: Float,
 ) {
-    /** For heavy gliders: only an unmistakably vertical, quick flick. */
-    STRICT(R.string.core_settings_octopus_flick_strict_label, 22f, 0.016f),
+    /** For heavy gliders: an unmistakably vertical, unmistakably straight flick. */
+    STRICT(R.string.core_settings_octopus_flick_strict_label, 25f, 1.2f),
 
     /** The default. */
-    BALANCED(R.string.core_settings_octopus_flick_balanced_label, 30f, 0.012f),
+    BALANCED(R.string.core_settings_octopus_flick_balanced_label, 35f, 1.4f),
 
-    /** For boards with glide typing off, where almost nothing else competes. */
-    RELAXED(R.string.core_settings_octopus_flick_relaxed_label, 40f, 0.008f),
+    /** Nearly anything upward. For boards where the words matter more than the swipes. */
+    RELAXED(R.string.core_settings_octopus_flick_relaxed_label, 50f, 1.7f),
 }
 
 /**

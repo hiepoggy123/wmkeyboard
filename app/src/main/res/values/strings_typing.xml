@@ -221,15 +221,15 @@
 
     <string name="typing_octopus_flick_title">Flick up to pick</string>
     <string name="typing_octopus_flick_subtitle">A quick upward flick off a key writes its word</string>
-    <string name="typing_octopus_flick_info">Flick up from a key carrying a word and the whole word is written. The flick has to be quick and close to straight up; anything slower or more sideways is treated as the start of a glide, so glide typing keeps working. A flick that misses simply types the letter.</string>
+    <string name="typing_octopus_flick_info">Flick up from a key carrying a word and the whole word is written. What counts is the direction, not the speed: the stroke has to go up, and go there fairly straight. A stroke that leans or curves is treated as the start of a glide instead. A flick that misses simply types the letter. With words on the keys turned on, a glide that begins straight upward off a key that is carrying one is harder to start; that is the trade.</string>
 
     <string name="typing_octopus_tap_title">Tap the word to pick</string>
     <string name="typing_octopus_tap_subtitle">Tapping the small word itself writes it</string>
     <string name="typing_octopus_tap_info">Tap directly on a floating word to write it. This is easier to find than the flick, but the words are small targets. Words on the top row hang partly above the keyboard, and only the half over the key can be tapped; the flick works on all of them.</string>
 
     <string name="typing_octopus_sensitivity_title">Flick sensitivity</string>
-    <string name="typing_octopus_sensitivity_subtitle">How readily an upward flick counts as picking a word</string>
-    <string name="typing_octopus_sensitivity_info">Strict asks for an unmistakably vertical, quick flick, which is what you want if you glide a lot and find your swipes being taken as picks. Relaxed accepts a looser flick, which suits a keyboard with glide typing switched off, where almost nothing else claims an upward stroke. Balanced sits between the two, and its cone matches the one the glide word picker already uses.</string>
+    <string name="typing_octopus_sensitivity_subtitle">How far off straight up a flick may lean and still pick</string>
+    <string name="typing_octopus_sensitivity_info">Each setting is a cone around straight up, and how straight the stroke has to be. Strict asks for an unmistakably vertical, unmistakably straight flick, which is what you want if you glide a lot and find your swipes being taken as picks. Relaxed accepts almost anything upward, for boards where the words matter more than the swipes. Balanced sits between them.</string>
 
     <string name="typing_octopus_size_title">Word size</string>
     <string name="typing_octopus_size_subtitle">How large the floating words are drawn</string>

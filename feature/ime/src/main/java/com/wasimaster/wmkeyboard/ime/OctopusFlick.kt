@@ -22,6 +22,13 @@ import kotlin.math.hypot
  * claiming it early would mean fighting the glide loop for every upward stroke
  * instead of letting it decode the ones that turn out to be glides.
  *
+ * Judged on **direction, not speed**. The first version asked the stroke to be
+ * quick, to still be quick in its last few milliseconds, and to still point
+ * upward across its final samples. All three reject real flicks: a flick ends
+ * by decelerating as the finger leaves the glass, and its last samples cluster
+ * and jitter. What is left is the test that actually separates a flick from a
+ * swipe — did the finger go up, and did it go more or less straight there.
+ *
  * @param points the stroke, oldest first, stamped with their arrival times
  * @param startX the key centre's x, in the same space as [points]
  * @param startY the key centre's y
@@ -51,93 +58,32 @@ internal fun octopusFlick(
 
     val dx = last.x - first.x
     val dy = last.y - first.y
-    // Upward, and inside the cone. The glide picker's near slots sit about 45
-    // degrees off vertical and its far slot is dead centre of the balanced
-    // cone, so both of the keyboard's up-flicks agree on what straight up is.
+    // Upward, and inside the cone.
     if (dy >= 0f) return false
     val direct = hypot(dx, dy)
     if (direct < minTravelPx) return false
     if (direct > keyWidthPx * OCTOPUS_MAX_TRAVEL_WIDTHS) return false
     if (angleOffVertical(dx, dy) > sensitivity.coneDegrees) return false
 
-    // One motion, not a path that happened to end higher than it started.
+    // One motion, not a path that happened to end higher than it started. This
+    // is what keeps a real word whose stroke opens upward — s to w to e — with
+    // the decoder, and it is now the only thing that does.
     var travelled = 0f
     for (i in 1 until points.size) {
         travelled += hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
     }
-    if (travelled > direct * OCTOPUS_MAX_DETOUR) return false
-
-    val elapsed = last.t - first.t
-    if (elapsed > OCTOPUS_MAX_DURATION_MS) return false
-    // Zero-length timing means the caller did not stamp its points; the shape
-    // has already been agreed, so the speed tests sit out rather than reject.
-    if (elapsed > 0L) {
-        val speed = direct / keyWidthPx / elapsed
-        if (speed < sensitivity.minSpeedWidthsPerMs) return false
-        // A glide that opened upward and then slowed to choose is the failure
-        // this guards: the end of a flick is its fastest part, not its
-        // slowest.
-        if (endSpeedRatio(points, direct, elapsed) < OCTOPUS_MIN_END_SPEED_RATIO) return false
-    }
-
-    // And it must still be going up at the end, which is what separates a flick
-    // from a stroke that went up and hooked away.
-    return terminalIsUpward(points)
+    return travelled <= direct * sensitivity.maxDetour
 }
 
 /** Degrees between the stroke and straight up. */
 private fun angleOffVertical(dx: Float, dy: Float): Float =
     Math.toDegrees(atan2(abs(dx).toDouble(), (-dy).toDouble())).toFloat()
 
-/** Speed over the last few milliseconds against the speed over the whole. */
-private fun endSpeedRatio(points: List<GesturePoint>, direct: Float, elapsed: Long): Float {
-    val last = points.last()
-    val cutoff = last.t - OCTOPUS_END_WINDOW_MS
-    var index = points.size - 1
-    while (index > 0 && points[index - 1].t >= cutoff) index--
-    if (index >= points.size - 1) return Float.MAX_VALUE
-    val from = points[index]
-    val window = last.t - from.t
-    if (window <= 0L) return Float.MAX_VALUE
-    val tail = hypot(last.x - from.x, last.y - from.y) / window
-    val mean = direct / elapsed
-    if (mean <= 0f) return Float.MAX_VALUE
-    return tail / mean
-}
-
-/** Whether the last stretch of the stroke still points up, in a wider cone. */
-private fun terminalIsUpward(points: List<GesturePoint>): Boolean {
-    val from = points[maxOf(0, points.size - OCTOPUS_TERMINAL_POINTS)]
-    val last = points.last()
-    val dy = last.y - from.y
-    if (dy >= 0f) return false
-    return angleOffVertical(last.x - from.x, dy) <= OCTOPUS_TERMINAL_CONE_DEG
-}
-
-/** Past two key heights the user drew a path, not a flick. */
-private const val OCTOPUS_MAX_TRAVEL_WIDTHS = 3f
-
 /**
- * How much longer than the straight line the stroke may be. Tighter than the
- * possessive flick's 1.6, because that one reaches across the board to another
- * key and this one is a single motion off the key under the finger.
+ * How far a flick may travel. Generous: the cone and the straightness are what
+ * decide, and a deliberate flick across two rows is still a flick.
  */
-private const val OCTOPUS_MAX_DETOUR = 1.25f
-
-/** "Fast", in the only terms a user would state it. */
-private const val OCTOPUS_MAX_DURATION_MS = 200L
-
-/** The window the end-of-stroke speed is measured over. */
-private const val OCTOPUS_END_WINDOW_MS = 40L
-
-/** Slower than half the stroke's own average at the end is a stroke parking. */
-private const val OCTOPUS_MIN_END_SPEED_RATIO = 0.5f
-
-/** How many trailing samples say which way the stroke was still going. */
-private const val OCTOPUS_TERMINAL_POINTS = 3
-
-/** Widened, because the tail of a flick wobbles and the whole of it does not. */
-private const val OCTOPUS_TERMINAL_CONE_DEG = 45f
+private const val OCTOPUS_MAX_TRAVEL_WIDTHS = 3.5f
 
 /** How near the key's centre a flick must begin to claim that key's word. */
 internal const val OCTOPUS_START_REACH_WIDTHS = 0.75f

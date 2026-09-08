@@ -10956,6 +10956,9 @@ private fun KeyRows(
     val octopusFlickHere = octopusSettings.enabled &&
         octopusSettings.flickCommits && !gestureEnabled
     val octopusArmed = octopusTapHere || octopusFlickHere
+    // Whether the glide loop should hand short strokes on rather than dropping
+    // them: true whenever a flick could be what is happening, glide or no.
+    val octopusFlickWanted = octopusSettings.enabled && octopusSettings.flickCommits
     // Read live rather than captured: the words change on every keystroke, and
     // a pointer loop restarted that often would be a loop that misses touches.
     val octopusLive = rememberUpdatedState(state.octopus)
@@ -11543,7 +11546,19 @@ private fun KeyRows(
                         // asks for — or the service would never hear about the
                         // pick, or the cancel, and would keep the stroke's
                         // previews on screen.
-                        val floor = if (wasOpen) PREVIEW_MIN_POINTS else COMMIT_MIN_POINTS
+                        // A flick is fast, and a fast stroke can be over in two
+                        // or three samples. At the ordinary floor those never
+                        // reached the service at all, so the word was not picked
+                        // *and* nothing was typed — the stroke simply vanished.
+                        // Two is enough to have a direction, which is all the
+                        // flick test asks for; the decoder refuses a stroke this
+                        // short by itself, so nothing is glided on the strength
+                        // of it either.
+                        val floor = when {
+                            octopusFlickWanted -> OCTOPUS_MIN_POINTS
+                            wasOpen -> PREVIEW_MIN_POINTS
+                            else -> COMMIT_MIN_POINTS
+                        }
                         if (seg.size >= floor) segments.add(seg)
                         val words = segments.filter { it.size >= floor }
                         val keys = keyList
@@ -13335,6 +13350,10 @@ private const val PREVIEW_INTERVAL_MS = 40L
  */
 private const val PREVIEW_MIN_POINTS = 3
 private const val COMMIT_MIN_POINTS = 4
+
+/** Samples a stroke needs before the flick test can be asked about it: two, the
+ * fewest that have a direction at all. */
+private const val OCTOPUS_MIN_POINTS = 2
 
 /**
  * How far the finger may drift and still count as held, in key widths. A finger

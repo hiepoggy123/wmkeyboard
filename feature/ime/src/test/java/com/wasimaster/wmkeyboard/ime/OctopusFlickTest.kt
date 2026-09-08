@@ -12,9 +12,15 @@ import kotlin.math.sin
  * The one shape test that decides whether an upward stroke off a key takes the
  * word floating over it or becomes a glide (discussion #102).
  *
- * The failure worth guarding is not a missed pick — that just types the letter
- * — but a swallowed glide: a stroke the user meant as a swipe, eaten because it
- * happened to open upward. Most of what follows is about that.
+ * Direction decides, not speed. The first version also asked the stroke to be
+ * quick, to still be quick at the end, and to still point up across its last
+ * few samples — and it failed most real flicks, because a flick ends by
+ * decelerating as the finger leaves the glass and its final samples jitter.
+ * Those three rules are gone and these tests are what stop them coming back.
+ *
+ * The remaining trade is deliberate: a glide that opens straight upward off a
+ * key carrying a word is harder to start. A board with words on its keys is a
+ * board whose owner asked for them.
  */
 class OctopusFlickTest {
 
@@ -70,38 +76,45 @@ class OctopusFlickTest {
 
     @Test
     fun `the cone is what the sensitivity moves`() {
-        val leaning = stroke(degrees = 35f)
-        assertFalse("balanced keeps a 35-degree stroke for the decoder", flick(leaning))
+        val leaning = stroke(degrees = 45f)
+        assertFalse("balanced keeps a 45-degree stroke for the decoder", flick(leaning))
         assertTrue(
-            "relaxed takes it, which is what a board with glide off wants",
+            "relaxed takes it, which is what a board that leans on the words wants",
             flick(leaning, OctopusFlickSensitivity.RELAXED),
         )
         assertFalse(
-            "and strict refuses even a mild lean",
-            flick(stroke(degrees = 25f), OctopusFlickSensitivity.STRICT),
+            "and strict refuses a lean balanced would take",
+            flick(stroke(degrees = 30f), OctopusFlickSensitivity.STRICT),
         )
+        assertTrue(flick(stroke(degrees = 30f)))
     }
 
     @Test
-    fun `a slow drag straight up is a glide, not a flick`() {
-        assertFalse(flick(stroke(durationMs = 400L)))
+    fun `a slow deliberate flick is still a flick`() {
+        // The regression that made this unusable on a real board: speed was a
+        // gate, and an ordinary unhurried flick failed it.
+        assertTrue(flick(stroke(durationMs = 400L)))
     }
 
     @Test
-    fun `a stroke that goes up and then parks is a glide choosing`() {
-        // The exact shape of a swipe that opened upward and slowed to think.
+    fun `a flick that decelerates into the lift is still a flick`() {
+        // Every flick does this. The finger slows as it leaves the glass, so a
+        // rule about the speed of the last few milliseconds rejects the gesture
+        // it exists to accept.
         val rising = stroke(length = 130f, durationMs = 80L)
-        val parked = rising + (1..4).map { i ->
+        val settling = rising + (1..4).map { i ->
             GesturePoint(rising.last().x + i, rising.last().y - 1f, rising.last().t + i * 20L)
         }
-        assertFalse(flick(parked))
+        assertTrue(flick(settling))
     }
 
     @Test
-    fun `a stroke that goes up and hooks away is not a flick`() {
+    fun `a stroke that goes up and hooks well away is a glide`() {
+        // Straightness is what is left, and it is enough: a stroke that turns
+        // has wandered too far from the line between its ends.
         val rising = stroke(length = 110f, durationMs = 60L)
-        val hooked = rising + (1..3).map { i ->
-            GesturePoint(rising.last().x + i * 25f, rising.last().y + i * 2f, rising.last().t + i * 8L)
+        val hooked = rising + (1..4).map { i ->
+            GesturePoint(rising.last().x + i * 40f, rising.last().y + i * 3f, rising.last().t + i * 8L)
         }
         assertFalse(flick(hooked))
     }
@@ -148,10 +161,18 @@ class OctopusFlickTest {
     }
 
     @Test
-    fun `an unstamped stroke is judged on its shape alone`() {
-        // The pointer loop stamps its samples; a caller that does not should
-        // still get the geometry checked rather than a blanket refusal.
+    fun `timing is not consulted at all`() {
         val unstamped = stroke().map { GesturePoint(it.x, it.y, 0L) }
         assertTrue(flick(unstamped))
+    }
+
+    @Test
+    fun `two samples are enough to have a direction`() {
+        // A fast flick can be over in two reports, and those used never to
+        // reach this function at all: the word was not picked and nothing was
+        // typed either, so the stroke simply vanished.
+        assertTrue(
+            flick(listOf(GesturePoint(startX, startY, 0L), GesturePoint(startX, startY - 120f, 30L))),
+        )
     }
 }
