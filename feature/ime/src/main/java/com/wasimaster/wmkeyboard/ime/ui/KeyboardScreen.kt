@@ -10840,6 +10840,11 @@ private fun KeyRows(
     // otherwise allocate a Path per sample per frame for the whole gesture.
     val trailQuad = remember { Path() }
     val picker = remember { GlidePickerState() }
+    // Where the floating words ended up, for the pointer loop to hit-test
+    // against. Not snapshot state: written by the overlay's layout and read at
+    // touch-report rate, and a rectangle in snapshot state would recompose the
+    // board every time a finger moved.
+    val octopusRects = remember { OctopusRects() }
     // The keyboard's own haptic, which already routes through the service and
     // respects the user's feedback settings — not Compose's, whose name this
     // composition local deliberately shadows.
@@ -11736,6 +11741,23 @@ private fun KeyRows(
                 outline = autopilotOutline,
             )
         }
+
+        // The octopus (discussion #102): the word each key is on its way to,
+        // floating over that key. Above autopilot, because a key face grown
+        // over a word would hide it, and below everything a finger owns.
+        OctopusOverlay(
+            words = state.octopus,
+            bounds = keyBounds,
+            boardSize = Size(boxSize.width.toFloat(), boxSize.height.toFloat()),
+            // A stroke owns the board while it lasts, and once the picker is
+            // open the keyboard is already asking the user a question; a second
+            // set of offers under the finger would be answering a different one.
+            hidden = trail.visible || picker.words.isNotEmpty(),
+            settings = state.settings,
+            palette = palette,
+            kb = kbTheme,
+            rects = octopusRects,
+        )
 
         // The press bursts, over the decals and under the trail. Composed only
         // while particles live; the frame loop dies with them.
@@ -15113,7 +15135,7 @@ private val HintEndPadding = 4.dp
  * every corner hint in the platform default while its key kept the theme's face.
  */
 @Composable
-private fun hintTextStyle(): TextStyle {
+internal fun hintTextStyle(): TextStyle {
     val base = LocalTextStyle.current
     return remember(base) { base.merge(NoFontPadding) }
 }
