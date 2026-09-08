@@ -261,6 +261,9 @@ import androidx.compose.ui.zIndex
 import android.os.SystemClock
 import android.content.Context
 import android.view.accessibility.AccessibilityManager
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -334,6 +337,7 @@ import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.KeyPopupSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyRepeatSettings
 import com.wasimaster.wmkeyboard.core.settings.TextEditingSettings
+import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.OctopusPlacement
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
@@ -546,6 +550,18 @@ internal val LocalAlternatesGate = staticCompositionLocalOf { AlternatesGate() }
  */
 internal val LocalOctopusPick =
     staticCompositionLocalOf<(String, OctopusSource) -> Unit> { { _, _ -> } }
+
+/**
+ * The floating words, for the keys' *semantics* alone (discussion #102).
+ *
+ * A screen reader is the one reader that cannot see the overlay, so the word
+ * has to reach it through the key it belongs to. Held in a [State] read only
+ * behind the screen-reader gate, so a board with no reader takes out no
+ * subscription and nothing recomposes per keystroke — which is the same bargain
+ * `typeAction` already makes, and the reason this cannot ride [KeyVisual].
+ */
+internal val LocalOctopusWords =
+    staticCompositionLocalOf<State<Map<Int, OctopusWord>>> { mutableStateOf(emptyMap()) }
 
 /**
  * A Select key in a panel layout held down (true) and let go (false) — the
@@ -1191,6 +1207,7 @@ fun KeyboardScreen(
             LocalClipboardKeyAction provides onClipboardKey,
             LocalAlternatesGate provides remember { AlternatesGate() },
             LocalOctopusPick provides onOctopusPick,
+            LocalOctopusWords provides rememberUpdatedState(state.octopus),
             LocalOctopusOccupancy provides remember { OctopusOccupancy() },
             LocalSelectionHold provides toolHold.onSelectionHold,
             LocalCanDelete provides canDelete,
@@ -13922,13 +13939,38 @@ internal fun KeyButton(
     // @ReadOnlyComposable conditionally is safe; it opens no group.
     val typeAction =
         if (semanticsDriven) stringResource(R.string.ime_key_type_action, label) else ""
+    // The floating word this key is offering (discussion #102). Read only when
+    // something will speak it — a board with no screen reader takes out no
+    // subscription and pays nothing, the way [typeAction] already does. The
+    // word cannot come through [KeyVisual]: it changes on every keystroke, and
+    // a key that read it there would cost the whole board its skip.
+    val octopusWord = if (screenReaderKeys) {
+        LocalOctopusWords.current.value[key.glideAnchor() ?: -1]?.word
+    } else {
+        null
+    }
+    val octopusOffer = octopusWord
+        ?.let { stringResource(R.string.ime_key_octopus_offer, it) }
+        .orEmpty()
+    val octopusAction = octopusWord
+        ?.let { stringResource(R.string.ime_key_octopus_action, it) }
+        .orEmpty()
+    val octopusPick = LocalOctopusPick.current
     // Nothing announces the keys once the window is passed through — TalkBack
     // no longer sees the touches that would make it speak. The keyboard says
     // the key itself on press; the press only commits on release, so a key can
     // still be heard before it types.
     val view = LocalView.current
-    val announce: (Boolean) -> Unit = remember(passthrough, label, view) {
-        { down -> if (passthrough && down) view.announceForAccessibility(label) }
+    val announce: (Boolean) -> Unit = remember(passthrough, label, octopusOffer, view) {
+        { down ->
+            if (passthrough && down) {
+                // Nothing announces the keys once the window is passed through,
+                // so the offer rides the same announcement the letter does.
+                view.announceForAccessibility(
+                    if (octopusOffer.isEmpty()) label else "$label, $octopusOffer",
+                )
+            }
+        }
     }
 
     Box(
@@ -13939,6 +13981,19 @@ internal fun KeyButton(
                     Modifier.semantics {
                         contentDescription = label
                         role = Role.Button
+                        if (octopusWord != null) {
+                            // Hovering the key says the letter, then what it is
+                            // offering. A custom action rather than the click:
+                            // activating a key still has to mean "type this
+                            // letter", whatever is floating above it.
+                            stateDescription = octopusOffer
+                            customActions = listOf(
+                                CustomAccessibilityAction(octopusAction) {
+                                    octopusPick(octopusWord, OctopusSource.A11Y)
+                                    true
+                                },
+                            )
+                        }
                         if (semanticsDriven) {
                             // No pointer went down here, so the activation has
                             // to open the window itself.

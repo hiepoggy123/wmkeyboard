@@ -37,6 +37,9 @@
     <string name="ime_key_modifier_on">%1$s on</string>
     <!-- Screen reader action on a key. %1$s is the name of the key. -->
     <string name="ime_key_type_action">Type %1$s</string>
+    <!-- Spoken after the key's own letter when a predicted word floats over it. -->
+    <string name="ime_key_octopus_offer">suggests %1$s</string>
+    <string name="ime_key_octopus_action">Insert %1$s</string>
 
     <!-- Names for the enter key. The field that has the cursor decides which
          one the keyboard shows. -->
