@@ -39,9 +39,12 @@ internal val ToolSetupTools = setOf(
  * or "show me everything" adds the pages that answer earns, which the progress
  * row animates in.
  *
- * The emoji page is asked of everyone, for the default skin tone alone; the
- * font half of it is what's conditional, inside the page. On a replay the
- * welcome page only appears when the keyboard actually needs setting up again.
+ * The emoji page is one of those the depth answer earns. Both halves of it —
+ * the default skin tone and the emoji-font repair — are appearance questions
+ * about a panel the short path hasn't opened yet, and both are asked again
+ * under Languages & emoji; the tone in particular is only worth a wizard page
+ * to someone who came here to tune things. On a replay the welcome page only
+ * appears when the keyboard actually needs setting up again.
  */
 internal fun onboardingPages(
     persona: OnboardingSettings,
@@ -59,7 +62,7 @@ internal fun onboardingPages(
         // to manage, so the page has something to say.
         OnboardingPage.LANGUAGES ->
             persona.personaLanguages == PersonaLanguages.MANY || enabledLanguageCount > 1
-        OnboardingPage.FEEDBACK, OnboardingPage.GESTURES ->
+        OnboardingPage.EMOJI, OnboardingPage.FEEDBACK, OnboardingPage.GESTURES ->
             persona.personaDepth == PersonaDepth.BALANCED ||
                 persona.personaDepth == PersonaDepth.POWER
         OnboardingPage.TOOLS -> persona.personaDepth == PersonaDepth.POWER
@@ -71,10 +74,10 @@ internal fun onboardingPages(
 }
 
 /**
- * Where [current] sits in [pages]. A page can disappear under the user (the
- * emoji count landing at zero, or a persona re-answer hiding the page they are
- * on); fall back to the nearest earlier page that survived rather than
- * snapping to the start.
+ * Where [current] sits in [pages]. A page can disappear under the user (a
+ * persona re-answer hiding the page they are on, or the last of two languages
+ * being turned off); fall back to the nearest earlier page that survived
+ * rather than snapping to the start.
  */
 internal fun resolvePageIndex(pages: List<OnboardingPage>, current: OnboardingPage): Int =
     pages.indexOf(current).let { found ->

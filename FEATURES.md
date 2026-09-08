@@ -3248,7 +3248,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 - **First-run onboarding wizard** `uncommon` — 11 pages, gated per device, per persona and per run; every page writes straight to DataStore
   - Persona quiz `RARE` — 3 questions whose answers both trim the wizard and apply a batch of defaults
     - How many languages: one / two or more — One sets both spacebar swipes to cursor and the globe key to emoji; many sets both to language
-    - How deep: keep it simple / a good middle / show me everything — Picks the starter tool set and unlocks the feedback, gestures, tools and tool-setup pages
+    - How deep: keep it simple / a good middle / show me everything — Picks the starter tool set and unlocks the emoji, feedback, gestures, tools and tool-setup pages
     - Privacy: standard / extra strict — Strict turns off learn-from-typing, clipboard history and typing stats, and adds the incognito tool
     - Every option's subtitle states its consequences, so picking blind is impossible
     - A replay changes only the stored answers — it never silently rewrites settings
@@ -3259,7 +3259,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Finishing from any page lands the persona's set — Only when the enabled set is still the untouched everything-on default; unanswered gets the middle set
   - Page gating — OnboardingPage enum of 11; the unanswered short path is deliberate
     - Languages page appears for "two or more" or when a second language is already enabled
-    - Emoji page shown to everyone for the default skin tone; its emoji-font half only when the phone's own font is missing catalog emoji, or on Samsung
+    - Emoji page only for "a good middle" and "show me everything"; its emoji-font half only when the phone's own font is missing catalog emoji, or on Samsung
     - Welcome page skipped on a replay where the keyboard is already enabled and selected
     - Tool-setup page only for Power and only if Calendar, Weather or Compass is on
     - A page vanishing under the user falls back to the nearest earlier surviving page

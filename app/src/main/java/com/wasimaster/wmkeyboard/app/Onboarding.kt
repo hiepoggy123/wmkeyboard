@@ -112,9 +112,6 @@ internal fun OnboardingScreen(
     // Read once at entry too, so the welcome page doesn't pop in and out of
     // the page list while a replaying user flips the keyboard elsewhere.
     val replayImeReady = remember { imeEnabled(context) && imeSelected(context) }
-    // Which catalog emoji this phone's own font can't draw; null while the
-    // scan is still running.
-    val missingEmoji = rememberUnrenderableEmoji()
     val pages = remember(
         settings.enabledTools, settings.onboarding, settings.enabledLanguages.size,
     ) {
@@ -126,6 +123,9 @@ internal fun OnboardingScreen(
             imeReady = replayImeReady,
         )
     }
+    // Which catalog emoji this phone's own font can't draw; null while the
+    // scan is still running, and never started when the emoji page is out.
+    val missingEmoji = rememberUnrenderableEmoji(OnboardingPage.EMOJI in pages)
     var current by rememberSaveable { mutableStateOf(pages.first()) }
     val index = resolvePageIndex(pages, current)
     val page = pages[index]
@@ -614,18 +614,22 @@ private fun shipsOwnEmojiSet(): Boolean =
  * The catalog emoji this phone's own emoji font can't draw. Runs off the main
  * thread; null until the scan lands.
  *
- * Saved across configuration changes rather than merely remembered: the page
- * list is gated on this, so a rotation that dropped it back to null took the
- * emoji page out from under the user and slid the whole wizard back a step.
+ * [enabled] is whether the emoji page is in this run's page list at all —
+ * scanning the whole catalog for a page the short path never reaches is work
+ * nobody asked for.
+ *
+ * Saved across configuration changes rather than merely remembered: the page's
+ * font section is gated on this, so a rotation that dropped it back to null
+ * made that half of the page vanish and re-appear under the reader.
  */
 @Composable
-private fun rememberUnrenderableEmoji(): List<String>? {
+private fun rememberUnrenderableEmoji(enabled: Boolean): List<String>? {
     val context = LocalContext.current
     // Held as a plain List, but always *stored* as an ArrayList: the saveable
     // registry only accepts what a Bundle can carry.
     var missing by rememberSaveable { mutableStateOf<List<String>?>(null) }
-    LaunchedEffect(Unit) {
-        if (missing != null) return@LaunchedEffect
+    LaunchedEffect(enabled) {
+        if (!enabled || missing != null) return@LaunchedEffect
         missing = withContext(Dispatchers.Default) {
             val catalog = runCatching {
                 context.assets.open("emoji/catalog.tsv").use { EmojiCatalog.load(it) }

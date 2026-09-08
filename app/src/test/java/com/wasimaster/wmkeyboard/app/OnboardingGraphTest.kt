@@ -24,7 +24,7 @@ class OnboardingGraphTest {
         assertEquals(
             listOf(
                 OnboardingPage.WELCOME, OnboardingPage.PERSONA, OnboardingPage.LOOK,
-                OnboardingPage.EMOJI, OnboardingPage.DISCOVER, OnboardingPage.TRY,
+                OnboardingPage.DISCOVER, OnboardingPage.TRY,
             ),
             pages(enabledLanguageCount = 1),
         )
@@ -66,6 +66,7 @@ class OnboardingGraphTest {
     @Test
     fun `minimal persona skips the fine-tuning pages`() {
         val result = pages(persona = OnboardingSettings(personaDepth = PersonaDepth.MINIMAL))
+        assertFalse(OnboardingPage.EMOJI in result)
         assertFalse(OnboardingPage.FEEDBACK in result)
         assertFalse(OnboardingPage.GESTURES in result)
         assertFalse(OnboardingPage.TOOLS in result)
@@ -108,12 +109,18 @@ class OnboardingGraphTest {
         assertTrue(OnboardingPage.LANGUAGES in pages(persona = one, enabledLanguageCount = 2))
     }
 
-    // The skin tone question is asked of everyone, so the page is no longer
-    // gated on the device's emoji font — the font half of it is what the page
-    // itself hides. Every persona sees it, including the shortest path.
+    // The emoji page is fine-tuning, not setup: the skin tone and the font
+    // repair are both asked again under Languages & emoji, so only the two
+    // deeper answers earn it a place in the wizard.
     @Test
-    fun `emoji page is asked of every persona`() {
-        for (depth in PersonaDepth.entries) {
+    fun `emoji page needs a depth answer past keep-it-simple`() {
+        for (depth in listOf(PersonaDepth.UNSET, PersonaDepth.MINIMAL)) {
+            assertFalse(
+                "$depth kept the emoji page",
+                OnboardingPage.EMOJI in pages(persona = OnboardingSettings(personaDepth = depth)),
+            )
+        }
+        for (depth in listOf(PersonaDepth.BALANCED, PersonaDepth.POWER)) {
             assertTrue(
                 "$depth lost the emoji page",
                 OnboardingPage.EMOJI in pages(persona = OnboardingSettings(personaDepth = depth)),
