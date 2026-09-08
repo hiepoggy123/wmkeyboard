@@ -67,6 +67,19 @@ object DownloadNotifications {
      */
     private const val POST_INTERVAL_MS = 900L
 
+    /**
+     * How long a watch waits for its download to actually start.
+     *
+     * A manager sets its status from a coroutine, so the first thing the flow
+     * hands back is almost always the state *before* the press: no entry at
+     * all, or the finished state of a file being re-fetched. Treating either as
+     * the end would stop the watch a moment before the download began, or
+     * announce "ready to use" for something that has not been fetched yet — so
+     * nothing counts as an ending until a running state has been seen, and a
+     * watch that never sees one gives up quietly after this.
+     */
+    private const val START_WINDOW_MS = 30_000L
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val watching = mutableMapOf<String, Job>()
@@ -85,28 +98,32 @@ object DownloadNotifications {
         synchronized(watching) {
             watching.remove(key)?.cancel()
             val job = scope.launch {
-                var lastPostAt = 0L
+                // A holder rather than captured `var`s: the collector runs once
+                // per emission, and the compiler reads a write in it that is
+                // only ever read by the *next* run as a write to nothing.
+                val watch = Watch(giveUpAt = SystemClock.elapsedRealtime() + START_WINDOW_MS)
                 flow.collect { progress ->
-                    when (progress) {
-                        is DownloadProgress.Running -> {
-                            val now = SystemClock.elapsedRealtime()
-                            if (now - lastPostAt < POST_INTERVAL_MS) return@collect
-                            lastPostAt = now
-                            postRunning(app, id, title, progress)
-                        }
-                        DownloadProgress.Done -> {
-                            postDone(app, id, title)
-                            stop(key)
-                        }
-                        is DownloadProgress.Failed -> {
-                            postFailed(app, id, title, progress.reason)
-                            stop(key)
-                        }
-                        DownloadProgress.Gone -> {
-                            WmNotifications.cancel(app, id)
-                            stop(key)
-                        }
+                    if (progress is DownloadProgress.Running) {
+                        watch.running = true
+                        val now = SystemClock.elapsedRealtime()
+                        if (now - watch.lastPostAt < POST_INTERVAL_MS) return@collect
+                        watch.lastPostAt = now
+                        postRunning(app, id, title, progress)
+                        return@collect
                     }
+                    // Everything below is an ending, and an ending only counts
+                    // once there was a beginning. See [START_WINDOW_MS].
+                    if (!watch.running) {
+                        if (SystemClock.elapsedRealtime() > watch.giveUpAt) stop(key)
+                        return@collect
+                    }
+                    when (progress) {
+                        DownloadProgress.Done -> postDone(app, id, title)
+                        is DownloadProgress.Failed -> postFailed(app, id, title, progress.reason)
+                        DownloadProgress.Gone -> WmNotifications.cancel(app, id)
+                        is DownloadProgress.Running -> Unit
+                    }
+                    stop(key)
                 }
             }
             watching[key] = job
@@ -190,6 +207,12 @@ object DownloadNotifications {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             ),
         )
+    }
+
+    /** One watch's own bookkeeping; see the note where it is built. */
+    private class Watch(val giveUpAt: Long) {
+        var running = false
+        var lastPostAt = 0L
     }
 
     /** The scale a notification's progress bar is drawn on. */
