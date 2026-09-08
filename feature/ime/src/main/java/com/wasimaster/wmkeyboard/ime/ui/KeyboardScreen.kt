@@ -11906,10 +11906,12 @@ private fun KeyRows(
             words = state.octopus,
             bounds = keyBounds,
             boardSize = Size(boxSize.width.toFloat(), boxSize.height.toFloat()),
-            // A stroke owns the board while it lasts, and once the picker is
-            // open the keyboard is already asking the user a question; a second
-            // set of offers under the finger would be answering a different one.
-            hidden = trail.visible || picker.words.isNotEmpty(),
+            // A stroke does *not* hide these: mid-glide they carry the
+            // alternates, hung off the keys that reach them, which is the whole
+            // of Mokhyy's idea on the thread. The picker does hide them —
+            // it is already asking the user a question, and a second set of
+            // offers on the board would be answering a different one.
+            hidden = picker.words.isNotEmpty(),
             settings = state.settings,
             palette = palette,
             kb = kbTheme,

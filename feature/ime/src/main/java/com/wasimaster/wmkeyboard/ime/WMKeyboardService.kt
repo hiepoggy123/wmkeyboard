@@ -140,7 +140,10 @@ import com.wasimaster.wmkeyboard.core.prediction.MappedNgramPack
 import com.wasimaster.wmkeyboard.core.prediction.MappedTrie
 import com.wasimaster.wmkeyboard.core.prediction.BengaliSpellingMap
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
+import com.wasimaster.wmkeyboard.core.prediction.OctopusCandidate
+import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
+import com.wasimaster.wmkeyboard.core.prediction.assignOctopus
 import com.wasimaster.wmkeyboard.core.prediction.KeystrokeTiming
 import com.wasimaster.wmkeyboard.core.prediction.Register
 import com.wasimaster.wmkeyboard.core.prediction.RevisionAdvisor
@@ -11331,6 +11334,50 @@ open class WMKeyboardService : InputMethodService() {
      * there is no next key to hang anything off. Bengali wants a roman-side
      * completion source before it can join in.
      */
+    /**
+     * The words to float over the keys while a stroke is still being drawn —
+     * Mokhyy's idea on discussion #102, that the keys should update live the
+     * way the strip already does.
+     *
+     * The rule stays the one sentence it is when idle: the word over a key is
+     * the one you reach by going there next. Mid-stroke the buffer is the
+     * decoder's leader rather than anything typed, so each alternate hangs off
+     * the key where it leaves the leader — steer to the p and you get "help"
+     * instead of "hello". That is something neither the strip nor the picker
+     * can say: they list the alternates, they cannot show the way to them.
+     *
+     * Nothing new is asked of the decoder. Divergence from the leader *is* the
+     * next un-drawn letter, because a candidate only shares the stroke so far
+     * as it shares the leader's spelling — which is what makes this exact
+     * rather than an approximation of a number the beam does not report.
+     */
+    private fun octopusForGlide(
+        state: KeyboardUiState,
+        words: List<String>,
+    ): Map<Int, OctopusWord> {
+        val octopus = state.settings.octopus
+        if (!octopus.enabled || words.size < 2) return emptyMap()
+        if (!state.allowsTypingIntelligence) return emptyMap()
+        val anchors = state.layouts.keyAnchors(octopus.longPressKeys)
+        if (anchors.isEmpty()) return emptyMap()
+        val leader = words.first()
+        val alternates = words.drop(1).mapIndexed { place, word ->
+            // Order-ranked, like every other list the decoder hands over.
+            OctopusCandidate(word, -place.toDouble(), OctopusKind.COMPLETION)
+        }
+        return assignOctopus(
+            typed = leader,
+            candidates = alternates,
+            keys = null,
+            keyOf = { codePoint -> anchors[codePoint] ?: -1 },
+            limit = octopus.density,
+            // Every alternate the decoder still holds is worth showing: it has
+            // already survived the beam, and quietening it here would hide the
+            // one the stroke is about to be wrong about.
+            scoreSpread = Double.POSITIVE_INFINITY,
+        ).associateBy { it.keyCodePoint }
+    }
+
     private fun octopusFor(
         state: KeyboardUiState,
         typed: String,
@@ -12621,9 +12668,11 @@ open class WMKeyboardService : InputMethodService() {
                 // the word committed while this was running.
                 if (request.generation != gestureGeneration.get()) continue
                 val gesture = _uiState.value.settings.gesture
+                val floating = octopusForGlide(_uiState.value, reading.words)
                 _uiState.update {
                     it.copy(
                         suggestions = reading.words,
+                        octopus = floating,
                         glideWord = reading.words.first(),
                         // Every preview carries choices while the picker is
                         // on: a stroke that is not a close call can still be
@@ -12650,7 +12699,15 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun clearGlidePreview() {
         _uiState.update {
-            it.copy(glideWord = null, glideChoices = emptyList(), glideCloseCall = false)
+            it.copy(
+                glideWord = null,
+                glideChoices = emptyList(),
+                glideCloseCall = false,
+                // Every exit from a stroke comes through here, so one line
+                // covers the commit, the cancel and the picker alike. Whatever
+                // republishes the strip republishes the keys with it.
+                octopus = emptyMap(),
+            )
         }
     }
 
