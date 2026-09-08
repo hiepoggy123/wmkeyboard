@@ -193,6 +193,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -448,6 +449,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
@@ -9621,6 +9623,90 @@ internal class GlideTrail {
     }
 }
 
+/** How alive sample [i] is: 1 at the head, 0 once it has aged past [trailMs]. */
+internal fun GlideTrail.sampleLife(i: Int, trailMs: Long): Float =
+    (1f - ageAt(i) / trailMs.toFloat()).coerceIn(0f, 1f)
+
+/**
+ * Half the ribbon's width at sample [i]: [head] under the finger, tapering to
+ * [tail] as the sample ages out, which is the comet shape the trail has always
+ * drawn — only as a width the geometry uses rather than a stroke width.
+ */
+internal fun GlideTrail.sampleHalfWidth(
+    i: Int,
+    trailMs: Long,
+    head: Float,
+    tail: Float,
+): Float = (tail + (head - tail) * sampleLife(i, trailMs)) / 2f
+
+/**
+ * The offset from sample [i] to the ribbon's left edge there — negate it for the
+ * right edge — placed [half] out along the normal to the path.
+ *
+ * The normal is taken from the *bisector* of the directions either side of the
+ * sample rather than from one segment's own direction, and that is what lets the
+ * ribbon be drawn as separate pieces at separate opacities without showing the
+ * joins: two neighbouring pieces ask this for the same sample and get the same
+ * answer, so they meet on one shared edge instead of overlapping.
+ *
+ * Neighbours closer than [TRAIL_MIN_STEP_PX] are stepped over rather than
+ * normalised — a finger that has stopped reports a stream of samples a fraction
+ * of a pixel apart, and dividing by that turns the digitizer's noise into a
+ * normal pointing anywhere, which shows as the ribbon flaring sideways wherever
+ * the hand paused.
+ */
+internal fun GlideTrail.sampleEdge(i: Int, count: Int, half: Float): Offset {
+    val x = x(i)
+    val y = y(i)
+    var inX = 0f
+    var inY = 0f
+    for (j in i - 1 downTo 0) {
+        val dx = x - x(j)
+        val dy = y - y(j)
+        val len = hypot(dx, dy)
+        if (len > TRAIL_MIN_STEP_PX) {
+            inX = dx / len
+            inY = dy / len
+            break
+        }
+    }
+    var outX = 0f
+    var outY = 0f
+    for (j in i + 1 until count) {
+        val dx = x(j) - x
+        val dy = y(j) - y
+        val len = hypot(dx, dy)
+        if (len > TRAIL_MIN_STEP_PX) {
+            outX = dx / len
+            outY = dy / len
+            break
+        }
+    }
+    // The two ends of the trail have only one side; a stroke that never moved
+    // has neither, and draws nothing.
+    if (inX == 0f && inY == 0f) {
+        inX = outX
+        inY = outY
+    }
+    if (outX == 0f && outY == 0f) {
+        outX = inX
+        outY = inY
+    }
+    var midX = inX + outX
+    var midY = inY + outY
+    var len = hypot(midX, midY)
+    // A path that doubles straight back cancels the pair out. There the
+    // incoming direction decides alone, which draws the reversal as a fold
+    // rather than as a spike off to one side.
+    if (len < TRAIL_MIN_BISECTOR) {
+        midX = inX
+        midY = inY
+        len = hypot(midX, midY)
+    }
+    if (len == 0f) return Offset.Zero
+    return Offset(-midY / len * half, midX / len * half)
+}
+
 /**
  * Where every key of the live grid sits, in the compose root's coordinates.
  *
@@ -10749,6 +10835,10 @@ private fun KeyRows(
     // gone once smartHit is false).
     LaunchedEffect(smartHit, layout) { hitRemap.clear() }
     val trail = remember { GlideTrail() }
+    // The quad the trail is filled through, rewound per segment and kept across
+    // frames: the draw below builds one per sample, and a 120 Hz stroke would
+    // otherwise allocate a Path per sample per frame for the whole gesture.
+    val trailQuad = remember { Path() }
     val picker = remember { GlidePickerState() }
     // The keyboard's own haptic, which already routes through the service and
     // respects the user's feedback settings — not Compose's, whose name this
@@ -11683,17 +11773,86 @@ private fun KeyRows(
                     }
                     return@Canvas
                 }
-                for (i in 1 until count) {
-                    val life =
-                        (1f - trail.ageAt(i) / trailMs.toFloat()).coerceIn(0f, 1f)
-                    if (life == 0f) continue
-                    drawLine(
-                        color = trailColor.copy(alpha = trailOpacity * life),
-                        start = Offset(trail.x(i - 1), trail.y(i - 1)),
-                        end = Offset(trail.x(i), trail.y(i)),
-                        strokeWidth = tailWidth + (headWidth - tailWidth) * life,
-                        cap = StrokeCap.Round,
-                    )
+                // The comet is *filled* as a ribbon rather than stroked as a
+                // chain of round-capped lines, in one piece per sample.
+                //
+                // A round cap put a whole disc at both ends of every segment,
+                // so each interior sample was painted twice — and translucent
+                // paint over translucent paint composites: 0.55 over 0.55 is
+                // 0.80. Every sample showed as a brighter bead, worst at the
+                // head where the stroke is widest, which read as the trail
+                // stuttering rather than flowing.
+                //
+                // A piece runs from the midpoint of the edge behind it to the
+                // midpoint of the edge ahead, curving through the sample's own
+                // edge point as the control. Neighbours therefore meet at that
+                // midpoint sharing a tangent as well as a point: no pixel is
+                // covered twice (no beads), no pixel is left uncovered (no
+                // seam), and the ribbon reads as a curve rather than as the
+                // polygon the raw samples spell. It also closes the gaps the
+                // old draw left when a fast flick spaced the samples further
+                // apart than the stroke was thick.
+                //
+                // Per-piece rather than one path for the whole trail because
+                // the age fade is per sample, and one path can carry only one
+                // opacity. The cost is a drawPath per sample where the old one
+                // cost a drawLine.
+                fun edgeAt(i: Int): Offset = trail.sampleEdge(
+                    i,
+                    count,
+                    trail.sampleHalfWidth(i, trailMs, headWidth, tailWidth),
+                )
+                var prevEdge = edgeAt(0)
+                var edge = prevEdge
+                for (i in 0 until count) {
+                    val nextEdge = if (i + 1 < count) edgeAt(i + 1) else edge
+                    val life = trail.sampleLife(i, trailMs)
+                    if (life > 0f) {
+                        val here = Offset(trail.x(i), trail.y(i))
+                        val back = if (i > 0) Offset(trail.x(i - 1), trail.y(i - 1)) else here
+                        val ahead =
+                            if (i + 1 < count) Offset(trail.x(i + 1), trail.y(i + 1)) else here
+                        // The tail end and the head end have no neighbour to
+                        // meet halfway, so they take the sample itself and the
+                        // ribbon simply stops there.
+                        val fromLeft = (back + prevEdge + here + edge) / 2f
+                        val toLeft = (here + edge + ahead + nextEdge) / 2f
+                        val fromRight = (back - prevEdge + here - edge) / 2f
+                        val toRight = (here - edge + ahead - nextEdge) / 2f
+                        trailQuad.reset()
+                        trailQuad.moveTo(fromLeft.x, fromLeft.y)
+                        trailQuad.quadraticTo(here.x + edge.x, here.y + edge.y, toLeft.x, toLeft.y)
+                        if (i == count - 1) {
+                            // The head would be cut square otherwise, which
+                            // shows as soon as the finger lifts and the trail
+                            // is left on screen to fade. One quadratic bulging
+                            // forward by the half width rounds it off, inside
+                            // the same fill so it costs no second coverage.
+                            // The forward direction is the edge offset turned a
+                            // quarter turn, so it needs no second derivation.
+                            trailQuad.quadraticTo(
+                                here.x + edge.y * 2f,
+                                here.y - edge.x * 2f,
+                                toRight.x,
+                                toRight.y,
+                            )
+                        } else {
+                            trailQuad.lineTo(toRight.x, toRight.y)
+                        }
+                        trailQuad.quadraticTo(
+                            here.x - edge.x,
+                            here.y - edge.y,
+                            fromRight.x,
+                            fromRight.y,
+                        )
+                        trailQuad.close()
+                        drawPath(
+                            trailQuad,
+                            color = trailColor.copy(alpha = trailOpacity * life),
+                        )
+                    }
+                    prevEdge = edge
+                    edge = nextEdge
                 }
             }
         }
@@ -12868,6 +13027,27 @@ internal fun keyGapV(settings: KeyboardSettings): Dp = KeyGapVertical * settings
  * 3.5× as far (1 + 2.5) as it normally would before it is read as a swipe-word.
  */
 private const val POST_TYPE_SLOP_BOOST = 2.5f
+
+/**
+ * How far apart two glide-trail samples must be before the step between them is
+ * taken as a direction, in pixels.
+ *
+ * A finger that has stopped still reports a stream of samples a fraction of a
+ * pixel apart, and normalising one of those amplifies the digitizer's noise into
+ * a normal pointing anywhere — which shows as the ribbon flaring sideways where
+ * the hand paused. Below this the previous direction stands.
+ */
+private const val TRAIL_MIN_STEP_PX = 0.5f
+
+/**
+ * When the directions into and out of a trail sample are treated as cancelling.
+ *
+ * Their sum is a unit-length vector for a straight run and shrinks towards zero
+ * as the path folds back; at a true reversal there is no bisector to take a
+ * normal from, so the incoming direction decides alone and the fold is drawn
+ * over itself rather than as a spike off to one side.
+ */
+private const val TRAIL_MIN_BISECTOR = 1e-3f
 
 /**
  * How often a glide in progress asks the decoder for a preview word.

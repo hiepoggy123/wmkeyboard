@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import androidx.compose.ui.geometry.Offset
+import kotlin.math.abs
+import kotlin.math.hypot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -213,5 +216,100 @@ class GlideTrailTest {
         trail.add(1f, 1f, 0L, KEEP_MS); changed("add")
         trail.tick(20L, KEEP_MS); changed("tick")
         trail.clear(); changed("clear")
+    }
+
+    // --- the ribbon geometry (see [GlideTrail.sampleEdge]) -------------------
+    //
+    // The trail is filled as a ribbon: each sample is offset to a left and a
+    // right edge, and neighbouring pieces meet on the pair the sample between
+    // them produces. Two things break that invisibly. A normal that is not
+    // perpendicular to the path skews the ribbon; a NaN anywhere in it makes
+    // the whole drawPath a no-op, so the trail just stops appearing.
+
+    private fun straightTrail(n: Int): GlideTrail {
+        val trail = GlideTrail()
+        trail.begin()
+        for (i in 0 until n) trail.add(i * 10f, 0f, i.toLong(), KEEP_MS)
+        return trail
+    }
+
+    @Test
+    fun `an edge offset is perpendicular to the path and the given half width`() {
+        val trail = straightTrail(5)
+        val count = trail.sampleCount(trail.revision)
+        for (i in 0 until count) {
+            val edge = trail.sampleEdge(i, count, half = 7f)
+            // The path runs along +x, so its normal is pure y.
+            assertEquals("sample $i is not perpendicular", 0f, edge.x, 1e-3f)
+            assertEquals("sample $i is not the half width", 7f, abs(edge.y), 1e-3f)
+        }
+    }
+
+    @Test
+    fun `neighbouring pieces are handed the same edge for the sample they share`() {
+        // What keeps the joints from showing: the piece arriving at a sample
+        // and the piece leaving it ask for that sample's edge and must get one
+        // answer, or they overlap (a bead) or fall short (a seam).
+        val trail = GlideTrail()
+        trail.begin()
+        val path = listOf(0f to 0f, 12f to 4f, 20f to 18f, 24f to 40f, 40f to 44f)
+        path.forEachIndexed { i, (x, y) -> trail.add(x, y, i.toLong(), KEEP_MS) }
+        val count = trail.sampleCount(trail.revision)
+        for (i in 0 until count) {
+            assertEquals(trail.sampleEdge(i, count, 5f), trail.sampleEdge(i, count, 5f))
+        }
+    }
+
+    @Test
+    fun `duplicate samples never produce a NaN edge`() {
+        // A finger resting on glass reports the same point over and over.
+        // Normalising that step divides by zero, and one NaN vertex silently
+        // drops the whole path — the trail stops being drawn at all.
+        val trail = GlideTrail()
+        trail.begin()
+        repeat(4) { trail.add(30f, 30f, it.toLong(), KEEP_MS) }
+        trail.add(30f, 30f, 4L, KEEP_MS)
+        val count = trail.sampleCount(trail.revision)
+        for (i in 0 until count) {
+            val edge = trail.sampleEdge(i, count, 6f)
+            assertFalse("sample $i produced a NaN", edge.x.isNaN() || edge.y.isNaN())
+        }
+    }
+
+    @Test
+    fun `a stroke that doubles back folds instead of spiking`() {
+        // In and out cancel at a reversal, leaving no bisector to take a normal
+        // from. The incoming direction has to decide alone; a normalised zero
+        // vector would put the edge at infinity.
+        val trail = GlideTrail()
+        trail.begin()
+        listOf(0f to 0f, 10f to 0f, 20f to 0f, 10f to 0f, 0f to 0f)
+            .forEachIndexed { i, (x, y) -> trail.add(x, y, i.toLong(), KEEP_MS) }
+        val count = trail.sampleCount(trail.revision)
+        val turn = trail.sampleEdge(2, count, 5f)
+        assertFalse(turn.x.isNaN() || turn.y.isNaN())
+        assertEquals("the fold is not the half width out", 5f, hypot(turn.x, turn.y), 1e-3f)
+    }
+
+    @Test
+    fun `a sample that has aged out carries no width and no life`() {
+        val trail = GlideTrail()
+        trail.begin()
+        trail.add(0f, 0f, 0L, KEEP_MS)
+        trail.add(10f, 0f, KEEP_MS, KEEP_MS)
+        val count = trail.sampleCount(trail.revision)
+        assertEquals(0f, trail.sampleLife(0, KEEP_MS), 1e-3f)
+        assertEquals(1f, trail.sampleLife(count - 1, KEEP_MS), 1e-3f)
+        // The oldest sample tapers to the tail width, the newest to the head.
+        assertEquals(1f, trail.sampleHalfWidth(0, KEEP_MS, head = 10f, tail = 2f), 1e-3f)
+        assertEquals(5f, trail.sampleHalfWidth(count - 1, KEEP_MS, head = 10f, tail = 2f), 1e-3f)
+    }
+
+    @Test
+    fun `a stroke that never moved draws nothing rather than dividing by zero`() {
+        val trail = GlideTrail()
+        trail.begin()
+        trail.add(5f, 5f, 0L, KEEP_MS)
+        assertEquals(Offset.Zero, trail.sampleEdge(0, trail.sampleCount(trail.revision), 8f))
     }
 }
