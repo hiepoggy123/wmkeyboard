@@ -9649,8 +9649,14 @@ internal class GlideTrail {
         headY = y
     }
 
-    /** Whether the stroke still reads as a flick; see [flick]. */
-    fun setFlick(on: Boolean) {
+    /**
+     * Whether the stroke still reads as a flick; see [flick].
+     *
+     * Not `setFlick`: [flick] is a `var` with a private setter, which already
+     * claims that JVM signature, so the two are a platform declaration clash
+     * and the module does not compile with both.
+     */
+    fun markFlick(on: Boolean) {
         if (flick == on) return
         flick = on
         revision++
@@ -11577,7 +11583,7 @@ private fun KeyRows(
                             // alone, so a stroke that has not travelled far
                             // enough yet still reads as the flick it may become.
                             flickAnchor?.let { (_, centre) ->
-                                trail.setFlick(
+                                trail.markFlick(
                                     octopusFlickShape(
                                         points = seg,
                                         startX = centre.x,
