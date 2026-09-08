@@ -181,6 +181,7 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -334,6 +335,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyPopupSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyRepeatSettings
 import com.wasimaster.wmkeyboard.core.settings.TextEditingSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.OctopusPlacement
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.settings.MeteredFeature
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
@@ -1189,6 +1191,7 @@ fun KeyboardScreen(
             LocalClipboardKeyAction provides onClipboardKey,
             LocalAlternatesGate provides remember { AlternatesGate() },
             LocalOctopusPick provides onOctopusPick,
+            LocalOctopusOccupancy provides remember { OctopusOccupancy() },
             LocalSelectionHold provides toolHold.onSelectionHold,
             LocalCanDelete provides canDelete,
             LocalCanDeleteField provides canDeleteField,
@@ -11805,14 +11808,26 @@ private fun KeyRows(
             // mid-sentence. Without this the panels, sized to rowSpan, would be
             // taller than the keys.
             val padRows = reservedRowSpan(state) - bodyRows.size
+            val lane = octopusLane(state)
             if (padRows > 0) {
                 Spacer(
                     modifier = Modifier.height(
-                        (state.settings.keyHeightDp.dp + keyGapV(state.settings) * 2) * padRows,
+                        (state.settings.keyHeightDp.dp + keyGapV(state.settings) * 2 + lane) *
+                            padRows,
                     ),
                 )
             }
             for (block in bodyBlocks) {
+                if (lane > 0.dp) {
+                    // A band stands for several rows, so it reserves several
+                    // lanes — the words above its second row need somewhere to
+                    // go as much as the ones above its first.
+                    val rows = when (block) {
+                        is KeyGridBlock.Row -> 1
+                        is KeyGridBlock.Band -> block.band.rowHeights.size.coerceAtLeast(1)
+                    }
+                    Spacer(modifier = Modifier.height(lane * rows))
+                }
                 when (block) {
                     is KeyGridBlock.Row -> KeyRow(
                         row = block.row,
@@ -11900,6 +11915,16 @@ private fun KeyRows(
             kb = kbTheme,
             rects = octopusRects,
         )
+        // Which keys are carrying a word, pushed to the draw-time flags the
+        // hints read. A SideEffect rather than a LaunchedEffect: no coroutine
+        // per keystroke, and it runs after the composition it belongs to has
+        // been applied, which is where a write for draw-time readers belongs.
+        val occupancy = LocalOctopusOccupancy.current
+        val suppressing = state.settings.octopus.enabled &&
+            state.settings.octopus.suppressHints
+        SideEffect {
+            occupancy.set(if (suppressing) state.octopus.keys else emptySet())
+        }
 
         // The press bursts, over the decals and under the trail. Composed only
         // while particles live; the frame loop dies with them.
@@ -13606,6 +13631,27 @@ internal fun reservedRowSpan(state: KeyboardUiState): Int =
         state.layouts.rowSpan
     }
 
+/**
+ * The lane each row reserves above itself for its floating words, in the
+ * octopus's "own lane" placement (discussion #102). Zero in the other two,
+ * which draw in space the rows already leave.
+ *
+ * Read by the render loop and by [keyRowsHeight] alike, and reserved on the
+ * *setting* alone rather than on whether anything is floating right now: every
+ * panel sizes itself from [keyRowsHeight], and a lane that came and went would
+ * resize the host app mid-sentence.
+ */
+internal fun octopusLane(state: KeyboardUiState): Dp {
+    val octopus = state.settings.octopus
+    return if (octopus.enabled && octopus.placement == OctopusPlacement.STRIP) {
+        OctopusLaneDp
+    } else {
+        0.dp
+    }
+}
+
+private val OctopusLaneDp = 11.dp
+
 internal fun keyRowsHeight(state: KeyboardUiState): Dp {
     val settings = state.settings
     val rowSpan = reservedRowSpan(state)
@@ -13629,6 +13675,11 @@ internal fun keyRowsHeight(state: KeyboardUiState): Dp {
     if (numberRowShown(state)) {
         height += settings.numberRowHeightDp.dp + keyGapV(settings) * 2
     }
+    // One lane per reserved row, which is what the render loop draws: a lane
+    // before every body block, and the padding rows' share folded into the pad
+    // spacer. The two counts have to agree exactly or every panel opens at a
+    // different height from the keys.
+    height += octopusLane(state) * rowSpan
     // The bottom row's independent height (A45) rides on top: the render loop
     // swaps one base-height row for bottomRowHeightDp, so reserve the delta.
     // Only when the layout has no per-row heights, matching the render guard.
@@ -15181,6 +15232,25 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
             // it is the label colour faded, so it follows a per-key override
             // and the Enter key's pressed flip for free.
             val hintColor = visual.hintColor ?: contentColor.copy(alpha = 0.55f)
+            // A floating word and a corner hint a few pixels apart read as one
+            // thing, so a key carrying a word drops its hint for as long as it
+            // has one. Read at *draw* time: this changes on every keystroke,
+            // and a key that read it in composition would cost the whole board
+            // the skip [KeyVisual] exists to buy. Only the long-press hints —
+            // the transliteration hint is the reading of the buffer, and the
+            // only thing on a phonetic board that says what a roman key does.
+            val octopusHere = if (
+                settings.octopus.enabled && settings.octopus.suppressHints
+            ) {
+                LocalOctopusOccupancy.current.flag(key.glideAnchor() ?: -1)
+            } else {
+                null
+            }
+            val hintMask = if (octopusHere == null) {
+                Modifier
+            } else {
+                Modifier.drawWithContent { if (!octopusHere.value) drawContent() }
+            }
             // What the transliterator is about to write with this key. It takes
             // the corner over the long-press alternate, and answers to its own
             // switch rather than `longPressHints`: the two annotate different
@@ -15209,14 +15279,14 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                     hintIcon,
                     contentDescription = null,
                     tint = hintColor,
-                    modifier = Modifier
+                    modifier = hintMask
                         .align(Alignment.TopEnd)
                         .padding(top = HintTopPadding, end = HintEndPadding)
                         .size((HintIconDp * fontScale * settings.layoutBehavior.hintFontScale).dp),
                 )
                 showHints && key.opensAlternatesPopup() && hint != null -> Text(
                     text = hint,
-                    modifier = Modifier
+                    modifier = hintMask
                         .align(Alignment.TopEnd)
                         .padding(top = HintTopPadding, end = HintEndPadding),
                     fontSize = (HintLabelSp * fontScale * settings.layoutBehavior.hintFontScale).sp,

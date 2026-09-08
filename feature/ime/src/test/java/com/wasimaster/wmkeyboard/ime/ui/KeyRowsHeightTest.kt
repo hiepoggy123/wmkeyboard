@@ -12,6 +12,8 @@ import com.wasimaster.wmkeyboard.core.layout.expandForTablet
 import com.wasimaster.wmkeyboard.core.layout.tabletGridWidth
 import com.wasimaster.wmkeyboard.core.settings.DeviceForm
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.OctopusPlacement
+import com.wasimaster.wmkeyboard.core.settings.OctopusSettings
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutSet
 import org.junit.Assert.assertEquals
@@ -36,6 +38,42 @@ class KeyRowsHeightTest {
             settings = KeyboardSettings(keyHeightDp = keyHeight, numberRow = numberRow),
             layouts = set,
         )
+
+    @Test
+    fun `the octopus lane is reserved once per row, and only in its own placement`() {
+        // Panels size themselves from this, so a lane the render loop draws and
+        // this does not — or the other way round — resizes the host app every
+        // time a panel opens.
+        val set = LayoutSet(grid(4), grid(4), grid(4))
+        val plain = state(set)
+        val bare = keyRowsHeight(plain)
+        for (placement in OctopusPlacement.entries) {
+            val on = plain.copy(
+                settings = plain.settings.copy(
+                    octopus = OctopusSettings(enabled = true, placement = placement),
+                ),
+            )
+            val expected = if (placement == OctopusPlacement.STRIP) {
+                bare + octopusLane(on) * 4
+            } else {
+                bare
+            }
+            assertEquals(placement.name, expected, keyRowsHeight(on))
+        }
+    }
+
+    @Test
+    fun `an octopus that is off reserves nothing whatever its placement says`() {
+        val set = LayoutSet(grid(4), grid(4), grid(4))
+        val plain = state(set)
+        val off = plain.copy(
+            settings = plain.settings.copy(
+                octopus = OctopusSettings(enabled = false, placement = OctopusPlacement.STRIP),
+            ),
+        )
+        assertEquals(keyRowsHeight(plain), keyRowsHeight(off))
+        assertEquals(0.dp, octopusLane(off))
+    }
 
     /** What the function shipped as, for four rows: (keyHeight + 2*4) * rows + 2*2. */
     private fun expected(rows: Int, keyHeight: Int = 48) =

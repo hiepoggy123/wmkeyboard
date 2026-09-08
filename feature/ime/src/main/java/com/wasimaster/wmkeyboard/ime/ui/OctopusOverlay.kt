@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -262,3 +266,45 @@ private val OctopusOverhangDp = 14.dp
 
 /** The typed head, faded against the completion it introduces. */
 private const val OctopusHeadAlpha = 0.55f
+
+/**
+ * Which keys are carrying a word this frame, as one boolean per key.
+ *
+ * The obvious way to hide a corner hint under a floating word — a flag on
+ * [KeyVisual] — is exactly what `KeyVisualTest` forbids: it would put a
+ * per-keystroke value in the grid's `remember` key list and re-run all forty
+ * key bodies on every keypress, which is the skip that class exists to buy.
+ *
+ * So the keys read this at *draw* time instead. A flag flipping invalidates
+ * that one key's drawing; composition, measurement and layout never hear about
+ * it, and in steady state exactly two keys redraw per keystroke — the one that
+ * gained a word and the one that lost it.
+ *
+ * A flag asked for after [set] has run starts out already correct, because a
+ * key composing late must not draw a hint under a word that is already there.
+ */
+internal class OctopusOccupancy {
+
+    private val flags = HashMap<Int, MutableState<Boolean>>()
+    private var occupied: Set<Int> = emptySet()
+
+    fun flag(codePoint: Int): State<Boolean> =
+        flags.getOrPut(codePoint) { mutableStateOf(codePoint in occupied) }
+
+    fun set(next: Set<Int>) {
+        occupied = next
+        for ((codePoint, flag) in flags) {
+            val wanted = codePoint in next
+            // Only the ones that actually changed: writing the same value back
+            // would invalidate every hinted key's drawing on every keystroke.
+            if (flag.value != wanted) flag.value = wanted
+        }
+    }
+}
+
+/**
+ * Static, so a key reading it is not an observable read and the holder never
+ * changes identity — the whole point being that nothing recomposes on its
+ * account.
+ */
+internal val LocalOctopusOccupancy = staticCompositionLocalOf { OctopusOccupancy() }
