@@ -1003,6 +1003,35 @@ class SuggestionEngineTest {
         assertTrue("gentle must not dethrone the primary in $s", s.indexOf("bark") < s.indexOf("bari"))
     }
 
+    @Test fun `an app habit leans an empty field without owning it`() {
+        // Messenger, where this user writes Banglish: the field starts leaning
+        // that way at half strength, which at Aggressive is enough to put the
+        // Banglish word first...
+        val habit = FieldLanguageMix.Prior(mapOf("bn_rom" to 0.9, "en" to 0.1), FieldLanguageMix.MAX_PRIOR_WEIGHT)
+        val aggressive = banglishEngine()
+        aggressive.seedFieldContext(emptyList(), habit)
+        val s = aggressive.suggest("bar", previousWord = null)
+        assertTrue("expected bari first in $s", s.indexOf("bari") < s.indexOf("bark"))
+        // ...and one English word typed in that field takes it straight back.
+        aggressive.recordUsage("how")
+        val back = aggressive.suggest("bar", previousWord = null)
+        assertTrue("expected bark first in $back", back.indexOf("bark") < back.indexOf("bari"))
+        // At Balanced the habit alone never unseats a common English word.
+        val balanced = banglishEngine(shift = SuggestionEngine.FIELD_SHIFT_BALANCED)
+        balanced.seedFieldContext(emptyList(), habit)
+        val b = balanced.suggest("bar", previousWord = null)
+        assertTrue("balanced must keep bark first in $b", b.indexOf("bark") < b.indexOf("bari"))
+    }
+
+    @Test fun `owning languages classifies for the app tally`() {
+        val e = banglishEngine()
+        assertEquals(setOf("bn_rom"), e.owningLanguages("Ami"))
+        assertEquals(setOf("en"), e.owningLanguages("how"))
+        assertTrue(e.owningLanguages("zzq").isEmpty())
+        // No mix configured: nothing to classify against.
+        assertTrue(engine().owningLanguages("hello").isEmpty())
+    }
+
     @Test fun `committed words swing the detection back mid-field`() {
         val e = banglishEngine()
         e.seedFieldContext(banglishWords)

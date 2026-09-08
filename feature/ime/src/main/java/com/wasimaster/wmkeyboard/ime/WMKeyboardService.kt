@@ -121,6 +121,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.provider.ContactsContract
 import com.wasimaster.wmkeyboard.core.prediction.Apostrophes
+import com.wasimaster.wmkeyboard.core.prediction.AppLanguageMix
 import com.wasimaster.wmkeyboard.core.input.BrailleChord
 import com.wasimaster.wmkeyboard.core.input.BrailleGrade1
 import com.wasimaster.wmkeyboard.core.input.DeadKeys
@@ -243,6 +244,7 @@ import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
 import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_OUTCOMES_FILE
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_SHAPES_FILE
+import com.wasimaster.wmkeyboard.core.settings.APP_LANGUAGE_MIX_FILE
 import com.wasimaster.wmkeyboard.core.settings.HAND_MODEL_FILE
 import com.wasimaster.wmkeyboard.core.settings.LEARNED_CORRECTIONS_FILE
 import com.wasimaster.wmkeyboard.core.settings.TAP_MODEL_FILE
@@ -576,6 +578,13 @@ open class WMKeyboardService : InputMethodService() {
     private var learnOfferCaseTrusted = false
 
     private lateinit var languageMixConfidence: LanguageMixConfidence
+
+    /**
+     * Which language the user writes in each app, for the per-app prior the
+     * field-language detection starts from ([AppLanguageMix]). Memory-only
+     * until unlock, like every learning store.
+     */
+    private var appLanguageMix = AppLanguageMix(null)
     private lateinit var emojiUsage: EmojiUsage
     /**
      * A tap has moved the usage ranking since [KeyboardUiState.emojiRecents] /
@@ -2380,6 +2389,7 @@ open class WMKeyboardService : InputMethodService() {
                         glideShapes.reload()
                         emojiUsage.reload()
                         languageMixConfidence.reload()
+                        appLanguageMix.reload()
                     }
                     suggestionEngine?.rankOffsets = wordRanks.snapshot()
                     pushLearnedHabits()
@@ -2752,6 +2762,7 @@ open class WMKeyboardService : InputMethodService() {
         // Its own file, so clearing one store never silently clears the other.
         CjkLearning.store = CjkUserHistory(store("learning/cjk_history.json"))
         languageMixConfidence = LanguageMixConfidence(store("learning/language_mix.json"))
+        appLanguageMix = AppLanguageMix(store(APP_LANGUAGE_MIX_FILE))
         emojiUsage = EmojiUsage(store("learning/emoji_usage.json")).also {
             it.maxRecents = _uiState.value.settings.emoji.recentsLimit
         }
@@ -4271,6 +4282,7 @@ open class WMKeyboardService : InputMethodService() {
         keyOffsets.save()
         tapOffsets.save()
         correctionMemory.save()
+        appLanguageMix.save()
         glideOutcomes.save()
         glideShapes.save()
         correctionStats.save()
@@ -4318,6 +4330,7 @@ open class WMKeyboardService : InputMethodService() {
         keyOffsets.save()
         tapOffsets.save()
         correctionMemory.save()
+        appLanguageMix.save()
         glideOutcomes.save()
         glideShapes.save()
         correctionStats.save()
@@ -6285,7 +6298,25 @@ open class WMKeyboardService : InputMethodService() {
             val word = token.trim { !it.isLetter() }
             if (word.isNotEmpty()) words.add(word)
         }
-        engine.seedFieldContext(words)
+        // Where this app's fields usually start, when the user lets the
+        // keyboard remember that; the field's own words then decay it.
+        val prior = currentPackage
+            ?.takeIf { _uiState.value.settings.suggestionStrip.languageDetectionByApp }
+            ?.let { appLanguageMix.prior(it) }
+        engine.seedFieldContext(words, prior)
+    }
+
+    /**
+     * Credits the app in focus with the languages that own [word], for the
+     * prior [seedFieldLanguageMix] starts its fields from. Kept even while
+     * detection itself is off, so the habit is ready the day it is turned on;
+     * never kept when the user has said not to remember apps.
+     */
+    private fun noteAppLanguage(word: String) {
+        val pkg = currentPackage ?: return
+        if (!_uiState.value.settings.suggestionStrip.languageDetectionByApp) return
+        val engine = suggestionEngine ?: return
+        appLanguageMix.record(pkg, engine.owningLanguages(word))
     }
 
     /**
@@ -9530,6 +9561,7 @@ open class WMKeyboardService : InputMethodService() {
             // Attribute the word to whichever mixed language owns it, so the
             // secondary-dictionary weighting tracks the user's real habit.
             suggestionEngine?.recordUsage(cleaned)
+            noteAppLanguage(cleaned)
             // A word on the never-suggest list is neither counted nor parked
             // in the waiting room: learning it would only put it back in the
             // personal dictionary the user just took it out of (#48).

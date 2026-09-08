@@ -243,6 +243,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Neutral 1.0 until trained — An untrained keyboard behaves exactly as flat weighting did
     - Languages faded to noise are pruned from the tally
   - Per-field language detection `RARE` — Which language this particular field is being written in
+    - Starts from the app's habit — A per-app tally of which language the words typed there belong to seeds each field at up to one and a half words of evidence, so a chat app leans Banglish and mail leans English before a word is typed; one real word outweighs it, and a toggle turns it off
     - Per-word decay of 0.7 — The last three words are in charge; code-switching swings it back in two or three
     - Seeded from the words already in the field on focus — Oldest first, so the words nearest the caret dominate
     - Three calibrated strengths — Gentle 1.4, balanced 2.6, aggressive 4.0 nats of maximum swing per language

@@ -41,6 +41,30 @@ class FieldLanguageMix {
     }
 
     /**
+     * Start the field from where its app's fields usually go — see
+     * [AppLanguageMix]. Worth [Prior.weight] words of evidence, capped at
+     * [MAX_PRIOR_WEIGHT] so a habit never outweighs what is actually typed:
+     * the next real word decays it like any older word and outvotes it.
+     * Called on a fresh mix, before the field's own words are recorded.
+     */
+    @Synchronized
+    fun seedPrior(prior: Prior) {
+        val weight = prior.weight.coerceIn(0.0, MAX_PRIOR_WEIGHT)
+        if (weight <= 0.0) return
+        for ((langId, share) in prior.shares) {
+            if (langId.isNotEmpty() && share > 0.0) tally.merge(langId, share * weight, Double::plus)
+        }
+        evidence += weight
+    }
+
+    /**
+     * Where a field's language usually starts before a word is typed in it:
+     * each language's share of the habit, and how many words of evidence the
+     * habit is worth.
+     */
+    class Prior(val shares: Map<String, Double>, val weight: Double)
+
+    /**
      * Record one committed word, credited to every language in [owners] —
      * empty when no dictionary in the mix knows the word. Older words fade
      * first so the most recent few dominate.
@@ -103,5 +127,9 @@ class FieldLanguageMix {
 
         /** Classified words (decayed) at which the shift reaches full size. */
         private const val FULL_EVIDENCE = 2.0
+
+        /** The most a [Prior] may be worth: under [FULL_EVIDENCE], so a habit
+         * alone never reaches the full swing. */
+        const val MAX_PRIOR_WEIGHT = 1.5
     }
 }

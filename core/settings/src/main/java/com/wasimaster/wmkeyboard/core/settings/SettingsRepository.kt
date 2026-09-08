@@ -2485,6 +2485,9 @@ const val LEARNED_CORRECTIONS_FILE = "learning/learned_corrections.json"
 /** Where this hand lands when tapping: a second `KeyOffsets`, with its own file. */
 const val TAP_MODEL_FILE = "learning/tap_offsets.json"
 
+/** Which language the user writes in each app (see `AppLanguageMix` in :core:prediction). */
+const val APP_LANGUAGE_MIX_FILE = "learning/app_language_mix.json"
+
 /** What the user did with the words their glides gave them (see `GlideOutcomes` in :core:prediction). */
 const val GLIDE_OUTCOMES_FILE = "learning/glide_outcomes.json"
 
@@ -2501,6 +2504,7 @@ val LEARNED_DATA_FILES = listOf(
     HAND_MODEL_FILE,
     LEARNED_CORRECTIONS_FILE,
     TAP_MODEL_FILE,
+    APP_LANGUAGE_MIX_FILE,
     GLIDE_OUTCOMES_FILE,
     GLIDE_SHAPES_FILE,
     "learning/user_lexicon.json",
@@ -4747,6 +4751,12 @@ data class SuggestionStripSettings(
     /** How far the detected language may take over; see [LanguageDetectionStrength]. */
     val languageDetectionStrength: LanguageDetectionStrength = LanguageDetectionStrength.BALANCED,
     /**
+     * Start each field's language detection from the language the user usually
+     * writes in the app it belongs to (a small, per-app prior; see
+     * `AppLanguageMix`). Off keeps detection reading the field alone.
+     */
+    val languageDetectionByApp: Boolean = true,
+    /**
      * Which optional items the held-word menu shows (#99). An item missing
      * from the set is never drawn; "Adjust rank" is drawn regardless. All
      * three by default: the menu is contextual (add only while typing an
@@ -5096,6 +5106,7 @@ class SettingsRepository(private val context: Context) {
         private val BLOCK_OFFENSIVE_WORDS = booleanPreferencesKey("block_offensive_words")
         private val CONTEXT_RERANK = booleanPreferencesKey("context_rerank")
         private val LANGUAGE_DETECTION = booleanPreferencesKey("language_detection")
+        private val LANGUAGE_DETECTION_BY_APP = booleanPreferencesKey("language_detection_by_app")
         private val LANGUAGE_DETECTION_STRENGTH =
             stringPreferencesKey("language_detection_strength")
         private val NUMBER_ROW_CORRECTIONS = booleanPreferencesKey("number_row_corrections")
@@ -6422,6 +6433,8 @@ class SettingsRepository(private val context: Context) {
                 languageDetectionStrength = p[LANGUAGE_DETECTION_STRENGTH]
                     ?.let { runCatching { LanguageDetectionStrength.valueOf(it) }.getOrNull() }
                     ?: defaults.suggestionStrip.languageDetectionStrength,
+                languageDetectionByApp = p[LANGUAGE_DETECTION_BY_APP]
+                    ?: defaults.suggestionStrip.languageDetectionByApp,
                 // An item name this build does not know is dropped, not kept
                 // as a stale string.
                 wordMenuItems = p[WORD_MENU_ITEMS]
@@ -9906,6 +9919,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setLanguageDetectionStrength(value: LanguageDetectionStrength) =
         editPrefs { it[LANGUAGE_DETECTION_STRENGTH] = value.name }
+
+    suspend fun setLanguageDetectionByApp(value: Boolean) =
+        editPrefs { it[LANGUAGE_DETECTION_BY_APP] = value }
 
     suspend fun setNumberRowCorrections(value: Boolean) =
         editPrefs { it[NUMBER_ROW_CORRECTIONS] = value }

@@ -498,6 +498,15 @@ internal fun TypingCorrectionsSettings(
                         },
                     ) { scope.launch { repository.setLanguageDetectionStrength(it) } }
                 }
+                item {
+                    ToggleSetting(
+                        R.string.typing_language_detection_by_app_title,
+                        stringResource(R.string.typing_language_detection_by_app_subtitle),
+                        settings.suggestionStrip.languageDetectionByApp,
+                        info = stringResource(R.string.typing_language_detection_by_app_info),
+                        default = SettingsDefaults.suggestionStrip.languageDetectionByApp,
+                    ) { scope.launch { repository.setLanguageDetectionByApp(it) } }
+                }
             }
             if (settings.numberRow) {
                 item {

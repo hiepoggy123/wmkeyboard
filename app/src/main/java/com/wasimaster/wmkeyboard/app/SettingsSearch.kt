@@ -250,6 +250,10 @@ private fun SearchStrings.typingCorrectionsRows(): List<SettingsSearchEntry> {
         row(R.string.typing_context_rerank_title, R.string.typing_context_rerank_subtitle),
         row(R.string.typing_autocorrect_splits_title, R.string.typing_autocorrect_splits_subtitle),
         row(
+            R.string.typing_language_detection_by_app_title,
+            R.string.typing_language_detection_by_app_subtitle,
+        ),
+        row(
             R.string.typing_language_detection_title,
             R.string.typing_language_detection_subtitle,
         ),

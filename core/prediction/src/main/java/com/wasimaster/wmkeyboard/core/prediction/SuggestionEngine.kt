@@ -268,9 +268,12 @@ class SuggestionEngine(
      * charge. Called by the IME when it enters a field; a field it cannot
      * read seeds empty, which keeps the mix neutral until the user types.
      */
-    fun seedFieldContext(words: List<String>) {
+    fun seedFieldContext(words: List<String>, prior: FieldLanguageMix.Prior? = null) {
         fieldMix.reset()
         if (secondaryDictionaries.isNotEmpty() || englishAsSecondary) {
+            // The app's habit goes in first, so the field's own words decay
+            // it the way they decay any older word (see AppLanguageMix).
+            if (prior != null) fieldMix.seedPrior(prior)
             for (word in words) {
                 val lower = word.lowercase()
                 if (lower.isNotEmpty()) fieldMix.record(languagesOwning(lower))
@@ -580,6 +583,15 @@ class SuggestionEngine(
      * evidence for all of them at once — which is exactly why it moves the
      * field mix nowhere.
      */
+    /**
+     * The languages of the mix that know [word] — the same classification the
+     * field mix uses, for callers keeping a tally of their own (the per-app
+     * habit). Empty with no mix configured, so a monolingual keyboard records
+     * nothing.
+     */
+    fun owningLanguages(word: String): Set<String> =
+        if (secondaryDictionaries.isEmpty() && !englishAsSecondary) emptySet() else languagesOwning(word.lowercase())
+
     private fun languagesOwning(lower: String): Set<String> {
         val owners = HashSet<String>(4)
         if (primaryLanguageId.isNotEmpty() &&

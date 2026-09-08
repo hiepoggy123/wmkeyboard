@@ -69,6 +69,9 @@
     <string name="typing_language_detection_gentle_desc">Only reorders the suggestions. Your keyboard language always wins</string>
     <string name="typing_language_detection_balanced_desc">A clear detection takes the lead, and autocorrect follows it</string>
     <string name="typing_language_detection_aggressive_desc">Autocorrect follows the detected language against common words too</string>
+    <string name="typing_language_detection_by_app_title">Remember each app\'s language</string>
+    <string name="typing_language_detection_by_app_subtitle">Start from the language you usually write in this app</string>
+    <string name="typing_language_detection_by_app_info">The keyboard keeps a tally, per app, of which of your languages the words you type there belong to. When you open a text field in that app, detection starts from that tally instead of from nothing, so a new message in a chat app you write Banglish in leans Banglish before you have typed a word, and a new email starts out English. The lean is worth about one typed word of evidence at most, so the first word you actually type outweighs it and a message in the other language is never fought. Apps with only a few dozen words of history lean less. The tally stays on this device and is wiped with the rest of the learned data.</string>
 
     <string name="typing_autocorrect_adaptive_title">Adaptive confidence</string>
     <string name="typing_autocorrect_adaptive_subtitle">Correct less eagerly when you undo corrections often</string>

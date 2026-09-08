@@ -55,4 +55,34 @@ class FieldLanguageMixTest {
         mix.reset()
         assertNull(mix.shares())
     }
+
+    @Test fun `a prior is worth part of a word and leans the field`() {
+        val mix = FieldLanguageMix()
+        mix.seedPrior(FieldLanguageMix.Prior(mapOf("bn_rom" to 0.8, "en" to 0.2), 1.0))
+        val shares = mix.shares()!!
+        assertEquals(0.8, shares.shareOf("bn_rom"), 1e-9)
+        assertEquals(0.5, shares.ramp, 1e-9)
+    }
+
+    @Test fun `one real word outweighs the prior`() {
+        val mix = FieldLanguageMix()
+        mix.seedPrior(FieldLanguageMix.Prior(mapOf("bn_rom" to 0.9, "en" to 0.1), FieldLanguageMix.MAX_PRIOR_WEIGHT))
+        mix.record(setOf("en"))
+        val shares = mix.shares()!!
+        assertTrue("en ${shares.shareOf("en")} should lead", shares.shareOf("en") > shares.shareOf("bn_rom"))
+    }
+
+    @Test fun `a prior never exceeds its cap`() {
+        val mix = FieldLanguageMix()
+        mix.seedPrior(FieldLanguageMix.Prior(mapOf("bn_rom" to 1.0), 50.0))
+        // Capped under full evidence: the ramp stays short of 1.
+        assertTrue(mix.shares()!!.ramp < 1.0)
+    }
+
+    @Test fun `an even prior moves nothing`() {
+        val mix = FieldLanguageMix()
+        mix.seedPrior(FieldLanguageMix.Prior(mapOf("bn_rom" to 0.5, "en" to 0.5), 1.0))
+        val shares = mix.shares()!!
+        assertEquals(shares.shareOf("en"), shares.shareOf("bn_rom"), 1e-9)
+    }
 }

@@ -32,6 +32,14 @@ Older words fade fast. Each new word decays the running tally to 70% of what it 
 
 A run of words nobody recognises (typos, names, a third language entirely) still decays the tally without adding to it, so the mix drifts back to neutral rather than hardening into a guess. Nothing here is written down: the reading is per field, held in memory, and thrown away when you move on.
 
+## Where you are typing
+
+Detection starts every field from nothing, and nothing is exactly what an empty message box has. So the keyboard also keeps a tally, per app, of which of your languages the words you type there belong to, and starts detection in that app's fields from the tally: a new message in a chat app you write Banglish in leans Banglish before you have typed a word, and a new email starts out English.
+
+The lean is deliberately small. It is worth about one typed word of evidence at most, so the first word you actually type outweighs it and the second settles the matter. A chat app you also write English in is never fought: type an English word and the field is English. Apps with only a few dozen words of history lean less, the tally forgets slowly (roughly the last hundred words), and a word both languages know is credited to both and moves it nowhere, the same rule the field itself uses.
+
+**Remember each app's language** under <SettingsPath path="Typing / Automatic corrections" /> turns this off. The tally is private storage, wiped with the rest of the learned data, and never leaves the device.
+
 ## The three strengths
 
 <SettingsPath path="Typing / Automatic corrections / Detection strength" />
@@ -56,6 +64,7 @@ Whichever strength is set, the swing scales with the evidence. One classified wo
 | --- | --- | --- |
 | Detect the language you type | On | Autocorrect on |
 | Detection strength | Balanced | Autocorrect on, and Detect the language you type on |
+| Remember each app's language | On | Autocorrect on, and Detect the language you type on |
 
 Both rows sit under Automatic corrections rather than Suggestions, because detection moves autocorrect's targets as well as the strip's order. That also means both are hidden by the **Autocorrect** master switch: turn autocorrect off and the two rows disappear from the screen. The switch you set stays set, though, so detection carries on reordering the strip. It's only autocorrect's half of the effect that goes away, and that goes away with autocorrect anyway. See [Typing settings](/reference/settings/typing/#automatic-corrections) for the rest of that group.
 
