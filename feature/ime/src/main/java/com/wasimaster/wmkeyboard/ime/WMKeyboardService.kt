@@ -9779,10 +9779,18 @@ open class WMKeyboardService : InputMethodService() {
                         }
                     }
                 }
-            } else if (!blacklisted) {
+            } else if (!blacklisted && state.composer.isPlausibleWord(cleaned)) {
                 // Nothing recognises this word. It goes into the waiting room
                 // instead of the dictionary, and only earns its way in once
                 // the user has typed it — and left it alone — enough times.
+                //
+                // Unless the script says it cannot be a word at all. A
+                // transliterator produces its output mechanically, so a Telex
+                // buffer that meant an English word comes out as a spelling no
+                // Vietnamese syllable has (`tést`) — and three of those would
+                // put it in the personal dictionary and then in the strip. The
+                // word still committed exactly as typed; it is only the
+                // remembering that stops here.
                 noteUnknownWord(
                     cleaned, reinforcement, state, caseTrusted, origin,
                     replaces = replaces.takeIf { last },

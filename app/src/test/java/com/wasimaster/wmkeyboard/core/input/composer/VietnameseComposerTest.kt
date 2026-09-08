@@ -85,6 +85,64 @@ class VietnameseComposerTest {
         assertEquals("ĐÂY", c.composeBuffer("DDAAY"))
     }
 
+    @Test
+    fun telexToneNeedsOneUnbrokenVowelRun() {
+        val c = VietnameseTelexComposer
+        // A Vietnamese syllable has exactly one vowel nucleus, so a tone key
+        // after a broken run is the letter it is drawn as.
+        assertEquals("bananas", c.composeBuffer("bananas"))
+        assertEquals("relax", c.composeBuffer("relax"))
+        assertEquals("inbox", c.composeBuffer("inbox"))
+        // The rule catches nothing real: every syllable keeps its vowels
+        // together, however many of them there are.
+        assertEquals("nguyễn", c.composeBuffer("nguyeenx"))
+        assertEquals("khuỷu", c.composeBuffer("khuyur"))
+        assertEquals("ngoèo", c.composeBuffer("ngoeof"))
+    }
+
+    @Test
+    fun telexSecondWTakesTheMarkOffAndTypesTheLetter() {
+        val c = VietnameseTelexComposer
+        assertEquals("row", c.composeBuffer("roww"))
+        assertEquals("draw", c.composeBuffer("draww"))
+        assertEquals("show", c.composeBuffer("showw"))
+        assertEquals("flow", c.composeBuffer("floww"))
+        assertEquals("ow", c.composeBuffer("oww"))
+        assertEquals("uw", c.composeBuffer("uww"))
+        // The uo cluster behaves the same way, both marks at once.
+        assertEquals("dương", c.composeBuffer("duongw"))
+        assertEquals("đương", c.composeBuffer("dduongw"))
+        assertEquals("duongw", c.composeBuffer("duongww"))
+    }
+
+    @Test
+    fun telexTakesToneMarksTypedAsThemselves() {
+        val c = VietnameseTelexComposer
+        assertEquals("cháo", c.composeBuffer("chao\u0301"))
+        assertEquals("chào", c.composeBuffer("chao\u0300"))
+        assertEquals("chảo", c.composeBuffer("chao\u0309"))
+        assertEquals("chão", c.composeBuffer("chao\u0303"))
+        assertEquals("chạo", c.composeBuffer("chao\u0323"))
+        // The key's faces are drawn on a dotted circle, which is swallowed —
+        // so the ring's bare circle is its "no tone" entry.
+        assertEquals("cháo", c.composeBuffer("chao\u25CC\u0301"))
+        assertEquals("chao", c.composeBuffer("chaos\u25CC"))
+        // Named outright, a tone does not toggle the way a letter key does.
+        assertEquals("cháo", c.composeBuffer("chao\u0301\u0301"))
+        // And it still needs a nucleus to land on.
+        assertEquals("bcd", c.composeBuffer("bcd\u0301"))
+    }
+
+    @Test
+    fun toneKeyCharactersStayInTheBuffer() {
+        for (c in listOf(VietnameseTelexComposer, VietnameseVniComposer)) {
+            for (mark in "\u25CC\u0301\u0300\u0309\u0303\u0323") {
+                assertTrue(c.toString(), c.buffersChar(mark))
+            }
+            assertTrue(c.toString(), !c.buffersChar('z'))
+        }
+    }
+
     // --- VNI Tests ---
 
     @Test
@@ -114,6 +172,14 @@ class VietnameseComposerTest {
         assertEquals("việt", c.composeBuffer("viet65"))
         assertEquals("tiếng", c.composeBuffer("tieng61"))
         assertEquals("đây", c.composeBuffer("d9ay6"))
+    }
+
+    @Test
+    fun vniToneMarksAndVowelRun() {
+        val c = VietnameseVniComposer
+        assertEquals("cháo", c.composeBuffer("chao\u0301"))
+        assertEquals("chao", c.composeBuffer("chao1\u25CC"))
+        assertEquals("banana1", c.composeBuffer("banana1"))
     }
 
     @Test

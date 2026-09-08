@@ -70,6 +70,20 @@ interface Composer {
     fun buffersChar(c: Char): Boolean = false
 
     /**
+     * Whether [word] is shaped like a word of this composer's script, and so
+     * worth remembering when no dictionary has heard of it.
+     *
+     * The default is yes, which is the only safe answer for a script whose
+     * spelling rules are open enough that anything could be a word. A composer
+     * overrides it where they are not: a transliterator turns keystrokes into
+     * text mechanically, so it will happily produce a spelling that cannot
+     * exist and hand it to the personal dictionary as something new the user
+     * types. Read only on the learning path — a word that fails still commits
+     * exactly as typed.
+     */
+    fun isPlausibleWord(word: String): Boolean = true
+
+    /**
      * A conversion IME (Chinese Pinyin, Japanese kana→kanji): the roman/kana
      * buffer maps to a *choice* of outputs shown in the suggestion strip, and the
      * user taps one to commit it — unlike a plain transliterator whose buffer has

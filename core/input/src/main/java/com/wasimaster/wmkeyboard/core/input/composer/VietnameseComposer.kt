@@ -30,6 +30,25 @@ private class VLetter(var base: Char, var mark: VMark, val upper: Boolean)
 
 internal object VietnameseEngine {
 
+    /**
+     * The face a tone key's ring is drawn on: a placeholder circle carrying the
+     * mark. Typed along with the mark, and swallowed by the transducer.
+     */
+    internal const val DOTTED_CIRCLE = '\u25CC'
+
+    /** The tone [c] *is*, when it is a combining mark rather than a letter. */
+    internal fun directTone(c: Char): VTone? = when (c) {
+        '\u0301' -> VTone.ACUTE
+        '\u0300' -> VTone.GRAVE
+        '\u0309' -> VTone.HOOK
+        '\u0303' -> VTone.TILDE
+        '\u0323' -> VTone.DOT
+        else -> null
+    }
+
+    /** Whether [c] is one of the characters a tone key sends. */
+    internal fun isToneChar(c: Char): Boolean = c == DOTTED_CIRCLE || directTone(c) != null
+
     private fun isVowel(c: Char) = c in "aeiouy"
 
     private fun precompose(base: Char, mark: VMark): Char = when (mark) {
@@ -98,34 +117,69 @@ internal object VietnameseEngine {
         var tone = VTone.NONE
 
         fun toggleTone(t: VTone) { tone = if (tone == t) VTone.NONE else t }
-        fun hasVowel() = letters.any { isVowel(it.base) }
+
+        /**
+         * Whether the vowels typed so far form one unbroken run.
+         *
+         * A Vietnamese syllable has exactly one vowel nucleus, so a tone key
+         * after a broken run is not a tone at all — it is a letter, in a word
+         * this composer has no business toning. "banana" + s stays `bananas`
+         * rather than becoming `bánána`, and no real syllable is caught by it:
+         * nguyễn, khuỷu and ngoèo all keep their vowels together.
+         *
+         * Counted rather than collected: this runs on every tone keystroke.
+         */
+        fun hasVowelCluster(): Boolean {
+            var first = -1
+            var last = -1
+            var count = 0
+            for (i in letters.indices) {
+                if (isVowel(letters[i].base)) {
+                    if (first < 0) first = i
+                    last = i
+                    count++
+                }
+            }
+            return count > 0 && last - first + 1 == count
+        }
 
         for (ch in raw) {
             val upper = ch.isUpperCase()
             val lc = ch.lowercaseChar()
+            // A tone typed as itself, from the tone key's own ring rather than
+            // spelled with a letter or a digit. Shared by both methods: the key
+            // is on both layouts, and a mark means the same thing on each.
+            //
+            // The ring's faces are written on a dotted circle, so a press sends
+            // U+25CC and then the mark; the circle is swallowed here, which also
+            // makes the bare circle the ring's "no tone" entry. Named outright,
+            // a tone does not toggle — pressing acute twice means acute.
+            if (lc == DOTTED_CIRCLE) { tone = VTone.NONE; continue }
+            val direct = directTone(lc)
+            if (direct != null) {
+                if (hasVowelCluster()) tone = direct
+                continue
+            }
             if (vni) {
+                // A digit that cannot do its job is a digit. Every branch here
+                // falls through to the literal append when there is nothing to
+                // tone or nothing to mark — otherwise a number typed inside a
+                // word (`banana1`, an address, a model name) would silently
+                // lose its digits to a tone that had nowhere to land.
                 when (lc) {
-                    '1' -> {
-                        if (hasVowel()) toggleTone(VTone.ACUTE)
+                    '1', '2', '3', '4', '5' -> if (hasVowelCluster()) {
+                        toggleTone(
+                            when (lc) {
+                                '1' -> VTone.ACUTE
+                                '2' -> VTone.GRAVE
+                                '3' -> VTone.HOOK
+                                '4' -> VTone.TILDE
+                                else -> VTone.DOT
+                            },
+                        )
                         continue
                     }
-                    '2' -> {
-                        if (hasVowel()) toggleTone(VTone.GRAVE)
-                        continue
-                    }
-                    '3' -> {
-                        if (hasVowel()) toggleTone(VTone.HOOK)
-                        continue
-                    }
-                    '4' -> {
-                        if (hasVowel()) toggleTone(VTone.TILDE)
-                        continue
-                    }
-                    '5' -> {
-                        if (hasVowel()) toggleTone(VTone.DOT)
-                        continue
-                    }
-                    '0' -> { tone = VTone.NONE; continue }
+                    '0' -> if (hasVowelCluster()) { tone = VTone.NONE; continue }
                     '6' -> { if (applyMark(letters, "aeo", VMark.CIRCUMFLEX)) continue }
                     '7' -> { if (applyMark(letters, "ou", VMark.HORN)) continue }
                     '8' -> { if (applyMark(letters, "a", VMark.BREVE)) continue }
@@ -141,7 +195,7 @@ internal object VietnameseEngine {
                         's' -> VTone.ACUTE; 'f' -> VTone.GRAVE; 'r' -> VTone.HOOK
                         'x' -> VTone.TILDE; else -> VTone.DOT
                     }
-                    if (hasVowel()) {
+                    if (hasVowelCluster()) {
                         // Repeating the tone key cancels it and types the letter.
                         if (tone == t) { tone = VTone.NONE; letters.add(VLetter(lc, VMark.NONE, upper)) }
                         else tone = t
@@ -152,17 +206,37 @@ internal object VietnameseEngine {
                 'w' -> {
                     // Horn on uo cluster -> ươ (e.g. nuocsw -> nước, tuongw -> tương);
                     // otherwise horn/breve on the last a/o/u; a bare w types ư.
+                    //
+                    // A second w takes the mark back off *and* types the letter,
+                    // which is what makes an English word survive the Telex
+                    // layout: row, draw, show and flow are all a marked vowel
+                    // plus a w that has nowhere else to go. Undoing the mark
+                    // without typing the w left `ro` for `roww`.
                     val uIdx = letters.indexOfLast { it.base == 'u' }
                     val oIdx = letters.indexOfLast { it.base == 'o' }
                     if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1) {
-                        val toggleOff = letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN
-                        val targetMark = if (toggleOff) VMark.NONE else VMark.HORN
-                        letters[uIdx].mark = targetMark
-                        letters[oIdx].mark = targetMark
+                        if (letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN) {
+                            letters[uIdx].mark = VMark.NONE
+                            letters[oIdx].mark = VMark.NONE
+                            letters.add(VLetter('w', VMark.NONE, upper))
+                        } else {
+                            letters[uIdx].mark = VMark.HORN
+                            letters[oIdx].mark = VMark.HORN
+                        }
                     } else {
-                        val a = applyMark(letters, "a", VMark.BREVE) ||
-                            applyMark(letters, "ou", VMark.HORN)
-                        if (!a) letters.add(VLetter('u', VMark.HORN, upper))
+                        val marked = letters.indexOfLast {
+                            (it.base == 'a' && it.mark == VMark.BREVE) ||
+                                ((it.base == 'o' || it.base == 'u') && it.mark == VMark.HORN)
+                        }
+                        if (marked != -1) {
+                            letters[marked].mark = VMark.NONE
+                            letters.add(VLetter('w', VMark.NONE, upper))
+                        } else {
+                            val applied = applyMark(letters, "a", VMark.BREVE) ||
+                                applyMark(letters, "ou", VMark.HORN)
+                            // A bare w is ư, which is Telex as it is written.
+                            if (!applied) letters.add(VLetter('u', VMark.HORN, upper))
+                        }
                     }
                 }
                 'a', 'e', 'o' -> {
@@ -201,6 +275,10 @@ internal object VietnameseEngine {
 /** Vietnamese Telex: letters spell the diacritics (`as`→á, `aw`→ă, `dd`→đ). */
 object VietnameseTelexComposer : Composer {
     override val isTransliterating: Boolean get() = true
+    // The tone key sends combining marks, which are not letters: without this
+    // the key would commit the syllable and type a stray mark after it.
+    override fun buffersChar(c: Char): Boolean = VietnameseEngine.isToneChar(c)
+    override fun isPlausibleWord(word: String): Boolean = VietnameseOrthography.isSyllable(word)
     override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = false)
 }
 
@@ -208,5 +286,7 @@ object VietnameseTelexComposer : Composer {
 object VietnameseVniComposer : Composer {
     override val isTransliterating: Boolean get() = true
     override val bufferDigits: Boolean get() = true
+    override fun buffersChar(c: Char): Boolean = VietnameseEngine.isToneChar(c)
+    override fun isPlausibleWord(word: String): Boolean = VietnameseOrthography.isSyllable(word)
     override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = true)
 }
