@@ -18,15 +18,53 @@ data class FancyStyle(
     val sample: String,
     val lower: Map<Char, String>,
     val upper: Map<Char, String>,
+    /** How the mapped letters are put back together. Nearly always in order. */
+    val assembly: FancyAssembly = FancyAssembly.IN_ORDER,
 )
 
 /**
+ * How [FancyStyles.transform] reassembles the letters a style has mapped.
+ *
+ * A per-letter table cannot express either of the two odd ones out, because
+ * neither is a property of a letter: one is about the order of the line and
+ * the other about what sits between its letters.
+ */
+enum class FancyAssembly {
+    /** Straight concatenation. Every style but the two below. */
+    IN_ORDER,
+
+    /**
+     * Concatenation back to front. Rotating a line of text turns its last
+     * letter into its first, so upside-down glyphs only read as upside-down
+     * text once the order is reversed too — a table of rotated glyphs alone
+     * spells the word backwards to anyone who turns the phone round.
+     *
+     * Reversed by mapped unit rather than by char, so an astral form (𐐒 for
+     * B) is not torn into two orphaned surrogates on the way.
+     */
+    REVERSED,
+
+    /**
+     * A zero-width space between every pair of visible characters. Reads
+     * identically and matches nothing that looks for whole words — a link
+     * scanner, a spoiler tag, a filter — since no two letters are adjacent
+     * any more. Whitespace is left alone: the separator is only needed
+     * where the text has no break of its own.
+     */
+    ZERO_WIDTH_SEPARATED,
+}
+
+/**
  * The Fancy Text styles: [NORMAL_ID] first, then the 22 Unicode styles in
- * the order the old per-style layouts shipped. The Unicode ones were
- * generated from those layouts' key labels, so the glyphs are exactly what
- * each style always typed. Do not retype by hand: several values are
- * surrogate pairs or letter+combining-mark sequences that editors love to
- * normalise.
+ * the order the old per-style layouts shipped, then the nine added since.
+ * The first 22 were generated from those layouts' key labels, so the glyphs
+ * are exactly what each style always typed. Do not retype by hand: several
+ * values are surrogate pairs or letter+combining-mark sequences that editors
+ * love to normalise.
+ *
+ * Order is append-only. The stored setting names a style by id, so moving
+ * one would not break it, but the settings list is drawn in this order and
+ * users learn where the one they use sits.
  */
 object FancyStyles {
 
@@ -339,6 +377,132 @@ object FancyStyles {
                 "S̲", "T̲", "U̲", "V̲", "W̲", "X̲", "Y̲", "Z̲",
             ),
         ),
+        // Flag letters. Adjacent pairs that spell a country code fuse into that
+        // flag — 🇷🇪 for "re" — which is the whole look, not a bug in the table.
+        style(
+            "regional_indicator", "Regional Indicator", "🇷🇪🇬🇮🇴🇳🇦🇱 🇮🇳🇩🇮🇨🇦🇹🇴🇷",
+            listOf(
+                "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮",
+                "🇯", "🇰", "🇱", "🇲", "🇳", "🇴", "🇵", "🇶", "🇷",
+                "🇸", "🇹", "🇺", "🇻", "🇼", "🇽", "🇾", "🇿",
+            ),
+            listOf(
+                "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", "🇭", "🇮",
+                "🇯", "🇰", "🇱", "🇲", "🇳", "🇴", "🇵", "🇶", "🇷",
+                "🇸", "🇹", "🇺", "🇻", "🇼", "🇽", "🇾", "🇿",
+            ),
+        ),
+        // U+249C..U+24B5, which Unicode only ever gave a lowercase to: the two maps
+        // carry the same glyphs, as small caps does.
+        style(
+            "parenthesized", "Parenthesized", "⒫⒜⒭⒠⒩⒯⒣⒠⒮⒤⒵⒠⒟",
+            listOf(
+                "⒜", "⒝", "⒞", "⒟", "⒠", "⒡", "⒢", "⒣", "⒤",
+                "⒥", "⒦", "⒧", "⒨", "⒩", "⒪", "⒫", "⒬", "⒭",
+                "⒮", "⒯", "⒰", "⒱", "⒲", "⒳", "⒴", "⒵",
+            ),
+            listOf(
+                "⒜", "⒝", "⒞", "⒟", "⒠", "⒡", "⒢", "⒣", "⒤",
+                "⒥", "⒦", "⒧", "⒨", "⒩", "⒪", "⒫", "⒬", "⒭",
+                "⒮", "⒯", "⒰", "⒱", "⒲", "⒳", "⒴", "⒵",
+            ),
+        ),
+        style(
+            "double_underline", "Double Underline", "D̳o̳u̳b̳l̳e̳ U̳n̳d̳e̳r̳l̳i̳n̳e̳",
+            listOf(
+                "a̳", "b̳", "c̳", "d̳", "e̳", "f̳", "g̳", "h̳", "i̳",
+                "j̳", "k̳", "l̳", "m̳", "n̳", "o̳", "p̳", "q̳", "r̳",
+                "s̳", "t̳", "u̳", "v̳", "w̳", "x̳", "y̳", "z̳",
+            ),
+            listOf(
+                "A̳", "B̳", "C̳", "D̳", "E̳", "F̳", "G̳", "H̳", "I̳",
+                "J̳", "K̳", "L̳", "M̳", "N̳", "O̳", "P̳", "Q̳", "R̳",
+                "S̳", "T̳", "U̳", "V̳", "W̳", "X̳", "Y̳", "Z̳",
+            ),
+        ),
+        style(
+            "overline", "Overline", "O̅v̅e̅r̅l̅i̅n̅e̅",
+            listOf(
+                "a̅", "b̅", "c̅", "d̅", "e̅", "f̅", "g̅", "h̅", "i̅",
+                "j̅", "k̅", "l̅", "m̅", "n̅", "o̅", "p̅", "q̅", "r̅",
+                "s̅", "t̅", "u̅", "v̅", "w̅", "x̅", "y̅", "z̅",
+            ),
+            listOf(
+                "A̅", "B̅", "C̅", "D̅", "E̅", "F̅", "G̅", "H̅", "I̅",
+                "J̅", "K̅", "L̅", "M̅", "N̅", "O̅", "P̅", "Q̅", "R̅",
+                "S̅", "T̅", "U̅", "V̅", "W̅", "X̅", "Y̅", "Z̅",
+            ),
+        ),
+        style(
+            "slashthrough", "Slashthrough", "S̸l̸a̸s̸h̸t̸h̸r̸o̸u̸g̸h̸",
+            listOf(
+                "a̸", "b̸", "c̸", "d̸", "e̸", "f̸", "g̸", "h̸", "i̸",
+                "j̸", "k̸", "l̸", "m̸", "n̸", "o̸", "p̸", "q̸", "r̸",
+                "s̸", "t̸", "u̸", "v̸", "w̸", "x̸", "y̸", "z̸",
+            ),
+            listOf(
+                "A̸", "B̸", "C̸", "D̸", "E̸", "F̸", "G̸", "H̸", "I̸",
+                "J̸", "K̸", "L̸", "M̸", "N̸", "O̸", "P̸", "Q̸", "R̸",
+                "S̸", "T̸", "U̸", "V̸", "W̸", "X̸", "Y̸", "Z̸",
+            ),
+        ),
+        style(
+            "wavy_underline", "Wavy Underline", "W̰a̰v̰y̰ Ṵn̰d̰ḛr̰l̰ḭn̰ḛ",
+            listOf(
+                "a̰", "b̰", "c̰", "d̰", "ḛ", "f̰", "g̰", "h̰", "ḭ",
+                "j̰", "k̰", "l̰", "m̰", "n̰", "o̰", "p̰", "q̰", "r̰",
+                "s̰", "t̰", "ṵ", "v̰", "w̰", "x̰", "y̰", "z̰",
+            ),
+            listOf(
+                "A̰", "B̰", "C̰", "D̰", "Ḛ", "F̰", "G̰", "H̰", "Ḭ",
+                "J̰", "K̰", "L̰", "M̰", "N̰", "O̰", "P̰", "Q̰", "R̰",
+                "S̰", "T̰", "Ṵ", "V̰", "W̰", "X̰", "Y̰", "Z̰",
+            ),
+        ),
+        style(
+            "dotted", "Dotted", "Ḋȯṫṫėḋ",
+            listOf(
+                "ȧ", "ḃ", "ċ", "ḋ", "ė", "ḟ", "ġ", "ḣ", "i̇",
+                "j̇", "k̇", "l̇", "ṁ", "ṅ", "ȯ", "ṗ", "q̇", "ṙ",
+                "ṡ", "ṫ", "u̇", "v̇", "ẇ", "ẋ", "ẏ", "ż",
+            ),
+            listOf(
+                "Ȧ", "Ḃ", "Ċ", "Ḋ", "Ė", "Ḟ", "Ġ", "Ḣ", "İ",
+                "J̇", "K̇", "L̇", "Ṁ", "Ṅ", "Ȯ", "Ṗ", "Q̇", "Ṙ",
+                "Ṡ", "Ṫ", "U̇", "V̇", "Ẇ", "Ẋ", "Ẏ", "Ż",
+            ),
+        ),
+        // Rotated glyphs laid out back to front — see [FancyAssembly.REVERSED].
+        style(
+            "upside_down", "Upside Down", "uʍoᗡ ǝpısd∩",
+            listOf(
+                "ɐ", "q", "ɔ", "p", "ǝ", "ɟ", "ƃ", "ɥ", "ı",
+                "ɾ", "ʞ", "l", "ɯ", "u", "o", "d", "b", "ɹ",
+                "s", "ʇ", "n", "ʌ", "ʍ", "x", "ʎ", "z",
+            ),
+            listOf(
+                "∀", "𐐒", "Ɔ", "ᗡ", "Ǝ", "Ⅎ", "⅁", "H", "I",
+                "ſ", "⋊", "⅂", "W", "N", "O", "Ԁ", "Ò", "ᴚ",
+                "S", "⊥", "∩", "Ʌ", "M", "X", "⅄", "Z",
+            ),
+            assembly = FancyAssembly.REVERSED,
+        ),
+        // Every visible character held apart by a zero-width space — see
+        // [FancyAssembly.ZERO_WIDTH_SEPARATED].
+        style(
+            "bypass", "Bypass", "B\u200By\u200Bp\u200Ba\u200Bs\u200Bs",
+            listOf(
+                "a", "b", "c", "d", "e", "f", "g", "h", "i",
+                "j", "k", "l", "m", "n", "o", "p", "q", "r",
+                "s", "t", "u", "v", "w", "x", "y", "z",
+            ),
+            listOf(
+                "A", "B", "C", "D", "E", "F", "G", "H", "I",
+                "J", "K", "L", "M", "N", "O", "P", "Q", "R",
+                "S", "T", "U", "V", "W", "X", "Y", "Z",
+            ),
+            assembly = FancyAssembly.ZERO_WIDTH_SEPARATED,
+        ),
     )
 
     private val index = all.associateBy { it.id }
@@ -352,12 +516,37 @@ object FancyStyles {
      */
     fun transform(text: String, style: FancyStyle): String {
         if (text.isEmpty()) return text
-        val out = StringBuilder(text.length * 2)
+        // The path every style but two takes: one builder, no intermediate
+        // list, nothing to reverse or interleave.
+        if (style.assembly == FancyAssembly.IN_ORDER) {
+            val out = StringBuilder(text.length * 2)
+            for (ch in text) {
+                out.append(style.lower[ch] ?: style.upper[ch] ?: ch)
+            }
+            return out.toString()
+        }
+        // Mapped forms, kept whole: the two remaining assemblies both work on
+        // letters rather than on chars, and a mapped form can be longer than
+        // one char (an astral pair, a letter plus a combining mark).
+        val units = ArrayList<String>(text.length)
         for (ch in text) {
-            out.append(style.lower[ch] ?: style.upper[ch] ?: ch)
+            units.add(style.lower[ch] ?: style.upper[ch] ?: ch.toString())
+        }
+        val out = StringBuilder(text.length * 3)
+        when (style.assembly) {
+            FancyAssembly.REVERSED -> for (i in units.indices.reversed()) out.append(units[i])
+            FancyAssembly.ZERO_WIDTH_SEPARATED -> for (unit in units) {
+                if (out.isNotEmpty() && !unit[0].isWhitespace() && !out.last().isWhitespace()) {
+                    out.append(ZERO_WIDTH_SPACE)
+                }
+                out.append(unit)
+            }
+            FancyAssembly.IN_ORDER -> for (unit in units) out.append(unit)
         }
         return out.toString()
     }
+
+    private const val ZERO_WIDTH_SPACE = '\u200B'
 
     /** The 26 letters in a-z order, zipped into the two maps. */
     private fun style(
@@ -366,11 +555,13 @@ object FancyStyles {
         sample: String,
         lower: List<String>,
         upper: List<String>,
+        assembly: FancyAssembly = FancyAssembly.IN_ORDER,
     ): FancyStyle = FancyStyle(
         id = id,
         name = name,
         sample = sample,
         lower = ('a'..'z').zip(lower).toMap(),
         upper = ('A'..'Z').zip(upper).toMap(),
+        assembly = assembly,
     )
 }

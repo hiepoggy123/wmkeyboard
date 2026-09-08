@@ -14,11 +14,14 @@ import org.junit.Test
 class FancyStylesTest {
 
     @Test
-    fun `normal plus the 22 styles are present, in the shipped order, with a default`() {
-        assertEquals(23, FancyStyles.all.size)
+    fun `normal plus the 31 styles are present, in the shipped order, with a default`() {
+        assertEquals(32, FancyStyles.all.size)
         assertEquals(FancyStyles.NORMAL_ID, FancyStyles.all.first().id)
         assertEquals("bold", FancyStyles.all[1].id)
-        assertEquals("underline", FancyStyles.all.last().id)
+        // The tail of the original 22, then the tail of the whole table: the
+        // order is append-only, and both ends pin it.
+        assertEquals("underline", FancyStyles.all[22].id)
+        assertEquals("bypass", FancyStyles.all.last().id)
         assertNotNull(FancyStyles.byId(FancyStyles.DEFAULT_ID))
         assertEquals(FancyStyles.all.size, FancyStyles.all.distinctBy { it.id }.size)
     }
@@ -78,6 +81,33 @@ class FancyStylesTest {
         val fraktur = FancyStyles.byId("fraktur")!!
         assertEquals("123 ,.!? ৳", FancyStyles.transform("123 ,.!? ৳", fraktur))
         assertEquals("", FancyStyles.transform("", fraktur))
+    }
+
+    @Test
+    fun `upside down text is laid out back to front`() {
+        val upsideDown = FancyStyles.byId("upside_down")!!
+        // Rotated glyphs alone would spell it backwards to anyone who turns
+        // the phone round; reversing the order is what makes it read.
+        assertEquals("uʍop", FancyStyles.transform("down", upsideDown))
+        // Reversal is by mapped unit, not by char: B maps to an astral pair,
+        // and reversing chars would split it into two orphaned surrogates.
+        val b = upsideDown.upper.getValue('B')
+        assertEquals(2, b.length)
+        assertEquals(b, FancyStyles.transform("B", upsideDown))
+        assertEquals(upsideDown.lower.getValue('a') + b, FancyStyles.transform("Ba", upsideDown))
+    }
+
+    @Test
+    fun `bypass separates visible characters and leaves whitespace alone`() {
+        val bypass = FancyStyles.byId("bypass")!!
+        assertEquals("a\u200Bb\u200Bc", FancyStyles.transform("abc", bypass))
+        // No separator either side of a space: the text already breaks there.
+        assertEquals("a\u200Bb c\u200Bd", FancyStyles.transform("ab cd", bypass))
+        // Digits and punctuation map to themselves and are still held apart —
+        // a filter matching "a1!" must not see three adjacent characters.
+        assertEquals("a\u200B1\u200B!", FancyStyles.transform("a1!", bypass))
+        assertEquals("a", FancyStyles.transform("a", bypass))
+        assertEquals("", FancyStyles.transform("", bypass))
     }
 
     @Test
