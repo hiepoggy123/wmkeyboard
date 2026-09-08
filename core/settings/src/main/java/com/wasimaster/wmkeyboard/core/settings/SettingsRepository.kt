@@ -805,6 +805,61 @@ enum class GlidePickerSensitivity(@StringRes val labelRes: Int, val margin: Doub
     EVERY_PAUSE(R.string.core_settings_glide_picker_every_pause_label, Double.POSITIVE_INFINITY),
 }
 
+/**
+ * Whose words a swipe may answer with — the other half of the question
+ * [GlideVocabulary] answers on the frequency axis.
+ *
+ * A swipe is a weak signal, so what it competes against decides its accuracy.
+ * [GlideVocabulary] takes the rare tail out of the search; this can take the
+ * *dictionary* out of it, leaving only the words this user has actually
+ * written. On a synthetic user whose vocabulary is a 2,000-word sample of the
+ * shipped list and whose personal lexicon is that vocabulary, over typical and
+ * sloppy strokes:
+ *
+ * | policy         | on words they write | on words they have not |
+ * |----------------|---------------------|------------------------|
+ * | [NORMAL]       | .9188               | .9125                  |
+ * | [LEARNED_ONLY] | .9750               | .0000                  |
+ *
+ * Five and a half points on everything they write, and nothing at all on
+ * anything they do not. The trade only pays while fewer than about one swipe in
+ * twenty is for a word the keyboard has not learned
+ * (`GlideSandboxLadder.ONLY_AT_NEW_WORD_RATE`), which is a fact about the
+ * person rather than about the decoder — hence a setting, [AUTOMATIC] to
+ * measure it, and [NORMAL] as the default.
+ *
+ * A swipe that lands the wrong word is never a dead end under any of these:
+ * backspacing it re-decodes the same stroke against every word there is, which
+ * is the manual search these policies are designed around.
+ */
+enum class GlideSandbox(@StringRes val labelRes: Int) {
+    /** Every source at its own weight — what the decoder has always done. */
+    NORMAL(R.string.core_settings_glide_sandbox_normal_label),
+
+    /**
+     * Both decodes run and the learned words' answer is taken when it fits at
+     * least as well, while the keyboard counts how often they could have
+     * answered alone.
+     *
+     * Worth no accuracy on its own and not meant to be — it is how [AUTOMATIC]
+     * finds out whether [LEARNED_ONLY] would suit this user. Pickable directly
+     * for anyone who wants the measurement without the ladder.
+     */
+    PREFER_LEARNED(R.string.core_settings_glide_sandbox_prefer_label),
+
+    /** Only the learned words. The dictionary never runs. */
+    LEARNED_ONLY(R.string.core_settings_glide_sandbox_only_label),
+
+    /**
+     * Climbs from [NORMAL] to [PREFER_LEARNED] once the personal lexicon is
+     * large enough to be a vocabulary, and from there to [LEARNED_ONLY] once
+     * the measurement says it is answering nearly every swipe. Each step is
+     * offered rather than taken: a policy that changes what a swipe types
+     * should not do it behind the user's back.
+     */
+    AUTOMATIC(R.string.core_settings_glide_sandbox_automatic_label),
+}
+
 /** What the history tab of the emoji panel shows. */
 enum class EmojiTabMode { RECENTS, MOST_USED }
 
@@ -2509,6 +2564,9 @@ const val GLIDE_OUTCOMES_FILE = "learning/glide_outcomes.json"
 /** How the user draws each word (see `GlideShapeStore` in :core:prediction). */
 const val GLIDE_SHAPES_FILE = "learning/glide_shapes.json"
 
+/** How far up the sandbox ladder the user has climbed (see `GlideSandboxLadder` in :core:prediction). */
+const val GLIDE_SANDBOX_FILE = "learning/glide_sandbox.json"
+
 /**
  * Everything the "learn my swipe style" switch governs and its Forget deletes:
  * the stores a kept swipe teaches, apart from the word itself.
@@ -4018,6 +4076,11 @@ data class GestureSettings(
      */
     val vocabulary: GlideVocabulary = GlideVocabulary.LARGE,
     /**
+     * Whose words a swipe may answer with — see [GlideSandbox].
+     * [GlideSandbox.NORMAL] by default, which is what the decoder always did.
+     */
+    val sandbox: GlideSandbox = GlideSandbox.NORMAL,
+    /**
      * Learn this user's swipe style from the swipes they keep, and read later
      * swipes by it (issue #52): where their finger actually lands on each
      * key, so a thumb that always cuts the far keys short stops paying for
@@ -5179,6 +5242,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_WORD_PREVIEW_TEXT_COLOR = longPreferencesKey("gesture_word_preview_text_color")
         private val GESTURE_STRIP_PREVIEW_ONLY = booleanPreferencesKey("gesture_strip_preview_only")
         private val GESTURE_VOCABULARY = stringPreferencesKey("gesture_vocabulary")
+        private val GESTURE_SANDBOX = stringPreferencesKey("gesture_sandbox")
         private val GESTURE_LEARN_SWIPE_STYLE = booleanPreferencesKey("gesture_learn_swipe_style")
         private val GESTURE_SWIPE_STYLE_VERSION = intPreferencesKey("gesture_swipe_style_version")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
@@ -6198,6 +6262,9 @@ class SettingsRepository(private val context: Context) {
                 vocabulary = p[GESTURE_VOCABULARY]
                     ?.let { runCatching { GlideVocabulary.valueOf(it) }.getOrNull() }
                     ?: defaults.gesture.vocabulary,
+                sandbox = p[GESTURE_SANDBOX]
+                    ?.let { runCatching { GlideSandbox.valueOf(it) }.getOrNull() }
+                    ?: defaults.gesture.sandbox,
                 learnSwipeStyle = p[GESTURE_LEARN_SWIPE_STYLE] ?: defaults.gesture.learnSwipeStyle,
                 swipeStyleVersion = p[GESTURE_SWIPE_STYLE_VERSION] ?: defaults.gesture.swipeStyleVersion,
             ),
@@ -10342,6 +10409,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureVocabulary(value: GlideVocabulary) =
         editPrefs { it[GESTURE_VOCABULARY] = value.name }
+
+    suspend fun setGestureSandbox(value: GlideSandbox) =
+        editPrefs { it[GESTURE_SANDBOX] = value.name }
 
     suspend fun setSpaceShortSwipe(value: SpaceSwipeAction) =
         editPrefs { it[SPACE_SHORT_SWIPE] = value.name }

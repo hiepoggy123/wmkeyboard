@@ -769,6 +769,15 @@ class SuggestionEngine(
      * [GLIDE_DEEP_POOL] words instead of [GLIDE_RERANK_POOL], so the walk runs
      * further down the lattice before its floor closes. Slower and noisier
      * than the ordinary decode, which is why it waits to be asked.
+     *
+     * [tiers] narrows which word sources answer at all, for the sandbox
+     * policies (see `GlideSandboxPolicy`): null is every source, the ordinary
+     * decode. A stroke decoded against
+     * [FuzzyBeamSearch.Tier.USER] alone is answering out of the words this
+     * user has actually written, which is the whole point — a dictionary that
+     * is not in the search cannot out-fit the word that was meant. Ignored on
+     * a romanized layout, where the sources are the romanization's own and the
+     * tiers of the word lists behind it are not a distinction the index keeps.
      */
     @Suppress("LongParameterList")
     fun glide(
@@ -781,13 +790,20 @@ class SuggestionEngine(
         recentWords: List<String> = emptyList(),
         deep: Boolean = false,
         shapes: GlideShapeSource? = null,
+        tiers: Set<FuzzyBeamSearch.Tier>? = null,
     ): List<GlideBeam.Candidate> {
         val romanization = glideRomanization
+        val sources = if (romanization.isEmpty) {
+            walkSources().let { all -> if (tiers == null) all else all.filter { it.tier in tiers } }
+        } else {
+            romanization.walkSources()
+        }
+        if (sources.isEmpty()) return emptyList()
         val decoded = (if (deep) deepGlideBeam else glideBeam).decode(
             path = path,
             keys = keys,
             keyWidth = keyWidth,
-            sources = if (romanization.isEmpty) walkSources() else romanization.walkSources(),
+            sources = sources,
             ws = glideWorkspace.get(),
             limit = maxOf(limit, if (deep) GLIDE_DEEP_POOL else GLIDE_RERANK_POOL),
             shapes = shapes,

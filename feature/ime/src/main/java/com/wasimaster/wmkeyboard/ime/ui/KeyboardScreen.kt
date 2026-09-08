@@ -164,6 +164,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalConfiguration
+import com.wasimaster.wmkeyboard.core.prediction.GlideSandboxPolicy
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.sizingValuesFor
@@ -2312,6 +2313,9 @@ private fun TopBar(
         // And so does a word asking to be learned: it arrives on the space
         // that ended the word, with the candidates for that word gone.
         state.learnOffer != null ||
+        // As does the sandbox ladder's chip, which arrives at the same moment
+        // and in the same place.
+        state.sandboxOffer != null ||
         // A morse sequence being tapped out counts as strip content: the
         // toolbar taking the row would hide the one live view of the chord.
         // Its SOS easter-egg note counts the same way, or the toolbar would
@@ -3008,6 +3012,32 @@ private fun TopBar(
                     },
                 )
                 if (!learnShares) return@Row
+            }
+            // The sandbox ladder asking whether to climb a rung. Behind the
+            // other two: it is about a setting rather than about the text on
+            // screen, so it waits until nothing more immediate is asking.
+            val sandboxOffer = state.sandboxOffer
+            if (snippetOffer == null && learnOffer == null && sandboxOffer != null) {
+                val sandboxShares = suggestionsShowing || state.smart != null
+                OfferChip(
+                    label = stringResource(
+                        when (sandboxOffer) {
+                            GlideSandboxPolicy.LEARNED_ONLY -> R.string.ime_sandbox_offer_only
+                            else -> R.string.ime_sandbox_offer_prefer
+                        }
+                    ),
+                    icon = Icons.Outlined.AutoAwesome,
+                    declineDescription = stringResource(R.string.ime_sandbox_offer_never_desc),
+                    onAccept = { onStripOfferAction(StripOfferAction.Accept()) },
+                    onDecline = { onStripOfferAction(StripOfferAction.Decline) },
+                    stretch = !sandboxShares,
+                    modifier = if (sandboxShares) {
+                        Modifier.widthIn(max = 210.dp).padding(horizontal = 4.dp)
+                    } else {
+                        Modifier.weight(1f).padding(horizontal = 4.dp)
+                    },
+                )
+                if (!sandboxShares) return@Row
             }
             // A recognised sum/conversion answers the text directly, so it
             // takes the whole strip the way autofill chips do. A keyword
@@ -4403,6 +4433,33 @@ private fun LearnWordChip(
     onDecline: () -> Unit,
     modifier: Modifier = Modifier,
     stretch: Boolean = false,
+) = OfferChip(
+    label = stringResource(R.string.ime_learn_word_offer, word),
+    icon = Icons.Outlined.LibraryAdd,
+    declineDescription = stringResource(R.string.ime_learn_word_never_desc, word),
+    onAccept = onAccept,
+    onDecline = onDecline,
+    modifier = modifier,
+    stretch = stretch,
+)
+
+/**
+ * The strip's ask-first chip: a line of text, a tap to accept, a cross to
+ * decline.
+ *
+ * One composable rather than one per question, so the add-word chip and the
+ * sandbox chip cannot drift apart visually — they sit in the same place on the
+ * same row and a user should read them as the same kind of thing.
+ */
+@Composable
+private fun OfferChip(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    declineDescription: String,
+    onAccept: () -> Unit,
+    onDecline: () -> Unit,
+    modifier: Modifier = Modifier,
+    stretch: Boolean = false,
 ) {
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
@@ -4437,14 +4494,14 @@ private fun LearnWordChip(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    Icons.Outlined.LibraryAdd,
+                    icon,
                     contentDescription = null,
                     tint = tint,
                     modifier = Modifier.size(13.dp),
                 )
             }
             Text(
-                text = stringResource(R.string.ime_learn_word_offer, word),
+                text = label,
                 // Strip text, not key text: the chip sits on the board, and a
                 // theme may ink its keys against it.
                 color = kb.suggestionText,
@@ -4474,7 +4531,7 @@ private fun LearnWordChip(
         ) {
             Icon(
                 Icons.Outlined.Close,
-                contentDescription = stringResource(R.string.ime_learn_word_never_desc, word),
+                contentDescription = declineDescription,
                 tint = tint.copy(alpha = 0.7f),
                 modifier = Modifier.size(15.dp),
             )
