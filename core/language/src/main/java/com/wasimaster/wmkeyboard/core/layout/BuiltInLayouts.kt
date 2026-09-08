@@ -41,6 +41,8 @@ object BuiltInLayouts {
     const val GREEK_ID = "builtin_greek"
     const val HEBREW_ID = "builtin_hebrew"
     const val HINDI_ID = "builtin_hindi"
+    const val T9_ID = "builtin_t9"
+    const val COMPACT_ID = "builtin_compact"
 
     const val DEFAULT_ID = QWERTY_ID
 
@@ -272,6 +274,68 @@ object BuiltInLayouts {
     )
 
     /**
+     * T9: the phone keypad, three or four letters to a key, decoded by the
+     * language model rather than by multi-tap (discussion #103).
+     *
+     * The reason to want it is key size — eight letter keys across a board that
+     * usually carries twenty-six — and the reason it has not been possible on
+     * an AOSP-derived keyboard is that those decoders are 1:1: one keystroke,
+     * one letter. Ours is not, since [Key.letters]; what a tap commits is the
+     * key's anchor letter and what the word means is decided at the space.
+     *
+     * The grid is the keypad as phones drew it, digit hints and all: `1` is the
+     * punctuation key it always was, `2`–`9` carry the alphabet in the ITU
+     * E.161 grouping every phone since 1994 has used, and each key's digit is
+     * its first long-press alternate — so the corner hint reads like a keypad
+     * and holding a key types the digit. The letters follow it in the popup,
+     * which is how a name, a password or any word the dictionary has never seen
+     * gets spelled out one letter at a time: a letter picked from the popup is
+     * committed as itself and decodes as itself.
+     *
+     * Delete, shift and enter take a fourth column rather than a bottom row of
+     * their own, which is what keeps the letter keys at a quarter of the width
+     * of the board and the whole grid at four rows.
+     *
+     * Symbols are the shipped ten-column page, not a keypad-shaped one of its
+     * own. Deliberately: `?123` is where a user goes for a character that has
+     * to be exactly right, and that page being the same page on every layout is
+     * worth more than the grid keeping its width across a layer change.
+     */
+    val T9 = LayoutSpec(
+        id = T9_ID,
+        name = "T9",
+        langId = "en",
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(t9Rows)),
+        // Nothing about a four-column keypad wants Tab, caps lock and a
+        // mirrored shift bolted around it on a tablet.
+        tabletExpand = false,
+    )
+
+    /**
+     * Compact QWERTY: the same letters in the same order, two to a key, five
+     * keys to a row (discussion #103). Smart Keyboard Pro shipped this and
+     * little else has.
+     *
+     * QWERTY's own row breaks are kept — `qwertyuiop` / `asdfghjkl` / `zxcvbnm`
+     * — so a finger that knows where a letter lives still finds it; only the
+     * pairing is new. `l` and `m` end their rows alone, because nine and seven
+     * are odd numbers.
+     *
+     * Shift and delete are half-width, and on this grid that is not cramped: a
+     * column here is two QWERTY columns, so half of one is exactly a normal
+     * key. The bottom row is QWERTY's, every width halved, which puts the
+     * spacebar, enter and `?123` at the same fraction of the board they occupy
+     * on every other layout.
+     */
+    val COMPACT = LayoutSpec(
+        id = COMPACT_ID,
+        name = "Compact QWERTY",
+        langId = "en",
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(compactRows)),
+        tabletExpand = false,
+    )
+
+    /**
      * Every compiled-in layout, in shipped order — even where two share a grid
      * (AZERTY and French are the same keys under different languages). This is
      * the boot-critical set drawn on the first frame; the JSON [AssetLayouts]
@@ -279,7 +343,7 @@ object BuiltInLayouts {
      */
     val all: List<LayoutSpec> = listOf(
         QWERTY, AZERTY, DVORAK, COLEMAK, WORKMAN, HALMAK, AVRO, PROBHAT, JATIYA, FRENCH,
-        GERMAN, SPANISH, KOREAN, RUSSIAN, ARABIC, GREEK, HEBREW, HINDI,
+        GERMAN, SPANISH, KOREAN, RUSSIAN, ARABIC, GREEK, HEBREW, HINDI, T9, COMPACT,
     )
 
     fun byId(id: String): LayoutSpec? = all.firstOrNull { it.id == id }
@@ -339,17 +403,56 @@ object BuiltInLayouts {
 // exposes each one.
 // ---------------------------------------------------------------------------
 
-private fun bottomRow(symbols: Boolean = false) = listOf(
+/**
+ * The row every layout ends with: mode, comma, globe, space, full stop, enter.
+ *
+ * [scale] multiplies every width, for a grid narrower than the usual ten
+ * columns — a five-column compact board takes 0.5 and gets a bottom row that
+ * occupies exactly the fractions of the board this one does at full size, which
+ * is what keeps the spacebar and the enter key where the hand expects them
+ * whatever the grid above is doing.
+ */
+private fun bottomRow(symbols: Boolean = false, scale: Float = 1f) = listOf(
     Key(
         if (symbols) "ABC" else "?123",
         action = if (symbols) KeyAction.Letters else KeyAction.Symbols,
-        width = 1.5f,
+        width = 1.5f * scale,
     ),
-    Key(",", role = KeyRole.Comma, longPress = listOf("!", "?")),
-    Key("🌐", action = KeyAction.LanguageSwitch),
-    Key(" ", action = KeyAction.Space, width = 4f),
-    Key(".", role = KeyRole.Period, longPress = listOf("…", ",", "?", "!", ":", ";", "।")),
-    Key("⏎", action = KeyAction.Enter, width = 1.5f),
+    Key(",", role = KeyRole.Comma, longPress = listOf("!", "?"), width = scale),
+    Key("🌐", action = KeyAction.LanguageSwitch, width = scale),
+    Key(" ", action = KeyAction.Space, width = 4f * scale),
+    Key(
+        ".",
+        role = KeyRole.Period,
+        longPress = listOf("…", ",", "?", "!", ":", ";", "।"),
+        width = scale,
+    ),
+    Key("⏎", action = KeyAction.Enter, width = 1.5f * scale),
+)
+
+/**
+ * One key of an ambiguous grid: [group] is every letter it stands for, and the
+ * first of them is the anchor it actually commits.
+ *
+ * The label is the group in capitals, which is both how every keypad and
+ * compact board has ever drawn it and the only honest thing to draw — the key
+ * is a set, not a character, so there is no case for shift to track. (The
+ * renderer leaves a multi-character label alone for exactly that reason.)
+ *
+ * [hint] rides at the front of the long-press popup, so the corner shows a
+ * keypad's digit where there is one; the letters follow it, and picking one
+ * spells it outright — the escape hatch for every word the dictionary does not
+ * know. [longPress] takes anything the key should carry after those.
+ */
+private fun ambiguousKey(
+    group: String,
+    hint: String? = null,
+    longPress: List<String> = emptyList(),
+) = Key(
+    label = group.uppercase(),
+    output = group.take(1),
+    letters = group,
+    longPress = listOfNotNull(hint) + group.map { it.toString() } + longPress,
 )
 
 private val qwertyRows = listOf(
@@ -979,3 +1082,82 @@ private val dateTimeRows = numpad(
  * pure data, and the unit tests read it without a device.
  */
 private fun fnKey(label: String, code: Int) = Key(label, action = KeyAction.SendKey(code))
+
+/**
+ * The T9 keypad. Four columns: the ITU E.161 letter groups in the left three,
+ * the keys that are not letters in the fourth.
+ *
+ * `1` is the punctuation key, as it was on the phones this grid comes from —
+ * it commits a full stop and carries the rest behind a hold, which is where a
+ * comma, a question mark and the apostrophe every contraction needs live. It
+ * is a plain 1:1 key: there is nothing for a language model to disambiguate
+ * about punctuation, and a key set of one decodes as the character it is.
+ *
+ * Every row totals four, so the grid draws at one width throughout.
+ */
+private val t9Rows = listOf(
+    listOf(
+        Key(
+            ".,?",
+            output = ".",
+            role = KeyRole.Period,
+            longPress = listOf("1", ",", "?", "!", "'", "-", ":", ";"),
+        ),
+        ambiguousKey("abc", hint = "2"),
+        ambiguousKey("def", hint = "3"),
+        Key("⌫", action = KeyAction.Delete),
+    ),
+    listOf(
+        ambiguousKey("ghi", hint = "4"),
+        ambiguousKey("jkl", hint = "5"),
+        ambiguousKey("mno", hint = "6"),
+        Key("⇧", action = KeyAction.Shift),
+    ),
+    listOf(
+        ambiguousKey("pqrs", hint = "7"),
+        ambiguousKey("tuv", hint = "8"),
+        ambiguousKey("wxyz", hint = "9"),
+        Key("⏎", action = KeyAction.Enter),
+    ),
+    listOf(
+        Key("?123", action = KeyAction.Symbols),
+        Key("🌐", action = KeyAction.LanguageSwitch),
+        Key(" ", action = KeyAction.Space, width = 2f),
+    ),
+)
+
+/**
+ * Compact QWERTY: QWERTY's three letter rows folded two letters to a key.
+ *
+ * The digits keep the positions they hold on the full board — `1` under the
+ * key that starts with `q`, `0` under the one that ends with `p` — so the
+ * long-press digits still read left to right across the top row, even though
+ * there are now five keys carrying ten of them.
+ *
+ * Every row totals five.
+ */
+private val compactRows = listOf(
+    listOf(
+        ambiguousKey("qw", hint = "1", longPress = listOf("2")),
+        ambiguousKey("er", hint = "3", longPress = listOf("4", "è", "é", "ê", "ë")),
+        ambiguousKey("ty", hint = "5", longPress = listOf("6")),
+        ambiguousKey("ui", hint = "7", longPress = listOf("8", "ù", "ú", "û", "ü", "î", "ï")),
+        ambiguousKey("op", hint = "9", longPress = listOf("0", "ò", "ó", "ô", "ö")),
+    ),
+    listOf(
+        ambiguousKey("as", longPress = listOf("@", "#", "à", "á", "â", "ä", "å", "ß")),
+        ambiguousKey("df", longPress = listOf("$", "_")),
+        ambiguousKey("gh", longPress = listOf("&", "-")),
+        ambiguousKey("jk", longPress = listOf("+", "(")),
+        Key("L", output = "l", longPress = listOf(")")),
+    ),
+    listOf(
+        Key("⇧", action = KeyAction.Shift, width = 0.5f),
+        ambiguousKey("zx", longPress = listOf("*", "\"", "ż", "ź")),
+        ambiguousKey("cv", longPress = listOf("'", ":", "ç", "ć")),
+        ambiguousKey("bn", longPress = listOf(";", "!", "ñ", "ń")),
+        Key("M", output = "m", longPress = listOf("?")),
+        Key("⌫", action = KeyAction.Delete, width = 0.5f),
+    ),
+    bottomRow(scale = 0.5f),
+)

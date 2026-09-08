@@ -63,9 +63,15 @@ class FuzzyBeamSearch {
         maxEdits: Int = defaultMaxEdits(typed.length),
         touch: TouchScoring? = null,
         habits: EditHabits = EditHabits.NONE,
+        keys: KeySets? = null,
     ): List<ScoredCandidate> {
         if (typed.isEmpty() || limit <= 0) return emptyList()
         val k = maxOf(limit * 2, AUTOCORRECT_K)
+        // Typo correction stacked on key ambiguity is speculation squared, and
+        // it is what makes the frontier explode: a three-way key already fans
+        // every position, and letting each of those fan again exhausts MAX_POPS
+        // on a five-letter word before the real reading is ever emitted.
+        val edits = if (keys?.isAmbiguous == true) minOf(maxEdits, AMBIGUOUS_MAX_EDITS) else maxEdits
         val results = HashMap<String, ScoredCandidate>()
         var floor = Double.NEGATIVE_INFINITY
 
@@ -77,7 +83,9 @@ class FuzzyBeamSearch {
         for (src in ordered) {
             val rootBound = src.logWeight + ln1p(src.walker.maxSubtree(src.walker.root))
             if (rootBound < floor - EPS) continue
-            floor = searchOne(src, typed, proximity, maxEdits, k, results, floor, workspace, touch, habits)
+            floor = searchOne(
+                src, typed, proximity, edits, k, results, floor, workspace, touch, habits, keys,
+            )
         }
 
         return results.values.sortedWith(
@@ -97,6 +105,7 @@ class FuzzyBeamSearch {
         ws: BeamWorkspace,
         touch: TouchScoring?,
         habits: EditHabits,
+        keys: KeySets?,
     ): Double {
         var floor = floorIn
         val walker = src.walker
@@ -148,25 +157,52 @@ class FuzzyBeamSearch {
             }
 
             val expected = typed[pos]
-            // Exact match of the next typed char. With touch evidence, an
-            // off-center tap makes even the "match" slightly expensive —
-            // which is exactly what lets the neighbouring key's word win.
-            val matched = walker.child(node, expected)
-            if (matched >= 0) {
-                pushIfViable(
-                    ws, src, walker, floor,
-                    node = matched, pos = pos + 1,
-                    cost = cost + matchCost(touch, pos, expected),
-                    editSpend = editSpend,
-                    edits = edits, comp = comp, parent = s, viaLabel = expected,
-                )
+            // The letters this keystroke could have meant, on a keyboard that
+            // puts several on a key; null on every ordinary board.
+            val keySet = keys?.at(pos)
+            if (keySet == null) {
+                // Exact match of the next typed char. With touch evidence, an
+                // off-center tap makes even the "match" slightly expensive —
+                // which is exactly what lets the neighbouring key's word win.
+                val matched = walker.child(node, expected)
+                if (matched >= 0) {
+                    pushIfViable(
+                        ws, src, walker, floor,
+                        node = matched, pos = pos + 1,
+                        cost = cost + matchCost(touch, pos, expected),
+                        editSpend = editSpend,
+                        edits = edits, comp = comp, parent = s, viaLabel = expected,
+                    )
+                }
+            } else {
+                // Every letter on the pressed key matches, free and unedited.
+                // Free is the honest price: the user pressed one key and all of
+                // its letters are equally what they asked for, so nothing here
+                // is a mistake to be charged for. What separates the readings
+                // afterwards is the language model — frequency, the n-gram
+                // context, the personal lexicon — which is exactly how a T9
+                // phone ranked them, and why "good" beats "gone" beats "hood"
+                // for one and the same run of keys.
+                val count = walker.childrenInto(node, ws.children)
+                for (i in 0 until count) {
+                    val label = ws.children.labels[i]
+                    if (!keySet.contains(label)) continue
+                    pushIfViable(
+                        ws, src, walker, floor,
+                        node = ws.children.nodes[i], pos = pos + 1,
+                        cost = cost + matchCost(touch, pos, label),
+                        editSpend = editSpend,
+                        edits = edits, comp = comp, parent = s, viaLabel = label,
+                    )
+                }
             }
 
             if (edits < maxEdits && editSpend < MAX_EDIT_COST) {
                 // Budget gates compare base edit costs; the second-edit
                 // surcharge and touch/match adjustments are ranking signal,
                 // not budget spend.
-                val surcharge = if (edits + 1 >= 2) SECOND_EDIT_SURCHARGE else 0.0
+                val surcharge = (if (edits + 1 >= 2) SECOND_EDIT_SURCHARGE else 0.0) +
+                    if (keys?.isAmbiguous == true) AMBIGUOUS_EDIT_SURCHARGE else 0.0
                 // Deletion: the typed char was an extra keypress — skip it.
                 // A char that doubles its neighbour ("helllo", key auto-repeat)
                 // is the classic double-strike slip and costs far less than
@@ -195,7 +231,13 @@ class FuzzyBeamSearch {
                 for (i in 0 until count) {
                     val label = ws.children.labels[i]
                     val child = ws.children.nodes[i]
-                    if (label != expected) {
+                    // A letter the pressed key carries was already taken as a
+                    // match above. Charging it again as a substitution would
+                    // enter the same word twice, once at an edit distance it
+                    // never travelled — and the edited copy would be the one
+                    // the "known word suppresses corrections" gate throws away.
+                    val onKey = keySet != null && keySet.contains(label)
+                    if (label != expected && !onKey) {
                         val subCost = discounted(
                             substitutionCost(touch, pos, expected, label, proximity),
                             habits.substitution(expected, label),
@@ -230,7 +272,13 @@ class FuzzyBeamSearch {
                         )
                     }
                 }
-                // Transposition of the next two typed chars.
+                // Transposition of the next two typed chars. Skipped where
+                // either keystroke is ambiguous: the characters in the buffer
+                // there are anchors, not what the user typed, so swapping them
+                // asks the trie about a pair of letters nobody chose. Swapping
+                // the key *sets* is the meaningful operation and no word needs
+                // it — a transposed pair on an ambiguous board is two keys the
+                // decode already reads in both orders.
                 //
                 // Priced by the hands the two keys belong to. A transposition is
                 // two keystrokes arriving out of order, and the hands are what
@@ -246,6 +294,7 @@ class FuzzyBeamSearch {
                     COST_TRANSPOSITION
                 }
                 if (pos + 1 < n && typed[pos] != typed[pos + 1] &&
+                    keySet == null && keys?.at(pos + 1) == null &&
                     editSpend + transposeCost <= MAX_EDIT_COST
                 ) {
                     val first = walker.child(node, typed[pos + 1])
@@ -435,6 +484,44 @@ class FuzzyBeamSearch {
         private const val EPS = 1e-9
 
         fun defaultMaxEdits(typedLength: Int): Int = if (typedLength >= 5) 2 else 1
+
+        /**
+         * Edits allowed on top of key ambiguity (see [KeySets]).
+         *
+         * One, not two, and the reason is the frontier rather than taste: a
+         * three-letter key already branches every position, and a second edit
+         * branches each of those again — a five-key word reaches [MAX_POPS]
+         * while the walk is still exploring nonsense, and the backstop then
+         * cuts it off before the reading the user meant is ever emitted. One
+         * edit still catches the ordinary slip of hitting the key next door,
+         * which on a keypad of eight big keys is the only slip there is.
+         */
+        const val AMBIGUOUS_MAX_EDITS = 1
+
+        /**
+         * Extra cost on any edit taken while decoding ambiguous keystrokes.
+         *
+         * The ordinary edit prices assume an edit competes against a handful of
+         * readings — on a 1:1 board, the typed letters and nothing else. On a
+         * board with three letters to a key it competes against every reading of
+         * every key, and at those prices it wins far too often: four keys of
+         * "home" would rather drop the first keystroke and answer "one", which
+         * is a commoner word than "home" by more than a deletion costs.
+         *
+         * That is the wrong answer for a reason worth naming. A reading that
+         * spends every keystroke exactly as it was pressed explains the input
+         * completely; one that throws a keystroke away explains it by calling
+         * the user wrong. The first should lose to the second only on
+         * overwhelming evidence — which is what this is: about ln(400), so an
+         * edited reading has to be some four hundred times commoner than the
+         * best honest one before it leads.
+         *
+         * A hard rule ("never rank an edited reading above an unedited one")
+         * was the alternative and does not survive the trip: the strip's own
+         * context boosts re-sort by score afterwards, so an ordering imposed
+         * here would simply be undone. Only a price travels.
+         */
+        const val AMBIGUOUS_EDIT_SURCHARGE = 6.0
 
         private fun ln1p(v: Int): Double = ln(1.0 + v)
     }

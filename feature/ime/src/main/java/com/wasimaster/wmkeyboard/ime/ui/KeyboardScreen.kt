@@ -267,7 +267,7 @@ import androidx.compose.ui.semantics.semantics
 import coil3.compose.AsyncImage
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.ime.R
-import com.wasimaster.wmkeyboard.ime.keySpelling
+import com.wasimaster.wmkeyboard.ime.glideAnchor
 import com.wasimaster.wmkeyboard.ime.Modifiers
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
@@ -423,6 +423,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyAlternate
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
+import com.wasimaster.wmkeyboard.core.layout.letterSet
 import com.wasimaster.wmkeyboard.core.layout.drawnFontScale
 import com.wasimaster.wmkeyboard.core.layout.drawnLabel
 import com.wasimaster.wmkeyboard.core.layout.drawnLabelScale
@@ -11439,22 +11440,34 @@ private fun KeyRows(
                         // them as letters: both consumers of the map that are
                         // about letters filter them back out (see
                         // [GlidePunctuationCodePoints]).
-                        val letter = key.label.takeIf { key.action == KeyAction.Text }
-                            ?.let { keySpelling(it) }?.first()
-                            ?: key.glidePunctuationCodePoint()
+                        val letter = key.glideAnchor() ?: key.glidePunctuationCodePoint()
                         if (letter != null) {
                             val topLeft = coords.positionInRoot() - boxOrigin
-                            keyCenters[Character.toLowerCase(letter)] = Offset(
+                            val center = Offset(
                                 topLeft.x + coords.size.width / 2f,
                                 topLeft.y + coords.size.height / 2f,
                             )
-                            keyBounds[Character.toLowerCase(letter)] = Rect(
+                            val bounds = Rect(
                                 topLeft,
                                 Size(
                                     coords.size.width.toFloat(),
                                     coords.size.height.toFloat(),
                                 ),
                             )
+                            keyCenters[Character.toLowerCase(letter)] = center
+                            keyBounds[Character.toLowerCase(letter)] = bounds
+                            // Every letter of an ambiguous key reports the same
+                            // centre and the same rect, because they are the
+                            // same key. That is what puts all of `abc` into the
+                            // touch model — so the decoder can price a reading
+                            // through any of them — and it costs nothing on the
+                            // 1:1 boards, where the set is the anchor alone.
+                            for (extra in key.letterSet()) {
+                                val code = Character.toLowerCase(extra.code)
+                                if (code == Character.toLowerCase(letter)) continue
+                                keyCenters[code] = center
+                                keyBounds[code] = bounds
+                            }
                         }
                     }
                 }

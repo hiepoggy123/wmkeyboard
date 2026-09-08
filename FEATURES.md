@@ -13,7 +13,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 |---|---|---|---|
 | Typing core: prediction, autocorrect, learning, spell check | 9 | 50 | 182 |
 | Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 191 |
-| Languages, scripts, layouts, transliteration | 11 | 63 | 194 |
+| Languages, scripts, layouts, transliteration | 11 | 64 | 205 |
 | Themes and appearance | 14 | 73 | 179 |
 | Emoji, GIFs, stickers, kaomoji | 16 | 88 | 94 |
 | Toolbar and the tool set | 10 | 82 | 298 |
@@ -23,7 +23,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Accessibility, form factors, platform integration | 13 | 60 | 108 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 201 |
-| **Total** | **132** | **793** | **2104** |
+| **Total** | **132** | **794** | **2115** |
 
 ## Typing core: prediction, autocorrect, learning, spell check
 
@@ -665,9 +665,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Per-script pinned fonts `uncommon` — 25 scripts map to a specific Google font; Music to Noto Music, Braille to Noto Sans Symbols 2
     - Per-script font pickers — Curated alternative families per script, shown only while a language on that script is enabled
     - Per-glyph fallback — A glyph the pinned face lacks falls back to the system font rather than blanking
-- **Keyboard layouts** — 1,274 shipped layouts: 18 compiled built-ins + 1,256 JSON assets (862 of them converted Keyman keyboards)
-  - Shipped catalogue — 18 Kotlin LayoutSpecs (boot-critical) plus 354 .wmlayout.json assets parsed off the main thread
+- **Keyboard layouts** — 1,276 shipped layouts: 20 compiled built-ins + 1,256 JSON assets (862 of them converted Keyman keyboards)
+  - Shipped catalogue — 20 Kotlin LayoutSpecs (boot-critical) plus 354 .wmlayout.json assets parsed off the main thread
     - Latin ergonomic alternates — QWERTY, AZERTY, Dvorak, Colemak, Workman, Halmak built in; BÉPO, Swiss German, LatAm Spanish, Turkish-Q as assets
+    - Ambiguous boards — T9 and Compact QWERTY built in; keys twice to four times the usual size, decoded rather than multi-tapped (#103)
     - Indic InScript family — InScript for Marathi, Nepali, Sanskrit, Telugu, Kannada, Malayalam, Gujarati, Punjabi, Odia, Konkani, Maithili, Bodo, Dogri, Bhojpuri; plus Tamil99 and Sinhala Wijesekara
     - Minority Cyrillic alphabets — Tatar, Bashkir, Chuvash, Chechen, Ossetian, Yakut, Udmurt, Komi, Kalmyk, Tuvan, Buryat, Erzya, Mari, Adyghe, Kabardian, Abkhaz, Avar, Lezgian and more
     - A failed asset costs one language, not the build — Each file is decoded in runCatching; a malformed one is skipped
@@ -685,8 +686,19 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Tablet auto-expansion `RARE` — Render-time transform widens an eligible grid by one column each side and mints Tab, backslash, caps lock, a mirrored shift and arrows
     - Row count never changes — The IME window is sized from layer row counts, so the transform only moves and widens keys
     - Backspace can never go missing — Delete only relocates to the number row when that row is actually drawn
-    - All-or-nothing eligibility — Declines 14 shipped layouts - kana flick pads, braille, morse, the Chinese shape/phonetic pads, and grids with no shift key
+    - All-or-nothing eligibility — Declines 15 shipped layouts - the T9 keypad, kana flick pads, braille, morse, the Chinese shape/phonetic pads, and grids with no shift key
     - Per-layout opt-out — tabletExpand flag, default true, for grids already laid out wide by hand
+  - More than one letter per key `RARE` — Key.letters lets a grid put a set of letters on one key and leave the language model to say which was meant (#103); AOSP-derived keyboards cannot, because their decoders are one keystroke to one letter
+    - Two shipped boards — T9 on the ITU E.161 keypad (8 letter keys, digit hints, 4 columns) and Compact QWERTY (QWERTY's own rows folded two to a key, 5 columns)
+    - The buffer stays one character per keystroke — A tap commits the key's anchor letter, so backspace, the caret, word boundaries and every consumer of the composing buffer are untouched
+    - Key sets ride beside the buffer — A per-keystroke frame, the twin of the tap-position frame, snapshotted with the word and size-checked against it
+    - Free unedited matches — Every letter of the pressed key matches at zero cost and zero edits, so readings are not corrections and survive the "a known word suppresses corrections" gate
+    - Ranked by the language model alone — Frequency, n-gram context, the personal lexicon and the register prior order the readings, exactly as a T9 phone ordered them
+    - Honest readings beat commoner edited ones — Edits cost an extra ln(400) here, so throwing a keystroke away needs overwhelming evidence; edits also cap at one, which keeps the frontier from exploding
+    - Long press spells a letter outright — Every letter of a key is in its popup; a picked letter pins that position and decodes as itself, which is how names and unknown words are typed
+    - Commits the reading, not the buffer — No confidence gate: the anchors are not a word, so "leave it as typed" would be the wrong answer rather than the safe one
+    - Glide came free — GlideKeyMap has resolved several characters to one key since Probhat's ক/খ, so a swipe across T9 or the compact grid decodes with no decoder change at all
+    - Proximity and the touch model follow — Neighbours derive between keys rather than letters, and every letter of a key reports that key's measured centre
   - Secondary layouts `RARE` — Grids of your own reached by a key or the Custom layout tool, never by picking a language (#62)
     - LayoutSpec.secondary — Stored beside the other custom layouts; excluded from the language cycle, the OS subtype list and the Languages screen
     - KeyAction.Layout(id) — Shows the named layout over the letters; a second press, ABC, or ?123 leaves it; also works as a press-and-hold alternate

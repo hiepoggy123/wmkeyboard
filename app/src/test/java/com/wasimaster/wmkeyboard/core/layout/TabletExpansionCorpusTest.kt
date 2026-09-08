@@ -8,11 +8,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The tablet expansion, run over every layout the app ships — 18 built in plus
+ * The tablet expansion, run over every layout the app ships — 20 built in plus
  * 1,256 assets, on both tablet forms with the digit row on and off.
  *
  * `TabletExpansionTest` pins the arithmetic on grids it builds by hand; this
- * pins it against reality. The transform relocates keys by role across 1,274
+ * pins it against reality. The transform relocates keys by role across 1,276
  * genuinely different grids — Bengali and Devanagari rows twelve wide, Arabic
  * and Hebrew right-to-left, five-row Khmer, layouts whose top row already
  * overflows their own grid weight — and the only honest way to know it survives
@@ -56,7 +56,7 @@ class TabletExpansionCorpusTest {
 
     @Test
     fun `the corpus is the whole shipped set`() {
-        assertEquals("built-ins plus hand-authored assets", 18 + 397, handAuthored.size)
+        assertEquals("built-ins plus hand-authored assets", 20 + 397, handAuthored.size)
         assertTrue(
             "converted Keyman grids are missing from the corpus",
             corpus.size - handAuthored.size > 800,
@@ -69,7 +69,9 @@ class TabletExpansionCorpusTest {
      * An assertion on the count alone would pass while the transform silently
      * started rejecting Bengali and accepting braille. These twelve are the
      * grids where a wide alphabetic layout is not what the user is looking at:
-     * kana flick pads and braille are typed by position, morse by timing, and
+     * the T9 keypad is four columns of letter *groups* and widening it would
+     * make it a keyboard with nothing to type on, kana flick pads and braille
+     * are typed by position, morse by timing, and
      * the rest have no shift key to mirror.
      *
      * Inuktitut and Syriac used to be on this list and have earned their way
@@ -87,6 +89,7 @@ class TabletExpansionCorpusTest {
 
         assertEquals(
             setOf(
+                "builtin_t9",
                 "braille_chord", "ja_flick", "ja_kana_jis", "morse", "zh_stroke",
                 "ipa", "music", "nqo_nko",
                 "zh_cangjie", "zh_cangjie_quick", "zh_pinyin_t9", "zh_zhuyin",

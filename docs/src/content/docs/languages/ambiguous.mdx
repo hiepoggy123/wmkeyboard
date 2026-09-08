@@ -1,0 +1,99 @@
+---
+title: "T9 & Compact QWERTY"
+description: "Two English layouts that put more than one letter on a key and let the prediction engine work out which one you meant, including glide typing on both."
+sidebar:
+  order: 7
+---
+
+import KeyCap from '@components/KeyCap.astro';
+import SettingsPath from '@components/SettingsPath.astro';
+import PhoneFrame from '@components/PhoneFrame.astro';
+
+Most keyboards give every letter its own key. Twenty-six keys across a phone screen means each one is about a fingertip wide, and that's the size everything else has to fit around.
+
+Two of the shipped layouts don't do that. **T9** puts the alphabet on eight keys, the way phone keypads did. **Compact QWERTY** keeps QWERTY's exact letter order but pairs the keys up, five to a row instead of ten. Both give you keys two to four times the usual size, and both work out what you meant afterwards rather than asking you to be precise.
+
+Neither one starts enabled. Turn them on under <SettingsPath path="Languages & layouts / English" />, where they sit with English's other layouts alongside Dvorak and Colemak.
+
+<PhoneFrame caption="The T9 keypad: eight letter keys, each carrying three or four letters.">
+  {/* shot: languages/ambiguous-t9-field */}
+</PhoneFrame>
+
+## Why other keyboards can't do this
+
+This is the part worth explaining, because it's not a matter of nobody having thought of it.
+
+Almost every Android keyboard descends from AOSP's, and its prediction engine assumes one keystroke is one letter. Type `h`, `e`, `l`, `l`, `o` and it looks up "hello". That assumption is baked deep enough that a key carrying three letters has nothing sensible to hand it, which is why layouts like these vanished when phones got touchscreens. The keyboards that kept them, like Smart Keyboard Pro and Multiling O, wrote their own decoders.
+
+WM Keyboard's decoder walks the dictionary itself rather than the alphabet, so a keystroke doesn't have to be a single letter. It can be a *set* of them, and every word the dictionary can spell from that run of sets comes back as a candidate. Press the keys for `4` `6` `6` `3` and you get "good", "gone", "home", "hood" and the rest, ranked by which one you're most likely to have meant.
+
+## T9
+
+The grid is the keypad you already know. <KeyCap>2</KeyCap> is `abc`, <KeyCap>3</KeyCap> is `def`, and so on up to <KeyCap>9</KeyCap> for `wxyz`. The digit sits in each key's corner, and holding a key types it.
+
+<KeyCap>1</KeyCap> is the punctuation key, same as it was on a phone. It types a full stop, and its long-press holds the comma, question mark, exclamation mark, apostrophe, hyphen, colon and semicolon.
+
+Delete, shift and enter take a column of their own down the right, so the letter keys keep the full quarter of the screen each. The bottom row is <KeyCap>?123</KeyCap>, the globe, and a double-width spacebar.
+
+One key per letter group means you tap a word's length and nothing more. "keyboard" is eight taps, the same eight taps as on any keyboard, but on keys four times the size.
+
+### Reading the word back
+
+The text field shows the best reading as you type, not the raw keys. Tap the four keys of "home" and "home" is what appears (or "good", if that's the commoner word for those keys, in which case "home" is one tap away on the suggestion strip).
+
+Space commits whatever is showing. There's no confidence threshold here the way there is for autocorrect on a normal keyboard, because there's nothing to be conservative about: the keys on their own aren't a word, so committing "the reading" is the only answer that makes sense.
+
+### Words the dictionary doesn't know
+
+Names, passwords, made-up words. Hold the key and its letters are in the popup, after the digit. Pick one and it goes in as itself: that position stops being a guess, and the rest of the word carries on being decoded normally. So you can spell the tricky part of a word by hand and let the keyboard handle the rest.
+
+Anything you spell out this way gets learned like any other word, so you only have to do it a couple of times.
+
+## Compact QWERTY
+
+Same idea, gentler. The rows are QWERTY's own, folded two letters to a key:
+
+| Row | Keys |
+|---|---|
+| Top | `qw` `er` `ty` `ui` `op` |
+| Home | `as` `df` `gh` `jk` `l` |
+| Bottom | `zx` `cv` `bn` `m` |
+
+`l` and `m` end their rows on their own, because nine and seven are odd numbers.
+
+Every letter is still where your thumb expects it, so there's nothing to relearn. Two letters per key is much less ambiguity than three or four, which means the decode is closer to certain and the suggestion strip has less work to do. Shift and delete flank the bottom row at half width, which on this grid is the width of an ordinary QWERTY key.
+
+The digits keep their QWERTY positions in the long-press alternates, so `1` and `2` are both behind the `qw` key and they still read left to right across the top row.
+
+## Glide typing
+
+Both layouts glide, and this is the part that surprises people, because it's rare enough that plenty of long-time T9 users have never seen it work.
+
+It falls out of how glide already worked here. The decoder has always matched a stroke against *keys* rather than letters, because plenty of layouts put more than one character on a key already. Probhat, the Bengali layout, has ক and খ on the same key, and refusing the second one would make most aspirated Bengali words impossible to swipe. So a T9 key carrying `abc` is the same situation with more letters, and the existing decoder handles it without changes.
+
+Draw through the keys of a word and the candidates come back, ordered by the language model the same way tapped words are. On T9 a stroke is genuinely ambiguous (the same path spells "good", "gone" and "home"), so the strip earns its keep. The [glide ambiguity picker](/typing/glide-typing/) helps here too: when two readings are close, it holds the word until you lift so you can choose.
+
+Double letters have the old keypad problem, since a finger can't visit a key twice without leaving it. The decoder allows for it, the way it does on a normal layout.
+
+## What to expect
+
+Straight talk about the trade:
+
+- **Common words are effortless.** "the", "and", "have", "there" come out of the top slot without a thought.
+- **The strip matters more.** On QWERTY you can ignore it for whole sentences. Here it's part of typing, especially on T9, where words like "home" and "good" share every key.
+- **Rare words take a moment.** Anything the dictionary hasn't got needs the long-press spelling, once.
+- **Typo correction still runs, quietly.** Hitting the key next door is still caught, but it's held to a much higher bar than usual: a reading that uses your keystrokes exactly as you pressed them beats one that assumes you slipped, unless the evidence is overwhelming.
+
+The [personal dictionary](/smart/personal-dictionary/) does most of the heavy lifting over time. The more the keyboard knows about how you write, the less ambiguous your keys become.
+
+## Building your own
+
+This isn't limited to the two shipped layouts. Any layout can put a set of letters on a key by giving it a `letters` field in the [layout editor's](/languages/custom-layouts/) raw JSON:
+
+```json
+{ "label": "ABC", "output": "a", "letters": "abc", "longPress": ["2", "a", "b", "c"] }
+```
+
+`letters` is the set the key stands for, and `output` is the one it actually types, which has to be the first letter of the set. Everything else follows: the decoder reads the key sets, glide picks up the letters at that key's centre, and typo proximity works out neighbours between keys instead of between letters.
+
+Four keys, three keys, letters grouped however you like. If you've been meaning to try a layout nobody's built, this is the part that was missing.

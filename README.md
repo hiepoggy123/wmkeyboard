@@ -53,7 +53,7 @@ It is written in Kotlin with Jetpack Compose, keyboard surface included. The cod
 
 | | |
 |---|---|
-| **Languages** | 843 languages and 1,277 layouts from a data-driven registry: native scripts, InScript variants, romanized entries, CJK, even constructed ones. A fresh install picks up whatever your phone is already set to. |
+| **Languages** | 843 languages and 1,279 layouts from a data-driven registry: native scripts, InScript variants, romanized entries, CJK, even constructed ones. A fresh install picks up whatever your phone is already set to. |
 | **Bangla, done right** | Avro-compatible phonetic typing for the Bengali script, with a lenient index, so `asi`, `achi` and `achhi` all land on আছি. Probhat layout too, with aspirates on shift, plus conjunct-aware backspace. |
 | **Prediction** | Trie-lattice beam decoder shared by tapping and glide, n-gram context ranking, likelihood-gated autocorrect, and on-device learning of your words, bigrams and trigrams. |
 | **Emoji and friends** | Emoji 17.0 catalog with semantic search in 125 languages, per-person skin tones, kaomoji, GIFs, stickers, and long-press to send Google's animated emoji. |
@@ -73,7 +73,7 @@ It is written in Kotlin with Jetpack Compose, keyboard surface included. The cod
 |---|---:|---:|---:|
 | Typing core: prediction, autocorrect, learning, spell check | 9 | 49 | 172 |
 | Input behaviour: glide, gestures, cursor, editing, keys | 11 | 72 | 128 |
-| Languages, scripts, layouts, transliteration | 11 | 59 | 186 |
+| Languages, scripts, layouts, transliteration | 11 | 60 | 197 |
 | Themes and appearance | 14 | 73 | 179 |
 | Emoji, GIFs, stickers, kaomoji | 16 | 88 | 93 |
 | Toolbar and the tool set | 10 | 77 | 282 |
@@ -83,7 +83,7 @@ It is written in Kotlin with Jetpack Compose, keyboard surface included. The cod
 | Accessibility, form factors, platform integration | 12 | 56 | 105 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 200 |
-| **Total** | **130** | **766** | **1986** |
+| **Total** | **130** | **767** | **1997** |
 
 Entries marked `RARE` there are things few or no mainstream keyboards ship. There are over 400 of them.
 

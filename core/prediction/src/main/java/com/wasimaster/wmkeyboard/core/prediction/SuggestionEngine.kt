@@ -910,6 +910,8 @@ class SuggestionEngine(
         /** Defensive copy of the tap list; compared structurally (element
          * identity) so in-place mutation of the caller's buffer misses. */
         val touch: List<TouchPoint?>?,
+        /** The key sets the walk read, compared by value for the same reason. */
+        val keys: KeySets?,
         val ranked: List<FuzzyBeamSearch.ScoredCandidate>,
     )
 
@@ -920,13 +922,15 @@ class SuggestionEngine(
         lower: String,
         limit: Int,
         touch: List<TouchPoint?>?,
+        keys: KeySets? = null,
     ): List<FuzzyBeamSearch.ScoredCandidate> {
         val k = maxOf(limit * 2, WALK_K)
         val gen = generation.get()
         val lexGen = userLexicon.mutationCount()
         rankedWalk?.let { cached ->
             if (cached.word == lower && cached.generation == gen &&
-                cached.lexMutations == lexGen && cached.k >= k && cached.touch == touch
+                cached.lexMutations == lexGen && cached.k >= k && cached.touch == touch &&
+                cached.keys == keys
             ) {
                 return cached.ranked
             }
@@ -941,10 +945,10 @@ class SuggestionEngine(
         // k / 2 makes that exactly k.
         val walked = beam.search(
             walkSources(), lower, proximity, k / 2, beamWorkspace.get(),
-            touch = scoring, habits = editHabitsField,
+            touch = scoring, habits = editHabitsField, keys = keys,
         )
         val ranked = dampMismatchedLanguages(walked)
-        rankedWalk = RankedWalk(lower, gen, lexGen, k, touch?.let(::ArrayList), ranked)
+        rankedWalk = RankedWalk(lower, gen, lexGen, k, touch?.let(::ArrayList), keys, ranked)
         return ranked
     }
 
@@ -1450,6 +1454,8 @@ class SuggestionEngine(
      *        for the reranker
      * @param allowRerank whether [reranker] may reorder the head of the list
      *        (never set on the synchronous main-thread call sites)
+     * @param keys which letters each keystroke could have meant, on a keyboard
+     *        that puts several on a key (null on every 1:1 board)
      */
     fun suggest(
         composing: String,
@@ -1460,6 +1466,7 @@ class SuggestionEngine(
         previousWord2: String? = null,
         recentWords: List<String> = emptyList(),
         allowRerank: Boolean = false,
+        keys: KeySets? = null,
     ): List<String> {
         if (composing.isEmpty()) {
             return nextWords(previousWord, previousWord2, limit)
@@ -1469,33 +1476,46 @@ class SuggestionEngine(
         }
 
         val lower = composing.lowercase()
-        val known = inDictionaries(lower) || userLexicon.contains(lower)
+        // On an ambiguous board the buffer holds anchor letters, not what the
+        // user spelled: `adg` is three keypresses, not a word, and asking the
+        // dictionary about it would answer a question nobody asked. Nothing is
+        // ever "known as typed" there, so every reading the walk finds — all of
+        // which come back at zero edits — reaches the strip.
+        val ambiguous = keys?.isAmbiguous == true
+        val known = !ambiguous && (inDictionaries(lower) || userLexicon.contains(lower))
         val merged = HashMap<String, Double>()
 
         // One fuzzy walk covers completions AND corrections over every trie
         // source. Corrections (edited paths) are admitted only when the typed
         // word is unknown, matching the historical gate; pure completions
         // (edits == 0) always participate.
-        for (c in rankedFor(lower, limit, touch)) {
+        for (c in rankedFor(lower, limit, touch, keys)) {
             if (c.edits > 0 && known) continue
             merged.merge(c.word, c.score, ::maxOf)
         }
-        for (s in contacts.complete(lower, limit)) {
-            merged.merge(s.word, flatScore(s.frequency, CONTACT_WEIGHT), ::maxOf)
-        }
-        // Whole contact emails complete from their local part; short prefixes
-        // are ignored so a single letter doesn't dump the address book.
-        if (lower.length >= CONTACT_EMAIL_MIN_PREFIX) {
-            for (email in contactEmails.complete(lower, limit)) {
-                merged.merge(email, flatScore(1, CONTACT_EMAIL_WEIGHT), ::maxOf)
+        // The prefix sources read the buffer literally, so they sit out an
+        // ambiguous decode: `adg` is not the start of anybody's name, and
+        // completing it would be answering about characters the user never
+        // chose. (Reaching contacts and app names through the key sets wants
+        // the walk, not a prefix probe — they are not walk sources yet.)
+        if (!ambiguous) {
+            for (s in contacts.complete(lower, limit)) {
+                merged.merge(s.word, flatScore(s.frequency, CONTACT_WEIGHT), ::maxOf)
             }
-        }
-        for (s in apps.complete(lower, limit)) {
-            merged.merge(s.word, flatScore(s.frequency, APP_WEIGHT), ::maxOf)
-        }
-        if (!known) {
-            for ((split, score) in splitCandidates(lower)) {
-                merged.merge(split, score, ::maxOf)
+            // Whole contact emails complete from their local part; short prefixes
+            // are ignored so a single letter doesn't dump the address book.
+            if (lower.length >= CONTACT_EMAIL_MIN_PREFIX) {
+                for (email in contactEmails.complete(lower, limit)) {
+                    merged.merge(email, flatScore(1, CONTACT_EMAIL_WEIGHT), ::maxOf)
+                }
+            }
+            for (s in apps.complete(lower, limit)) {
+                merged.merge(s.word, flatScore(s.frequency, APP_WEIGHT), ::maxOf)
+            }
+            if (!known) {
+                for ((split, score) in splitCandidates(lower)) {
+                    merged.merge(split, score, ::maxOf)
+                }
             }
         }
 

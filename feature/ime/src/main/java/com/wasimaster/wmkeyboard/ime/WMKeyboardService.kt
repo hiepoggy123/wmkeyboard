@@ -156,6 +156,7 @@ import com.wasimaster.wmkeyboard.core.prediction.KeyTouchModel
 import com.wasimaster.wmkeyboard.core.prediction.WordContext
 import com.wasimaster.wmkeyboard.core.prediction.WordOrigin
 import com.wasimaster.wmkeyboard.core.prediction.WordRevision
+import com.wasimaster.wmkeyboard.core.prediction.KeySets
 import com.wasimaster.wmkeyboard.core.prediction.TouchPoint
 import com.wasimaster.wmkeyboard.core.prediction.LanguageMixConfidence
 import com.wasimaster.wmkeyboard.core.prediction.LearningBuffer
@@ -395,6 +396,7 @@ import com.wasimaster.wmkeyboard.core.keyman.ProcessorKey
 import com.wasimaster.wmkeyboard.core.keyman.ProcessorResult
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.letterSet
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
@@ -799,6 +801,12 @@ open class WMKeyboardService : InputMethodService() {
             // word was never tapped in this session, so it degrades to the
             // adjacency model via an all-null frame.
             composingTouch.clear()
+            // Same boundary, same reason: a re-armed word's characters were
+            // never pressed on this board, so nothing is known about which
+            // keys they came off and the decode falls back to reading them
+            // literally — which is exactly right for text already in the field.
+            composingKeys.clear()
+            ambiguousReading = null
             // Same boundary for the typing-rhythm signal: a fresh (or
             // re-armed) word starts with no rhythm history.
             keystrokeTiming.reset()
@@ -823,6 +831,35 @@ open class WMKeyboardService : InputMethodService() {
     private var pendingTouch: TouchPoint? = null
 
     /**
+     * The letters each character of [composing] could have been, on a board
+     * that puts several on a key (discussion #103) — the exact twin of
+     * [composingTouch], filled by the same append and trusted under the same
+     * size check.
+     *
+     * A key that carries one letter, and a letter the user picked out of a
+     * key's long-press popup, both record just that letter: the position is
+     * then unambiguous and decodes as the plain character it is, which is what
+     * lets a name be spelled out on a keypad that otherwise guesses.
+     */
+    private val composingKeys = ArrayList<String>()
+
+    /** The letters of the key being pressed, consumed by the next append. */
+    private var pendingKeyLetters: String? = null
+
+    /**
+     * The reading last shown for the ambiguous buffer it is paired with.
+     *
+     * Memoised rather than recomputed per call because three callers derive
+     * the field's own text from [composedPreview] — the region write, the
+     * re-attach after an editor restart, and the re-arm on a selection update
+     * — and they compare it against what the field actually holds. A decode is
+     * not a pure function of the buffer (the lexicon moves under it), so
+     * without this the re-attach could read back a different word than the one
+     * it wrote and quietly drop the composition.
+     */
+    private var ambiguousReading: Pair<String, String>? = null
+
+    /**
      * Typing rhythm of the word being composed, for the timing-signal
      * setting: fast bursts ease the autocorrect gate, deliberate typing
      * tightens it. Fed one timestamp per single-character append and reset
@@ -845,6 +882,18 @@ open class WMKeyboardService : InputMethodService() {
         } else {
             null
         }
+
+    /**
+     * The key sets behind the current buffer, or null when every keystroke
+     * meant exactly the character it typed — which is every ordinary keyboard,
+     * and every buffer re-armed from text already in the field.
+     *
+     * Size-checked against the buffer like the tap frame, and for the same
+     * reason: a frame that has fallen out of step with the characters it
+     * describes would decode position 3 with position 2's letters.
+     */
+    private fun composingKeyFrame(): KeySets? =
+        if (composingKeys.size == composing.length) KeySets.of(composingKeys) else null
 
     /** KeyboardScreen: the down position of the tap committing a letter. */
     private fun onKeyTouch(x: Float, y: Float) {
@@ -883,10 +932,22 @@ open class WMKeyboardService : InputMethodService() {
                 repeat(text.length) { composingTouch.add(null) }
             }
         }
+        if (composingKeys.size == composing.length - text.length) {
+            // A one-character append records the pressed key's letters; a
+            // multi-character one (a dead-key fusion, a pasted fragment) is not
+            // a keystroke and each of its characters stands for itself.
+            val letters = pendingKeyLetters
+            if (text.length == 1 && letters != null) {
+                composingKeys.add(letters)
+            } else {
+                for (ch in text) composingKeys.add(ch.toString())
+            }
+        }
         // Only single characters carry rhythm; a multi-char insert (dead
         // keys, pasted fragments) is not a keystroke.
         if (text.length == 1) keystrokeTiming.onKeystroke(SystemClock.uptimeMillis())
         pendingTouch = null
+        pendingKeyLetters = null
     }
 
     /** KeyboardScreen: letter-key centres of the live layout, normalised. */
@@ -1121,6 +1182,12 @@ open class WMKeyboardService : InputMethodService() {
          */
         val certainty: Double = 0.0,
         val complexity: Double = 0.0,
+        /**
+         * The reading an ambiguous board's keystrokes decode to; null on every
+         * 1:1 keyboard. The commit takes it in place of the buffer, which on
+         * such a board holds anchor letters rather than a word.
+         */
+        val ambiguousTop: String? = null,
     )
 
     /**
@@ -5072,6 +5139,14 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         val output = keyOutput(key, _uiState.value)
+        // What this key could have meant, for the append to pair with the
+        // character it commits — the twin of [pendingTouch], and set here for
+        // the same reason: the key is known at the press and gone by the time
+        // the text reaches the buffer. Null for an ordinary key, and null for
+        // an alternate picked out of a popup (which arrives as a synthetic
+        // one-character key), so a long press spells a letter outright on a
+        // board that otherwise guesses.
+        pendingKeyLetters = key.letterSet().takeIf { it.length > 1 }
         // A converted Keyman layout owns its own dead keys, in its own context,
         // where its rules can match them. Running ours as well would apply an
         // accent twice.
@@ -6251,6 +6326,8 @@ open class WMKeyboardService : InputMethodService() {
             }
             composing.setLength(composing.length - length)
             repeat(length) { composingTouch.removeLastOrNull() }
+            repeat(length) { composingKeys.removeLastOrNull() }
+            ambiguousReading = null
             updateComposingText(ic)
             refreshSuggestions()
         } else if (isNullField()) {
@@ -6781,6 +6858,8 @@ open class WMKeyboardService : InputMethodService() {
         if (composing.isNotEmpty()) {
             composing.setLength(0)
             composingTouch.clear()
+            composingKeys.clear()
+            ambiguousReading = null
             keystrokeTiming.reset()
             updateComposingText(ic)
             refreshSuggestions()
@@ -7811,11 +7890,48 @@ open class WMKeyboardService : InputMethodService() {
      * as this buffer's output derives it from here for that reason.
      */
     private fun composedPreview(state: KeyboardUiState, buffer: String): String {
+        if (state.layouts.ambiguousKeys && buffer.isNotEmpty()) {
+            ambiguousReading?.takeIf { it.first == buffer }?.let { return it.second }
+            val reading = ambiguousDecode(buffer) ?: buffer
+            ambiguousReading = buffer to reading
+            return reading
+        }
         if (!state.composer.isTransliterating) return buffer
         if (state.composer.isBengaliPhonetic) {
             suggestionEngine?.bengaliSpelling(buffer)?.let { return it }
         }
         return state.composer.composeBuffer(buffer)
+    }
+
+    /**
+     * The best reading of an ambiguous buffer: what the user has actually
+     * spelled with the keys they pressed, where the buffer itself holds only
+     * the anchor letter of each.
+     *
+     * Null when nothing decodes — a run of keys no word starts with — and the
+     * caller then shows the anchors, which is at least a truthful count of the
+     * keystrokes and is what a long press has to be used to fix.
+     *
+     * Synchronous, and on the main thread, which is deliberate. On a board with
+     * three letters to a key the reading is not a suggestion sitting beside the
+     * text — it *is* the text, the only feedback that the keypress landed on
+     * the right word, and a reading that arrives a frame late reads as the
+     * keyboard dropping keystrokes. The walk it costs is the one the strip's
+     * async pass is about to make anyway, and it makes it against the same
+     * buffer, the same taps and the same key sets — so that pass finds it in
+     * the engine's ranked-walk cache rather than repeating it.
+     */
+    private fun ambiguousDecode(buffer: String): String? {
+        val engine = suggestionEngine ?: return null
+        val keys = composingKeyFrame()?.takeIf { it.isAmbiguous } ?: return null
+        return engine.suggest(
+            composing = buffer,
+            previousWord = previousWord,
+            previousWord2 = previousWord2,
+            limit = 1,
+            touch = composingTouchFrame(),
+            keys = keys,
+        ).firstOrNull()
     }
 
     private fun updateComposingText(ic: InputConnection) {
@@ -8131,6 +8247,17 @@ open class WMKeyboardService : InputMethodService() {
             // Other transliterators (Hangul, Vietnamese) commit the composed text
             // directly, with no dictionary pass.
             state.composer.isTransliterating -> state.composer.composeBuffer(typed)
+            // An ambiguous board commits its reading, always. There is no
+            // confidence gate here and there should not be: the buffer holds
+            // anchor letters, so "leave it as typed" is not a conservative
+            // choice but a wrong one, and this is a decode rather than a
+            // correction — nothing was misspelled to revert to. A reading the
+            // user did not want is changed the way T9 always changed it, by
+            // picking another from the strip. The anchors stand only when
+            // nothing decodes at all, which is a word the dictionary has never
+            // seen and the long-press letters exist to spell.
+            state.layouts.ambiguousKeys && !gluedToWord ->
+                (pre?.ambiguousTop ?: ambiguousDecode(typed)) ?: typed
             apostrophized != null -> apostrophized
             autocorrect && state.allowsTypingIntelligence && !gluedToWord -> {
                 val decision = if (pre != null && !pre.isBengali) {
@@ -8159,7 +8286,13 @@ open class WMKeyboardService : InputMethodService() {
         // a word at all. See [WordRevision].
         val replaces = revision?.takeIf { it.mode == WordRevision.Mode.COMPOSING }?.let { r ->
             revision = null
-            if (corrected != null || gluedToWord || state.composer.isTransliterating) {
+            // An ambiguous board is excluded for the reason a transliterator
+            // is: what the buffer held is anchor letters, not a spelling, so
+            // "the word as the user left it" cannot be read off it and the
+            // pair it would teach is between two things nobody typed.
+            if (corrected != null || gluedToWord || state.composer.isTransliterating ||
+                state.layouts.ambiguousKeys
+            ) {
                 null
             } else {
                 r.finish(typed)?.let { resolveRevision(it) }
@@ -11248,6 +11381,10 @@ open class WMKeyboardService : InputMethodService() {
             delay((suggestionCostMs / 2).coerceIn(16L, 40L))
             val started = SystemClock.uptimeMillis()
             val touchFrame = composingTouchFrame()
+            // Snapshot with the taps, for the same reason: the key sets belong
+            // to the word as it stands now, not to whatever the buffer holds
+            // by the time this runs.
+            val keyFrame = composingKeyFrame()
             // Snapshot like the touch frame: the rhythm belongs to the word
             // as typed now, not to whatever the buffer holds when the async
             // precompute actually runs.
@@ -11262,6 +11399,7 @@ open class WMKeyboardService : InputMethodService() {
                     previousWord2 = previousWord2,
                     recentWords = recentSnapshot,
                     allowRerank = true,
+                    keys = keyFrame,
                 )
                 // A28: a personal-dictionary shortcut typed in full offers its
                 // expansion as the top chip (e.g. "omw" → "on my way"). Prepended
@@ -11298,6 +11436,17 @@ open class WMKeyboardService : InputMethodService() {
                         isBengali = true,
                         bengaliTop = words.firstOrNull(),
                         correction = null,
+                    )
+                    // An ambiguous board's commit takes the reading rather than
+                    // the buffer, so the reading is what there is to precompute
+                    // — and autocorrect has nothing to say about anchor letters
+                    // that the decode has not already said better.
+                    state.layouts.ambiguousKeys -> CommitResolution(
+                        typed = typed,
+                        isBengali = false,
+                        bengaliTop = null,
+                        correction = null,
+                        ambiguousTop = words.firstOrNull(),
                     )
                     state.settings.autocorrect && state.allowsTypingIntelligence -> {
                         val decision = engine.decideCorrection(

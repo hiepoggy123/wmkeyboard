@@ -17,6 +17,9 @@ import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.Layouts
+import com.wasimaster.wmkeyboard.core.layout.hasAmbiguousKeys
+import com.wasimaster.wmkeyboard.core.layout.isAmbiguous
+import com.wasimaster.wmkeyboard.core.layout.letterSet
 import com.wasimaster.wmkeyboard.core.media.MediaSnapshot
 import com.wasimaster.wmkeyboard.core.input.composer.Composer
 import com.wasimaster.wmkeyboard.core.input.composer.NoComposer
@@ -248,12 +251,29 @@ data class LayoutSet(
                     composedKeyChar(label)?.let { add(it.code) }
                     decomposedKeyChars(label)?.forEach { add(it.code) }
                 }
+                // Every letter an ambiguous key stands for, not only the anchor
+                // it commits: a T9 keypad has eight letter keys and twenty-six
+                // letters, and taking the anchors alone would tell the decoder
+                // the board cannot write most of the alphabet. A set is a set,
+                // so the duplicate the anchor makes here costs nothing.
+                for (letter in key.letterSet()) add(Character.toLowerCase(letter.code))
                 take(key.output ?: key.label)
                 take(key.shiftLabel)
                 for (alternate in key.longPress) take(alternate)
             }
         }
     }
+
+    /**
+     * Whether the letters grid puts more than one letter on a key, so a tap
+     * cannot say which of them was meant and the decoder has to read the
+     * keystrokes as key sets rather than as characters (discussion #103).
+     *
+     * Computed once per layout set, like [rowSpan] and [letterAlphabet], and
+     * read on every keystroke by the composing path — walking the grid there
+     * would be a row scan per character typed.
+     */
+    val ambiguousKeys: Boolean = letters.hasAmbiguousKeys()
 
     /**
      * The letter grid a glide is decoded against: one entry per character the
@@ -302,10 +322,30 @@ data class LayoutSet(
             for (row in letters.rows) {
                 for (key in row) {
                     if (key.action != KeyAction.Text) continue
-                    val anchor = keySpelling(key.label)?.first() ?: continue
+                    val anchor = key.glideAnchor() ?: continue
                     val (x, y) = centerOf(anchor) ?: continue
                     when (pass) {
-                        BASE_PASS -> emit(key.output ?: key.label, x, y)
+                        // An ambiguous key's whole letter set lands on its one
+                        // centre, which is all a swipe across a T9 or compact
+                        // board needs: the decoder has resolved several
+                        // characters to one key since Probhat's ক/খ, so nothing
+                        // downstream of here changes at all.
+                        //
+                        // It replaces the ordinary emit rather than joining it,
+                        // because the set already holds what that would have
+                        // written — the key's anchor is the first letter of it —
+                        // and a character listed twice is a wasted entry on a
+                        // grid the decoder walks per trie edge. Only a key that
+                        // carries a *choice* takes this path; a one-letter key
+                        // is emitted exactly as it always was, composed and
+                        // decomposed spellings and all.
+                        BASE_PASS -> if (key.isAmbiguous()) {
+                            for (letter in key.letterSet()) {
+                                out.add(KeyCenter(Character.toLowerCase(letter.code), x, y))
+                            }
+                        } else {
+                            emit(key.output ?: key.label, x, y)
+                        }
                         SHIFT_PASS -> emit(key.shiftLabel, x, y)
                         else -> for (alternate in key.longPress) emit(alternate, x, y)
                     }
@@ -2345,6 +2385,27 @@ fun keySpelling(label: String): List<Int>? {
         out.add(Character.toLowerCase(codePoint))
     }
     return out
+}
+
+/**
+ * The code point a letter key is identified by on the glide and touch grids:
+ * the character the renderer reports its measured centre under, and the
+ * character every other spelling on that key borrows a centre from.
+ *
+ * An ambiguous key ([Key.letters]) is anchored by the first letter of its set
+ * rather than by its label, and it has to be: a T9 key reads `ABC`, which is
+ * not a spelling at all — [keySpelling] rejects it at the second character —
+ * so anchoring by the label would drop the key off both grids and take glide,
+ * the touch model and the coverage gate with it.
+ *
+ * The one derivation for both sides of the wire. The renderer measures under
+ * this code point and [LayoutSet.glideKeys] looks up under it; when the two
+ * disagreed about a key, that key silently vanished from the grid.
+ */
+fun Key.glideAnchor(): Int? {
+    if (action != KeyAction.Text) return null
+    letters?.takeIf { it.isNotEmpty() }?.let { return Character.toLowerCase(it.codePointAt(0)) }
+    return keySpelling(label)?.first()
 }
 
 /**

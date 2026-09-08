@@ -173,7 +173,63 @@ data class Key(
      * a value from a file is not a value from a control.
      */
     val labelScale: Float? = null,
+    /**
+     * Every letter this one key stands for — `"abc"` on a T9 keypad's 2, `"qw"`
+     * on a compact grid's first key — for a layout that puts more than one
+     * letter on a key and lets the language model say which was meant
+     * (discussion #103).
+     *
+     * Null, the normal case, is an ordinary 1:1 key: what it types is what it
+     * typed. A single character is the same thing said explicitly, and is the
+     * shape a mixed grid ends up in — a compact layout whose `L`, `M` and the
+     * punctuation keys carry one letter each while the rest carry two.
+     *
+     * The key still commits [output] (its *anchor* letter, the first of these by
+     * convention) on a tap, and that is deliberate: the composing buffer stays
+     * one character per keystroke, so backspace, the caret, word boundaries and
+     * every consumer of the buffer are untouched, and a build that ignores this
+     * field types `adg` rather than breaking. What the field adds is the
+     * side-channel — see `WMKeyboardService.composingKeyFrame` — that tells the
+     * decoder those three keystrokes could equally have been any of
+     * `abc`/`def`/`ghi`, which is what turns `adg` into "big".
+     *
+     * The letters are also published to the glide grid at this key's centre, so
+     * a swipe across an ambiguous board decodes with no decoder change at all:
+     * `GlideKeyMap` has always resolved several characters to one key.
+     *
+     * Additive and defaulted, so no format-version bump.
+     */
+    val letters: String? = null,
 )
+
+/**
+ * The letters this key can stand for, as the decoder and the glide grid read
+ * them: [Key.letters] when the layout authored one, otherwise the single letter
+ * the key types.
+ *
+ * Empty for a key that types no letter at all — an action key, punctuation, a
+ * multi-character output — which is the answer both callers want: such a key
+ * contributes nothing to an alphabet and nothing to a key set.
+ */
+fun Key.letterSet(): String {
+    if (action != KeyAction.Text) return ""
+    letters?.let { return it }
+    val text = output ?: label
+    return if (text.length == 1 && text[0].isLetter()) text else ""
+}
+
+/**
+ * Whether this key carries more than one letter, so a tap on it cannot say which
+ * of them was meant. See [Key.letters].
+ */
+fun Key.isAmbiguous(): Boolean = letterSet().length > 1
+
+/**
+ * Whether any key of this grid is ambiguous — whether the whole board needs the
+ * key-set decode rather than reading its keystrokes literally.
+ */
+fun KeyboardLayout.hasAmbiguousKeys(): Boolean =
+    rows.any { row -> row.any { it.isAmbiguous() } }
 
 /**
  * Whether a press and hold on this key opens the alternates popup.
