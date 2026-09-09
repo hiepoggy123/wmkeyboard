@@ -335,6 +335,7 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.HoldRepeatCursorTools
 import com.wasimaster.wmkeyboard.core.settings.GestureSettings
+import com.wasimaster.wmkeyboard.core.settings.GlideCommitColorScope
 import com.wasimaster.wmkeyboard.core.settings.SymbolRowScroll
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.KeyPopupSettings
@@ -3670,11 +3671,15 @@ private fun RowScope.LatinSuggestionChips(
                     Text(
                         text = display,
                         modifier = Modifier.padding(horizontal = textPadding),
-                        // The user's own colour on the word a space will really
-                        // put in (#90), and on no other: the primary is only the
-                        // top guess until autocorrect has decided, and "Th" bold
-                        // beside a coloured "The" would promise a fix that never
-                        // comes. The bold stays on the primary either way.
+                        // The user's own colour on the word the commit will
+                        // really put in, and on no other: the primary is only
+                        // the top guess until autocorrect has decided, and "Th"
+                        // bold beside a coloured "The" would promise a fix that
+                        // never comes (#90). A glide claims the same field for
+                        // the word a lift would type (#121), so the promise
+                        // reads the same whether it is a space or a fingertip
+                        // about to keep it. The bold stays on the primary
+                        // either way.
                         color = if (
                             primaryColor != null &&
                                 suggestion.equals(autocorrectWord, ignoreCase = true)
@@ -12545,6 +12550,17 @@ private fun KeyRows(
             // it is already asking the user a question, and a second set of
             // offers on the board would be answering a different one.
             hidden = picker.words.isNotEmpty(),
+            // The widest setting of [GlideCommitColorScope]: the promised word
+            // drawn on its own key in the strip's colour, so the board answers
+            // at a glance. Only while a stroke is being drawn, since between
+            // strokes these words are the buffer's and no lift is pending.
+            promised = state.autocorrectWord?.takeIf {
+                trail.visible &&
+                    state.settings.gesture.commitColorScope ==
+                    GlideCommitColorScope.EVERYWHERE
+            },
+            promiseColor = state.settings.suggestionStrip.primaryColor
+                ?.let { Color(it.toInt()) },
             settings = state.settings,
             palette = palette,
             kb = kbTheme,
@@ -12750,8 +12766,19 @@ private fun KeyRows(
                     ShiftState.OFF -> word
                 }
             }
+        // The pill carries the strip's promise when the user has asked for it
+        // there (#121). It is the surface the eye is actually on while a stroke
+        // is being drawn, so a colour shown only on the strip is a colour
+        // mostly unread. Null keeps the pill's own text colour.
+        val pillPromise = state.settings.suggestionStrip.primaryColor
+            ?.takeIf {
+                glide.commitColorScope != GlideCommitColorScope.STRIP &&
+                    state.glideWord != null &&
+                    state.glideWord.equals(state.autocorrectWord, ignoreCase = true)
+            }
+            ?.let { Color(it.toInt()) }
         if (pillWord != null || picker.words.isNotEmpty()) {
-            GlideOverlay(trail, picker, pillWord, glide, boxSize)
+            GlideOverlay(trail, picker, pillWord, glide, boxSize, pillPromise)
         }
 
         // The alternates a layer peek is holding open (issue #108). Hung off a
@@ -12822,6 +12849,9 @@ private fun KeyRows(
  * the targets: sliding onto one highlights it and lifting there commits it.
  *
  * [word] is the pill's text, already cased for display, or null for no pill.
+ * [promise] colours it when the keyboard is telling the user that this is the
+ * word a lift types rather than merely the word in front; null draws the pill
+ * in its own colours.
  */
 @Composable
 private fun GlideOverlay(
@@ -12830,6 +12860,7 @@ private fun GlideOverlay(
     word: String?,
     glide: GestureSettings,
     gridSize: IntSize,
+    promise: Color? = null,
 ) {
     val theme = LocalKbTheme.current
     val density = LocalDensity.current
@@ -12871,7 +12902,7 @@ private fun GlideOverlay(
         Layout(
             content = {
                 if (word != null) {
-                    GlideWordPill(word, glide, theme, Modifier.layoutId(GlidePillId))
+                    GlideWordPill(word, glide, theme, promise, Modifier.layoutId(GlidePillId))
                 }
                 words.forEachIndexed { index, target ->
                     GlidePickerTarget(
@@ -13035,11 +13066,22 @@ private fun GlideHintPill(text: String, theme: KbTheme, modifier: Modifier) {
  * finger like a key popup.
  */
 @Composable
-private fun GlideWordPill(word: String, glide: GestureSettings, theme: KbTheme, modifier: Modifier) {
+private fun GlideWordPill(
+    word: String,
+    glide: GestureSettings,
+    theme: KbTheme,
+    promise: Color?,
+    modifier: Modifier,
+) {
     Surface(
         modifier = modifier,
         color = glide.wordPreviewBackground?.let { Color(it.toInt()) } ?: theme.popup,
-        contentColor = glide.wordPreviewTextColor?.let { Color(it.toInt()) } ?: theme.popupText,
+        // The promise wins the text: it is the whole reason it was passed, and
+        // a pill drawn in the user's chosen preview colour would say nothing
+        // the bold on the strip does not already say.
+        contentColor = promise
+            ?: glide.wordPreviewTextColor?.let { Color(it.toInt()) }
+            ?: theme.popupText,
         shape = theme.popupShape(),
         shadowElevation = elevationFor(theme.popupShapeKind, 4.dp),
     ) {

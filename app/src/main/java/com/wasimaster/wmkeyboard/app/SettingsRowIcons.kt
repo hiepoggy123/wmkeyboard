@@ -724,6 +724,8 @@ internal object SettingsRowIcons {
         put(R.string.typing_glide_sandbox_title) { Icons.Outlined.Person }
         put(R.string.typing_glide_steadiness_title) { Icons.Outlined.Anchor }
         put(R.string.typing_glide_lookahead_title) { Icons.Outlined.FastForward }
+        put(R.string.typing_glide_commit_color_title) { Icons.Outlined.Palette }
+        put(R.string.typing_glide_commit_scope_title) { Icons.Outlined.Tune }
         put(R.string.typing_letter_swipe_action_title) { Icons.Outlined.Draw }
         put(R.string.typing_handwrite_dot_title) { Icons.Outlined.Timer }
         put(R.string.typing_gesture_cooldown_title) { Icons.Outlined.Timer }

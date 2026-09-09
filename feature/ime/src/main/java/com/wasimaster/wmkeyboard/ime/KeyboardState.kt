@@ -1706,11 +1706,19 @@ data class KeyboardUiState(
     val expandedCandidates: List<String> = emptyList(),
     val suggestions: List<String> = emptyList(),
     /**
-     * The word a space will put in place of what is being typed, once
-     * autocorrect has actually decided to (#90). The strip colours that chip
-     * and no other, so the colour is a promise the commit keeps. Null while
-     * nothing is composing, while the word stands as typed, and while the
-     * decision is still being made.
+     * The word the next commit will really put in, as opposed to the word
+     * merely leading the strip. The strip colours that chip and no other, so
+     * the colour is a promise the commit keeps.
+     *
+     * Two things claim it. While text is being typed it is the word a space
+     * will put in place of it, once autocorrect has actually decided to (#90):
+     * null while nothing is composing, while the word stands as typed, and
+     * while the decision is still being made. While a glide is being drawn it
+     * is that stroke's leader, published whenever
+     * [com.wasimaster.wmkeyboard.core.settings.GlideCommitColor] says a lift
+     * would type it and the user should be able to see that (#121) — which is
+     * how the pill and the floating words come to carry the same colour,
+     * without a second field saying the same thing.
      */
     val autocorrectWord: String? = null,
     /** Missing-space join offer ("some" + "thing" -> "something"), shown as

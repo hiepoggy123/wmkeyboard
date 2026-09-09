@@ -109,6 +109,30 @@ class GlidePreviewGateTest {
         assertEquals("held", gate.commit(listOf("held", "helm"), scores(0.0, -1.0), light))
     }
 
+    /**
+     * Issue #121, stated at the gate rather than at the decoder.
+     *
+     * A word the reading in front of the gate does not hold cannot win the
+     * lift, and that rule is right: the stroke has stopped meaning it. What was
+     * wrong was handing the lift a reading the shown word could never be in. A
+     * guess only ever comes out of a decode that was asked for one, so a lift
+     * decoded without the look-ahead met a promised "dictionary" with a list
+     * holding "dict" alone, and typed "dict".
+     */
+    @Test
+    fun aGuessSurvivesTheLiftOnlyWhenTheLiftWasAskedForGuessesToo() {
+        val gate = GlidePreviewGate()
+        gate.steady(listOf("dictionary", "dict"), scores(0.0, -2.0), light, 0L)
+        assertEquals("dictionary", gate.shown)
+        // The lift as it used to decode: no look-ahead, so no "dictionary".
+        assertEquals("dict", gate.commit(listOf("dict"), scores(0.0), light))
+        // The lift as it decodes now: the candidates the preview ranked.
+        assertEquals(
+            "dictionary",
+            gate.commit(listOf("dict", "dictionary"), scores(0.0, -0.3), light),
+        )
+    }
+
     @Test
     fun aResetStopsTheNextStrokeInheritingThisOne() {
         val gate = GlidePreviewGate()

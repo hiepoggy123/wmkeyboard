@@ -255,6 +255,9 @@ import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_OUTCOMES_FILE
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_SHAPES_FILE
 import com.wasimaster.wmkeyboard.core.settings.GLIDE_SANDBOX_FILE
+import com.wasimaster.wmkeyboard.core.settings.GestureSettings
+import com.wasimaster.wmkeyboard.core.settings.GlideCommitColor
+import com.wasimaster.wmkeyboard.core.settings.GlideCommitColorScope
 import com.wasimaster.wmkeyboard.core.settings.GlideLookAhead
 import com.wasimaster.wmkeyboard.core.settings.GlidePreviewSteadiness
 import com.wasimaster.wmkeyboard.core.settings.GlideSandbox
@@ -12657,6 +12660,22 @@ open class WMKeyboardService : InputMethodService() {
          * thing.
          */
         val scores: List<Double> = emptyList(),
+        /**
+         * The words here that carry letters the stroke has not drawn: the
+         * decoder guessing where the finger was going, kept apart from the
+         * readings that spell themselves out (see [GlideBeam.Candidate.ahead]).
+         * Empty whenever the user has the feature off, since nothing then
+         * survives [admitLookAhead].
+         */
+        val guesses: Set<String> = emptySet(),
+        /**
+         * The guesses the decoder is *sure* of: those beating the best
+         * ordinary reading by [GlideLookAhead.CONFIDENT]'s margin, whichever
+         * tier the user is on. On [GlideLookAhead.EAGER] that is a second,
+         * stricter level for the strip to draw differently; on
+         * [GlideLookAhead.CONFIDENT] every admitted guess is already in it.
+         */
+        val sure: Set<String> = emptySet(),
     ) {
         /** [word]'s score in this reading, or null when it is not in it. */
         fun scoreOf(word: String): Double? {
@@ -12670,7 +12689,7 @@ open class WMKeyboardService : InputMethodService() {
             if (at <= 0) return this
             val order = words.toMutableList().apply { add(0, removeAt(at)) }
             val rescored = scores.toMutableList().apply { if (at < size) add(0, removeAt(at)) }
-            return GlideReading(order, closeCall, sandboxAnswered, rescored)
+            return GlideReading(order, closeCall, sandboxAnswered, rescored, guesses, sure)
         }
 
         companion object {
@@ -12773,14 +12792,40 @@ open class WMKeyboardService : InputMethodService() {
         points: List<GesturePoint>,
         keys: List<KeyCenter>,
         keyWidthPx: Float,
-        preview: Boolean = false,
+        /**
+         * Whether this decode may answer with a word the stroke has not
+         * finished spelling. True wherever the stroke *ends where the finger
+         * lifted*: every preview, the decode behind a single glide, and the
+         * last segment of a chained one. False for a chained stroke's earlier
+         * segments, which end where the finger turned into the space bar, so
+         * the word really was drawn to its last letter and a completion would
+         * be guessing over evidence.
+         */
+        guessAhead: Boolean = true,
     ): GlideReading {
         val engine = suggestionEngine ?: return GlideReading.NONE
         val policy = sandboxPolicy()
-        // Only a preview may guess ahead. The decode behind a lift has the
-        // whole stroke and no reason to invent letters; what a lift *types* is
-        // decided by the preview gate, from what was on screen.
-        val lookAhead = if (preview) glideCandidateLimit() else 0
+        val gesture = _uiState.value.settings.gesture
+        // The lift decodes exactly what the previews decoded (#121). This used
+        // to run without a look-ahead, on the reasoning that a finished stroke
+        // has no reason to invent letters. But the whole point of the feature
+        // is that the stroke is *not* finished: the user lifts part way through
+        // a long word. A guess was therefore never among the candidates the
+        // lift ranked, [GlidePreviewGate.commit] could not find the word it had
+        // been holding on screen, and the lift fell back to the best ordinary
+        // reading. The preview promised "dictionary" and the finger typed
+        // something else, identically on both tiers, which is what made the two
+        // look like one setting.
+        //
+        // Asked of the tier as well as of the stroke, so the prefix walk is not
+        // paid for by everyone: with the feature off every completion would be
+        // thrown away again by [admitLookAhead] a few lines below, and that is
+        // the default.
+        val lookAhead = if (guessAhead && gesture.lookAhead != GlideLookAhead.OFF) {
+            glideCandidateLimit()
+        } else {
+            0
+        }
         fun decode(tiers: Set<FuzzyBeamSearch.Tier>?) = engine.glide(
             path = points,
             keys = keyMapFor(keys, keyWidthPx),
@@ -12824,7 +12869,6 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
         if (decoded.isEmpty()) return GlideReading.NONE
-        val gesture = _uiState.value.settings.gesture
         val kept = admitLookAhead(decoded, gesture.lookAhead)
         if (kept.isEmpty()) return GlideReading.NONE
         val words = kept.map { restoreApostrophe(it.word) ?: it.word }
@@ -12835,12 +12879,31 @@ open class WMKeyboardService : InputMethodService() {
         // where the leader stood, so it inherits the leader's score.
         val byWord = words.withIndex().associate { (i, w) -> w to kept[i].score }
         val leaderScore = kept.first().score
+        // Which of the surviving words are guesses, and which of those the
+        // decoder is sure of. Measured here against this decode's own best
+        // ordinary reading, the only comparison the scores support, and carried
+        // as words rather than positions because the steadiness gate reorders
+        // the list before anything draws it.
+        val bestRead = kept.firstOrNull { it.ahead == 0 }?.score
+        val guesses = HashSet<String>()
+        val sure = HashSet<String>()
+        words.forEachIndexed { i, word ->
+            if (kept[i].ahead == 0) return@forEachIndexed
+            guesses += word
+            if (bestRead == null ||
+                kept[i].score - bestRead >= GlideLookAhead.CONFIDENT.margin
+            ) {
+                sure += word
+            }
+        }
         return GlideReading(
             words = declared,
             closeCall = gesture.ambiguityPicker &&
                 SuggestionEngine.glideIsAmbiguous(kept, gesture.pickerSensitivity.margin),
             sandboxAnswered = answered,
             scores = declared.map { byWord[it] ?: leaderScore },
+            guesses = guesses,
+            sure = sure,
         )
     }
 
@@ -13215,9 +13278,7 @@ open class WMKeyboardService : InputMethodService() {
                 val reading = withContext(Dispatchers.Default) {
                     // Same sources as the final decode, so the previewed word
                     // never differs from the one that commits on finger-up.
-                    glideDecode(
-                        request.points, request.keys, request.keyWidthPx, preview = true,
-                    )
+                    glideDecode(request.points, request.keys, request.keyWidthPx)
                 }
                 if (reading.words.isEmpty()) continue
                 // Re-checked after the decode: the finger may have lifted and
@@ -13234,6 +13295,14 @@ open class WMKeyboardService : InputMethodService() {
                         suggestions = steadied.words,
                         octopusGlide = floating,
                         glideWord = steadied.words.first(),
+                        // The word a lift would type, published as the promise
+                        // it is rather than left as one more bold suggestion
+                        // (#121). [KeyboardUiState.autocorrectWord] is already
+                        // "the word the next commit will really put in", and
+                        // the strip already draws that word in the user's own
+                        // colour, so the whole feature is this one line plus
+                        // the two surfaces that opt into the same colour.
+                        autocorrectWord = glideCommitPromise(steadied, gesture),
                         // Every preview carries choices while the picker is
                         // on: a stroke that is not a close call can still be
                         // asked about by holding longer, so the popup needs
@@ -13266,6 +13335,26 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * The word [reading] leads with, when the user has asked for it to be
+     * drawn in the strip's own colour rather than merely bolded, and null when
+     * bold is all it gets. See [GlideCommitColor].
+     *
+     * A guess is only *sure* against the stroke it was read off, so the
+     * question is asked of the reading that is about to be published rather
+     * than of the setting alone: the same word can be a certainty one frame
+     * and a coin toss the next, and the colour has to say so.
+     */
+    private fun glideCommitPromise(reading: GlideReading, gesture: GestureSettings): String? {
+        val leader = reading.words.firstOrNull() ?: return null
+        return when (gesture.commitColor) {
+            GlideCommitColor.OFF -> null
+            GlideCommitColor.CONFIDENT -> leader.takeIf { it in reading.sure }
+            GlideCommitColor.GUESS -> leader.takeIf { it in reading.guesses }
+            GlideCommitColor.ALWAYS -> leader
+        }
+    }
+
+    /**
      * Retires the previews a stroke published — the floating word, the
      * picker's choices and its close-call flag — the way a commit does. The
      * strip's suggestions are left to the caller: a commit replaces them, a
@@ -13276,11 +13365,16 @@ open class WMKeyboardService : InputMethodService() {
         // is reset here too: a new stroke must never inherit the last one's
         // word, or its first reading would be judged against a stranger.
         previewGate.reset()
-        _uiState.update {
-            it.copy(
+        _uiState.update { state ->
+            state.copy(
                 glideWord = null,
                 glideChoices = emptyList(),
                 glideCloseCall = false,
+                // Only the promise this stroke made. A flick short enough to
+                // publish no preview at all leaves whatever the composing word
+                // had claimed, which is still true of the field behind it.
+                autocorrectWord = state.autocorrectWord
+                    ?.takeUnless { it.equals(state.glideWord, ignoreCase = true) },
                 // Every exit from a stroke comes through here, so one line
                 // covers the commit, the cancel and the picker alike. Only the
                 // stroke's own words go: the idle ones belong to the buffer,
@@ -13676,7 +13770,10 @@ open class WMKeyboardService : InputMethodService() {
                 // and learned as it lands, so the next segment is decoded with
                 // the one before it as context.
                 val candidates = withContext(Dispatchers.Default) {
-                    glideDecode(segment, keys, keyWidthPx)
+                    // Only the segment the finger lifted on may finish a word
+                    // early: every earlier one ends at the space bar, drawn to
+                    // its last letter (#121).
+                    glideDecode(segment, keys, keyWidthPx, guessAhead = index == segments.lastIndex)
                 }.words
                 // The pick belongs to the last segment, and survives an empty
                 // decode of it the way a single glide's pick does.
@@ -17047,7 +17144,7 @@ open class WMKeyboardService : InputMethodService() {
         gestureJob = serviceScope.launch {
             for ((index, segment) in segments.withIndex()) {
                 val candidates = withContext(Dispatchers.Default) {
-                    glideDecode(segment, keys, keyWidthPx)
+                    glideDecode(segment, keys, keyWidthPx, guessAhead = index == segments.lastIndex)
                 }.words
                 val picked = chosen?.takeIf { index == segments.lastIndex }
                 if (candidates.isEmpty() && picked == null) continue

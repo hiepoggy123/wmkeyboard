@@ -1000,6 +1000,52 @@ enum class GlideLookAhead(
     EAGER(R.string.core_settings_glide_lookahead_eager_label, 1.0),
 }
 
+/**
+ * Which word a stroke being drawn is given the suggestion strip's own colour,
+ * instead of only the bold the leading suggestion always gets.
+ *
+ * The strip has coloured the word autocorrect will put in for a space since
+ * issue #90, and the colour there means one thing: this is not the top guess,
+ * it is what the next commit will really type. A glide can make the same
+ * promise, and while [GlideLookAhead] is on it is worth making, because the
+ * word on screen may carry letters the finger has not drawn and the user has
+ * no other way to tell.
+ *
+ * The colour itself is the strip's, from
+ * [SuggestionStripSettings.primaryColor]. Nothing draws differently until that
+ * colour is set, exactly as with autocorrect.
+ */
+enum class GlideCommitColor(@StringRes val labelRes: Int) {
+    /** Bold and nothing else, whatever the stroke is being read as. */
+    OFF(R.string.core_settings_glide_commit_color_off_label),
+
+    /**
+     * Only a guess the decoder is sure of: one beating the best word the
+     * stroke actually spells by [GlideLookAhead.CONFIDENT]'s margin. On
+     * [GlideLookAhead.EAGER] this is a second, stricter level, so bold says
+     * "ahead of what you drew" and the colour says "sure of it".
+     */
+    CONFIDENT(R.string.core_settings_glide_commit_color_confident_label),
+
+    /** Any word carrying letters the stroke has not drawn. */
+    GUESS(R.string.core_settings_glide_commit_color_guess_label),
+
+    /** Every stroke, guess or not: the colour means "lift now and get this". */
+    ALWAYS(R.string.core_settings_glide_commit_color_always_label),
+}
+
+/** Which surfaces [GlideCommitColor] reaches. */
+enum class GlideCommitColorScope(@StringRes val labelRes: Int) {
+    /** The suggestion strip alone, where the autocorrect colour already lives. */
+    STRIP(R.string.core_settings_glide_commit_scope_strip_label),
+
+    /** The strip and the word pill riding above the fingertip. */
+    STRIP_AND_PILL(R.string.core_settings_glide_commit_scope_pill_label),
+
+    /** Those two and the floating words drawn on the keys. */
+    EVERYWHERE(R.string.core_settings_glide_commit_scope_keys_label),
+}
+
 /** What the history tab of the emoji panel shows. */
 enum class EmojiTabMode { RECENTS, MOST_USED }
 
@@ -4406,6 +4452,20 @@ data class GestureSettings(
      */
     val lookAhead: GlideLookAhead = GlideLookAhead.OFF,
     /**
+     * Which word a stroke being drawn is coloured rather than merely bolded —
+     * see [GlideCommitColor]. [GlideCommitColor.CONFIDENT] by default, which
+     * draws nothing at all until [lookAhead] is on and the strip has a colour
+     * of its own.
+     */
+    val commitColor: GlideCommitColor = GlideCommitColor.CONFIDENT,
+    /**
+     * How far that colour reaches — see [GlideCommitColorScope].
+     * [GlideCommitColorScope.STRIP_AND_PILL] by default: the pill is what the
+     * eye is on while a stroke is being drawn, so a promise shown only on the
+     * strip is a promise mostly unread.
+     */
+    val commitColorScope: GlideCommitColorScope = GlideCommitColorScope.STRIP_AND_PILL,
+    /**
      * Learn this user's swipe style from the swipes they keep, and read later
      * swipes by it (issue #52): where their finger actually lands on each
      * key, so a thumb that always cuts the far keys short stops paying for
@@ -5598,6 +5658,9 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_SANDBOX = stringPreferencesKey("gesture_sandbox")
         private val GESTURE_PREVIEW_STEADINESS = stringPreferencesKey("gesture_preview_steadiness")
         private val GESTURE_LOOK_AHEAD = stringPreferencesKey("gesture_look_ahead")
+        private val GESTURE_COMMIT_COLOR = stringPreferencesKey("gesture_commit_color")
+        private val GESTURE_COMMIT_COLOR_SCOPE =
+            stringPreferencesKey("gesture_commit_color_scope")
         private val GESTURE_LEARN_SWIPE_STYLE = booleanPreferencesKey("gesture_learn_swipe_style")
         private val GESTURE_SWIPE_STYLE_VERSION = intPreferencesKey("gesture_swipe_style_version")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
@@ -6643,6 +6706,12 @@ class SettingsRepository(private val context: Context) {
                 lookAhead = p[GESTURE_LOOK_AHEAD]
                     ?.let { runCatching { GlideLookAhead.valueOf(it) }.getOrNull() }
                     ?: defaults.gesture.lookAhead,
+                commitColor = p[GESTURE_COMMIT_COLOR]
+                    ?.let { runCatching { GlideCommitColor.valueOf(it) }.getOrNull() }
+                    ?: defaults.gesture.commitColor,
+                commitColorScope = p[GESTURE_COMMIT_COLOR_SCOPE]
+                    ?.let { runCatching { GlideCommitColorScope.valueOf(it) }.getOrNull() }
+                    ?: defaults.gesture.commitColorScope,
                 learnSwipeStyle = p[GESTURE_LEARN_SWIPE_STYLE] ?: defaults.gesture.learnSwipeStyle,
                 swipeStyleVersion = p[GESTURE_SWIPE_STYLE_VERSION] ?: defaults.gesture.swipeStyleVersion,
             ),
@@ -10846,6 +10915,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureLookAhead(value: GlideLookAhead) =
         editPrefs { it[GESTURE_LOOK_AHEAD] = value.name }
+
+    suspend fun setGestureCommitColor(value: GlideCommitColor) =
+        editPrefs { it[GESTURE_COMMIT_COLOR] = value.name }
+
+    suspend fun setGestureCommitColorScope(value: GlideCommitColorScope) =
+        editPrefs { it[GESTURE_COMMIT_COLOR_SCOPE] = value.name }
 
     suspend fun setSpaceShortSwipe(value: SpaceSwipeAction) =
         editPrefs { it[SPACE_SHORT_SWIPE] = value.name }

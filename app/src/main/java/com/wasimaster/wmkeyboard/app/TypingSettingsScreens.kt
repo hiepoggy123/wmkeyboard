@@ -71,6 +71,8 @@ import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerDwellMsRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerSensitivity
+import com.wasimaster.wmkeyboard.core.settings.GlideCommitColor
+import com.wasimaster.wmkeyboard.core.settings.GlideCommitColorScope
 import com.wasimaster.wmkeyboard.core.settings.GlideLookAhead
 import com.wasimaster.wmkeyboard.core.settings.GlidePreviewSteadiness
 import com.wasimaster.wmkeyboard.core.settings.GlideSandbox
@@ -2584,6 +2586,32 @@ private fun SettingsGroupScope.glideVocabularyRows(
             selected = settings.gesture.lookAhead,
             onChange = { scope.launch { repository.setGestureLookAhead(it) } },
             default = SettingsDefaults.gesture.lookAhead,
+        )
+    }
+    // Which word the stroke colours rather than only bolds, and how far that
+    // colour reaches. Here rather than in Appearance because what it says is
+    // about the decode, not about the strip: bold means "this leads", colour
+    // means "this is what a lift types".
+    item {
+        ChoiceSetting(
+            title = R.string.typing_glide_commit_color_title,
+            subtitle = stringResource(R.string.typing_glide_commit_color_subtitle),
+            info = stringResource(R.string.typing_glide_commit_color_info),
+            options = GlideCommitColor.entries.map { it to stringResource(it.labelRes) },
+            selected = settings.gesture.commitColor,
+            onChange = { scope.launch { repository.setGestureCommitColor(it) } },
+            default = SettingsDefaults.gesture.commitColor,
+        )
+    }
+    item {
+        ChoiceSetting(
+            title = R.string.typing_glide_commit_scope_title,
+            subtitle = stringResource(R.string.typing_glide_commit_scope_subtitle),
+            info = stringResource(R.string.typing_glide_commit_scope_info),
+            options = GlideCommitColorScope.entries.map { it to stringResource(it.labelRes) },
+            selected = settings.gesture.commitColorScope,
+            onChange = { scope.launch { repository.setGestureCommitColorScope(it) } },
+            default = SettingsDefaults.gesture.commitColorScope,
         )
     }
 }

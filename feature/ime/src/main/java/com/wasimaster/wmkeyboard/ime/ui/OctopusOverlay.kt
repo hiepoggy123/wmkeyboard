@@ -181,6 +181,15 @@ internal fun BoxScope.OctopusOverlay(
     boardSize: Size,
     /** A glide stroke owns the board, and the picker may be asking already. */
     hidden: Boolean,
+    /**
+     * The word the keyboard is promising to type, drawn whole in [promiseColor]
+     * rather than split into typed head and offered tail. Null on every surface
+     * but the widest setting of
+     * [com.wasimaster.wmkeyboard.core.settings.GlideCommitColorScope].
+     */
+    promised: String? = null,
+    /** The strip's own primary colour, or null when the user has set none. */
+    promiseColor: Color? = null,
     settings: KeyboardSettings,
     palette: KeyPalette,
     kb: KbTheme,
@@ -246,7 +255,7 @@ internal fun BoxScope.OctopusOverlay(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = octopusLabel(slot.word, head, kb.accent),
+                text = octopusLabel(slot.word, head, kb.accent, promised, promiseColor),
                 // Shrunk to fit where a long word would otherwise not have
                 // been drawn at all.
                 style = if (slot.scale == 1f) style else style.copy(fontSize = (fontSize * slot.scale).sp),
@@ -273,7 +282,21 @@ private fun overlapFraction(a: Rect, b: Rect): Float {
  * typed was wrong — so it is drawn in the accent throughout, and that is what
  * separates a fix from a continuation at a glance.
  */
-internal fun octopusLabel(word: OctopusWord, head: Color, accent: Color): AnnotatedString {
+internal fun octopusLabel(
+    word: OctopusWord,
+    head: Color,
+    accent: Color,
+    promised: String? = null,
+    promiseColor: Color? = null,
+): AnnotatedString {
+    // The promised word is drawn whole in the strip's colour rather than split.
+    // The split says "this much is already yours", and none of a glided word is
+    // yours until the finger comes up.
+    if (promiseColor != null && word.word.equals(promised, ignoreCase = true)) {
+        return buildAnnotatedString {
+            withStyle(SpanStyle(color = promiseColor)) { append(word.word) }
+        }
+    }
     // Coerced rather than trusted: a candidate and a buffer that have drifted
     // apart must not throw in the middle of a draw.
     val split = if (word.kind == OctopusKind.CORRECTION) {

@@ -134,6 +134,35 @@ class GlideLookAheadTest {
     }
 
     /**
+     * Issue #121: the two decodes of one stroke have to be asked the same
+     * question.
+     *
+     * A guess exists only in a decode that was asked for one, so a preview
+     * given a look-ahead and a lift given none are not two readings of one
+     * stroke: they are answers to different questions, and the word the user
+     * was shown is not on the list the lift ranks at all. No gate downstream
+     * can repair that, which is why the flag now follows where the stroke ends
+     * rather than which of the two is asking.
+     */
+    @Test
+    fun aLiftGivenNoLookAheadCannotTypeWhatThePreviewShowed() {
+        val sources = sourcesFor("dictionary" to 5_000, "dict" to 300)
+        val free = GlideBeam.Tuning(lookAheadCost = 0.0)
+        // The preview, with the guess leading: this is the word on screen, and
+        // the word the lift is being promised.
+        val previewed = decode("dict", sources, lookAhead = 4, free).first()
+        assertEquals("dictionary", previewed.word)
+        // The lift, decoded the way it used to be. Not a lower ranking for the
+        // promised word: it is absent, so the stroke types something else.
+        val lifted = decode("dict", sources, lookAhead = 0, free)
+        assertTrue(
+            "a plain decode reached a guess: ${lifted.map { it.word }}",
+            lifted.none { it.word == "dictionary" },
+        )
+        assertEquals("dict", lifted.first().word)
+    }
+
+    /**
      * The charge has to be able to hold a guess back, or the decoder would
      * answer every stroke with the commonest word that starts that way.
      */
