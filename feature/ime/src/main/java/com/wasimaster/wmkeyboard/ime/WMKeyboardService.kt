@@ -20850,18 +20850,67 @@ open class WMKeyboardService : InputMethodService() {
     /**
      * A word on the suggestion strip was held and "never suggest" chosen.
      *
-     * Adds it to the blacklist, which is the whole of the job: the settings
-     * collector hands the new set to the engine and [purgeBlacklisted] takes
-     * the word back out of the personal lexicon and the waiting room, so a word
-     * the keyboard learned from the user stops being offered as well as one it
-     * shipped with. The word stays typeable, and the blacklist screen in
-     * settings is where it can be taken back off (issue #28).
+     * Adds it to the blacklist: the settings collector hands the new set to the
+     * engine and [purgeBlacklisted] takes the word back out of the personal
+     * lexicon and the waiting room, so a word the keyboard learned from the
+     * user stops being offered as well as one it shipped with. The word stays
+     * typeable, and the blacklist screen in settings is where it can be taken
+     * back off (issue #28).
+     *
+     * That write is a round trip through DataStore, so [stopSuggesting] does
+     * the same thing to what is already on screen — the answer to a "never
+     * suggest" is the word leaving the strip now, not at the next keystroke
+     * (issue #127).
      */
     fun onSuggestionHeld(word: String) {
         val trimmed = word.trim()
         if (trimmed.isEmpty()) return
         vibrate()
+        stopSuggesting(trimmed)
         serviceScope.launch { settingsRepository.addSuggestionBlacklistWord(trimmed) }
+    }
+
+    /**
+     * Takes [word] out of everything the keyboard is offering right now.
+     *
+     * The blacklist reaches the engine through DataStore and the settings
+     * collector, which is a round trip the strip in front of the user does not
+     * wait for: it kept showing the word until new typing rebuilt it (#127).
+     * So the engine is told at once, and the words already published are
+     * filtered where they stand rather than recomputed — a refresh here would
+     * cost a glide the alternates its own commit deliberately holds (see
+     * [nextWordOctopus]).
+     *
+     * [commitResolution] goes with them: it is a precomputed autocorrect
+     * target, and a blacklisted word is never one. Dropping it makes the next
+     * space recompute against the engine, which now knows.
+     */
+    private fun stopSuggesting(word: String) {
+        val lower = word.lowercase()
+        fun blocked(candidate: String?) = candidate != null && candidate.lowercase() == lower
+        suggestionEngine?.let { it.blacklist = it.blacklist + lower }
+        if (blocked(commitResolution?.correction) ||
+            blocked(commitResolution?.offer) ||
+            blocked(commitResolution?.bengaliTop) ||
+            blocked(commitResolution?.ambiguousTop)
+        ) {
+            commitResolution = null
+        }
+        if (blocked(_uiState.value.correctionOffer) || blocked(pendingCorrectionOffer)) {
+            clearCorrectionOffer()
+        }
+        if (blocked(_uiState.value.joinSuggestion)) joinContext = null
+        if (blocked(_uiState.value.revisionSuggestion)) revisionContext = null
+        _uiState.update { state ->
+            state.copy(
+                suggestions = state.suggestions.filterNot { blocked(it) },
+                autocorrectWord = state.autocorrectWord?.takeUnless { blocked(it) },
+                joinSuggestion = state.joinSuggestion?.takeUnless { blocked(it) },
+                revisionSuggestion = state.revisionSuggestion?.takeUnless { blocked(it) },
+                octopus = state.octopus.filterValues { !blocked(it.word) },
+                octopusGlide = state.octopusGlide.filterValues { !blocked(it.word) },
+            )
+        }
     }
 
     /**
@@ -20982,6 +21031,10 @@ open class WMKeyboardService : InputMethodService() {
         val state = _uiState.value
         val stillListed = suggestionEngine?.inDictionaries(lower, includePlatform = false) == true
         if (stillListed && lower !in state.settings.suggestionSources.blacklist) {
+            // Before the refresh below, so it rebuilds the strip against an
+            // engine that already knows — the pref write is a round trip and
+            // would otherwise land a keystroke too late (#127).
+            stopSuggesting(trimmed)
             serviceScope.launch { settingsRepository.addSuggestionBlacklistWord(trimmed) }
         }
         serviceScope.launch {
