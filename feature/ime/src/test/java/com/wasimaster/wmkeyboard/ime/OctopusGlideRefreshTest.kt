@@ -126,6 +126,11 @@ class OctopusGlideRefreshTest {
         val flow = field.get(service) as kotlinx.coroutines.flow.MutableStateFlow<KeyboardUiState>
         flow.value = KeyboardUiState(
             glideReady = true,
+            // Not a gate a glide reads — allowsGestureTyping deliberately
+            // ignores it — but insurance against the day something on the
+            // commit path calls refreshSuggestions, which reaches a snippet
+            // store that is one more lateinit only onCreate assigns.
+            fieldNoSuggestions = true,
             octopus = octopus,
             settings = KeyboardSettings(learnFromTyping = false),
         )
