@@ -448,6 +448,18 @@ internal fun AppearanceToolbarSettings(
                 default = SettingsDefaults.suggestionStrip.chipPadding.toFloat(),
             ) { scope.launch { repository.setSuggestionChipPadding(it.roundToInt()) } }
         }
+        // Beside the strip's other two appearance rows rather than on the
+        // suggestions page it used to sit on (#114): it says what the strip
+        // looks like, not what it offers.
+        item {
+            ColorSetting(
+                R.string.appearance_suggestion_primary_color_title,
+                subtitle = stringResource(R.string.appearance_suggestion_primary_color_subtitle),
+                color = settings.suggestionStrip.primaryColor,
+                fallback = MaterialTheme.colorScheme.onSurface.argbLong(),
+                info = stringResource(R.string.appearance_suggestion_primary_color_info),
+            ) { scope.launch { repository.setSuggestionPrimaryColor(it) } }
+        }
         item {
             ResetPinnedToolsSetting(repository, scope)
         }
@@ -499,6 +511,7 @@ internal fun AppearanceToolbarSettings(
             settings.toolbarLabelSize != d.toolbarLabelSize ||
             settings.suggestionStrip.textScale != d.suggestionStrip.textScale ||
             settings.suggestionStrip.chipPadding != d.suggestionStrip.chipPadding ||
+            settings.suggestionStrip.primaryColor != d.suggestionStrip.primaryColor ||
             settings.toolCircleRadiusDp != d.toolCircleRadiusDp ||
             settings.toolShape != d.toolShape
         if (toolbarMoved) {

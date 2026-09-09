@@ -10570,6 +10570,7 @@ class SettingsRepository(private val context: Context) {
         it.remove(TOOLBAR_LABEL_SIZE)
         it.remove(SUGGESTION_TEXT_SCALE)
         it.remove(SUGGESTION_CHIP_PADDING)
+        it.remove(SUGGESTION_PRIMARY_COLOR)
         it.remove(TOOL_CIRCLE_RADIUS)
         it.remove(TOOL_SHAPE)
         it.remove(TOOLBAR_TOOL_WIDTH)

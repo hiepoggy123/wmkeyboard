@@ -76,7 +76,6 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 | Punctuation marks | Text field | `.,?!'` | Punctuation suggestions on |
 | Number of suggestions | Slider, 2–6 | 3 | always |
 | Scroll the suggestions | Toggle | Off | always |
-| Autocorrect word color | Color, or Auto | Auto | always |
 | Learn a word after | Slider, 1–5 ("Once" at 1) | Once | always |
 | Offer corrections it isn't sure about | Toggle | On | always |
 | Ask before saving new words | Toggle | Off | always |
@@ -98,7 +97,7 @@ Full writeup: [Autocorrect](/smart/autocorrect/) covers the confidence math, wha
 | Word menu | Chips | Never suggest, Add, Delete | always |
 | Adjust rank changes | Choice | Learned weight | always |
 
-**Suggestions** is the master switch for the whole strip: word completions, typo corrections offered as candidates, and next-word prediction. **Punctuation marks** sets which marks the punctuation chips offer, one per character, in the order you want them. Leave it blank and it falls back to the shipped `.,?!'`. **Number of suggestions** splits the strip evenly, so raising it on a narrow screen buys candidates at the cost of reading each one. **Scroll the suggestions** lifts that trade: each word keeps its natural size and the strip scrolls sideways when they overrun it, so five or six candidates read fine on a narrow phone. Short words still fill the strip exactly as before. **Autocorrect word color** paints the first suggestion in a color of your own, but only once autocorrect has decided to put that word in for a space, so the color is a promise: a bold word without it is just the top guess, and a space keeps what you typed. Auto keeps the theme's text color.
+**Suggestions** is the master switch for the whole strip: word completions, typo corrections offered as candidates, and next-word prediction. **Punctuation marks** sets which marks the punctuation chips offer, one per character, in the order you want them. Leave it blank and it falls back to the shipped `.,?!'`. **Number of suggestions** splits the strip evenly, so raising it on a narrow screen buys candidates at the cost of reading each one. **Scroll the suggestions** lifts that trade: each word keeps its natural size and the strip scrolls sideways when they overrun it, so five or six candidates read fine on a narrow phone. Short words still fill the strip exactly as before. The color the strip paints a correction in lives with the rest of its looks, under [Look & feel / Toolbar](/reference/settings/appearance/).
 
 **Remember a new word after** is how many times you have to type a word *nothing recognises* before it's saved to your personal dictionary at all. It only counts a use once you've moved on and left the word alone, so a typo you go back and fix never counts. Set it to 1 to save every new word straight away, which is what versions before this did. Words already in a dictionary skip this entirely and are counted the moment you type them.
 

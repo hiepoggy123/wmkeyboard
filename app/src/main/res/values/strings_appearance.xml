@@ -139,6 +139,10 @@
     <string name="appearance_suggestion_spacing_subtitle">The gap on each side of a word in the suggestion strip</string>
     <string name="appearance_suggestion_spacing_info">Lower it to fit more of a long word before it has to shrink, or to pack more suggestions onto a narrow screen. Raise it to keep neighbouring words from reading as one when the strip scrolls. This setting is 6 dp by default.</string>
 
+    <string name="appearance_suggestion_primary_color_title">Autocorrect word color</string>
+    <string name="appearance_suggestion_primary_color_subtitle">Color of the word that autocorrect will put in for a space</string>
+    <string name="appearance_suggestion_primary_color_info">The strip draws its first suggestion in bold. Pick a color here and that word takes the color only when autocorrect has decided to put it in for you when you type a space. A bold word without the color is the top suggestion, and a space keeps what you typed. The other suggestions keep the theme color. Reset the row to follow the theme again.</string>
+
     <string name="appearance_toolbox_label_size_title">Toolbox label size</string>
     <string name="appearance_toolbox_label_size_subtitle">The name under each tool in the full tool panel</string>
     <string name="appearance_toolbox_label_size_info">By default these follow the toolbar label size, so the two agree. Set a size here to make the toolbox names larger or smaller on their own. This setting follows the toolbar by default.</string>

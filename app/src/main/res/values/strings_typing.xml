@@ -640,9 +640,6 @@
     <string name="typing_suggestion_scroll_title">Scroll the suggestions</string>
     <string name="typing_suggestion_scroll_subtitle">Show each word at full size and scroll the strip sideways when they do not fit</string>
     <string name="typing_suggestion_scroll_info">Normally the strip splits its width evenly and shrinks long words to fit their slot. With this on, every word keeps its natural size and the strip scrolls sideways instead. Short words still fill the strip as before, so nothing changes until a word overruns. Turn it on if you want five or six suggestions on a narrow phone. This setting is off by default.</string>
-    <string name="typing_suggestion_primary_color_title">Autocorrect word color</string>
-    <string name="typing_suggestion_primary_color_subtitle">Color of the word that autocorrect will put in for a space</string>
-    <string name="typing_suggestion_primary_color_info">The strip draws its first suggestion in bold. Pick a color here and that word takes the color only when autocorrect has decided to put it in for you when you type a space. A bold word without the color is the top suggestion, and a space keeps what you typed. The other suggestions keep the theme color. Reset the row to follow the theme again.</string>
 
     <string name="typing_double_space_title">Double space</string>
     <string name="typing_double_space_subtitle">What two quick presses of space type</string>
