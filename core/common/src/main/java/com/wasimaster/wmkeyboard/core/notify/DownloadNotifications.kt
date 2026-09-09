@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -37,6 +38,22 @@ sealed interface DownloadProgress {
      * started. Clears the notification rather than replacing it.
      */
     data object Gone : DownloadProgress
+}
+
+/**
+ * Notification keys for the downloads that have no manager to key them.
+ *
+ * Most of what this app fetches lives in a manager with a state map, and that
+ * map's own key is what the shade uses. The three below are suspend calls with
+ * a progress lambda instead — ML Kit's ink models, the system's offline voice
+ * model, Keyman's rule files — so their keys are agreed here rather than at
+ * each call site, because the settings app and the keyboard both start them
+ * and must not open two rows for one download.
+ */
+object DownloadKeys {
+    fun handwriting(languageTag: String): String = "handwriting/$languageTag"
+    fun voiceModel(languageTag: String): String = "voice-model/$languageTag"
+    fun keymanRules(keyboardId: String): String = "keyman/$keyboardId"
 }
 
 /**
@@ -127,6 +144,56 @@ object DownloadNotifications {
                 }
             }
             watching[key] = job
+        }
+    }
+
+    /**
+     * Follows a download that reports through callbacks instead of a flow.
+     *
+     * Some of what this app fetches has no state map behind it: ML Kit's ink
+     * models, the system's own offline voice model and the Keyman rule files
+     * are suspend calls with a progress lambda, owned by whoever called them.
+     * The returned handle is the flow those callers do not have — they push
+     * into it and the shade follows, with the same throttling, the same
+     * timeout and the same switch as everything else.
+     *
+     * Starts as running with an unknown size, so the caller has nothing to do
+     * beyond reporting the ending it already knows about.
+     */
+    fun start(context: Context, key: String, title: String): Handle {
+        val progress = MutableStateFlow<DownloadProgress>(DownloadProgress.Running(0, 0))
+        watch(context, key, title, progress)
+        return Handle(progress)
+    }
+
+    /**
+     * One callback-driven download, from the caller's side.
+     *
+     * Every method is safe to call after the download has ended, and after the
+     * shade has stopped listening: this is handed to code with cancellation
+     * paths and error paths of its own, and a notification handle is not worth
+     * a single `if` at any of them.
+     */
+    class Handle internal constructor(private val progress: MutableStateFlow<DownloadProgress>) {
+
+        /** [total] is 0 while the size is unknown, which draws an endless bar. */
+        fun progress(bytes: Long, total: Long) {
+            progress.value = DownloadProgress.Running(bytes, total)
+        }
+
+        /** Finished, and whatever was fetched is usable. */
+        fun done() {
+            progress.value = DownloadProgress.Done
+        }
+
+        /** [reason] is a sentence the caller has already resolved, or null. */
+        fun failed(reason: String? = null) {
+            progress.value = DownloadProgress.Failed(reason)
+        }
+
+        /** Cancelled, or finished with nothing to say. Takes the row down. */
+        fun gone() {
+            progress.value = DownloadProgress.Gone
         }
     }
 

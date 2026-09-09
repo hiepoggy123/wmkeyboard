@@ -718,6 +718,21 @@ private fun RequiresAwareInstall(
     content: @Composable (request: (AddonEntry) -> Unit) -> Unit,
 ) {
     val context = LocalContext.current
+    val notifyDownload = rememberDownloadNotifier()
+    // An install outlives the catalogue it was started from — the user goes
+    // back to typing while a theme is still arriving — so the shade follows it.
+    val watch: (AddonEntry, List<AddonEntry>) -> Unit = { entry, dependencies ->
+        val key = entry.key(repo.id)
+        notifyDownload(
+            key,
+            entry.name,
+            DownloadProgressFlows.addon(
+                context,
+                keys = dependencies.map { it.key(repo.id) } + key,
+                mainKey = key,
+            ),
+        )
+    }
     var prompt by remember { mutableStateOf<Pair<AddonEntry, List<AddonEntry>>?>(null) }
     content { entry ->
         // Following a link doesn't add the repository; choosing to install
@@ -733,6 +748,7 @@ private fun RequiresAwareInstall(
                 entry = entry,
                 appVersionCode = BuildConfig.VERSION_CODE,
             )
+            watch(entry, emptyList())
         } else {
             prompt = entry to missing
         }
@@ -777,6 +793,7 @@ private fun RequiresAwareInstall(
                             entry = entry,
                             appVersionCode = BuildConfig.VERSION_CODE,
                         )
+                        watch(entry, missing)
                     },
                 ) { Text(stringResource(R.string.addon_requires_all_action)) }
             },
@@ -795,6 +812,7 @@ private fun RequiresAwareInstall(
                             entry = entry,
                             appVersionCode = BuildConfig.VERSION_CODE,
                         )
+                        watch(entry, emptyList())
                     },
                 ) { Text(stringResource(R.string.addon_requires_skip_action)) }
             },

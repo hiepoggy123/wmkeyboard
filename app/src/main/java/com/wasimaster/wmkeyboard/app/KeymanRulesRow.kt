@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.addons.KeymanRuleDownloader
+import com.wasimaster.wmkeyboard.core.notify.DownloadKeys
 import com.wasimaster.wmkeyboard.core.keyman.KeymanRuleStore
 import com.wasimaster.wmkeyboard.core.layout.KeymanBinding
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +57,8 @@ internal fun KeymanRulesRow(binding: KeymanBinding, layoutName: String, refreshK
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember(context) { KeymanRuleStore(context) }
+    val startDownload = rememberDownloadStarter()
+    val downloadName = stringResource(R.string.notify_download_keyman_rules, layoutName)
 
     var installedVersion by remember(binding.keyboardId) { mutableStateOf<String?>(null) }
     var busy by remember(binding.keyboardId) { mutableStateOf(false) }
@@ -104,23 +107,40 @@ internal fun KeymanRulesRow(binding: KeymanBinding, layoutName: String, refreshK
         failed = false
         failure = null
         progress = 0
+        // The rules are small, but the row is one tap away from a screen the
+        // user leaves immediately, and a fetch that failed silently is what
+        // makes a Keyman layout type the wrong letters with no explanation.
+        val notify = startDownload(DownloadKeys.keymanRules(binding.keyboardId), downloadName)
         scope.launch {
             val outcome = KeymanRuleDownloader.fetch(
                 context = context,
                 keyboardId = binding.keyboardId,
             ) { read, total ->
                 if (total > 0) progress = ((read * 100) / total).toInt().coerceIn(0, 100)
+                notify.progress(read, total)
             }
             when (outcome) {
-                is KeymanRuleDownloader.Outcome.Installed -> installedVersion = outcome.version
-                is KeymanRuleDownloader.Outcome.AlreadyCurrent -> installedVersion = outcome.version
+                is KeymanRuleDownloader.Outcome.Installed -> {
+                    installedVersion = outcome.version
+                    notify.done()
+                }
+                // Nothing was fetched in either of these: the rules were
+                // already current, or upstream has none. Neither is news.
+                is KeymanRuleDownloader.Outcome.AlreadyCurrent -> {
+                    installedVersion = outcome.version
+                    notify.gone()
+                }
                 is KeymanRuleDownloader.Outcome.NotAvailable -> {
                     failed = true
                     failure = null
+                    notify.gone()
                 }
                 is KeymanRuleDownloader.Outcome.Failed -> {
                     failed = true
                     failure = outcome.message
+                    notify.failed(
+                        outcome.message ?: context.getString(R.string.languages_keyman_rules_failed),
+                    )
                 }
             }
             busy = false
@@ -149,12 +169,14 @@ internal fun rememberKeymanRulesPrompt(
     val scope = rememberCoroutineScope()
     val store = remember(context) { KeymanRuleStore(context) }
 
+    val startDownload = rememberDownloadStarter()
     var asking by remember { mutableStateOf<Pair<KeymanBinding, String>?>(null) }
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0) }
     var failure by remember { mutableStateOf<String?>(null) }
 
     asking?.let { (binding, layoutName) ->
+        val downloadName = stringResource(R.string.notify_download_keyman_rules, layoutName)
         fun close() {
             asking = null
             busy = false
@@ -193,6 +215,8 @@ internal fun rememberKeymanRulesPrompt(
                         busy = true
                         failure = null
                         progress = 0
+                        val notify =
+                            startDownload(DownloadKeys.keymanRules(binding.keyboardId), downloadName)
                         scope.launch {
                             val outcome = KeymanRuleDownloader.fetch(
                                 context = context,
@@ -201,11 +225,18 @@ internal fun rememberKeymanRulesPrompt(
                                 if (total > 0) {
                                     progress = ((read * 100) / total).toInt().coerceIn(0, 100)
                                 }
+                                notify.progress(read, total)
                             }
                             when (outcome) {
-                                is KeymanRuleDownloader.Outcome.Installed,
-                                is KeymanRuleDownloader.Outcome.AlreadyCurrent,
-                                -> {
+                                is KeymanRuleDownloader.Outcome.Installed -> {
+                                    notify.done()
+                                    onInstalled()
+                                    close()
+                                }
+                                // Already on disk: the dialog closes just the
+                                // same, but nothing was fetched to report.
+                                is KeymanRuleDownloader.Outcome.AlreadyCurrent -> {
+                                    notify.gone()
                                     onInstalled()
                                     close()
                                 }
@@ -213,11 +244,14 @@ internal fun rememberKeymanRulesPrompt(
                                     busy = false
                                     failure =
                                         context.getString(R.string.languages_keyman_rules_failed)
+                                    // The dialog is still up and says so.
+                                    notify.gone()
                                 }
                                 is KeymanRuleDownloader.Outcome.Failed -> {
                                     busy = false
                                     failure = outcome.message
                                         ?: context.getString(R.string.languages_keyman_rules_failed)
+                                    notify.gone()
                                 }
                             }
                         }

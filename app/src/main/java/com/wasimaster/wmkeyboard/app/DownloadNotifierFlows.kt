@@ -2,6 +2,8 @@ package com.wasimaster.wmkeyboard.app
 
 import android.content.Context
 import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.core.addons.AddonDownloadManager
+import com.wasimaster.wmkeyboard.core.addons.resolve
 import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
 import com.wasimaster.wmkeyboard.core.fonts.EmojiFontDownload
@@ -124,6 +126,45 @@ internal object DownloadProgressFlows {
                 is VocabDownloadManager.DownloadStatus.Failed ->
                     DownloadProgress.Failed(context.reason(status.messageRes, status.messageArg))
                 VocabDownloadManager.DownloadStatus.NotDownloaded, null -> DownloadProgress.Gone
+            }
+        }
+
+    /**
+     * One add-on install, dependencies and all.
+     *
+     * [keys] is the whole batch — an add-on that named requirements installs
+     * them first, under the same lock — and [mainKey] the one the user pressed.
+     * The batch decides whether anything is *running*; only the pressed entry
+     * decides whether it *finished*, because the requirements are soft: one of
+     * them failing is a thing the installer walks past, and a "could not be
+     * downloaded" notification for a font the user never asked for would be
+     * the wrong story.
+     */
+    fun addon(context: Context, keys: List<String>, mainKey: String): Flow<DownloadProgress> =
+        AddonDownloadManager.states.map { states ->
+            val running = keys.firstNotNullOfOrNull { key ->
+                when (val status = states[key]) {
+                    is AddonDownloadManager.AddonStatus.Downloading ->
+                        DownloadProgress.Running(status.bytes, status.totalBytes)
+                    // Hashing the payload and handing it to its importer: not a
+                    // transfer, but the add-on is not usable until they are done.
+                    AddonDownloadManager.AddonStatus.Verifying,
+                    AddonDownloadManager.AddonStatus.Installing,
+                    -> DownloadProgress.Running(0, 0)
+                    else -> null
+                }
+            }
+            when {
+                running != null -> running
+                states[mainKey] is AddonDownloadManager.AddonStatus.Installed -> DownloadProgress.Done
+                else -> {
+                    val failed = states[mainKey] as? AddonDownloadManager.AddonStatus.Failed
+                    if (failed == null) {
+                        DownloadProgress.Gone
+                    } else {
+                        DownloadProgress.Failed(failed.text.resolve(context))
+                    }
+                }
             }
         }
 

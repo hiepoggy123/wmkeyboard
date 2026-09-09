@@ -388,6 +388,8 @@ import com.wasimaster.wmkeyboard.core.mlkit.MlKitInit
 import com.wasimaster.wmkeyboard.core.media.MediaControlManager
 import com.wasimaster.wmkeyboard.core.media.MediaNotificationListener
 import com.wasimaster.wmkeyboard.core.media.MediaSnapshot
+import com.wasimaster.wmkeyboard.core.notify.DownloadKeys
+import com.wasimaster.wmkeyboard.core.notify.DownloadNotifications
 import com.wasimaster.wmkeyboard.core.otp.NotificationOtp
 import com.wasimaster.wmkeyboard.core.otp.NotificationOtpBus
 import com.wasimaster.wmkeyboard.core.otp.NotificationOtpCapture
@@ -1701,6 +1703,12 @@ open class WMKeyboardService : InputMethodService() {
 
     /** The model download in flight, so the same button can call it off. */
     private var hwDownloadJob: Job? = null
+
+    /**
+     * The shade's row for the handwriting model being fetched, so the panel's
+     * own cancel button can take it down. Null whenever nothing is downloading.
+     */
+    private var hwDownloadNotify: DownloadNotifications.Handle? = null
     /** Bumped on every stroke/undo/clear so in-flight recognitions go stale. */
     private var hwGeneration = 0
     private var hwCanvasSize = IntSize.Zero
@@ -14698,10 +14706,21 @@ open class WMKeyboardService : InputMethodService() {
         _uiState.update {
             it.copy(voice = it.voice.copy(modelState = VoiceModelState.DOWNLOADING, modelProgress = -1))
         }
+        // The panel is gone the moment the user goes back to the app they were
+        // typing in, and the system's own model download can take minutes.
+        val notify = DownloadNotifications.start(
+            this,
+            DownloadKeys.voiceModel(tag),
+            getString(
+                CommonR.string.common_notify_download_voice,
+                LanguageRegistry.byLocale(tag)?.displayName ?: tag,
+            ),
+        )
         voiceEngine.downloadModel(
             tag,
             object : VoiceInputEngine.ModelDownloadCallback {
                 override fun onProgress(percent: Int) {
+                    notify.progress(percent.toLong(), PERCENT_SCALE)
                     _uiState.update {
                         if (it.voice.languageTag != tag) it
                         else it.copy(voice = it.voice.copy(modelProgress = percent))
@@ -14709,6 +14728,7 @@ open class WMKeyboardService : InputMethodService() {
                 }
 
                 override fun onSuccess() {
+                    notify.done()
                     _uiState.update {
                         if (it.voice.languageTag != tag) it
                         else it.copy(voice = it.voice.copy(modelState = VoiceModelState.INSTALLED, modelProgress = -1))
@@ -14722,6 +14742,7 @@ open class WMKeyboardService : InputMethodService() {
                 }
 
                 override fun onError() {
+                    notify.failed(getString(R.string.ime_service_voice_model_download_error))
                     Toast.makeText(
                         this@WMKeyboardService,
                         getString(R.string.ime_service_voice_model_download_error),
@@ -14901,6 +14922,10 @@ open class WMKeyboardService : InputMethodService() {
         if (_uiState.value.handwriting.status == HandwritingStatus.DOWNLOADING) {
             hwDownloadJob?.cancel()
             hwDownloadJob = null
+            // The same control cancels, so the shade's row goes with it rather
+            // than reporting a download nobody is doing any more.
+            hwDownloadNotify?.gone()
+            hwDownloadNotify = null
             refreshHandwritingStatus()
             return
         }
@@ -14914,9 +14939,22 @@ open class WMKeyboardService : InputMethodService() {
                 ),
             )
         }
+        // ML Kit's ink models come through Mobile Data Download, which can sit
+        // there for a minute and a half before HandwritingModels gives up on
+        // it — nobody watches the panel that long.
+        val notify = DownloadNotifications.start(
+            this,
+            DownloadKeys.handwriting(tag),
+            getString(
+                CommonR.string.common_notify_download_handwriting,
+                HandwritingModels.displayName(tag),
+            ),
+        )
+        hwDownloadNotify = notify
         hwDownloadJob = serviceScope.launch {
             val result = runCancellable {
                 HandwritingModels.download(applicationContext, tag) { progress ->
+                    notify.progress(progress.bytes, progress.totalBytes)
                     _uiState.update {
                         if (it.handwriting.languageTag != tag ||
                             it.handwriting.status != HandwritingStatus.DOWNLOADING
@@ -14928,6 +14966,12 @@ open class WMKeyboardService : InputMethodService() {
                 }
             }
             hwDownloadJob = null
+            hwDownloadNotify = null
+            if (result.isSuccess) {
+                notify.done()
+            } else {
+                notify.failed(getString(R.string.ime_service_handwriting_download_error))
+            }
             _uiState.update {
                 if (it.handwriting.languageTag != tag) return@update it
                 it.copy(
@@ -22947,6 +22991,12 @@ open class WMKeyboardService : InputMethodService() {
     companion object {
         /** Minimum spacing between haptic clicks so rapid presses stay distinct. */
         private const val MIN_HAPTIC_GAP_MS = 45L
+
+        /**
+         * What a percentage counts up to. The system's voice-model download
+         * reports percent rather than bytes, and the shade wants a pair.
+         */
+        private const val PERCENT_SCALE = 100L
 
         /** How long the dedicated language key's confirmation overlay stays up. */
         private const val LANGUAGE_HUD_FLASH_MS = 1200L

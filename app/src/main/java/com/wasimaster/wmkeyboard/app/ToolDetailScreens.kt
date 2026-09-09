@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import com.wasimaster.wmkeyboard.app.media.MusicApps
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
+import com.wasimaster.wmkeyboard.core.notify.DownloadKeys
 import com.wasimaster.wmkeyboard.core.settings.AppSortOrder
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
@@ -2954,6 +2955,7 @@ private fun HandwritingModelManager(settings: KeyboardSettings) {
             .filter { HandwritingModels.tagFor(it) == null }
     }
     val context = LocalContext.current
+    val startDownload = rememberDownloadStarter()
     // tag -> "checking" | "missing" | "downloaded" | "downloading" | "error"
     val statuses = remember { mutableStateMapOf<String, String>() }
     // Live byte counts while a download runs, measured off disk — ML Kit's
@@ -3010,14 +3012,35 @@ private fun HandwritingModelManager(settings: KeyboardSettings) {
                             else -> TextButton(onClick = {
                                 statuses[language.tag] = "downloading"
                                 progress[language.tag] = HandwritingDownloadProgress()
+                                // ML Kit fetches ink models through Mobile Data
+                                // Download, which can stall for a minute and a
+                                // half before this gives up on it — far longer
+                                // than anyone waits on the screen.
+                                val notify = startDownload(
+                                    DownloadKeys.handwriting(language.tag),
+                                    context.getString(
+                                        CommonR.string.common_notify_download_handwriting,
+                                        language.displayName,
+                                    ),
+                                )
                                 scope.launch {
                                     val ok = runCancellable {
                                         HandwritingModels.download(context, language.tag) {
                                             progress[language.tag] = it
+                                            notify.progress(it.bytes, it.totalBytes)
                                         }
                                     }.isSuccess
                                     progress.remove(language.tag)
                                     statuses[language.tag] = if (ok) "downloaded" else "error"
+                                    if (ok) {
+                                        notify.done()
+                                    } else {
+                                        notify.failed(
+                                            context.getString(
+                                                R.string.privacy_handwriting_status_failed,
+                                            ),
+                                        )
+                                    }
                                 }
                             }) { Text(stringResource(CommonR.string.common_download)) }
                         }

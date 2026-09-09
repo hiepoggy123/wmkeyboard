@@ -54,9 +54,37 @@ internal typealias DownloadNotifier = (String, String, Flow<DownloadProgress>) -
 @Composable
 internal fun rememberDownloadNotifier(): DownloadNotifier {
     val context = LocalContext.current
-    val ask = rememberNotificationPermissionRequest()
+    val offerPermission = rememberNotificationPermissionOffer()
     return { key, title, progress ->
         DownloadNotifications.watch(context, key, title, progress)
+        offerPermission()
+    }
+}
+
+/**
+ * The same, for a download that reports through callbacks rather than a flow.
+ *
+ * Handwriting models, the system's offline voice model and Keyman rule files
+ * are suspend calls with a progress lambda; the handle is what they push into.
+ * See [DownloadNotifications.start].
+ */
+@Composable
+internal fun rememberDownloadStarter(): (String, String) -> DownloadNotifications.Handle {
+    val context = LocalContext.current
+    val offerPermission = rememberNotificationPermissionOffer()
+    return { key, title ->
+        val handle = DownloadNotifications.start(context, key, title)
+        offerPermission()
+        handle
+    }
+}
+
+/** The once-ever ask both of the above make when a download would have shown something. */
+@Composable
+private fun rememberNotificationPermissionOffer(): () -> Unit {
+    val context = LocalContext.current
+    val ask = rememberNotificationPermissionRequest()
+    return {
         // Only ever once, and only where it would have shown something: an app
         // that cannot post is an app with nothing to ask about yet.
         if (!NotificationSwitches.permissionOffered(context) && !WmNotifications.canPost(context)) {

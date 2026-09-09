@@ -46,5 +46,7 @@
     <!-- %1$s is the model's name, e.g. "Gemma 3 1B". -->
     <string name="notify_download_ai_model"><xliff:g id="model" example="Gemma 3 1B">%1$s</xliff:g> AI model</string>
     <string name="notify_download_emoji_font">Emoji font</string>
+    <!-- %1$s is the layout's name, e.g. "Khmer Angkor". -->
+    <string name="notify_download_keyman_rules"><xliff:g id="layout" example="Khmer Angkor">%1$s</xliff:g> typing rules</string>
 
 </resources>
