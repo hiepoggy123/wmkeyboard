@@ -11650,6 +11650,44 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    /**
+     * The emoji chips for a caret that has just finished a word: the emoji the
+     * next-word prediction itself offers (a learned bigram can end in one), plus
+     * the trigger emoji of the word that just landed.
+     *
+     * The other half of [nextWordOctopus], here for the same reason. A glide is
+     * the one commit that does not go through [refreshSuggestions], and that is
+     * the only place [KeyboardUiState.emojiSuggestions] is ever written — so the
+     * chips beside the strip kept answering about the word before the stroke.
+     * Swipe after swipe the same emoji sat there until a space was typed by
+     * hand, which is exactly the shape #118 had on the keys (#125).
+     */
+    private suspend fun nextWordEmoji(): List<String> {
+        val state = _uiState.value
+        // Off is the common case and this sits on the commit path, so the hop
+        // is skipped rather than taken and thrown away. The strip's own gates
+        // come first: a secure or silent field offers nothing either way.
+        if (!state.settings.emojiPrediction || !state.settings.suggestions ||
+            state.secureField || state.fieldNoSuggestions
+        ) {
+            return emptyList()
+        }
+        val engine = suggestionEngine ?: return emptyList()
+        val predicted = withContext(Dispatchers.Default) {
+            engine
+                .suggest(composing = "", previousWord = previousWord, previousWord2 = previousWord2)
+                .filter { isEmojiCandidate(it) }
+        }
+        // Same tail as [refreshSuggestions]: drop what the font cannot draw,
+        // then apply the default skin tone — filter first, since the hidden set
+        // is keyed by the neutral base.
+        val hidden = state.hiddenEmoji
+        return (predicted + triggerEmojiForPreviousWord())
+            .distinct()
+            .let { list -> if (hidden.isEmpty()) list else list.filterNot { it in hidden } }
+            .map { applyEmojiTone(it) }
+    }
+
     private fun refreshSuggestions() {
         val state = _uiState.value
         if (emailFieldForceActive(state)) {
@@ -13312,11 +13350,12 @@ open class WMKeyboardService : InputMethodService() {
         // word already committed. Answered before the decode rather than after,
         // because there is nothing to decode and no candidate to override.
         if (appendPossessive(state, points, keys, keyWidthPx)) {
-            // It rewrote the word behind the caret, so the keys are answering
-            // about a word that is no longer there.
+            // It rewrote the word behind the caret, so the keys and the emoji
+            // chips are answering about a word that is no longer there.
             gestureJob = serviceScope.launch {
                 val floating = nextWordOctopus()
-                _uiState.update { it.copy(octopus = floating) }
+                val chips = nextWordEmoji()
+                _uiState.update { it.copy(octopus = floating, emojiSuggestions = chips) }
             }
             return
         }
@@ -13418,7 +13457,10 @@ open class WMKeyboardService : InputMethodService() {
             lastHandAdjustment = hand
             consumeShift()
             val floating = nextWordOctopus()
-            _uiState.update { it.copy(suggestions = strip, octopus = floating) }
+            val chips = nextWordEmoji()
+            _uiState.update {
+                it.copy(suggestions = strip, octopus = floating, emojiSuggestions = chips)
+            }
         }
     }
 
@@ -13697,7 +13739,10 @@ open class WMKeyboardService : InputMethodService() {
                 armRevertGuard()
                 consumeShift()
                 val floating = nextWordOctopus()
-                _uiState.update { it.copy(suggestions = lastWords, octopus = floating) }
+                val chips = nextWordEmoji()
+                _uiState.update {
+                    it.copy(suggestions = lastWords, octopus = floating, emojiSuggestions = chips)
+                }
             }
         }
     }
