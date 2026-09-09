@@ -3965,16 +3965,7 @@ open class WMKeyboardService : InputMethodService() {
         // refreshSuggestions return before they ever cancel.
         suggestionJob?.cancel()
         smartJob?.cancel()
-        // Not on a restart. A restart is this same field reporting itself
-        // again, so a swipe still being decoded was drawn for it and belongs
-        // in it — and Compose text fields restart their connection freely,
-        // including in the few hundred milliseconds a decode takes. Cancelling
-        // there is what made a glide into the setup wizard's "try your
-        // keyboard" box decode, fill the strip and type nothing, with the word
-        // only appearing once a later stroke got a decode through unrestarted
-        // (#113). The job reads `currentInputConnection` after its decode, so
-        // it writes into whatever connection the restart left behind.
-        if (!restarting) gestureJob?.cancel()
+        gestureJob?.cancel()
         commitResolution = null
         // `restarting` is the same field reporting itself again — a programmatic
         // text change, or a web view resetting its connection, both of which
