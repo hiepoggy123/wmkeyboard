@@ -27,6 +27,22 @@ class ApostrophesTest {
         assertNull(Apostrophes.fix("I"))
     }
 
+    /**
+     * The word lists are lowercase throughout, so a correctly typed "i'm" is a
+     * known word that arrives without its capital and has nowhere else to get
+     * one — the lone "i" above has exactly the same problem.
+     */
+    @Test
+    fun capitalizesITypedWithItsApostrophe() {
+        assertEquals("I'm", Apostrophes.fix("i'm"))
+        assertEquals("I've", Apostrophes.fix("i've"))
+        assertEquals("I'll", Apostrophes.fix("i'll"))
+        assertEquals("I'd", Apostrophes.fix("i'd"))
+        // Already correct, in either casing convention.
+        assertNull(Apostrophes.fix("I'm"))
+        assertNull(Apostrophes.fix("I'D"))
+    }
+
     @Test
     fun preservesTypedCase() {
         assertEquals("Don't", Apostrophes.fix("Dont"))

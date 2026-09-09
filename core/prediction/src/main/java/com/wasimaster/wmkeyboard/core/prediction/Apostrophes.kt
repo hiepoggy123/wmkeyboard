@@ -43,9 +43,15 @@ object Apostrophes {
         "mustve" to "must've",
         "shouldve" to "should've",
         "wouldve" to "would've",
-        // I
+        // I. The apostrophe-less slips, and — because the word lists are
+        // lowercase throughout — the correctly spelled forms too, which carry
+        // the same lone capital "i" does and reach it nowhere else.
         "im" to "I'm",
         "ive" to "I've",
+        "i'm" to "I'm",
+        "i've" to "I've",
+        "i'll" to "I'll",
+        "i'd" to "I'd",
         // he / she / it / that
         "hed" to "he'd",
         "hes" to "he's",
@@ -137,6 +143,16 @@ object Apostrophes {
      */
     fun fixExplicit(word: String): String? =
         fix(word, DECLARED) ?: fix(word, CONTRACTIONS)
+
+    /**
+     * Every spelling either table can hand back.
+     *
+     * A repair commits directly, ahead of autocorrect, so each of these has to
+     * be a word the English list knows — otherwise the fix lands on an unknown
+     * word that the next commit corrects straight back (#128). Nothing in the
+     * app reads this; `EnglishApostropheEntriesTest` holds the two in step.
+     */
+    fun everyFix(): List<String> = (CONTRACTIONS.values + DECLARED.values).distinct()
 
     private fun fix(word: String, table: Map<String, String>): String? {
         val fixed = table[word.lowercase()] ?: return null
