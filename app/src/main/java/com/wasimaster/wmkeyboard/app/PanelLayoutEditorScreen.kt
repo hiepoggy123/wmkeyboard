@@ -307,7 +307,16 @@ internal fun PanelLayoutEditorScreen(
             sheetOpen = true
         },
         rowHeightsDp = previewHeightsDp,
+        // A drop is one edit and one undo step, through the same guarded move
+        // the sheet's arrows use.
+        onKeyDragged = { from, to ->
+            editGrid { it.copy(rows = moveKeyIn(it.rows, from, to)) }
+            selection = to
+            stepPushed = false
+        },
     )
+
+    CaptionText(stringResource(R.string.layout_editor_drag_caption))
 
     PanelEditorBody(
         kind = kind,
@@ -661,6 +670,14 @@ internal fun PanelEditorBody(
                         }
                     }
                     onSelectionChange(ref.copy(col = target))
+                }
+            },
+            onMoveRow = { delta ->
+                // The key layers' rule, on a panel: the same guarded helper the
+                // preview's drag lands through.
+                rowMoveTarget(rows, ref, delta)?.let { to ->
+                    editRows { moveKeyIn(it, ref, to) }
+                    onSelectionChange(to)
                 }
             },
             onDuplicate = {

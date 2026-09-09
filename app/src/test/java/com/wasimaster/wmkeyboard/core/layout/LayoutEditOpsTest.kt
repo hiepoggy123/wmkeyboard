@@ -1,6 +1,14 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import com.wasimaster.wmkeyboard.app.KeyActionCatalog
+import com.wasimaster.wmkeyboard.app.KeyRef
+import com.wasimaster.wmkeyboard.app.caretRect
+import com.wasimaster.wmkeyboard.app.dropGapAt
+import com.wasimaster.wmkeyboard.app.dropLanding
+import com.wasimaster.wmkeyboard.app.moveKeyIn
+import com.wasimaster.wmkeyboard.app.rowMoveTarget
 import com.wasimaster.wmkeyboard.language.R
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -370,5 +378,188 @@ class LayoutEditOpsTest {
             drawn.repair().spec,
             drawn,
         )
+    }
+
+    // -----------------------------------------------------------------------
+    // Moving one key: the sheet's four arrows and a drag in the preview both
+    // land through moveKeyIn, so these pin it rather than either caller.
+    // -----------------------------------------------------------------------
+
+    private fun grid() = listOf(
+        listOf(Key("a"), Key("b"), Key("c")),
+        listOf(Key("d"), Key("e")),
+    )
+
+    @Test
+    fun `a key moved to another row leaves the first and joins the second`() {
+        val moved = moveKeyIn(grid(), KeyRef(0, 1), KeyRef(1, 0))
+        assertEquals(listOf("a", "c"), moved[0].map { it.label })
+        assertEquals(listOf("b", "d", "e"), moved[1].map { it.label })
+    }
+
+    @Test
+    fun `a move keeps every key of the grid`() {
+        val before = grid().flatten().map { it.label }.sorted()
+        for (fromRow in 0..1) {
+            for (fromCol in 0..2) {
+                for (toRow in 0..1) {
+                    for (toCol in 0..3) {
+                        val after = moveKeyIn(grid(), KeyRef(fromRow, fromCol), KeyRef(toRow, toCol))
+                        assertEquals(
+                            "moving ($fromRow,$fromCol) to ($toRow,$toCol) changed the key set",
+                            before,
+                            after.flatten().map { it.label }.sorted(),
+                        )
+                        assertEquals("and the row count", 2, after.size)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a move from an address that no longer holds a key changes nothing`() {
+        // The ref is read from the composition's copy of the grid and the move
+        // runs against the store's, which can be a keystroke ahead.
+        val rows = grid()
+        assertEquals(rows, moveKeyIn(rows, KeyRef(0, 9), KeyRef(1, 0)))
+        assertEquals(rows, moveKeyIn(rows, KeyRef(5, 0), KeyRef(1, 0)))
+        assertEquals(rows, moveKeyIn(rows, KeyRef(0, 0), KeyRef(7, 0)))
+    }
+
+    @Test
+    fun `a column past the end of the target row puts the key on the end`() {
+        val moved = moveKeyIn(grid(), KeyRef(0, 0), KeyRef(1, 99))
+        assertEquals(listOf("d", "e", "a"), moved[1].map { it.label })
+    }
+
+    @Test
+    fun `a drop into a gap after the key itself comes back one place`() {
+        // The gap is counted with the key still in the row, so dropping "a"
+        // into the gap before "c" (index 2) lands it at index 1.
+        assertEquals(KeyRef(0, 1), dropLanding(KeyRef(0, 0), KeyRef(0, 2)))
+        // A gap before the key, or in another row, is already the answer.
+        assertEquals(KeyRef(0, 0), dropLanding(KeyRef(0, 2), KeyRef(0, 0)))
+        assertEquals(KeyRef(1, 2), dropLanding(KeyRef(0, 0), KeyRef(1, 2)))
+    }
+
+    @Test
+    fun `dropping a key back where it was is a move to itself`() {
+        val from = KeyRef(0, 1)
+        // The gap on either side of the key it came from.
+        assertEquals(from, dropLanding(from, KeyRef(0, 1)))
+        assertEquals(from, dropLanding(from, KeyRef(0, 2)))
+    }
+
+    @Test
+    fun `up and down stop at the edges of the grid`() {
+        assertNull(rowMoveTarget(grid(), KeyRef(0, 0), -1))
+        assertNull(rowMoveTarget(grid(), KeyRef(1, 0), +1))
+        assertEquals(KeyRef(1, 0), rowMoveTarget(grid(), KeyRef(0, 0), +1))
+        assertEquals(KeyRef(0, 1), rowMoveTarget(grid(), KeyRef(1, 1), -1))
+    }
+
+    @Test
+    fun `a key moving into a shorter row joins the end of it`() {
+        // The third key of row 0 has no third seat to take in row 1.
+        val to = rowMoveTarget(grid(), KeyRef(0, 2), +1)
+        assertEquals(KeyRef(1, 2), to)
+        val moved = moveKeyIn(grid(), KeyRef(0, 2), to!!)
+        assertEquals(listOf("a", "b"), moved[0].map { it.label })
+        assertEquals(listOf("d", "e", "c"), moved[1].map { it.label })
+    }
+
+    // -----------------------------------------------------------------------
+    // Where a drop lands. The grid arithmetic is not consulted: the drag reads
+    // the rectangles the cells actually took, so these drive it with a grid of
+    // rectangles rather than with a Compose tree.
+    // -----------------------------------------------------------------------
+
+    /** Three keys 100 wide over two 150-wide ones, with a 10 gap between rows. */
+    private fun twoRowBounds() = mapOf(
+        KeyRef(0, 0) to Rect(0f, 0f, 100f, 50f),
+        KeyRef(0, 1) to Rect(100f, 0f, 200f, 50f),
+        KeyRef(0, 2) to Rect(200f, 0f, 300f, 50f),
+        KeyRef(1, 0) to Rect(0f, 60f, 150f, 110f),
+        KeyRef(1, 1) to Rect(150f, 60f, 300f, 110f),
+    )
+
+    private fun twoRowKeys() = listOf(
+        listOf(Key("a"), Key("b"), Key("c")),
+        listOf(Key("d"), Key("e")),
+    )
+
+    @Test
+    fun `a drop lands in the gap the finger is nearest`() {
+        val rows = twoRowKeys()
+        val bounds = twoRowBounds()
+        // Left of the first key's middle: in front of it.
+        assertEquals(KeyRef(0, 0), dropGapAt(rows, bounds, Offset(10f, 25f)))
+        // Past that middle but not the next: between the first two.
+        assertEquals(KeyRef(0, 1), dropGapAt(rows, bounds, Offset(60f, 25f)))
+        // Past every middle in the row: on the end.
+        assertEquals(KeyRef(0, 3), dropGapAt(rows, bounds, Offset(290f, 25f)))
+        // The second row, by its own rectangles.
+        assertEquals(KeyRef(1, 1), dropGapAt(rows, bounds, Offset(100f, 80f)))
+    }
+
+    @Test
+    fun `a finger off the top or the bottom takes the nearest row`() {
+        val rows = twoRowKeys()
+        val bounds = twoRowBounds()
+        assertEquals(KeyRef(0, 0), dropGapAt(rows, bounds, Offset(10f, -400f)))
+        assertEquals(KeyRef(1, 0), dropGapAt(rows, bounds, Offset(10f, 400f)))
+    }
+
+    @Test
+    fun `a row a spanning key reaches into is judged by its own keys`() {
+        // A two-row key at the left of row 0 covers row 1 as well. Counting it
+        // as row 0's would put every drop in the lower half a row too high.
+        val rows = listOf(
+            listOf(Key("tall", rowSpan = 2), Key("b"), Key("c")),
+            listOf(Key("d"), Key("e")),
+        )
+        val bounds = mapOf(
+            KeyRef(0, 0) to Rect(0f, 0f, 100f, 110f),
+            KeyRef(0, 1) to Rect(100f, 0f, 200f, 50f),
+            KeyRef(0, 2) to Rect(200f, 0f, 300f, 50f),
+            KeyRef(1, 0) to Rect(100f, 60f, 200f, 110f),
+            KeyRef(1, 1) to Rect(200f, 60f, 300f, 110f),
+        )
+        assertEquals(1, dropGapAt(rows, bounds, Offset(150f, 80f))?.row)
+        assertEquals(0, dropGapAt(rows, bounds, Offset(150f, 20f))?.row)
+    }
+
+    @Test
+    fun `a grid nothing has been drawn from yet has no gap`() {
+        assertNull(dropGapAt(twoRowKeys(), emptyMap(), Offset(10f, 10f)))
+        assertNull(dropGapAt(emptyList(), twoRowBounds(), Offset(10f, 10f)))
+    }
+
+    @Test
+    fun `the caret sits at the edge of the gap it marks`() {
+        val rows = twoRowKeys()
+        val bounds = twoRowBounds()
+        // In front of the second key: down its left edge, the row's height.
+        val between = caretRect(rows, bounds, KeyRef(0, 1))!!
+        assertEquals(100f, between.left, 0.01f)
+        assertEquals(0f, between.top, 0.01f)
+        assertEquals(50f, between.bottom, 0.01f)
+        // On the end of the row: down the right edge of the last key.
+        assertEquals(300f, caretRect(rows, bounds, KeyRef(0, 3))!!.left, 0.01f)
+        // And a gap past even that — a seat a longer grid left in the map —
+        // still reads as the end of the row rather than as a stale rectangle.
+        assertEquals(300f, caretRect(rows, bounds, KeyRef(1, 9))!!.left, 0.01f)
+    }
+
+    @Test
+    fun `moving the last key out of a row leaves the row behind`() {
+        // Empty rows are legal — the renderer tolerates them and validate warns
+        // — so a move must not quietly delete one and shift every row up.
+        val single = listOf(listOf(Key("a")), listOf(Key("b")))
+        val moved = moveKeyIn(single, KeyRef(0, 0), KeyRef(1, 0))
+        assertEquals(2, moved.size)
+        assertTrue(moved[0].isEmpty())
+        assertEquals(listOf("a", "b"), moved[1].map { it.label })
     }
 }

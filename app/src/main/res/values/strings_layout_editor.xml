@@ -170,6 +170,8 @@
     <string name="layout_editor_problems_title">Problems</string>
     <string name="layout_editor_problem_blocking_subtitle">You must fix this before you turn this layout on</string>
     <string name="layout_editor_problem_warning_subtitle">Look at this, but the layout still works</string>
+    <!-- Under the preview grid, on every editor that lets you drag a key. -->
+    <string name="layout_editor_drag_caption">Press a key to change it. Press and hold a key, then drag, to move it somewhere else in the grid, including into another row.</string>
     <string name="layout_editor_not_live_caption">Your changes here do not affect typing until you turn the layout on under Languages.</string>
     <string name="layout_editor_live_caption">This layout is on, so your changes affect typing straight away. The keyboard adds a delete, space or enter key back if you remove the last one.</string>
     <string name="layout_editor_cannot_enable_title">Cannot turn on %1$s</string>
@@ -285,9 +287,13 @@
     <string name="layout_editor_role_comma_desc">An email field puts @ here, and a web field puts /</string>
     <string name="layout_editor_role_period_desc">An email field and a web field add .com and the other endings to the long press</string>
 
+    <!-- Labels the row of four arrows that move the key around the grid. -->
+    <string name="layout_editor_move_key_label">Move the key</string>
     <string name="layout_editor_delete_key_action">Delete the key</string>
     <string name="layout_editor_move_left_desc">Move left</string>
     <string name="layout_editor_move_right_desc">Move right</string>
+    <string name="layout_editor_move_up_desc">Move to the row above</string>
+    <string name="layout_editor_move_down_desc">Move to the row below</string>
     <string name="layout_editor_duplicate_key_desc">Duplicate the key</string>
 
     <!-- ===================================================================

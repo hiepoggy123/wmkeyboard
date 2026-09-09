@@ -5,9 +5,11 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.Resources
 import androidx.annotation.StringRes
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,6 +18,8 @@ import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.onFocusChanged
@@ -101,15 +105,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.State
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -1194,6 +1209,53 @@ internal fun rememberLayoutEnableGate(
 internal data class KeyRef(val row: Int, val col: Int)
 
 /**
+ * [rows] with the key at [from] taken out and put back at [to] — the one place
+ * a key changes seat, whether an arrow in the sheet or a drag moved it.
+ *
+ * Guarded rather than trusting its caller. The address is read from this
+ * composition's copy of the grid while the transform runs against the store's,
+ * which can be a keystroke ahead, so an address that no longer holds a key
+ * leaves the grid exactly as it was instead of moving whichever key took its
+ * place. Remove-then-insert on one working copy, so no path through here can
+ * duplicate a key or lose one.
+ */
+internal fun moveKeyIn(rows: List<List<Key>>, from: KeyRef, to: KeyRef): List<List<Key>> {
+    val key = rows.getOrNull(from.row)?.getOrNull(from.col) ?: return rows
+    if (to.row !in rows.indices) return rows
+    val out = rows.map { it.toMutableList() }
+    out[from.row].removeAt(from.col)
+    // The target row is measured *after* the removal, which is what makes the
+    // last gap of the key's own row reachable and keeps the index in range.
+    out[to.row].add(to.col.coerceIn(0, out[to.row].size), key)
+    return out.map { it.toList() }
+}
+
+/**
+ * Where the key at [from] ends up when it is dropped into the gap that sits
+ * before key [gap].col of row [gap].row.
+ *
+ * A gap is counted against the row as it stands, with the key still in it, so a
+ * move rightwards within one row comes back a place: taking the key out first
+ * shifts every later gap down one. A gap in another row, or one before the key
+ * itself, is already the answer.
+ */
+internal fun dropLanding(from: KeyRef, gap: KeyRef): KeyRef =
+    if (gap.row == from.row && gap.col > from.col) KeyRef(gap.row, gap.col - 1) else gap
+
+/**
+ * Where the key at [from] lands when it is pushed [delta] rows up or down, or
+ * null at the top and the bottom of the grid.
+ *
+ * It keeps its column where the row it arrives in is long enough to have one,
+ * and joins the end of a shorter row.
+ */
+internal fun rowMoveTarget(rows: List<List<Key>>, from: KeyRef, delta: Int): KeyRef? {
+    val toRow = from.row + delta
+    if (toRow !in rows.indices) return null
+    return KeyRef(toRow, from.col.coerceAtMost(rows[toRow].size))
+}
+
+/**
  * How much of the window the pinned preview may take while it is drawn at the
  * user's real key height. Past this it scrolls inside itself, so a tall key
  * height cannot leave the controls below it off screen.
@@ -1647,6 +1709,31 @@ internal fun KeyLayoutEditorScreen(
         )
     }
 
+    // A key dragged in the preview, dropped: one edit on whichever grid the tab
+    // is showing, through the same helper the sheet's arrows move a key with.
+    // Landed here rather than in the grid because only this screen knows which
+    // of the two — the typing layer or this layout's copy of a panel — the
+    // preview is drawing, and both go out through the one undo stack.
+    val onKeyDragged: (KeyRef, KeyRef) -> Unit = { from, to ->
+        val kind = panelKind
+        if (kind == null) {
+            editRows { moveKeyIn(it, from, to) }
+            selection = to
+            stepPushed = false
+        } else {
+            val shared = requireNotNull(sharedPanelGrid)
+            edit { spec ->
+                val base = spec.panelLayer(kind) ?: shared
+                spec.copy(
+                    layers = spec.layers +
+                        (kind.layerKey to base.copy(rows = moveKeyIn(base.rows, from, to))),
+                )
+            }
+            panelSelection = to
+            stepPushed = false
+        }
+    }
+
     // The grid stays under the bar while the row-height and key-width
     // controls further down scroll (#43) — at actual size as well. It used to
     // join the body there, on the grounds that a real key height can be taller
@@ -1680,9 +1767,12 @@ internal fun KeyLayoutEditorScreen(
                     }
                 },
                 rowHeightsDp = panelPreviewPair?.second,
+                onKeyDragged = onKeyDragged,
             )
         }
     }
+
+    CaptionText(stringResource(R.string.layout_editor_drag_caption))
 
     if (panelKind != null) {
         val shared = requireNotNull(sharedPanelGrid)
@@ -2167,6 +2257,14 @@ internal fun KeyLayoutEditorScreen(
                     selection = ref.copy(col = target)
                 }
             },
+            onMoveRow = { delta ->
+                // Through the same guarded helper the preview's drag lands
+                // through, so the two ways of moving a key cannot disagree.
+                rowMoveTarget(rows, ref, delta)?.let { to ->
+                    editRows { moveKeyIn(it, ref, to) }
+                    selection = to
+                }
+            },
             onDuplicate = {
                 editRows { r ->
                     r.mapIndexed { i, row ->
@@ -2428,7 +2526,125 @@ internal fun EditorGrid(
      * — every typing layout — sizes each row from the key height.
      */
     rowHeightsDp: List<Int>? = null,
+    /**
+     * Where a key dropped somewhere else in the grid goes: the seat it came
+     * from, and the seat it lands in, already worked out against the grid this
+     * drew. Null — a preview nobody edits — leaves the cells tap-only.
+     *
+     * One call per drop, so a drag is one edit and one undo step. Nothing is
+     * written while the finger is down: the grid under it never moves, which is
+     * both what makes the drop predictable and what keeps a half-finished move
+     * out of a layout the keyboard is typing with.
+     */
+    onKeyDragged: ((from: KeyRef, to: KeyRef) -> Unit)? = null,
 ) {
+    // Where each cell was last drawn, in the coordinates of the composition
+    // root. A plain map on purpose: it is written from onGloballyPositioned,
+    // which fires on every scroll of the page this grid sits on, and snapshot
+    // state there would recompose the whole grid as the user scrolls. Nothing
+    // reads it during composition — the gesture reads it, and the two drag
+    // decorations read it in their layout lambdas.
+    //
+    // Remembered without a key, like every other piece of drag state here. The
+    // gesture below is started once per cell and keeps the map, the states and
+    // the callbacks it was built with for as long as it runs, so keying any of
+    // them on the grid would hand the running gesture a dead copy the moment an
+    // edit landed. A seat left behind by a deleted key is harmless instead:
+    // every read goes through the current rows, so an address that no longer
+    // holds a key is never looked up, and a moved one is overwritten by the
+    // layout pass that drew it in its new place.
+    val cellBounds = remember { mutableMapOf<KeyRef, Rect>() }
+    // Root position of the box the two decorations are placed in, so a root
+    // coordinate a cell reported can be turned back into one of theirs.
+    val gridOrigin = remember { mutableStateOf(Offset.Zero) }
+    // The seat the finger picked up, null while nothing is being dragged. This
+    // one is read in composition: it dims the seat and draws the floating key.
+    var dragFrom by remember { mutableStateOf<KeyRef?>(null) }
+    // The gap the drop would go into, counted against the grid as it stands.
+    // Changes a handful of times per drag — once per boundary crossed — so
+    // composing the caret from it costs nothing.
+    var dropGap by remember { mutableStateOf<KeyRef?>(null) }
+    // The finger and the point of the key it holds, both in root coordinates.
+    // Read only from layout-phase lambdas, so the floating key follows the
+    // finger without recomposing the grid underneath it every frame.
+    val dragPointer = remember { mutableStateOf(Offset.Zero) }
+    var dragGrab by remember { mutableStateOf(Offset.Zero) }
+    val haptics = LocalHapticFeedback.current
+    // The gesture below outlives every recomposition of the cell it is on, so
+    // it reads both of these through the latest snapshot rather than closing
+    // over the copies it was composed with.
+    val currentRows by rememberUpdatedState(layout.rows)
+    val currentDrop by rememberUpdatedState(onKeyDragged)
+
+    /**
+     * The end of the drag that started on [ref], dropped or cancelled.
+     *
+     * It bows out when another cell has since taken the grid: two fingers can
+     * each hold a key of their own, and the second press moves the state this
+     * reads — so without the check, lifting the first finger would drop the
+     * second finger's key wherever the first one happened to be.
+     */
+    fun endDrag(ref: KeyRef, commit: Boolean) {
+        if (dragFrom != ref) return
+        val gap = dropGap
+        dragFrom = null
+        dropGap = null
+        if (!commit || gap == null) return
+        val to = dropLanding(ref, gap)
+        if (to != ref) currentDrop?.invoke(ref, to)
+    }
+
+    /**
+     * Everything a cell needs beyond its own drawing: where it landed, whether
+     * it is the one in the air, and the drag itself.
+     *
+     * After a long press, so a tap still selects the key and a drag of the page
+     * still scrolls it — the gesture only takes the pointer once the press has
+     * been held, and consumes it from there so no scrolling ancestor can steal
+     * the drag halfway through.
+     */
+    val cellModifier: (KeyRef) -> Modifier = { ref ->
+        Modifier
+            .onGloballyPositioned { cellBounds[ref] = it.boundsInRoot() }
+            .then(if (dragFrom == ref) Modifier.alpha(0.3f) else Modifier)
+            .then(
+                if (onKeyDragged == null) {
+                    Modifier
+                } else {
+                    Modifier.pointerInput(ref) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = { offset ->
+                                dragGrab = offset
+                                dragPointer.value = (cellBounds[ref]?.topLeft ?: Offset.Zero) + offset
+                                dropGap = null
+                                dragFrom = ref
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            },
+                            onDragEnd = { endDrag(ref, commit = true) },
+                            onDragCancel = { endDrag(ref, commit = false) },
+                        ) { change, _ ->
+                            // Consumed so the page this grid sits on does not
+                            // read the same movement as a scroll.
+                            change.consume()
+                            // Only the key the grid is currently holding moves
+                            // the caret. A second finger on a second key takes
+                            // the grid over (see endDrag), and the first one
+                            // must not go on steering the drop from underneath
+                            // it until it is lifted.
+                            if (dragFrom != ref) return@detectDragGesturesAfterLongPress
+                            // The cell the gesture is on does not move while
+                            // the finger is down — nothing is written until the
+                            // drop — so its own origin is a fixed frame to
+                            // measure in.
+                            val at = (cellBounds[ref]?.topLeft ?: Offset.Zero) + change.position
+                            dragPointer.value = at
+                            dropGap = dropGapAt(currentRows, cellBounds, at)
+                        }
+                    }
+                },
+            )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -2449,92 +2665,258 @@ internal fun EditorGrid(
             // RTL locale mirroring the grid would make "move right" write
             // index - 1. Labels inside each cell still resolve their own bidi.
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                Column(
+                // The layout's label-size multiplier, applied to the preview's
+                // own (smaller) type the same way the keyboard applies it to
+                // its own. A preview that ignored it would leave the one
+                // control on this screen with no visible effect until the user
+                // went and typed something. Read here rather than inside the
+                // grid because the key in the air is drawn with it too.
+                val fontScale = layout.appearance.drawnFontScale()
+                // The grid, and over it the two things a drag draws: the key in
+                // the air and the caret marking the gap it would fall into.
+                // Both are placed from coordinates the cells reported, less
+                // this box's own origin, so neither has to know how the rows
+                // below were laid out — which is the only way one placement can
+                // serve both the plain rows and a band of spanning keys.
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(kb.board)
-                        .padding(horizontal = 4.dp, vertical = 6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                        .onGloballyPositioned { gridOrigin.value = it.boundsInRoot().topLeft },
                 ) {
-                    // The most common row width sets the grid and every other
-                    // row is centred against it, or squeezed if it is wider —
-                    // the same rule the real keyboard lays rows out by, taken
-                    // from the same helpers so the two can never disagree.
-                    val gridWeight = gridWeightOf(layout.rows).takeIf { it > 0f } ?: 10f
-                    if (layout.rows.isEmpty()) {
-                        Text(
-                            stringResource(R.string.layout_editor_layer_empty_message),
-                            modifier = Modifier.padding(12.dp),
-                            color = kb.keyText.copy(alpha = 0.7f),
-                            fontSize = 13.sp,
-                        )
-                    }
-                    // The preview's key height, before this row's own multiplier:
-                    // the user's real setting, or a clamp of it. Clamped first and
-                    // scaled second, so a row set to twice the height still draws
-                    // twice as tall as its neighbours in the clamped preview.
-                    val baseHeightDp = if (actualSize) {
-                        settings.keyHeightDp
-                    } else {
-                        settings.keyHeightDp.coerceIn(38, 56)
-                    }
-                    fun heightOf(r: Int) = rowHeightsDp?.getOrNull(r) ?: rowScaledKeyHeight(
-                        baseHeightDp,
-                        layout.rowHeights?.getOrNull(r),
-                    )
-                    // Rows joined by a spanning key are drawn as one block, the
-                    // same way the keyboard does it — see EditorBand. Every other
-                    // row is its own Row, which is every row of almost every
-                    // layout.
-                    val slots = if (hasRowSpans(layout.rows)) {
-                        spanSlots(layout.rows, gridWeight)
-                    } else {
-                        emptyList()
-                    }
-                    // The layout's label-size multiplier, applied to the
-                    // preview's own (smaller) type the same way the keyboard
-                    // applies it to its own. A preview that ignored it would
-                    // leave the one control on this screen with no visible
-                    // effect until the user went and typed something.
-                    val fontScale = layout.appearance.drawnFontScale()
-                    for (band in spanBands(layout.rows)) {
-                        if (band.first != band.last) {
-                            EditorBand(
-                                slots = slots.filter { it.row in band },
-                                band = band,
-                                kb = kb,
-                                gridWeight = gridWeight,
-                                heights = band.map { heightOf(it) },
-                                selection = selection,
-                                showShift = showShift,
-                                fontScale = fontScale,
-                                onSelect = onSelect,
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(kb.board)
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        // The most common row width sets the grid and every other
+                        // row is centred against it, or squeezed if it is wider —
+                        // the same rule the real keyboard lays rows out by, taken
+                        // from the same helpers so the two can never disagree.
+                        val gridWeight = gridWeightOf(layout.rows).takeIf { it > 0f } ?: 10f
+                        if (layout.rows.isEmpty()) {
+                            Text(
+                                stringResource(R.string.layout_editor_layer_empty_message),
+                                modifier = Modifier.padding(12.dp),
+                                color = kb.keyText.copy(alpha = 0.7f),
+                                fontSize = 13.sp,
                             )
-                            continue
                         }
-                        val r = band.first
-                        val row = layout.rows[r]
-                        val sidePad = sidePadFor(row, gridWeight)
-                        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                            if (sidePad > 0.01f) Spacer(Modifier.weight(sidePad))
-                            row.forEachIndexed { c, key ->
-                                EditorKeyCell(
-                                    key = key,
+                        // The preview's key height, before this row's own multiplier:
+                        // the user's real setting, or a clamp of it. Clamped first and
+                        // scaled second, so a row set to twice the height still draws
+                        // twice as tall as its neighbours in the clamped preview.
+                        val baseHeightDp = if (actualSize) {
+                            settings.keyHeightDp
+                        } else {
+                            settings.keyHeightDp.coerceIn(38, 56)
+                        }
+                        fun heightOf(r: Int) = rowHeightsDp?.getOrNull(r) ?: rowScaledKeyHeight(
+                            baseHeightDp,
+                            layout.rowHeights?.getOrNull(r),
+                        )
+                        // Rows joined by a spanning key are drawn as one block, the
+                        // same way the keyboard does it — see EditorBand. Every other
+                        // row is its own Row, which is every row of almost every
+                        // layout.
+                        val slots = if (hasRowSpans(layout.rows)) {
+                            spanSlots(layout.rows, gridWeight)
+                        } else {
+                            emptyList()
+                        }
+                        for (band in spanBands(layout.rows)) {
+                            if (band.first != band.last) {
+                                EditorBand(
+                                    slots = slots.filter { it.row in band },
+                                    band = band,
                                     kb = kb,
-                                    heightDp = heightOf(r),
-                                    selected = selection == KeyRef(r, c),
+                                    gridWeight = gridWeight,
+                                    heights = band.map { heightOf(it) },
+                                    selection = selection,
                                     showShift = showShift,
                                     fontScale = fontScale,
-                                    modifier = Modifier.weight(key.width),
-                                ) { onSelect(KeyRef(r, c)) }
+                                    onSelect = onSelect,
+                                    cellModifier = cellModifier,
+                                )
+                                continue
                             }
-                            if (sidePad > 0.01f) Spacer(Modifier.weight(sidePad))
+                            val r = band.first
+                            val row = layout.rows[r]
+                            val sidePad = sidePadFor(row, gridWeight)
+                            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                if (sidePad > 0.01f) Spacer(Modifier.weight(sidePad))
+                                row.forEachIndexed { c, key ->
+                                    EditorKeyCell(
+                                        key = key,
+                                        kb = kb,
+                                        heightDp = heightOf(r),
+                                        selected = selection == KeyRef(r, c),
+                                        showShift = showShift,
+                                        fontScale = fontScale,
+                                        modifier = Modifier
+                                            .weight(key.width)
+                                            .then(cellModifier(KeyRef(r, c))),
+                                    ) { onSelect(KeyRef(r, c)) }
+                                }
+                                if (sidePad > 0.01f) Spacer(Modifier.weight(sidePad))
+                            }
                         }
                     }
+                    DragDecorations(
+                        rows = layout.rows,
+                        bounds = cellBounds,
+                        from = dragFrom,
+                        gap = dropGap,
+                        pointer = dragPointer,
+                        grab = dragGrab,
+                        origin = gridOrigin,
+                        kb = kb,
+                        showShift = showShift,
+                        fontScale = fontScale,
+                    )
                 }
             }
         }
     }
+}
+
+/**
+ * The two things a drag draws over the grid: the caret at the gap the key would
+ * fall into, and the key itself under the finger. Nothing at all while [from]
+ * is null, which is every frame outside a drag.
+ *
+ * [pointer] and [origin] arrive as state rather than as values, and are read
+ * inside the placement lambdas below: the finger moves every frame, and reading
+ * it in composition would recompose the whole grid at that rate. Read where it
+ * is, the frame costs one placement of one box.
+ */
+@Composable
+private fun DragDecorations(
+    rows: List<List<Key>>,
+    bounds: Map<KeyRef, Rect>,
+    from: KeyRef?,
+    gap: KeyRef?,
+    pointer: State<Offset>,
+    grab: Offset,
+    origin: State<Offset>,
+    kb: KbTheme,
+    showShift: Boolean,
+    fontScale: Float,
+) {
+    if (from == null) return
+    val density = LocalDensity.current
+    // The caret first, so the key in the air rides over it.
+    val gapBar = gap?.let { caretRect(rows, bounds, it) }
+    if (gapBar != null) {
+        val barWidth = 3.dp
+        val barHeight = with(density) { gapBar.height.toDp() }
+        val halfBar = with(density) { (barWidth / 2).roundToPx() }
+        Box(
+            modifier = Modifier
+                .offset {
+                    val at = origin.value
+                    IntOffset(
+                        (gapBar.left - at.x).roundToInt() - halfBar,
+                        (gapBar.top - at.y).roundToInt(),
+                    )
+                }
+                .size(width = barWidth, height = barHeight)
+                .clip(RoundedCornerShape(2.dp))
+                .background(kb.accent),
+        )
+    }
+    // The same cell, drawn once more under the finger, at the size it was
+    // drawn in the grid — a key two columns wide picks up two columns wide.
+    val key = rows.getOrNull(from.row)?.getOrNull(from.col) ?: return
+    val seat = bounds[from] ?: return
+    Box(
+        modifier = Modifier.offset {
+            val at = pointer.value - grab - origin.value
+            IntOffset(at.x.roundToInt(), at.y.roundToInt())
+        },
+    ) {
+        EditorKeyCell(
+            key = key,
+            kb = kb,
+            heightDp = with(density) { seat.height.toDp().value.roundToInt() },
+            selected = true,
+            showShift = showShift,
+            fontScale = fontScale,
+            modifier = Modifier
+                .width(with(density) { seat.width.toDp() })
+                .alpha(0.9f),
+            onClick = {},
+        )
+    }
+}
+
+/**
+ * The gap a key dropped at [pointer] would fall into: the row nearest the
+ * finger, and how many of that row's keys the finger is already past.
+ *
+ * Measured from where the cells actually landed rather than from the grid
+ * arithmetic, so one rule covers a plain row, a row centred against a wider
+ * grid, and a row flowing around a spanning key from above. Rows a spanning key
+ * reaches into are judged by their own keys where they have any: a two-row
+ * Enter covers the row below it, and counting it there would make every drop
+ * near the bottom right land a row too high.
+ *
+ * Returns null only for a grid with nothing drawn in it.
+ *
+ * Internal rather than private so the unit tests can drive it with a grid of
+ * rectangles: this is the whole of "where does the key land", and it is the one
+ * part of the drag that no amount of looking at the screen fully pins down.
+ */
+internal fun dropGapAt(
+    rows: List<List<Key>>,
+    bounds: Map<KeyRef, Rect>,
+    pointer: Offset,
+): KeyRef? {
+    var bestRow = -1
+    var bestDistance = Float.MAX_VALUE
+    for (r in rows.indices) {
+        val own = rows[r].indices.mapNotNull { c ->
+            bounds[KeyRef(r, c)]?.takeIf { rows[r][c].rowSpan <= 1 }
+        }
+        val rects = own.ifEmpty { rows[r].indices.mapNotNull { bounds[KeyRef(r, it)] } }
+        if (rects.isEmpty()) continue
+        val top = rects.minOf { it.top }
+        val bottom = rects.maxOf { it.bottom }
+        val distance = when {
+            pointer.y < top -> top - pointer.y
+            pointer.y > bottom -> pointer.y - bottom
+            else -> 0f
+        }
+        if (distance < bestDistance) {
+            bestDistance = distance
+            bestRow = r
+        }
+    }
+    if (bestRow < 0) return null
+    // Keys are written left to right, so the gap is simply how many of them the
+    // finger has passed the middle of.
+    val gap = rows[bestRow].indices.count { c ->
+        bounds[KeyRef(bestRow, c)]?.let { pointer.x > it.center.x } == true
+    }
+    return KeyRef(bestRow, gap)
+}
+
+/**
+ * Where the caret for [gap] is drawn: a hairline down the left edge of the key
+ * that would be pushed along, or down the right edge of the row when the key is
+ * going on the end. Root coordinates, and zero width — the caller gives it one.
+ */
+internal fun caretRect(rows: List<List<Key>>, bounds: Map<KeyRef, Rect>, gap: KeyRef): Rect? {
+    val row = rows.getOrNull(gap.row) ?: return null
+    val rects = row.indices.mapNotNull { bounds[KeyRef(gap.row, it)] }
+    if (rects.isEmpty()) return null
+    // The gap after the last key has no key to sit in front of. Asked of the
+    // map by index it would find whatever a longer grid left there, so the
+    // index is checked against the row rather than against what was recorded.
+    val ahead = if (gap.col in row.indices) bounds[KeyRef(gap.row, gap.col)] else null
+    val x = ahead?.left ?: rects.maxOf { it.right }
+    return Rect(left = x, top = rects.minOf { it.top }, right = x, bottom = rects.maxOf { it.bottom })
 }
 
 /**
@@ -2556,6 +2938,12 @@ internal fun EditorBand(
     showShift: Boolean,
     fontScale: Float,
     onSelect: (KeyRef) -> Unit,
+    /**
+     * What the grid adds to every cell: where it landed, and the drag that can
+     * pick it up. A band's cells are placed by hand, so they cannot inherit it
+     * from the rows around them the way the ordinary rows do.
+     */
+    cellModifier: (KeyRef) -> Modifier = { Modifier },
 ) {
     val weight = maxOf(gridWeight, slots.maxOfOrNull { it.end } ?: 0f)
     val gap = with(LocalDensity.current) { 4.dp.roundToPx() }
@@ -2577,7 +2965,9 @@ internal fun EditorBand(
                     // Half the 3dp the spaced rows put between neighbours, on
                     // each side, so a band's keys read at the same size as the
                     // rows above and below it.
-                    modifier = Modifier.padding(horizontal = 1.5.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 1.5.dp)
+                        .then(cellModifier(ref)),
                 ) { onSelect(ref) }
             }
         },
@@ -3024,6 +3414,13 @@ internal fun KeyEditSheet(
      */
     onChange: ((Key) -> Key) -> Unit,
     onMove: (Int) -> Unit,
+    /**
+     * The key, one row up (-1) or down (+1). Separate from [onMove] because it
+     * is a different edit: within a row a key swaps places with its neighbour,
+     * while across rows it leaves one row and joins another at whichever column
+     * that row has room for — see [rowMoveTarget].
+     */
+    onMoveRow: (Int) -> Unit,
     onDuplicate: () -> Unit,
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
@@ -3234,6 +3631,48 @@ internal fun KeyEditSheet(
 
             if (!isField) HintRow(key, onChange)
 
+            // Where the key sits, on its own row. Four arrows and the two
+            // buttons below used to share one line; the pair that moves a key
+            // between rows made that line wider than a phone, and the first
+            // thing off the end was Duplicate.
+            Row(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.layout_editor_move_key_label),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.weight(1f))
+                IconButton(enabled = ref.col > 0, onClick = { onMove(-1) }) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                        contentDescription = stringResource(R.string.layout_editor_move_left_desc),
+                    )
+                }
+                // Not mirrored, unlike the pair on either side of them: up and
+                // down mean the row above and the row below in every script.
+                IconButton(enabled = ref.row > 0, onClick = { onMoveRow(-1) }) {
+                    Icon(
+                        Icons.Outlined.KeyboardArrowUp,
+                        contentDescription = stringResource(R.string.layout_editor_move_up_desc),
+                    )
+                }
+                IconButton(enabled = ref.row < rowCount - 1, onClick = { onMoveRow(+1) }) {
+                    Icon(
+                        Icons.Outlined.KeyboardArrowDown,
+                        contentDescription = stringResource(R.string.layout_editor_move_down_desc),
+                    )
+                }
+                IconButton(enabled = ref.col < rowSize - 1, onClick = { onMove(+1) }) {
+                    Icon(
+                        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        contentDescription = stringResource(R.string.layout_editor_move_right_desc),
+                    )
+                }
+            }
+
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -3248,18 +3687,6 @@ internal fun KeyEditSheet(
                     Text(stringResource(R.string.layout_editor_delete_key_action))
                 }
                 Spacer(Modifier.weight(1f))
-                IconButton(enabled = ref.col > 0, onClick = { onMove(-1) }) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                        contentDescription = stringResource(R.string.layout_editor_move_left_desc),
-                    )
-                }
-                IconButton(enabled = ref.col < rowSize - 1, onClick = { onMove(+1) }) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                        contentDescription = stringResource(R.string.layout_editor_move_right_desc),
-                    )
-                }
                 IconButton(onClick = onDuplicate) {
                     Icon(
                         Icons.Outlined.ContentCopy,
