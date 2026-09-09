@@ -13388,6 +13388,25 @@ open class WMKeyboardService : InputMethodService() {
                 }
                 commitGestureLeadingSpace(ic, state)
                 ic.commitText(word, 1)
+                // The word and the space that finishes it are one edit, and
+                // nothing may suspend between them. `commitText` replaces the
+                // composing region whenever there is one, and the commit's own
+                // selection echo arms a region over this very word — instantly
+                // when the editor shares this process, as the setup wizard's
+                // "try your keyboard" box does. Every yield in between let that
+                // echo in first, and the space then overwrote the word instead
+                // of following it: the field kept a lone space, and the word
+                // itself only surfaced when the next stroke flushed the
+                // stranded buffer, one swipe late (#113).
+                //
+                // Arming [lastGestureWord] here is the other half of the same
+                // fix. It is the flag [restartSuggestionsAtCursor] tests before
+                // it arms a region at all, and it too was being set after the
+                // learning hop below, so the guard that exists for exactly this
+                // could not win the race it was written for.
+                lastGestureWord = word
+                commitGestureSpace(ic, state)
+                armRevertGuard()
                 recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
                 learn(
                     word,
@@ -13405,11 +13424,8 @@ open class WMKeyboardService : InputMethodService() {
                     learnHand(points, keys, keyWidthPx, word) to sampleGlideShape(points, keys, keyWidthPx, word)
                 }
                 if (shape != null) learningBuffer.attachGlide(word, shape)
-                lastGestureWord = word
                 lastGestureStroke = GlideStroke(points, keys, keyWidthPx, shape)
                 lastHandAdjustment = hand
-                commitGestureSpace(ic, state)
-                armRevertGuard()
                 consumeShift()
                 val floating = nextWordOctopus()
                 _uiState.update { it.copy(suggestions = strip, octopus = floating) }
@@ -13654,6 +13670,12 @@ open class WMKeyboardService : InputMethodService() {
                     }
                     commitGestureLeadingSpace(ic, state)
                     ic.commitText(word, 1)
+                    // Before the learning hop below, for the reason spelled out
+                    // in [onGesture]: this is what stops the commit's own echo
+                    // arming a composing region over the word, which the next
+                    // segment's leading space — or this stroke's trailing one —
+                    // would then replace instead of follow (#113).
+                    lastGestureWord = word
                     recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
                     learn(
                         word,
@@ -13668,7 +13690,6 @@ open class WMKeyboardService : InputMethodService() {
                         learnHand(segment, keys, keyWidthPx, word) to sampleGlideShape(segment, keys, keyWidthPx, word)
                     }
                     if (shape != null) learningBuffer.attachGlide(word, shape)
-                    lastGestureWord = word
                     lastGestureStroke = GlideStroke(segment, keys, keyWidthPx, shape)
                     // Each word teaches; only the last is on the undo's reach.
                     lastHandAdjustment = hand
