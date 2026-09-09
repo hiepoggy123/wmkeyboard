@@ -26,11 +26,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -828,27 +828,28 @@ internal fun PanelLayoutJsonScreen(
     val context = LocalContext.current
     val custom by repository.customPanelLayouts.collectAsStateWithLifecycle(null)
     val stored = custom ?: return
-    var text by rememberSaveable(kind) {
-        mutableStateOf(PanelLayoutCodec.encodeForEditing(resolvePanelLayout(kind, stored)))
+    val editor = rememberCodeEditorState(kind) {
+        PanelLayoutCodec.encodeForEditing(resolvePanelLayout(kind, stored))
     }
     var error by remember { mutableStateOf<String?>(null) }
     var repairs by remember { mutableStateOf<List<LayoutMessage>>(emptyList()) }
     val invalidJsonMessage = stringResource(R.string.layout_editor_json_invalid_error)
 
+    // The message belongs to the text it was printed for. Any edit retires it.
+    val text = editor.text
+    LaunchedEffect(text) { error = null }
+
     CaptionText(stringResource(R.string.layout_editor_json_caption))
 
-    OutlinedTextField(
-        value = text,
-        onValueChange = { text = it; error = null },
-        label = { Text(stringResource(R.string.layout_editor_json_field_label)) },
-        isError = error != null,
-        supportingText = error?.let { { Text(it) } },
-        visualTransformation = rememberJsonSyntaxHighlighter(),
+    CodeEditor(
+        state = editor,
+        language = JsonCode,
+        title = stringResource(R.string.layout_editor_json_field_label),
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 240.dp, max = 420.dp)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     )
+    error?.let { CaptionText(it, error = true) }
 
     if (repairs.isNotEmpty()) {
         SettingsGroup(stringResource(R.string.layout_editor_json_applied_title)) {

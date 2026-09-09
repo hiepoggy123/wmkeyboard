@@ -125,7 +125,13 @@ The layout's **name**, its **language** and its **typing method** used to live h
 
 This screen works differently from the grid editor. It's a draft with an explicit **Apply** button rather than autosave, because half-typed JSON isn't a valid layout and there's nothing sensible to save as you type. The text starts as your layout, JSON-encoded. Applying it parses the text, and invalid JSON shows "That is not valid layout JSON." and stops there. A valid parse always keeps the id you were already editing, so pasting a different layout's id in is deliberately ignored and you can't overwrite a different layout by accident. It then runs the result through the same repair pass used on import (see below) and shows what got fixed. If nothing needed fixing, the screen closes for you. If something did, it stays open so you can see the changes before leaving.
 
-The text field colors keys, strings, numbers, and punctuation by your theme, but it's a straight recolor with no reformatting: the characters you typed stay exactly where they are.
+The text field is a small code editor rather than a plain box. It's monospaced, on a code background, with the standard editor colors for keys, strings, numbers and keywords, so JSON looks like JSON whichever theme you use. Lines are numbered, the line your cursor is on is lit, and the bracket that pairs with the one beside your cursor is boxed. Long lines run off to the right and scroll rather than wrapping, which is what keeps one number against one line; the wrap button turns that off if you'd rather see everything at once.
+
+Six buttons sit above the text: undo, redo, format, wrap, copy and paste. **Format** re-indents the whole document with two spaces per level. **Copy** puts the text on the clipboard and **paste** replaces it, which is the quickest way to move a layout between two phones without a file. On a hardware keyboard, Ctrl+Z and Ctrl+Shift+Z do undo and redo, and Tab indents (Shift+Tab moves it back out); with a selection, Tab moves every line it touches.
+
+Typing gets a few editor habits too. A newline keeps the indentation of the line above and goes one step deeper after `{` or `[`. Typing `{`, `[` or `"` brings its closing half, typing a closing half where one already sits steps over it instead of doubling it, and backspacing over an empty pair takes both halves.
+
+Under the text, a status line says where the cursor is, how long the document is, and whether it parses. When it doesn't, the line number turns red in the margin and the status line names it; press it to jump there. None of this rewrites your text: what you typed stays exactly where you typed it until you press Format or Apply.
 
 ## Secondary layouts
 

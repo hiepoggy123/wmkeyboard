@@ -103,6 +103,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.State
@@ -4739,28 +4740,28 @@ internal fun KeyLayoutJsonScreen(
         return
     }
 
-    var text by rememberSaveable(layoutId) { mutableStateOf(LayoutCodec.encodeForEditing(layout)) }
+    val editor = rememberCodeEditorState(layoutId) { LayoutCodec.encodeForEditing(layout) }
     var error by remember { mutableStateOf<String?>(null) }
     var repairs by remember { mutableStateOf<List<LayoutMessage>>(emptyList()) }
     // The Apply button is a plain lambda, so the message it may set is read here.
     val invalidJsonMessage = stringResource(R.string.layout_editor_json_invalid_error)
 
+    // The message belongs to the text it was printed for. Any edit retires it.
+    val text = editor.text
+    LaunchedEffect(text) { error = null }
 
-    OutlinedTextField(
-        value = text,
-        onValueChange = { text = it; error = null },
-        label = { Text(stringResource(R.string.layout_editor_json_field_label)) },
-        isError = error != null,
-        supportingText = error?.let { { Text(it) } },
-        visualTransformation = rememberJsonSyntaxHighlighter(),
-        // Capped, and scrolling inside itself. Uncapped the field grew to the
-        // height of the whole document, which put Apply — and the repair notes
-        // it prints — dozens of screens below the fold on any real layout.
+    // Capped, and scrolling inside itself. Uncapped the field grew to the
+    // height of the whole document, which put Apply, and the repair notes it
+    // prints, dozens of screens below the fold on any real layout.
+    CodeEditor(
+        state = editor,
+        language = JsonCode,
+        title = stringResource(R.string.layout_editor_json_field_label),
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 240.dp, max = 420.dp)
             .padding(horizontal = 16.dp, vertical = 8.dp),
     )
+    error?.let { CaptionText(it, error = true) }
 
     if (repairs.isNotEmpty()) {
         SettingsGroup(
