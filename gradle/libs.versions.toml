@@ -4,6 +4,10 @@ kotlin = "2.2.20"
 coreKtx = "1.16.0"
 profileinstaller = "1.4.1"
 junit = "4.13.2"
+# Robolectric runs an Android runtime on the JVM, so a unit test can drive the
+# real IME service instead of only its pure helpers. Latest stable; 4.17 is
+# still beta, same rule as luaj and detekt.
+robolectric = "4.16.1"
 junitVersion = "1.2.1"
 espressoCore = "3.6.1"
 appcompat = "1.7.0"
@@ -99,6 +103,7 @@ composeLints = "1.5.3"
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }

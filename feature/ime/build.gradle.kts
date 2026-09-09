@@ -48,6 +48,11 @@ android {
     }
     buildFeatures { compose = true }
     lint { lintConfig = rootProject.file("config/lint/lint.xml") }
+    // Robolectric gives each test class its own sandbox classloader, which the
+    // default 512m worker does not survive alongside this module's 486 plain
+    // tests. 2g matches :app, where the same ceiling was found the hard way —
+    // see the EOFException note there.
+    testOptions.unitTests.all { it.maxHeapSize = "2g" }
 }
 
 // Compose compiler skippability/stability report, on demand:
@@ -121,4 +126,7 @@ dependencies {
     "fullImplementation"(libs.mlkit.document.scanner)
 
     testImplementation(libs.junit)
+    // An Android runtime on the JVM, so a test can drive WMKeyboardService
+    // itself rather than only the pure helpers around it.
+    testImplementation(libs.robolectric)
 }
