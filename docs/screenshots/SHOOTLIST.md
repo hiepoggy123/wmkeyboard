@@ -691,10 +691,11 @@ python3 docs/screenshots/import.py keyboard
 
 - Settings deep link: am start -a android.intent.action.VIEW -d wmkeyboard://settings/languages
 - Tap Add language and enable a 5th layout so enabledLayoutIds.size > 4 (the list threshold).
+- Settings deep link: am start -a android.intent.action.VIEW -d wmkeyboard://settings/typing — set **Press and hold, then swipe** to Language (it ships on Cursor, which keeps the hold for itself and opens nothing).
 - adb shell am start -n com.wasimaster.wmkeyboard/.app.DocsShotActivity --es mode field --es kind text
 - Press and hold the spacebar past ~250ms, drag down through a couple of rows, and capture with the list popup open and a row highlighted.
 
-> With the shipped default of exactly 4 enabled layouts and quick swipe on Language, holding shows the inline preview (see spacebar-language-preview) instead — this list only appears past 4 layouts, or if the quick-swipe slot is reassigned off Language. Needs the settings deep-link step first to add a 5th language.
+> Two setup steps, not one. The hold slot has to be off Cursor/Numpad for any hold chooser to open at all, and then the shape depends on the count: 4 enabled layouts with quick swipe on Language give the inline preview (see spacebar-language-preview), and this list only appears past 4 layouts, or with the quick-swipe slot reassigned off Language.
 
 ### 69. `privacy/incognito-toolbar-badge`
 

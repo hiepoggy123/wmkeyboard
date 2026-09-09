@@ -25,7 +25,7 @@ The spacebar has two independent swipe slots, each set under <SettingsPath path=
 - **Quick swipe on the spacebar**: a swipe that starts moving right away. Defaults to **Language**.
 - **Press and hold, then swipe**: hold briefly, *then* swipe. Defaults to **Cursor**.
 
-Each slot can be set to Nothing, Language, Cursor, or Numpad. Which slot fires depends on *when* the drag starts, not on how far you drag. The reference point is the long-press delay, 300ms by default. A swipe that crosses the touch-slop threshold before that delay uses the quick-swipe slot, and one that starts after it uses the hold + swipe slot. Once the language preview or the picker list is up, any further drag switches language whatever the slot is set to. You are looking at a language chooser by then, so the drag does what it looks like it does.
+Each slot can be set to Nothing, Language, Cursor, or Numpad. Which slot fires depends on *when* the drag starts, not on how far you drag. The reference point is the long-press delay, 300ms by default. A swipe that crosses the touch-slop threshold before that delay uses the quick-swipe slot, and one that starts after it uses the hold + swipe slot. Once the language preview or the picker list is up, any further drag switches language whatever the slot is set to. You are looking at a language chooser by then, so the drag does what it looks like it does. That never overrides your hold + swipe slot, because the chooser only appears on a hold when that slot is set to Language or Nothing (see below).
 
 With exactly two layouts enabled, a swipe toggles to the other one. Dragging further in the same direction doesn't toggle again. Reverse direction to switch back. With three or more layouts, each 44dp of horizontal drag steps to the next one in your switch order. Either end of the list resists wrapping around, since a wrap costs 2.5× the travel of a normal step, so the boundary layout "parks" until a deliberate extra pull cycles you back to the start. (Two layouts of the same language still toggle rather than cycle. The count that matters is enabled layouts, not distinct languages.)
 
@@ -41,14 +41,16 @@ The resting spacebar label follows **The spacebar shows** (also under Typing →
 
 <GestureDemo type="space-hold" caption="Hold the spacebar, then drag to pick a language without lifting." />
 
-Press and hold the spacebar with more than one layout enabled. Shortly before the long-press delay would fire (250ms, or your long-press delay if that is shorter), one of two things opens:
+Two things have to be true first: more than one layout enabled, and **Press and hold, then swipe** set to Language or Nothing. That slot is the setting for what a hold *does*, so pointing it at Cursor or Numpad hands it the hold outright and no picker opens. Otherwise the picker swallows the very drag you asked for, which is what used to happen. A fresh install ships that slot on **Cursor**, so this gesture is opt-in: set the slot to Language (or Nothing, if you would rather the hold only ever open the picker) to get it.
 
-- **The inline preview** from the section above, if you have four or fewer layouts enabled and the quick-swipe slot is set to Language. This is what a fresh install shows: seeding never turns on more than four layouts, and the quick swipe already defaults to Language.
+With that done, press and hold the spacebar. Shortly before the long-press delay would fire (250ms, or your long-press delay if that is shorter), one of two things opens:
+
+- **The inline preview** from the section above, if you have four or fewer layouts enabled and the quick-swipe slot is set to Language.
 - **A scrollable picker list**, once you have more than four layouts enabled, or if you've reassigned the quick-swipe slot to something other than Language.
 
 Once the list is open, drag vertically to walk it one row at a time. The first bit of finger movement after the list appears is absorbed as calibration, so drift from before the hold fired never selects a neighbor by accident. Lift your finger after moving and the highlighted row is selected. Lift without moving at all and the list stays open, so you can tap the row you want.
 
-One setting takes this whole gesture away on purpose. Put characters into **Spacebar long press keys** under Typing → Gestures and the hold opens [your own popup](/typing/gestures/#your-own-keys-on-the-spacebar-long-press) instead of the picker, which is what you want if you type in one language and would rather have your emoji there. The globe key and the spacebar swipe still switch language. Clear the field to get the picker back.
+A second setting takes this whole gesture away on purpose, the same way the hold + swipe slot does. Put characters into **Spacebar long press keys** under Typing → Gestures and the hold opens [your own popup](/typing/gestures/#your-own-keys-on-the-spacebar-long-press) instead of the picker, which is what you want if you type in one language and would rather have your emoji there. The globe key and the spacebar swipe still switch language. Clear the field to get the picker back.
 
 The last row, **Other keyboards…**, isn't a layout. It opens Android's own "Choose input method" sheet, which is how you hand the field to a different keyboard app entirely. It sits below the scrolling part of the list so it's always in reach however many layouts you have on, and the hold-drag walk skips it: it's a tap-only row.
 

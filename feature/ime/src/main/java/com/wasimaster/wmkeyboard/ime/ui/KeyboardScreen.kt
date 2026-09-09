@@ -16332,6 +16332,30 @@ private fun repeatFeedback(
 }
 
 /**
+ * Whether a plain hold on the spacebar may open the language chooser.
+ *
+ * Three things can want that hold and only one of them can have it. Keys the
+ * user authored onto the space key take it outright (issue #57). The long-swipe
+ * slot takes it next: that slot is the setting for what a hold-then-drag *does*,
+ * so one set to the cursor or the numpad keeps the chooser off the hold. A
+ * chooser that opened first swallowed the drag it was configured for, which left
+ * "press and hold, then swipe" unable to do anything but switch languages
+ * (issue #122). What is left over — a slot set to the language switch, or to
+ * nothing at all — leaves the hold free for the chooser. One enabled layout
+ * leaves nothing worth choosing between, and holding would only cost a space.
+ *
+ * The chooser is still on the 🌐 key's long press and on either swipe slot set
+ * to the language switch, so nothing takes it away entirely.
+ */
+internal fun spaceHoldOpensPicker(
+    enabledLayoutCount: Int,
+    holdOpensAlternates: Boolean,
+    spaceLongSwipe: SpaceSwipeAction,
+): Boolean = enabledLayoutCount > 1 &&
+    !holdOpensAlternates &&
+    (spaceLongSwipe == SpaceSwipeAction.NONE || spaceLongSwipe == SpaceSwipeAction.LANGUAGE)
+
+/**
  * Press handling: tap commits, long-press opens alternates (or begins
  * repeating for delete), release cancels. The spacebar instead supports
  * horizontal swipes: a swipe that starts moving right away performs
@@ -16487,14 +16511,13 @@ private fun Modifier.pointerInputKey(
                 // in; the picker is still on the 🌐 key and on the swipe.
                 val holdOpensAlternates = key.opensAlternatesPopup()
                 var alternatesOpened = false
-                // Arm the hold-to-switch gesture whenever there is more than one
-                // layout to switch between — independent of the swipe setting, so
-                // the tappable picker stays reachable even when the language swipe
-                // is off. A single-layout user gets nothing (holding space would
-                // otherwise show a pointless one-item picker and swallow the
-                // space). The picker only opens on a still-hold (action == null);
-                // a drag sets action first and still runs the swipe/cursor gesture.
-                val holdOpensSwitcher = enabledLayoutIds.size > 1 && !holdOpensAlternates
+                // Arm the hold-to-switch gesture only when the hold is free to
+                // mean it — see [spaceHoldOpensPicker]. The picker only opens on
+                // a still-hold (action == null); a drag sets action first and
+                // still runs the swipe/cursor gesture.
+                val holdOpensSwitcher = spaceHoldOpensPicker(
+                    enabledLayoutIds.size, holdOpensAlternates, spaceLongSwipe,
+                )
                 // The popup waits out the full long-press delay, like every other
                 // key's does; the picker keeps its own shorter cap.
                 val holdDelayMs = if (holdOpensAlternates) {
@@ -16613,8 +16636,11 @@ private fun Modifier.pointerInputKey(
                             // With the hold preview up the drag always
                             // navigates the language ring: the user is looking
                             // at a language chooser, so resolving the drag to
-                            // the long-swipe action (cursor, usually) read as
-                            // "swiping does nothing".
+                            // the long-swipe action read as "swiping does
+                            // nothing". Safe to override the candidate here
+                            // because the preview only comes up when the long
+                            // slot is free (see holdOpensSwitcher) — it can no
+                            // longer eat a cursor or numpad hold.
                             action = if (holdPreviewShown) SpaceSwipeAction.LANGUAGE else candidate
                             lastX = change.position.x
                             lastY = change.position.y

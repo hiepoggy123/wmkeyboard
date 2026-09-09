@@ -387,6 +387,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Two-language toggle rule — With exactly two layouts one run of travel toggles once; only reversing direction switches back
     - Flick counts immediately — The movement that crossed the slop already advances one language
   - Hold-to-open language picker `RARE` — 250 ms hold (or the long-press delay, whichever is shorter) opens a chooser without any swipe
+    - Only when the hold is free — Skipped when the long-swipe slot names cursor or numpad, since that slot is the setting for what a hold does
     - Two shapes — Inline preview for up to 4 layouts, scrollable tappable list beyond that
     - Hold-drag walk — Vertical drag steps the highlighted row; release commits, a still hold leaves it up for tapping
     - Never types a space — Release with the picker or preview up commits a layout instead
