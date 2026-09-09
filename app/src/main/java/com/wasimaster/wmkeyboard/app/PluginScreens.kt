@@ -273,22 +273,19 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
             // the page's only state control, and a page with no switch at all
             // would say less than a switch that says why it cannot be moved.
             val subsystemOn = remember(revision) { store.subsystemEnabled() }
-            WmRow(
-                title = stringResource(R.string.plugins_detail_enabled_title),
+            // No `default`: an installed plugin is not a shipped setting, so
+            // there is no value to reset the switch to.
+            ToggleSetting(
+                R.string.plugins_detail_enabled_title,
                 subtitle = when {
                     !subsystemOn -> stringResource(R.string.plugins_detail_subsystem_off_subtitle)
                     plugin.abandonedCount >= PluginStore.MAX_ABANDONS ->
                         stringResource(R.string.plugins_detail_stopped_subtitle)
                     else -> stringResource(R.string.plugins_detail_enabled_subtitle)
                 },
-                trailing = {
-                    Switch(
-                        checked = plugin.enabled,
-                        onCheckedChange = { store.setEnabled(pluginId, it) },
-                        enabled = subsystemOn,
-                    )
-                },
-            )
+                checked = plugin.enabled,
+                enabled = subsystemOn,
+            ) { store.setEnabled(pluginId, it) }
         }
     }
 

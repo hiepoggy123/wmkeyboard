@@ -46,7 +46,6 @@
     <string name="privacy_weather_location_empty">Not set. Press to add the coordinates</string>
     <!-- Stands in for the name of a place that the user saved without a name. -->
     <string name="privacy_weather_place_unnamed">Location with no name</string>
-    <string name="privacy_weather_edit_desc">Edit the location</string>
 
     <string name="privacy_weather_dialog_title">Weather location</string>
     <string name="privacy_weather_search_hint">Search for a city or a place</string>

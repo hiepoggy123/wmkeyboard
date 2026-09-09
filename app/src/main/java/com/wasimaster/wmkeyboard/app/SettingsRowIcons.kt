@@ -39,6 +39,7 @@ import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.BatteryAlert
 import androidx.compose.material.icons.outlined.BatteryChargingFull
 import androidx.compose.material.icons.outlined.BatterySaver
+import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.BlurOn
 import androidx.compose.material.icons.outlined.Bolt
@@ -61,20 +62,27 @@ import androidx.compose.material.icons.outlined.CloudSync
 import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Collections
+import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.Colorize
 import androidx.compose.material.icons.outlined.Contacts
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Contrast
+import androidx.compose.material.icons.outlined.Crop
+import androidx.compose.material.icons.outlined.Crop169
 import androidx.compose.material.icons.outlined.CropFree
 import androidx.compose.material.icons.outlined.CurrencyBitcoin
 import androidx.compose.material.icons.outlined.CurrencyExchange
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.DataArray
 import androidx.compose.material.icons.outlined.DataObject
 import androidx.compose.material.icons.outlined.DataSaverOn
 import androidx.compose.material.icons.outlined.DataUsage
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Dialpad
 import androidx.compose.material.icons.outlined.Difference
@@ -325,6 +333,29 @@ internal object SettingsRowIcons {
         put(R.string.appearance_themes_title) { Icons.Outlined.Palette }
         put(R.string.theme_shuffle_interval_title) { Icons.Outlined.Schedule }
         put(R.string.theme_shuffle_now_title) { Icons.Outlined.Shuffle }
+        put(R.string.theme_material_you_title) { Icons.Outlined.ColorLens }
+        put(R.string.theme_auto_title) { Icons.Outlined.AutoMode }
+        put(R.string.theme_auto_light_title) { Icons.Outlined.LightMode }
+        put(R.string.theme_auto_dark_title) { Icons.Outlined.DarkMode }
+        put(R.string.theme_auto_light_from_title) { Icons.Outlined.WbSunny }
+        put(R.string.theme_auto_dark_from_title) { Icons.Outlined.Bedtime }
+
+        // ---- The theme editor ----
+        // The shape rows are absent on purpose: each draws the shape it names
+        // beside itself, and a glyph in front of a live swatch is one picture
+        // of the setting too many.
+        put(R.string.theme_editor_dark_title) { Icons.Outlined.Contrast }
+        put(R.string.theme_crop_image_title) { Icons.Outlined.Crop }
+        put(R.string.theme_crop_landscape_title) { Icons.Outlined.Crop169 }
+        put(R.string.theme_background_animated_title) { Icons.Outlined.Animation }
+        put(R.string.theme_popup_placement_title) { Icons.Outlined.Layers }
+        put(R.string.theme_custom_radii_title) { Icons.Outlined.RoundedCorner }
+        put(R.string.theme_custom_layout_title) { Icons.Outlined.Straighten }
+        put(R.string.theme_bold_labels_title) { Icons.Outlined.FormatBold }
+        put(R.string.theme_font_title) { Icons.Outlined.TextFormat }
+        put(R.string.theme_script_font_title) { Icons.Outlined.Translate }
+        put(R.string.theme_script_font_add_title) { Icons.Outlined.Add }
+        put(R.string.theme_sound_title) { Icons.AutoMirrored.Outlined.VolumeUp }
         put(R.string.appearance_font_title) { Icons.Outlined.TextFields }
         put(R.string.appearance_icons_title) { Icons.Outlined.Image }
         put(R.string.appearance_key_corner_radius_title) { Icons.Outlined.RoundedCorner }
@@ -556,6 +587,7 @@ internal object SettingsRowIcons {
 
         // ---- Photos ----
         put(R.string.photo_services_title) { Icons.Outlined.Wallpaper }
+        put(R.string.photo_rotation_title) { Icons.Outlined.Autorenew }
         put(R.string.photo_library_title) { Icons.Outlined.Collections }
         put(R.string.photo_rotation_on_title) { Icons.Outlined.Autorenew }
         put(R.string.photo_rotation_interval_title) { Icons.Outlined.Schedule }
@@ -573,6 +605,7 @@ internal object SettingsRowIcons {
 
         // ---- Plugins ----
         put(R.string.plugins_auto_disable_title) { Icons.Outlined.Block }
+        put(R.string.plugins_detail_enabled_title) { Icons.Outlined.Extension }
 
         // ---- Privacy ----
         put(R.string.privacy_learn_typing_title) { Icons.Outlined.School }
@@ -583,6 +616,7 @@ internal object SettingsRowIcons {
         put(R.string.privacy_auto_incognito_title) { Icons.Outlined.Public }
         put(R.string.privacy_backup_title) { Icons.Outlined.CloudUpload }
         put(R.string.privacy_delete_learned_words_title) { Icons.Outlined.DeleteSweep }
+        put(R.string.privacy_weather_location_title) { Icons.Outlined.LocationOn }
 
         // ---- Privacy: the fingerprint lock ----
         // The per-target rows on the configurator are absent on purpose: each

@@ -32,7 +32,6 @@ import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.AlertDialog
@@ -3079,17 +3078,10 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
     } else {
         stringResource(R.string.privacy_weather_location_empty)
     }
-    WmRow(
-        title = stringResource(R.string.privacy_weather_location_title),
+    NavRow(
+        R.string.privacy_weather_location_title,
         subtitle = summary,
-        trailing = {
-            Icon(
-                Icons.Outlined.Edit,
-                contentDescription = stringResource(R.string.privacy_weather_edit_desc),
-            )
-        },
-        onClick = { editing = true },
-    )
+    ) { editing = true }
     if (!editing) return
 
     var place by remember { mutableStateOf(settings.weather.placeName) }

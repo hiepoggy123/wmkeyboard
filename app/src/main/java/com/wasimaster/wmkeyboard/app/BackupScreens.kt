@@ -562,19 +562,20 @@ private fun DriveRow(
     }
 
     Column {
-        ListItem(
-            headlineContent = { Text(stringResource(R.string.backup_auto_drive_title)) },
-            supportingContent = {
-                Text(
-                    stringResource(
-                        when (authorized) {
-                            true -> R.string.backup_auto_drive_authorized
-                            false -> R.string.backup_auto_drive_not_authorized
-                            null -> R.string.backup_auto_drive_checking
-                        },
-                    ),
-                )
-            },
+        // Not a `ToggleSetting` or a `NavRow`: the row is a status line, and
+        // the button below is what acts. It still takes the glyph and the
+        // highlight key so search can land on it like any other row.
+        WmRow(
+            title = stringResource(R.string.backup_auto_drive_title),
+            subtitle = stringResource(
+                when (authorized) {
+                    true -> R.string.backup_auto_drive_authorized
+                    false -> R.string.backup_auto_drive_not_authorized
+                    null -> R.string.backup_auto_drive_checking
+                },
+            ),
+            icon = SettingsRowIcons[R.string.backup_auto_drive_title],
+            highlightKey = R.string.backup_auto_drive_title,
         )
         if (authorized != true) {
             OutlinedButton(

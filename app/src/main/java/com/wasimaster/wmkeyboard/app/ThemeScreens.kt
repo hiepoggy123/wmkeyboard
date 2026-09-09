@@ -35,15 +35,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.core.net.toUri
-import androidx.compose.material.icons.outlined.Wallpaper
-import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Collections
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Crop
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FileDownload
@@ -1000,17 +997,12 @@ fun ThemesScreen(
             ) { mode -> scope.launch { repository.setThemeMode(mode) } }
         }
         item {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_material_you_title)) },
-                supportingContent = { Text(stringResource(R.string.theme_material_you_subtitle)) },
-                trailingContent = {
-                    Switch(
-                        checked = settings.dynamicColor,
-                        onCheckedChange = { scope.launch { repository.setDynamicColor(it) } },
-                    )
-                },
-                colors = transparentListColors(),
-            )
+            ToggleSetting(
+                R.string.theme_material_you_title,
+                stringResource(R.string.theme_material_you_subtitle),
+                checked = settings.dynamicColor,
+                default = SettingsDefaults.dynamicColor,
+            ) { scope.launch { repository.setDynamicColor(it) } }
         }
     }
 
@@ -1037,34 +1029,25 @@ fun ThemesScreen(
             .joinToString("\n\n"),
     ) {
         item {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_auto_title)) },
-                supportingContent = { Text(stringResource(R.string.theme_auto_subtitle)) },
-                trailingContent = {
-                    Switch(
-                        checked = auto.enabled,
-                        onCheckedChange = { scope.launch { repository.setAutoThemeEnabled(it) } },
-                    )
-                },
-                colors = transparentListColors(),
-            )
+            ToggleSetting(
+                R.string.theme_auto_title,
+                stringResource(R.string.theme_auto_subtitle),
+                checked = auto.enabled,
+                default = SettingsDefaults.autoTheme.enabled,
+            ) { scope.launch { repository.setAutoThemeEnabled(it) } }
         }
         if (auto.enabled) {
             item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.theme_auto_light_title)) },
-                    supportingContent = { Text(autoSlotSummary(settings, darkSlot = false)) },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable { pickerForLight = true },
-                )
+                NavRow(
+                    R.string.theme_auto_light_title,
+                    value = autoSlotSummary(settings, darkSlot = false),
+                ) { pickerForLight = true }
             }
             item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.theme_auto_dark_title)) },
-                    supportingContent = { Text(autoSlotSummary(settings, darkSlot = true)) },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable { pickerForLight = false },
-                )
+                NavRow(
+                    R.string.theme_auto_dark_title,
+                    value = autoSlotSummary(settings, darkSlot = true),
+                ) { pickerForLight = false }
             }
             if (auto.usesRandomSlot) {
                 item {
@@ -1100,24 +1083,16 @@ fun ThemesScreen(
                 AutoThemeTrigger.SYSTEM -> Unit
                 AutoThemeTrigger.SCHEDULE -> {
                     item {
-                        ListItem(
-                            headlineContent = {
-                                Text(stringResource(R.string.theme_auto_light_from_title))
-                            },
-                            supportingContent = { Text(formatMinutesOfDay(auto.dayStartMinutes)) },
-                            colors = transparentListColors(),
-                            modifier = Modifier.clickable { timePickerForDay = true },
-                        )
+                        NavRow(
+                            R.string.theme_auto_light_from_title,
+                            value = formatMinutesOfDay(auto.dayStartMinutes),
+                        ) { timePickerForDay = true }
                     }
                     item {
-                        ListItem(
-                            headlineContent = {
-                                Text(stringResource(R.string.theme_auto_dark_from_title))
-                            },
-                            supportingContent = { Text(formatMinutesOfDay(auto.nightStartMinutes)) },
-                            colors = transparentListColors(),
-                            modifier = Modifier.clickable { timePickerForDay = false },
-                        )
+                        NavRow(
+                            R.string.theme_auto_dark_from_title,
+                            value = formatMinutesOfDay(auto.nightStartMinutes),
+                        ) { timePickerForDay = false }
                     }
                 }
                 AutoThemeTrigger.SUN -> if (!hasSunLocation) {
@@ -1981,19 +1956,14 @@ fun ThemeEditorScreen(
         // board keeps how see-through it is, so the photo stays visible -- but
         // it is worth saying, because the colours around it do all change.
         item {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_editor_dark_title)) },
-                supportingContent = { Text(stringResource(R.string.theme_editor_dark_subtitle)) },
-                trailingContent = {
-                    Switch(
-                        checked = theme.dark,
-                        onCheckedChange = { dark ->
-                            update { t -> t.reseeded(t.enterKeyBackground, dark) }
-                        },
-                    )
-                },
-                colors = transparentListColors(),
-            )
+            // No `default`: the switch belongs to the theme being edited, and
+            // a theme's own light/dark is whatever it was authored as. There is
+            // no shipped value to reset it to.
+            ToggleSetting(
+                R.string.theme_editor_dark_title,
+                stringResource(R.string.theme_editor_dark_subtitle),
+                checked = theme.dark,
+            ) { dark -> update { t -> t.reseeded(t.enterKeyBackground, dark) } }
         }
         item {
             LazyRow(
@@ -2107,13 +2077,10 @@ fun ThemeEditorScreen(
         }
         if (theme.backgroundImage != null) {
             item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.theme_crop_image_title)) },
-                    supportingContent = { Text(stringResource(R.string.theme_crop_image_subtitle)) },
-                    leadingContent = { Icon(Icons.Outlined.Crop, contentDescription = null) },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable { cropOpen = true },
-                )
+                NavRow(
+                    R.string.theme_crop_image_title,
+                    subtitle = stringResource(R.string.theme_crop_image_subtitle),
+                ) { cropOpen = true }
             }
             item {
                 SliderRow(
@@ -2135,29 +2102,18 @@ fun ThemeEditorScreen(
                 ) { update { t -> t.copy(backgroundImageBlur = it, backgroundAnimated = false) } }
             }
             if (!settings.reduceMotion) item {
-                ListItem(
-                    headlineContent = {
-                        Text(stringResource(R.string.theme_background_animated_title))
-                    },
-                    supportingContent = {
-                        Text(stringResource(R.string.theme_background_animated_subtitle))
-                    },
-                    trailingContent = {
-                        Switch(
-                            checked = theme.backgroundAnimated,
-                            onCheckedChange = { on ->
-                                update { t ->
-                                    t.copy(
-                                        backgroundAnimated = on,
-                                        backgroundImageBlur =
-                                            if (on) 0f else t.backgroundImageBlur,
-                                    )
-                                }
-                            },
+                ToggleSetting(
+                    R.string.theme_background_animated_title,
+                    stringResource(R.string.theme_background_animated_subtitle),
+                    checked = theme.backgroundAnimated,
+                ) { on ->
+                    update { t ->
+                        t.copy(
+                            backgroundAnimated = on,
+                            backgroundImageBlur = if (on) 0f else t.backgroundImageBlur,
                         )
-                    },
-                    colors = transparentListColors(),
-                )
+                    }
+                }
             }
         }
         item {
@@ -2195,13 +2151,10 @@ fun ThemeEditorScreen(
         }
         if (theme.backgroundImageLandscape != null) {
             item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.theme_crop_landscape_title)) },
-                    supportingContent = { Text(stringResource(R.string.theme_crop_image_subtitle)) },
-                    leadingContent = { Icon(Icons.Outlined.Crop, contentDescription = null) },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable { cropLandscapeOpen = true },
-                )
+                NavRow(
+                    R.string.theme_crop_landscape_title,
+                    subtitle = stringResource(R.string.theme_crop_image_subtitle),
+                ) { cropLandscapeOpen = true }
             }
         }
         // Only offered once there is something to rotate. Most people set one
@@ -2209,39 +2162,29 @@ fun ThemeEditorScreen(
         // clutter in the one screen they do use.
         if (showRotation) {
             item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.photo_rotation_title)) },
-                    supportingContent = { Text(stringResource(R.string.photo_rotation_subtitle)) },
-                    leadingContent = { Icon(Icons.Outlined.Autorenew, contentDescription = null) },
-                    trailingContent = {
-                        Text(
-                            stringResource(
-                                if (settings.photoBackground.rotateEnabled) {
-                                    CommonR.string.common_on
-                                } else {
-                                    CommonR.string.common_off
-                                },
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable { onNavigate(PHOTO_ROTATION_ROUTE) },
-                )
+                NavRow(
+                    R.string.photo_rotation_title,
+                    subtitle = stringResource(R.string.photo_rotation_subtitle),
+                    value = stringResource(
+                        if (settings.photoBackground.rotateEnabled) {
+                            CommonR.string.common_on
+                        } else {
+                            CommonR.string.common_off
+                        },
+                    ),
+                    route = PHOTO_ROTATION_ROUTE,
+                ) { onNavigate(PHOTO_ROTATION_ROUTE) }
             }
         }
         // Likewise: somebody who never opens the online picker has no key to
         // manage. The picker's own "add a key" action reaches this screen.
         if (showServices) {
             item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.photo_services_title)) },
-                    supportingContent = { Text(stringResource(R.string.photo_services_subtitle)) },
-                    leadingContent = { Icon(Icons.Outlined.Wallpaper, contentDescription = null) },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable { onNavigate(PHOTO_HUB_ROUTE) },
-                )
+                NavRow(
+                    R.string.photo_services_title,
+                    subtitle = stringResource(R.string.photo_services_subtitle),
+                    route = PHOTO_HUB_ROUTE,
+                ) { onNavigate(PHOTO_HUB_ROUTE) }
             }
         }
     }
@@ -2800,13 +2743,8 @@ fun ThemeEditorScreen(
             // Placement: whether the bubble grows out of the key or floats
             // detached above it; the first option leaves the global setting
             // in charge.
-            ListItem(
-                headlineContent = {
-                    Text(stringResource(R.string.theme_popup_placement_title))
-                },
-                colors = transparentListColors(),
-            )
-            ChoiceControl(
+            ChoiceSetting(
+                title = R.string.theme_popup_placement_title,
                 options = listOf(
                     null to stringResource(R.string.theme_popup_placement_default_label),
                     "key" to stringResource(R.string.theme_popup_placement_key_label),
@@ -2815,7 +2753,6 @@ fun ThemeEditorScreen(
                 selected = theme.popupPlacement
                     ?.lowercase()
                     ?.takeIf { it == "key" || it == "float" },
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 detail = { value ->
                     ChoiceDetail(
                         stringResource(
@@ -3078,37 +3015,30 @@ fun ThemeEditorScreen(
     val hasCustomRadii = theme.keyCornerRadiusDp != null
     SettingsGroup(stringResource(R.string.theme_corners_section_title), foldKey = "theme/corners") {
         item {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_custom_radii_title)) },
-                supportingContent = { Text(stringResource(R.string.theme_custom_radii_subtitle)) },
-                trailingContent = {
-                    Switch(
-                        checked = hasCustomRadii,
-                        onCheckedChange = { enable ->
-                            update { t ->
-                                // Radii only. The popup and tool shapes live
-                                // with their own colours now, and a theme that
-                                // has picked one keeps it whether or not it
-                                // also carries its own radii.
-                                if (enable) {
-                                    t.copy(
-                                        keyCornerRadiusDp = settings.keyCornerRadiusDp,
-                                        popupCornerRadiusDp = settings.popup.cornerRadiusDp,
-                                        toolCircleRadiusDp = settings.toolCircleRadiusDp,
-                                    )
-                                } else {
-                                    t.copy(
-                                        keyCornerRadiusDp = null,
-                                        popupCornerRadiusDp = null,
-                                        toolCircleRadiusDp = null,
-                                    )
-                                }
-                            }
-                        },
-                    )
-                },
-                colors = transparentListColors(),
-            )
+            ToggleSetting(
+                R.string.theme_custom_radii_title,
+                stringResource(R.string.theme_custom_radii_subtitle),
+                checked = hasCustomRadii,
+            ) { enable ->
+                update { t ->
+                    // Radii only. The popup and tool shapes live with their own
+                    // colours now, and a theme that has picked one keeps it
+                    // whether or not it also carries its own radii.
+                    if (enable) {
+                        t.copy(
+                            keyCornerRadiusDp = settings.keyCornerRadiusDp,
+                            popupCornerRadiusDp = settings.popup.cornerRadiusDp,
+                            toolCircleRadiusDp = settings.toolCircleRadiusDp,
+                        )
+                    } else {
+                        t.copy(
+                            keyCornerRadiusDp = null,
+                            popupCornerRadiusDp = null,
+                            toolCircleRadiusDp = null,
+                        )
+                    }
+                }
+            }
         }
         if (hasCustomRadii) {
             item {
@@ -3148,62 +3078,54 @@ fun ThemeEditorScreen(
         info = stringResource(R.string.theme_layout_section_body),
     ) {
         item {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_custom_layout_title)) },
-                supportingContent = { Text(stringResource(R.string.theme_custom_layout_subtitle)) },
-                trailingContent = {
-                    Switch(
-                        checked = hasLayoutOverrides,
-                        onCheckedChange = { enable ->
-                            update { t ->
-                                if (enable) {
-                                    t.copy(
-                                        toolWidthDp = settings.toolbarBehavior.toolWidthDp,
-                                        toolbarHeightDp = settings.toolbarHeightDp,
-                                        // Both styles' heights, not the one the
-                                        // setting is in: a single seed handed the
-                                        // floating height to the on-key bubble
-                                        // the moment the style flipped (#87).
-                                        popupHeightDp = settings.popup.onKeyHeightDp,
-                                        popupFloatingHeightDp = settings.popup.floatingHeightDp,
-                                        keyHeightDp = settings.keyHeightDp,
-                                        keyGapScale = settings.keyGapScale,
-                                        sidePadScale = settings.layoutBehavior.sidePadLeftScale
-                                            .takeIf {
-                                                it == settings.layoutBehavior.sidePadRightScale
-                                            },
-                                        sidePadLeftScale = settings.layoutBehavior.sidePadLeftScale,
-                                        sidePadRightScale = settings.layoutBehavior.sidePadRightScale,
-                                        fontScale = settings.fontScale,
-                                        boldKeyLabels = settings.accessibility.boldLabels,
-                                        hintFontScale = settings.layoutBehavior.hintFontScale,
-                                        gestureTrailWidthDp = settings.gesture.trailWidthDp,
-                                        gestureTrailOpacity = settings.gesture.trailOpacity,
-                                    )
-                                } else {
-                                    t.copy(
-                                        toolWidthDp = null,
-                                        toolbarHeightDp = null,
-                                        popupHeightDp = null,
-                                        popupFloatingHeightDp = null,
-                                        keyHeightDp = null,
-                                        keyGapScale = null,
-                                        sidePadScale = null,
-                                        sidePadLeftScale = null,
-                                        sidePadRightScale = null,
-                                        fontScale = null,
-                                        boldKeyLabels = null,
-                                        hintFontScale = null,
-                                        gestureTrailWidthDp = null,
-                                        gestureTrailOpacity = null,
-                                    )
-                                }
-                            }
-                        },
-                    )
-                },
-                colors = transparentListColors(),
-            )
+            ToggleSetting(
+                R.string.theme_custom_layout_title,
+                stringResource(R.string.theme_custom_layout_subtitle),
+                checked = hasLayoutOverrides,
+            ) { enable ->
+                update { t ->
+                    if (enable) {
+                        t.copy(
+                            toolWidthDp = settings.toolbarBehavior.toolWidthDp,
+                            toolbarHeightDp = settings.toolbarHeightDp,
+                            // Both styles' heights, not the one the setting is
+                            // in: a single seed handed the floating height to
+                            // the on-key bubble the moment the style flipped
+                            // (#87).
+                            popupHeightDp = settings.popup.onKeyHeightDp,
+                            popupFloatingHeightDp = settings.popup.floatingHeightDp,
+                            keyHeightDp = settings.keyHeightDp,
+                            keyGapScale = settings.keyGapScale,
+                            sidePadScale = settings.layoutBehavior.sidePadLeftScale
+                                .takeIf { it == settings.layoutBehavior.sidePadRightScale },
+                            sidePadLeftScale = settings.layoutBehavior.sidePadLeftScale,
+                            sidePadRightScale = settings.layoutBehavior.sidePadRightScale,
+                            fontScale = settings.fontScale,
+                            boldKeyLabels = settings.accessibility.boldLabels,
+                            hintFontScale = settings.layoutBehavior.hintFontScale,
+                            gestureTrailWidthDp = settings.gesture.trailWidthDp,
+                            gestureTrailOpacity = settings.gesture.trailOpacity,
+                        )
+                    } else {
+                        t.copy(
+                            toolWidthDp = null,
+                            toolbarHeightDp = null,
+                            popupHeightDp = null,
+                            popupFloatingHeightDp = null,
+                            keyHeightDp = null,
+                            keyGapScale = null,
+                            sidePadScale = null,
+                            sidePadLeftScale = null,
+                            sidePadRightScale = null,
+                            fontScale = null,
+                            boldKeyLabels = null,
+                            hintFontScale = null,
+                            gestureTrailWidthDp = null,
+                            gestureTrailOpacity = null,
+                        )
+                    }
+                }
+            }
         }
         if (hasLayoutOverrides) {
             item {
@@ -3287,16 +3209,11 @@ fun ThemeEditorScreen(
                 ) { update { t -> t.copy(fontScale = (it * 20).toInt() / 20f) } }
             }
             item {
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.theme_bold_labels_title)) },
-                    trailingContent = {
-                        Switch(
-                            checked = theme.boldKeyLabels ?: false,
-                            onCheckedChange = { update { t -> t.copy(boldKeyLabels = it) } },
-                        )
-                    },
-                    colors = transparentListColors(),
-                )
+                ToggleSetting(
+                    R.string.theme_bold_labels_title,
+                    subtitle = null,
+                    checked = theme.boldKeyLabels ?: false,
+                ) { bold -> update { t -> t.copy(boldKeyLabels = bold) } }
             }
             item {
                 SliderRow(
@@ -3613,17 +3530,11 @@ fun ThemeEditorScreen(
         info = stringResource(R.string.theme_font_sound_section_body),
     ) {
         item {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_font_title)) },
-                supportingContent = {
-                    Text(
-                        theme.fontId?.let { KeyboardFonts.displayName(context, it, "") }
-                            ?: stringResource(R.string.theme_follow_settings_label),
-                    )
-                },
-                modifier = Modifier.clickable { fontPickerOpen = true },
-                colors = transparentListColors(),
-            )
+            NavRow(
+                R.string.theme_font_title,
+                value = theme.fontId?.let { KeyboardFonts.displayName(context, it, "") }
+                    ?: stringResource(R.string.theme_follow_settings_label),
+            ) { fontPickerOpen = true }
         }
         // A theme's own font loses to every non-Latin script's automatic face,
         // so a display theme needs a matching face named per script or it simply
@@ -3633,40 +3544,33 @@ fun ThemeEditorScreen(
             val key = script.script.name
             val fontId = theme.scriptFontIds[key] ?: continue
             item {
-                ListItem(
-                    headlineContent = {
-                        Text(
-                            stringResource(
-                                R.string.theme_script_font_title,
-                                stringResource(script.labelRes),
-                            ),
-                        )
-                    },
-                    supportingContent = { Text(KeyboardFonts.displayName(context, fontId, "")) },
-                    modifier = Modifier.clickable { scriptFontPicker = key },
-                    colors = transparentListColors(),
-                )
+                // The `String` form, because the row is named after a script
+                // rather than after a resource of its own. The glyph and the
+                // highlight key are handed over by name instead.
+                NavRow(
+                    title = stringResource(
+                        R.string.theme_script_font_title,
+                        stringResource(script.labelRes),
+                    ),
+                    value = KeyboardFonts.displayName(context, fontId, ""),
+                    icon = SettingsRowIcons[R.string.theme_script_font_title],
+                    highlightKey = R.string.theme_script_font_title,
+                ) { scriptFontPicker = key }
             }
         }
         item {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_script_font_add_title)) },
-                supportingContent = {
-                    Text(stringResource(R.string.theme_script_font_add_body))
-                },
-                modifier = Modifier.clickable { scriptPickerOpen = true },
-                colors = transparentListColors(),
-            )
+            NavRow(
+                R.string.theme_script_font_add_title,
+                subtitle = stringResource(R.string.theme_script_font_add_body),
+            ) { scriptPickerOpen = true }
         }
         // A theme's sound is resolved past the key-sound gate, so with key
         // sounds off there is nothing for it to replace.
         if (settings.sound.enabled) item {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_sound_title)) },
-                supportingContent = { Text(themeSoundLabel(theme)) },
-                modifier = Modifier.clickable { soundPickerOpen = true },
-                colors = transparentListColors(),
-            )
+            NavRow(
+                R.string.theme_sound_title,
+                value = themeSoundLabel(theme),
+            ) { soundPickerOpen = true }
         }
     }
     if (fontPickerOpen) {
