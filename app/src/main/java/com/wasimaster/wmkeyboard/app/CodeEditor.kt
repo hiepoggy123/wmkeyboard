@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,7 +11,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -53,14 +53,17 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
@@ -77,9 +80,11 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -88,12 +93,17 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import java.io.File
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 // ---------------------------------------------------------------------------
 // A small code editor
@@ -109,8 +119,13 @@ import kotlinx.coroutines.delay
  */
 @Immutable
 internal interface CodeLanguage {
-    /** The document, coloured. [match] is the bracket pair under the caret, if there is one. */
-    fun highlight(source: String, colors: CodeColors, match: Pair<Int, Int>?): AnnotatedString
+    /**
+     * The document, coloured. Called once per change of the text, so it must
+     * not depend on where the caret is: the caret moves far more often than
+     * the text changes, and re-colouring a long document on every move is what
+     * makes an editor feel slow.
+     */
+    fun highlight(source: String, colors: CodeColors): AnnotatedString
 
     /** The document, indented again, or null when it does not parse. */
     fun format(source: String): String?
@@ -118,8 +133,11 @@ internal interface CodeLanguage {
     /** What is wrong with the document, or null when nothing is. */
     fun problem(source: String): CodeProblem?
 
+    /** The offsets of the brackets that structure [source], in order. */
+    fun brackets(source: String): List<Int>
+
     /** The bracket at or before [caret] and the one that pairs with it. */
-    fun matchingBracket(source: String, caret: Int): Pair<Int, Int>?
+    fun matchingBracket(source: String, brackets: List<Int>, caret: Int): Pair<Int, Int>?
 }
 
 /** A parse failure, at a character offset when the parser reports one. */
@@ -148,7 +166,6 @@ internal data class CodeColors(
     val string: Color,
     val number: Color,
     val keyword: Color,
-    val punctuation: Color,
     val problem: Color,
 )
 
@@ -167,7 +184,6 @@ private val LightCode = CodeColors(
     string = Color(0xFFA31515),
     number = Color(0xFF098658),
     keyword = Color(0xFF0000FF),
-    punctuation = Color(0xFF3B3B3B),
     problem = Color(0xFFD1242F),
 )
 
@@ -186,9 +202,40 @@ private val DarkCode = CodeColors(
     string = Color(0xFFCE9178),
     number = Color(0xFFB5CEA8),
     keyword = Color(0xFF569CD6),
-    punctuation = Color(0xFFD4D4D4),
     problem = Color(0xFFF14C4C),
 )
+
+/**
+ * The files a real monospaced font is likely to sit in. AOSP ships the second
+ * one, and every skin builds on AOSP.
+ */
+private val MONO_FONT_FILES = listOf(
+    "/system/fonts/RobotoMono-Regular.ttf",
+    "/system/fonts/DroidSansMono.ttf",
+    "/system/fonts/CutiveMono.ttf",
+)
+
+/**
+ * A monospaced family, found by file rather than by name.
+ *
+ * `FontFamily.Monospace` asks the platform for its "monospace" alias, and some
+ * skins point that alias at their own proportional face. ColorOS 15 does, so
+ * the JSON on an OPPO device came out in the system sans with every column
+ * ragged. The font file behind the alias does not go through the alias, so it
+ * is loaded straight from disk when one of the usual ones is there, and the
+ * alias stays as the fallback for a device that has none.
+ *
+ * Resolved once per process: it touches the file system, and the answer cannot
+ * change while the app runs.
+ */
+private val CodeFontFamily: FontFamily by lazy {
+    val file = MONO_FONT_FILES
+        .asSequence()
+        .map(::File)
+        .filter { it.canRead() }
+        .firstOrNull { runCatching { Typeface.createFromFile(it) }.getOrNull() != null }
+    if (file == null) FontFamily.Monospace else FontFamily(Font(file))
+}
 
 /** The palette that suits the theme the app is drawn in. */
 @Composable
@@ -342,6 +389,7 @@ private const val PROBLEM_DELAY_MS = 250L
 private val CONTENT_PAD = 10.dp
 private val FIELD_PAD = 10.dp
 private val CARET_PAD = 24.dp
+private val NUMBER_PAD = 10.dp
 
 /**
  * A monospaced field on a code background, with numbered lines, the caret's
@@ -365,26 +413,33 @@ internal fun CodeEditor(
     val colors = rememberCodeColors()
     val density = LocalDensity.current
     var wrap by rememberSaveable { mutableStateOf(false) }
-    var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
+    // Held as the state object rather than read through it: the two draw
+    // blocks below read `.value` inside the draw phase, so a new text layout
+    // repaints the margin and the underlay without recomposing the editor.
+    val layout = remember { mutableStateOf<TextLayoutResult?>(null) }
     val vertical = rememberScrollState()
     val horizontal = rememberScrollState()
 
     val style = remember(colors) {
-        TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 20.sp, color = colors.text)
+        TextStyle(fontFamily = CodeFontFamily, fontSize = 13.sp, lineHeight = 20.sp, color = colors.text)
     }
     val text = state.text
     val caret = state.value.selection.end.coerceIn(0, text.length)
     val lineStarts = remember(text) { lineStartOffsets(text) }
     val caretLine = lineOf(lineStarts, caret)
-    val match = remember(text, caret) { language.matchingBracket(text, caret) }
-    val coloured = remember(text, colors, match) { language.highlight(text, colors, match) }
+    // Everything below is keyed on the text alone. Only `match` follows the
+    // caret, and it walks a list of offsets rather than the document.
+    val brackets = remember(text, language) { language.brackets(text) }
+    val match = remember(brackets, caret) { language.matchingBracket(text, brackets, caret) }
+    val coloured = remember(text, colors, language) { language.highlight(text, colors) }
     val painter = remember(coloured) { CodeHighlight(coloured) }
 
     // A parse on every keystroke is wasted work while the user is mid-word, so
-    // the status line waits for a pause. Nothing else waits on it.
+    // the status line waits for a pause, and then parses off the main thread.
+    // Nothing else waits on it.
     val problem by produceState<CodeProblem?>(null, text, language) {
         delay(PROBLEM_DELAY_MS)
-        value = language.problem(text)
+        value = withContext(Dispatchers.Default) { language.problem(text) }
     }
     val problemLine = problem?.offset?.let { lineOf(lineStarts, it.coerceIn(0, text.length)) }
 
@@ -406,34 +461,59 @@ internal fun CodeEditor(
         CodeToolbar(state, language, colors, title, wrap) { wrap = it }
 
         val shape = RoundedCornerShape(12.dp)
-        BoxWithConstraints(
+        // A plain Box with its size reported back, rather than
+        // BoxWithConstraints: that one subcomposes its content on every measure
+        // pass, and this content is a text field holding the whole document.
+        var frame by remember { mutableStateOf(IntSize.Zero) }
+        Box(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = minHeight, max = maxHeight)
                 .clip(shape)
                 .background(colors.background)
-                .border(1.dp, colors.border, shape),
+                .border(1.dp, colors.border, shape)
+                .onSizeChanged { frame = it },
         ) {
-            val viewport = with(density) { this@BoxWithConstraints.maxHeight.roundToPx() }
-            val room = this@BoxWithConstraints.maxWidth - gutterWidth - FIELD_PAD - FIELD_PAD
+            val viewport = frame.height
+            val room = with(density) { frame.width.toDp() } - gutterWidth - FIELD_PAD - FIELD_PAD
             val contentWidth = maxOf(room, charWidth * longest + CARET_PAD)
 
             Box(Modifier.width(gutterWidth).fillMaxHeight().background(colors.gutter))
             Box(Modifier.offset(x = gutterWidth).width(1.dp).fillMaxHeight().background(colors.border))
-            ActiveLineBand(layout, caret, vertical, colors)
+            EditorUnderlay(
+                layout = layout,
+                caret = caret,
+                match = match,
+                textLeft = gutterWidth + FIELD_PAD,
+                vertical = vertical,
+                horizontal = horizontal,
+                colors = colors,
+            )
 
-            Row(Modifier.verticalScroll(vertical).padding(vertical = CONTENT_PAD), verticalAlignment = Alignment.Top) {
-                GutterNumbers(
-                    layout = layout,
-                    lineStarts = lineStarts,
-                    activeLine = caretLine,
-                    problemLine = problemLine,
-                    width = gutterWidth,
-                    colors = colors,
-                    style = style,
-                    scroll = vertical,
-                    viewport = viewport,
-                )
+            // The margin is painted behind the row rather than laid out beside
+            // it, so the row's height is the field's own and nothing has to
+            // read the text layout during composition.
+            Row(
+                Modifier
+                    .verticalScroll(vertical)
+                    .padding(vertical = CONTENT_PAD)
+                    .drawBehind {
+                        drawLineNumbers(
+                            layout = layout.value,
+                            lineStarts = lineStarts,
+                            activeLine = caretLine,
+                            problemLine = problemLine,
+                            right = gutterWidth.toPx() - NUMBER_PAD.toPx(),
+                            colors = colors,
+                            style = style,
+                            measurer = measurer,
+                            scroll = vertical.value,
+                            viewport = viewport,
+                        )
+                    },
+                verticalAlignment = Alignment.Top,
+            ) {
+                Spacer(Modifier.width(gutterWidth))
                 Box(
                     Modifier
                         .weight(1f)
@@ -444,7 +524,7 @@ internal fun CodeEditor(
                     // longest line has nothing to wrap, and one as wide as the
                     // viewport wraps everything. The legacy field has no
                     // softWrap of its own.
-                    CodeField(state, style, colors, painter, if (wrap) room else contentWidth) { layout = it }
+                    CodeField(state, style, colors, painter, if (wrap) room else contentWidth) { layout.value = it }
                 }
             }
         }
@@ -502,72 +582,92 @@ private fun handleEditorKey(event: androidx.compose.ui.input.key.KeyEvent, state
     }
 }
 
-/** The caret's line, lit across the whole editor, gutter included. */
+/**
+ * What sits under the text: the caret's line lit across the whole editor,
+ * gutter included, and a box around each half of the bracket pair.
+ *
+ * The bracket boxes are drawn rather than spanned. A span would mean rebuilding
+ * the coloured document on every caret move, which on a long layout is the
+ * difference between a field that keeps up with typing and one that does not.
+ */
 @Composable
-private fun BoxScope.ActiveLineBand(
-    layout: TextLayoutResult?,
+private fun BoxScope.EditorUnderlay(
+    layout: State<TextLayoutResult?>,
     caret: Int,
-    scroll: ScrollState,
+    match: Pair<Int, Int>?,
+    textLeft: Dp,
+    vertical: ScrollState,
+    horizontal: ScrollState,
     colors: CodeColors,
 ) {
     val density = LocalDensity.current
-    // The scroll position is read here, inside the draw block, so a drag
-    // repaints the band without recomposing anything.
+    // The layout and the scroll positions are read here, inside the draw block,
+    // so a drag or a fresh layout repaints without recomposing anything.
     Canvas(Modifier.matchParentSize()) {
-        val result = layout ?: return@Canvas
-        if (caret > result.layoutInput.text.length) return@Canvas
-        val line = result.getLineForOffset(caret)
-        val top = result.getLineTop(line) - scroll.value + with(density) { CONTENT_PAD.toPx() }
-        val height = result.getLineBottom(line) - result.getLineTop(line)
-        if (top + height <= 0f || top >= size.height) return@Canvas
-        drawRect(color = colors.activeLine, topLeft = Offset(0f, top), size = Size(size.width, height))
+        val result = layout.value ?: return@Canvas
+        val top = with(density) { CONTENT_PAD.toPx() } - vertical.value
+        val length = result.layoutInput.text.length
+        if (caret <= length) {
+            val line = result.getLineForOffset(caret)
+            val y = result.getLineTop(line) + top
+            val height = result.getLineBottom(line) - result.getLineTop(line)
+            if (y + height > 0f && y < size.height) {
+                drawRect(color = colors.activeLine, topLeft = Offset(0f, y), size = Size(size.width, height))
+            }
+        }
+        if (match == null) return@Canvas
+        val left = with(density) { textLeft.toPx() } - horizontal.value
+        for (offset in listOf(match.first, match.second)) {
+            if (offset >= length) continue
+            val box = result.getBoundingBox(offset)
+            drawRect(
+                color = colors.bracketMatch,
+                topLeft = Offset(box.left + left, box.top + top),
+                size = Size(box.width, box.height),
+            )
+        }
     }
 }
 
 /**
- * The line numbers. Only the ones the viewport can show are measured and
- * drawn: a long document would otherwise pay for hundreds nobody looks at.
+ * The line numbers, right-aligned at [right]. Only the ones the viewport can
+ * show are measured and drawn: a long document would otherwise pay for hundreds
+ * nobody is looking at.
  */
-@Composable
-private fun GutterNumbers(
+@Suppress("LongParameterList")
+private fun DrawScope.drawLineNumbers(
     layout: TextLayoutResult?,
     lineStarts: List<Int>,
     activeLine: Int,
     problemLine: Int?,
-    width: Dp,
+    right: Float,
     colors: CodeColors,
     style: TextStyle,
-    scroll: ScrollState,
+    measurer: TextMeasurer,
+    scroll: Int,
     viewport: Int,
 ) {
-    val measurer = rememberTextMeasurer(cacheSize = 64)
-    val density = LocalDensity.current
-    val height = with(density) { (layout?.size?.height ?: 0).toDp() }
-    Canvas(Modifier.width(width).height(height)) {
-        val result = layout ?: return@Canvas
-        val limit = result.layoutInput.text.length
-        val rightPad = 10.dp.toPx()
-        val offset = scroll.value
-        for (index in lineStarts.indices) {
-            val start = lineStarts[index]
-            if (start > limit) break
-            val line = result.getLineForOffset(start)
-            val top = result.getLineTop(line)
-            if (top - offset > viewport) break
-            if (result.getLineBottom(line) - offset < 0f) continue
-            val bad = problemLine == index
-            val active = index == activeLine
-            val colour = when {
-                bad -> colors.problem
-                active -> colors.gutterActiveText
-                else -> colors.gutterText
-            }
-            val number = measurer.measure(
-                AnnotatedString((index + 1).toString()),
-                style.copy(color = colour, fontWeight = if (active || bad) FontWeight.Medium else FontWeight.Normal),
-            )
-            drawText(number, topLeft = Offset(size.width - rightPad - number.size.width, top))
+    val result = layout ?: return
+    val limit = result.layoutInput.text.length
+    for (index in lineStarts.indices) {
+        val start = lineStarts[index]
+        if (start > limit) break
+        val line = result.getLineForOffset(start)
+        val top = result.getLineTop(line)
+        if (top - scroll > viewport) break
+        if (result.getLineBottom(line) - scroll < 0f) continue
+        val bad = problemLine == index
+        val active = index == activeLine
+        val colour = when {
+            bad -> colors.problem
+            active -> colors.gutterActiveText
+            else -> colors.gutterText
         }
+        val number = measurer.measure(
+            AnnotatedString((index + 1).toString()),
+            style.copy(color = colour, fontWeight = if (active || bad) FontWeight.Medium else FontWeight.Normal),
+        )
+        drawText(number, topLeft = Offset(right - number.size.width, top))
     }
 }
 
@@ -775,8 +875,11 @@ private fun singleInsert(old: TextFieldValue, new: TextFieldValue): Pair<Int, Ch
     if (!old.selection.collapsed || !new.selection.collapsed) return null
     val at = new.selection.end - 1
     if (at < 0 || at != old.selection.end) return null
-    val rebuilt = old.text.substring(0, at) + new.text[at] + old.text.substring(at)
-    return if (rebuilt == new.text) at to new.text[at] else null
+    // Compared by region rather than by rebuilding the document: this runs on
+    // every keystroke, and the document can be tens of kilobytes.
+    val same = old.text.regionMatches(0, new.text, 0, at) &&
+        old.text.regionMatches(at, new.text, at + 1, old.text.length - at)
+    return if (same) at to new.text[at] else null
 }
 
 /** The offset and character of a one character deletion, or null for anything else. */
@@ -785,8 +888,9 @@ private fun singleDelete(old: TextFieldValue, new: TextFieldValue): Pair<Int, Ch
     if (!old.selection.collapsed || !new.selection.collapsed) return null
     val at = new.selection.end
     if (at < 0 || at >= old.text.length || at != old.selection.end - 1) return null
-    val rebuilt = old.text.removeRange(at, at + 1)
-    return if (rebuilt == new.text) at to old.text[at] else null
+    val same = old.text.regionMatches(0, new.text, 0, at) &&
+        old.text.regionMatches(at + 1, new.text, at, new.text.length - at)
+    return if (same) at to old.text[at] else null
 }
 
 /** One line in or out by a single step. Out stops at the left margin. */

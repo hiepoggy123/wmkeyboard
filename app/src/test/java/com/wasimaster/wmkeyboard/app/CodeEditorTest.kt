@@ -118,9 +118,42 @@ class CodeEditorTest {
     }
 
     @Test
-    fun `format indents the document again`() {
-        val formatted = JsonCode.format("{\"a\":[1,2]}")
-        assertEquals("{\n  \"a\": [\n    1,\n    2\n  ]\n}", formatted)
+    fun `format keeps a short document on one line`() {
+        assertEquals("{\"a\": [1, 2]}", JsonCode.format("{\"a\":[1,2]}"))
+    }
+
+    @Test
+    fun `format breaks only the containers that do not fit`() {
+        // The outer object is far past the budget, so it breaks. The two lists
+        // are well inside it, so they stay whole, which is the whole point.
+        val long = "x".repeat(70)
+        val source = "{\"alpha\":[1,2,3],\"beta\":[4,5],\"gamma\":\"$long\"}"
+        assertEquals(
+            "{\n" +
+                "  \"alpha\": [1, 2, 3],\n" +
+                "  \"beta\": [4, 5],\n" +
+                "  \"gamma\": \"$long\"\n" +
+                "}",
+            JsonCode.format(source),
+        )
+    }
+
+    @Test
+    fun `format breaks a list that is too long for one line`() {
+        val item = "\"" + "y".repeat(30) + "\""
+        val formatted = JsonCode.format("[$item,$item,$item]").orEmpty()
+        assertEquals(5, formatted.lines().size)
+        assertTrue(formatted.startsWith("[\n  $item,\n"))
+    }
+
+    @Test
+    fun `format round-trips through the parser`() {
+        val source = "{\"a\":[1,2,{\"b\":null,\"c\":true}],\"d\":\"e\"}"
+        val formatted = JsonCode.format(source).orEmpty()
+        assertEquals(
+            kotlinx.serialization.json.Json.parseToJsonElement(source),
+            kotlinx.serialization.json.Json.parseToJsonElement(formatted),
+        )
     }
 
     @Test
@@ -140,13 +173,16 @@ class CodeEditorTest {
     @Test
     fun `brackets pair up outside strings`() {
         val source = "{\"a\": [1, 2]}"
-        assertEquals(0 to 12, JsonCode.matchingBracket(source, 1))
-        assertEquals(6 to 11, JsonCode.matchingBracket(source, 12))
-        assertNull(JsonCode.matchingBracket(source, 4))
+        val brackets = JsonCode.brackets(source)
+        assertEquals(listOf(0, 6, 11, 12), brackets)
+        assertEquals(0 to 12, JsonCode.matchingBracket(source, brackets, 1))
+        assertEquals(6 to 11, JsonCode.matchingBracket(source, brackets, 12))
+        assertNull(JsonCode.matchingBracket(source, brackets, 4))
     }
 
     @Test
     fun `a bracket inside a string is not a bracket`() {
-        assertNull(JsonCode.matchingBracket("{\"a[\": 1}", 4))
+        val source = "{\"a[\": 1}"
+        assertNull(JsonCode.matchingBracket(source, JsonCode.brackets(source), 4))
     }
 }
