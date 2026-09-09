@@ -327,31 +327,31 @@ internal fun TypingCorrectionsSettings(
             ToggleSetting(
                 R.string.typing_autocorrect_title,
                 stringResource(R.string.typing_autocorrect_subtitle),
-                settings.autocorrect,
+                settings.correction.enabled,
                 info = stringResource(R.string.typing_autocorrect_info),
-                default = SettingsDefaults.autocorrect,
+                default = SettingsDefaults.correction.enabled,
             ) { scope.launch { repository.setAutocorrect(it) } }
         }
-        if (settings.autocorrect) {
+        if (settings.correction.enabled) {
             item {
                 val valueFormat = stringResource(R.string.typing_value_multiplier_prefix)
                 SliderSetting(
                     R.string.typing_autocorrect_confidence_title,
                     subtitle = stringResource(R.string.typing_autocorrect_confidence_subtitle),
-                    value = settings.autocorrectConfidence,
+                    value = settings.correction.confidence,
                     range = 1.5f..10f,
                     display = { valueFormat.format("%.1f".format(it)) },
                     info = stringResource(R.string.typing_autocorrect_confidence_info),
-                    default = SettingsDefaults.autocorrectConfidence,
+                    default = SettingsDefaults.correction.confidence,
                 ) { scope.launch { repository.setAutocorrectConfidence(it) } }
             }
             item {
                 ToggleSetting(
                     R.string.typing_autocorrect_adaptive_title,
                     stringResource(R.string.typing_autocorrect_adaptive_subtitle),
-                    settings.autocorrectAdaptive,
+                    settings.correction.adaptive,
                     info = stringResource(R.string.typing_autocorrect_adaptive_info),
-                    default = SettingsDefaults.autocorrectAdaptive,
+                    default = SettingsDefaults.correction.adaptive,
                 ) { scope.launch { repository.setAutocorrectAdaptive(it) } }
             }
             item {
@@ -370,9 +370,9 @@ internal fun TypingCorrectionsSettings(
                 ToggleSetting(
                     R.string.typing_undo_autocorrect_title,
                     stringResource(R.string.typing_undo_autocorrect_subtitle),
-                    settings.revertAutocorrectOnBackspace,
+                    settings.correction.revertOnBackspace,
                     info = stringResource(R.string.typing_undo_autocorrect_info),
-                    default = SettingsDefaults.revertAutocorrectOnBackspace,
+                    default = SettingsDefaults.correction.revertOnBackspace,
                 ) { scope.launch { repository.setRevertAutocorrectOnBackspace(it) } }
             }
             item {
@@ -409,8 +409,8 @@ internal fun TypingCorrectionsSettings(
                         UndoMemory.NORMAL to stringResource(R.string.typing_undo_memory_normal),
                         UndoMemory.STRICT to stringResource(R.string.typing_undo_memory_strict),
                     ),
-                    selected = settings.autocorrectUndoMemory,
-                    default = SettingsDefaults.autocorrectUndoMemory,
+                    selected = settings.correction.undoMemory,
+                    default = SettingsDefaults.correction.undoMemory,
                     detail = { level -> ChoiceDetail(stringResource(undoMemoryDescRes(level))) },
                 ) { scope.launch { repository.setAutocorrectUndoMemory(it) } }
             }
@@ -445,9 +445,9 @@ internal fun TypingCorrectionsSettings(
                 ToggleSetting(
                     R.string.typing_skip_all_caps_title,
                     stringResource(R.string.typing_skip_all_caps_subtitle),
-                    settings.autocorrectSkipAllCaps,
+                    settings.correction.skipAllCaps,
                     info = stringResource(R.string.typing_skip_all_caps_info),
-                    default = SettingsDefaults.autocorrectSkipAllCaps,
+                    default = SettingsDefaults.correction.skipAllCaps,
                 ) { scope.launch { repository.setAutocorrectSkipAllCaps(it) } }
             }
             item {
@@ -541,24 +541,24 @@ internal fun TypingCorrectionsSettings(
             ToggleSetting(
                 R.string.typing_auto_apostrophe_title,
                 stringResource(R.string.typing_auto_apostrophe_subtitle),
-                settings.autoApostrophe,
+                settings.autoText.apostrophe,
                 info = stringResource(R.string.typing_auto_apostrophe_info),
-                default = SettingsDefaults.autoApostrophe,
+                default = SettingsDefaults.autoText.apostrophe,
             ) { scope.launch { repository.setAutoApostrophe(it) } }
         }
         item {
             ToggleSetting(
                 R.string.typing_auto_capitalize_title,
                 stringResource(R.string.typing_auto_capitalize_subtitle),
-                settings.autoCapitalize,
+                settings.autoText.capitalize,
                 info = stringResource(R.string.typing_auto_capitalize_info),
-                default = SettingsDefaults.autoCapitalize,
+                default = SettingsDefaults.autoText.capitalize,
             ) { scope.launch { repository.setAutoCapitalize(it) } }
         }
         item {
             val doubleSpace = when {
-                settings.doubleSpaceTab -> DoubleSpaceAction.TAB
-                settings.doubleSpacePeriod -> DoubleSpaceAction.PERIOD
+                settings.autoText.doubleSpaceTab -> DoubleSpaceAction.TAB
+                settings.autoText.doubleSpacePeriod -> DoubleSpaceAction.PERIOD
                 else -> DoubleSpaceAction.NONE
             }
             ChoiceSetting(
@@ -576,7 +576,7 @@ internal fun TypingCorrectionsSettings(
                 }
             }
         }
-        if (settings.doubleSpacePeriod || settings.doubleSpaceTab) {
+        if (settings.autoText.doubleSpacePeriod || settings.autoText.doubleSpaceTab) {
             item {
                 SliderSetting(
                     R.string.typing_double_space_window_title,
@@ -593,9 +593,9 @@ internal fun TypingCorrectionsSettings(
             ToggleSetting(
                 R.string.typing_auto_space_punctuation_title,
                 stringResource(R.string.typing_auto_space_punctuation_subtitle),
-                settings.autoSpaceAfterPunctuation,
+                settings.autoText.spaceAfterPunctuation,
                 info = stringResource(R.string.typing_auto_space_punctuation_info),
-                default = SettingsDefaults.autoSpaceAfterPunctuation,
+                default = SettingsDefaults.autoText.spaceAfterPunctuation,
             ) { scope.launch { repository.setAutoSpaceAfterPunctuation(it) } }
         }
         item {
@@ -713,7 +713,7 @@ internal fun TypingSuggestionsSettings(
         }
         // A near miss is only ever offered from the autocorrect branch, so
         // with autocorrect off there is nothing to widen.
-        if (settings.autocorrect) item {
+        if (settings.correction.enabled) item {
             ToggleSetting(
                 R.string.typing_offer_near_miss_title,
                 stringResource(R.string.typing_offer_near_miss_subtitle),
@@ -749,9 +749,9 @@ internal fun TypingSuggestionsSettings(
             ToggleSetting(
                 R.string.typing_suggestions_all_fields_title,
                 stringResource(R.string.typing_suggestions_all_fields_subtitle),
-                settings.showSuggestionsInAllFields,
+                settings.suggestionSources.inAllFields,
                 info = stringResource(R.string.typing_suggestions_all_fields_info),
-                default = SettingsDefaults.showSuggestionsInAllFields,
+                default = SettingsDefaults.suggestionSources.inAllFields,
             ) { scope.launch { repository.setShowSuggestionsInAllFields(it) } }
         }
         if (settings.suggestions) item {
@@ -783,9 +783,9 @@ internal fun TypingSuggestionsSettings(
             ToggleSetting(
                 R.string.typing_contact_names_title,
                 stringResource(R.string.typing_contact_names_subtitle),
-                settings.contactSuggestions,
+                settings.suggestionSources.contacts,
                 info = stringResource(R.string.typing_contact_names_info),
-                default = SettingsDefaults.contactSuggestions,
+                default = SettingsDefaults.suggestionSources.contacts,
             ) { enabled ->
                 when {
                     !enabled -> scope.launch { repository.setContactSuggestions(false) }
@@ -805,9 +805,9 @@ internal fun TypingSuggestionsSettings(
             ToggleSetting(
                 R.string.typing_contact_emails_title,
                 stringResource(R.string.typing_contact_emails_subtitle),
-                settings.contactEmailSuggestions,
+                settings.suggestionSources.contactEmails,
                 info = stringResource(R.string.typing_contact_emails_info),
-                default = SettingsDefaults.contactEmailSuggestions,
+                default = SettingsDefaults.suggestionSources.contactEmails,
             ) { enabled ->
                 when {
                     !enabled -> scope.launch { repository.setContactEmailSuggestions(false) }
@@ -818,14 +818,14 @@ internal fun TypingSuggestionsSettings(
                 }
             }
         }
-        if (settings.contactEmailSuggestions) {
+        if (settings.suggestionSources.contactEmails) {
             item {
                 ToggleSetting(
                     R.string.typing_contact_emails_in_email_fields_title,
                     stringResource(R.string.typing_contact_emails_in_email_fields_subtitle),
-                    settings.contactEmailSuggestionsInEmailFields,
+                    settings.suggestionSources.contactEmailsInEmailFields,
                     info = stringResource(R.string.typing_contact_emails_in_email_fields_info),
-                    default = SettingsDefaults.contactEmailSuggestionsInEmailFields,
+                    default = SettingsDefaults.suggestionSources.contactEmailsInEmailFields,
                 ) { scope.launch { repository.setContactEmailSuggestionsInEmailFields(it) } }
             }
         }
@@ -833,18 +833,18 @@ internal fun TypingSuggestionsSettings(
             ToggleSetting(
                 R.string.typing_app_names_title,
                 stringResource(R.string.typing_app_names_subtitle),
-                settings.appNameSuggestions,
+                settings.suggestionSources.appNames,
                 info = stringResource(R.string.typing_app_names_info),
-                default = SettingsDefaults.appNameSuggestions,
+                default = SettingsDefaults.suggestionSources.appNames,
             ) { scope.launch { repository.setAppNameSuggestions(it) } }
         }
         item {
             ToggleSetting(
                 R.string.typing_inline_emoji_search_title,
                 stringResource(R.string.typing_inline_emoji_search_subtitle),
-                settings.inlineEmojiSearch,
+                settings.suggestionSources.inlineEmojiSearch,
                 info = stringResource(R.string.typing_inline_emoji_search_info),
-                default = SettingsDefaults.inlineEmojiSearch,
+                default = SettingsDefaults.suggestionSources.inlineEmojiSearch,
             ) { scope.launch { repository.setInlineEmojiSearch(it) } }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -852,9 +852,9 @@ internal fun TypingSuggestionsSettings(
                 ToggleSetting(
                     R.string.typing_inline_autofill_title,
                     stringResource(R.string.typing_inline_autofill_subtitle),
-                    settings.inlineAutofill,
+                    settings.suggestionSources.inlineAutofill,
                     info = stringResource(R.string.typing_inline_autofill_info),
-                    default = SettingsDefaults.inlineAutofill,
+                    default = SettingsDefaults.suggestionSources.inlineAutofill,
                 ) { scope.launch { repository.setInlineAutofill(it) } }
             }
         item {
@@ -909,7 +909,7 @@ internal fun TypingSuggestionsSettings(
             )
         }
         item {
-            val count = settings.suggestionBlacklist.size
+            val count = settings.suggestionSources.blacklist.size
             NavRow(
                 R.string.typing_blacklist_title,
                 if (count == 0) {
@@ -2417,8 +2417,8 @@ private enum class DoubleSpaceAction(
 }
 
 private val DefaultDoubleSpace = when {
-    SettingsDefaults.doubleSpaceTab -> DoubleSpaceAction.TAB
-    SettingsDefaults.doubleSpacePeriod -> DoubleSpaceAction.PERIOD
+    SettingsDefaults.autoText.doubleSpaceTab -> DoubleSpaceAction.TAB
+    SettingsDefaults.autoText.doubleSpacePeriod -> DoubleSpaceAction.PERIOD
     else -> DoubleSpaceAction.NONE
 }
 

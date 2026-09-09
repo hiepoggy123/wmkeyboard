@@ -506,9 +506,9 @@ internal fun ToolDetailSettings(
                 ToggleSetting(
                     R.string.tooldetail_flashlight_auto_off_title,
                     stringResource(R.string.tooldetail_flashlight_auto_off_subtitle),
-                    settings.flashlightAutoOff,
+                    settings.sensorTools.flashlightAutoOff,
                     info = stringResource(R.string.tooldetail_flashlight_auto_off_info),
-                    default = SettingsDefaults.flashlightAutoOff,
+                    default = SettingsDefaults.sensorTools.flashlightAutoOff,
                 ) { scope.launch { repository.setFlashlightAutoOff(it) } }
             }
         }
@@ -518,21 +518,21 @@ internal fun ToolDetailSettings(
                     ToggleSetting(
                         R.string.tooldetail_compass_degrees_title,
                         stringResource(R.string.tooldetail_compass_degrees_subtitle),
-                        settings.compassShowDegrees,
-                        default = SettingsDefaults.compassShowDegrees,
+                        settings.sensorTools.compassDegrees,
+                        default = SettingsDefaults.sensorTools.compassDegrees,
                     ) { scope.launch { repository.setCompassShowDegrees(it) } }
                 }
                 item {
                     ToggleSetting(
                         R.string.tooldetail_compass_qibla_title,
                         stringResource(R.string.tooldetail_compass_qibla_subtitle),
-                        settings.compassShowQibla,
+                        settings.sensorTools.compassQibla,
                         info = stringResource(R.string.tooldetail_compass_qibla_info),
-                        default = SettingsDefaults.compassShowQibla,
+                        default = SettingsDefaults.sensorTools.compassQibla,
                     ) { scope.launch { repository.setCompassShowQibla(it) } }
                 }
             }
-            if (settings.compassShowQibla && settings.weatherLatitude == null) {
+            if (settings.sensorTools.compassQibla && settings.weather.latitude == null) {
                 StateBanner(
                     stringResource(R.string.tooldetail_compass_no_location_error),
                     action = stringResource(toolTitle(ToolbarTool.WEATHER)),
@@ -545,8 +545,8 @@ internal fun ToolDetailSettings(
                 ToggleSetting(
                     R.string.tooldetail_level_angles_title,
                     stringResource(R.string.tooldetail_level_angles_subtitle),
-                    settings.levelShowAngles,
-                    default = SettingsDefaults.levelShowAngles,
+                    settings.sensorTools.levelAngles,
+                    default = SettingsDefaults.sensorTools.levelAngles,
                 ) { scope.launch { repository.setLevelShowAngles(it) } }
             }
         }
@@ -567,7 +567,7 @@ internal fun ToolDetailSettings(
                 ToggleSetting(
                     R.string.tooldetail_moon_southern_title,
                     stringResource(R.string.tooldetail_moon_southern_subtitle),
-                    settings.moonSouthernHemisphere,
+                    settings.sensorTools.moonSouthern,
                     // Not SettingsDefaults: this one starts from the device's
                     // region, so reset has to land back on that and not on
                     // the northern hemisphere the data class declares.
@@ -585,8 +585,8 @@ internal fun ToolDetailSettings(
                     ToggleSetting(
                         R.string.tooldetail_weather_fahrenheit_title,
                         stringResource(R.string.tooldetail_weather_fahrenheit_subtitle),
-                        settings.weatherFahrenheit,
-                        default = SettingsDefaults.weatherFahrenheit,
+                        settings.weather.fahrenheit,
+                        default = SettingsDefaults.weather.fahrenheit,
                     ) { scope.launch { repository.setWeatherFahrenheit(it) } }
                 }
                 item {
@@ -606,8 +606,8 @@ internal fun ToolDetailSettings(
             }
         }
         ToolbarTool.CALENDAR -> {
-            val showsHijri = settings.calendarAltOne == AltCalendar.HIJRI ||
-                settings.calendarAltTwo == AltCalendar.HIJRI
+            val showsHijri = settings.calendarTool.altOne == AltCalendar.HIJRI ||
+                settings.calendarTool.altTwo == AltCalendar.HIJRI
             SettingsGroup(
                 stringResource(R.string.tooldetail_calendar_group),
                 info = listOf(
@@ -619,7 +619,7 @@ internal fun ToolDetailSettings(
                     AltCalendarSetting(
                         title = stringResource(R.string.tooldetail_calendar_first_title),
                         subtitle = stringResource(R.string.tooldetail_calendar_first_subtitle),
-                        selected = settings.calendarAltOne,
+                        selected = settings.calendarTool.altOne,
                         onChange = { scope.launch { repository.setCalendarAltOne(it) } },
                     )
                 }
@@ -627,12 +627,12 @@ internal fun ToolDetailSettings(
                     AltCalendarSetting(
                         title = stringResource(R.string.tooldetail_calendar_second_title),
                         subtitle = stringResource(R.string.tooldetail_calendar_second_subtitle),
-                        selected = settings.calendarAltTwo,
+                        selected = settings.calendarTool.altTwo,
                         onChange = { scope.launch { repository.setCalendarAltTwo(it) } },
                     )
                 }
                 item {
-                    WeekendSetting(settings.calendarWeekend) {
+                    WeekendSetting(settings.calendarTool.weekend) {
                         scope.launch { repository.setCalendarWeekend(it) }
                     }
                 }
@@ -641,14 +641,14 @@ internal fun ToolDetailSettings(
                         SliderSetting(
                             R.string.tooldetail_calendar_hijri_title,
                             subtitle = stringResource(R.string.tooldetail_calendar_hijri_subtitle),
-                            value = settings.hijriAdjustDays.toFloat(),
+                            value = settings.calendarTool.hijriAdjustDays.toFloat(),
                             range = -2f..2f,
                             display = { days ->
                                 val d = days.roundToInt()
                                 if (d > 0) daysAheadFormat.format(d) else daysFormat.format(d)
                             },
                             info = stringResource(R.string.tooldetail_calendar_hijri_info),
-                            default = SettingsDefaults.hijriAdjustDays.toFloat(),
+                            default = SettingsDefaults.calendarTool.hijriAdjustDays.toFloat(),
                         ) { scope.launch { repository.setHijriAdjustDays(it.roundToInt()) } }
                     }
                 }
@@ -1189,8 +1189,8 @@ internal fun ToolDetailSettings(
                 ToggleSetting(
                     R.string.tooldetail_autocorrect_title,
                     stringResource(R.string.tooldetail_autocorrect_subtitle),
-                    settings.autocorrect,
-                    default = SettingsDefaults.autocorrect,
+                    settings.correction.enabled,
+                    default = SettingsDefaults.correction.enabled,
                 ) { scope.launch { repository.setAutocorrect(it) } }
             }
             item {
@@ -1296,8 +1296,8 @@ internal fun ToolDetailSettings(
                 ToggleSetting(
                     R.string.hardware_sound_key_title,
                     stringResource(R.string.hardware_sound_key_subtitle),
-                    settings.keySound,
-                    default = SettingsDefaults.keySound,
+                    settings.sound.enabled,
+                    default = SettingsDefaults.sound.enabled,
                 ) { scope.launch { repository.setKeySound(it) } }
             }
             item {
@@ -1488,7 +1488,7 @@ internal fun ToolDetailSettings(
                 item {
                     ApiKeyField(
                         label = stringResource(R.string.tooldetail_media_klipy_label),
-                        value = settings.klipyApiKey,
+                        value = settings.gif.klipyApiKey,
                         builtInAvailable = ToolApiKeys.builtInKlipy,
                         emptyHint = stringResource(R.string.tooldetail_media_klipy_hint),
                     ) {
@@ -1501,7 +1501,7 @@ internal fun ToolDetailSettings(
                 item {
                     ApiKeyField(
                         label = stringResource(R.string.tooldetail_media_giphy_label),
-                        value = settings.giphyApiKey,
+                        value = settings.gif.giphyApiKey,
                         builtInAvailable = ToolApiKeys.builtInGiphy,
                         emptyHint = stringResource(R.string.tooldetail_media_giphy_hint),
                     ) {
@@ -1552,8 +1552,8 @@ internal fun ToolDetailSettings(
                                 MediaSendMode.IMAGE to imageOption,
                                 MediaSendMode.STICKER to stickerOption,
                             ),
-                            selected = settings.gifSendMode,
-                            default = SettingsDefaults.gifSendMode,
+                            selected = settings.gif.sendMode,
+                            default = SettingsDefaults.gif.sendMode,
                             detail = { mode ->
                                 ChoiceDetail(
                                     stringResource(
@@ -1577,7 +1577,7 @@ internal fun ToolDetailSettings(
                         GifSourceMode.MIX -> stringResource(R.string.tooldetail_media_source_mixed)
                     }
                 },
-                selected = settings.gifSourceMode,
+                selected = settings.gif.sourceMode,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 detail = { mode -> ChoiceDetail(stringResource(gifSourceDescRes(mode))) },
             ) { mode -> scope.launch { repository.setGifSourceMode(mode) } }
@@ -1595,7 +1595,7 @@ internal fun ToolDetailSettings(
                         GifContentFilter.HIGH -> stringResource(R.string.tooldetail_media_filter_high)
                     }
                 },
-                selected = settings.gifContentFilter,
+                selected = settings.gif.contentFilter,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 detail = { filter -> ChoiceDetail(stringResource(gifFilterDescRes(filter))) },
             ) { filter -> scope.launch { repository.setGifContentFilter(filter) } }
@@ -1604,10 +1604,10 @@ internal fun ToolDetailSettings(
                     SliderSetting(
                         R.string.tooldetail_media_limit_title,
                         subtitle = stringResource(R.string.tooldetail_media_limit_subtitle),
-                        value = settings.gifResultLimit.toFloat(),
+                        value = settings.gif.resultLimit.toFloat(),
                         range = 6f..48f,
                         display = { numberFormat.format(it.roundToInt()) },
-                        default = SettingsDefaults.gifResultLimit.toFloat(),
+                        default = SettingsDefaults.gif.resultLimit.toFloat(),
                     ) { scope.launch { repository.setGifResultLimit(it.roundToInt()) } }
                 }
             }
@@ -1632,7 +1632,7 @@ internal fun ToolDetailSettings(
                 item {
                     ApiKeyField(
                         label = stringResource(R.string.tooldetail_search_key_label),
-                        value = settings.braveApiKey,
+                        value = settings.webSearch.braveApiKey,
                         builtInAvailable = ToolApiKeys.builtInBrave,
                         emptyHint = stringResource(R.string.tooldetail_search_key_hint),
                     ) { repository.setBraveApiKey(it) }
@@ -1643,18 +1643,18 @@ internal fun ToolDetailSettings(
                     ToggleSetting(
                         R.string.tooldetail_search_safe_title,
                         stringResource(R.string.tooldetail_search_safe_subtitle),
-                        settings.searchSafe,
-                        default = SettingsDefaults.searchSafe,
+                        settings.webSearch.safe,
+                        default = SettingsDefaults.webSearch.safe,
                     ) { scope.launch { repository.setSearchSafe(it) } }
                 }
                 item {
                     SliderSetting(
                         R.string.tooldetail_search_count_title,
                         subtitle = stringResource(R.string.tooldetail_search_count_subtitle),
-                        value = settings.searchResultCount.toFloat(),
+                        value = settings.webSearch.resultCount.toFloat(),
                         range = 1f..10f,
                         display = { numberFormat.format(it.roundToInt()) },
-                        default = SettingsDefaults.searchResultCount.toFloat(),
+                        default = SettingsDefaults.webSearch.resultCount.toFloat(),
                     ) { scope.launch { repository.setSearchResultCount(it.roundToInt()) } }
                 }
                 if (tool == ToolbarTool.IMAGE_SEARCH) {
@@ -1681,8 +1681,8 @@ internal fun ToolDetailSettings(
                     ToggleSetting(
                         R.string.tooldetail_ocr_select_all_title,
                         stringResource(R.string.tooldetail_ocr_select_all_subtitle),
-                        settings.ocrAutoSelectWords,
-                        default = SettingsDefaults.ocrAutoSelectWords,
+                        settings.scanner.ocrAutoSelectWords,
+                        default = SettingsDefaults.scanner.ocrAutoSelectWords,
                     ) { scope.launch { repository.setOcrAutoSelectWords(it) } }
                 }
             }
@@ -1696,24 +1696,24 @@ internal fun ToolDetailSettings(
                     ToggleSetting(
                         R.string.tooldetail_qr_scan_auto_title,
                         stringResource(R.string.tooldetail_qr_scan_auto_subtitle),
-                        settings.qrScanAutoInsert,
-                        default = SettingsDefaults.qrScanAutoInsert,
+                        settings.scanner.qrScanAutoInsert,
+                        default = SettingsDefaults.scanner.qrScanAutoInsert,
                     ) { scope.launch { repository.setQrScanAutoInsert(it) } }
                 }
                 item {
                     ToggleSetting(
                         R.string.tooldetail_qr_scan_haptics_title,
                         stringResource(R.string.tooldetail_qr_scan_haptics_subtitle),
-                        settings.qrScanHaptics,
-                        default = SettingsDefaults.qrScanHaptics,
+                        settings.scanner.qrScanHaptics,
+                        default = SettingsDefaults.scanner.qrScanHaptics,
                     ) { scope.launch { repository.setQrScanHaptics(it) } }
                 }
                 item {
                     ToggleSetting(
                         R.string.tooldetail_qr_scan_preview_title,
                         stringResource(R.string.tooldetail_qr_scan_preview_subtitle),
-                        settings.qrScanLinkPreviews,
-                        default = SettingsDefaults.qrScanLinkPreviews,
+                        settings.scanner.qrScanLinkPreviews,
+                        default = SettingsDefaults.scanner.qrScanLinkPreviews,
                     ) { scope.launch { repository.setQrScanLinkPreviews(it) } }
                 }
             }
@@ -1727,8 +1727,8 @@ internal fun ToolDetailSettings(
                     ToggleSetting(
                         R.string.tooldetail_doc_scan_gallery_title,
                         stringResource(R.string.tooldetail_doc_scan_gallery_subtitle),
-                        settings.docScanSaveToGallery,
-                        default = SettingsDefaults.docScanSaveToGallery,
+                        settings.scanner.docSaveToGallery,
+                        default = SettingsDefaults.scanner.docSaveToGallery,
                     ) { scope.launch { repository.setDocScanSaveToGallery(it) } }
                 }
             }
@@ -1806,17 +1806,17 @@ internal fun ToolDetailSettings(
                 item {
                     TextFieldSetting(
                         label = stringResource(R.string.tooldetail_wiki_language_label),
-                        value = settings.wikiLanguage,
+                        value = settings.webSearch.wikiLanguage,
                         hint = stringResource(R.string.tooldetail_wiki_language_hint),
-                        default = SettingsDefaults.wikiLanguage,
+                        default = SettingsDefaults.webSearch.wikiLanguage,
                     ) { repository.setWikiLanguage(it) }
                 }
                 item {
                     ToggleSetting(
                         R.string.tooldetail_wiki_markdown_title,
                         stringResource(R.string.tooldetail_wiki_markdown_subtitle),
-                        settings.wikiLinksMarkdown,
-                        default = SettingsDefaults.wikiLinksMarkdown,
+                        settings.webSearch.wikiLinksMarkdown,
+                        default = SettingsDefaults.webSearch.wikiLinksMarkdown,
                     ) { scope.launch { repository.setWikiLinksMarkdown(it) } }
                 }
                 item {
@@ -2018,10 +2018,10 @@ internal fun ToolDetailSettings(
                     SliderSetting(
                         R.string.tooldetail_qr_gen_size_title,
                         subtitle = stringResource(R.string.tooldetail_qr_gen_size_subtitle),
-                        value = settings.qrSizePx.toFloat(),
+                        value = settings.scanner.qrSizePx.toFloat(),
                         range = 256f..2048f,
                         display = { pixelsFormat.format(it.roundToInt()) },
-                        default = SettingsDefaults.qrSizePx.toFloat(),
+                        default = SettingsDefaults.scanner.qrSizePx.toFloat(),
                     ) { scope.launch { repository.setQrSizePx(it.roundToInt()) } }
                 }
                 item {
@@ -2033,8 +2033,8 @@ internal fun ToolDetailSettings(
                             MediaSendMode.IMAGE to qrImageOption,
                             MediaSendMode.STICKER to qrStickerOption,
                         ),
-                        selected = settings.qrSendMode,
-                        default = SettingsDefaults.qrSendMode,
+                        selected = settings.scanner.qrSendMode,
+                        default = SettingsDefaults.scanner.qrSendMode,
                         detail = { mode ->
                             ChoiceDetail(
                                 stringResource(
@@ -2052,8 +2052,8 @@ internal fun ToolDetailSettings(
                     ToggleSetting(
                         R.string.tooldetail_qr_gen_gallery_title,
                         stringResource(R.string.tooldetail_qr_gen_gallery_subtitle),
-                        settings.qrSaveToGallery,
-                        default = SettingsDefaults.qrSaveToGallery,
+                        settings.scanner.qrSaveToGallery,
+                        default = SettingsDefaults.scanner.qrSaveToGallery,
                     ) { scope.launch { repository.setQrSaveToGallery(it) } }
                 }
             }
@@ -2062,7 +2062,7 @@ internal fun ToolDetailSettings(
                 // The names are the standard's own single letters (L/M/Q/H),
                 // not words, so they are not translated.
                 options = QrEccLevel.entries.map { it to it.name },
-                selected = settings.qrEcc,
+                selected = settings.scanner.qrEcc,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 detail = { level -> ChoiceDetail(stringResource(qrEccDescRes(level))) },
             ) { level -> scope.launch { repository.setQrEcc(level) } }
@@ -3067,12 +3067,12 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
     val scope = rememberCoroutineScope()
     var editing by remember { mutableStateOf(false) }
     val unnamedPlace = stringResource(R.string.privacy_weather_place_unnamed)
-    val savedLatitude = settings.weatherLatitude
-    val savedLongitude = settings.weatherLongitude
+    val savedLatitude = settings.weather.latitude
+    val savedLongitude = settings.weather.longitude
     val summary = if (savedLatitude != null && savedLongitude != null) {
         stringResource(
             R.string.privacy_weather_location_summary,
-            settings.weatherPlaceName.ifBlank { unnamedPlace },
+            settings.weather.placeName.ifBlank { unnamedPlace },
             savedLatitude,
             savedLongitude,
         )
@@ -3092,9 +3092,9 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
     )
     if (!editing) return
 
-    var place by remember { mutableStateOf(settings.weatherPlaceName) }
-    var lat by remember { mutableStateOf(settings.weatherLatitude?.toString().orEmpty()) }
-    var lon by remember { mutableStateOf(settings.weatherLongitude?.toString().orEmpty()) }
+    var place by remember { mutableStateOf(settings.weather.placeName) }
+    var lat by remember { mutableStateOf(settings.weather.latitude?.toString().orEmpty()) }
+    var lon by remember { mutableStateOf(settings.weather.longitude?.toString().orEmpty()) }
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<GeoPlace>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
@@ -3222,7 +3222,7 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Ke
         },
         dismissButton = {
             Row {
-                if (settings.weatherLatitude != null) {
+                if (settings.weather.latitude != null) {
                     TextButton(onClick = {
                         scope.launch { repository.setWeatherLocation(null, null, "") }
                         editing = false

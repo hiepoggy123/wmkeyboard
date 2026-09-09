@@ -4965,8 +4965,8 @@ private fun SymbolCell(
                                 }
                                 .symbolHoldInput(
                                     delayMs = settings.longPressDelayMs,
-                                    hapticOnLongPress = settings.hapticOnLongPress,
-                                    hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
+                                    hapticOnLongPress = settings.haptics.onLongPress,
+                                    hapticOnLongPressRelease = settings.haptics.onLongPressRelease,
                                     hold = hold.takeIf { holdToSelect },
                                     feedback = press,
                                     scope = scope,
@@ -5730,7 +5730,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.INCOGNITO -> state.incognitoOn
     ToolbarTool.POWER_SAVING -> state.powerSavingOn
     ToolbarTool.THEMES -> state.panel == PanelMode.THEMES
-    ToolbarTool.AUTOCORRECT -> state.settings.autocorrect
+    ToolbarTool.AUTOCORRECT -> state.settings.correction.enabled
     ToolbarTool.SOUND_HAPTICS -> state.panel == PanelMode.SOUND_HAPTICS
     ToolbarTool.NUMPAD -> state.panel == PanelMode.NUMPAD
     ToolbarTool.HANDWRITING -> state.panel == PanelMode.HANDWRITING
@@ -11060,7 +11060,7 @@ private fun KeyRows(
     val glideChoices = rememberUpdatedState(state.glideChoices)
     val glideCloseCall = rememberUpdatedState(state.glideCloseCall)
     val glideSettings = rememberUpdatedState(state.settings.gesture)
-    val hapticOn = rememberUpdatedState(state.settings.hapticFeedback)
+    val hapticOn = rememberUpdatedState(state.settings.haptics.enabled)
     val kbTheme = LocalKbTheme.current
     val trailColor = kbTheme.gestureTrail
     // The board's one preview bubble. Hoisted here so pressing a key publishes to
@@ -11147,7 +11147,7 @@ private fun KeyRows(
     // normally. A panel replacing the keys takes this composable with it,
     // which retracts the carve-out on its own.
     val passthroughKeys = LocalTouchExploration.current &&
-        state.settings.screenReaderMode == ScreenReaderMode.PASSTHROUGH &&
+        state.settings.accessibility.screenReader == ScreenReaderMode.PASSTHROUGH &&
         LocalPassthroughService.current
     val hostView = LocalView.current
     LaunchedEffect(passthroughKeys, boxOrigin, boxSize, hostView) {
@@ -14092,7 +14092,7 @@ internal fun KeyButton(
     // Tremor filter: drop a second contact on the same key that lands
     // within the debounce window. Scoped per key, so alternating keys
     // (typing "aa" vs "ab") are never affected — only a bouncing repeat is.
-    val debounceMs = rememberUpdatedState(settings.keyDebounceMs)
+    val debounceMs = rememberUpdatedState(settings.accessibility.keyDebounceMs)
     val gate = remember { KeyDebounceGate() }
     val debounced: (Key) -> Unit = remember(onKey, gate) {
         { pressedKey -> if (gate.accepted) onKey(pressedKey) }
@@ -14129,16 +14129,16 @@ internal fun KeyButton(
     // a coherent gesture. Hand the key over to semantics instead: TalkBack
     // announces on hover and commits on the activation tap.
     val touchExploration = LocalTouchExploration.current
-    val screenReaderKeys = settings.screenReaderMode != ScreenReaderMode.OFF
+    val screenReaderKeys = settings.accessibility.screenReader != ScreenReaderMode.OFF
     // Pass-through mode keeps the keyboard's own detector under a screen
     // reader — the touches really do arrive, because the app's accessibility
     // service carves this window out of touch exploration. Without that
     // service granted there is no carve-out, so it degrades to EXPLORE rather
     // than to a keyboard that types on contact and says nothing.
     val passthrough = touchExploration &&
-        settings.screenReaderMode == ScreenReaderMode.PASSTHROUGH &&
+        settings.accessibility.screenReader == ScreenReaderMode.PASSTHROUGH &&
         LocalPassthroughService.current
-    val semanticsDriven = touchExploration && when (settings.screenReaderMode) {
+    val semanticsDriven = touchExploration && when (settings.accessibility.screenReader) {
         ScreenReaderMode.EXPLORE -> true
         ScreenReaderMode.PASSTHROUGH -> !passthrough
         else -> false
@@ -14282,8 +14282,8 @@ internal fun KeyButton(
                     vibrateOnRepeat = settings.feedback.vibrateOnRepeat,
                     soundOnRepeat = settings.feedback.soundOnRepeat,
                     onKeyHaptic = onKeyHaptic,
-                    hapticOnLongPress = settings.hapticOnLongPress,
-                    hapticOnLongPressRelease = settings.hapticOnLongPressRelease,
+                    hapticOnLongPress = settings.haptics.onLongPress,
+                    hapticOnLongPressRelease = settings.haptics.onLongPressRelease,
                     // The alternates take the bubble's place outright, so it goes
                     // now rather than serving out its minimum duration under them.
                     openAlternates = {
@@ -15464,7 +15464,7 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                     text = text,
                     modifier = Modifier.align(Alignment.Center),
                     fontSize = (baseSize * fontScale * scale).sp,
-                    fontWeight = if (settings.boldKeyLabels) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = if (settings.accessibility.boldLabels) FontWeight.Bold else FontWeight.Medium,
                     color = contentColor,
                     maxLines = 1,
                     softWrap = false,
@@ -17053,7 +17053,7 @@ internal fun EmojiCell(
                         onLongPress = {
                             // Haptic only: the key sound would read as "emoji
                             // inserted", which a long press does not do.
-                            if (state.settings.hapticOnLongPress) onHaptic()
+                            if (state.settings.haptics.onLongPress) onHaptic()
                             showVariants = true
                             onLongPress(display)
                         },

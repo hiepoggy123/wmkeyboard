@@ -92,12 +92,12 @@ internal fun KeySoundGroup(
             ToggleSetting(
                 R.string.hardware_sound_key_title,
                 stringResource(R.string.hardware_sound_key_subtitle),
-                settings.keySound,
-                default = SettingsDefaults.keySound,
+                settings.sound.enabled,
+                default = SettingsDefaults.sound.enabled,
             ) {
                 scope.launch { repository.setKeySound(it) }
                 if (it) {
-                    KeySoundPlayer.preview(context, settings.keySoundStyle, settings.keySoundVolume)
+                    KeySoundPlayer.preview(context, settings.sound.style, settings.sound.volume)
                 }
             }
         }
@@ -148,7 +148,7 @@ internal fun KeySoundGroup(
                     for (style in KeySoundStyle.entries) {
                         val custom = style == KeySoundStyle.CUSTOM
                         FilterChip(
-                            selected = settings.keySoundStyle == style,
+                            selected = settings.sound.style == style,
                             onClick = {
                                 scope.launch {
                                     if (custom) {
@@ -159,7 +159,7 @@ internal fun KeySoundGroup(
                                         // it reveals is where a sound is imported,
                                         // so a disabled chip would hide its own
                                         // remedy.
-                                        val id = settings.keySoundCustom.customId
+                                        val id = settings.sound.customId
                                             .takeIf { id -> installedSounds.any { it.id == id } }
                                             ?: installedSounds.firstOrNull()?.id
                                         if (id == null) {
@@ -167,14 +167,14 @@ internal fun KeySoundGroup(
                                         } else {
                                             repository.setKeySoundCustomId(id)
                                             KeySoundPlayer.preview(
-                                                context, style, settings.keySoundVolume, id,
+                                                context, style, settings.sound.volume, id,
                                             )
                                         }
                                     } else {
                                         repository.setKeySoundStyle(style)
                                         // Sound the freshly picked style so the user
                                         // hears the choice immediately.
-                                        KeySoundPlayer.preview(context, style, settings.keySoundVolume)
+                                        KeySoundPlayer.preview(context, style, settings.sound.volume)
                                     }
                                 }
                             },
@@ -208,10 +208,10 @@ internal fun KeySoundGroup(
         // Only under Custom. The sound library and its import button are what
         // Custom *means*; showing them under Click is offering a choice that
         // has no effect until the style changes too.
-        if (settings.keySoundStyle == KeySoundStyle.CUSTOM) {
+        if (settings.sound.style == KeySoundStyle.CUSTOM) {
             item { InstalledSoundSection(repository, settings, onNavigate) }
         }
-        if (settings.keySoundStyle == KeySoundStyle.PACK) {
+        if (settings.sound.style == KeySoundStyle.PACK) {
             item { InstalledSoundPackSection(repository, settings, onNavigate) }
             item { KeyReleaseSoundToggle(repository, settings) }
         }
@@ -219,14 +219,14 @@ internal fun KeySoundGroup(
             SliderSetting(
                 R.string.hardware_sound_volume_title,
                 subtitle = stringResource(R.string.hardware_sound_volume_subtitle),
-                value = settings.keySoundVolume,
+                value = settings.sound.volume,
                 range = 0.05f..1f,
                 display = { percentFormat.format((it * 100).roundToInt()) },
-                default = SettingsDefaults.keySoundVolume,
+                default = SettingsDefaults.sound.volume,
             ) {
                 scope.launch { repository.setKeySoundVolume(it) }
                 // Debounced inside the player, so dragging previews smoothly.
-                KeySoundPlayer.preview(context, settings.keySoundStyle, it)
+                KeySoundPlayer.preview(context, settings.sound.style, it)
             }
         }
     }
@@ -269,7 +269,7 @@ private fun InstalledSoundSection(
                 is SoundImportResult.Imported -> {
                     repository.setKeySoundCustomId(result.sound.id)
                     KeySoundPlayer.preview(
-                        context, KeySoundStyle.CUSTOM, settings.keySoundVolume, result.sound.id,
+                        context, KeySoundStyle.CUSTOM, settings.sound.volume, result.sound.id,
                     )
                 }
                 is SoundImportResult.NotASound -> message = context.getString(result.messageRes)
@@ -306,8 +306,8 @@ private fun InstalledSoundSection(
             CaptionText(stringResource(R.string.hardware_sound_empty))
         }
         for (sound in sounds) {
-            val selected = settings.keySoundStyle == KeySoundStyle.CUSTOM &&
-                settings.keySoundCustom.customId == sound.id
+            val selected = settings.sound.style == KeySoundStyle.CUSTOM &&
+                settings.sound.customId == sound.id
             HighlightableItem(sound.id) {
                 WmRow(
                     title = sound.name,
@@ -345,7 +345,7 @@ private fun InstalledSoundSection(
                     onClick = {
                         scope.launch { repository.setKeySoundCustomId(sound.id) }
                         KeySoundPlayer.preview(
-                            context, KeySoundStyle.CUSTOM, settings.keySoundVolume, sound.id,
+                            context, KeySoundStyle.CUSTOM, settings.sound.volume, sound.id,
                         )
                     },
                 )
@@ -402,7 +402,7 @@ private fun InstalledSoundPackSection(
                 is SoundPackImportResult.Imported -> {
                     repository.setKeySoundPackId(result.pack.id)
                     KeySoundPlayer.previewStroke(
-                        context, KeySoundStyle.PACK, settings.keySoundVolume, result.pack.id,
+                        context, KeySoundStyle.PACK, settings.sound.volume, result.pack.id,
                     )
                 }
                 SoundPackImportResult.NotASoundPack ->
@@ -442,8 +442,8 @@ private fun InstalledSoundPackSection(
             CaptionText(stringResource(R.string.hardware_sound_pack_empty))
         }
         for (pack in packs) {
-            val selected = settings.keySoundStyle == KeySoundStyle.PACK &&
-                settings.keySoundCustom.packId == pack.id
+            val selected = settings.sound.style == KeySoundStyle.PACK &&
+                settings.sound.packId == pack.id
             HighlightableItem(pack.id) {
                 WmRow(
                     title = pack.name,
@@ -513,7 +513,7 @@ private fun InstalledSoundPackSection(
                         // that recorded the switch returning is being judged on
                         // both halves, and half of it is a different pack.
                         KeySoundPlayer.previewStroke(
-                            context, KeySoundStyle.PACK, settings.keySoundVolume, pack.id,
+                            context, KeySoundStyle.PACK, settings.sound.volume, pack.id,
                         )
                     },
                 )
@@ -544,7 +544,7 @@ private fun KeyReleaseSoundToggle(
     val context = LocalContext.current
     val store = remember { SoundPackStore.get(context) }
     val revision by store.revision.collectAsStateWithLifecycle()
-    val packId = settings.keySoundCustom.packId
+    val packId = settings.sound.packId
     val hasRelease = remember(revision, packId) {
         store.resolve(packId)?.let { store.pack(it)?.hasRelease } == true
     }
@@ -552,8 +552,8 @@ private fun KeyReleaseSoundToggle(
     ToggleSetting(
         R.string.hardware_sound_pack_release_title,
         stringResource(R.string.hardware_sound_pack_release_subtitle),
-        settings.keySoundCustom.playRelease,
-        default = SettingsDefaults.keySoundCustom.playRelease,
+        settings.sound.playRelease,
+        default = SettingsDefaults.sound.playRelease,
     ) { on ->
         scope.launch { repository.setKeySoundPlayRelease(on) }
         // Turning it on previews the whole keystroke, which is the only way to
@@ -561,10 +561,10 @@ private fun KeyReleaseSoundToggle(
         // alone, so the difference is the thing demonstrated either way.
         if (on) {
             KeySoundPlayer.previewStroke(
-                context, KeySoundStyle.PACK, settings.keySoundVolume, packId,
+                context, KeySoundStyle.PACK, settings.sound.volume, packId,
             )
         } else {
-            KeySoundPlayer.preview(context, KeySoundStyle.PACK, settings.keySoundVolume, packId)
+            KeySoundPlayer.preview(context, KeySoundStyle.PACK, settings.sound.volume, packId)
         }
     }
 }
@@ -749,14 +749,14 @@ internal fun KeyPressHapticsSettings(
             ToggleSetting(
                 R.string.keypress_haptics_title,
                 stringResource(R.string.keypress_haptics_subtitle),
-                settings.hapticFeedback,
+                settings.haptics.enabled,
                 info = stringResource(R.string.keypress_haptics_info),
-                default = SettingsDefaults.hapticFeedback,
+                default = SettingsDefaults.haptics.enabled,
             ) {
                 scope.launch { repository.setHapticFeedback(it) }
                 if (it) {
                     HapticPlayer.preview(
-                        context, settings.hapticStyle, settings.hapticAmplitude, settings.hapticStrengthMs,
+                        context, settings.haptics.style, settings.haptics.amplitude, settings.haptics.strengthMs,
                     )
                 }
             }
@@ -787,13 +787,13 @@ internal fun KeyPressHapticsSettings(
             ) {
                 HapticStyle.entries.forEach { style ->
                     FilterChip(
-                        selected = settings.hapticStyle == style,
+                        selected = settings.haptics.style == style,
                         onClick = {
                             scope.launch { repository.setHapticStyle(style) }
                             // Fire the motor with the freshly picked style so the
                             // user feels the choice immediately.
                             HapticPlayer.preview(
-                                context, style, settings.hapticAmplitude, settings.hapticStrengthMs, view,
+                                context, style, settings.haptics.amplitude, settings.haptics.strengthMs, view,
                             )
                         },
                         label = { Text(stringResource(style.labelRes), maxLines = 1) },
@@ -801,38 +801,38 @@ internal fun KeyPressHapticsSettings(
                 }
             }
         }
-        if (settings.hapticStyle == HapticStyle.CUSTOM) {
+        if (settings.haptics.style == HapticStyle.CUSTOM) {
             item {
                 SliderSetting(
                     R.string.keypress_haptic_strength_title,
                     subtitle = stringResource(R.string.keypress_haptic_strength_subtitle),
-                    value = settings.hapticStrengthMs.toFloat(),
+                    value = settings.haptics.strengthMs.toFloat(),
                     range = 5f..60f,
                     display = { context.getString(R.string.keypress_value_ms, it.roundToInt()) },
                     info = stringResource(R.string.keypress_haptic_strength_info),
-                    default = SettingsDefaults.hapticStrengthMs.toFloat(),
+                    default = SettingsDefaults.haptics.strengthMs.toFloat(),
                 ) {
                     scope.launch { repository.setHapticStrengthMs(it.toInt()) }
                     // Debounced inside the player, so dragging previews smoothly.
-                    HapticPlayer.preview(context, settings.hapticStyle, settings.hapticAmplitude, it.toInt(), view)
+                    HapticPlayer.preview(context, settings.haptics.style, settings.haptics.amplitude, it.toInt(), view)
                 }
             }
         }
-        if (settings.hapticStyle == HapticStyle.CUSTOM || settings.hapticStyle == HapticStyle.SHARP) {
+        if (settings.haptics.style == HapticStyle.CUSTOM || settings.haptics.style == HapticStyle.SHARP) {
             item {
                 SliderSetting(
                     R.string.keypress_haptic_intensity_title,
                     subtitle = stringResource(R.string.keypress_haptic_intensity_subtitle),
-                    value = settings.hapticAmplitude.toFloat(),
+                    value = settings.haptics.amplitude.toFloat(),
                     range = 1f..255f,
                     display = {
                         context.getString(R.string.keypress_value_percent, it.roundToInt() * 100 / 255)
                     },
                     info = stringResource(R.string.keypress_haptic_intensity_info),
-                    default = SettingsDefaults.hapticAmplitude.toFloat(),
+                    default = SettingsDefaults.haptics.amplitude.toFloat(),
                 ) {
                     scope.launch { repository.setHapticAmplitude(it.toInt()) }
-                    HapticPlayer.preview(context, settings.hapticStyle, it.toInt(), settings.hapticStrengthMs, view)
+                    HapticPlayer.preview(context, settings.haptics.style, it.toInt(), settings.haptics.strengthMs, view)
                 }
             }
         }
@@ -840,23 +840,23 @@ internal fun KeyPressHapticsSettings(
             ToggleSetting(
                 R.string.keypress_long_press_haptics_title,
                 stringResource(R.string.keypress_long_press_haptics_subtitle),
-                settings.hapticOnLongPress,
+                settings.haptics.onLongPress,
                 info = stringResource(R.string.keypress_long_press_haptics_info),
-                default = SettingsDefaults.hapticOnLongPress,
+                default = SettingsDefaults.haptics.onLongPress,
             ) { scope.launch { repository.setHapticOnLongPress(it) } }
         }
         item {
             ToggleSetting(
                 R.string.keypress_long_press_release_title,
                 stringResource(R.string.keypress_long_press_release_subtitle),
-                settings.hapticOnLongPressRelease,
+                settings.haptics.onLongPressRelease,
                 info = stringResource(R.string.keypress_long_press_release_info),
-                default = SettingsDefaults.hapticOnLongPressRelease,
+                default = SettingsDefaults.haptics.onLongPressRelease,
             ) { scope.launch { repository.setHapticOnLongPressRelease(it) } }
         }
         // Per-event gates: only meaningful while the master switch above is on,
         // so they fold away when it is off.
-        if (settings.hapticFeedback) {
+        if (settings.haptics.enabled) {
             item {
                 ToggleSetting(
                     R.string.keypress_vibrate_space_title,
@@ -907,7 +907,7 @@ internal fun KeyPressHapticsSettings(
         // sound switch, which is where it was drawn from until this was fixed.
         // It sat under the haptics master, so it was both shown while it could
         // not be heard and hidden while it could.
-        if (settings.keySound) item {
+        if (settings.sound.enabled) item {
             ToggleSetting(
                 R.string.keypress_sound_repeat_title,
                 stringResource(R.string.keypress_sound_repeat_subtitle),

@@ -666,7 +666,7 @@ fun PhotoLibraryScreen(
 private fun HighContrastNote(settings: KeyboardSettings) {
     // High-contrast keys drops background images entirely, so a photo picked
     // here would quietly do nothing. Saying so beats letting it look broken.
-    if (settings.highContrastKeys) {
+    if (settings.accessibility.highContrast) {
         CaptionText(stringResource(R.string.photo_high_contrast_body))
     }
 }

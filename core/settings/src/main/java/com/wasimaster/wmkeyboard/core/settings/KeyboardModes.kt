@@ -602,8 +602,10 @@ fun KeyboardSettings.applyMode(mode: KeyboardMode?): KeyboardSettings {
         symbolRowEnabled = mode.symbolRowEnabled ?: symbolRowEnabled,
         symbolRowSetIds = mode.symbolSetIds ?: symbolRowSetIds,
         symbolRowActiveSetId = mode.symbolSetIds?.firstOrNull() ?: symbolRowActiveSetId,
-        autocorrect = mode.autocorrect ?: autocorrect,
-        autoCapitalize = mode.autoCapitalize ?: autoCapitalize,
+        correction = mode.autocorrect
+            ?.let { correction.copy(enabled = it) } ?: correction,
+        autoText = mode.autoCapitalize
+            ?.let { autoText.copy(capitalize = it) } ?: autoText,
         suggestions = mode.suggestions ?: suggestions,
         // Only honoured while the layout is actually available. A mode naming a
         // layout the user has since switched off would otherwise pin the

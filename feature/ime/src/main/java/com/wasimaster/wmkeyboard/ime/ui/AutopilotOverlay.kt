@@ -345,7 +345,7 @@ internal fun BoxScope.AutopilotOverlay(
                 Text(
                     text = label(ch),
                     fontSize = (LetterLabelSp * settings.fontScale * grown.scale).sp,
-                    fontWeight = if (settings.boldKeyLabels) FontWeight.Bold else FontWeight.Medium,
+                    fontWeight = if (settings.accessibility.boldLabels) FontWeight.Bold else FontWeight.Medium,
                     color = palette.keyText,
                     maxLines = 1,
                     softWrap = false,

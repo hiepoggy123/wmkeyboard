@@ -784,13 +784,13 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
     // Correction runs first so the contrast pass gets the last word: after
     // daltonization shifts hues, the text/background relationship is what
     // matters and it must not be re-broken.
-    var kb = if (settings.colorVisionFilter == ColorVisionFilter.NONE) {
+    var kb = if (settings.accessibility.colorVision == ColorVisionFilter.NONE) {
         this
     } else {
-        mapColors { ColorVision.correct(it, settings.colorVisionFilter) }
+        mapColors { ColorVision.correct(it, settings.accessibility.colorVision) }
     }
 
-    if (settings.highContrastKeys) {
+    if (settings.accessibility.highContrast) {
         // Push the board away from the keys as well as fixing the text: a
         // high-contrast palette that only touches labels still leaves the
         // key *shapes* indistinct, which is the harder problem for low vision.
@@ -833,8 +833,8 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
         )
     }
 
-    if (settings.keyOutlines) {
-        val alpha = if (settings.highContrastKeys) 0.9f else 0.45f
+    if (settings.accessibility.keyOutlines) {
+        val alpha = if (settings.accessibility.highContrast) 0.9f else 0.45f
         // Only where the theme has drawn no outline of its own: a theme that
         // carries a border has already answered this question, for the keys and
         // for the tools separately.
@@ -881,8 +881,8 @@ internal fun rememberAutoThemeDarkSlot(settings: KeyboardSettings, systemDark: B
         }
     }
     val sun = if (auto.trigger == AutoThemeTrigger.SUN) {
-        val latitude = settings.weatherLatitude
-        val longitude = settings.weatherLongitude
+        val latitude = settings.weather.latitude
+        val longitude = settings.weather.longitude
         // Recomputed when the day rolls over, which minutesOfDay wrapping to a
         // small number is the visible sign of.
         remember(latitude, longitude, minutesOfDay / 60) {

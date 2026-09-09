@@ -67,7 +67,7 @@ object HapticPlayer {
      * cut-off doubles as the version check.
      *
      * Never returns `HapticStyle.SYSTEM_TAP`, even though that is what
-     * `KeyboardSettings.hapticStyle` declares. Onboarding calls this and stores
+     * `HapticSettings.style` declares. Onboarding calls this and stores
      * the answer, so a phone that has been through the wizard types on one of
      * the two styles below and not on the declared default.
      */

@@ -18,7 +18,7 @@ import com.wasimaster.wmkeyboard.config.BuildConfig
  */
 fun hasSearchKey(settings: KeyboardSettings): Boolean =
     settings.selfHosted.searxUrl.isNotBlank() ||
-        settings.braveApiKey.isNotBlank() ||
+        settings.webSearch.braveApiKey.isNotBlank() ||
         BuildConfig.BRAVE_API_KEY.isNotBlank()
 
 /**

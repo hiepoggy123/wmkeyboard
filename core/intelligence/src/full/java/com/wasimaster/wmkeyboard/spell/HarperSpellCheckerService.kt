@@ -125,7 +125,7 @@ class HarperSpellCheckerService : SpellCheckerService() {
                         warmed = true
                         GrammarChecker.warmUp(ordinal)
                     }
-                    if (settings.contactSuggestions) {
+                    if (settings.suggestionSources.contacts) {
                         if (!contactsEnabled) {
                             contactsEnabled = true
                             loadContacts()

@@ -114,7 +114,7 @@ internal fun WikipediaPanel(
 
         when (val wiki = state.wiki) {
             WikiUi.Idle -> WikiMessage(
-                stringResource(R.string.ime_wiki_idle_info, state.settings.wikiLanguage),
+                stringResource(R.string.ime_wiki_idle_info, state.settings.webSearch.wikiLanguage),
             )
             WikiUi.Loading -> WikiMessage(stringResource(CommonR.string.common_loading))
             is WikiUi.Error -> Column(
@@ -189,8 +189,8 @@ internal fun WikipediaPanel(
             is WikiUi.Article -> WikiArticle(
                 focusedLink = state.focusedIndex(),
                 wiki = wiki,
-                markdownLinks = state.settings.wikiLinksMarkdown,
-                lang = state.settings.wikiLanguage,
+                markdownLinks = state.settings.webSearch.wikiLinksMarkdown,
+                lang = state.settings.webSearch.wikiLanguage,
                 onBack = onBack,
                 onOpen = onOpen,
                 onLoadLinks = onLoadLinks,

@@ -105,15 +105,17 @@ class DirectBootSettingsTest {
     @Test
     fun `nothing personal is read or written while locked`() {
         val settings = KeyboardSettings(
-            contactSuggestions = true,
-            contactEmailSuggestions = true,
-            appNameSuggestions = true,
+            suggestionSources = SuggestionSourceSettings(
+                contacts = true,
+                contactEmails = true,
+                appNames = true,
+            ),
             addWordsToSystemDictionary = true,
         ).restrictedToDirectBoot()
 
-        assertFalse(settings.contactSuggestions)
-        assertFalse(settings.contactEmailSuggestions)
-        assertFalse(settings.appNameSuggestions)
+        assertFalse(settings.suggestionSources.contacts)
+        assertFalse(settings.suggestionSources.contactEmails)
+        assertFalse(settings.suggestionSources.appNames)
         assertFalse(settings.addWordsToSystemDictionary)
         assertFalse(settings.clipboard.suggestRecent)
     }

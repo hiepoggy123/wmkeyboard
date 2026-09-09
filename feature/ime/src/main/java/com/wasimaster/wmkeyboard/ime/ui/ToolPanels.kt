@@ -316,9 +316,9 @@ internal fun CompassPanel(state: KeyboardUiState) {
         return
     }
 
-    val latitude = state.settings.weatherLatitude
-    val longitude = state.settings.weatherLongitude
-    val qiblaBearing = if (state.settings.compassShowQibla && latitude != null && longitude != null) {
+    val latitude = state.settings.weather.latitude
+    val longitude = state.settings.weather.longitude
+    val qiblaBearing = if (state.settings.sensorTools.compassQibla && latitude != null && longitude != null) {
         Qibla.bearing(latitude.toDouble(), longitude.toDouble()).toFloat()
     } else null
 
@@ -402,7 +402,7 @@ internal fun CompassPanel(state: KeyboardUiState) {
             drawPath(needle, kb.accent)
             drawCircle(kb.accent, 4.dp.toPx(), center)
         }
-        if (state.settings.compassShowDegrees) {
+        if (state.settings.sensorTools.compassDegrees) {
             val shown = azimuth.roundToInt() % 360
             Text(
                 if (hasReading) {
@@ -415,7 +415,7 @@ internal fun CompassPanel(state: KeyboardUiState) {
                 fontWeight = FontWeight.SemiBold,
             )
         }
-        if (state.settings.compassShowQibla) {
+        if (state.settings.sensorTools.compassQibla) {
             Text(
                 if (qiblaBearing != null) {
                     stringResource(
@@ -607,7 +607,7 @@ internal fun LevelPanel(state: KeyboardUiState) {
                 bubbleR, Offset(markX + off, cy),
             )
         }
-        if (state.settings.levelShowAngles) {
+        if (state.settings.sensorTools.levelAngles) {
             Text(
                 String.format(Locale.US, "↕ %.1f°   ↔ %.1f°", pitch, roll),
                 color = if (flat) kb.accent else kb.modifierKeyText,
@@ -691,7 +691,7 @@ internal fun MoonPhasePanel(state: KeyboardUiState) {
             // southern-hemisphere setting each mirror the drawing.
             val waning = info.cycleFraction > 0.5
             val f = if (waning) 1.0 - info.cycleFraction else info.cycleFraction
-            val mirrored = waning != state.settings.moonSouthernHemisphere
+            val mirrored = waning != state.settings.sensorTools.moonSouthern
             val term = cos(2.0 * Math.PI * f).toFloat() // 1 new → -1 full
             val discRect = Rect(center - Offset(radius, radius), Size(radius * 2, radius * 2))
             val ellipseHalf = radius * abs(term)
@@ -860,7 +860,7 @@ internal fun WeatherPanel(
             }
             is WeatherUi.Ready -> {
                 val info = weather.info
-                val fahrenheit = state.settings.weatherFahrenheit
+                val fahrenheit = state.settings.weather.fahrenheit
                 val unit = if (fahrenheit) "°F" else "°C"
                 Column(
                     modifier = Modifier
@@ -884,7 +884,7 @@ internal fun WeatherPanel(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
-                            val place = state.settings.weatherPlaceName.ifBlank { null }
+                            val place = state.settings.weather.placeName.ifBlank { null }
                             val highLow = stringResource(
                                 R.string.ime_weather_high_low_info,
                                 WeatherClient.toDisplay(info.highC, fahrenheit),
@@ -1053,13 +1053,13 @@ internal fun CalendarPanel(
     }
     // The two calendars riding along with the Gregorian one, in draw order and
     // with empty slots dropped, so everything below just iterates.
-    val altCalendars = listOf(state.settings.calendarAltOne, state.settings.calendarAltTwo)
+    val altCalendars = listOf(state.settings.calendarTool.altOne, state.settings.calendarTool.altTwo)
         .filter { it != AltCalendar.NONE }
         .distinct()
     // The day cells only have room for one extra number, so the first pick
     // that has one to give wins.
     val cellCalendar = altCalendars.firstOrNull { it.hasDayLabel }
-    val hijriAdjust = state.settings.hijriAdjustDays
+    val hijriAdjust = state.settings.calendarTool.hijriAdjustDays
     val daysInMonth = CalendarSystems.gregorianMonthLength(shownYear, shownMonth)
 
     // Which months of the chosen calendars this Gregorian month spans.
@@ -1190,7 +1190,7 @@ internal fun CalendarPanel(
             // are is a setting, defaulted from the device's region — Friday and
             // Saturday in much of the Middle East, Friday alone in Bangladesh,
             // Saturday and Sunday most other places.
-            val weekend = state.settings.calendarWeekend.days
+            val weekend = state.settings.calendarTool.weekend.days
             val weekdayInitials = stringArrayResource(R.array.ime_calendar_weekday_initials)
             Row(modifier = Modifier.fillMaxWidth()) {
                 weekdayInitials.forEachIndexed { index, initial ->
@@ -2829,12 +2829,12 @@ internal fun SoundHapticsPanel(
         columns = 2,
     ) { index ->
         if (index == 0) {
-            onAction(SoundHapticAction.Haptics(!settings.hapticFeedback))
+            onAction(SoundHapticAction.Haptics(!settings.haptics.enabled))
         } else {
-            onAction(SoundHapticAction.Sound(!settings.keySound))
+            onAction(SoundHapticAction.Sound(!settings.sound.enabled))
         }
     }
-    val hapticChipCount = if (settings.hapticFeedback) HapticStyle.entries.size else 0
+    val hapticChipCount = if (settings.haptics.enabled) HapticStyle.entries.size else 0
     val soundStore = remember(context) { SoundStore.get(context) }
     val soundRevision by soundStore.revision.collectAsState()
     val sounds = remember(soundRevision) { soundStore.sounds() }
@@ -2847,21 +2847,21 @@ internal fun SoundHapticsPanel(
     // deleted, so the user can see what is selected and step off it.
     val soundStyles = KeySoundStyle.entries.filter {
         when (it) {
-            KeySoundStyle.CUSTOM -> sounds.isNotEmpty() || settings.keySoundStyle == it
-            KeySoundStyle.PACK -> soundPacks.isNotEmpty() || settings.keySoundStyle == it
+            KeySoundStyle.CUSTOM -> sounds.isNotEmpty() || settings.sound.style == it
+            KeySoundStyle.PACK -> soundPacks.isNotEmpty() || settings.sound.style == it
             else -> true
         }
     }
-    val soundChipCount = if (settings.keySound) soundStyles.size else 0
+    val soundChipCount = if (settings.sound.enabled) soundStyles.size else 0
     // What the chosen style picks from, as name/id pairs — empty for the five
     // built-in styles, which are waveforms rather than files.
     val soundChoices: List<Pair<String, String>> = when {
-        !settings.keySound -> emptyList()
-        settings.keySoundStyle == KeySoundStyle.CUSTOM -> sounds.map { it.name to it.id }
-        settings.keySoundStyle == KeySoundStyle.PACK -> soundPacks.map { it.name to it.id }
+        !settings.sound.enabled -> emptyList()
+        settings.sound.style == KeySoundStyle.CUSTOM -> sounds.map { it.name to it.id }
+        settings.sound.style == KeySoundStyle.PACK -> soundPacks.map { it.name to it.id }
         else -> emptyList()
     }
-    val soundChoiceRoute = if (settings.keySoundStyle == KeySoundStyle.PACK) {
+    val soundChoiceRoute = if (settings.sound.style == KeySoundStyle.PACK) {
         addonsTypeRoute(AddonType.SoundPack)
     } else {
         addonsTypeRoute(AddonType.Sound)
@@ -2877,7 +2877,7 @@ internal fun SoundHapticsPanel(
         val choice = soundChoices.getOrNull(index)
         when {
             choice == null -> onOpenRoute(soundChoiceRoute)
-            settings.keySoundStyle == KeySoundStyle.PACK ->
+            settings.sound.style == KeySoundStyle.PACK ->
                 onAction(SoundHapticAction.SoundPackChange(choice.second))
             else -> onAction(SoundHapticAction.SoundCustomChange(choice.second))
         }
@@ -2907,7 +2907,7 @@ internal fun SoundHapticsPanel(
             .padding(horizontal = 16.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        if (settings.keySound && ringerMode != AudioManager.RINGER_MODE_NORMAL) {
+        if (settings.sound.enabled && ringerMode != AudioManager.RINGER_MODE_NORMAL) {
             // A warning, so the error tint stays — but it sits in a chip's
             // clothes: the theme's chip shape and, when set, its outline.
             val warnShape = kb.cardShape()
@@ -2943,12 +2943,12 @@ internal fun SoundHapticsPanel(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Switch(
-                checked = settings.hapticFeedback,
+                checked = settings.haptics.enabled,
                 onCheckedChange = { onAction(SoundHapticAction.Haptics(it)) },
                 modifier = Modifier.focusRing(focusedSwitch == 0),
             )
         }
-        if (settings.hapticFeedback) {
+        if (settings.haptics.enabled) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -2956,12 +2956,12 @@ internal fun SoundHapticsPanel(
                 for ((index, style) in HapticStyle.entries.withIndex()) {
                     StyleChip(
                         label = stringResource(style.labelRes),
-                        selected = settings.hapticStyle == style,
+                        selected = settings.haptics.style == style,
                         focused = index == focusedChip,
                     ) { onAction(SoundHapticAction.HapticStyleChange(style)) }
                 }
             }
-            val hapticNote = when (settings.hapticStyle) {
+            val hapticNote = when (settings.haptics.style) {
                 HapticStyle.SYSTEM_KEY ->
                     stringResource(R.string.ime_sound_haptic_system_key_info)
                 HapticStyle.SYSTEM_TAP ->
@@ -2971,38 +2971,38 @@ internal fun SoundHapticsPanel(
             if (hapticNote != null) {
                 Text(hapticNote, color = kb.toolbarIcon, fontSize = 11.sp)
             }
-            if (settings.hapticStyle == HapticStyle.CUSTOM || settings.hapticStyle == HapticStyle.SHARP) {
+            if (settings.haptics.style == HapticStyle.CUSTOM || settings.haptics.style == HapticStyle.SHARP) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.ime_sound_intensity_label),
                         color = kb.toolbarIcon, fontSize = 11.sp,
                         modifier = Modifier.width(60.dp))
                     Slider(
-                        value = settings.hapticAmplitude.toFloat(),
+                        value = settings.haptics.amplitude.toFloat(),
                         onValueChange = { onAction(SoundHapticAction.HapticAmplitude(it.toInt())) },
                         valueRange = 1f..255f,
                         modifier = Modifier.weight(1f).height(28.dp),
                     )
                     Text(
-                        "${settings.hapticAmplitude * 100 / 255}%",
+                        "${settings.haptics.amplitude * 100 / 255}%",
                         color = kb.toolbarIcon, fontSize = 11.sp,
                     )
                 }
             }
             // Duration only bites on the custom one-shot path; the predefined
             // and primitive effects have a HAL-fixed length.
-            if (settings.hapticStyle == HapticStyle.CUSTOM) {
+            if (settings.haptics.style == HapticStyle.CUSTOM) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.ime_sound_duration_label),
                         color = kb.toolbarIcon, fontSize = 11.sp,
                         modifier = Modifier.width(60.dp))
                     Slider(
-                        value = settings.hapticStrengthMs.toFloat(),
+                        value = settings.haptics.strengthMs.toFloat(),
                         onValueChange = { onAction(SoundHapticAction.HapticDuration(it.toInt())) },
                         valueRange = 5f..60f,
                         modifier = Modifier.weight(1f).height(28.dp),
                     )
                     Text(
-                        "${settings.hapticStrengthMs} ms",
+                        "${settings.haptics.strengthMs} ms",
                         color = kb.toolbarIcon, fontSize = 11.sp,
                     )
                 }
@@ -3013,12 +3013,12 @@ internal fun SoundHapticsPanel(
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
             Switch(
-                checked = settings.keySound,
+                checked = settings.sound.enabled,
                 onCheckedChange = { onAction(SoundHapticAction.Sound(it)) },
                 modifier = Modifier.focusRing(focusedSwitch == 1),
             )
         }
-        if (settings.keySound) {
+        if (settings.sound.enabled) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 // Custom and Pack name an installed file rather than a fixed
                 // style; the row under this one picks which file. The chip list
@@ -3041,35 +3041,35 @@ internal fun SoundHapticsPanel(
                             KeySoundStyle.PACK ->
                                 stringResource(R.string.ime_sound_style_pack_label)
                         },
-                        selected = settings.keySoundStyle == style,
+                        selected = settings.sound.style == style,
                         focused = focusedChip != null && focusedChip - hapticChipCount == index,
                     ) { onAction(SoundHapticAction.SoundStyleChange(style)) }
                 }
             }
-            if (settings.keySoundStyle == KeySoundStyle.CUSTOM ||
-                settings.keySoundStyle == KeySoundStyle.PACK
+            if (settings.sound.style == KeySoundStyle.CUSTOM ||
+                settings.sound.style == KeySoundStyle.PACK
             ) {
                 SoundChoiceRow(
                     choices = soundChoices,
-                    selectedId = if (settings.keySoundStyle == KeySoundStyle.PACK) {
-                        settings.keySoundCustom.packId
+                    selectedId = if (settings.sound.style == KeySoundStyle.PACK) {
+                        settings.sound.packId
                     } else {
-                        settings.keySoundCustom.customId
+                        settings.sound.customId
                     },
                     focused = state.focusedIndex(FocusRegion.RESULTS),
-                    emptyRes = if (settings.keySoundStyle == KeySoundStyle.PACK) {
+                    emptyRes = if (settings.sound.style == KeySoundStyle.PACK) {
                         R.string.ime_sound_packs_empty
                     } else {
                         R.string.ime_sound_customs_empty
                     },
-                    moreRes = if (settings.keySoundStyle == KeySoundStyle.PACK) {
+                    moreRes = if (settings.sound.style == KeySoundStyle.PACK) {
                         R.string.ime_sound_packs_more_label
                     } else {
                         R.string.ime_sound_customs_more_label
                     },
                     onMore = { onOpenRoute(soundChoiceRoute) },
                 ) { id ->
-                    if (settings.keySoundStyle == KeySoundStyle.PACK) {
+                    if (settings.sound.style == KeySoundStyle.PACK) {
                         onAction(SoundHapticAction.SoundPackChange(id))
                     } else {
                         onAction(SoundHapticAction.SoundCustomChange(id))
@@ -3081,13 +3081,13 @@ internal fun SoundHapticsPanel(
                     color = kb.toolbarIcon, fontSize = 11.sp,
                     modifier = Modifier.width(60.dp))
                 Slider(
-                    value = settings.keySoundVolume,
+                    value = settings.sound.volume,
                     onValueChange = { onAction(SoundHapticAction.SoundVolume(it)) },
                     valueRange = 0.05f..1f,
                     modifier = Modifier.weight(1f).height(28.dp),
                 )
                 Text(
-                    "${(settings.keySoundVolume * 100).roundToInt()}%",
+                    "${(settings.sound.volume * 100).roundToInt()}%",
                     color = kb.toolbarIcon, fontSize = 11.sp,
                 )
             }

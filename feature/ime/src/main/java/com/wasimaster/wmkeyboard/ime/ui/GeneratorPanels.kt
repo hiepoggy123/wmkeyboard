@@ -399,11 +399,11 @@ internal fun QrGeneratorPanel(
     val content = state.mediaQuery
     // Preview renders small and cheap; the inserted PNG uses the size setting.
     val qrMaxChars = state.settings.toolLimits.qrMaxChars
-    val bitmap = remember(content, state.settings.qrEcc, qrMaxChars) {
+    val bitmap = remember(content, state.settings.scanner.qrEcc, qrMaxChars) {
         QrCodeGen.bitmap(
             content,
             sizePx = 384,
-            ecc = state.settings.qrEcc.name,
+            ecc = state.settings.scanner.qrEcc.name,
             maxChars = qrMaxChars,
         )
     }
@@ -496,7 +496,7 @@ internal fun QrGeneratorPanel(
                             R.plurals.ime_qr_meta_info,
                             content.length,
                             content.length,
-                            state.settings.qrEcc.name,
+                            state.settings.scanner.qrEcc.name,
                         ),
                         color = kb.secondaryText,
                         fontSize = 10.sp,

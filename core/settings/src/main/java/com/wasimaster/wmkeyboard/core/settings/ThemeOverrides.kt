@@ -145,7 +145,8 @@ fun KeyboardSettings.applyThemeOverrides(spec: ThemeSpec?): KeyboardSettings {
         keyHeightDp = spec.keyHeightDp ?: keyHeightDp,
         keyGapScale = spec.keyGapScale ?: keyGapScale,
         fontScale = spec.fontScale ?: fontScale,
-        boldKeyLabels = spec.boldKeyLabels ?: boldKeyLabels,
+        accessibility = spec.boldKeyLabels
+            ?.let { accessibility.copy(boldLabels = it) } ?: accessibility,
         toolbarBehavior = spec.toolWidthDp
             ?.let { toolbarBehavior.copy(toolWidthDp = it) } ?: toolbarBehavior,
         layoutBehavior = if (

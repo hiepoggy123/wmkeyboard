@@ -88,7 +88,7 @@ class PowerSavingSettingsTest {
     fun `the view switches off exactly what is asked for`() {
         val settings = KeyboardSettings(powerSaving = PowerSavingSettings())
         val saving = settings.underPowerSaving()
-        assertFalse(saving.hapticFeedback)
+        assertFalse(saving.haptics.enabled)
         assertTrue(saving.reduceMotion)
         assertEquals(0f, saving.gesture.trailOpacity, 0f)
         assertFalse(saving.emojiPrediction)
@@ -107,7 +107,7 @@ class PowerSavingSettingsTest {
             powerSaving = PowerSavingSettings(dropHaptics = false, dropAnimations = false),
         )
         val saving = settings.underPowerSaving()
-        assertTrue(saving.hapticFeedback)
+        assertTrue(saving.haptics.enabled)
         assertFalse(saving.reduceMotion)
     }
 
@@ -170,6 +170,6 @@ class PowerSavingSettingsTest {
         val settings = KeyboardSettings()
         val saving = settings.underPowerSaving()
         assertEquals(settings.powerSaving, saving.powerSaving)
-        assertTrue("the original is untouched", settings.hapticFeedback)
+        assertTrue("the original is untouched", settings.haptics.enabled)
     }
 }

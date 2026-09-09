@@ -15,10 +15,10 @@ import com.wasimaster.wmkeyboard.core.settings.hasSearchKey
 object ToolApiKeys {
 
     fun klipy(settings: KeyboardSettings): String =
-        settings.klipyApiKey.ifBlank { BuildConfig.KLIPY_API_KEY }
+        settings.gif.klipyApiKey.ifBlank { BuildConfig.KLIPY_API_KEY }
 
     fun giphy(settings: KeyboardSettings): String =
-        settings.giphyApiKey.ifBlank { BuildConfig.GIPHY_API_KEY }
+        settings.gif.giphyApiKey.ifBlank { BuildConfig.GIPHY_API_KEY }
 
     /**
      * Which GIF/sticker providers can actually serve requests.
@@ -46,7 +46,7 @@ object ToolApiKeys {
         gifSources(settings) + GifSource.LOCAL
 
     fun brave(settings: KeyboardSettings): String =
-        settings.braveApiKey.ifBlank { BuildConfig.BRAVE_API_KEY }
+        settings.webSearch.braveApiKey.ifBlank { BuildConfig.BRAVE_API_KEY }
 
     /**
      * Whether the web/image search tools have a usable Brave key. Delegates to

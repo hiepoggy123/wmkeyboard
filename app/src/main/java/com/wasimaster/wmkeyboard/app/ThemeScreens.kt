@@ -1022,8 +1022,8 @@ fun ThemesScreen(
     // The chosen trigger's explanation rides in the section's "?" with the
     // rest; the one state that needs doing something about — sun times with
     // no place to compute them for — is a banner instead.
-    val hasSunLocation = settings.weatherLatitude != null && settings.weatherLongitude != null
-    val sunPlace = settings.weatherPlaceName.takeIf { it.isNotBlank() }
+    val hasSunLocation = settings.weather.latitude != null && settings.weather.longitude != null
+    val sunPlace = settings.weather.placeName.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.theme_auto_trigger_sun_place_fallback)
     val triggerNote = when (auto.trigger) {
         AutoThemeTrigger.SYSTEM -> stringResource(R.string.theme_auto_trigger_system_body)
@@ -3152,7 +3152,7 @@ fun ThemeEditorScreen(
                                         sidePadLeftScale = settings.layoutBehavior.sidePadLeftScale,
                                         sidePadRightScale = settings.layoutBehavior.sidePadRightScale,
                                         fontScale = settings.fontScale,
-                                        boldKeyLabels = settings.boldKeyLabels,
+                                        boldKeyLabels = settings.accessibility.boldLabels,
                                         hintFontScale = settings.layoutBehavior.hintFontScale,
                                         gestureTrailWidthDp = settings.gesture.trailWidthDp,
                                         gestureTrailOpacity = settings.gesture.trailOpacity,
@@ -3637,7 +3637,7 @@ fun ThemeEditorScreen(
         }
         // A theme's sound is resolved past the key-sound gate, so with key
         // sounds off there is nothing for it to replace.
-        if (settings.keySound) item {
+        if (settings.sound.enabled) item {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.theme_sound_title)) },
                 supportingContent = { Text(themeSoundLabel(theme)) },

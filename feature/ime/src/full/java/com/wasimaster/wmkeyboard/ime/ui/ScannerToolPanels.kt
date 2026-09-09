@@ -154,7 +154,7 @@ internal fun OcrPanel(
                 state = state,
                 onInsert = onInsert,
                 onClose = onClose,
-                autoSelect = state.settings.ocrAutoSelectWords,
+                autoSelect = state.settings.scanner.ocrAutoSelectWords,
             )
         } else {
             CameraPermissionPrompt(
@@ -636,9 +636,9 @@ internal fun QrScanPanel(
                 state = state,
                 onInsert = onInsert,
                 onOpenUrl = onOpenUrl,
-                haptics = state.settings.qrScanHaptics,
-                autoInsert = state.settings.qrScanAutoInsert,
-                linkPreviews = state.settings.qrScanLinkPreviews,
+                haptics = state.settings.scanner.qrScanHaptics,
+                autoInsert = state.settings.scanner.qrScanAutoInsert,
+                linkPreviews = state.settings.scanner.qrScanLinkPreviews,
             )
         } else {
             CameraPermissionPrompt(

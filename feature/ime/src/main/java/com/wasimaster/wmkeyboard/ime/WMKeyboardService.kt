@@ -2253,9 +2253,9 @@ open class WMKeyboardService : InputMethodService() {
                 // here the first several keystrokes after the IME opens fall
                 // back to the system click, which reads as the pack not
                 // working rather than as the pool still catching up.
-                val sound = _uiState.value.settings
-                if (sound.keySoundStyle == com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.PACK) {
-                    KeySoundPlayer.preload(this@WMKeyboardService, sound.keySoundCustom.packId)
+                val sound = _uiState.value.settings.sound
+                if (sound.style == com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.PACK) {
+                    KeySoundPlayer.preload(this@WMKeyboardService, sound.packId)
                 }
                 HapticPlayer.warmUp(this@WMKeyboardService)
             }
@@ -2516,27 +2516,27 @@ open class WMKeyboardService : InputMethodService() {
                     updateScreenshotObserver(settings.clipboard.userScreenshots)
                 }
                 if (!settings.floatingKeyboard) floatingPanelBounds = null
-                if (settings.contactSuggestions != contactsEnabled) {
-                    contactsEnabled = settings.contactSuggestions
-                    if (settings.contactSuggestions) {
+                if (settings.suggestionSources.contacts != contactsEnabled) {
+                    contactsEnabled = settings.suggestionSources.contacts
+                    if (settings.suggestionSources.contacts) {
                         loadContactNames()
                     } else {
                         contactNames = ContactNames.EMPTY
                         suggestionEngine?.contacts = ContactNames.EMPTY
                     }
                 }
-                if (settings.contactEmailSuggestions != contactEmailsEnabled) {
-                    contactEmailsEnabled = settings.contactEmailSuggestions
-                    if (settings.contactEmailSuggestions) {
+                if (settings.suggestionSources.contactEmails != contactEmailsEnabled) {
+                    contactEmailsEnabled = settings.suggestionSources.contactEmails
+                    if (settings.suggestionSources.contactEmails) {
                         loadContactEmails()
                     } else {
                         contactEmails = ContactEmails.EMPTY
                         suggestionEngine?.contactEmails = ContactEmails.EMPTY
                     }
                 }
-                if (settings.appNameSuggestions != appNamesEnabled) {
-                    appNamesEnabled = settings.appNameSuggestions
-                    if (settings.appNameSuggestions) {
+                if (settings.suggestionSources.appNames != appNamesEnabled) {
+                    appNamesEnabled = settings.suggestionSources.appNames
+                    if (settings.suggestionSources.appNames) {
                         loadAppNames()
                     } else {
                         appNames = AppNames.EMPTY
@@ -2715,16 +2715,16 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.editHabits = correctionMemory.habitsFor(activeSpec.id)
                 if (settings.suggestionStrip.adaptToTaps != tapAdaptApplied) applyTouchModel()
                 suggestionEngine?.autocorrectConfidence =
-                    settings.autocorrectConfidence.toDouble()
-                suggestionEngine?.adaptiveConfidence = settings.autocorrectAdaptive
-                correctionStats.memory = settings.autocorrectUndoMemory
+                    settings.correction.confidence.toDouble()
+                suggestionEngine?.adaptiveConfidence = settings.correction.adaptive
+                correctionStats.memory = settings.correction.undoMemory
                 glideOutcomes.applied = settings.gesture.learnSwipeStyle
                 suggestionEngine?.reranker = resolveReranker(settings)
-                suggestionEngine?.blacklist = settings.suggestionBlacklist
-                purgeBlacklisted(settings.suggestionBlacklist)
+                suggestionEngine?.blacklist = settings.suggestionSources.blacklist
+                purgeBlacklisted(settings.suggestionSources.blacklist)
                 suggestionEngine?.blockOffensiveWords =
                     settings.suggestionStrip.blockOffensiveWords
-                suggestionEngine?.skipAllCapsAutocorrect = settings.autocorrectSkipAllCaps
+                suggestionEngine?.skipAllCapsAutocorrect = settings.correction.skipAllCaps
                 suggestionEngine?.learnedWordMinCount =
                     settings.suggestionStrip.learnedWordMinCount
                 emojiUsage.maxRecents = settings.emoji.recentsLimit
@@ -2938,7 +2938,7 @@ open class WMKeyboardService : InputMethodService() {
         correctionStats = CorrectionStats(store("learning/correction_stats.json"))
         // The swapped-in store starts on the default level; carry the user's
         // setting across, or it stays at NORMAL until the next settings emit.
-        correctionStats.memory = _uiState.value.settings.autocorrectUndoMemory
+        correctionStats.memory = _uiState.value.settings.correction.undoMemory
         correctionMemory = CorrectionMemory(store(LEARNED_CORRECTIONS_FILE))
         suggestionEngine?.correctionMemory = correctionMemory
         pushLearnedHabits()
@@ -3155,17 +3155,17 @@ open class WMKeyboardService : InputMethodService() {
                 correctionMemory = this@WMKeyboardService.correctionMemory
                 editHabits = this@WMKeyboardService.correctionMemory.habitsFor(_uiState.value.layoutId)
                 autocorrectConfidence =
-                    _uiState.value.settings.autocorrectConfidence.toDouble()
-                adaptiveConfidence = _uiState.value.settings.autocorrectAdaptive
+                    _uiState.value.settings.correction.confidence.toDouble()
+                adaptiveConfidence = _uiState.value.settings.correction.adaptive
                 correctionStats = this@WMKeyboardService.correctionStats.apply {
-                    memory = _uiState.value.settings.autocorrectUndoMemory
+                    memory = _uiState.value.settings.correction.undoMemory
                 }
                 glideOutcomes = this@WMKeyboardService.glideOutcomes
-                blacklist = _uiState.value.settings.suggestionBlacklist
+                blacklist = _uiState.value.settings.suggestionSources.blacklist
                 rankOffsets = wordRanks.snapshot()
                 offensiveWords = offensiveSet
                 blockOffensiveWords = _uiState.value.settings.suggestionStrip.blockOffensiveWords
-                skipAllCapsAutocorrect = _uiState.value.settings.autocorrectSkipAllCaps
+                skipAllCapsAutocorrect = _uiState.value.settings.correction.skipAllCaps
                 learnedWordMinCount =
                     _uiState.value.settings.suggestionStrip.learnedWordMinCount
                 autocorrectSplits = _uiState.value.settings.suggestionStrip.autocorrectSplits
@@ -3986,10 +3986,10 @@ open class WMKeyboardService : InputMethodService() {
         reloadSnippetsIfChanged()
         resetHardwareKeyState()
         // Covers the permission being granted after the setting was on.
-        if (_uiState.value.settings.contactSuggestions && contactNames.isEmpty) {
+        if (_uiState.value.settings.suggestionSources.contacts && contactNames.isEmpty) {
             loadContactNames()
         }
-        if (_uiState.value.settings.contactEmailSuggestions && contactEmails.isEmpty) {
+        if (_uiState.value.settings.suggestionSources.contactEmails && contactEmails.isEmpty) {
             loadContactEmails()
         }
         // A dictionary downloaded (or deleted) in Settings goes live here, on
@@ -4058,7 +4058,7 @@ open class WMKeyboardService : InputMethodService() {
         val fieldIncognito = fieldSettings.autoIncognito &&
             info.requestsNoPersonalizedLearning()
         val fieldNoSuggestions =
-            info.suppressesSuggestions(fieldSettings.showSuggestionsInAllFields)
+            info.suppressesSuggestions(fieldSettings.suggestionSources.inAllFields)
         val activeMode = base?.let {
             resolveKeyboardMode(it.keyboardModes, currentPackage, currentModeFields, manualModeId)
         }
@@ -4234,7 +4234,7 @@ open class WMKeyboardService : InputMethodService() {
             saveToGalleryIfEnabled(
                 page,
                 MediaMime.JPEG,
-                _uiState.value.settings.docScanSaveToGallery,
+                _uiState.value.settings.scanner.docSaveToGallery,
                 "SCAN",
             )
             commitImageFile(page, MediaMime.JPEG)
@@ -4446,7 +4446,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun inlineChipBudgets(): Pair<Int, Int> {
         val settings = _uiState.value.settings
         if (autofillBlockedByIncognito()) return 0 to 0
-        val autofill = if (settings.inlineAutofill) InlineAutofill.MAX_AUTOFILL_CHIPS else 0
+        val autofill = if (settings.suggestionSources.inlineAutofill) InlineAutofill.MAX_AUTOFILL_CHIPS else 0
         val platform =
             if (settings.suggestionStrip.systemSmartReplies) InlineAutofill.MAX_PLATFORM_CHIPS else 0
         return autofill to platform
@@ -4634,7 +4634,7 @@ open class WMKeyboardService : InputMethodService() {
         languageMixConfidence.save()
         emojiUsage.save()
         typingStats.save()
-        if (_uiState.value.settings.flashlightAutoOff && _uiState.value.torchOn) {
+        if (_uiState.value.settings.sensorTools.flashlightAutoOff && _uiState.value.torchOn) {
             setTorch(false)
         }
         // Last: everything above has settled the field the keyboard is
@@ -4833,7 +4833,7 @@ open class WMKeyboardService : InputMethodService() {
                     online = true,
                     metered = connectivity?.isActiveNetworkMetered ?: true,
                     powerSaving = current.powerSaving.dropBackgroundNetwork,
-                    highContrastKeys = current.highContrastKeys,
+                    highContrastKeys = current.accessibility.highContrast,
                 ),
             )
             PhotoBackgroundManager.prunePool(this@WMKeyboardService, photos)
@@ -5780,7 +5780,7 @@ open class WMKeyboardService : InputMethodService() {
         // turns that buffer into emoji instead of words. Nothing else needs to
         // track a mode — "composing starts with a colon" *is* the mode, so
         // backspacing the colon away ends it on its own.
-        if (state.settings.inlineEmojiSearch && text == ":" &&
+        if (state.settings.suggestionSources.inlineEmojiSearch && text == ":" &&
             composing.isEmpty() && composingMode
         ) {
             commitComposing(ic, autocorrect = false)
@@ -5795,7 +5795,7 @@ open class WMKeyboardService : InputMethodService() {
         // do: ":tada:" becomes 🎉 outright. Exact shortcodes only — a partial
         // or unknown name stays the literal text the user typed, so the colon
         // never eats something it couldn't name.
-        if (state.settings.inlineEmojiSearch && text == ":" && composing.startsWith(":")) {
+        if (state.settings.suggestionSources.inlineEmojiSearch && text == ":" && composing.startsWith(":")) {
             val emoji = emojiShortcodes.exact(composing.substring(1))
             if (emoji != null) {
                 revision = null
@@ -5877,7 +5877,7 @@ open class WMKeyboardService : InputMethodService() {
 
     /**
      * Whether the just-typed [text] should be followed by a space typed for the
-     * user (see [KeyboardSettings.autoSpaceAfterPunctuation]).
+     * user (see [AutoTextSettings.spaceAfterPunctuation]).
      *
      * Structured fields are excluded through [KeyboardUiState.allowsTypingIntelligence],
      * which is exactly the URL / email / password / keypad set: a space inserted
@@ -5887,7 +5887,7 @@ open class WMKeyboardService : InputMethodService() {
      * [AUTO_SPACE_PUNCTUATION] for the same reason.
      */
     private fun shouldAutoSpaceAfterPunctuation(state: KeyboardUiState, text: String): Boolean =
-        state.settings.autoSpaceAfterPunctuation &&
+        state.settings.autoText.spaceAfterPunctuation &&
             state.allowsTypingIntelligence &&
             !state.composer.isConversion &&
             text.length == 1 && text[0] in AUTO_SPACE_PUNCTUATION
@@ -6401,7 +6401,7 @@ open class WMKeyboardService : InputMethodService() {
             lastRevertible = null
             clearSwapOffer()
             val allowed = when (revert.kind) {
-                RevertibleCommit.Kind.AUTOCORRECT -> state.settings.revertAutocorrectOnBackspace
+                RevertibleCommit.Kind.AUTOCORRECT -> state.settings.correction.revertOnBackspace
                 // A pattern snippet eats several typed words at once, so being
                 // able to take it back is not a preference. There is also no
                 // settings field left to hang one on.
@@ -7325,8 +7325,8 @@ open class WMKeyboardService : InputMethodService() {
         if (batched) ic.beginBatchEdit()
         val committed = commitComposing(
             ic,
-            autocorrect = state.settings.autocorrect,
-            fixApostrophes = state.settings.autoApostrophe,
+            autocorrect = state.settings.correction.enabled,
+            fixApostrophes = state.settings.autoText.apostrophe,
             expandPatterns = true,
         )
         // The expansion left the caret inside itself, at its {cursor} marker.
@@ -7346,7 +7346,7 @@ open class WMKeyboardService : InputMethodService() {
         // Double-tap space inserts a tab. Checked before the period rule so
         // enabling it wins, and unlike the period it works anywhere a space
         // was just typed (indenting at a line start has no word before it).
-        if (!committed && state.settings.doubleSpaceTab && now - lastSpaceTime < doubleSpaceWindow) {
+        if (!committed && state.settings.autoText.doubleSpaceTab && now - lastSpaceTime < doubleSpaceWindow) {
             val before = ic.getTextBeforeCursor(1, 0)?.toString().orEmpty()
             if (before == " ") {
                 ic.deleteSurroundingText(1, 0)
@@ -7359,7 +7359,7 @@ open class WMKeyboardService : InputMethodService() {
         // Double-space inserts ". "
         // Only in plain text fields: a double space in an email, URI or
         // number box must stay two spaces, not become ". ".
-        if (!committed && state.settings.doubleSpacePeriod &&
+        if (!committed && state.settings.autoText.doubleSpacePeriod &&
             state.fieldKind == FieldKind.TEXT && now - lastSpaceTime < doubleSpaceWindow
         ) {
             val before = ic.getTextBeforeCursor(2, 0)?.toString().orEmpty()
@@ -10021,7 +10021,7 @@ open class WMKeyboardService : InputMethodService() {
             // A word on the never-suggest list is neither counted nor parked
             // in the waiting room: learning it would only put it back in the
             // personal dictionary the user just took it out of (#48).
-            val blacklisted = cleaned.lowercase() in state.settings.suggestionBlacklist
+            val blacklisted = cleaned.lowercase() in state.settings.suggestionSources.blacklist
             val known = !blacklisted && isKnownWord(cleaned)
             if (known) {
                 // Counted only once the text it landed in settles — see
@@ -10188,7 +10188,7 @@ open class WMKeyboardService : InputMethodService() {
         for (entry in entries) {
             // Blacklisted since the commit: the user has just taken this word
             // out of their dictionary, and the queue must not put it back (#48).
-            if (entry.word.lowercase() in settings.suggestionBlacklist) continue
+            if (entry.word.lowercase() in settings.suggestionSources.blacklist) continue
             if (entry.known) {
                 // Recognised when it was typed, and it has to still be
                 // recognised now: a language switched off while the word sat
@@ -10579,7 +10579,7 @@ open class WMKeyboardService : InputMethodService() {
             original = fired.typed
         }
         if (!CorrectionMemory.accepts(original, rev.revised, ::isKnownWord)) return null
-        val blacklist = _uiState.value.settings.suggestionBlacklist
+        val blacklist = _uiState.value.settings.suggestionSources.blacklist
         if (original.lowercase() in blacklist ||
             rev.revised.lowercase().split(' ').any { it in blacklist }
         ) {
@@ -10623,7 +10623,7 @@ open class WMKeyboardService : InputMethodService() {
             if (containsWord(text, original) || !containsWord(text, revised)) return
         }
         if (!CorrectionMemory.accepts(original, revised, ::isKnownWord)) return
-        val blacklist = _uiState.value.settings.suggestionBlacklist
+        val blacklist = _uiState.value.settings.suggestionSources.blacklist
         if (original.lowercase() in blacklist || revised.lowercase().split(' ').any { it in blacklist }) return
         val kind = if (entry.replacesOrigin == WordOrigin.TYPED && !isKnownWord(original)) {
             CorrectionMemory.Kind.PAIR_AND_HABITS
@@ -11103,7 +11103,7 @@ open class WMKeyboardService : InputMethodService() {
      * word, so callers can branch on it directly.
      */
     private fun inlineEmojiQuery(): String? {
-        if (!_uiState.value.settings.inlineEmojiSearch) return null
+        if (!_uiState.value.settings.suggestionSources.inlineEmojiSearch) return null
         val typed = composing.toString()
         return if (typed.startsWith(":")) typed.drop(1) else null
     }
@@ -11267,10 +11267,10 @@ open class WMKeyboardService : InputMethodService() {
             // A failed fetch must not leave the chip spinning forever, so a
             // weather error counts as "not available" until something else
             // refreshes it.
-            weatherAvailable = state.settings.weatherLatitude != null &&
-                state.settings.weatherLongitude != null &&
+            weatherAvailable = state.settings.weather.latitude != null &&
+                state.settings.weather.longitude != null &&
                 state.weather !is WeatherUi.Error,
-            weatherFahrenheit = state.settings.weatherFahrenheit,
+            weatherFahrenheit = state.settings.weather.fahrenheit,
             lookupChips = state.settings.smartChips.lookups,
             intentChips = state.settings.smartChips.intents,
             gifChips = state.settings.smartChips.gifs,
@@ -11387,8 +11387,8 @@ open class WMKeyboardService : InputMethodService() {
         state.fieldKind == FieldKind.EMAIL &&
             !state.secureField &&
             state.settings.suggestions &&
-            state.settings.contactEmailSuggestions &&
-            state.settings.contactEmailSuggestionsInEmailFields &&
+            state.settings.suggestionSources.contactEmails &&
+            state.settings.suggestionSources.contactEmailsInEmailFields &&
             !contactEmails.isEmpty
 
     /** The email-address token immediately before the cursor (may be empty). */
@@ -11719,7 +11719,7 @@ open class WMKeyboardService : InputMethodService() {
                         correction = null,
                         ambiguousTop = words.firstOrNull(),
                     )
-                    state.settings.autocorrect && state.allowsTypingIntelligence -> {
+                    state.settings.correction.enabled && state.allowsTypingIntelligence -> {
                         val decision = engine.decideCorrection(
                             typed, touch = touchFrame, timingMultiplier = timingMultiplier,
                         )
@@ -12782,7 +12782,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun restoreApostrophe(word: String): String? {
         val state = _uiState.value
-        if (!state.settings.autoApostrophe || !state.allowsTypingIntelligence) return null
+        if (!state.settings.autoText.apostrophe || !state.allowsTypingIntelligence) return null
         if (!state.language.isEnglish) return null
         return Apostrophes.fix(word)
     }
@@ -13186,7 +13186,7 @@ open class WMKeyboardService : InputMethodService() {
             // a space would have given it: without this a tapped "i" followed
             // by a glided word committed in lower case, because the glide's own
             // space never goes through onSpace (#46).
-            commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoApostrophe)
+            commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoText.apostrophe)
             // Lifting on a picker word that was not the leader is a pick over
             // the leader, remembered against the pair (issue #52).
             if (chosen != null && candidates.isNotEmpty() && chosen != candidates.first()) {
@@ -13322,7 +13322,7 @@ open class WMKeyboardService : InputMethodService() {
             val ic = currentInputConnection ?: return@launch
             // Flush any composing text before the first glided word, finished
             // the way a space would have finished it (see onGesture).
-            commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoApostrophe)
+            commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoText.apostrophe)
             var lastWords: List<String> = emptyList()
             var committedAny = false
             segments.forEachIndexed { index, segment ->
@@ -15105,7 +15105,7 @@ open class WMKeyboardService : InputMethodService() {
         var word = candidates.first()
         val settings = state.settings
         // Sentence-start capitalization, English only — Bengali has no case.
-        if (tag == "en-US" && settings.autoCapitalize && !state.secureField &&
+        if (tag == "en-US" && settings.autoText.capitalize && !state.secureField &&
             word.firstOrNull()?.isLowerCase() == true && shouldAutoCapitalize()
         ) {
             word = word.replaceFirstChar { it.uppercase() }
@@ -15379,7 +15379,7 @@ open class WMKeyboardService : InputMethodService() {
 
     fun onAutocorrectToggle() {
         vibrate()
-        val next = !_uiState.value.settings.autocorrect
+        val next = !_uiState.value.settings.correction.enabled
         Toast.makeText(
             this,
             if (next) {
@@ -15503,18 +15503,18 @@ open class WMKeyboardService : InputMethodService() {
         when (action) {
             is SoundHapticAction.Haptics -> if (action.on) {
                 HapticPlayer.preview(
-                    this, settings.hapticStyle, settings.hapticAmplitude, settings.hapticStrengthMs,
+                    this, settings.haptics.style, settings.haptics.amplitude, settings.haptics.strengthMs,
                     inputRootView,
                 )
             }
             is SoundHapticAction.HapticStyleChange -> HapticPlayer.preview(
-                this, action.style, settings.hapticAmplitude, settings.hapticStrengthMs, inputRootView,
+                this, action.style, settings.haptics.amplitude, settings.haptics.strengthMs, inputRootView,
             )
             is SoundHapticAction.HapticAmplitude -> HapticPlayer.preview(
-                this, settings.hapticStyle, action.amplitude, settings.hapticStrengthMs, inputRootView,
+                this, settings.haptics.style, action.amplitude, settings.haptics.strengthMs, inputRootView,
             )
             is SoundHapticAction.HapticDuration -> HapticPlayer.preview(
-                this, settings.hapticStyle, settings.hapticAmplitude, action.durationMs, inputRootView,
+                this, settings.haptics.style, settings.haptics.amplitude, action.durationMs, inputRootView,
             )
             is SoundHapticAction.Sound -> if (action.on) playKeySound(force = true)
             is SoundHapticAction.SoundStyleChange -> playKeySound(style = action.style, force = true)
@@ -15539,8 +15539,8 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun refreshWeather(force: Boolean = false) {
         val settings = _uiState.value.settings
-        val latitude = settings.weatherLatitude
-        val longitude = settings.weatherLongitude
+        val latitude = settings.weather.latitude
+        val longitude = settings.weather.longitude
         if (latitude == null || longitude == null) {
             _uiState.update { it.copy(weather = WeatherUi.NoLocation) }
             return
@@ -15591,7 +15591,7 @@ open class WMKeyboardService : InputMethodService() {
         wikiJob?.cancel()
         _uiState.update { it.copy(wiki = WikiUi.Loading) }
         wikiJob = serviceScope.launch {
-            val lang = _uiState.value.settings.wikiLanguage
+            val lang = _uiState.value.settings.webSearch.wikiLanguage
             val result = withContext(Dispatchers.IO) {
                 runCatching { WikipediaClient.search(query, lang) }
             }
@@ -15615,7 +15615,7 @@ open class WMKeyboardService : InputMethodService() {
         wikiJob?.cancel()
         _uiState.update { it.copy(wiki = WikiUi.Loading) }
         wikiJob = serviceScope.launch {
-            val lang = _uiState.value.settings.wikiLanguage
+            val lang = _uiState.value.settings.webSearch.wikiLanguage
             val result = withContext(Dispatchers.IO) {
                 runCatching { WikipediaClient.summary(title, lang) }
             }
@@ -15647,7 +15647,7 @@ open class WMKeyboardService : InputMethodService() {
         if (article.links != null || article.loadingExtra) return
         _uiState.update { it.copy(wiki = article.copy(loadingExtra = true)) }
         serviceScope.launch {
-            val lang = _uiState.value.settings.wikiLanguage
+            val lang = _uiState.value.settings.webSearch.wikiLanguage
             val result = withContext(Dispatchers.IO) {
                 runCatching {
                     WikipediaClient.links(
@@ -15676,7 +15676,7 @@ open class WMKeyboardService : InputMethodService() {
         if (article.fullText != null || article.loadingExtra) return
         _uiState.update { it.copy(wiki = article.copy(loadingExtra = true)) }
         serviceScope.launch {
-            val lang = _uiState.value.settings.wikiLanguage
+            val lang = _uiState.value.settings.webSearch.wikiLanguage
             val result = withContext(Dispatchers.IO) {
                 runCatching { WikipediaClient.fullText(article.summary.title, lang) }
             }
@@ -15827,7 +15827,7 @@ open class WMKeyboardService : InputMethodService() {
             val file = withContext(Dispatchers.IO) {
                 runCatching {
                     val bitmap = QrCodeGen.bitmap(
-                        content, state.settings.qrSizePx, state.settings.qrEcc.name,
+                        content, state.settings.scanner.qrSizePx, state.settings.scanner.qrEcc.name,
                     ) ?: error("Too much text for one QR code")
                     val dir = File(cacheDir, "media").apply { mkdirs() }
                     val target = File(dir, "qr_${content.hashCode().toUInt()}.png")
@@ -15848,10 +15848,10 @@ open class WMKeyboardService : InputMethodService() {
             saveToGalleryIfEnabled(
                 file,
                 MediaMime.PNG,
-                state.settings.qrSaveToGallery,
+                state.settings.scanner.qrSaveToGallery,
                 "QR",
             )
-            commitImageFile(file, MediaMime.PNG, state.settings.qrSendMode)
+            commitImageFile(file, MediaMime.PNG, state.settings.scanner.qrSendMode)
         }
     }
 
@@ -18132,7 +18132,7 @@ open class WMKeyboardService : InputMethodService() {
             setUi(MediaUi.NeedKey)
             return
         }
-        val tabs = settings.gifSourceMode == GifSourceMode.TABS
+        val tabs = settings.gif.sourceMode == GifSourceMode.TABS
         val targets = GifSources.targets(sources, state.mediaSource, tabs)
         if (tabs) {
             val selected = targets.first()
@@ -18175,7 +18175,7 @@ open class WMKeyboardService : InputMethodService() {
                     val limited = if (targets == listOf(GifSource.LOCAL)) {
                         merged
                     } else {
-                        merged.take(settings.gifResultLimit)
+                        merged.take(settings.gif.resultLimit)
                     }
                     MediaUi.Ready(limited, query)
                 },
@@ -18191,12 +18191,12 @@ open class WMKeyboardService : InputMethodService() {
         settings: com.wasimaster.wmkeyboard.core.settings.KeyboardSettings,
     ): List<GifItem> = when (source) {
         GifSource.KLIPY -> KlipyClient.search(
-            query, ToolApiKeys.klipy(settings), sticker, settings.gifContentFilter,
-            limit = settings.gifResultLimit,
+            query, ToolApiKeys.klipy(settings), sticker, settings.gif.contentFilter,
+            limit = settings.gif.resultLimit,
         )
         GifSource.GIPHY -> GiphyClient.search(
-            query, ToolApiKeys.giphy(settings), sticker, settings.gifContentFilter,
-            limit = settings.gifResultLimit,
+            query, ToolApiKeys.giphy(settings), sticker, settings.gif.contentFilter,
+            limit = settings.gif.resultLimit,
         )
         GifSource.LOCAL ->
             stickerPackStore.searchAsGifItems(query, _uiState.value.stickerPackId)
@@ -18206,7 +18206,7 @@ open class WMKeyboardService : InputMethodService() {
             if (sticker) emptyList()
             else CommonsClient.searchGifs(
                 query,
-                limit = settings.gifResultLimit,
+                limit = settings.gif.resultLimit,
                 endpoint = settings.selfHosted.commonsUrl,
             )
     }
@@ -18240,7 +18240,7 @@ open class WMKeyboardService : InputMethodService() {
         val settings = state.settings
         val sources =
             if (sticker) ToolApiKeys.stickerSources(settings) else ToolApiKeys.gifSources(settings)
-        val tabs = settings.gifSourceMode == GifSourceMode.TABS
+        val tabs = settings.gif.sourceMode == GifSourceMode.TABS
         // One provider, not every target: two taxonomies interleaved are a
         // row of near-duplicates for twice the requests. Local packs have no
         // categories at all — the pack chips are their equivalent.
@@ -18336,15 +18336,15 @@ open class WMKeyboardService : InputMethodService() {
                         SearxClient.webSearch(
                             query,
                             settings.selfHosted.searxUrl,
-                            settings.searchResultCount,
-                            settings.searchSafe,
+                            settings.webSearch.resultCount,
+                            settings.webSearch.safe,
                         )
                     } else {
                         BraveSearchClient.webSearch(
                             query,
                             ToolApiKeys.brave(settings),
-                            settings.searchResultCount,
-                            settings.searchSafe,
+                            settings.webSearch.resultCount,
+                            settings.webSearch.safe,
                         )
                     }
                 }
@@ -18397,15 +18397,15 @@ open class WMKeyboardService : InputMethodService() {
                         SearxClient.imageSearch(
                             query,
                             settings.selfHosted.searxUrl,
-                            settings.searchResultCount,
-                            settings.searchSafe,
+                            settings.webSearch.resultCount,
+                            settings.webSearch.safe,
                         )
                     } else {
                         BraveSearchClient.imageSearch(
                             query,
                             ToolApiKeys.brave(settings),
-                            settings.searchResultCount,
-                            settings.searchSafe,
+                            settings.webSearch.resultCount,
+                            settings.webSearch.safe,
                         )
                     }
                 }
@@ -18444,7 +18444,7 @@ open class WMKeyboardService : InputMethodService() {
         val sendMode = if (_uiState.value.panel == PanelMode.STICKER) {
             settings.stickerSendMode
         } else {
-            settings.gifSendMode
+            settings.gif.sendMode
         }
         if (item.source == GifSource.LOCAL) {
             insertLocalSticker(item, sendMode)
@@ -20265,7 +20265,7 @@ open class WMKeyboardService : InputMethodService() {
             key,
             animatedEmoji.gifUrl(key),
             MediaMime.GIF,
-            _uiState.value.settings.gifSendMode,
+            _uiState.value.settings.gif.sendMode,
         )
     }
 
@@ -20536,7 +20536,7 @@ open class WMKeyboardService : InputMethodService() {
         return WordMenuFacts(
             typedAddable = addableTypedWord(),
             deletable = isForgettable(trimmed),
-            blacklisted = trimmed.lowercase() in _uiState.value.settings.suggestionBlacklist,
+            blacklisted = trimmed.lowercase() in _uiState.value.settings.suggestionSources.blacklist,
         )
     }
 
@@ -20577,7 +20577,7 @@ open class WMKeyboardService : InputMethodService() {
         learningBuffer.drop(word)
         userLexicon.addWord(word, caseEvidence = true)
         val state = _uiState.value
-        if (word.lowercase() in state.settings.suggestionBlacklist) {
+        if (word.lowercase() in state.settings.suggestionSources.blacklist) {
             serviceScope.launch { settingsRepository.removeSuggestionBlacklistWord(word) }
         }
         if (state.settings.addWordsToSystemDictionary) {
@@ -20612,7 +20612,7 @@ open class WMKeyboardService : InputMethodService() {
         val lower = trimmed.lowercase()
         val state = _uiState.value
         val stillListed = suggestionEngine?.inDictionaries(lower, includePlatform = false) == true
-        if (stillListed && lower !in state.settings.suggestionBlacklist) {
+        if (stillListed && lower !in state.settings.suggestionSources.blacklist) {
             serviceScope.launch { settingsRepository.addSuggestionBlacklistWord(trimmed) }
         }
         serviceScope.launch {
@@ -20646,7 +20646,7 @@ open class WMKeyboardService : InputMethodService() {
             learnedCount = userLexicon.frequencyOf(word),
             rankOffset = wordRanks.offsetOf(word),
             rankControl = state.settings.suggestionStrip.rankControl,
-            blacklisted = word.lowercase() in state.settings.suggestionBlacklist,
+            blacklisted = word.lowercase() in state.settings.suggestionSources.blacklist,
         )
         _uiState.update { it.copy(wordCard = card) }
         val engine = suggestionEngine ?: return
@@ -22656,7 +22656,7 @@ open class WMKeyboardService : InputMethodService() {
         // [autoCapitalizeShift] answers OFF without asking, which no branch
         // below acts on; caps lock outranks whatever the field wants.
         val state = _uiState.value
-        if (!state.settings.autoCapitalize) return
+        if (!state.settings.autoText.capitalize) return
         if (state.shiftState == ShiftState.CAPS_LOCK) return
         // A shift the user pressed themselves, with a range selection live, is a
         // shift being held to extend that selection (see
@@ -22680,7 +22680,7 @@ open class WMKeyboardService : InputMethodService() {
                 it.shiftState == ShiftState.CAPS_LOCK -> it
                 it.shiftState == ShiftState.OFF && target != ShiftState.OFF ->
                     it.copy(shiftState = target, shiftPressedByUser = false)
-                it.shiftState == ShiftState.ON && it.settings.autoCapitalize &&
+                it.shiftState == ShiftState.ON && it.settings.autoText.capitalize &&
                     target == ShiftState.OFF ->
                     it.copy(shiftState = ShiftState.OFF, shiftPressedByUser = false)
                 else -> it
@@ -22704,7 +22704,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun autoCapitalizeShift(): ShiftState {
         val state = _uiState.value
-        if (!state.settings.autoCapitalize) return ShiftState.OFF
+        if (!state.settings.autoText.capitalize) return ShiftState.OFF
         // Sentence capitalization applies to every Latin-script language;
         // Bengali has no letter case.
         if (!state.script.hasLetterCase) return ShiftState.OFF
@@ -22795,13 +22795,13 @@ open class WMKeyboardService : InputMethodService() {
         id: String? = null,
     ) {
         val settings = _uiState.value.settings
-        if (!force && !settings.keySound) return
+        if (!force && !settings.sound.enabled) return
         // The key-up half is a preference of its own, and the cheapest place to
         // honour it is before anything is resolved: every key on the board asks
         // this question twice as often as it asks the press one.
-        if (phase == KeySoundPhase.RELEASE && !settings.keySoundCustom.playRelease) return
+        if (phase == KeySoundPhase.RELEASE && !settings.sound.playRelease) return
         val theme = themeKeySound(settings)
-        val resolved = style ?: theme?.first ?: settings.keySoundStyle
+        val resolved = style ?: theme?.first ?: settings.sound.style
         // Custom and Pack read their id from different fields, and a theme
         // carrying a sound names whichever kind it chose in the same slot.
         // An explicit id wins over the theme's for the same reason an explicit
@@ -22809,14 +22809,14 @@ open class WMKeyboardService : InputMethodService() {
         // press that just happened rather than about what is stored.
         val resolvedId = id ?: theme?.second
             ?: if (resolved == com.wasimaster.wmkeyboard.core.settings.KeySoundStyle.PACK) {
-                settings.keySoundCustom.packId
+                settings.sound.packId
             } else {
-                settings.keySoundCustom.customId
+                settings.sound.customId
             }
         KeySoundPlayer.play(
             this,
             resolved,
-            volume ?: settings.keySoundVolume,
+            volume ?: settings.sound.volume,
             resolvedId,
             role,
             phase,
@@ -22879,8 +22879,8 @@ open class WMKeyboardService : InputMethodService() {
             Configuration.UI_MODE_NIGHT_YES
         val auto = settings.autoTheme
         val sun = if (auto.enabled && auto.trigger == AutoThemeTrigger.SUN) {
-            val latitude = settings.weatherLatitude
-            val longitude = settings.weatherLongitude
+            val latitude = settings.weather.latitude
+            val longitude = settings.weather.longitude
             if (latitude == null || longitude == null) {
                 null
             } else {
@@ -22907,13 +22907,13 @@ open class WMKeyboardService : InputMethodService() {
 
     private fun doVibrate() {
         val settings = _uiState.value.settings
-        if (!settings.hapticFeedback) return
+        if (!settings.haptics.enabled) return
         if (settings.feedback.hapticsRespectDnd && dndActive) return
         HapticPlayer.play(
             this,
-            settings.hapticStyle,
-            settings.hapticAmplitude,
-            settings.hapticStrengthMs,
+            settings.haptics.style,
+            settings.haptics.amplitude,
+            settings.haptics.strengthMs,
             inputRootView,
             respectSystemSetting = settings.feedback.respectSystemTouchFeedback,
         )
@@ -23218,7 +23218,7 @@ open class WMKeyboardService : InputMethodService() {
 
         /**
          * Marks that get a space typed after them when
-         * [KeyboardSettings.autoSpaceAfterPunctuation] is on — the sentence
+         * [AutoTextSettings.spaceAfterPunctuation] is on — the sentence
          * enders plus the clause separators.
          *
          * Deliberately ASCII-and-danda only. The CJK wide forms (。、！？) are

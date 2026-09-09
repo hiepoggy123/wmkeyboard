@@ -589,14 +589,20 @@ enum class GifSourceMode { TABS, MIX }
 enum class KeySoundStyle { CLICK, STANDARD, POP, THOCK, CHIME, CUSTOM, PACK }
 
 /**
- * The installed key sound in use.
+ * Key-press sound: whether it plays, which one, how loud, and which installed
+ * file or pack the two selectable styles point at.
  *
- * A nested class holding one field looks like overkill, and would be, except
- * that `KeyboardSettings` is at the JVM's 255-argument ceiling for the
- * `copy$default` Kotlin generates for it — see the note on [CameraSettings].
- * New settings go in a group; the DataStore key stays flat.
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
  */
 data class KeySoundSettings(
+    /** Whether a keypress makes a sound at all. */
+    val enabled: Boolean = false,
+    /** Which sound a keypress plays; see [KeySoundStyle]. */
+    val style: KeySoundStyle = KeySoundStyle.CLICK,
+    /** Sound-effect volume, 0..1 of the system media volume. */
+    val volume: Float = 0.5f,
     /** [com.wasimaster.wmkeyboard.core.feedback.SoundStore] id, blank if none. */
     val customId: String = "",
     /**
@@ -642,7 +648,7 @@ data class KeySoundSettings(
  * [SYSTEM_KEY] asks for `VIRTUAL_KEY` — for devices whose vendor never tuned a
  * keyboard-specific effect, where the two are the same waveform.
  *
- * It is [SYSTEM_TAP] that [KeyboardSettings.hapticStyle] declares, but almost
+ * It is [SYSTEM_TAP] that [HapticSettings.style] declares, but almost
  * nobody types on it: onboarding writes
  * `HapticPlayer.bestSupportedStyle(context)` over the declared value, and that
  * function only ever returns [SYSTEM_KEY] or [HEAVY_CLICK]. In practice
@@ -668,6 +674,38 @@ enum class HapticStyle(@StringRes val labelRes: Int) {
     SHARP(R.string.core_settings_haptic_style_sharp_label),
     CUSTOM(CommonR.string.common_custom),
 }
+
+/**
+ * The vibration a keypress makes: whether it happens, its waveform, and the
+ * two dials the manual waveforms use.
+ *
+ * Which *events* vibrate (as opposed to how) is [FeedbackSettings]; this is the
+ * key-press one every other gate defers to.
+ *
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
+ */
+data class HapticSettings(
+    /** Whether a keypress vibrates at all. */
+    val enabled: Boolean = true,
+    /** Vibration length for [HapticStyle.CUSTOM], in milliseconds. */
+    val strengthMs: Int = 15,
+    /** Vibration amplitude, 1..255, for [HapticStyle.CUSTOM] and [HapticStyle.SHARP]. */
+    val amplitude: Int = 255,
+    /**
+     * See [HapticStyle]. Onboarding overwrites this with
+     * `HapticPlayer.bestSupportedStyle(context)`, so on a phone that has been
+     * through the wizard the style is [HapticStyle.SYSTEM_KEY] or
+     * [HapticStyle.HEAVY_CLICK] and never this one. This value is what a reset
+     * goes back to.
+     */
+    val style: HapticStyle = HapticStyle.SYSTEM_TAP,
+    /** Vibrate when a long press fires. */
+    val onLongPress: Boolean = true,
+    /** Vibrate again when the finger lifts off a long press. */
+    val onLongPressRelease: Boolean = false,
+)
 
 /**
  * What a horizontal swipe on the spacebar does. "Short" swipes start
@@ -1031,6 +1069,41 @@ enum class EmojiSkinTone(val toneIndex: Int) {
  * may ask for; without it the mode falls back to [EXPLORE].
  */
 enum class ScreenReaderMode { OFF, LABELS, EXPLORE, PASSTHROUGH }
+
+/**
+ * Legibility and motor-access settings: what the keys look like to someone who
+ * needs more contrast than the theme gives, and how forgiving a tap is.
+ *
+ * `reduceMotion` deliberately stays a top-level field — it is read from Compose
+ * all over both apps, including off `KbTheme`, and a nested read there buys
+ * nothing.
+ *
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
+ */
+data class AccessibilitySettings(
+    /** Daltonization / grayscale applied over the resolved theme palette. */
+    val colorVision: ColorVisionFilter = ColorVisionFilter.NONE,
+    /** Force key text to maximum contrast and separate the board from the keys. */
+    val highContrast: Boolean = false,
+    /** Draw an outline on every key, so key edges don't rely on fill contrast. */
+    val keyOutlines: Boolean = false,
+    /** Render key labels bold. */
+    val boldLabels: Boolean = false,
+    /**
+     * See [ScreenReaderMode]. [ScreenReaderMode.EXPLORE] by default: it is what
+     * every other IME does under touch exploration, so a TalkBack user meets
+     * the gesture they already know rather than one this keyboard invented.
+     */
+    val screenReader: ScreenReaderMode = ScreenReaderMode.EXPLORE,
+    /**
+     * Ignore a repeat press of the same key within this many milliseconds
+     * (0 = off). The tremor/spasticity counterpart to a long-press delay:
+     * it drops the unintended second contact of a bouncing tap.
+     */
+    val keyDebounceMs: Int = 0,
+)
 
 /**
  * How the top toolbar behaves and lays out. Grouped into their own class
@@ -1483,6 +1556,278 @@ data class LongPressLetterActions(
 /** Select-all, copy, paste, cut, undo, redo, on the keys a QWERTY user expects. */
 const val DEFAULT_LONG_PRESS_LETTERS = "acvxzy"
 
+/**
+ * Whether the keyboard replaces a word it thinks is wrong, and how sure it has
+ * to be first.
+ *
+ * What autocorrect *does* once it fires — the undo chip, what it learns from a
+ * manual fix — lives with the engine in `:core:prediction`; this is only the
+ * user's half of the deal.
+ *
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
+ */
+data class AutocorrectSettings(
+    /** Whether a committed word may be replaced at all. */
+    val enabled: Boolean = true,
+    /**
+     * How sure autocorrect must be before it replaces a word: the factor by
+     * which the best candidate has to outscore the runner-up. Low corrects
+     * eagerly, high only on near-certainty. Mirrors
+     * `SuggestionEngine.DEFAULT_AUTOCORRECT_CONFIDENCE`, spelled out here
+     * because prediction already depends on this package.
+     */
+    val confidence: Float = 4f,
+    /**
+     * Scale the confidence gate by the user's recent revert rate: a keyboard
+     * whose corrections keep getting undone demands more certainty before
+     * forcing anything. [confidence] stays the anchor either way.
+     */
+    val adaptive: Boolean = true,
+    /** Backspace right after an autocorrect puts the typed word back. */
+    val revertOnBackspace: Boolean = true,
+    /**
+     * How long an undone correction stays undone. See [UndoMemory]; the
+     * levels are named there rather than here because the store they steer
+     * ([CorrectionStats]) is what actually implements them.
+     */
+    val undoMemory: UndoMemory = UndoMemory.NORMAL,
+    /** Never autocorrect a word typed all in capitals (acronyms, shouting). */
+    val skipAllCaps: Boolean = true,
+)
+
+/**
+ * The characters the keyboard types that the user did not: capitals at the
+ * start of a sentence, the apostrophe in "aren't", the full stop a double
+ * space stands for.
+ *
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
+ */
+data class AutoTextSettings(
+    /** Fix missing apostrophes on commit: arent → aren't, im → I'm. */
+    val apostrophe: Boolean = true,
+    /** Capitalize the first letter of a sentence. */
+    val capitalize: Boolean = true,
+    /** Double-tapping space commits ". " in place of the two spaces. */
+    val doubleSpacePeriod: Boolean = true,
+    /** Double-tapping space inserts a tab character (wins over the period). */
+    val doubleSpaceTab: Boolean = false,
+    /**
+     * Type a space by itself after sentence and clause punctuation, so
+     * "hello,world" becomes "hello, world" without reaching for the spacebar.
+     *
+     * Off by default: it changes what a keypress produces, which is the one
+     * kind of help that has to be asked for. Only plain text fields are
+     * touched — an address, an email or a password is structured text where an
+     * inserted space is a typo, not a courtesy — and typing a space yourself
+     * right after one is inserted does not double it up.
+     */
+    val spaceAfterPunctuation: Boolean = false,
+)
+
+/**
+ * Where the suggestion strip's contents come from, and which fields it is
+ * allowed to appear in. How the strip *looks*, and what the primary slot does,
+ * is [SuggestionStripSettings].
+ *
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
+ */
+data class SuggestionSourceSettings(
+    /**
+     * Show the suggestion strip even in fields that ask the IME to stay quiet
+     * (the NO_SUGGESTIONS flag, email/URI/filter boxes). Many apps — Instagram,
+     * Google Keep — set that flag on ordinary text fields; on (the default),
+     * the keyboard shows suggestions anyway, the way most keyboards quietly do.
+     * Off respects the app and hides the strip. Password fields are always
+     * excluded regardless. Autocorrect, gesture typing and Avro composing are
+     * governed separately (KeyboardUiState.allowsTypingIntelligence) and keep
+     * working whichever way this is set.
+     */
+    val inAllFields: Boolean = true,
+    /** Suggest names from the phone's contacts (needs the Contacts permission). */
+    val contacts: Boolean = false,
+    /**
+     * Complete a contact's email address as you type the start of it — "john"
+     * offers john.doe@gmail.com. Needs the Contacts permission.
+     */
+    val contactEmails: Boolean = false,
+    /**
+     * Show those email completions inside email fields too, even when the app
+     * has asked for no suggestion strip (which email fields normally do). Only
+     * matters while [contactEmails] is on.
+     */
+    val contactEmailsInEmailFields: Boolean = true,
+    /** Suggest the names of installed apps ("sign" → Signal). No permission needed. */
+    val appNames: Boolean = false,
+    /**
+     * Words the user never wants suggested or autocorrected to. Matched
+     * case-insensitively; the word can still be typed and committed, it is
+     * only kept out of the suggestion strip. Empty by default.
+     */
+    val blacklist: Set<String> = emptySet(),
+    /** Typing ":" then a word searches emoji in the suggestion strip (:smi → 😄). */
+    val inlineEmojiSearch: Boolean = true,
+    /**
+     * Show password-manager entries from the system autofill service in the
+     * suggestion strip (Android 11+). The chips are rendered by the manager
+     * itself; the keyboard only gives them the space. Chips the *platform*
+     * sends down the same API (smart replies) are a separate lane with its own
+     * toggle, [SuggestionStripSettings.systemSmartReplies].
+     */
+    val inlineAutofill: Boolean = true,
+)
+
+/**
+ * The weather tool: the units it reports in and the place it reports for.
+ *
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
+ */
+data class WeatherSettings(
+    /** Report temperatures in °F rather than °C. */
+    val fahrenheit: Boolean = false,
+    /** Saved location; null until the tool has been given one. */
+    val latitude: Float? = null,
+    val longitude: Float? = null,
+    /** What to call [latitude]/[longitude] in the tool's header. */
+    val placeName: String = "",
+)
+
+/**
+ * The calendar tool: which other calendars ride along with the Gregorian one,
+ * and which days it tints as the weekend.
+ *
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
+ */
+data class CalendarToolSettings(
+    /**
+     * The two calendars the tool shows alongside the Gregorian one, in the
+     * order they are drawn. The first is also what the day cells get their
+     * small second number from. Either may be [AltCalendar.NONE].
+     */
+    val altOne: AltCalendar = AltCalendar.NONE,
+    val altTwo: AltCalendar = AltCalendar.NONE,
+    /**
+     * Days the month grid tints as the weekend. Starts from the device's region
+     * (see [Weekend.forRegion]) rather than a fixed pair, since which days are
+     * the weekend is exactly the sort of thing that differs by where you are.
+     */
+    val weekend: Weekend = Weekend.SAT_SUN,
+    /** Day offset applied to the tabular Hijri date (moon-sighting drift). */
+    val hijriAdjustDays: Int = 0,
+)
+
+/**
+ * The tools that read a sensor rather than a network: torch, compass, spirit
+ * level, moon phase.
+ *
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
+ */
+data class SensorToolSettings(
+    /** Turn the torch off automatically when the keyboard is dismissed. */
+    val flashlightAutoOff: Boolean = true,
+    /** Print the heading in degrees under the compass rose. */
+    val compassDegrees: Boolean = true,
+    /** Mark the direction of the Kaaba on the compass (needs the saved location). */
+    val compassQibla: Boolean = false,
+    /** Print the pitch/roll angles on the spirit level. */
+    val levelAngles: Boolean = true,
+    /**
+     * Mirrors the moon drawing for southern-hemisphere viewers. Starts from the
+     * device's region (see [isSouthernHemisphere]) rather than false, since
+     * which way a crescent faces is a fact about where you are and not a taste;
+     * left as it was, half the world is shown the wrong moon until it notices.
+     */
+    val moonSouthern: Boolean = false,
+)
+
+/**
+ * The camera-backed scanners and the QR generator: what they do with what they
+ * read, and what the codes they draw look like.
+ *
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
+ */
+data class ScannerSettings(
+    /** Copy scanned document pages into Pictures/WM Keyboard. */
+    val docSaveToGallery: Boolean = false,
+    /** Copy generated QR codes into Pictures/WM Keyboard. */
+    val qrSaveToGallery: Boolean = false,
+    /** How generated QR codes are sent. */
+    val qrSendMode: MediaSendMode = MediaSendMode.IMAGE,
+    /** Text scanner results start with every word selected (deselect to trim). */
+    val ocrAutoSelectWords: Boolean = true,
+    /** Vibrate when the QR scanner spots a code. */
+    val qrScanHaptics: Boolean = true,
+    /** Insert a scanned code into the field the moment it is spotted. */
+    val qrScanAutoInsert: Boolean = false,
+    /** Fetch the page title/description for a scanned link, like clipboard link previews. */
+    val qrScanLinkPreviews: Boolean = false,
+    /** Side length of the QR image the generator inserts, in pixels. */
+    val qrSizePx: Int = 1024,
+    /** Error correction of a generated QR code; see [QrEccLevel]. */
+    val qrEcc: QrEccLevel = QrEccLevel.M,
+)
+
+/**
+ * The GIF and sticker search tools: who they ask, how much they ask for, and
+ * how a pick is sent.
+ *
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
+ */
+data class GifSettings(
+    /**
+     * User-supplied API keys, overriding any key baked into the build.
+     * Blank means "use the built-in key" (which may itself be blank).
+     */
+    val klipyApiKey: String = "",
+    val giphyApiKey: String = "",
+    /** Provider rating level results are filtered to; see [GifContentFilter]. */
+    val contentFilter: GifContentFilter = GifContentFilter.MEDIUM,
+    /** Tabs per provider vs one evenly-mixed grid, when several have keys. */
+    val sourceMode: GifSourceMode = GifSourceMode.TABS,
+    /** GIF/sticker results per search or trending fetch (local packs exempt). */
+    val resultLimit: Int = 24,
+    /** How GIF picks are sent. Sticker mode only applies to WebP-backed GIFs. */
+    val sendMode: MediaSendMode = MediaSendMode.IMAGE,
+)
+
+/**
+ * The web, image and encyclopedia search tools.
+ *
+ * Grouped because `KeyboardSettings` is at the JVM's 255-argument ceiling for
+ * the `copy$default` Kotlin generates for it — see the note on
+ * [CameraSettings]. The DataStore keys stay flat.
+ */
+data class WebSearchSettings(
+    /**
+     * User-supplied API key, overriding any key baked into the build. Blank
+     * means "use the built-in key" (which may itself be blank).
+     */
+    val braveApiKey: String = "",
+    /** SafeSearch for the web and image search tools. */
+    val safe: Boolean = true,
+    /** Results per web/image search (the API caps a page at 10). */
+    val resultCount: Int = 8,
+    /** Wikipedia subdomain the encyclopedia tool reads (en, bn, de …). */
+    val wikiLanguage: String = "en",
+    /** Insert Wikipedia links as `[Title](url)` instead of the bare URL. */
+    val wikiLinksMarkdown: Boolean = false,
+)
+
 data class KeyboardSettings(
     /**
      * The layout being typed on: a [BuiltInLayouts] id, or a custom one. This is
@@ -1526,9 +1871,12 @@ data class KeyboardSettings(
      * Grouped rather than flat because of the ceiling: with N fields (none
      * `Long` or `Double`) the generated `copy$default` takes
      * `1 + N + ceil(N/32) + 1` of the JVM's 255 argument slots, capping N at
-     * 245. As of 2026-09-05 the class has **237** fields (the nine flat
-     * typing-test fields became one [TypingTestSettings]; the trackpad tool
-     * arrived as one nested [TrackpadSettings]). A field past 245
+     * 245. As of 2026-09-09 the class has **189** fields, back off the ceiling
+     * it had been sitting on: twelve families came out in one pass
+     * ([HapticSettings], [KeySoundSettings], [AccessibilitySettings],
+     * [AutocorrectSettings], [AutoTextSettings], [SuggestionSourceSettings],
+     * [SensorToolSettings], [WeatherSettings], [CalendarToolSettings],
+     * [ScannerSettings], [GifSettings], [WebSearchSettings]). A field past 245
      * does not fail to compile, it fails to load. So: recount before adding a
      * flat field, prefer nesting regardless, and trust
      * `testFullDebugUnitTest` over a green compile.
@@ -1644,57 +1992,24 @@ data class KeyboardSettings(
     val emojiFont: EmojiFontChoice = EmojiFontChoice.SYSTEM,
     /** Which library face [EmojiFontChoice.INSTALLED] uses; see [EmojiFontSettings]. */
     val emojiFontInstalled: EmojiFontSettings = EmojiFontSettings(),
-    val hapticFeedback: Boolean = true,
-    val hapticStrengthMs: Int = 15,
-    val hapticAmplitude: Int = 255,
-    /**
-     * See [HapticStyle]. Onboarding overwrites this with
-     * `HapticPlayer.bestSupportedStyle(context)`, so on a phone that has been
-     * through the wizard the style is [HapticStyle.SYSTEM_KEY] or
-     * [HapticStyle.HEAVY_CLICK] and never this one. This value is what a reset
-     * goes back to.
-     */
-    val hapticStyle: HapticStyle = HapticStyle.SYSTEM_TAP,
-    val hapticOnLongPress: Boolean = true,
-    val hapticOnLongPressRelease: Boolean = false,
+    /** Key-press vibration: whether, which waveform, how hard (see [HapticSettings]). */
+    val haptics: HapticSettings = HapticSettings(),
     /** Per-event haptic gates + copy toast (see [FeedbackSettings]); nested to
      *  stay under the primary-constructor field ceiling. */
     val feedback: FeedbackSettings = FeedbackSettings(),
-    val keySound: Boolean = false,
-    val keySoundStyle: KeySoundStyle = KeySoundStyle.CLICK,
-    /** Sound-effect volume, 0..1 of the system media volume. */
-    val keySoundVolume: Float = 0.5f,
-    /** Which installed sound [KeySoundStyle.CUSTOM] plays; see [KeySoundSettings]. */
-    val keySoundCustom: KeySoundSettings = KeySoundSettings(),
+    /** Key-press sound: whether, which, how loud (see [KeySoundSettings]). */
+    val sound: KeySoundSettings = KeySoundSettings(),
     /** Key-preview bubble settings; see [KeyPopupSettings]. */
     val popup: KeyPopupSettings = KeyPopupSettings(),
     // ---- accessibility ----
-    /** Daltonization / grayscale applied over the resolved theme palette. */
-    val colorVisionFilter: ColorVisionFilter = ColorVisionFilter.NONE,
-    /** Force key text to maximum contrast and separate the board from the keys. */
-    val highContrastKeys: Boolean = false,
-    /** Draw an outline on every key, so key edges don't rely on fill contrast. */
-    val keyOutlines: Boolean = false,
-    /** Render key labels bold. */
-    val boldKeyLabels: Boolean = false,
+    /** Contrast, key outlines, screen reader, debounce (see [AccessibilitySettings]). */
+    val accessibility: AccessibilitySettings = AccessibilitySettings(),
     /**
      * Suppress non-essential animation across the keyboard and settings app,
      * for vestibular sensitivity. Feedback that carries meaning (the key
      * preview bubble, press colour) is untouched — only motion is removed.
      */
     val reduceMotion: Boolean = false,
-    /**
-     * See [ScreenReaderMode]. [ScreenReaderMode.EXPLORE] by default: it is what
-     * every other IME does under touch exploration, so a TalkBack user meets
-     * the gesture they already know rather than one this keyboard invented.
-     */
-    val screenReaderMode: ScreenReaderMode = ScreenReaderMode.EXPLORE,
-    /**
-     * Ignore a repeat press of the same key within this many milliseconds
-     * (0 = off). The tremor/spasticity counterpart to a long-press delay:
-     * it drops the unintended second contact of a bouncing tap.
-     */
-    val keyDebounceMs: Int = 0,
     /**
      * The digit row above the letters. On by default: typing a number without
      * it costs a trip through the symbols layer, and every phone screen made
@@ -1708,94 +2023,17 @@ data class KeyboardSettings(
      * leaves unset inherits them. Resolve with [resolvedFor].
      */
     val sizingOverrides: Map<ScreenVariant, SizingOverride> = emptyMap(),
-    val autocorrect: Boolean = true,
-    /**
-     * How sure autocorrect must be before it replaces a word: the factor by
-     * which the best candidate has to outscore the runner-up. Low corrects
-     * eagerly, high only on near-certainty. Mirrors
-     * `SuggestionEngine.DEFAULT_AUTOCORRECT_CONFIDENCE`, spelled out here
-     * because prediction already depends on this package.
-     */
-    val autocorrectConfidence: Float = 4f,
-    /**
-     * Scale the confidence gate by the user's recent revert rate: a keyboard
-     * whose corrections keep getting undone demands more certainty before
-     * forcing anything. The slider above stays the anchor either way.
-     */
-    val autocorrectAdaptive: Boolean = true,
-    /** Backspace right after an autocorrect puts the typed word back. */
-    val revertAutocorrectOnBackspace: Boolean = true,
-    /**
-     * How long an undone correction stays undone. See [UndoMemory]; the
-     * levels are named there rather than here because the store they steer
-     * ([CorrectionStats]) is what actually implements them.
-     */
-    val autocorrectUndoMemory: UndoMemory = UndoMemory.NORMAL,
-    /** Never autocorrect a word typed all in capitals (acronyms, shouting). */
-    val autocorrectSkipAllCaps: Boolean = true,
-    /** Fix missing apostrophes on commit: arent → aren't, im → I'm. */
-    val autoApostrophe: Boolean = true,
-    val autoCapitalize: Boolean = true,
-    val doubleSpacePeriod: Boolean = true,
-    /** Double-tapping space inserts a tab character (wins over the period). */
-    val doubleSpaceTab: Boolean = false,
-    /**
-     * Type a space by itself after sentence and clause punctuation, so
-     * "hello,world" becomes "hello, world" without reaching for the spacebar.
-     *
-     * Off by default: it changes what a keypress produces, which is the one
-     * kind of help that has to be asked for. Only plain text fields are
-     * touched — an address, an email or a password is structured text where an
-     * inserted space is a typo, not a courtesy — and typing a space yourself
-     * right after one is inserted does not double it up.
-     */
-    val autoSpaceAfterPunctuation: Boolean = false,
+    /** Whether a word may be replaced on commit, and how sure first (see [AutocorrectSettings]). */
+    val correction: AutocorrectSettings = AutocorrectSettings(),
+    /** Capitals, apostrophes and spaces the keyboard types for you (see [AutoTextSettings]). */
+    val autoText: AutoTextSettings = AutoTextSettings(),
     val suggestions: Boolean = true,
-    /**
-     * Show the suggestion strip even in fields that ask the IME to stay quiet
-     * (the NO_SUGGESTIONS flag, email/URI/filter boxes). Many apps — Instagram,
-     * Google Keep — set that flag on ordinary text fields; on (the default),
-     * the keyboard shows suggestions anyway, the way most keyboards quietly do.
-     * Off respects the app and hides the strip. Password fields are always
-     * excluded regardless. Autocorrect, gesture typing and Avro composing are
-     * governed separately (KeyboardUiState.allowsTypingIntelligence) and keep
-     * working whichever way this is set.
-     */
-    val showSuggestionsInAllFields: Boolean = true,
     // `suggestionsFirst` and `suggestionPrimaryCenter` moved into
-    // [SuggestionStripSettings] to keep this constructor under the JVM slot
+    // [SuggestionStripSettings], and the strip's sources into
+    // [SuggestionSourceSettings], to keep this constructor under the JVM slot
     // ceiling; their DataStore keys are unchanged.
-    /** Suggest names from the phone's contacts (needs the Contacts permission). */
-    val contactSuggestions: Boolean = false,
-    /**
-     * Complete a contact's email address as you type the start of it — "john"
-     * offers john.doe@gmail.com. Needs the Contacts permission.
-     */
-    val contactEmailSuggestions: Boolean = false,
-    /**
-     * Show those email completions inside email fields too, even when the app
-     * has asked for no suggestion strip (which email fields normally do). Only
-     * matters while [contactEmailSuggestions] is on.
-     */
-    val contactEmailSuggestionsInEmailFields: Boolean = true,
-    /** Suggest the names of installed apps ("sign" → Signal). No permission needed. */
-    val appNameSuggestions: Boolean = false,
-    /**
-     * Words the user never wants suggested or autocorrected to. Matched
-     * case-insensitively; the word can still be typed and committed, it is
-     * only kept out of the suggestion strip. Empty by default.
-     */
-    val suggestionBlacklist: Set<String> = emptySet(),
-    /** Typing ":" then a word searches emoji in the suggestion strip (:smi → 😄). */
-    val inlineEmojiSearch: Boolean = true,
-    /**
-     * Show password-manager entries from the system autofill service in the
-     * suggestion strip (Android 11+). The chips are rendered by the manager
-     * itself; the keyboard only gives them the space. Chips the *platform*
-     * sends down the same API (smart replies) are a separate lane with its own
-     * toggle, [SuggestionStripSettings.systemSmartReplies].
-     */
-    val inlineAutofill: Boolean = true,
+    /** Where the strip's contents come from, and where it shows (see [SuggestionSourceSettings]). */
+    val suggestionSources: SuggestionSourceSettings = SuggestionSourceSettings(),
     val gestureTyping: Boolean = true,
     /**
      * What a letter-area swipe does when [gestureTyping] is on: glide-type a
@@ -2017,40 +2255,14 @@ data class KeyboardSettings(
     val toolboxHintDismissed: Boolean = false,
     /** How the toolbox draws and pages its tools (see [ToolboxSettings]). */
     val toolbox: ToolboxSettings = ToolboxSettings(),
-    /** Turn the torch off automatically when the keyboard is dismissed. */
-    val flashlightAutoOff: Boolean = true,
-    val compassShowDegrees: Boolean = true,
-    /** Mark the direction of the Kaaba on the compass (needs the saved location). */
-    val compassShowQibla: Boolean = false,
-    val levelShowAngles: Boolean = true,
+    /** Torch, compass, spirit level, moon phase (see [SensorToolSettings]). */
+    val sensorTools: SensorToolSettings = SensorToolSettings(),
     /** Redo sends Ctrl+Y instead of Ctrl+Shift+Z. */
     val redoUsesCtrlY: Boolean = false,
-    /**
-     * Mirrors the moon drawing for southern-hemisphere viewers. Starts from the
-     * device's region (see [isSouthernHemisphere]) rather than false, since
-     * which way a crescent faces is a fact about where you are and not a taste;
-     * left as it was, half the world is shown the wrong moon until it notices.
-     */
-    val moonSouthernHemisphere: Boolean = false,
-    val weatherFahrenheit: Boolean = false,
-    val weatherLatitude: Float? = null,
-    val weatherLongitude: Float? = null,
-    val weatherPlaceName: String = "",
-    /**
-     * The two calendars the tool shows alongside the Gregorian one, in the
-     * order they are drawn. The first is also what the day cells get their
-     * small second number from. Either may be [AltCalendar.NONE].
-     */
-    val calendarAltOne: AltCalendar = AltCalendar.NONE,
-    val calendarAltTwo: AltCalendar = AltCalendar.NONE,
-    /**
-     * Days the month grid tints as the weekend. Starts from the device's region
-     * (see [Weekend.forRegion]) rather than a fixed pair, since which days are
-     * the weekend is exactly the sort of thing that differs by where you are.
-     */
-    val calendarWeekend: Weekend = Weekend.SAT_SUN,
-    /** Day offset applied to the tabular Hijri date (moon-sighting drift). */
-    val hijriAdjustDays: Int = 0,
+    /** Units and saved place for the weather tool (see [WeatherSettings]). */
+    val weather: WeatherSettings = WeatherSettings(),
+    /** Alternate calendars and the weekend, for the calendar tool (see [CalendarToolSettings]). */
+    val calendarTool: CalendarToolSettings = CalendarToolSettings(),
     /** Handwriting canvas ignores finger touches; only a stylus draws. */
     val handwritingStylusOnly: Boolean = false,
     /** Pause after the last stroke before recognizing and committing. */
@@ -2073,16 +2285,12 @@ data class KeyboardSettings(
     val mediaControl: MediaControlSettings = MediaControlSettings(),
     /** Free-software service endpoints for the F-Droid build (see [SelfHostedSettings]). */
     val selfHosted: SelfHostedSettings = SelfHostedSettings(),
-    /** Copy scanned document pages into Pictures/WM Keyboard. */
-    val docScanSaveToGallery: Boolean = false,
-    /** Copy generated QR codes into Pictures/WM Keyboard. */
-    val qrSaveToGallery: Boolean = false,
     /** How sticker-tool picks are sent. WhatsApp shows real stickers for these. */
     val stickerSendMode: MediaSendMode = MediaSendMode.STICKER,
-    /** How GIF picks are sent. Sticker mode only applies to WebP-backed GIFs. */
-    val gifSendMode: MediaSendMode = MediaSendMode.IMAGE,
-    /** How generated QR codes are sent. */
-    val qrSendMode: MediaSendMode = MediaSendMode.IMAGE,
+    /** The document/text/QR scanners and the QR generator (see [ScannerSettings]). */
+    val scanner: ScannerSettings = ScannerSettings(),
+    /** The GIF and sticker search tools (see [GifSettings]). */
+    val gif: GifSettings = GifSettings(),
     /** Dictionary tool looks up the word at the cursor when it opens. */
     val dictionaryAutoLookup: Boolean = true,
     /** Text-editing tool and selection-editing settings (see [TextEditingSettings]). */
@@ -2125,14 +2333,6 @@ data class KeyboardSettings(
      * than by the manifest; see [CloudBackup].
      */
     val cloudBackup: Boolean = false,
-    /** Text scanner results start with every word selected (deselect to trim). */
-    val ocrAutoSelectWords: Boolean = true,
-    /** Vibrate when the QR scanner spots a code. */
-    val qrScanHaptics: Boolean = true,
-    /** Insert a scanned code into the field the moment it is spotted. */
-    val qrScanAutoInsert: Boolean = false,
-    /** Fetch the page title/description for a scanned link, like clipboard link previews. */
-    val qrScanLinkPreviews: Boolean = false,
     /** Decimal places on currency conversion results. */
     val currencyDecimals: Int = 2,
     /** Hours exchange rates stay fresh before the panel refetches on open. */
@@ -2166,26 +2366,13 @@ data class KeyboardSettings(
      */
     val spellCheckerNoSuggestions: Boolean = false,
     /**
-     * User-supplied API keys, overriding any key baked into the build.
-     * Blank means "use the built-in key" (which may itself be blank).
+     * User-supplied API key for the translate tool, overriding any key baked
+     * into the build. Blank means "use the built-in key" (which may itself be
+     * blank).
      */
     val translateApiKey: String = "",
-    val klipyApiKey: String = "",
-    val giphyApiKey: String = "",
-    val braveApiKey: String = "",
-    val gifContentFilter: GifContentFilter = GifContentFilter.MEDIUM,
-    /** Tabs per provider vs one evenly-mixed grid, when several have keys. */
-    val gifSourceMode: GifSourceMode = GifSourceMode.TABS,
-    /** GIF/sticker results per search or trending fetch (local packs exempt). */
-    val gifResultLimit: Int = 24,
-    /** SafeSearch for the web and image search tools. */
-    val searchSafe: Boolean = true,
-    /** Results per web/image search (the API caps a page at 10). */
-    val searchResultCount: Int = 8,
-    /** Wikipedia subdomain the encyclopedia tool reads (en, bn, de …). */
-    val wikiLanguage: String = "en",
-    /** Insert Wikipedia links as `[Title](url)` instead of the bare URL. */
-    val wikiLinksMarkdown: Boolean = false,
+    /** The web, image and encyclopedia search tools (see [WebSearchSettings]). */
+    val webSearch: WebSearchSettings = WebSearchSettings(),
     /** Recently used special symbols, newest first (symbols tool). */
     val symbolRecents: List<String> = emptyList(),
     /** Dedicated symbol row above the keys (special characters & snippets). */
@@ -2285,9 +2472,6 @@ data class KeyboardSettings(
      * the old numbers straight back. Same contract as [lexiconVersion].
      */
     val statsVersion: Int = 0,
-    /** Side length of the QR image the generator inserts. */
-    val qrSizePx: Int = 1024,
-    val qrEcc: QrEccLevel = QrEccLevel.M,
     /** Everything the AI tool owns — see [AiSettings]. */
     val ai: AiSettings = AiSettings(),
     /** The one-time-code chip fed by the notification listener — see [OtpSettings]. */
@@ -2298,7 +2482,7 @@ data class KeyboardSettings(
 
 /**
  * Every setting at the value it shipped with, as one object to read a single
- * default out of: `SettingsDefaults.hapticFeedback`, `SettingsDefaults.otp.enabled`.
+ * default out of: `SettingsDefaults.haptics.enabled`, `SettingsDefaults.otp.enabled`.
  *
  * The settings screens use it for the reset control each row grows once its
  * value stops matching the default. Reading the default off the same data
@@ -4880,7 +5064,7 @@ data class SuggestionStripSettings(
      * in the strip says nothing about wanting the system to read the
      * conversation and propose answers to it. Android 11+; suppressed in
      * incognito along with the autofill lane. Lives here rather than beside
-     * [KeyboardSettings.inlineAutofill] only to stay under that class's JVM
+     * [SuggestionSourceSettings.inlineAutofill] only to stay under that class's JVM
      * field ceiling.
      */
     val systemSmartReplies: Boolean = true,
@@ -6290,14 +6474,16 @@ class SettingsRepository(private val context: Context) {
             emojiFontInstalled = EmojiFontSettings(
                 installedId = p[EMOJI_FONT_INSTALLED_ID] ?: defaults.emojiFontInstalled.installedId,
             ),
-            hapticFeedback = p[HAPTIC] ?: defaults.hapticFeedback,
-            hapticStrengthMs = p[HAPTIC_STRENGTH] ?: defaults.hapticStrengthMs,
-            hapticAmplitude = p[HAPTIC_AMPLITUDE] ?: defaults.hapticAmplitude,
-            hapticStyle = p[HAPTIC_STYLE]?.let { runCatching { HapticStyle.valueOf(it) }.getOrNull() }
-                ?: defaults.hapticStyle,
-            hapticOnLongPress = p[HAPTIC_ON_LONG_PRESS] ?: defaults.hapticOnLongPress,
-            hapticOnLongPressRelease = p[HAPTIC_ON_LONG_PRESS_RELEASE]
-                ?: defaults.hapticOnLongPressRelease,
+            haptics = HapticSettings(
+                enabled = p[HAPTIC] ?: defaults.haptics.enabled,
+                strengthMs = p[HAPTIC_STRENGTH] ?: defaults.haptics.strengthMs,
+                amplitude = p[HAPTIC_AMPLITUDE] ?: defaults.haptics.amplitude,
+                style = p[HAPTIC_STYLE]?.let { runCatching { HapticStyle.valueOf(it) }.getOrNull() }
+                    ?: defaults.haptics.style,
+                onLongPress = p[HAPTIC_ON_LONG_PRESS] ?: defaults.haptics.onLongPress,
+                onLongPressRelease = p[HAPTIC_ON_LONG_PRESS_RELEASE]
+                    ?: defaults.haptics.onLongPressRelease,
+            ),
             feedback = FeedbackSettings(
                 vibrateOnSpace = p[FEEDBACK_VIBRATE_SPACE] ?: defaults.feedback.vibrateOnSpace,
                 vibrateOnDeleteSwipe = p[FEEDBACK_VIBRATE_DELETE_SWIPE]
@@ -6310,57 +6496,65 @@ class SettingsRepository(private val context: Context) {
                 hapticsRespectDnd = p[FEEDBACK_HAPTICS_RESPECT_DND]
                     ?: defaults.feedback.hapticsRespectDnd,
             ),
-            keySound = p[KEY_SOUND] ?: defaults.keySound,
-            keySoundStyle = p[KEY_SOUND_STYLE]
-                ?.let { runCatching { KeySoundStyle.valueOf(it) }.getOrNull() }
-                ?: defaults.keySoundStyle,
-            keySoundVolume = p[KEY_SOUND_VOLUME] ?: defaults.keySoundVolume,
-            keySoundCustom = KeySoundSettings(
-                customId = p[KEY_SOUND_CUSTOM_ID] ?: defaults.keySoundCustom.customId,
-                packId = p[KEY_SOUND_PACK_ID] ?: defaults.keySoundCustom.packId,
-                playRelease = p[KEY_SOUND_RELEASE] ?: defaults.keySoundCustom.playRelease,
+            sound = KeySoundSettings(
+                enabled = p[KEY_SOUND] ?: defaults.sound.enabled,
+                style = p[KEY_SOUND_STYLE]
+                    ?.let { runCatching { KeySoundStyle.valueOf(it) }.getOrNull() }
+                    ?: defaults.sound.style,
+                volume = p[KEY_SOUND_VOLUME] ?: defaults.sound.volume,
+                customId = p[KEY_SOUND_CUSTOM_ID] ?: defaults.sound.customId,
+                packId = p[KEY_SOUND_PACK_ID] ?: defaults.sound.packId,
+                playRelease = p[KEY_SOUND_RELEASE] ?: defaults.sound.playRelease,
             ),
             popup = popupFromPrefs(p, defaults),
-            colorVisionFilter = p[COLOR_VISION_FILTER]
-                ?.let { runCatching { ColorVisionFilter.valueOf(it) }.getOrNull() }
-                ?: defaults.colorVisionFilter,
-            highContrastKeys = p[HIGH_CONTRAST_KEYS] ?: defaults.highContrastKeys,
-            keyOutlines = p[KEY_OUTLINES] ?: defaults.keyOutlines,
-            boldKeyLabels = p[BOLD_KEY_LABELS] ?: defaults.boldKeyLabels,
+            accessibility = AccessibilitySettings(
+                colorVision = p[COLOR_VISION_FILTER]
+                    ?.let { runCatching { ColorVisionFilter.valueOf(it) }.getOrNull() }
+                    ?: defaults.accessibility.colorVision,
+                highContrast = p[HIGH_CONTRAST_KEYS] ?: defaults.accessibility.highContrast,
+                keyOutlines = p[KEY_OUTLINES] ?: defaults.accessibility.keyOutlines,
+                boldLabels = p[BOLD_KEY_LABELS] ?: defaults.accessibility.boldLabels,
+                screenReader = p[SCREEN_READER_MODE]
+                    ?.let { runCatching { ScreenReaderMode.valueOf(it) }.getOrNull() }
+                    ?: defaults.accessibility.screenReader,
+                keyDebounceMs = p[KEY_DEBOUNCE_MS] ?: defaults.accessibility.keyDebounceMs,
+            ),
             reduceMotion = p[REDUCE_MOTION] ?: defaults.reduceMotion,
-            screenReaderMode = p[SCREEN_READER_MODE]
-                ?.let { runCatching { ScreenReaderMode.valueOf(it) }.getOrNull() }
-                ?: defaults.screenReaderMode,
-            keyDebounceMs = p[KEY_DEBOUNCE_MS] ?: defaults.keyDebounceMs,
             numberRow = p[NUMBER_ROW] ?: defaults.numberRow,
-            autocorrect = p[AUTOCORRECT] ?: defaults.autocorrect,
-            autocorrectConfidence = p[AUTOCORRECT_CONFIDENCE] ?: defaults.autocorrectConfidence,
-            autocorrectAdaptive = p[AUTOCORRECT_ADAPTIVE] ?: defaults.autocorrectAdaptive,
-            revertAutocorrectOnBackspace =
-                p[REVERT_AUTOCORRECT_ON_BACKSPACE] ?: defaults.revertAutocorrectOnBackspace,
-            autocorrectUndoMemory = p[AUTOCORRECT_UNDO_MEMORY]
-                ?.let { runCatching { UndoMemory.valueOf(it) }.getOrNull() }
-                ?: defaults.autocorrectUndoMemory,
-            autocorrectSkipAllCaps =
-                p[AUTOCORRECT_SKIP_ALL_CAPS] ?: defaults.autocorrectSkipAllCaps,
-            autoApostrophe = p[AUTO_APOSTROPHE] ?: defaults.autoApostrophe,
-            autoCapitalize = p[AUTO_CAPITALIZE] ?: defaults.autoCapitalize,
-            doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.doubleSpacePeriod,
-            doubleSpaceTab = p[DOUBLE_SPACE_TAB] ?: defaults.doubleSpaceTab,
-            autoSpaceAfterPunctuation = p[AUTO_SPACE_AFTER_PUNCTUATION]
-                ?: defaults.autoSpaceAfterPunctuation,
+            correction = AutocorrectSettings(
+                enabled = p[AUTOCORRECT] ?: defaults.correction.enabled,
+                confidence = p[AUTOCORRECT_CONFIDENCE] ?: defaults.correction.confidence,
+                adaptive = p[AUTOCORRECT_ADAPTIVE] ?: defaults.correction.adaptive,
+                revertOnBackspace = p[REVERT_AUTOCORRECT_ON_BACKSPACE]
+                    ?: defaults.correction.revertOnBackspace,
+                undoMemory = p[AUTOCORRECT_UNDO_MEMORY]
+                    ?.let { runCatching { UndoMemory.valueOf(it) }.getOrNull() }
+                    ?: defaults.correction.undoMemory,
+                skipAllCaps = p[AUTOCORRECT_SKIP_ALL_CAPS] ?: defaults.correction.skipAllCaps,
+            ),
+            autoText = AutoTextSettings(
+                apostrophe = p[AUTO_APOSTROPHE] ?: defaults.autoText.apostrophe,
+                capitalize = p[AUTO_CAPITALIZE] ?: defaults.autoText.capitalize,
+                doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.autoText.doubleSpacePeriod,
+                doubleSpaceTab = p[DOUBLE_SPACE_TAB] ?: defaults.autoText.doubleSpaceTab,
+                spaceAfterPunctuation = p[AUTO_SPACE_AFTER_PUNCTUATION]
+                    ?: defaults.autoText.spaceAfterPunctuation,
+            ),
             suggestions = p[SUGGESTIONS] ?: defaults.suggestions,
-            showSuggestionsInAllFields = p[SHOW_SUGGESTIONS_ALL_FIELDS]
-                ?: defaults.showSuggestionsInAllFields,
-            contactSuggestions = p[CONTACT_SUGGESTIONS] ?: defaults.contactSuggestions,
-            contactEmailSuggestions = p[CONTACT_EMAIL_SUGGESTIONS]
-                ?: defaults.contactEmailSuggestions,
-            contactEmailSuggestionsInEmailFields = p[CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS]
-                ?: defaults.contactEmailSuggestionsInEmailFields,
-            appNameSuggestions = p[APP_NAME_SUGGESTIONS] ?: defaults.appNameSuggestions,
-            suggestionBlacklist = p[SUGGESTION_BLACKLIST] ?: defaults.suggestionBlacklist,
-            inlineEmojiSearch = p[INLINE_EMOJI_SEARCH] ?: defaults.inlineEmojiSearch,
-            inlineAutofill = p[INLINE_AUTOFILL] ?: defaults.inlineAutofill,
+            suggestionSources = SuggestionSourceSettings(
+                inAllFields = p[SHOW_SUGGESTIONS_ALL_FIELDS]
+                    ?: defaults.suggestionSources.inAllFields,
+                contacts = p[CONTACT_SUGGESTIONS] ?: defaults.suggestionSources.contacts,
+                contactEmails = p[CONTACT_EMAIL_SUGGESTIONS]
+                    ?: defaults.suggestionSources.contactEmails,
+                contactEmailsInEmailFields = p[CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS]
+                    ?: defaults.suggestionSources.contactEmailsInEmailFields,
+                appNames = p[APP_NAME_SUGGESTIONS] ?: defaults.suggestionSources.appNames,
+                blacklist = p[SUGGESTION_BLACKLIST] ?: defaults.suggestionSources.blacklist,
+                inlineEmojiSearch = p[INLINE_EMOJI_SEARCH]
+                    ?: defaults.suggestionSources.inlineEmojiSearch,
+                inlineAutofill = p[INLINE_AUTOFILL] ?: defaults.suggestionSources.inlineAutofill,
+            ),
             gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
             letterSwipeAction = p[LETTER_SWIPE_ACTION]
                 ?.let { runCatching { LetterSwipeAction.valueOf(it) }.getOrNull() }
@@ -6912,21 +7106,28 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.toolbox.pageSize,
                 labelSizeSp = p[TOOLBOX_LABEL_SIZE] ?: defaults.toolbox.labelSizeSp,
             ),
-            flashlightAutoOff = p[FLASHLIGHT_AUTO_OFF] ?: defaults.flashlightAutoOff,
-            compassShowDegrees = p[COMPASS_SHOW_DEGREES] ?: defaults.compassShowDegrees,
-            compassShowQibla = p[COMPASS_SHOW_QIBLA] ?: defaults.compassShowQibla,
-            levelShowAngles = p[LEVEL_SHOW_ANGLES] ?: defaults.levelShowAngles,
+            sensorTools = SensorToolSettings(
+                flashlightAutoOff = p[FLASHLIGHT_AUTO_OFF]
+                    ?: defaults.sensorTools.flashlightAutoOff,
+                compassDegrees = p[COMPASS_SHOW_DEGREES] ?: defaults.sensorTools.compassDegrees,
+                compassQibla = p[COMPASS_SHOW_QIBLA] ?: defaults.sensorTools.compassQibla,
+                levelAngles = p[LEVEL_SHOW_ANGLES] ?: defaults.sensorTools.levelAngles,
+                moonSouthern = p[MOON_SOUTHERN] ?: isSouthernHemisphere(deviceRegion),
+            ),
             redoUsesCtrlY = p[REDO_USES_CTRL_Y] ?: defaults.redoUsesCtrlY,
-            moonSouthernHemisphere = p[MOON_SOUTHERN] ?: isSouthernHemisphere(deviceRegion),
-            weatherFahrenheit = p[WEATHER_FAHRENHEIT] ?: defaults.weatherFahrenheit,
-            weatherLatitude = p[WEATHER_LAT],
-            weatherLongitude = p[WEATHER_LON],
-            weatherPlaceName = p[WEATHER_PLACE] ?: defaults.weatherPlaceName,
-            calendarAltOne = calendarAltFromPrefs(p, first = true),
-            calendarAltTwo = calendarAltFromPrefs(p, first = false),
-            calendarWeekend = p[CALENDAR_WEEKEND]?.let { Weekend.fromId(it) }
-                ?: Weekend.forRegion(deviceRegion),
-            hijriAdjustDays = p[HIJRI_ADJUST_DAYS] ?: defaults.hijriAdjustDays,
+            weather = WeatherSettings(
+                fahrenheit = p[WEATHER_FAHRENHEIT] ?: defaults.weather.fahrenheit,
+                latitude = p[WEATHER_LAT],
+                longitude = p[WEATHER_LON],
+                placeName = p[WEATHER_PLACE] ?: defaults.weather.placeName,
+            ),
+            calendarTool = CalendarToolSettings(
+                altOne = calendarAltFromPrefs(p, first = true),
+                altTwo = calendarAltFromPrefs(p, first = false),
+                weekend = p[CALENDAR_WEEKEND]?.let { Weekend.fromId(it) }
+                    ?: Weekend.forRegion(deviceRegion),
+                hijriAdjustDays = p[HIJRI_ADJUST_DAYS] ?: defaults.calendarTool.hijriAdjustDays,
+            ),
             handwritingStylusOnly = p[HANDWRITING_STYLUS_ONLY] ?: defaults.handwritingStylusOnly,
             handwritingCommitDelayMs = p[HANDWRITING_COMMIT_DELAY]
                 ?: defaults.handwritingCommitDelayMs,
@@ -6968,17 +7169,40 @@ class SettingsRepository(private val context: Context) {
                 saveToGallery = p[CAMERA_SAVE_TO_GALLERY] ?: defaults.camera.saveToGallery,
                 fullFrame = p[CAMERA_FULL_FRAME] ?: defaults.camera.fullFrame,
             ),
-            docScanSaveToGallery = p[DOC_SCAN_SAVE_TO_GALLERY] ?: defaults.docScanSaveToGallery,
-            qrSaveToGallery = p[QR_SAVE_TO_GALLERY] ?: defaults.qrSaveToGallery,
             stickerSendMode = p[STICKER_SEND_MODE]
                 ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
                 ?: defaults.stickerSendMode,
-            gifSendMode = p[GIF_SEND_MODE]
-                ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
-                ?: defaults.gifSendMode,
-            qrSendMode = p[QR_SEND_MODE]
-                ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
-                ?: defaults.qrSendMode,
+            scanner = ScannerSettings(
+                docSaveToGallery = p[DOC_SCAN_SAVE_TO_GALLERY]
+                    ?: defaults.scanner.docSaveToGallery,
+                qrSaveToGallery = p[QR_SAVE_TO_GALLERY] ?: defaults.scanner.qrSaveToGallery,
+                qrSendMode = p[QR_SEND_MODE]
+                    ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
+                    ?: defaults.scanner.qrSendMode,
+                ocrAutoSelectWords = p[OCR_AUTO_SELECT_WORDS]
+                    ?: defaults.scanner.ocrAutoSelectWords,
+                qrScanHaptics = p[QR_SCAN_HAPTICS] ?: defaults.scanner.qrScanHaptics,
+                qrScanAutoInsert = p[QR_SCAN_AUTO_INSERT] ?: defaults.scanner.qrScanAutoInsert,
+                qrScanLinkPreviews = p[QR_SCAN_LINK_PREVIEWS]
+                    ?: defaults.scanner.qrScanLinkPreviews,
+                qrSizePx = p[QR_SIZE_PX] ?: defaults.scanner.qrSizePx,
+                qrEcc = p[QR_ECC]?.let { runCatching { QrEccLevel.valueOf(it) }.getOrNull() }
+                    ?: defaults.scanner.qrEcc,
+            ),
+            gif = GifSettings(
+                klipyApiKey = p[KLIPY_API_KEY] ?: defaults.gif.klipyApiKey,
+                giphyApiKey = p[GIPHY_API_KEY] ?: defaults.gif.giphyApiKey,
+                contentFilter = p[GIF_CONTENT_FILTER]
+                    ?.let { runCatching { GifContentFilter.valueOf(it) }.getOrNull() }
+                    ?: defaults.gif.contentFilter,
+                sourceMode = p[GIF_SOURCE_MODE]
+                    ?.let { runCatching { GifSourceMode.valueOf(it) }.getOrNull() }
+                    ?: defaults.gif.sourceMode,
+                resultLimit = p[GIF_RESULT_LIMIT] ?: defaults.gif.resultLimit,
+                sendMode = p[GIF_SEND_MODE]
+                    ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
+                    ?: defaults.gif.sendMode,
+            ),
             dictionaryAutoLookup = p[DICTIONARY_AUTO_LOOKUP] ?: defaults.dictionaryAutoLookup,
             textEditing = TextEditingSettings(
                 repeatMs = p[TEXT_EDIT_REPEAT_MS] ?: defaults.textEditing.repeatMs,
@@ -7088,10 +7312,6 @@ class SettingsRepository(private val context: Context) {
             incognitoPausesLearning = p[INCOGNITO_PAUSES_LEARNING] ?: defaults.incognitoPausesLearning,
             autoIncognito = p[AUTO_INCOGNITO] ?: defaults.autoIncognito,
             cloudBackup = p[CloudBackup.KEY] ?: defaults.cloudBackup,
-            ocrAutoSelectWords = p[OCR_AUTO_SELECT_WORDS] ?: defaults.ocrAutoSelectWords,
-            qrScanHaptics = p[QR_SCAN_HAPTICS] ?: defaults.qrScanHaptics,
-            qrScanAutoInsert = p[QR_SCAN_AUTO_INSERT] ?: defaults.qrScanAutoInsert,
-            qrScanLinkPreviews = p[QR_SCAN_LINK_PREVIEWS] ?: defaults.qrScanLinkPreviews,
             currencyDecimals = p[CURRENCY_DECIMALS] ?: defaults.currencyDecimals,
             currencyCacheHours = p[CURRENCY_CACHE_HOURS] ?: defaults.currencyCacheHours,
             rateSources = RateSourceSettings(
@@ -7116,20 +7336,14 @@ class SettingsRepository(private val context: Context) {
             spellCheckerNoSuggestions = p[SPELL_CHECKER_NO_SUGGESTIONS]
                 ?: defaults.spellCheckerNoSuggestions,
             translateApiKey = p[TRANSLATE_API_KEY] ?: defaults.translateApiKey,
-            klipyApiKey = p[KLIPY_API_KEY] ?: defaults.klipyApiKey,
-            braveApiKey = p[BRAVE_API_KEY] ?: defaults.braveApiKey,
-            giphyApiKey = p[GIPHY_API_KEY] ?: defaults.giphyApiKey,
-            gifSourceMode = p[GIF_SOURCE_MODE]
-                ?.let { runCatching { GifSourceMode.valueOf(it) }.getOrNull() }
-                ?: defaults.gifSourceMode,
-            gifContentFilter = p[GIF_CONTENT_FILTER]
-                ?.let { runCatching { GifContentFilter.valueOf(it) }.getOrNull() }
-                ?: defaults.gifContentFilter,
-            gifResultLimit = p[GIF_RESULT_LIMIT] ?: defaults.gifResultLimit,
-            searchSafe = p[SEARCH_SAFE] ?: defaults.searchSafe,
-            searchResultCount = p[SEARCH_RESULT_COUNT] ?: defaults.searchResultCount,
-            wikiLanguage = p[WIKI_LANGUAGE] ?: defaults.wikiLanguage,
-            wikiLinksMarkdown = p[WIKI_LINKS_MARKDOWN] ?: defaults.wikiLinksMarkdown,
+            webSearch = WebSearchSettings(
+                braveApiKey = p[BRAVE_API_KEY] ?: defaults.webSearch.braveApiKey,
+                safe = p[SEARCH_SAFE] ?: defaults.webSearch.safe,
+                resultCount = p[SEARCH_RESULT_COUNT] ?: defaults.webSearch.resultCount,
+                wikiLanguage = p[WIKI_LANGUAGE] ?: defaults.webSearch.wikiLanguage,
+                wikiLinksMarkdown = p[WIKI_LINKS_MARKDOWN]
+                    ?: defaults.webSearch.wikiLinksMarkdown,
+            ),
             symbolRecents = p[SYMBOL_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }
                 ?: defaults.symbolRecents,
             symbolRowEnabled = p[SYMBOL_ROW_ENABLED] ?: defaults.symbolRowEnabled,
@@ -7227,9 +7441,6 @@ class SettingsRepository(private val context: Context) {
             ),
             typingStatsEnabled = p[TYPING_STATS_ENABLED] ?: defaults.typingStatsEnabled,
             statsVersion = p[STATS_VERSION] ?: defaults.statsVersion,
-            qrSizePx = p[QR_SIZE_PX] ?: defaults.qrSizePx,
-            qrEcc = p[QR_ECC]?.let { runCatching { QrEccLevel.valueOf(it) }.getOrNull() }
-                ?: defaults.qrEcc,
             ai = AiSettings(
                 provider = p[AI_PROVIDER]
                     ?.let { runCatching { AiProvider.valueOf(it) }.getOrNull() }

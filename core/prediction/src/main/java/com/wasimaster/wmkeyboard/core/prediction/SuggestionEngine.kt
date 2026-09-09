@@ -2115,7 +2115,7 @@ class SuggestionEngine(
      * Nothing at all when the word is known (a known word — bundled, imported
      * or learned — is never corrected away). Otherwise a candidate is applied
      * only if the dictionaries and the user's lexicon independently agree on
-     * it, or its score beats the runner-up by [autocorrectConfidence]. A
+     * it, or its score beats the runner-up by `AutocorrectSettings.confidence`. A
      * candidate that clears [OFFER_MARGIN_FRACTION] of that same margin
      * without reaching it is offered instead.
      *

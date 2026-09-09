@@ -176,8 +176,8 @@ data class PowerSavingSettings(
 fun KeyboardSettings.underPowerSaving(): KeyboardSettings {
     val ps = powerSaving
     return copy(
-        hapticFeedback = if (ps.dropHaptics) false else hapticFeedback,
-        keySound = if (ps.dropKeySound) false else keySound,
+        haptics = if (ps.dropHaptics) haptics.copy(enabled = false) else haptics,
+        sound = if (ps.dropKeySound) sound.copy(enabled = false) else sound,
         // Also the accessibility switch, which is the one every animation
         // already reads — there is no second motion flag to set.
         reduceMotion = reduceMotion || ps.dropAnimations,
@@ -193,7 +193,11 @@ fun KeyboardSettings.underPowerSaving(): KeyboardSettings {
             linkPreviews = if (ps.dropBackgroundNetwork) false else clipboard.linkPreviews,
             userScreenshots = if (ps.dropScreenshotWatch) false else clipboard.userScreenshots,
         ),
-        qrScanLinkPreviews = if (ps.dropBackgroundNetwork) false else qrScanLinkPreviews,
+        scanner = if (ps.dropBackgroundNetwork) {
+            scanner.copy(qrScanLinkPreviews = false)
+        } else {
+            scanner
+        },
         dictionaryAutoLookup = if (ps.dropBackgroundNetwork) false else dictionaryAutoLookup,
         typingStatsEnabled = if (ps.dropTypingStats) false else typingStatsEnabled,
         mediaControl = if (ps.dropMediaPin) {

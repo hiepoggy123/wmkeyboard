@@ -929,7 +929,7 @@ internal fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSett
         supportingContent = { Text(stringResource(R.string.onboarding_haptics_subtitle)) },
         trailingContent = {
             Switch(
-                checked = settings.hapticFeedback,
+                checked = settings.haptics.enabled,
                 onCheckedChange = { enable ->
                     scope.launch { repository.setHapticFeedback(enable) }
                     // Fired straight from the click rather than after the
@@ -937,9 +937,9 @@ internal fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSett
                     if (enable) {
                         HapticPlayer.preview(
                             context,
-                            settings.hapticStyle,
-                            settings.hapticAmplitude,
-                            settings.hapticStrengthMs,
+                            settings.haptics.style,
+                            settings.haptics.amplitude,
+                            settings.haptics.strengthMs,
                             view,
                         )
                     }
@@ -952,7 +952,7 @@ internal fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSett
         supportingContent = { Text(stringResource(R.string.onboarding_key_sound_subtitle)) },
         trailingContent = {
             Switch(
-                checked = settings.keySound,
+                checked = settings.sound.enabled,
                 onCheckedChange = { enable ->
                     scope.launch { repository.setKeySound(enable) }
                     // Same bargain as the haptics switch above: turning it on
@@ -961,9 +961,9 @@ internal fun FeedbackPage(repository: SettingsRepository, settings: KeyboardSett
                     if (enable) {
                         KeySoundPlayer.previewStroke(
                             context,
-                            settings.keySoundStyle,
-                            settings.keySoundVolume,
-                            settings.keySoundCustom.customId,
+                            settings.sound.style,
+                            settings.sound.volume,
+                            settings.sound.customId,
                         )
                     }
                 },
@@ -1114,19 +1114,19 @@ internal fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSet
         AltCalendarSetting(
             title = stringResource(R.string.onboarding_calendar_first_title),
             subtitle = stringResource(R.string.onboarding_calendar_first_subtitle),
-            selected = settings.calendarAltOne,
+            selected = settings.calendarTool.altOne,
             icon = Icons.Outlined.EditCalendar,
             onChange = { scope.launch { repository.setCalendarAltOne(it) } },
         )
         AltCalendarSetting(
             title = stringResource(R.string.onboarding_calendar_second_title),
             subtitle = stringResource(R.string.onboarding_calendar_second_subtitle),
-            selected = settings.calendarAltTwo,
+            selected = settings.calendarTool.altTwo,
             icon = Icons.Outlined.EventRepeat,
             onChange = { scope.launch { repository.setCalendarAltTwo(it) } },
         )
         WeekendSetting(
-            selected = settings.calendarWeekend,
+            selected = settings.calendarTool.weekend,
             onChange = { scope.launch { repository.setCalendarWeekend(it) } },
         )
     }
@@ -1144,7 +1144,7 @@ internal fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSet
             },
             trailingContent = {
                 Switch(
-                    checked = settings.weatherFahrenheit,
+                    checked = settings.weather.fahrenheit,
                     onCheckedChange = { scope.launch { repository.setWeatherFahrenheit(it) } },
                 )
             },
@@ -1160,7 +1160,7 @@ internal fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSet
             },
             trailingContent = {
                 Switch(
-                    checked = settings.compassShowQibla,
+                    checked = settings.sensorTools.compassQibla,
                     onCheckedChange = { scope.launch { repository.setCompassShowQibla(it) } },
                 )
             },
@@ -1168,7 +1168,7 @@ internal fun ToolSetupPage(repository: SettingsRepository, settings: KeyboardSet
         // Grows out of the switch that asked for it — a location editor
         // appearing in one frame reads as the page having jumped.
         AnimatedVisibility(
-            visible = settings.compassShowQibla,
+            visible = settings.sensorTools.compassQibla,
             enter = onboardingRevealEnter(settings.reduceMotion),
             exit = onboardingRevealExit(settings.reduceMotion),
         ) {

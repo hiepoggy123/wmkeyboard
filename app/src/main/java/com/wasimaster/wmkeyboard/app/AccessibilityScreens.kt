@@ -54,8 +54,8 @@ internal fun AccessibilitySettings(
                     ColorVisionFilter.GRAYSCALE to
                         stringResource(R.string.accessibility_color_vision_grey),
                 ),
-                selected = settings.colorVisionFilter,
-                default = SettingsDefaults.colorVisionFilter,
+                selected = settings.accessibility.colorVision,
+                default = SettingsDefaults.accessibility.colorVision,
                 detail = { filter -> ChoiceDetail(stringResource(colorVisionDescRes(filter))) },
             ) { scope.launch { repository.setColorVisionFilter(it) } }
         }
@@ -63,18 +63,18 @@ internal fun AccessibilitySettings(
             ToggleSetting(
                 R.string.accessibility_high_contrast_title,
                 stringResource(R.string.accessibility_high_contrast_subtitle),
-                settings.highContrastKeys,
+                settings.accessibility.highContrast,
                 info = stringResource(R.string.accessibility_high_contrast_info),
-                default = SettingsDefaults.highContrastKeys,
+                default = SettingsDefaults.accessibility.highContrast,
             ) { scope.launch { repository.setHighContrastKeys(it) } }
         }
         item {
             ToggleSetting(
                 R.string.accessibility_key_outlines_title,
                 stringResource(R.string.accessibility_key_outlines_subtitle),
-                settings.keyOutlines,
+                settings.accessibility.keyOutlines,
                 info = stringResource(R.string.accessibility_key_outlines_info),
-                default = SettingsDefaults.keyOutlines,
+                default = SettingsDefaults.accessibility.keyOutlines,
             ) { scope.launch { repository.setKeyOutlines(it) } }
         }
         item {
@@ -85,10 +85,10 @@ internal fun AccessibilitySettings(
             ToggleSetting(
                 R.string.accessibility_bold_labels_title,
                 pinned ?: stringResource(R.string.accessibility_bold_labels_subtitle),
-                settings.boldKeyLabels,
+                settings.accessibility.boldLabels,
                 info = stringResource(R.string.accessibility_bold_labels_info),
                 enabled = pinned == null,
-                default = SettingsDefaults.boldKeyLabels,
+                default = SettingsDefaults.accessibility.boldLabels,
             ) { scope.launch { repository.setBoldKeyLabels(it) } }
         }
         item {
@@ -149,12 +149,12 @@ internal fun AccessibilitySettings(
                     ScreenReaderMode.PASSTHROUGH to
                         stringResource(R.string.accessibility_talkback_mode_gestures),
                 ),
-                selected = settings.screenReaderMode,
-                default = SettingsDefaults.screenReaderMode,
+                selected = settings.accessibility.screenReader,
+                default = SettingsDefaults.accessibility.screenReader,
                 detail = { mode -> ChoiceDetail(stringResource(screenReaderDescRes(mode))) },
             ) { scope.launch { repository.setScreenReaderMode(it) } }
         }
-        if (settings.screenReaderMode == ScreenReaderMode.PASSTHROUGH) {
+        if (settings.accessibility.screenReader == ScreenReaderMode.PASSTHROUGH) {
             item {
                 val granted = rememberGrantState(KeyboardPassthrough::isServiceEnabled)
                 // Disclosure before the accessibility screen: Play scrutinises
@@ -180,7 +180,7 @@ internal fun AccessibilitySettings(
         }
     }
 
-    when (settings.screenReaderMode) {
+    when (settings.accessibility.screenReader) {
         ScreenReaderMode.EXPLORE ->
             CaptionText(stringResource(R.string.accessibility_explore_caption))
         ScreenReaderMode.PASSTHROUGH ->
@@ -193,16 +193,16 @@ internal fun AccessibilitySettings(
             val offLabel = stringResource(CommonR.string.common_off)
             SliderSetting(
                 title = R.string.accessibility_debounce_title,
-                subtitle = if (settings.keyDebounceMs == 0) {
+                subtitle = if (settings.accessibility.keyDebounceMs == 0) {
                     stringResource(R.string.accessibility_debounce_subtitle_off)
                 } else {
                     stringResource(R.string.accessibility_debounce_subtitle_on)
                 },
-                value = settings.keyDebounceMs.toFloat(),
+                value = settings.accessibility.keyDebounceMs.toFloat(),
                 range = 0f..500f,
                 display = { if (it.toInt() == 0) offLabel else "${it.toInt()} ms" },
                 info = stringResource(R.string.accessibility_debounce_info),
-                default = SettingsDefaults.keyDebounceMs.toFloat(),
+                default = SettingsDefaults.accessibility.keyDebounceMs.toFloat(),
             ) { scope.launch { repository.setKeyDebounceMs(it.toInt()) } }
         }
         item {

@@ -44,16 +44,18 @@ fun KeyboardSettings.restrictedToDirectBoot(): KeyboardSettings {
         // is a whole directory of them. Unlike the fonts there is no per-glyph
         // fallback to hide it — the style would simply make no sound — so both
         // drop back to the system click.
-        keySoundStyle = if (keySoundStyle == KeySoundStyle.CUSTOM || keySoundStyle == KeySoundStyle.PACK) {
-            KeySoundStyle.CLICK
+        sound = if (sound.style == KeySoundStyle.CUSTOM || sound.style == KeySoundStyle.PACK) {
+            sound.copy(style = KeySoundStyle.CLICK)
         } else {
-            keySoundStyle
+            sound
         },
         // Contacts, contact e-mails and the installed-app list all come from
         // providers that need the user's credential.
-        contactSuggestions = false,
-        contactEmailSuggestions = false,
-        appNameSuggestions = false,
+        suggestionSources = suggestionSources.copy(
+            contacts = false,
+            contactEmails = false,
+            appNames = false,
+        ),
         // Android's shared personal dictionary is credential-encrypted too, and
         // nothing typed on a lock screen should be learned anywhere regardless.
         addWordsToSystemDictionary = false,

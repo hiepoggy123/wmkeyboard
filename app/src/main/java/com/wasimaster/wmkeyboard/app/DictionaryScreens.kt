@@ -493,8 +493,8 @@ private fun EditWordDialog(
 @Composable
 internal fun BlacklistSettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
-    val words = remember(settings.suggestionBlacklist) {
-        settings.suggestionBlacklist.sorted()
+    val words = remember(settings.suggestionSources.blacklist) {
+        settings.suggestionSources.blacklist.sorted()
     }
     var showAdd by remember { mutableStateOf(false) }
 

@@ -91,11 +91,11 @@ object AddonApply {
                 settings.emojiFont == EmojiFontChoice.INSTALLED &&
                     settings.emojiFontInstalled.installedId == ref
             AddonType.Sound ->
-                settings.keySoundStyle == KeySoundStyle.CUSTOM &&
-                    settings.keySoundCustom.customId == ref
+                settings.sound.style == KeySoundStyle.CUSTOM &&
+                    settings.sound.customId == ref
             AddonType.SoundPack ->
-                settings.keySoundStyle == KeySoundStyle.PACK &&
-                    settings.keySoundCustom.packId == ref
+                settings.sound.style == KeySoundStyle.PACK &&
+                    settings.sound.packId == ref
             AddonType.Layout -> ref in settings.enabledLayoutIds
             // Plugin returned above without reading settings, and the rest were
             // filtered out by the questionRes() guard: they have no slot to be

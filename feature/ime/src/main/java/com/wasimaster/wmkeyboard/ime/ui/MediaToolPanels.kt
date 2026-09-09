@@ -507,7 +507,7 @@ private fun gifSearchHint(stickers: Boolean): String = stringResource(
 @Composable
 private fun gifAttribution(state: KeyboardUiState, stickers: Boolean = false): String? {
     val sources = gifSourcesFor(state, stickers)
-    val tabs = state.settings.gifSourceMode == GifSourceMode.TABS
+    val tabs = state.settings.gif.sourceMode == GifSourceMode.TABS
     val targets = GifSources.targets(sources, state.mediaSource, tabs)
     // Nothing to credit for the user's own packs.
     if (targets.isEmpty() || targets == listOf(GifSource.LOCAL)) return null
@@ -579,7 +579,7 @@ internal fun GifPanel(
     val ui = if (stickers) state.sticker else state.gif
     val tool = if (stickers) ToolbarTool.STICKER else ToolbarTool.GIF
     val sources = gifSourcesFor(state, stickers)
-    val tabsMode = state.settings.gifSourceMode == GifSourceMode.TABS
+    val tabsMode = state.settings.gif.sourceMode == GifSourceMode.TABS
     val chips = GifSources.chips(sources, tabsMode)
     val localGrid = GifSources.targets(sources, state.mediaSource, tabsMode) == listOf(GifSource.LOCAL)
     val sizing = if (fullBleed) {

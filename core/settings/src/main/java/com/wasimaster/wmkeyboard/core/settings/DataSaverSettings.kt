@@ -288,8 +288,11 @@ fun KeyboardSettings.onMeteredNetwork(): KeyboardSettings {
         } else {
             clipboard
         },
-        qrScanLinkPreviews =
-        if (ds.linkPreviews.stopsBackgroundWork) false else qrScanLinkPreviews,
+        scanner = if (ds.linkPreviews.stopsBackgroundWork) {
+            scanner.copy(qrScanLinkPreviews = false)
+        } else {
+            scanner
+        },
         dictionaryAutoLookup =
         if (ds.dictionaryLookup.stopsBackgroundWork) false else dictionaryAutoLookup,
         // The photo pool already has its own metered switch, which the pool's
