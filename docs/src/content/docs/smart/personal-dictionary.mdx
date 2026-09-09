@@ -48,9 +48,9 @@ Settling is what stops your slips being counted at all. A word you've just typed
 - You move to a different field.
 - You keep typing far enough past it (about 500 words) that you're clearly not coming back.
 
-If you go back into that text before any of that, by backspacing over the word or tapping into the sentence to edit it, the word is dropped and counts for nothing. Re-picking a swiped word from the strip drops it too, because you just overruled the guess. So does deleting the word from your dictionary while it's still waiting.
+If you go back into that text before any of that, the *word you land in* is dropped and counts for nothing — backspacing over it, or tapping into it to edit it. Only that word: the rest of the text you moved past is text you left alone, so tapping up to fix the first line of a note settles everything below it rather than throwing the whole session away. Re-picking a swiped word from the strip drops it too, because you just overruled the guess. So does deleting the word from your dictionary while it's still waiting.
 
-Two things skip the queue, because in both you've told the keyboard directly rather than by leaving text alone: tapping the `Add "yourword"?` chip, and **Add word** from the word menu or the Personal dictionary screen.
+Two things skip the queue, because in both you've told the keyboard directly rather than by leaving text alone: tapping the `Add "yourword"?` chip, and **Add word** from the word menu or the Personal dictionary screen. Either way the word goes in once: the space you type straight afterwards finishes the same word you just added, so it isn't counted a second time on top.
 
 A word nothing recognises is invisible while it waits. It's never suggested, never shields itself from autocorrect, and never shows up on the Personal dictionary screen until it graduates. Sightings also go stale on their own, so the same slip made in March and again in September never adds up to a word. (A recognised word waiting its one turn is a different matter: it was already in a dictionary, so it's suggested and safe from autocorrect the whole time. All that's waiting is your own count of it.)
 
@@ -85,6 +85,10 @@ Which items the menu shows is up to you. **Word menu** under <SettingsPath path=
 ## Capitals
 
 The dictionary keeps one spelling per word, and normally votes on it: type "Boston" with your own capital a few times and the word is offered as "Boston" from then on; type it in lower case often enough and the capital wears off again. A capital that auto-capitalise put on a sentence start never counts, and neither does caps lock.
+
+Only a capital *you* typed is a vote. A swipe types no capital at all — your finger draws letters and the keyboard decides how to spell what it read — so a swiped word never votes on its own spelling, however it comes out. Neither does tapping a suggestion that is capitalised when what you typed was not: the chip is spelled the way the dictionary spells it, and choosing it is choosing the word, not the capital. To teach a capital, type it: press Shift, or glide through the Shift key (see [Glide typing](/typing/glide-typing/#capitalizing-without-leaving-the-stroke)).
+
+This is what stops a name you write both ways from getting stuck. Before, a swipe that came back as "Mark" was learned as "Mark", which made the next swipe come back as "Mark" more strongly still, and "mark" could never be written plainly again.
 
 A word you add yourself is different. Add it by hand, from the dictionary screen or from the strip's **Add** item, or respell it in the edit dialog, and its capitals are *kept*: no amount of later typing changes them. The row reads "capitals kept", and the edit dialog has a **Keep these capitals** switch to turn that off, or to turn it on for a word the keyboard learned on its own. Keeping "you" in lower case this way is how to stop it ever being offered as "You" after a sentence start.
 

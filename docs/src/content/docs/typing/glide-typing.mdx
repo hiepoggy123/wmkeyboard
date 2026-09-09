@@ -123,6 +123,12 @@ A couple of shape quirks are worth knowing. Double letters only need one pass ov
 
 ## Autocorrect and learning
 
+### Going back to a misread swipe
+
+Putting the cursor back on a swiped word puts **that stroke's other readings** on the strip, ahead of the strip's own answer. This matters more than it sounds. The strip normally reads the letters standing in the field, so a stroke misread as "form" offers "forms" and "fort" — respellings of the wrong word, never the word you drew. The readings the stroke actually produced *do* contain it, so those go first, and taking one is both the fix and a lesson: it counts as a correction of that stroke, the same as re-picking straight after the swipe.
+
+The readings are kept for the last dozen swiped words in the field and go when the field does.
+
 Autocorrect never runs a second pass over a glided word. The decoder only ever returns real dictionary words in the first place, so there's no typo to fix. What glide typing does share with normal typing is learning: every word a glide commits goes through the same learning path a tapped-out word does. It's reinforced in your personal dictionary and recorded as following whatever word came before, which is what powers next-word prediction later. It works the other direction too. A word you've recently typed or had autocorrected becomes swipeable right away, since learning a word immediately refreshes the list glide typing decodes against.
 
 Learning from a glide follows the same rules as any other typing. It respects the "Learn from typing" toggle, pauses under incognito, and skips entirely in fields that don't allow typing intelligence. There's no glide-specific exception.
@@ -134,6 +140,14 @@ A kept swipe teaches three more things besides the word, all under **Learn my sw
 Only the shapes are filed under words, and only under words already in your personal dictionary. The finger positions are numbers on a grid, and the corrected readings are scrambled fingerprints of the words, so those files say nothing readable about what you wrote. None of it travels in a backup. **Forget my swipe style** deletes all three and starts over, and leaves your learned words alone; the word card a held suggestion opens can also forget the shapes of one word.
 
 One more shift-related detail: only the **first** word of a multi-word glide honors a held <KeyCap>Shift</KeyCap>, capitalizing it or, under caps lock, the whole word. Words chained afterward in the same stroke always land lowercase.
+
+### Capitalizing without leaving the stroke
+
+Tapping <KeyCap>Shift</KeyCap> and *then* swiping is two gestures for one word, and it breaks the flow that makes gliding worth using — which is why most people simply stop capitalizing swiped names. So the stroke can say it itself: **draw through the Shift key on your way** and the word comes out capitalized. Cross it twice in one stroke and the whole word is in capitals, the same ladder tapping the key walks up.
+
+The detour spells nothing. The Shift key's part of the path is dropped before the word is read, exactly as the spacebar's is on a chained stroke, so going out to the key and back never adds a letter. Nothing happens unless the key is genuinely crossed, so ordinary swipes near it are unaffected, and the switch — **Glide over Shift to capitalize** — turns it off entirely.
+
+This is also the one way a swipe can teach a capital. A capital the *keyboard* chose is never evidence of how you spell a word (see [Personal dictionary](/smart/personal-dictionary/#capitals)); a capital you drew is.
 
 ## Options
 
@@ -147,6 +161,7 @@ One more shift-related detail: only the **first** word of a multi-word glide hon
 |---|---|---|
 | Glide typing | On | Master switch for glide typing. |
 | Glide across the spacebar | On | Only shown while glide typing (not handwriting) is the active swipe mode. Turn off to treat a spacebar-crossing swipe as one word. |
+| Glide over Shift to capitalize | On | Only shown while glide typing is the active swipe mode. Draw through the Shift key mid-swipe for a capital, twice for all capitals. See [Capitalizing without leaving the stroke](#capitalizing-without-leaving-the-stroke). |
 | Ask when a glide is unclear | On | Only shown while glide typing is the active swipe mode. When a stroke's best word barely beats its runner-up, hold still without lifting to pick between them. See [When a swipe is a genuine toss-up](#when-a-swipe-is-a-genuine-toss-up). |
 | When to ask | Close calls | Only shown while Ask when a glide is unclear is on. How close a call a stroke has to be: Near ties, Close calls, Any doubt or Every pause. |
 | Time to hold still | 350 ms | Only shown while Ask when a glide is unclear is on. How long the finger rests before the words appear. Range 150 ms to 1000 ms. |

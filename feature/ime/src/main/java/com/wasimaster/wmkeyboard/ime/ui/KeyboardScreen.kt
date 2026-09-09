@@ -9598,7 +9598,7 @@ internal class GlidePickerState {
      */
     fun verdict(): GlideVerdict = when {
         cancelling -> GlideVerdict.Cancel
-        else -> picked()?.let { GlideVerdict.Word(it) } ?: GlideVerdict.Leader
+        else -> picked()?.let { GlideVerdict.Word(it) } ?: GlideVerdict.Leader()
     }
 
     companion object {
@@ -9971,6 +9971,24 @@ internal class KeyRects {
     fun cellAt(point: Offset): Rect? {
         for (rect in cells.keys) {
             if (rect.contains(point)) return rect
+        }
+        return null
+    }
+
+    /**
+     * The cell of the first key that does [action], or null when this grid has
+     * none — a layout with no shift key, most of all.
+     *
+     * Read once as a stroke begins rather than per pointer sample: a glide asks
+     * "am I over shift?" of every move it makes (#115), and walking the whole
+     * table for that would put a linear scan on the gesture path. A split board
+     * has two half-keys for some actions and this answers with the first, which
+     * is the left-hand one — the shift key both halves of a split keyboard put
+     * under the same thumb.
+     */
+    fun cellOf(action: KeyAction): Rect? {
+        for ((rect, key) in cells) {
+            if (key.action == action) return rect
         }
         return null
     }
@@ -11228,6 +11246,10 @@ private fun KeyRows(
     // stands the multi-word split down for as long as that choice holds.
     val spaceGlide = gesture.spaceGlideMultiWord &&
         gesture.apostropheKey != GlideApostropheKey.SPACE
+    // Drawing through the shift key capitalizes the word the stroke is writing
+    // (#115). Read live for the same reason the apostrophe key is: the stroke's
+    // loop outlives this composition.
+    val capitalGlide = rememberUpdatedState(gesture.shiftGlideCapitals)
     // Stamp of the last tap-typed key (uptime ms). A glide starting within
     // [cooldownMs] of it has to travel further before it takes over, so a stray
     // slide off a key during fast tapping is not misread as a swipe-word. Held
@@ -11757,6 +11779,14 @@ private fun KeyRows(
                     @Suppress("DoubleMutabilityForCollection")
                     var seg = ArrayList<GesturePoint>()
                     var wasOverSpace = false
+                    // The shift key's cell, read once as the stroke starts, and
+                    // whether the finger is inside it now. Drawing through it
+                    // capitalizes the word (#115): one crossing for a capital,
+                    // two for a shout, counted on the way in so a slow drag
+                    // across the key is still one crossing.
+                    var shiftRect: Rect? = null
+                    var wasOverShift = false
+                    var shiftCrossings = 0
                     // The key whose word a flick off this stroke would take,
                     // and its centre. Null when nothing is floating there.
                     var flickAnchor: Pair<Int, Offset>? = null
@@ -11890,6 +11920,14 @@ private fun KeyRows(
                             } else {
                                 null
                             }
+                            // Read with the grid, and only when the stroke could
+                            // use it: one table walk per glide rather than one
+                            // per pointer sample.
+                            shiftRect = if (capitalGlide.value) {
+                                liveRects.value.cellOf(KeyAction.Shift)
+                            } else {
+                                null
+                            }
                             // Built once per stroke, from the layout rather than
                             // the measured map alone: a key's shifted and
                             // long-pressed characters have no centre of their
@@ -11924,13 +11962,22 @@ private fun KeyRows(
                             // touch point into root space to test it.
                             val overSpace = spaceGlide &&
                                 spaceRect.value?.contains(change.position + boxOrigin) == true
+                            // Crossing the shift key asks for a capital. Its
+                            // points are dropped from the word for the same
+                            // reason the spacebar's are: the detour is an
+                            // instruction, not letters, and decoding it would
+                            // spell whatever lies between the word and the key.
+                            val overShift =
+                                shiftRect?.contains(change.position + boxOrigin) == true
+                            if (overShift && !wasOverShift) shiftCrossings++
+                            wasOverShift = overShift
                             if (overSpace) {
                                 if (!wasOverSpace && seg.size >= 3) {
                                     segments.add(seg)
                                     seg = ArrayList()
                                     previewedSeg = false
                                 }
-                            } else {
+                            } else if (!overShift) {
                                 seg.add(
                                     GesturePoint(
                                         change.position.x,
@@ -11994,7 +12041,12 @@ private fun KeyRows(
                         // the decoder's own first choice, so an ignored picker
                         // costs nothing.
                         val wasOpen = picker.isOpen
-                        val verdict = picker.verdict()
+                        // The shift crossings ride with the picker's answer
+                        // rather than on a callback of their own: the lift has
+                        // one more thing to say about the word, and
+                        // ServiceKeyboardContent has no room for another
+                        // parameter (see [GlideVerdict]).
+                        val verdict = picker.verdict().withCapitals(shiftCrossings)
                         picker.close()
                         // A picker opens on a preview, and a preview needs only
                         // three points, so a frozen last segment is committed

@@ -363,6 +363,9 @@
     <string name="typing_space_glide_multiword_title">Glide across the spacebar</string>
     <string name="typing_space_glide_multiword_subtitle">Swipe over the spacebar to continue with the next word</string>
     <string name="typing_space_glide_multiword_info">Keep your finger down. Glide a word, swipe across the spacebar, then glide the next word. Each crossing types the word and a space, so one stroke gives a full phrase. When this setting is off, a swipe across the spacebar makes one word.</string>
+    <string name="typing_shift_glide_capitals_title">Glide over Shift to capitalize</string>
+    <string name="typing_shift_glide_capitals_subtitle">Draw through the Shift key mid-swipe for a capital letter</string>
+    <string name="typing_shift_glide_capitals_info">Gliding a name meant stopping to tap Shift first, which breaks the stroke. With this on, draw through the Shift key on your way and the word comes out capitalized; cross it twice and the whole word is in capitals. The key has to actually be crossed, and its part of the path is ignored when the word is read, so the detour never adds a letter.</string>
 
     <string name="typing_glide_picker_title">Ask when a glide is unclear</string>
     <string name="typing_glide_picker_subtitle">Hold your finger still to choose between the closest words</string>

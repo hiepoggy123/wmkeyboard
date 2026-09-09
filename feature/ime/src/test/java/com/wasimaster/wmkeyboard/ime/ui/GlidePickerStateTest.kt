@@ -35,7 +35,7 @@ class GlidePickerStateTest {
         picker.track(500f, 320f, CANCEL_BELOW)
         assertEquals(-1, picker.hover)
         assertNull("lifting away from the picker must commit the decoder's own choice", picker.picked())
-        assertEquals(GlideVerdict.Leader, picker.verdict())
+        assertEquals(GlideVerdict.Leader(), picker.verdict())
     }
 
     @Test
@@ -129,7 +129,7 @@ class GlidePickerStateTest {
     fun `a picker that never opened answers leader`() {
         val picker = GlidePickerState()
         assertFalse(picker.isOpen)
-        assertEquals(GlideVerdict.Leader, picker.verdict())
+        assertEquals(GlideVerdict.Leader(), picker.verdict())
     }
 
     @Test
@@ -142,7 +142,7 @@ class GlidePickerStateTest {
         assertTrue(picker.words.isEmpty())
         assertNull(picker.picked())
         assertFalse(picker.cancelling)
-        assertEquals(GlideVerdict.Leader, picker.verdict())
+        assertEquals(GlideVerdict.Leader(), picker.verdict())
         assertEquals(-1, picker.targetAt(20f, 320f))
     }
 

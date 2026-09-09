@@ -157,11 +157,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Settle before learning — Nothing reaches the dictionary while the text is still moving
     - Every committed word queues — 500-word buffer, one field, memory only, never written out
     - Counted at the flush points — Keyboard closed, message sent, field cleared, another field, buffer full
-    - The caret going back drops it — Backspacing over the word, tapping in to edit, re-picking a swipe; a glide that read the wrong word never counts
+    - The caret going back drops the word it lands in — Backspacing over the word, tapping in to edit, re-picking a swipe; a glide that read the wrong word never counts
+    - The words it jumped over settle instead — Going back to fix one line says nothing about the rest, so a proofreading pass counts the text it left alone rather than discarding the session
     - A dropped word is remembered for pairing — The word committed in its place, within a slip's distance, carries it as a suspected fix; confirmed against the field at the flush before anything is taught
     - Known words need one settled use, unknown ones three — The unknown count is the "Remember a new word after" setting
     - Deleting a word drops its queued copy — Otherwise the flush writes back what the user just removed
     - Add-by-hand and the Add chip skip the queue — The user answered directly instead of by leaving text alone
+    - An added word is not counted twice — The commit that finishes the word just added by hand adds nothing on top of it
+    - One count per word per place — The same word rewritten in place is one use, not one per pass
   - Per-app recent-word overlay `uncommon` — Words recently typed in this app get a ln(1.3) ranking edge
 - **Context ranking** `uncommon` — Layered n-gram evidence over the walk's frequency order
   - In-strip context boost `uncommon` — Bounded log-space bonus on candidates the context knows
@@ -330,6 +333,9 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Multi-word glide across the spacebar `uncommon` — One unbroken stroke crossing space commits several words; spacebar points anchor no letter and are dropped
     - Sequential context — Each segment decoded after the previous one is committed and learned, so word 2 sees word 1 as context
     - Toggleable — Off makes a spacebar-crossing stroke decode as one word
+  - Capitalize by gliding over Shift `uncommon` — Drawing through the Shift key mid-stroke capitalizes the word, twice shouts it; the key's points are dropped from the word the way the spacebar's are, so the detour spells nothing
+    - The one capital a swipe can teach — A capital the decoder chose is never case evidence; a capital the finger drew is
+  - Readings kept for proofreading — The last dozen swiped words keep their stroke's other readings; putting the caret back on one puts them in front of the strip, and taking one counts as a correction of that stroke
   - Swipe style learning `RARE` — Everything a kept swipe teaches apart from the word itself, behind one switch and one Forget; off freezes it, Forget deletes it without touching learned words
     - Hand adaptation — Kept swipes teach where the finger really lands on each key; later swipes decode against a grid moved to match (KeyOffsets)
     - Keyed by position, not letter — Half-key cells, so layouts with the same geometry share what either learned; a barely-swiped key follows the whole hand's mean

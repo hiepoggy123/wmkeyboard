@@ -4199,6 +4199,21 @@ data class GestureSettings(
      */
     val spaceGlideMultiWord: Boolean = true,
     /**
+     * Passing over the shift key mid-glide capitalizes the word, so a proper
+     * noun can be swiped without stopping to tap shift first (#115).
+     *
+     * Gesture typing has no way to say "capital" without leaving the stroke:
+     * tapping shift, then swiping, is two gestures for one word, and it is the
+     * flow-breaking step that made people give up on capitalizing swiped words
+     * at all. This is Swype's answer — draw through the shift key on the way
+     * and carry on — and it costs nothing when unused: the key has to actually
+     * be crossed, and its points are dropped from the word the way the
+     * spacebar's are, so the detour never spells anything.
+     *
+     * Crossing it twice shouts the word, exactly as tapping shift twice does.
+     */
+    val shiftGlideCapitals: Boolean = true,
+    /**
      * When a swipe is genuinely ambiguous, ask instead of committing.
      *
      * Some strokes have no right answer: on a fixed Bengali layout ক and খ share
@@ -5557,6 +5572,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_TYPING = booleanPreferencesKey("gesture_typing")
         private val LETTER_SWIPE_ACTION = stringPreferencesKey("letter_swipe_action")
         private val GESTURE_SPACE_MULTI_WORD = booleanPreferencesKey("gesture_space_multi_word")
+        private val GESTURE_SHIFT_CAPITALS = booleanPreferencesKey("gesture_shift_capitals")
         private val GESTURE_AMBIGUITY_PICKER = booleanPreferencesKey("gesture_ambiguity_picker")
         private val GESTURE_PICKER_DWELL_MS = intPreferencesKey("gesture_picker_dwell_ms")
         private val GESTURE_PICKER_SENSITIVITY = stringPreferencesKey("gesture_picker_sensitivity")
@@ -6578,6 +6594,7 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.letterSwipeAction,
             gesture = GestureSettings(
                 spaceGlideMultiWord = p[GESTURE_SPACE_MULTI_WORD] ?: defaults.gesture.spaceGlideMultiWord,
+                shiftGlideCapitals = p[GESTURE_SHIFT_CAPITALS] ?: defaults.gesture.shiftGlideCapitals,
                 ambiguityPicker = p[GESTURE_AMBIGUITY_PICKER] ?: defaults.gesture.ambiguityPicker,
                 // Coerced on the way in as well as on the way out: a value
                 // restored from an edited backup must never index past the
@@ -10721,6 +10738,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureSpaceMultiWord(value: Boolean) =
         editPrefs { it[GESTURE_SPACE_MULTI_WORD] = value }
+
+    suspend fun setGestureShiftCapitals(value: Boolean) =
+        editPrefs { it[GESTURE_SHIFT_CAPITALS] = value }
 
     suspend fun setGestureAmbiguityPicker(value: Boolean) =
         editPrefs { it[GESTURE_AMBIGUITY_PICKER] = value }

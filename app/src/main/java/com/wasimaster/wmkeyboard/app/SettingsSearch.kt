@@ -414,6 +414,7 @@ private fun SearchStrings.typingGesturesRows(): List<SettingsSearchEntry> {
         row(R.string.typing_glide_swipe_style_title, R.string.typing_glide_swipe_style_subtitle),
         row(R.string.typing_glide_swipe_style_forget),
         row(R.string.typing_space_glide_multiword_title, R.string.typing_space_glide_multiword_subtitle),
+        row(R.string.typing_shift_glide_capitals_title, R.string.typing_shift_glide_capitals_subtitle),
         row(R.string.typing_space_after_glide_title, R.string.typing_space_after_glide_subtitle),
         row(R.string.typing_glide_apostrophe_title, R.string.typing_glide_apostrophe_subtitle),
         row(R.string.typing_glide_apostrophe_s_title, R.string.typing_glide_apostrophe_s_subtitle),

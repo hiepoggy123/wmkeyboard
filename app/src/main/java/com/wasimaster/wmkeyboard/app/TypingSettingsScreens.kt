@@ -1504,6 +1504,15 @@ internal fun TypingGesturesSettings(
                 }
                 item {
                     ToggleSetting(
+                        R.string.typing_shift_glide_capitals_title,
+                        stringResource(R.string.typing_shift_glide_capitals_subtitle),
+                        settings.gesture.shiftGlideCapitals,
+                        info = stringResource(R.string.typing_shift_glide_capitals_info),
+                        default = SettingsDefaults.gesture.shiftGlideCapitals,
+                    ) { scope.launch { repository.setGestureShiftCapitals(it) } }
+                }
+                item {
+                    ToggleSetting(
                         R.string.typing_glide_picker_title,
                         stringResource(R.string.typing_glide_picker_subtitle),
                         settings.gesture.ambiguityPicker,

@@ -35,12 +35,16 @@ enum class WordOrigin { TYPED, GLIDE, PICK, OCTOPUS }
  * Settling is decided by two signals, both cheap enough to run on the typing
  * path because neither reads the field:
  *
- * * **The caret going back.** Each entry remembers where the caret came to
- *   rest after its commit ([Entry.anchor], filled in from the commit's own
- *   selection echo). A later caret anywhere in front of that anchor means the
- *   user has gone back into that text, so the entry is dropped — whatever they
- *   are doing there, the word is no longer something they typed and left
- *   alone.
+ * * **The caret going back into a word.** Each entry remembers where the caret
+ *   came to rest after its commit ([Entry.anchor], filled in from the commit's
+ *   own selection echo). A later caret inside that word — or against either of
+ *   its edges — means the user has gone back into it, so the entry is dropped:
+ *   whatever they are doing there, the word is no longer something they typed
+ *   and left alone. A caret that lands *short* of a word without touching it
+ *   settles that word instead of dropping it. Going back to fix the first line
+ *   of a document says nothing about the paragraph below it, and dropping
+ *   everything in front of the caret meant a session spent proofreading taught
+ *   the keyboard nothing at all (#115).
  * * **Leaving the text.** The keyboard closing, the field being sent or
  *   cleared, or moving to another field all mean the words that survived are
  *   the user's final answer. The caller [drain]s at those points.
@@ -141,6 +145,24 @@ class LearningBuffer(private val capacity: Int = DEFAULT_CAPACITY) {
             internal set
     }
 
+    /**
+     * What one caret move decided about the words waiting here.
+     *
+     * [dropped] are the ones the caret went back *into* — unlearned, kept a
+     * while for pairing with whatever replaces them. [settled] are the ones it
+     * jumped clean over: text the user left alone and is not editing, whose
+     * anchors this move has just made unreliable, so they leave the queue
+     * counting rather than leave it discarded.
+     */
+    class Caret internal constructor(
+        val dropped: List<Dropped>,
+        val settled: List<Entry>,
+    ) {
+        internal companion object {
+            val NOTHING = Caret(emptyList(), emptyList())
+        }
+    }
+
     /** A word the caret went back into, kept for pairing with its replacement. */
     class Dropped internal constructor(
         val word: String,
@@ -200,34 +222,41 @@ class LearningBuffer(private val capacity: Int = DEFAULT_CAPACITY) {
     }
 
     /**
-     * The caret was reported at [caret]. Returns the entries it dropped.
+     * The caret was reported at [caret]. Returns what the move decided.
      *
-     * Anchors every entry still waiting for its commit echo, then drops the
-     * ones the caret has moved in front of. A collapsed caret is the only kind
-     * that anchors: a range selection is a selection, not a resting place, and
-     * anchoring to it would leave entries pointing at text about to be
-     * replaced.
+     * Anchors every entry still waiting for its commit echo, then judges the
+     * ones the caret has moved in front of. The word the caret landed in is
+     * dropped; the words beyond it are settled, because a caret that never
+     * touched them says they were typed and left alone, and their anchors are
+     * about to be invalidated by whatever is typed here. A collapsed caret is
+     * the only kind that anchors: a range selection is a selection, not a
+     * resting place, and anchoring to it would leave entries pointing at text
+     * about to be replaced.
      */
-    fun onCaret(caret: Int): List<Dropped> {
-        if (caret < 0 || entries.isEmpty()) return emptyList()
+    fun onCaret(caret: Int): Caret {
+        if (caret < 0 || entries.isEmpty()) return Caret.NOTHING
         // Anchors only ever grow, so the newest one answers for all of them:
         // a caret at or past it is ordinary forward typing, which is every
         // keystroke. This runs on the typing path, so that case does no work.
         val newest = entries.last().anchor
-        if (newest != UNANCHORED && caret >= newest) return emptyList()
-        // Drop first, anchor second: an entry pushed but not yet anchored is
-        // the word this very update belongs to, and it must not be dropped by
+        if (newest != UNANCHORED && caret >= newest) return Caret.NOTHING
+        // Judge first, anchor second: an entry pushed but not yet anchored is
+        // the word this very update belongs to, and it must not be judged by
         // its own echo.
         val dropped = ArrayList<Dropped>()
+        val settled = ArrayList<Entry>()
         val iterator = entries.iterator()
         while (iterator.hasNext()) {
             val entry = iterator.next()
-            if (entry.anchor != UNANCHORED && entry.anchor > caret) {
+            if (entry.anchor == UNANCHORED || entry.anchor <= caret) continue
+            if (touchedBy(entry, caret)) {
                 val d = Dropped(entry.word, entry.anchor, entry.origin, entry.replaces, pushes)
                 dropped.add(d)
                 remember(d)
-                iterator.remove()
+            } else {
+                settled.add(entry)
             }
+            iterator.remove()
         }
         for (entry in entries) {
             if (entry.anchor == UNANCHORED) {
@@ -235,8 +264,23 @@ class LearningBuffer(private val capacity: Int = DEFAULT_CAPACITY) {
                 pairWithDropped(entry)
             }
         }
-        return dropped
+        return if (dropped.isEmpty() && settled.isEmpty()) {
+            Caret.NOTHING
+        } else {
+            Caret(dropped, settled)
+        }
     }
+
+    /**
+     * Whether [caret] landed in [entry]'s own word rather than somewhere in
+     * front of it. The word runs back from its anchor by its own length, and
+     * either edge counts: a caret against the first letter is a user about to
+     * type in front of the word, which is as much an edit of it as a caret in
+     * the middle. [ANCHOR_SLACK] covers the trailing space an editor may or
+     * may not have included in the anchor.
+     */
+    private fun touchedBy(entry: Entry, caret: Int): Boolean =
+        caret >= entry.anchor - entry.word.length - ANCHOR_SLACK
 
     /**
      * Ties [sample], the glide that committed [word], to the newest copy of

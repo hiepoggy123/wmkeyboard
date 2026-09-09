@@ -470,6 +470,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
@@ -485,6 +486,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.abs
 import kotlin.math.roundToInt
 import java.util.Calendar
 import java.util.EnumMap
@@ -590,6 +592,46 @@ open class WMKeyboardService : InputMethodService() {
 
     /** What the last caret echo dropped from [learningBuffer], for [revisionOriginOf]. */
     private var lastDropped: List<LearningBuffer.Dropped> = emptyList()
+
+    /**
+     * The word the user has just put into their dictionary by hand, folded
+     * with [WordKey.of], until the commit that finishes it goes past.
+     *
+     * Adding a word and then committing it is one event, not two: the chip is
+     * tapped while the word is still composing, and the space that follows is
+     * what the user was going to type anyway. Counting both put the word in at
+     * its full added weight *and* a use on top, so the personal dictionary
+     * showed it as typed one more time than it had been, every single time
+     * (#115). Cleared by the next commit, whichever word that is.
+     */
+    private var handAddedWord: String? = null
+
+    /**
+     * The words each recent glide *also* read, kept against the word it
+     * committed and folded with [WordKey.of].
+     *
+     * Proofreading a swiped word is the one place the strip has nothing useful
+     * to say: it re-reads the word standing in the field and offers spellings
+     * of *that*, so a stroke read as "form" offers "forms" and "fort" when what
+     * the user drew was "from". The readings are what the finger actually said,
+     * and they are already computed, so they are kept here and put back in
+     * front when the caret returns to the word (#115). Insertion-ordered and
+     * capped at [GLIDE_RECALL_WORDS]; per field, since the words are about text
+     * in this one.
+     */
+    private val glideReadings = LinkedHashMap<String, List<String>>()
+
+    /**
+     * The word the caret was put back into and re-armed as the composing
+     * buffer, for as long as the buffer is still that word being edited.
+     *
+     * Only a word the user went *back* to gets its glide's other readings on
+     * the strip: offering them while a word is being typed forward would put
+     * them there on the way past. It needs no clearing — the strip consults it
+     * only while the buffer is still a prefix of it, so typing on past the word
+     * ends it and so does the commit that empties the buffer.
+     */
+    private var resumedWord: String? = null
 
     /**
      * The word the "add to dictionary?" chip is currently asking about, when
@@ -2757,6 +2799,7 @@ open class WMKeyboardService : InputMethodService() {
                     (settings.incognito && settings.incognitoPausesLearning)
                 ) {
                     learningBuffer.clear()
+                    glideReadings.clear()
                     revision = null
                     clearLearnOffer()
                 }
@@ -6805,6 +6848,7 @@ open class WMKeyboardService : InputMethodService() {
         // Whatever the caret was sitting in before this update, it is being
         // answered again from scratch below.
         clearCaretWord()
+        resumedWord = null
         caretSettleJob?.cancel()
         caretSettleJob = null
         // The caret settling right after a swipe is the commit's own echo:
@@ -6901,6 +6945,9 @@ open class WMKeyboardService : InputMethodService() {
                 ) {
                     composing = StringBuilder(word)
                     composingCaseTrusted = false
+                    // Went back to this word: if a glide wrote it, the strip
+                    // offers that stroke's other readings (#115).
+                    resumedWord = word
                     armComposingRevision(word, newSelStart)
                     val ahead = before.subSequence(0, before.length - word.length)
                     setContextFrom(ahead)
@@ -9102,6 +9149,9 @@ open class WMKeyboardService : InputMethodService() {
         // untrusted spelling is filed in lower case (#44), where a later
         // deliberate "Boston" can still teach it.
         val spelling = if (trusted) word else word.lowercase()
+        // Answered by hand, so the commit that finishes the word adds nothing
+        // to it — see [handAddedWord] (#115).
+        handAddedWord = WordKey.of(word)
         userLexicon.addWord(spelling, caseEvidence = trusted)
         if (_uiState.value.settings.addWordsToSystemDictionary) {
             serviceScope.launch(Dispatchers.IO) {
@@ -9994,6 +10044,11 @@ open class WMKeyboardService : InputMethodService() {
         // The pattern gate follows what went into the field, not what the
         // lexicon was allowed to keep, so it is fed on both paths.
         for (part in parts) pushRecentWord(part)
+        // Spent by this commit whatever it turns out to be about: the guard is
+        // for the space that finishes the word the user just added by hand, and
+        // one commit later it has nothing left to say.
+        val added = handAddedWord
+        handAddedWord = null
         // A chip asking about the *previous* word has been overtaken: the user
         // typed on rather than answering, which is the answer. Cleared before
         // the gate below so it never outlives the word it was about.
@@ -10031,6 +10086,11 @@ open class WMKeyboardService : InputMethodService() {
             // in the waiting room: learning it would only put it back in the
             // personal dictionary the user just took it out of (#48).
             val blacklisted = cleaned.lowercase() in state.settings.suggestionSources.blacklist
+            // Put into the dictionary by hand a moment ago: this commit is the
+            // same event finishing, not a use of it (#115). The n-grams below
+            // still run — the word did land in the field, and the phrase it
+            // landed in is real context.
+            val byHand = added != null && WordKey.of(cleaned) == added
             val known = !blacklisted && isKnownWord(cleaned)
             if (known) {
                 // Counted only once the text it landed in settles — see
@@ -10038,13 +10098,15 @@ open class WMKeyboardService : InputMethodService() {
                 // they hang off words already in the dictionary either way, and
                 // the context they need is the run of words being committed
                 // right now, which the buffer does not keep.
-                noteKnownWord(
-                    cleaned, reinforcement, state, caseTrusted, origin,
-                    replaces = replaces.takeIf { last },
-                    typed = (typed ?: cleaned).takeIf { single } ?: cleaned,
-                    taps = taps.takeIf { single },
-                    keys = keys,
-                )
+                if (!byHand) {
+                    noteKnownWord(
+                        cleaned, reinforcement, state, caseTrusted, origin,
+                        replaces = replaces.takeIf { last },
+                        typed = (typed ?: cleaned).takeIf { single } ?: cleaned,
+                        taps = taps.takeIf { single },
+                        keys = keys,
+                    )
+                }
                 if (previousKnown) {
                     previous?.let { prev ->
                         userLexicon.learnBigram(prev, cleaned)
@@ -10053,7 +10115,7 @@ open class WMKeyboardService : InputMethodService() {
                         }
                     }
                 }
-            } else if (!blacklisted && state.composer.isPlausibleWord(cleaned)) {
+            } else if (!byHand && !blacklisted && state.composer.isPlausibleWord(cleaned)) {
                 // Nothing recognises this word. It goes into the waiting room
                 // instead of the dictionary, and only earns its way in once
                 // the user has typed it — and left it alone — enough times.
@@ -10178,8 +10240,9 @@ open class WMKeyboardService : InputMethodService() {
      * Counts words whose text has settled, promoting any that have now been
      * seen enough times.
      */
-    private fun settleLearned(entries: List<LearningBuffer.Entry>, verify: Boolean = false) {
-        if (entries.isEmpty()) return
+    private fun settleLearned(queued: List<LearningBuffer.Entry>, verify: Boolean = false) {
+        if (queued.isEmpty()) return
+        val entries = oneEntryPerInstance(queued)
         val settings = _uiState.value.settings
         val threshold = settings.suggestionStrip.newWordSightings.coerceAtLeast(1)
         // One bounded read of the field, only if a positional suspect needs it
@@ -10224,6 +10287,38 @@ open class WMKeyboardService : InputMethodService() {
             }
         }
     }
+
+    /**
+     * [queued] with the same word committed twice in the same place folded
+     * into one — the newest copy, which carries the newest evidence.
+     *
+     * Going back to a word and finishing it again is the user proofreading one
+     * word, not typing it twice, and the personal dictionary counting each pass
+     * was the complaint in #115. The caret rule catches most of it by dropping
+     * the earlier copy as the caret goes back in; this covers the editors whose
+     * selection echoes coalesce, where both copies reach the flush.
+     *
+     * Judged by anchor, not by spelling alone: "very very" is two words, and
+     * their anchors are a word apart. Only copies that end at the same offset —
+     * the same instance rewritten in place — are the same use.
+     */
+    private fun oneEntryPerInstance(
+        queued: List<LearningBuffer.Entry>,
+    ): List<LearningBuffer.Entry> {
+        if (queued.size < 2) return queued
+        val kept = ArrayList<LearningBuffer.Entry>(queued.size)
+        for (entry in queued) {
+            val at = kept.indexOfLast { sameInstance(it, entry) }
+            if (at >= 0) kept[at] = entry else kept.add(entry)
+        }
+        return kept
+    }
+
+    /** Whether two queued words are the same word in the same place. */
+    private fun sameInstance(a: LearningBuffer.Entry, b: LearningBuffer.Entry): Boolean =
+        a.anchor >= 0 && b.anchor >= 0 &&
+            abs(a.anchor - b.anchor) <= LearningBuffer.ANCHOR_SLACK &&
+            WordKey.of(a.word) == WordKey.of(b.word)
 
     /**
      * A recognised word has settled: count it, at the weight its commit
@@ -10287,6 +10382,9 @@ open class WMKeyboardService : InputMethodService() {
     private fun flushLearningBuffer(verifyCorrections: Boolean = true) {
         settleLearned(learningBuffer.drain(), verify = verifyCorrections)
         judgeCorrections(correctionWatch.drain(), verify = verifyCorrections)
+        // The readings are about words in this text, and this text is finished.
+        glideReadings.clear()
+        resumedWord = null
     }
 
     /**
@@ -10703,7 +10801,15 @@ open class WMKeyboardService : InputMethodService() {
             flushLearningBuffer()
             return
         }
-        lastDropped = learningBuffer.onCaret(selStart)
+        val moved = learningBuffer.onCaret(selStart)
+        lastDropped = moved.dropped
+        // Words the caret jumped clean over on its way back are not being
+        // edited: the user has left them and is working somewhere else in the
+        // same text, so they count now rather than being thrown away with the
+        // one word that is actually being looked at (#115). Unverified, because
+        // this is a caret move and a positional suspect is not worth a blocking
+        // read of the field here — see [settleLearned].
+        settleLearned(moved.settled)
         correctionWatch.onCaret(selStart)
     }
 
@@ -11775,8 +11881,19 @@ open class WMKeyboardService : InputMethodService() {
                     } else {
                         emptyList()
                     }
+                    // A word the caret went back into that a glide had written:
+                    // that stroke's other readings go in front of the strip's
+                    // own answer, which is about the letters standing there and
+                    // so cannot reach the word the finger actually drew (#115).
+                    // Only while the buffer is still that word — a prefix of it,
+                    // so deleting a letter to fix it keeps them and typing on
+                    // past it does not.
+                    val resumed = resumedWord
+                        ?.takeIf { it.startsWith(typed, ignoreCase = true) }
+                    val strip = dropTyped(words)
                     SuggestionFrame(
-                        dropTyped(words), emojis, bias,
+                        resumed?.let { withGlideReadings(it, strip) } ?: strip,
+                        emojis, bias,
                         octopusFor(state, typed, keyFrame, pool = pool),
                     )
                 } else {
@@ -11899,7 +12016,7 @@ open class WMKeyboardService : InputMethodService() {
         commitResolution = null
         val recentSnapshot = recentWords.toList()
         suggestionJob = serviceScope.launch {
-            val results = withContext(Dispatchers.Default) {
+            val suggested = withContext(Dispatchers.Default) {
                 engine.suggest(
                     composing = word,
                     previousWord = previousWord,
@@ -11908,6 +12025,10 @@ open class WMKeyboardService : InputMethodService() {
                     allowRerank = true,
                 ).filterNot { it.equals(word, ignoreCase = true) }
             }
+            // A caret dropped on a swiped word is the user reading it back, and
+            // what they want there is the swipe's other readings rather than
+            // respellings of the one it picked (#115).
+            val results = withGlideReadings(word, suggested)
             _uiState.update {
                 it.copy(
                     suggestions = results,
@@ -12040,6 +12161,13 @@ open class WMKeyboardService : InputMethodService() {
             // The word under the caret, replaced whole from the strip, is an
             // exact fix of it; whatever was following it by hand is overtaken.
             revision = null
+            // One of the glide's own rejected readings, taken while reading
+            // the text back: the same preference a pick right after the swipe
+            // teaches (#115).
+            if (suggestion in glideReadingsFor(caret.word)) {
+                noteGlidePreference(rejected = caret.word, chosen = suggestion)
+                glideReadings.remove(WordKey.of(caret.word))
+            }
             val fix = Revision(caret.word, suggestion, wordStart + suggestion.length)
             learn(
                 suggestion,
@@ -12150,6 +12278,16 @@ open class WMKeyboardService : InputMethodService() {
         recordStat { onWordsCommitted(suggestion.split(' ').size, System.currentTimeMillis()) }
         // A one-shot shift is spent by the pick, the same as by a typed letter.
         consumeShift()
+        // A reading the glide that wrote this word had offered and lost with:
+        // taking it now is the clearest statement there is about that stroke,
+        // and it is the same preference a pick straight after the swipe teaches
+        // (issue #52) — only made while proofreading instead (#115).
+        resumedWord?.let { came ->
+            if (suggestion in glideReadingsFor(came)) {
+                noteGlidePreference(rejected = came, chosen = suggestion)
+                glideReadings.remove(WordKey.of(came))
+            }
+        }
         // Deliberately picked from the strip — a stronger signal than a
         // word that merely got committed. Learn the base word, not the
         // shift-cased form, so caps lock never teaches "HELLO" to the lexicon.
@@ -12171,7 +12309,8 @@ open class WMKeyboardService : InputMethodService() {
             learn(
                 suggestion,
                 reinforcement = 2,
-                caseTrusted = composing.isNotEmpty() && composingCaseTrusted,
+                caseTrusted = composing.isNotEmpty() && composingCaseTrusted &&
+                    typedCarriesCase(composing, suggestion),
                 origin = WordOrigin.PICK,
                 replaces = replaces,
                 typed = composing.toString(),
@@ -12243,7 +12382,8 @@ open class WMKeyboardService : InputMethodService() {
         learn(
             word,
             reinforcement = 2,
-            caseTrusted = composing.isNotEmpty() && composingCaseTrusted,
+            caseTrusted = composing.isNotEmpty() && composingCaseTrusted &&
+                typedCarriesCase(composing, word),
             origin = WordOrigin.OCTOPUS,
             typed = composing.toString(),
             taps = composingTouchFrame(),
@@ -13156,7 +13296,7 @@ open class WMKeyboardService : InputMethodService() {
          * alternates still reach the strip with it in front. A
          * [GlideVerdict.Cancel] types nothing.
          */
-        verdict: GlideVerdict = GlideVerdict.Leader,
+        verdict: GlideVerdict = GlideVerdict.Leader(),
     ) {
         stopVoiceForManualInput()
         val state = _uiState.value
@@ -13172,7 +13312,7 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
 
-        val shiftAtGesture = state.shiftState
+        val shiftAtGesture = shiftForGlide(state.shiftState, verdict.capitals)
         // Retires every preview from this stroke, in flight or queued.
         gestureGeneration.incrementAndGet()
         suggestionJob?.cancel()
@@ -13222,58 +13362,185 @@ open class WMKeyboardService : InputMethodService() {
             if (candidates.isEmpty() && chosen == null) return@launch
             val ic = currentInputConnection ?: return@launch
 
-            // The tapped word this glide is finishing gets the same treatment
-            // a space would have given it: without this a tapped "i" followed
-            // by a glided word committed in lower case, because the glide's own
-            // space never goes through onSpace (#46).
-            commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoText.apostrophe)
-            // Lifting on a picker word that was not the leader is a pick over
-            // the leader, remembered against the pair (issue #52).
-            if (chosen != null && candidates.isNotEmpty() && chosen != candidates.first()) {
-                noteGlidePreference(rejected = candidates.first(), chosen = chosen)
-            }
-            // An explicit pick beats everything. Otherwise the word on
-            // screen wins the lift while the finished stroke still ranks it
-            // near its own leader, so what was shown is what gets typed.
-            val picked = chosen
-                ?: previewGate.commit(
-                    candidates, reading.scores, state.settings.gesture.previewSteadiness,
+            // Everything from here writes into the field, and a half-written
+            // glide is worse than a slow one, so this half of the job is not
+            // cancellable. An editor restarting its input connection cancels
+            // this job outright (see [onStartInputView]) and Compose text
+            // fields restart theirs freely — which is how a glide into the
+            // keyboard's own "add word" and search boxes came to decode, fill
+            // the strip and type nothing at all (#115). The decode above is
+            // still cancellable, which is what that cancel is really for.
+            withContext(NonCancellable) {
+                // The tapped word this glide is finishing gets the same treatment
+                // a space would have given it: without this a tapped "i" followed
+                // by a glided word committed in lower case, because the glide's own
+                // space never goes through onSpace (#46).
+                commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoText.apostrophe)
+                // Lifting on a picker word that was not the leader is a pick over
+                // the leader, remembered against the pair (issue #52).
+                if (chosen != null && candidates.isNotEmpty() && chosen != candidates.first()) {
+                    noteGlidePreference(rejected = candidates.first(), chosen = chosen)
+                }
+                // An explicit pick beats everything. Otherwise the word on
+                // screen wins the lift while the finished stroke still ranks it
+                // near its own leader, so what was shown is what gets typed.
+                val picked = chosen
+                    ?: previewGate.commit(
+                        candidates, reading.scores, state.settings.gesture.previewSteadiness,
+                    )
+                    ?: candidates.first()
+                val strip = if (chosen != null) glideStripOrder(candidates, chosen) else candidates
+                val word = when (shiftAtGesture) {
+                    ShiftState.CAPS_LOCK -> picked.uppercase()
+                    ShiftState.ON -> picked.replaceFirstChar { it.uppercase() }
+                    ShiftState.OFF -> picked
+                }
+                commitGestureLeadingSpace(ic, state)
+                ic.commitText(word, 1)
+                recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
+                learn(
+                    word,
+                    caseTrusted = glideCaseTrusted(shiftAtGesture, state, verdict.capitals),
+                    origin = WordOrigin.GLIDE,
                 )
-                ?: candidates.first()
-            val strip = if (chosen != null) glideStripOrder(candidates, chosen) else candidates
-            val word = when (shiftAtGesture) {
-                ShiftState.CAPS_LOCK -> picked.uppercase()
-                ShiftState.ON -> picked.replaceFirstChar { it.uppercase() }
-                ShiftState.OFF -> picked
+                // What the stroke could have been, kept against the word it
+                // became, so coming back to this word offers the swipe's own
+                // readings instead of spellings of the word standing there (#115).
+                rememberGlideReading(word, strip)
+                // The stroke's shape rides with the word in the learning buffer
+                // and reaches the shape store only when the word settles; the
+                // hand model learns on the spot and retracts on undo instead.
+                val (hand, shape) = withContext(Dispatchers.Default) {
+                    learnHand(points, keys, keyWidthPx, word) to sampleGlideShape(points, keys, keyWidthPx, word)
+                }
+                if (shape != null) learningBuffer.attachGlide(word, shape)
+                lastGestureWord = word
+                lastGestureStroke = GlideStroke(points, keys, keyWidthPx, shape)
+                lastHandAdjustment = hand
+                commitGestureSpace(ic, state)
+                armRevertGuard()
+                consumeShift()
+                val floating = nextWordOctopus()
+                _uiState.update { it.copy(suggestions = strip, octopus = floating) }
             }
-            commitGestureLeadingSpace(ic, state)
-            ic.commitText(word, 1)
-            recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
-            // Caps lock never teaches a spelling — it says the letters are
-            // upper case, not that the word is — and neither does the shift
-            // auto-capitalize armed at a sentence start.
-            learn(
-                word,
-                caseTrusted = shiftAtGesture == ShiftState.OFF ||
-                    (shiftAtGesture == ShiftState.ON && state.shiftPressedByUser),
-                origin = WordOrigin.GLIDE,
-            )
-            // The stroke's shape rides with the word in the learning buffer
-            // and reaches the shape store only when the word settles; the
-            // hand model learns on the spot and retracts on undo instead.
-            val (hand, shape) = withContext(Dispatchers.Default) {
-                learnHand(points, keys, keyWidthPx, word) to sampleGlideShape(points, keys, keyWidthPx, word)
-            }
-            if (shape != null) learningBuffer.attachGlide(word, shape)
-            lastGestureWord = word
-            lastGestureStroke = GlideStroke(points, keys, keyWidthPx, shape)
-            lastHandAdjustment = hand
-            commitGestureSpace(ic, state)
-            armRevertGuard()
-            consumeShift()
-            val floating = nextWordOctopus()
-            _uiState.update { it.copy(suggestions = strip, octopus = floating) }
         }
+    }
+
+    /**
+     * Keeps [readings] — what the stroke that committed [word] also had to
+     * offer — for as long as the user might come back to that word.
+     *
+     * A single reading teaches nothing (there was no other answer), so it is
+     * not kept.
+     */
+    private fun rememberGlideReading(word: String, readings: List<String>) {
+        if (readings.size < 2) return
+        val key = WordKey.of(word)
+        if (key.isEmpty()) return
+        // Re-inserted rather than overwritten so the newest reading is also the
+        // youngest entry, which is what the cap below evicts by.
+        glideReadings.remove(key)
+        glideReadings[key] = readings
+        while (glideReadings.size > GLIDE_RECALL_WORDS) {
+            val oldest = glideReadings.keys.firstOrNull() ?: break
+            glideReadings.remove(oldest)
+        }
+    }
+
+    /**
+     * The other words the glide that wrote [word] read, or empty when [word]
+     * was not glided (or was glided too long ago to still be here).
+     */
+    private fun glideReadingsFor(word: String): List<String> =
+        glideReadings[WordKey.of(word)].orEmpty().filterNot { it.equals(word, ignoreCase = true) }
+
+    /**
+     * [suggested] with the readings of the glide that wrote [word] in front of
+     * it.
+     *
+     * This is what makes proofreading a swipe *correcting* rather than
+     * retyping. The strip's own answer is about the letters standing in the
+     * field, and after a misread swipe those letters are not the ones the
+     * finger drew, so the word the user wants is nowhere in it. The stroke's
+     * own runners-up are exactly that word, and the pick that takes one is
+     * already wired to teach the pair (see `noteGlidePreference`), so the
+     * keyboard learns the stroke as well as fixing the word (#115).
+     */
+    private fun withGlideReadings(word: String, suggested: List<String>): List<String> {
+        val readings = glideReadingsFor(word)
+        if (readings.isEmpty()) return suggested
+        val seen = HashSet<String>(readings.map { it.lowercase() })
+        return readings + suggested.filterNot { it.lowercase() in seen }
+    }
+
+    /**
+     * Whether a glided word's capitals are the user's own.
+     *
+     * Only a shift the user pressed themselves. A glide types no capital: the
+     * finger draws letters and the *keyboard* decides how to spell what it
+     * read, out of the very case memory this answer feeds. Treating an
+     * unshifted stroke as evidence closed that loop — "Mark" came back off the
+     * decoder, was learned as a capital, and voted its own capital up again on
+     * every swipe, so a word that is written both ways could never be written
+     * the plain way again and the personal dictionary filled with proper nouns
+     * the user never capitalized (#115).
+     *
+     * Caps lock is out for the reason it always was: it says the letters are
+     * upper case, not that the word is. So is auto-capitalize's shift at a
+     * sentence start, which is the keyboard's capital and not the user's.
+     *
+     * A word whose only spelling anywhere is capitalized keeps it regardless —
+     * that comes from the dictionary at display time
+     * ([SuggestionEngine.displayForm]) and needs no vote here.
+     */
+    private fun glideCaseTrusted(
+        shiftAtGesture: ShiftState,
+        state: KeyboardUiState,
+        capitals: Int,
+    ): Boolean = when {
+        // Drawn through the shift key on the way: as deliberate as pressing it,
+        // and the whole point of the gesture is to say "this word is a name".
+        capitals == 1 -> true
+        // Twice is a shout, and a shout is not a spelling — the rule caps lock
+        // has always been under.
+        capitals > 1 -> false
+        else -> shiftAtGesture == ShiftState.ON && state.shiftPressedByUser
+    }
+
+    /**
+     * The shift a glide commits under.
+     *
+     * The board's own state, unless the stroke drew through the shift key and
+     * answered for itself (#115): once for a capital, twice for a shout, the
+     * same ladder tapping the key walks up. It overrides rather than combines,
+     * so a stroke that says "capital" gets a capital whatever the board was
+     * doing — the user drew the instruction after they saw the board.
+     */
+    private fun shiftForGlide(board: ShiftState, capitals: Int): ShiftState = when {
+        capitals >= 2 -> ShiftState.CAPS_LOCK
+        capitals == 1 -> ShiftState.ON
+        else -> board
+    }
+
+    /**
+     * Whether every capital in [suggestion] is one [typed] already carried.
+     *
+     * The same question [glideCaseTrusted] asks, for a word taken off the
+     * strip. The chip is drawn in the spelling the engine offers, so tapping
+     * "Mark" after typing "mark" is choosing the word, not the capital — and
+     * counting it as a spelling let the strip vote its own suggestion into the
+     * user's case memory (#115). A capital past the end of what was typed
+     * ("mac" → "MacDonald") is the dictionary's for the same reason.
+     *
+     * Surrogate pairs answer false to [Char.isUpperCase] and so are simply
+     * skipped: an unanswerable character must not read as evidence.
+     */
+    private fun typedCarriesCase(typed: CharSequence, suggestion: String): Boolean {
+        for ((at, ch) in suggestion.withIndex()) {
+            if (!ch.isUpperCase()) continue
+            if (typed.getOrNull(at)?.isUpperCase() != true) return false
+        }
+        return true
     }
 
     /**
@@ -13336,7 +13603,7 @@ open class WMKeyboardService : InputMethodService() {
         segments: List<List<GesturePoint>>,
         keys: List<KeyCenter>,
         keyWidthPx: Float,
-        verdict: GlideVerdict = GlideVerdict.Leader,
+        verdict: GlideVerdict = GlideVerdict.Leader(),
     ) {
         stopVoiceForManualInput()
         val state = _uiState.value
@@ -13352,7 +13619,7 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
 
-        val shiftAtGesture = state.shiftState
+        val shiftAtGesture = shiftForGlide(state.shiftState, verdict.capitals)
         // Retires every preview from this stroke, in flight or queued.
         gestureGeneration.incrementAndGet()
         suggestionJob?.cancel()
@@ -13361,64 +13628,76 @@ open class WMKeyboardService : InputMethodService() {
         val chosen = (verdict as? GlideVerdict.Word)?.word
         gestureJob = serviceScope.launch {
             val ic = currentInputConnection ?: return@launch
-            // Flush any composing text before the first glided word, finished
-            // the way a space would have finished it (see onGesture).
-            commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoText.apostrophe)
-            var lastWords: List<String> = emptyList()
-            var committedAny = false
-            segments.forEachIndexed { index, segment ->
-                // Decoded inside the loop, not before it: each word is committed
-                // and learned as it lands, so the next segment is decoded with
-                // the one before it as context.
-                val candidates = withContext(Dispatchers.Default) {
-                    glideDecode(segment, keys, keyWidthPx)
-                }.words
-                // The pick belongs to the last segment, and survives an empty
-                // decode of it the way a single glide's pick does.
-                val picked = chosen?.takeIf { index == segments.lastIndex }
-                if (candidates.isEmpty() && picked == null) return@forEachIndexed
-                if (picked != null && candidates.isNotEmpty() && picked != candidates.first()) {
-                    noteGlidePreference(rejected = candidates.first(), chosen = picked)
-                }
-                val leader = picked ?: candidates.first()
-                val word = if (index == 0) {
-                    when (shiftAtGesture) {
-                        ShiftState.CAPS_LOCK -> leader.uppercase()
-                        ShiftState.ON -> leader.replaceFirstChar { it.uppercase() }
-                        ShiftState.OFF -> leader
+            // Not cancellable, for the reason spelled out in [onGesture]: a
+            // stroke that has begun writing words into the field must finish
+            // writing them (#115).
+            withContext(NonCancellable) {
+                // Flush any composing text before the first glided word, finished
+                // the way a space would have finished it (see onGesture).
+                commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoText.apostrophe)
+                var lastWords: List<String> = emptyList()
+                var committedAny = false
+                segments.forEachIndexed { index, segment ->
+                    // Decoded inside the loop, not before it: each word is committed
+                    // and learned as it lands, so the next segment is decoded with
+                    // the one before it as context.
+                    val candidates = withContext(Dispatchers.Default) {
+                        glideDecode(segment, keys, keyWidthPx)
+                    }.words
+                    // The pick belongs to the last segment, and survives an empty
+                    // decode of it the way a single glide's pick does.
+                    val picked = chosen?.takeIf { index == segments.lastIndex }
+                    if (candidates.isEmpty() && picked == null) return@forEachIndexed
+                    if (picked != null && candidates.isNotEmpty() && picked != candidates.first()) {
+                        noteGlidePreference(rejected = candidates.first(), chosen = picked)
                     }
-                } else {
-                    leader
+                    val leader = picked ?: candidates.first()
+                    val word = if (index == 0) {
+                        when (shiftAtGesture) {
+                            ShiftState.CAPS_LOCK -> leader.uppercase()
+                            ShiftState.ON -> leader.replaceFirstChar { it.uppercase() }
+                            ShiftState.OFF -> leader
+                        }
+                    } else {
+                        leader
+                    }
+                    commitGestureLeadingSpace(ic, state)
+                    ic.commitText(word, 1)
+                    recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
+                    learn(
+                        word,
+                        // Only the first word of the stroke could have been shifted
+                        // at all; the rest carry whatever capitals the dictionary
+                        // gave them, which is not evidence — see [glideCaseTrusted].
+                        caseTrusted = index == 0 &&
+                            glideCaseTrusted(shiftAtGesture, state, verdict.capitals),
+                        origin = WordOrigin.GLIDE,
+                    )
+                    val (hand, shape) = withContext(Dispatchers.Default) {
+                        learnHand(segment, keys, keyWidthPx, word) to sampleGlideShape(segment, keys, keyWidthPx, word)
+                    }
+                    if (shape != null) learningBuffer.attachGlide(word, shape)
+                    lastGestureWord = word
+                    lastGestureStroke = GlideStroke(segment, keys, keyWidthPx, shape)
+                    // Each word teaches; only the last is on the undo's reach.
+                    lastHandAdjustment = hand
+                    armRevertGuard()
+                    lastWords = if (picked != null) glideStripOrder(candidates, picked) else candidates
+                    // Only the last word of a chained stroke keeps its readings:
+                    // it is the one whose alternates are on the strip, and the
+                    // one a proofreading pass comes back to (#115).
+                    rememberGlideReading(word, lastWords)
+                    committedAny = true
                 }
-                commitGestureLeadingSpace(ic, state)
-                ic.commitText(word, 1)
-                recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
-                learn(
-                    word,
-                    caseTrusted = index > 0 || shiftAtGesture == ShiftState.OFF ||
-                        (shiftAtGesture == ShiftState.ON && state.shiftPressedByUser),
-                    origin = WordOrigin.GLIDE,
-                )
-                val (hand, shape) = withContext(Dispatchers.Default) {
-                    learnHand(segment, keys, keyWidthPx, word) to sampleGlideShape(segment, keys, keyWidthPx, word)
+                if (committedAny) {
+                    // Only the last word earns one: the words before it were spaced
+                    // by the leading rule above as each new segment landed.
+                    commitGestureSpace(ic, state)
+                    armRevertGuard()
+                    consumeShift()
+                    val floating = nextWordOctopus()
+                    _uiState.update { it.copy(suggestions = lastWords, octopus = floating) }
                 }
-                if (shape != null) learningBuffer.attachGlide(word, shape)
-                lastGestureWord = word
-                lastGestureStroke = GlideStroke(segment, keys, keyWidthPx, shape)
-                // Each word teaches; only the last is on the undo's reach.
-                lastHandAdjustment = hand
-                armRevertGuard()
-                lastWords = if (picked != null) glideStripOrder(candidates, picked) else candidates
-                committedAny = true
-            }
-            if (committedAny) {
-                // Only the last word earns one: the words before it were spaced
-                // by the leading rule above as each new segment landed.
-                commitGestureSpace(ic, state)
-                armRevertGuard()
-                consumeShift()
-                val floating = nextWordOctopus()
-                _uiState.update { it.copy(suggestions = lastWords, octopus = floating) }
             }
         }
     }
@@ -20617,6 +20896,9 @@ open class WMKeyboardService : InputMethodService() {
         // the queue was still holding about it — and a queued copy would come
         // back later to vote on capitals the menu has just pinned (#100).
         learningBuffer.drop(word)
+        // The word is still composing: the space that commits it is part of
+        // this same answer, not a use to be counted on top of it (#115).
+        handAddedWord = WordKey.of(word)
         userLexicon.addWord(word, caseEvidence = true)
         val state = _uiState.value
         if (word.lowercase() in state.settings.suggestionSources.blacklist) {
@@ -23119,6 +23401,16 @@ open class WMKeyboardService : InputMethodService() {
          * enough to cover the corrections the watch is still holding.
          */
         private const val CORRECTION_JUDGEMENT_WINDOW = 512
+
+        /**
+         * How many glided words keep the readings their stroke rejected, for
+         * the strip to offer when the caret comes back to one (#115).
+         *
+         * A sentence's worth. Long enough that reading a message back finds the
+         * stroke that wrote each word, short enough that it is a handful of
+         * short string lists and not a transcript.
+         */
+        private const val GLIDE_RECALL_WORDS = 12
 
         /**
          * How much non-word text may sit between the caret and the word the

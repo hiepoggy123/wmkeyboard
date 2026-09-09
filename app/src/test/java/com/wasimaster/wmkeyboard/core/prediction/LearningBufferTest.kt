@@ -53,15 +53,37 @@ class LearningBufferTest {
         assertEquals(listOf("wibble"), buffer.words())
     }
 
+    /**
+     * Issue #115: going back to one word said nothing about the rest of the
+     * text, but the whole queue in front of the caret was thrown away — so a
+     * session spent reading back what had been written learned nothing at all.
+     * The word the caret landed in is dropped; the ones it jumped over settle.
+     */
     @Test
-    fun goingBackToEditDropsEverythingFromThatPointOn() {
+    fun goingBackToEditDropsOnlyTheWordTheCaretLandedIn() {
         val buffer = LearningBuffer()
         buffer.commit("wibble", 7)
         buffer.commit("wobble", 14)
         buffer.commit("wubble", 21)
         // A tap back into the first word.
-        buffer.onCaret(3)
+        val moved = buffer.onCaret(3)
+        assertEquals(listOf("wibble"), moved.dropped.map { it.word })
+        assertEquals(listOf("wobble", "wubble"), moved.settled.map { it.word })
         assertTrue(buffer.isEmpty())
+    }
+
+    /**
+     * The same move, with the caret nowhere near any of them: a tap into text
+     * typed before the keyboard even opened settles the lot.
+     */
+    @Test
+    fun aCaretInOlderTextSettlesEverythingItJumpedOver() {
+        val buffer = LearningBuffer()
+        buffer.commit("wibble", 107)
+        buffer.commit("wobble", 114)
+        val moved = buffer.onCaret(3)
+        assertTrue(moved.dropped.isEmpty())
+        assertEquals(listOf("wibble", "wobble"), moved.settled.map { it.word })
     }
 
     @Test
@@ -160,7 +182,7 @@ class LearningBufferTest {
     fun onCaretHandsBackWhatItDropped() {
         val buffer = LearningBuffer()
         buffer.commit("teh", 4)
-        val dropped = buffer.onCaret(3)
+        val dropped = buffer.onCaret(3).dropped
         assertEquals(listOf("teh"), dropped.map { it.word })
         assertEquals(4, dropped.single().anchor)
         assertTrue(buffer.isEmpty())
@@ -296,7 +318,7 @@ class LearningBufferTest {
         val buffer = LearningBuffer()
         buffer.push("hello", "en", 1, known = true, origin = WordOrigin.GLIDE)
         buffer.onCaret(6)
-        val dropped = buffer.onCaret(2).single()
+        val dropped = buffer.onCaret(2).dropped.single()
         assertEquals(WordOrigin.GLIDE, dropped.origin)
     }
 }
