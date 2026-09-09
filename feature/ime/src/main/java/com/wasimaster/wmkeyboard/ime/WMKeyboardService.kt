@@ -13655,12 +13655,17 @@ open class WMKeyboardService : InputMethodService() {
                 }
                 commitGestureLeadingSpace(ic, state)
                 ic.commitText(word, 1)
-                // Before the learning hop below, for the reason spelled out
-                // in [onGesture]: this is what stops the commit's own echo
+                // Both before the learning hop below, for the reason spelled
+                // out in [onGesture]: this is what stops the commit's own echo
                 // arming a composing region over the word, which the next
                 // segment's leading space — or this stroke's trailing one —
-                // would then replace instead of follow (#113).
+                // would then replace instead of follow (#113). The guard needs
+                // the revert anchor as much as the word: an echo that arrives
+                // with [lastGestureWord] set but the anchor still pointing at
+                // the last stroke reads as a real caret move and disarms the
+                // very flag that was just set.
                 lastGestureWord = word
+                armRevertGuard()
                 recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
                 learn(
                     word,
@@ -13678,7 +13683,6 @@ open class WMKeyboardService : InputMethodService() {
                 lastGestureStroke = GlideStroke(segment, keys, keyWidthPx, shape)
                 // Each word teaches; only the last is on the undo's reach.
                 lastHandAdjustment = hand
-                armRevertGuard()
                 lastWords = if (picked != null) glideStripOrder(candidates, picked) else candidates
                 // Only the last word of a chained stroke keeps its readings:
                 // it is the one whose alternates are on the strip, and the
