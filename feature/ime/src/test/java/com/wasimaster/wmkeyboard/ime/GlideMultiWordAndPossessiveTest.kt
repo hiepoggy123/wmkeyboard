@@ -88,38 +88,6 @@ class GlideMultiWordAndPossessiveTest {
     }
 
     /**
-     * Records what reached the field, and honours a delete: the possessive flick
-     * is the one glide path that takes text back, and left to `BaseInputConnection`
-     * that delete would edit an editable nobody reads, leaving the take-back
-     * invisible to the assertion that exists to see it.
-     */
-    private class RecordingInputConnection(
-        target: View,
-        initial: String = "",
-    ) : BaseInputConnection(target, true) {
-        val committed = StringBuilder(initial)
-        override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
-            committed.append(text ?: "")
-            return true
-        }
-        override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
-            val taken = beforeLength.coerceAtMost(committed.length)
-            committed.setLength(committed.length - taken)
-            return true
-        }
-        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence =
-            committed.takeLast(n).toString()
-        override fun getTextAfterCursor(n: Int, flags: Int): CharSequence = ""
-        override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean = true
-        override fun finishComposingText(): Boolean = true
-    }
-
-    private class Keyboard(val ic: InputConnection) : WMKeyboardService() {
-        init { attachBaseContext(RuntimeEnvironment.getApplication()) }
-        override fun getCurrentInputConnection(): InputConnection = ic
-    }
-
-    /**
      * The glide grid, straight off the default QWERTY — no Compose, no measure
      * pass. [apostropheAt] puts `'` on one key, which is the only way punctuation
      * reaches the grid: `keySpelling` admits letters and marks alone, so without
@@ -153,46 +121,22 @@ class GlideMultiWordAndPossessiveTest {
             )
         }
 
-    /** The word planted on the board before a stroke, and looked for afterwards. */
-    private fun sentinel(): Map<Int, OctopusWord> = mapOf(
-        'q'.code to OctopusWord(
-            keyCodePoint = 'q'.code,
-            word = "STALE",
-            typedChars = 0,
-            kind = OctopusKind.NEXT_WORD,
-            rank = 0,
-        ),
-    )
-
-    /**
-     * Writes the state a glide needs, without the half of the service that builds
-     * it. Two arguments are load-bearing rather than tidy: `glideReady` is
-     * otherwise only set by a watcher that wants a loaded dictionary, and every
-     * gesture entry point returns at `glideAllowed` without it; and
-     * `learnFromTyping` has to be off, or the commit dereferences the `lateinit`
-     * lexicon that only `onCreate` assigns and the coroutine dies in silence.
-     */
-    private fun seed(
-        service: WMKeyboardService,
+    /** A service, a field, and the board planted on it before the stroke. */
+    private fun keyboard(
         octopus: Map<Int, OctopusWord> = emptyMap(),
         shiftState: ShiftState = ShiftState.OFF,
         gesture: GestureSettings = GestureSettings(),
-    ) {
-        val field = WMKeyboardService::class.java.getDeclaredField("_uiState")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val flow = field.get(service) as kotlinx.coroutines.flow.MutableStateFlow<KeyboardUiState>
-        flow.value = KeyboardUiState(
-            glideReady = true,
-            // Not a gate a glide reads — allowsGestureTyping deliberately
-            // ignores it — but insurance against the day something on the
-            // commit path calls refreshSuggestions, which reaches a snippet
-            // store that is one more lateinit only onCreate assigns.
-            fieldNoSuggestions = true,
-            octopus = octopus,
-            shiftState = shiftState,
-            settings = KeyboardSettings(learnFromTyping = false, gesture = gesture),
+        initial: String = "",
+    ): Triple<WMKeyboardService, RecordingEditor, Map<Int, OctopusWord>> {
+        val (service, editor, _) = glideKeyboard(
+            glideReadyState(
+                shiftState = shiftState,
+                settings = KeyboardSettings(learnFromTyping = false, gesture = gesture),
+                octopus = octopus,
+            ),
+            RecordingEditor(initial = initial),
         )
+        return Triple(service, editor, octopus)
     }
 
     /**
@@ -214,23 +158,6 @@ class GlideMultiWordAndPossessiveTest {
     }
 
     /**
-     * Runs the main looper until the glide's own thread hop has come back.
-     *
-     * The board is what is waited on rather than the field, and on purpose: the
-     * publish is the last statement of the commit, so a changed board means the
-     * whole job is done. Waiting on the text instead would let a two-word commit
-     * stop at its first trailing space and read as a one-word one.
-     */
-    private fun settle(service: WMKeyboardService, before: Map<Int, OctopusWord>) {
-        repeat(SETTLE_ROUNDS) {
-            shadowOf(Looper.getMainLooper()).idle()
-            if (service.uiState.value.octopus != before) return
-            Thread.sleep(SETTLE_STEP_MS)
-        }
-        shadowOf(Looper.getMainLooper()).idle()
-    }
-
-    /**
      * The shift the board is holding reaches a chained stroke at all.
      *
      * On its own this is half a rule; it is here so the two tests below cannot
@@ -241,15 +168,12 @@ class GlideMultiWordAndPossessiveTest {
      */
     @Test
     fun `a one-segment chained stroke takes the shift the board was holding`() {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()))
-        val service = Keyboard(ic)
-        val stale = sentinel()
-        seed(service, octopus = stale, shiftState = ShiftState.ON)
+        val (service, editor, stale) = keyboard(octopus = octopusSentinel(), shiftState = ShiftState.ON)
 
         service.onGestureWords(listOf(stroke(0)), glideGrid(), KEY_WIDTH, GlideVerdict.Word(word))
-        settle(service, stale)
+        settle { service.uiState.value.octopus != stale }
 
-        assertEquals("Hello ", ic.committed.toString())
+        assertEquals("Hello ", editor.text.toString())
     }
 
     /**
@@ -267,10 +191,7 @@ class GlideMultiWordAndPossessiveTest {
      */
     @Test
     fun `the picker's word reaches the last segment of a chained stroke and no other`() {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()))
-        val service = Keyboard(ic)
-        val stale = sentinel()
-        seed(service, octopus = stale)
+        val (service, editor, stale) = keyboard(octopus = octopusSentinel())
 
         service.onGestureWords(
             listOf(stroke(0), stroke(1)),
@@ -278,9 +199,9 @@ class GlideMultiWordAndPossessiveTest {
             KEY_WIDTH,
             GlideVerdict.Word(word),
         )
-        settle(service, stale)
+        settle { service.uiState.value.octopus != stale }
 
-        assertEquals(glidedField, ic.committed.toString())
+        assertEquals(glidedField, editor.text.toString())
     }
 
     /**
@@ -296,10 +217,7 @@ class GlideMultiWordAndPossessiveTest {
      */
     @Test
     fun `a held shift does not reach a later segment of a chained stroke`() {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()))
-        val service = Keyboard(ic)
-        val stale = sentinel()
-        seed(service, octopus = stale, shiftState = ShiftState.ON)
+        val (service, editor, stale) = keyboard(octopus = octopusSentinel(), shiftState = ShiftState.ON)
 
         service.onGestureWords(
             listOf(stroke(0), stroke(1)),
@@ -307,9 +225,9 @@ class GlideMultiWordAndPossessiveTest {
             KEY_WIDTH,
             GlideVerdict.Word(word),
         )
-        settle(service, stale)
+        settle { service.uiState.value.octopus != stale }
 
-        assertEquals(glidedField, ic.committed.toString())
+        assertEquals(glidedField, editor.text.toString())
     }
 
     /**
@@ -324,17 +242,14 @@ class GlideMultiWordAndPossessiveTest {
      */
     @Test
     fun `a chained stroke refreshes the words on the keys`() {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()))
-        val service = Keyboard(ic)
-        val stale = sentinel()
-        seed(service, octopus = stale)
+        val (service, editor, stale) = keyboard(octopus = octopusSentinel())
 
         service.onGestureWords(listOf(stroke(0)), glideGrid(), KEY_WIDTH, GlideVerdict.Word(word))
-        settle(service, stale)
+        settle { service.uiState.value.octopus != stale }
 
         // First, that the commit ran at all. The publish is the line after it, so
         // an unchanged board only means something once the word has landed.
-        assertEquals(glidedField, ic.committed.toString())
+        assertEquals(glidedField, editor.text.toString())
         assertNotEquals(
             "a chained stroke left the words on the keys behind (#118)",
             stale,
@@ -356,9 +271,10 @@ class GlideMultiWordAndPossessiveTest {
      */
     @Test
     fun `the possessive flick takes back the space the glide typed`() {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()), glidedField)
-        val service = Keyboard(ic)
-        seed(service, gesture = GestureSettings(apostropheKey = GlideApostropheKey.COMMA))
+        val (service, editor, _) = keyboard(
+            gesture = GestureSettings(apostropheKey = GlideApostropheKey.COMMA),
+            initial = glidedField,
+        )
         armGlideTail(service, word, keyboardTypedSpace = true)
         val apostrophe = centers.getValue(','.code)
 
@@ -368,7 +284,7 @@ class GlideMultiWordAndPossessiveTest {
             KEY_WIDTH,
         )
 
-        assertEquals("${word}'s ", ic.committed.toString())
+        assertEquals("${word}'s ", editor.text.toString())
     }
 
     /**
@@ -388,9 +304,10 @@ class GlideMultiWordAndPossessiveTest {
      */
     @Test
     fun `the possessive flick leaves a space it did not type alone`() {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()), glidedField)
-        val service = Keyboard(ic)
-        seed(service, gesture = GestureSettings(apostropheKey = GlideApostropheKey.COMMA))
+        val (service, editor, _) = keyboard(
+            gesture = GestureSettings(apostropheKey = GlideApostropheKey.COMMA),
+            initial = glidedField,
+        )
         armGlideTail(service, word, keyboardTypedSpace = false)
         val apostrophe = centers.getValue(','.code)
 
@@ -400,7 +317,7 @@ class GlideMultiWordAndPossessiveTest {
             KEY_WIDTH,
         )
 
-        assertEquals("${word} 's ", ic.committed.toString())
+        assertEquals("${word} 's ", editor.text.toString())
     }
 
     /**
@@ -413,13 +330,10 @@ class GlideMultiWordAndPossessiveTest {
      */
     @Test
     fun `the possessive flick refreshes the words on the keys`() {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()), glidedField)
-        val service = Keyboard(ic)
-        val stale = sentinel()
-        seed(
-            service,
-            octopus = stale,
+        val (service, editor, stale) = keyboard(
+            octopus = octopusSentinel(),
             gesture = GestureSettings(apostropheKey = GlideApostropheKey.COMMA),
+            initial = glidedField,
         )
         armGlideTail(service, word, keyboardTypedSpace = true)
         val apostrophe = centers.getValue(','.code)
@@ -429,11 +343,11 @@ class GlideMultiWordAndPossessiveTest {
             glideGrid(apostropheAt = apostrophe),
             KEY_WIDTH,
         )
-        settle(service, stale)
+        settle { service.uiState.value.octopus != stale }
 
         // The flick's own edit first: without it the stroke was never taken as a
         // possessive at all, and the board would be untouched for that reason.
-        assertEquals("${word}'s ", ic.committed.toString())
+        assertEquals("${word}'s ", editor.text.toString())
         assertNotEquals(
             "the possessive flick left the words on the keys behind (#118)",
             stale,
@@ -449,7 +363,5 @@ class GlideMultiWordAndPossessiveTest {
         const val STROKE_STEPS = 5
         const val STROKE_STEP_MS = 20L
 
-        const val SETTLE_ROUNDS = 200
-        const val SETTLE_STEP_MS = 10L
     }
 }

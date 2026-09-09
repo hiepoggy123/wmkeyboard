@@ -37,7 +37,7 @@ import org.robolectric.Shadows.shadowOf
  * connection that records commits and does nothing else cannot reproduce this
  * bug at all: every ordering looks identical from a call log, because the calls
  * *are* identical either way — only the window between them differs. So
- * [RecordingInputConnection] models the two editor behaviours the bug is made
+ * [RecordingEditor] models the two editor behaviours the bug is made
  * of, and nothing else:
  *
  *  - `commitText` replaces the current composing span rather than appending
@@ -77,157 +77,18 @@ class GlideCommitOrderingTest {
     /** The word the picker's verdict commits, so no decoder is needed. */
     private val word = "hello"
 
-    /** Grid units, and the width a stroke is measured against. */
-    private val keyWidth = 60f
-
-    /**
-     * A field that behaves like the editor the bug needed: one composing span,
-     * `commitText` replacing it, and a selection echo posted after every commit.
-     *
-     * The echo is *posted*, not run inline, because that is what a same-process
-     * editor does and it is the entire mechanism of the fix: two commits with
-     * no suspension between them never give the looper a turn to deliver it,
-     * and two commits with a thread hop between them always do.
-     */
-    private class RecordingInputConnection(
-        target: View,
+    /** A service, a field that models the echo, and the board planted on it. */
+    private fun keyboard(
         initial: String = "",
-    ) : BaseInputConnection(target, true) {
-
-        /** What the field holds, span replacements included. */
-        val text = StringBuilder(initial)
-
-        /** Every `commitText` argument in order — the tripwire, not the verdict. */
-        val commits = mutableListOf<String>()
-
-        /**
-         * Whether the keyboard would let the echo arm a region at all. The
-         * default is the strictest editor there is, one with no guard, which is
-         * what makes the *ordering* of the two commits the only thing left to
-         * test. A test about the guard itself supplies the keyboard's own.
-         */
-        var mayArmRegion: () -> Boolean = { true }
-
-        /** Where the composing span starts, or -1. It always runs to the caret. */
-        private var composingStart = -1
-
-        private val echoes = Handler(Looper.getMainLooper())
-
-        override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
-            val committed = text?.toString().orEmpty()
-            commits += committed
-            replaceSpan(committed)
-            composingStart = -1
-            echoes.post { armRegionAtCaret() }
-            return true
-        }
-
-        override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean {
-            val start = if (composingStart >= 0) composingStart else this.text.length
-            replaceSpan(text?.toString().orEmpty())
-            composingStart = start
-            return true
-        }
-
-        override fun setComposingRegion(start: Int, end: Int): Boolean {
-            composingStart = start.coerceIn(0, text.length)
-            return true
-        }
-
-        override fun finishComposingText(): Boolean {
-            composingStart = -1
-            return true
-        }
-
-        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence = text.takeLast(n)
-
-        override fun getTextAfterCursor(n: Int, flags: Int): CharSequence = ""
-
-        /** The caret is always at the end here, so the span reaches it. */
-        private fun replaceSpan(committed: String) {
-            if (composingStart >= 0) text.setLength(composingStart)
-            text.append(committed)
-        }
-
-        /**
-         * The keyboard's answer to the echo: the word the caret is sitting at
-         * the end of becomes the composing region, so it stays revisable. A
-         * caret after a space has no word to resume and arms nothing — the same
-         * rule `resumableWordAt` applies, and the reason a space that has
-         * already landed makes the echo harmless.
-         */
-        private fun armRegionAtCaret() {
-            if (!mayArmRegion()) return
-            var start = text.length
-            while (start > 0 && text[start - 1].isLetter()) start--
-            if (start == text.length) return
-            composingStart = start
-        }
-    }
-
-    private class Keyboard(val ic: InputConnection) : WMKeyboardService() {
-        init { attachBaseContext(RuntimeEnvironment.getApplication()) }
-        override fun getCurrentInputConnection(): InputConnection = ic
-    }
-
-    /** The letter grid, straight off the default QWERTY — no Compose, no measure pass. */
-    private fun letterKeys(): List<KeyCenter> {
-        val layouts = KeyboardUiState().layouts
-        val centers = buildMap {
-            for ((rowIndex, row) in layouts.letters.rows.withIndex()) {
-                var column = 0
-                for (key in row) {
-                    if (key.action == KeyAction.Text) {
-                        (key.output ?: key.label).firstOrNull()?.let {
-                            putIfAbsent(
-                                it.lowercaseChar().code,
-                                (column * keyWidth) to (rowIndex * keyWidth),
-                            )
-                        }
-                    }
-                    column++
-                }
-            }
-        }
-        return layouts.glideKeys { centers[it] }
-    }
-
-    /** A plain left-to-right stroke. Its shape is irrelevant: the verdict decides the word. */
-    private fun stroke(): List<GesturePoint> =
-        (0..5).map { GesturePoint(x = it * keyWidth, y = 0f, t = it * 20L) }
-
-    /** Planted on the board before the stroke, so [settle] can see the glide finish. */
-    private fun sentinel(): Map<Int, OctopusWord> = mapOf(
-        'q'.code to OctopusWord(
-            keyCodePoint = 'q'.code,
-            word = "STALE",
-            typedChars = 0,
-            kind = OctopusKind.NEXT_WORD,
-            rank = 0,
-        ),
-    )
-
-    /**
-     * Writes the state a glide needs, without the half of the service that
-     * builds it. `glideReady` is otherwise only set by a watcher that wants a
-     * loaded dictionary, and `learnFromTyping` has to be off or the commit
-     * dereferences the `lateinit` lexicon that only `onCreate` assigns.
-     */
-    private fun seed(service: WMKeyboardService, octopus: Map<Int, OctopusWord>) {
-        val field = WMKeyboardService::class.java.getDeclaredField("_uiState")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val flow = field.get(service) as kotlinx.coroutines.flow.MutableStateFlow<KeyboardUiState>
-        flow.value = KeyboardUiState(
-            glideReady = true,
-            // Not a gate a glide reads — allowsGestureTyping deliberately
-            // ignores it — but insurance against the day something on the
-            // commit path calls refreshSuggestions, which reaches a snippet
-            // store that is one more lateinit only onCreate assigns.
-            fieldNoSuggestions = true,
-            octopus = octopus,
-            settings = KeyboardSettings(learnFromTyping = false),
-        )
+        octopus: Map<Int, OctopusWord> = octopusSentinel(),
+    ): Triple<WMKeyboardService, RecordingEditor, Map<Int, OctopusWord>> {
+        val editor = RecordingEditor(initial = initial)
+        // The strictest editor there is, one with no guard of its own, which is
+        // what leaves the *ordering* of the two commits as the only thing under
+        // test. A test about the guard supplies the keyboard's own instead.
+        editor.mayArmRegion = { true }
+        val (service, _, _) = glideKeyboard(glideReadyState(octopus = octopus), editor)
+        return Triple(service, editor, octopus)
     }
 
     /**
@@ -238,20 +99,6 @@ class GlideCommitOrderingTest {
         val field = WMKeyboardService::class.java.getDeclaredField("lastGestureWord")
         field.isAccessible = true
         return field.get(service) != null
-    }
-
-    /**
-     * Runs the main looper until the glide's own thread hops have come back.
-     * The board is written by the glide's last statement, so a changed board
-     * means the whole commit — echoes included — is behind us.
-     */
-    private fun settle(service: WMKeyboardService, before: Map<Int, OctopusWord>) {
-        repeat(SETTLE_ROUNDS) {
-            shadowOf(Looper.getMainLooper()).idle()
-            if (service.uiState.value.octopus != before) return
-            Thread.sleep(SETTLE_STEP_MS)
-        }
-        shadowOf(Looper.getMainLooper()).idle()
     }
 
     /**
@@ -272,15 +119,17 @@ class GlideCommitOrderingTest {
      */
     @Test
     fun `the fake editor really can eat a word, which is what the tests below rule out`() {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()))
+        val editor = RecordingEditor()
+        // The echo is opt-in on the shared editor, and this test is about it.
+        editor.mayArmRegion = { true }
 
-        ic.commitText(word, 1)
+        editor.commitText(word, 1)
         // The window the fix closed: on a real editor sharing this process, the
         // selection echo lands here.
         shadowOf(Looper.getMainLooper()).idle()
-        ic.commitText(" ", 1)
+        editor.commitText(" ", 1)
 
-        assertEquals("the echo never armed, so nothing below is being ruled out", " ", ic.text.toString())
+        assertEquals("the echo never armed, so nothing below is being ruled out", " ", editor.text.toString())
     }
 
     /**
@@ -292,23 +141,20 @@ class GlideCommitOrderingTest {
      */
     @Test
     fun `a glided word and the space that finishes it land with no window between them`() {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()))
-        val service = Keyboard(ic)
-        val stale = sentinel()
-        seed(service, stale)
+        val (service, editor, stale) = keyboard()
 
-        service.onGesture(stroke(), letterKeys(), keyWidth, GlideVerdict.Word(word))
-        settle(service, stale)
+        service.onGesture(straightStroke(), glideKeyGrid(), GLIDE_KEY_WIDTH, GlideVerdict.Word(word))
+        settle { service.uiState.value.octopus != stale }
 
         // The tripwire first: the glide scope has no exception handler, so a
         // throw anywhere in the commit is silent and reads exactly like the bug.
         // This list is the same before and after the fix — what differs is only
         // what the field made of it, which is the assertion below.
-        assertEquals("the glide never reached the field", listOf(word, " "), ic.commits)
+        assertEquals("the glide never reached the field", listOf(word, " "), editor.commits)
         assertEquals(
             "the glide's own trailing space overwrote the word (#113)",
             "$word ",
-            ic.text.toString(),
+            editor.text.toString(),
         )
     }
 
@@ -326,24 +172,21 @@ class GlideCommitOrderingTest {
      *
      * Reddens if `commitGestureSpace` moves back below the learning hop, and
      * also if `commitGestureLeadingSpace(ic, state)` moves after
-     * `ic.commitText(word, 1)`, which would run the two words together and put
+     * `editor.commitText(word, 1)`, which would run the two words together and put
      * both spaces behind them.
      */
     @Test
     fun `a glide onto existing text is spaced in front of the word and behind it`() {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()), EXISTING)
-        val service = Keyboard(ic)
-        val stale = sentinel()
-        seed(service, stale)
+        val (service, editor, stale) = keyboard(initial = EXISTING)
 
-        service.onGesture(stroke(), letterKeys(), keyWidth, GlideVerdict.Word(word))
-        settle(service, stale)
+        service.onGesture(straightStroke(), glideKeyGrid(), GLIDE_KEY_WIDTH, GlideVerdict.Word(word))
+        settle { service.uiState.value.octopus != stale }
 
-        assertEquals("the glide never reached the field", listOf(" ", word, " "), ic.commits)
+        assertEquals("the glide never reached the field", listOf(" ", word, " "), editor.commits)
         assertEquals(
             "the swiped word was not left standing between its two spaces (#113)",
             "$EXISTING $word ",
-            ic.text.toString(),
+            editor.text.toString(),
         )
     }
 
@@ -362,33 +205,30 @@ class GlideCommitOrderingTest {
      */
     @Test
     fun `a chained glide arms the composing guard before it stops to learn`() {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()))
-        val service = Keyboard(ic)
-        ic.mayArmRegion = { !gestureWordArmed(service) }
-        val stale = sentinel()
-        seed(service, stale)
+        val (service, editor, stale) = keyboard()
+        // This one test hands the editor the keyboard's own guard, because the
+        // claim is that the guard is armed early enough to be consulted.
+        editor.mayArmRegion = { !gestureWordArmed(service) }
 
         // Two segments, one word: with no decoder only the last segment — the
         // one the picker's verdict belongs to — can commit anything.
         service.onGestureWords(
-            listOf(stroke(), stroke()),
-            letterKeys(),
-            keyWidth,
+            listOf(straightStroke(), straightStroke()),
+            glideKeyGrid(),
+            GLIDE_KEY_WIDTH,
             GlideVerdict.Word(word),
         )
-        settle(service, stale)
+        settle { service.uiState.value.octopus != stale }
 
-        assertEquals("the chained glide never reached the field", listOf(word, " "), ic.commits)
+        assertEquals("the chained glide never reached the field", listOf(word, " "), editor.commits)
         assertEquals(
             "the chained glide's trailing space overwrote its last word (#113)",
             "$word ",
-            ic.text.toString(),
+            editor.text.toString(),
         )
     }
 
     private companion object {
-        const val SETTLE_ROUNDS = 200
-        const val SETTLE_STEP_MS = 10L
 
         /** A word already in the field, so the leading-space rule has something to see. */
         const val EXISTING = "hi"

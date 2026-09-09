@@ -182,47 +182,10 @@ class GlideCommitSpacingTest {
 
     // ---- the harness ----
 
-    /**
-     * Records what reached the field, and answers the two lookbehind and
-     * lookahead reads the spacing rules make, so a test's whole context is the
-     * pair of strings it hands this.
-     *
-     * It is also the tripwire. The glide's scope carries no exception handler,
-     * so a throw anywhere in the commit is silent and shows up as a field that
-     * did not change — the same symptom as a rule that declined to type a space.
-     * Every test reads this before it reads any state.
-     */
-    private class RecordingInputConnection(
-        target: View,
-        /** What the field already holds in front of the caret. */
-        private val before: String,
-        /** And behind it. A leading space here is what makes the trailing one unnecessary. */
-        private val after: String,
-    ) : BaseInputConnection(target, true) {
-        val committed = StringBuilder()
-        override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
-            committed.append(text ?: "")
-            return true
-        }
-        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence =
-            (before + committed).takeLast(n)
-        override fun getTextAfterCursor(n: Int, flags: Int): CharSequence = after.take(n)
-        override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean = true
-        override fun finishComposingText(): Boolean = true
-    }
-
-    private class Keyboard(val ic: InputConnection) : WMKeyboardService() {
-        init { attachBaseContext(RuntimeEnvironment.getApplication()) }
-        override fun getCurrentInputConnection(): InputConnection = ic
-    }
-
     /** One finished stroke: what the field was given, and whether the job got that far. */
-    private class Stroke(
-        private val service: WMKeyboardService,
-        private val ic: RecordingInputConnection,
-    ) {
+    private class Stroke(private val service: WMKeyboardService, private val editor: RecordingEditor) {
         /** Every commit the service made, in the order it made them. */
-        val typed: String get() = ic.committed.toString()
+        val typed: String get() = editor.typed
 
         /**
          * Whether the commit ran all the way to its last line, which publishes
@@ -238,13 +201,9 @@ class GlideCommitSpacingTest {
     /**
      * Plants the state one stroke needs, draws it, and waits the job out.
      *
-     * Two of the seeded values are load-bearing and read as hygiene.
-     * `glideReady` is otherwise set only by a watcher that waits on a loaded
-     * dictionary, and without it `onGesture` returns at the gate and the test
-     * body never runs. `learnFromTyping` has to be off, or the commit
-     * dereferences the `lateinit` lexicon that only `onCreate` assigns — and the
-     * scope would swallow the throw. A secure field would shut the learning off
-     * too, and must not be used for it: it also shuts the glide off.
+     * [before] and [after] are the field's whole context: the spacing rules read
+     * a line behind the caret and one character ahead of it, and nothing else.
+     * The state's two load-bearing arguments are [glideReadyState]'s to explain.
      */
     private fun glide(
         before: String = "",
@@ -252,72 +211,21 @@ class GlideCommitSpacingTest {
         shift: ShiftState = ShiftState.OFF,
         autoSpaceAfterGlide: Boolean = true,
     ): Stroke {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()), before, after)
-        val service = Keyboard(ic)
-        val field = WMKeyboardService::class.java.getDeclaredField("_uiState")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val flow = field.get(service) as kotlinx.coroutines.flow.MutableStateFlow<KeyboardUiState>
-        flow.value = KeyboardUiState(
-            glideReady = true,
-            // Not a gate a glide reads — allowsGestureTyping deliberately
-            // ignores it — but insurance against the day something on the
-            // commit path calls refreshSuggestions, which reaches a snippet
-            // store that is one more lateinit only onCreate assigns.
-            fieldNoSuggestions = true,
-            shiftState = shift,
-            settings = KeyboardSettings(
-                learnFromTyping = false,
-                gesture = GestureSettings(autoSpaceAfterGlide = autoSpaceAfterGlide),
+        val editor = RecordingEditor(initial = before, after = after)
+        val (service, _, _) = glideKeyboard(
+            state = glideReadyState(
+                shiftState = shift,
+                settings = KeyboardSettings(
+                    learnFromTyping = false,
+                    gesture = GestureSettings(autoSpaceAfterGlide = autoSpaceAfterGlide),
+                ),
             ),
+            editor = editor,
         )
 
-        service.onGesture(stroke(), letterKeys(), keyWidth, GlideVerdict.Word(WORD))
-        settle(service)
-        return Stroke(service, ic)
-    }
-
-    /** Grid units, and the width a stroke is measured against. */
-    private val keyWidth = 60f
-
-    /** The letter grid, straight off the default QWERTY — no Compose, no measure pass. */
-    private fun letterKeys(): List<KeyCenter> {
-        val layouts = KeyboardUiState().layouts
-        val centers = buildMap {
-            for ((rowIndex, row) in layouts.letters.rows.withIndex()) {
-                var column = 0
-                for (key in row) {
-                    if (key.action == KeyAction.Text) {
-                        (key.output ?: key.label).firstOrNull()?.let {
-                            putIfAbsent(
-                                it.lowercaseChar().code,
-                                (column * keyWidth) to (rowIndex * keyWidth),
-                            )
-                        }
-                    }
-                    column++
-                }
-            }
-        }
-        return layouts.glideKeys { centers[it] }
-    }
-
-    /** A plain left-to-right stroke. Its shape is irrelevant: the verdict decides the word. */
-    private fun stroke(): List<GesturePoint> =
-        (0..5).map { GesturePoint(x = it * keyWidth, y = 0f, t = it * 20L) }
-
-    /**
-     * Runs the main looper until the glide's own thread hop has come back. Only
-     * the resumption after the decode's `withContext` needs this: the test body
-     * is already on the main looper, so everything up to it dispatched inline.
-     */
-    private fun settle(service: WMKeyboardService) {
-        repeat(SETTLE_ROUNDS) {
-            shadowOf(Looper.getMainLooper()).idle()
-            if (service.uiState.value.suggestions.isNotEmpty()) return
-            Thread.sleep(SETTLE_STEP_MS)
-        }
-        shadowOf(Looper.getMainLooper()).idle()
+        service.onGesture(straightStroke(), glideKeyGrid(), GLIDE_KEY_WIDTH, GlideVerdict.Word(WORD))
+        settle { service.uiState.value.suggestions.isNotEmpty() }
+        return Stroke(service, editor)
     }
 
     private companion object {
@@ -331,7 +239,5 @@ class GlideCommitSpacingTest {
         /** Said when the field looks right but the commit stopped short of its end. */
         const val RAN_SHORT = "the glide never reached its last line — the field is only half written"
 
-        const val SETTLE_ROUNDS = 200
-        const val SETTLE_STEP_MS = 10L
     }
 }

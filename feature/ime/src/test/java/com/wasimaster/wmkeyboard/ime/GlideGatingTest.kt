@@ -62,149 +62,42 @@ class GlideGatingTest {
     /** The word the verdict commits, so no decoder is needed. */
     private val word = "hello"
 
-    /** Grid units, and the width a stroke is measured against. */
-    private val keyWidth = 60f
-
-    /**
-     * Records what reached the field. The commit sits inside the glide job, so
-     * a word here proves the job ran; nothing here, once the looper has been
-     * pumped, is the refusal this file is about.
-     */
-    private class RecordingInputConnection(target: View) : BaseInputConnection(target, true) {
-        val committed = StringBuilder()
-        override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
-            committed.append(text ?: "")
-            return true
-        }
-        override fun getTextBeforeCursor(n: Int, flags: Int): CharSequence =
-            committed.takeLast(n).toString()
-        override fun getTextAfterCursor(n: Int, flags: Int): CharSequence = ""
-        override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean = true
-        override fun finishComposingText(): Boolean = true
-    }
-
-    private class Keyboard(val ic: InputConnection) : WMKeyboardService() {
-        init { attachBaseContext(RuntimeEnvironment.getApplication()) }
-        override fun getCurrentInputConnection(): InputConnection = ic
-    }
-
-    /** The letter grid, straight off the default QWERTY — no Compose, no measure pass. */
-    private fun letterKeys(): List<KeyCenter> {
-        val layouts = KeyboardUiState().layouts
-        val centers = buildMap {
-            for ((rowIndex, row) in layouts.letters.rows.withIndex()) {
-                var column = 0
-                for (key in row) {
-                    if (key.action == KeyAction.Text) {
-                        (key.output ?: key.label).firstOrNull()?.let {
-                            putIfAbsent(
-                                it.lowercaseChar().code,
-                                (column * keyWidth) to (rowIndex * keyWidth),
-                            )
-                        }
-                    }
-                    column++
-                }
-            }
-        }
-        return layouts.glideKeys { centers[it] }
-    }
-
-    /** A plain left-to-right stroke. Its shape is irrelevant: the verdict decides the word. */
-    private fun stroke(): List<GesturePoint> =
-        (0..STROKE_LAST).map { GesturePoint(x = it * keyWidth, y = 0f, t = it * STROKE_STEP_MS) }
-
-    /** The floating word a stroke in flight would have put over the `q` key. */
-    private fun previewBoard(): Map<Int, OctopusWord> = mapOf(
-        'q'.code to OctopusWord(
-            keyCodePoint = 'q'.code,
-            word = SENTINEL,
-            typedChars = 0,
-            kind = OctopusKind.COMPLETION,
-            rank = 0,
-        ),
-    )
-
     /**
      * The state a glide runs from, with one gate open to the caller.
      *
-     * Two of these arguments are load-bearing rather than tidy. `glideReady` is
-     * otherwise only set by a watcher that wants a loaded dictionary, so its
-     * default of false would refuse every stroke and make each test below pass
-     * for the wrong reason. `learnFromTyping` has to be off or the commit
-     * dereferences the `lateinit` lexicon that only `onCreate` assigns — and a
-     * throw in the glide job is silent, so that would read as a refusal too.
-     *
-     * The preview fields are the sentinel: a stroke that got past the gate
-     * clears all three on its way through, whatever it goes on to type.
+     * The two arguments that are load-bearing rather than tidy live on
+     * [glideReadyState], with the reason each one is there. What this adds is
+     * the sentinel: a stroke that got past the gate clears all three preview
+     * fields on its way through, whatever it goes on to type, so their survival
+     * is the tripwire for the guards whose fall-through commits nothing even
+     * when deleted.
      */
     private fun readyToGlide(
         glideReady: Boolean = true,
         settings: KeyboardSettings = KeyboardSettings(learnFromTyping = false),
         secureField: Boolean = false,
         fieldKind: FieldKind = FieldKind.TEXT,
-        fieldNoSuggestions: Boolean = false,
-    ) = KeyboardUiState(
+    ) = glideReadyState(
         glideReady = glideReady,
         settings = settings,
         secureField = secureField,
         fieldKind = fieldKind,
-        fieldNoSuggestions = fieldNoSuggestions,
-        glideWord = SENTINEL,
-        glideChoices = listOf(SENTINEL),
-        octopusGlide = previewBoard(),
-    )
-
-    /** Writes the state a glide needs, without the half of the service that builds it. */
-    private fun seed(service: WMKeyboardService, state: KeyboardUiState): KeyboardUiState {
-        val field = WMKeyboardService::class.java.getDeclaredField("_uiState")
-        field.isAccessible = true
-        @Suppress("UNCHECKED_CAST")
-        val flow = field.get(service) as kotlinx.coroutines.flow.MutableStateFlow<KeyboardUiState>
-        flow.value = state
-        return state
-    }
-
-    /**
-     * Runs the main looper until [until] holds, or until a commit that was
-     * going to happen has had many times the one thread hop it needs.
-     *
-     * The wait is what makes a negative assertion mean anything: the commit is
-     * on the far side of `withContext(Dispatchers.Default)`, so asserting an
-     * empty field the instant `onGesture` returns would be green with every
-     * guard in this file deleted.
-     */
-    private fun settle(until: () -> Boolean) {
-        repeat(SETTLE_ROUNDS) {
-            shadowOf(Looper.getMainLooper()).idle()
-            if (until()) return
-            Thread.sleep(SETTLE_STEP_MS)
-        }
-        shadowOf(Looper.getMainLooper()).idle()
-    }
+        octopusGlide = octopusSentinel(SENTINEL, kind = OctopusKind.COMPLETION),
+    ).copy(glideWord = SENTINEL, glideChoices = listOf(SENTINEL))
 
     /** Both tripwires, field first. [reason] names the gate under test. */
     private fun assertRefused(
         reason: String,
-        ic: RecordingInputConnection,
+        editor: RecordingEditor,
         service: WMKeyboardService,
         seeded: KeyboardUiState,
     ) {
-        assertEquals("$reason: the stroke reached the field", "", ic.committed.toString())
+        assertEquals("$reason: the stroke reached the field", "", editor.typed)
         assertSame(
             "$reason: the stroke got past the gate and republished the state",
             seeded,
             service.uiState.value,
         )
-    }
-
-    /** A service seeded with [state], and the connection watching its field. */
-    private fun keyboard(
-        state: KeyboardUiState,
-    ): Triple<Keyboard, RecordingInputConnection, KeyboardUiState> {
-        val ic = RecordingInputConnection(View(RuntimeEnvironment.getApplication()))
-        val service = Keyboard(ic)
-        return Triple(service, ic, seed(service, state))
     }
 
     /**
@@ -217,35 +110,35 @@ class GlideGatingTest {
      */
     @Test
     fun `a keyboard whose word lists are not loaded refuses the stroke`() {
-        val (service, ic, seeded) = keyboard(readyToGlide(glideReady = false))
+        val (service, editor, seeded) = glideKeyboard(readyToGlide(glideReady = false))
 
-        service.onGesture(stroke(), letterKeys(), keyWidth, GlideVerdict.Word(word))
-        settle { ic.committed.isNotEmpty() }
+        service.onGesture(straightStroke(), glideKeyGrid(), GLIDE_KEY_WIDTH, GlideVerdict.Word(word))
+        settle { editor.typed.isNotEmpty() }
 
-        assertRefused("not ready", ic, service, seeded)
+        assertRefused("not ready", editor, service, seeded)
     }
 
     /** Reddens if `state.settings.gestureTyping &&` goes from `glideAllowed`. */
     @Test
     fun `gesture typing switched off refuses the stroke`() {
         val settings = KeyboardSettings(gestureTyping = false, learnFromTyping = false)
-        val (service, ic, seeded) = keyboard(readyToGlide(settings = settings))
+        val (service, editor, seeded) = glideKeyboard(readyToGlide(settings = settings))
 
-        service.onGesture(stroke(), letterKeys(), keyWidth, GlideVerdict.Word(word))
-        settle { ic.committed.isNotEmpty() }
+        service.onGesture(straightStroke(), glideKeyGrid(), GLIDE_KEY_WIDTH, GlideVerdict.Word(word))
+        settle { editor.typed.isNotEmpty() }
 
-        assertRefused("gesture typing off", ic, service, seeded)
+        assertRefused("gesture typing off", editor, service, seeded)
     }
 
     /** Reddens if `!secureField &&` goes from `KeyboardUiState.allowsGestureTyping`. */
     @Test
     fun `a password field refuses the stroke`() {
-        val (service, ic, seeded) = keyboard(readyToGlide(secureField = true))
+        val (service, editor, seeded) = glideKeyboard(readyToGlide(secureField = true))
 
-        service.onGesture(stroke(), letterKeys(), keyWidth, GlideVerdict.Word(word))
-        settle { ic.committed.isNotEmpty() }
+        service.onGesture(straightStroke(), glideKeyGrid(), GLIDE_KEY_WIDTH, GlideVerdict.Word(word))
+        settle { editor.typed.isNotEmpty() }
 
-        assertRefused("password field", ic, service, seeded)
+        assertRefused("password field", editor, service, seeded)
     }
 
     /**
@@ -262,18 +155,18 @@ class GlideGatingTest {
     @Test
     fun `only plain text and URL fields take a glide`() {
         for (kind in FieldKind.entries) {
-            val (service, ic, seeded) = keyboard(readyToGlide(fieldKind = kind))
+            val (service, editor, seeded) = glideKeyboard(readyToGlide(fieldKind = kind))
 
-            service.onGesture(stroke(), letterKeys(), keyWidth, GlideVerdict.Word(word))
+            service.onGesture(straightStroke(), glideKeyGrid(), GLIDE_KEY_WIDTH, GlideVerdict.Word(word))
 
             if (kind == FieldKind.TEXT || kind == FieldKind.URI) {
                 // Blank rather than empty: the glide's own spacing commits
                 // separately from the word, and only the word is the question.
-                settle { ic.committed.isNotBlank() }
-                assertEquals("$kind should glide", word, ic.committed.toString().trim())
+                settle { editor.typed.isNotBlank() }
+                assertEquals("$kind should glide", word, editor.typed.trim())
             } else {
-                settle { ic.committed.isNotEmpty() }
-                assertRefused("$kind", ic, service, seeded)
+                settle { editor.typed.isNotEmpty() }
+                assertRefused("$kind", editor, service, seeded)
             }
         }
     }
@@ -289,23 +182,23 @@ class GlideGatingTest {
      */
     @Test
     fun `a chained stroke does reach the field, so the two refusals below mean something`() {
-        val (service, ic, _) = keyboard(readyToGlide())
+        val (service, editor, _) = glideKeyboard(readyToGlide())
 
-        service.onGestureWords(listOf(stroke()), letterKeys(), keyWidth, GlideVerdict.Word(word))
-        settle { ic.committed.isNotBlank() }
+        service.onGestureWords(listOf(straightStroke()), glideKeyGrid(), GLIDE_KEY_WIDTH, GlideVerdict.Word(word))
+        settle { editor.typed.isNotBlank() }
 
-        assertEquals(word, ic.committed.toString().trim())
+        assertEquals(word, editor.typed.trim())
     }
 
     /** Reddens if `if (keys.isEmpty()) return` goes from `onGesture`. */
     @Test
     fun `a stroke with no key grid under it is refused`() {
-        val (service, ic, seeded) = keyboard(readyToGlide())
+        val (service, editor, seeded) = glideKeyboard(readyToGlide())
 
-        service.onGesture(stroke(), emptyList(), keyWidth, GlideVerdict.Word(word))
-        settle { ic.committed.isNotEmpty() }
+        service.onGesture(straightStroke(), emptyList(), GLIDE_KEY_WIDTH, GlideVerdict.Word(word))
+        settle { editor.typed.isNotEmpty() }
 
-        assertRefused("no keys", ic, service, seeded)
+        assertRefused("no keys", editor, service, seeded)
     }
 
     /**
@@ -324,21 +217,20 @@ class GlideGatingTest {
      * guard stops a real decode wants a dictionary, and belongs where there is
      * one.
      *
-     * `fieldNoSuggestions` is on because the cancel restores the strip, and
-     * `refreshSuggestions` reaches the snippet store, which is one more
-     * `lateinit` that only `onCreate` assigns. It is not a gate a glide reads:
-     * `allowsGestureTyping` deliberately ignores it, so a field that asked for
-     * a quiet strip still swipes.
+     * The cancel restores the strip, so this is the one test here that needs
+     * `fieldNoSuggestions` — it keeps `refreshSuggestions` off the snippet
+     * store, another `lateinit` of `onCreate`'s. [glideReadyState] carries it
+     * for every test now, so nothing has to remember.
      */
     @Test
     fun `a cancelled pick takes the stroke's preview down`() {
-        val (service, ic, _) = keyboard(readyToGlide(fieldNoSuggestions = true))
+        val (service, editor, _) = glideKeyboard(readyToGlide())
 
-        service.onGesture(stroke(), letterKeys(), keyWidth, GlideVerdict.Cancel)
-        settle { ic.committed.isNotEmpty() }
+        service.onGesture(straightStroke(), glideKeyGrid(), GLIDE_KEY_WIDTH, GlideVerdict.Cancel)
+        settle { editor.typed.isNotEmpty() }
 
         // Tripwire, not the claim — see the note above.
-        assertEquals("a cancelled pick reached the field", "", ic.committed.toString())
+        assertEquals("a cancelled pick reached the field", "", editor.typed)
         val state = service.uiState.value
         assertNull("the floating word outlived the cancelled stroke", state.glideWord)
         assertEquals(emptyList<String>(), state.glideChoices)
@@ -355,12 +247,12 @@ class GlideGatingTest {
      */
     @Test
     fun `a multi-word glide with no segments is refused`() {
-        val (service, ic, seeded) = keyboard(readyToGlide())
+        val (service, editor, seeded) = glideKeyboard(readyToGlide())
 
-        service.onGestureWords(emptyList(), letterKeys(), keyWidth, GlideVerdict.Word(word))
-        settle { ic.committed.isNotEmpty() }
+        service.onGestureWords(emptyList(), glideKeyGrid(), GLIDE_KEY_WIDTH, GlideVerdict.Word(word))
+        settle { editor.typed.isNotEmpty() }
 
-        assertRefused("no segments", ic, service, seeded)
+        assertRefused("no segments", editor, service, seeded)
     }
 
     /**
@@ -370,28 +262,16 @@ class GlideGatingTest {
      */
     @Test
     fun `a multi-word glide with no key grid under it is refused`() {
-        val (service, ic, seeded) = keyboard(readyToGlide())
+        val (service, editor, seeded) = glideKeyboard(readyToGlide())
 
-        service.onGestureWords(listOf(stroke()), emptyList(), keyWidth, GlideVerdict.Word(word))
-        settle { ic.committed.isNotEmpty() }
+        service.onGestureWords(listOf(straightStroke()), emptyList(), GLIDE_KEY_WIDTH, GlideVerdict.Word(word))
+        settle { editor.typed.isNotEmpty() }
 
-        assertRefused("no keys", ic, service, seeded)
+        assertRefused("no keys", editor, service, seeded)
     }
 
     private companion object {
         /** Planted in the preview fields, and looked for afterwards. */
         const val SENTINEL = "STALE"
-
-        /** Enough samples for a stroke the decoder would accept as begun. */
-        const val STROKE_LAST = 5
-        const val STROKE_STEP_MS = 20L
-
-        /**
-         * Half a second, which is many times the single thread hop a commit
-         * takes. Only the refusals wait it out in full; a stroke that types
-         * leaves as soon as the word lands.
-         */
-        const val SETTLE_ROUNDS = 100
-        const val SETTLE_STEP_MS = 5L
     }
 }
