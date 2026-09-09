@@ -470,7 +470,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
@@ -13353,83 +13352,73 @@ open class WMKeyboardService : InputMethodService() {
             if (candidates.isEmpty() && chosen == null) return@launch
             val ic = currentInputConnection ?: return@launch
 
-            // Everything from here writes into the field, and a half-written
-            // glide is worse than a slow one, so this half of the job is not
-            // cancellable. An editor restarting its input connection cancels
-            // this job outright (see [onStartInputView]) and Compose text
-            // fields restart theirs freely — which is how a glide into the
-            // keyboard's own "add word" and search boxes came to decode, fill
-            // the strip and type nothing at all (#115). The decode above is
-            // still cancellable, which is what that cancel is really for.
-            withContext(NonCancellable) {
-                // The tapped word this glide is finishing gets the same treatment
-                // a space would have given it: without this a tapped "i" followed
-                // by a glided word committed in lower case, because the glide's own
-                // space never goes through onSpace (#46).
-                commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoText.apostrophe)
-                // Lifting on a picker word that was not the leader is a pick over
-                // the leader, remembered against the pair (issue #52).
-                if (chosen != null && candidates.isNotEmpty() && chosen != candidates.first()) {
-                    noteGlidePreference(rejected = candidates.first(), chosen = chosen)
-                }
-                // An explicit pick beats everything. Otherwise the word on
-                // screen wins the lift while the finished stroke still ranks it
-                // near its own leader, so what was shown is what gets typed.
-                val picked = chosen
-                    ?: previewGate.commit(
-                        candidates, reading.scores, state.settings.gesture.previewSteadiness,
-                    )
-                    ?: candidates.first()
-                val strip = if (chosen != null) glideStripOrder(candidates, chosen) else candidates
-                val word = when (shiftAtGesture) {
-                    ShiftState.CAPS_LOCK -> picked.uppercase()
-                    ShiftState.ON -> picked.replaceFirstChar { it.uppercase() }
-                    ShiftState.OFF -> picked
-                }
-                commitGestureLeadingSpace(ic, state)
-                ic.commitText(word, 1)
-                // The word and the space that finishes it are one edit, and
-                // nothing may suspend between them. `commitText` replaces the
-                // composing region whenever there is one, and the commit's own
-                // selection echo arms a region over this very word — instantly
-                // when the editor shares this process, as the setup wizard's
-                // "try your keyboard" box does. Every yield in between let that
-                // echo in first, and the space then overwrote the word instead
-                // of following it: the field kept a lone space, and the word
-                // itself only surfaced when the next stroke flushed the
-                // stranded buffer, one swipe late (#113).
-                //
-                // Arming [lastGestureWord] here is the other half of the same
-                // fix. It is the flag [restartSuggestionsAtCursor] tests before
-                // it arms a region at all, and it too was being set after the
-                // learning hop below, so the guard that exists for exactly this
-                // could not win the race it was written for.
-                lastGestureWord = word
-                commitGestureSpace(ic, state)
-                armRevertGuard()
-                recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
-                learn(
-                    word,
-                    caseTrusted = glideCaseTrusted(shiftAtGesture, state, verdict.capitals),
-                    origin = WordOrigin.GLIDE,
-                )
-                // What the stroke could have been, kept against the word it
-                // became, so coming back to this word offers the swipe's own
-                // readings instead of spellings of the word standing there (#115).
-                rememberGlideReading(word, strip)
-                // The stroke's shape rides with the word in the learning buffer
-                // and reaches the shape store only when the word settles; the
-                // hand model learns on the spot and retracts on undo instead.
-                val (hand, shape) = withContext(Dispatchers.Default) {
-                    learnHand(points, keys, keyWidthPx, word) to sampleGlideShape(points, keys, keyWidthPx, word)
-                }
-                if (shape != null) learningBuffer.attachGlide(word, shape)
-                lastGestureStroke = GlideStroke(points, keys, keyWidthPx, shape)
-                lastHandAdjustment = hand
-                consumeShift()
-                val floating = nextWordOctopus()
-                _uiState.update { it.copy(suggestions = strip, octopus = floating) }
+            // The tapped word this glide is finishing gets the same treatment
+            // a space would have given it: without this a tapped "i" followed
+            // by a glided word committed in lower case, because the glide's own
+            // space never goes through onSpace (#46).
+            commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoText.apostrophe)
+            // Lifting on a picker word that was not the leader is a pick over
+            // the leader, remembered against the pair (issue #52).
+            if (chosen != null && candidates.isNotEmpty() && chosen != candidates.first()) {
+                noteGlidePreference(rejected = candidates.first(), chosen = chosen)
             }
+            // An explicit pick beats everything. Otherwise the word on
+            // screen wins the lift while the finished stroke still ranks it
+            // near its own leader, so what was shown is what gets typed.
+            val picked = chosen
+                ?: previewGate.commit(
+                    candidates, reading.scores, state.settings.gesture.previewSteadiness,
+                )
+                ?: candidates.first()
+            val strip = if (chosen != null) glideStripOrder(candidates, chosen) else candidates
+            val word = when (shiftAtGesture) {
+                ShiftState.CAPS_LOCK -> picked.uppercase()
+                ShiftState.ON -> picked.replaceFirstChar { it.uppercase() }
+                ShiftState.OFF -> picked
+            }
+            commitGestureLeadingSpace(ic, state)
+            ic.commitText(word, 1)
+            // The word and the space that finishes it are one edit, and
+            // nothing may suspend between them. `commitText` replaces the
+            // composing region whenever there is one, and the commit's own
+            // selection echo arms a region over this very word — instantly
+            // when the editor shares this process, as the setup wizard's
+            // "try your keyboard" box does. Every yield in between let that
+            // echo in first, and the space then overwrote the word instead
+            // of following it: the field kept a lone space, and the word
+            // itself only surfaced when the next stroke flushed the
+            // stranded buffer, one swipe late (#113).
+            //
+            // Arming [lastGestureWord] here is the other half of the same
+            // fix. It is the flag [restartSuggestionsAtCursor] tests before
+            // it arms a region at all, and it too was being set after the
+            // learning hop below, so the guard that exists for exactly this
+            // could not win the race it was written for.
+            lastGestureWord = word
+            commitGestureSpace(ic, state)
+            armRevertGuard()
+            recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
+            learn(
+                word,
+                caseTrusted = glideCaseTrusted(shiftAtGesture, state, verdict.capitals),
+                origin = WordOrigin.GLIDE,
+            )
+            // What the stroke could have been, kept against the word it
+            // became, so coming back to this word offers the swipe's own
+            // readings instead of spellings of the word standing there (#115).
+            rememberGlideReading(word, strip)
+            // The stroke's shape rides with the word in the learning buffer
+            // and reaches the shape store only when the word settles; the
+            // hand model learns on the spot and retracts on undo instead.
+            val (hand, shape) = withContext(Dispatchers.Default) {
+                learnHand(points, keys, keyWidthPx, word) to sampleGlideShape(points, keys, keyWidthPx, word)
+            }
+            if (shape != null) learningBuffer.attachGlide(word, shape)
+            lastGestureStroke = GlideStroke(points, keys, keyWidthPx, shape)
+            lastHandAdjustment = hand
+            consumeShift()
+            val floating = nextWordOctopus()
+            _uiState.update { it.copy(suggestions = strip, octopus = floating) }
         }
     }
 
@@ -13635,81 +13624,76 @@ open class WMKeyboardService : InputMethodService() {
         val chosen = (verdict as? GlideVerdict.Word)?.word
         gestureJob = serviceScope.launch {
             val ic = currentInputConnection ?: return@launch
-            // Not cancellable, for the reason spelled out in [onGesture]: a
-            // stroke that has begun writing words into the field must finish
-            // writing them (#115).
-            withContext(NonCancellable) {
-                // Flush any composing text before the first glided word, finished
-                // the way a space would have finished it (see onGesture).
-                commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoText.apostrophe)
-                var lastWords: List<String> = emptyList()
-                var committedAny = false
-                segments.forEachIndexed { index, segment ->
-                    // Decoded inside the loop, not before it: each word is committed
-                    // and learned as it lands, so the next segment is decoded with
-                    // the one before it as context.
-                    val candidates = withContext(Dispatchers.Default) {
-                        glideDecode(segment, keys, keyWidthPx)
-                    }.words
-                    // The pick belongs to the last segment, and survives an empty
-                    // decode of it the way a single glide's pick does.
-                    val picked = chosen?.takeIf { index == segments.lastIndex }
-                    if (candidates.isEmpty() && picked == null) return@forEachIndexed
-                    if (picked != null && candidates.isNotEmpty() && picked != candidates.first()) {
-                        noteGlidePreference(rejected = candidates.first(), chosen = picked)
-                    }
-                    val leader = picked ?: candidates.first()
-                    val word = if (index == 0) {
-                        when (shiftAtGesture) {
-                            ShiftState.CAPS_LOCK -> leader.uppercase()
-                            ShiftState.ON -> leader.replaceFirstChar { it.uppercase() }
-                            ShiftState.OFF -> leader
-                        }
-                    } else {
-                        leader
-                    }
-                    commitGestureLeadingSpace(ic, state)
-                    ic.commitText(word, 1)
-                    // Before the learning hop below, for the reason spelled out
-                    // in [onGesture]: this is what stops the commit's own echo
-                    // arming a composing region over the word, which the next
-                    // segment's leading space — or this stroke's trailing one —
-                    // would then replace instead of follow (#113).
-                    lastGestureWord = word
-                    recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
-                    learn(
-                        word,
-                        // Only the first word of the stroke could have been shifted
-                        // at all; the rest carry whatever capitals the dictionary
-                        // gave them, which is not evidence — see [glideCaseTrusted].
-                        caseTrusted = index == 0 &&
-                            glideCaseTrusted(shiftAtGesture, state, verdict.capitals),
-                        origin = WordOrigin.GLIDE,
-                    )
-                    val (hand, shape) = withContext(Dispatchers.Default) {
-                        learnHand(segment, keys, keyWidthPx, word) to sampleGlideShape(segment, keys, keyWidthPx, word)
-                    }
-                    if (shape != null) learningBuffer.attachGlide(word, shape)
-                    lastGestureStroke = GlideStroke(segment, keys, keyWidthPx, shape)
-                    // Each word teaches; only the last is on the undo's reach.
-                    lastHandAdjustment = hand
-                    armRevertGuard()
-                    lastWords = if (picked != null) glideStripOrder(candidates, picked) else candidates
-                    // Only the last word of a chained stroke keeps its readings:
-                    // it is the one whose alternates are on the strip, and the
-                    // one a proofreading pass comes back to (#115).
-                    rememberGlideReading(word, lastWords)
-                    committedAny = true
+            // Flush any composing text before the first glided word, finished
+            // the way a space would have finished it (see onGesture).
+            commitComposing(ic, autocorrect = false, fixApostrophes = state.settings.autoText.apostrophe)
+            var lastWords: List<String> = emptyList()
+            var committedAny = false
+            segments.forEachIndexed { index, segment ->
+                // Decoded inside the loop, not before it: each word is committed
+                // and learned as it lands, so the next segment is decoded with
+                // the one before it as context.
+                val candidates = withContext(Dispatchers.Default) {
+                    glideDecode(segment, keys, keyWidthPx)
+                }.words
+                // The pick belongs to the last segment, and survives an empty
+                // decode of it the way a single glide's pick does.
+                val picked = chosen?.takeIf { index == segments.lastIndex }
+                if (candidates.isEmpty() && picked == null) return@forEachIndexed
+                if (picked != null && candidates.isNotEmpty() && picked != candidates.first()) {
+                    noteGlidePreference(rejected = candidates.first(), chosen = picked)
                 }
-                if (committedAny) {
-                    // Only the last word earns one: the words before it were spaced
-                    // by the leading rule above as each new segment landed.
-                    commitGestureSpace(ic, state)
-                    armRevertGuard()
-                    consumeShift()
-                    val floating = nextWordOctopus()
-                    _uiState.update { it.copy(suggestions = lastWords, octopus = floating) }
+                val leader = picked ?: candidates.first()
+                val word = if (index == 0) {
+                    when (shiftAtGesture) {
+                        ShiftState.CAPS_LOCK -> leader.uppercase()
+                        ShiftState.ON -> leader.replaceFirstChar { it.uppercase() }
+                        ShiftState.OFF -> leader
+                    }
+                } else {
+                    leader
                 }
+                commitGestureLeadingSpace(ic, state)
+                ic.commitText(word, 1)
+                // Before the learning hop below, for the reason spelled out
+                // in [onGesture]: this is what stops the commit's own echo
+                // arming a composing region over the word, which the next
+                // segment's leading space — or this stroke's trailing one —
+                // would then replace instead of follow (#113).
+                lastGestureWord = word
+                recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
+                learn(
+                    word,
+                    // Only the first word of the stroke could have been shifted
+                    // at all; the rest carry whatever capitals the dictionary
+                    // gave them, which is not evidence — see [glideCaseTrusted].
+                    caseTrusted = index == 0 &&
+                        glideCaseTrusted(shiftAtGesture, state, verdict.capitals),
+                    origin = WordOrigin.GLIDE,
+                )
+                val (hand, shape) = withContext(Dispatchers.Default) {
+                    learnHand(segment, keys, keyWidthPx, word) to sampleGlideShape(segment, keys, keyWidthPx, word)
+                }
+                if (shape != null) learningBuffer.attachGlide(word, shape)
+                lastGestureStroke = GlideStroke(segment, keys, keyWidthPx, shape)
+                // Each word teaches; only the last is on the undo's reach.
+                lastHandAdjustment = hand
+                armRevertGuard()
+                lastWords = if (picked != null) glideStripOrder(candidates, picked) else candidates
+                // Only the last word of a chained stroke keeps its readings:
+                // it is the one whose alternates are on the strip, and the
+                // one a proofreading pass comes back to (#115).
+                rememberGlideReading(word, lastWords)
+                committedAny = true
+            }
+            if (committedAny) {
+                // Only the last word earns one: the words before it were spaced
+                // by the leading rule above as each new segment landed.
+                commitGestureSpace(ic, state)
+                armRevertGuard()
+                consumeShift()
+                val floating = nextWordOctopus()
+                _uiState.update { it.copy(suggestions = lastWords, octopus = floating) }
             }
         }
     }
