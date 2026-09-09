@@ -85,8 +85,15 @@ internal enum class EntryWeight(val percent: Int, val titleBonus: Int) {
 internal data class SettingsSearchEntry(
     val title: String,
     val subtitle: String,
-    /** Breadcrumb shown under the result, e.g. "Tools › Camera". */
-    val screen: String,
+    /**
+     * The path above the destination, outermost first: `["Tools", "Camera"]`.
+     *
+     * Kept as its parts rather than as the one string the result draws,
+     * because the parts are also what the path strip is seeded with when a
+     * result is opened — a jump has no back stack to derive a path from
+     * (#111).
+     */
+    val screenPath: List<String>,
     val route: String,
     val weight: EntryWeight = EntryWeight.NORMAL,
     /** Set on the tool entries, so a result can draw the tool's own icon. */
@@ -106,6 +113,9 @@ internal data class SettingsSearchEntry(
      */
     val key: String = "$route#$title",
 ) {
+    /** The path as the result draws it under the row, e.g. "Tools › Camera". */
+    val screen: String get() = screenPath.joinToString(CRUMB_SEPARATOR)
+
     /**
      * The four fields in the form the matcher compares against, built on the
      * first search that reaches this entry and kept for the rest of the screen.
@@ -143,9 +153,9 @@ internal class ResourceSearchStrings(private val res: Resources) : SearchStrings
 /** What separates the parts of a breadcrumb. Punctuation, not words. */
 private const val CRUMB_SEPARATOR = " › "
 
-/** Joins the breadcrumb parts that are set, outermost first. */
-private fun SearchStrings.crumb(vararg parts: Int): String =
-    parts.filter { it != 0 }.joinToString(CRUMB_SEPARATOR) { getString(it) }
+/** The breadcrumb parts that are set, outermost first. */
+private fun SearchStrings.crumb(vararg parts: Int): List<String> =
+    parts.filter { it != 0 }.map { getString(it) }
 
 /**
  * Builds one entry from the resources the owning screen draws.
@@ -166,7 +176,7 @@ private fun SearchStrings.entry(
 ): SettingsSearchEntry = SettingsSearchEntry(
     title = getString(title),
     subtitle = if (subtitle == 0) "" else getString(subtitle),
-    screen = crumb(screenRoot, screenParent, screen),
+    screenPath = crumb(screenRoot, screenParent, screen),
     route = route,
     weight = weight,
     titleRes = title,
@@ -191,7 +201,7 @@ private fun SearchStrings.toolEntry(
 ): SettingsSearchEntry = SettingsSearchEntry(
     title = getString(title),
     subtitle = if (subtitle == 0) "" else getString(subtitle),
-    screen = crumb(R.string.home_tools_title, toolTitle(tool)),
+    screenPath = crumb(R.string.home_tools_title, toolTitle(tool)),
     route = "tool/${tool.name}",
     weight = weight,
     tool = tool,
@@ -1547,13 +1557,21 @@ private fun SearchStrings.sectionRows(): List<SettingsSearchEntry> {
         title, subtitle, CommonR.string.common_settings, route,
         weight = EntryWeight.SECTION, keywords = keywords,
     )
+    // [parent] is the screen above [screen], for the destinations that hang off
+    // a sub-page rather than off a home row. The whole path matters: it is what
+    // the result draws under its title and what the path strip is seeded with
+    // when the result is opened (#111).
     fun under(
         @StringRes title: Int,
         @StringRes subtitle: Int,
         @StringRes screen: Int,
         route: String,
         @StringRes keywords: Int = 0,
-    ) = entry(title, subtitle, screen, route, weight = EntryWeight.SECTION, keywords = keywords)
+        @StringRes parent: Int = 0,
+    ) = entry(
+        title, subtitle, screen, route,
+        screenParent = parent, weight = EntryWeight.SECTION, keywords = keywords,
+    )
     return RootEntries.map { home(it.title, it.subtitle, it.route, it.keywords) } + listOf(
         // Key layouts is reached from Layout & size, its one door.
         under(
@@ -1670,16 +1688,18 @@ private fun SearchStrings.sectionRows(): List<SettingsSearchEntry> {
         under(
             R.string.typing_personal_dictionary_title,
             R.string.typing_personal_dictionary_subtitle,
-            R.string.home_typing_title,
+            R.string.typing_group_suggestions_title,
             "dictionary",
             R.string.search_kw_dictionary,
+            parent = R.string.home_typing_title,
         ),
         under(
             R.string.typing_custom_dictionaries_title,
             R.string.typing_custom_dictionaries_subtitle,
-            R.string.home_typing_title,
+            R.string.typing_group_suggestions_title,
             "customdictionaries",
             R.string.search_kw_customdictionaries,
+            parent = R.string.home_typing_title,
         ),
         under(
             R.string.langemoji_emoji_keywords_title,
@@ -1690,11 +1710,13 @@ private fun SearchStrings.sectionRows(): List<SettingsSearchEntry> {
         ),
         under(
             R.string.typing_blacklist_title, R.string.typing_blacklist_subtitle,
-            R.string.home_typing_title, "blacklist", R.string.search_kw_blacklist,
+            R.string.typing_group_suggestions_title, "blacklist", R.string.search_kw_blacklist,
+            parent = R.string.home_typing_title,
         ),
         under(
             R.string.typing_learned_corrections_title, R.string.typing_learned_corrections_subtitle,
-            R.string.home_typing_title, "learnedcorrections", R.string.search_kw_learnedcorrections,
+            R.string.typing_group_corrections_title, "learnedcorrections", R.string.search_kw_learnedcorrections,
+            parent = R.string.home_typing_title,
         ),
         // A child of the media control tool's page rather than of a home
         // screen, so its breadcrumb is built by hand off the tool's own name.
@@ -1721,6 +1743,7 @@ private fun SearchStrings.sectionRows(): List<SettingsSearchEntry> {
             R.string.typing_group_hardware_title,
             "hwshortcuts",
             R.string.search_kw_hwshortcuts,
+            parent = R.string.home_typing_title,
         ),
         under(
             R.string.about_licences_title, R.string.about_licences_subtitle,
@@ -1850,6 +1873,43 @@ internal fun settingsSearchIndex(strings: SearchStrings): List<SettingsSearchEnt
 /** The index in the language [res] is configured for. */
 internal fun settingsSearchIndex(res: Resources): List<SettingsSearchEntry> =
     settingsSearchIndex(ResourceSearchStrings(res))
+
+/**
+ * The path strip's steps for the screen [entry] opens, for a jump that reaches
+ * it without walking there.
+ *
+ * A search result is navigated to from the results list, so the back stack
+ * behind it holds the search screen and nothing else. The strip is drawn from
+ * that stack, which is why it used to read "Home › Personal dictionary" for a
+ * screen that really lives at "Home › Typing › Suggestions › Personal
+ * dictionary" (#111). The path the result already draws under its own title is
+ * the same path, so it is what the trail is seeded with.
+ *
+ * Two parts are dropped. The settings home is already the first real step of
+ * every trail, and a row entry's path ends with the very screen being opened,
+ * which the destination puts on the trail for itself a frame later.
+ *
+ * A step's route is looked up by name against the index's own destination
+ * entries, so a step is pressable exactly when the index knows a screen by
+ * that name. Nothing else in the app has to agree with a second table.
+ */
+internal fun settingsCrumbSeed(
+    entry: SettingsSearchEntry,
+    index: List<SettingsSearchEntry>,
+    homeTitle: String,
+): List<SettingsCrumb> {
+    // Reversed, so that a name indexed twice keeps the route of the entry that
+    // comes first in the index — the destination, ahead of any later mention.
+    val routes = index.asReversed()
+        .filter { it.weight == EntryWeight.SECTION }
+        .associate { it.title to it.route }
+    val steps = entry.screenPath
+        .filterNot { it == homeTitle }
+        .map { SettingsCrumb(entryId = "seed:$it", title = it, route = routes[it], seeded = true) }
+    // A destination's path stops above it; an ordinary row's ends with the very
+    // screen it is drawn on, which is the screen being opened.
+    return if (entry.weight == EntryWeight.SECTION) steps else steps.dropLast(1)
+}
 
 // The ranking itself lives in SettingsSearchMatch.kt: what a query word is
 // worth against an entry, and the word groups that let a search for a vibration

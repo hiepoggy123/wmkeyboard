@@ -447,6 +447,16 @@ private fun SettingsNavHost(
         crumbs.bind(
             topEntryId = { navController.currentBackStackEntry?.id },
             pop = { navController.popBackStack() },
+            // Only ever a seeded step — a screen nobody opened, so there is
+            // nothing to pop back to. Everything the jump put on the stack goes
+            // with it: the user is stepping up out of a search result, and what
+            // they want above them is the tree, not the result they left.
+            open = { route ->
+                navController.navigate(route) {
+                    popUpTo(HomeRoute)
+                    launchSingleTop = true
+                }
+            },
         )
     }
     // Which folds are open, published for every screen: a group reads it by

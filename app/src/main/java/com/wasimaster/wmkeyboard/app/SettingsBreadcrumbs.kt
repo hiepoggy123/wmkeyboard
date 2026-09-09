@@ -120,6 +120,18 @@ internal data class SettingsCrumb(
     val entryId: String,
     val title: String,
     val route: String? = null,
+    /**
+     * Whether the step stands for a screen that is not on the back stack.
+     *
+     * A search result opens a screen from nowhere: the stack behind it holds
+     * the results list and nothing else, so the path derived from it is a lie
+     * by omission — "Home › Personal dictionary" for a screen that really
+     * lives three levels down (#111). The screens it skipped are seeded onto
+     * the trail so the strip tells the truth about where the user has landed,
+     * and a seeded step is pressed by *going* to its route rather than by
+     * popping back to an entry that was never opened.
+     */
+    val seeded: Boolean = false,
 )
 
 /**
@@ -142,14 +154,23 @@ internal class SettingsCrumbTrail {
 
     private var topEntryId: () -> String? = { null }
     private var pop: () -> Boolean = { false }
+    private var openRoute: (String) -> Unit = { }
 
     /** The whole path, outermost first. */
     internal val path: List<SettingsCrumb> get() = steps
 
-    /** Where the trail reaches the navigator. Left unbound by the tests. */
-    fun bind(topEntryId: () -> String?, pop: () -> Boolean) {
+    /**
+     * Where the trail reaches the navigator. Left unbound by the tests.
+     *
+     * [open] is only ever asked for a seeded step's route, and it is expected
+     * to land on that screen with nothing of the jump left above it — the
+     * step names an ancestor, so walking to it must not leave the screen it
+     * was pressed from on the stack.
+     */
+    fun bind(topEntryId: () -> String?, pop: () -> Boolean, open: (String) -> Unit = { }) {
         this.topEntryId = topEntryId
         this.pop = pop
+        this.openRoute = open
     }
 
     /**
@@ -182,6 +203,31 @@ internal class SettingsCrumbTrail {
      */
     fun forget(entryId: String) {
         steps.removeAll { it.entryId == entryId }
+    }
+
+    /**
+     * Puts [ancestors] on the end of the trail as steps that stand for screens
+     * nobody opened.
+     *
+     * Called just before a jump — today only the one a search result makes —
+     * so that the screen about to be entered lands on a path that names where
+     * it actually lives instead of on the one screen the jump was made from.
+     * Any earlier seeding is dropped first: a second result is reached from
+     * the same results list, not from the last result's path.
+     *
+     * The steps are appended to whatever real trail is standing, which after a
+     * jump from the results list is the home screen alone. Nothing is seeded
+     * on top of a screen the user walked to, because a jump always starts from
+     * the search screen, which keeps no step of its own.
+     */
+    fun seed(ancestors: List<SettingsCrumb>) {
+        clearSeeded()
+        steps.addAll(ancestors.map { it.copy(seeded = true) })
+    }
+
+    /** Drops every seeded step. A walked path never wants one. */
+    fun clearSeeded() {
+        steps.removeAll { it.seeded }
     }
 
     /**
@@ -237,6 +283,26 @@ internal class SettingsCrumbTrail {
         }
     }
 
+    /**
+     * Goes to the screen [crumb] names, whichever kind of step it is.
+     *
+     * A real step is on the stack and is popped back to. A seeded one never
+     * was, so it is navigated to instead, and the seeding is thrown away
+     * first: the user is leaving the jump behind and walking the tree from
+     * here, which is a path the stack can keep for itself. A seeded step with
+     * no route of its own is a screen the index cannot address, and it is
+     * drawn as a plain label rather than pressed.
+     */
+    fun goTo(crumb: SettingsCrumb) {
+        if (!crumb.seeded) {
+            popTo(crumb.entryId)
+            return
+        }
+        val route = crumb.route ?: return
+        clearSeeded()
+        openRoute(route)
+    }
+
     /** Restores a saved path. Only [Saver] calls this. */
     private fun restore(saved: List<SettingsCrumb>) {
         steps.clear()
@@ -245,28 +311,35 @@ internal class SettingsCrumbTrail {
 
     companion object {
         /**
-         * Saved as a flat list of id, title, route, id, title, route: a
+         * Saved as a flat list of id, title, route, seeded, and again: a
          * `listSaver` writes its entries into a Bundle one by one, and a String
          * is something every Bundle can hold. A step without a route saves an
-         * empty one, so every step is exactly three entries long.
+         * empty one and a step nobody opened saves `"1"`, so every step is
+         * exactly four entries long.
          */
         val Saver: Saver<SettingsCrumbTrail, Any> = listSaver(
             save = { trail ->
-                trail.steps.flatMap { listOf(it.entryId, it.title, it.route.orEmpty()) }
+                trail.steps.flatMap {
+                    listOf(it.entryId, it.title, it.route.orEmpty(), if (it.seeded) "1" else "")
+                }
             },
             restore = { flat ->
                 SettingsCrumbTrail().apply {
                     restore(
                         flat.chunked(SavedStepWidth)
                             .filter { it.size == SavedStepWidth }
-                            .map { SettingsCrumb(it[0], it[1], it[2].ifEmpty { null }) },
+                            .map {
+                                SettingsCrumb(
+                                    it[0], it[1], it[2].ifEmpty { null }, seeded = it[3].isNotEmpty(),
+                                )
+                            },
                     )
                 }
             },
         )
 
-        /** How many saved entries one step takes: id, title, route. */
-        private const val SavedStepWidth = 3
+        /** How many saved entries one step takes: id, title, route, seeded. */
+        private const val SavedStepWidth = 4
     }
 }
 
@@ -400,7 +473,8 @@ internal fun SettingsBreadcrumbBar(
                     crumb = crumb,
                     here = crumbAccent(from = if (crumb.entryId == wasHere) 1f else 0f, to = 0f),
                     accent = accent,
-                    onOpen = { trail.popTo(crumb.entryId) },
+                    onOpen = if (crumb.seeded && crumb.route == null) null
+                    else ({ trail.goTo(crumb) }),
                 )
                 CrumbSeparator(crumb.entryId)
             }
@@ -634,7 +708,7 @@ private fun CrumbGlyph(route: String?, tint: Color) {
 }
 
 /** The settings home's route, which the icon table has no entry for. */
-private const val HomeRoute = "home"
+internal const val HomeRoute = "home"
 
 /** What every tool page's route starts with; the rest is the tool's name. */
 private const val ToolRoutePrefix = "tool/"
@@ -663,14 +737,16 @@ private fun CrumbSeparator(entryId: String) {
  * reads as a thing to press without shouting over the heading above.
  */
 @Composable
-private fun Crumb(crumb: SettingsCrumb, here: Float, accent: Color, onOpen: () -> Unit) {
+private fun Crumb(crumb: SettingsCrumb, here: Float, accent: Color, onOpen: (() -> Unit)?) {
     CrumbPill(
         title = crumb.title,
         route = crumb.route,
         here = here,
         accent = accent,
         flight = crumbKey(crumb.entryId),
-        modifier = Modifier.clickable(
+        // A seeded step the index cannot address goes nowhere, so it is a
+        // label and not a button: it still says where the screen sits.
+        modifier = if (onOpen == null) Modifier else Modifier.clickable(
             onClickLabel = stringResource(R.string.shell_breadcrumb_open_desc, crumb.title),
             onClick = onOpen,
         ),

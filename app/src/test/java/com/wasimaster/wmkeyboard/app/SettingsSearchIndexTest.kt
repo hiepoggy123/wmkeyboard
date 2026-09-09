@@ -212,7 +212,7 @@ class SettingsSearchIndexTest {
         weight: EntryWeight = EntryWeight.NORMAL,
         tool: ToolbarTool? = null,
         keywords: String = "",
-    ) = SettingsSearchEntry(title, subtitle, screen, route, weight, tool, keywords = keywords)
+    ) = SettingsSearchEntry(title, subtitle, listOf(screen), route, weight, tool, keywords = keywords)
 
     /**
      * A stand-in for the real index: one entry for every ranking rule the tests
@@ -401,5 +401,63 @@ class SettingsSearchIndexTest {
     fun `one word out of four is not an answer`() {
         val results = searchSettings("offensive zzzza zzzzb zzzzc", fixture)
         assertEquals(emptyList<SettingsSearchEntry>(), results)
+    }
+
+    // ---- the path a result is opened at (#111) ----
+
+    /** The two screens a seeded path is looked up against. */
+    private val destinations = listOf(
+        SettingsSearchEntry("Typing", "", listOf("Settings"), "typing", EntryWeight.SECTION),
+        SettingsSearchEntry(
+            "Suggestions", "", listOf("Typing"), "typing/suggestions", EntryWeight.SECTION,
+        ),
+    )
+
+    private fun seed(entry: SettingsSearchEntry) =
+        settingsCrumbSeed(entry, destinations + entry, homeTitle = "Settings")
+
+    @Test
+    fun `a result's path becomes the steps above the screen it opens`() {
+        val dictionary = SettingsSearchEntry(
+            "Personal dictionary", "", listOf("Typing", "Suggestions"), "dictionary",
+            EntryWeight.SECTION,
+        )
+
+        val steps = seed(dictionary)
+
+        assertEquals(listOf("Typing", "Suggestions"), steps.map { it.title })
+        assertEquals(listOf("typing", "typing/suggestions"), steps.map { it.route })
+        assertTrue(steps.all { it.seeded })
+    }
+
+    @Test
+    fun `a row's own screen is not seeded twice`() {
+        // The path of a row ends with the screen it sits on, and that screen
+        // is the one being opened: it puts itself on the trail.
+        val row = SettingsSearchEntry(
+            "Number of suggestions", "", listOf("Typing", "Suggestions"), "typing/suggestions",
+        )
+
+        assertEquals(listOf("Typing"), seed(row).map { it.title })
+    }
+
+    @Test
+    fun `the settings home is never seeded`() {
+        // It is the first real step of every trail already.
+        val typing = SettingsSearchEntry("Typing", "", listOf("Settings"), "typing", EntryWeight.SECTION)
+
+        assertEquals(emptyList<String>(), seed(typing).map { it.title })
+    }
+
+    @Test
+    fun `a step no screen is named after is seeded without a route`() {
+        // Drawn as a plain label: it says where the screen sits, and there is
+        // nowhere for a press to go.
+        val vibrate = SettingsSearchEntry(
+            "Vibrate", "", listOf("Key press", "Haptics"), "keypress/haptics",
+        )
+
+        assertEquals(listOf("Key press"), seed(vibrate).map { it.title })
+        assertEquals(listOf<String?>(null), seed(vibrate).map { it.route })
     }
 }

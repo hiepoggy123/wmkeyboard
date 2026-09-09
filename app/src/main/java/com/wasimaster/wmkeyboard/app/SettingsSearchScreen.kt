@@ -577,10 +577,17 @@ internal fun SettingsSearchScreen(
     // user wants to read them, not to have the keyboard cover them again.
     LaunchedEffect(Unit) { if (query.isEmpty()) focusRequester.requestFocus() }
 
+    // The path the result draws under itself, put on the trail before the jump
+    // so the screen it opens wears the path it really lives at rather than the
+    // one step the search screen leaves behind it (#111).
+    val trail = LocalSettingsCrumbTrail.current
+    val homeTitle = stringResource(CommonR.string.common_settings)
+
     fun open(entry: SettingsSearchEntry) {
         keyboard?.hide()
         picks.record(query, entry.key)
         historyVersion++
+        corpus?.let { trail?.seed(settingsCrumbSeed(entry, it.index, homeTitle)) }
         onOpen(entry)
     }
 
