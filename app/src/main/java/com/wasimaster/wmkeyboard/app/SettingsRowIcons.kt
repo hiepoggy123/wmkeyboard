@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.automirrored.outlined.Redo
+import androidx.compose.material.icons.automirrored.outlined.Segment
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.automirrored.outlined.ShortText
 import androidx.compose.material.icons.automirrored.outlined.Sort
@@ -25,6 +26,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AdsClick
 import androidx.compose.material.icons.outlined.AltRoute
 import androidx.compose.material.icons.outlined.AlternateEmail
+import androidx.compose.material.icons.outlined.Anchor
 import androidx.compose.material.icons.outlined.Animation
 import androidx.compose.material.icons.outlined.AppShortcut
 import androidx.compose.material.icons.outlined.Apps
@@ -67,6 +69,7 @@ import androidx.compose.material.icons.outlined.Contrast
 import androidx.compose.material.icons.outlined.CropFree
 import androidx.compose.material.icons.outlined.CurrencyBitcoin
 import androidx.compose.material.icons.outlined.CurrencyExchange
+import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.DataArray
 import androidx.compose.material.icons.outlined.DataObject
 import androidx.compose.material.icons.outlined.DataSaverOn
@@ -83,6 +86,7 @@ import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.EmojiEmotions
 import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Extension
+import androidx.compose.material.icons.outlined.FastForward
 import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Fingerprint
@@ -125,6 +129,7 @@ import androidx.compose.material.icons.outlined.LineWeight
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MicNone
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Mosque
@@ -185,6 +190,7 @@ import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.Shortcut
+import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.outlined.SignalCellularAlt
 import androidx.compose.material.icons.outlined.SpaceBar
 import androidx.compose.material.icons.outlined.Speed
@@ -197,6 +203,7 @@ import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Swipe
 import androidx.compose.material.icons.outlined.SwipeDown
+import androidx.compose.material.icons.outlined.SwipeUp
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.TabletAndroid
 import androidx.compose.material.icons.outlined.Tag
@@ -224,6 +231,7 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.Wallpaper
 import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material.icons.outlined.Weekend
+import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material.icons.outlined.ZoomOutMap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -315,6 +323,8 @@ internal object SettingsRowIcons {
 
         // ---- Appearance ----
         put(R.string.appearance_themes_title) { Icons.Outlined.Palette }
+        put(R.string.theme_shuffle_interval_title) { Icons.Outlined.Schedule }
+        put(R.string.theme_shuffle_now_title) { Icons.Outlined.Shuffle }
         put(R.string.appearance_font_title) { Icons.Outlined.TextFields }
         put(R.string.appearance_icons_title) { Icons.Outlined.Image }
         put(R.string.appearance_key_corner_radius_title) { Icons.Outlined.RoundedCorner }
@@ -357,6 +367,7 @@ internal object SettingsRowIcons {
         put(R.string.backup_section_addons_label) { Icons.Outlined.Extension }
         put(R.string.backup_section_emoji_label) { Icons.Outlined.History }
         put(R.string.backup_section_statistics_label) { Icons.Outlined.QueryStats }
+        put(R.string.backup_section_vocab_label) { Icons.Outlined.AutoStories }
         put(R.string.backup_blacklist_clear_title) { Icons.Outlined.DeleteSweep }
         put(R.string.backup_include_secrets_title) { Icons.Outlined.Key }
         put(R.string.backup_auto_dest_title) { Icons.Outlined.CloudUpload }
@@ -420,6 +431,7 @@ internal object SettingsRowIcons {
         put(R.string.keypress_symbols_numpad_title) { Icons.Outlined.Dialpad }
         put(R.string.keypress_ctrl_raw_title) { Icons.Outlined.Terminal }
         put(R.string.keypress_hold_actions_title) { Icons.Outlined.SelectAll }
+        put(R.string.keypress_hold_action_first_title) { Icons.Outlined.Bolt }
 
         // ---- Emoji ----
         put(R.string.langemoji_emoji_toolbar_title) { Icons.Outlined.EmojiEmotions }
@@ -468,6 +480,7 @@ internal object SettingsRowIcons {
         put(R.string.languages_cjk_fuzzy_pairs_reset_title) { Icons.Outlined.Restore }
         put(R.string.languages_fancy_style_row_title) { Icons.Outlined.TextFormat }
         put(R.string.languages_spelling_map_row_title) { Icons.Outlined.Spellcheck }
+        put(R.string.languages_more_layouts_title) { Icons.Outlined.GridOn }
 
         // ---- Layout & size ----
         put(R.string.layout_number_row_title) { Icons.Outlined.Numbers }
@@ -512,6 +525,10 @@ internal object SettingsRowIcons {
         put(R.string.layout_editor_json_title) { Icons.Outlined.DataObject }
         put(R.string.layout_editor_composer_title) { Icons.Outlined.Keyboard }
         put(R.string.layout_editor_actual_size_title) { Icons.Outlined.Height }
+        put(R.string.layout_editor_tool_row_title) { Icons.Outlined.Widgets }
+        put(R.string.layout_editor_layout_row_title) { Icons.Outlined.GridOn }
+        put(R.string.layout_editor_edit_row_title) { Icons.Outlined.EditNote }
+        put(R.string.layout_editor_field_row_title) { Icons.Outlined.Dashboard }
 
         // ---- Keyboard modes / rows ----
         put(R.string.modes_enabled_title) { Icons.Outlined.Tune }
@@ -560,6 +577,7 @@ internal object SettingsRowIcons {
         // ---- Privacy ----
         put(R.string.privacy_learn_typing_title) { Icons.Outlined.School }
         put(R.string.privacy_system_dictionary_title) { Icons.AutoMirrored.Outlined.MenuBook }
+        put(R.string.privacy_use_system_dictionary_title) { Icons.Outlined.PhoneAndroid }
         put(R.string.privacy_dict_shortcuts_title) { Icons.AutoMirrored.Outlined.ShortText }
         put(R.string.privacy_incognito_title) { Icons.Outlined.VisibilityOff }
         put(R.string.privacy_auto_incognito_title) { Icons.Outlined.Public }
@@ -604,6 +622,7 @@ internal object SettingsRowIcons {
 
         // ---- Text expander ----
         put(R.string.expander_multi_expand_title) { Icons.Outlined.AltRoute }
+        put(R.string.rows_snippet_multi_expand_label) { Icons.Outlined.AltRoute }
 
         // ---- Typing ----
         put(R.string.typing_autocorrect_title) { Icons.Outlined.Spellcheck }
@@ -627,8 +646,10 @@ internal object SettingsRowIcons {
         put(R.string.typing_undo_memory_title) { Icons.Outlined.History }
         put(R.string.typing_learn_corrections_title) { Icons.Outlined.School }
         put(R.string.typing_learned_corrections_title) { Icons.Outlined.Spellcheck }
+        put(R.string.typing_learned_corrections_clear_title) { Icons.Outlined.DeleteSweep }
         put(R.string.typing_adapt_taps_title) { Icons.Outlined.TouchApp }
         put(R.string.typing_skip_all_caps_title) { Icons.Outlined.KeyboardCapslock }
+        put(R.string.typing_skip_typed_word_title) { Icons.Outlined.FilterList }
         put(R.string.typing_block_offensive_title) { Icons.Outlined.Block }
         put(R.string.typing_auto_apostrophe_title) { Icons.Outlined.Spellcheck }
         put(R.string.typing_auto_capitalize_title) { Icons.Outlined.KeyboardCapslock }
@@ -668,12 +689,24 @@ internal object SettingsRowIcons {
         put(R.string.typing_autopilot_show_title) { Icons.Outlined.Visibility }
         put(R.string.typing_autopilot_size_title) { Icons.Outlined.ZoomOutMap }
         put(R.string.typing_autopilot_outline_title) { Icons.Outlined.CropFree }
+        put(R.string.typing_group_octopus_title) { Icons.Outlined.Keyboard }
+        put(R.string.typing_octopus_enabled_title) { Icons.Outlined.Keyboard }
+        put(R.string.typing_octopus_placement_title) { Icons.Outlined.PictureInPicture }
+        put(R.string.typing_octopus_density_title) { Icons.Outlined.Numbers }
+        put(R.string.typing_octopus_kinds_title) { Icons.Outlined.Category }
+        put(R.string.typing_octopus_flick_title) { Icons.Outlined.SwipeUp }
+        put(R.string.typing_octopus_sensitivity_title) { Icons.Outlined.Tune }
+        put(R.string.typing_octopus_tap_title) { Icons.Outlined.TouchApp }
+        put(R.string.typing_octopus_size_title) { Icons.Outlined.FormatSize }
+        put(R.string.typing_octopus_hints_title) { Icons.Outlined.VisibilityOff }
+        put(R.string.typing_octopus_long_press_title) { Icons.Outlined.Abc }
         put(R.string.typing_smart_dates_title) { Icons.Outlined.CalendarMonth }
         put(R.string.typing_smart_weather_title) { Icons.Outlined.WbSunny }
         put(R.string.typing_smart_lookups_title) { Icons.Outlined.Search }
         put(R.string.typing_smart_intents_title) { Icons.Outlined.Translate }
         put(R.string.typing_smart_gifs_title) { Icons.Outlined.Gif }
         put(R.string.typing_smart_numbers_title) { Icons.Outlined.Numbers }
+        put(R.string.typing_smart_number_grouping_title) { Icons.AutoMirrored.Outlined.Segment }
         put(R.string.typing_otp_chip_title) { Icons.Outlined.Password }
         put(R.string.typing_otp_access_title) { Icons.Outlined.Notifications }
         put(R.string.typing_otp_number_fields_title) { Icons.Outlined.Dialpad }
@@ -686,6 +719,11 @@ internal object SettingsRowIcons {
         put(R.string.typing_glide_picker_dwell_title) { Icons.Outlined.Timer }
         put(R.string.typing_glide_picker_hold_title) { Icons.Outlined.TouchApp }
         put(R.string.typing_glide_picker_choices_title) { Icons.Outlined.Numbers }
+        put(R.string.typing_glide_swipe_style_title) { Icons.Outlined.School }
+        put(R.string.typing_glide_vocabulary_title) { Icons.AutoMirrored.Outlined.MenuBook }
+        put(R.string.typing_glide_sandbox_title) { Icons.Outlined.Person }
+        put(R.string.typing_glide_steadiness_title) { Icons.Outlined.Anchor }
+        put(R.string.typing_glide_lookahead_title) { Icons.Outlined.FastForward }
         put(R.string.typing_letter_swipe_action_title) { Icons.Outlined.Draw }
         put(R.string.typing_handwrite_dot_title) { Icons.Outlined.Timer }
         put(R.string.typing_gesture_cooldown_title) { Icons.Outlined.Timer }
@@ -749,6 +787,9 @@ internal object SettingsRowIcons {
 
         // ---- Tool pages ----
         put(R.string.tooldetail_emoji_all_title) { Icons.Outlined.EmojiEmotions }
+        put(R.string.tooldetail_snippets_all_title) { Icons.AutoMirrored.Outlined.TextSnippet }
+        put(R.string.tooldetail_clipboard_all_title) { Icons.Outlined.ContentPaste }
+        put(R.string.tooldetail_voice_all_title) { Icons.Outlined.Mic }
         put(R.string.clipboard_history_title) { Icons.Outlined.History }
         put(R.string.clipboard_suggest_recent_title) { Icons.Outlined.ContentPaste }
         put(R.string.clipboard_suggest_codes_title) { Icons.Outlined.Password }
@@ -985,6 +1026,7 @@ internal object SettingsRowIcons {
         put(R.string.toolai_ai_action_output_only_title) { Icons.AutoMirrored.Outlined.ShortText }
         put(R.string.toolai_translate_into_title) { Icons.Outlined.Translate }
         put(R.string.customdict_emoji_auto_download_title) { Icons.Outlined.CloudDownload }
+        put(R.string.customdict_only_my_lists_title) { Icons.Outlined.FilterAlt }
 
         // Rows the #43 reorganisation added: hub rows for the split pages, the
         // per-page resets, and the choice rows that replaced radio lists.
