@@ -110,7 +110,7 @@ object TelexWhitelist {
         "rooms", "root", "rose", "row", "run", "russell", "russia", "russian", "sad", "sale",
         "sass", "saw", "says", "secretary", "see", "seeker", "seekers", "seem", "seemed", "seems",
         "sees", "selected", "selfie", "sense", "sentences", "september", "server", "servers",
-        "session", "sessions", "settlement", "setup", "sex", "sexo", "share", "sheffield", "sheriff",
+        "session", "sessions", "settlement", "setup", "share", "sheffield", "sheriff",
         "ship", "shopee", "show", "sierra", "sim", "simp", "site", "skill", "skin", "sleeve",
         "slot", "slow", "snvv", "solo", "soon", "sorry", "sp", "speeches", "sql", "sry", "ssd",
         "ssh", "staff", "staffing", "stainless", "starring", "statistics", "stderr", "stream",

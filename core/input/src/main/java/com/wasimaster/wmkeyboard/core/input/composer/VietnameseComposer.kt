@@ -100,13 +100,17 @@ internal object VietnameseEngine {
         fun toggleTone(t: VTone) { tone = if (tone == t) VTone.NONE else t }
         fun hasVowel() = letters.any { isVowel(it.base) }
         fun hasValidVowelCluster(): Boolean {
-            val vIndices = letters.indices.filter { isVowel(letters[it].base) }
-            if (vIndices.isEmpty()) return false
-            if (vIndices.size == 1) return true
-            for (i in 0 until vIndices.size - 1) {
-                if (vIndices[i + 1] != vIndices[i] + 1) return false
+            var first = -1
+            var last = -1
+            var count = 0
+            for (i in letters.indices) {
+                if (isVowel(letters[i].base)) {
+                    if (first < 0) first = i
+                    last = i
+                    count++
+                }
             }
-            return true
+            return count > 0 && last - first + 1 == count
         }
 
         for ((idx, ch) in raw.withIndex()) {
@@ -235,6 +239,7 @@ object VietnameseTelexComposer : Composer {
     override val isTransliterating: Boolean get() = true
     override val isVietnameseTelex: Boolean get() = true
     override fun buffersChar(c: Char): Boolean = c in "\u0301\u0300\u0309\u0303\u0323"
+    override fun isPlausibleWord(word: String): Boolean = VietnameseOrthography.isSyllable(word)
     override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = false)
 }
 
@@ -243,5 +248,6 @@ object VietnameseVniComposer : Composer {
     override val isTransliterating: Boolean get() = true
     override val bufferDigits: Boolean get() = true
     override fun buffersChar(c: Char): Boolean = c in "\u0301\u0300\u0309\u0303\u0323"
+    override fun isPlausibleWord(word: String): Boolean = VietnameseOrthography.isSyllable(word)
     override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = true)
 }

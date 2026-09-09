@@ -76,6 +76,18 @@ interface Composer {
     fun buffersChar(c: Char): Boolean = false
 
     /**
+     * Whether [word] looks like a plausible word in the script this composer
+     * writes. False only when the script's spelling rules say the string cannot
+     * be a word at all — Vietnamese syllables are a closed set, Hangul blocks
+     * must be valid syllable characters.
+     *
+     * Used by the personal dictionary to decide what may be *learned*, never
+     * what may be typed — a word that returns false here still commits exactly
+     * as typed.
+     */
+    fun isPlausibleWord(word: String): Boolean = true
+
+    /**
      * A conversion IME (Chinese Pinyin, Japanese kana→kanji): the roman/kana
      * buffer maps to a *choice* of outputs shown in the suggestion strip, and the
      * user taps one to commit it — unlike a plain transliterator whose buffer has

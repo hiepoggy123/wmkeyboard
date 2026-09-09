@@ -1873,6 +1873,17 @@ data class KeyboardUiState(
         get() = !secureField && (fieldKind == FieldKind.TEXT || fieldKind == FieldKind.URI)
 
     /**
+     * Whether the letters typed here are gathered into a word for the strip to
+     * complete. Plain text fields, and a URL bar once "Suggestions in every
+     * field" has put the strip on it (#98).
+     */
+    val composesForSuggestions: Boolean
+        get() = settings.suggestions && !secureField && (
+            fieldKind == FieldKind.TEXT ||
+                (fieldKind == FieldKind.URI && !fieldNoSuggestions)
+            )
+
+    /**
      * Whether the focused field takes any image at all through commitContent.
      * False for an ordinary text box: nothing an image tool sends can land
      * there, so the GIF and sticker panels say so rather than letting a tap

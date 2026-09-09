@@ -358,6 +358,7 @@ import com.wasimaster.wmkeyboard.core.layout.PanelLayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.repair
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
+import com.wasimaster.wmkeyboard.core.layout.commitsNoText
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
 import com.wasimaster.wmkeyboard.core.input.composer.CjkConfig
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictionaries
@@ -4138,22 +4139,22 @@ open class WMKeyboardService : InputMethodService() {
         // from somewhere else — a panel opening, text inserted by a tool — must
         // not leave one behind for whatever key comes next.
         swallowTerminatorAfterCommit = false
-        // Three keys have something to say about a just-inserted punctuation
-        // space: Space consumes it rather than adding a second one, Shift takes
-        // it back, and Text hugs a closing mark to the mark before it — `"hi."`
-        // and not `"hi. "` (issue #34). Every other key spends it.
-        if (key.action != KeyAction.Shift && key.action != KeyAction.Space &&
-            key.action != KeyAction.Text
+        // Both records of a space the keyboard typed — the one that ended a
+        // word, and the one that followed a mark — survive the same three sorts
+        // of key. A Text key, where a closing mark takes the space back and
+        // anything else spends it (see [processTypedText]); Space, which is
+        // swallowed rather than doubled; and any key that types nothing at all,
+        // which is what puts the symbols page back in reach: `:` and `/` live
+        // there, so reaching either meant a `?123` press, and that press used to
+        // count as typing on past the space (issue #34).
+        //
+        // The Text case is cleared by [processTypedText] itself as well, since
+        // letters and marks are the same action and only the text says which
+        // one this is.
+        if (key.action != KeyAction.Text && key.action != KeyAction.Space &&
+            !key.action.commitsNoText()
         ) {
             pendingPunctuationSpace = false
-        }
-        // The space that ended a word survives exactly two keys: a Text key,
-        // where punctuation takes it back and anything else spends it (see
-        // [processTypedText]), and Space, which is swallowed rather than
-        // doubled. Both of these are cleared by [processTypedText] itself as
-        // well, since letters and marks are the same action and only the text
-        // says which one this is.
-        if (key.action != KeyAction.Text && key.action != KeyAction.Space) {
             pendingWordSpace = false
         }
         // A pending Ctrl/Alt/Meta turns the next key into a shortcut, so it is
@@ -4998,10 +4999,8 @@ open class WMKeyboardService : InputMethodService() {
         // keypress and drops the region again. So: never starts a buffer, always
         // continues the one it was handed, and the next word boundary ends it.
         val composingMode = fancyStyle == null &&
-            (!state.composer.isClusterShaping || composing.isNotEmpty()) && (
-            state.composer.isTransliterating ||
-                (state.allowsTypingIntelligence && state.settings.suggestions)
-            )
+            (!state.composer.isClusterShaping || composing.isNotEmpty()) &&
+            (state.composer.isTransliterating || state.composesForSuggestions)
 
         // ":" on a word boundary opens inline emoji search: the colon and the
         // letters after it go into the composing buffer, and refreshSuggestions
@@ -6639,7 +6638,7 @@ open class WMKeyboardService : InputMethodService() {
         // Whether this ends up a newline or an editor action, it ends the
         // word the same way a space does.
         recordStat { onSeparator(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
-        commitComposing(ic, autocorrect = state.settings.autocorrect, expandPatterns = true)
+        commitComposing(ic, autocorrect = false, expandPatterns = true)
         // Same as the spacebar: a newline typed at a caret parked inside an
         // expansion would break the text the snippet just inserted.
         if (swallowTerminatorAfterCommit) {
@@ -9001,7 +9000,7 @@ open class WMKeyboardService : InputMethodService() {
                         }
                     }
                 }
-            } else if (!blacklisted) {
+            } else if (!blacklisted && state.composer.isPlausibleWord(cleaned)) {
                 // Nothing recognises this word. It goes into the waiting room
                 // instead of the dictionary, and only earns its way in once
                 // the user has typed it — and left it alone — enough times.
@@ -17388,7 +17387,10 @@ open class WMKeyboardService : InputMethodService() {
         val trimmed = word.trim()
         if (trimmed.isEmpty()) return
         vibrate()
-        serviceScope.launch { settingsRepository.addSuggestionBlacklistWord(trimmed) }
+        serviceScope.launch {
+            settingsRepository.addSuggestionBlacklistWord(trimmed)
+            refreshSuggestions()
+        }
     }
 
     fun onEmojiSuggestionTapped(emoji: String, held: Boolean = false) {
@@ -18941,10 +18943,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun hardwareIntercepts(state: KeyboardUiState): Boolean {
         val composingMode = (!state.composer.isClusterShaping || composing.isNotEmpty()) &&
-            (
-                state.composer.isTransliterating ||
-                    (state.allowsTypingIntelligence && state.settings.suggestions)
-                )
+            (state.composer.isTransliterating || state.composesForSuggestions)
         return composingMode || state.emojiSearchActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
             state.dictionarySearchActive || state.clipboardSearchActive ||
