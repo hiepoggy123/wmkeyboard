@@ -73,6 +73,16 @@ internal interface AppUpdater {
     val supportsPrereleases: Boolean
         get() = false
 
+    /**
+     * Whether [loadNotes] can actually fetch anything. GitHub only.
+     *
+     * Separate from having a [UpdateState.Available.releaseUrl]: F-Droid has a
+     * page to link to and no notes to read out of it, so a card that offered
+     * "What's new" there would sit and wait for text that is never coming.
+     */
+    val supportsNotes: Boolean
+        get() = false
+
     /** Whether to offer pre-releases. Meaningless unless [supportsPrereleases]. */
     var includePrereleases: Boolean
 

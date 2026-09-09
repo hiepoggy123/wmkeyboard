@@ -152,6 +152,10 @@ private fun AvailableCard(
     UpdateCardFrame(
         title = stringResource(R.string.update_card_available_title),
         body = availableBody(state, updater) + if (showNotes) notesTail(notes) else "",
+        // The notes come off the network, and until they land the card looks
+        // exactly as it did before the press — the button is gone and nothing
+        // has replaced it. The bar is what says the press was heard.
+        busy = showNotes && notes == null,
         modifier = modifier,
     ) {
         Button(onClick = download) { Text(startActionLabel(updater)) }
@@ -164,7 +168,9 @@ private fun AvailableCard(
                 Text(stringResource(R.string.update_action_later))
             }
         }
-        if (state.releaseUrl != null && !showNotes) {
+        // Gated on the updater rather than on there being a page to link to:
+        // F-Droid has the page and no notes behind it. See [AppUpdater.supportsNotes].
+        if (updater.supportsNotes && !showNotes) {
             Spacer(Modifier.width(8.dp))
             TextButton(
                 onClick = {
@@ -260,12 +266,19 @@ private fun InstallingCard(updater: AppUpdater, modifier: Modifier = Modifier) {
     }
 }
 
-/** The shape every update card shares: a title, a line of prose, then controls. */
+/**
+ * The shape every update card shares: a title, a line of prose, then controls.
+ *
+ * [busy] draws an endless bar under the words, for the wait that has no size to
+ * measure — fetching the release notes is the only one. A download's own bar is
+ * a control, and lives with the controls.
+ */
 @Composable
 private fun UpdateCardFrame(
     title: String,
     body: String?,
     modifier: Modifier = Modifier,
+    busy: Boolean = false,
     controls: @Composable () -> Unit,
 ) {
     Card(modifier = modifier.fillMaxWidth()) {
@@ -274,6 +287,10 @@ private fun UpdateCardFrame(
             if (body != null) {
                 Spacer(Modifier.height(8.dp))
                 Text(body, style = MaterialTheme.typography.bodyMedium)
+            }
+            if (busy) {
+                Spacer(Modifier.height(12.dp))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }
             Spacer(Modifier.height(12.dp))
             Row { controls() }

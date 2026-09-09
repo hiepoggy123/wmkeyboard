@@ -111,6 +111,9 @@ internal class GithubAppUpdater(
 
     override val supportsPrereleases: Boolean = true
 
+    /** The release carries its own notes; [loadNotes] fetches them. */
+    override val supportsNotes: Boolean = true
+
     override var includePrereleases: Boolean
         get() = prefs.includePrereleases
         set(value) {
