@@ -245,7 +245,7 @@
 
     <string name="typing_octopus_long_press_title">Long-press characters too</string>
     <string name="typing_octopus_long_press_subtitle">Allow words that need a long press to reach their next letter</string>
-    <string name="typing_octopus_long_press_info">Off by default. A word floating over a key promises that pressing that key writes the next part of it, and a character you can only reach by holding the key breaks that promise. Turning this on reaches more words, at the cost of some keys offering a word that a press alone will not finish.</string>
+    <string name="typing_octopus_long_press_info">Off by default. A word floating over a key promises that pressing that key writes the next part of it, and a character you can only reach by holding the key breaks that promise. Turning this on reaches more words, at the cost of some keys offering a word that a press alone will not finish. It changes nothing on an English QWERTY board, where the long-press characters are digits and accents that no English word uses: it is for a word like café or für on a board that keeps its accents behind a hold.</string>
 
     <string name="typing_smart_hit_detection_title">Autopilot</string>
     <string name="typing_smart_hit_detection_subtitle">Quietly widen the touch area of letters you are likely to type next</string>

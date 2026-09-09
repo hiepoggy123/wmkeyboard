@@ -11522,6 +11522,29 @@ open class WMKeyboardService : InputMethodService() {
         ).associateBy { it.keyCodePoint }
     }
 
+    /**
+     * The board for a caret that has just finished a word: the next-word offer,
+     * hung off the keys that reach it.
+     *
+     * A glide is the one commit that does not go through [refreshSuggestions],
+     * because the strip has to keep the stroke's own alternates so a wrong
+     * reading can be tapped away — and the keys were being left behind with it.
+     * They kept whatever they were carrying before the stroke, so gliding word
+     * after word showed the same words over the same keys until a space was
+     * typed by hand (#118). The strip and the board are answering different
+     * questions here: the strip is still about the word that just landed, the
+     * keys are about the one after it.
+     */
+    private suspend fun nextWordOctopus(): Map<Int, OctopusWord> {
+        val state = _uiState.value
+        // Off is the common case and this sits on the commit path, so it is
+        // answered before the thread hop rather than inside [octopusFor].
+        if (!state.settings.octopus.enabled) return emptyMap()
+        return withContext(Dispatchers.Default) {
+            octopusFor(state, typed = "", keys = null, pool = emptyList())
+        }
+    }
+
     private fun refreshSuggestions() {
         val state = _uiState.value
         if (emailFieldForceActive(state)) {
@@ -13149,7 +13172,15 @@ open class WMKeyboardService : InputMethodService() {
         // A flick from the apostrophe key to s is not a word: it is `'s` for the
         // word already committed. Answered before the decode rather than after,
         // because there is nothing to decode and no candidate to override.
-        if (appendPossessive(state, points, keys, keyWidthPx)) return
+        if (appendPossessive(state, points, keys, keyWidthPx)) {
+            // It rewrote the word behind the caret, so the keys are answering
+            // about a word that is no longer there.
+            gestureJob = serviceScope.launch {
+                val floating = nextWordOctopus()
+                _uiState.update { it.copy(octopus = floating) }
+            }
+            return
+        }
         // A quick flick straight up off a key carrying a word takes that word.
         // Asked here, at the lift, and after the possessive so that one keeps
         // the behaviour it had: a flick is over in a tenth of a second, so
@@ -13231,7 +13262,8 @@ open class WMKeyboardService : InputMethodService() {
             commitGestureSpace(ic, state)
             armRevertGuard()
             consumeShift()
-            _uiState.update { it.copy(suggestions = strip) }
+            val floating = nextWordOctopus()
+            _uiState.update { it.copy(suggestions = strip, octopus = floating) }
         }
     }
 
@@ -13376,7 +13408,8 @@ open class WMKeyboardService : InputMethodService() {
                 commitGestureSpace(ic, state)
                 armRevertGuard()
                 consumeShift()
-                _uiState.update { it.copy(suggestions = lastWords) }
+                val floating = nextWordOctopus()
+                _uiState.update { it.copy(suggestions = lastWords, octopus = floating) }
             }
         }
     }
