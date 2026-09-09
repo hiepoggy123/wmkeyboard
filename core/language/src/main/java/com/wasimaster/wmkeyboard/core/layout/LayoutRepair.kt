@@ -99,6 +99,12 @@ data class LayoutFinding(
  */
 data class RepairedLayout(val spec: LayoutSpec, val repairNotes: List<LayoutMessage>)
 
+/**
+ * One layer after the repair pass. [spec] is null when repair had to drop the
+ * layer, which is the same answer the layout-wide pass gives an empty layer.
+ */
+data class RepairedLayer(val spec: LayerSpec?, val repairNotes: List<LayoutMessage>)
+
 // Public rather than private because they are the shape contract every grid has
 // to satisfy, not an implementation detail of the repair pass: the tablet
 // expansion mints keys and must stay inside them, and its corpus test asserts
@@ -425,55 +431,84 @@ fun LayoutSpec.canBeEnabled(): Boolean =
  * and now I cannot type well enough to uninstall it" and "I imported a layout,
  * it told me it added a backspace key, fine."
  */
+/**
+ * Fixes what can be fixed about one layer's grid, or returns null when nothing
+ * usable is left of it.
+ *
+ * [key] is a [LayoutLayer.key] or a [PanelKind.layerKey], and it decides which
+ * rules apply as well as naming the layer in every note.
+ */
+private fun repairOneLayer(
+    key: String,
+    layerSpec: LayerSpec,
+    repairs: MutableList<LayoutMessage>,
+): LayerSpec? {
+    // A panel grid goes through the panel repair: the typing rules below would
+    // drop its component cells as keys that type nothing. An empty one is
+    // dropped rather than reset to the shipped panel, so the layout inherits
+    // the shared panel layout instead.
+    panelKindForLayerKey(key)?.let { kind ->
+        if (layerSpec.rows.all { it.isEmpty() }) {
+            repairs += LayoutMessage(R.string.core_lang_repair_layer_replaced, args = listOf(key))
+            return null
+        }
+        val fixed = PanelLayoutSpec(kind, layerSpec).repair()
+        repairs += fixed.repairNotes
+        return fixed.spec.grid
+    }
+
+    var rows = layerSpec.rows.map { row -> row.mapNotNull { it.repairKey(key, repairs) } }
+        .filter { it.isNotEmpty() }
+
+    if (rows.size > MaxRowsPerLayer) {
+        repairs += LayoutMessage(
+            pluralsRes = R.plurals.core_lang_repair_rows_trimmed,
+            quantity = rows.size,
+            args = listOf(key, rows.size, MaxRowsPerLayer),
+        )
+        rows = rows.take(MaxRowsPerLayer)
+    }
+    rows = rows.map { row -> row.repairRow(key, repairs) }
+
+    // An empty layer is dropped rather than kept: a layout inherits the shipped
+    // grid for anything it does not define, so dropping it restores a working
+    // layer instead of leaving a blank one.
+    if (rows.isEmpty()) {
+        repairs += LayoutMessage(R.string.core_lang_repair_layer_replaced, args = listOf(key))
+        return null
+    }
+    // Per-row heights are positional, so they are only still valid if repair
+    // left the row count untouched (it never reorders, only drops/adds). Drop
+    // them otherwise rather than let them land on the wrong rows.
+    val heights = layerSpec.rowHeights?.takeIf { rows.size == layerSpec.rows.size }
+    return layerSpec.copy(rows = rows, rowHeights = heights)
+}
+
+/**
+ * One layer through the repair pass, for a grid that arrives on its own: the
+ * layer the editor pastes off the clipboard (issue #105).
+ *
+ * The same rules a layer inside a layout gets, and deliberately no more. The
+ * three whole-layout guarantees — a delete, space and enter key on the letters,
+ * a way back off a cycled layer — are not applied here: a pasted layer lands in
+ * an editor, where `validateLayout` reports what is missing under Problems and
+ * blocks turning the layout on, and where the author is one key away from
+ * fixing it themselves. Minting keys into a grid somebody just pasted would
+ * undo the paste in front of them.
+ *
+ * A null [RepairedLayer.spec] means nothing usable was left, and the caller
+ * keeps what it had.
+ */
+fun LayerSpec.repairAsLayer(layerKey: String): RepairedLayer {
+    val repairs = mutableListOf<LayoutMessage>()
+    return RepairedLayer(repairOneLayer(layerKey, this, repairs), repairs)
+}
+
 fun LayoutSpec.repair(): RepairedLayout {
     val repairs = mutableListOf<LayoutMessage>()
 
     val layers = layers.mapNotNull { (key, layerSpec) ->
-        val layer = LayoutLayer.entries.firstOrNull { it.key == key }
-        val label = layer?.key ?: key
-
-        // A panel grid of the layout's own goes through the panel repair: the
-        // typing rules below would drop its component cells as keys that type
-        // nothing. An empty one is dropped rather than reset to the shipped
-        // panel, so the layout inherits the shared panel layout instead.
-        panelKindForLayerKey(key)?.let { kind ->
-            if (layerSpec.rows.all { it.isEmpty() }) {
-                repairs += LayoutMessage(R.string.core_lang_repair_layer_replaced, args = listOf(label))
-                return@mapNotNull null
-            }
-            val fixed = PanelLayoutSpec(kind, layerSpec).repair()
-            repairs += fixed.repairNotes
-            return@mapNotNull key to fixed.spec.grid
-        }
-
-        var rows = layerSpec.rows.map { row -> row.mapNotNull { it.repairKey(label, repairs) } }
-            .filter { it.isNotEmpty() }
-
-        if (rows.size > MaxRowsPerLayer) {
-            repairs += LayoutMessage(
-                pluralsRes = R.plurals.core_lang_repair_rows_trimmed,
-                quantity = rows.size,
-                args = listOf(label, rows.size, MaxRowsPerLayer),
-            )
-            rows = rows.take(MaxRowsPerLayer)
-        }
-        rows = rows.map { row -> row.repairRow(label, repairs) }
-
-        // An empty layer is dropped rather than kept: a layout inherits the
-        // shipped grid for anything it does not define, so dropping it restores
-        // a working layer instead of leaving a blank one.
-        if (rows.isEmpty()) {
-            repairs += LayoutMessage(
-                R.string.core_lang_repair_layer_replaced,
-                args = listOf(label),
-            )
-            return@mapNotNull null
-        }
-        // Per-row heights are positional, so they are only still valid if repair
-        // left the row count untouched (it never reorders, only drops/adds). Drop
-        // them otherwise rather than let them land on the wrong rows.
-        val heights = layerSpec.rowHeights?.takeIf { rows.size == layerSpec.rows.size }
-        key to layerSpec.copy(rows = rows, rowHeights = heights)
+        repairOneLayer(key, layerSpec, repairs)?.let { key to it }
     }.toMap().toMutableMap()
 
     val lettersKey = LayoutLayer.LETTERS.key

@@ -144,6 +144,25 @@
     <string name="layout_editor_show_shift_subtitle">Draws each key as it looks when you hold shift</string>
     <string name="layout_editor_json_title">Edit as JSON</string>
     <string name="layout_editor_json_subtitle">Reach anything that this screen has no control for</string>
+    <!-- Copy and paste one layer. %1$s is a layer name, for example "Symbols". -->
+    <string name="layout_editor_copy_layer_title">Copy this layer</string>
+    <string name="layout_editor_copy_layer_subtitle">Puts the <xliff:g id="layer_name" example="Symbols">%1$s</xliff:g> grid on the clipboard</string>
+    <string name="layout_editor_copy_layer_done_message">The <xliff:g id="layer_name" example="Symbols">%1$s</xliff:g> grid is on the clipboard. Paste it into another layer, into another layout, or into a message to share it.</string>
+    <string name="layout_editor_copy_layer_error">Your device did not let the app write to the clipboard.</string>
+    <string name="layout_editor_paste_layer_title">Paste a layer</string>
+    <string name="layout_editor_paste_layer_subtitle">Replaces the <xliff:g id="layer_name" example="Symbols">%1$s</xliff:g> grid with the layer on the clipboard</string>
+    <!-- %1$s is the layer the grid was copied from, %2$s the layer it went into. -->
+    <string name="layout_editor_paste_layer_done_message">The <xliff:g id="target_layer" example="Time">%2$s</xliff:g> layer now holds the <xliff:g id="source_layer" example="Date">%1$s</xliff:g> grid from the clipboard.</string>
+    <!-- Same message, for a copied layer that does not say which layer it is.
+         %1$s is the layer it went into. -->
+    <string name="layout_editor_paste_layer_done_unnamed_message">The <xliff:g id="target_layer" example="Time">%1$s</xliff:g> layer now holds the grid from the clipboard.</string>
+    <string name="layout_editor_paste_layer_wrong_clip_error">The clipboard does not hold a copied layer. Open the layer you want, then press Copy this layer.</string>
+    <string name="layout_editor_paste_layer_empty_error">The copied layer has no keys that this app can use.</string>
+    <string name="layout_editor_paste_changes_title">Changed during the paste:</string>
+    <!-- Name of the clipboard entry a copied layer makes. The user sees it in
+         the clipboard of their device. -->
+    <string name="layout_editor_layer_clip_label">Keyboard layer</string>
+
     <string name="layout_editor_reset_layer_title">Reset this layer</string>
     <!-- %1$s is a layer name, for example "Symbols". -->
     <string name="layout_editor_reset_layer_subtitle">Deletes your <xliff:g id="layer_name" example="Symbols">%1$s</xliff:g> grid and uses the built-in one</string>

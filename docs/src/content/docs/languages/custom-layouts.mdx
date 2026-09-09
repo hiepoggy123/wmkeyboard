@@ -67,6 +67,14 @@ A row height slider (×0.4–×2.5, with a stepper and 0.75/1/1.25/1.5/2 presets
 
 Below the grid: "Add a row" appends an empty one, "Reorder rows" opens a drag-reorder dialog, "Reorder keys in row N" appears once a multi-key row is selected, and "Reset this layer" (shown only on an authored layer) drops your changes and falls back to the inherited grid.
 
+### Copying a layer
+
+Two rows above "Reset this layer" move one layer at a time. **Copy this layer** puts the grid you're looking at on the system clipboard, and **Paste a layer** replaces the grid you're looking at with whatever layer is on the clipboard. That covers four jobs with one pair of buttons: duplicate the Date pad into the Time tab, carry a symbols page from one layout to another, hand someone a layout's letters grid in a chat message, or keep a plain-text backup of a layer you're about to rewrite.
+
+The clipboard holds the same JSON the [raw editor](#reaching-the-raw-json) prints for that layer, wrapped in a small header naming the format and which layer it came from. That header is why pasting a shopping list is rejected rather than half-read, and why the confirmation can tell you what landed where. Copying works on an inherited layer too, which is the common case for sharing, since most layouts change the letters, or the letters and the symbols, and nothing else.
+
+A pasted layer goes through the same repair pass an imported layout gets, judged against the layer it lands in rather than the one it came from, so a key naming an action this build doesn't have is dropped and reported instead of breaking the grid. What it doesn't do is add keys. Paste a grid with no space bar into Letters and it stays exactly as you pasted it, with the missing keys named in the Problems list. Paste is one undo step, so a paste onto the wrong tab is one press to take back.
+
 Undo and redo hold up to 30 whole-layout snapshots for the session (not saved between visits), and everything you type inside one key's edit sheet coalesces into a single undo step, so relabeling a key isn't twenty tiny undos. There's no save button: every change writes through immediately, and the screen says so ("The app saves every change").
 
 A "Problems" section at the bottom lists live validation findings as you edit. See [Details & edge cases](#details--edge-cases) for what gets checked.
@@ -160,6 +168,8 @@ Two things stay outside the layout. While you are typing into the emoji or clipb
 ## Layout files and sharing
 
 A layout exports as a `.wmlayout.json` file: the same envelope format every shipped asset layout already uses internally, tagged `"format": "wmkeyboard-layout"`. Export and duplicate buttons sit on every row of the layout gallery, both for your own layouts and the built-in ones.
+
+One layer travels on the clipboard instead of in a file, tagged `"format": "wmkeyboard-layer"`. See [Copying a layer](#copying-a-layer) for when that's the easier way to share a grid.
 
 The exported filename comes from the layout's name (stripped of anything that isn't a letter, digit, space, underscore, or hyphen), falling back to "layout" if that leaves nothing. Import accepts `.wmlayout.json` files through the in-app "Import a layout" row, or by tapping one directly in a file manager or chat app, since WM Keyboard registers as a handler for the `.wmlayout.json` extension. Either path shows the same confirm dialog with the layout's name, and (this is worth remembering) **an imported layout is never switched on automatically**. It's added to your layouts, and you turn it on under Languages when you're ready.
 

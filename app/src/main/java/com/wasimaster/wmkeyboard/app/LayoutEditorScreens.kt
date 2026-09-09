@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.res.Resources
 import androidx.annotation.StringRes
@@ -27,6 +29,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
+import com.wasimaster.wmkeyboard.core.layout.LayerFile
 import com.wasimaster.wmkeyboard.core.layout.LayerSpec
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.requireOutputStream
@@ -34,6 +37,7 @@ import com.wasimaster.wmkeyboard.core.util.runCancellable
 import androidx.compose.material3.Button
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
 import com.wasimaster.wmkeyboard.core.layout.repair
+import com.wasimaster.wmkeyboard.core.layout.repairAsLayer
 import com.wasimaster.wmkeyboard.core.layout.tabletGridWidth
 import com.wasimaster.wmkeyboard.core.settings.DeviceForm
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -79,6 +83,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.ExpandLess
@@ -1408,6 +1413,24 @@ internal fun KeyLayoutEditorScreen(
     var themePickerOpen by remember(layoutId) { mutableStateOf(false) }
     var layerThemePickerOpen by remember(layoutId, layer) { mutableStateOf(false) }
     val clearLabel = stringResource(CommonR.string.common_clear)
+
+    // What the copy and paste rows below have to say when they are pressed
+    // (issue #105). Every word of it is resolved here because a click lambda is
+    // a plain lambda, and because a note about a pasted grid names the layer it
+    // landed in, which is a translated word.
+    var message by remember(layoutId) { mutableStateOf<String?>(null) }
+    val layerName = stringResource(layerTitleRes(layer))
+    val layerNames = LayoutLayer.entries.associate { it.key to stringResource(layerTitleRes(it)) }
+    val clipLabel = stringResource(R.string.layout_editor_layer_clip_label)
+    val copyDoneFormat = stringResource(R.string.layout_editor_copy_layer_done_message)
+    val copyFailedError = stringResource(R.string.layout_editor_copy_layer_error)
+    val pasteDoneFormat = stringResource(R.string.layout_editor_paste_layer_done_message)
+    val pasteDoneUnnamedFormat =
+        stringResource(R.string.layout_editor_paste_layer_done_unnamed_message)
+    val pasteWrongClipError = stringResource(R.string.layout_editor_paste_layer_wrong_clip_error)
+    val pasteEmptyError = stringResource(R.string.layout_editor_paste_layer_empty_error)
+    val pasteChangesTitle = stringResource(R.string.layout_editor_paste_changes_title)
+    val noteFormat = stringResource(R.string.layout_editor_repair_note)
     SettingsGroup {
         item {
             WmRow(
@@ -1950,6 +1973,90 @@ internal fun KeyLayoutEditorScreen(
                 subtitle = stringResource(R.string.layout_editor_json_subtitle),
             ) { onNavigate("keymap_json/$layoutId") }
         }
+        // Issue #105: one layer at a time, into another layer of this layout,
+        // into another layout, or off the device entirely. The system clipboard
+        // rather than a slot of the app's own is what makes the last two work:
+        // the editor is one screen per layout, and a document that any app can
+        // carry is also the export and the backup the issue asked for. What it
+        // holds is the same JSON the raw editor prints, wrapped in the tag that
+        // lets Paste tell a layer from a shopping list.
+        item {
+            WmRow(
+                title = stringResource(R.string.layout_editor_copy_layer_title),
+                subtitle = stringResource(R.string.layout_editor_copy_layer_subtitle, layerName),
+                leading = { Icon(Icons.Outlined.ContentCopy, contentDescription = null) },
+                // An unauthored Fn layer has no grid to copy, and the stand-in
+                // the tab draws is the letters. See the note on `baseLayerOf`.
+                enabled = rows.isNotEmpty(),
+                onClick = {
+                    val text = LayerFile.encode(
+                        layerKey = layer.key,
+                        // The layer as it is drawn: this layout's own grid, or
+                        // the built-in one it still inherits. Copying an
+                        // inherited layer is the whole of use case 3 in the
+                        // issue, where a layout modifies the letters alone.
+                        spec = baseLayerOf(layout),
+                        appVersion = BuildConfig.VERSION_CODE,
+                        appVersionName = BuildConfig.VERSION_NAME,
+                    )
+                    message = if (putOnClipboard(context, clipLabel, text)) {
+                        copyDoneFormat.format(layerName)
+                    } else {
+                        copyFailedError
+                    }
+                },
+            )
+        }
+        item {
+            WmRow(
+                title = stringResource(R.string.layout_editor_paste_layer_title),
+                subtitle = stringResource(R.string.layout_editor_paste_layer_subtitle, layerName),
+                leading = { Icon(Icons.Outlined.ContentPaste, contentDescription = null) },
+                onClick = {
+                    // Read at the press and never before it. Android 12 and
+                    // later tells the user every time an app reads the
+                    // clipboard, so a row that checked what was on it to decide
+                    // whether to enable itself would say so on every
+                    // recomposition. The row is always live instead, and says
+                    // what it found.
+                    val imported = clipboardText(context)?.let { LayerFile.decode(it) }
+                    if (imported == null) {
+                        message = pasteWrongClipError
+                        return@WmRow
+                    }
+                    // Through the same repair pass an imported layout gets,
+                    // against the layer it is landing in rather than the one it
+                    // came from: a grid copied off another device can name a key
+                    // action this build does not have.
+                    val repaired = imported.spec.repairAsLayer(layer.key)
+                    val pasted = repaired.spec
+                    if (pasted == null) {
+                        message = pasteEmptyError
+                        return@WmRow
+                    }
+                    edit { it.copy(layers = it.layers + (layer.key to pasted)) }
+                    selection = null
+                    val from = layerNames[imported.layerKey]
+                    message = buildString {
+                        append(
+                            if (from == null) {
+                                pasteDoneUnnamedFormat.format(layerName)
+                            } else {
+                                pasteDoneFormat.format(from, layerName)
+                            },
+                        )
+                        if (repaired.repairNotes.isNotEmpty()) {
+                            append("\n\n")
+                            append(pasteChangesTitle)
+                            for (note in repaired.repairNotes) {
+                                append("\n")
+                                append(noteFormat.format(note.format(context.resources)))
+                            }
+                        }
+                    }
+                },
+            )
+        }
         if (layout.layer(layer) != null) {
             item {
                 WmRow(
@@ -1999,6 +2106,18 @@ internal fun KeyLayoutEditorScreen(
             },
         ),
     )
+
+    message?.let { text ->
+        AlertDialog(
+            onDismissRequest = { message = null },
+            text = { Text(text) },
+            confirmButton = {
+                TextButton(onClick = { message = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
+        )
+    }
 
     val ref = selection
     if (panelKind == null && sheetOpen && ref != null && selectedKey != null) {
@@ -2073,6 +2192,37 @@ internal fun KeyLayoutEditorScreen(
         )
     }
 }
+
+/**
+ * Puts a copied layer on the system clipboard, and says whether it went.
+ *
+ * Reported rather than swallowed: the row that calls this says "copied", and a
+ * device whose clipboard service refuses the write would otherwise be told a
+ * grid is waiting for it that is not there.
+ */
+private fun putOnClipboard(context: Context, label: String, text: String): Boolean = runCatching {
+    val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    manager.setPrimaryClip(ClipData.newPlainText(label, text))
+}.isSuccess
+
+/**
+ * The text on the system clipboard, or null when there is none to read.
+ *
+ * Capped at as many characters as the foreign-layout import accepts bytes, and
+ * for the same reason with more force: this text was written by any app at
+ * all, and the parser should not be handed a clipping that a chat app filled
+ * with a megabyte of markup. No real grid is within two orders of magnitude
+ * of the cap.
+ */
+private fun clipboardText(context: Context): String? = runCatching {
+    val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    val clip = manager.primaryClip ?: return null
+    (0 until clip.itemCount)
+        .asSequence()
+        .mapNotNull { clip.getItemAt(it).coerceToText(context)?.toString() }
+        .firstOrNull { it.isNotBlank() }
+        ?.takeIf { it.length <= MAX_FOREIGN_LAYOUT_BYTES }
+}.getOrNull()
 
 /** How a row reads in the reorder dialog: its number and how many keys it holds. */
 internal fun rowReorderLabel(context: Context, number: Int, keyCount: Int): String {
