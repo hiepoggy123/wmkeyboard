@@ -9384,6 +9384,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setShowAllPopupKeys(value: Boolean) =
         editPrefs { it[SHOW_ALL_POPUP_KEYS] = value }
 
+    suspend fun setShiftedPopupKeys(value: Boolean) =
+        editPrefs { it[SHIFTED_POPUP_KEYS] = value }
+
     suspend fun setSymbolsReturnToLetters(value: Boolean) =
         editPrefs { it[SYMBOLS_RETURN_TO_LETTERS] = value }
 
@@ -9607,12 +9610,6 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setShiftEnterNewline(value: Boolean) =
         editPrefs { it[SHIFT_ENTER_NEWLINE] = value }
-
-    suspend fun setShowAllPopupKeys(value: Boolean) =
-        editPrefs { it[SHOW_ALL_POPUP_KEYS] = value }
-
-    suspend fun setShiftedPopupKeys(value: Boolean) =
-        editPrefs { it[SHIFTED_POPUP_KEYS] = value }
 
     // ---- power saving ----
 
