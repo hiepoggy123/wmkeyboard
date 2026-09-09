@@ -73,16 +73,7 @@ class GlideRerankOracleTest {
     private fun realSeeds(): SeedBigrams = seedFile().inputStream().use { SeedBigrams.load(it) }
 
     /** Every (prev, next) the seed list knows, lowercased. */
-    private fun seedPairs(): List<Pair<String, String>> {
-        val out = ArrayList<Pair<String, String>>()
-        seedFile().forEachLine { line ->
-            val trimmed = line.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) return@forEachLine
-            val parts = trimmed.split(Regex("\\s+"))
-            if (parts.size >= 2) out.add(parts[0].lowercase() to parts[1].lowercase())
-        }
-        return out
-    }
+    private fun seedPairs(): List<Pair<String, String>> = realSeeds().wordPairs
 
     private class Setup(entries: List<Pair<String, Int>>, private val seeds: SeedBigrams) {
         val lexicon = UserLexicon(null)

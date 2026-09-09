@@ -9,6 +9,7 @@ import com.wasimaster.wmkeyboard.core.prediction.DictionaryLoader
 import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
+import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import java.io.File
 import java.util.Locale
 import kotlin.random.Random
@@ -78,14 +79,7 @@ class ContextMissRateTest {
             File("app/src/main/assets/dictionaries/en_bigrams.txt"),
         )
         val file = candidates.firstOrNull { it.exists() } ?: error("en_bigrams.txt not found")
-        val out = ArrayList<Pair<String, String>>()
-        file.forEachLine { line ->
-            val trimmed = line.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) return@forEachLine
-            val parts = trimmed.split(Regex("\\s+"))
-            if (parts.size >= 2) out.add(parts[0].lowercase() to parts[1].lowercase())
-        }
-        return out
+        return file.inputStream().use { SeedBigrams.load(it) }.wordPairs
     }
 
     private fun usable(word: String): Boolean = word.length >= 3 && word.all { it in 'a'..'z' }

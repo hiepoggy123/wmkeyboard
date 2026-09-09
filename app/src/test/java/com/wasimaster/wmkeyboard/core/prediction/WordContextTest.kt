@@ -25,11 +25,23 @@ class WordContextTest {
         assertEquals("hello", before("Hello; "))
     }
 
-    @Test fun midWordAndEmptyAreNull() {
+    @Test fun midWordIsNullAndSoIsAnEditorThatCannotAnswer() {
         assertNull(before("Hel"))
-        assertNull(before(""))
+        // Null is the editor saying it does not know, which is not the same as
+        // saying there is nothing there.
         assertNull(before(null))
         assertNull(before("Hello5")) // digits count as still-inside-a-token
+    }
+
+    @Test fun anEmptyFieldIsASentenceStart() {
+        // The caret at the very top of a field opens the first sentence, so
+        // the openers the lexicon knows are exactly what belongs in the strip.
+        // This answered null before #119, and null means "no context at all".
+        assertEquals(WordContext.SENTENCE_START, before(""))
+        assertEquals(
+            WordContext.SENTENCE_START to null,
+            WordContext.lastTwoWords("", enders),
+        )
     }
 
     @Test fun enderTailIsASentenceStartEvenWithoutAPrecedingWord() {

@@ -73,13 +73,8 @@ class RerankHarmTest {
         // a neighbour that is ITSELF a follower is not a harm case, it is an
         // agreement case.
         val followers = HashMap<String, MutableSet<String>>()
-        seedFile().forEachLine { line ->
-            val t = line.trim()
-            if (t.isEmpty() || t.startsWith("#")) return@forEachLine
-            val p = t.split(Regex("\\s+"))
-            if (p.size >= 2) {
-                followers.getOrPut(p[0].lowercase()) { HashSet() }.add(p[1].lowercase())
-            }
+        for ((prev, next) in seeds.wordPairs) {
+            followers.getOrPut(prev) { HashSet() }.add(next)
         }
 
         val random = Random(SEED)

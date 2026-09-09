@@ -1,5 +1,31 @@
 # Seed next-word bigrams: previous next frequency
 # Personal bigrams learned from typing always outrank these.
+
+# Sentence openers. `<s>` is the sentence-start sentinel: an empty field, or
+# the caret just past a full stop, so these are what the strip offers before a
+# single letter is typed. Written with their capitals, because that is how they
+# are shown and committed — nothing capitalises a suggestion on the way out.
+<s> I 98
+<s> The 94
+<s> Thanks 90
+<s> Hi 88
+<s> Hey 86
+<s> What 84
+<s> Can 82
+<s> Do 80
+<s> How 78
+<s> It 76
+<s> Just 74
+<s> Yes 72
+<s> No 70
+<s> Sorry 68
+<s> Okay 66
+<s> Good 64
+<s> We 62
+<s> Are 60
+<s> Let 58
+<s> This 56
+
 the best 90
 the first 88
 the same 86

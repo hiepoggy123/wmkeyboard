@@ -95,7 +95,7 @@ class RerankGainTest {
         // known follower of its real predecessor.
         data class Case(val previous: String, val intended: String, val typed: String)
         val pairs = ArrayList<Pair<String, String>>()
-        for ((prev, next) in seedPairs(seeds)) {
+        for ((prev, next) in seeds.wordPairs) {
             if (next.length >= 3 && next.all { it in 'a'..'z' } && dictWords.containsKey(next)) {
                 pairs.add(prev to next)
             }
@@ -146,22 +146,4 @@ class RerankGainTest {
         assertTrue("no measurable cold gain — the seed term is a no-op", coldRerank > coldBase)
     }
 
-    /** Every (prev, next) the seed list knows. */
-    private fun seedPairs(seeds: SeedBigrams): List<Pair<String, String>> {
-        val candidates = listOf(
-            File("src/main/assets/dictionaries/en_bigrams.txt"),
-            File("app/src/main/assets/dictionaries/en_bigrams.txt"),
-        )
-        val file = candidates.first { it.exists() }
-        val out = ArrayList<Pair<String, String>>()
-        file.forEachLine { line ->
-            val trimmed = line.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) return@forEachLine
-            val parts = trimmed.split(Regex("\\s+"))
-            if (parts.size >= 2) out.add(parts[0].lowercase() to parts[1].lowercase())
-        }
-        // Sanity: the parsed pairs agree with the loaded SeedBigrams.
-        check(out.all { (p, n) -> seeds.follows(p, n) })
-        return out
-    }
 }

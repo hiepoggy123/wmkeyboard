@@ -722,6 +722,42 @@ class SuggestionEngineTest {
         assertEquals(listOf("you"), e.suggest("", previousWord = "Thank"))
     }
 
+    @Test fun `the seed file opens a sentence through its sentinel token`() {
+        // `<s>` in the file is the sentence-start sentinel, so an empty field
+        // — whose context is that sentinel — has something to offer before a
+        // single letter is typed (#119). The seeds carry their own capitals,
+        // which is how they reach the strip.
+        val seeds = SeedBigrams.load("<s> I 98\n<s> Thanks 90\ngood morning 100\n".byteInputStream())
+        val e = SuggestionEngine(
+            Trie(), BengaliPhoneticIndex(emptyList()), UserLexicon(null), seedBigrams = seeds,
+        )
+
+        assertEquals(
+            listOf("I", "Thanks"),
+            e.suggest("", previousWord = WordContext.SENTENCE_START),
+        )
+        // The token is not a word: nothing else answers to it.
+        assertEquals(emptyList<String>(), e.suggest("", previousWord = "<s>"))
+    }
+
+    @Test fun `an opener the user types outranks the bundled ones`() {
+        // The sentinel survives WordKey normalisation, so a sentence opener is
+        // learned and read back under the same key as any other bigram.
+        val seeds = SeedBigrams.load("<s> I 98\n".byteInputStream())
+        val lexicon = UserLexicon(null)
+        lexicon.learnBigram(WordContext.SENTENCE_START, "Morning")
+        val e = SuggestionEngine(
+            Trie(), BengaliPhoneticIndex(emptyList()), lexicon, seedBigrams = seeds,
+        )
+
+        // Learned first; its spelling is the case memory's business, not this
+        // path's, so an opener with no remembered case comes back as its key.
+        assertEquals(
+            listOf("morning", "I"),
+            e.suggest("", previousWord = WordContext.SENTENCE_START),
+        )
+    }
+
     @Test fun learnedBigramsOutrankSeeds() {
         val seeds = SeedBigrams.load("good morning 100\ngood night 90\n".byteInputStream())
         val lexicon = UserLexicon(null)

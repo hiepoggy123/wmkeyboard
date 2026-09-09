@@ -42,7 +42,13 @@ object WordContext {
 
     /**
      * The completed word ending [text], for next-word context:
-     *  - null while still inside a word (or for empty text);
+     *  - null while still inside a word, and null for null text, which is an
+     *    editor saying it cannot answer rather than saying there is nothing;
+     *  - [SENTENCE_START] for **empty** text — the caret sits at the very top
+     *    of the field, which is the most sentence-start there is. It used to
+     *    answer null here, and null means "no context at all", so the strip on
+     *    an empty field could not offer a first word however many sentence
+     *    openers had been learned (#119);
      *  - [SENTENCE_START] when a sentence ender lies between the last word
      *    and the caret ("Hello. " — the next word starts a sentence and
      *    "hello" is not its context). Known limitation, accepted: "Dr. "
@@ -52,7 +58,8 @@ object WordContext {
      *    of the field, so it can hold anything any keyboard or paste put there.
      */
     fun completedWordBefore(text: CharSequence?, enders: CharArray): String? {
-        if (text.isNullOrEmpty()) return null
+        if (text == null) return null
+        if (text.isEmpty()) return SENTENCE_START
         if (isWordChar(text.last()) || text.last().isDigit()) return null
         // The run of separators between the last word and the caret.
         var i = text.length - 1
