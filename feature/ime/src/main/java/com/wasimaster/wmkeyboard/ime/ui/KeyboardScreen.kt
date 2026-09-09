@@ -8391,20 +8391,27 @@ private fun KeyboardBody(
             // The Fancy Text style strip is a row like the others, but its
             // visibility follows the active layout rather than a setting.
             val fancyStyle = fancyStyleFor(state)
-            // The suggestion strip and the tools' own row are one bar to the
-            // eye, so a theme that gives the strip a fill of its own gives it
-            // to both — and to the macros when they take the strip's row. Every
-            // other row here stays on the board. Null is the inherit case and
-            // paints nothing at all, which is what lets a board gradient, image
-            // or animation run through the bar as it always has (issue #109).
+            // The fill a theme may give the bars, taken by every row in this
+            // stack: the suggestion strip, the emoji, symbol, dictionary and
+            // fancy-text rows, the macros and the tools' own row. They stack
+            // against each other with nothing between them, so colouring one
+            // and leaving the next on the board would read as a mistake rather
+            // than as a choice. Null is the inherit case and paints nothing at
+            // all, which is what lets a board gradient, image or animation run
+            // through the bars as it always has (issue #109).
             val barFill = LocalKbTheme.current.suggestionBar
             // One row of the stack. A local composable so the two halves of the
             // order — above the keys and below them — draw through one `when`.
+            // The fill rides on the slot rather than inside each row, so a row
+            // that comes and goes takes it along with its own open animation,
+            // and a row that draws nothing right now paints no band either. A
+            // Column and not a Box, because the macros and the tools expand
+            // through ColumnScope's own AnimatedVisibility.
             @Composable
             fun BarRowSlot(row: BarRow) {
-                when (row) {
-                    BarRow.TOPBAR -> Box(modifier = Modifier.barRowFill(barFill)) {
-                        when {
+                Column(modifier = Modifier.barRowFill(barFill)) {
+                    when (row) {
+                        BarRow.TOPBAR -> when {
                             !topBarVisible -> {}
                             // The strip placement swaps the whole bar rather than adding
                             // a surface to TopBar's own flip: with a selection live there
@@ -8456,74 +8463,68 @@ private fun KeyboardBody(
                                 onSwipeDownHide = onHideKeyboard,
                             )
                         }
-                    }
-                    BarRow.EMOJI -> if (showEmojiRow) {
-                        EmojiBarStrip(
-                            state = state,
-                            onEmoji = onEmoji,
-                            onOpenPanel = { onPanelChange(PanelMode.EMOJI) },
-                        )
-                    }
-                    BarRow.SYMBOL -> if (showSymbolRow) {
-                        SymbolRowStrip(
-                            state = state,
-                            onInsert = onToolInsert,
-                            onSetSelect = onSymbolSetSelect,
-                        )
-                    }
-                    BarRow.FANCY -> if (!fullBleed && fancyStyle != null) {
-                        FancyStyleStrip(
-                            state = state,
-                            active = fancyStyle,
-                            onStyleSelect = onFancyStyleSelect,
-                        )
-                    }
-                    // The dictionary bar (issue #51) is a setting-driven row like
-                    // the symbol row; a full-bleed panel hides it like the rest.
-                    BarRow.DICTIONARY -> if (!fullBleed && state.settings.rows.dictionaryBarEnabled) {
-                        DictionaryBarStrip(state = state, callbacks = toolHold.dictionaryBar)
-                    }
-                    // The macro row comes and goes with the selection rather
-                    // than with a setting, so unlike every other row here its
-                    // gate is state and not settings. It animates for the same
-                    // reason the tools row does: a row that appears the instant
-                    // a selection is dragged out, at full height, reads as the
-                    // keyboard jumping rather than as an offer arriving.
-                    BarRow.MACROS -> if (macroRowHost) {
-                        val motion = !state.settings.reduceMotion
-                        AnimatedVisibility(
-                            visible = selectionMacroBarVisible(state),
-                            enter = if (motion) {
-                                expandVertically(tween(ToolbarMotionMs)) + fadeIn(tween(ToolbarMotionMs))
-                            } else {
-                                EnterTransition.None
-                            },
-                            exit = if (motion) {
-                                shrinkVertically(tween(ToolbarMotionMs)) + fadeOut(tween(ToolbarMotionMs))
-                            } else {
-                                ExitTransition.None
-                            },
-                        ) {
-                            SelectionMacroBar(
-                                state,
-                                toolHold.onSelectionMacro,
-                                toolHold.onSelectionFancyStyle,
+                        BarRow.EMOJI -> if (showEmojiRow) {
+                            EmojiBarStrip(
+                                state = state,
+                                onEmoji = onEmoji,
+                                onOpenPanel = { onPanelChange(PanelMode.EMOJI) },
                             )
                         }
-                    }
-                    // The chevron's open/close grows and shrinks the row over
-                    // the same beat the chevron turns, so the tools arrive with
-                    // the gesture instead of popping in a frame later. A
-                    // full-bleed panel still cuts it, above: an animated shrink
-                    // there would overshoot the keyboard height for a beat
-                    // while the panel had already claimed the row's space.
-                    BarRow.TOOLS -> if (toolsRowHost) {
-                        val motion = !state.settings.reduceMotion
-                        // Wrapped, not tinted inside ToolsRow: the fill has to
-                        // grow and shrink with the row's own open animation. A
-                        // Column and not a Box, because the vertical expand
-                        // below is ColumnScope's own AnimatedVisibility.
-                        Column(modifier = Modifier.barRowFill(barFill)) {
+                        BarRow.SYMBOL -> if (showSymbolRow) {
+                            SymbolRowStrip(
+                                state = state,
+                                onInsert = onToolInsert,
+                                onSetSelect = onSymbolSetSelect,
+                            )
+                        }
+                        BarRow.FANCY -> if (!fullBleed && fancyStyle != null) {
+                            FancyStyleStrip(
+                                state = state,
+                                active = fancyStyle,
+                                onStyleSelect = onFancyStyleSelect,
+                            )
+                        }
+                        // The dictionary bar (issue #51) is a setting-driven row like
+                        // the symbol row; a full-bleed panel hides it like the rest.
+                        BarRow.DICTIONARY -> if (!fullBleed && state.settings.rows.dictionaryBarEnabled) {
+                            DictionaryBarStrip(state = state, callbacks = toolHold.dictionaryBar)
+                        }
+                        // The macro row comes and goes with the selection rather
+                        // than with a setting, so unlike every other row here its
+                        // gate is state and not settings. It animates for the same
+                        // reason the tools row does: a row that appears the instant
+                        // a selection is dragged out, at full height, reads as the
+                        // keyboard jumping rather than as an offer arriving.
+                        BarRow.MACROS -> if (macroRowHost) {
+                            val motion = !state.settings.reduceMotion
+                            AnimatedVisibility(
+                                visible = selectionMacroBarVisible(state),
+                                enter = if (motion) {
+                                    expandVertically(tween(ToolbarMotionMs)) + fadeIn(tween(ToolbarMotionMs))
+                                } else {
+                                    EnterTransition.None
+                                },
+                                exit = if (motion) {
+                                    shrinkVertically(tween(ToolbarMotionMs)) + fadeOut(tween(ToolbarMotionMs))
+                                } else {
+                                    ExitTransition.None
+                                },
+                            ) {
+                                SelectionMacroBar(
+                                    state,
+                                    toolHold.onSelectionMacro,
+                                    toolHold.onSelectionFancyStyle,
+                                )
+                            }
+                        }
+                        // The chevron's open/close grows and shrinks the row over
+                        // the same beat the chevron turns, so the tools arrive with
+                        // the gesture instead of popping in a frame later. A
+                        // full-bleed panel still cuts it, above: an animated shrink
+                        // there would overshoot the keyboard height for a beat
+                        // while the panel had already claimed the row's space.
+                        BarRow.TOOLS -> if (toolsRowHost) {
+                            val motion = !state.settings.reduceMotion
                             AnimatedVisibility(
                                 visible = placement == ToolbarPlacement.ALWAYS_ROW || toolsRowOpen,
                                 enter = if (motion) {
@@ -8540,10 +8541,10 @@ private fun KeyboardBody(
                                 ToolsRow(state, onPanelChange, onToolTap, drag)
                             }
                         }
+                        // Stands for the keys themselves: the split below draws
+                        // them, so the entry itself is never a row.
+                        BarRow.KEYBOARD -> {}
                     }
-                    // Stands for the keys themselves: the split below draws
-                    // them, so the entry itself is never a row.
-                    BarRow.KEYBOARD -> {}
                 }
             }
             // The keys sit where the KEYBOARD entry does (issue #83): the rows

@@ -202,12 +202,16 @@ data class ThemeSpec(
     /** Who took [backgroundImageLandscape], when it came from a photo service. */
     val backgroundPhotoLandscape: PhotoAttribution? = null,
     /**
-     * Fill behind the suggestion strip and the toolbar's own row, which are one
-     * bar to the eye. Null inherits the board, which is what every theme drew
-     * before this field existed and what keeps a board gradient, image or
-     * animation running unbroken behind the words (issue #109).
+     * Fill behind the bars above and below the keys: the suggestion strip, the
+     * emoji, symbol, dictionary and fancy-text rows, the selection macros and
+     * the toolbar's own row. They stack against each other with nothing
+     * between them, so they take one colour rather than one each.
      *
-     * Alpha is honoured like everywhere else here, so a half-transparent strip
+     * Null inherits the board, which is what every theme drew before this
+     * field existed and what keeps a board gradient, image or animation
+     * running unbroken behind the words (issue #109).
+     *
+     * Alpha is honoured like everywhere else here, so a half-transparent bar
      * is a tint over the board rather than a lid on it.
      */
     val suggestionBarBackground: Long? = null,

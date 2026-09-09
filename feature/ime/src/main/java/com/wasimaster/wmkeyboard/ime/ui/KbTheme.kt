@@ -109,9 +109,9 @@ data class KbTheme(
     val board: Color,
     val boardGradient: GradientSpec?,
     /**
-     * Fill behind the suggestion strip and the toolbar's own row; null inherits
-     * the board, so nothing is painted there and the board's own gradient,
-     * image or animation carries on through the bar.
+     * Fill behind every bar row around the keys, the suggestion strip first
+     * among them; null inherits the board, so nothing is painted there and the
+     * board's own gradient, image or animation carries on through the bars.
      */
     val suggestionBar: Color?,
     /** Fill for the system navigation bar's band; null inherits the board. */
