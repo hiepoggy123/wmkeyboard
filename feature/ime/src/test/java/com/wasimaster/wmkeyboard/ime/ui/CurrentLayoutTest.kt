@@ -126,6 +126,27 @@ class CurrentLayoutTest {
         ),
     )
 
+    /**
+     * Issue #108: the capital of every letter joins its popup, and joins it
+     * *last* — the first entry is what a hold-and-release commits, and that
+     * belongs to whatever the layout listed first.
+     */
+    @Test
+    fun `shifted popup keys append each letter's capital`() {
+        val base = plain()
+        val s = state(
+            settings = base.copy(
+                layoutBehavior = base.layoutBehavior.copy(shiftedPopupKeys = true),
+            ),
+        )
+        val a = currentLayout(s).keys().single { (it.output ?: it.label) == "a" }
+        assertEquals("A", a.longPress.last())
+        assertEquals(1, a.longPress.count { it == "A" })
+        // Non-letters have no capital, so their popups are untouched.
+        val period = currentLayout(s).keys().single { (it.output ?: it.label) == "." }
+        assertTrue(period.longPress.none { it.length == 1 && it[0].isLetter() })
+    }
+
     private fun enterKeyOf(s: KeyboardUiState): Key =
         currentLayout(s).keys().single { it.action == KeyAction.Enter }
 

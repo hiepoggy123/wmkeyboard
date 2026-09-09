@@ -115,8 +115,29 @@ A few rules keep the drag from firing when you didn't mean it:
 
 - Lift outside the key grid and nothing happens. That's the slide-away cancel every key has.
 - Wander off the modifier and back onto it, and it acts like a plain tap: Shift arms, Ctrl arms, and a second tap locks either.
-- Keys that only change what the keyboard shows have no combination to send, so <KeyCap>?123</KeyCap>, the emoji key and the globe do nothing under a drag. Nor does Shift onto Ctrl, or either onto itself.
+- Keys that only change what the keyboard shows have no combination to send, so landing on <KeyCap>?123</KeyCap>, the emoji key or the globe does nothing. Nor does Shift onto Ctrl, or either onto itself. (Dragging *from* <KeyCap>?123</KeyCap> is a gesture of its own, below.)
 - A letter your device's keyboard map can't name (Bengali letters, currency signs, combining marks) sends nothing under Ctrl rather than typing itself. Shift is unaffected by this, since it types the character rather than sending a key press.
+
+## Dragging from ?123 or ABC
+
+Drag off <KeyCap>?123</KeyCap> and the symbols come up under your finger. Lift on one and it types, and the letters are back before you've moved your hand. It's the quick way to drop in a single symbol or a piece of punctuation without two trips through the layer key, and it's the gesture the stock Android keyboards have had for years.
+
+<KeyCap>ABC</KeyCap> works the same way in the other direction. Drag off it and the letters show for as long as you hold, so a layer of your own can type one letter without leaving. Starting from the <KeyCap>?123</KeyCap> key of the first symbols page reaches the second one, where the arrows and the maths signs live, exactly as a tap on it would.
+
+While you drag, the key under your finger lights up the way a pressed key does, and a straight band stretches from the key you started on to your fingertip, the same one the [modifier drag](#dragging-from-a-modifier-key) draws.
+
+Hold still over a key and its press-and-hold popup opens. Slide onto the character you want, lift, and that's what you get. This popup always follows your finger, whatever **Choose without lifting** is set to, because lifting is what ends the gesture: a popup waiting for a separate tap could never be answered here.
+
+Letters arrive lowercase, since the Shift key is back on the layer you came from. **Shifted letter on press and hold** (Key press → Press and hold shortcuts, off by default) puts each letter's capital at the end of its popup, which is how you get one out of this gesture.
+
+Nothing about the keyboard's own layer changes while you hold. A tap on <KeyCap>?123</KeyCap> still switches layer and stays there, and a press that never travels is a tap.
+
+A few rules keep the drag from firing when you didn't mean it:
+
+- Lift outside the key grid and nothing happens, the same slide-away cancel every key has.
+- Lift on a key that only moves the keyboard around, such as the <KeyCap>ABC</KeyCap> key now sitting where you started, Shift, the emoji key or the globe, and nothing is typed. Sliding back to where you began is how you cancel.
+- An <KeyCap>ABC</KeyCap> key on the letters layer has no other layer to show, so a drag off it does nothing at all.
+- If you held the key long enough to open its own popup first (a <KeyCap>?123</KeyCap> key with alternates of its own), that popup keeps your finger and the layer stays where it is.
 
 ## Volume keys as a cursor control
 
@@ -170,6 +191,7 @@ Open the **Typing** tile in settings, or search "Gestures", "Backspace" or "Volu
 - **The 2-D cursor touchpad only takes precedence over swipe-down-to-hide once a drag has resolved to Cursor.** Hold time decides which slot governs a drag. With the defaults (quick swipe = Language, press and hold then swipe = Cursor), a fast downward flick inside the long-press delay belongs to the quick-swipe slot and dismisses the keyboard instead of moving the cursor down through lines.
 - **Backspace's word-delete acceleration resets on a reversal, not on release.** Dragging right mid-swipe doesn't bring back a deleted word. It only means the *next* leftward word costs full travel again instead of the shrunk amount.
 - **Volume-key cursor control re-checks "is audio playing" on every key press**, not once at the start of the drag, so control passes back and forth live as playback starts and stops.
+- **A drag off <KeyCap>?123</KeyCap> or <KeyCap>ABC</KeyCap> is never read as a word either**, for the same reason as a modifier drag: <KeyCap>?123</KeyCap> sits against the bottom row beside the spacebar, and a touch that starts there belongs to the layer drag.
 - **A drag off a modifier or Shift key is never read as a word.** Glide typing and handwriting both measure where your finger landed, and a touch that started on one of those keys belongs to the chord drag. Shift is the one you may notice: it sits against the bottom letter row, so a glide that used to be startable from its inner edge now capitalizes instead. Start the word one key further in.
 - **Caps lock is not a drag source.** It's a state you leave switched on, so holding it for one key means nothing, and Shift is one key away for anyone who wants that.
 - **Ctrl to A, C, V or X goes through the same route as the toolbar's copy and paste.** Those four reach text fields that a raw key event doesn't, such as web views and Compose fields. **Ctrl shortcuts as raw key events**, under Typing / Key press, opts back out of that for terminal apps.

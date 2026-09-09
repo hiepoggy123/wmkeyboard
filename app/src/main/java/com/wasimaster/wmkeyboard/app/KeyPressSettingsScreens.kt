@@ -1133,6 +1133,17 @@ internal fun KeyPressShortcutsSettings(
             ) { scope.launch { repository.setShowAllPopupKeys(it) } }
         }
         item {
+            // Issue #108: the capital of every letter joins its popup, which is
+            // where a layer peek has to reach one from.
+            ToggleSetting(
+                R.string.keypress_shifted_popup_title,
+                stringResource(R.string.keypress_shifted_popup_subtitle),
+                settings.layoutBehavior.shiftedPopupKeys,
+                info = stringResource(R.string.keypress_shifted_popup_info),
+                default = SettingsDefaults.layoutBehavior.shiftedPopupKeys,
+            ) { scope.launch { repository.setShiftedPopupKeys(it) } }
+        }
+        item {
             ToggleSetting(
                 R.string.keypress_symbols_numpad_title,
                 stringResource(R.string.keypress_symbols_numpad_subtitle),

@@ -4642,6 +4642,22 @@ data class LayoutBehaviorSettings(
      */
     val showAllPopupKeys: Boolean = false,
     /**
+     * Add each letter key's shifted form to its long-press popup — `A` under
+     * `a` — so a capital can be typed without arming shift.
+     *
+     * Asked for alongside the layer peek (issue #108): a drag off a layer's
+     * `ABC` key types a letter without leaving that layer, and shift is on the
+     * layer the finger is not on, so the popup is the only place a capital can
+     * come from. It is a popup entry like any other, though, so it works under
+     * an ordinary press and hold too.
+     *
+     * Appended, never prepended: with hold-to-select on, the first entry is
+     * what a hold-and-release commits, and that has always been the layout's
+     * own first alternate. Off by default — every letter key would otherwise
+     * grow a popup it did not have.
+     */
+    val shiftedPopupKeys: Boolean = false,
+    /**
      * The currency glyphs offered on the `$` key's long-press popup, in order.
      * Empty (the default) uses the built-in set (৳ € £ ¥ ₹ ₿). Lets a user put
      * their own currency first without editing a whole custom layout.
@@ -5596,6 +5612,7 @@ class SettingsRepository(private val context: Context) {
         private val SPLIT_ONLY_LARGE = booleanPreferencesKey("split_only_large_screens")
         private val SHIFT_CAPS_LOCK_MS = intPreferencesKey("shift_caps_lock_ms")
         private val SHOW_ALL_POPUP_KEYS = booleanPreferencesKey("show_all_popup_keys")
+        private val SHIFTED_POPUP_KEYS = booleanPreferencesKey("shifted_popup_keys")
         private val CURRENCY_KEYS = stringPreferencesKey("currency_keys")
         private val SPACE_HOLD_KEYS = stringPreferencesKey("space_hold_keys")
         private val SYMBOLS_RETURN_TO_LETTERS =
@@ -6981,6 +6998,8 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.layoutBehavior.splitOnlyOnLargeScreens,
                 shiftCapsLockMs = p[SHIFT_CAPS_LOCK_MS] ?: defaults.layoutBehavior.shiftCapsLockMs,
                 showAllPopupKeys = p[SHOW_ALL_POPUP_KEYS] ?: defaults.layoutBehavior.showAllPopupKeys,
+                shiftedPopupKeys = p[SHIFTED_POPUP_KEYS]
+                    ?: defaults.layoutBehavior.shiftedPopupKeys,
                 currencyKeys = p[CURRENCY_KEYS]
                     ?.split('\n')?.filter { it.isNotEmpty() }
                     ?: defaults.layoutBehavior.currencyKeys,
@@ -10581,6 +10600,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setShowAllPopupKeys(value: Boolean) =
         editPrefs { it[SHOW_ALL_POPUP_KEYS] = value }
+
+    suspend fun setShiftedPopupKeys(value: Boolean) =
+        editPrefs { it[SHIFTED_POPUP_KEYS] = value }
 
     suspend fun setSymbolsReturnToLetters(value: Boolean) =
         editPrefs { it[SYMBOLS_RETURN_TO_LETTERS] = value }
