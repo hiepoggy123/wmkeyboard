@@ -201,6 +201,23 @@ data class ThemeSpec(
     val backgroundPhoto: PhotoAttribution? = null,
     /** Who took [backgroundImageLandscape], when it came from a photo service. */
     val backgroundPhotoLandscape: PhotoAttribution? = null,
+    /**
+     * Fill behind the suggestion strip and the toolbar's own row, which are one
+     * bar to the eye. Null inherits the board, which is what every theme drew
+     * before this field existed and what keeps a board gradient, image or
+     * animation running unbroken behind the words (issue #109).
+     *
+     * Alpha is honoured like everywhere else here, so a half-transparent strip
+     * is a tint over the board rather than a lid on it.
+     */
+    val suggestionBarBackground: Long? = null,
+    /**
+     * Fill for the band the system navigation bar sits on, below the bottom key
+     * row. Null inherits the board, as above. Only the gesture bar's own inset
+     * is painted, not the extra breathing room the bottom-padding setting adds:
+     * that padding belongs to the keyboard, this band belongs to the system.
+     */
+    val navigationBarBackground: Long? = null,
     // Keys
     val keyShape: KeyShapeKind = KeyShapeKind.ROUNDED,
     /**
@@ -901,7 +918,7 @@ fun Long.alphaFraction(): Float = ((this ushr 24) and 0xFFL) / 255f
  * anything added to [ThemeSpec] later — silently, and with no compiler
  * complaint — which is how attribution would have gone missing on every reseed.
  *
- * The five nullable overrides below are deliberately cleared rather than kept:
+ * The nullable overrides below are deliberately cleared rather than kept:
  * they are per-theme exceptions to a palette that no longer exists, so a reseed
  * returns them to following the new colours.
  */
@@ -934,6 +951,8 @@ fun ThemeSpec.reseeded(seed: Long, dark: Boolean): ThemeSpec {
         toolbarIcon = null,
         toolCircleActiveBackground = null,
         suggestionText = null,
+        suggestionBarBackground = null,
+        navigationBarBackground = null,
     )
 }
 

@@ -2043,6 +2043,29 @@ fun ThemeEditorScreen(
             )
         }
         item {
+            // Both bars follow the board until the theme says otherwise, so
+            // their fallback swatch is the board's own colour and Auto is the
+            // resting state (issue #109).
+            NullableColorRow(
+                stringResource(R.string.theme_suggestion_bar_title),
+                theme.suggestionBarBackground,
+                fallback = theme.boardBackground,
+                supportsAlpha = true,
+                info = stringResource(R.string.theme_suggestion_bar_body),
+                onChange = { update { t -> t.copy(suggestionBarBackground = it) } },
+            )
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_navigation_bar_title),
+                theme.navigationBarBackground,
+                fallback = theme.boardBackground,
+                supportsAlpha = true,
+                info = stringResource(R.string.theme_navigation_bar_body),
+                onChange = { update { t -> t.copy(navigationBarBackground = it) } },
+            )
+        }
+        item {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.theme_background_image_title)) },
                 supportingContent = {

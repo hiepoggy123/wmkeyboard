@@ -13,6 +13,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -32,6 +34,9 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
@@ -44,6 +49,7 @@ import kotlin.math.roundToInt
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
@@ -102,6 +108,14 @@ data class KbTheme(
     val dark: Boolean,
     val board: Color,
     val boardGradient: GradientSpec?,
+    /**
+     * Fill behind the suggestion strip and the toolbar's own row; null inherits
+     * the board, so nothing is painted there and the board's own gradient,
+     * image or animation carries on through the bar.
+     */
+    val suggestionBar: Color?,
+    /** Fill for the system navigation bar's band; null inherits the board. */
+    val navigationBar: Color?,
     val backgroundImage: String?,
     /** Landscape override for [backgroundImage]; null falls back to it. */
     val backgroundImageLandscape: String?,
@@ -479,6 +493,10 @@ private fun defaultKbTheme(
         dark = dark,
         board = board,
         boardGradient = null,
+        // The dynamic theme has no palette of its own to spend here: both bars
+        // are the board, which is exactly what null means.
+        suggestionBar = null,
+        navigationBar = null,
         backgroundImage = null,
         backgroundImageLandscape = null,
         backgroundImageOpacity = 1f,
@@ -600,6 +618,8 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         dark = spec.dark,
         board = board,
         boardGradient = spec.boardGradient,
+        suggestionBar = spec.suggestionBarBackground?.let(::colorOf),
+        navigationBar = spec.navigationBarBackground?.let(::colorOf),
         backgroundImage = spec.backgroundImage,
         backgroundImageLandscape = spec.backgroundImageLandscape,
         backgroundImageOpacity = spec.backgroundImageOpacity,
@@ -739,6 +759,8 @@ private fun GradientSpec.mapColors(f: (Color) -> Color): GradientSpec =
 private fun KbTheme.mapColors(f: (Color) -> Color): KbTheme = copy(
     board = f(board),
     boardGradient = boardGradient?.mapColors(f),
+    suggestionBar = suggestionBar?.let(f),
+    navigationBar = navigationBar?.let(f),
     keyGradient = keyGradient?.mapColors(f),
     key = f(key),
     keyText = f(keyText),
@@ -801,6 +823,11 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
             board = board,
             // Gradients, images and motion all fight legibility — drop them.
             boardGradient = null,
+            // Both bar fills go with them: the strip's own text is recoloured
+            // against the board just below, so a bar painted in the theme's
+            // colour would be the one surface that contrast pass never saw.
+            suggestionBar = null,
+            navigationBar = null,
             keyGradient = null,
             backgroundImage = null,
             backgroundImageLandscape = null,
@@ -1190,6 +1217,8 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         backgroundImageBlur = if (past) b.backgroundImageBlur else a.backgroundImageBlur,
         backgroundAnimated = if (past) b.backgroundAnimated else a.backgroundAnimated,
         keyShapeKind = if (past) b.keyShapeKind else a.keyShapeKind,
+        suggestionBar = lerpColorOrNull(a.suggestionBar, b.suggestionBar, t),
+        navigationBar = lerpColorOrNull(a.navigationBar, b.navigationBar, t),
         keyGradient = lerpGradient(a.keyGradient, b.keyGradient, t, a.key, b.key),
         // Discrete like the background image: a texture is a decoded file.
         keyTexture = if (past) b.keyTexture else a.keyTexture,
@@ -1391,4 +1420,53 @@ fun BoxScope.BoardBackground(kb: KbTheme) {
                 .background(board),
         )
     }
+}
+
+/**
+ * The bands the system navigation bar sits on, painted in the theme's own
+ * colour when it names one.
+ *
+ * Drawn straight after [BoardBackground] and under everything else in the
+ * keyboard box, so the keys — which hold themselves clear of the bar with
+ * `navigationBarsPadding` — never sit on top of it. A theme that leaves
+ * [KbTheme.navigationBar] unset draws nothing at all here, which is what keeps
+ * the board's gradient, image and animation running to the edges exactly as
+ * they did before this existed (issue #109).
+ *
+ * All three edges the bar can take, not only the bottom one: in landscape a
+ * three-button bar is a rail down one side, and a keyboard that coloured the
+ * bottom and left that rail on the board would look like the feature was half
+ * finished. The rails stop short of the bottom band so a translucent colour
+ * composites once in the corner rather than twice.
+ *
+ * Only the system's own inset is covered. The bottom-padding setting adds
+ * breathing room above the bar, and that room is the keyboard's, so it stays
+ * on the board.
+ */
+@Composable
+fun BoxScope.NavigationBarBackground(kb: KbTheme) {
+    val color = kb.navigationBar ?: return
+    val insets = WindowInsets.navigationBars
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val bottom = insets.getBottom(density).toFloat()
+    val left = insets.getLeft(density, layoutDirection).toFloat()
+    val right = insets.getRight(density, layoutDirection).toFloat()
+    if (bottom <= 0f && left <= 0f && right <= 0f) return
+    // matchParentSize and a draw, rather than three sized children: the bands
+    // must not get a say in how tall the keyboard box is.
+    Box(
+        modifier = Modifier
+            .matchParentSize()
+            .drawBehind {
+                val railHeight = size.height - bottom
+                if (bottom > 0f) {
+                    drawRect(color, Offset(0f, railHeight), Size(size.width, bottom))
+                }
+                if (left > 0f) drawRect(color, Offset.Zero, Size(left, railHeight))
+                if (right > 0f) {
+                    drawRect(color, Offset(size.width - right, 0f), Size(right, railHeight))
+                }
+            },
+    )
 }

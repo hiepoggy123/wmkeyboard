@@ -1501,6 +1501,15 @@ fun KeyboardScreen(
 private const val VoiceBarTransitionMs = 260
 
 /**
+ * Paints [color] behind one bar row, or nothing when the theme leaves the bar
+ * on the board. Null has to stay a no-op rather than a transparent fill: the
+ * board underneath may be a gradient, a photo or an animation, and a drawn
+ * fill would be a lid over all three.
+ */
+private fun Modifier.barRowFill(color: Color?): Modifier =
+    if (color == null) this else background(color)
+
+/**
  * Docked chrome: the board background plus the width, alignment and
  * one-handed arrangement around the keyboard body — the everyday counterpart
  * of [FloatingKeyboardFrame].
@@ -1541,6 +1550,9 @@ private fun DockedKeyboardFrame(
                 ),
         ) {
             BoardBackground(LocalKbTheme.current)
+            // Under the keys and over the board, so a theme that gives the
+            // gesture bar a colour of its own paints only that band (#109).
+            NavigationBarBackground(LocalKbTheme.current)
             // navigationBarsPadding keeps the bottom key row clear of the
             // gesture-navigation bar on edge-to-edge (SDK 35+) IME windows.
             val oneHanded = state.settings.oneHandedMode
@@ -8379,62 +8391,71 @@ private fun KeyboardBody(
             // The Fancy Text style strip is a row like the others, but its
             // visibility follows the active layout rather than a setting.
             val fancyStyle = fancyStyleFor(state)
+            // The suggestion strip and the tools' own row are one bar to the
+            // eye, so a theme that gives the strip a fill of its own gives it
+            // to both — and to the macros when they take the strip's row. Every
+            // other row here stays on the board. Null is the inherit case and
+            // paints nothing at all, which is what lets a board gradient, image
+            // or animation run through the bar as it always has (issue #109).
+            val barFill = LocalKbTheme.current.suggestionBar
             // One row of the stack. A local composable so the two halves of the
             // order — above the keys and below them — draw through one `when`.
             @Composable
             fun BarRowSlot(row: BarRow) {
                 when (row) {
-                    BarRow.TOPBAR -> when {
-                        !topBarVisible -> {}
-                        // The strip placement swaps the whole bar rather than adding
-                        // a surface to TopBar's own flip: with a selection live there
-                        // are no word candidates to show (nothing is being typed), and
-                        // the toolbar is one tap away under the macros' own gesture.
-                        // Only with no panel open, because there the chevron on this
-                        // row is the way back out of the panel.
-                        stripMacros -> SelectionMacroBar(
-                            state,
-                            toolHold.onSelectionMacro,
-                            toolHold.onSelectionFancyStyle,
-                        )
-                        else -> TopBar(
-                            state,
-                            toolsRowOpen = toolsRowOpen,
-                            onToolsRowToggle = { toolsRowOpen = !toolsRowOpen },
-                            onSuggestion = onSuggestion,
-                            suggestionHold = suggestionHold,
-                            onJoinSuggestion = onJoinSuggestion,
-                            onRevisionSuggestion = onRevisionSuggestion,
-                            onCandidate = onCandidate,
-                            onCandidatesExpand = onCandidatesExpand,
-                            onEmoji = onEmoji,
-                            onEmojiSuggestion = onEmojiSuggestion,
-                            onPunctuation = onPunctuation,
-                            onPanelChange = onPanelChange,
-                            onToolTap = onToolTap,
-                            drag = drag,
-                            onVoiceToggle = onVoiceToggle,
-                            onVoiceUndo = onVoiceUndo,
-                            onVoicePermissionRequest = onVoicePermissionRequest,
-                            onOpenVoiceSettings = onOpenVoiceSettings,
-                            onVoiceCollapse = {
-                                onVoiceRailKey(
-                                    VoiceBarAction.SwitchSurface(VoiceBarSettings.MODE_BAR),
-                                )
-                            },
-                            onDismissInlineSuggestions = onDismissInlineSuggestions,
-                            onSmartAccept = onSmartAccept,
-                            onSmartOpen = onSmartOpen,
-                            vocab = toolHold.vocab,
-                            onStripOfferAction = onStripOfferAction,
-                            onClipboardSuggestion = onClipboardItem,
-                            onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
-                            onClipboardEntity = onClipboardEntity,
-                            onOtpAccept = onOtpAccept,
-                            onOtpDismiss = onOtpDismiss,
-                            onEmojiRowShown = onEmojiRowShown,
-                            onSwipeDownHide = onHideKeyboard,
-                        )
+                    BarRow.TOPBAR -> Box(modifier = Modifier.barRowFill(barFill)) {
+                        when {
+                            !topBarVisible -> {}
+                            // The strip placement swaps the whole bar rather than adding
+                            // a surface to TopBar's own flip: with a selection live there
+                            // are no word candidates to show (nothing is being typed), and
+                            // the toolbar is one tap away under the macros' own gesture.
+                            // Only with no panel open, because there the chevron on this
+                            // row is the way back out of the panel.
+                            stripMacros -> SelectionMacroBar(
+                                state,
+                                toolHold.onSelectionMacro,
+                                toolHold.onSelectionFancyStyle,
+                            )
+                            else -> TopBar(
+                                state,
+                                toolsRowOpen = toolsRowOpen,
+                                onToolsRowToggle = { toolsRowOpen = !toolsRowOpen },
+                                onSuggestion = onSuggestion,
+                                suggestionHold = suggestionHold,
+                                onJoinSuggestion = onJoinSuggestion,
+                                onRevisionSuggestion = onRevisionSuggestion,
+                                onCandidate = onCandidate,
+                                onCandidatesExpand = onCandidatesExpand,
+                                onEmoji = onEmoji,
+                                onEmojiSuggestion = onEmojiSuggestion,
+                                onPunctuation = onPunctuation,
+                                onPanelChange = onPanelChange,
+                                onToolTap = onToolTap,
+                                drag = drag,
+                                onVoiceToggle = onVoiceToggle,
+                                onVoiceUndo = onVoiceUndo,
+                                onVoicePermissionRequest = onVoicePermissionRequest,
+                                onOpenVoiceSettings = onOpenVoiceSettings,
+                                onVoiceCollapse = {
+                                    onVoiceRailKey(
+                                        VoiceBarAction.SwitchSurface(VoiceBarSettings.MODE_BAR),
+                                    )
+                                },
+                                onDismissInlineSuggestions = onDismissInlineSuggestions,
+                                onSmartAccept = onSmartAccept,
+                                onSmartOpen = onSmartOpen,
+                                vocab = toolHold.vocab,
+                                onStripOfferAction = onStripOfferAction,
+                                onClipboardSuggestion = onClipboardItem,
+                                onClipboardSuggestionDismiss = onClipboardSuggestionDismiss,
+                                onClipboardEntity = onClipboardEntity,
+                                onOtpAccept = onOtpAccept,
+                                onOtpDismiss = onOtpDismiss,
+                                onEmojiRowShown = onEmojiRowShown,
+                                onSwipeDownHide = onHideKeyboard,
+                            )
+                        }
                     }
                     BarRow.EMOJI -> if (showEmojiRow) {
                         EmojiBarStrip(
@@ -8498,20 +8519,26 @@ private fun KeyboardBody(
                     // while the panel had already claimed the row's space.
                     BarRow.TOOLS -> if (toolsRowHost) {
                         val motion = !state.settings.reduceMotion
-                        AnimatedVisibility(
-                            visible = placement == ToolbarPlacement.ALWAYS_ROW || toolsRowOpen,
-                            enter = if (motion) {
-                                expandVertically(tween(ToolbarMotionMs)) + fadeIn(tween(ToolbarMotionMs))
-                            } else {
-                                EnterTransition.None
-                            },
-                            exit = if (motion) {
-                                shrinkVertically(tween(ToolbarMotionMs)) + fadeOut(tween(ToolbarMotionMs))
-                            } else {
-                                ExitTransition.None
-                            },
-                        ) {
-                            ToolsRow(state, onPanelChange, onToolTap, drag)
+                        // Wrapped, not tinted inside ToolsRow: the fill has to
+                        // grow and shrink with the row's own open animation. A
+                        // Column and not a Box, because the vertical expand
+                        // below is ColumnScope's own AnimatedVisibility.
+                        Column(modifier = Modifier.barRowFill(barFill)) {
+                            AnimatedVisibility(
+                                visible = placement == ToolbarPlacement.ALWAYS_ROW || toolsRowOpen,
+                                enter = if (motion) {
+                                    expandVertically(tween(ToolbarMotionMs)) + fadeIn(tween(ToolbarMotionMs))
+                                } else {
+                                    EnterTransition.None
+                                },
+                                exit = if (motion) {
+                                    shrinkVertically(tween(ToolbarMotionMs)) + fadeOut(tween(ToolbarMotionMs))
+                                } else {
+                                    ExitTransition.None
+                                },
+                            ) {
+                                ToolsRow(state, onPanelChange, onToolTap, drag)
+                            }
                         }
                     }
                     // Stands for the keys themselves: the split below draws

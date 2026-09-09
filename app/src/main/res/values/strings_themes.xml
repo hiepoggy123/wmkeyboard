@@ -155,6 +155,10 @@
     <string name="theme_board_background_title">Background</string>
     <string name="theme_board_gradient_title">Gradient background</string>
     <string name="theme_board_gradient_subtitle">The keyboard paints this instead of the solid background color</string>
+    <string name="theme_suggestion_bar_title">Suggestion strip</string>
+    <string name="theme_suggestion_bar_body">The color behind the suggestion strip and behind the toolbar row. On Auto the strip shows the board color, or the board image or gradient. The words on the strip keep their color from the board. If you make this color very different from the board, also set Suggestion text in the Panels and suggestions group.</string>
+    <string name="theme_navigation_bar_title">Navigation bar</string>
+    <string name="theme_navigation_bar_body">The color of the band below the keys, where the system navigation bar is. On Auto the band shows the board color, or the board image or gradient. Phones with hardware buttons have no band.</string>
     <string name="theme_background_image_title">Background image</string>
     <string name="theme_background_image_none">None. Press to select a photo</string>
     <string name="theme_background_image_replace">Press to change the image</string>

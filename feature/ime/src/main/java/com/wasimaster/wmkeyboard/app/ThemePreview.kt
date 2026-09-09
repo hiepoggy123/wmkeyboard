@@ -157,10 +157,17 @@ fun ThemePreview(
                 .padding(horizontal = 6.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
+            // A theme may paint the bar behind the tools rather than leave it
+            // on the board (issue #109); the mock-up shows that, so the card
+            // answers the same question the real strip does. The navigation
+            // band has no counterpart here — this preview stops at the bottom
+            // key row, the way it stops short of popups and panels.
+            val barFill = theme.suggestionBarBackground
             Row(
                 modifier = Modifier
                     .weight(TOOLBAR_WEIGHT)
-                    .fillMaxWidth(),
+                    .fillMaxWidth()
+                    .then(if (barFill == null) Modifier else Modifier.background(colorOf(barFill))),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
