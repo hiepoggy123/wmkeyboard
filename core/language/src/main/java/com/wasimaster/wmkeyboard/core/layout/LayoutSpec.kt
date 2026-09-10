@@ -5,10 +5,12 @@ import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
+import com.wasimaster.wmkeyboard.core.util.JsonPretty
 import com.wasimaster.wmkeyboard.core.util.firstJsonDocument
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.modules.SerializersModule
 
 /**
@@ -347,23 +349,29 @@ internal val layoutJson = Json {
  * read back — every one of those fields has a default — and shrinks the same
  * layout to about a tenth.
  *
- * Printed one field per line as well. As a single line the document was one
- * unbroken run of text the field could only wrap where it happened to find a
- * break, and the last characters of a long run drew past the field's right
- * edge (#56). Short lines wrap where they should, and the layout reads as
- * rows and keys rather than a wall.
+ * Indenting is [JsonPretty]'s, not this instance's. As a single line the
+ * document was one unbroken run of text the field could only wrap where it
+ * happened to find a break, and the last characters of a long run drew past the
+ * field's right edge (#56); one field per line, which is all `prettyPrint` can
+ * do, then turned a three-item list of alternates into five lines and the
+ * layout into thousands. `JsonPretty` breaks only what does not fit a line.
  */
 internal val layoutEditorJson = Json(layoutJson) {
     encodeDefaults = false
-    prettyPrint = true
-    prettyPrintIndent = "  "
 }
 
 object LayoutCodec {
     fun encodeList(layouts: List<LayoutSpec>): String = layoutJson.encodeToString(layouts)
 
-    /** [encode], without the fields that hold their default value. */
-    fun encodeForEditing(layout: LayoutSpec): String = layoutEditorJson.encodeToString(layout)
+    /**
+     * [encode], without the fields that hold their default value, and printed
+     * for a person rather than for a parser.
+     *
+     * Through a `JsonElement` rather than straight to text: the shape is what
+     * decides where the lines break, and only the element tree has it.
+     */
+    fun encodeForEditing(layout: LayoutSpec): String =
+        JsonPretty.print(layoutEditorJson.encodeToJsonElement(layout))
 
     fun decodeList(json: String): List<LayoutSpec> {
         // Blank is the ordinary state — nothing is written here until the user

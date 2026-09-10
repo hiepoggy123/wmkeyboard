@@ -2,6 +2,8 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
+import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -154,6 +156,31 @@ class CodeEditorTest {
             kotlinx.serialization.json.Json.parseToJsonElement(source),
             kotlinx.serialization.json.Json.parseToJsonElement(formatted),
         )
+    }
+
+    @Test
+    fun `the screen opens in the shape Format prints`() {
+        // The complaint this test exists for: the editor opened in one shape
+        // and Format printed another, because the text came from kotlinx's
+        // prettyPrint and only the button went through ours. One printer now,
+        // so opening the screen is already formatted and Format is a no-op on
+        // a document nobody has touched.
+        val text = LayoutCodec.encodeForEditing(BuiltInLayouts.QWERTY)
+        assertEquals(text, JsonCode.format(text))
+    }
+
+    @Test
+    fun `the screen opens with short lists whole`() {
+        // One field per line put every long-press alternate on its own; a line
+        // holding a whole list is what says that stopped.
+        val text = LayoutCodec.encodeForEditing(BuiltInLayouts.QWERTY)
+        assertTrue(text.lines().any { Regex("""\[[^\[\]]+]""").containsMatchIn(it) })
+    }
+
+    @Test
+    fun `printing is the same the second time`() {
+        val once = JsonCode.format("{\"a\":[1,2,3],\"b\":{\"c\":\"${"d".repeat(120)}\"}}").orEmpty()
+        assertEquals(once, JsonCode.format(once))
     }
 
     @Test

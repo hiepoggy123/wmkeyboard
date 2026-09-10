@@ -2,12 +2,9 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import com.wasimaster.wmkeyboard.core.util.JsonPretty
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 
 /**
  * JSON, as [CodeEditor] needs it: coloured, tidied, paired up and parsed.
@@ -73,17 +70,10 @@ internal object JsonCode : CodeLanguage {
     }
 
     /**
-     * Indents the document, but keeps an object or an array on one line while
-     * it fits inside [LINE_BUDGET].
-     *
-     * A printer that always breaks turns a three-item list of alternates into
-     * five lines and a layout into thousands, which is harder to read rather
-     * than easier. This one breaks a container only when its own single line
-     * would be too long, so the shape of the document survives.
+     * Indents the document through the one printer everything a person reads
+     * goes through, so pressing Format prints what reopening the screen prints.
      */
-    override fun format(source: String): String? = runCatching {
-        buildString { render(Json.parseToJsonElement(source), 0, 0, this) }
-    }.getOrNull()
+    override fun format(source: String): String? = JsonPretty.reprint(source)
 
     override fun problem(source: String): CodeProblem? {
         if (source.isBlank()) return null
@@ -146,85 +136,9 @@ internal object JsonCode : CodeLanguage {
     }
 }
 
-/** How wide a line may get before its container is broken over several. */
-private const val LINE_BUDGET = 100
-private const val FORMAT_INDENT = "  "
 private val OFFSET = Regex("offset (\\d+)")
 
 private fun opensAt(source: String, at: Int): Boolean = source[at] == '{' || source[at] == '['
-
-/**
- * Writes [element] into [out], on one line when it fits and over several when
- * it does not. [column] is how much of the line is already spoken for, which is
- * the indent plus, for a value in an object, the key in front of it.
- */
-private fun render(element: JsonElement, depth: Int, column: Int, out: StringBuilder) {
-    val flat = StringBuilder().also { compact(element, it) }
-    if (column + flat.length <= LINE_BUDGET) {
-        out.append(flat)
-        return
-    }
-    when (element) {
-        is JsonObject -> {
-            out.append("{\n")
-            element.entries.forEachIndexed { index, (key, value) ->
-                if (index > 0) out.append(",\n")
-                val name = JsonPrimitive(key).toString()
-                indent(out, depth + 1)
-                out.append(name).append(": ")
-                render(value, depth + 1, (depth + 1) * FORMAT_INDENT.length + name.length + 2, out)
-            }
-            out.append('\n')
-            indent(out, depth)
-            out.append('}')
-        }
-        is JsonArray -> {
-            out.append("[\n")
-            element.forEachIndexed { index, value ->
-                if (index > 0) out.append(",\n")
-                indent(out, depth + 1)
-                render(value, depth + 1, (depth + 1) * FORMAT_INDENT.length, out)
-            }
-            out.append('\n')
-            indent(out, depth)
-            out.append(']')
-        }
-        // A single string longer than the budget has nowhere to break.
-        else -> out.append(flat)
-    }
-}
-
-private fun indent(out: StringBuilder, depth: Int) {
-    repeat(depth) { out.append(FORMAT_INDENT) }
-}
-
-/**
- * [element] on one line. `JsonElement.toString()` would nearly do, but it packs
- * everything tight; a space after each colon and comma is what makes the short
- * line worth keeping.
- */
-private fun compact(element: JsonElement, out: StringBuilder) {
-    when (element) {
-        is JsonObject -> {
-            out.append('{')
-            element.entries.forEachIndexed { index, (key, value) ->
-                if (index > 0) out.append(", ")
-                out.append(JsonPrimitive(key).toString()).append(": ")
-                compact(value, out)
-            }
-            out.append('}')
-        }
-        is JsonArray -> {
-            out.append('[')
-            element.forEachIndexed { index, value ->
-                if (index > 0) out.append(", ")
-                compact(value, out)
-            }
-            out.append(']')
-        }
-        else -> out.append(element.toString())
-    }
-}
 
 /**
  * Index one past the closing quote of the string starting at [start] (which is

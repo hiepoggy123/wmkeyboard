@@ -1,9 +1,11 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import com.wasimaster.wmkeyboard.core.util.JsonPretty
 import com.wasimaster.wmkeyboard.core.util.firstJsonDocument
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.jsonArray
 
 /**
@@ -105,7 +107,8 @@ object PanelLayoutCodec {
     fun encode(layout: PanelLayoutSpec): String = layoutJson.encodeToString(layout)
 
     /** [encode], without the fields that hold their default value; for the raw-JSON editor. */
-    fun encodeForEditing(layout: PanelLayoutSpec): String = layoutEditorJson.encodeToString(layout)
+    fun encodeForEditing(layout: PanelLayoutSpec): String =
+        JsonPretty.print(layoutEditorJson.encodeToJsonElement(layout))
 
     fun decode(json: String): PanelLayoutSpec? {
         if (json.isBlank()) return null

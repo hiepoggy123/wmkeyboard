@@ -1,7 +1,9 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import com.wasimaster.wmkeyboard.core.util.JsonPretty
 import com.wasimaster.wmkeyboard.core.util.firstJsonDocument
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.encodeToJsonElement
 
 /**
  * One layer of a layout as a shareable document (issue #105).
@@ -59,8 +61,10 @@ object LayerFile {
         spec: LayerSpec,
         appVersion: Int,
         appVersionName: String,
-    ): String = layoutEditorJson.encodeToString(
-        LayerEnvelope(FORMAT, VERSION, appVersion, appVersionName, layerKey, spec),
+    ): String = JsonPretty.print(
+        layoutEditorJson.encodeToJsonElement(
+            LayerEnvelope(FORMAT, VERSION, appVersion, appVersionName, layerKey, spec),
+        ),
     )
 
     /**
