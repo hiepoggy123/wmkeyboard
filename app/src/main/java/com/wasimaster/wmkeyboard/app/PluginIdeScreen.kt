@@ -24,9 +24,12 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -309,7 +312,7 @@ private fun NewPluginDialog(initialName: String? = null, onDismiss: () -> Unit, 
  * would take a third of a phone screen from a page whose whole point is showing
  * as much code as fits, and the code field scrolls inside itself.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: Boolean = false) {
     val context = LocalContext.current
@@ -644,9 +647,13 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        // No imePadding here, as in AiChatScreen: the activity is not edge-to-edge,
-        // so the window already resizes for the keyboard.
-        Column(Modifier.padding(padding).fillMaxSize()) {
+        // The app targets SDK 36, so from Android 15 the window is drawn edge to edge
+        // and no longer resizes for the keyboard. The content stops at the top of the
+        // keyboard instead: the code key row sits on it, and the code ends where the
+        // keyboard begins, which is also how the suggestion list knows there is no
+        // room below the caret. The Scaffold's own bottom inset is consumed first so
+        // the navigation bar is not counted twice.
+        Column(Modifier.padding(padding).consumeWindowInsets(padding).imePadding().fillMaxSize()) {
             AnimatedVisibility(
                 visible = findOpen,
                 enter = if (reduceMotion) fadeIn(snap()) else expandVertically() + fadeIn(),
@@ -692,6 +699,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                 },
                 folding = true,
                 suggestionBar = suggestionBar,
+                reduceMotion = reduceMotion,
             )
             apiHere?.let { ApiDocStrip(it, rememberCodeColors()) }
             IdePanelBar(panel, problems = diagnostics.size) { chosen -> panel = if (panel == chosen) IdePanel.CLOSED else chosen }

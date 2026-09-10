@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.app
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -28,6 +31,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -43,6 +47,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEvent
@@ -91,6 +96,11 @@ private val FOLD_GUTTER = 14.dp
 
 /** Under this many lines of room, suggestions go to the key row rather than a list at the caret. */
 private const val COMPACT_LINES = 3
+
+/** How long a fold chevron takes to turn, and a fold's band to fade. */
+private const val CHEVRON_TURN_MS = 180
+private const val FOLD_FLASH_MS = 450
+private const val FOLD_FLASH_ALPHA = 0.35f
 
 /** At most this many squiggles are drawn in one frame, however many a broken file has. */
 private const val MAX_SQUIGGLES = 200
@@ -162,6 +172,8 @@ internal fun CodeSurface(
     folding: Boolean = false,
     /** Where suggestions go when the field is too short to list them at the caret. Null keeps them at the caret. */
     suggestionBar: CodeSuggestionBar? = null,
+    /** Snaps folds instead of animating them. */
+    reduceMotion: Boolean = false,
 ) {
     val density = LocalDensity.current
     // Held as the state object rather than read through it: the two draw
@@ -195,6 +207,32 @@ internal fun CodeSurface(
     val shownCaret = foldMap?.originalToTransformed(caret) ?: caret
     val shownMatch = match?.let { (a, b) -> foldMap?.let { it.originalToTransformed(a) to it.originalToTransformed(b) } ?: match }
     val shownDecorations = remember(decorations, foldMap) { foldMap?.let { decorations.through(it) } ?: decorations }
+    // Each chevron turns between open and folded instead of jumping, and the lines a
+    // fold just hid or brought back are marked by a band that fades.
+    val chevronTurns = remember { mutableStateMapOf<Int, Animatable<Float, AnimationVector1D>>() }
+    LaunchedEffect(foldable, folds, reduceMotion) {
+        val live = foldable.values.toSet()
+        chevronTurns.keys.filter { it !in live }.forEach { chevronTurns.remove(it) }
+        val folded = folds.mapTo(HashSet()) { it.start }
+        for (start in live) {
+            val target = if (start in folded) 1f else 0f
+            val turn = chevronTurns.getOrPut(start) { Animatable(target) }
+            if (turn.value != target) {
+                launch { if (reduceMotion) turn.snapTo(target) else turn.animateTo(target, tween(CHEVRON_TURN_MS)) }
+            }
+        }
+    }
+    val flash = remember { Animatable(0f) }
+    var flashRange by remember { mutableStateOf<TextRange?>(null) }
+    LaunchedEffect(state.foldEvent) {
+        val event = state.foldEvent ?: return@LaunchedEffect
+        if (reduceMotion) return@LaunchedEffect
+        val region = regions.filter { it.min == event.start }.maxByOrNull { it.max } ?: return@LaunchedEffect
+        val hidden = hiddenRangeOf(text, region) ?: return@LaunchedEffect
+        flashRange = if (event.folded) TextRange(region.min, hidden.min) else TextRange(hidden.min + 1, hidden.max)
+        flash.snapTo(FOLD_FLASH_ALPHA)
+        flash.animateTo(0f, tween(FOLD_FLASH_MS))
+    }
     // A caret or a selection that lands in folded text, typed, found or jumped to, opens the fold.
     LaunchedEffect(state.value.selection, folds) {
         val selection = state.value.selection
@@ -311,6 +349,16 @@ internal fun CodeSurface(
             caret = shownCaret,
             match = shownMatch,
             decorations = shownDecorations,
+            flash = {
+                val range = flashRange
+                val alpha = flash.value
+                if (range == null || alpha <= 0f) {
+                    null
+                } else {
+                    val map = foldMap
+                    TextRange(map?.originalToTransformed(range.min) ?: range.min, map?.originalToTransformed(range.max) ?: range.max) to alpha
+                }
+            },
             textLeft = gutterWidth + FIELD_PAD,
             vertical = vertical,
             horizontal = horizontal,
@@ -358,6 +406,7 @@ internal fun CodeSurface(
                         folds = folds,
                         foldable = foldable,
                         folded = state.foldStarts,
+                        turn = { start -> chevronTurns[start]?.value ?: if (folds.any { it.start == start }) 1f else 0f },
                         chevronLeft = if (folding) gutterWidth.toPx() - FOLD_GUTTER.toPx() else -1f,
                     )
                 },
@@ -488,6 +537,7 @@ private fun BoxScope.EditorUnderlay(
     caret: Int,
     match: Pair<Int, Int>?,
     decorations: CodeDecorations,
+    flash: () -> Pair<TextRange, Float>?,
     textLeft: Dp,
     vertical: ScrollState,
     horizontal: ScrollState,
@@ -508,6 +558,13 @@ private fun BoxScope.EditorUnderlay(
             if (y + height > 0f && y < size.height) {
                 drawRect(color = colors.activeLine, topLeft = Offset(0f, y), size = Size(size.width, height))
             }
+        }
+        flash()?.let { (range, alpha) ->
+            val first = result.getLineForOffset(range.min.coerceIn(0, length))
+            val last = result.getLineForOffset(range.max.coerceIn(0, length))
+            val bandTop = result.getLineTop(first) + top
+            val bandBottom = result.getLineBottom(last) + top
+            drawRect(color = colors.foldMark.copy(alpha = alpha), topLeft = Offset(0f, bandTop), size = Size(size.width, bandBottom - bandTop))
         }
         drawMatches(result, decorations, left, top, colors)
         if (match != null) {
@@ -626,6 +683,7 @@ private fun DrawScope.drawLineNumbers(
     foldable: Map<Int, Int> = emptyMap(),
     folded: Set<Int> = emptySet(),
     chevronLeft: Float = -1f,
+    turn: (Int) -> Float = { if (it in folded) 1f else 0f },
 ) {
     val result = layout ?: return
     val limit = result.layoutInput.text.length
@@ -654,26 +712,21 @@ private fun DrawScope.drawLineNumbers(
         drawText(number, topLeft = Offset(right - number.size.width, top))
         val foldStart = foldable[index]
         if (foldStart != null && chevronLeft >= 0f) {
-            val closed = foldStart in folded && folds.any { it.start == foldStart }
-            drawChevron(chevronLeft, top, result.getLineBottom(line) - top, closed, colors.foldMark)
+            drawChevron(chevronLeft, top, result.getLineBottom(line) - top, turn(foldStart), colors.foldMark)
         }
     }
 }
 
-/** A fold chevron: pointing right over a folded block, down over an open one. */
-private fun DrawScope.drawChevron(left: Float, top: Float, height: Float, closed: Boolean, color: Color) {
+/** A fold chevron, pointing down over an open block and turned a quarter by [turn] to point right over a folded one. */
+private fun DrawScope.drawChevron(left: Float, top: Float, height: Float, turn: Float, color: Color) {
     val half = minOf(height * 0.2f, 4.dp.toPx())
     val centreX = left + FOLD_GUTTER.toPx() / 2f
     val centreY = top + height / 2f
     val path = Path()
-    if (closed) {
-        path.moveTo(centreX - half / 2f, centreY - half)
-        path.lineTo(centreX + half / 2f, centreY)
-        path.lineTo(centreX - half / 2f, centreY + half)
-    } else {
-        path.moveTo(centreX - half, centreY - half / 2f)
-        path.lineTo(centreX, centreY + half / 2f)
-        path.lineTo(centreX + half, centreY - half / 2f)
+    path.moveTo(centreX - half, centreY - half / 2f)
+    path.lineTo(centreX, centreY + half / 2f)
+    path.lineTo(centreX + half, centreY - half / 2f)
+    rotate(degrees = -90f * turn, pivot = Offset(centreX, centreY)) {
+        drawPath(path, color, style = Stroke(width = 1.5.dp.toPx()))
     }
-    drawPath(path, color, style = Stroke(width = 1.5.dp.toPx()))
 }

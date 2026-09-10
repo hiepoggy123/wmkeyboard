@@ -329,6 +329,10 @@ private const val INDENT = "  "
  * have to know whether there is anything to step to.
  */
 @Stable
+/** One block folded or opened, numbered so the same block folded twice is two events. */
+@Immutable
+internal data class CodeFoldEvent(val start: Int, val folded: Boolean, val serial: Int)
+
 internal class CodeEditorState(
     initial: TextFieldValue,
     private val rules: CodeSmartRules = CodeSmartRules.Json,
@@ -352,12 +356,20 @@ internal class CodeEditorState(
             current = next
         }
 
+    /** The last fold or unfold of one block, for the field to animate. Typing never sets it. */
+    var foldEvent: CodeFoldEvent? by mutableStateOf(null)
+        private set
+
     fun toggleFold(start: Int) {
-        foldStarts = if (start in foldStarts) foldStarts - start else foldStarts + start
+        val folding = start !in foldStarts
+        foldStarts = if (folding) foldStarts + start else foldStarts - start
+        foldEvent = CodeFoldEvent(start, folding, (foldEvent?.serial ?: 0) + 1)
     }
 
     fun unfold(start: Int) {
-        if (start in foldStarts) foldStarts = foldStarts - start
+        if (start !in foldStarts) return
+        foldStarts = foldStarts - start
+        foldEvent = CodeFoldEvent(start, folded = false, serial = (foldEvent?.serial ?: 0) + 1)
     }
 
     fun foldAll(starts: Collection<Int>) {
