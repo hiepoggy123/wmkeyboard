@@ -329,6 +329,12 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
     var suggestRequests by remember { mutableStateOf(0) }
+    val keyPrefs = remember { CodeKeyPrefs(context) }
+    var showKeys by remember { mutableStateOf(keyPrefs.showRow) }
+    var keyOrder by remember { mutableStateOf(keyPrefs.order) }
+    var hiddenKeys by remember { mutableStateOf(keyPrefs.hidden) }
+    var keysOpen by rememberSaveable { mutableStateOf(false) }
+    val suggestionBar = remember { CodeSuggestionBar() }
     var preludeLine by remember { mutableStateOf<Int?>(null) }
     var textSize by rememberSaveable { mutableStateOf(DEFAULT_TEXT_SIZE) }
     var autoRun by rememberSaveable { mutableStateOf(true) }
@@ -597,6 +603,13 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                                 },
                             )
                             DropdownMenuItem(
+                                text = { Text(stringResource(R.string.plugin_ide_code_keys_action)) },
+                                onClick = {
+                                    menuOpen = false
+                                    keysOpen = true
+                                },
+                            )
+                            DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_format_action)) },
                                 onClick = {
                                     menuOpen = false
@@ -678,6 +691,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                     editor.moveTo(offsetOfLine(editor.text, line))
                 },
                 folding = true,
+                suggestionBar = suggestionBar,
             )
             apiHere?.let { ApiDocStrip(it, rememberCodeColors()) }
             IdePanelBar(panel, problems = diagnostics.size) { chosen -> panel = if (panel == chosen) IdePanel.CLOSED else chosen }
@@ -702,7 +716,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
             val configuration = LocalConfiguration.current
             val hardwareKeyboard = configuration.keyboard != Configuration.KEYBOARD_NOKEYS &&
                 configuration.hardKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO
-            if (!hardwareKeyboard) {
+            if (!hardwareKeyboard && showKeys) {
                 CodeAccessoryRow(
                     state = editor,
                     colors = rememberCodeColors(),
@@ -711,6 +725,8 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                     onFormat = { editor.replace(LuaCode.format(editor.text)) },
                     onSuggest = { suggestRequests++ },
                     blocks = LuaCode::foldRegions,
+                    keys = remember(keyOrder, hiddenKeys) { arrangeKeys(LuaAccessoryKeys, keyOrder, hiddenKeys) },
+                    suggestionBar = suggestionBar,
                 )
             }
         }
@@ -782,6 +798,33 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
     }
 
     preludeLine?.let { line -> PreludeDialog(line) { preludeLine = null } }
+
+    if (keysOpen) {
+        CodeKeysDialog(
+            showRow = showKeys,
+            order = keyOrder,
+            hidden = hiddenKeys,
+            onShowRow = {
+                showKeys = it
+                keyPrefs.showRow = it
+            },
+            onOrder = {
+                keyOrder = it
+                keyPrefs.order = it
+            },
+            onHidden = {
+                hiddenKeys = it
+                keyPrefs.hidden = it
+            },
+            onReset = {
+                keyPrefs.reset()
+                showKeys = true
+                keyOrder = emptyList()
+                hiddenKeys = emptySet()
+            },
+            onDismiss = { keysOpen = false },
+        )
+    }
 
     if (detailsOpen) {
         PluginDetailsDialog(

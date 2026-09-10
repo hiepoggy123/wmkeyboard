@@ -76,4 +76,12 @@
     <string name="code_command_block_start">Block start</string>
     <string name="code_command_block_end">Block end</string>
 
+    <!-- The dialog that arranges the row of code keys. -->
+    <string name="code_keys_title">Code keys</string>
+    <string name="code_keys_show_label">Show the row of code keys</string>
+    <string name="code_keys_caption">Drag a key by its handle to move it. Clear its box to hide it.</string>
+    <string name="code_keys_reset_action">Reset</string>
+    <!-- Content description of the box beside a key. %1$s is the key, such as == or local. -->
+    <string name="code_key_show_desc">Show %1$s</string>
+
 </resources>

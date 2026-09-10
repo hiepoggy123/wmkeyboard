@@ -89,6 +89,9 @@ private val NUMBER_PAD = 10.dp
 /** The strip at the right of the gutter the fold chevrons sit in. */
 private val FOLD_GUTTER = 14.dp
 
+/** Under this many lines of room, suggestions go to the key row rather than a list at the caret. */
+private const val COMPACT_LINES = 3
+
 /** At most this many squiggles are drawn in one frame, however many a broken file has. */
 private const val MAX_SQUIGGLES = 200
 
@@ -157,6 +160,8 @@ internal fun CodeSurface(
     onGutterPress: ((Int) -> Unit)? = null,
     /** Whether blocks fold from chevrons in the gutter, over [CodeLanguage.foldRegions]. */
     folding: Boolean = false,
+    /** Where suggestions go when the field is too short to list them at the caret. Null keeps them at the caret. */
+    suggestionBar: CodeSuggestionBar? = null,
 ) {
     val density = LocalDensity.current
     // Held as the state object rather than read through it: the two draw
@@ -285,6 +290,9 @@ internal fun CodeSurface(
     // BoxWithConstraints: that one subcomposes its content on every measure
     // pass, and this content is a text field holding the whole document.
     var frame by remember { mutableStateOf(IntSize.Zero) }
+    val compact = suggestionBar != null && frame.height > 0 &&
+        frame.height < with(density) { lineHeight.toPx() * COMPACT_LINES + (CONTENT_PAD * 2).toPx() }
+    LaunchedEffect(suggestionBar, compact, suggestions) { suggestionBar?.publish(if (compact) suggestions else null, choose) }
     Box(
         modifier
             .clip(shape)
@@ -372,7 +380,7 @@ internal fun CodeSurface(
             }
         }
 
-        suggestions?.takeIf { it.items.isNotEmpty() }?.let { shown ->
+        suggestions?.takeIf { it.items.isNotEmpty() && !compact }?.let { shown ->
             var listSize by remember { mutableStateOf(IntSize.Zero) }
             CodeCompletionList(
                 completions = shown,

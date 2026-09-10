@@ -231,4 +231,6 @@
     <string name="plugin_ide_storage_installed_note">What the installed plugin keeps on this device. The keyboard can be using it, so it is shown here read-only.</string>
     <string name="plugin_ide_storage_copy_action">Copy into the preview</string>
 
+    <string name="plugin_ide_code_keys_action">Code keys</string>
+
 </resources>

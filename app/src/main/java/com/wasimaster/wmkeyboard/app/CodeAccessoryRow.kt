@@ -149,8 +149,13 @@ internal fun CodeAccessoryRow(
     modifier: Modifier = Modifier,
     /** The blocks of the text, for Block start and Block end. */
     blocks: (String) -> List<TextRange> = { emptyList() },
+    /** The symbol keys, in the order and with the keys the author chose. */
+    keys: List<AccessoryKey> = LuaAccessoryKeys,
+    /** Suggestions the field hands over when it is too short to list them at the caret. */
+    suggestionBar: CodeSuggestionBar? = null,
 ) {
     var page by rememberSaveable { mutableStateOf(AccessoryPage.SYMBOLS) }
+    val offered = suggestionBar?.shown?.items.orEmpty()
     Row(
         modifier
             .fillMaxWidth()
@@ -171,8 +176,10 @@ internal fun CodeAccessoryRow(
             horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            when (page) {
-                AccessoryPage.SYMBOLS -> items(LuaAccessoryKeys) { key ->
+            if (offered.isNotEmpty()) {
+                items(offered) { item -> TextKey(label = item.label, colors = colors) { suggestionBar?.choose(item) } }
+            } else when (page) {
+                AccessoryPage.SYMBOLS -> items(keys) { key ->
                     TextKey(
                         label = key.label,
                         colors = colors,
