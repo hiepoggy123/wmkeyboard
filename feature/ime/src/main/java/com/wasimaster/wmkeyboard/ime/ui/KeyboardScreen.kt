@@ -1535,10 +1535,25 @@ private fun DockedKeyboardFrame(
     val maxReservedPx = with(density) {
         (configuration.screenHeightDp * RESIZE_MAX_SCREEN_SHARE).dp.roundToPx()
     }
+    // A bar row growing into the stack is held the same way, for as long as it
+    // is still growing (see [RowRevealHeadroom]). The rows hear of it through a
+    // local, since the body is the keyboard's movable content and its parameter
+    // list is sealed. Resize mode keeps its own headroom instead: the frame is
+    // already holding still there.
+    val revealHeadroom = remember { RowRevealHeadroom() }
+    val revealingBody: @Composable ColumnScope.(KeyboardUiState) -> Unit = { bodyState ->
+        CompositionLocalProvider(LocalRowRevealHeadroom provides revealHeadroom) { body(bodyState) }
+    }
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (resize == null) Modifier else Modifier.resizeHeadroom(resize)),
+            .then(
+                if (resize == null) {
+                    Modifier.rowRevealHeadroom(revealHeadroom)
+                } else {
+                    Modifier.resizeHeadroom(resize)
+                },
+            ),
     ) {
         if (resize != null) ResizeHeadroomScrim()
         Box(
@@ -1588,7 +1603,7 @@ private fun DockedKeyboardFrame(
                     if (arrangement.leftSlack > 0.001f) {
                         Spacer(modifier = Modifier.weight(arrangement.leftSlack))
                     }
-                    Column(modifier = Modifier.weight(arrangement.widthFraction)) { body(state) }
+                    Column(modifier = Modifier.weight(arrangement.widthFraction)) { revealingBody(state) }
                     if (arrangement.rightSlack > 0.001f) {
                         Spacer(modifier = Modifier.weight(arrangement.rightSlack))
                     }
@@ -1620,9 +1635,9 @@ private fun DockedKeyboardFrame(
                     if (oneHanded == OneHandedMode.RIGHT) {
                         if (slack > 0.001f) Spacer(modifier = Modifier.weight(slack))
                         rail()
-                        Column(modifier = Modifier.weight(widthFraction)) { body(ohState) }
+                        Column(modifier = Modifier.weight(widthFraction)) { revealingBody(ohState) }
                     } else {
-                        Column(modifier = Modifier.weight(widthFraction)) { body(ohState) }
+                        Column(modifier = Modifier.weight(widthFraction)) { revealingBody(ohState) }
                         rail()
                         if (slack > 0.001f) Spacer(modifier = Modifier.weight(slack))
                     }
@@ -8514,7 +8529,11 @@ private fun KeyboardBody(
                         // keyboard jumping rather than as an offer arriving.
                         BarRow.MACROS -> if (macroRowHost) {
                             val motion = !state.settings.reduceMotion
-                            AnimatedVisibility(
+                            // Grows inside a docked frame already holding its
+                            // final height (see RowRevealHeadroom). Expanding the
+                            // IME window itself resized it every frame, and
+                            // re-laid out the host app every frame with it.
+                            RevealingBarRow(
                                 visible = selectionMacroBarVisible(state),
                                 enter = if (motion) {
                                     expandVertically(tween(ToolbarMotionMs)) + fadeIn(tween(ToolbarMotionMs))
