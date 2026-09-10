@@ -80,9 +80,9 @@ object LuaParse {
         val atEnd = token.kind == 0
         // JavaCC puts the end of the file on the last character it read, which is
         // not where anything is missing. The end of the text is.
-        val lineStarts = lineStartsOf(source)
-        val start = if (atEnd) source.length else offsetOf(source, lineStarts, token.beginLine, token.beginColumn)
-        val end = if (atEnd) source.length else offsetOf(source, lineStarts, token.endLine, token.endColumn) + 1
+        val lines = LuaLines(source)
+        val start = if (atEnd) source.length else lines.offset(token.beginLine, token.beginColumn)
+        val end = if (atEnd) source.length else lines.offset(token.endLine, token.endColumn) + 1
         val images = failure.tokenImage
         val expected = failure.expectedTokenSequences
             ?.mapNotNull { sequence -> sequence.firstOrNull()?.let { images?.getOrNull(it) } }
@@ -115,29 +115,6 @@ object LuaParse {
     /** A token image as JavaCC wrote it, `"end"` or `<NAME>`, with the quotes taken off a literal. */
     private fun plainImage(image: String): String =
         if (image.length >= 2 && image.startsWith('"') && image.endsWith('"')) image.substring(1, image.length - 1) else image
-
-    /**
-     * The character offset of a 1-based JavaCC line and column. luaj builds its
-     * char stream with a tab size of 1, so a column is one character, tabs included.
-     */
-    private fun offsetOf(source: String, lineStarts: IntArray, line: Int, column: Int): Int {
-        if (line < 1) return 0
-        if (line > lineStarts.size) return source.length
-        val start = lineStarts[line - 1]
-        val lineEnd = if (line < lineStarts.size) lineStarts[line] - 1 else source.length
-        return (start + column - 1).coerceIn(start, maxOf(start, lineEnd))
-    }
-
-    /** Where each line starts, breaking where JavaCC breaks: at `\n`, at `\r\n`, and at a `\r` alone. */
-    private fun lineStartsOf(source: String): IntArray {
-        val starts = ArrayList<Int>()
-        starts.add(0)
-        for (index in source.indices) {
-            val character = source[index]
-            if (character == '\n' || (character == '\r' && source.getOrNull(index + 1) != '\n')) starts.add(index + 1)
-        }
-        return starts.toIntArray()
-    }
 
     /** The deepest the brackets and blocks go, from tokens alone. A closer too many never goes below zero. */
     private fun deepestNesting(tokens: LuaTokens): Int {
