@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.text.format.DateUtils
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -64,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -263,6 +265,10 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
     var panel by rememberSaveable { mutableStateOf(IdePanel.CLOSED) }
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
+    var findOpen by rememberSaveable { mutableStateOf(false) }
+    val find = remember { CodeFindState() }
+    var lineOpen by rememberSaveable { mutableStateOf(false) }
+    var renamePlan by remember { mutableStateOf<RenamePlan?>(null) }
 
     val text = editor.text
     // The draft on disk is the save point: written after a pause in typing, and
@@ -297,7 +303,15 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
     }
     val diagnostics = inspection.diagnostics
     val failureLine = previewState.failure?.takeIf { it.chunk == MAIN_CHUNK }?.line?.minus(1)
-    val decorations = remember(diagnostics, lineStarts, failureLine) {
+    val matches by produceState(emptyList<TextRange>(), text, find.query, find.options, findOpen) {
+        if (!findOpen || find.query.isEmpty()) {
+            value = emptyList()
+            return@produceState
+        }
+        delay(FIND_DELAY_MS)
+        value = withContext(Dispatchers.Default) { findMatches(text, find.query, find.options) }
+    }
+    val decorations = remember(diagnostics, lineStarts, failureLine, matches, find.active) {
         val marks = HashMap<Int, CodeSeverity>()
         for (diagnostic in diagnostics) {
             val line = lineOf(lineStarts, diagnostic.range.min.coerceIn(0, lineStarts.last()))
@@ -305,8 +319,20 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
             if (held == null || diagnostic.severity < held) marks[line] = diagnostic.severity
         }
         failureLine?.takeIf { it in lineStarts.indices }?.let { marks[it] = CodeSeverity.ERROR }
-        if (marks.isEmpty()) CodeDecorations.None else CodeDecorations(squiggles = diagnostics, gutterMarks = marks)
+        if (marks.isEmpty() && matches.isEmpty()) {
+            CodeDecorations.None
+        } else {
+            CodeDecorations(
+                matches = matches,
+                activeMatch = if (matches.isEmpty()) -1 else find.active.coerceIn(0, matches.lastIndex),
+                squiggles = diagnostics,
+                gutterMarks = marks,
+            )
+        }
     }
+    // Back closes the find bar before it leaves the screen. Nothing else waits
+    // for Back: the draft is saved, so leaving never loses a character.
+    BackHandler(enabled = findOpen) { findOpen = false }
 
     val title = ide.manifest.name.ifBlank { stringResource(R.string.plugin_ide_draft_untitled) }
     RegisterSettingsCrumb(title)
@@ -349,6 +375,55 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                         }
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
+                                text = { Text(stringResource(R.string.plugin_ide_find_action)) },
+                                onClick = {
+                                    menuOpen = false
+                                    find.active = firstMatchFrom(findMatches(editor.text, find.query, find.options), editor.value.selection.min)
+                                    findOpen = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.plugin_ide_go_to_line_action)) },
+                                onClick = {
+                                    menuOpen = false
+                                    lineOpen = true
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.plugin_ide_definition_action)) },
+                                onClick = {
+                                    menuOpen = false
+                                    val source = editor.text
+                                    val caret = editor.value.selection.min
+                                    scope.launch {
+                                        val span = withContext(Dispatchers.Default) {
+                                            LuaNavigation.definitionAt(LuaDocuments.of(source), caret)
+                                        }
+                                        if (span != null && editor.text == source) {
+                                            editor.select(TextRange(span.start, span.end))
+                                        } else {
+                                            snackbar.showSnackbar(context.getString(R.string.plugin_ide_no_definition_message))
+                                        }
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.plugin_ide_rename_action)) },
+                                onClick = {
+                                    menuOpen = false
+                                    val source = editor.text
+                                    val caret = editor.value.selection.min
+                                    scope.launch {
+                                        val plan = withContext(Dispatchers.Default) { renamePlanAt(source, caret) }
+                                        if (plan != null && editor.text == source) {
+                                            renamePlan = plan
+                                        } else {
+                                            snackbar.showSnackbar(context.getString(R.string.plugin_ide_no_rename_message))
+                                        }
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_format_action)) },
                                 onClick = {
                                     menuOpen = false
@@ -386,6 +461,30 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
         // No imePadding here, as in AiChatScreen: the activity is not edge-to-edge,
         // so the window already resizes for the keyboard.
         Column(Modifier.padding(padding).fillMaxSize()) {
+            if (findOpen) {
+                CodeFindBar(
+                    find = find,
+                    matches = matches,
+                    onStep = { delta ->
+                        if (matches.isNotEmpty()) {
+                            find.active = (find.active + delta).mod(matches.size)
+                            editor.select(matches[find.active])
+                        }
+                    },
+                    onReplace = {
+                        // Found again in the text as it is now, not as it was when the list was drawn.
+                        val current = findMatches(editor.text, find.query, find.options)
+                        current.getOrNull(find.active.coerceIn(0, maxOf(0, current.lastIndex)))?.let { match ->
+                            editor.applyEdit(replaceMatch(editor.text, match, find.replacement, find.query, find.options))
+                        }
+                    },
+                    onReplaceAll = {
+                        val current = findMatches(editor.text, find.query, find.options)
+                        replaceAllMatches(editor.text, current, find.replacement, find.query, find.options)?.let(editor::applyEdit)
+                    },
+                    onClose = { findOpen = false },
+                )
+            }
             CodeSurface(
                 state = editor,
                 language = LuaCode,
@@ -415,6 +514,27 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
         }
     }
 
+    if (lineOpen) {
+        GoToLineDialog(
+            lines = lineStarts.size,
+            onDismiss = { lineOpen = false },
+            onGo = { line ->
+                lineOpen = false
+                editor.moveTo(offsetOfLine(editor.text, line - 1))
+            },
+        )
+    }
+    renamePlan?.let { plan ->
+        RenameDialog(
+            plan = plan,
+            onDismiss = { renamePlan = null },
+            onRename = { name ->
+                renamePlan = null
+                if (editor.text == plan.snapshot) renameEdit(plan.snapshot, plan.spans, name, plan.caret)?.let(editor::applyEdit)
+            },
+        )
+    }
+
     if (detailsOpen) {
         PluginDetailsDialog(
             manifest = ide.manifest,
@@ -432,6 +552,9 @@ private const val MAIN_CHUNK = "main.lua"
 
 /** How much of the screen the panel under the code takes when it is open. */
 private const val PANEL_FRACTION = 0.42f
+
+/** How long the find bar waits after a change before it searches again. */
+private const val FIND_DELAY_MS = 120L
 
 private fun publishMessage(context: Context, outcome: PublishOutcome): String = when (outcome) {
     is PublishOutcome.Published -> context.getString(

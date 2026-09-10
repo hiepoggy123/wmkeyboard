@@ -27,4 +27,31 @@
     <!-- Shown while the text does not parse. %1$d is the line number. Press it to go there. -->
     <string name="code_status_problem">Problem on line %1$d</string>
 
+    <!-- Placeholder of the find field. -->
+    <string name="code_find_label">Find</string>
+    <!-- Placeholder of the replace field. -->
+    <string name="code_replace_label">Replace with</string>
+    <!-- Which result is showing. %1$d is its number, %2$d how many results there are. -->
+    <string name="code_find_count">%1$d of %2$d</string>
+    <string name="code_find_none">No results</string>
+    <string name="code_find_invalid">The pattern is not valid</string>
+    <!-- Content descriptions of the three search options, which are drawn as Aa, ab and .* -->
+    <string name="code_find_case_desc">Match case</string>
+    <string name="code_find_word_desc">Whole words only</string>
+    <string name="code_find_regex_desc">Use a regular expression</string>
+    <string name="code_find_previous_desc">Previous result</string>
+    <string name="code_find_next_desc">Next result</string>
+    <string name="code_find_close_desc">Close find</string>
+    <!-- A chip that shows the replace field under the find field. -->
+    <string name="code_replace_toggle">Replace</string>
+    <!-- A button that replaces the result that is showing. -->
+    <string name="code_replace_one">Replace</string>
+    <string name="code_replace_all">Replace all</string>
+    <string name="code_go_to_line_title">Go to line</string>
+    <string name="code_go_to_line_label">Line number</string>
+    <!-- %1$d is the number of the last line. -->
+    <string name="code_go_to_line_error">Enter a line from 1 to %1$d</string>
+    <!-- The button that goes to the line typed. -->
+    <string name="code_go_to_line_action">Go</string>
+
 </resources>

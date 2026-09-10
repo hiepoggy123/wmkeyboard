@@ -93,4 +93,26 @@
     <string name="plugin_ide_console_line_label">Line %1$d</string>
     <string name="plugin_ide_copied_message">Copied</string>
 
+    <!-- ================================================================== -->
+    <!-- Finding and renaming names in the code.                            -->
+    <!-- ================================================================== -->
+
+    <string name="plugin_ide_find_action">Find and replace</string>
+    <string name="plugin_ide_go_to_line_action">Go to line</string>
+    <string name="plugin_ide_definition_action">Go to definition</string>
+    <string name="plugin_ide_rename_action">Rename</string>
+    <string name="plugin_ide_no_definition_message">The script does not declare this name</string>
+    <string name="plugin_ide_no_rename_message">Put the caret on a name the script declares. Rename works when the script has no syntax errors.</string>
+    <!-- Dialog title. %1$s is the Lua name being renamed. -->
+    <string name="plugin_ide_rename_title">Rename %1$s</string>
+    <string name="plugin_ide_rename_label">New name</string>
+    <!-- %1$d is how many places in the script the rename changes. -->
+    <plurals name="plugin_ide_rename_count">
+        <item quantity="one">Changes %1$d place</item>
+        <item quantity="other">Changes %1$d places</item>
+    </plurals>
+    <string name="plugin_ide_rename_not_a_name">Use letters, digits and underscores, with no digit first.</string>
+    <string name="plugin_ide_rename_keyword">This is a Lua keyword.</string>
+    <string name="plugin_ide_rename_taken">Another name with this spelling is already in use here.</string>
+
 </resources>
