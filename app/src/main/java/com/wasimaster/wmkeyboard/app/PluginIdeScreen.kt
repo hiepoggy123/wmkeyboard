@@ -180,14 +180,7 @@ internal fun PluginIdeProjectsScreen(onNavigate: (String) -> Unit) {
     SettingsGroup(stringResource(R.string.plugin_ide_templates_title)) {
         for (template in PluginTemplate.entries) {
             if (template == PluginTemplate.BLANK) continue
-            item {
-                WmRow(
-                    title = stringResource(template.nameRes),
-                    subtitle = stringResource(template.descriptionRes),
-                    trailing = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
-                    onClick = { creating = template },
-                )
-            }
+            item { TemplateCard(template) { creating = template } }
         }
         item {
             WmRow(
@@ -1092,7 +1085,7 @@ private fun PluginDetailsDialog(manifest: PluginManifest, onDismiss: () -> Unit,
 
 /** The shared plugin renderer, dressed in this app's Material colours. No focus ring, no chip outline. */
 @Composable
-private fun rememberMaterialPluginStyle(): PluginPanelStyle {
+internal fun rememberMaterialPluginStyle(): PluginPanelStyle {
     val colors = MaterialTheme.colorScheme
     val shape = MaterialTheme.shapes.small
     return remember(colors, shape) {
