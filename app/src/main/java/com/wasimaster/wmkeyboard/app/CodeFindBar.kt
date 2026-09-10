@@ -23,13 +23,17 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -74,6 +78,9 @@ internal fun CodeFindBar(
     modifier: Modifier = Modifier,
 ) {
     val invalid = find.options.regex && find.query.isNotEmpty() && findPattern(find.query, find.options) == null
+    // The bar opens to be typed into, so the query takes the caret and the keyboard.
+    val queryFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { queryFocus.requestFocus() }
     Column(
         modifier
             .fillMaxWidth()
@@ -93,7 +100,7 @@ internal fun CodeFindBar(
                 textStyle = MaterialTheme.typography.bodyMedium,
                 keyboardOptions = PlainTextKeys,
                 keyboardActions = KeyboardActions(onSearch = { onStep(1) }),
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).focusRequester(queryFocus),
             )
             val count = when {
                 find.query.isEmpty() || invalid -> ""
