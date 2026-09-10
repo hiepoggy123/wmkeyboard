@@ -468,18 +468,19 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Shift re-cases the selection — lower → Title → UPPER → lower, keeping the text selected so presses walk the cycle; mixed case normalises to lower
     - Brackets and quotes wrap — 11 pairs — ( [ { < " ' ` “ ‘ « ｢ — wrap the selection and leave the inner text selected for another pass
     - Space and backspace replace — Both drop the composing region first and commit over the selection
-  - Selection macros `RARE` — With text selected, the keyboard offers what that shape of text is for: Copy | Share | Format | Call | Message | WhatsApp on a number, Email first on an address, Open and QR on a link. Off by default
+  - Selection macros `RARE` — With text selected, the keyboard offers what that shape of text is for: Select all ahead of every row, then Copy | Share | Format | Call | Message | WhatsApp on a number, Email first on an address, Open and QR on a link. Off by default
     - Reads the selection whole — A sentence with a number in it is a sentence, and two lines are never one thing; its own pass over the selection rather than the clipboard's fragment scan, which is the surface that has room to show what it found and where
     - Four readings — Phone, address, link, plain text; bare domains need an ending off a short allow list so a selected filename is not a link, and phone shapes reuse the clipboard's own PhoneFormats masks
     - Format is entity-aware — A number is re-rendered into the user's own mask separators and all (01712345678 to +880 1712-345678), a link loses utm_*/fbclid/gclid and about twenty more while its path and fragment survive, an address is lower-cased; the chip is dropped when the rewrite would change nothing
     - Case ladder behind Format on prose — lower / Title / UPPER / Sentence in place of the row, each chip written in the case it applies; acronyms survive Title and Sentence unless the whole selection is capitals, and the result stays selected so the chips chain
     - Two placements — Its own BarRow.MACROS, animated in and out and reorderable with every other row, or over the suggestion strip at no height cost, since nothing is being typed while text is selected
-    - Eleven actions behind one allow list — Copy, Share, Format, Search, Translate, Call, Message, WhatsApp, Email, Open, QR; nine shipped on, Search and Translate off because both are a round trip to a network service
+    - Thirteen actions behind one allow list — Select all, Copy, Share, Format, Search, Translate, Call, Message, WhatsApp, Email, Open, QR, Fancy; eleven shipped on, Search and Translate off because both are a round trip to a network service
+    - Select all leads every row — A long-pressed word widens to the whole field in one tap; the chip is dropped once the selection already spans the field, which costs a one-character read only when the selection starts at offset 0
     - Only offers what can work — WhatsApp hidden without WhatsApp installed, Search/Translate/QR hidden when their tools are off, which the power-saving and direct-boot settings views have already decided
     - Never over a password field — isSecureField is asked before the read, so a password never reaches a Share chooser
     - Free while idle — Feature switch, secure field, collapsed caret and a span over 4,000 characters are all answered from the offsets onUpdateSelection reports, before the getSelectedText IPC that would otherwise run on every caret move
     - Acts on the text the chips were drawn for — The offer carries its own text, so a tap runs against what was read, not whatever the field holds by the time the finger lands
-    - Direct-boot aware — Every macro that would start an activity is dropped before the first unlock, leaving copy and the case ladder, which only touch the field the user is already in
+    - Direct-boot aware — Every macro that would start an activity is dropped before the first unlock, leaving select all, copy and the case ladder, which only touch the field the user is already in
   - Long-press letter shortcuts `uncommon` — A/C/V/X/Z/Y carry select-all, copy, paste, cut, undo and redo as entries in their own alternates popup, after the accents the key already has; all six on by default, and each key stays on any layout by naming its own letter
     - Raw-keystroke mode — Optional Ctrl+A/C/V/X as real key events instead of performContextMenuAction, for terminals
 - **Key press behaviour** — Long press, popups, repeat, chording and press feedback

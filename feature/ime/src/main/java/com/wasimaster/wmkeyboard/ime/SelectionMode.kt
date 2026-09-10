@@ -90,4 +90,10 @@ data class SelectionMacroOffer(
     val kind: SelectionKind,
     /** The chips, in the order they are drawn. Never empty; a null offer is used instead. */
     val macros: List<SelectionMacro>,
+    /**
+     * Whether the selection spans the whole field, which takes Select all off
+     * the row. Kept with the offer so a settings change can rebuild the row
+     * without reading the field again.
+     */
+    val wholeField: Boolean = false,
 )

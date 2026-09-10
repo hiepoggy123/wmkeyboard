@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.Mail
 import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Sms
 import androidx.compose.material.icons.outlined.TextFormat
@@ -260,6 +261,7 @@ private fun MacroChip(macro: SelectionMacro, onClick: () -> Unit) {
  * them would say it a second time in a worse language.
  */
 private fun macroIcon(macro: SelectionMacro): ImageVector? = when (macro) {
+    SelectionMacro.SELECT_ALL -> Icons.Outlined.SelectAll
     SelectionMacro.COPY -> Icons.Outlined.ContentCopy
     SelectionMacro.SHARE -> Icons.Outlined.Share
     SelectionMacro.FORMAT -> Icons.Outlined.TextFormat

@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.selection
 
 import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.content.R
 import com.wasimaster.wmkeyboard.core.clipboard.PhoneFormats
 
@@ -24,6 +25,14 @@ enum class SelectionKind { PHONE, EMAIL, URL, TEXT }
  * in [SelectionMacros.configurable] and have no settings switch of their own.
  */
 enum class SelectionMacro {
+    /**
+     * Widen the selection to the whole field.
+     *
+     * First on every row: a long press picks one word, and somebody selecting
+     * in order to copy or share usually meant all of it. Left off once the
+     * whole field is selected, where it has nothing left to take.
+     */
+    SELECT_ALL,
     COPY,
     SHARE,
     /**
@@ -64,6 +73,7 @@ enum class SelectionMacro {
     @get:StringRes
     val labelRes: Int
         get() = when (this) {
+            SELECT_ALL -> CommonR.string.common_select_all
             COPY -> R.string.core_content_selection_macro_copy
             SHARE -> R.string.core_content_selection_macro_share
             FORMAT -> R.string.core_content_selection_macro_format
@@ -183,6 +193,7 @@ object SelectionMacros {
 
     /** The macros a settings screen can switch, in the order that screen lists them. */
     val configurable: List<SelectionMacro> = listOf(
+        SelectionMacro.SELECT_ALL,
         SelectionMacro.COPY,
         SelectionMacro.SHARE,
         SelectionMacro.FORMAT,
@@ -199,11 +210,12 @@ object SelectionMacros {
 
     /**
      * The shipped set: everything the screenshot in the request names, plus the
-     * message half of a selected phone number. Search and translate are off
-     * until they are asked for, because both are a round trip to a network
-     * service and neither is what a selection usually means.
+     * message half of a selected phone number and Select all. Search and
+     * translate are off until they are asked for, because both are a round trip
+     * to a network service and neither is what a selection usually means.
      */
     val defaultMacros: Set<SelectionMacro> = setOf(
+        SelectionMacro.SELECT_ALL,
         SelectionMacro.COPY,
         SelectionMacro.SHARE,
         SelectionMacro.FORMAT,
@@ -277,6 +289,10 @@ object SelectionMacros {
      * Plain text always answers yes, because the case ladder always has
      * somewhere to go; an entity answers no when it is already in its tidy
      * form, and the chip is then left off rather than drawn as a no-op.
+     *
+     * [wholeField] is whether the selection already runs from the field's first
+     * character to its last. [SelectionMacro.SELECT_ALL] is left off then, for
+     * the same reason: there is nothing left for it to take.
      */
     fun offer(
         kind: SelectionKind,
@@ -284,22 +300,28 @@ object SelectionMacros {
         whatsAppInstalled: Boolean = true,
         qrAvailable: Boolean = true,
         formattable: Boolean = true,
+        wholeField: Boolean = false,
     ): List<SelectionMacro> = macrosFor(kind).filter { macro ->
         macro in allowed &&
             (macro != SelectionMacro.WHATSAPP || whatsAppInstalled) &&
             (macro != SelectionMacro.QR || qrAvailable) &&
-            (macro != SelectionMacro.FORMAT || formattable)
+            (macro != SelectionMacro.FORMAT || formattable) &&
+            (macro != SelectionMacro.SELECT_ALL || !wholeField)
     }
 
     /**
      * Every macro [kind] can offer, in the order it reads on the bar.
      *
-     * The generic pair leads on plain text and on a number, where copying is
-     * the likeliest thing anybody wants; on a link or an address the action
-     * that *uses* it leads instead, because a selection of one is nearly always
-     * about going there.
+     * Select all leads every row. It is the one action about how far the
+     * selection reaches rather than what it holds, and a long press lands on
+     * one word far more often than on everything somebody meant to act on.
+     *
+     * After it, the generic pair leads on plain text and on a number, where
+     * copying is the likeliest thing anybody wants; on a link or an address the
+     * action that *uses* it leads instead, because a selection of one is nearly
+     * always about going there.
      */
-    fun macrosFor(kind: SelectionKind): List<SelectionMacro> = when (kind) {
+    fun macrosFor(kind: SelectionKind): List<SelectionMacro> = listOf(SelectionMacro.SELECT_ALL) + when (kind) {
         SelectionKind.PHONE -> listOf(
             SelectionMacro.COPY, SelectionMacro.SHARE, SelectionMacro.FORMAT,
             SelectionMacro.CALL, SelectionMacro.SMS, SelectionMacro.WHATSAPP,

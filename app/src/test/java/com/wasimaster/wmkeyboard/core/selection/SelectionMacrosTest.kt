@@ -87,17 +87,40 @@ class SelectionMacrosTest {
         assertTrue(SelectionMacro.WHATSAPP in phone)
         assertTrue(SelectionMacro.QR !in phone)
 
+        // Select all leads every row, and each kind's own lead comes next.
         val url = SelectionMacros.offer(SelectionKind.URL, all)
-        assertEquals(SelectionMacro.OPEN, url.first())
+        assertEquals(listOf(SelectionMacro.SELECT_ALL, SelectionMacro.OPEN), url.take(2))
         assertTrue(SelectionMacro.QR in url)
         assertTrue(SelectionMacro.CALL !in url)
 
         val email = SelectionMacros.offer(SelectionKind.EMAIL, all)
-        assertEquals(SelectionMacro.EMAIL, email.first())
+        assertEquals(listOf(SelectionMacro.SELECT_ALL, SelectionMacro.EMAIL), email.take(2))
 
         val text = SelectionMacros.offer(SelectionKind.TEXT, all)
-        assertEquals(listOf(SelectionMacro.COPY, SelectionMacro.SHARE), text.take(2))
+        assertEquals(
+            listOf(SelectionMacro.SELECT_ALL, SelectionMacro.COPY, SelectionMacro.SHARE),
+            text.take(3),
+        )
         assertTrue(SelectionMacro.CALL !in text)
+    }
+
+    @Test
+    fun `select all leads every row and ships on`() {
+        for (kind in SelectionKind.entries) {
+            assertEquals(kind.name, SelectionMacro.SELECT_ALL, SelectionMacros.macrosFor(kind).first())
+        }
+        assertEquals(SelectionMacro.SELECT_ALL, SelectionMacros.configurable.first())
+        assertTrue(SelectionMacro.SELECT_ALL in SelectionMacros.defaultMacros)
+    }
+
+    @Test
+    fun `select all is dropped once the whole field is selected`() {
+        val all = SelectionMacros.configurable.toSet()
+        for (kind in SelectionKind.entries) {
+            val partial = SelectionMacros.offer(kind, all)
+            // Nothing else on the row moves: only the chip with nothing to take.
+            assertEquals(kind.name, partial - SelectionMacro.SELECT_ALL, SelectionMacros.offer(kind, all, wholeField = true))
+        }
     }
 
     @Test

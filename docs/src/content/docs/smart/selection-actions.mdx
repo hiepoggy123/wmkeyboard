@@ -10,7 +10,7 @@ import SettingsPath from '@components/SettingsPath.astro';
 
 Selecting a phone number in a chat and then dialling it usually means copying it, leaving the app, opening the dialler and pasting. The keyboard already knows what you selected, so it can offer the two or three things that shape of text is actually for.
 
-Select `01712345678` and the bar reads **Copy · Share · Format · Call · Message · WhatsApp**. Select `example@gmail.com` and it leads with **Email**. Select `https://example.com` and it leads with **Open**, and offers a **QR** of it. Anything else gets the generic actions plus a set of case options.
+Select `01712345678` and the bar reads **Select all · Copy · Share · Format · Call · Message · WhatsApp**. **Select all** always comes first. After it, `example@gmail.com` gets **Email**, and `https://example.com` gets **Open** and a **QR** of it. Anything else gets the generic actions plus a set of case options.
 
 This is **off by default**. It adds a bar that appears out of a gesture you already make for other reasons, so you have to ask for it.
 
@@ -41,10 +41,12 @@ Phone numbers use the same formats as the clipboard, under [Phone formats](/refe
 
 | Selection | What you get |
 |---|---|
-| Phone number | Copy, Share, Format, Call, Message, WhatsApp |
-| Address | Email, Copy, Open, Format, Share |
-| Link | Open, Copy, QR, Format, Share |
-| Anything else | Copy, Share, Format, and optionally Search and Translate |
+| Phone number | Select all, Copy, Share, Format, Call, Message, WhatsApp |
+| Address | Select all, Email, Copy, Open, Format, Share |
+| Link | Select all, Open, Copy, QR, Format, Share |
+| Anything else | Select all, Copy, Share, Format, and optionally Search and Translate |
+
+**Select all** selects the whole field. A long press usually selects only one word, so this is the fast way to copy or share everything you wrote. The chip is not shown when the whole field is already selected, because it would do nothing.
 
 **Copy** and **Share** are always there. Copy is the editor's own copy, so the selection stays selected. Share opens the system chooser with the selected text.
 
@@ -94,9 +96,9 @@ Title case and Sentence case leave a word that is already all capitals alone, so
 | Selection actions | Toggle | Off |
 | Where it appears | Choice of 2 | Own row |
 | Read what is selected | Toggle | On |
-| Which actions | Chips | Copy, Share, Format, Call, Message, WhatsApp, Email, Open, QR |
+| Which actions | Chips | Select all, Copy, Share, Format, Call, Message, WhatsApp, Email, Open, QR, Fancy |
 
-**Read what is selected** is the entity half of the feature. Turn it off and every selection is read as plain text: you keep Copy, Share and the case options, and lose Call, Email, Open and QR. It is worth turning off if you find the guesses wrong more often than right, since the generic half is the half that always applies.
+**Read what is selected** is the entity half of the feature. Turn it off and every selection is read as plain text: you keep Select all, Copy, Share and the case options, and lose Call, Email, Open and QR. It is worth turning off if you find the guesses wrong more often than right, since the generic half is the half that always applies.
 
 **Which actions** is an allow list. An action missing from it is never drawn, whatever you select. Search and Translate are the two that are off to start with.
 
@@ -105,6 +107,6 @@ Title case and Sentence case leave a word that is already all capitals alone, so
 - **The bar never appears over a password field.** Putting a password in front of a Share chooser is exactly the mistake this feature should not make.
 - **An action is only offered when it can work.** WhatsApp is hidden when WhatsApp is not installed. Search, Translate and QR are hidden when their tools are switched off, which includes the tools that [power saving](/typing/power-saving/) and the lock screen have already taken away.
 - **Nothing is stored and nothing is sent by the keyboard.** Every action either edits the field you are already in, or hands the text to an app you picked.
-- **Before your first unlock**, only the actions that touch the current field survive: Copy and the case options. Everything else would have to start another app, and nothing can start before the device is unlocked once.
+- **Before your first unlock**, only the actions that touch the current field survive: Select all, Copy and the case options. Everything else would have to start another app, and nothing can start before the device is unlocked once.
 - **A very long selection gets no bar.** Past about 4,000 characters you have selected a document rather than a fragment, and the toolbar's own [Copy tool](/tools/text-editing/) is the better answer.
 - **The bar follows the selection, not the caret.** Extending a selection with [selection mode](/tools/text-editing/#selection-mode) or a [trackpad](/tools/trackpad/) drag re-reads it as you go, so the actions change under your finger as the selection grows into a whole phone number.

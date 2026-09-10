@@ -2529,7 +2529,7 @@ open class WMKeyboardService : InputMethodService() {
                         val offer = state.selectionMacros
                         state.copy(
                             selectionMacros = offer
-                                ?.let { selectionMacroOffer(it.text, settings) },
+                                ?.let { selectionMacroOffer(it.text, settings, it.wholeField) },
                         )
                     }
                 }
@@ -19989,13 +19989,41 @@ open class WMKeyboardService : InputMethodService() {
         val text = selected.trim()
         // The same cap again, for the path that could not check it up front.
         if (text.isEmpty() || selected.length > MAX_MACRO_SELECTION) return clear()
-        val offer = selectionMacroOffer(text, settings)
+        val offer = selectionMacroOffer(text, settings, selectionSpansField(ic, selStart, selEnd))
         if (offer == _uiState.value.selectionMacros) return
         _uiState.update { it.copy(selectionMacros = offer) }
     }
 
-    /** The offer for [text], or null when nothing survives the user's switches. */
-    private fun selectionMacroOffer(text: String, settings: KeyboardSettings): SelectionMacroOffer? {
+    /**
+     * Whether the live selection runs from the field's first character to its
+     * last, which is when Select all has nothing left to take.
+     *
+     * The start comes from the reported offsets where they are known, so the
+     * one-character read past the end — an IPC like the selection read itself —
+     * is only paid by a selection that already begins at the top of the field.
+     * Unknown offsets (-1, right after a field opens) ask the field for both.
+     * An editor that cannot answer leaves the chip up: a Select all that does
+     * nothing costs less than one that is missing.
+     */
+    private fun selectionSpansField(ic: InputConnection, selStart: Int, selEnd: Int): Boolean {
+        val atStart = if (selStart >= 0 && selEnd >= 0) {
+            minOf(selStart, selEnd) == 0
+        } else {
+            runCatching { ic.getTextBeforeCursor(1, 0) }.getOrNull()?.isEmpty() == true
+        }
+        return atStart && runCatching { ic.getTextAfterCursor(1, 0) }.getOrNull()?.isEmpty() == true
+    }
+
+    /**
+     * The offer for [text], or null when nothing survives the user's switches.
+     * [wholeField] is whether the selection already spans the field (see
+     * [selectionSpansField]).
+     */
+    private fun selectionMacroOffer(
+        text: String,
+        settings: KeyboardSettings,
+        wholeField: Boolean,
+    ): SelectionMacroOffer? {
         val prefs = settings.selectionMacros
         val masks = settings.clipboard.phoneFormats.toList()
         val kind = if (prefs.detectEntities) {
@@ -20015,8 +20043,9 @@ open class WMKeyboardService : InputMethodService() {
             whatsAppInstalled = hasWhatsApp(),
             qrAvailable = ToolbarTool.QR_GEN in settings.enabledTools,
             formattable = formattable,
+            wholeField = wholeField,
         )
-        return if (macros.isEmpty()) null else SelectionMacroOffer(text, kind, macros)
+        return if (macros.isEmpty()) null else SelectionMacroOffer(text, kind, macros, wholeField)
     }
 
     /**
@@ -20046,6 +20075,9 @@ open class WMKeyboardService : InputMethodService() {
         val masks = settings.clipboard.phoneFormats.toList()
         val text = offer.text
         when (macro) {
+            // The field answers with a selection update, and the offer that
+            // brings is for the whole text, without this chip on it.
+            SelectionMacro.SELECT_ALL -> onTextEdit(TextEditAction.SELECT_ALL, haptic = false)
             SelectionMacro.COPY -> onTextEdit(TextEditAction.COPY, haptic = false)
             SelectionMacro.SHARE -> startMacroActivity(
                 Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text),

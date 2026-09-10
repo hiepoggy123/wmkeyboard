@@ -42,13 +42,13 @@ panel.
 | Setting | Control | Default |
 |---|---|---|
 | Read what is selected | Toggle | On |
-| Which actions | Chips, 11 of them | 9 on |
+| Which actions | Chips, 13 of them | 11 on |
 
 **Read what is selected** decides whether a selection is read as a phone
 number, an address or a link, or only ever as plain text. With it off you keep
-Copy, Share and the case options, and lose Call, Message, WhatsApp, Email,
-Open and QR, because none of those mean anything without the reading. Phone
-shapes come from the formats you saved under
+Select all, Copy, Share and the case options, and lose Call, Message,
+WhatsApp, Email, Open and QR, because none of those mean anything without the
+reading. Phone shapes come from the formats you saved under
 [Phone number formats](/reference/settings/phone-formats/).
 
 **Which actions** is an allow list, not an ordering. An action missing from it
@@ -57,6 +57,7 @@ applies.
 
 | Action | In the shipped set | Where it appears |
 |---|---|---|
+| Select all | Yes | Every selection, unless the whole field is already selected |
 | Copy | Yes | Every selection |
 | Share | Yes | Every selection |
 | Format | Yes | Every selection, when the rewrite would change something |
@@ -68,6 +69,7 @@ applies.
 | Email | Yes | Addresses |
 | Open | Yes | Links and addresses |
 | QR | Yes | Links |
+| Fancy | Yes | Plain text |
 
 **Search** and **Translate** are off to start with, because both are a round
 trip to a network service and neither is what a selection usually means.
@@ -80,6 +82,6 @@ trip to a network service and neither is what a selection usually means.
   have already taken away.
 - **The screen is reachable by link** at `wmkeyboard://settings/selection_macros`.
   See [Deep links](/reference/deep-links/).
-- **Nothing here is read before your first unlock**, beyond the two actions
-  that only touch the field you are typing in. See
+- **Nothing here is read before your first unlock**, beyond the actions that
+  only touch the field you are typing in. See
   [Selection actions](/smart/selection-actions/#details-and-edge-cases).
