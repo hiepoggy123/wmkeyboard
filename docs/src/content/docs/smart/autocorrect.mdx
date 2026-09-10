@@ -143,6 +143,10 @@ Right after either rule above inserts a space, the very next <KeyCap>Shift</KeyC
 
 Whenever the keyboard types a space for you rather than you typing it, a mark typed straight after it takes that space back so it hugs the word it belongs to. That covers the space after a glided word, the space after a word tapped from the suggestion strip, and the space the punctuation rule above inserts: `word:` and not `word :`. A space you typed yourself is yours, and no mark removes it.
 
+The marks that do this are the ones that end a word or build a longer one: the full stop and its family, the closing brackets, the percent sign, and the slash, backslash, apostrophe, dashes and underscore that spell "and/or", "hello's", "well-known" and "snake_case". `#` and `@` are not among them, because a hashtag and a mention attach to the word after them: `check this #cool` wants the space in front of the hash kept. In a web address field `#` and `@` join the list, along with `&`, `=`, `+` and `~`, since an address has no spaces anywhere in it.
+
+The rule runs before the keyboard decides what else the mark means, which matters for two of them. A colon on a word boundary also opens an emoji search, and an apostrophe goes into the word being corrected so that "hello's" stays one word. Both still hug the word first. If the emoji search does complete, the space comes back, since an emoji stands off the word in front of it: a swiped "party" then `:tada:` gives `party 🎉`.
+
 The straight double quote is the one mark that has to look at what came before it, because it is both ends of a quotation. The keyboard counts the quotes already on the line: an even count means this one opens, so the space in front of it stays, and an odd count means it closes, so the space goes. `he said "hello"` comes out right either way. The apostrophe is left out of this on purpose, since it is a letter inside a word and counting it would say nothing.
 
 Getting to the mark does not spend the space. A colon and a slash live on the symbols page, so reaching either one means pressing `?123` first, and that press changes only what is drawn. The same goes for shift, the Fn and number pages, and the globe key. Any key that puts text in the field does spend it, panels included, because what comes out of a panel is text like any other.
@@ -151,7 +155,9 @@ Getting to the mark does not spend the space. A colon and a slash live on the sy
 
 Glide typing types a space in front of each word as well as after it, so two swiped words do not run together. That space is skipped when the character in front of it is one the word belongs against: an opening bracket, an opening quote, or the start of the line. `he said "` then a glided "hello" gives `he said "hello`. The double quote is read the same way as above, by counting the quotes on the line, so a closing quote still gets its space. In a web address field there is no leading space at all, since an address has no spaces in it.
 
-The joining marks work the same way, with one extra test. A slash, a dash, an underscore, `@`, `#`, `&`, `=`, `+` and `~` hold two words together when they are up against the word behind them, so `The/` then a glided "And" gives `The/And`. The same marks stand between two words when they have a space in front of them, and then the glided word gets its space: `hello -` gives `hello - world`, while `well-` gives `well-known`.
+The joining marks work the same way, with one extra test. A slash, a backslash, a dash, an underscore, `&`, `=`, `+` and `~` hold two words together when they are up against the word behind them, so `The/` then a glided "And" gives `The/And`. The same marks stand between two words when they have a space in front of them, and then the glided word gets its space: `hello -` gives `hello - world`, while `well-` gives `well-known`.
+
+`#` and `@` are openers rather than joiners, because they attach to the word after them wherever they sit. `check this #` then a glided "cool" gives `check this #cool`.
 
 ## Reducing typos before they happen
 
