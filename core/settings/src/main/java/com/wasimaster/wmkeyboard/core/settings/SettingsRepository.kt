@@ -4878,9 +4878,9 @@ enum class LanguageDetectionStrength { GENTLE, BALANCED, AGGRESSIVE }
 
 /**
  * The optional items of the menu that opens when a word on the suggestion
- * strip is pressed and held (#99). "Adjust rank" is not here because it is
- * always offered: it opens the word card, which carries every one of these
- * actions too, so hiding all three still leaves everything reachable.
+ * strip is pressed and held (#99). "Edit" is not here because it is always
+ * offered: it opens the word card, which carries every one of these actions
+ * too, so hiding all three still leaves everything reachable.
  */
 enum class WordMenuItem { NEVER_SUGGEST, ADD, DELETE }
 
@@ -4895,8 +4895,13 @@ enum class WordMenuItem { NEVER_SUGGEST, ADD, DELETE }
  * the engine applies on top of every source, so any word — one from a
  * downloaded list included — can be moved either way without touching what
  * the keyboard learned.
+ *
+ * [BOTH] shows the two controls one under the other, which is the default:
+ * they answer different questions ("how well does the keyboard know this
+ * word" and "where do I want it on the strip"), and the card is where a word
+ * is edited without a trip to the personal dictionary (#138).
  */
-enum class RankControl { LEARNED_WEIGHT, RANK_OFFSET }
+enum class RankControl { LEARNED_WEIGHT, RANK_OFFSET, BOTH }
 
 /**
  * Suggestion-strip content options, grouped into their own object (see
@@ -5248,15 +5253,15 @@ data class SuggestionStripSettings(
     val languageDetectionByApp: Boolean = true,
     /**
      * Which optional items the held-word menu shows (#99). An item missing
-     * from the set is never drawn; "Adjust rank" is drawn regardless. All
-     * three by default: the menu is contextual (add only while typing an
-     * unlearned word, delete only for a word the keyboard can forget), so
-     * it is rarely more than two items long. Lives here rather than on the
-     * top-level class only to stay under its JVM field ceiling.
+     * from the set is never drawn; "Edit" is drawn regardless. All three by
+     * default: the menu is contextual (add only while typing an unlearned
+     * word, delete only for a word the keyboard can forget), so it is rarely
+     * more than two items long. Lives here rather than on the top-level class
+     * only to stay under its JVM field ceiling.
      */
     val wordMenuItems: Set<WordMenuItem> = WordMenuItem.entries.toSet(),
-    /** What the word card's rank control edits; see [RankControl]. */
-    val rankControl: RankControl = RankControl.LEARNED_WEIGHT,
+    /** What the word card's rank controls edit; see [RankControl]. */
+    val rankControl: RankControl = RankControl.BOTH,
 ) {
     /** Whether the fixed-spelling map applies to [langId]. */
     fun spellingMapEnabledFor(langId: String): Boolean = langId !in spellingMapOffLangs

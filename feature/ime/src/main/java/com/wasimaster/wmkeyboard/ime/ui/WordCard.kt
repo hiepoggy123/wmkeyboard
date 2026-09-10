@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Contacts
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.DriveFileRenameOutline
 import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.HelpOutline
 import androidx.compose.material.icons.outlined.HourglassEmpty
@@ -37,6 +38,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -66,9 +69,13 @@ import com.wasimaster.wmkeyboard.ime.WordCardAction
 import java.text.NumberFormat
 
 /**
- * The word card (#99): where a suggested word comes from, its place in the
- * lists that have it, a control over its rank, and the actions the held-word
- * menu offers, all in one place.
+ * The word card (#99, #138): where a suggested word comes from, its place in
+ * the lists that have it, every control over how it is spelled and how hard
+ * it competes, and the actions the held-word menu offers, all in one place.
+ *
+ * It is what the held-word menu's "Edit" opens, and it is meant to spare a
+ * trip to the personal dictionary screen: the same word can be respelled,
+ * have its capitals kept, be weighted, ranked, deleted or banned from here.
  *
  * Rendered as a [Popup] over the whole keyboard window with a scrim, like
  * [FavouritesReorderPopup] — the keyboard cannot raise a Compose Dialog,
@@ -88,13 +95,13 @@ internal fun WordCardPopup(card: WordCard, onAction: (WordCardAction) -> Unit) {
     // over a refreshed card (a delete resets the weight to 0, say).
     var weight by remember(card.word, card.learnedCount) { mutableIntStateOf(card.learnedCount) }
     var offset by remember(card.word, card.rankOffset) { mutableIntStateOf(card.rankOffset) }
+    val showsWeight = card.rankControl != RankControl.RANK_OFFSET
+    val showsOffset = card.rankControl != RankControl.LEARNED_WEIGHT
     val done = {
-        when (card.rankControl) {
-            RankControl.LEARNED_WEIGHT ->
-                if (weight != card.learnedCount) onAction(WordCardAction.SetLearnedWeight(weight))
-            RankControl.RANK_OFFSET ->
-                if (offset != card.rankOffset) onAction(WordCardAction.SetOffset(offset))
+        if (showsWeight && weight != card.learnedCount) {
+            onAction(WordCardAction.SetLearnedWeight(weight))
         }
+        if (showsOffset && offset != card.rankOffset) onAction(WordCardAction.SetOffset(offset))
         onAction(WordCardAction.Dismiss)
     }
     val dismiss = { onAction(WordCardAction.Dismiss) }
@@ -144,41 +151,40 @@ internal fun WordCardPopup(card: WordCard, onAction: (WordCardAction) -> Unit) {
                         SectionTitle(stringResource(R.string.ime_word_card_sources_title), kb.popupText)
                         WordSources(card, kb.popupText)
                         Spacer(Modifier.size(8.dp))
-                        when (card.rankControl) {
-                            RankControl.LEARNED_WEIGHT -> {
-                                SectionTitle(stringResource(R.string.ime_word_card_weight_title), kb.popupText)
-                                Stepper(
-                                    value = if (weight == 0) {
-                                        stringResource(R.string.ime_word_card_weight_none)
-                                    } else {
-                                        NumberFormat.getIntegerInstance().format(weight)
-                                    },
-                                    canLower = weight > 0,
-                                    canRaise = weight < UserLexicon.MAX_COUNT,
-                                    onLower = { weight = (weight - weightStep(weight - 1)).coerceAtLeast(0) },
-                                    onRaise = {
-                                        weight = (weight + weightStep(weight)).coerceAtMost(UserLexicon.MAX_COUNT)
-                                    },
-                                    color = kb.popupText,
-                                )
-                                Hint(stringResource(R.string.ime_word_card_weight_hint), kb.popupText)
-                            }
-                            RankControl.RANK_OFFSET -> {
-                                SectionTitle(stringResource(R.string.ime_word_card_offset_title), kb.popupText)
-                                Stepper(
-                                    value = if (offset == 0) {
-                                        stringResource(R.string.ime_word_card_offset_normal)
-                                    } else {
-                                        stringResource(R.string.ime_word_card_offset_value, offset)
-                                    },
-                                    canLower = offset > WordRanks.MIN_STEPS,
-                                    canRaise = offset < WordRanks.MAX_STEPS,
-                                    onLower = { offset-- },
-                                    onRaise = { offset++ },
-                                    color = kb.popupText,
-                                )
-                                Hint(stringResource(R.string.ime_word_card_offset_hint), kb.popupText)
-                            }
+                        Spelling(card, onAction, kb.popupText)
+                        if (showsWeight) {
+                            SectionTitle(stringResource(R.string.ime_word_card_weight_title), kb.popupText)
+                            Stepper(
+                                value = if (weight == 0) {
+                                    stringResource(R.string.ime_word_card_weight_none)
+                                } else {
+                                    NumberFormat.getIntegerInstance().format(weight)
+                                },
+                                canLower = weight > 0,
+                                canRaise = weight < UserLexicon.MAX_COUNT,
+                                onLower = { weight = (weight - weightStep(weight - 1)).coerceAtLeast(0) },
+                                onRaise = {
+                                    weight = (weight + weightStep(weight)).coerceAtMost(UserLexicon.MAX_COUNT)
+                                },
+                                color = kb.popupText,
+                            )
+                            Hint(stringResource(R.string.ime_word_card_weight_hint), kb.popupText)
+                        }
+                        if (showsOffset) {
+                            SectionTitle(stringResource(R.string.ime_word_card_offset_title), kb.popupText)
+                            Stepper(
+                                value = if (offset == 0) {
+                                    stringResource(R.string.ime_word_card_offset_normal)
+                                } else {
+                                    stringResource(R.string.ime_word_card_offset_value, offset)
+                                },
+                                canLower = offset > WordRanks.MIN_STEPS,
+                                canRaise = offset < WordRanks.MAX_STEPS,
+                                onLower = { offset-- },
+                                onRaise = { offset++ },
+                                color = kb.popupText,
+                            )
+                            Hint(stringResource(R.string.ime_word_card_offset_hint), kb.popupText)
                         }
                     }
                     Actions(card, onAction, done)
@@ -186,6 +192,57 @@ internal fun WordCardPopup(card: WordCard, onAction: (WordCardAction) -> Unit) {
             }
         }
     }
+}
+
+/**
+ * How the word is spelled, and whether it stays that way (#138).
+ *
+ * "Change" hands the keys to the spelling bar rather than opening a text box:
+ * the card is a window over the whole keyboard, so there is nothing under it
+ * to type with, and an IME cannot raise a field for itself either. The switch
+ * is the personal dictionary's "keep these capitals" (#100) — the reason the
+ * issue asked for a respell at all was a word learned with the wrong capital,
+ * and pinning is what stops the vote putting it back.
+ */
+@Composable
+private fun Spelling(card: WordCard, onAction: (WordCardAction) -> Unit, color: Color) {
+    SectionTitle(stringResource(R.string.ime_word_card_spelling_title), color)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = card.word,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium,
+            color = color,
+            modifier = Modifier.weight(1f),
+        )
+        ActionButton(Icons.Outlined.DriveFileRenameOutline, stringResource(R.string.ime_word_card_respell)) {
+            onAction(WordCardAction.EditSpelling)
+        }
+    }
+    // Only the personal dictionary keeps a spelling, so there is nothing to
+    // pin on a word it has not learned; respelling one is what learns it.
+    val pinnable = card.learnedCount > 0
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(R.string.ime_word_card_keep_capitals),
+            style = MaterialTheme.typography.bodyMedium,
+            color = color.copy(alpha = if (pinnable) 1f else 0.5f),
+            modifier = Modifier.weight(1f),
+        )
+        Switch(
+            checked = card.casePinned,
+            enabled = pinnable,
+            onCheckedChange = { onAction(WordCardAction.SetCasePinned(it)) },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = color,
+                checkedTrackColor = color.copy(alpha = 0.4f),
+                uncheckedThumbColor = color.copy(alpha = 0.6f),
+                uncheckedTrackColor = color.copy(alpha = 0.15f),
+            ),
+        )
+    }
+    Hint(stringResource(R.string.ime_word_card_keep_capitals_hint), color)
+    Spacer(Modifier.size(8.dp))
 }
 
 /**

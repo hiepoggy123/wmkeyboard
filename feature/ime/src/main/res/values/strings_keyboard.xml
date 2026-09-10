@@ -121,8 +121,9 @@
     <string name="ime_word_menu_add">Add \"<xliff:g id="word" example="Wasi">%1$s</xliff:g>\"</string>
     <!-- Menu item that forgets a word. %1$s is the word the user held. -->
     <string name="ime_word_menu_delete">Delete \"<xliff:g id="word" example="mary">%1$s</xliff:g>\"</string>
-    <!-- Menu item that opens the word card, where the word's rank is changed. -->
-    <string name="ime_word_menu_adjust_rank">Adjust rank…</string>
+    <!-- Menu item that opens the word card, where the word is spelled,
+         weighted, ranked, deleted or banned. -->
+    <string name="ime_word_menu_edit">Edit…</string>
 
     <!-- The word card: a panel over the keyboard about one suggested word. -->
     <!-- Heading over the list of places the word was found. -->
@@ -173,6 +174,21 @@
     <string name="ime_word_card_app">An installed app\'s name</string>
     <!-- The word is on the never-suggest list. -->
     <string name="ime_word_card_blacklisted">On the never-suggest list</string>
+    <!-- Heading over the word's spelling and the switch that keeps it. -->
+    <string name="ime_word_card_spelling_title">Spelling</string>
+    <!-- Button that hands the keys to the spelling bar so the word can be retyped. -->
+    <string name="ime_word_card_respell">Change</string>
+    <!-- Switch that keeps the word spelled the way it is now. -->
+    <string name="ime_word_card_keep_capitals">Keep these capitals</string>
+    <!-- Explains that switch. -->
+    <string name="ime_word_card_keep_capitals_hint">Stops the keyboard relearning the word\'s capitals from how you type it. Words the keyboard has not learned have no spelling to keep — change the spelling to teach it one.</string>
+    <!-- The spelling bar, before anything has been typed into it. %1$s is the
+         word being respelled. -->
+    <string name="ime_word_spell_hint">Type a new spelling for \"<xliff:g id="word" example="teh">%1$s</xliff:g>\"</string>
+    <!-- Screen reader names of the spelling bar's two buttons. -->
+    <string name="ime_word_spell_apply_desc">Use this spelling</string>
+    <string name="ime_word_spell_cancel_desc">Leave the spelling alone</string>
+
     <!-- Heading over the control that edits the personal dictionary's count. -->
     <string name="ime_word_card_weight_title">Learned weight</string>
     <!-- Explains the learned-weight control. -->

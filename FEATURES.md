@@ -260,12 +260,15 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Applies to strip, next-word, glide results and split halves
     - Added by hand in a settings dialog, or by holding a chip on the strip — "Never suggest", with "Suggest again" to undo
 - **Held-word menu and word card** `uncommon` — Press and hold a suggestion for a menu about it (#99)
-  - Contextual items with icons — Never suggest / Suggest again; Add "typed" while the word being typed is unlearned; Delete for a word the keyboard can forget; Adjust rank always
+  - Contextual items with icons — Never suggest / Suggest again; Add "typed" while the word being typed is unlearned; Delete for a word the keyboard can forget; Edit always
   - Add pins the capitals — The typed spelling goes in at full strength and no later vote changes it (#100)
   - Delete reaches every mutable store — Personal dictionary, waiting room, rank adjustments, Android's dictionary; a word still in a read-only list is blacklisted instead
-  - Word card — In-window modal over the keyboard: every source the word was found in, its "#N of M" place in each list, a rank control, and the same actions
-  - Two rank mechanisms, one chosen in settings — Learned weight (the lexicon count, decade stepper) or a per-word −10..+10 offset applied in the engine to every source, glide and next-word included; never to autocorrect
-  - Which menu items show is a chip setting — Adjust rank cannot be hidden, since the card carries the rest
+  - Word card — In-window modal over the keyboard: every source the word was found in, its "#N of M" place in each list, the word's spelling, its rank controls, and the same actions (#138)
+  - Respell from the card — "Change" hands the keys to a bar in the strip's row (the card covers the board, and an IME cannot raise a field for itself); the draft starts from the word, Enter or ✓ applies it, back or ✕ leaves it, and nothing typed there reaches the app behind (#138)
+    - A respelling carries the count, language tag and word pairs across, moves the rank adjustment, and drops the swipe shapes, waiting-room sightings and Android's copy of the old spelling; a case-only respelling pins the spelling instead; a word the lexicon does not have is added at the new spelling
+  - Keep these capitals — The dictionary screen's pin switch, on the card, for a word the keyboard has learned (#138)
+  - Two rank mechanisms, both shown by default and chosen in settings — Learned weight (the lexicon count, decade stepper) or a per-word −10..+10 offset applied in the engine to every source, glide and next-word included; never to autocorrect
+  - Which menu items show is a chip setting — Edit cannot be hidden, since the card carries the rest
   - Pinned capitals — A word added or respelled by hand keeps its case against the vote; "Keep these capitals" switch on the dictionary screen; a tapped chip no longer teaches an auto-capital (#100)
   - Offensive-word filter — 60-word bundled English list, on by default
     - Never suggested, never an autocorrect target — So a neutral typo is never corrected into a slur

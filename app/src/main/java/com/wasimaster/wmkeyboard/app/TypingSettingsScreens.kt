@@ -936,6 +936,7 @@ internal fun TypingSuggestionsSettings(
         item {
             val weight = stringResource(R.string.typing_rank_control_weight_label)
             val offset = stringResource(R.string.typing_rank_control_offset_label)
+            val both = stringResource(R.string.typing_rank_control_both_label)
             ChoiceSetting(
                 R.string.typing_rank_control_title,
                 subtitle = stringResource(R.string.typing_rank_control_subtitle),
@@ -944,6 +945,7 @@ internal fun TypingSuggestionsSettings(
                     control to when (control) {
                         RankControl.LEARNED_WEIGHT -> weight
                         RankControl.RANK_OFFSET -> offset
+                        RankControl.BOTH -> both
                     }
                 },
                 selected = settings.suggestionStrip.rankControl,
@@ -954,6 +956,7 @@ internal fun TypingSuggestionsSettings(
                             when (control) {
                                 RankControl.LEARNED_WEIGHT -> R.string.typing_rank_control_weight_desc
                                 RankControl.RANK_OFFSET -> R.string.typing_rank_control_offset_desc
+                                RankControl.BOTH -> R.string.typing_rank_control_both_desc
                             },
                         ),
                     )

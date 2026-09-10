@@ -1481,6 +1481,21 @@ sealed interface WordCardAction {
     /** Set the card's word's rank adjustment, in steps. */
     data class SetOffset(val steps: Int) : WordCardAction
 
+    /**
+     * Start respelling the card's word on the keys (#138): the card steps
+     * aside for the key rows and the spelling bar takes the keystrokes.
+     */
+    data object EditSpelling : WordCardAction
+
+    /** Keep, or stop keeping, the card's word spelled the way it is now (#100). */
+    data class SetCasePinned(val pinned: Boolean) : WordCardAction
+
+    /** Respell the card's word as what the spelling bar now holds (#138). */
+    data object CommitSpelling : WordCardAction
+
+    /** Leave the spelling bar without respelling anything (#138). */
+    data object CancelSpelling : WordCardAction
+
     /** Add the typed word the card names, like [WordMenuAction.Add]. */
     data object Add : WordCardAction
 
@@ -1518,7 +1533,8 @@ data class WordMenuFacts(
  * The word card (#99): everything the strip draws for one held word. [facts]
  * is null while the engine is still describing the word, so the card can
  * open at once and fill in. [learnedCount] and [rankOffset] are the two
- * numbers the rank control edits; [rankControl] says which.
+ * numbers the rank controls edit; [rankControl] says which of them the card
+ * draws.
  */
 data class WordCard(
     /** The word as the chip showed it. */
@@ -1532,10 +1548,34 @@ data class WordCard(
     val learnedCount: Int = 0,
     /** The rank adjustment in steps, 0 when none. */
     val rankOffset: Int = 0,
-    val rankControl: RankControl = RankControl.LEARNED_WEIGHT,
+    val rankControl: RankControl = RankControl.BOTH,
     /** On the never-suggest list right now. */
     val blacklisted: Boolean = false,
+    /**
+     * Whether the word's spelling is pinned against the case vote (#100).
+     * Read cheaply when the card opens rather than waited for with [facts],
+     * because it is a switch the user flips and must not arrive late (#138).
+     */
+    val casePinned: Boolean = false,
 )
+
+/**
+ * The word card's spelling editor (#138): the word being respelled, and what
+ * the keys have made of it so far.
+ *
+ * The card is a window over the whole keyboard, so it cannot be typed into —
+ * it hides while this is up and the bar takes the suggestion strip's row, the
+ * same trick the AI Custom instruction plays with its panel. [draft] is a
+ * buffer the service owns, exactly like the emoji query: while it exists the
+ * keys never reach the app behind the keyboard.
+ */
+data class WordSpell(
+    /** The spelling the card was opened on, restored on cancel. */
+    val word: String,
+    /** What the keys have typed so far. */
+    val draft: String,
+)
+
 
 /**
  * The snippets panel showing what one snippet offers, after a tile was held.
@@ -1988,6 +2028,8 @@ data class KeyboardUiState(
     val sandboxOffer: GlideSandboxPolicy? = null,
     /** The word card a held suggestion opened, or null while none is up (#99). */
     val wordCard: WordCard? = null,
+    /** The card's spelling editor while it is up; see [WordSpell] (#138). */
+    val wordSpell: WordSpell? = null,
     /**
      * The one-tap actions offered for the current selection, or null when
      * there is no selection to act on (or the feature is off).
@@ -2378,6 +2420,14 @@ data class KeyboardUiState(
         get() = panel == PanelMode.PLUGINS && pluginFocusedInput != null
 
     /**
+     * Whether keystrokes belong to the word card's spelling editor rather
+     * than to the text field (#138) — true while the spelling bar is up, so
+     * respelling a suggestion never writes into the app behind the keyboard.
+     */
+    val wordSpellActive: Boolean
+        get() = wordSpell != null
+
+    /**
      * Whether some buffer inside the keyboard owns the keys, so nothing typed
      * may reach the app behind it.
      *
@@ -2389,7 +2439,8 @@ data class KeyboardUiState(
      */
     val keysTakenByKeyboard: Boolean
         get() = typingTestActive || calcTypingActive || converterTypingActive ||
-            aiCustomInputActive || pluginTypingActive || emojiSearchActive
+            aiCustomInputActive || pluginTypingActive || emojiSearchActive ||
+            wordSpellActive
 
     /**
      * The item a panel should ring in [region], or null when the ring is

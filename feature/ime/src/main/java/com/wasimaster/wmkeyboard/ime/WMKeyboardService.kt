@@ -4604,8 +4604,11 @@ open class WMKeyboardService : InputMethodService() {
         KeyboardPassthrough.publishRegion(null)
         vocabSpeaker?.stop()
         vocabProgress.save()
-        // The word card is about a word on a strip that is going away.
-        if (_uiState.value.wordCard != null) _uiState.update { it.copy(wordCard = null) }
+        // The word card is about a word on a strip that is going away — and
+        // its spelling editor owns the keys, so it goes with it (#138).
+        if (_uiState.value.wordCard != null || _uiState.value.wordSpell != null) {
+            _uiState.update { it.copy(wordCard = null, wordSpell = null) }
+        }
         // A word still composing settles into the field as typed. Leaving the
         // editor's region active while our mirror is wiped on the next
         // onStartInputView meant the first keystroke after a hide→reshow
@@ -5663,6 +5666,9 @@ open class WMKeyboardService : InputMethodService() {
             // types the expression instead of arrow-driving the keypad.
             state.calcTypingActive -> { calcEdit { it + mapCalcChars(text) }; true }
             state.converterTypingActive -> { converterEdit { appendConverterDigits(it, text) }; true }
+            // The word card is respelling one of its own words; the app
+            // behind the keyboard must not see a letter of it (#138).
+            state.wordSpellActive -> { wordSpellEdit { it + text }; true }
             else -> false
         }
         if (takenByKeyboardBuffer) {
@@ -6361,6 +6367,10 @@ open class WMKeyboardService : InputMethodService() {
             converterEdit { it.dropLast(1) }
             return
         }
+        if (state.wordSpellActive) {
+            wordSpellEdit { it.dropLast(1) }
+            return
+        }
         if (state.emojiSearchActive) {
             if (state.emojiQuery.isNotEmpty()) {
                 updateQuery { it.copy(emojiQuery = it.emojiQuery.dropLast(1)) }
@@ -6668,7 +6678,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun onForwardDelete() {
         val state = _uiState.value
         if (state.typingTestActive || state.aiCustomInputActive || state.pluginTypingActive ||
-            state.calcTypingActive || state.converterTypingActive ||
+            state.calcTypingActive || state.converterTypingActive || state.wordSpellActive ||
             state.emojiSearchActive || state.dictionarySearchActive ||
             state.clipboardSearchActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch)
@@ -6718,7 +6728,7 @@ open class WMKeyboardService : InputMethodService() {
     fun canForwardDelete(): Boolean {
         val state = _uiState.value
         if (state.typingTestActive || state.aiCustomInputActive || state.pluginTypingActive ||
-            state.calcTypingActive || state.converterTypingActive ||
+            state.calcTypingActive || state.converterTypingActive || state.wordSpellActive ||
             state.emojiSearchActive || state.dictionarySearchActive ||
             state.clipboardSearchActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch)
@@ -7113,6 +7123,7 @@ open class WMKeyboardService : InputMethodService() {
             state.clipboardSearchActive || state.pluginTypingActive ||
             state.aiCustomInputActive || state.typingTestActive ||
             state.calcTypingActive || state.converterTypingActive ||
+            state.wordSpellActive ||
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
             ((state.panel == PanelMode.HANDWRITING || keyboardHandwriteActive(state)) &&
                 state.handwriting.strokes.isNotEmpty())
@@ -7321,6 +7332,9 @@ open class WMKeyboardService : InputMethodService() {
         // before this press.
         clearCaretWord()
 
+        // A word being respelled has no spaces in it, and the field behind the
+        // keyboard must not collect the ones pressed at it (#138).
+        if (state.wordSpellActive) return
         if (state.emojiSearchActive) {
             updateQuery { it.copy(emojiQuery = it.emojiQuery + " ") }
             refreshEmojiResults()
@@ -7494,6 +7508,12 @@ open class WMKeyboardService : InputMethodService() {
         // Enter is not part of a typing test, and letting it through would
         // put a newline in the field behind the panel.
         if (state.typingTestActive) return
+        // Enter is the tick on the word card's spelling bar, not a newline in
+        // the app behind the keyboard (#138).
+        if (state.wordSpellActive) {
+            commitWordSpell()
+            return
+        }
         // Enter runs the Custom action rather than dropping a newline into the
         // app behind the panel.
         if (state.aiCustomInputActive) {
@@ -13237,6 +13257,10 @@ open class WMKeyboardService : InputMethodService() {
     private fun glideAllowed(state: KeyboardUiState): Boolean = when {
         !state.glideReady -> false
         state.typingTestActive -> state.settings.typingTest.glide
+        // The word card's spelling bar leaves the whole key grid on screen and
+        // takes every keystroke itself; a stroke over those keys must not be
+        // the one thing that still writes into the app behind (#138).
+        state.wordSpellActive -> false
         else -> state.settings.gestureTyping && state.allowsGestureTyping
     }
 
@@ -14073,6 +14097,10 @@ open class WMKeyboardService : InputMethodService() {
         // Same for a half-typed braille chord or morse sequence: the panel
         // takes the keys out from under it.
         resetChordInputs()
+        // And for a word being respelled: a panel can take the strip's row the
+        // spelling bar draws in, and a buffer that owns the keys with nothing
+        // on screen to say so is exactly the trap `pluginTypingActive` documents.
+        cancelWordSpell(haptic = false)
         if (haptic) vibrate()
         // The settings app edits snippets in the same file; re-read on open.
         if (panel == PanelMode.SNIPPETS) reloadSnippetsIfChanged()
@@ -20957,6 +20985,7 @@ open class WMKeyboardService : InputMethodService() {
                 (state.ai as? AiUi.CustomInput)?.instruction?.isNotEmpty() == true
             state.calcTypingActive -> state.calcExpression.isNotEmpty()
             state.converterTypingActive -> state.converterValue.isNotEmpty()
+            state.wordSpellActive -> state.wordSpell?.draft?.isNotEmpty() == true
             state.emojiSearchActive -> state.emojiQuery.isNotEmpty()
             state.dictionarySearchActive -> state.dictionaryQuery.isNotEmpty()
             state.clipboardSearchActive -> state.clipboardQuery.isNotEmpty()
@@ -21211,6 +21240,7 @@ open class WMKeyboardService : InputMethodService() {
             rankOffset = wordRanks.offsetOf(word),
             rankControl = state.settings.suggestionStrip.rankControl,
             blacklisted = word.lowercase() in state.settings.suggestionSources.blacklist,
+            casePinned = userLexicon.isCasePinned(word),
         )
         _uiState.update { it.copy(wordCard = card) }
         val engine = suggestionEngine ?: return
@@ -21270,6 +21300,13 @@ open class WMKeyboardService : InputMethodService() {
                 refreshSuggestions()
                 publishWordCard(card.word)
             }
+            WordCardAction.EditSpelling -> startWordSpell(card.word)
+            is WordCardAction.SetCasePinned -> {
+                setCasePinned(card.word, action.pinned)
+                publishWordCard(card.word)
+            }
+            WordCardAction.CommitSpelling -> commitWordSpell()
+            WordCardAction.CancelSpelling -> cancelWordSpell()
             WordCardAction.Add -> {
                 card.typed?.let(::addTypedWord)
                 publishWordCard(card.word)
@@ -21296,6 +21333,131 @@ open class WMKeyboardService : InputMethodService() {
             }
             WordCardAction.Dismiss -> _uiState.update { it.copy(wordCard = null) }
         }
+    }
+
+    /**
+     * Hands the keys to the card's spelling editor (#138).
+     *
+     * The card cannot be typed into — it is a window over the whole keyboard,
+     * and an IME has no field of its own to raise — so it hides and the
+     * spelling bar takes the suggestion strip's row while the key rows below
+     * do the typing. The draft starts as the word itself, since most
+     * respellings are a capital or a letter away from what is already there.
+     */
+    private fun startWordSpell(word: String) {
+        val trimmed = word.trim()
+        if (trimmed.isEmpty()) return
+        vibrate()
+        _uiState.update { it.copy(wordSpell = WordSpell(word = trimmed, draft = trimmed)) }
+    }
+
+    /**
+     * Edits the spelling draft. A buffer the service owns, like the emoji
+     * query: while it is up, [KeyboardUiState.keysTakenByKeyboard] is true and
+     * nothing typed reaches the app behind the keyboard.
+     */
+    private fun wordSpellEdit(transform: (String) -> String) {
+        val spell = _uiState.value.wordSpell ?: return
+        val draft = transform(spell.draft).take(UserLexicon.MAX_WORD_LENGTH)
+        _uiState.update { it.copy(wordSpell = it.wordSpell?.copy(draft = draft)) }
+    }
+
+    /**
+     * Puts the card back with the spelling it was opened on. [haptic] is off
+     * where the bar is being taken away rather than dismissed — a panel
+     * opening buzzes for itself already.
+     */
+    private fun cancelWordSpell(haptic: Boolean = true) {
+        if (_uiState.value.wordSpell == null) return
+        if (haptic) vibrate()
+        _uiState.update { it.copy(wordSpell = null) }
+    }
+
+    /**
+     * Applies what the spelling bar holds and brings the card back on the new
+     * spelling. A draft that is blank, or the word over again, changes
+     * nothing: an empty one would delete the word by the back door.
+     */
+    private fun commitWordSpell() {
+        val spell = _uiState.value.wordSpell ?: return
+        val spelling = spell.draft.trim()
+        vibrate()
+        _uiState.update { it.copy(wordSpell = null) }
+        if (spelling.isEmpty() || spelling == spell.word) return
+        respellWord(spell.word, spelling)
+        publishWordCard(spelling)
+    }
+
+    /**
+     * Respells [word] as [replacement] everywhere the keyboard keeps it (#138).
+     *
+     * [UserLexicon.rename] carries the count, the language tag and the word
+     * pairs across, and settles the new spelling's capitals — a case-only
+     * respelling is nothing but that settling, since every store folds the two
+     * to one key. A word the personal dictionary does not have (one from a
+     * shipped list, say) has nothing to rename, so the new spelling is added
+     * by hand instead: that is what puts it in front of the list's own
+     * spelling, since `displayForm` reads the lexicon first.
+     *
+     * Anything keyed on the *old* spelling and not carried over describes a
+     * word that is no longer there, so it goes: the rank adjustment moves, and
+     * the swipe shapes, the waiting-room sightings and Android's own copy are
+     * dropped. Only when the key really changed — a capital does not make the
+     * shapes wrong.
+     */
+    private fun respellWord(word: String, replacement: String) {
+        val spelling = replacement.trim()
+        val oldKey = WordKey.of(word)
+        val newKey = WordKey.of(spelling)
+        if (newKey.isEmpty() || newKey.length > UserLexicon.MAX_WORD_LENGTH) return
+        // `rename` also answers false when there is nothing to move — the word
+        // is not the lexicon's, or the spelling is the one it already holds —
+        // so the add is guarded on the lexicon rather than on the answer: an
+        // unguarded one would put 200 uses on a word for a respelling that
+        // changed nothing.
+        if (!userLexicon.rename(word, spelling) && !userLexicon.contains(spelling)) {
+            userLexicon.addWord(spelling, caseEvidence = true)
+        }
+        // Choosing a spelling says the opposite of never suggesting it, the
+        // same reading [addTypedWord] gives.
+        if (spelling.lowercase() in _uiState.value.settings.suggestionSources.blacklist) {
+            serviceScope.launch { settingsRepository.removeSuggestionBlacklistWord(spelling) }
+        }
+        if (oldKey != newKey) {
+            val offset = wordRanks.offsetOf(word)
+            wordRanks.remove(word)
+            if (offset != 0) wordRanks.set(spelling, offset)
+            suggestionEngine?.rankOffsets = wordRanks.snapshot()
+            glideShapes.forget(word)
+            pendingLearn.forget(word)
+            // A copy still waiting to settle would write the old spelling back
+            // at the next flush, exactly as it would after a delete (#101).
+            learningBuffer.drop(word)
+            serviceScope.launch {
+                val removed = withContext(Dispatchers.IO) {
+                    SystemUserDictionary.remove(applicationContext, word)
+                }
+                if (removed) reloadSystemDictionary()
+            }
+        }
+        if (_uiState.value.settings.addWordsToSystemDictionary) {
+            serviceScope.launch(Dispatchers.IO) {
+                SystemUserDictionary.add(applicationContext, spelling)
+            }
+        }
+        refreshSuggestions()
+    }
+
+    /**
+     * The card's "keep these capitals" switch (#100, #138): pinning settles
+     * the spelling the word has right now against every later vote, releasing
+     * puts it back under the vote. Only the personal dictionary keeps a
+     * spelling, so an unlearned word has nothing to pin — the card's switch is
+     * off and disabled there, and a respelling is what learns it.
+     */
+    private fun setCasePinned(word: String, pinned: Boolean) {
+        vibrate()
+        if (userLexicon.pinCase(word, pinned)) refreshSuggestions()
     }
 
     /**
@@ -21985,6 +22147,12 @@ open class WMKeyboardService : InputMethodService() {
             }
             state.voice.strip -> {
                 closeVoiceStrip()
+                true
+            }
+            // The spelling bar is the innermost layer of all: back leaves the
+            // respelling and puts the word card that opened it up again.
+            state.wordSpellActive -> {
+                cancelWordSpell()
                 true
             }
             // Inner layers close before their panel, like the media sheet: a
@@ -22879,7 +23047,7 @@ open class WMKeyboardService : InputMethodService() {
             (state.mediaSearchActive && state.panel.hasMediaSearch) ||
             state.dictionarySearchActive || state.clipboardSearchActive ||
             state.typingTestActive || state.pluginTypingActive ||
-            state.aiCustomInputActive ||
+            state.aiCustomInputActive || state.wordSpellActive ||
             state.calcTypingActive || state.converterTypingActive
     }
 

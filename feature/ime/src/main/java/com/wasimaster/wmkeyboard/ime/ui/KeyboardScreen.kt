@@ -93,6 +93,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.outlined.AudioFile
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Image
@@ -126,7 +127,6 @@ import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ArrowDropDown
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
@@ -3307,8 +3307,10 @@ private fun TopBar(
                 )
                 // The word card (#99) is a window over the whole keyboard, so
                 // where it is composed does not matter; it lives beside the
-                // strip that opens it.
-                state.wordCard?.let { card ->
+                // strip that opens it. It steps aside while its own spelling
+                // editor is up (#138): that window covers the keys the
+                // respelling is typed on.
+                state.wordCard?.takeIf { state.wordSpell == null }?.let { card ->
                     WordCardPopup(card = card, onAction = suggestionHold.onCard)
                 }
             }
@@ -3752,10 +3754,12 @@ private fun RowScope.LatinSuggestionChips(
                     ) { act(WordMenuAction.Delete(held)) }
                 }
                 // Always offered: the card carries every action above too, so
-                // a menu trimmed to this one item still reaches all of them.
+                // a menu trimmed to this one item still reaches all of them —
+                // and since #138 it edits the word itself as well, which is
+                // why it is "Edit" rather than "Adjust rank".
                 WordMenuRow(
-                    label = stringResource(R.string.ime_word_menu_adjust_rank),
-                    icon = Icons.Outlined.Tune,
+                    label = stringResource(R.string.ime_word_menu_edit),
+                    icon = Icons.Outlined.Edit,
                 ) { act(WordMenuAction.Open(held)) }
             }
         }
@@ -8418,6 +8422,11 @@ private fun KeyboardBody(
                 Column(modifier = Modifier.barRowFill(barFill)) {
                     when (row) {
                         BarRow.TOPBAR -> when {
+                            // Before every other case, the toolbar's own
+                            // visibility included: the word card has handed
+                            // the keys to this bar, so it is the only thing
+                            // on screen that says what they are typing (#138).
+                            state.wordSpell != null -> WordSpellBar(state, suggestionHold.onCard)
                             !topBarVisible -> {}
                             // The strip placement swaps the whole bar rather than adding
                             // a surface to TopBar's own flip: with a selection live there

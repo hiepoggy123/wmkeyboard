@@ -71,16 +71,24 @@ Press and hold any word on the suggestion strip and a small menu opens about it.
 - **Never suggest** puts the word on the [suggestion blacklist](/smart/blacklist/). For a word already on it, the item reads **Suggest again** instead.
 - **Add "yourword"** appears while the word you are typing is not in your personal dictionary. It is about the word under the cursor, not the word you held: the suggestions are known words already, and the one you want in is the one you are typing. The word goes in at full strength, spelled exactly as you typed it, and its capitals are kept (see [capitals](#capitals) below). If it was on the blacklist, it comes off.
 - **Delete "word"** appears for a word the keyboard can forget: one in your personal dictionary, one still waiting to be learned, one in Android's own dictionary, or one you adjusted the rank of. It is forgotten from all of those. If the word is also in a downloaded or imported word list, which the keyboard cannot edit, it goes on the blacklist too, so it is gone from the strip either way.
-- **Adjust rank** is always there. It opens the word card.
+- **Edit** is always there. It opens the word card.
 
-The word card is a panel over the keyboard. It lists everywhere the word was found: your personal dictionary with how often you typed it, the waiting room, each word list that has it with its place in that list ("#4,512 of 300,000"), an imported list, Android's dictionary, a contact, an app, or the blacklist. Below that is a control over the word's rank, and along the bottom the same actions as the menu, so a menu trimmed down in settings still reaches all of them.
+The word card is a panel over the keyboard, and it is everything the dictionary screen can do to one word without leaving the keyboard. It lists everywhere the word was found: your personal dictionary with how often you typed it, the waiting room, each word list that has it with its place in that list ("#4,512 of 300,000"), an imported list, Android's dictionary, a contact, an app, or the blacklist. Under that come the word's own controls, and along the bottom the same actions as the menu, so a menu trimmed down in settings still reaches all of them.
 
-What the rank control changes is a setting, **Adjust rank changes** under <SettingsPath path="Typing / Suggestions" />:
+**Spelling** is the first control: the word as it is spelled now, a **Change** button, and a **Keep these capitals** switch.
 
-- **Learned weight** (the default) edits the same count the dictionary screen shows, with the same minus and plus buttons stepping a decade at a time. Lowering it to "Not learned" forgets the word. Raising it on a word the keyboard has not learned adds the word at that weight. It cannot push a word below a word list's own order, since the count only ever adds.
+Pressing **Change** hands the keys to a bar in the strip's own row — the card itself covers the keyboard, so there is nothing under it to type with. The bar starts from the word as it stands, so fixing one letter or one capital is a backspace and a key. Backspace shortens it, the ✓ (or the Enter key) applies it, and the ✕ (or the back gesture) leaves the word alone. Nothing you type there reaches the app you are writing in.
+
+Applying a respelling moves everything the keyboard keeps about the word onto the new spelling: how often you typed it, the language it was last typed in, the word pairs it takes part in, and its rank adjustment. Change nothing but a capital and it is not a move at all — every list keys the word the same way — so it settles the spelling instead and pins it. A word your personal dictionary does not have, one from a downloaded list, has nothing to move: the new spelling is added by hand, which is what puts it in front of the list's own.
+
+**Keep these capitals** is the same switch as the dictionary screen's, for a word the keyboard has already learned; see [capitals](#capitals) below.
+
+Then the rank controls. Which of them the card shows is a setting, **Adjust rank changes** under <SettingsPath path="Typing / Suggestions" /> — **Both** by default:
+
+- **Learned weight** edits the same count the dictionary screen shows, with the same minus and plus buttons stepping a decade at a time. Lowering it to "Not learned" forgets the word. Raising it on a word the keyboard has not learned adds the word at that weight. It cannot push a word below a word list's own order, since the count only ever adds.
 - **Rank adjustment** keeps a separate up-or-down setting for the word, from −10 to +10, that the keyboard applies on top of every list. Any word can move either way, a word from a downloaded list included, and what the keyboard learned is untouched. Adjustments show up in a **Rank adjustments** group at the bottom of the dictionary screen, each with a button to reset it. They never affect autocorrect, only the order of the strip.
 
-Which items the menu shows is up to you. **Word menu** under <SettingsPath path="Typing / Suggestions" /> is a row of chips for **Never suggest**, **Add** and **Delete**; turn one off and it stays off the menu. **Adjust rank** cannot be turned off, because the card carries the other three anyway.
+Which items the menu shows is up to you. **Word menu** under <SettingsPath path="Typing / Suggestions" /> is a row of chips for **Never suggest**, **Add** and **Delete**; turn one off and it stays off the menu. **Edit** cannot be turned off, because the card carries the other three anyway.
 
 ## Capitals
 
@@ -90,7 +98,7 @@ Only a capital *you* typed is a vote. A swipe types no capital at all — your f
 
 This is what stops a name you write both ways from getting stuck. Before, a swipe that came back as "Mark" was learned as "Mark", which made the next swipe come back as "Mark" more strongly still, and "mark" could never be written plainly again.
 
-A word you add yourself is different. Add it by hand, from the dictionary screen or from the strip's **Add** item, or respell it in the edit dialog, and its capitals are *kept*: no amount of later typing changes them. The row reads "capitals kept", and the edit dialog has a **Keep these capitals** switch to turn that off, or to turn it on for a word the keyboard learned on its own. Keeping "you" in lower case this way is how to stop it ever being offered as "You" after a sentence start.
+A word you add yourself is different. Add it by hand, from the dictionary screen or from the strip's **Add** item, or respell it — in the dictionary screen's edit dialog or on the word card — and its capitals are *kept*: no amount of later typing changes them. The row reads "capitals kept", and both the edit dialog and the word card have a **Keep these capitals** switch to turn that off, or to turn it on for a word the keyboard learned on its own. Keeping "you" in lower case this way is how to stop it ever being offered as "You" after a sentence start.
 
 ## Why a learned word matters
 
@@ -172,7 +180,7 @@ See [Incognito & secure fields](/privacy/incognito/) for the rest of how incogni
 | Remember a new word after | 3 | Typing / Suggestions |
 | Ask before saving new words | Off | Typing / Suggestions |
 | Word menu | Never suggest, Add, Delete | Typing / Suggestions |
-| Adjust rank changes | Learned weight | Typing / Suggestions |
+| Adjust rank changes | Both | Typing / Suggestions |
 | Back up with Android | Off | Privacy / Android backup |
 | Include "Dictionary" in export | Off | Backup & restore / Include in export |
 
