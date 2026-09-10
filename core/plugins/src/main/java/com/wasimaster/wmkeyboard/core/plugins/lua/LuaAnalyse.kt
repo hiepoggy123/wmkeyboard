@@ -52,6 +52,12 @@ data class LuaGlobalUse(
     val write: Boolean,
     /** The [LuaFunction.id] it is written in; 0 is the top of the file. */
     val function: Int,
+    /**
+     * When this use runs relative to the others. Within one statement that is not
+     * the order of the text: in `x = x + 1` the read on the right runs before the
+     * write on the left.
+     */
+    val order: Int,
 )
 
 enum class LuaFunctionKind {
@@ -181,6 +187,9 @@ private class Resolver(
     /** Where each `repeat` being walked ends: its locals are seen by its `until`. */
     private val repeatEnds = ArrayList<Int>()
     private var function = 0
+
+    /** Uses are met in the order they run, values before the names they are assigned to. */
+    private var nextOrder = 0
 
     fun run(chunk: Chunk): LuaAnalysis {
         scopes += HashMap()
@@ -465,7 +474,7 @@ private class Resolver(
             if (write) symbol.writeSpans += span else symbol.readSpans += span
             symbolByToken[placed] = id
         } else {
-            globals += LuaGlobalUse(name, span, write, function)
+            globals += LuaGlobalUse(name, span, write, function, nextOrder++)
         }
     }
 

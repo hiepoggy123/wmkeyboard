@@ -83,7 +83,7 @@ object LuaApi {
         LuaUiShape("label", listOf("text", "style"), takesChildren = false, widgetType = "label", values = mapOf("style" to labelStyles)),
         LuaUiShape(
             "output", listOf("id", "text", "mono", "insertable", "copyable"), takesChildren = false,
-            widgetType = "output", needsId = true,
+            widgetType = "output",
         ),
         LuaUiShape(
             "button", listOf("id", "text", "style", "enabled"), takesChildren = false, widgetType = "button",
