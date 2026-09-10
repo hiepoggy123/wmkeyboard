@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.res.Configuration
 import android.text.format.DateUtils
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -69,6 +70,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
@@ -322,6 +324,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
     var panel by rememberSaveable { mutableStateOf(IdePanel.CLOSED) }
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
+    var suggestRequests by remember { mutableStateOf(0) }
     var findOpen by rememberSaveable { mutableStateOf(false) }
     val find = remember { CodeFindState() }
     var lineOpen by rememberSaveable { mutableStateOf(false) }
@@ -601,6 +604,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                 fontSize = 14.sp,
                 lineHeight = 22.sp,
                 completions = true,
+                suggestRequests = suggestRequests,
             )
             IdePanelBar(panel, problems = diagnostics.size) { chosen -> panel = if (panel == chosen) IdePanel.CLOSED else chosen }
             if (panel != IdePanel.CLOSED) {
@@ -616,6 +620,21 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                         IdePanel.CLOSED -> Unit
                     }
                 }
+            }
+            // At the bottom, so it sits against the soft keyboard whether or not the
+            // panel is open. A hardware keyboard has its own keys for all of it.
+            val configuration = LocalConfiguration.current
+            val hardwareKeyboard = configuration.keyboard != Configuration.KEYBOARD_NOKEYS &&
+                configuration.hardKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO
+            if (!hardwareKeyboard) {
+                CodeAccessoryRow(
+                    state = editor,
+                    colors = rememberCodeColors(),
+                    lineComment = LuaCode.lineComment,
+                    onFind = { findOpen = true },
+                    onFormat = { editor.replace(LuaCode.format(editor.text)) },
+                    onSuggest = { suggestRequests++ },
+                )
             }
         }
     }

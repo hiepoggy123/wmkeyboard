@@ -54,4 +54,22 @@
     <!-- The button that goes to the line typed. -->
     <string name="code_go_to_line_action">Go</string>
 
+    <!-- The row of code keys above the soft keyboard. -->
+    <string name="code_key_indent_desc">Indent the line. Hold to outdent it.</string>
+    <string name="code_keys_page_desc">Show the other keys</string>
+    <string name="code_key_left_desc">Move the caret left. Slide to move it further.</string>
+    <string name="code_key_right_desc">Move the caret right. Slide to move it further.</string>
+    <!-- Short labels of the editing commands on the second page of the row. -->
+    <string name="code_command_suggest">Suggest</string>
+    <string name="code_command_undo">Undo</string>
+    <string name="code_command_redo">Redo</string>
+    <string name="code_command_comment">Comment</string>
+    <string name="code_command_duplicate">Duplicate</string>
+    <string name="code_command_line_up">Line up</string>
+    <string name="code_command_line_down">Line down</string>
+    <string name="code_command_select_word">Select word</string>
+    <string name="code_command_select_line">Select line</string>
+    <string name="code_command_find">Find</string>
+    <string name="code_command_format">Format</string>
+
 </resources>

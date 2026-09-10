@@ -145,6 +145,8 @@ internal fun CodeSurface(
     extraKeys: (KeyEvent) -> Boolean = { false },
     /** Whether to ask [language] for suggestions as the author types, and list them at the caret. */
     completions: Boolean = false,
+    /** Raised by one to ask for suggestions at the caret even with no word typed, as Ctrl+Space does. */
+    suggestRequests: Int = 0,
 ) {
     val density = LocalDensity.current
     // Held as the state object rather than read through it: the two draw
@@ -201,6 +203,13 @@ internal fun CodeSurface(
         }
     }
     val scope = rememberCoroutineScope()
+    LaunchedEffect(suggestRequests) {
+        if (!completions || suggestRequests == 0) return@LaunchedEffect
+        val source = state.text
+        val at = state.value.selection.end
+        suggestions = withContext(Dispatchers.Default) { language.completions(source, at, explicit = true) }
+        chosen = 0
+    }
     val keys: (KeyEvent) -> Boolean = remember(extraKeys, language, completions, state) {
         keys@{ event ->
             val shown = suggestions
