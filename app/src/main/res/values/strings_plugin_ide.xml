@@ -74,10 +74,18 @@
 
     <string name="plugin_ide_preview_label">Preview</string>
     <string name="plugin_ide_console_label">Console</string>
+    <string name="plugin_ide_problems_label">Problems</string>
+    <string name="plugin_ide_outline_label">Outline</string>
     <string name="plugin_ide_preview_empty">Run the plugin to see its panel</string>
     <!-- %1$s and %2$s are numbers of instructions, for example "3,200" of "4,000,000". -->
     <string name="plugin_ide_usage_label">The last draw used %1$s of %2$s instructions</string>
     <string name="plugin_ide_console_empty">Nothing is printed yet</string>
+    <string name="plugin_ide_problems_empty">The checks find no problems</string>
+    <string name="plugin_ide_outline_empty">No named functions yet</string>
+    <!-- Read aloud before a problem's sentence, in place of its coloured dot. -->
+    <string name="plugin_ide_severity_error">Error</string>
+    <string name="plugin_ide_severity_warning">Warning</string>
+    <string name="plugin_ide_severity_info">Note</string>
     <string name="plugin_ide_console_clear_action">Clear</string>
     <string name="plugin_ide_console_started">The plugin started</string>
     <string name="plugin_ide_console_cancelled">A newer run replaced this run</string>

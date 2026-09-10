@@ -6,6 +6,7 @@ import android.content.Context
 import android.text.format.DateUtils
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -30,6 +32,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Publish
 import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -78,7 +81,10 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginPreviewSession
 import com.wasimaster.wmkeyboard.core.plugins.PluginRuntime
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.plugins.PluginWorkspace
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaDocuments
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaHostShape
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaNavigation
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaOutlineItem
 import com.wasimaster.wmkeyboard.core.plugins.resolve
 import com.wasimaster.wmkeyboard.core.plugins.ui.LocalPluginPanelStyle
 import com.wasimaster.wmkeyboard.core.plugins.ui.PluginInputHost
@@ -93,7 +99,14 @@ import kotlinx.coroutines.withContext
 /** How long typing has to pause before the draft is written. */
 private const val AUTOSAVE_MS = 400L
 
-private enum class IdePanel { CLOSED, PREVIEW, CONSOLE }
+private enum class IdePanel { CLOSED, PREVIEW, CONSOLE, PROBLEMS, OUTLINE }
+
+/** What one pass of the checks found: the problems, and the outline of the last text that parsed. */
+private data class IdeInspection(val diagnostics: List<CodeDiagnostic>, val outline: List<LuaOutlineItem>) {
+    companion object {
+        val None = IdeInspection(emptyList(), emptyList())
+    }
+}
 
 // ---------------------------------------------------------------------------
 // The drafts list
@@ -272,10 +285,17 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
     val lineStarts = remember(text) { lineStartOffsets(text) }
     // The storage check follows the manifest as it is edited, not as it was saved.
     val storage = PluginPermission.Storage.wire in ide.manifest.permissions
-    val diagnostics by produceState(emptyList<CodeDiagnostic>(), text, storage) {
+    val inspection by produceState(IdeInspection.None, text, storage) {
         delay(250)
-        value = withContext(Dispatchers.Default) { LuaCode.diagnostics(text, LuaHostShape(storage)) }
+        val previous = value
+        value = withContext(Dispatchers.Default) {
+            val found = LuaCode.diagnostics(text, LuaHostShape(storage))
+            // The same document the checks just built, so this is not a second parse.
+            val outline = LuaDocuments.of(text).analysis?.let(LuaNavigation::outline) ?: previous.outline
+            IdeInspection(found, outline)
+        }
     }
+    val diagnostics = inspection.diagnostics
     val failureLine = previewState.failure?.takeIf { it.chunk == MAIN_CHUNK }?.line?.minus(1)
     val decorations = remember(diagnostics, lineStarts, failureLine) {
         val marks = HashMap<Int, CodeSeverity>()
@@ -377,7 +397,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                 lineHeight = 22.sp,
                 completions = true,
             )
-            IdePanelBar(panel) { chosen -> panel = if (panel == chosen) IdePanel.CLOSED else chosen }
+            IdePanelBar(panel, problems = diagnostics.size) { chosen -> panel = if (panel == chosen) IdePanel.CLOSED else chosen }
             if (panel != IdePanel.CLOSED) {
                 HorizontalDivider()
                 Box(Modifier.fillMaxWidth().fillMaxHeight(PANEL_FRACTION)) {
@@ -386,6 +406,8 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                         IdePanel.CONSOLE -> ConsolePane(preview, previewState.consoleRevision) { line ->
                             editor.moveTo(offsetOfLine(editor.text, line - 1))
                         }
+                        IdePanel.PROBLEMS -> ProblemsPane(diagnostics, lineStarts) { range -> editor.select(range) }
+                        IdePanel.OUTLINE -> OutlinePane(inspection.outline, lineStarts) { range -> editor.select(range) }
                         IdePanel.CLOSED -> Unit
                     }
                 }
@@ -443,9 +465,10 @@ private fun MissingDraft(onBack: () -> Unit) {
 }
 
 @Composable
-private fun IdePanelBar(panel: IdePanel, onSelect: (IdePanel) -> Unit) {
+private fun IdePanelBar(panel: IdePanel, problems: Int, onSelect: (IdePanel) -> Unit) {
+    val numbers = remember { NumberFormat.getIntegerInstance() }
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -458,6 +481,24 @@ private fun IdePanelBar(panel: IdePanel, onSelect: (IdePanel) -> Unit) {
             selected = panel == IdePanel.CONSOLE,
             onClick = { onSelect(IdePanel.CONSOLE) },
             label = { Text(stringResource(R.string.plugin_ide_console_label)) },
+        )
+        FilterChip(
+            selected = panel == IdePanel.PROBLEMS,
+            onClick = { onSelect(IdePanel.PROBLEMS) },
+            label = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.plugin_ide_problems_label))
+                    if (problems > 0) {
+                        Spacer(Modifier.width(6.dp))
+                        Badge { Text(numbers.format(problems)) }
+                    }
+                }
+            },
+        )
+        FilterChip(
+            selected = panel == IdePanel.OUTLINE,
+            onClick = { onSelect(IdePanel.OUTLINE) },
+            label = { Text(stringResource(R.string.plugin_ide_outline_label)) },
         )
     }
 }
