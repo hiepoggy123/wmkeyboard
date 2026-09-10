@@ -643,6 +643,31 @@ internal fun Key.repairKey(
     if (fixed.longPress.any { it.isEmpty() }) {
         fixed = fixed.copy(longPress = fixed.longPress.filter { it.isNotEmpty() })
     }
+    // A key that stands for several letters has to type the first of them: the
+    // decode reads the key sets alongside a composing buffer of one character
+    // per keystroke, and an anchor from outside the set makes the two disagree
+    // about what was typed. Loud, unlike the two quiet fixes below it, because
+    // the symptom otherwise is a board that types words nobody pressed the keys
+    // for, with nothing on screen to connect that to the file (discussion #103).
+    fixed.letters?.let { letters ->
+        val anchored = fixed.withLetters(letters)
+        if (anchored != fixed) {
+            repairs += if (anchored.letters == null) {
+                // Nothing in the field was a letter, so there is no set to
+                // anchor and the key goes back to being an ordinary one.
+                LayoutMessage(
+                    R.string.core_lang_repair_key_letters_dropped,
+                    args = listOf(label, letters),
+                )
+            } else {
+                LayoutMessage(
+                    R.string.core_lang_repair_key_letters_anchored,
+                    args = listOf(label, anchored.letters, anchored.output.orEmpty()),
+                )
+            }
+            fixed = anchored
+        }
+    }
     // Quietly, unlike the span above: a column count outside the range is not a
     // key that cannot draw, it is a popup that would lay itself out oddly. A
     // count below the range rounds up into it rather than falling back to the

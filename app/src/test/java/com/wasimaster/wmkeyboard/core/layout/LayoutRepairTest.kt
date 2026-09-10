@@ -349,6 +349,58 @@ class LayoutRepairTest {
         assertEquals(listOf("@", "à"), key.longPress)
     }
 
+    /**
+     * Discussion #103: the letter set and the anchor a key commits have to agree,
+     * and until this rule existed a hand-written file that got it wrong was
+     * accepted in silence and then typed words nobody had pressed the keys for.
+     */
+    @Test
+    fun `a key that stands for several letters is made to type the first of them`() {
+        val spec = letters(listOf(Key("QW", output = "z", letters = "qw")) + usableBottomRow)
+        val repaired = spec.repair()
+        val key = repaired.spec.lettersKeys().first { it.label == "QW" }
+        assertEquals("qw", key.letters)
+        assertEquals("q", key.output)
+        assertTrue(
+            "the fix has to be reported, or the file's author never learns of it",
+            repaired.repairNotes.any { it.stringRes == R.string.core_lang_repair_key_letters_anchored },
+        )
+    }
+
+    @Test
+    fun `a letter set is cleaned of repeats, case and anything that is not a letter`() {
+        val spec = letters(listOf(Key("QW", letters = "Q w2q")) + usableBottomRow)
+        val key = spec.repair().spec.lettersKeys().first { it.label == "QW" }
+        assertEquals("qw", key.letters)
+        assertEquals("q", key.output)
+    }
+
+    @Test
+    fun `a letter set holding no letters at all leaves an ordinary key`() {
+        val spec = letters(listOf(Key("1", output = "1", letters = "123")) + usableBottomRow)
+        val repaired = spec.repair()
+        val key = repaired.spec.lettersKeys().first { it.label == "1" }
+        assertNull(key.letters)
+        assertEquals("the output is the key's own, untouched", "1", key.output)
+        assertTrue(
+            repaired.repairNotes.any { it.stringRes == R.string.core_lang_repair_key_letters_dropped },
+        )
+    }
+
+    @Test
+    fun `an ordinary key is left alone by the letter rule`() {
+        val spec = letters(listOf(Key("a"), Key("b", output = "B")) + usableBottomRow)
+        val repaired = spec.repair()
+        assertTrue(
+            "no letter note belongs on a layout with no letter sets",
+            repaired.repairNotes.none {
+                it.stringRes == R.string.core_lang_repair_key_letters_anchored ||
+                    it.stringRes == R.string.core_lang_repair_key_letters_dropped
+            },
+        )
+        assertEquals("B", repaired.spec.lettersKeys().first { it.label == "b" }.output)
+    }
+
     @Test
     fun `validate never mutates the layout`() {
         val spec = letters(listOf(Key("a", width = 0f), Key("z", action = KeyAction.Unknown("x"))))

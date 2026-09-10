@@ -88,12 +88,23 @@ The [personal dictionary](/smart/personal-dictionary/) does most of the heavy li
 
 ## Building your own
 
-This isn't limited to the two shipped layouts. Any layout can put a set of letters on a key by giving it a `letters` field in the [layout editor's](/languages/custom-layouts/) raw JSON:
+This isn't limited to the two shipped layouts. Any layout can put a set of letters on a key, in the [layout editor](/languages/custom-layouts/): tap the key, and **Letters this key stands for** is under Output. Type `qw` and that key stands for both.
+
+Two things happen when you do, and they're the two things that are easy to miss if you build one of these by hand:
+
+- **Output becomes the first letter of the set, and stops being editable.** That isn't fussiness. A tap has to commit *something*, and the decoder tracks what you pressed as one character per keystroke with the key's set carried alongside; an output from outside the set would make those two describe different typing. The editor writes it for you so it can't drift.
+- **The letters are offered to the long-press popup**, with a button that puts them there. Take it. Without the letters in the popup there is no way at all to spell a word the dictionary doesn't know, and that's not something you notice while testing "the" and "and".
+
+Keys with one letter need nothing: leave the field blank. A mixed grid is normal, and it's what Compact QWERTY is, with `L` and `M` alone on their keys.
+
+Everything else follows on its own. The decoder reads the key sets, glide picks up the letters at that key's centre, and typo proximity works out neighbours between keys instead of between letters.
+
+The field is `letters` in the [raw JSON](/languages/custom-layouts/#reaching-the-raw-json) if you'd rather write a whole board at once:
 
 ```json
 { "label": "ABC", "output": "a", "letters": "abc", "longPress": ["2", "a", "b", "c"] }
 ```
 
-`letters` is the set the key stands for, and `output` is the one it actually types, which has to be the first letter of the set. Everything else follows: the decoder reads the key sets, glide picks up the letters at that key's centre, and typo proximity works out neighbours between keys instead of between letters.
+A file that gets the anchor wrong is repaired on import rather than accepted quietly, and the confirm dialog says what changed.
 
 Four keys, three keys, letters grouped however you like. If you've been meaning to try a layout nobody's built, this is the part that was missing.

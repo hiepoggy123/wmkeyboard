@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.layout
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -137,6 +138,72 @@ class AmbiguousLayoutTest {
         // Widening a keypad with Tab, caps lock and a mirrored shift would
         // make it neither a keypad nor a keyboard.
         for (spec in ambiguous) assertFalse(spec.name, spec.tabletExpand)
+    }
+
+    /**
+     * [withLetters] is the only place a letter set is written, by the layout
+     * editor's field and by the repair pass alike, so the anchor rule the tests
+     * above check on the shipped boards is the same rule a user's own board
+     * gets. Before it existed the rule was a doc comment and the only author who
+     * could break it was the one least able to see it: someone hand-writing JSON
+     * with no symptom to search for (discussion #103).
+     */
+    @Test
+    fun writingALetterSetAlwaysAnchorsTheKeyToItsFirstLetter() {
+        val key = Key("QW", output = "z").withLetters("qw")
+        assertEquals("qw", key.letters)
+        assertEquals("q", key.output)
+        assertTrue(key.isAmbiguous())
+    }
+
+    @Test
+    fun writingALetterSetCleansCaseRepeatsAndNonLetters() {
+        val key = Key("QW").withLetters("Q w 2 q")
+        assertEquals("qw", key.letters)
+        assertEquals("q", key.output)
+    }
+
+    @Test
+    fun aLetterSetWithNoLettersInItClearsTheFieldAndLeavesTheOutput() {
+        val key = Key("1", output = "1").withLetters("123")
+        assertNull(key.letters)
+        assertEquals("1", key.output)
+        assertFalse(key.isAmbiguous())
+    }
+
+    /**
+     * One letter is a legal set and the docs say so, but it still has to anchor:
+     * a set of `q` on a key that types `z` is the same disagreement as a set of
+     * `qw` on one, and rarer, so less likely to be caught by hand.
+     */
+    @Test
+    fun aSetOfOneLetterStillDecidesWhatTheKeyTypes() {
+        val key = Key("L", output = "z").withLetters("l")
+        assertEquals("l", key.letters)
+        assertEquals("l", key.output)
+        assertFalse("one letter is not ambiguous", key.isAmbiguous())
+    }
+
+    /** Turkish dotted capital I lowercases to two characters; a set is one per key. */
+    @Test
+    fun aLetterThatLowercasesToTwoCharactersStaysOneMemberOfTheSet() {
+        val key = Key("İJ").withLetters("\u0130j")
+        assertEquals(2, key.letters?.length)
+        assertEquals(key.letters?.take(1), key.output)
+    }
+
+    @Test
+    fun theShippedBoardsAreAlreadyWhatWritingTheirSetsWouldProduce() {
+        for (spec in ambiguous) {
+            for (key in textKeys(spec)) {
+                val set = key.letters ?: continue
+                assertEquals(
+                    "${spec.name}: ${key.label} is not what withLetters would write",
+                    key,
+                    key.withLetters(set),
+                )
+            }
+        }
     }
 
     @Test

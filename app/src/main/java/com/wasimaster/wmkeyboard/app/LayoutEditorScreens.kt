@@ -163,6 +163,8 @@ import com.wasimaster.wmkeyboard.core.layout.MaxKeyWidth
 import com.wasimaster.wmkeyboard.core.layout.MaxRowHeightScale
 import com.wasimaster.wmkeyboard.core.layout.MinRowHeightScale
 import com.wasimaster.wmkeyboard.core.layout.canHoldAlternates
+import com.wasimaster.wmkeyboard.core.layout.isAmbiguous
+import com.wasimaster.wmkeyboard.core.layout.withLetters
 import com.wasimaster.wmkeyboard.core.layout.drawnFontScale
 import com.wasimaster.wmkeyboard.core.layout.drawnLabel
 import com.wasimaster.wmkeyboard.core.layout.drawnLabelScale
@@ -3476,7 +3478,24 @@ internal fun KeyEditSheet(
                 // deletes it the moment the layout is turned on.
                 supporting = outputFieldSupport(key),
                 resetKey = ref,
+                // While the key stands for a set of letters, its output is the
+                // first of them and is not separately editable. Shown rather
+                // than hidden: the value is still the answer to "what does this
+                // key type", and a field that vanishes teaches nobody the rule.
+                enabled = !key.isAmbiguous(),
             ) { text -> onChange { it.copy(output = text.ifBlank { null }) } }
+
+            if (!isField && key.action == KeyAction.Text) {
+                LettersField(
+                    key = key,
+                    ref = ref,
+                    onChange = onChange,
+                    // The alternates field holds its text here, so the "put the
+                    // letters in the popup" button has to move that text too or
+                    // the field it edits would show the old list back.
+                    onAlternatesChanged = { alternates = it.joinToString(" ") },
+                )
+            }
 
             if (!isField) SheetField(
                 label = stringResource(R.string.layout_editor_key_shift_label_label),
@@ -3806,9 +3825,93 @@ private fun parseAlternates(text: String): List<String> =
 @Composable
 private fun outputFieldSupport(key: Key): String = when {
     key.action != KeyAction.Text -> stringResource(R.string.layout_editor_key_output_hint)
+    // The field is disabled in this case; say which control moves it, or a
+    // disabled field with no explanation reads as a bug.
+    key.isAmbiguous() -> stringResource(R.string.layout_editor_key_output_hint_letters)
     key.label.isNotBlank() ->
         stringResource(R.string.layout_editor_key_output_hint_typed, key.label)
     else -> stringResource(R.string.layout_editor_key_output_hint_none)
+}
+
+/**
+ * The letters one key stands for, for a board like T9 or Compact QWERTY where a
+ * key carries several of them and the app works out which was meant.
+ *
+ * This shipped as a field only the raw JSON could set (discussion #103), on the
+ * reasoning that puts flick maps and clipboard actions there: rare enough that a
+ * control would crowd the sheet. That reasoning was wrong here, and the
+ * difference is worth naming, because the same argument will come up again. A
+ * flick map is rare *and* discoverable: the layout that wants one is a kana pad,
+ * whose author already knows the word. An ambiguous key is rare and has no
+ * symptom. Give a key the label `QW` and the output `q`, which is exactly what
+ * the first person to try it did, and you get a board that looks finished, draws
+ * correctly, types `q` forever, and says nothing about why. There is no failure
+ * to search for. So the rule is not "how rare is it" but "what does a user see
+ * when they guess wrong", and a silent nothing puts the control on the sheet.
+ *
+ * Three things this does that the JSON could not:
+ *
+ * - It writes the anchor, through [Key.withLetters], so the invariant the decode
+ *   rests on cannot be broken from here at all.
+ * - It offers the letters to the press and hold popup. Without them an ambiguous
+ *   board has no way at all to spell a word the dictionary does not know, and
+ *   that is not a thing an author discovers by testing common words.
+ * - It says what the key now does in a sentence, where the JSON said it in a doc
+ *   comment on a field in a different repository.
+ */
+@Composable
+private fun LettersField(
+    key: Key,
+    ref: KeyRef,
+    onChange: ((Key) -> Key) -> Unit,
+    onAlternatesChanged: (List<String>) -> Unit,
+) {
+    // Held as text, like the alternates field: the store echoes the *cleaned*
+    // set back, so feeding the stored value straight in would fight a half-typed
+    // entry ("qw2" would lose the 2 as it was typed rather than on the way out).
+    var text by remember(ref) { mutableStateOf(key.letters.orEmpty()) }
+    val set = key.letters.orEmpty()
+    SheetField(
+        label = stringResource(R.string.layout_editor_key_letters_label),
+        value = text,
+        supporting = if (set.length > 1) {
+            stringResource(
+                R.string.layout_editor_key_letters_hint_set,
+                set.toList().joinToString(" "),
+                key.output.orEmpty(),
+            )
+        } else {
+            stringResource(R.string.layout_editor_key_letters_hint)
+        },
+        resetKey = ref,
+    ) { typed ->
+        text = typed
+        onChange { it.withLetters(typed) }
+    }
+
+    // Only once the key is actually ambiguous, and only while a letter of the
+    // set is missing from the popup. A button that is always there, on every
+    // ordinary key, would be a control for a problem almost nobody has.
+    val missing = set.takeIf { it.length > 1 }
+        ?.filter { letter -> key.longPress.none { it == letter.toString() } }
+        .orEmpty()
+    if (missing.isNotEmpty()) {
+        CaptionText(stringResource(R.string.layout_editor_key_letters_popup_notice))
+        // The letters go in after the first entry, which is the corner hint and
+        // on a keypad is the digit: that is the order the shipped T9 and Compact
+        // QWERTY keys use, and the hint is the one entry whose position shows on
+        // the key itself.
+        val added = key.longPress.take(1) + missing.map { it.toString() } + key.longPress.drop(1)
+        TextButton(
+            onClick = {
+                onAlternatesChanged(added)
+                onChange { it.copy(longPress = added) }
+            },
+            modifier = Modifier.padding(horizontal = 16.dp),
+        ) {
+            Text(stringResource(R.string.layout_editor_key_letters_popup_button))
+        }
+    }
 }
 
 /** Inline validity feedback for the icon / icon-hint name fields. */
@@ -4022,15 +4125,27 @@ private fun SheetField(
     value: String,
     supporting: String,
     resetKey: Any?,
+    /**
+     * False for a field whose value another field decides: it still says what
+     * the key will do, and the supporting text says which control moves it. The
+     * echo guard above is skipped while disabled, because nothing of ours is in
+     * flight and the incoming value is the only truth there is.
+     */
+    enabled: Boolean = true,
     onChange: (String) -> Unit,
 ) {
     var text by remember(resetKey) { mutableStateOf(value) }
     var pending by remember(resetKey) { mutableStateOf<String?>(null) }
     when {
+        !enabled -> {
+            pending = null
+            if (value != text) text = value
+        }
         pending == null -> if (value != text) text = value
         value == pending -> pending = null
     }
     OutlinedTextField(
+        enabled = enabled,
         value = text,
         onValueChange = {
             text = it

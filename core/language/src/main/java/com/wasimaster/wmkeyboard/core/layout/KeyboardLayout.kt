@@ -225,6 +225,40 @@ fun Key.letterSet(): String {
 fun Key.isAmbiguous(): Boolean = letterSet().length > 1
 
 /**
+ * This key rebuilt around the letter set [raw] spells, with the anchor invariant
+ * applied rather than assumed.
+ *
+ * The one place a letter set is ever set. Both callers need the same three
+ * things and neither can be trusted to remember them: the set holds letters and
+ * nothing else, it holds each of them once, and [Key.output] is its first
+ * member. That last one is the invariant the decode rests on — a tap commits the
+ * anchor, so the composing buffer stays one character per keystroke — and it was
+ * previously a rule written in a doc comment that the field's only author, a
+ * person hand-editing JSON, had to read and obey (discussion #103). A rule a
+ * caller can break is a rule that gets broken, so the rule now lives in the
+ * function that writes the field, and the editor and the repair pass both go
+ * through it.
+ *
+ * Letters are lowercased one character at a time, never with `lowercase()`,
+ * which is not always 1:1 (Turkish `İ` lowercases to two characters) and would
+ * quietly make the set longer than the label it came from.
+ *
+ * An empty result clears the field, which is what an ordinary key is.
+ */
+fun Key.withLetters(raw: String): Key {
+    val set = StringBuilder()
+    for (ch in raw) {
+        val letter = ch.lowercaseChar()
+        if (letter.isLetter() && letter !in set) set.append(letter)
+    }
+    return if (set.isEmpty()) {
+        copy(letters = null)
+    } else {
+        copy(letters = set.toString(), output = set.take(1).toString())
+    }
+}
+
+/**
  * Whether any key of this grid is ambiguous — whether the whole board needs the
  * key-set decode rather than reading its keystrokes literally.
  */

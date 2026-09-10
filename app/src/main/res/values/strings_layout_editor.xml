@@ -193,6 +193,21 @@
     <string name="layout_editor_key_output_hint_typed">Blank: this key types <xliff:g id="label" example="q">%1$s</xliff:g></string>
     <!-- Shown under the Output field of a text key that has no label either. -->
     <string name="layout_editor_key_output_hint_none">Give the key a label or an output. A key with neither types nothing. The app deletes it when you turn the layout on.</string>
+    <!-- Shown under the Output field of a key that stands for several letters,
+         where the output is the first of them and cannot be set on its own. -->
+    <string name="layout_editor_key_output_hint_letters">The letters below set this. It is always the first of them.</string>
+
+    <!-- A key can stand for more than one letter. A T9 key stands for a, b and
+         c; a compact keyboard key stands for q and w. The app reads the word
+         you typed to find out which letter you meant on each key. -->
+    <string name="layout_editor_key_letters_label">Letters this key stands for</string>
+    <string name="layout_editor_key_letters_hint">Blank: one letter, as usual. Give more than one, such as qw, and the app finds the word you meant from all the keys you pressed.</string>
+    <!-- %1$s is the set of letters with spaces between them, such as "q w".
+         %2$s is the letter the key types while you type the word. -->
+    <string name="layout_editor_key_letters_hint_set">This key stands for <xliff:g id="letters" example="q w">%1$s</xliff:g>. It types <xliff:g id="anchor" example="q">%2$s</xliff:g> while you type, and the app picks the word when you press space.</string>
+    <string name="layout_editor_key_letters_popup_notice">The press and hold popup does not hold these letters yet. It is the only way to spell a word that the app does not know.</string>
+    <string name="layout_editor_key_letters_popup_button">Put the letters in the popup</string>
+
     <string name="layout_editor_key_shift_label_label">Shift label</string>
     <string name="layout_editor_key_shift_label_hint">Blank: shift types the capital letter of the label</string>
 
