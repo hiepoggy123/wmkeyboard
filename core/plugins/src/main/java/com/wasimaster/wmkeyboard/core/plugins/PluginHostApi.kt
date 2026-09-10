@@ -40,6 +40,8 @@ class PluginHostApi(
     private val setInput: (String, String) -> Unit,
     /** True once this session has been abandoned; every call then refuses. */
     private val revoked: () -> Boolean,
+    /** Hears every `wm.log` line as it is written, for the plugin editor's console. */
+    private val onLine: (String) -> Unit = {},
 ) {
 
     companion object {
@@ -72,7 +74,9 @@ class PluginHostApi(
 
     private fun logLine(args: Varargs): Varargs {
         guard()
-        log.add(args.arg1().tojstring().take(PluginLog.MAX_LINE))
+        val line = args.arg1().tojstring().take(PluginLog.MAX_LINE)
+        log.add(line)
+        onLine(line)
         return LuaValue.NONE
     }
 
