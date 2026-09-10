@@ -1090,8 +1090,23 @@ private fun SettingsNavGraph(
         composable("plugin/{pluginId}") { entry ->
             val pluginId = entry.arguments?.getString("pluginId").orEmpty()
             SettingsScreen(stringResource(R.string.home_screen_plugin_title), { navController.popBackStack() }) {
-                PluginDetailScreen(pluginId) { navController.popBackStack() }
+                PluginDetailScreen(pluginId, onNavigate = { route -> navController.navigate(route) }) {
+                    navController.popBackStack()
+                }
             }
+        }
+        composable("plugin_ide") {
+            SettingsScreen(stringResource(R.string.plugin_ide_projects_title), { navController.popBackStack() }) {
+                PluginIdeProjectsScreen { route -> navController.navigate(route) }
+            }
+        }
+        // Its own Scaffold rather than SettingsScreen, for the room the code
+        // needs; AiChatScreen is the precedent.
+        composable("plugin_ide/{draftId}") { entry ->
+            PluginIdeScreen(
+                draftId = entry.arguments?.getString("draftId").orEmpty(),
+                onBack = { navController.popBackStack() },
+            )
         }
         // The optional `add` argument carries a repository URL from a
         // wmkeyboard://repo link; it pre-fills the add dialog, which is still

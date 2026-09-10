@@ -109,6 +109,8 @@ internal object SettingsRoutes {
         "vocab/word/{packId}/{word}",
         "plugins",
         "plugin/{pluginId}",
+        "plugin_ide",
+        "plugin_ide/{draftId}",
         "addons",
         "addon_repo/{repoUrl}",
         "addon/{repoUrl}/{addonId}",

@@ -33,6 +33,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginLog
 import com.wasimaster.wmkeyboard.core.plugins.PluginManifestResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginStorage
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
+import com.wasimaster.wmkeyboard.core.plugins.PluginWorkspace
 import com.wasimaster.wmkeyboard.core.plugins.resolve
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import kotlinx.coroutines.CoroutineScope
@@ -121,6 +122,19 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
         item { PluginFact(stringResource(R.string.plugins_fact_no_internet), allowed = false) }
         item { PluginFact(stringResource(R.string.plugins_fact_own_panel), allowed = true) }
         item { PluginFact(stringResource(R.string.plugins_fact_own_storage), allowed = true) }
+    }
+
+    // Outside the master switch on purpose: writing and previewing a plugin runs
+    // nothing in the keyboard, and a plugin can be written before plugins are on.
+    SettingsGroup(stringResource(R.string.plugin_ide_group_title)) {
+        item {
+            WmRow(
+                title = stringResource(R.string.plugin_ide_entry_title),
+                subtitle = stringResource(R.string.plugin_ide_entry_subtitle),
+                trailing = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
+                onClick = { onNavigate("plugin_ide") },
+            )
+        }
     }
 
     if (enabled) {
@@ -231,13 +245,15 @@ private fun PluginFact(text: String, allowed: Boolean) {
 
 /** One plugin: what it may do, what it has stored, its log, and how to remove it. */
 @Composable
-internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
+internal fun PluginDetailScreen(pluginId: String, onNavigate: (String) -> Unit, onBack: () -> Unit) {
     val context = LocalContext.current
     val store = remember { PluginStore.get(context) }
     val revision by store.revision.collectAsStateWithLifecycle()
     val plugin = remember(revision) { store.plugin(pluginId) }
     var refresh by remember { mutableIntStateOf(0) }
     var confirmUninstall by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val editError = stringResource(R.string.plugin_ide_edit_error)
 
     if (plugin == null) {
         Column { CaptionText(stringResource(R.string.plugins_detail_missing)) }
@@ -286,6 +302,25 @@ internal fun PluginDetailScreen(pluginId: String, onBack: () -> Unit) {
                 checked = plugin.enabled,
                 enabled = subsystemOn,
             ) { store.setEnabled(pluginId, it) }
+        }
+        item {
+            WmRow(
+                title = stringResource(R.string.plugin_ide_edit_title),
+                subtitle = stringResource(R.string.plugin_ide_edit_subtitle),
+                trailing = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
+                onClick = {
+                    scope.launch {
+                        val draftId = withContext(Dispatchers.IO) {
+                            draftForInstalled(PluginWorkspace.get(context), store, pluginId)
+                        }
+                        if (draftId != null) {
+                            onNavigate("plugin_ide/$draftId")
+                        } else {
+                            android.widget.Toast.makeText(context, editError, android.widget.Toast.LENGTH_LONG).show()
+                        }
+                    }
+                },
+            )
         }
     }
 
