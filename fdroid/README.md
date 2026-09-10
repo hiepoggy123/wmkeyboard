@@ -165,14 +165,13 @@ Exchange rates needed no instance to point at, because two of their sources are
 free end to end: currency-api (`fawazahmed0/exchange-api`) publishes CC0 tables
 built by a public script, for fiat and coins alike, and Frankfurter is MIT and
 serves European Central Bank rates. This file used to say coins had no free
-source; that was wrong, currency-api always carried them. After 0.5.6 the
+source; that was wrong, currency-api always carried them. From 0.5.7 the
 F-Droid build starts from those two (`CurrencyClient.Provider.fiatDefaults`,
 `cryptoDefaults`), and a currency or weather chip on the suggestion strip waits
 for a tap before it fetches anything (`RateSourceSettings.autoFetch` and
 `WeatherSettings.autoFetch`, both off on F-Droid).
 ExchangeRate-API, Coinbase and CoinGecko stay selectable, which is the same
-additive shape as the other tools. The 0.5.6 build this recipe names still
-starts from them.
+additive shape as the other tools.
 
 One thing still reaches a service with no free instance to swap in, inside an
 optional feature that works without it: the **Keyman layout catalogue**
@@ -189,7 +188,7 @@ alternative, publicly available, self-hostable server solution". Wikipedia's own
 app carries it because wikipedia.org is hardcoded, although MediaWiki is free
 software.
 
-So from the release after 0.5.6, every address this build calls is a setting.
+So from 0.5.7, every address this build calls is a setting.
 **Advanced › Servers** lists all of them, and each tool's own page shows the same
 fields:
 
