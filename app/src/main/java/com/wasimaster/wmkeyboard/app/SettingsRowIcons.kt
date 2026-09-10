@@ -275,6 +275,7 @@ internal object SettingsRowIcons {
         put(R.string.about_licence_title) { Icons.Outlined.Gavel }
         put(R.string.about_licences_title) { Icons.Outlined.Gavel }
         put(R.string.about_source_title) { Icons.Outlined.Code }
+        put(R.string.about_launcher_name_title) { Icons.AutoMirrored.Outlined.ShortText }
         put(R.string.about_user_guide_title) { Icons.AutoMirrored.Outlined.MenuBook }
         put(R.string.about_privacy_policy_title) { Icons.Outlined.PrivacyTip }
         put(R.string.about_storage_title) { Icons.Outlined.PieChart }

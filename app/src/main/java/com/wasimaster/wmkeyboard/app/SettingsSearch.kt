@@ -1508,6 +1508,7 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
         about(R.string.about_version_title),
         about(R.string.about_licence_title),
         about(R.string.about_source_title),
+        about(R.string.about_launcher_name_title, R.string.about_launcher_name_subtitle),
         // Open-source licences has its own screen, indexed once in sectionRows.
         about(R.string.about_user_guide_title),
         about(R.string.about_privacy_policy_title, R.string.about_privacy_policy_subtitle),

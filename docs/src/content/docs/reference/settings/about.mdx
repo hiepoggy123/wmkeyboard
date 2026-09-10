@@ -21,11 +21,12 @@ The **Share** group at the top has up to three rows: **Share the Play Store link
 
 ## Checking version, licence, and source
 
-The **App** group holds eight rows:
+The **App** group holds nine rows:
 
 - **Version** shows the edition, build type and store channel as its subtitle ("Full build (release · Play Store)", or "Lite build (debug)" on something you sideloaded), with the build number after "code," and the version name as the row's trailing value. It navigates nowhere, but it isn't quite inert. Tap it seven times and you get [the hidden mini game](/reference/easter-eggs/#find-the-hidden-mini-game), with a toast counting you down from the fourth tap.
 - **Licence** shows "MIT, © 2026 Wasi Master" and opens the app's own MIT licence text in full underneath it, monospaced and horizontally scrollable.
 - **Source code** opens the GitHub repository directly in your browser; unlike the Share rows above, this one navigates immediately rather than opening a share sheet.
+- **Short app name** is a switch, off by default. Turn it on and your app drawer and home screen call the app **WMK** instead of **WM Keyboard**, so a narrow launcher grid doesn't cut the name short. See [Changing the name under the icon](#changing-the-name-under-the-icon).
 - **Storage** opens the [storage screen](#seeing-what-the-app-is-using) below, which is where you see what the app keeps on your device and delete any of it.
 - **Statistics** opens [Statistics](/reference/settings/statistics/): how much you type, day by day, plus the switch that turns the counting off.
 - **Diagnostics** opens the [diagnostics screen](#diagnosing-a-problem) covered below.
@@ -33,6 +34,19 @@ The **App** group holds eight rows:
 - **Run setup again** walks you back through the first-run wizard. A replay changes nothing on its own, so your settings stay as they are. See [Running it again](/start/setup/#running-it-again).
 
 Underneath the group, a caption spells out what the MIT licence means in practice: you can use, modify, and redistribute the app, provided the copyright notice and licence text travel with it.
+
+### Changing the name under the icon
+
+**Short app name** changes one label: the name your launcher shows under the icon, in the app drawer and on the home screen. Everything else keeps the full name, WM Keyboard. That includes the Android app settings, the list of keyboards, notifications, and the Play Store and F-Droid listings.
+
+A few things happen when you flip it:
+
+- If you opened the app from its icon, the About screen opens again, with the switch highlighted. Android closes an app when the icon it was opened from goes away, so the app reopens itself before that happens. If you came in from the keyboard's own settings button, nothing reopens.
+- Your launcher can take a few seconds to show the new name.
+- Most launchers move a home-screen icon over to the new name. If yours removes it instead, add it again from the app drawer.
+- The long-press shortcuts on the icon (Themes, Languages and the rest) stay the same under either name.
+
+The choice is kept by Android rather than in the app's settings, so it survives updates but doesn't travel in a settings export or a backup. Resetting the row puts the full name back.
 
 ## Updating the app
 
@@ -155,7 +169,13 @@ The **app log** itself is a free-text filter field plus one level chip per sever
 
 ## Options
 
-There are only three switches in this whole tree. Everything else is either a display-only row (Version, Dictionaries) or a read-only browser (the licence and diagnostics screens).
+There are only four switches in this whole tree. Everything else is either a display-only row (Version, Dictionaries) or a read-only browser (the licence and diagnostics screens).
+
+<SettingsPath path="About" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Short app name | Toggle | **Off** |
 
 <SettingsPath path="About / Updates" />
 

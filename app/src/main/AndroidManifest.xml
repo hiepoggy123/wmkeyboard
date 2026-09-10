@@ -163,16 +163,14 @@
              singleTop so a second deep link reaches the running instance
              through onNewIntent instead of stacking another copy of the
              settings app on top of the first.
+
+             No MAIN/LAUNCHER filter here: the launcher entry is one of the two
+             activity-aliases below, so the name under the icon can change.
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.MainActivity"
             android:exported="true"
             android:launchMode="singleTop">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-
             <!--
                  Addon deep links: wmkeyboard://addons, wmkeyboard://repo?url=…
                  and wmkeyboard://addon?repo=…&id=…. A custom scheme rather than
@@ -213,19 +211,58 @@
                 <data android:scheme="wmkeyboard" android:host="settings" />
                 <data android:scheme="wmkeyboard" android:host="setting" />
             </intent-filter>
+        </activity>
 
-            <!--
-                 Long-press the launcher icon → straight into a settings screen.
-                 Static shortcuts, so the platform publishes them at install
-                 time and there is no ShortcutManager code to keep in step. The
-                 shortcut intents are explicit (they name this class) and carry
-                 the same wmkeyboard://settings links as the filter above. See
-                 res/xml/shortcuts.xml and app/SettingsDeepLink.kt.
-            -->
+        <!--
+             The launcher entry, twice: once named "WM Keyboard" and once "WMK"
+             (#140). A launcher shows the label of the activity it starts, and
+             a manifest label cannot change at runtime, so each name is its own
+             alias of MainActivity and exactly one of them is enabled. The About
+             screen's "Short app name" switch flips which (app/LauncherName.kt).
+             The application label above, which Android's app settings, the
+             keyboard list and every store read, stays "WM Keyboard".
+
+             Both names are stored state. PackageManager keeps the enabled state
+             per component name, and launchers pin a home-screen icon by it, so
+             renaming either alias strands everyone who switched. An alias must
+             also follow its target in this file. LauncherNameTest holds both.
+
+             Long-press the launcher icon → straight into a settings screen.
+             Static shortcuts, so the platform publishes them at install time
+             and there is no ShortcutManager code to keep in step. Android reads
+             them off the enabled launcher entry, hence one copy per alias. The
+             shortcut intents are explicit (they name MainActivity) and carry
+             the same wmkeyboard://settings links as the filter above. See
+             res/xml/shortcuts.xml and app/SettingsDeepLink.kt.
+        -->
+        <activity-alias
+            android:name="com.wasimaster.wmkeyboard.app.LauncherFullName"
+            android:enabled="true"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:targetActivity="com.wasimaster.wmkeyboard.app.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
-        </activity>
+        </activity-alias>
+        <activity-alias
+            android:name="com.wasimaster.wmkeyboard.app.LauncherShortName"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/app_name_short"
+            android:targetActivity="com.wasimaster.wmkeyboard.app.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
 
         <!--
              Where an opened .wmtheme.json / .wmlayout.json / .wmsettings.json /

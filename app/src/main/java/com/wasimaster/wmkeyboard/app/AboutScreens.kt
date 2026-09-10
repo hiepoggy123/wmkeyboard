@@ -585,6 +585,11 @@ internal fun AboutSettings(
     var versionTaps by remember { mutableIntStateOf(0) }
     var versionTapToast by remember { mutableStateOf<Toast?>(null) }
 
+    // The launcher's name for the app lives in PackageManager, not in
+    // settings (see LauncherName), and nothing else changes it while this
+    // screen is open, so one read per visit is the truth.
+    var shortName by remember { mutableStateOf(LauncherName.isShort(context)) }
+
     SettingsGroup(
         stringResource(R.string.about_app_title),
         info = stringResource(R.string.about_free_software_body),
@@ -635,6 +640,19 @@ internal fun AboutSettings(
             ) {
                 uriHandler.openUri(SOURCE_URL)
             }
+        }
+        item {
+            ToggleSetting(
+                R.string.about_launcher_name_title,
+                stringResource(R.string.about_launcher_name_subtitle),
+                checked = shortName,
+                info = stringResource(R.string.about_launcher_name_info),
+                default = LauncherName.DEFAULT_SHORT,
+                onChange = {
+                    shortName = it
+                    LauncherName.setShort(context, it)
+                },
+            )
         }
         item {
             NavRow(

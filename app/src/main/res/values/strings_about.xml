@@ -22,6 +22,10 @@
     <string name="about_version_subtitle"><xliff:g id="flavour" example="Full">%1$s</xliff:g> build (<xliff:g id="build_type" example="release">%2$s</xliff:g><xliff:g id="channel" example=" · Play Store">%3$s</xliff:g>) · code <xliff:g id="version_code" example="3">%4$d</xliff:g></string>
     <string name="about_licence_title">Licence</string>
     <string name="about_source_title">Source code</string>
+    <!-- The switch that renames the launcher entry (#140). The names in quotes are app_name_short and app_name. -->
+    <string name="about_launcher_name_title">Short app name</string>
+    <string name="about_launcher_name_subtitle">Show \"WMK\" under the app icon, not \"WM Keyboard\"</string>
+    <string name="about_launcher_name_info">This changes only the name under the icon, in your app drawer and on your home screen. Everywhere else, such as the Android app settings, the keyboard list and the app stores, the app keeps its full name. If you opened the app from its icon, this screen opens again when you change the name. Your launcher can take a few seconds to show the new name. If the icon goes from your home screen, add it again from the app drawer.</string>
     <string name="about_diagnostics_title">Diagnostics</string>
     <string name="about_diagnostics_subtitle">A record of what the keyboard did. Read it, or send it with a bug report</string>
     <string name="about_persona_title">How you set the keyboard up</string>

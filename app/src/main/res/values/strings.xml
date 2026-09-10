@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">WM Keyboard</string>
+    <!-- The launcher label when About › Short app name is on (#140). A name,
+         not a word, so no language translates it. -->
+    <string name="app_name_short" translatable="false">WMK</string>
     <string name="ime_name">WM Keyboard</string>
     <!-- Play's name for the on-demand AI-runtime module (:feature:llm);
          surfaces in Play's download UI and settings. Lives here because a
