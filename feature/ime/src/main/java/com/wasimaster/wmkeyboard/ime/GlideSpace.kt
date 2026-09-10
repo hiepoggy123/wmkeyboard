@@ -31,9 +31,23 @@ import kotlin.math.hypot
  * The slash is here rather than only in the URL list: "and/or", "he/she" and
  * "24/7" are prose, and a slash typed straight after a word is joining it to
  * the next one far more often than it is standing between two spaced phrases.
+ *
+ * The apostrophe, the dashes, the backslash and the underscore joined it on the
+ * same argument (issue #123): every one of them typed straight after a word is
+ * building one longer word — "hello's", "well-known", "snake_case" — far more
+ * often than it is standing between two spaced ones. The spaced reading is
+ * still one keypress away, since a space typed after the mark is the user's own
+ * and nothing takes it back.
+ *
+ * `#` and `@` are deliberately absent, and they are the reason this list is not
+ * simply "every mark". Those two attach to what comes *after* them: "check this
+ * #cool" and "ask @wasi" both want the space in front kept. They are in
+ * [WORD_OPENERS] instead, which is the same statement pointing the other way.
  */
-private val AUTO_SPACE_SWALLOWERS =
-    charArrayOf('.', '!', '?', '।', ',', ';', ':', ')', ']', '}', '”', '…', '%', '/')
+private val AUTO_SPACE_SWALLOWERS = charArrayOf(
+    '.', '!', '?', '।', ',', ';', ':', ')', ']', '}', '”', '…', '%',
+    '/', '\\', '\'', '’', '-', '–', '—', '_',
+)
 
 /**
  * Quote characters that stand for both ends of a quotation, so whether they
@@ -50,11 +64,11 @@ private val AMBIGUOUS_QUOTES = charArrayOf('"')
 /**
  * The marks that join the list in a URL field, where a glided word is a host
  * or a path segment rather than a word in a sentence: "example" then "#" is
- * "example#", never "example #". The dash is here and not in the prose list
- * because "my-site" is a hostname while "hello - world" is a sentence.
+ * "example#", never "example #". `#` and `@` are here and not in the prose list
+ * because a fragment and a user part are inside one address, while a hashtag
+ * and a mention start a new word.
  */
-private val URI_AUTO_SPACE_SWALLOWERS =
-    charArrayOf('#', '&', '=', '@', '-', '_', '+', '~')
+private val URI_AUTO_SPACE_SWALLOWERS = charArrayOf('#', '&', '=', '@', '+', '~')
 
 /**
  * Marks a glided word starts straight after, with no space between: the openers,
@@ -65,8 +79,16 @@ private val URI_AUTO_SPACE_SWALLOWERS =
  * `he said "` then a glided "hello" gave `he said " hello` (issue #34). The
  * straight double quote is absent for the usual reason: it is both ends of a
  * quotation, and [spacesBeforeGlidedWord] asks [closesQuote] which one it is.
+ *
+ * `#` and `@` are here rather than in [WORD_JOINERS] because they attach
+ * forward whatever stands behind them: "check this #" then a glided "cool" is
+ * "#cool", and the space in front of the hash is the one that belongs (issue
+ * #123). The apostrophes are here for the same reason from the other end —
+ * "he said '" opens a quotation and "don'" is a contraction, and neither wants
+ * a space after it.
  */
-private val WORD_OPENERS = charArrayOf('(', '[', '{', '“', '‘', '«', '¿', '¡')
+private val WORD_OPENERS =
+    charArrayOf('(', '[', '{', '“', '‘', '«', '¿', '¡', '#', '@', '\'', '’')
 
 /**
  * Marks that hold two words together rather than standing between them, so a
@@ -78,8 +100,13 @@ private val WORD_OPENERS = charArrayOf('(', '[', '{', '“', '‘', '«', '¿', 
  * the space in front of it is what tells the two apart: a mark with a word up
  * against it is building one long word, and a mark with a space in front of it
  * is standing on its own between two.
+ *
+ * Most of these also take the space in front of them back
+ * ([AUTO_SPACE_SWALLOWERS]), so the attached reading is the one a glided word
+ * plus a typed mark lands in by itself, and the spaced one is what a user gets
+ * by typing the space that says so.
  */
-private val WORD_JOINERS = charArrayOf('/', '\\', '#', '&', '=', '@', '-', '_', '+', '~')
+private val WORD_JOINERS = charArrayOf('/', '\\', '&', '=', '-', '–', '—', '_', '+', '~')
 
 /**
  * Whether a glided word landing at the end of [textBefore] earns the space a

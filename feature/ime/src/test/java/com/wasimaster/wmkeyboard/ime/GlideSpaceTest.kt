@@ -96,10 +96,13 @@ class GlideSpaceTest {
     }
 
     @Test
-    fun `an apostrophe keeps the space`() {
-        // It is a letter inside a word ("don't"), so counting its appearances
-        // says nothing about which end of a quotation the next one is.
-        assertFalse(swallowsAutoSpace("'") { "don't " })
+    fun `an apostrophe hugs the word without being counted`() {
+        // It hugs for the possessive it almost always is (#123), but it stays
+        // out of AMBIGUOUS_QUOTES: it is a letter inside a word ("don't"), so
+        // counting its appearances says nothing about which end of a quotation
+        // the next one is. The answer here does not depend on the text at all.
+        assertTrue(swallowsAutoSpace("'") { "don't " })
+        assertTrue(swallowsAutoSpace("'") { "he said 'hi' " })
     }
 
     @Test
@@ -109,9 +112,10 @@ class GlideSpaceTest {
     }
 
     @Test
-    fun `a dash keeps the space`() {
-        // "hello - world" is the common intent; "hello- world" is not.
-        assertFalse(swallowsAutoSpace("-"))
+    fun `a dash hugs the word`() {
+        // "well-known" is the common intent (#123). "hello - world" is still
+        // one space press away, and that space is the user's own.
+        assertTrue(swallowsAutoSpace("-"))
     }
 
     @Test
@@ -131,7 +135,7 @@ class GlideSpaceTest {
 
     @Test
     fun `url separators keep the space in a text field`() {
-        for (mark in listOf("#", "&", "=", "@", "-", "_", "+", "~")) {
+        for (mark in listOf("#", "&", "=", "@", "+", "~")) {
             assertFalse(mark, swallowsAutoSpace(mark, FieldKind.TEXT))
         }
     }
@@ -140,6 +144,24 @@ class GlideSpaceTest {
     fun `a slash hugs the word in prose too`() {
         // "and/or" and "24/7" are prose, not addresses (#34 follow-up).
         assertTrue(swallowsAutoSpace("/", FieldKind.TEXT))
+    }
+
+    @Test
+    fun `the word-building marks hug the word in prose`() {
+        // "hello's", "well-known", "snake_case" (#123).
+        for (mark in listOf("'", "\u2019", "-", "\u2013", "\u2014", "\\", "_")) {
+            assertTrue(mark, swallowsAutoSpace(mark, FieldKind.TEXT))
+        }
+    }
+
+    @Test
+    fun `a hashtag and a mention keep the space in prose`() {
+        // They attach to the word after them: "check this #cool" (#123).
+        assertFalse(swallowsAutoSpace("#", FieldKind.TEXT))
+        assertFalse(swallowsAutoSpace("@", FieldKind.TEXT))
+        // Inside an address the same two are one more part of it.
+        assertTrue(swallowsAutoSpace("#", FieldKind.URI))
+        assertTrue(swallowsAutoSpace("@", FieldKind.URI))
     }
 
     @Test
@@ -169,8 +191,12 @@ class GlideSpaceTest {
 
     @Test
     fun `a glided word after an opener goes against it`() {
-        // `(hello`, not `( hello` (#34 follow-up).
-        for (opener in listOf("(", "[", "{", "\u201c", "\u2018", "\u00ab", "\u00bf", "\u00a1")) {
+        // `(hello`, not `( hello` (#34 follow-up). The hashtag, the mention and
+        // the apostrophes are openers too: they attach forward whatever stands
+        // behind them, so `check this #` then a glide is `#cool` (#123).
+        val openers =
+            listOf("(", "[", "{", "\u201c", "\u2018", "\u00ab", "\u00bf", "\u00a1", "#", "@", "'", "\u2019")
+        for (opener in openers) {
             assertFalse(opener, spacesBeforeGlidedWord("he said $opener"))
         }
     }
@@ -203,7 +229,7 @@ class GlideSpaceTest {
     fun `a glided word joins a mark that is joined to the word before it`() {
         // The reported case: `The/` then a glided "And" is `The/And`.
         assertFalse(spacesBeforeGlidedWord("The/"))
-        for (joiner in listOf("/", "\\", "#", "&", "=", "@", "-", "_", "+", "~")) {
+        for (joiner in listOf("/", "\\", "&", "=", "-", "\u2013", "\u2014", "_", "+", "~")) {
             assertFalse(joiner, spacesBeforeGlidedWord("well$joiner"))
         }
     }
@@ -220,9 +246,8 @@ class GlideSpaceTest {
     fun `a joiner with nothing at all in front of it takes no space`() {
         // Nothing to be separated from, and nothing it is attached to either.
         assertFalse(spacesBeforeGlidedWord("/"))
-        // A line break in front of it reads as a mark standing on its own,
-        // which is what a markdown heading is.
-        assertTrue(spacesBeforeGlidedWord("hello\n#"))
+        // A line break in front of one reads as a mark standing on its own.
+        assertTrue(spacesBeforeGlidedWord("hello\n-"))
     }
 
     @Test

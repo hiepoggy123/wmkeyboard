@@ -1615,6 +1615,18 @@ open class WMKeyboardService : InputMethodService() {
     private var pendingWordSpace = false
 
     /**
+     * Whether the colon that opened the inline emoji query took a space back on
+     * its way in, so a completed shortcode can hand it to the emoji.
+     *
+     * Lives across the whole query rather than one keystroke, because that is
+     * how long the question stays open: `:tada:` is six presses, and only the
+     * last one knows whether this was a search or a colon. It is written on
+     * every open, so a query that ends any other way leaves nothing behind that
+     * the next one reads.
+     */
+    private var emojiQueryAteSpace = false
+
+    /**
      * Live-preview requests from a glide in progress. Conflated: a preview that
      * has not started yet is worth nothing once a newer one exists, and a swipe
      * issues one every 40 ms. One long-lived consumer drains it, in place of
@@ -5820,6 +5832,15 @@ open class WMKeyboardService : InputMethodService() {
             (!state.composer.isClusterShaping || composing.isNotEmpty()) &&
             (state.composer.isTransliterating || state.composesForSuggestions)
 
+        // Before any of the branches below, because three of them write text and
+        // each used to answer this differently: the colon went to the emoji
+        // search, the apostrophe went into the composing buffer as a word
+        // character, and only the third took the space back. A mark that hugs
+        // the word in front of it hugs it whichever path it leaves by
+        // (issue #123). Letters and digits are not marks, so a word typed after
+        // a glide keeps its space exactly as before.
+        val ateAutoSpace = takeBackAutoSpace(ic, text, state, followsWordSpace)
+
         // ":" on a word boundary opens inline emoji search: the colon and the
         // letters after it go into the composing buffer, and refreshSuggestions
         // turns that buffer into emoji instead of words. Nothing else needs to
@@ -5828,6 +5849,10 @@ open class WMKeyboardService : InputMethodService() {
         if (state.settings.suggestionSources.inlineEmojiSearch && text == ":" &&
             composing.isEmpty() && composingMode
         ) {
+            // Which of the two this colon turns out to be is not knowable yet,
+            // so the space above is taken now and handed back if a shortcode
+            // does complete.
+            emojiQueryAteSpace = ateAutoSpace
             commitComposing(ic, autocorrect = false)
             appendComposing(text)
             updateComposingText(ic)
@@ -5845,7 +5870,12 @@ open class WMKeyboardService : InputMethodService() {
             if (emoji != null) {
                 revision = null
                 composing = StringBuilder()
-                ic.commitText(applyEmojiTone(emoji), 1)
+                // The query turned out to be a search after all, so the space
+                // the opening colon took back belongs to the emoji: ":tada:"
+                // after a glided word is "hello 🎉", not "hello🎉".
+                val restored = if (emojiQueryAteSpace) " " else ""
+                emojiQueryAteSpace = false
+                ic.commitText(restored + applyEmojiTone(emoji), 1)
                 learnEmoji(emoji)
                 recordEmojiUse(emoji)
                 _uiState.update {
@@ -5874,16 +5904,6 @@ open class WMKeyboardService : InputMethodService() {
             // of those is not what anybody typed.
             val endsWord = text.length == 1 &&
                 (text[0] in SENTENCE_ENDERS || text[0] in AUTO_SPACE_PUNCTUATION)
-            // The space in front of the caret was the keyboard's, not the
-            // user's: a mark landing on it belongs to the word ("hello." not
-            // "hello ."), so it comes back out before the mark commits. Done
-            // ahead of the pattern expansion below, which reads the text behind
-            // the caret. A user's own space is left alone — theirs to keep.
-            if (followsWordSpace && swallowsAutoSpace(text, state.fieldKind) { quoteContext(ic) }) {
-                if (ic.getTextBeforeCursor(1, 0)?.toString() == " ") {
-                    ic.deleteSurroundingText(1, 0)
-                }
-            }
             commitComposing(ic, autocorrect = false, expandPatterns = endsWord)
             if (swallowTerminatorAfterCommit) {
                 swallowTerminatorAfterCommit = false
@@ -5971,6 +5991,31 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun quoteContext(ic: InputConnection): String =
         ic.getTextBeforeCursor(QUOTE_CONTEXT_CHARS, 0)?.toString().orEmpty()
+
+    /**
+     * Takes back the space in front of the caret when [text] is a mark that
+     * hugs the word before it, and says whether it removed one.
+     *
+     * The space in front of the caret was the keyboard's, not the user's: a
+     * mark landing on it belongs to the word ("hello." not "hello ."), so it
+     * comes back out before the mark commits. A user's own space is left alone,
+     * which is what [follows] carries — theirs to keep.
+     *
+     * A method rather than four lines inline because the inline emoji search
+     * takes the colon on its own path, and a colon that hugs on one path and
+     * floats on the other is the whole of issue #123.
+     */
+    private fun takeBackAutoSpace(
+        ic: InputConnection,
+        text: String,
+        state: KeyboardUiState,
+        follows: Boolean,
+    ): Boolean {
+        if (!follows || !swallowsAutoSpace(text, state.fieldKind) { quoteContext(ic) }) return false
+        if (ic.getTextBeforeCursor(1, 0)?.toString() != " ") return false
+        ic.deleteSurroundingText(1, 0)
+        return true
+    }
 
     /**
      * The Fancy Text style in force, or null everywhere outside the fancy
