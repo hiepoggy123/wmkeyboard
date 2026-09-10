@@ -1464,6 +1464,13 @@ internal fun KeyLayoutEditorScreen(
         tabletGridWidth(layout.compile(LayoutLayer.LETTERS), DeviceForm.LARGE_TABLET) != null
     }
 
+    // The grid is pinned under the bar, so the one line saying its keys can be
+    // pressed goes first in the body, directly under it. It used to sit below
+    // the name, theme and language rows and the layer chips, off the bottom of
+    // the screen on arrival, and a reader looking at the grid had no way to
+    // learn it was anything but a picture (issue #139).
+    CaptionText(stringResource(R.string.layout_editor_drag_caption))
+
     SectionHeaderPublic(layout.name)
 
     // A layout's identity: its name, the language it counts as, and the
@@ -1774,8 +1781,6 @@ internal fun KeyLayoutEditorScreen(
             )
         }
     }
-
-    CaptionText(stringResource(R.string.layout_editor_drag_caption))
 
     if (panelKind != null) {
         val shared = requireNotNull(sharedPanelGrid)
