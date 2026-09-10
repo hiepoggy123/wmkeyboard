@@ -335,6 +335,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
     var suggestRequests by remember { mutableStateOf(0) }
+    var preludeLine by remember { mutableStateOf<Int?>(null) }
     var textSize by rememberSaveable { mutableStateOf(DEFAULT_TEXT_SIZE) }
     var autoRun by rememberSaveable { mutableStateOf(true) }
     // The text the plugin last ran, typed or pressed, so a pause does not run it again.
@@ -668,7 +669,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                 Box(Modifier.fillMaxWidth().fillMaxHeight(PANEL_FRACTION)) {
                     when (panel) {
                         IdePanel.PREVIEW -> PreviewPane(preview, previewState, autoRun, { autoRun = it }, renderHistory)
-                        IdePanel.CONSOLE -> ConsolePane(preview, previewState.consoleRevision) { line ->
+                        IdePanel.CONSOLE -> ConsolePane(preview, previewState.consoleRevision, { preludeLine = it }) { line ->
                             editor.moveTo(offsetOfLine(editor.text, line - 1))
                         }
                         IdePanel.PROBLEMS -> ProblemsPane(diagnostics, lineStarts) { range -> editor.select(range) }
@@ -762,6 +763,8 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
         )
     }
 
+    preludeLine?.let { line -> PreludeDialog(line) { preludeLine = null } }
+
     if (detailsOpen) {
         PluginDetailsDialog(
             manifest = ide.manifest,
@@ -776,6 +779,9 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
 
 /** The chunk name the runtime gives the plugin's own script. */
 private const val MAIN_CHUNK = "main.lua"
+
+/** The chunk name the runtime gives the prelude that runs before every plugin. */
+private const val PRELUDE_CHUNK = "prelude.lua"
 
 /** How much of the screen the panel under the code takes when it is open. */
 private const val PANEL_FRACTION = 0.42f
@@ -936,7 +942,7 @@ private fun PreviewPane(
 
 /** What the plugin printed, where it failed and when it stopped, oldest first. */
 @Composable
-private fun ConsolePane(preview: PluginPreviewSession, revision: Int, onJump: (Int) -> Unit) {
+private fun ConsolePane(preview: PluginPreviewSession, revision: Int, onPrelude: (Int) -> Unit, onJump: (Int) -> Unit) {
     val entries = remember(revision) { preview.console() }
     val list = rememberLazyListState()
     LaunchedEffect(entries.size) {
@@ -960,13 +966,13 @@ private fun ConsolePane(preview: PluginPreviewSession, revision: Int, onJump: (I
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
         ) {
-            items(entries) { entry -> ConsoleLine(entry, onJump) }
+            items(entries) { entry -> ConsoleLine(entry, onPrelude, onJump) }
         }
     }
 }
 
 @Composable
-private fun ConsoleLine(entry: PluginPreviewSession.ConsoleEntry, onJump: (Int) -> Unit) {
+private fun ConsoleLine(entry: PluginPreviewSession.ConsoleEntry, onPrelude: (Int) -> Unit, onJump: (Int) -> Unit) {
     val context = LocalContext.current
     val words = when (entry.kind) {
         PluginPreviewSession.ConsoleEntry.Kind.STARTED -> stringResource(R.string.plugin_ide_console_started)
@@ -979,10 +985,17 @@ private fun ConsoleLine(entry: PluginPreviewSession.ConsoleEntry, onJump: (Int) 
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     val line = entry.line?.takeIf { entry.chunk == MAIN_CHUNK }
+    val preludeLine = entry.line?.takeIf { entry.chunk == PRELUDE_CHUNK }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (line != null) Modifier.clickable { onJump(line) } else Modifier)
+            .then(
+                when {
+                    line != null -> Modifier.clickable { onJump(line) }
+                    preludeLine != null -> Modifier.clickable { onPrelude(preludeLine) }
+                    else -> Modifier
+                },
+            )
             .padding(vertical = 2.dp),
         verticalAlignment = Alignment.Top,
     ) {
@@ -993,6 +1006,14 @@ private fun ConsoleLine(entry: PluginPreviewSession.ConsoleEntry, onJump: (Int) 
             color = colour,
             modifier = Modifier.weight(1f),
         )
+        if (preludeLine != null) {
+            Text(
+                stringResource(R.string.plugin_ide_console_prelude_line_label, preludeLine),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 8.dp),
+            )
+        }
         if (line != null) {
             Text(
                 stringResource(R.string.plugin_ide_console_line_label, line),

@@ -217,4 +217,9 @@
         <item quantity="other">Send %1$d earlier events again</item>
     </plurals>
 
+    <!-- A console line for a failure inside the prelude, the code every plugin runs first. %1$d is the line number there. -->
+    <string name="plugin_ide_console_prelude_line_label">Prelude line %1$d</string>
+    <string name="plugin_ide_prelude_title">The prelude</string>
+    <string name="plugin_ide_prelude_caption">Every plugin runs this code before its own script, to make the ui helpers. It cannot be changed.</string>
+
 </resources>
