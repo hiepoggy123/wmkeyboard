@@ -468,7 +468,7 @@ private fun legibleOn(background: Color, candidates: List<Color>): Color =
  * often flatten those to near-identical tones, which is exactly the washed
  * out look this replaces.
  */
-private fun defaultKbTheme(
+internal fun defaultKbTheme(
     scheme: ColorScheme,
     dark: Boolean,
     amoled: Boolean,

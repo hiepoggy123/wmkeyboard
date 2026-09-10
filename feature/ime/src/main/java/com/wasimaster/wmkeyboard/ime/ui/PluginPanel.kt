@@ -288,7 +288,10 @@ private fun RunningPlugin(
  * functions rather than copies of them.
  */
 @Composable
-private fun rememberKeyboardPluginStyle(kb: KbTheme): PluginPanelStyle = remember(kb) {
+private fun rememberKeyboardPluginStyle(kb: KbTheme): PluginPanelStyle = remember(kb) { keyboardPluginStyle(kb) }
+
+/** The style [rememberKeyboardPluginStyle] remembers, built without a composition so a test can check each colour's source. */
+internal fun keyboardPluginStyle(kb: KbTheme): PluginPanelStyle =
     PluginPanelStyle(
         text = kb.keyText,
         secondaryText = kb.secondaryText,
@@ -302,7 +305,6 @@ private fun rememberKeyboardPluginStyle(kb: KbTheme): PluginPanelStyle = remembe
             ToolPanelChip(label = label, selected = selected, modifier = modifier, enabled = enabled, onClick = onClick)
         },
     )
-}
 
 /**
  * A plugin's text boxes as the keyboard hosts them: the text is what the service
