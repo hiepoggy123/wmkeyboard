@@ -50,4 +50,15 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
     implementation(libs.androidx.activity.compose)
+
+    testImplementation(libs.junit)
+    // Compose's test rule on an Android runtime, so WmSlider can be driven with
+    // real touch events inside a real scrolling column.
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    // The rule asks for older androidx.test artifacts than anything else here
+    // resolves; pin the versions :app's instrumented tests already use.
+    testImplementation(libs.androidx.junit)
+    testImplementation(libs.androidx.espresso.core)
 }

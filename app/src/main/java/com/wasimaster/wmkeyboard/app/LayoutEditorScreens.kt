@@ -31,10 +31,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Slider
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.LayerFile
 import com.wasimaster.wmkeyboard.core.layout.LayerSpec
+import com.wasimaster.wmkeyboard.core.ui.WmSlider
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import com.wasimaster.wmkeyboard.core.util.runCancellable
@@ -4321,7 +4321,7 @@ internal fun RowHeightRow(
             stringResource(R.string.layout_editor_row_height_label, height),
             style = MaterialTheme.typography.bodyLarge,
         )
-        Slider(
+        WmSlider(
             value = sliderPosition(height, travel),
             onValueChange = { onChange(roundGridUnit(it)) },
             valueRange = travel,
@@ -4393,7 +4393,7 @@ internal fun LayoutFontScaleRow(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Slider(
+        WmSlider(
             value = sliderPosition(shown, travel),
             onValueChange = { onChange(roundGridUnit(it)) },
             valueRange = travel,
@@ -4456,7 +4456,7 @@ private fun KeyLabelScaleRow(key: Key, onChange: (Float?) -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (scale != null) {
-            Slider(
+            WmSlider(
                 value = sliderPosition(shown, travel),
                 onValueChange = { onChange(roundGridUnit(it)) },
                 valueRange = travel,
@@ -4577,7 +4577,7 @@ private fun KeyWidthRow(
         // to hand-edit — true, but quarters cannot express the 1.43 that seven
         // keys need to fill a ten-wide grid, and rounding to the two decimals the
         // number is displayed at answers both.
-        Slider(
+        WmSlider(
             value = sliderPosition(width, travel),
             onValueChange = { onChange(roundGridUnit(it)) },
             valueRange = travel,

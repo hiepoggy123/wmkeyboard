@@ -63,7 +63,6 @@ import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -129,6 +128,7 @@ import com.wasimaster.wmkeyboard.core.settings.IconSettings
 import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.settings.ThemeSelectionTarget
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.ui.WmSlider
 import com.wasimaster.wmkeyboard.core.util.PlayServices
 import com.wasimaster.wmkeyboard.core.settings.modeThemeOwner
 import com.wasimaster.wmkeyboard.core.settings.slotThemeId
@@ -2976,7 +2976,7 @@ internal fun SoundHapticsPanel(
                     Text(stringResource(R.string.ime_sound_intensity_label),
                         color = kb.toolbarIcon, fontSize = 11.sp,
                         modifier = Modifier.width(60.dp))
-                    Slider(
+                    WmSlider(
                         value = settings.haptics.amplitude.toFloat(),
                         onValueChange = { onAction(SoundHapticAction.HapticAmplitude(it.toInt())) },
                         valueRange = 1f..255f,
@@ -2995,7 +2995,7 @@ internal fun SoundHapticsPanel(
                     Text(stringResource(R.string.ime_sound_duration_label),
                         color = kb.toolbarIcon, fontSize = 11.sp,
                         modifier = Modifier.width(60.dp))
-                    Slider(
+                    WmSlider(
                         value = settings.haptics.strengthMs.toFloat(),
                         onValueChange = { onAction(SoundHapticAction.HapticDuration(it.toInt())) },
                         valueRange = 5f..60f,
@@ -3080,7 +3080,7 @@ internal fun SoundHapticsPanel(
                 Text(stringResource(R.string.ime_sound_volume_label),
                     color = kb.toolbarIcon, fontSize = 11.sp,
                     modifier = Modifier.width(60.dp))
-                Slider(
+                WmSlider(
                     value = settings.sound.volume,
                     onValueChange = { onAction(SoundHapticAction.SoundVolume(it)) },
                     valueRange = 0.05f..1f,

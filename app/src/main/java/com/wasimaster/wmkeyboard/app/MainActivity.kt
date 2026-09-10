@@ -84,7 +84,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -112,6 +111,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
+import com.wasimaster.wmkeyboard.core.ui.WmSlider
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import androidx.compose.ui.platform.LocalConfiguration
@@ -2874,7 +2874,7 @@ private const val SLIDER_WRITE_INTERVAL_MS = 40L
  * finger instead of the stored value: routing every touch event through a
  * DataStore write and waiting for the settings flow to come back made the thumb
  * visibly trail. Create one with [rememberLiveSlider], read [value] for both the
- * thumb and the readout, and hand [onDrag]/[onRelease] to the `Slider`.
+ * thumb and the readout, and hand [onDrag]/[onRelease] to the `WmSlider`.
  */
 @Stable
 internal class LiveSliderState(initial: Float) {
@@ -3052,7 +3052,7 @@ internal fun SliderSetting(
                 ResetSetting(title, default != null && value != default) { onChange(default ?: 0f) }
             },
         ) {
-            Slider(
+            WmSlider(
                 value = slider.value,
                 onValueChange = slider::onDrag,
                 onValueChangeFinished = slider::onRelease,
