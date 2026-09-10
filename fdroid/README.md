@@ -70,16 +70,34 @@ seen. Shipping the back catalogue in a first submission would spend their build
 time on versions nobody can install any more. Entries for 0.3.0 through 0.5.3 are
 in this file's git history.
 
-**`UpdateCheckMode: HTTP`, not `Tags`** — Tags mode scans the Gradle build file
-for a `versionCode`/`versionName` literal, and `:app` has neither: both come from
-`gradle.properties` through `providers.gradleProperty()`. HTTP mode reads that
-file directly instead. The third field of `UpdateCheckData` is `.`, which
-fdroidserver reads as "the same URL again" for the versionName lookup.
+**`commit:` is a full hash, never a tag** — a packager's first review comment
+(linsui, on !48225). A tag can be moved after the build is accepted; a hash
+cannot. You only write it by hand for the first entry: every later one is added
+by their bot, which resolves the tag it found to a hash itself (`vcs.getref` in
+fdroidserver's `checkupdates.py`).
 
-**`AutoUpdateMode: Version v%v`** — releases are tagged `v<versionName>`, and
-every release uses the same build configuration, so their bot can add the next
-`Builds:` entry by copying this one. Verify a release still satisfies the recipe
-before tagging (`fdroid checkupdates` is what the bot runs).
+**`Categories: Keyboard & IME`** — the same review. The valid names live in
+fdroiddata's `config/categories.yml`; `Writing` there means word processors and
+journaling, and a keyboard has a category of its own.
+
+**`UpdateCheckMode: Tags` with a file in `UpdateCheckData`** — also suggested in
+that review, and it corrects something this file used to claim. Tags mode *on its
+own* scans the Gradle build file for a version literal, which `:app` does not
+have — both values come from `gradle.properties` through
+`providers.gradleProperty()`. But `UpdateCheckData` switches Tags mode to reading
+a file instead: `gradle.properties|wmkb.versionCode=(\d+)|.|wmkb.versionName=(.+)`
+is resolved **inside the repo as checked out at each tag**, and the `.` in the
+third field means "that same file again". Verified by running `fdroid
+checkupdates` against the real repo, which walked `v0.5.6` down to `v0.5.2` and
+found the right version at each. The earlier recipe used HTTP mode against
+`main` instead; Tags is better because it reads the version a tag actually
+carries rather than whatever `main` says today.
+
+**`AutoUpdateMode: Version`** — no `v%v` pattern needed, because in Tags mode the
+bot already knows which tag it matched and uses that. Every release uses the same
+build configuration, so the bot adds the next `Builds:` entry by copying this
+one. Verify a release still satisfies the recipe before tagging (`fdroid
+checkupdates` is what the bot runs).
 
 **No `Name`, `Summary`, `Description`, icon or screenshots** — F-Droid reads
 those from `fastlane/metadata/android/en-US/` in this repo, so they only have to

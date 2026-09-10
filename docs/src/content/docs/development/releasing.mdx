@@ -234,14 +234,15 @@ instead.
    `AntiFeatures` block — and whether anything prebuilt ends up in the APK
    (nothing does).
 
-6. **After it is accepted**, releases look after themselves: `UpdateCheckMode:
-   HTTP` reads `versionCode` and `versionName` straight out of
-   `gradle.properties` on `main`, and `AutoUpdateMode: Version v%v` adds the
-   next `Builds:` entry from the tag. Tags mode cannot be used here — it scans
-   the Gradle build file for a version literal, and `:app` reads both through
-   `providers.gradleProperty()`. What that costs you is a promise: a release
-   whose build needs something the recipe does not do has to be caught before
-   the tag is pushed, because nobody reviews the entry their bot writes.
+6. **After it is accepted**, releases look after themselves. `UpdateCheckMode:
+   Tags` walks the newest tags, and `UpdateCheckData` points it at
+   `gradle.properties` as checked out at each one, so it reads the version a
+   tag actually carries. `AutoUpdateMode: Version` then adds the next `Builds:`
+   entry and pins it to that tag's full commit hash — F-Droid wants hashes, not
+   tags, because a tag can be moved after a build is accepted. What that costs
+   you is a promise: a release whose build needs something the recipe does not
+   do has to be caught before the tag is pushed, because nobody reviews the
+   entry their bot writes.
 
 </Steps>
 

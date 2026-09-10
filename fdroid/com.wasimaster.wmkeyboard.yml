@@ -1,5 +1,5 @@
 Categories:
-  - Writing
+  - Keyboard & IME
 License: MIT
 AuthorName: Wasi Master
 AuthorWebSite: https://github.com/wasi-master
@@ -16,7 +16,7 @@ Repo: https://github.com/wasi-master/wmkeyboard.git
 Builds:
   - versionName: 0.5.6
     versionCode: 17
-    commit: v0.5.6
+    commit: f15bda68f5bbd859675f0392c4bbb93c75360ccc
     subdir: app
     gradle:
       - lite
@@ -32,9 +32,8 @@ Builds:
       - wmkb.enableGms=false
       - wmkb.enableFdroid=true
 
-AutoUpdateMode: Version v%v
-UpdateCheckMode: HTTP
-UpdateCheckData: 
-  https://raw.githubusercontent.com/wasi-master/wmkeyboard/main/gradle.properties|wmkb.versionCode=(\d+)|.|wmkb.versionName=(.+)
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
+UpdateCheckData: gradle.properties|wmkb.versionCode=(\d+)|.|wmkb.versionName=(.+)
 CurrentVersion: 0.5.6
 CurrentVersionCode: 17
