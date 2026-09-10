@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.text.InputType
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.tween
@@ -36,10 +39,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -60,7 +66,11 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.InterceptPlatformTextInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.PlatformTextInputInterceptor
+import androidx.compose.ui.platform.PlatformTextInputMethodRequest
+import androidx.compose.ui.platform.PlatformTextInputSession
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
@@ -135,6 +145,26 @@ private val CodeKeyboardOptions = KeyboardOptions(
     autoCorrectEnabled = false,
     keyboardType = KeyboardType.Text,
 )
+
+/**
+ * Asks the keyboard for no suggestion strip of its own. [CodeKeyboardOptions]
+ * has no word for that: autocorrect off still leaves the keyboard guessing
+ * English words over the list the editor shows at the caret.
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+private val NoSuggestions = object : PlatformTextInputInterceptor {
+    override suspend fun interceptStartInputMethod(
+        request: PlatformTextInputMethodRequest,
+        nextHandler: PlatformTextInputSession,
+    ): Nothing = nextHandler.startInputMethod(
+        object : PlatformTextInputMethodRequest {
+            override fun createInputConnection(outAttributes: EditorInfo): InputConnection =
+                request.createInputConnection(outAttributes).also {
+                    outAttributes.inputType = outAttributes.inputType or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+                }
+        },
+    )
+}
 
 /**
  * The editor field on its own: a monospaced field on a code background, with
@@ -233,13 +263,20 @@ internal fun CodeSurface(
         flash.snapTo(FOLD_FLASH_ALPHA)
         flash.animateTo(0f, tween(FOLD_FLASH_MS))
     }
+    var focused by remember { mutableStateOf(false) }
+    // Raised when the caret has to be found again without having moved.
+    var revealAgain by remember { mutableIntStateOf(0) }
     // A caret or a selection that lands in folded text, typed, found or jumped to, opens the fold.
     LaunchedEffect(state.value.selection, folds) {
         val selection = state.value.selection
         folds.firstOrNull { fold ->
             (selection.min > fold.hidden.min && selection.min < fold.hidden.max) ||
                 (selection.max > fold.hidden.min && selection.max < fold.hidden.max)
-        }?.let { state.unfold(it.start) }
+        }?.let {
+            state.unfold(it.start)
+            // The caret was just scrolled to the folded line; the lines it opened can push it out of sight.
+            revealAgain++
+        }
     }
 
     // Suggestions live here rather than with the caller, so the list can sit at
@@ -331,6 +368,28 @@ internal fun CodeSurface(
     val compact = suggestionBar != null && frame.height > 0 &&
         frame.height < with(density) { lineHeight.toPx() * COMPACT_LINES + (CONTENT_PAD * 2).toPx() }
     LaunchedEffect(suggestionBar, compact, suggestions) { suggestionBar?.publish(if (compact) suggestions else null, choose) }
+    // The field is as tall as the whole document and the frame scrolls it, so
+    // nothing else keeps the caret in sight: not typing past the bottom edge,
+    // not a jump from another pane, and not the keyboard taking half the frame.
+    // Only a caret that moved, or a frame that changed size under a focused
+    // field, scrolls; a finger that scrolled away is otherwise left alone.
+    suspend fun revealCaret() {
+        // One frame, so the layout and the scroll range have caught up with the text.
+        withFrameNanos { }
+        val result = layout.value ?: return
+        val box = result.getCursorRect(shownCaret.coerceIn(0, result.layoutInput.text.length))
+        val top = with(density) { CONTENT_PAD.toPx() }
+        revealScroll(vertical.value, frame.height, top + box.top, top + box.bottom, with(density) { lineHeight.toPx() })
+            ?.let { vertical.scrollTo(it.coerceAtMost(vertical.maxValue)) }
+        if (!wrap) {
+            val room = frame.width - with(density) { (gutterWidth + FIELD_PAD + FIELD_PAD).roundToPx() }
+            val char = with(density) { charWidth.toPx() }
+            revealScroll(horizontal.value, room, box.left, box.left + char, char * 2)
+                ?.let { horizontal.scrollTo(it.coerceAtMost(horizontal.maxValue)) }
+        }
+    }
+    LaunchedEffect(caret, text, revealAgain) { revealCaret() }
+    LaunchedEffect(frame.height) { if (focused) revealCaret() }
     Box(
         modifier
             .clip(shape)
@@ -423,7 +482,7 @@ internal fun CodeSurface(
                 // longest line has nothing to wrap, and one as wide as the
                 // viewport wraps everything. The legacy field has no
                 // softWrap of its own.
-                CodeField(state, style, colors, painter, if (wrap) room else contentWidth, keys) {
+                CodeField(state, style, colors, painter, if (wrap) room else contentWidth, keys, onFocus = { focused = it }) {
                     layout.value = it
                 }
             }
@@ -483,7 +542,31 @@ private fun CodeDecorations.through(map: OffsetMapping): CodeDecorations = copy(
     },
 )
 
+/**
+ * Where a scroll at [scroll] over a [viewport] has to move to show the span from
+ * [start] to [end], leaving [margin] beyond it where the viewport has the room,
+ * or null when the span is in sight already. A span taller than the viewport is
+ * shown from its start.
+ */
+internal fun revealScroll(scroll: Int, viewport: Int, start: Float, end: Float, margin: Float): Int? {
+    if (viewport <= 0) return null
+    val size = end - start
+    val target = when {
+        size >= viewport -> start.roundToInt()
+        else -> {
+            val spare = margin.coerceIn(0f, (viewport - size) / 2f)
+            when {
+                start - spare < scroll -> (start - spare).roundToInt()
+                end + spare > scroll + viewport -> (end + spare - viewport).roundToInt()
+                else -> return null
+            }
+        }
+    }.coerceAtLeast(0)
+    return target.takeIf { it != scroll }
+}
+
 /** The field itself. Split out to keep the editor's own tree readable. */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun CodeField(
     state: CodeEditorState,
@@ -492,24 +575,28 @@ private fun CodeField(
     painter: VisualTransformation,
     width: Dp,
     extraKeys: (KeyEvent) -> Boolean,
+    onFocus: (Boolean) -> Unit,
     onLayout: (TextLayoutResult) -> Unit,
 ) {
     val selection = remember(colors) {
         TextSelectionColors(handleColor = colors.handle, backgroundColor = colors.selection)
     }
     CompositionLocalProvider(LocalTextSelectionColors provides selection) {
-        BasicTextField(
-            value = state.value,
-            onValueChange = state::edit,
-            textStyle = style,
-            cursorBrush = SolidColor(colors.caret),
-            visualTransformation = painter,
-            onTextLayout = onLayout,
-            keyboardOptions = CodeKeyboardOptions,
-            modifier = Modifier
-                .width(width)
-                .onPreviewKeyEvent { event -> extraKeys(event) || handleEditorKey(event, state) },
-        )
+        InterceptPlatformTextInput(NoSuggestions) {
+            BasicTextField(
+                value = state.value,
+                onValueChange = state::edit,
+                textStyle = style,
+                cursorBrush = SolidColor(colors.caret),
+                visualTransformation = painter,
+                onTextLayout = onLayout,
+                keyboardOptions = CodeKeyboardOptions,
+                modifier = Modifier
+                    .width(width)
+                    .onFocusChanged { onFocus(it.isFocused) }
+                    .onPreviewKeyEvent { event -> extraKeys(event) || handleEditorKey(event, state) },
+            )
+        }
     }
 }
 
