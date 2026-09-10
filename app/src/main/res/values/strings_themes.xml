@@ -266,16 +266,20 @@
     <string name="theme_custom_layout_title">Layout for this theme</string>
     <!-- "Appearance" is the name of another settings screen. -->
     <string name="theme_custom_layout_subtitle">Off: the theme follows the sliders in Appearance and Layout</string>
+    <!-- Every title below is the title of the global row it shadows, word for
+         word: the disabled global row sends the reader here by name
+         (appearance_theme_pinned_subtitle), and a row named anything else
+         reads as missing (#88). Rename one only with its twin. -->
     <string name="theme_tool_width_title">Tool background width</string>
     <string name="theme_toolbar_height_title">Toolbar height</string>
     <string name="theme_popup_height_title">Popup height</string>
     <string name="theme_key_height_title">Key height</string>
-    <string name="theme_key_gap_title">Key gap</string>
+    <string name="theme_key_gap_title">Key spacing</string>
     <string name="theme_side_padding_left_title">Left padding</string>
     <string name="theme_side_padding_right_title">Right padding</string>
-    <string name="theme_font_scale_title">Key label size</string>
+    <string name="theme_font_scale_title">Key label font size</string>
     <string name="theme_bold_labels_title">Bold key labels</string>
-    <string name="theme_hint_scale_title">Corner hint size</string>
+    <string name="theme_hint_scale_title">Key hint font size</string>
     <string name="theme_trail_width_title">Gesture trail width</string>
     <string name="theme_trail_opacity_title">Gesture trail opacity</string>
 
