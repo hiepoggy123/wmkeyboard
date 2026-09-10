@@ -149,6 +149,15 @@
     <string name="layout_swap_comma_globe_title">Swap the comma and 🌐 keys</string>
     <string name="layout_swap_comma_globe_subtitle">Put the comma next to the spacebar</string>
     <string name="layout_swap_comma_globe_info">The two keys on each side of the spacebar change places. If one of them is an emoji key, it moves to the outer position and the comma stays next to the spacebar. Turn this off to get the usual order.</string>
+    <!-- 🌐 is the globe key that changes the language. Keep the emoji. -->
+    <string name="layout_show_globe_title">Show the 🌐 key</string>
+    <string name="layout_show_globe_subtitle">Turn off to give its space to the spacebar</string>
+    <!-- "Emoji key instead of 🌐" is the name of the setting under this one, and
+         "Language" is the name of a spacebar swipe action. Translate them the
+         same way as those names. -->
+    <string name="layout_show_globe_info">When this is off, the 🌐 key is not on the bottom row of any layout. If \"Emoji key instead of 🌐\" is on, the emoji key in that position goes too. The spacebar gets the space. You can still change the language from the spacebar. Set a swipe to \"Language\" under Typing → Gestures. A short swipe does this by default.</string>
+    <!-- Subtitle of the two settings that change the 🌐 key, while it is hidden. -->
+    <string name="layout_globe_hidden_subtitle">No effect while the 🌐 key is hidden</string>
     <string name="layout_split_large_only_title">Split only on wide screens</string>
     <string name="layout_split_large_only_subtitle">Stay whole on a portrait phone, split when there is room</string>
     <string name="layout_split_large_only_info">Split is one setting for every screen shape, so turning it on in landscape leaves the keyboard split after you rotate back, where a split layout is hard to use. Turn this on to split only in landscape or on an unfolded screen. This setting is off by default.</string>

@@ -876,6 +876,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Held-but-unmoved leaves the list open — So it can be tapped directly
   - Language-switch key — Tap cycles layouts (not languages); long-press opens the picker
     - Replaced by an emoji key on a fresh install — globeAsEmoji ships on; switching lives on the spacebar until it is turned off
+    - Hidden altogether — showGlobeKey off takes it, or the emoji key in its slot, off every layout's bottom row; the spacebar takes its width (#139)
     - Hardware-keyboard overlay — A floated list with tappable rows and a close button, so unplugging the keyboard still leaves a way out
   - Android input-method subtypes `uncommon` — Every enabled layout registered as a subtype, mirrored both ways
     - Stable 31-bit id from the layout id — Android persists the user's enabled-subtype choice by this int, so it must not shift when a name changes

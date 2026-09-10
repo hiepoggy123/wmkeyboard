@@ -128,6 +128,7 @@ private val MiniQwertyRows = listOf("qwertyuiop", "asdfghjkl", "zxcvbnm")
 internal fun MiniKeyboardPreview(
     numberRow: Boolean,
     globeAsEmoji: Boolean,
+    showGlobeKey: Boolean = true,
     highlight: MiniKeyHighlight = MiniKeyHighlight.NONE,
     modifier: Modifier = Modifier,
 ) {
@@ -148,14 +149,18 @@ internal fun MiniKeyboardPreview(
                     }
                 }
             }
-            MiniQwertyBody(globeAsEmoji, highlight)
+            MiniQwertyBody(globeAsEmoji, highlight, showGlobeKey)
         }
     }
 }
 
 /** The three letter rows and the bottom row, shared by every full miniature. */
 @Composable
-private fun MiniQwertyBody(globeAsEmoji: Boolean, highlight: MiniKeyHighlight) {
+private fun MiniQwertyBody(
+    globeAsEmoji: Boolean,
+    highlight: MiniKeyHighlight,
+    showGlobeKey: Boolean = true,
+) {
     for ((index, row) in MiniQwertyRows.withIndex()) {
         MiniRow {
             // The bottom letter row keeps shift and backspace, so the
@@ -170,12 +175,16 @@ private fun MiniQwertyBody(globeAsEmoji: Boolean, highlight: MiniKeyHighlight) {
     }
     MiniRow {
         MiniKey("", Modifier.weight(1.5f))
-        MiniKeyIcon(
-            icon = if (globeAsEmoji) Icons.Outlined.Mood else Icons.Outlined.Language,
-            highlighted = highlight == MiniKeyHighlight.GLOBE,
-            modifier = Modifier.weight(1f),
-        )
-        MiniKey("", Modifier.weight(4f))
+        // Hidden, the key's width goes to the spacebar, as it does on the
+        // keyboard (issue #139).
+        if (showGlobeKey) {
+            MiniKeyIcon(
+                icon = if (globeAsEmoji) Icons.Outlined.Mood else Icons.Outlined.Language,
+                highlighted = highlight == MiniKeyHighlight.GLOBE,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        MiniKey("", Modifier.weight(if (showGlobeKey) 4f else 5f))
         MiniKey("", Modifier.weight(1f))
         MiniKey("", Modifier.weight(1.5f))
     }

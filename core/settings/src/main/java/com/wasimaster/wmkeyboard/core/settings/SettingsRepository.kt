@@ -1917,7 +1917,7 @@ data class KeyboardSettings(
      * Grouped rather than flat because of the ceiling: with N fields (none
      * `Long` or `Double`) the generated `copy$default` takes
      * `1 + N + ceil(N/32) + 1` of the JVM's 255 argument slots, capping N at
-     * 245. As of 2026-09-09 the class has **189** fields, back off the ceiling
+     * 245. As of 2026-09-10 the class has **190** fields, back off the ceiling
      * it had been sitting on: twelve families came out in one pass
      * ([HapticSettings], [KeySoundSettings], [AccessibilitySettings],
      * [AutocorrectSettings], [AutoTextSettings], [SuggestionSourceSettings],
@@ -2137,6 +2137,13 @@ data class KeyboardSettings(
     val volumeCursorMediaAware: Boolean = true,
     /** Replace the 🌐 key with an emoji key (language switching moves to spacebar swipes). */
     val globeAsEmoji: Boolean = true,
+    /**
+     * Draw the 🌐 key on the bottom row at all (issue #139). Off takes it off
+     * every layout's bottom row, along with the emoji key [globeAsEmoji] would
+     * have put in its place, and gives its width to the spacebar. Language
+     * switching stays on the spacebar gestures.
+     */
+    val showGlobeKey: Boolean = true,
     /**
      * List each enabled layout as an Android input-method subtype, so the
      * system language switcher (the "Choose input method" sheet) lists them and
@@ -5783,6 +5790,7 @@ class SettingsRepository(private val context: Context) {
         private val VOLUME_CURSOR = booleanPreferencesKey("volume_cursor")
         private val VOLUME_CURSOR_MEDIA_AWARE = booleanPreferencesKey("volume_cursor_media_aware")
         private val GLOBE_AS_EMOJI = booleanPreferencesKey("globe_as_emoji")
+        private val SHOW_GLOBE_KEY = booleanPreferencesKey("show_globe_key")
         private val OS_LANGUAGE_SWITCHER = booleanPreferencesKey("os_language_switcher")
         private val SUBTYPE_APP_NAME_FIRST = booleanPreferencesKey("subtype_app_name_first")
         private val PER_APP_LANGUAGE_ENABLED = booleanPreferencesKey("per_app_language_enabled")
@@ -6760,6 +6768,7 @@ class SettingsRepository(private val context: Context) {
             volumeCursor = p[VOLUME_CURSOR] ?: defaults.volumeCursor,
             volumeCursorMediaAware = p[VOLUME_CURSOR_MEDIA_AWARE] ?: defaults.volumeCursorMediaAware,
             globeAsEmoji = p[GLOBE_AS_EMOJI] ?: defaults.globeAsEmoji,
+            showGlobeKey = p[SHOW_GLOBE_KEY] ?: defaults.showGlobeKey,
             osLanguageSwitcher = p[OS_LANGUAGE_SWITCHER] ?: defaults.osLanguageSwitcher,
             subtypeAppNameFirst = p[SUBTYPE_APP_NAME_FIRST] ?: defaults.subtypeAppNameFirst,
             perAppLanguage = PerAppLanguageSettings(
@@ -11214,6 +11223,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGlobeAsEmoji(value: Boolean) =
         editPrefs { it[GLOBE_AS_EMOJI] = value }
+
+    suspend fun setShowGlobeKey(value: Boolean) =
+        editPrefs { it[SHOW_GLOBE_KEY] = value }
 
     suspend fun setOsLanguageSwitcher(value: Boolean) =
         editPrefs { it[OS_LANGUAGE_SWITCHER] = value }

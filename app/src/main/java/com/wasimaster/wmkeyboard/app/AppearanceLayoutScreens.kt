@@ -673,6 +673,7 @@ internal fun LayoutSettings(
         MiniKeyboardPreview(
             numberRow = settings.numberRow,
             globeAsEmoji = settings.globeAsEmoji,
+            showGlobeKey = settings.showGlobeKey,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
     }
@@ -883,19 +884,45 @@ internal fun LayoutSettings(
         }
         item {
             ToggleSetting(
+                R.string.layout_show_globe_title,
+                stringResource(R.string.layout_show_globe_subtitle),
+                settings.showGlobeKey,
+                info = stringResource(R.string.layout_show_globe_info),
+                default = SettingsDefaults.showGlobeKey,
+            ) { scope.launch { repository.setShowGlobeKey(it) } }
+        }
+        // The two rows below act on the 🌐 key, so with it hidden neither has
+        // anything to change. Greyed out rather than removed, so turning the key
+        // back on does not make two rows appear under the finger.
+        item {
+            ToggleSetting(
                 R.string.layout_globe_emoji_title,
-                stringResource(R.string.layout_globe_emoji_subtitle),
+                stringResource(
+                    if (settings.showGlobeKey) {
+                        R.string.layout_globe_emoji_subtitle
+                    } else {
+                        R.string.layout_globe_hidden_subtitle
+                    },
+                ),
                 settings.globeAsEmoji,
                 info = stringResource(R.string.layout_globe_emoji_info),
+                enabled = settings.showGlobeKey,
                 default = SettingsDefaults.globeAsEmoji,
             ) { scope.launch { repository.setGlobeAsEmoji(it) } }
         }
         item {
             ToggleSetting(
                 R.string.layout_swap_comma_globe_title,
-                stringResource(R.string.layout_swap_comma_globe_subtitle),
+                stringResource(
+                    if (settings.showGlobeKey) {
+                        R.string.layout_swap_comma_globe_subtitle
+                    } else {
+                        R.string.layout_globe_hidden_subtitle
+                    },
+                ),
                 settings.swapCommaAndGlobe,
                 info = stringResource(R.string.layout_swap_comma_globe_info),
+                enabled = settings.showGlobeKey,
                 default = SettingsDefaults.swapCommaAndGlobe,
             ) { scope.launch { repository.setSwapCommaAndGlobe(it) } }
         }

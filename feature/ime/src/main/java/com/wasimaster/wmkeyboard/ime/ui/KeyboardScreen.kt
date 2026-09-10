@@ -13577,7 +13577,7 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     if (numericPadActive(state)) {
         state.layouts.numeric?.let { return it }
     }
-    val base = when (state.layoutMode) {
+    val grid = when (state.layoutMode) {
         LayoutMode.SYMBOLS -> state.layouts.symbols
         LayoutMode.SYMBOLS_SHIFTED -> state.layouts.symbolsShifted
         // Falls back to the letters when the layout has no Fn layer: a stored
@@ -13589,6 +13589,16 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
         // been deleted between the state being set and this draw.
         LayoutMode.SECONDARY ->
             state.secondaryLayoutId?.let { state.layouts.secondaries[it] } ?: state.layouts.letters
+    }
+    // Issue #139: a hidden 🌐 key leaves the bottom row before anything below
+    // reads the grid. The emoji rewrite finds the key by its action and the
+    // comma swap reads positions off this grid, so taking the key out any later
+    // would mean undoing both. A secondary layout is drawn as its author made
+    // it, since a 🌐 key there can be the only way back out of it.
+    val base = if (state.settings.showGlobeKey || state.layoutMode == LayoutMode.SECONDARY) {
+        grid
+    } else {
+        grid.withoutGlobeKey()
     }
     // Email and URI fields keep the letter layouts but trade the bottom-row
     // comma — punctuation neither field uses — for the character they are
@@ -13870,6 +13880,39 @@ private fun swapCommaAndGlobe(
         it[comma] = it[globe]
         it[globe] = held
     }
+}
+
+/**
+ * This grid with the 🌐 key taken off its bottom row, and the width the key
+ * used given to the spacebar (issue #139).
+ *
+ * The spacebar gets all of it rather than every key a share: a bigger spacebar
+ * is what the setting is for, and an even share would also widen `?123` and
+ * enter. A row with no spacebar shares the width out instead, so it still fills
+ * the board rather than leaving a gap at one end. Either way the row keeps its
+ * total, which is what leaves a key spanning down into it where it was.
+ *
+ * Only the bottom row, because that is the key the setting names; a 🌐 key an
+ * author placed anywhere else was placed on purpose. A row of nothing but 🌐
+ * keys is left alone, since removing them would leave a row with no keys.
+ */
+internal fun KeyboardLayout.withoutGlobeKey(): KeyboardLayout {
+    val bottom = rows.lastOrNull() ?: return this
+    val globes = bottom.count { it.action == KeyAction.LanguageSwitch }
+    if (globes == 0 || globes == bottom.size) return this
+    val freed = bottom.filter { it.action == KeyAction.LanguageSwitch }
+        .sumOf { it.width.toDouble() }.toFloat()
+    val kept = bottom.filterNot { it.action == KeyAction.LanguageSwitch }
+    val space = kept.indexOfFirst { it.action == KeyAction.Space }
+    val row = if (space >= 0) {
+        kept.mapIndexed { index, key ->
+            if (index == space) key.copy(width = key.width + freed) else key
+        }
+    } else {
+        val total = kept.sumOf { it.width.toDouble() }.toFloat()
+        kept.map { it.copy(width = it.width * (total + freed) / total) }
+    }
+    return copy(rows = rows.dropLast(1) + listOf(row))
 }
 
 /**
@@ -16396,7 +16439,9 @@ private fun repeatFeedback(
  * leaves nothing worth choosing between, and holding would only cost a space.
  *
  * The chooser is still on the 🌐 key's long press and on either swipe slot set
- * to the language switch, so nothing takes it away entirely.
+ * to the language switch, so nothing here takes it away entirely. Hiding the
+ * 🌐 key (issue #139) with neither slot set to the language switch does, and
+ * that setting's info text tells the user which swipe brings switching back.
  */
 internal fun spaceHoldOpensPicker(
     enabledLayoutCount: Int,

@@ -619,4 +619,93 @@ class CurrentLayoutTest {
         assertEquals(KeyAction.Shift, row[0].action)
         assertEquals(KeyAction.LanguageSwitch, row[1].action)
     }
+
+    /**
+     * Issue #139: a hidden 🌐 key leaves the bottom row, and the spacebar takes
+     * its width, so the row is exactly as long as it was.
+     */
+    @Test
+    fun `a hidden globe key gives its width to the spacebar`() {
+        val shown = currentLayout(state(settings = plain())).rows.last()
+        val hidden = currentLayout(state(settings = plain().copy(showGlobeKey = false))).rows.last()
+        val globe = shown.single { it.action == KeyAction.LanguageSwitch }
+        val space = shown.single { it.action == KeyAction.Space }
+        assertTrue("the globe key is still there: $hidden", hidden.none { it.action == KeyAction.LanguageSwitch })
+        assertEquals(shown.size - 1, hidden.size)
+        assertEquals(space.width + globe.width, hidden.single { it.action == KeyAction.Space }.width, 0.001f)
+        assertEquals(shown.sumOf { it.width.toDouble() }, hidden.sumOf { it.width.toDouble() }, 0.001)
+    }
+
+    /**
+     * The shipped defaults turn the 🌐 key into an emoji key and swap it with
+     * the comma. Hidden, neither has a key to act on: no emoji key is left in
+     * the slot, and the row reads `?123 , space . enter`.
+     */
+    @Test
+    fun `a hidden globe key takes the emoji key and the swap with it`() {
+        val row = currentLayout(state(settings = KeyboardSettings(showGlobeKey = false))).rows.last()
+        assertEquals(
+            listOf(KeyAction.Symbols, KeyAction.Text, KeyAction.Space, KeyAction.Text, KeyAction.Enter),
+            row.map { it.action },
+        )
+        assertEquals(KeyRole.Comma, row[1].role)
+    }
+
+    /** Both symbol layers too, so the row does not change shape on the way into ?123. */
+    @Test
+    fun `the symbol layers lose the globe key too`() {
+        for (mode in listOf(LayoutMode.SYMBOLS, LayoutMode.SYMBOLS_SHIFTED)) {
+            val shown = state(settings = plain()).copy(layoutMode = mode)
+            assertEquals("$mode", 1, currentLayout(shown).keys().count { it.action == KeyAction.LanguageSwitch })
+            val hidden = state(settings = plain().copy(showGlobeKey = false)).copy(layoutMode = mode)
+            assertEquals("$mode", 0, currentLayout(hidden).keys().count { it.action == KeyAction.LanguageSwitch })
+        }
+    }
+
+    /** A bottom row with no spacebar shares the width out instead of leaving a gap. */
+    @Test
+    fun `a row without a spacebar shares the freed width`() {
+        val row = oneRow(Key("a"), Key("🌐", action = KeyAction.LanguageSwitch), Key("b", width = 2f))
+            .withoutGlobeKey().rows.last()
+        assertEquals(listOf("a", "b"), row.map { it.label })
+        assertEquals(4f / 3f, row[0].width, 0.001f)
+        assertEquals(8f / 3f, row[1].width, 0.001f)
+    }
+
+    /** A row of nothing but 🌐 keys would have no keys left, so it stays. */
+    @Test
+    fun `a row of only globe keys is left alone`() {
+        val layout = oneRow(Key("🌐", action = KeyAction.LanguageSwitch))
+        assertTrue(layout.withoutGlobeKey() === layout)
+    }
+
+    /** A secondary layout is drawn as its author made it: its 🌐 key can be the way out. */
+    @Test
+    fun `a secondary layout keeps its globe key`() {
+        val pad = oneRow(Key("x"), Key("🌐", action = KeyAction.LanguageSwitch))
+        val s = KeyboardUiState(
+            settings = plain().copy(showGlobeKey = false),
+            layouts = setOf(BuiltInLayouts.QWERTY).copy(secondaries = mapOf("custom_pad" to pad)),
+            layoutMode = LayoutMode.SECONDARY,
+            secondaryLayoutId = "custom_pad",
+        )
+        assertEquals(1, currentLayout(s).keys().count { it.action == KeyAction.LanguageSwitch })
+    }
+
+    /** The expanded tablet row loses it as well, and keeps its length. */
+    @Test
+    fun `a tablet grid loses the globe key too`() {
+        val shown = currentLayout(tabletState(KeyboardSettings())).rows.last()
+        val hidden = currentLayout(tabletState(KeyboardSettings(showGlobeKey = false))).rows.last()
+        assertEquals(0, hidden.count { it.action == KeyAction.LanguageSwitch })
+        assertEquals(shown.sumOf { it.width.toDouble() }, hidden.sumOf { it.width.toDouble() }, 0.001)
+    }
+
+    private fun oneRow(vararg keys: Key): KeyboardLayout = com.wasimaster.wmkeyboard.core.layout.LayoutSpec(
+        id = "custom_one_row",
+        name = "One row",
+        layers = mapOf(
+            LayoutLayer.LETTERS.key to com.wasimaster.wmkeyboard.core.layout.LayerSpec(listOf(keys.toList())),
+        ),
+    ).compile(LayoutLayer.LETTERS)
 }
