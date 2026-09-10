@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -23,8 +24,8 @@ object WikipediaClient {
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun apiBase(lang: String) =
-        "https://${lang.ifBlank { "en" }.lowercase()}.wikipedia.org"
+    /** The wiki for [lang]: `<lang>.wikipedia.org`, or the MediaWiki set for `ServiceEndpoint.WIKIPEDIA`. */
+    private fun apiBase(lang: String) = ServiceEndpoints.wikipedia(lang)
 
     /** Canonical article URL for inserting/sharing. */
     fun articleUrl(title: String, lang: String): String =

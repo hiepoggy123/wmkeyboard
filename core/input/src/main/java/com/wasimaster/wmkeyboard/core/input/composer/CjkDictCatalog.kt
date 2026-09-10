@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.input.composer
 
 import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
 import com.wasimaster.wmkeyboard.input.R
 import java.io.File
 
@@ -20,8 +22,11 @@ data class CjkDictPack(
     @StringRes val displayNameRes: Int,
     /** One-line description for the pack row; the UI layer resolves it. */
     @StringRes val descriptionRes: Int,
-    /** Where the pack is hosted. Blank until the maintainer fills it in. */
-    val url: String,
+    /**
+     * The pack's path inside the data repository. Blank until the maintainer
+     * fills it in. A mirror has to serve the same bytes: [sha256] is checked.
+     */
+    val path: String,
     /** Approximate size — preflight space check and progress fallback. */
     val sizeBytes: Long,
     /** Lowercase-hex SHA-256 of the downloaded file; verified before it goes live. */
@@ -29,8 +34,11 @@ data class CjkDictPack(
     /** On-disk file name for the downloaded pack. */
     val fileName: String,
 ) {
-    /** A pack can only be offered once it has a hosting URL and a checksum. */
-    val available: Boolean get() = url.isNotBlank() && sha256.isNotBlank()
+    /** Where the pack is fetched from: the data repository, wherever [ServiceRepo.DATA] points. */
+    val url: String get() = ServiceEndpoints.repo(ServiceRepo.DATA).rawUrl(path)
+
+    /** A pack can only be offered once it has a path and a checksum. */
+    val available: Boolean get() = path.isNotBlank() && sha256.isNotBlank()
 }
 
 /**
@@ -48,7 +56,7 @@ object CjkDictCatalog {
             langId = "zh",
             displayNameRes = R.string.core_input_cjk_pack_pinyin_title,
             descriptionRes = R.string.core_input_cjk_pack_pinyin_subtitle,
-            url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/pinyin.tsv",
+            path = "cjk/pinyin.tsv",
             sizeBytes = 2_489_699L,
             sha256 = "8baab4c758499272e36dba4bda4253317a4f93bb88bcf386ea86196c50d73715",
             fileName = "pinyin.tsv",
@@ -58,7 +66,7 @@ object CjkDictCatalog {
             langId = "ja",
             displayNameRes = R.string.core_input_cjk_pack_ja_kana_title,
             descriptionRes = R.string.core_input_cjk_pack_ja_kana_subtitle,
-            url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/ja_kana.tsv",
+            path = "cjk/ja_kana.tsv",
             sizeBytes = 41_531_397L,
             sha256 = "189214b81968c857d7cb020c52fc087ee44918ab28534194f79ea66f45c17a70",
             fileName = "ja_kana.tsv",
@@ -68,7 +76,7 @@ object CjkDictCatalog {
             langId = "zh",
             displayNameRes = R.string.core_input_cjk_pack_stroke_title,
             descriptionRes = R.string.core_input_cjk_pack_stroke_subtitle,
-            url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/stroke.tsv",
+            path = "cjk/stroke.tsv",
             sizeBytes = 445_686L,
             sha256 = "b3bb4669cf8e411fd63b3a15e07e32db84ed1f2cfe09fb67066866ebe9b2278c",
             fileName = "stroke.tsv",
@@ -78,7 +86,7 @@ object CjkDictCatalog {
             langId = "zh",
             displayNameRes = R.string.core_input_cjk_pack_cangjie_title,
             descriptionRes = R.string.core_input_cjk_pack_cangjie_subtitle,
-            url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/cangjie.tsv",
+            path = "cjk/cangjie.tsv",
             sizeBytes = 351_337L,
             sha256 = "77a5a4c054019e3a3ea875e86a37cb08b71ce29392b6680208bb0c5749feb25d",
             fileName = "cangjie.tsv",
@@ -88,7 +96,7 @@ object CjkDictCatalog {
             langId = "yue",
             displayNameRes = R.string.core_input_cjk_pack_jyutping_title,
             descriptionRes = R.string.core_input_cjk_pack_jyutping_subtitle,
-            url = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/jyutping.tsv",
+            path = "cjk/jyutping.tsv",
             sizeBytes = 3_416_241L,
             sha256 = "cc0666179df615846328ed1e86b621919553d8ff30905f30d0b6ff45315bcfba",
             fileName = "jyutping.tsv",

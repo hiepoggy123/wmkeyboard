@@ -23,6 +23,7 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import com.wasimaster.wmkeyboard.core.addons.AddonType
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -427,6 +428,8 @@ internal fun SnippetSettings(
     var editingFolders by rememberSaveable { mutableStateOf(false) }
     val canEditFolders = folders.isNotEmpty()
     LaunchedEffect(canEditFolders) { if (!canEditFolders) editingFolders = false }
+    // Where hub.espanso.org package links are looked up.
+    ServerFieldsGroup(repository, settings, repos = listOf(ServiceRepo.ESPANSO_HUB))
     SettingsGroup(
         stringResource(R.string.expander_folders_title),
         info = stringResource(R.string.expander_folders_info),
@@ -785,7 +788,8 @@ private fun fetchEspanso(pasted: String): SnippetPayload.Parsed? {
     val url = when (target) {
         is EspansoHub.Target.Direct -> target.url
         is EspansoHub.Target.HubPackage -> {
-            val listing = runCancellable { ToolHttp.get(target.contentsUrl) }.getOrNull() ?: return null
+            val listingUrl = target.contentsUrl ?: return null
+            val listing = runCancellable { ToolHttp.get(listingUrl) }.getOrNull() ?: return null
             val version = EspansoHub.newestVersion(listing) ?: return null
             target.packageUrl(version)
         }

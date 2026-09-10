@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -48,7 +50,7 @@ object DictionaryClient {
     fun lookup(word: String): List<DictEntry> {
         val cleaned = word.trim()
         require(cleaned.isNotEmpty()) { "empty word" }
-        val url = "https://api.dictionaryapi.dev/api/v2/entries/en/" +
+        val url = ServiceEndpoints.base(ServiceEndpoint.DICTIONARY_API) + "/api/v2/entries/en/" +
             URLEncoder.encode(cleaned, "UTF-8").replace("+", "%20")
         val connection = URL(url).openConnection() as HttpURLConnection
         try {

@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.addons
 
+import com.wasimaster.wmkeyboard.core.endpoints.RepoLocation
 import java.net.URI
 import kotlinx.serialization.json.Json
 
@@ -59,6 +60,7 @@ object AddonRepoCodec {
      * | `github.com/USER/REPO` | `raw.githubusercontent.com/USER/REPO/HEAD/wmkeyboard-repo.json` |
      * | `github.com/USER/REPO/tree/BRANCH` | the same on `BRANCH` |
      * | a direct URL to a `.json` | used as-is |
+     * | a repository page on another forge (Codeberg, a GitLab, SourceHut, Bitbucket, a self-hosted Forgejo) | that forge's raw `wmkeyboard-repo.json` |
      * | any other https URL | treated as a directory; `wmkeyboard-repo.json` appended |
      *
      * A bare `user/repo`, or a URL with no scheme, is assumed to be https —
@@ -98,6 +100,13 @@ object AddonRepoCodec {
         }
 
         if (path.endsWith(".json", ignoreCase = true)) return withScheme
+        // A repository page on another forge is HTML: appending the file name
+        // to it would fetch a web page. The forge's raw address is the file.
+        RepoLocation.fromPageUrl(withScheme)?.let { (location, dir) ->
+            if (location.isComplete) {
+                return location.rawUrl(if (dir.isEmpty()) MANIFEST_NAME else "$dir/$MANIFEST_NAME")
+            }
+        }
         return "$withScheme/$MANIFEST_NAME"
     }
 

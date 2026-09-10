@@ -89,6 +89,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.addons.AddonType
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.settings.DataSaverStatus
 import com.wasimaster.wmkeyboard.core.settings.DeviceNetworkState
@@ -451,6 +452,11 @@ internal fun VocabularyToolSettings(
         }
     }
 
+    ServerFieldsGroup(
+        repository,
+        settings,
+        endpoints = listOf(ServiceEndpoint.KAIKKI, ServiceEndpoint.WIKTIONARY, ServiceEndpoint.DICTIONARY_API),
+    )
     SettingsGroup(stringResource(R.string.tooldetail_vocab_related_group)) {
         item {
             ChoiceSetting(

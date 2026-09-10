@@ -40,6 +40,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.settings.stopsBackgroundWork
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -129,6 +130,7 @@ fun PhotoServicesScreen(
                     PhotoCache.clear()
                 }
             }
+            serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.UNSPLASH, ServiceEndpoint.PEXELS))
         }
         HighContrastNote(settings)
     }

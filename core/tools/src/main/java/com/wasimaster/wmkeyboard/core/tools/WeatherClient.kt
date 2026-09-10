@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import com.wasimaster.wmkeyboard.tools.R
 import java.net.HttpURLConnection
 import java.net.URL
@@ -65,9 +67,11 @@ object WeatherClient {
 
     /** Blocking fetch; call on an IO dispatcher. Throws on any failure. */
     fun fetch(latitude: Float, longitude: Float): WeatherInfo {
-        val url = String.format(
+        // The base goes on outside the format string: a configured address may
+        // carry a '%' of its own.
+        val url = ServiceEndpoints.base(ServiceEndpoint.OPEN_METEO) + String.format(
             Locale.US,
-            "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f" +
+            "/v1/forecast?latitude=%.4f&longitude=%.4f" +
                 "&current=temperature_2m,relative_humidity_2m,apparent_temperature," +
                 "is_day,weather_code,wind_speed_10m,wind_direction_10m," +
                 "surface_pressure,cloud_cover,precipitation" +
@@ -84,7 +88,7 @@ object WeatherClient {
     /** Blocking place-name search; call on an IO dispatcher. Throws on failure. */
     fun geocode(query: String): List<GeoPlace> {
         if (query.isBlank()) return emptyList()
-        val url = "https://geocoding-api.open-meteo.com/v1/search?name=" +
+        val url = ServiceEndpoints.base(ServiceEndpoint.OPEN_METEO_GEOCODING) + "/v1/search?name=" +
             URLEncoder.encode(query.trim(), "UTF-8") + "&count=5&language=en&format=json"
         val root = Json.parseToJsonElement(get(url)).jsonObject
         val results = root["results"]?.takeIf { it !is JsonNull }?.jsonArray ?: return emptyList()

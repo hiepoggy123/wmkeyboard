@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.addons
 
 import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -159,10 +161,22 @@ class AddonStore(private var baseDir: File?) {
          * picks up the addition on its next launch without the ones the user
          * already removed coming back with it.
          */
-        val SEED_URLS = listOf(
-            SEED_URL,
-            "https://github.com/wasi-master/wmkeyboard-monkeytype-sounds",
-        )
+        val SEED_URLS: List<String>
+            get() = listOf(
+                seedUrl(ServiceRepo.ADDONS, SEED_URL),
+                seedUrl(ServiceRepo.SOUNDS, "https://github.com/wasi-master/wmkeyboard-monkeytype-sounds"),
+            )
+
+        /**
+         * A seed at its default location keeps the address it has always been
+         * offered under, so an existing install does not take it for a new one.
+         * Moved to a mirror (the F-Droid build's Servers screen), it is offered
+         * at the mirror's manifest.
+         */
+        private fun seedUrl(repo: ServiceRepo, legacy: String): String {
+            val location = ServiceEndpoints.repo(repo)
+            return if (location == repo.default) legacy else location.rawUrl(AddonRepoCodec.MANIFEST_NAME)
+        }
 
         private const val REPOS_FILE = "repos.json"
         private const val INSTALLED_FILE = "installed.json"

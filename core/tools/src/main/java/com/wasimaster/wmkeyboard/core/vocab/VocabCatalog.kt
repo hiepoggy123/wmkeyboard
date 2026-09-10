@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.vocab
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
+
 /**
  * One downloadable vocabulary pack in the wmkeyboard-data repo
  * (https://github.com/wasi-master/wmkeyboard-data), under
@@ -22,13 +25,13 @@ data class VocabCatalogEntry(
     val translationCodes: List<String> = emptyList(),
 ) {
     val url: String
-        get() = "$BASE/$langId/$id.wmvocab.json.gz"
+        get() = file("$id.wmvocab.json.gz")
 
-    fun translationUrl(code: String): String = "$BASE/$langId/$id.tr.$code.json.gz"
+    fun translationUrl(code: String): String = file("$id.tr.$code.json.gz")
 
-    private companion object {
-        const val BASE = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/vocab"
-    }
+    /** A file in this pack's folder of the data repository, wherever [ServiceRepo.DATA] points. */
+    private fun file(name: String): String =
+        ServiceEndpoints.repo(ServiceRepo.DATA).rawUrl("vocab/$langId/$name")
 }
 
 /**

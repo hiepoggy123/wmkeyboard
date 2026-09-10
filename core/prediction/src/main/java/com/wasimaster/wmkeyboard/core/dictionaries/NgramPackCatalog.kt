@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.dictionaries
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
+
 /**
  * One downloadable n-gram pack: corpus bigram/trigram counts for a language,
  * hosted in the data repo next to its wordlists. Files are gzip text, one
@@ -29,8 +32,9 @@ class NgramPackEntry(
     fun bigramUrl(): String = url(bigramStem)
     fun trigramUrl(): String = url(trigramStem)
 
+    /** The data repository, wherever [ServiceRepo.DATA] points. */
     private fun url(stem: String): String =
-        "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/data/$repoCode/$stem.txt.gz"
+        ServiceEndpoints.repo(ServiceRepo.DATA).rawUrl("data/$repoCode/$stem.txt.gz")
 }
 
 /**

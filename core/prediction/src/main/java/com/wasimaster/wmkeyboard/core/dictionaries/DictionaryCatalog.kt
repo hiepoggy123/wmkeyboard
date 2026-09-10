@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.dictionaries
 
 import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
 import com.wasimaster.wmkeyboard.prediction.R
 
 /**
@@ -38,9 +40,10 @@ data class DictionaryEntry(
      */
     val fileStem: String? = null,
 ) {
+    /** Where the list is fetched from: the data repository, wherever [ServiceRepo.DATA] points. */
     val url: String
-        get() = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/" +
-            "HEAD/data/$repoCode/${fileStem ?: "${repoCode}_$suffix"}.txt.gz"
+        get() = ServiceEndpoints.repo(ServiceRepo.DATA)
+            .rawUrl("data/$repoCode/${fileStem ?: "${repoCode}_$suffix"}.txt.gz")
 }
 
 /**

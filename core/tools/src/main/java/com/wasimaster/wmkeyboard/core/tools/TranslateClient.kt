@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -74,7 +76,7 @@ object TranslateClient {
     }
 
     private fun translateFree(text: String, targetLang: String): Translation {
-        val url = "https://translate.googleapis.com/translate_a/single" +
+        val url = ServiceEndpoints.base(ServiceEndpoint.TRANSLATE_GOOGLE) + "/translate_a/single" +
             "?client=gtx&sl=auto&tl=${ToolHttp.encode(targetLang)}" +
             "&dt=t&ie=UTF-8&oe=UTF-8&q=${ToolHttp.encode(text)}"
         return parseFree(ToolHttp.get(url))
@@ -82,7 +84,7 @@ object TranslateClient {
 
     private fun translateOfficial(text: String, targetLang: String, apiKey: String): Translation {
         val body = ToolHttp.postForm(
-            "https://translation.googleapis.com/language/translate/v2?key=${ToolHttp.encode(apiKey)}",
+            ServiceEndpoints.base(ServiceEndpoint.TRANSLATE_CLOUD) + "/language/translate/v2?key=${ToolHttp.encode(apiKey)}",
             mapOf("q" to text, "target" to targetLang, "format" to "text"),
         )
         return parseOfficial(body)

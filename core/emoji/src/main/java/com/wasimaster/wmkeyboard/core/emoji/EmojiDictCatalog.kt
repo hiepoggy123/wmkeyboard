@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.emoji
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
+
 /**
  * One downloadable emoji dictionary from the wmkeyboard-data repo
  * (https://github.com/wasi-master/wmkeyboard-data): the names and search
@@ -23,9 +26,9 @@ data class EmojiDictEntry(
      * repo spells it differently (`no` for Norwegian Bokmål). */
     val repoCode: String = languageId,
 ) {
+    /** The data repository, wherever [ServiceRepo.DATA] points. */
     val url: String
-        get() = "https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/" +
-            "HEAD/data/$repoCode/${repoCode}_emoji.json.gz"
+        get() = ServiceEndpoints.repo(ServiceRepo.DATA).rawUrl("data/$repoCode/${repoCode}_emoji.json.gz")
 }
 
 /**

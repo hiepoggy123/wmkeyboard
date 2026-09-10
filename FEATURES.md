@@ -2414,6 +2414,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Fails open when unanswerable — No enrolled biometric and no screen lock means the gates stand aside rather than shutting the owner out.
     - BIOMETRIC_WEAK plus DEVICE_CREDENTIAL — The one combination legal on every API level, so there is no SDK fork; nothing here is encrypted, so weak is the honest class.
     - PIN fallback on by default — The only route back after a sensor lockout, and the only thing that works with no reader.
+- **Servers (F-Droid)** — Every address the app calls is a setting on the F-Droid build, so no service is tethered.
+  - Advanced › Servers — One screen listing every API and download repository; the same rows sit on each tool's own page.
+    - 28 API base addresses — Wikipedia/any MediaWiki, dictionary, Wiktionary, kaikki, Open-Meteo, currency sources, Keyman, Noto animations, F-Droid repository, and the keyed ones (Brave, KLIPY, GIPHY, Unsplash, Pexels, Google Translate, cloud AI) for proxies or clones
+    - Blank means the default — Nothing moves until a field is edited; a half-typed address is ignored and the field says which server is used
+  - Git mirrors on any forge — Language data, add-on and key-sound repositories and the Espanso Hub on GitHub, Forgejo/Gitea (Codeberg), GitLab, SourceHut, Bitbucket or a plain HTTPS folder
+    - Paste a repository link — Any forge's page address fills in host, owner, repository and branch
+    - Add-on repository links learn the same forges — A pasted Codeberg or GitLab page resolves to its raw wmkeyboard-repo.json
+  - Update check on any F-Droid repository — IzzyOnDroid's string version codes read the same as f-droid.org's numbers
 - **Incognito mode** — One boolean, toggled from a toolbar tool or Privacy settings; five defined effects.
   - Manual incognito toggle — Toolbox tool + Privacy switch drive the same setting; toast and haptic on toggle.
     - Toolbar badge while active — Badge next to the toolbar and the tool renders in its active state.
@@ -2624,6 +2632,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Google Drive backup destination | gms source set only (Play services); F-Droid/nogms builds get a no-op authorizer and the destination is unreachable |
 | Google Drive backup destination | needs the user to grant the drive.appdata scope through Google's consent screen; there is deliberately no in-app revoke |
 | Dropbox and OneDrive destinations | need a build-time OAuth client id compiled in (local.properties/env); absent id means the destination does not exist. Also need a browser sign-in and network |
+| Servers screen and server overrides | F-Droid builds only (wmkb.enableFdroid); other builds show a note on the screen and always call each service's default |
 | SAF folder destination | needs a persisted tree-URI grant taken via OpenDocumentTree; a lost grant reports PERMISSION_LOST and stops backups |
 | WebDAV / S3 / FTP destinations | need network plus user-supplied server credentials (WebDAV and S3 refuse plain http; FTP allows plain with a stated warning) |
 | Automatic backup job | requires the device to be charging, and skips entirely until the user has unlocked once since boot |
@@ -2842,6 +2851,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Document scanner tool | full flavour only (ML Kit) and hidden entirely on devices without Google Play services |
 | Handwriting, OCR, QR scan, grammar check, offline Whisper dictation, local LLM | full flavour only (ML Kit / LiteRT / Harper native) — power saving's 'drop on-device models' and the direct-boot restriction both fall back to system alternatives |
 | Google Drive backup destination | GMS-enabled builds only (wmkb.enableGms); reports unavailable in F-Droid builds |
+| Servers screen (Advanced) and per-tool server fields | F-Droid builds only (wmkb.enableFdroid) |
 | Launcher shortcuts | API 25+; ignored on the minSdk 24 floor |
 | Touch-exploration pass-through region | API 30+ (setTouchExplorationPassthroughRegion); the mode is inert below that |
 | Explicitly enabled OS subtypes for the system language switcher | API 34+; on 24–33 the user must tick languages in the system subtype enabler |

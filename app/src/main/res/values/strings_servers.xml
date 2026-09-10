@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Settings › Advanced › Servers, on the F-Droid edition only: where each
+        online service is called. The same rows show on each service's own page.
+        Service and product names are not translated.
+    -->
+    <string name="servers_title">Servers</string>
+    <string name="servers_subtitle">Choose the server for each online service</string>
+    <!-- Hidden search keywords for the Servers screen. Never drawn. -->
+    <string name="search_kw_servers">mirror self-hosted proxy instance endpoint forgejo codeberg gitea gitlab tethered</string>
+    <string name="servers_other_edition">Only the F-Droid edition reads these servers. This edition always calls each service at its own server.</string>
+    <string name="servers_repos_group">Repositories</string>
+    <string name="servers_repos_info">Word lists, dictionaries, add-ons and Espanso packages are files in git repositories. A copy of a repository on another host works the same way.</string>
+
+    <!-- The group of server fields on a service's own settings page. -->
+    <string name="servers_group_title">Server</string>
+    <string name="servers_group_info">The address that the keyboard calls this service at. Leave it empty to use the service\'s own server. The same setting is also in Advanced › Servers.</string>
+
+    <!-- %1$s is the service's own address, for example https://api.open-meteo.com -->
+    <string name="servers_endpoint_hint">Leave empty for %1$s</string>
+    <!-- %1$s is the service's own address. Shown while the field holds something that is not an address. -->
+    <string name="servers_endpoint_invalid">Not an address yet. Until it is, the keyboard uses %1$s</string>
+    <!-- %1$s is https://{lang}.wikipedia.org. Keep {lang} as it is. -->
+    <string name="servers_wikipedia_hint">Leave empty for %1$s. {lang} stands for the language that you search in</string>
+
+    <!-- Section titles on the Servers screen. -->
+    <string name="servers_section_downloads">Downloads</string>
+    <string name="servers_section_translate">Translate</string>
+    <string name="servers_section_search">Web and image search</string>
+    <string name="servers_section_media">GIFs and stickers</string>
+    <string name="servers_section_photos">Photos</string>
+    <string name="servers_section_wikipedia">Wikipedia</string>
+    <string name="servers_section_dictionary">Dictionary</string>
+    <string name="servers_section_vocabulary">Vocabulary lookups</string>
+    <string name="servers_section_weather">Weather</string>
+    <string name="servers_section_currency">Currency rates</string>
+    <string name="servers_section_ai">AI providers</string>
+    <string name="servers_section_updates">Update check</string>
+
+    <!-- One label per service. -->
+    <string name="servers_translate_google">Google Translate, no key</string>
+    <string name="servers_translate_cloud">Google Cloud Translation</string>
+    <string name="servers_brave_search">Brave Search API</string>
+    <string name="servers_klipy">KLIPY</string>
+    <string name="servers_giphy">GIPHY</string>
+    <string name="servers_unsplash">Unsplash</string>
+    <string name="servers_pexels">Pexels</string>
+    <string name="servers_wikipedia">Wikipedia or another MediaWiki</string>
+    <string name="servers_dictionary_api">Free Dictionary API</string>
+    <string name="servers_kaikki">kaikki.org (Wiktextract)</string>
+    <string name="servers_wiktionary">Wiktionary</string>
+    <string name="servers_open_meteo">Open-Meteo forecast</string>
+    <string name="servers_open_meteo_geocoding">Open-Meteo place search</string>
+    <string name="servers_currency_api">currency-api</string>
+    <string name="servers_currency_api_mirror">currency-api, second server</string>
+    <string name="servers_frankfurter">Frankfurter</string>
+    <string name="servers_er_api">ExchangeRate-API</string>
+    <string name="servers_coinbase">Coinbase</string>
+    <string name="servers_coingecko">CoinGecko</string>
+    <string name="servers_anthropic">Anthropic</string>
+    <string name="servers_openai">OpenAI</string>
+    <string name="servers_gemini">Google Gemini</string>
+    <string name="servers_xai">xAI</string>
+    <string name="servers_deepseek">DeepSeek</string>
+    <string name="servers_keyman_api">Keyman keyboard catalogue</string>
+    <string name="servers_keyman_downloads">Keyman keyboard downloads</string>
+    <string name="servers_animated_emoji">Noto animated emoji</string>
+    <string name="servers_fdroid_repository">F-Droid repository</string>
+
+    <!-- One label per repository. -->
+    <string name="servers_repo_data">Language data</string>
+    <string name="servers_repo_addons">Add-on repository</string>
+    <string name="servers_repo_sounds">Key sound repository</string>
+    <string name="servers_repo_espanso_hub">Espanso Hub</string>
+
+    <!-- The fields that say where one repository is. -->
+    <string name="servers_repo_forge_title">Hosted on</string>
+    <string name="servers_forge_github">GitHub</string>
+    <string name="servers_forge_forgejo">Forgejo or Gitea</string>
+    <string name="servers_forge_gitlab">GitLab</string>
+    <string name="servers_forge_sourcehut">SourceHut</string>
+    <string name="servers_forge_bitbucket">Bitbucket</string>
+    <string name="servers_forge_folder">HTTPS folder</string>
+    <string name="servers_repo_paste_label">Paste a repository link</string>
+    <string name="servers_repo_paste_hint">A page address from any of these hosts fills in the fields below</string>
+    <string name="servers_repo_host_label">Host</string>
+    <string name="servers_repo_host_hint">For example codeberg.org</string>
+    <string name="servers_repo_folder_label">Folder address</string>
+    <string name="servers_repo_folder_hint">An https:// address that holds the repository\'s files</string>
+    <string name="servers_repo_owner_label">Owner</string>
+    <string name="servers_repo_owner_hint">The user or the group that has the repository</string>
+    <string name="servers_repo_name_label">Repository</string>
+    <string name="servers_repo_name_hint">The repository\'s name</string>
+    <string name="servers_repo_ref_label">Branch</string>
+    <!-- %1$s is the branch used when the field is empty, for example main. -->
+    <string name="servers_repo_ref_hint">Leave empty for %1$s</string>
+    <!-- %1$s is an address, for example https://codeberg.org/me/wmkeyboard-data/raw/branch/main/ -->
+    <string name="servers_repo_current">Files come from %1$s</string>
+    <string name="servers_repo_incomplete">Some fields are empty, so the keyboard uses the default repository</string>
+    <string name="servers_repo_reset">Use the default repository</string>
+</resources>

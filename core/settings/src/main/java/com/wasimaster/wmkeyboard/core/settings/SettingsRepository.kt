@@ -16,6 +16,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.wasimaster.wmkeyboard.config.BuildConfig
+import com.wasimaster.wmkeyboard.core.endpoints.RepoLocation
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
+import com.wasimaster.wmkeyboard.core.endpoints.repoLocationFromFields
+import com.wasimaster.wmkeyboard.core.endpoints.toFields
 import com.wasimaster.wmkeyboard.core.settings.sink.S3Sink
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
@@ -108,6 +114,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -5377,6 +5385,25 @@ private fun decodeNumeralSystems(raw: String): Map<String, NumeralSystem> =
         }
         .toMap()
 
+private val endpointJson = Json { ignoreUnknownKeys = true }
+private val stringMapSerializer = MapSerializer(String.serializer(), String.serializer())
+private val repoMapSerializer = MapSerializer(String.serializer(), stringMapSerializer)
+
+/** Service addresses as a JSON object: an address carries `;` and `=` too often for the compact form below. */
+private fun encodeEndpointMap(map: Map<String, String>): String = endpointJson.encodeToString(stringMapSerializer, map)
+
+private fun decodeEndpointMap(raw: String): Map<String, String> =
+    runCatching { endpointJson.decodeFromString(stringMapSerializer, raw) }.getOrDefault(emptyMap())
+
+private fun encodeRepoMap(map: Map<String, RepoLocation>): String =
+    endpointJson.encodeToString(repoMapSerializer, map.mapValues { it.value.toFields() })
+
+/** An entry naming a forge this build does not know is dropped, which means its default. */
+private fun decodeRepoMap(raw: String): Map<String, RepoLocation> =
+    runCatching { endpointJson.decodeFromString(repoMapSerializer, raw) }.getOrDefault(emptyMap())
+        .mapNotNull { (id, fields) -> repoLocationFromFields(fields)?.let { id to it } }
+        .toMap()
+
 /** Serializes the per-script font map to a compact `SCRIPT=fontId;...` string. */
 private fun encodeScriptFontIds(map: Map<String, String>): String =
     map.entries
@@ -6220,6 +6247,8 @@ class SettingsRepository(private val context: Context) {
         private val SELF_HOSTED_LIBRETRANSLATE_KEY = stringPreferencesKey("self_hosted_libretranslate_key")
         private val SELF_HOSTED_SEARX_URL = stringPreferencesKey("self_hosted_searx_url")
         private val SELF_HOSTED_COMMONS_URL = stringPreferencesKey("self_hosted_commons_url")
+        private val SELF_HOSTED_ENDPOINTS = stringPreferencesKey("self_hosted_endpoints")
+        private val SELF_HOSTED_REPOS = stringPreferencesKey("self_hosted_repos")
         // Absent means "never chosen", which takes the seeded defaults; an
         // empty set is a real choice (nothing counts as music) and is kept.
         private val MEDIA_MUSIC_APPS = stringSetPreferencesKey("media_music_apps")
@@ -6411,6 +6440,10 @@ class SettingsRepository(private val context: Context) {
         // this object's copy, so a mapping that ran before the assets finished
         // parsing is not what decides which grid gets drawn.
         .map { mapPreferences(it) }
+        // Every reader of settings also brings the service addresses up to date,
+        // so a download manager deep in a feature module reads the address the
+        // user set without being handed the settings. See [ServiceEndpoints].
+        .onEach { ServiceEndpoints.update(it.selfHosted.endpoints, it.selfHosted.repos) }
         .flowOn(Dispatchers.Default)
 
     /**
@@ -7578,6 +7611,11 @@ class SettingsRepository(private val context: Context) {
             ai = AiSettings(
                 provider = p[AI_PROVIDER]
                     ?.let { runCatching { AiProvider.valueOf(it) }.getOrNull() }
+                    // On-device models exist only where the engine does. A value
+                    // restored from a full-build backup would otherwise open the
+                    // model downloader on lite, which reaches Hugging Face for a
+                    // model nothing there can run.
+                    ?.takeUnless { it == AiProvider.ON_DEVICE && !BuildConfig.ENABLE_LOCAL_LLM }
                     ?: defaults.ai.provider,
                 anthropicKey = p[AI_ANTHROPIC_KEY] ?: defaults.ai.anthropicKey,
                 openAiKey = p[AI_OPENAI_KEY] ?: defaults.ai.openAiKey,
@@ -7652,6 +7690,8 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.selfHosted.libreTranslateApiKey,
                 searxUrl = p[SELF_HOSTED_SEARX_URL] ?: defaults.selfHosted.searxUrl,
                 commonsUrl = p[SELF_HOSTED_COMMONS_URL] ?: defaults.selfHosted.commonsUrl,
+                endpoints = p[SELF_HOSTED_ENDPOINTS]?.let(::decodeEndpointMap) ?: defaults.selfHosted.endpoints,
+                repos = p[SELF_HOSTED_REPOS]?.let(::decodeRepoMap) ?: defaults.selfHosted.repos,
             ),
         )
     }
@@ -7811,6 +7851,27 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setLibreTranslateApiKey(value: String) =
         editPrefs { it[SELF_HOSTED_LIBRETRANSLATE_KEY] = value.trim() }
+
+    /**
+     * One service's base address on the F-Droid build. Blank puts the service
+     * back on its default. Saved as typed: a half-typed address is stored but
+     * never used, see [ServiceEndpoints.resolveBase].
+     */
+    suspend fun setServiceEndpoint(endpoint: ServiceEndpoint, value: String) =
+        editPrefs { prefs ->
+            val current = prefs[SELF_HOSTED_ENDPOINTS]?.let(::decodeEndpointMap).orEmpty()
+            val trimmed = value.trim()
+            val next = if (trimmed.isEmpty()) current - endpoint.id else current + (endpoint.id to trimmed)
+            if (next.isEmpty()) prefs.remove(SELF_HOSTED_ENDPOINTS) else prefs[SELF_HOSTED_ENDPOINTS] = encodeEndpointMap(next)
+        }
+
+    /** Where one repository is fetched from on the F-Droid build; null puts it back on its default. */
+    suspend fun setServiceRepo(repo: ServiceRepo, location: RepoLocation?) =
+        editPrefs { prefs ->
+            val current = prefs[SELF_HOSTED_REPOS]?.let(::decodeRepoMap).orEmpty()
+            val next = if (location == null) current - repo.id else current + (repo.id to location)
+            if (next.isEmpty()) prefs.remove(SELF_HOSTED_REPOS) else prefs[SELF_HOSTED_REPOS] = encodeRepoMap(next)
+        }
 
     suspend fun setSearxUrl(value: String) =
         editPrefs { it[SELF_HOSTED_SEARX_URL] = value.trim() }

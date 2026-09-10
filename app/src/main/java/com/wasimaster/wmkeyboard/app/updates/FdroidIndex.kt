@@ -1,12 +1,23 @@
 package com.wasimaster.wmkeyboard.app.updates
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonPrimitive
 
 /** One build of a package, as F-Droid's index describes it. */
 @Serializable
 internal data class FdroidPackage(
     val versionName: String = "",
+    @Serializable(with = LenientIntSerializer::class)
     val versionCode: Int = 0,
 )
 
@@ -21,9 +32,28 @@ internal data class FdroidPackage(
 @Serializable
 internal data class FdroidPackages(
     val packageName: String = "",
+    @Serializable(with = LenientIntSerializer::class)
     val suggestedVersionCode: Int = 0,
     val packages: List<FdroidPackage> = emptyList(),
 )
+
+/**
+ * An integer that may arrive quoted. f-droid.org sends version codes as JSON
+ * numbers; IzzyOnDroid serves the same API with them as strings ("76"). A
+ * repository the user points the update check at must not read as "no update"
+ * over a pair of quote marks.
+ */
+internal object LenientIntSerializer : KSerializer<Int> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("LenientInt", PrimitiveKind.INT)
+
+    override fun deserialize(decoder: Decoder): Int {
+        if (decoder !is JsonDecoder) return decoder.decodeInt()
+        val element = decoder.decodeJsonElement() as? JsonPrimitive ?: return 0
+        return element.content.trim().toIntOrNull() ?: 0
+    }
+
+    override fun serialize(encoder: Encoder, value: Int) = encoder.encodeInt(value)
+}
 
 /** Reading F-Droid's index, and where to read it from. */
 internal object FdroidIndex {
@@ -32,11 +62,11 @@ internal object FdroidIndex {
 
     /** The index entry for one package. 404 when F-Droid does not have it. */
     fun apiUrl(packageName: String): String =
-        "https://f-droid.org/api/v1/packages/$packageName"
+        "${ServiceEndpoints.base(ServiceEndpoint.FDROID_REPOSITORY)}/api/v1/packages/$packageName"
 
     /** The page a user is sent to, when the F-Droid client is not installed. */
     fun packagePage(packageName: String): String =
-        "https://f-droid.org/packages/$packageName/"
+        "${ServiceEndpoints.base(ServiceEndpoint.FDROID_REPOSITORY)}/packages/$packageName/"
 
     /** The index in [text], or null when it is not one. */
     fun decode(text: String): FdroidPackages? =

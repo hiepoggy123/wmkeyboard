@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.vocab
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -48,7 +50,8 @@ object KaikkiClient : VocabAutofill.Source {
     fun url(word: String): String {
         val w = word.lowercase(Locale.ROOT)
         fun q(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
-        return "https://kaikki.org/dictionary/English/meaning/${q(w.take(1))}/${q(w.take(2))}/${q(w)}.jsonl"
+        return ServiceEndpoints.base(ServiceEndpoint.KAIKKI) +
+            "/dictionary/English/meaning/${q(w.take(1))}/${q(w.take(2))}/${q(w)}.jsonl"
     }
 
     /** Blocking; call on an IO dispatcher. Null when kaikki has no page for the word; throws when it could not be asked. */

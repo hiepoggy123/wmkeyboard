@@ -138,6 +138,7 @@ internal object SettingsRoutes {
         "permissions",
         "applock",
         "datasaver",
+        "servers",
         "notifications",
         "selection_macros",
         "advanced",

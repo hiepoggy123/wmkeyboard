@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -17,7 +19,7 @@ object BraveSearchClient {
 
     /** Blocking; call on an IO dispatcher. Throws on failure. */
     fun webSearch(query: String, apiKey: String, count: Int, safe: Boolean): List<WebResult> {
-        val url = "https://api.search.brave.com/res/v1/web/search" +
+        val url = ServiceEndpoints.base(ServiceEndpoint.BRAVE_SEARCH) + "/res/v1/web/search" +
             "?q=${ToolHttp.encode(query.trim())}" +
             "&count=${count.coerceIn(1, 20)}" +
             "&safesearch=${if (safe) "moderate" else "off"}"
@@ -27,7 +29,7 @@ object BraveSearchClient {
     /** Blocking; call on an IO dispatcher. Throws on failure. */
     fun imageSearch(query: String, apiKey: String, count: Int, safe: Boolean): List<ImageResult> {
         // Image search only knows strict/off — no "moderate".
-        val url = "https://api.search.brave.com/res/v1/images/search" +
+        val url = ServiceEndpoints.base(ServiceEndpoint.BRAVE_SEARCH) + "/res/v1/images/search" +
             "?q=${ToolHttp.encode(query.trim())}" +
             "&count=${count.coerceIn(1, 20)}" +
             "&safesearch=${if (safe) "strict" else "off"}"

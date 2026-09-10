@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.app
 
 import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -178,6 +180,7 @@ internal fun LanguageSettings(
                 default = SettingsDefaults.autoPairRomanized,
             ) { scope.launch { repository.setAutoPairRomanized(it) } }
         }
+        serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.KEYMAN_API, ServiceEndpoint.KEYMAN_DOWNLOADS), repos = listOf(ServiceRepo.DATA))
         if (settings.perAppLanguage.layoutByPackage.isNotEmpty()) {
             item {
                 ActionRow(

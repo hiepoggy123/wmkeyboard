@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -24,7 +26,8 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 object PexelsClient {
 
-    private const val BASE = "https://api.pexels.com/v1"
+    /** api.pexels.com unless `ServiceEndpoint.PEXELS` points elsewhere. */
+    private val base: String get() = ServiceEndpoints.base(ServiceEndpoint.PEXELS) + "/v1"
 
     /** Present on 2xx only; Pexels answers an error with no budget at all. */
     val RATE_HEADERS = setOf("X-Ratelimit-Limit", "X-Ratelimit-Remaining", "X-Ratelimit-Reset")
@@ -45,7 +48,7 @@ object PexelsClient {
     // ---- URL building -------------------------------------------------
 
     internal fun searchUrl(query: PhotoQuery): String = buildString {
-        append("$BASE/search")
+        append("$base/search")
         append("?query=${ToolHttp.encode(query.text.trim())}")
         append("&page=${query.page.coerceAtLeast(1)}")
         append("&per_page=${query.perPage.coerceIn(1, MAX_PER_PAGE)}")
@@ -55,7 +58,7 @@ object PexelsClient {
     }
 
     internal fun curatedUrl(query: PhotoQuery): String = buildString {
-        append("$BASE/curated")
+        append("$base/curated")
         append("?page=${query.page.coerceAtLeast(1)}")
         append("&per_page=${query.perPage.coerceIn(1, MAX_PER_PAGE)}")
     }

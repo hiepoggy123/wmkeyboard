@@ -25,10 +25,12 @@ class CjkDictPackTest {
         assertEquals(listOf("ja_kana"), CjkDictCatalog.forLang("ja").map { it.id })
         assertEquals(listOf("jyutping"), CjkDictCatalog.forLang("yue").map { it.id })
         assertEquals(emptyList<CjkDictPack>(), CjkDictCatalog.forLang("en"))
-        // The shipped packs are hosted (url + checksum present).
+        // The shipped packs are hosted (path + checksum present).
         assertTrue(pinyin.available)
-        // A pack is unavailable if either the URL or the checksum is missing.
-        assertFalse(pinyin.copy(url = "").available)
+        // A pack is unavailable if either the path or the checksum is missing.
+        assertFalse(pinyin.copy(path = "").available)
+        // The path resolves against the data repository, at its default here.
+        assertEquals("https://raw.githubusercontent.com/wasi-master/wmkeyboard-data/HEAD/cjk/pinyin.tsv", pinyin.url)
         assertFalse(pinyin.copy(sha256 = "").available)
         // Every shipped pack is hosted, so none of them renders as unavailable.
         assertTrue(CjkDictCatalog.packs.all { it.available })

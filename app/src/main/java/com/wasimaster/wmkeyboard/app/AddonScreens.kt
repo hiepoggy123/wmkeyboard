@@ -123,8 +123,10 @@ import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.addons.InstalledAddon
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import com.wasimaster.wmkeyboard.core.addons.resolve
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.settings.DeviceNetworkState
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.stopsBackgroundWork
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
@@ -402,6 +404,9 @@ private fun repoAnchorKey(manifestUrl: String) = "addon-repo:$manifestUrl"
 internal fun AddonsScreen(
     prefillUrl: String = "",
     typeFilter: AddonType? = null,
+    /** For the F-Droid build's repository server fields; the list works without them. */
+    repository: SettingsRepository? = null,
+    settings: KeyboardSettings? = null,
     onNavigate: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -560,6 +565,11 @@ internal fun AddonsScreen(
     // the auto-fetch has nothing to do and the rows explain nothing.
     if (repos.isNotEmpty()) {
         RefreshSettingsGroup(store, autoRefresh, refreshUnmeteredOnly)
+    }
+
+    // Where the two repositories offered on a fresh install are fetched from.
+    if (repository != null && settings != null) {
+        ServerFieldsGroup(repository, settings, repos = listOf(ServiceRepo.ADDONS, ServiceRepo.SOUNDS))
     }
 
     if (installed.isNotEmpty()) {

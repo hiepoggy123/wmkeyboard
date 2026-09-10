@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.settings.AiSettings
 import com.wasimaster.wmkeyboard.tools.feature.R
@@ -65,14 +67,16 @@ object AiClient {
     }
 
     /**
-     * Fixed addresses of the services that speak the OpenAI chat-completions
-     * shape. [AiProvider.OPENAI_COMPATIBLE] is absent on purpose: its address is
-     * the one the user supplies.
+     * Addresses of the services that speak the OpenAI chat-completions shape:
+     * their own hosts, unless the F-Droid build has one pointed elsewhere (see
+     * `ServiceEndpoint`). [AiProvider.OPENAI_COMPATIBLE] is absent on purpose:
+     * its address is the one the user supplies.
      */
     private object Endpoints {
-        const val OPENAI = "https://api.openai.com/v1/chat/completions"
-        const val XAI = "https://api.x.ai/v1/chat/completions"
-        const val DEEPSEEK = "https://api.deepseek.com/v1/chat/completions"
+        val OPENAI: String get() = ServiceEndpoints.base(ServiceEndpoint.OPENAI) + CHAT_COMPLETIONS
+        val XAI: String get() = ServiceEndpoints.base(ServiceEndpoint.XAI) + CHAT_COMPLETIONS
+        val DEEPSEEK: String get() = ServiceEndpoints.base(ServiceEndpoint.DEEPSEEK) + CHAT_COMPLETIONS
+        const val CHAT_COMPLETIONS = "/v1/chat/completions"
     }
 
     /**
@@ -556,7 +560,7 @@ object AiClient {
     ): Completion {
         val body = anthropicBody(config, system, turns, maxTokens)
         return runStream(
-            url = "https://api.anthropic.com/v1/messages",
+            url = ServiceEndpoints.base(ServiceEndpoint.ANTHROPIC) + "/v1/messages",
             body = body,
             headers = mapOf(
                 "x-api-key" to config.apiKey,
@@ -700,7 +704,7 @@ object AiClient {
     ): Completion {
         val body = geminiBody(system, turns, maxTokens)
         return runStream(
-            url = "https://generativelanguage.googleapis.com/v1beta/models/" +
+            url = ServiceEndpoints.base(ServiceEndpoint.GEMINI) + "/v1beta/models/" +
                 "${config.model}:streamGenerateContent?alt=sse",
             body = body,
             headers = mapOf("x-goog-api-key" to config.apiKey),

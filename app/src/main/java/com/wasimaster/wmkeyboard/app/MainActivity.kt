@@ -43,6 +43,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Check
+import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.app.storage.StorageCategories
 import com.wasimaster.wmkeyboard.app.storage.StorageCategoryScreen
 import com.wasimaster.wmkeyboard.app.statistics.StatisticsScreen
@@ -1127,7 +1128,7 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "addons",
             ) {
-                AddonsScreen(prefill, addonType) { route -> navController.navigate(route) }
+                AddonsScreen(prefill, addonType, repository, settings) { route -> navController.navigate(route) }
             }
         }
         // The repository URL travels in the path, percent-encoded — a deep link
@@ -1484,6 +1485,15 @@ private fun SettingsNavGraph(
                 route = "datasaver",
             ) {
                 DataSaverSettingsScreen(repository, settings)
+            }
+        }
+        composable("servers") {
+            SettingsScreen(
+                stringResource(R.string.servers_title),
+                { navController.popBackStack() },
+                route = "servers",
+            ) {
+                ServersSettingsScreen(repository, settings)
             }
         }
         composable(SelectionMacroRoute) {
@@ -2027,6 +2037,14 @@ internal fun AdvancedSettings(onNavigate: (String) -> Unit) {
             NavRow(
                 R.string.home_datasaver_title, stringResource(R.string.home_datasaver_subtitle), route = "datasaver",
             ) { onNavigate("datasaver") }
+        }
+        // Only the F-Droid build reads the server settings, so only it links them.
+        if (BuildConfig.ENABLE_FDROID) {
+            item {
+                NavRow(R.string.servers_title, stringResource(R.string.servers_subtitle), route = "servers") {
+                    onNavigate("servers")
+                }
+            }
         }
         item {
             NavRow(

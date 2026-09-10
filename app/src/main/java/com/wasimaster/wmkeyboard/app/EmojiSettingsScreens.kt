@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
 import com.wasimaster.wmkeyboard.core.addons.AddonType
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Icon
@@ -469,6 +470,7 @@ internal fun EmojiPanelSettings(
                 default = SettingsDefaults.emoji.animated,
             ) { scope.launch { repository.setAnimatedEmoji(it) } }
         }
+        serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.ANIMATED_EMOJI))
         item {
             ToggleSetting(
                 R.string.langemoji_emoji_sticker_title,

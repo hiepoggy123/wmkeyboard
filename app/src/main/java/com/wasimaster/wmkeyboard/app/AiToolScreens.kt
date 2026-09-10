@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Refresh
@@ -290,6 +291,14 @@ internal fun AiToolSettings(
         }
         AiProvider.ON_DEVICE -> LocalLlmModelManager(repository, settings)
     }
+    ServerFieldsGroup(
+        repository,
+        settings,
+        endpoints = listOf(
+            ServiceEndpoint.ANTHROPIC, ServiceEndpoint.OPENAI, ServiceEndpoint.GEMINI,
+            ServiceEndpoint.XAI, ServiceEndpoint.DEEPSEEK,
+        ),
+    )
     SettingsGroup(stringResource(R.string.toolai_ai_output_title)) {
         if (settings.ai.provider != AiProvider.ON_DEVICE) {
             item {

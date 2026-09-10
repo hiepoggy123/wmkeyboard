@@ -1,5 +1,10 @@
 package com.wasimaster.wmkeyboard.core.snippets.espanso
 
+import com.wasimaster.wmkeyboard.core.endpoints.GitForge
+import com.wasimaster.wmkeyboard.core.endpoints.RepoLocation
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
+
 /**
  * Turns a pasted address into one a snippet file can actually be fetched from.
  *
@@ -10,6 +15,8 @@ package com.wasimaster.wmkeyboard.core.snippets.espanso
  *
  * - a direct `https://` link to a `.yml`, `.yaml` or `.zip`, which passes through
  * - a GitHub `blob` page, rewritten to `raw.githubusercontent.com`
+ * - a file page on another forge (Codeberg, a GitLab, SourceHut), rewritten to
+ *   that forge's raw address
  * - `https://hub.espanso.org/<package>`, which needs the repository listed to
  *   find the newest version, so it is answered in two steps
  *
@@ -20,9 +27,8 @@ package com.wasimaster.wmkeyboard.core.snippets.espanso
  */
 object EspansoHub {
 
-    /** Where the Hub's packages actually live. */
-    const val REPO_OWNER = "espanso"
-    const val REPO_NAME = "hub"
+    // The Hub's packages live in github.com/espanso/hub, or wherever
+    // ServiceRepo.ESPANSO_HUB points on the F-Droid build.
 
     private const val HUB_HOST = "hub.espanso.org"
     private const val GITHUB_HOST = "github.com"
@@ -40,11 +46,15 @@ object EspansoHub {
           * [packageUrl] for that version.
           */
         data class HubPackage(val slug: String) : Target {
-            val contentsUrl: String
-                get() = "https://api.github.com/repos/$REPO_OWNER/$REPO_NAME/contents/packages/$slug"
+            /**
+             * The listing of this package's version folders, or null when the
+             * forge the Hub is mirrored on has no listing to ask.
+             */
+            val contentsUrl: String?
+                get() = ServiceEndpoints.repo(ServiceRepo.ESPANSO_HUB).directoryListingUrl("packages/$slug")
 
             fun packageUrl(version: String): String =
-                "https://$RAW_HOST/$REPO_OWNER/$REPO_NAME/main/packages/$slug/$version/package.yml"
+                ServiceEndpoints.repo(ServiceRepo.ESPANSO_HUB).rawUrl("packages/$slug/$version/package.yml")
         }
     }
 
@@ -81,6 +91,12 @@ object EspansoHub {
                 return Target.Direct("https://$RAW_HOST/$owner/$repo/$tail")
             }
             return null
+        }
+        // A file page on any other forge is a page too, not the file.
+        RepoLocation.fromPageUrl(url)?.let { (location, file) ->
+            if (location.forge != GitForge.GITHUB && file.isNotEmpty() && hasKnownExtension(file)) {
+                return Target.Direct(location.rawUrl(file))
+            }
         }
         if (!hasKnownExtension(path)) return null
         return Target.Direct(url)

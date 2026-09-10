@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -31,7 +33,7 @@ object KlipyClient {
         val type = if (stickers) "stickers" else "gifs"
         val endpoint = if (query.isBlank()) "trending" else "search"
         val url = buildString {
-            append("https://api.klipy.com/api/v1/${ToolHttp.encode(apiKey)}/$type/$endpoint")
+            append("${ServiceEndpoints.base(ServiceEndpoint.KLIPY)}/api/v1/${ToolHttp.encode(apiKey)}/$type/$endpoint")
             append("?page=1&per_page=$limit&rating=${rating(filter)}")
             if (query.isNotBlank()) append("&q=${ToolHttp.encode(query.trim())}")
         }
@@ -51,7 +53,7 @@ object KlipyClient {
     fun categories(apiKey: String, stickers: Boolean, limit: Int = MediaCategories.MAX_CATEGORIES):
         List<MediaCategory> {
         val type = if (stickers) "stickers" else "gifs"
-        val url = "https://api.klipy.com/api/v1/${ToolHttp.encode(apiKey)}/$type/categories" +
+        val url = "${ServiceEndpoints.base(ServiceEndpoint.KLIPY)}/api/v1/${ToolHttp.encode(apiKey)}/$type/categories" +
             "?page=1&per_page=$limit"
         return parseCategories(ToolHttp.get(url))
     }

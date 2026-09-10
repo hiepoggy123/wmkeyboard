@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.emoji
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import java.io.InputStream
 
 /**
@@ -38,14 +40,14 @@ class AnimatedEmoji private constructor(private val codes: Set<String>) {
     }
 
     /** The 512×512 GIF for a key from [keyFor] — what actually gets sent. */
-    fun gifUrl(key: String): String = "$ASSET_BASE/$key/512.gif"
+    fun gifUrl(key: String): String = "${assetBase()}/$key/512.gif"
 
     /**
      * The same animation as WebP: a third of the GIF's size for the same
      * frames, which is what the preview wants. Not what gets sent — plenty of
      * apps take an `image/webp` and then draw only its first frame.
      */
-    fun webpUrl(key: String): String = "$ASSET_BASE/$key/512.webp"
+    fun webpUrl(key: String): String = "${assetBase()}/$key/512.webp"
 
     private fun Set<String>.firstMatch(codePoints: IntArray): String? =
         spell(codePoints)?.takeIf { it in this }
@@ -54,7 +56,8 @@ class AnimatedEmoji private constructor(private val codes: Set<String>) {
 
         val EMPTY = AnimatedEmoji(emptySet())
 
-        private const val ASSET_BASE = "https://fonts.gstatic.com/s/e/notoemoji/latest"
+        /** fonts.gstatic.com's Noto folder, unless `ServiceEndpoint.ANIMATED_EMOJI` points at a mirror. */
+        private fun assetBase(): String = ServiceEndpoints.base(ServiceEndpoint.ANIMATED_EMOJI)
 
         /** Format: one code point spelling per line, `# ` comments. */
         fun load(stream: InputStream): AnimatedEmoji {

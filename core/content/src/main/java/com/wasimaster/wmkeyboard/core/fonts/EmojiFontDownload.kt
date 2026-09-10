@@ -3,6 +3,8 @@ package com.wasimaster.wmkeyboard.core.fonts
 import android.content.Context
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.content.R
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,14 +40,11 @@ import java.net.URL
  */
 object EmojiFontCatalog {
 
-    private const val REPO =
-        "https://raw.githubusercontent.com/wasi-master/wmkeyboard-addon-repository/HEAD/"
-
     /**
      * Where the file lives. The same path the add-on entry points at, so the
      * two routes cannot drift into shipping different fonts.
      */
-    const val NOTO_URL: String = REPO + "fonts/noto-color-emoji.ttf"
+    val NOTO_URL: String get() = ServiceEndpoints.repo(ServiceRepo.ADDONS).rawUrl("fonts/noto-color-emoji.ttf")
 
     /**
      * A few hundred bytes beside the font saying which build it is.
@@ -56,7 +55,7 @@ object EmojiFontCatalog {
      * add-on layer; this is the same fact in a form this module can read on
      * its own. Both are written by the same publish, so they cannot disagree.
      */
-    const val NOTO_MANIFEST_URL: String = REPO + "fonts/noto-color-emoji.json"
+    val NOTO_MANIFEST_URL: String get() = ServiceEndpoints.repo(ServiceRepo.ADDONS).rawUrl("fonts/noto-color-emoji.json")
 
     /** Name the installed font is listed under. */
     const val NOTO_NAME: String = "Noto Color Emoji"

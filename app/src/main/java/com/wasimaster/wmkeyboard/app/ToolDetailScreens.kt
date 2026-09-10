@@ -23,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import com.wasimaster.wmkeyboard.app.media.MusicApps
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.notify.DownloadKeys
 import com.wasimaster.wmkeyboard.core.settings.AppSortOrder
@@ -602,6 +603,7 @@ internal fun ToolDetailSettings(
                         scope.launch { repository.setWeatherRefreshMinutes(picked.roundToInt()) }
                     }
                 }
+                serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.OPEN_METEO, ServiceEndpoint.OPEN_METEO_GEOCODING))
             }
         }
         ToolbarTool.CALENDAR -> {
@@ -785,6 +787,7 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.dictionaryAutoLookup,
                     ) { scope.launch { repository.setDictionaryAutoLookup(it) } }
                 }
+                serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.DICTIONARY_API))
             }
         }
         ToolbarTool.TEXT_EDIT -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
@@ -1425,6 +1428,7 @@ internal fun ToolDetailSettings(
                             emptyHint = stringResource(R.string.tooldetail_translate_instance_key_hint),
                         ) { repository.setLibreTranslateApiKey(it) }
                     }
+                    serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.TRANSLATE_GOOGLE, ServiceEndpoint.TRANSLATE_CLOUD))
                 }
             }
             SettingsGroup(
@@ -1455,6 +1459,7 @@ internal fun ToolDetailSettings(
                             default = SettingsDefaults.selfHosted.commonsUrl,
                         ) { repository.setCommonsUrl(it) }
                     }
+                    serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.KLIPY, ServiceEndpoint.GIPHY))
                 }
             }
             if (tool == ToolbarTool.STICKER) {
@@ -1627,6 +1632,7 @@ internal fun ToolDetailSettings(
                             default = SettingsDefaults.selfHosted.searxUrl,
                         ) { repository.setSearxUrl(it) }
                     }
+                    serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.BRAVE_SEARCH))
                 }
                 item {
                     ApiKeyField(
@@ -1810,6 +1816,7 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.webSearch.wikiLanguage,
                     ) { repository.setWikiLanguage(it) }
                 }
+                serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.WIKIPEDIA))
                 item {
                     ToggleSetting(
                         R.string.tooldetail_wiki_markdown_title,
@@ -1964,6 +1971,7 @@ internal fun ToolDetailSettings(
                         candidates = CurrencyClient.Provider.entries.filter { it.fiat },
                     ) { scope.launch { repository.setFiatProviders(it) } }
                 }
+                serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.CURRENCY_API, ServiceEndpoint.CURRENCY_API_MIRROR, ServiceEndpoint.FRANKFURTER, ServiceEndpoint.ER_API))
             }
             SettingsGroup(
                 stringResource(R.string.tooldetail_crypto_group_title),
@@ -2011,6 +2019,7 @@ internal fun ToolDetailSettings(
                             candidates = CurrencyClient.Provider.entries.filter { it.crypto },
                         ) { scope.launch { repository.setCryptoProviders(it) } }
                     }
+                    serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.COINBASE, ServiceEndpoint.COINGECKO))
                     item { CryptoCoinPicker(repository, settings) }
                 }
             }

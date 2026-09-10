@@ -179,6 +179,38 @@ optional feature that works without it: the **Keyman layout catalogue**
 so plainly if a packager asks rather than letting them find it; if they judge
 it disqualifying, the field goes back.
 
+## Why there is no `TetheredNet` either
+
+F-Droid applies `TetheredNet` to an app that "depends entirely on a service which
+is impossible (or not easy) to replace", and waives it when there is "a simple
+configuration option that allows pointing the app to a running instance of an
+alternative, publicly available, self-hostable server solution". Wikipedia's own
+app carries it because wikipedia.org is hardcoded, although MediaWiki is free
+software.
+
+So from the release after 0.5.6, every address this build calls is a setting.
+**Advanced › Servers** lists all of them, and each tool's own page shows the same
+fields:
+
+* every API: Wikipedia (any MediaWiki), the dictionary, Wiktionary and
+  kaikki.org, Open-Meteo, the currency sources, Keyman's catalogue and downloads,
+  the Noto animated emoji and the F-Droid repository the update check asks
+  (IzzyOnDroid serves the same API). The keyed ones too, for a proxy or a
+  compatible clone: Brave, KLIPY, GIPHY, Unsplash, Pexels, Google Translate and
+  the cloud AI providers.
+* every git repository it downloads from: the language data, the add-on and
+  key-sound repositories, and the Espanso Hub, on GitHub, Forgejo or Gitea
+  (Codeberg), GitLab, SourceHut, Bitbucket, or a plain HTTPS folder. The app
+  builds each forge's raw-file address itself.
+
+The code is `ServiceEndpoint`, `ServiceRepo` and `ServiceEndpoints` in
+`:core:common`. The defaults are unchanged, nothing moves until someone edits a
+field, and the other builds ignore the overrides entirely.
+
+Google Drive, Dropbox and OneDrive backups are not in the list because this build
+cannot use them at all: no Play services, and the recipe passes no client ids.
+WebDAV, S3-compatible storage and a local folder were already configurable.
+
 ## A note on the wrapped strings
 
 `rewritemeta` wraps any value too long for its line width, and the wrap leaves a

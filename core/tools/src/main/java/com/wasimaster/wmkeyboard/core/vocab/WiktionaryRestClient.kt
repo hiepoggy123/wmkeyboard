@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.vocab
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -24,7 +26,7 @@ object WiktionaryRestClient : VocabAutofill.Source {
     private val json = Json { ignoreUnknownKeys = true }
 
     fun url(word: String): String =
-        "https://en.wiktionary.org/api/rest_v1/page/definition/" +
+        ServiceEndpoints.base(ServiceEndpoint.WIKTIONARY) + "/api/rest_v1/page/definition/" +
             URLEncoder.encode(word.trim(), "UTF-8").replace("+", "%20") + "?redirect=true"
 
     override fun lookup(lemma: String, translationCodes: List<String>): VocabWord? {

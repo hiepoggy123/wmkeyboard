@@ -1,5 +1,10 @@
 package com.wasimaster.wmkeyboard.core.settings
 
+import com.wasimaster.wmkeyboard.core.endpoints.RepoLocation
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
+
 /**
  * Where the free-software services live, for the build that uses them.
  *
@@ -55,4 +60,14 @@ data class SelfHostedSettings(
      * setting rather than a fork.
      */
     val commonsUrl: String = "",
+
+    /**
+     * Base addresses for every other service, keyed by [ServiceEndpoint.id].
+     * A missing or unusable entry means the service's own default; see
+     * [ServiceEndpoints.resolveBase].
+     */
+    val endpoints: Map<String, String> = emptyMap(),
+
+    /** Git locations for the downloaded data, keyed by [ServiceRepo.id]. Missing means the default. */
+    val repos: Map<String, RepoLocation> = emptyMap(),
 )

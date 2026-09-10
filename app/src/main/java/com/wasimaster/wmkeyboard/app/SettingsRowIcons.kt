@@ -80,6 +80,7 @@ import androidx.compose.material.icons.outlined.DataObject
 import androidx.compose.material.icons.outlined.DataSaverOn
 import androidx.compose.material.icons.outlined.DataUsage
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.LocationOn
@@ -1014,6 +1015,7 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_calc_precision_title) { Icons.Outlined.Numbers }
         put(R.string.tooldetail_units_compound_title) { Icons.Outlined.Height }
         put(R.string.tooldetail_currency_auto_fetch_title) { Icons.Outlined.CloudDownload }
+        put(R.string.servers_title) { Icons.Outlined.Dns }
         put(R.string.tooldetail_currency_decimals_title) { Icons.Outlined.Numbers }
         put(R.string.tooldetail_currency_refresh_title) { Icons.Outlined.Refresh }
         put(R.string.tooldetail_currency_source_title) { Icons.Outlined.Cloud }

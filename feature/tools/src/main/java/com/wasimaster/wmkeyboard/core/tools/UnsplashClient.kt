@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -23,7 +25,8 @@ import kotlinx.serialization.json.jsonPrimitive
  */
 object UnsplashClient {
 
-    private const val BASE = "https://api.unsplash.com"
+    /** api.unsplash.com unless `ServiceEndpoint.UNSPLASH` points elsewhere. */
+    private val base: String get() = ServiceEndpoints.base(ServiceEndpoint.UNSPLASH)
 
     /** The headers whose values [PhotoRateLimit] wants back. */
     val RATE_HEADERS = setOf("X-Ratelimit-Limit", "X-Ratelimit-Remaining")
@@ -64,7 +67,7 @@ object UnsplashClient {
     // ---- URL building -------------------------------------------------
 
     internal fun searchUrl(query: PhotoQuery): String = buildString {
-        append("$BASE/search/photos")
+        append("$base/search/photos")
         append("?query=${ToolHttp.encode(query.text.trim())}")
         append("&page=${query.page.coerceAtLeast(1)}")
         append("&per_page=${query.perPage.coerceIn(1, MAX_PER_PAGE)}")
@@ -75,9 +78,9 @@ object UnsplashClient {
 
     internal fun feedUrl(query: PhotoQuery): String = buildString {
         if (query.topicId.isNotBlank()) {
-            append("$BASE/topics/${ToolHttp.encode(query.topicId)}/photos")
+            append("$base/topics/${ToolHttp.encode(query.topicId)}/photos")
         } else {
-            append("$BASE/photos")
+            append("$base/photos")
         }
         append("?page=${query.page.coerceAtLeast(1)}")
         append("&per_page=${query.perPage.coerceIn(1, MAX_PER_PAGE)}")
@@ -85,7 +88,7 @@ object UnsplashClient {
     }
 
     internal fun randomUrl(query: PhotoQuery, count: Int): String = buildString {
-        append("$BASE/photos/random")
+        append("$base/photos/random")
         append("?count=${count.coerceIn(1, MAX_RANDOM_COUNT)}")
         if (query.text.isNotBlank()) append("&query=${ToolHttp.encode(query.text.trim())}")
         if (query.topicId.isNotBlank()) append("&topics=${ToolHttp.encode(query.topicId)}")

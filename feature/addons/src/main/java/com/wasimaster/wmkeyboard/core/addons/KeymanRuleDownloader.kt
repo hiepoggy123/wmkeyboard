@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.addons
 
 import android.content.Context
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import com.wasimaster.wmkeyboard.core.keyman.KeymanFault
 import com.wasimaster.wmkeyboard.core.keyman.KeymanPackage
 import com.wasimaster.wmkeyboard.core.keyman.KeymanResult
@@ -159,7 +161,7 @@ object KeymanRuleDownloader {
      * would pin every user to whatever was current the day we ran the pipeline.
      */
     private fun keyboardMeta(keyboardId: String): Meta {
-        val body = ToolHttp.get("$API_BASE/keyboard/$keyboardId")
+        val body = ToolHttp.get("${ServiceEndpoints.base(ServiceEndpoint.KEYMAN_API)}/keyboard/$keyboardId")
         val root = json.parseToJsonElement(body) as? JsonObject ?: return Meta("", "", "")
         val version = root["version"]?.jsonPrimitive?.contentOrNull().orEmpty()
         val packageFilename = root["packageFilename"]?.jsonPrimitive?.contentOrNull()
@@ -169,7 +171,7 @@ object KeymanRuleDownloader {
     }
 
     private fun packageUrl(keyboardId: String, version: String, packageFilename: String): String =
-        "$DOWNLOAD_BASE/keyboards/$keyboardId/$version/$packageFilename"
+        "${ServiceEndpoints.base(ServiceEndpoint.KEYMAN_DOWNLOADS)}/keyboards/$keyboardId/$version/$packageFilename"
 
     /**
      * Whether an id could name a keyboard, checked before it reaches a URL or a
@@ -184,11 +186,9 @@ object KeymanRuleDownloader {
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
-    /** Metadata host. HTTPS and this host only. */
-    private const val API_BASE = "https://api.keyman.com"
-
-    /** Package host. HTTPS and this host only. */
-    private const val DOWNLOAD_BASE = "https://downloads.keyman.com"
+    // Metadata comes from api.keyman.com and packages from downloads.keyman.com,
+    // unless the F-Droid build has either pointed at a mirror: ServiceEndpoint
+    // KEYMAN_API and KEYMAN_DOWNLOADS.
 
     /**
      * The largest package worth fetching. The biggest in the corpus is a few

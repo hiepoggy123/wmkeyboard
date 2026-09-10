@@ -1654,6 +1654,12 @@ private fun SearchStrings.sectionRows(): List<SettingsSearchEntry> {
             R.string.home_datasaver_title, R.string.home_datasaver_subtitle,
             R.string.home_advanced_title, "datasaver", R.string.search_kw_datasaver,
         ),
+        // Only the F-Droid build reads the server settings, so only it indexes the screen.
+        *if (BuildConfig.ENABLE_FDROID) {
+            arrayOf(under(R.string.servers_title, R.string.servers_subtitle, R.string.home_advanced_title, "servers", R.string.search_kw_servers))
+        } else {
+            emptyArray()
+        },
         under(
             R.string.home_notifications_title, R.string.home_notifications_subtitle,
             R.string.home_advanced_title, "notifications", R.string.search_kw_notifications,
