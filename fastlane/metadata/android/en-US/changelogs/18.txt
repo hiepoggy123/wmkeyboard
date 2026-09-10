@@ -1,0 +1,3 @@
+Write, test and install your own Lua plugins in a new code editor in the app. Hide the 🌐 key on every layout. Move keys between rows, and edit a layout as JSON. Swipe off ?123 or ABC to type one key from that layer. A glided word is the word its preview showed.
+
+On F-Droid, every online service can use a server you choose, and the weather and currency chips wait for a tap before they go online.
