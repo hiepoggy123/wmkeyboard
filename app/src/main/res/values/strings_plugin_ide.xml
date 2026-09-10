@@ -222,4 +222,7 @@
     <string name="plugin_ide_prelude_title">The prelude</string>
     <string name="plugin_ide_prelude_caption">Every plugin runs this code before its own script, to make the ui helpers. It cannot be changed.</string>
 
+    <string name="plugin_ide_fold_all_action">Fold every block</string>
+    <string name="plugin_ide_unfold_all_action">Unfold every block</string>
+
 </resources>

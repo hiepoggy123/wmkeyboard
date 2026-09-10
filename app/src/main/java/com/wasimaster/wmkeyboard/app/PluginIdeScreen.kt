@@ -581,6 +581,21 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                                 onClick = { textSize = (textSize - 1).coerceAtLeast(MIN_TEXT_SIZE) },
                             )
                             DropdownMenuItem(
+                                text = { Text(stringResource(R.string.plugin_ide_fold_all_action)) },
+                                onClick = {
+                                    menuOpen = false
+                                    editor.foldAll(LuaCode.foldRegions(editor.text).map { it.min })
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.plugin_ide_unfold_all_action)) },
+                                enabled = editor.foldStarts.isNotEmpty(),
+                                onClick = {
+                                    menuOpen = false
+                                    editor.unfoldAll()
+                                },
+                            )
+                            DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_format_action)) },
                                 onClick = {
                                     menuOpen = false
@@ -661,6 +676,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                     panel = IdePanel.PROBLEMS
                     editor.moveTo(offsetOfLine(editor.text, line))
                 },
+                folding = true,
             )
             apiHere?.let { ApiDocStrip(it, rememberCodeColors()) }
             IdePanelBar(panel, problems = diagnostics.size) { chosen -> panel = if (panel == chosen) IdePanel.CLOSED else chosen }
@@ -693,6 +709,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                     onFind = { findOpen = true },
                     onFormat = { editor.replace(LuaCode.format(editor.text)) },
                     onSuggest = { suggestRequests++ },
+                    blocks = LuaCode::foldRegions,
                 )
             }
         }

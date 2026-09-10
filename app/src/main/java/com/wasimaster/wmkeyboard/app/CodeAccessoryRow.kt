@@ -147,6 +147,8 @@ internal fun CodeAccessoryRow(
     onFormat: () -> Unit,
     onSuggest: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The blocks of the text, for Block start and Block end. */
+    blocks: (String) -> List<TextRange> = { emptyList() },
 ) {
     var page by rememberSaveable { mutableStateOf(AccessoryPage.SYMBOLS) }
     Row(
@@ -177,7 +179,7 @@ internal fun CodeAccessoryRow(
                         onLongClick = key.held?.let { held -> { state.edit(typed(state.value, held)) } },
                     ) { state.edit(typed(state.value, key.insert)) }
                 }
-                AccessoryPage.COMMANDS -> items(commands(state, lineComment, onFind, onFormat, onSuggest)) { command ->
+                AccessoryPage.COMMANDS -> items(commands(state, lineComment, onFind, onFormat, onSuggest, blocks)) { command ->
                     TextKey(label = stringResource(command.label), colors = colors, onClick = command.run)
                 }
             }
@@ -198,6 +200,7 @@ private fun commands(
     onFind: () -> Unit,
     onFormat: () -> Unit,
     onSuggest: () -> Unit,
+    blocks: (String) -> List<TextRange>,
 ): List<Command> = listOfNotNull(
     Command(R.string.code_command_suggest, onSuggest),
     Command(R.string.code_command_undo) { state.undo() },
@@ -210,6 +213,12 @@ private fun commands(
     Command(R.string.code_command_line_down) { moveLines(state.text, state.value.selection, 1)?.let(state::applyEdit) },
     Command(R.string.code_command_select_word) { state.select(wordRangeAt(state.text, state.value.selection.end)) },
     Command(R.string.code_command_select_line) { state.select(lineRangeAt(state.text, state.value.selection.end)) },
+    Command(R.string.code_command_block_start) {
+        blockAround(blocks(state.text), state.value.selection.end)?.let { state.moveTo(it.min) }
+    },
+    Command(R.string.code_command_block_end) {
+        blockAround(blocks(state.text), state.value.selection.end)?.let { state.moveTo(it.max) }
+    },
     Command(R.string.code_command_find, onFind),
     Command(R.string.code_command_format, onFormat),
 )

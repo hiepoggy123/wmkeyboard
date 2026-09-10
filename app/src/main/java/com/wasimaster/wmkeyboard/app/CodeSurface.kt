@@ -57,6 +57,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextRange
@@ -84,6 +85,9 @@ private val CONTENT_PAD = 10.dp
 private val FIELD_PAD = 10.dp
 private val CARET_PAD = 24.dp
 private val NUMBER_PAD = 10.dp
+
+/** The strip at the right of the gutter the fold chevrons sit in. */
+private val FOLD_GUTTER = 14.dp
 
 /** At most this many squiggles are drawn in one frame, however many a broken file has. */
 private const val MAX_SQUIGGLES = 200
@@ -151,6 +155,8 @@ internal fun CodeSurface(
     suggestRequests: Int = 0,
     /** Hears a tap on a line number, with the line's index. Null leaves the numbers inert. */
     onGutterPress: ((Int) -> Unit)? = null,
+    /** Whether blocks fold from chevrons in the gutter, over [CodeLanguage.foldRegions]. */
+    folding: Boolean = false,
 ) {
     val density = LocalDensity.current
     // Held as the state object rather than read through it: the two draw
@@ -171,7 +177,27 @@ internal fun CodeSurface(
     val brackets = remember(text, language) { language.brackets(text) }
     val match = remember(brackets, caret) { language.matchingBracket(text, brackets, caret) }
     val coloured = remember(text, colors, language) { language.highlight(text, colors) }
-    val painter = remember(coloured) { CodeHighlight(coloured) }
+    // Folding. The field shows the document with folded blocks swapped for a
+    // placeholder, through an offset mapping; everything drawn from the layout
+    // below goes through the same mapping.
+    val regions = remember(text, language, folding) { if (folding) language.foldRegions(text) else emptyList() }
+    val folds = remember(text, regions, state.foldStarts) { foldsFor(text, regions, state.foldStarts) }
+    val foldMap = remember(folds, text) { if (folds.isEmpty()) null else FoldMap(folds, text.length) }
+    val painter = remember(coloured, folds, colors) {
+        CodeHighlight(coloured, folds, foldMap ?: OffsetMapping.Identity, SpanStyle(color = colors.foldMark))
+    }
+    val foldable = remember(text, regions, lineStarts) { if (folding) foldableStarts(text, regions, lineStarts) else emptyMap() }
+    val shownCaret = foldMap?.originalToTransformed(caret) ?: caret
+    val shownMatch = match?.let { (a, b) -> foldMap?.let { it.originalToTransformed(a) to it.originalToTransformed(b) } ?: match }
+    val shownDecorations = remember(decorations, foldMap) { foldMap?.let { decorations.through(it) } ?: decorations }
+    // A caret or a selection that lands in folded text, typed, found or jumped to, opens the fold.
+    LaunchedEffect(state.value.selection, folds) {
+        val selection = state.value.selection
+        folds.firstOrNull { fold ->
+            (selection.min > fold.hidden.min && selection.min < fold.hidden.max) ||
+                (selection.max > fold.hidden.min && selection.max < fold.hidden.max)
+        }?.let { state.unfold(it.start) }
+    }
 
     // Suggestions live here rather than with the caller, so the list can sit at
     // the caret. completionStep decides what each change of text or caret does.
@@ -245,8 +271,9 @@ internal fun CodeSurface(
 
     val measurer = rememberTextMeasurer(cacheSize = 64)
     val digits = lineStarts.size.toString().length
-    val gutterWidth = remember(digits, style, density) {
-        with(density) { measurer.measure(AnnotatedString("0".repeat(digits)), style).size.width.toDp() + 20.dp }
+    val gutterWidth = remember(digits, style, density, folding) {
+        with(density) { measurer.measure(AnnotatedString("0".repeat(digits)), style).size.width.toDp() + 20.dp } +
+            if (folding) FOLD_GUTTER else 0.dp
     }
     val charWidth = remember(style, density) {
         with(density) { measurer.measure(AnnotatedString("0"), style).size.width.toDp() }
@@ -267,15 +294,15 @@ internal fun CodeSurface(
     ) {
         val viewport = frame.height
         val room = with(density) { frame.width.toDp() } - gutterWidth - FIELD_PAD - FIELD_PAD
-        val contentWidth = maxOf(room, charWidth * longest + CARET_PAD)
+        val contentWidth = maxOf(room, charWidth * (longest + if (folds.isEmpty()) 0 else FOLD_PLACEHOLDER.length) + CARET_PAD)
 
         Box(Modifier.width(gutterWidth).fillMaxHeight().background(colors.gutter))
         Box(Modifier.offset(x = gutterWidth).width(1.dp).fillMaxHeight().background(colors.border))
         EditorUnderlay(
             layout = layout,
-            caret = caret,
-            match = match,
-            decorations = decorations,
+            caret = shownCaret,
+            match = shownMatch,
+            decorations = shownDecorations,
             textLeft = gutterWidth + FIELD_PAD,
             vertical = vertical,
             horizontal = horizontal,
@@ -289,14 +316,22 @@ internal fun CodeSurface(
             Modifier
                 .verticalScroll(vertical)
                 .padding(top = CONTENT_PAD, bottom = bottomPad)
-                .pointerInput(onGutterPress, lineStarts, gutterWidth) {
-                    val press = onGutterPress ?: return@pointerInput
+                .pointerInput(onGutterPress, lineStarts, gutterWidth, foldable, foldMap) {
+                    val press = onGutterPress
+                    if (press == null && foldable.isEmpty()) return@pointerInput
                     // The field takes the taps that land on text; what reaches here
-                    // on the left is a tap on the numbers.
+                    // on the left is a tap on the numbers or on a fold chevron.
                     detectTapGestures { tap ->
                         if (tap.x >= gutterWidth.toPx()) return@detectTapGestures
                         val result = layout.value ?: return@detectTapGestures
-                        press(lineOf(lineStarts, result.getLineStart(result.getLineForVerticalPosition(tap.y))))
+                        val shownStart = result.getLineStart(result.getLineForVerticalPosition(tap.y))
+                        val line = lineOf(lineStarts, foldMap?.transformedToOriginal(shownStart) ?: shownStart)
+                        val foldStart = foldable[line]
+                        if (foldStart != null && tap.x >= (gutterWidth - FOLD_GUTTER).toPx()) {
+                            state.toggleFold(foldStart)
+                        } else {
+                            press?.invoke(line)
+                        }
                     }
                 }
                 .drawBehind {
@@ -305,12 +340,17 @@ internal fun CodeSurface(
                         lineStarts = lineStarts,
                         activeLine = caretLine,
                         marks = decorations.gutterMarks,
-                        right = gutterWidth.toPx() - NUMBER_PAD.toPx(),
+                        right = gutterWidth.toPx() - NUMBER_PAD.toPx() - if (folding) FOLD_GUTTER.toPx() else 0f,
                         colors = colors,
                         style = style,
                         measurer = measurer,
                         scroll = vertical.value,
                         viewport = viewport,
+                        map = foldMap,
+                        folds = folds,
+                        foldable = foldable,
+                        folded = state.foldStarts,
+                        chevronLeft = if (folding) gutterWidth.toPx() - FOLD_GUTTER.toPx() else -1f,
                     )
                 },
             verticalAlignment = Alignment.Top,
@@ -347,7 +387,7 @@ internal fun CodeSurface(
                         // without recomposing the editor. Below the caret when it
                         // fits, above it when the keyboard has taken the room.
                         val result = layout.value ?: return@offset IntOffset.Zero
-                        val rect = result.getCursorRect(caret.coerceIn(0, result.layoutInput.text.length))
+                        val rect = result.getCursorRect(shownCaret.coerceIn(0, result.layoutInput.text.length))
                         val left = (gutterWidth + FIELD_PAD).roundToPx() - horizontal.value
                         val top = CONTENT_PAD.roundToPx() - vertical.value
                         val below = top + rect.bottom.roundToInt()
@@ -361,11 +401,30 @@ internal fun CodeSurface(
     }
 }
 
-/** Paints the document that was coloured once per change, character for character. */
-private class CodeHighlight(private val coloured: AnnotatedString) : VisualTransformation {
+/**
+ * Paints the document that was coloured once per change, with each folded
+ * block swapped for its placeholder through [map]. With nothing folded it is
+ * the coloured document character for character.
+ */
+private class CodeHighlight(
+    coloured: AnnotatedString,
+    private val folds: List<CodeFold>,
+    private val map: OffsetMapping,
+    placeholder: SpanStyle,
+) : VisualTransformation {
+    private val shown = foldedText(coloured, folds, placeholder)
+
     override fun filter(text: AnnotatedString): TransformedText =
-        TransformedText(coloured, OffsetMapping.Identity)
+        TransformedText(shown, if (folds.isEmpty()) OffsetMapping.Identity else map)
 }
+
+/** Decorations placed on the folded text: ranges moved through [map], line marks left by line. */
+private fun CodeDecorations.through(map: OffsetMapping): CodeDecorations = copy(
+    matches = matches.map { TextRange(map.originalToTransformed(it.min), map.originalToTransformed(it.max)) },
+    squiggles = squiggles.map {
+        it.copy(range = TextRange(map.originalToTransformed(it.range.min), map.originalToTransformed(it.range.max)))
+    },
+)
 
 /** The field itself. Split out to keep the editor's own tree readable. */
 @Composable
@@ -554,13 +613,21 @@ private fun DrawScope.drawLineNumbers(
     measurer: TextMeasurer,
     scroll: Int,
     viewport: Int,
+    map: OffsetMapping? = null,
+    folds: List<CodeFold> = emptyList(),
+    foldable: Map<Int, Int> = emptyMap(),
+    folded: Set<Int> = emptySet(),
+    chevronLeft: Float = -1f,
 ) {
     val result = layout ?: return
     val limit = result.layoutInput.text.length
     for (index in lineStarts.indices) {
         val start = lineStarts[index]
-        if (start > limit) break
-        val line = result.getLineForOffset(start)
+        // A line inside a fold is not on screen at all.
+        if (folds.any { start > it.hidden.min && start <= it.hidden.max }) continue
+        val shown = map?.originalToTransformed(start) ?: start
+        if (shown > limit) break
+        val line = result.getLineForOffset(shown)
         val top = result.getLineTop(line)
         if (top - scroll > viewport) break
         if (result.getLineBottom(line) - scroll < 0f) continue
@@ -577,5 +644,28 @@ private fun DrawScope.drawLineNumbers(
             style.copy(color = colour, fontWeight = if (active || mark != null) FontWeight.Medium else FontWeight.Normal),
         )
         drawText(number, topLeft = Offset(right - number.size.width, top))
+        val foldStart = foldable[index]
+        if (foldStart != null && chevronLeft >= 0f) {
+            val closed = foldStart in folded && folds.any { it.start == foldStart }
+            drawChevron(chevronLeft, top, result.getLineBottom(line) - top, closed, colors.foldMark)
+        }
     }
+}
+
+/** A fold chevron: pointing right over a folded block, down over an open one. */
+private fun DrawScope.drawChevron(left: Float, top: Float, height: Float, closed: Boolean, color: Color) {
+    val half = minOf(height * 0.2f, 4.dp.toPx())
+    val centreX = left + FOLD_GUTTER.toPx() / 2f
+    val centreY = top + height / 2f
+    val path = Path()
+    if (closed) {
+        path.moveTo(centreX - half / 2f, centreY - half)
+        path.lineTo(centreX + half / 2f, centreY)
+        path.lineTo(centreX - half / 2f, centreY + half)
+    } else {
+        path.moveTo(centreX - half, centreY - half / 2f)
+        path.lineTo(centreX, centreY + half / 2f)
+        path.lineTo(centreX + half, centreY - half / 2f)
+    }
+    drawPath(path, color, style = Stroke(width = 1.5.dp.toPx()))
 }

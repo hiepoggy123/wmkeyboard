@@ -14,6 +14,7 @@ import com.wasimaster.wmkeyboard.core.plugins.lua.LuaDocuments
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaFormat
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaHostShape
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaLexer
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaNavigation
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaTokenKind
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaTokens
 
@@ -92,6 +93,9 @@ internal object LuaCode : CodeLanguage {
 
     /** The API name at [caret], for the strip under the code, from the tokens already lexed to colour it. */
     fun apiAt(source: String, caret: Int): LuaApiEntry? = LuaApiLookup.at(tokensOf(source), caret)
+
+    override fun foldRegions(source: String): List<TextRange> =
+        LuaNavigation.foldRegions(tokensOf(source)).map { TextRange(it.start, it.end) }
 
     /**
      * The analysis of the last text that parsed. Completion reads its locals while

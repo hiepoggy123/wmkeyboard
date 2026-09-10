@@ -118,6 +118,13 @@ internal interface CodeLanguage {
      * [explicit] is true when the author asked for the list.
      */
     fun completions(source: String, caret: Int, explicit: Boolean): CodeCompletions? = null
+
+    /**
+     * The stretches that can fold, each from its opening to the end of its
+     * closing, in document order. Asked on every change of the text, so from
+     * tokens rather than a parse.
+     */
+    fun foldRegions(source: String): List<TextRange> = emptyList()
 }
 
 /** A parse failure, at a character offset when the parser reports one. */
@@ -327,8 +334,39 @@ internal class CodeEditorState(
     private val rules: CodeSmartRules = CodeSmartRules.Json,
 ) {
 
-    var value by mutableStateOf(initial)
+    private var current by mutableStateOf(initial)
+
+    /**
+     * Where the folded blocks start. A fold is kept by its block's start, and every
+     * change of the text carries the starts with it: see [remapFoldStarts].
+     */
+    var foldStarts: Set<Int> by mutableStateOf(emptySet())
         private set
+
+    var value: TextFieldValue
+        get() = current
+        private set(next) {
+            if (foldStarts.isNotEmpty() && next.text != current.text) {
+                foldStarts = remapFoldStarts(foldStarts, current.text, next.text)
+            }
+            current = next
+        }
+
+    fun toggleFold(start: Int) {
+        foldStarts = if (start in foldStarts) foldStarts - start else foldStarts + start
+    }
+
+    fun unfold(start: Int) {
+        if (start in foldStarts) foldStarts = foldStarts - start
+    }
+
+    fun foldAll(starts: Collection<Int>) {
+        foldStarts = starts.toSet()
+    }
+
+    fun unfoldAll() {
+        foldStarts = emptySet()
+    }
 
     private val past = mutableStateListOf<TextFieldValue>()
     private val future = mutableStateListOf<TextFieldValue>()

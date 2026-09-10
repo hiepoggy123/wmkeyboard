@@ -72,4 +72,8 @@
     <string name="code_command_find">Find</string>
     <string name="code_command_format">Format</string>
 
+    <!-- Commands that move the caret to the start and to the end of the block around it. -->
+    <string name="code_command_block_start">Block start</string>
+    <string name="code_command_block_end">Block end</string>
+
 </resources>

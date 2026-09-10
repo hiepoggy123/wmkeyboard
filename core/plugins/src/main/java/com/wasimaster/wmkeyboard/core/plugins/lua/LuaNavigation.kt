@@ -122,16 +122,20 @@ object LuaNavigation {
      * or strings that run over more than one line. From tokens, so they are there
      * while the file is broken too.
      */
-    fun foldRegions(document: LuaDocument): List<LuaSpan> {
-        val tokens = document.tokens
-        val source = document.source
+    fun foldRegions(document: LuaDocument): List<LuaSpan> = foldRegions(document.tokens, document.blocks)
+
+    /** [foldRegions] from tokens alone, for an editor that has lexed the text and must not wait for a parse. */
+    fun foldRegions(tokens: LuaTokens): List<LuaSpan> = foldRegions(tokens, LuaBlocks.of(tokens))
+
+    private fun foldRegions(tokens: LuaTokens, blocks: LuaBlocks): List<LuaSpan> {
+        val source = tokens.source
         val regions = ArrayList<LuaSpan>()
         val braces = ArrayList<Int>()
         for (index in 0 until tokens.size) {
             val kind = tokens.kind(index)
             when {
                 kind == LuaTokenKind.KEYWORD -> {
-                    val closer = document.blocks.closerOf(index)
+                    val closer = blocks.closerOf(index)
                     if (closer > index) {
                         // `else` and `elseif` end a region at their own start, so branches do not overlap.
                         val end = if (tokens.matches(closer, "end") || tokens.matches(closer, "until")) tokens.end(closer) else tokens.start(closer)
