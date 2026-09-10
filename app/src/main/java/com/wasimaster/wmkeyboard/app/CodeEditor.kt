@@ -4,31 +4,16 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Typeface
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.selection.LocalTextSelectionColors
-import androidx.compose.foundation.text.selection.TextSelectionColors
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
@@ -42,62 +27,33 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.State
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.isCtrlPressed
-import androidx.compose.ui.input.key.isMetaPressed
-import androidx.compose.ui.input.key.isShiftPressed
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.TextLayoutResult
-import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.input.TransformedText
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import java.io.File
@@ -113,9 +69,8 @@ import kotlinx.coroutines.withContext
  * The parts of a source language this editor needs: how to colour it, how to
  * tidy it, where its brackets pair up, and what is wrong with it right now.
  *
- * One implementation ships today ([JsonCode]), but the editor itself knows
- * nothing about JSON, so the Lua plugin screen or a pattern field can adopt it
- * later without a change here.
+ * Two implementations ship: [JsonCode] for the layout screens and [LuaCode] for
+ * the plugin editor. The editor itself knows about neither.
  */
 @Immutable
 internal interface CodeLanguage {
@@ -138,11 +93,77 @@ internal interface CodeLanguage {
 
     /** The bracket at or before [caret] and the one that pairs with it. */
     fun matchingBracket(source: String, brackets: List<Int>, caret: Int): Pair<Int, Int>?
+
+    // Everything below has a default, so a language with nothing to say about it
+    // says nothing and the editor draws nothing. JsonCode overrides none of them,
+    // which is how the two JSON screens stay exactly as they were.
+
+    /** What starts a line comment, or null for a language that has none. */
+    val lineComment: String?
+        get() = null
+
+    /** How a typed bracket, quote or line break behaves. */
+    val smartRules: CodeSmartRules
+        get() = CodeSmartRules.Json
+
+    /**
+     * Everything wrong with the document, in document order. Called off the main
+     * thread after a pause in typing, the same way [problem] is.
+     */
+    fun diagnostics(source: String): List<CodeDiagnostic> = emptyList()
 }
 
 /** A parse failure, at a character offset when the parser reports one. */
 @Immutable
 internal data class CodeProblem(val offset: Int?)
+
+internal enum class CodeSeverity { ERROR, WARNING, INFO }
+
+/**
+ * One thing wrong with a stretch of the document. The words are a resource and
+ * two arguments, resolved where they are drawn, because a language is built with
+ * no Context.
+ */
+@Immutable
+internal data class CodeDiagnostic(
+    val range: TextRange,
+    val severity: CodeSeverity,
+    @StringRes val messageRes: Int = 0,
+    val arg1: String? = null,
+    val arg2: String? = null,
+)
+
+/**
+ * What smart editing needs to know about a language: which characters pair up,
+ * where a typed opener must not bring its closer, and which lines open a block
+ * the next line belongs inside.
+ */
+@Immutable
+internal class CodeSmartRules(
+    /** Each opener and the closer it brings. A quote is its own closer. */
+    val pairs: Map<Char, Char>,
+    /** The openers in [pairs] that close themselves. */
+    val quotes: Set<Char>,
+    /**
+     * Whether a caret at an offset sits inside a string or a comment, judged from
+     * the text before it. Nothing auto-closes there.
+     */
+    val inert: (text: String, at: Int) -> Boolean,
+    /** Whether a line, up to the caret, opens a block that the next line is inside. */
+    val opensBlock: (line: String) -> Boolean = { false },
+) {
+    /** The closers that are not quotes. */
+    val closers: Set<Char> = pairs.filterKeys { it !in quotes }.values.toSet()
+
+    companion object {
+        /** JSON's rules, exactly the ones the editor always had. */
+        val Json = CodeSmartRules(
+            pairs = mapOf('{' to '}', '[' to ']', '"' to '"'),
+            quotes = setOf('"'),
+            inert = ::insideString,
+        )
+    }
+}
 
 /**
  * The editor's own colours. Fixed, rather than taken from the app theme: code
@@ -167,6 +188,15 @@ internal data class CodeColors(
     val number: Color,
     val keyword: Color,
     val problem: Color,
+    val comment: Color,
+    val function: Color,
+    val operator: Color,
+    val warning: Color,
+    /** The selection drag handles. Not [caret], which is a mid grey on the dark palette. */
+    val handle: Color,
+    val findMatch: Color,
+    val findActive: Color,
+    val foldMark: Color,
 )
 
 private val LightCode = CodeColors(
@@ -185,6 +215,14 @@ private val LightCode = CodeColors(
     number = Color(0xFF098658),
     keyword = Color(0xFF0000FF),
     problem = Color(0xFFD1242F),
+    comment = Color(0xFF008000),
+    function = Color(0xFF795E26),
+    operator = Color(0xFF24292F),
+    warning = Color(0xFFBF8803),
+    handle = Color(0xFF0550AE),
+    findMatch = Color(0xFFFFE8A3),
+    findActive = Color(0xFFF8C271),
+    foldMark = Color(0xFFA0A6AD),
 )
 
 private val DarkCode = CodeColors(
@@ -203,6 +241,14 @@ private val DarkCode = CodeColors(
     number = Color(0xFFB5CEA8),
     keyword = Color(0xFF569CD6),
     problem = Color(0xFFF14C4C),
+    comment = Color(0xFF6A9955),
+    function = Color(0xFFDCDCAA),
+    operator = Color(0xFFD4D4D4),
+    warning = Color(0xFFCCA700),
+    handle = Color(0xFF3794FF),
+    findMatch = Color(0xFF623315),
+    findActive = Color(0xFF9E6A03),
+    foldMark = Color(0xFF858585),
 )
 
 /**
@@ -212,6 +258,8 @@ private val DarkCode = CodeColors(
 private val MONO_FONT_FILES = listOf(
     "/system/fonts/RobotoMono-Regular.ttf",
     "/system/fonts/DroidSansMono.ttf",
+    "/system/fonts/NotoSansMono-Regular.ttf",
+    "/system/fonts/JetBrainsMono-Regular.ttf",
     "/system/fonts/CutiveMono.ttf",
 )
 
@@ -228,7 +276,7 @@ private val MONO_FONT_FILES = listOf(
  * Resolved once per process: it touches the file system, and the answer cannot
  * change while the app runs.
  */
-private val CodeFontFamily: FontFamily by lazy {
+internal val CodeFontFamily: FontFamily by lazy {
     val file = MONO_FONT_FILES
         .asSequence()
         .map(::File)
@@ -236,6 +284,12 @@ private val CodeFontFamily: FontFamily by lazy {
         .firstOrNull { runCatching { Typeface.createFromFile(it) }.getOrNull() != null }
     if (file == null) FontFamily.Monospace else FontFamily(Font(file))
 }
+
+/**
+ * True when no monospaced file was found and the alias is all there is. On such a
+ * device column arithmetic may be off, so the plugin editor wraps by default.
+ */
+internal val CodeFontIsFallback: Boolean by lazy { CodeFontFamily === FontFamily.Monospace }
 
 /** The palette that suits the theme the app is drawn in. */
 @Composable
@@ -261,7 +315,10 @@ private const val INDENT = "  "
  * have to know whether there is anything to step to.
  */
 @Stable
-internal class CodeEditorState(initial: TextFieldValue) {
+internal class CodeEditorState(
+    initial: TextFieldValue,
+    private val rules: CodeSmartRules = CodeSmartRules.Json,
+) {
 
     var value by mutableStateOf(initial)
         private set
@@ -276,7 +333,7 @@ internal class CodeEditorState(initial: TextFieldValue) {
 
     /** The field reports a change. Smart editing runs here, before the record. */
     fun edit(new: TextFieldValue) {
-        val smart = smartEdit(value, new)
+        val smart = smartEdit(value, new, rules)
         record(smart)
         value = smart
     }
@@ -288,10 +345,31 @@ internal class CodeEditorState(initial: TextFieldValue) {
         value = TextFieldValue(newText, TextRange(value.selection.end.coerceIn(0, newText.length)))
     }
 
+    /**
+     * Applies one prepared change, a comment toggle or a replace-all, as one step
+     * of history. A change that leaves the text alone only moves the selection.
+     */
+    fun applyEdit(edit: CodeTextEdit) {
+        val current = value.text
+        val min = edit.range.min.coerceIn(0, current.length)
+        val max = edit.range.max.coerceIn(min, current.length)
+        val next = current.substring(0, min) + edit.text + current.substring(max)
+        val selection = TextRange(edit.selection.start.coerceIn(0, next.length), edit.selection.end.coerceIn(0, next.length))
+        if (next == current && selection == value.selection) return
+        if (next != current) push()
+        value = TextFieldValue(next, selection)
+    }
+
     /** Puts the caret at [offset]. The text does not change. */
     fun moveTo(offset: Int) {
         val at = offset.coerceIn(0, value.text.length)
         value = TextFieldValue(value.text, TextRange(at))
+    }
+
+    /** Selects [range]. The text does not change, and nothing is recorded. */
+    fun select(range: TextRange) {
+        val length = value.text.length
+        value = TextFieldValue(value.text, TextRange(range.start.coerceIn(0, length), range.end.coerceIn(0, length)))
     }
 
     fun undo() {
@@ -367,39 +445,93 @@ internal class CodeEditorState(initial: TextFieldValue) {
         lastEditAt = 0L
     }
 
+    /** The newest steps of history that fit a saved state, oldest first. */
+    private fun savedHistory(): List<TextFieldValue> {
+        val kept = ArrayList<TextFieldValue>()
+        var characters = 0
+        for (index in past.indices.reversed()) {
+            val entry = past[index]
+            if (kept.size >= HISTORY_KEEP || characters + entry.text.length > HISTORY_CHARS) break
+            kept += entry
+            characters += entry.text.length
+        }
+        return kept.asReversed()
+    }
+
     companion object {
-        /** Rotation keeps the text and the caret. The history is not worth the bundle. */
-        val Saver = listSaver<CodeEditorState, Any>(
-            save = { listOf(it.value.text, it.value.selection.start, it.value.selection.end) },
-            restore = { CodeEditorState(TextFieldValue(it[0] as String, TextRange(it[1] as Int, it[2] as Int))) },
+        private const val HISTORY_KEEP = 20
+
+        /** Characters of history a saved state may carry. A bundle spends two bytes on each. */
+        private const val HISTORY_CHARS = 32 * 1024
+
+        /**
+         * A saver that restores with [rules], so a Lua document does not come back
+         * from a rotation typing like JSON. [keepHistory] also carries the newest
+         * undo steps, capped by size: a bundle that is too large is a crash, not a
+         * slow save.
+         */
+        fun saver(rules: CodeSmartRules, keepHistory: Boolean): Saver<CodeEditorState, Any> = listSaver(
+            save = { state ->
+                buildList<Any> {
+                    add(state.value.text)
+                    add(state.value.selection.start)
+                    add(state.value.selection.end)
+                    if (keepHistory) {
+                        for (entry in state.savedHistory()) {
+                            add(entry.text)
+                            add(entry.selection.start)
+                            add(entry.selection.end)
+                        }
+                    }
+                }
+            },
+            restore = { saved ->
+                val state = CodeEditorState(
+                    TextFieldValue(saved[0] as String, TextRange(saved[1] as Int, saved[2] as Int)),
+                    rules,
+                )
+                var index = 3
+                while (index + 2 < saved.size) {
+                    state.past += TextFieldValue(
+                        saved[index] as String,
+                        TextRange(saved[index + 1] as Int, saved[index + 2] as Int),
+                    )
+                    index += 3
+                }
+                state
+            },
         )
+
+        /** Rotation keeps the text and the caret. The history is not worth the bundle. */
+        val Saver: Saver<CodeEditorState, Any> = saver(CodeSmartRules.Json, keepHistory = false)
     }
 }
 
 /** Remembers the editor's state for one document. A new [key] starts a new one. */
 @Composable
-internal fun rememberCodeEditorState(key: Any?, initial: () -> String): CodeEditorState =
-    rememberSaveable(key, saver = CodeEditorState.Saver) { CodeEditorState(TextFieldValue(initial())) }
+internal fun rememberCodeEditorState(
+    key: Any?,
+    rules: CodeSmartRules = CodeSmartRules.Json,
+    keepHistory: Boolean = false,
+    initial: () -> String,
+): CodeEditorState {
+    val saver = remember(rules, keepHistory) { CodeEditorState.saver(rules, keepHistory) }
+    return rememberSaveable(key, saver = saver) { CodeEditorState(TextFieldValue(initial()), rules) }
+}
 
 // ---------------------------------------------------------------------------
 // The editor
 // ---------------------------------------------------------------------------
 
 private const val PROBLEM_DELAY_MS = 250L
-private val CONTENT_PAD = 10.dp
-private val FIELD_PAD = 10.dp
-private val CARET_PAD = 24.dp
-private val NUMBER_PAD = 10.dp
 
 /**
  * A monospaced field on a code background, with numbered lines, the caret's
  * line lit, matching brackets boxed, a toolbar above and a status line below.
  *
- * Long lines run off to the right and scroll rather than wrap, which is what
- * keeps one number against one line. The Wrap button turns that off for a
- * narrow screen, and the numbers stay right either way: they are drawn at the
- * y each line actually landed at, from the field's own layout, rather than at
- * a multiple of an assumed line height.
+ * The field itself is [CodeSurface]; this adds the toolbar, the status line and
+ * a height cap, for a screen that scrolls around the editor rather than giving
+ * it the whole window.
  */
 @Composable
 internal fun CodeEditor(
@@ -411,28 +543,11 @@ internal fun CodeEditor(
     maxHeight: Dp = 420.dp,
 ) {
     val colors = rememberCodeColors()
-    val density = LocalDensity.current
     var wrap by rememberSaveable { mutableStateOf(false) }
-    // Held as the state object rather than read through it: the two draw
-    // blocks below read `.value` inside the draw phase, so a new text layout
-    // repaints the margin and the underlay without recomposing the editor.
-    val layout = remember { mutableStateOf<TextLayoutResult?>(null) }
-    val vertical = rememberScrollState()
-    val horizontal = rememberScrollState()
-
-    val style = remember(colors) {
-        TextStyle(fontFamily = CodeFontFamily, fontSize = 13.sp, lineHeight = 20.sp, color = colors.text)
-    }
     val text = state.text
     val caret = state.value.selection.end.coerceIn(0, text.length)
     val lineStarts = remember(text) { lineStartOffsets(text) }
     val caretLine = lineOf(lineStarts, caret)
-    // Everything below is keyed on the text alone. Only `match` follows the
-    // caret, and it walks a list of offsets rather than the document.
-    val brackets = remember(text, language) { language.brackets(text) }
-    val match = remember(brackets, caret) { language.matchingBracket(text, brackets, caret) }
-    val coloured = remember(text, colors, language) { language.highlight(text, colors) }
-    val painter = remember(coloured) { CodeHighlight(coloured) }
 
     // A parse on every keystroke is wasted work while the user is mid-word, so
     // the status line waits for a pause, and then parses off the main thread.
@@ -442,232 +557,28 @@ internal fun CodeEditor(
         value = withContext(Dispatchers.Default) { language.problem(text) }
     }
     val problemLine = problem?.offset?.let { lineOf(lineStarts, it.coerceIn(0, text.length)) }
-
-    // Wrapped text has nothing to the right, so a stale sideways scroll would
-    // only hide the left margin.
-    LaunchedEffect(wrap) { if (wrap) horizontal.scrollTo(0) }
-
-    val measurer = rememberTextMeasurer(cacheSize = 64)
-    val digits = lineStarts.size.toString().length
-    val gutterWidth = remember(digits, style, density) {
-        with(density) { measurer.measure(AnnotatedString("0".repeat(digits)), style).size.width.toDp() + 20.dp }
+    val decorations = remember(problemLine) {
+        if (problemLine == null) {
+            CodeDecorations.None
+        } else {
+            CodeDecorations(gutterMarks = mapOf(problemLine to CodeSeverity.ERROR))
+        }
     }
-    val charWidth = remember(style, density) {
-        with(density) { measurer.measure(AnnotatedString("0"), style).size.width.toDp() }
-    }
-    val longest = remember(text) { text.lineSequence().maxOf { it.length } }
 
     Column(modifier) {
         CodeToolbar(state, language, colors, title, wrap) { wrap = it }
-
-        val shape = RoundedCornerShape(12.dp)
-        // A plain Box with its size reported back, rather than
-        // BoxWithConstraints: that one subcomposes its content on every measure
-        // pass, and this content is a text field holding the whole document.
-        var frame by remember { mutableStateOf(IntSize.Zero) }
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = minHeight, max = maxHeight)
-                .clip(shape)
-                .background(colors.background)
-                .border(1.dp, colors.border, shape)
-                .onSizeChanged { frame = it },
-        ) {
-            val viewport = frame.height
-            val room = with(density) { frame.width.toDp() } - gutterWidth - FIELD_PAD - FIELD_PAD
-            val contentWidth = maxOf(room, charWidth * longest + CARET_PAD)
-
-            Box(Modifier.width(gutterWidth).fillMaxHeight().background(colors.gutter))
-            Box(Modifier.offset(x = gutterWidth).width(1.dp).fillMaxHeight().background(colors.border))
-            EditorUnderlay(
-                layout = layout,
-                caret = caret,
-                match = match,
-                textLeft = gutterWidth + FIELD_PAD,
-                vertical = vertical,
-                horizontal = horizontal,
-                colors = colors,
-            )
-
-            // The margin is painted behind the row rather than laid out beside
-            // it, so the row's height is the field's own and nothing has to
-            // read the text layout during composition.
-            Row(
-                Modifier
-                    .verticalScroll(vertical)
-                    .padding(vertical = CONTENT_PAD)
-                    .drawBehind {
-                        drawLineNumbers(
-                            layout = layout.value,
-                            lineStarts = lineStarts,
-                            activeLine = caretLine,
-                            problemLine = problemLine,
-                            right = gutterWidth.toPx() - NUMBER_PAD.toPx(),
-                            colors = colors,
-                            style = style,
-                            measurer = measurer,
-                            scroll = vertical.value,
-                            viewport = viewport,
-                        )
-                    },
-                verticalAlignment = Alignment.Top,
-            ) {
-                Spacer(Modifier.width(gutterWidth))
-                Box(
-                    Modifier
-                        .weight(1f)
-                        .padding(horizontal = FIELD_PAD)
-                        .horizontalScroll(horizontal, enabled = !wrap),
-                ) {
-                    // Wrapping is the width, not a flag: a field as wide as its
-                    // longest line has nothing to wrap, and one as wide as the
-                    // viewport wraps everything. The legacy field has no
-                    // softWrap of its own.
-                    CodeField(state, style, colors, painter, if (wrap) room else contentWidth) { layout.value = it }
-                }
-            }
-        }
-
+        CodeSurface(
+            state = state,
+            language = language,
+            modifier = Modifier.fillMaxWidth().heightIn(min = minHeight, max = maxHeight),
+            colors = colors,
+            lineStarts = lineStarts,
+            decorations = decorations,
+            wrap = wrap,
+        )
         CodeStatus(caretLine, caret - lineStarts[caretLine], text.length, problemLine, colors) {
             problem?.offset?.let { state.moveTo(it) }
         }
-    }
-}
-
-/** Paints the document that was coloured once per change, character for character. */
-private class CodeHighlight(private val coloured: AnnotatedString) : VisualTransformation {
-    override fun filter(text: AnnotatedString): TransformedText =
-        TransformedText(coloured, OffsetMapping.Identity)
-}
-
-/** The field itself. Split out to keep the editor's own tree readable. */
-@Composable
-private fun CodeField(
-    state: CodeEditorState,
-    style: TextStyle,
-    colors: CodeColors,
-    painter: VisualTransformation,
-    width: Dp,
-    onLayout: (TextLayoutResult) -> Unit,
-) {
-    val selection = remember(colors) {
-        TextSelectionColors(handleColor = colors.caret, backgroundColor = colors.selection)
-    }
-    CompositionLocalProvider(LocalTextSelectionColors provides selection) {
-        BasicTextField(
-            value = state.value,
-            onValueChange = state::edit,
-            textStyle = style,
-            cursorBrush = SolidColor(colors.caret),
-            visualTransformation = painter,
-            onTextLayout = onLayout,
-            modifier = Modifier
-                .width(width)
-                .onPreviewKeyEvent { event -> handleEditorKey(event, state) },
-        )
-    }
-}
-
-/** Tab, Shift+Tab and the undo pair, for a device with a hardware keyboard. */
-private fun handleEditorKey(event: androidx.compose.ui.input.key.KeyEvent, state: CodeEditorState): Boolean {
-    if (event.type != KeyEventType.KeyDown) return false
-    val command = event.isCtrlPressed || event.isMetaPressed
-    return when {
-        event.key == Key.Tab -> { state.shiftLines(if (event.isShiftPressed) -1 else 1); true }
-        command && event.key == Key.Z && event.isShiftPressed -> { state.redo(); true }
-        command && event.key == Key.Z -> { state.undo(); true }
-        command && event.key == Key.Y -> { state.redo(); true }
-        else -> false
-    }
-}
-
-/**
- * What sits under the text: the caret's line lit across the whole editor,
- * gutter included, and a box around each half of the bracket pair.
- *
- * The bracket boxes are drawn rather than spanned. A span would mean rebuilding
- * the coloured document on every caret move, which on a long layout is the
- * difference between a field that keeps up with typing and one that does not.
- */
-@Composable
-private fun BoxScope.EditorUnderlay(
-    layout: State<TextLayoutResult?>,
-    caret: Int,
-    match: Pair<Int, Int>?,
-    textLeft: Dp,
-    vertical: ScrollState,
-    horizontal: ScrollState,
-    colors: CodeColors,
-) {
-    val density = LocalDensity.current
-    // The layout and the scroll positions are read here, inside the draw block,
-    // so a drag or a fresh layout repaints without recomposing anything.
-    Canvas(Modifier.matchParentSize()) {
-        val result = layout.value ?: return@Canvas
-        val top = with(density) { CONTENT_PAD.toPx() } - vertical.value
-        val length = result.layoutInput.text.length
-        if (caret <= length) {
-            val line = result.getLineForOffset(caret)
-            val y = result.getLineTop(line) + top
-            val height = result.getLineBottom(line) - result.getLineTop(line)
-            if (y + height > 0f && y < size.height) {
-                drawRect(color = colors.activeLine, topLeft = Offset(0f, y), size = Size(size.width, height))
-            }
-        }
-        if (match == null) return@Canvas
-        val left = with(density) { textLeft.toPx() } - horizontal.value
-        for (offset in listOf(match.first, match.second)) {
-            if (offset >= length) continue
-            val box = result.getBoundingBox(offset)
-            drawRect(
-                color = colors.bracketMatch,
-                topLeft = Offset(box.left + left, box.top + top),
-                size = Size(box.width, box.height),
-            )
-        }
-    }
-}
-
-/**
- * The line numbers, right-aligned at [right]. Only the ones the viewport can
- * show are measured and drawn: a long document would otherwise pay for hundreds
- * nobody is looking at.
- */
-@Suppress("LongParameterList")
-private fun DrawScope.drawLineNumbers(
-    layout: TextLayoutResult?,
-    lineStarts: List<Int>,
-    activeLine: Int,
-    problemLine: Int?,
-    right: Float,
-    colors: CodeColors,
-    style: TextStyle,
-    measurer: TextMeasurer,
-    scroll: Int,
-    viewport: Int,
-) {
-    val result = layout ?: return
-    val limit = result.layoutInput.text.length
-    for (index in lineStarts.indices) {
-        val start = lineStarts[index]
-        if (start > limit) break
-        val line = result.getLineForOffset(start)
-        val top = result.getLineTop(line)
-        if (top - scroll > viewport) break
-        if (result.getLineBottom(line) - scroll < 0f) continue
-        val bad = problemLine == index
-        val active = index == activeLine
-        val colour = when {
-            bad -> colors.problem
-            active -> colors.gutterActiveText
-            else -> colors.gutterText
-        }
-        val number = measurer.measure(
-            AnnotatedString((index + 1).toString()),
-            style.copy(color = colour, fontWeight = if (active || bad) FontWeight.Medium else FontWeight.Normal),
-        )
-        drawText(number, topLeft = Offset(right - number.size.width, top))
     }
 }
 
@@ -775,7 +686,7 @@ private fun CodeStatus(
  * Turns one raw field change into the one an editor would make: a newline
  * carries the indentation on, an opening bracket brings its closer, a typed
  * closer steps over the one already there, and a backspace over an empty pair
- * takes both halves.
+ * takes both halves. [rules] says which characters those are for the language.
  *
  * It reads the difference between the old value and the new one rather than
  * key events, because on a phone the characters arrive from an input method
@@ -784,15 +695,19 @@ private fun CodeStatus(
  * Internal rather than private so the unit tests can drive it directly: it is
  * the one part of the editor with rules of its own.
  */
-internal fun smartEdit(old: TextFieldValue, new: TextFieldValue): TextFieldValue {
+internal fun smartEdit(
+    old: TextFieldValue,
+    new: TextFieldValue,
+    rules: CodeSmartRules = CodeSmartRules.Json,
+): TextFieldValue {
     singleInsert(old, new)?.let { (at, character) ->
-        val closer = closerFor(character)
+        val closer = rules.pairs[character]
         return when {
-            character == '\n' -> autoIndent(new, at)
+            character == '\n' -> autoIndent(new, at, rules)
             // The closer is already there: step over it instead of doubling it.
-            (character.isCloser() || character == '"') && new.text.getOrNull(at + 1) == character ->
+            (character in rules.closers || character in rules.quotes) && new.text.getOrNull(at + 1) == character ->
                 TextFieldValue(old.text, TextRange(at + 1))
-            closer != null && shouldClose(new.text, at, character) -> TextFieldValue(
+            closer != null && shouldClose(new.text, at, character, rules) -> TextFieldValue(
                 text = new.text.substring(0, at + 1) + closer + new.text.substring(at + 1),
                 selection = TextRange(at + 1),
             )
@@ -800,7 +715,8 @@ internal fun smartEdit(old: TextFieldValue, new: TextFieldValue): TextFieldValue
         }
     }
     singleDelete(old, new)?.let { (at, character) ->
-        val emptyPair = closerFor(character) != null && old.text.getOrNull(at + 1) == closerFor(character)
+        val closer = rules.pairs[character]
+        val emptyPair = closer != null && old.text.getOrNull(at + 1) == closer
         return if (emptyPair) {
             TextFieldValue(new.text.removeRange(at, at + 1), TextRange(at))
         } else {
@@ -810,28 +726,19 @@ internal fun smartEdit(old: TextFieldValue, new: TextFieldValue): TextFieldValue
     return new
 }
 
-private fun Char.isCloser() = this == '}' || this == ']'
-
-private fun closerFor(character: Char): Char? = when (character) {
-    '{' -> '}'
-    '[' -> ']'
-    '"' -> '"'
-    else -> null
-}
-
 /**
  * True when an opener typed at [at] should bring its closer. Not inside a
- * string, and not in front of a word: a closer there would split what the user
- * is about to wrap.
+ * string or comment, and not in front of a word: a closer there would split
+ * what the user is about to wrap.
  */
-private fun shouldClose(text: String, at: Int, character: Char): Boolean {
-    if (closerFor(character) == null) return false
-    if (insideString(text, at)) return false
+private fun shouldClose(text: String, at: Int, character: Char, rules: CodeSmartRules): Boolean {
+    if (rules.pairs[character] == null) return false
+    if (rules.inert(text, at)) return false
     val next = text.getOrNull(at + 1) ?: return true
-    return next.isWhitespace() || next == ',' || next.isCloser()
+    return next.isWhitespace() || next == ',' || next in rules.closers
 }
 
-/** True when offset [at] falls inside a string. */
+/** True when offset [at] falls inside a JSON string. */
 private fun insideString(text: String, at: Int): Boolean {
     var index = 0
     var open = false
@@ -845,15 +752,17 @@ private fun insideString(text: String, at: Int): Boolean {
     return open
 }
 
-/** Carries the line's indentation onto the new one, a step deeper after a bracket. */
-private fun autoIndent(new: TextFieldValue, at: Int): TextFieldValue {
+/** Carries the line's indentation onto the new one, a step deeper after an opener. */
+private fun autoIndent(new: TextFieldValue, at: Int, rules: CodeSmartRules): TextFieldValue {
     val text = new.text
     val prefix = text.substring(lineStartAt(text, at), at)
     val indent = prefix.takeWhile { it == ' ' || it == '\t' }
-    val opens = prefix.trimEnd().lastOrNull().let { it == '{' || it == '[' }
+    val last = prefix.trimEnd().lastOrNull()
+    val bracketOpens = last != null && last in rules.pairs && last !in rules.quotes
+    val opens = bracketOpens || rules.opensBlock(prefix)
     val body = if (opens) indent + INDENT else indent
-    val closesNext = text.getOrNull(at + 1).let { it == '}' || it == ']' }
-    return if (opens && closesNext) {
+    val closesNext = bracketOpens && text.getOrNull(at + 1).let { it != null && it in rules.closers }
+    return if (closesNext) {
         // The closer takes a line of its own at the outer level, and the caret
         // lands on the empty line between the two.
         val inserted = "\n" + body + "\n" + indent
