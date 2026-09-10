@@ -43,11 +43,25 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.AutoFixHigh
+import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.outlined.DataObject
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DriveFileRenameOutline
+import androidx.compose.material.icons.outlined.FindReplace
+import androidx.compose.material.icons.outlined.FormatListNumbered
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Publish
+import androidx.compose.material.icons.outlined.SaveAlt
 import androidx.compose.material.icons.outlined.Stop
+import androidx.compose.material.icons.outlined.TextDecrease
+import androidx.compose.material.icons.outlined.TextIncrease
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.UnfoldLess
+import androidx.compose.material.icons.outlined.UnfoldMore
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Checkbox
@@ -509,6 +523,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_find_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.FindReplace, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
                                     find.active = firstMatchFrom(findMatches(editor.text, find.query, find.options), editor.value.selection.min)
@@ -517,6 +532,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_go_to_line_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.FormatListNumbered, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
                                     lineOpen = true
@@ -524,6 +540,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_definition_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.DataObject, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
                                     val source = editor.text
@@ -542,6 +559,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_rename_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.DriveFileRenameOutline, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
                                     val source = editor.text
@@ -558,6 +576,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_export_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.SaveAlt, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
                                     if (PluginManifestCodec.problems(ide.manifest).isNotEmpty()) {
@@ -569,6 +588,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_versions_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.History, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
                                     val current = editor.text
@@ -582,16 +602,19 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_text_larger_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.TextIncrease, contentDescription = null) },
                                 enabled = textSize < MAX_TEXT_SIZE,
                                 onClick = { textSize = (textSize + 1).coerceAtMost(MAX_TEXT_SIZE) },
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_text_smaller_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.TextDecrease, contentDescription = null) },
                                 enabled = textSize > MIN_TEXT_SIZE,
                                 onClick = { textSize = (textSize - 1).coerceAtLeast(MIN_TEXT_SIZE) },
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_fold_all_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.UnfoldLess, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
                                     editor.foldAll(LuaCode.foldRegions(editor.text).map { it.min })
@@ -599,6 +622,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_unfold_all_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.UnfoldMore, contentDescription = null) },
                                 enabled = editor.foldStarts.isNotEmpty(),
                                 onClick = {
                                     menuOpen = false
@@ -607,6 +631,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_code_keys_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.Keyboard, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
                                     keysOpen = true
@@ -614,6 +639,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_format_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.AutoFixHigh, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
                                     editor.replace(LuaCode.format(editor.text))
@@ -621,6 +647,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_details_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.Tune, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
                                     detailsOpen = true
@@ -628,6 +655,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_version_action)) },
+                                leadingIcon = { Icon(Icons.Outlined.BookmarkAdd, contentDescription = null) },
                                 onClick = {
                                     menuOpen = false
                                     scope.launch {
