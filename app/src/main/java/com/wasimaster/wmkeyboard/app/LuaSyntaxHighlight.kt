@@ -4,6 +4,8 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaAnalysis
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaApiEntry
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaApiLookup
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaCompletion
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaCompletionItem
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaCompletionKind
@@ -87,6 +89,9 @@ internal object LuaCode : CodeLanguage {
     }
 
     override fun diagnostics(source: String): List<CodeDiagnostic> = diagnostics(source, null)
+
+    /** The API name at [caret], for the strip under the code, from the tokens already lexed to colour it. */
+    fun apiAt(source: String, caret: Int): LuaApiEntry? = LuaApiLookup.at(tokensOf(source), caret)
 
     /**
      * The analysis of the last text that parsed. Completion reads its locals while

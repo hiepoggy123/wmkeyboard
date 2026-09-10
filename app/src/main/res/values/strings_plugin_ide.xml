@@ -208,4 +208,13 @@
     <string name="plugin_ide_text_larger_action">Larger text</string>
     <string name="plugin_ide_text_smaller_action">Smaller text</string>
 
+    <!-- Click labels of the strip under the code that explains the API name at the caret. -->
+    <string name="plugin_ide_doc_more_action">Show the whole description</string>
+    <string name="plugin_ide_doc_less_action">Show less</string>
+    <!-- Sends again, in order, the events the author sent before the current run started. -->
+    <plurals name="plugin_ide_event_replay">
+        <item quantity="one">Send %1$d earlier event again</item>
+        <item quantity="other">Send %1$d earlier events again</item>
+    </plurals>
+
 </resources>

@@ -100,6 +100,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginRuntime
 import com.wasimaster.wmkeyboard.core.plugins.PluginSnapshot
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.plugins.PluginWorkspace
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaApiEntry
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaDocuments
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaHostShape
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaNavigation
@@ -403,6 +404,12 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
     }
 
     val lineStarts = remember(text) { lineStartOffsets(text) }
+    val caretNow = editor.value.selection.end
+    val apiHere by produceState<LuaApiEntry?>(null, text, caretNow) {
+        value = withContext(Dispatchers.Default) { LuaCode.apiAt(text, caretNow) }
+    }
+    // The events from runs before this one, taken as it starts, for the Events tab to send again.
+    val replayable = remember(previewState.runs) { preview.recordedEvents() }
     // The storage check follows the manifest as it is edited, not as it was saved.
     val storage = PluginPermission.Storage.wire in ide.manifest.permissions
     val inspection by produceState(IdeInspection.None, text, storage) {
@@ -649,7 +656,12 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                 lineHeight = (textSize * LINE_HEIGHT_RATIO).sp,
                 completions = true,
                 suggestRequests = suggestRequests,
+                onGutterPress = { line ->
+                    panel = IdePanel.PROBLEMS
+                    editor.moveTo(offsetOfLine(editor.text, line))
+                },
             )
+            apiHere?.let { ApiDocStrip(it, rememberCodeColors()) }
             IdePanelBar(panel, problems = diagnostics.size) { chosen -> panel = if (panel == chosen) IdePanel.CLOSED else chosen }
             if (panel != IdePanel.CLOSED) {
                 HorizontalDivider()
@@ -661,7 +673,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                         }
                         IdePanel.PROBLEMS -> ProblemsPane(diagnostics, lineStarts) { range -> editor.select(range) }
                         IdePanel.OUTLINE -> OutlinePane(inspection.outline, lineStarts) { range -> editor.select(range) }
-                        IdePanel.EVENTS -> EventsPane(previewState.targets, preview::send)
+                        IdePanel.EVENTS -> EventsPane(previewState.targets, replayable, preview::send)
                         IdePanel.STORAGE -> StoragePane(preview.storageOf(draftId), declared = storage, busy = previewState.busy)
                         IdePanel.CLOSED -> Unit
                     }

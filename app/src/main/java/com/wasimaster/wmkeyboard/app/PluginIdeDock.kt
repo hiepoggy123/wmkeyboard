@@ -42,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -140,7 +141,7 @@ private const val WARN_SHARE = 0.8f
 /** Sends events by hand: one for each widget of the last draw, text for each box, and any event at all. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun EventsPane(targets: PluginTargets, onSend: (PluginEvent) -> Unit) {
+internal fun EventsPane(targets: PluginTargets, earlier: List<PluginEvent>, onSend: (PluginEvent) -> Unit) {
     val events = remember(targets) { injectableEvents(targets) }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 6.dp),
@@ -171,6 +172,12 @@ internal fun EventsPane(targets: PluginTargets, onSend: (PluginEvent) -> Unit) {
                 TextButton(onClick = { onSend(PluginEvent.InputChanged(input.id, text)) }) {
                     Text(stringResource(R.string.plugin_ide_event_send))
                 }
+            }
+        }
+        if (earlier.isNotEmpty()) {
+            val context = LocalContext.current
+            TextButton(onClick = { earlier.forEach(onSend) }) {
+                Text(context.resources.getQuantityString(R.plurals.plugin_ide_event_replay, earlier.size, earlier.size))
             }
         }
         HorizontalDivider()

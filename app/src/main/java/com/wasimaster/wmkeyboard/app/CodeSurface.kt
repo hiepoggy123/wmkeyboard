@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -52,6 +53,7 @@ import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.AnnotatedString
@@ -147,6 +149,8 @@ internal fun CodeSurface(
     completions: Boolean = false,
     /** Raised by one to ask for suggestions at the caret even with no word typed, as Ctrl+Space does. */
     suggestRequests: Int = 0,
+    /** Hears a tap on a line number, with the line's index. Null leaves the numbers inert. */
+    onGutterPress: ((Int) -> Unit)? = null,
 ) {
     val density = LocalDensity.current
     // Held as the state object rather than read through it: the two draw
@@ -285,6 +289,16 @@ internal fun CodeSurface(
             Modifier
                 .verticalScroll(vertical)
                 .padding(top = CONTENT_PAD, bottom = bottomPad)
+                .pointerInput(onGutterPress, lineStarts, gutterWidth) {
+                    val press = onGutterPress ?: return@pointerInput
+                    // The field takes the taps that land on text; what reaches here
+                    // on the left is a tap on the numbers.
+                    detectTapGestures { tap ->
+                        if (tap.x >= gutterWidth.toPx()) return@detectTapGestures
+                        val result = layout.value ?: return@detectTapGestures
+                        press(lineOf(lineStarts, result.getLineStart(result.getLineForVerticalPosition(tap.y))))
+                    }
+                }
                 .drawBehind {
                     drawLineNumbers(
                         layout = layout.value,
