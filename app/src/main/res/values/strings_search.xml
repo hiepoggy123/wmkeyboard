@@ -283,4 +283,6 @@
     <!-- The About row that replays the first-run wizard. -->
     <string name="search_kw_replay_onboarding">onboarding, wizard, first run, setup, tour, welcome, tutorial</string>
     <string name="search_kw_hwshortcuts">physical keyboard, leader key, hotkeys</string>
+    <!-- The Write a plugin row, for people who call it an editor or an IDE. -->
+    <string name="search_kw_plugin_ide">lua, script, code, editor, IDE, develop, program, write</string>
 </resources>

@@ -123,6 +123,7 @@ internal val SettingsSearchKeywords: Map<Int, Int> = buildMap {
     put(R.string.layout_show_globe_title, R.string.search_kw_layout_show_globe)
     put(R.string.layout_size_position_title, R.string.search_kw_layout_size_position)
     put(R.string.layout_split_title, R.string.search_kw_layout_split)
+    put(R.string.plugin_ide_entry_title, R.string.search_kw_plugin_ide)
     put(R.string.privacy_backup_title, R.string.search_kw_privacy_backup)
     put(R.string.privacy_learn_typing_title, R.string.search_kw_privacy_learn_typing)
     put(R.string.privacy_lock_title, R.string.search_kw_privacy_lock)
