@@ -26,8 +26,10 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,10 +68,15 @@ import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val CONTENT_PAD = 10.dp
 private val FIELD_PAD = 10.dp
@@ -136,6 +143,8 @@ internal fun CodeSurface(
     lineHeight: TextUnit = 20.sp,
     bottomPad: Dp = CONTENT_PAD,
     extraKeys: (KeyEvent) -> Boolean = { false },
+    /** Whether to ask [language] for suggestions as the author types, and list them at the caret. */
+    completions: Boolean = false,
 ) {
     val density = LocalDensity.current
     // Held as the state object rather than read through it: the two draw
@@ -157,6 +166,65 @@ internal fun CodeSurface(
     val match = remember(brackets, caret) { language.matchingBracket(text, brackets, caret) }
     val coloured = remember(text, colors, language) { language.highlight(text, colors) }
     val painter = remember(coloured) { CodeHighlight(coloured) }
+
+    // Suggestions live here rather than with the caller, so the list can sit at
+    // the caret. completionStep decides what each change of text or caret does.
+    var suggestions by remember { mutableStateOf<CodeCompletions?>(null) }
+    var chosen by remember { mutableIntStateOf(0) }
+    var seen by remember { mutableStateOf(text) }
+    // Choosing writes text, and that change must not open a list of its own.
+    val justChose = remember { booleanArrayOf(false) }
+    LaunchedEffect(text, caret, completions) {
+        val before = seen
+        seen = text
+        if (!completions || justChose[0]) {
+            justChose[0] = false
+            suggestions = null
+            return@LaunchedEffect
+        }
+        when (completionStep(before, text, caret, suggestions)) {
+            CompletionStep.ASK -> {
+                suggestions = withContext(Dispatchers.Default) { language.completions(text, caret, explicit = false) }
+                chosen = 0
+            }
+            CompletionStep.KEEP -> Unit
+            CompletionStep.CLOSE -> suggestions = null
+        }
+    }
+    val choose: (CodeCompletion) -> Unit = remember(state) {
+        { item ->
+            suggestions?.let { shown ->
+                suggestions = null
+                justChose[0] = true
+                state.applyEdit(shown.editFor(item))
+            }
+        }
+    }
+    val scope = rememberCoroutineScope()
+    val keys: (KeyEvent) -> Boolean = remember(extraKeys, language, completions, state) {
+        keys@{ event ->
+            val shown = suggestions
+            if (event.type == KeyEventType.KeyDown && shown != null && shown.items.isNotEmpty()) {
+                val size = shown.items.size
+                when (event.key) {
+                    Key.DirectionDown -> { chosen = (chosen + 1) % size; return@keys true }
+                    Key.DirectionUp -> { chosen = (chosen - 1 + size) % size; return@keys true }
+                    Key.Enter, Key.Tab -> { shown.items.getOrNull(chosen)?.let(choose); return@keys true }
+                    Key.Escape -> { suggestions = null; return@keys true }
+                }
+            }
+            if (completions && event.type == KeyEventType.KeyDown && event.key == Key.Spacebar && event.isCtrlPressed) {
+                val source = state.text
+                val at = state.value.selection.end
+                scope.launch {
+                    suggestions = withContext(Dispatchers.Default) { language.completions(source, at, explicit = true) }
+                    chosen = 0
+                }
+                return@keys true
+            }
+            extraKeys(event)
+        }
+    }
 
     // Wrapped text has nothing to the right, so a stale sideways scroll would
     // only hide the left margin.
@@ -235,10 +303,37 @@ internal fun CodeSurface(
                 // longest line has nothing to wrap, and one as wide as the
                 // viewport wraps everything. The legacy field has no
                 // softWrap of its own.
-                CodeField(state, style, colors, painter, if (wrap) room else contentWidth, extraKeys) {
+                CodeField(state, style, colors, painter, if (wrap) room else contentWidth, keys) {
                     layout.value = it
                 }
             }
+        }
+
+        suggestions?.takeIf { it.items.isNotEmpty() }?.let { shown ->
+            var listSize by remember { mutableStateOf(IntSize.Zero) }
+            CodeCompletionList(
+                completions = shown,
+                chosen = chosen,
+                colors = colors,
+                style = style,
+                onChoose = choose,
+                modifier = Modifier
+                    .onSizeChanged { listSize = it }
+                    .offset {
+                        // Placed in the layout phase, so scrolling moves the list
+                        // without recomposing the editor. Below the caret when it
+                        // fits, above it when the keyboard has taken the room.
+                        val result = layout.value ?: return@offset IntOffset.Zero
+                        val rect = result.getCursorRect(caret.coerceIn(0, result.layoutInput.text.length))
+                        val left = (gutterWidth + FIELD_PAD).roundToPx() - horizontal.value
+                        val top = CONTENT_PAD.roundToPx() - vertical.value
+                        val below = top + rect.bottom.roundToInt()
+                        val above = top + rect.top.roundToInt() - listSize.height
+                        val y = if (below + listSize.height <= frame.height || above < 0) below else above
+                        val x = (left + rect.left.roundToInt()).coerceIn(0, maxOf(0, frame.width - listSize.width))
+                        IntOffset(x, y)
+                    },
+            )
         }
     }
 }

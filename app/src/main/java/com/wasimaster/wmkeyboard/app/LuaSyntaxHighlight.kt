@@ -2,6 +2,11 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextRange
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaAnalysis
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaCompletion
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaCompletionItem
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaCompletionKind
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaDiagnostics
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaDocuments
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaFormat
@@ -75,10 +80,26 @@ internal object LuaCode : CodeLanguage {
      * Everything wrong with [source], for a plugin whose manifest is shaped like
      * [host]. With [host] null, the checks that need the manifest are skipped.
      */
-    fun diagnostics(source: String, host: LuaHostShape?): List<CodeDiagnostic> =
-        LuaDiagnostics.of(LuaDocuments.of(source), host).map { it.toCodeDiagnostic() }
+    fun diagnostics(source: String, host: LuaHostShape?): List<CodeDiagnostic> {
+        val document = LuaDocuments.of(source)
+        document.analysis?.let { lastAnalysis = it }
+        return LuaDiagnostics.of(document, host).map { it.toCodeDiagnostic() }
+    }
 
     override fun diagnostics(source: String): List<CodeDiagnostic> = diagnostics(source, null)
+
+    /**
+     * The analysis of the last text that parsed. Completion reads its locals while
+     * the file is broken, which is most of the time a list is open, and a name
+     * from a few keystrokes ago is still the name the author wants.
+     */
+    @Volatile
+    private var lastAnalysis: LuaAnalysis? = null
+
+    override fun completions(source: String, caret: Int, explicit: Boolean): CodeCompletions? {
+        val found = LuaCompletion.at(tokensOf(source), caret, explicit = explicit, analysis = lastAnalysis) ?: return null
+        return CodeCompletions(TextRange(found.replace.start, found.replace.end), found.items.map { it.toCodeCompletion() })
+    }
 
     /** The first thing the lexer alone can see is wrong: an unclosed string or comment, or a stray character. */
     override fun problem(source: String): CodeProblem? {
@@ -226,3 +247,21 @@ internal fun luaOpensBlock(line: String): Boolean {
     }
     return functions > ends
 }
+
+/** A Lua suggestion as the code field lists it. */
+internal fun LuaCompletionItem.toCodeCompletion(): CodeCompletion = CodeCompletion(
+    label = label,
+    kind = when (kind) {
+        LuaCompletionKind.LOCAL, LuaCompletionKind.PARAMETER, LuaCompletionKind.GLOBAL -> CodeCompletionKind.VARIABLE
+        LuaCompletionKind.FUNCTION -> CodeCompletionKind.FUNCTION
+        LuaCompletionKind.TABLE -> CodeCompletionKind.MODULE
+        LuaCompletionKind.CONSTANT -> CodeCompletionKind.CONSTANT
+        LuaCompletionKind.FIELD -> CodeCompletionKind.FIELD
+        LuaCompletionKind.KEYWORD -> CodeCompletionKind.KEYWORD
+        LuaCompletionKind.SNIPPET -> CodeCompletionKind.SNIPPET
+        LuaCompletionKind.VALUE -> CodeCompletionKind.VALUE
+    },
+    insert = insert,
+    caret = caret,
+    detail = detail,
+)

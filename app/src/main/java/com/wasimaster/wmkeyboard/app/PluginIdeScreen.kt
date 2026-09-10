@@ -375,6 +375,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                 wrap = true,
                 fontSize = 14.sp,
                 lineHeight = 22.sp,
+                completions = true,
             )
             IdePanelBar(panel) { chosen -> panel = if (panel == chosen) IdePanel.CLOSED else chosen }
             if (panel != IdePanel.CLOSED) {

@@ -111,6 +111,13 @@ internal interface CodeLanguage {
      * thread after a pause in typing, the same way [problem] is.
      */
     fun diagnostics(source: String): List<CodeDiagnostic> = emptyList()
+
+    /**
+     * What can be typed at [caret], or null for nothing. Asked after each change
+     * the author types, so it reads tokens rather than waiting for a parse.
+     * [explicit] is true when the author asked for the list.
+     */
+    fun completions(source: String, caret: Int, explicit: Boolean): CodeCompletions? = null
 }
 
 /** A parse failure, at a character offset when the parser reports one. */
