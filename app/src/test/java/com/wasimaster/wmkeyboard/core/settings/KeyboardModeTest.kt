@@ -291,6 +291,62 @@ class KeyboardModeTest {
     }
 
     @Test
+    fun `autospace off silences all three automatic spaces`() {
+        val base = KeyboardSettings(
+            autoText = AutoTextSettings(capitalize = true, spaceAfterPunctuation = true),
+            suggestionStrip = SuggestionStripSettings(autoSpaceAfterSuggestion = true),
+            gesture = GestureSettings(autoSpaceAfterGlide = true),
+        )
+        val applied = base.applyMode(password.copy(autoSpace = false))
+        assertFalse(applied.autoText.spaceAfterPunctuation)
+        assertFalse(applied.suggestionStrip.autoSpaceAfterSuggestion)
+        assertFalse(applied.gesture.autoSpaceAfterGlide)
+        // A view, not a write: the globals are untouched.
+        assertTrue(base.autoText.spaceAfterPunctuation)
+    }
+
+    @Test
+    fun `autospace on turns the three back on, punctuation included`() {
+        // Punctuation spacing is off globally by default — a mode asking for
+        // automatic spaces has to mean that one too.
+        val base = KeyboardSettings(
+            autoText = AutoTextSettings(spaceAfterPunctuation = false),
+            suggestionStrip = SuggestionStripSettings(autoSpaceAfterSuggestion = false),
+            gesture = GestureSettings(autoSpaceAfterGlide = false),
+        )
+        val applied = base.applyMode(password.copy(autoSpace = true))
+        assertTrue(applied.autoText.spaceAfterPunctuation)
+        assertTrue(applied.suggestionStrip.autoSpaceAfterSuggestion)
+        assertTrue(applied.gesture.autoSpaceAfterGlide)
+    }
+
+    @Test
+    fun `autospace and automatic capitals share a group without clobbering`() {
+        // Both land in autoText; applied from the base each, one would win.
+        val base = KeyboardSettings(
+            autoText = AutoTextSettings(capitalize = true, spaceAfterPunctuation = true),
+        )
+        val applied = base.applyMode(
+            password.copy(autoCapitalize = false, autoSpace = false),
+        )
+        assertFalse(applied.autoText.capitalize)
+        assertFalse(applied.autoText.spaceAfterPunctuation)
+    }
+
+    @Test
+    fun `a mode with no autospace override leaves every space setting alone`() {
+        val base = KeyboardSettings(
+            autoText = AutoTextSettings(spaceAfterPunctuation = true),
+            suggestionStrip = SuggestionStripSettings(autoSpaceAfterSuggestion = false),
+            gesture = GestureSettings(autoSpaceAfterGlide = false),
+        )
+        val applied = base.applyMode(email)
+        assertTrue(applied.autoText.spaceAfterPunctuation)
+        assertFalse(applied.suggestionStrip.autoSpaceAfterSuggestion)
+        assertFalse(applied.gesture.autoSpaceAfterGlide)
+    }
+
+    @Test
     fun `a mode with no theme leaves the theme settings alone`() {
         val base = KeyboardSettings(
             keyboardThemeId = "custom_1",

@@ -171,6 +171,22 @@ data class KeyboardMode(
     /** Suggestions while active; null inherits. */
     val suggestions: Boolean? = null,
     /**
+     * Every space the keyboard types by itself while active; null inherits.
+     *
+     * One switch over the three settings that put a space in without a press:
+     * after punctuation, after a suggestion picked from the strip, and after a
+     * glided word. They are one question to the person typing — "does this
+     * field want spaces I did not ask for?" — and the answer is per field, not
+     * per source of the space. Off means every space in the field is one the
+     * user typed, which is what a filename, a renamed extension or a terminal
+     * line needs (issue #124).
+     *
+     * On turns all three on, including the space after punctuation, which is
+     * off globally by default: a mode saying "space things for me" that left
+     * that one alone would be saying it only two thirds of the time.
+     */
+    val autoSpace: Boolean? = null,
+    /**
      * Layout worn while this mode is active; null inherits whichever layout the
      * user last switched to.
      *
@@ -604,9 +620,19 @@ fun KeyboardSettings.applyMode(mode: KeyboardMode?): KeyboardSettings {
         symbolRowActiveSetId = mode.symbolSetIds?.firstOrNull() ?: symbolRowActiveSetId,
         correction = mode.autocorrect
             ?.let { correction.copy(enabled = it) } ?: correction,
-        autoText = mode.autoCapitalize
-            ?.let { autoText.copy(capitalize = it) } ?: autoText,
+        // Two overrides land in the same group, so they are applied in turn
+        // rather than each from the base — writing both as `?: autoText` would
+        // let whichever came second drop the other's copy on the floor.
+        autoText = autoText
+            .let { t -> mode.autoCapitalize?.let { t.copy(capitalize = it) } ?: t }
+            .let { t -> mode.autoSpace?.let { t.copy(spaceAfterPunctuation = it) } ?: t },
         suggestions = mode.suggestions ?: suggestions,
+        // The other two spaces the keyboard types by itself, under the same
+        // switch: the strip's and the glide's.
+        suggestionStrip = mode.autoSpace
+            ?.let { suggestionStrip.copy(autoSpaceAfterSuggestion = it) } ?: suggestionStrip,
+        gesture = mode.autoSpace
+            ?.let { gesture.copy(autoSpaceAfterGlide = it) } ?: gesture,
         // Only honoured while the layout is actually available. A mode naming a
         // layout the user has since switched off would otherwise pin the
         // keyboard to something that cannot be drawn.

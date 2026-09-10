@@ -1396,6 +1396,22 @@ internal fun ModeEditor(
                 detail = inheritDetail(),
             ) { save(mode.copy(suggestions = it)) }
         }
+        // The spaces nobody pressed for, as one question: a field either wants
+        // them or it does not, and which of the three put the space there is
+        // not something the person renaming a file extension is thinking about.
+        item {
+            val inherit = stringResource(R.string.modes_inherit_label)
+            val on = stringResource(CommonR.string.common_on)
+            val off = stringResource(CommonR.string.common_off)
+            ChoiceSetting(
+                title = R.string.modes_autospace_title,
+                subtitle = stringResource(R.string.modes_autospace_subtitle),
+                info = stringResource(R.string.modes_autospace_info),
+                options = listOf(null to inherit, true to on, false to off),
+                selected = mode.autoSpace,
+                detail = inheritDetail(),
+            ) { save(mode.copy(autoSpace = it)) }
+        }
         // Only the layouts the user actually has switched on: a mode naming one
         // they have since removed would pin the keyboard to something that
         // cannot be drawn, which applyMode also guards against at read time.

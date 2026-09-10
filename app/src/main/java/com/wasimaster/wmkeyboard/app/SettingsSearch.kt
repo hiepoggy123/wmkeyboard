@@ -1486,6 +1486,7 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
         mode(R.string.modes_pinned_behaviour_title, R.string.modes_pinned_behaviour_append_subtitle),
         mode(R.string.modes_toolbox_order_title, R.string.modes_toolbox_order_subtitle),
         mode(R.string.modes_symbol_sets_title, R.string.modes_symbol_sets_subtitle),
+        mode(R.string.modes_autospace_title, R.string.modes_autospace_subtitle),
         access(R.string.accessibility_color_vision_title, R.string.accessibility_color_vision_subtitle),
         access(R.string.accessibility_high_contrast_title, R.string.accessibility_high_contrast_subtitle),
         access(R.string.accessibility_key_outlines_title, R.string.accessibility_key_outlines_subtitle),
