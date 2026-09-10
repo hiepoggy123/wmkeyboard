@@ -87,6 +87,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginManifestCodec
 import com.wasimaster.wmkeyboard.core.plugins.PluginPermission
 import com.wasimaster.wmkeyboard.core.plugins.PluginPreviewSession
 import com.wasimaster.wmkeyboard.core.plugins.PluginRuntime
+import com.wasimaster.wmkeyboard.core.plugins.PluginSnapshot
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.plugins.PluginWorkspace
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaDocuments
@@ -325,6 +326,10 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
     val find = remember { CodeFindState() }
     var lineOpen by rememberSaveable { mutableStateOf(false) }
     var renamePlan by remember { mutableStateOf<RenamePlan?>(null) }
+    var versions by remember { mutableStateOf<List<PluginSnapshot>?>(null) }
+    var comparing by remember { mutableStateOf<PluginSnapshot?>(null) }
+    var comparison by remember { mutableStateOf<List<DiffRow>?>(null) }
+    val historyContext = LocalContext.current
     val files = LocalContext.current
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(PluginFile.MIME_TYPE)) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
@@ -344,6 +349,15 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
     LaunchedEffect(text) {
         delay(AUTOSAVE_MS)
         withContext(Dispatchers.IO) { ide.save(text) }
+    }
+    // A version every few minutes while the screen is open. The workspace refuses
+    // to keep the same text twice, so an editor left idle keeps nothing.
+    LaunchedEffect(draftId) {
+        while (true) {
+            delay(PERIODIC_VERSION_MS)
+            val current = editor.text
+            withContext(Dispatchers.IO) { ide.keepWhileWorking(current) }
+        }
     }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         ide.save(editor.text)
@@ -503,6 +517,19 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                                 },
                             )
                             DropdownMenuItem(
+                                text = { Text(stringResource(R.string.plugin_ide_versions_action)) },
+                                onClick = {
+                                    menuOpen = false
+                                    val current = editor.text
+                                    scope.launch {
+                                        versions = withContext(Dispatchers.IO) {
+                                            ide.save(current)
+                                            ide.versions()
+                                        }
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_format_action)) },
                                 onClick = {
                                     menuOpen = false
@@ -614,6 +641,50 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
         )
     }
 
+    versions?.let { list ->
+        VersionsDialog(
+            versions = list,
+            onOpen = { version ->
+                comparing = version
+                comparison = null
+                val current = editor.text
+                scope.launch {
+                    val rows = withContext(Dispatchers.IO) {
+                        ide.versionText(version.snapshotId)?.let { collapseDiff(lineDiff(current, it)) }
+                    }
+                    if (rows != null) {
+                        comparison = rows
+                    } else {
+                        comparing = null
+                        snackbar.showSnackbar(historyContext.getString(R.string.plugin_ide_version_restore_failed_error))
+                    }
+                }
+            },
+            onDismiss = { versions = null },
+        )
+    }
+    comparing?.let { version ->
+        VersionDiffDialog(
+            version = version,
+            rows = comparison,
+            onRestore = {
+                comparing = null
+                versions = null
+                val current = editor.text
+                scope.launch {
+                    val body = withContext(Dispatchers.IO) { ide.restore(version.snapshotId, current) }
+                    if (body != null) {
+                        editor.replace(body)
+                        snackbar.showSnackbar(historyContext.getString(R.string.plugin_ide_version_restored_message))
+                    } else {
+                        snackbar.showSnackbar(historyContext.getString(R.string.plugin_ide_version_restore_failed_error))
+                    }
+                }
+            },
+            onDismiss = { comparing = null },
+        )
+    }
+
     if (detailsOpen) {
         PluginDetailsDialog(
             manifest = ide.manifest,
@@ -634,6 +705,9 @@ private const val PANEL_FRACTION = 0.42f
 
 /** How long the find bar waits after a change before it searches again. */
 private const val FIND_DELAY_MS = 120L
+
+/** How often the editor keeps a version while it is open. */
+private const val PERIODIC_VERSION_MS = 5 * 60 * 1000L
 
 private fun publishMessage(context: Context, outcome: PublishOutcome): String = when (outcome) {
     is PublishOutcome.Published -> context.getString(

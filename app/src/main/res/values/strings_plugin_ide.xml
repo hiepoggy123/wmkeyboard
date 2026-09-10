@@ -140,4 +140,34 @@
     <string name="plugin_ide_export_failed_error">The keyboard cannot save the file</string>
     <string name="plugin_ide_export_problems_error">Correct the name and permissions before you save a file</string>
 
+    <!-- ================================================================== -->
+    <!-- The versions a draft keeps.                                        -->
+    <!-- ================================================================== -->
+
+    <string name="plugin_ide_versions_action">Versions</string>
+    <string name="plugin_ide_versions_title">Versions</string>
+    <string name="plugin_ide_versions_empty">No versions yet. The editor keeps one when you save a version, when you install, and every few minutes while you work.</string>
+    <string name="plugin_ide_version_reason_manual">Saved by you</string>
+    <string name="plugin_ide_version_reason_periodic">Kept while you worked</string>
+    <string name="plugin_ide_version_reason_before_restore">Kept before a restore</string>
+    <string name="plugin_ide_version_reason_publish">Installed</string>
+    <string name="plugin_ide_version_reason_import">Opened from a file</string>
+    <!-- How long a kept version is. -->
+    <plurals name="plugin_ide_version_lines">
+        <item quantity="one">%1$d line</item>
+        <item quantity="other">%1$d lines</item>
+    </plurals>
+    <!-- Dialog title. %1$s is when the version was kept, for example "5 minutes ago". -->
+    <string name="plugin_ide_version_diff_title">Version from %1$s</string>
+    <string name="plugin_ide_version_diff_caption">If you restore this version, lines marked + come back and lines marked - go.</string>
+    <string name="plugin_ide_version_same_as_now">This version is the same as the code now.</string>
+    <!-- A run of lines the version and the code now share, folded into one row. -->
+    <plurals name="plugin_ide_version_unchanged_lines">
+        <item quantity="one">%1$d line is the same</item>
+        <item quantity="other">%1$d lines are the same</item>
+    </plurals>
+    <string name="plugin_ide_version_restore_action">Restore</string>
+    <string name="plugin_ide_version_restored_message">The version is restored. Undo brings back the code before it.</string>
+    <string name="plugin_ide_version_restore_failed_error">The keyboard cannot restore this version</string>
+
 </resources>

@@ -42,6 +42,14 @@ internal interface PluginIdePorts {
     fun snapshot(reason: SnapshotReason): PluginSnapshot?
 
     fun publish(manifest: PluginManifest, script: String): PublishOutcome
+
+    /** The draft's kept versions, newest first. */
+    fun snapshots(): List<PluginSnapshot> = emptyList()
+
+    fun snapshotBody(snapshotId: String): String? = null
+
+    /** Puts a kept version back as the draft's script, keeping the script it replaces first. */
+    fun restore(snapshotId: String): Boolean = false
 }
 
 /**
@@ -88,6 +96,29 @@ internal class PluginIdeState(val draftId: String, private val ports: PluginIdeP
         return ports.snapshot(SnapshotReason.MANUAL)
     }
 
+    /** Saves [text] and keeps it as a version taken while working. Null when nothing changed since the newest. */
+    fun keepWhileWorking(text: String): PluginSnapshot? {
+        if (!save(text)) return null
+        return ports.snapshot(SnapshotReason.PERIODIC)
+    }
+
+    fun versions(): List<PluginSnapshot> = ports.snapshots()
+
+    fun versionText(snapshotId: String): String? = ports.snapshotBody(snapshotId)
+
+    /**
+     * Saves [current], then puts version [snapshotId] back and returns its text.
+     * Null when the version is gone or cannot be written, and then the draft is
+     * [current], saved.
+     */
+    fun restore(snapshotId: String, current: String): String? {
+        if (!save(current)) return null
+        if (!ports.restore(snapshotId)) return null
+        val body = ports.script() ?: return null
+        savedText = body
+        return body
+    }
+
     /** Saves [text], then installs it, refusing first on anything the importer would refuse. */
     fun publish(text: String): PublishOutcome {
         if (!save(text)) return PublishOutcome.Failed
@@ -120,6 +151,12 @@ internal class WorkspaceIdePorts(
     override fun writeManifest(manifest: PluginManifest): Boolean = workspace.writeManifest(draftId, manifest)
 
     override fun snapshot(reason: SnapshotReason): PluginSnapshot? = workspace.snapshot(draftId, reason)
+
+    override fun snapshots(): List<PluginSnapshot> = workspace.snapshots(draftId)
+
+    override fun snapshotBody(snapshotId: String): String? = workspace.snapshotBody(draftId, snapshotId)
+
+    override fun restore(snapshotId: String): Boolean = workspace.restore(draftId, snapshotId)
 
     /**
      * Runs the manifest through the importer's own reader, so what is installed is
