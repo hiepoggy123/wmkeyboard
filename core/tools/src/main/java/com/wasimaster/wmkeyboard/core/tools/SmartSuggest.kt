@@ -912,8 +912,27 @@ object SmartSuggest {
     /** "12/04" — a zero-padded pair is a date, not a division. */
     private val PADDED_PAIR = Regex("""^0\d+/\d+$|^\d+/0\d+$""")
 
+    /**
+     * Arithmetic at the cursor. Spaces and "." are part of what a sum may be
+     * spelled with, so the leftmost run of sum-shaped characters reaching the
+     * cursor often starts inside the *previous* answer: after "12*5=60 5*5="
+     * the run is "60 5*5", which parses as nothing. Rather than guess where
+     * one sum ends and the next begins, every start the regex offers is tried
+     * left to right and the first that reads as a sum wins — so the longest
+     * genuine expression is still preferred, and a second sum on the same line
+     * is found instead of being shadowed by the first one's result.
+     */
     private fun detectCalc(tail: String, ctx: Context): SmartHit? {
-        val match = CALC_TAIL.find(tail) ?: return null
+        var from = 0
+        while (from <= tail.length) {
+            val match = CALC_TAIL.find(tail, from) ?: return null
+            calcHit(match, ctx)?.let { return it }
+            from = match.range.first + 1
+        }
+        return null
+    }
+
+    private fun calcHit(match: MatchResult, ctx: Context): SmartHit? {
         val explicit = match.groupValues[2] == "="
         val raw = match.groupValues[1]
         val expression = raw.trim()

@@ -306,6 +306,45 @@ class SmartSuggestTest {
         assertEquals(1, hit("12*4")!!.tiers.size)
     }
 
+    @Test
+    fun aSecondSumOnTheSameLineIsStillRead() {
+        // The answer to the first sum sits in the character class the second
+        // one is spelled with, so without looking past it "60 5*5" is all the
+        // scanner sees and the chip goes quiet for the rest of the line.
+        for (typed in listOf(
+            "12*5=60 5*5=",
+            "12*5=60  5*5=",
+            "12*5=60. 5*5=",
+            "12*5=60, 5*5=",
+            "12*5=60 and 5*5=",
+        )) {
+            val h = hit(typed)
+            assertNotNull("no hit for \"$typed\"", h)
+            assertEquals(typed, SmartSuggest.Kind.CALC, h!!.kind)
+            assertEquals(typed, "5*5", h.query)
+            assertEquals(typed, "25", h.result)
+            assertEquals(typed, 0, h.replaceSpan)
+        }
+        // Without the "=" the span still covers only the second expression.
+        val open = hit("12*5=60  5*5")!!
+        assertEquals("5*5", open.query)
+        assertEquals(3, open.replaceSpan)
+    }
+
+    @Test
+    fun theWholeExpressionStillWinsOverItsTail() {
+        // Trying later starts must not shorten a sum that reads fine as typed.
+        val h = hit("12 * 4 + 2")!!
+        assertEquals("12 * 4 + 2", h.query)
+        assertEquals("50", h.result)
+    }
+
+    @Test
+    fun anAnswerFollowedByALoneNumberRaisesNothing() {
+        assertNull(hit("1+1=2 3"))
+        assertNull(hit("12*5=60"))
+    }
+
     // ---- units ----
 
     @Test
