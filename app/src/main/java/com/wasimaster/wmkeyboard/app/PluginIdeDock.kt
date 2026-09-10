@@ -243,7 +243,7 @@ private fun eventLabel(item: InjectableEvent): String = when (val event = item.e
  * the plugin is busy.
  */
 @Composable
-internal fun StoragePane(storage: PluginStorage?, declared: Boolean, busy: Boolean) {
+internal fun StoragePane(storage: PluginStorage?, declared: Boolean, busy: Boolean, installed: PluginStorage? = null) {
     val words = when {
         !declared -> R.string.plugin_ide_storage_undeclared
         storage == null -> R.string.plugin_ide_storage_unavailable
@@ -260,13 +260,56 @@ internal fun StoragePane(storage: PluginStorage?, declared: Boolean, busy: Boole
     }
     val scope = rememberCoroutineScope()
     var revision by remember { mutableIntStateOf(0) }
-    val entries by produceState(emptyList<Pair<String, String>>(), storage, revision, busy) {
-        value = withContext(Dispatchers.IO) { storage.keys().sorted().map { it to storage.get(it).orEmpty() } }
+    // The installed plugin's storage is only ever read: the keyboard can be writing it.
+    var showInstalled by rememberSaveable { mutableStateOf(false) }
+    val readOnly = showInstalled && installed != null
+    val shown = if (readOnly) installed ?: storage else storage
+    val entries by produceState(emptyList<Pair<String, String>>(), shown, revision, busy) {
+        value = withContext(Dispatchers.IO) { shown.keys().sorted().map { it to shown.get(it).orEmpty() } }
     }
     var key by rememberSaveable { mutableStateOf("") }
     var value by rememberSaveable { mutableStateOf("") }
     var refusal by remember { mutableStateOf<String?>(null) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)) {
+        if (installed != null) {
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(
+                        selected = !showInstalled,
+                        onClick = { showInstalled = false },
+                        label = { Text(stringResource(R.string.plugin_ide_storage_scope_preview)) },
+                    )
+                    FilterChip(
+                        selected = showInstalled,
+                        onClick = { showInstalled = true },
+                        label = { Text(stringResource(R.string.plugin_ide_storage_scope_installed)) },
+                    )
+                }
+            }
+        }
+        if (readOnly) {
+            item {
+                Text(
+                    stringResource(R.string.plugin_ide_storage_installed_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(
+                    enabled = !busy && entries.isNotEmpty(),
+                    onClick = {
+                        val copied = entries
+                        scope.launch {
+                            withContext(Dispatchers.IO) {
+                                storage.clear()
+                                for ((name, stored) in copied) storage.set(name, stored)
+                            }
+                            showInstalled = false
+                            revision++
+                        }
+                    },
+                ) { Text(stringResource(R.string.plugin_ide_storage_copy_action)) }
+            }
+        }
         if (busy) {
             item { Text(stringResource(R.string.plugin_ide_storage_busy), style = MaterialTheme.typography.bodySmall) }
         }
@@ -286,7 +329,7 @@ internal fun StoragePane(storage: PluginStorage?, declared: Boolean, busy: Boole
                     Text(stored, fontFamily = CodeFontFamily, fontSize = 12.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 }
                 IconButton(
-                    enabled = !busy,
+                    enabled = !busy && !readOnly,
                     onClick = {
                         scope.launch {
                             withContext(Dispatchers.IO) { storage.remove(name) }
@@ -298,7 +341,7 @@ internal fun StoragePane(storage: PluginStorage?, declared: Boolean, busy: Boole
                 }
             }
         }
-        item {
+        if (!readOnly) item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(
                     value = key,

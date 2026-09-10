@@ -98,6 +98,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginPermission
 import com.wasimaster.wmkeyboard.core.plugins.PluginPreviewSession
 import com.wasimaster.wmkeyboard.core.plugins.PluginRuntime
 import com.wasimaster.wmkeyboard.core.plugins.PluginSnapshot
+import com.wasimaster.wmkeyboard.core.plugins.PluginStorage
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.plugins.PluginWorkspace
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaApiEntry
@@ -404,6 +405,13 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
     }
     // The events from runs before this one, taken as it starts, for the Events tab to send again.
     val replayable = remember(previewState.runs) { preview.recordedEvents() }
+    // What the installed copy of this plugin keeps, read afresh whenever the panel changes.
+    val installedStorage by produceState<PluginStorage?>(null, ide.manifest.id, panel) {
+        val id = ide.manifest.id
+        value = withContext(Dispatchers.IO) {
+            if (id.isNotBlank() && store.plugins().any { it.id == id }) store.storageFile(id)?.let { PluginStorage(it) } else null
+        }
+    }
     // The storage check follows the manifest as it is edited, not as it was saved.
     val storage = PluginPermission.Storage.wire in ide.manifest.permissions
     val inspection by produceState(IdeInspection.None, text, storage) {
@@ -684,7 +692,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: 
                         IdePanel.PROBLEMS -> ProblemsPane(diagnostics, lineStarts) { range -> editor.select(range) }
                         IdePanel.OUTLINE -> OutlinePane(inspection.outline, lineStarts) { range -> editor.select(range) }
                         IdePanel.EVENTS -> EventsPane(previewState.targets, replayable, preview::send)
-                        IdePanel.STORAGE -> StoragePane(preview.storageOf(draftId), declared = storage, busy = previewState.busy)
+                        IdePanel.STORAGE -> StoragePane(preview.storageOf(draftId), declared = storage, busy = previewState.busy, installed = installedStorage)
                         IdePanel.CLOSED -> Unit
                     }
                 }

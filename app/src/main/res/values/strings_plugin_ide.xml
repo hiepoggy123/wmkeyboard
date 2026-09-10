@@ -225,4 +225,10 @@
     <string name="plugin_ide_fold_all_action">Fold every block</string>
     <string name="plugin_ide_unfold_all_action">Unfold every block</string>
 
+    <!-- The two scopes of the Storage tab: what the preview run keeps, and what the installed plugin keeps. -->
+    <string name="plugin_ide_storage_scope_preview">Preview</string>
+    <string name="plugin_ide_storage_scope_installed">Installed</string>
+    <string name="plugin_ide_storage_installed_note">What the installed plugin keeps on this device. The keyboard can be using it, so it is shown here read-only.</string>
+    <string name="plugin_ide_storage_copy_action">Copy into the preview</string>
+
 </resources>
