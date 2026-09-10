@@ -2,7 +2,10 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaDiagnostics
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaDocuments
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaFormat
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaHostShape
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaLexer
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaTokenKind
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaTokens
@@ -67,6 +70,15 @@ internal object LuaCode : CodeLanguage {
 
     /** Re-indents from the tokens, so it works on a file that does not parse and never touches a string. */
     override fun format(source: String): String = LuaFormat.reindent(source)
+
+    /**
+     * Everything wrong with [source], for a plugin whose manifest is shaped like
+     * [host]. With [host] null, the checks that need the manifest are skipped.
+     */
+    fun diagnostics(source: String, host: LuaHostShape?): List<CodeDiagnostic> =
+        LuaDiagnostics.of(LuaDocuments.of(source), host).map { it.toCodeDiagnostic() }
+
+    override fun diagnostics(source: String): List<CodeDiagnostic> = diagnostics(source, null)
 
     /** The first thing the lexer alone can see is wrong: an unclosed string or comment, or a stray character. */
     override fun problem(source: String): CodeProblem? {

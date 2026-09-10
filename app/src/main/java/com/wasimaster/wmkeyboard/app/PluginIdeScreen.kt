@@ -78,6 +78,7 @@ import com.wasimaster.wmkeyboard.core.plugins.PluginPreviewSession
 import com.wasimaster.wmkeyboard.core.plugins.PluginRuntime
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.plugins.PluginWorkspace
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaHostShape
 import com.wasimaster.wmkeyboard.core.plugins.resolve
 import com.wasimaster.wmkeyboard.core.plugins.ui.LocalPluginPanelStyle
 import com.wasimaster.wmkeyboard.core.plugins.ui.PluginInputHost
@@ -269,17 +270,22 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
     }
 
     val lineStarts = remember(text) { lineStartOffsets(text) }
-    val problem by produceState<CodeProblem?>(null, text) {
+    // The storage check follows the manifest as it is edited, not as it was saved.
+    val storage = PluginPermission.Storage.wire in ide.manifest.permissions
+    val diagnostics by produceState(emptyList<CodeDiagnostic>(), text, storage) {
         delay(250)
-        value = withContext(Dispatchers.Default) { LuaCode.problem(text) }
+        value = withContext(Dispatchers.Default) { LuaCode.diagnostics(text, LuaHostShape(storage)) }
     }
     val failureLine = previewState.failure?.takeIf { it.chunk == MAIN_CHUNK }?.line?.minus(1)
-    val decorations = remember(problem, lineStarts, failureLine) {
-        val marks = buildMap {
-            problem?.offset?.let { put(lineOf(lineStarts, it.coerceIn(0, lineStarts.last())), CodeSeverity.ERROR) }
-            failureLine?.takeIf { it in lineStarts.indices }?.let { put(it, CodeSeverity.ERROR) }
+    val decorations = remember(diagnostics, lineStarts, failureLine) {
+        val marks = HashMap<Int, CodeSeverity>()
+        for (diagnostic in diagnostics) {
+            val line = lineOf(lineStarts, diagnostic.range.min.coerceIn(0, lineStarts.last()))
+            val held = marks[line]
+            if (held == null || diagnostic.severity < held) marks[line] = diagnostic.severity
         }
-        if (marks.isEmpty()) CodeDecorations.None else CodeDecorations(gutterMarks = marks)
+        failureLine?.takeIf { it in lineStarts.indices }?.let { marks[it] = CodeSeverity.ERROR }
+        if (marks.isEmpty()) CodeDecorations.None else CodeDecorations(squiggles = diagnostics, gutterMarks = marks)
     }
 
     val title = ide.manifest.name.ifBlank { stringResource(R.string.plugin_ide_draft_untitled) }
