@@ -62,6 +62,30 @@ class LanguageRegistryTest {
         }
     }
 
+    /**
+     * The reverse of the test above, and the one that was missing: a layout can
+     * be compiled in, counted by `ShippedCountsTest` and written up in the docs
+     * while no language offers it, and then there is no way to turn it on.
+     *
+     * That is not hypothetical. T9 and Compact QWERTY shipped in `880e6764` and
+     * were unreachable until discussion #103 asked where they were: the English
+     * screen lists [LanguageDef.layoutIds], not every layout whose `langId` says
+     * English, so adding a spec to [BuiltInLayouts.all] is only half of shipping
+     * it. Assets are left out of this: those are added by dropping a file in,
+     * and the ones a language does not list are reachable through import.
+     */
+    @Test
+    fun `every built-in layout is offered by some language`() {
+        val offered = LanguageRegistry.all.flatMapTo(HashSet()) { it.layoutIds }
+        for (layout in BuiltInLayouts.all) {
+            assertTrue(
+                "built-in layout '${layout.id}' (${layout.name}) is listed by no language, " +
+                    "so nothing in the app can turn it on",
+                layout.id in offered,
+            )
+        }
+    }
+
     @Test
     fun `an unknown id resolves to the generic language, never null`() {
         assertSame(LanguageRegistry.GENERIC, LanguageRegistry.byId("zz-Xxxx"))

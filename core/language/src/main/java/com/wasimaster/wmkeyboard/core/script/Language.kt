@@ -66,6 +66,8 @@ object LanguageRegistry {
                 BuiltInLayouts.COLEMAK_ID,
                 BuiltInLayouts.WORKMAN_ID,
                 BuiltInLayouts.HALMAK_ID,
+                BuiltInLayouts.T9_ID,
+                BuiltInLayouts.COMPACT_ID,
                 AssetLayouts.EN_COLEMAK_DH_ID,
                 AssetLayouts.EN_NALMY_ID,
                 AssetLayouts.EN_SANGALINE_ID,
