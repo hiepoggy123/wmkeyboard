@@ -1666,7 +1666,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Markdown link insertion — Off by default; [Title](url) instead of a bare URL
     - Back arrow returns to the results list — Not to a blank search
   - Currency converter `RARE` — Live fiat rates plus cryptocurrency
-    - Four fiat sources with fallback chain — ExchangeRate-API (default), Frankfurter, Coinbase, jsDelivr currency-api
+    - Four fiat sources with fallback chain — ExchangeRate-API (default), Frankfurter, Coinbase, jsDelivr currency-api (with its Cloudflare mirror); F-Droid starts from currency-api then Frankfurter, and coins from currency-api alone
+    - Fetch rates as you type — Off on F-Droid, where a currency chip reads "Get the rate" and fetches nothing until it is tapped
     - USD-pivot cross conversion — One fetch covers every pair
     - 15 pinned codes — USD, EUR, BDT, GBP, INR, JPY, CNY, AUD, CAD, SGD, AED, SAR, MYR, TRY, PKR
     - 39-coin crypto catalog — 20 on by default, plus add-a-ticker; three price sources

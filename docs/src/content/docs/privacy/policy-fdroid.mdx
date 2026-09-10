@@ -111,15 +111,18 @@ edition minus the rows that need code this build does not have.
 | Dictionary | one word | `api.dictionaryapi.dev` |
 | Encyclopedia | your query | Wikipedia |
 | Weather | a location you entered | Open-Meteo |
-| Currency and crypto rates | nothing identifying | `open.er-api.com`, `api.coinbase.com` and their fallbacks |
+| Currency and crypto rates | nothing identifying | currency-api (`cdn.jsdelivr.net`) and Frankfurter, or ExchangeRate-API, Coinbase or CoinGecko if you pick one |
 | Photo backgrounds | your search terms | Unsplash, Pexels |
 | AI writing tools | the text you ran an action on | the provider you chose, using your own API key, or a server you run yourself |
 | Voice typing | your speech audio | Android's own speech service |
 | Language data downloads | nothing about you | GitHub |
 
-Three of these can fire without you opening a tool under default settings: the
-currency smart chip, automatic language data downloads, and the dictionary
-tool's look-up-at-cursor. Each has its own switch. [Network
+Under default settings, typing on its own reaches one of these in a single
+case, and it is one you set up: once you save a location in the weather tool,
+a weather question you type fetches the forecast for its chip. The currency
+smart chip waits for your tap before it fetches rates, and language data
+downloads only when you accept the prompt or press the button. Each has its
+own switch. [Network
 policy](/privacy/network/) documents every one of these in full, including what
 is cached and for how long, and [Permissions](/privacy/permissions/) covers
 what each Android permission is for.

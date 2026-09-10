@@ -69,8 +69,26 @@ class SmartSuggestTest {
         val h = hit("150 usd", ctx.copy(rates = null))
         assertEquals(SmartSuggest.Kind.CURRENCY, h?.kind)
         assertTrue("should be waiting on rates", h!!.pending)
+        assertFalse("fetching as you type, the chip spins", h.awaitingTap)
         assertNull(h.result)
         assertNull(h.insert)
+    }
+
+    @Test
+    fun aChipThatFetchesOnlyOnATapAsksForIt() {
+        val h = hit("150 usd", ctx.copy(rates = null, ratesOnTap = true))
+        assertEquals(SmartSuggest.Kind.CURRENCY, h?.kind)
+        assertTrue(h!!.pending)
+        assertTrue("the chip has to ask for the tap", h.awaitingTap)
+        assertNull("nothing to type until the rates are in", h.insert)
+        // A coin missing from a loaded table asks the same way.
+        val coin = hit("1 btc", ctx.copy(ratesOnTap = true))
+        assertTrue(coin!!.pendingCrypto)
+        assertTrue(coin.awaitingTap)
+        // Rates already loaded need no tap at all.
+        val ready = hit("150 usd", ctx.copy(ratesOnTap = true))
+        assertEquals("18,000.00 Taka", ready?.result)
+        assertFalse(ready!!.awaitingTap)
     }
 
     @Test

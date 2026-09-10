@@ -456,7 +456,10 @@
     <string name="tooldetail_currency_refresh_title">Refresh the rates every</string>
     <string name="tooldetail_currency_refresh_subtitle">How long a fetched exchange rate stays fresh</string>
     <string name="tooldetail_currency_refresh_info">The upstream rates update about one time each day. A value below 24 hours mostly changes how soon the keyboard tries a failed fetch again.</string>
-    <string name="tooldetail_currency_info">Rates come from open.er-api.com, which has about 160 currencies and updates daily. frankfurter.app (European Central Bank) is the fallback. Both are free and need no API key. The keyboard remembers the from and to pair that you select on the panel.</string>
+    <string name="tooldetail_currency_auto_fetch_title">Fetch rates as you type</string>
+    <string name="tooldetail_currency_auto_fetch_subtitle">Off, a currency chip waits for your tap before it goes online</string>
+    <string name="tooldetail_currency_auto_fetch_info">This setting controls only the chip on the suggestion strip. The panel fetches rates when you open it, and rates that the keyboard already has convert with no fetch. The F-Droid edition starts with this setting off.</string>
+    <string name="tooldetail_currency_info">Rates come from the source that you select in Currency rates from. None of the sources needs an API key. The keyboard remembers the from and to pair that you select on the panel.</string>
 
     <!-- Cryptocurrency in the currency tool. -->
     <string name="tooldetail_crypto_group_title">Cryptocurrency</string>
@@ -488,7 +491,7 @@
     <string name="tooldetail_rate_source_coinbase">Coinbase</string>
     <string name="tooldetail_rate_source_currency_api">currency-api</string>
     <string name="tooldetail_rate_source_coingecko">CoinGecko</string>
-    <string name="tooldetail_crypto_info">Coin prices come from Coinbase, with the jsDelivr currency-api as the fallback; CoinGecko is the other choice. All three are free and need no API key. Prices are indicative and are not advice to buy or sell anything.</string>
+    <string name="tooldetail_crypto_info">Coin prices come from the source that you select in Coin prices from. None of the sources needs an API key. Prices are indicative and are not advice to buy or sell anything.</string>
 
     <!-- QR code generator tool. -->
     <string name="tooldetail_qr_gen_size_title">Image size</string>

@@ -3089,6 +3089,8 @@ private fun TopBar(
                     onAccept = {
                         when {
                             vocabTapSwaps -> onSmartAccept()
+                            // Rates it may fetch only on a tap: this is that tap.
+                            smart.awaitingTap -> onSmartAccept()
                             keywordChip || smart.insert == null -> open()
                             else -> onSmartAccept()
                         }

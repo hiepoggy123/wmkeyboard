@@ -161,13 +161,23 @@ rule waives the anti-feature on: translate takes a LibreTranslate instance,
 search a SearXNG one, photos and GIFs any MediaWiki, and the AI tool has always
 taken an Ollama URL. Backups already offered WebDAV beside Dropbox.
 
-Two things still reach a proprietary service with no free instance to swap in,
-both inside optional tools that work without them: **crypto exchange rates**
-(Coinbase, CoinGecko, currency-api — fiat rates have Frankfurter, which is free
-software, but crypto has no equivalent) and the **Keyman layout catalogue**
-(`api.keyman.com` — the software is open source, the catalogue is theirs). Say
+Exchange rates needed no instance to point at, because two of their sources are
+free end to end: currency-api (`fawazahmed0/exchange-api`) publishes CC0 tables
+built by a public script, for fiat and coins alike, and Frankfurter is MIT and
+serves European Central Bank rates. This file used to say coins had no free
+source; that was wrong, currency-api always carried them. After 0.5.6 the
+F-Droid build starts from those two (`CurrencyClient.Provider.fiatDefaults`,
+`cryptoDefaults`), and a currency chip on the suggestion strip waits for a tap
+before it fetches anything (`RateSourceSettings.autoFetch`, off on F-Droid).
+ExchangeRate-API, Coinbase and CoinGecko stay selectable, which is the same
+additive shape as the other tools. The 0.5.6 build this recipe names still
+starts from them.
+
+One thing still reaches a service with no free instance to swap in, inside an
+optional feature that works without it: the **Keyman layout catalogue**
+(`api.keyman.com`; the software is open source, the catalogue is theirs). Say
 so plainly if a packager asks rather than letting them find it; if they judge
-either one disqualifying, the field goes back.
+it disqualifying, the field goes back.
 
 ## A note on the wrapped strings
 

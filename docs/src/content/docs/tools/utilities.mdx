@@ -48,7 +48,7 @@ The custom keypad (`7 8 9 ÷ ⌫`, `4 5 6 × (`, `1 2 3 − )`, `0 . % + =`) rep
 
 **Unit converter** covers 14 categories, all converted locally: length, mass, temperature, area, volume, speed, time, data, energy, power, pressure, angle, frequency, and fuel economy. Pick a category. Pick a From and a To unit. Type a value, then tap **Insert**. The panel remembers the unit pair you used last *per category*, so switching to Volume and back to Length restores each one's own last pair rather than sharing a single memory slot.
 
-**Currency converter** needs live exchange rates. It fetches from `open.er-api.com` (roughly 160 currencies, updated daily) and falls back to `frankfurter.app` (European Central Bank, roughly 30 currencies) if that fails. Both are free and need no key. Rates are quoted against USD and cross-converted locally, so one fetch covers every pair. A refresh icon on the panel forces a new fetch. Otherwise it only refetches once the cached rates are older than the refresh interval set below, and that cache doesn't survive the keyboard process restarting, so the first open after a while can show a brief "Downloading the exchange rates…" message.
+**Currency converter** needs live exchange rates. It fetches from `open.er-api.com` (roughly 160 currencies, updated daily) and falls back to `frankfurter.dev` (European Central Bank, roughly 30 currencies) if that fails. The F-Droid edition starts from the jsDelivr `currency-api` instead (about 340 codes, coins included, published as open data), with Frankfurter behind it, so a fresh install there reaches only sources that are free software. The others stay one setting away. None of them needs a key. Rates are quoted against USD and cross-converted locally, so one fetch covers every pair. A refresh icon on the panel forces a new fetch. Otherwise it only refetches once the cached rates are older than the refresh interval set below, and that cache doesn't survive the keyboard process restarting, so the first open after a while can show a brief "Downloading the exchange rates…" message.
 
 <PhoneFrame caption="The Currency converter panel: a From/To currency pair, live converted amount, and the refresh icon.">
   {/* shot: tools/currency-converter-panel */}
@@ -56,7 +56,7 @@ The custom keypad (`7 8 9 ÷ ⌫`, `4 5 6 × (`, `1 2 3 − )`, `0 . % + =`) rep
 
 The currency picker pins 15 common codes to the front of the list: USD, EUR, BDT, GBP, INR, JPY, CNY, AUD, CAD, SGD, AED, SAR, MYR, TRY, PKR. Everything else the current rate table has follows, sorted alphabetically.
 
-**Cryptocurrency** rides in the same panel. With coins on (they are by default) the picker grows a **Crypto** section between the pinned codes and the alphabetical tail. Picking a coin on either side converts against it exactly like a currency. Coin prices come from `api.coinbase.com`, with the jsDelivr `currency-api` behind it and CoinGecko as the other choice, and they're only fetched when you actually pick a coin or type a coin amount. Coin results keep far more of the number than the two decimals a currency gets, since a fraction of a bitcoin at two decimals is just `0.00`. In the panel that means up to twelve decimal places with the trailing zeros stripped. The inline strip chip settles for five significant digits instead, because it has a chip's worth of room.
+**Cryptocurrency** rides in the same panel. With coins on (they are by default) the picker grows a **Crypto** section between the pinned codes and the alphabetical tail. Picking a coin on either side converts against it exactly like a currency. Coin prices come from `api.coinbase.com`, with the jsDelivr `currency-api` behind it and CoinGecko as the other choice (the F-Droid edition starts from `currency-api` alone), and they're only fetched when you actually pick a coin or type a coin amount. Coin results keep far more of the number than the two decimals a currency gets, since a fraction of a bitcoin at two decimals is just `0.00`. In the panel that means up to twelve decimal places with the trailing zeros stripped. The inline strip chip settles for five significant digits instead, because it has a chip's worth of room.
 
 Both converters are also reachable inline. Typing `1 ft` or `150 usd` on the strip offers a [smart chip](/smart/chips/) with the converted amount, and the sliders icon at the end of the chip opens the matching panel with the category or pair already set. That inline mechanism is covered on the smart chips page, not here.
 
@@ -70,16 +70,17 @@ Both converters are also reachable inline. Typing `1 ft` or `150 usd` on the str
 <SettingsPath path="Tools / Currency converter / Options" />
 
 - **Suggestion chip**: shows whether Convert as you type is on and opens [Smart chips](/smart/chips/), where the switch lives.
+- **Fetch rates as you type**: on by default, off in the F-Droid edition. On, a currency chip fetches the rates it needs as soon as you type an amount. Off, the chip reads **Get the rate** and fetches nothing until you tap it. The panel fetches when you open it either way, and rates the keyboard already has convert with no fetch.
 - **Decimal places**: a slider from 0 to 6, defaulting to **2**.
 - **Refresh rates every**: a slider from 1 to 48 hours, defaulting to **6**. Upstream rates only update about once a day, so anything under 24 hours mostly changes how soon a *failed* fetch gets retried.
-- **Currency rates from**: which source to fetch fiat rates from, either ExchangeRate-API (the default), Frankfurter, Coinbase, or the jsDelivr currency-api. **Try the other sources** underneath decides whether the rest stand behind it as fallbacks.
+- **Currency rates from**: which source to fetch fiat rates from, either ExchangeRate-API (the default, or currency-api in the F-Droid edition), Frankfurter, Coinbase, or the jsDelivr currency-api. **Try the other sources** underneath decides whether the rest stand behind it as fallbacks.
 
 <SettingsPath path="Tools / Currency converter / Cryptocurrency" />
 
 - **Convert coins**: on by default. Reads amounts like `1 btc` and shows the Crypto section on the panel.
 - **Coin decimal places**: a slider from Auto to 12, defaulting to **Auto**. On Auto the panel keeps up to twelve decimal places and trims the trailing zeros, and the inline chip keeps five significant digits. Pick a number instead and both work to that count.
 - **Refresh coin prices every**: a slider from 1 to 60 minutes, defaulting to **5**.
-- **Coin prices from**: Coinbase (the default), the jsDelivr currency-api, or CoinGecko, with the same **Try the other sources** switch.
+- **Coin prices from**: Coinbase (the default, or currency-api in the F-Droid edition), the jsDelivr currency-api, or CoinGecko, with the same **Try the other sources** switch.
 - **Coins**: a chip for each of the 39 coins the keyboard knows, 20 of them on to begin with, plus **Add a ticker** for anything else your source quotes. At least one coin always stays on.
 
 [Power saving mode](/typing/power-saving/) doesn't touch either converter's own network fetch. Its background-network toggle only forces off clipboard link previews, QR-scan link previews and dictionary auto-lookup, never the currency panel opening or refreshing. See [network policy](/privacy/network/) for what leaves the device and when.

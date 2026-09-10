@@ -5,13 +5,17 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Nothing the keyboard needs to type, predict, autocorrect or learn:
          all of that runs on the device. Used only by features the user
-         starts, and on the F-Droid build nothing connects unprompted.
+         starts or sets up:
          - downloads the user picks: word lists, n-gram packs, emoji keyword
            and CJK dictionaries, vocabulary packs, add-ons, Keyman layouts;
          - online tools the user opens: translate, web and image search,
            GIFs, photo backgrounds, dictionary and Wikipedia lookups,
            weather, currency rates, AI writing. Each can be pointed at a
-           self-hosted server (LibreTranslate, SearXNG, MediaWiki, Ollama);
+           self-hosted server (LibreTranslate, SearXNG, MediaWiki, Ollama),
+           and on F-Droid currency rates start from free sources
+           (currency-api, Frankfurter);
+         - suggestion-strip chips: weather, once the user saves a location,
+           and currency, which on F-Droid waits for a tap;
          - backups to a destination the user configures;
          - clipboard link previews, off by default;
          - the check-for-updates button. -->

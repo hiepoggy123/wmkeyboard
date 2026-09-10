@@ -234,11 +234,42 @@ class CurrencyClientTest {
 
     @Test
     fun parsesFrankfurter() {
+        // The v1 shape at api.frankfurter.dev, which the old host redirects to.
         val rates = CurrencyClient.parseFrankfurter(
-            """{"amount":1.0,"base":"USD","rates":{"EUR":0.92,"GBP":0.79}}""",
+            """{"amount":1.0,"base":"USD","date":"2026-09-09","rates":{"EUR":0.92,"GBP":0.79}}""",
         )
         assertEquals(0.79, rates.rates.getValue("GBP"), 1e-9)
         assertNotNull(rates.rates["USD"])
+    }
+
+    @Test
+    fun theFdroidBuildStartsFromFreeSourcesOnly() {
+        // currency-api (CC0 data) and Frankfurter (MIT) are free software with
+        // open data; ExchangeRate-API, Coinbase and CoinGecko are not.
+        assertEquals(
+            listOf("CURRENCY_API", "FRANKFURTER"),
+            CurrencyClient.Provider.fiatDefaults(fdroid = true),
+        )
+        assertEquals(listOf("CURRENCY_API"), CurrencyClient.Provider.cryptoDefaults(fdroid = true))
+    }
+
+    @Test
+    fun theOtherBuildsKeepTheirDefaults() {
+        assertEquals(listOf("ER_API", "FRANKFURTER"), CurrencyClient.Provider.fiatDefaults(fdroid = false))
+        assertEquals(
+            listOf("COINBASE", "CURRENCY_API"),
+            CurrencyClient.Provider.cryptoDefaults(fdroid = false),
+        )
+    }
+
+    @Test
+    fun everyDefaultNamesARealProviderThatServesItsTable() {
+        for (fdroid in listOf(true, false)) {
+            val fiat = CurrencyClient.Provider.fiatDefaults(fdroid).map { CurrencyClient.Provider.of(it) }
+            val coins = CurrencyClient.Provider.cryptoDefaults(fdroid).map { CurrencyClient.Provider.of(it) }
+            assertTrue(fiat.all { it != null && it.fiat })
+            assertTrue(coins.all { it != null && it.crypto })
+        }
     }
 
     @Test

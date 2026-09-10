@@ -11404,10 +11404,12 @@ open class WMKeyboardService : InputMethodService() {
             retireIntentChip(hit)
             if (hit != _uiState.value.smart) _uiState.update { it.copy(smart = hit) }
             // Recognised but missing data: fetch it, and the completion
-            // redraws the chip.
+            // redraws the chip. Rates wait for a tap on the chip instead
+            // when rateSources.autoFetch is off.
             when {
                 hit?.pendingWeather == true -> refreshWeather()
-                hit?.pending == true -> refreshCurrencyRates(wantCrypto = hit.pendingCrypto)
+                hit?.pending == true && _uiState.value.settings.rateSources.autoFetch ->
+                    refreshCurrencyRates(wantCrypto = hit.pendingCrypto)
             }
         }
     }
@@ -11428,6 +11430,9 @@ open class WMKeyboardService : InputMethodService() {
             cryptoTickers = state.settings.rateSources.cryptoTickers,
             cryptoDecimals = state.settings.rateSources.cryptoDecimals,
             cryptoUnavailable = (state.currency as? CurrencyUi.Ready)?.cryptoFailed == true,
+            // Fetching left to the tap: a chip missing its rates asks for one,
+            // unless the fetch a tap started is still running.
+            ratesOnTap = !state.settings.rateSources.autoFetch && currencyJob?.isActive != true,
             unitLast = state.settings.unitConvertLast,
             compoundUnits = state.settings.compoundUnits,
             enabledTools = usableTools(state.settings),
@@ -11481,12 +11486,31 @@ open class WMKeyboardService : InputMethodService() {
         }
 
     /**
+     * A currency chip that was waiting for the go-ahead to fetch its rates.
+     * The spinner goes up only once a fetch is really running: data saving
+     * can refuse it, and a chip spinning with nothing in flight never stops.
+     */
+    private fun fetchRatesForChip(hit: SmartSuggest.SmartHit) {
+        vibrate()
+        refreshCurrencyRates(wantCrypto = hit.pendingCrypto)
+        if (currencyJob?.isActive != true) return
+        _uiState.update { if (it.smart == hit) it.copy(smart = hit.copy(awaitingTap = false)) else it }
+    }
+
+    /**
      * Chip tapped: swap the recognised text for the answer. The span is
      * whatever the trigger occupied, so "150usd" is replaced outright while
      * a trailing "=" keeps what was typed and appends the result.
+     *
+     * A currency chip that is waiting for a tap before it fetches its rates
+     * (see [SmartSuggest.SmartHit.awaitingTap]) fetches them instead.
      */
     fun onSmartSuggestionTapped() {
         val hit = _uiState.value.smart ?: return
+        if (hit.awaitingTap) {
+            fetchRatesForChip(hit)
+            return
+        }
         val insert = hit.insert ?: return
         if (hit.kind == SmartSuggest.Kind.VOCAB) retireVocabNudge(hit.query)
         stopVoiceForManualInput()

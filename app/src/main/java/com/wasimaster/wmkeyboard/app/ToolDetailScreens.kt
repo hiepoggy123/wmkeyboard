@@ -1926,6 +1926,15 @@ internal fun ToolDetailSettings(
                     )
                 }
                 item {
+                    ToggleSetting(
+                        R.string.tooldetail_currency_auto_fetch_title,
+                        stringResource(R.string.tooldetail_currency_auto_fetch_subtitle),
+                        settings.rateSources.autoFetch,
+                        info = stringResource(R.string.tooldetail_currency_auto_fetch_info),
+                        default = SettingsDefaults.rateSources.autoFetch,
+                    ) { scope.launch { repository.setCurrencyAutoFetch(it) } }
+                }
+                item {
                     SliderSetting(
                         R.string.tooldetail_currency_decimals_title,
                         subtitle = stringResource(R.string.tooldetail_currency_decimals_subtitle),

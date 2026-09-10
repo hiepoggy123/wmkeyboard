@@ -143,8 +143,9 @@ internal fun SmartSuggestionChip(
                     modifier = Modifier.size(15.dp),
                 )
             } else if (hit.result == null) {
-                // Rates still in flight. The chip is already up so the
-                // strip does not jump when the number lands.
+                // Rates still missing. The chip is already up so the strip
+                // does not jump when the number lands. It spins while they
+                // are fetched, or asks for the tap that fetches them.
                 Text(
                     text = hit.query,
                     color = kb.secondaryText,
@@ -154,11 +155,22 @@ internal fun SmartSuggestionChip(
                     modifier = Modifier.widthIn(max = 160.dp),
                 )
                 Text("→", color = kb.secondaryText, fontSize = 12.sp)
-                CircularProgressIndicator(
-                    modifier = Modifier.size(13.dp),
-                    strokeWidth = 1.5.dp,
-                    color = tint,
-                )
+                if (hit.awaitingTap) {
+                    Text(
+                        text = stringResource(R.string.ime_smart_rates_tap),
+                        color = tint,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                } else {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(13.dp),
+                        strokeWidth = 1.5.dp,
+                        color = tint,
+                    )
+                }
             } else {
                 // The hit carries its text in tiers, widest first. Measure
                 // each against the space the row actually has and show the

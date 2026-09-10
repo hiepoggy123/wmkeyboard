@@ -96,6 +96,12 @@ object SmartSuggest {
         val pending: Boolean = false,
         /** True when what is missing is the coin table rather than the fiat one. */
         val pendingCrypto: Boolean = false,
+        /**
+         * True when the missing rates are fetched only once this chip is
+         * tapped. The tap is the go-ahead, so the chip asks for it rather
+         * than spinning. See [Context.ratesOnTap].
+         */
+        val awaitingTap: Boolean = false,
         /** True while a weather chip is waiting on a forecast fetch. */
         val pendingWeather: Boolean = false,
         /** Width-tiered renderings of query → result; empty for keyword chips. */
@@ -121,6 +127,12 @@ object SmartSuggest {
         val cryptoDecimals: Int = 0,
         /** Set while the coin table cannot be fetched, so a coin chip gives up rather than spins. */
         val cryptoUnavailable: Boolean = false,
+        /**
+         * Rates are fetched only when a chip is tapped, and no fetch is
+         * running, so a chip missing its rates asks for the tap. See
+         * [SmartHit.awaitingTap].
+         */
+        val ratesOnTap: Boolean = false,
         val unitLast: String = "",
         /**
          * Read a length in feet as feet and inches — "3 ft 3.37 in" rather
@@ -330,7 +342,7 @@ object SmartSuggest {
         fun pendingHit(onCoins: Boolean) = SmartHit(
             kind = Kind.CURRENCY, query = query, result = null, insert = null,
             replaceSpan = m.span, tool = ToolbarTool.CURRENCY, prefill = prefill,
-            pending = true, pendingCrypto = onCoins,
+            pending = true, pendingCrypto = onCoins, awaitingTap = ctx.ratesOnTap,
         )
 
         val rates = ctx.rates ?: return pendingHit(fromCrypto || toCrypto)

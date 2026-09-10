@@ -52,6 +52,7 @@ import com.wasimaster.wmkeyboard.core.layout.resolveLayoutSelection
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
+import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.SolarTimes
 import com.wasimaster.wmkeyboard.core.tools.Weekend
 import com.wasimaster.wmkeyboard.core.tools.defaultAltCalendars
@@ -3341,16 +3342,28 @@ data class SelectionMacroSettings(
 )
 
 data class RateSourceSettings(
-    val fiatProviders: List<String> = listOf("ER_API", "FRANKFURTER"),
+    /** Best first. The default depends on the channel; see [CurrencyClient.Provider.fiatDefaults]. */
+    val fiatProviders: List<String> = CurrencyClient.Provider.fiatDefaults(),
     /** Read coin amounts ("1 btc") and show coins in the converter. */
     val cryptoEnabled: Boolean = true,
-    val cryptoProviders: List<String> = listOf("COINBASE", "CURRENCY_API"),
+    val cryptoProviders: List<String> = CurrencyClient.Provider.cryptoDefaults(),
     /** Coin prices move by the minute, unlike the daily fiat table. */
     val cryptoCacheMinutes: Int = 5,
     /** The coins that are on; empty means the catalogue's own default set. */
     val cryptoTickers: Set<String> = emptySet(),
     /** Decimal places on coin amounts, or 0 to keep significant digits instead. */
     val cryptoDecimals: Int = 0,
+    /**
+     * Fetch rates the moment a currency chip needs them. Off, the chip waits
+     * for a tap first, so typing an amount never reaches the network by
+     * itself. The panel fetches on open either way, and cached rates convert
+     * with no fetch at all.
+     *
+     * Off on F-Droid, for the same reason as
+     * [KeyboardSettings.autoDownloadLanguageData]: users of that build expect
+     * nothing to go online until they ask.
+     */
+    val autoFetch: Boolean = !BuildConfig.ENABLE_FDROID,
 )
 
 data class CjkSettings(
@@ -6131,6 +6144,7 @@ class SettingsRepository(private val context: Context) {
         private val CRYPTO_PROVIDERS = stringPreferencesKey("crypto_rate_providers")
         private val CRYPTO_CACHE_MINUTES = intPreferencesKey("crypto_cache_minutes")
         private val CRYPTO_TICKERS = stringSetPreferencesKey("crypto_tickers")
+        private val CURRENCY_AUTO_FETCH = booleanPreferencesKey("currency_auto_fetch")
 
         // The settings app's fingerprint lock; see [AppLockSettings]. Flat
         // keys like everything else here, even though the in-memory shape is
@@ -7443,6 +7457,7 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.rateSources.cryptoCacheMinutes,
                 cryptoTickers = p[CRYPTO_TICKERS] ?: defaults.rateSources.cryptoTickers,
                 cryptoDecimals = p[CRYPTO_DECIMALS] ?: defaults.rateSources.cryptoDecimals,
+                autoFetch = p[CURRENCY_AUTO_FETCH] ?: defaults.rateSources.autoFetch,
             ),
             grammarDebounceMs = p[GRAMMAR_DEBOUNCE_MS] ?: defaults.grammarDebounceMs,
             unitConvertLast = p[UNIT_CONVERT_LAST] ?: defaults.unitConvertLast,
@@ -8213,6 +8228,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setCurrencyCacheHours(value: Int) =
         editPrefs { it[CURRENCY_CACHE_HOURS] = value.coerceIn(1, 48) }
+
+    suspend fun setCurrencyAutoFetch(value: Boolean) =
+        editPrefs { it[CURRENCY_AUTO_FETCH] = value }
 
     suspend fun setCryptoEnabled(value: Boolean) =
         editPrefs { it[CRYPTO_ENABLED] = value }

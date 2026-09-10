@@ -547,6 +547,9 @@
 
     <!-- The chip the suggestion strip shows for a tool. %1$s is a tool name. -->
     <string name="ime_smart_open_tool">Open %1$s</string>
+    <!-- Where a currency chip's converted amount would be, while the exchange
+         rates wait for a tap before they are fetched. -->
+    <string name="ime_smart_rates_tap">Get the rate</string>
 
     <!-- Contextual chips: the label each narrow hint chip shows. %1$s is the
          term the lookup chips were typed with. -->
