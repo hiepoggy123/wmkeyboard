@@ -71,11 +71,7 @@ class PluginHostApiTest {
 
     @Test
     fun `there is no way to reach text the clipboard or the network`() {
-        val forbidden = listOf(
-            "wm.text", "wm.clipboard", "wm.http", "wm.net", "wm.field", "wm.insert",
-            "wm.keys", "wm.input", "wm.contacts", "wm.files", "wm.fs", "wm.exec",
-        )
-        for (name in forbidden) {
+        for (name in PluginForbiddenNames.WM) {
             assertEquals("$name must not exist", LuaValue.TRUE, run("return ($name) == nil"))
         }
     }
