@@ -1,56 +1,41 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.relocation.BringIntoViewRequester
-import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.plugins.InstalledPlugin
 import com.wasimaster.wmkeyboard.core.plugins.PluginEvent
-import com.wasimaster.wmkeyboard.core.plugins.PluginLabelStyle
 import com.wasimaster.wmkeyboard.core.plugins.PluginWidget
 import com.wasimaster.wmkeyboard.core.plugins.resolve
-import com.wasimaster.wmkeyboard.core.util.runCancellable
+import com.wasimaster.wmkeyboard.core.plugins.ui.LocalPluginPanelStyle
+import com.wasimaster.wmkeyboard.core.plugins.ui.PluginInputHost
+import com.wasimaster.wmkeyboard.core.plugins.ui.PluginPanelStyle
+import com.wasimaster.wmkeyboard.core.plugins.ui.PluginWidgetList
 import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.PluginPanelUi
 import com.wasimaster.wmkeyboard.ime.R
-import com.wasimaster.wmkeyboard.plugins.R as PluginsR
-import kotlinx.coroutines.delay
 
 /**
  * The Plugins panel: the installed list, and whichever plugin is running.
@@ -246,6 +231,8 @@ private fun RunningPlugin(
         }
     }
     val ringed = state.focusedIndex(FocusRegion.RESULTS)?.let { leaves.getOrNull(it) }
+    val style = rememberKeyboardPluginStyle(kb)
+    val host = remember(state, onInputFocus, onPaste) { KeyboardInputHost(state, onInputFocus, onPaste) }
     Column(modifier = Modifier.fillMaxSize()) {
         if (panel.busy) {
             LinearProgressIndicator(
@@ -280,308 +267,60 @@ private fun RunningPlugin(
                 .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            WidgetList(
-                widgets = panel.ui.root,
-                state = state,
-                onEvent = onEvent,
-                onInputFocus = onInputFocus,
-                onToolInsert = onToolInsert,
-                onCopy = onCopy,
-                onPaste = onPaste,
-                ringed = ringed,
-            )
-        }
-    }
-}
-
-@Composable
-private fun WidgetList(
-    widgets: List<PluginWidget>,
-    state: KeyboardUiState,
-    onEvent: (PluginEvent) -> Unit,
-    onInputFocus: (String?) -> Unit,
-    onToolInsert: (String) -> Unit,
-    onCopy: (String) -> Unit,
-    onPaste: (String) -> Unit,
-    ringed: PluginWidget? = null,
-) {
-    for (widget in widgets) {
-        PluginWidgetView(widget, state, onEvent, onInputFocus, onToolInsert, onCopy, onPaste, ringed)
-    }
-}
-
-@Composable
-private fun PluginWidgetView(
-    widget: PluginWidget,
-    state: KeyboardUiState,
-    onEvent: (PluginEvent) -> Unit,
-    onInputFocus: (String?) -> Unit,
-    onToolInsert: (String) -> Unit,
-    onCopy: (String) -> Unit,
-    onPaste: (String) -> Unit,
-    ringed: PluginWidget? = null,
-) {
-    val kb = LocalKbTheme.current
-    when (widget) {
-        is PluginWidget.Column -> Column(
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            WidgetList(
-                widget.children, state, onEvent, onInputFocus, onToolInsert, onCopy, onPaste,
-                ringed,
-            )
-        }
-
-        is PluginWidget.Row -> Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            for (child in widget.children) {
-                Box(modifier = Modifier.weight(1f)) {
-                    PluginWidgetView(
-                        child, state, onEvent, onInputFocus, onToolInsert, onCopy, onPaste,
-                        ringed,
-                    )
-                }
-            }
-        }
-
-        is PluginWidget.Label -> Text(
-            widget.text,
-            color = if (widget.style == PluginLabelStyle.CAPTION) kb.secondaryText else kb.keyText,
-            fontSize = when (widget.style) {
-                PluginLabelStyle.TITLE -> 15.sp
-                PluginLabelStyle.BODY -> 13.sp
-                PluginLabelStyle.CAPTION -> 11.sp
-            },
-            fontWeight = if (widget.style == PluginLabelStyle.TITLE) {
-                FontWeight.Medium
-            } else {
-                FontWeight.Normal
-            },
-        )
-
-        is PluginWidget.Output -> OutputWidget(widget, onToolInsert, onCopy)
-
-        is PluginWidget.Button -> ToolPanelChip(
-            label = widget.text,
-            selected = widget.primary,
-            enabled = widget.enabled,
-            modifier = Modifier.focusRing(widget === ringed),
-            onClick = { onEvent(PluginEvent.Click(widget.id)) },
-        )
-
-        is PluginWidget.Toggle -> Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRing(widget === ringed),
-        ) {
-            Text(
-                widget.label,
-                color = kb.keyText,
-                fontSize = 13.sp,
-                modifier = Modifier.weight(1f),
-            )
-            Switch(
-                checked = widget.checked,
-                onCheckedChange = { onEvent(PluginEvent.ToggleChanged(widget.id, it)) },
-                colors = SwitchDefaults.colors(checkedTrackColor = kb.accent),
-            )
-        }
-
-        is PluginWidget.Input -> Box(Modifier.focusRing(widget === ringed)) {
-            InputWidget(
-                widget = widget,
-                value = state.pluginInputs[widget.id].orEmpty(),
-                focused = state.pluginFocusedInput == widget.id,
-                onFocus = { onInputFocus(widget.id) },
-                onPaste = { onPaste(widget.id) },
-            )
-        }
-
-        is PluginWidget.Spacer -> Spacer(modifier = Modifier.height(widget.height.dp))
-
-        PluginWidget.Divider -> Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(kb.chip),
-        )
-
-        PluginWidget.Progress -> LinearProgressIndicator(
-            modifier = Modifier.fillMaxWidth().height(2.dp),
-            color = kb.accent,
-            trackColor = kb.chip,
-        )
-
-        is PluginWidget.Tabs -> TabsWidget(
-            widget, state, onEvent, onInputFocus, onToolInsert, onCopy, onPaste,
-        )
-    }
-}
-
-/**
- * A block of result text, with the host's own Insert and Copy buttons.
- *
- * That Insert button is the *only* way a plugin's output reaches the text the
- * user is writing. There is no API a script can call to type for them, so every
- * character a plugin contributes is one the user tapped to accept.
- */
-@Composable
-private fun OutputWidget(
-    widget: PluginWidget.Output,
-    onToolInsert: (String) -> Unit,
-    onCopy: (String) -> Unit,
-) {
-    val kb = LocalKbTheme.current
-    val shape = kb.cardShape()
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(shape)
-            .background(kb.chip)
-            .chipBorder(kb, shape)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Text(
-            widget.text,
-            color = kb.chipText,
-            fontSize = 13.sp,
-            fontFamily = if (widget.mono) FontFamily.Monospace else FontFamily.Default,
-        )
-        if (widget.text.isNotEmpty() && (widget.insertable || widget.copyable)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (widget.insertable) {
-                    ToolPanelChip(
-                        label = stringResource(R.string.ime_insert_action),
-                        onClick = { onToolInsert(widget.text) },
-                    )
-                }
-                if (widget.copyable) {
-                    ToolPanelChip(
-                        label = stringResource(CommonR.string.common_copy),
-                        onClick = { onCopy(widget.text) },
-                    )
-                }
+            CompositionLocalProvider(LocalPluginPanelStyle provides style) {
+                PluginWidgetList(
+                    widgets = panel.ui.root,
+                    host = host,
+                    onEvent = onEvent,
+                    onInsert = onToolInsert,
+                    onCopy = onCopy,
+                    ringed = ringed,
+                )
             }
         }
     }
 }
 
 /**
- * A plugin's text box.
- *
- * Not a `TextField`: tapping it tells the service to route the keys here, and
- * the text drawn is whatever the service has collected. The Paste button is how
- * the user hands a plugin something they already had — the replacement for the
- * clipboard and text-reading APIs the sandbox deliberately does not have.
+ * The shared plugin renderer, dressed as the keyboard. Every piece reads the
+ * keyboard theme field the panel read before the renderer moved to
+ * core.plugins, and the chip, outline and focus ring are the keyboard's own
+ * functions rather than copies of them.
  */
 @Composable
-private fun InputWidget(
-    widget: PluginWidget.Input,
-    value: String,
-    focused: Boolean,
-    onFocus: () -> Unit,
-    onPaste: () -> Unit,
-) {
-    val kb = LocalKbTheme.current
-    // Focusing a box collapses the panel to make room for the key rows, so the
-    // box the user just tapped can end up under them. Scroll it back into view
-    // rather than leaving them typing into something they cannot see.
-    val requester = remember { BringIntoViewRequester() }
-    LaunchedEffect(focused) {
-        if (!focused) return@LaunchedEffect
-        // A frame's grace: the panel is still resizing when the focus lands.
-        delay(80)
-        // Not runCatching: the panel closing cancels this effect, and swallowing
-        // that would leave the coroutine running. See runCancellable's KDoc.
-        runCancellable { requester.bringIntoView() }
-    }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .bringIntoViewRequester(requester),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        if (widget.label.isNotEmpty()) {
-            Text(widget.label, color = kb.secondaryText, fontSize = 11.sp)
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            val fieldShape = kb.cardShape()
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(fieldShape)
-                    .background(kb.chip)
-                    .then(
-                        if (focused) {
-                            // Focus wins over the theme's chip outline: the
-                            // accent ring is what says "keys go here now".
-                            Modifier.border(1.dp, kb.accent, fieldShape)
-                        } else {
-                            Modifier.chipBorder(kb, fieldShape)
-                        },
-                    )
-                    .clickable(onClick = onFocus)
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-            ) {
-                Text(
-                    value.ifEmpty { widget.placeholder },
-                    color = if (value.isEmpty()) kb.secondaryText else kb.chipText,
-                    fontSize = 13.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            ToolPanelChip(label = stringResource(CommonR.string.common_paste), onClick = onPaste)
-        }
-    }
+private fun rememberKeyboardPluginStyle(kb: KbTheme): PluginPanelStyle = remember(kb) {
+    PluginPanelStyle(
+        text = kb.keyText,
+        secondaryText = kb.secondaryText,
+        surface = kb.chip,
+        onSurface = kb.chipText,
+        accent = kb.accent,
+        cardShape = kb.cardShape(),
+        cardBorder = { modifier, shape -> modifier.chipBorder(kb, shape) },
+        ring = { modifier, active -> modifier.focusRing(active) },
+        chip = { label, selected, enabled, modifier, onClick ->
+            ToolPanelChip(label = label, selected = selected, modifier = modifier, enabled = enabled, onClick = onClick)
+        },
+    )
 }
 
-@Composable
-private fun TabsWidget(
-    widget: PluginWidget.Tabs,
-    state: KeyboardUiState,
-    onEvent: (PluginEvent) -> Unit,
-    onInputFocus: (String?) -> Unit,
-    onToolInsert: (String) -> Unit,
-    onCopy: (String) -> Unit,
-    onPaste: (String) -> Unit,
-) {
-    // Which tab is showing is the host's business, kept in the panel's own
-    // saved state so it survives a recomposition without the script having to
-    // track it or the service having to store it.
-    var selected by rememberSaveable(widget.id) { mutableIntStateOf(0) }
-    val index = selected.coerceIn(0, widget.pages.lastIndex)
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            widget.pages.forEachIndexed { i, page ->
-                ToolPanelChip(
-                    label = page.title.ifEmpty {
-                        stringResource(PluginsR.string.core_plugins_ui_tab_default_title, i + 1)
-                    },
-                    selected = i == index,
-                    onClick = {
-                        selected = i
-                        onEvent(PluginEvent.TabSelected(widget.id, i))
-                    },
-                )
-            }
-        }
-        WidgetList(
-            widget.pages[index].children,
-            state, onEvent, onInputFocus, onToolInsert, onCopy, onPaste,
-        )
-    }
+/**
+ * A plugin's text boxes as the keyboard hosts them: the text is what the service
+ * collected, pressing a box hands it the keys, and there is no text field, so
+ * [onValueChange] is null.
+ */
+private class KeyboardInputHost(
+    private val state: KeyboardUiState,
+    private val focus: (String?) -> Unit,
+    private val paste: (String) -> Unit,
+) : PluginInputHost {
+    override fun value(id: String): String = state.pluginInputs[id].orEmpty()
+
+    override fun isFocused(id: String): Boolean = state.pluginFocusedInput == id
+
+    override fun onFocus(id: String) = focus(id)
+
+    override fun onPaste(id: String) = paste(id)
+
+    override val onValueChange: ((String, String) -> Unit)? = null
 }

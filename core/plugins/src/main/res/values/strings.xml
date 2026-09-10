@@ -102,5 +102,7 @@
     <!-- The name of a tab the plugin gave no title. %1$d is its position,
          counted from 1. -->
     <string name="core_plugins_ui_tab_default_title">Tab %1$d</string>
+    <!-- The button under a plugin's result that types the result into the text the user is writing. -->
+    <string name="core_plugins_ui_insert_action">Insert</string>
 
 </resources>
