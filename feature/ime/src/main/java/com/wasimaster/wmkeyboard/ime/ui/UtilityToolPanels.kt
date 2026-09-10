@@ -112,20 +112,23 @@ private fun KeypadButton(
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
     // These are keys, so they dress like the key grid: the theme's key
-    // shape and border, not the chip pair the panel buttons wear.
+    // shape and border, not the chip pair the panel buttons wear. With no key
+    // shape that means no face, the accented = key included, the way the
+    // grid's own enter key loses its colour.
     val shape = kb.keyShape()
+    val lit = accent && kb.keysHaveFaces
     Box(
         modifier = modifier
             .padding(2.dp)
             .clip(shape)
-            .background(if (accent) kb.toolCircleActive else kb.key)
+            .background(if (lit) kb.toolCircleActive else kb.keyFace(kb.key))
             .panelKeyBorder(kb, shape)
             .clickable { feedback(); onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
-            color = if (accent) kb.toolCircleActiveIcon else kb.keyText,
+            color = if (lit) kb.toolCircleActiveIcon else kb.keyText,
             fontSize = 17.sp,
             fontWeight = FontWeight.Medium,
         )

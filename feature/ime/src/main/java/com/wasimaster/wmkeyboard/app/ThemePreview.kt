@@ -204,16 +204,14 @@ fun ThemePreview(
                     modifier = Modifier
                         .weight(5f)
                         .fillMaxHeight()
-                        .background(colorOf(theme.keyBackground), keyShape)
-                        .previewKeyBorder(theme, keyShape),
+                        .previewKeyFace(theme, theme.keyBackground, keyShape),
                 )
                 LetterKey(theme, keyShape, weight = 1f, dot = false)
                 Box(
                     modifier = Modifier
                         .weight(1.5f)
                         .fillMaxHeight()
-                        .background(colorOf(theme.enterKeyBackground), keyShape)
-                        .previewKeyBorder(theme, keyShape),
+                        .previewKeyFace(theme, theme.enterKeyBackground, keyShape),
                 )
             }
         }
@@ -289,11 +287,14 @@ private fun RowScope.LetterKey(
     weight: Float = 1f,
     dot: Boolean = true,
 ) {
+    // A theme with no key shape has no face to lay a texture or a sheen on.
+    val faces = theme.keyShape != KeyShapeKind.NONE
     // The letter-key texture, drawn the way the real board draws it: over the
     // key colour, clipped to the key shape. One shared 128 px decode serves
     // every key of the mock-up through the bitmap cache.
-    val texture by produceState<ImageBitmap?>(null, theme.keyTexture) {
-        value = theme.keyTexture?.let {
+    val texturePath = theme.keyTexture?.takeIf { faces }
+    val texture by produceState<ImageBitmap?>(null, texturePath) {
+        value = texturePath?.let {
             BackgroundBitmapCache.load(it, 0f, PREVIEW_TEXTURE_PX, PREVIEW_TEXTURE_PX)
                 ?.asImageBitmap()
         }
@@ -302,8 +303,7 @@ private fun RowScope.LetterKey(
         modifier = Modifier
             .weight(weight)
             .fillMaxHeight()
-            .background(colorOf(theme.keyBackground), keyShape)
-            .previewKeyBorder(theme, keyShape),
+            .previewKeyFace(theme, theme.keyBackground, keyShape),
         contentAlignment = Alignment.Center,
     ) {
         texture?.let {
@@ -319,7 +319,7 @@ private fun RowScope.LetterKey(
         }
         // The key sheen, at phase 0 like the board gradient: without it the
         // editor said "no" to a gradient the keyboard was already drawing.
-        theme.keyGradient?.let {
+        theme.keyGradient?.takeIf { faces }?.let {
             Box(
                 Modifier
                     .matchParentSize()
@@ -347,10 +347,20 @@ private fun RowScope.ModifierKey(theme: ThemeSpec, keyShape: Shape, weight: Floa
         modifier = Modifier
             .weight(weight)
             .fillMaxHeight()
-            .background(colorOf(theme.modifierKeyBackground), keyShape)
-            .previewKeyBorder(theme, keyShape),
+            .previewKeyFace(theme, theme.modifierKeyBackground, keyShape),
     )
 }
+
+/**
+ * A mock-up key's face in [color] with the theme's key border, or nothing at
+ * all for a theme with no key shape, whose keyboard shows only the labels.
+ */
+private fun Modifier.previewKeyFace(theme: ThemeSpec, color: Long, shape: Shape): Modifier =
+    if (theme.keyShape == KeyShapeKind.NONE) {
+        this
+    } else {
+        background(colorOf(color), shape).previewKeyBorder(theme, shape)
+    }
 
 /**
  * The theme's key border on a mock-up key. Drawn at a fixed hairline rather

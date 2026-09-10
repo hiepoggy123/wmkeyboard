@@ -491,7 +491,7 @@ private fun HwRailKey(
             .fillMaxWidth()
             .padding(2.dp)
             .clip(shape)
-            .background(kb.modifierKey, shape)
+            .background(kb.keyFace(kb.modifierKey), shape)
             .panelKeyBorder(kb, shape)
             .pointerInput(repeatable) {
                 detectTapGestures(

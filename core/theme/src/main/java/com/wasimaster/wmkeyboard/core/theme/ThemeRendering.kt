@@ -143,9 +143,14 @@ fun GradientSpec.brush(
  * only the slant uses it: see [SlantKeyShape]. Keys pass the gap they are inset
  * by; anything that clips to its bounds, or has no gap to spill into, leaves it
  * at zero.
+ *
+ * [KeyShapeKind.NONE] has no outline of its own, yet a pressed or latched key
+ * still lights up, and a few surfaces borrow the key outline (the layer peek,
+ * the trackpad, the autopilot overlay). All of those get the plain rounded one,
+ * at [radiusDp].
  */
 fun keyShapeFor(kind: KeyShapeKind, radiusDp: Int, bleedDp: Float = 0f): Shape = when (kind) {
-    KeyShapeKind.ROUNDED -> RoundedCornerShape(radiusDp.dp)
+    KeyShapeKind.NONE, KeyShapeKind.ROUNDED -> RoundedCornerShape(radiusDp.dp)
     KeyShapeKind.SHARP -> RectangleShape
     KeyShapeKind.PILL -> RoundedCornerShape(percent = 50)
     KeyShapeKind.CUT -> CutCornerShape(radiusDp.coerceIn(2, 14).dp)

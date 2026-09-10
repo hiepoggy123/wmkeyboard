@@ -10239,6 +10239,8 @@ internal data class KeyPalette(
      * does, exactly like the eight colours above.
      */
     val overrides: Map<String, KeyOverride> = emptyMap(),
+    /** False when the theme's keys have no shape; see [KbTheme.keysHaveFaces]. */
+    val keysHaveFaces: Boolean = true,
 )
 
 internal fun KbTheme.keyPalette(): KeyPalette = KeyPalette(
@@ -10252,6 +10254,7 @@ internal fun KbTheme.keyPalette(): KeyPalette = KeyPalette(
     accent = accent,
     hintText = hintText,
     overrides = keyOverrides,
+    keysHaveFaces = keysHaveFaces,
 )
 
 /**
@@ -10419,17 +10422,24 @@ internal fun keyVisual(
     // The Select key of the text-editing pad is lit while selection mode is on,
     // whichever surface armed it — the old panel's one piece of state.
     val selectLit = action is KeyAction.Edit && action.op == TextEditAction.SELECT && state.selectingText
+    // A theme with no key shape gives a key at rest no face, so its label sits on
+    // the bare board. The latch and select states below still light theirs, and a
+    // colour the theme gave this one key still paints it.
+    val faceless = !palette.keysHaveFaces && overrideBackground == null
     val background = overrideBackground ?: when {
         latch == ModifierState.LOCKED -> palette.accent
         latch == ModifierState.ARMED -> palette.pressedKey
         selectLit -> palette.accent
+        faceless -> Color.Transparent
         action == KeyAction.Enter -> palette.enterKey
         action != KeyAction.Text -> palette.modifierKey
         else -> palette.key
     }
     val contentColor = override?.text?.let { Color(it.toInt()) } ?: when {
         selectLit -> palette.enterKeyText
-        action == KeyAction.Enter -> palette.enterKeyText
+        // Enter's label colour is picked for its accent face. With no face it sits
+        // on the board like the other modifier labels, so it takes their colour.
+        action == KeyAction.Enter && !faceless -> palette.enterKeyText
         action != KeyAction.Text -> palette.modifierKeyText
         else -> palette.keyText
     }
@@ -14939,16 +14949,21 @@ internal fun KeyButton(
             // brush are built in the cache block, which the press does not touch.
             .drawWithCache {
                 val outline = keyShape.createOutline(size, layoutDirection, this)
+                // A theme with no key shape dresses no resting face, so it gets
+                // neither the sheen nor the class texture. The press keeps its
+                // colour and its own texture, which is how the key still shows
+                // that it was hit.
+                val faces = kb.keysHaveFaces
                 // Sheen over letter keys only; pressed/enter/modifier states keep
                 // their solid colors so state changes stay legible.
                 val sheen = kb.keyGradient
-                    ?.takeIf { key.action == KeyAction.Text }
+                    ?.takeIf { faces && key.action == KeyAction.Text }
                     ?.brush()
                 // The theme's texture for this key class, prepared here so the
                 // press-path draw below only picks between ready-made values.
                 // The clip path and tile brush depend on size/shape alone —
                 // the cache block's own invalidation keys.
-                val texture = textures.forKey(key.action)
+                val texture = if (faces) textures.forKey(key.action) else null
                 val texturePaint = texture?.let {
                     KeyTexturePaint.of(it, textures, outline, size)
                 }
@@ -14977,9 +14992,10 @@ internal fun KeyButton(
                 // the whole width lands inside the key — hand-stroking the same
                 // outline would straddle the edge and read thinner. A per-key
                 // border colour wins over the theme's, and draws at the theme's
-                // width or 1.5 dp when the theme has no border of its own.
+                // width or 1.5 dp when the theme has no border of its own. A theme
+                // with no key shape draws no border of its own either.
                 run {
-                    val border = visual.borderColor ?: kb.keyBorder
+                    val border = visual.borderColor ?: kb.keyBorder?.takeIf { kb.keysHaveFaces }
                     val width = if (visual.borderColor != null) {
                         maxOf(kb.keyBorderWidthDp, 1.5f)
                     } else {
@@ -17638,7 +17654,7 @@ private fun TextArtCell(art: String, onTap: (String) -> Unit) {
             .padding(3.dp)
             .fillMaxWidth()
             .height(38.dp)
-            .background(kb.key, kb.keyShape())
+            .background(kb.keyFace(kb.key), kb.keyShape())
             .clickable {
                 feedback()
                 onTap(art)

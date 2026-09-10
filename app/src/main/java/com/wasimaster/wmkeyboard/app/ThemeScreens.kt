@@ -78,9 +78,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.state.ToggleableState
@@ -607,6 +611,7 @@ internal fun ModeThemePickerDialog(
 @Composable
 internal fun keyShapeName(kind: KeyShapeKind): String = stringResource(
     when (kind) {
+        KeyShapeKind.NONE -> R.string.theme_key_shape_none_label
         KeyShapeKind.ROUNDED -> R.string.theme_key_shape_rounded_label
         KeyShapeKind.SHARP -> R.string.theme_key_shape_sharp_label
         KeyShapeKind.PILL -> R.string.theme_key_shape_pill_label
@@ -636,6 +641,7 @@ internal fun keyShapeName(kind: KeyShapeKind): String = stringResource(
  */
 @Composable
 internal fun KeyShapeSwatch(kind: KeyShapeKind, radiusDp: Int, color: Color) {
+    val shape = keyShapeFor(kind, radiusDp, bleedDp = KeySwatchGapDp)
     Box(
         modifier = Modifier
             // The horizontal room a key has either side of it on the keyboard,
@@ -644,7 +650,27 @@ internal fun KeyShapeSwatch(kind: KeyShapeKind, radiusDp: Int, color: Color) {
             .padding(horizontal = KeySwatchGapDp.dp)
             .width(31.dp)
             .height(48.dp)
-            .background(color, keyShapeFor(kind, radiusDp, bleedDp = KeySwatchGapDp)),
+            .then(
+                if (kind == KeyShapeKind.NONE) {
+                    // No shape fills nothing, and an empty slot reads as a swatch
+                    // that failed to draw. A dashed line marks where the key sits
+                    // without giving it an edge.
+                    Modifier.drawBehind {
+                        drawOutline(
+                            outline = shape.createOutline(size, layoutDirection, this),
+                            color = color,
+                            style = Stroke(
+                                width = 1.5.dp.toPx(),
+                                pathEffect = PathEffect.dashPathEffect(
+                                    floatArrayOf(4.dp.toPx(), 3.dp.toPx()),
+                                ),
+                            ),
+                        )
+                    }
+                } else {
+                    Modifier.background(color, shape)
+                },
+            ),
     )
 }
 
@@ -712,7 +738,8 @@ private const val DefaultChipRadiusDp = 12
 
 /**
  * Radio list of every key shape, each row with the shape drawn beside its name.
- * Shared by the key shape and the popup shape, hence the caller's [title].
+ * Shared by every shape a theme sets (keys, popups, tools, chips, menus and
+ * cards), hence the caller's [title].
  */
 @Composable
 internal fun KeyShapePickerDialog(
@@ -724,6 +751,10 @@ internal fun KeyShapePickerDialog(
     // The menu and card shapes may be left on "Automatic", which derives a
     // safe shape instead of naming one; those pickers pass a reset handler.
     onAuto: (() -> Unit)? = null,
+    // Only keys may have no shape at all (issue #149): a popup, a chip or a
+    // card with no outline is its text floating over the board. The key
+    // shape picker is the one caller that passes true.
+    offerNone: Boolean = false,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -747,6 +778,7 @@ internal fun KeyShapePickerDialog(
                     }
                 }
                 for (kind in KeyShapeKind.entries) {
+                    if (kind == KeyShapeKind.NONE && !offerNone) continue
                     val picked = kind == selected
                     ScrollAnchor(picked) {
                         Row(
@@ -2253,6 +2285,7 @@ fun ThemeEditorScreen(
                 shapePickerOpen = false
             },
             onDismiss = { shapePickerOpen = false },
+            offerNone = true,
         )
     }
     if (popupShapePickerOpen) {
@@ -2326,7 +2359,7 @@ fun ThemeEditorScreen(
 
     SettingsGroup(stringResource(R.string.theme_keys_section_title), foldKey = "theme/keys") {
         item {
-            // A row plus a dialog, not a segmented row: eleven shapes never fit
+            // A row plus a dialog, not a segmented row: a dozen shapes never fit
             // side by side, and a name on its own ("Squircle", "Leaf") does not
             // say what the key will look like. The dialog draws each one.
             ListItem(

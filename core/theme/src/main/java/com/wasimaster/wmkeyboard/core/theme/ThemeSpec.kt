@@ -43,8 +43,16 @@ data class GradientSpec(
  * sliders; the rest set their own corners from the key's size, because their
  * whole look is the proportion (a half-height arch, a hexagon's points).
  *
- * Order is the order the shape picker lists them in: the four plain outlines
- * first, then the decorative ones.
+ * NONE is no outline at all (issue #149): a key at rest draws no face, border
+ * or texture, only its label. A transparent key colour only looks like that
+ * until the theme has a border or a texture, and it fades the pressed colour
+ * derived from it too. A key with no shape still lights up while it is pressed
+ * or latched, in the rounded outline [keyShapeFor] hands back for it. Only keys
+ * may have it: every other surface names its shape as a string, and
+ * [keyShapeKindOrNull] turns NONE away there.
+ *
+ * Order is the order the shape picker lists them in: no shape first, then the
+ * four plain outlines, then the decorative ones.
  *
  * A value added here is not readable by an older build — `ThemeCodec.decode`
  * drops a theme whose enum name it does not know — so a theme exported with
@@ -52,6 +60,7 @@ data class GradientSpec(
  * price of the field being an enum, which it already was.
  */
 enum class KeyShapeKind {
+    NONE,
     ROUNDED,
     SHARP,
     PILL,
@@ -70,9 +79,15 @@ enum class KeyShapeKind {
  * A [KeyShapeKind] by name, or null when this build has no such shape — for
  * the shape fields that travel as strings so an unknown name costs the field
  * rather than the whole theme.
+ *
+ * Those fields are all surfaces that have to be seen (popups, menus, tools,
+ * chips, cards), so [KeyShapeKind.NONE] is turned away like an unknown name and
+ * the field falls back to its default. Only the key shape may be none.
  */
 fun keyShapeKindOrNull(name: String?): KeyShapeKind? =
-    name?.let { wanted -> KeyShapeKind.entries.firstOrNull { it.name == wanted } }
+    name?.let { wanted ->
+        KeyShapeKind.entries.firstOrNull { it.name == wanted && it != KeyShapeKind.NONE }
+    }
 
 /**
  * The shape a container (list-menu popup, panel card) may safely inherit from
@@ -109,6 +124,8 @@ fun safeContainerKind(kind: KeyShapeKind): KeyShapeKind = when (kind) {
  */
 fun castsElevationShadow(kind: KeyShapeKind): Boolean = when (kind) {
     KeyShapeKind.SCALLOP, KeyShapeKind.TICKET -> false
+    // Draws the rounded outline wherever it draws at all.
+    KeyShapeKind.NONE,
     KeyShapeKind.ROUNDED,
     KeyShapeKind.SHARP,
     KeyShapeKind.PILL,

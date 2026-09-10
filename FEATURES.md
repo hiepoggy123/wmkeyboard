@@ -1023,6 +1023,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - 5 colours each — Background, text, border, popup background, popup text — all nullable
 - **Key shapes and geometry** `RARE` — 12 shapes, applied independently to 6 surfaces
   - 12 key shapes `RARE` — Picker draws each one rather than naming it
+    - No shape — Keys only: labels on the bare board, a rounded flash on press, latched modifiers and single-key faces still lit
     - Radius-following — Rounded, sharp, cut and ticket honour the corner-radius slider
     - Proportional shapes — Pill, squircle, arch, leaf, slant, hexagon, scallop, circle size corners from the key
     - Squircle — n=4 superellipse sampled as a 64-gon

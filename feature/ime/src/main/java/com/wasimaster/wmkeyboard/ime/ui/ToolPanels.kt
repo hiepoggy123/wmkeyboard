@@ -199,7 +199,7 @@ private fun ToolPanelKey(
     Box(
         modifier = modifier
             .clip(shape)
-            .background(if (pressed) kb.pressedKey else kb.modifierKey, shape)
+            .background(if (pressed) kb.pressedKey else kb.keyFace(kb.modifierKey), shape)
             .panelKeyBorder(kb, shape)
             .pointerInput(repeatable) {
                 detectTapGestures(

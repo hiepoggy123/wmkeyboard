@@ -69,7 +69,7 @@ The button in the dialog's title swaps the wheel for **Hue** and **Saturation** 
 
 ### Keys
 
-- **Key shape**: a row that opens a picker with all twelve shapes listed by name, each drawn beside its name at key proportions and at this theme's own corner radius, so you can see what you're choosing before you choose it. The full list, and which shapes react to the radius slider, is under [Key shapes](#key-shapes) below.
+- **Key shape**: a row that opens a picker with **None** and all twelve shapes listed by name, each drawn beside its name at key proportions and at this theme's own corner radius, so you can see what you're choosing before you choose it. The full list, and which shapes react to the radius slider, is under [Key shapes](#key-shapes) below.
 - **Letter keys** sets their color, and carries an optional **Key gradient**, a subtle sheen painted over letter keys only (see [Gradients](#gradients)).
 - **Key text**, **Modifier keys**, **Modifier key text** (falls back to Key text when left on Auto), **Key hint text** (the small long-press alternate in a key's corner; Auto draws the key's own text color at 55% opacity, and this one keeps alpha so you can pick a translucent hint in another hue), **Enter key**, **Enter key icon**.
 - **Pressed key** is the color a key flashes while held. Auto derives it from Letter keys.
@@ -77,10 +77,11 @@ The button in the dialog's title swaps the wheel for **Hue** and **Saturation** 
 
 ### Key shapes
 
-Twelve shapes, in the order the picker lists them. The five simple ones come first, then the seven decorative ones:
+The picker lists **None** first, then the twelve shapes in this order. The five simple ones come first, then the seven decorative ones:
 
 | Shape | What it looks like | Reads the radius slider? |
 |---|---|---|
+| None | No shape at all, just the labels on the board. See [No key shape](#no-key-shape) below | Only for the flash while a key is pressed |
 | Rounded *(default)* | The ordinary rounded rectangle | Yes, 0–28dp |
 | Square | Four sharp corners, no rounding at all | No |
 | Pill | A full stadium, rounded to half the key's height | No |
@@ -100,8 +101,16 @@ Only the drawing changes. Touch targets stay rectangular for every shape, so the
 
 Slanted is the one shape that draws slightly outside its key. A parallelogram kept inside the key would lose about a third of the width at the top and the bottom, which on a phone-sized key reads as a row of thin straps. So it leans half its slant into the gap on each side instead. Every key stays exactly as wide as it would be with any other shape, and the gap between two keys keeps its width. The gap just runs on a diagonal. Where there is no gap to lean into, the lean is trimmed to fit.
 
+#### No key shape
+
+**None** takes the shape away completely, which isn't quite the same as a see-through key color. A key at rest draws no fill, no border and no texture, so every label sits straight on the board, Enter and the space bar included. The Enter icon switches to your **Modifier key text** color while it has no fill of its own, since **Enter key icon** is picked to read on the Enter key's fill.
+
+The keys still answer your finger. A pressed key flashes a rounded shape at your key corner radius, and an armed or locked modifier still lights up. A key you give its own face color under [Single-key styles](#single-key-styles) keeps that face, so a colored Enter key on an otherwise bare board is one style away. The keypads in the tool panels, like the calculator and the voice and handwriting rails, follow the same rule as the main keys.
+
+**High contrast keys** and **Key outlines** in [Accessibility](/accessibility/overview/) both bring rounded keys back while they're on. Keys without visible edges are exactly what those two settings are there to fix.
+
 :::note
-Only Rounded, Pill, Cut and Squircle shipped with the first version of the format. The other eight, Square among them, came later, and a theme exported with one of them won't import into a version of the app that predates it: the importer drops a theme whose shape name it doesn't recognise rather than guessing. Stick to Rounded, Pill, Cut, or Squircle in a theme you plan to share widely.
+Only Rounded, Pill, Cut and Squircle shipped with the first version of the format. The other eight, Square among them, came later, and so did None. A theme exported with one of them won't import into a version of the app that predates it: the importer drops a theme whose shape name it doesn't recognise rather than guessing. Stick to Rounded, Pill, Cut, or Squircle in a theme you plan to share widely.
 :::
 
 ### Key textures

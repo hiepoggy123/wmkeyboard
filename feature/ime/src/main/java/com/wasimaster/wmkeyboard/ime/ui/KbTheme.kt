@@ -249,6 +249,17 @@ data class KbTheme(
 fun KbTheme.keyShape(bleedDp: Float = 0f) = keyShapeFor(keyShapeKind, keyRadiusDp, bleedDp)
 
 /**
+ * Whether a key at rest draws a face at all. False only when the theme's key
+ * shape is [KeyShapeKind.NONE] (issue #149): the labels then sit on the bare
+ * board, and a face shows only where it carries state, such as a press or a
+ * latched modifier. The panel keypads follow the same rule as the key grid.
+ */
+val KbTheme.keysHaveFaces: Boolean get() = keyShapeKind != KeyShapeKind.NONE
+
+/** [color] as the resting face of a panel key, or no fill when [keysHaveFaces] is false. */
+fun KbTheme.keyFace(color: Color): Color = if (keysHaveFaces) color else Color.Transparent
+
+/**
  * The resolved outline every popup surface draws with — the preview bubble, the
  * long-press alternates, the language picker and the panel menus.
  */
@@ -319,10 +330,11 @@ fun Modifier.chipBorder(kb: KbTheme, shape: Shape): Modifier =
 
 /**
  * The key outline a theme asked for, or nothing — so the panel keypads
- * (calculator, numpad, the handwriting and voice rails) match the key grid.
+ * (calculator, numpad, the handwriting and voice rails) match the key grid,
+ * which draws no border at all when the keys have no shape.
  */
 fun Modifier.panelKeyBorder(kb: KbTheme, shape: Shape): Modifier =
-    if (kb.keyBorder != null && kb.keyBorderWidthDp > 0f) {
+    if (kb.keysHaveFaces && kb.keyBorder != null && kb.keyBorderWidthDp > 0f) {
         border(kb.keyBorderWidthDp.dp, kb.keyBorder, shape)
     } else {
         this
@@ -802,7 +814,7 @@ internal fun maxContrastOn(background: Color): Color =
  * knowing accessibility exists, and it works identically for built-in,
  * custom and dynamic-colour themes.
  */
-private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
+internal fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
     // Correction runs first so the contrast pass gets the last word: after
     // daltonization shifts hues, the text/background relationship is what
     // matters and it must not be re-broken.
@@ -858,6 +870,15 @@ private fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme {
             secondaryText = maxContrastOn(board).copy(alpha = 0.75f),
             divider = maxContrastOn(board).copy(alpha = 0.4f),
         )
+    }
+
+    // Both settings are there to make the key edges easy to see, and a theme with
+    // no key shape has no edges to show. While either is on, its keys come back
+    // as plain rounded ones, the way high contrast drops a texture or a gradient.
+    if (kb.keyShapeKind == KeyShapeKind.NONE &&
+        (settings.accessibility.highContrast || settings.accessibility.keyOutlines)
+    ) {
+        kb = kb.copy(keyShapeKind = KeyShapeKind.ROUNDED)
     }
 
     if (settings.accessibility.keyOutlines) {
