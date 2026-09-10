@@ -54,6 +54,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -62,6 +63,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -96,6 +98,7 @@ import com.wasimaster.wmkeyboard.core.plugins.lua.LuaDocuments
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaHostShape
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaNavigation
 import com.wasimaster.wmkeyboard.core.plugins.lua.LuaOutlineItem
+import com.wasimaster.wmkeyboard.core.plugins.lua.LuaSyntax
 import com.wasimaster.wmkeyboard.core.plugins.resolve
 import com.wasimaster.wmkeyboard.core.plugins.ui.LocalPluginPanelStyle
 import com.wasimaster.wmkeyboard.core.plugins.ui.PluginInputHost
@@ -110,7 +113,7 @@ import kotlinx.coroutines.withContext
 /** How long typing has to pause before the draft is written. */
 private const val AUTOSAVE_MS = 400L
 
-private enum class IdePanel { CLOSED, PREVIEW, CONSOLE, PROBLEMS, OUTLINE }
+private enum class IdePanel { CLOSED, PREVIEW, CONSOLE, PROBLEMS, OUTLINE, EVENTS, STORAGE }
 
 /** What one pass of the checks found: the problems, and the outline of the last text that parsed. */
 private data class IdeInspection(val diagnostics: List<CodeDiagnostic>, val outline: List<LuaOutlineItem>) {
@@ -325,6 +328,10 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
     var suggestRequests by remember { mutableStateOf(0) }
+    var autoRun by rememberSaveable { mutableStateOf(true) }
+    // The text the plugin last ran, typed or pressed, so a pause does not run it again.
+    var lastRun by remember { mutableStateOf<String?>(null) }
+    val renderHistory = remember { mutableStateListOf<Long>() }
     var findOpen by rememberSaveable { mutableStateOf(false) }
     val find = remember { CodeFindState() }
     var lineOpen by rememberSaveable { mutableStateOf(false) }
@@ -361,6 +368,21 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
             val current = editor.text
             withContext(Dispatchers.IO) { ide.keepWhileWorking(current) }
         }
+    }
+    LaunchedEffect(text, autoRun) {
+        if (!autoRun) return@LaunchedEffect
+        delay(AUTO_RUN_MS)
+        val parses = withContext(Dispatchers.Default) { LuaDocuments.of(text).syntax == LuaSyntax.Valid }
+        if (shouldRunAsTyped(autoRun, text, lastRun, parses)) {
+            lastRun = text
+            preview.run(draftId, text, ide.manifest)
+        }
+    }
+    val renderUsage = previewState.usage[PluginRuntime.Phase.RENDER]
+    LaunchedEffect(renderUsage) {
+        if (renderUsage == null || renderUsage.running) return@LaunchedEffect
+        renderHistory += renderUsage.instructions
+        while (renderHistory.size > MAX_BUDGET_HISTORY) renderHistory.removeAt(0)
     }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
         ide.save(editor.text)
@@ -437,6 +459,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                         if (running) {
                             preview.stop()
                         } else {
+                            lastRun = editor.text
                             preview.run(draftId, editor.text, ide.manifest)
                             if (panel == IdePanel.CLOSED) panel = IdePanel.PREVIEW
                         }
@@ -611,12 +634,14 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                 HorizontalDivider()
                 Box(Modifier.fillMaxWidth().fillMaxHeight(PANEL_FRACTION)) {
                     when (panel) {
-                        IdePanel.PREVIEW -> PreviewPane(preview, previewState)
+                        IdePanel.PREVIEW -> PreviewPane(preview, previewState, autoRun, { autoRun = it }, renderHistory)
                         IdePanel.CONSOLE -> ConsolePane(preview, previewState.consoleRevision) { line ->
                             editor.moveTo(offsetOfLine(editor.text, line - 1))
                         }
                         IdePanel.PROBLEMS -> ProblemsPane(diagnostics, lineStarts) { range -> editor.select(range) }
                         IdePanel.OUTLINE -> OutlinePane(inspection.outline, lineStarts) { range -> editor.select(range) }
+                        IdePanel.EVENTS -> EventsPane(previewState.targets, preview::send)
+                        IdePanel.STORAGE -> StoragePane(preview.storageOf(draftId), declared = storage, busy = previewState.busy)
                         IdePanel.CLOSED -> Unit
                     }
                 }
@@ -728,6 +753,9 @@ private const val FIND_DELAY_MS = 120L
 /** How often the editor keeps a version while it is open. */
 private const val PERIODIC_VERSION_MS = 5 * 60 * 1000L
 
+/** How long typing must pause before the preview runs the draft by itself. */
+private const val AUTO_RUN_MS = 600L
+
 private fun publishMessage(context: Context, outcome: PublishOutcome): String = when (outcome) {
     is PublishOutcome.Published -> context.getString(
         if (outcome.replaced) R.string.plugin_ide_updated_message else R.string.plugin_ide_published_message,
@@ -795,25 +823,42 @@ private fun IdePanelBar(panel: IdePanel, problems: Int, onSelect: (IdePanel) -> 
             onClick = { onSelect(IdePanel.OUTLINE) },
             label = { Text(stringResource(R.string.plugin_ide_outline_label)) },
         )
+        FilterChip(
+            selected = panel == IdePanel.EVENTS,
+            onClick = { onSelect(IdePanel.EVENTS) },
+            label = { Text(stringResource(R.string.plugin_ide_events_label)) },
+        )
+        FilterChip(
+            selected = panel == IdePanel.STORAGE,
+            onClick = { onSelect(IdePanel.STORAGE) },
+            label = { Text(stringResource(R.string.plugin_ide_storage_label)) },
+        )
     }
 }
 
 /** The plugin's panel as the keyboard would draw it, in this app's colours, with real text fields. */
 @Composable
-private fun PreviewPane(preview: PluginPreviewSession, state: PluginPreviewSession.State) {
+private fun PreviewPane(
+    preview: PluginPreviewSession,
+    state: PluginPreviewSession.State,
+    autoRun: Boolean,
+    onAutoRun: (Boolean) -> Unit,
+    history: List<Long>,
+) {
     val context = LocalContext.current
     val style = rememberMaterialPluginStyle()
     val host = remember(preview, state.inputs) { PreviewInputHost(preview, state.inputs, context) }
     val copied = stringResource(R.string.plugin_ide_copied_message)
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 6.dp)) {
-        state.usage[PluginRuntime.Phase.RENDER]?.let { usage ->
-            val numbers = remember { NumberFormat.getIntegerInstance() }
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                stringResource(R.string.plugin_ide_usage_label, numbers.format(usage.instructions), numbers.format(usage.instructionLimit)),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                stringResource(R.string.plugin_ide_auto_run_label),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.weight(1f),
             )
+            Switch(checked = autoRun, onCheckedChange = onAutoRun)
         }
+        state.usage[PluginRuntime.Phase.RENDER]?.let { usage -> BudgetMeter(usage, history) }
         state.failure?.let { failure ->
             Text(
                 failure.text.substringBefore('\n'),

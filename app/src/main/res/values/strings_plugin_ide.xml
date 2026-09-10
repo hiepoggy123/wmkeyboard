@@ -170,4 +170,39 @@
     <string name="plugin_ide_version_restored_message">The version is restored. Undo brings back the code before it.</string>
     <string name="plugin_ide_version_restore_failed_error">The keyboard cannot restore this version</string>
 
+    <!-- ================================================================== -->
+    <!-- Running the draft: run as you type, events by hand, storage.       -->
+    <!-- ================================================================== -->
+
+    <string name="plugin_ide_events_label">Events</string>
+    <string name="plugin_ide_storage_label">Storage</string>
+    <string name="plugin_ide_auto_run_label">Run as you type</string>
+    <string name="plugin_ide_budget_history_desc">How many instructions the last draws used</string>
+    <string name="plugin_ide_events_empty">Run the plugin to send events to its buttons, switches, boxes and tabs.</string>
+    <!-- %1$s is a widget id. -->
+    <string name="plugin_ide_event_click">Press %1$s</string>
+    <!-- %1$s is the id of a button the plugin has turned off. The event can still be sent from here. -->
+    <string name="plugin_ide_event_click_disabled">Press %1$s, turned off</string>
+    <string name="plugin_ide_event_toggle_on">Switch %1$s on</string>
+    <string name="plugin_ide_event_toggle_off">Switch %1$s off</string>
+    <!-- %1$s is the id of a tab strip, %2$d the number of a page, counting from 1. -->
+    <string name="plugin_ide_event_tab">Page %2$d of %1$s</string>
+    <!-- %1$s is the id of a text box. -->
+    <string name="plugin_ide_event_input_label">Text for %1$s</string>
+    <string name="plugin_ide_event_send">Send</string>
+    <string name="plugin_ide_event_custom_title">Any event</string>
+    <string name="plugin_ide_event_id_label">Id</string>
+    <string name="plugin_ide_event_value_label">Value</string>
+    <string name="plugin_ide_storage_undeclared">The manifest does not declare the storage permission, so the plugin has no storage.</string>
+    <string name="plugin_ide_storage_unavailable">Storage is not available until the phone is unlocked.</string>
+    <string name="plugin_ide_storage_empty">Nothing is stored yet</string>
+    <string name="plugin_ide_storage_busy">The plugin is running. Changes wait until it finishes.</string>
+    <string name="plugin_ide_storage_key_label">Key</string>
+    <string name="plugin_ide_storage_value_label">Value</string>
+    <string name="plugin_ide_storage_save">Save</string>
+    <!-- %1$s is a storage key. -->
+    <string name="plugin_ide_storage_remove_desc">Remove %1$s</string>
+    <!-- %1$s is why the plugin storage refused the value, in the English words the plugin itself gets. -->
+    <string name="plugin_ide_storage_refused">Not saved: %1$s</string>
+
 </resources>
