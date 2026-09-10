@@ -129,4 +129,13 @@ dependencies {
     // An Android runtime on the JVM, so a test can drive WMKeyboardService
     // itself rather than only the pure helpers around it.
     testImplementation(libs.robolectric)
+    // Compose's test rule and clock, for layout behaviour no plain test can
+    // see: when RowRevealHeadroom lets the frame's height change while a bar
+    // row animates.
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    // The rule asks for older androidx.test artifacts than anything else here
+    // resolves; pin the versions :app's instrumented tests already use.
+    testImplementation(libs.androidx.junit)
+    testImplementation(libs.androidx.espresso.core)
 }

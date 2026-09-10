@@ -9,45 +9,76 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.layout
 
 /**
- * Room the docked frame holds back for a bar row that is still growing in.
+ * Room the docked frame holds back for bar rows that are growing in or
+ * shrinking away.
  *
- * The frame is the IME window's height. A row expanding into the stack grew
- * the frame with it, so every frame of the expand was a window relayout and a
- * new content inset, and every new inset re-laid out the host app — which, at
- * the moment a selection appears, is busy drawing a selection toolbar of its
- * own. That was the stutter in the selection macro bar's entrance.
+ * The frame is the IME window's height. A row expanding into the stack or
+ * collapsing out of it changed the frame with it, so every frame of the move
+ * was a window relayout and a new content inset, and every new inset re-laid
+ * out the host app. That was the stutter in the selection macro bar's entrance
+ * and in the chevron's tools row both ways.
  *
- * So while the row is shorter than its content, the frame adds the difference
- * back above the board. The window takes its final height on the first frame,
- * the host app is re-laid out once, and the row grows into space the frame
- * already holds: the resize tool's trick ([resizeHeadroom]), sized frame by
- * frame instead of latched. Nothing is drawn in the held space, so the top of
- * the board still travels up with the row.
+ * So while a row moves, the frame adds back whatever the row is short of its
+ * full height, as empty space above the board. The window changes size once
+ * per move — on an entrance's first frame, and after an exit's last — and the
+ * row grows or shrinks inside a frame that holds still: the resize tool's trick
+ * ([resizeHeadroom]), sized frame by frame instead of latched. Nothing is drawn
+ * in the held space, so the top of the board still travels with the row.
  *
- * One row's worth: two rows growing at once would write over each other.
- *
- * Both heights are written from the row's measure pass and read by the frame
- * later in that same pass, because a row that changed height re-measures every
- * ancestor up to the frame. They are state rather than plain fields for the
- * one case that pass does not cover — a row taken out of the stack mid-growth,
- * whose reset has to reach a frame that nothing else re-measures.
+ * Every row keeps its own [RowReveal] and the frame holds their sum, so rows
+ * moving at the same time are all held. A selection landing while the tools
+ * row folds away steps the window up by the arriving row on the first frame and
+ * back down once the leaving row is gone: two resizes where none were needed,
+ * which a sum cannot tell apart, but never one per frame.
  */
 internal class RowRevealHeadroom {
-    /** The row's content at full height, measured inside the reveal. */
-    var fullPx by mutableIntStateOf(0)
+    private val rows = mutableStateListOf<RowReveal>()
 
-    /** How much of that the reveal gives the row right now. */
-    var shownPx by mutableIntStateOf(0)
-
-    /** What the frame holds back: the part of the row not grown into yet. */
+    /** What the frame holds back: every row's shortfall, added up. */
     val pendingPx: Int
-        get() = (fullPx - shownPx).coerceAtLeast(0)
+        get() = rows.sumOf { it.shortfallPx }
+
+    fun track(row: RowReveal) {
+        rows += row
+    }
+
+    fun untrack(row: RowReveal) {
+        rows -= row
+    }
+}
+
+/**
+ * One row's share of [RowRevealHeadroom].
+ *
+ * [shortfallPx] is state because the frame reads it, and a row cut from the
+ * stack mid-move has to reach a frame that nothing else re-measures. [fullPx]
+ * is a plain field: the reveal writes it while measuring its content, and the
+ * row reads it back in that same measure a moment later.
+ */
+internal class RowReveal {
+    /**
+     * The content's height as last measured while the row was visible.
+     *
+     * Kept, not re-read, on the way out. Content that empties once an exit is
+     * already running does not stop the shrink: AnimatedVisibility carries the
+     * size down from wherever it was, whatever the content measures now, so the
+     * hold has to remember the height to cover the rest of it. Content that
+     * empties in the same update that hides the row is another matter — the row
+     * collapses on the next frame, and the zero-height release lets go at once.
+     * That is the macro bar, whose content goes with its offer.
+     */
+    var fullPx = 0
+
+    /** How far the row is from [fullPx] right now; 0 once it has finished leaving. */
+    var shortfallPx by mutableIntStateOf(0)
 }
 
 /**
@@ -57,8 +88,8 @@ internal class RowRevealHeadroom {
 internal val LocalRowRevealHeadroom = staticCompositionLocalOf<RowRevealHeadroom?> { null }
 
 /**
- * The frame's half: as tall as what it holds plus whatever a growing row has
- * not claimed yet, with the keyboard at the bottom and the held space empty.
+ * The frame's half: as tall as what it holds plus whatever the moving rows are
+ * short of, with the keyboard at the bottom and the held space empty.
  *
  * A measure-scope read, like [resizeHeadroom]'s: a change re-measures this
  * node and recomposes nothing.
@@ -70,15 +101,13 @@ internal fun Modifier.rowRevealHeadroom(headroom: RowRevealHeadroom): Modifier =
 }
 
 /**
- * The row's half: [AnimatedVisibility], reporting its two heights to the
- * frame's [RowRevealHeadroom], or a plain one when no frame is listening.
+ * The row's half: [AnimatedVisibility], reporting its shortfall to the frame's
+ * [RowRevealHeadroom], or a plain one when no frame is listening.
  *
  * The full height is read inside the reveal and the shown height outside it.
- * Only an entrance is held. A row on its way out reports no full height, so
- * the frame never keeps space for something leaving, nor past the last exit
- * frame, after which the reveal drops its content and nothing measures it
- * again. The macro bar's exit is over content that has already emptied anyway,
- * and still collapses on its first frame as it always has.
+ * A row that is leaving and has reached zero is done, and its hold goes on that
+ * frame: the window shrinks with the exit's last frame rather than whenever the
+ * reveal gets round to dropping content that nothing will measure again.
  */
 @Composable
 internal fun ColumnScope.RevealingBarRow(
@@ -92,19 +121,22 @@ internal fun ColumnScope.RevealingBarRow(
         AnimatedVisibility(visible = visible, enter = enter, exit = exit) { content() }
         return
     }
-    // A row cut mid-growth (a full-bleed panel, the placement switched) must
-    // not leave its shortfall held above the board.
-    DisposableEffect(headroom) {
-        onDispose {
-            headroom.fullPx = 0
-            headroom.shownPx = 0
-        }
+    val reveal = remember { RowReveal() }
+    // Tracked for as long as the row is in the stack. A row cut mid-move (a
+    // full-bleed panel, the placement switched) takes its shortfall with it.
+    DisposableEffect(headroom, reveal) {
+        headroom.track(reveal)
+        onDispose { headroom.untrack(reveal) }
     }
     AnimatedVisibility(
         visible = visible,
         modifier = Modifier.layout { measurable, constraints ->
             val placeable = measurable.measure(constraints)
-            headroom.shownPx = placeable.height
+            reveal.shortfallPx = if (!visible && placeable.height == 0) {
+                0
+            } else {
+                (reveal.fullPx - placeable.height).coerceAtLeast(0)
+            }
             layout(placeable.width, placeable.height) { placeable.place(0, 0) }
         },
         enter = enter,
@@ -113,7 +145,7 @@ internal fun ColumnScope.RevealingBarRow(
         Box(
             modifier = Modifier.layout { measurable, constraints ->
                 val placeable = measurable.measure(constraints)
-                headroom.fullPx = if (visible) placeable.height else 0
+                if (visible) reveal.fullPx = placeable.height
                 layout(placeable.width, placeable.height) { placeable.place(0, 0) }
             },
         ) {

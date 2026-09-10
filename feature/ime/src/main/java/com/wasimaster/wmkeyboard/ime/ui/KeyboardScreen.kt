@@ -1535,8 +1535,8 @@ private fun DockedKeyboardFrame(
     val maxReservedPx = with(density) {
         (configuration.screenHeightDp * RESIZE_MAX_SCREEN_SHARE).dp.roundToPx()
     }
-    // A bar row growing into the stack is held the same way, for as long as it
-    // is still growing (see [RowRevealHeadroom]). The rows hear of it through a
+    // A bar row growing in or shrinking away is held the same way, for as long
+    // as it is moving (see [RowRevealHeadroom]). The rows hear of it through a
     // local, since the body is the keyboard's movable content and its parameter
     // list is sealed. Resize mode keeps its own headroom instead: the frame is
     // already holding still there.
@@ -8529,10 +8529,11 @@ private fun KeyboardBody(
                         // keyboard jumping rather than as an offer arriving.
                         BarRow.MACROS -> if (macroRowHost) {
                             val motion = !state.settings.reduceMotion
-                            // Grows inside a docked frame already holding its
-                            // final height (see RowRevealHeadroom). Expanding the
-                            // IME window itself resized it every frame, and
-                            // re-laid out the host app every frame with it.
+                            // Grows inside a docked frame that holds still (see
+                            // RowRevealHeadroom): resizing the IME window itself
+                            // re-laid out the host app on every frame. Leaving is
+                            // one step anyway, the bar's content going in the
+                            // same update as its offer.
                             RevealingBarRow(
                                 visible = selectionMacroBarVisible(state),
                                 enter = if (motion) {
@@ -8559,9 +8560,11 @@ private fun KeyboardBody(
                         // full-bleed panel still cuts it, above: an animated shrink
                         // there would overshoot the keyboard height for a beat
                         // while the panel had already claimed the row's space.
+                        // Both moves happen inside a docked frame that holds
+                        // still, as the macro row's do (see RowRevealHeadroom).
                         BarRow.TOOLS -> if (toolsRowHost) {
                             val motion = !state.settings.reduceMotion
-                            AnimatedVisibility(
+                            RevealingBarRow(
                                 visible = placement == ToolbarPlacement.ALWAYS_ROW || toolsRowOpen,
                                 enter = if (motion) {
                                     expandVertically(tween(ToolbarMotionMs)) + fadeIn(tween(ToolbarMotionMs))
