@@ -117,7 +117,7 @@
     <string name="models_llm_account_title">Hugging Face account</string>
     <string name="models_llm_token_label">Access token</string>
     <!-- Hint in the empty token field. Gemma is the name of a model family. -->
-    <string name="models_llm_token_hint">Only the gated models need this token, for example Gemma</string>
+    <string name="models_llm_token_hint">Only the gated models need this token, for example some Gemma models</string>
     <string name="models_llm_get_token_action">Get a token</string>
 
     <string name="models_llm_yours_title">Your models</string>
