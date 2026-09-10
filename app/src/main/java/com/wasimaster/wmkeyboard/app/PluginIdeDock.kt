@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -173,7 +174,11 @@ internal fun EventsPane(targets: PluginTargets, onSend: (PluginEvent) -> Unit) {
             }
         }
         HorizontalDivider()
-        Text(stringResource(R.string.plugin_ide_event_custom_title), style = MaterialTheme.typography.titleSmall)
+        Text(
+            stringResource(R.string.plugin_ide_event_custom_title),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.semantics { heading() },
+        )
         var type by rememberSaveable { mutableStateOf(LuaApi.eventTypes.first()) }
         var id by rememberSaveable { mutableStateOf("") }
         var value by rememberSaveable { mutableStateOf("") }

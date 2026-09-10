@@ -13,6 +13,12 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.requireOutputStream
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -310,7 +316,7 @@ private fun NewPluginDialog(initialName: String? = null, onDismiss: () -> Unit, 
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
+internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit, reduceMotion: Boolean = false) {
     val context = LocalContext.current
     val workspace = remember { PluginWorkspace.get(context) }
     val store = remember { PluginStore.get(context) }
@@ -328,6 +334,7 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
     var suggestRequests by remember { mutableStateOf(0) }
+    var textSize by rememberSaveable { mutableStateOf(DEFAULT_TEXT_SIZE) }
     var autoRun by rememberSaveable { mutableStateOf(true) }
     // The text the plugin last ran, typed or pressed, so a pause does not run it again.
     var lastRun by remember { mutableStateOf<String?>(null) }
@@ -556,6 +563,16 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                                 },
                             )
                             DropdownMenuItem(
+                                text = { Text(stringResource(R.string.plugin_ide_text_larger_action)) },
+                                enabled = textSize < MAX_TEXT_SIZE,
+                                onClick = { textSize = (textSize + 1).coerceAtMost(MAX_TEXT_SIZE) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.plugin_ide_text_smaller_action)) },
+                                enabled = textSize > MIN_TEXT_SIZE,
+                                onClick = { textSize = (textSize - 1).coerceAtLeast(MIN_TEXT_SIZE) },
+                            )
+                            DropdownMenuItem(
                                 text = { Text(stringResource(R.string.plugin_ide_format_action)) },
                                 onClick = {
                                     menuOpen = false
@@ -593,7 +610,11 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
         // No imePadding here, as in AiChatScreen: the activity is not edge-to-edge,
         // so the window already resizes for the keyboard.
         Column(Modifier.padding(padding).fillMaxSize()) {
-            if (findOpen) {
+            AnimatedVisibility(
+                visible = findOpen,
+                enter = if (reduceMotion) fadeIn(snap()) else expandVertically() + fadeIn(),
+                exit = if (reduceMotion) fadeOut(snap()) else shrinkVertically() + fadeOut(),
+            ) {
                 CodeFindBar(
                     find = find,
                     matches = matches,
@@ -624,8 +645,8 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                 lineStarts = lineStarts,
                 decorations = decorations,
                 wrap = true,
-                fontSize = 14.sp,
-                lineHeight = 22.sp,
+                fontSize = textSize.sp,
+                lineHeight = (textSize * LINE_HEIGHT_RATIO).sp,
                 completions = true,
                 suggestRequests = suggestRequests,
             )
@@ -755,6 +776,14 @@ private const val PERIODIC_VERSION_MS = 5 * 60 * 1000L
 
 /** How long typing must pause before the preview runs the draft by itself. */
 private const val AUTO_RUN_MS = 600L
+
+/** The code text size in points, and the steps Larger text and Smaller text move between. */
+private const val DEFAULT_TEXT_SIZE = 14
+private const val MIN_TEXT_SIZE = 11
+private const val MAX_TEXT_SIZE = 22
+
+/** Line height over text size, as the editor's own 14 on 22 has it. */
+private const val LINE_HEIGHT_RATIO = 22f / 14f
 
 private fun publishMessage(context: Context, outcome: PublishOutcome): String = when (outcome) {
     is PublishOutcome.Published -> context.getString(

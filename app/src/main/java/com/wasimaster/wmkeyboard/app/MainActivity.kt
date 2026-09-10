@@ -1106,6 +1106,7 @@ private fun SettingsNavGraph(
             PluginIdeScreen(
                 draftId = entry.arguments?.getString("draftId").orEmpty(),
                 onBack = { navController.popBackStack() },
+                reduceMotion = settings.reduceMotion,
             )
         }
         // The optional `add` argument carries a repository URL from a
