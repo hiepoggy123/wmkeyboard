@@ -115,4 +115,29 @@
     <string name="plugin_ide_rename_keyword">This is a Lua keyword.</string>
     <string name="plugin_ide_rename_taken">Another name with this spelling is already in use here.</string>
 
+    <!-- ================================================================== -->
+    <!-- Starting a draft from a template, a file or another draft.         -->
+    <!-- ================================================================== -->
+
+    <string name="plugin_ide_templates_title">Start from</string>
+    <string name="plugin_ide_template_blank_name">A blank plugin</string>
+    <string name="plugin_ide_template_blank_description">A button that counts presses. The smallest plugin that works.</string>
+    <string name="plugin_ide_template_text_tools_name">Text tools</string>
+    <string name="plugin_ide_template_text_tools_description">Changes the case of the text typed into its box, encodes it and counts it</string>
+    <string name="plugin_ide_template_cipher_name">Cipher tool</string>
+    <string name="plugin_ide_template_cipher_description">Caesar and Vigenère ciphers. The plugin the getting started guide builds.</string>
+    <string name="plugin_ide_template_todo_name">Todo list</string>
+    <string name="plugin_ide_template_todo_description">A list the plugin keeps on this device with the storage permission</string>
+    <string name="plugin_ide_template_kitchen_sink_name">Every widget</string>
+    <string name="plugin_ide_template_kitchen_sink_description">Each widget and each event in one panel, to copy from</string>
+    <string name="plugin_ide_import_title">Open a plugin file</string>
+    <string name="plugin_ide_import_subtitle">Edit a .wmplugin file as a new draft. Nothing is installed.</string>
+    <string name="plugin_ide_import_not_a_plugin_error">This file is not a plugin</string>
+    <string name="plugin_ide_import_failed_error">The keyboard cannot read this file</string>
+    <string name="plugin_ide_duplicate_draft_desc">Duplicate the draft</string>
+    <string name="plugin_ide_export_action">Save as a file</string>
+    <string name="plugin_ide_export_saved_message">The plugin file is saved</string>
+    <string name="plugin_ide_export_failed_error">The keyboard cannot save the file</string>
+    <string name="plugin_ide_export_problems_error">Correct the name and permissions before you save a file</string>
+
 </resources>

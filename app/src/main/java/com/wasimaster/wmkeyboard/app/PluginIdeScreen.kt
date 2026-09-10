@@ -6,6 +6,12 @@ import android.content.Context
 import android.text.format.DateUtils
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.outlined.ContentCopy
+import com.wasimaster.wmkeyboard.core.plugins.PluginFile
+import com.wasimaster.wmkeyboard.core.util.requireInputStream
+import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -123,10 +129,27 @@ internal fun PluginIdeProjectsScreen(onNavigate: (String) -> Unit) {
     val revision by workspace.revision.collectAsStateWithLifecycle()
     val drafts = remember(revision) { workspace.drafts().map { it to workspace.manifest(it.draftId) } }
     val scope = rememberCoroutineScope()
-    var creating by remember { mutableStateOf(false) }
+    var creating by remember { mutableStateOf<PluginTemplate?>(null) }
     var deleting by remember { mutableStateOf<PluginDraft?>(null) }
     val untitled = stringResource(R.string.plugin_ide_draft_untitled)
     val newError = stringResource(R.string.plugin_ide_new_error)
+    val notAPlugin = stringResource(R.string.plugin_ide_import_not_a_plugin_error)
+    val importFailed = stringResource(R.string.plugin_ide_import_failed_error)
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching { context.contentResolver.requireInputStream(uri).use { importDraft(workspace, it) } }
+                    .getOrElse { DraftImport.Failed }
+            }
+            when (result) {
+                is DraftImport.Created -> onNavigate("plugin_ide/${result.draft.draftId}")
+                is DraftImport.Refused -> Toast.makeText(context, result.reason.resolve(context), Toast.LENGTH_LONG).show()
+                is DraftImport.NotAPlugin -> Toast.makeText(context, notAPlugin, Toast.LENGTH_LONG).show()
+                is DraftImport.Failed -> Toast.makeText(context, importFailed, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     // No scroller of its own: SettingsScreen already wraps this content in a
     // Column(verticalScroll).
@@ -136,7 +159,29 @@ internal fun PluginIdeProjectsScreen(onNavigate: (String) -> Unit) {
                 title = stringResource(R.string.plugin_ide_new_title),
                 subtitle = stringResource(R.string.plugin_ide_new_subtitle),
                 trailing = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
-                onClick = { creating = true },
+                onClick = { creating = PluginTemplate.BLANK },
+            )
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.plugin_ide_templates_title)) {
+        for (template in PluginTemplate.entries) {
+            if (template == PluginTemplate.BLANK) continue
+            item {
+                WmRow(
+                    title = stringResource(template.nameRes),
+                    subtitle = stringResource(template.descriptionRes),
+                    trailing = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
+                    onClick = { creating = template },
+                )
+            }
+        }
+        item {
+            WmRow(
+                title = stringResource(R.string.plugin_ide_import_title),
+                subtitle = stringResource(R.string.plugin_ide_import_subtitle),
+                trailing = { Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null) },
+                onClick = { importLauncher.launch(PluginFile.IMPORT_MIME_TYPES) },
             )
         }
     }
@@ -161,8 +206,18 @@ internal fun PluginIdeProjectsScreen(onNavigate: (String) -> Unit) {
                         title = manifest?.name?.ifBlank { null } ?: untitled,
                         subtitle = subtitle,
                         trailing = {
-                            IconButton(onClick = { deleting = draft }) {
-                                Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.plugin_ide_delete_draft_desc))
+                            Row {
+                                IconButton(onClick = {
+                                    scope.launch {
+                                        val copy = withContext(Dispatchers.IO) { workspace.duplicate(draft.draftId) }
+                                        if (copy == null) Toast.makeText(context, newError, Toast.LENGTH_LONG).show()
+                                    }
+                                }) {
+                                    Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.plugin_ide_duplicate_draft_desc))
+                                }
+                                IconButton(onClick = { deleting = draft }) {
+                                    Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.plugin_ide_delete_draft_desc))
+                                }
                             }
                         },
                         onClick = { onNavigate("plugin_ide/${draft.draftId}") },
@@ -172,13 +227,14 @@ internal fun PluginIdeProjectsScreen(onNavigate: (String) -> Unit) {
         }
     }
 
-    if (creating) {
+    creating?.let { template ->
         NewPluginDialog(
-            onDismiss = { creating = false },
+            initialName = if (template == PluginTemplate.BLANK) null else stringResource(template.nameRes),
+            onDismiss = { creating = null },
             onCreate = { name ->
-                creating = false
+                creating = null
                 scope.launch {
-                    val draft = withContext(Dispatchers.IO) { newBlankDraft(workspace, store, name) }
+                    val draft = withContext(Dispatchers.IO) { newDraftFromTemplate(context, workspace, store, template, name) }
                     if (draft != null) {
                         onNavigate("plugin_ide/${draft.draftId}")
                     } else {
@@ -208,9 +264,9 @@ internal fun PluginIdeProjectsScreen(onNavigate: (String) -> Unit) {
 }
 
 @Composable
-private fun NewPluginDialog(onDismiss: () -> Unit, onCreate: (String) -> Unit) {
+private fun NewPluginDialog(initialName: String? = null, onDismiss: () -> Unit, onCreate: (String) -> Unit) {
     val fallback = stringResource(R.string.plugin_ide_new_default_name)
-    var name by rememberSaveable { mutableStateOf(fallback) }
+    var name by rememberSaveable { mutableStateOf(initialName ?: fallback) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.plugin_ide_new_title)) },
@@ -269,6 +325,18 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
     val find = remember { CodeFindState() }
     var lineOpen by rememberSaveable { mutableStateOf(false) }
     var renamePlan by remember { mutableStateOf<RenamePlan?>(null) }
+    val files = LocalContext.current
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(PluginFile.MIME_TYPE)) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val manifest = ide.manifest
+        val script = editor.text
+        scope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                runCatching { files.contentResolver.requireOutputStream(uri).use { PluginFile.write(it, manifest, script) } }.isSuccess
+            }
+            snackbar.showSnackbar(files.getString(if (saved) R.string.plugin_ide_export_saved_message else R.string.plugin_ide_export_failed_error))
+        }
+    }
 
     val text = editor.text
     // The draft on disk is the save point: written after a pause in typing, and
@@ -420,6 +488,17 @@ internal fun PluginIdeScreen(draftId: String, onBack: () -> Unit) {
                                         } else {
                                             snackbar.showSnackbar(context.getString(R.string.plugin_ide_no_rename_message))
                                         }
+                                    }
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.plugin_ide_export_action)) },
+                                onClick = {
+                                    menuOpen = false
+                                    if (PluginManifestCodec.problems(ide.manifest).isNotEmpty()) {
+                                        scope.launch { snackbar.showSnackbar(files.getString(R.string.plugin_ide_export_problems_error)) }
+                                    } else {
+                                        exportLauncher.launch(PluginFile.fileName(ide.manifest))
                                     }
                                 },
                             )
