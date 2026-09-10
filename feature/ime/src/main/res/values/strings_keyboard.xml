@@ -550,6 +550,8 @@
     <!-- Where a currency chip's converted amount would be, while the exchange
          rates wait for a tap before they are fetched. -->
     <string name="ime_smart_rates_tap">Get the rate</string>
+    <!-- The same, on a weather chip whose forecast is fetched only when it is tapped. -->
+    <string name="ime_smart_weather_tap">Get the forecast</string>
 
     <!-- Contextual chips: the label each narrow hint chip shows. %1$s is the
          term the lookup chips were typed with. -->

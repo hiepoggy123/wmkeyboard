@@ -1752,6 +1752,13 @@ data class WeatherSettings(
     val longitude: Float? = null,
     /** What to call [latitude]/[longitude] in the tool's header. */
     val placeName: String = "",
+    /**
+     * Fetch the forecast the moment a weather chip needs it. Off, the chip
+     * waits for a tap first, so typing a weather question never reaches the
+     * network by itself. The panel fetches on open either way. Off on F-Droid,
+     * like [RateSourceSettings.autoFetch].
+     */
+    val autoFetch: Boolean = !BuildConfig.ENABLE_FDROID,
 )
 
 /**
@@ -6060,6 +6067,7 @@ class SettingsRepository(private val context: Context) {
         private val WEATHER_LAT = floatPreferencesKey("weather_lat")
         private val WEATHER_LON = floatPreferencesKey("weather_lon")
         private val WEATHER_PLACE = stringPreferencesKey("weather_place")
+        private val WEATHER_AUTO_FETCH = booleanPreferencesKey("weather_auto_fetch")
         // Superseded by CALENDAR_ALT_ONE/TWO, still read once to carry the old
         // Bengali/Hijri switches over to the new pair of picks.
         private val CALENDAR_SHOW_BENGALI = booleanPreferencesKey("calendar_show_bengali")
@@ -7286,6 +7294,7 @@ class SettingsRepository(private val context: Context) {
                 latitude = p[WEATHER_LAT],
                 longitude = p[WEATHER_LON],
                 placeName = p[WEATHER_PLACE] ?: defaults.weather.placeName,
+                autoFetch = p[WEATHER_AUTO_FETCH] ?: defaults.weather.autoFetch,
             ),
             calendarTool = CalendarToolSettings(
                 altOne = calendarAltFromPrefs(p, first = true),
@@ -7951,6 +7960,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setWeatherFahrenheit(value: Boolean) =
         editPrefs { it[WEATHER_FAHRENHEIT] = value }
+
+    suspend fun setWeatherAutoFetch(value: Boolean) =
+        editPrefs { it[WEATHER_AUTO_FETCH] = value }
 
     /** Passing nulls clears the stored location. */
     suspend fun setWeatherLocation(latitude: Float?, longitude: Float?, place: String) =

@@ -102,6 +102,9 @@
     <!-- Weather tool. -->
     <string name="tooldetail_weather_fahrenheit_title">Fahrenheit</string>
     <string name="tooldetail_weather_fahrenheit_subtitle">Show temperatures in °F instead of °C</string>
+    <string name="tooldetail_weather_auto_fetch_title">Fetch the forecast as you type</string>
+    <string name="tooldetail_weather_auto_fetch_subtitle">Off, a weather chip waits for your tap before it goes online</string>
+    <string name="tooldetail_weather_auto_fetch_info">This setting controls only the chip on the suggestion strip. The panel fetches the forecast when you open it. The F-Droid edition starts with this setting off.</string>
     <string name="tooldetail_weather_info">The weather and the place search both use Open-Meteo, only when you use them. The keyboard makes no other network requests.</string>
 
     <!-- Calendar tool. -->

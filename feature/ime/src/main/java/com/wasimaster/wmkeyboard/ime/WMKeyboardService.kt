@@ -11404,12 +11404,15 @@ open class WMKeyboardService : InputMethodService() {
             retireIntentChip(hit)
             if (hit != _uiState.value.smart) _uiState.update { it.copy(smart = hit) }
             // Recognised but missing data: fetch it, and the completion
-            // redraws the chip. Rates wait for a tap on the chip instead
-            // when rateSources.autoFetch is off.
+            // redraws the chip. With weather.autoFetch or rateSources.autoFetch
+            // off, the chip waits for a tap instead. A weather hit is pending
+            // too, so it must never fall through to the rates branch.
+            val chipSettings = _uiState.value.settings
             when {
-                hit?.pendingWeather == true -> refreshWeather()
-                hit?.pending == true && _uiState.value.settings.rateSources.autoFetch ->
+                hit?.pendingWeather == true -> if (chipSettings.weather.autoFetch) refreshWeather()
+                hit?.pending == true -> if (chipSettings.rateSources.autoFetch) {
                     refreshCurrencyRates(wantCrypto = hit.pendingCrypto)
+                }
             }
         }
     }
@@ -11433,6 +11436,7 @@ open class WMKeyboardService : InputMethodService() {
             // Fetching left to the tap: a chip missing its rates asks for one,
             // unless the fetch a tap started is still running.
             ratesOnTap = !state.settings.rateSources.autoFetch && currencyJob?.isActive != true,
+            weatherOnTap = !state.settings.weather.autoFetch && weatherJob?.isActive != true,
             unitLast = state.settings.unitConvertLast,
             compoundUnits = state.settings.compoundUnits,
             enabledTools = usableTools(state.settings),
@@ -11486,14 +11490,21 @@ open class WMKeyboardService : InputMethodService() {
         }
 
     /**
-     * A currency chip that was waiting for the go-ahead to fetch its rates.
-     * The spinner goes up only once a fetch is really running: data saving
-     * can refuse it, and a chip spinning with nothing in flight never stops.
+     * A chip that was waiting for the go-ahead to fetch what it is missing: the
+     * forecast for a weather chip, the rates for a currency chip. The spinner
+     * goes up only once a fetch is really running: data saving can refuse a
+     * rates fetch, and a chip spinning with nothing in flight never stops.
      */
-    private fun fetchRatesForChip(hit: SmartSuggest.SmartHit) {
+    private fun fetchForChip(hit: SmartSuggest.SmartHit) {
         vibrate()
-        refreshCurrencyRates(wantCrypto = hit.pendingCrypto)
-        if (currencyJob?.isActive != true) return
+        val job = if (hit.pendingWeather) {
+            refreshWeather()
+            weatherJob
+        } else {
+            refreshCurrencyRates(wantCrypto = hit.pendingCrypto)
+            currencyJob
+        }
+        if (job?.isActive != true) return
         _uiState.update { if (it.smart == hit) it.copy(smart = hit.copy(awaitingTap = false)) else it }
     }
 
@@ -11502,13 +11513,13 @@ open class WMKeyboardService : InputMethodService() {
      * whatever the trigger occupied, so "150usd" is replaced outright while
      * a trailing "=" keeps what was typed and appends the result.
      *
-     * A currency chip that is waiting for a tap before it fetches its rates
-     * (see [SmartSuggest.SmartHit.awaitingTap]) fetches them instead.
+     * A weather or currency chip that is waiting for a tap before it fetches
+     * (see [SmartSuggest.SmartHit.awaitingTap]) fetches instead.
      */
     fun onSmartSuggestionTapped() {
         val hit = _uiState.value.smart ?: return
         if (hit.awaitingTap) {
-            fetchRatesForChip(hit)
+            fetchForChip(hit)
             return
         }
         val insert = hit.insert ?: return

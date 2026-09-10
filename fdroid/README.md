@@ -167,8 +167,9 @@ built by a public script, for fiat and coins alike, and Frankfurter is MIT and
 serves European Central Bank rates. This file used to say coins had no free
 source; that was wrong, currency-api always carried them. After 0.5.6 the
 F-Droid build starts from those two (`CurrencyClient.Provider.fiatDefaults`,
-`cryptoDefaults`), and a currency chip on the suggestion strip waits for a tap
-before it fetches anything (`RateSourceSettings.autoFetch`, off on F-Droid).
+`cryptoDefaults`), and a currency or weather chip on the suggestion strip waits
+for a tap before it fetches anything (`RateSourceSettings.autoFetch` and
+`WeatherSettings.autoFetch`, both off on F-Droid).
 ExchangeRate-API, Coinbase and CoinGecko stay selectable, which is the same
 additive shape as the other tools. The 0.5.6 build this recipe names still
 starts from them.

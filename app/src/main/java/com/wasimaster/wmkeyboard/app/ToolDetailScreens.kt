@@ -590,6 +590,15 @@ internal fun ToolDetailSettings(
                     ) { scope.launch { repository.setWeatherFahrenheit(it) } }
                 }
                 item {
+                    ToggleSetting(
+                        R.string.tooldetail_weather_auto_fetch_title,
+                        stringResource(R.string.tooldetail_weather_auto_fetch_subtitle),
+                        settings.weather.autoFetch,
+                        info = stringResource(R.string.tooldetail_weather_auto_fetch_info),
+                        default = SettingsDefaults.weather.autoFetch,
+                    ) { scope.launch { repository.setWeatherAutoFetch(it) } }
+                }
+                item {
                     val weatherMinutesFormat = stringResource(R.string.values_minutes)
                     SliderSetting(
                         R.string.tooldetail_weather_refresh_title,

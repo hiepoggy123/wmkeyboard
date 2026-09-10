@@ -143,9 +143,9 @@ internal fun SmartSuggestionChip(
                     modifier = Modifier.size(15.dp),
                 )
             } else if (hit.result == null) {
-                // Rates still missing. The chip is already up so the strip
-                // does not jump when the number lands. It spins while they
-                // are fetched, or asks for the tap that fetches them.
+                // Rates or a forecast still missing. The chip is already up so
+                // the strip does not jump when the answer lands. It spins while
+                // that is fetched, or asks for the tap that fetches it.
                 Text(
                     text = hit.query,
                     color = kb.secondaryText,
@@ -157,7 +157,13 @@ internal fun SmartSuggestionChip(
                 Text("→", color = kb.secondaryText, fontSize = 12.sp)
                 if (hit.awaitingTap) {
                     Text(
-                        text = stringResource(R.string.ime_smart_rates_tap),
+                        text = stringResource(
+                            if (hit.kind == SmartSuggest.Kind.WEATHER) {
+                                R.string.ime_smart_weather_tap
+                            } else {
+                                R.string.ime_smart_rates_tap
+                            },
+                        ),
                         color = tint,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,

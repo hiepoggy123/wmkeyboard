@@ -104,6 +104,7 @@ Once a location is set, the panel shows an emoji and short description for the c
 
 - **Location**: unset by default. It opens a dialog with a search field, backed by Open-Meteo's geocoding API, plus manual latitude and longitude fields if you'd rather skip the search.
 - **Fahrenheit**: off by default, so temperatures show in Celsius until you turn this on. It moves the current, feels-like, and day's high and low temperatures. **Wind speed follows this switch too**: km/h with Celsius, mph with Fahrenheit. Pressure stays in hPa, which has no second unit here.
+- **Fetch the forecast as you type**: on by default, off in the F-Droid edition. On, a weather chip fetches the forecast it needs as soon as you type a weather question. Off, the chip reads **Get the forecast** and fetches nothing until you tap it. The panel fetches when you open it either way.
 - **How often to check**: how long a reading is reused before the tool fetches again. 1 to 180 minutes, default 15. The panel's refresh button still forces a fetch whatever this says.
 
 Those three rows are the whole screen. The settings screen carries its own privacy note underneath: "The weather and the place search both use Open-Meteo, only when you use them. The keyboard makes no other network requests." Weather is the only one of the five instruments that reaches the network at all. See [network policy](/privacy/network/) for what every network-touching feature sends and when.

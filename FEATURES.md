@@ -1823,6 +1823,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Hijri day adjustment −2..+2 — Tabular calendar can miss local sighting by a day or two
     - Chinese computed astronomically — Real new-moon and solar-longitude calculations
   - Weather `RARE` — Open-Meteo current conditions, no key
+    - Fetch the forecast as you type — Off on F-Droid, where a weather chip reads "Get the forecast" and fetches nothing until it is tapped
     - Location typed or searched, never GPS — Open-Meteo geocoding, or manual latitude/longitude
     - 15-minute cache with manual refresh — Reopening the panel is usually instant
     - Conditional stat grid — Feels-like, humidity, wind always; rain chance, cloud, pressure, UV, sunrise, sunset when present

@@ -97,9 +97,10 @@ object SmartSuggest {
         /** True when what is missing is the coin table rather than the fiat one. */
         val pendingCrypto: Boolean = false,
         /**
-         * True when the missing rates are fetched only once this chip is
-         * tapped. The tap is the go-ahead, so the chip asks for it rather
-         * than spinning. See [Context.ratesOnTap].
+         * True when what the chip is missing (rates, or a forecast) is fetched
+         * only once it is tapped. The tap is the go-ahead, so the chip asks for
+         * it rather than spinning. See [Context.ratesOnTap] and
+         * [Context.weatherOnTap].
          */
         val awaitingTap: Boolean = false,
         /** True while a weather chip is waiting on a forecast fetch. */
@@ -133,6 +134,8 @@ object SmartSuggest {
          * [SmartHit.awaitingTap].
          */
         val ratesOnTap: Boolean = false,
+        /** The same for a weather chip missing its forecast. */
+        val weatherOnTap: Boolean = false,
         val unitLast: String = "",
         /**
          * Read a length in feet as feet and inches — "3 ft 3.37 in" rather
@@ -1266,7 +1269,7 @@ object SmartSuggest {
             SmartHit(
                 kind = Kind.WEATHER, query = query, result = null, insert = null,
                 replaceSpan = 0, tool = ToolbarTool.WEATHER, prefill = null,
-                pending = true, pendingWeather = true,
+                pending = true, pendingWeather = true, awaitingTap = ctx.weatherOnTap,
             )
         } else {
             null

@@ -92,6 +92,16 @@ class SmartSuggestTest {
     }
 
     @Test
+    fun aWeatherChipThatFetchesOnlyOnATapAsksForIt() {
+        val asking = hit("will it rain", ctx.copy(weatherAvailable = true, weatherOnTap = true))
+        assertEquals(true, asking?.pendingWeather)
+        assertTrue("the chip has to ask for the tap", asking!!.awaitingTap)
+        assertNull(asking.result)
+        // Fetching as you type, the same chip spins instead.
+        assertEquals(false, hit("will it rain", ctx.copy(weatherAvailable = true))?.awaitingTap)
+    }
+
+    @Test
     fun lowercaseIsoCodesThatAreAlsoEnglishWordsAreIgnored() {
         // "150 try" is a sentence far more often than Turkish lira; the
         // capitalised form still reads as the currency.

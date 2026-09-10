@@ -859,6 +859,7 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_redo_ctrl_y_title) { Icons.AutoMirrored.Outlined.Redo }
         put(R.string.tooldetail_moon_southern_title) { Icons.Outlined.Public }
         put(R.string.tooldetail_weather_fahrenheit_title) { Icons.Outlined.Thermostat }
+        put(R.string.tooldetail_weather_auto_fetch_title) { Icons.Outlined.CloudDownload }
         put(R.string.tooldetail_weather_refresh_title) { Icons.Outlined.Schedule }
         put(R.string.tooldetail_calendar_hijri_title) { Icons.Outlined.CalendarMonth }
         put(R.string.toolai_weekend_title) { Icons.Outlined.Weekend }

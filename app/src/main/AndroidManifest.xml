@@ -14,8 +14,8 @@
            self-hosted server (LibreTranslate, SearXNG, MediaWiki, Ollama),
            and on F-Droid currency rates start from free sources
            (currency-api, Frankfurter);
-         - suggestion-strip chips: weather, once the user saves a location,
-           and currency, which on F-Droid waits for a tap;
+         - suggestion-strip chips for weather and currency, which on F-Droid
+           wait for a tap before they fetch;
          - backups to a destination the user configures;
          - clipboard link previews, off by default;
          - the check-for-updates button. -->
