@@ -3,9 +3,18 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- Only used by the optional network tools: weather (Open-Meteo),
-         dictionary, translate, GIF/stickers (KLIPY/GIPHY), web/image
-         search (Brave/Google). -->
+    <!-- Nothing the keyboard needs to type, predict, autocorrect or learn:
+         all of that runs on the device. Used only by features the user
+         starts, and on the F-Droid build nothing connects unprompted.
+         - downloads the user picks: word lists, n-gram packs, emoji keyword
+           and CJK dictionaries, vocabulary packs, add-ons, Keyman layouts;
+         - online tools the user opens: translate, web and image search,
+           GIFs, photo backgrounds, dictionary and Wikipedia lookups,
+           weather, currency rates, AI writing. Each can be pointed at a
+           self-hosted server (LibreTranslate, SearXNG, MediaWiki, Ollama);
+         - backups to a destination the user configures;
+         - clipboard link previews, off by default;
+         - the check-for-updates button. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Read by the model downloaders to ask "is this connection metered?"
          before pulling hundreds of megabytes. Declared here rather than
