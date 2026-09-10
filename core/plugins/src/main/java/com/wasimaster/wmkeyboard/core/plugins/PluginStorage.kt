@@ -15,6 +15,13 @@ import java.io.File
  * fill the user's device by looping. A null [file] — direct boot, before first
  * unlock — makes the whole thing an in-memory map that is never persisted, the
  * same contract every other store in the app follows.
+ *
+ * Every public method is synchronized. A running plugin calls in on its own
+ * thread while the plugin editor's storage inspector reads and edits the same
+ * instance on the main thread, and [entries] is a plain [LinkedHashMap]. Share
+ * the instance rather than opening a second one over the same file: [load] keeps
+ * the file's contents after first use, so two instances would each hold their own
+ * copy and the last [save] would silently win.
  */
 class PluginStorage(private val file: File?) {
 
@@ -31,6 +38,7 @@ class PluginStorage(private val file: File?) {
     }
 
     /** Why a write was refused, or null when it went through. */
+    @Synchronized
     fun set(key: String, value: String): String? {
         load()
         if (key.isEmpty()) return "storage keys can't be empty"
@@ -53,21 +61,25 @@ class PluginStorage(private val file: File?) {
         return null
     }
 
+    @Synchronized
     fun get(key: String): String? {
         load()
         return entries[key]
     }
 
+    @Synchronized
     fun remove(key: String) {
         load()
         if (entries.remove(key) != null) save()
     }
 
+    @Synchronized
     fun keys(): List<String> {
         load()
         return entries.keys.toList()
     }
 
+    @Synchronized
     fun clear() {
         load()
         if (entries.isEmpty()) return
@@ -75,6 +87,7 @@ class PluginStorage(private val file: File?) {
         save()
     }
 
+    @Synchronized
     fun usedBytes(): Int {
         load()
         return entries.entries.sumOf { it.key.length + it.value.length }

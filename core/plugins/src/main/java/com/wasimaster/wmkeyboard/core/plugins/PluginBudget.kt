@@ -72,6 +72,7 @@ data class PluginLimit(val instructions: Long, val wallMillis: Long) {
  * Threading: [onInstruction], [begin] and the host-call pair are only ever
  * called on the plugin thread. [cancel] and [isStuck] are called from the main
  * thread and the watchdog, which is why the fields they touch are volatile.
+ * [usage] is read from the plugin editor's main thread the same way.
  */
 class PluginBudget(private val nanoTime: () -> Long = { System.nanoTime() }) {
 
@@ -87,11 +88,61 @@ class PluginBudget(private val nanoTime: () -> Long = { System.nanoTime() }) {
     @Volatile
     private var inHostCall = false
 
+    // What usage() reports. Written only on the plugin thread and only on paths
+    // that already ran: begin, end, and the branch of onInstruction that reads
+    // the clock. Volatile so the editor can read them from its own thread.
+    // [remaining] itself is never read across threads, because a plain long read
+    // from another thread can tear.
+    @Volatile
+    private var sampledUsed = 0L
+
+    @Volatile
+    private var limitInstructions = 0L
+
+    @Volatile
+    private var limitWallMillis = 0L
+
+    @Volatile
+    private var startNanos = 0L
+
+    @Volatile
+    private var endNanos = 0L
+
+    @Volatile
+    private var running = false
+
+    /**
+     * How much of one call's allowance has gone, for the plugin editor's meter.
+     *
+     * [instructions] is exact once the call has ended, and while it runs it lags
+     * by at most [CLOCK_CHECK_INTERVAL] + 1. [elapsedNanos] runs from [begin] and
+     * stops at [end]. The fields are read one at a time, so a snapshot taken
+     * mid-call can pair a count with a slightly later time; that is fine for a
+     * meter and is not a promise for anything else.
+     */
+    data class Usage(
+        val instructions: Long,
+        val instructionLimit: Long,
+        val elapsedNanos: Long,
+        val wallLimitMillis: Long,
+        val running: Boolean,
+    ) {
+        companion object {
+            val NONE = Usage(0L, 0L, 0L, 0L, running = false)
+        }
+    }
+
     /** Starts a fresh allowance for one call into the plugin. */
     fun begin(limit: PluginLimit) {
         remaining = limit.instructions
-        deadlineNanos = nanoTime() + limit.wallMillis * NANOS_PER_MILLI
+        val start = nanoTime()
+        deadlineNanos = start + limit.wallMillis * NANOS_PER_MILLI
         inHostCall = false
+        startNanos = start
+        limitInstructions = limit.instructions
+        limitWallMillis = limit.wallMillis
+        sampledUsed = 0L
+        running = true
     }
 
     /**
@@ -104,6 +155,11 @@ class PluginBudget(private val nanoTime: () -> Long = { System.nanoTime() }) {
     fun end() {
         deadlineNanos = Long.MAX_VALUE
         inHostCall = false
+        if (running) {
+            sampledUsed = limitInstructions - remaining.coerceAtLeast(0L)
+            endNanos = nanoTime()
+            running = false
+        }
     }
 
     /**
@@ -113,6 +169,7 @@ class PluginBudget(private val nanoTime: () -> Long = { System.nanoTime() }) {
     fun onInstruction() {
         if (--remaining <= 0L) throw PluginAbort(PluginAbortReason.INSTRUCTIONS)
         if ((remaining and CLOCK_CHECK_INTERVAL) == 0L) {
+            sampledUsed = limitInstructions - remaining
             if (cancelled) throw PluginAbort(PluginAbortReason.CANCELLED)
             if (nanoTime() > deadlineNanos) throw PluginAbort(PluginAbortReason.DEADLINE)
         }
@@ -124,6 +181,21 @@ class PluginBudget(private val nanoTime: () -> Long = { System.nanoTime() }) {
     }
 
     fun isCancelled(): Boolean = cancelled
+
+    /** The current or most recent call's consumption. Safe from any thread. */
+    fun usage(): Usage {
+        val limit = limitInstructions
+        if (limit == 0L) return Usage.NONE
+        val isRunning = running
+        val stop = if (isRunning) nanoTime() else endNanos
+        return Usage(
+            instructions = sampledUsed,
+            instructionLimit = limit,
+            elapsedNanos = (stop - startNanos).coerceAtLeast(0L),
+            wallLimitMillis = limitWallMillis,
+            running = isRunning,
+        )
+    }
 
     /** Marks the start of a blocking host call, whose time is not the plugin's fault. */
     fun enterHostCall() {

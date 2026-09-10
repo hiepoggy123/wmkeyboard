@@ -24,6 +24,25 @@ sealed interface PluginImportResult {
     data object Failed : PluginImportResult
 }
 
+/** The outcome of reading a `.wmplugin` file without installing it. */
+sealed interface PluginReadResult {
+    /** A plugin [PluginFile.import] would accept, with its script. */
+    data class Ok(
+        val manifest: PluginManifest,
+        val permissions: List<PluginPermission>,
+        val script: String,
+    ) : PluginReadResult
+
+    /** No manifest, or a manifest for something else entirely. */
+    data object NotAPlugin : PluginReadResult
+
+    /** A plugin this build will not accept. [reasonText] is user-facing. */
+    data class Rejected(val reasonText: PluginText) : PluginReadResult
+
+    /** Not a readable archive. */
+    data object Failed : PluginReadResult
+}
+
 /**
  * A plugin as a shareable file: a ZIP holding a `plugin.json` manifest and the
  * Lua source beside it.
@@ -102,7 +121,7 @@ object PluginFile {
         return "$stem.$FILE_EXTENSION"
     }
 
-    /** Writes a plugin archive. Used by tests and by the repository tooling. */
+    /** Writes a plugin archive: the plugin editor's export, the tests, and the repository tooling. */
     fun write(out: OutputStream, manifest: PluginManifest, script: String) {
         ZipOutputStream(out.buffered()).use { zip ->
             zip.putNextEntry(ZipEntry(MANIFEST))
@@ -143,35 +162,35 @@ object PluginFile {
     }
 
     /**
-     * Reads a plugin out of [input] and writes it into [store] under the id its
-     * manifest declares, replacing any install with the same id.
+     * Reads a whole plugin out of [input] without installing it, refusing
+     * everything [import] refuses. What the plugin editor opens a file with.
+     *
+     * [import] is this followed by [PluginStore.adopt], so a file the editor can
+     * open is exactly a file the store would install.
      */
     @Suppress("ReturnCount")
-    fun import(
-        input: InputStream,
-        store: PluginStore,
-        now: Long = System.currentTimeMillis(),
-    ): PluginImportResult {
-        val unpacked = runCatching { unpack(input) }.getOrNull() ?: return PluginImportResult.Failed
+    fun read(input: InputStream): PluginReadResult {
+        val unpacked = runCatching { unpack(input) }.getOrNull() ?: return PluginReadResult.Failed
 
-        val manifestText = unpacked.manifest ?: return PluginImportResult.NotAPlugin
-        val manifest = when (val read = PluginManifestCodec.read(manifestText)) {
-            is PluginManifestResult.Ok -> read.manifest
-            is PluginManifestResult.Rejected -> return PluginImportResult.Rejected(read.reasonText)
-            PluginManifestResult.NotAPlugin -> return PluginImportResult.NotAPlugin
+        val manifestText = unpacked.manifest ?: return PluginReadResult.NotAPlugin
+        val accepted = when (val result = PluginManifestCodec.read(manifestText)) {
+            is PluginManifestResult.Ok -> result
+            is PluginManifestResult.Rejected -> return PluginReadResult.Rejected(result.reasonText)
+            PluginManifestResult.NotAPlugin -> return PluginReadResult.NotAPlugin
         }
+        val manifest = accepted.manifest
 
         val source = unpacked.lookUp(manifest.entry)
-            ?: return PluginImportResult.Rejected(
+            ?: return PluginReadResult.Rejected(
                 PluginText.of(R.string.core_plugins_reject_missing_script, manifest.name, manifest.entry),
             )
         if (source.isEmpty()) {
-            return PluginImportResult.Rejected(
+            return PluginReadResult.Rejected(
                 PluginText.of(R.string.core_plugins_reject_empty_script, manifest.name),
             )
         }
         if (source.size > MAX_SCRIPT_BYTES) {
-            return PluginImportResult.Rejected(
+            return PluginReadResult.Rejected(
                 PluginText.of(
                     R.string.core_plugins_reject_script_too_large,
                     manifest.name,
@@ -180,22 +199,35 @@ object PluginFile {
             )
         }
         if (source[0] == LUA_SIGNATURE) {
-            return PluginImportResult.Rejected(
+            return PluginReadResult.Rejected(
                 PluginText.of(R.string.core_plugins_reject_compiled_lua, manifest.name),
             )
         }
         val script = runCatching { source.decodeToString(throwOnInvalidSequence = true) }.getOrNull()
-            ?: return PluginImportResult.Rejected(
+            ?: return PluginReadResult.Rejected(
                 PluginText.of(R.string.core_plugins_reject_bad_encoding, manifest.name),
             )
+        return PluginReadResult.Ok(manifest, accepted.permissions, script)
+    }
 
-        return when (val adopted = store.adopt(manifest, script, now)) {
-            is PluginAdoptResult.Adopted ->
-                PluginImportResult.Imported(adopted.plugin, adopted.replaced)
-
+    /**
+     * Reads a plugin out of [input] and writes it into [store] under the id its
+     * manifest declares, replacing any install with the same id.
+     */
+    fun import(
+        input: InputStream,
+        store: PluginStore,
+        now: Long = System.currentTimeMillis(),
+    ): PluginImportResult = when (val outcome = read(input)) {
+        is PluginReadResult.Ok -> when (val adopted = store.adopt(outcome.manifest, outcome.script, now)) {
+            is PluginAdoptResult.Adopted -> PluginImportResult.Imported(adopted.plugin, adopted.replaced)
             PluginAdoptResult.TooManyPlugins -> PluginImportResult.TooManyPlugins
             PluginAdoptResult.Failed -> PluginImportResult.Failed
         }
+
+        PluginReadResult.NotAPlugin -> PluginImportResult.NotAPlugin
+        is PluginReadResult.Rejected -> PluginImportResult.Rejected(outcome.reasonText)
+        PluginReadResult.Failed -> PluginImportResult.Failed
     }
 
     /**

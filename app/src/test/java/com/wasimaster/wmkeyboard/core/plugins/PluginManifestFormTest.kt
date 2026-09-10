@@ -1,0 +1,145 @@
+package com.wasimaster.wmkeyboard.core.plugins
+
+import com.wasimaster.wmkeyboard.core.plugins.PluginManifestCodec.Field
+import com.wasimaster.wmkeyboard.plugins.R
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * [PluginManifestCodec.problems] is what the plugin editor's manifest form
+ * validates with. The promise worth pinning is that it and [PluginManifestCodec.read]
+ * are one set of rules, so a form that says "valid" never meets an importer that says no.
+ */
+class PluginManifestFormTest {
+
+    private fun manifest(
+        id: String = "com.example.demo",
+        name: String = "Demo",
+        version: String = "1.0.0",
+        author: String = "Example",
+        description: String = "A demo.",
+        apiVersion: Int = 1,
+        entry: String = "main.lua",
+        permissions: List<String> = emptyList(),
+    ) = PluginManifest(
+        format = PluginManifestCodec.FORMAT,
+        version = PluginManifestCodec.VERSION,
+        id = id,
+        name = name,
+        pluginVersion = version,
+        author = author,
+        description = description,
+        apiVersion = apiVersion,
+        entry = entry,
+        permissions = permissions,
+    )
+
+    private fun readBack(manifest: PluginManifest) = PluginManifestCodec.read(PluginManifestCodec.encode(manifest))
+
+    private fun fields(manifest: PluginManifest) = PluginManifestCodec.problems(manifest).map { it.field }
+
+    @Test
+    fun `problems are empty exactly when read accepts`() {
+        val cases = listOf(
+            manifest(),
+            manifest(id = "ab"),
+            manifest(id = "  Com.Example.Upper  "),
+            manifest(id = "../escape"),
+            manifest(id = ""),
+            manifest(id = "no spaces allowed"),
+            manifest(name = ""),
+            manifest(name = "\u202Etxt.exe"),
+            manifest(name = "\u200B\u200B"),
+            manifest(version = ""),
+            manifest(version = "   "),
+            manifest(apiVersion = 0),
+            manifest(apiVersion = -3),
+            manifest(apiVersion = 2),
+            manifest(permissions = listOf("storage")),
+            manifest(permissions = listOf("storage", "storage")),
+            manifest(permissions = listOf(" storage ")),
+            manifest(permissions = listOf("camera")),
+            manifest(author = "a".repeat(500), description = "d".repeat(900)),
+            manifest(entry = ""),
+            manifest(name = "", version = "", id = "!!", apiVersion = 9),
+        )
+        for (case in cases) {
+            val accepted = readBack(case) is PluginManifestResult.Ok
+            assertEquals("for $case", accepted, PluginManifestCodec.problems(case).isEmpty())
+        }
+    }
+
+    @Test
+    fun `read refuses with the first problem`() {
+        val broken = manifest(name = "", version = "", id = "!!")
+        val problems = PluginManifestCodec.problems(broken)
+        assertEquals(listOf(Field.ID, Field.NAME, Field.VERSION), problems.map { it.field })
+
+        val rejected = readBack(broken) as PluginManifestResult.Rejected
+        assertEquals(problems.first().text, rejected.reasonText)
+    }
+
+    @Test
+    fun `each problem names the field it belongs to`() {
+        assertEquals(listOf(Field.API_VERSION), fields(manifest(apiVersion = 2)))
+        assertEquals(listOf(Field.ID), fields(manifest(id = "no spaces allowed")))
+        assertEquals(listOf(Field.NAME), fields(manifest(name = " ")))
+        assertEquals(listOf(Field.VERSION), fields(manifest(version = "")))
+        assertEquals(listOf(Field.PERMISSIONS), fields(manifest(permissions = listOf("storage", "network"))))
+    }
+
+    @Test
+    fun `an unknown permission is echoed with the plugin name`() {
+        val problem = PluginManifestCodec.problems(manifest(permissions = listOf("network"))).single()
+        assertEquals(
+            PluginText.of(R.string.core_plugins_reject_unknown_permission, "network", "Demo"),
+            problem.text,
+        )
+    }
+
+    @Test
+    fun `author, description and entry are shortened, never refused`() {
+        val long = manifest(author = "a".repeat(1_000), description = "d".repeat(1_000), entry = "e".repeat(200))
+        assertTrue(PluginManifestCodec.problems(long).isEmpty())
+    }
+
+    @Test
+    fun `sanitise shows exactly what read stores`() {
+        val raw = manifest(
+            id = "  Com.Example.Demo ",
+            name = "  Hi\u200D\u202E\u0007there  ",
+            version = " 1.0 ",
+            author = "a".repeat(100),
+            description = "d".repeat(400),
+            entry = "",
+        )
+        val stored = (readBack(raw) as PluginManifestResult.Ok).manifest
+
+        assertEquals(stored.id, PluginManifestCodec.sanitise(raw.id, Field.ID))
+        assertEquals(stored.name, PluginManifestCodec.sanitise(raw.name, Field.NAME))
+        assertEquals(stored.pluginVersion, PluginManifestCodec.sanitise(raw.pluginVersion, Field.VERSION))
+        assertEquals(stored.author, PluginManifestCodec.sanitise(raw.author, Field.AUTHOR))
+        assertEquals(stored.description, PluginManifestCodec.sanitise(raw.description, Field.DESCRIPTION))
+        assertEquals(stored.entry, PluginManifestCodec.sanitise(raw.entry, Field.ENTRY))
+
+        assertEquals("com.example.demo", stored.id)
+        assertEquals("Hithere", stored.name)
+        assertEquals("1.0", stored.pluginVersion)
+        assertEquals("main.lua", stored.entry)
+    }
+
+    @Test
+    fun `sanitise keeps whole surrogate pairs and drops lone ones`() {
+        assertEquals("a\uD83D\uDE00b", PluginManifestCodec.sanitise("a\uD83D\uDE00\uD800b", Field.NAME))
+    }
+
+    @Test
+    fun `sanitise cuts each displayed field at its cap`() {
+        assertEquals(PluginManifestCodec.MAX_NAME, PluginManifestCodec.sanitise("n".repeat(100), Field.NAME).length)
+        assertEquals(32, PluginManifestCodec.sanitise("v".repeat(100), Field.VERSION).length)
+        assertEquals(64, PluginManifestCodec.sanitise("a".repeat(100), Field.AUTHOR).length)
+        assertEquals(280, PluginManifestCodec.sanitise("d".repeat(400), Field.DESCRIPTION).length)
+        assertEquals(64, PluginManifestCodec.sanitise("e".repeat(100), Field.ENTRY).length)
+    }
+}

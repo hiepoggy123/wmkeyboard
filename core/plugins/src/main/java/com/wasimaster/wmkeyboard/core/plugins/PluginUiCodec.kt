@@ -42,16 +42,22 @@ object PluginUiCodec {
     fun fromLua(value: LuaValue): RenderedUi {
         val state = Walk()
         val root = state.children(value, depth = 0)
-        return RenderedUi(root, state.repairs.toList())
+        return RenderedUi(root, state.repairs.toList(), state.codes.toList())
     }
 
     private class Walk {
         val repairs = ArrayList<PluginText>()
+
+        /** Parallel to [repairs]: the kind of each, for the plugin editor. */
+        val codes = ArrayList<PluginRepair>()
         var nodes = 0
         var totalText = 0
 
-        fun repair(message: PluginText) {
-            if (repairs.size < MAX_REPAIRS && message !in repairs) repairs.add(message)
+        fun repair(code: PluginRepair, message: PluginText) {
+            if (repairs.size < MAX_REPAIRS && message !in repairs) {
+                repairs.add(message)
+                codes.add(code)
+            }
         }
 
         /**
@@ -72,7 +78,7 @@ object PluginUiCodec {
                 if (child.istable()) {
                     widget(child.checktable(), depth)?.let { out.add(it) }
                 } else if (!child.isnil()) {
-                    repair(PluginText.of(R.string.core_plugins_ui_repair_not_a_widget))
+                    repair(PluginRepair.NOT_A_WIDGET, PluginText.of(R.string.core_plugins_ui_repair_not_a_widget))
                 }
                 i++
             }
@@ -82,11 +88,11 @@ object PluginUiCodec {
         @Suppress("CyclomaticComplexMethod", "ReturnCount")
         fun widget(table: LuaTable, depth: Int): PluginWidget? {
             if (depth > MAX_DEPTH) {
-                repair(PluginText.of(R.string.core_plugins_ui_repair_too_deep))
+                repair(PluginRepair.TOO_DEEP, PluginText.of(R.string.core_plugins_ui_repair_too_deep))
                 return null
             }
             if (++nodes > MAX_NODES) {
-                repair(PluginText.of(R.string.core_plugins_ui_repair_too_many_widgets, MAX_NODES))
+                repair(PluginRepair.TOO_MANY_WIDGETS, PluginText.of(R.string.core_plugins_ui_repair_too_many_widgets, MAX_NODES))
                 return null
             }
             return when (val type = table.get("type").optjstring("")) {
@@ -128,13 +134,14 @@ object PluginUiCodec {
                 "progress" -> PluginWidget.Progress
                 "tabs" -> tabs(table, depth)
                 else -> {
-                    repair(
-                        if (type.isEmpty()) {
-                            PluginText.of(R.string.core_plugins_ui_repair_no_type)
-                        } else {
-                            PluginText.of(R.string.core_plugins_ui_repair_unknown_type, type.take(24))
-                        },
-                    )
+                    if (type.isEmpty()) {
+                        repair(PluginRepair.NO_TYPE, PluginText.of(R.string.core_plugins_ui_repair_no_type))
+                    } else {
+                        repair(
+                            PluginRepair.UNKNOWN_TYPE,
+                            PluginText.of(R.string.core_plugins_ui_repair_unknown_type, type.take(24)),
+                        )
+                    }
                     null
                 }
             }
@@ -143,7 +150,7 @@ object PluginUiCodec {
         private fun tabs(table: LuaTable, depth: Int): PluginWidget? {
             val pagesValue = table.get("pages")
             if (!pagesValue.istable()) {
-                repair(PluginText.of(R.string.core_plugins_ui_repair_tabs_no_pages))
+                repair(PluginRepair.TABS_NO_PAGES, PluginText.of(R.string.core_plugins_ui_repair_tabs_no_pages))
                 return null
             }
             val pagesTable = pagesValue.checktable()
@@ -166,10 +173,10 @@ object PluginUiCodec {
                 i++
             }
             if (pagesTable.length() > MAX_TABS) {
-                repair(PluginText.of(R.string.core_plugins_ui_repair_too_many_tabs, MAX_TABS))
+                repair(PluginRepair.TOO_MANY_TABS, PluginText.of(R.string.core_plugins_ui_repair_too_many_tabs, MAX_TABS))
             }
             if (pages.isEmpty()) {
-                repair(PluginText.of(R.string.core_plugins_ui_repair_tabs_no_pages))
+                repair(PluginRepair.TABS_NO_PAGES, PluginText.of(R.string.core_plugins_ui_repair_tabs_no_pages))
                 return null
             }
             return PluginWidget.Tabs(id(table), pages)
@@ -199,12 +206,12 @@ object PluginUiCodec {
             }
             val remaining = (MAX_TOTAL_TEXT - totalText).coerceAtLeast(0)
             if (remaining == 0) {
-                repair(PluginText.of(R.string.core_plugins_ui_repair_text_budget))
+                repair(PluginRepair.TEXT_BUDGET, PluginText.of(R.string.core_plugins_ui_repair_text_budget))
                 return ""
             }
             val capped = value.take(minOf(MAX_TEXT, remaining))
             if (capped.length < value.length) {
-                repair(PluginText.of(R.string.core_plugins_ui_repair_text_shortened))
+                repair(PluginRepair.TEXT_SHORTENED, PluginText.of(R.string.core_plugins_ui_repair_text_shortened))
             }
             totalText += capped.length
             return capped

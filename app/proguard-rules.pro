@@ -102,11 +102,22 @@
 # --- LuaJ (plugin sandbox) ---------------------------------------------------
 # Almost no -keep rules, on purpose. PluginSandbox constructs every library class
 # it wants directly, so R8 keeps the interpreter by reference and strips the
-# parts nothing points at — luajava (Java interop), luajc (bytecode backend), the
-# JSR-223 script engine, the AST parser. That stripping is a security property in
-# its own right: the reflective Java-coercion surface never ships. Only the
-# warnings need silencing, because those stripped corners reference optional
-# dependencies that are on no classpath here (the POM declares none).
+# parts nothing points at — luajava (Java interop), luajc (bytecode backend) and
+# the JSR-223 script engine. That stripping is a security property in its own
+# right: the reflective Java-coercion surface never ships. Only the warnings need
+# silencing, because those stripped corners reference optional dependencies that
+# are on no classpath here (the POM declares none).
+#
+# The AST parser (org.luaj.vm2.parser, org.luaj.vm2.ast) does ship, for the plugin
+# editor's language service in core.plugins.lua, and it is not part of that
+# property. It turns text into a tree. It references nothing outside its own two
+# packages but LuaValue, LuaString and LuaBoolean; it has no class$ or
+# Class.forName idiom, so it needs no keep rule; and it cannot compile or run
+# anything, because LuaC has its own lexer and never reads the tree. No plugin can
+# reach it either: the sandbox installs no require, package, luajava or load.
+# Measured with R8 over the luaj jar alone, keeping every AST node public: 50 KB of
+# dex, 23 KB compressed. LuaLanguageShrinkerTest pins that the three stripped
+# corners stay unreferenced.
 -dontwarn org.apache.bcel.**
 -dontwarn javax.script.**
 -dontwarn org.luaj.vm2.luajc.**

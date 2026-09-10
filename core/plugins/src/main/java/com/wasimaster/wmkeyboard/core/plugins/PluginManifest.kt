@@ -146,66 +146,99 @@ object PluginManifestCodec {
 
     fun encode(manifest: PluginManifest): String = json.encodeToString(manifest)
 
+    /** The manifest fields a form edits, in the order [read] checks them. */
+    enum class Field { API_VERSION, ID, NAME, VERSION, AUTHOR, DESCRIPTION, ENTRY, PERMISSIONS }
+
+    /** One thing wrong with one field, in the same words [read] refuses with. */
+    data class Problem(val field: Field, val text: PluginText)
+
     @Suppress("ReturnCount")
     fun read(text: String): PluginManifestResult {
         val raw = runCatching { json.decodeFromString<PluginManifest>(text) }.getOrNull()
             ?: return PluginManifestResult.NotAPlugin
         if (raw.format != FORMAT) return PluginManifestResult.NotAPlugin
+        problems(raw).firstOrNull()?.let { return PluginManifestResult.Rejected(it.text) }
 
-        // Treat a missing apiVersion as 1 — the field postdates nothing yet, and
-        // a beginner who omits it meant the only level that exists.
-        val api = if (raw.apiVersion <= 0) 1 else raw.apiVersion
-        if (api > API_VERSION) {
-            return PluginManifestResult.Rejected(
-                PluginText.of(R.string.core_plugins_reject_newer_version),
-            )
-        }
-
-        val id = raw.id.trim().lowercase()
-        if (!ID_PATTERN.matches(id)) {
-            return PluginManifestResult.Rejected(PluginText.of(R.string.core_plugins_reject_bad_id))
-        }
-
-        val name = displayText(raw.name, MAX_NAME)
-        if (name.isEmpty()) {
-            return PluginManifestResult.Rejected(PluginText.of(R.string.core_plugins_reject_no_name))
-        }
-
-        val version = displayText(raw.pluginVersion, MAX_VERSION)
-        if (version.isEmpty()) {
-            return PluginManifestResult.Rejected(
-                PluginText.of(R.string.core_plugins_reject_no_version, name),
-            )
-        }
-
-        val entry = displayText(raw.entry, MAX_ENTRY).ifEmpty { DEFAULT_ENTRY }
-
-        val permissions = ArrayList<PluginPermission>()
-        for (declared in raw.permissions.take(MAX_PERMISSIONS)) {
-            val permission = PluginPermission.parse(declared)
-                ?: return PluginManifestResult.Rejected(
-                    PluginText.of(
-                        R.string.core_plugins_reject_unknown_permission,
-                        displayText(declared, MAX_ECHO),
-                        name,
-                    ),
-                )
-            if (permission !in permissions) permissions.add(permission)
-        }
-
+        val permissions = raw.permissions.take(MAX_PERMISSIONS)
+            .mapNotNull { PluginPermission.parse(it) }
+            .distinct()
         val manifest = raw.copy(
             version = if (raw.version <= 0) VERSION else raw.version,
-            id = id,
-            name = name,
-            pluginVersion = version,
-            author = displayText(raw.author, MAX_AUTHOR),
-            description = displayText(raw.description, MAX_DESCRIPTION),
-            apiVersion = api,
-            entry = entry,
+            id = sanitise(raw.id, Field.ID),
+            name = sanitise(raw.name, Field.NAME),
+            pluginVersion = sanitise(raw.pluginVersion, Field.VERSION),
+            author = sanitise(raw.author, Field.AUTHOR),
+            description = sanitise(raw.description, Field.DESCRIPTION),
+            apiVersion = apiLevel(raw),
+            entry = sanitise(raw.entry, Field.ENTRY),
             permissions = permissions.map { it.wire },
         )
         return PluginManifestResult.Ok(manifest, permissions)
     }
+
+    /**
+     * Everything wrong with [manifest], in the order [read] looks. Empty means
+     * [read] accepts it, given the [FORMAT] tag, which a form always writes.
+     *
+     * [read] refuses with the first of these, and the plugin editor's manifest
+     * form shows all of them as the user types. The rules exist once, so a
+     * manifest the form calls valid is a manifest the importer installs.
+     *
+     * Author, description and entry never appear here: one that is too long is
+     * shortened, not refused. [sanitise] shows what will be kept.
+     */
+    fun problems(manifest: PluginManifest): List<Problem> {
+        val out = ArrayList<Problem>()
+        if (apiLevel(manifest) > API_VERSION) {
+            out += Problem(Field.API_VERSION, PluginText.of(R.string.core_plugins_reject_newer_version))
+        }
+        if (!ID_PATTERN.matches(sanitise(manifest.id, Field.ID))) {
+            out += Problem(Field.ID, PluginText.of(R.string.core_plugins_reject_bad_id))
+        }
+        val name = sanitise(manifest.name, Field.NAME)
+        if (name.isEmpty()) {
+            out += Problem(Field.NAME, PluginText.of(R.string.core_plugins_reject_no_name))
+        }
+        if (sanitise(manifest.pluginVersion, Field.VERSION).isEmpty()) {
+            out += Problem(Field.VERSION, PluginText.of(R.string.core_plugins_reject_no_version, name))
+        }
+        manifest.permissions.take(MAX_PERMISSIONS)
+            .firstOrNull { PluginPermission.parse(it) == null }
+            ?.let { unknown ->
+                out += Problem(
+                    Field.PERMISSIONS,
+                    PluginText.of(
+                        R.string.core_plugins_reject_unknown_permission,
+                        displayText(unknown, MAX_ECHO),
+                        name,
+                    ),
+                )
+            }
+        return out
+    }
+
+    /**
+     * What [read] stores for [raw] in [field]. The id is trimmed and lowercased;
+     * every displayed string loses its control, format and private-use characters
+     * and is cut to its length. A form shows this beside the field, so a name that
+     * loses a zero-width joiner visibly loses it before the plugin is installed.
+     */
+    fun sanitise(raw: String, field: Field): String = when (field) {
+        Field.ID -> raw.trim().lowercase()
+        Field.NAME -> displayText(raw, MAX_NAME)
+        Field.VERSION -> displayText(raw, MAX_VERSION)
+        Field.AUTHOR -> displayText(raw, MAX_AUTHOR)
+        Field.DESCRIPTION -> displayText(raw, MAX_DESCRIPTION)
+        Field.ENTRY -> displayText(raw, MAX_ENTRY).ifEmpty { DEFAULT_ENTRY }
+        Field.API_VERSION, Field.PERMISSIONS -> raw.trim()
+    }
+
+    /**
+     * A missing apiVersion counts as 1. The field postdates nothing yet, and a
+     * beginner who omits it meant the only level that exists.
+     */
+    private fun apiLevel(manifest: PluginManifest): Int =
+        if (manifest.apiVersion <= 0) 1 else manifest.apiVersion
 
     /**
      * Trims [raw] to something safe to draw: no control characters, no

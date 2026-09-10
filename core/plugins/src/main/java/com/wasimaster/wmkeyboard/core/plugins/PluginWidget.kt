@@ -74,14 +74,36 @@ sealed interface PluginWidget {
  *
  * [repairs] is shown to the user as a caption rather than swallowed — a widget
  * that silently vanishes is a plugin bug the author will never hear about.
+ * [repairCodes] runs parallel to it, one code per message, for the plugin editor.
  */
 data class RenderedUi(
     val root: List<PluginWidget>,
     val repairs: List<PluginText> = emptyList(),
+    val repairCodes: List<PluginRepair> = emptyList(),
 ) {
     companion object {
         val EMPTY = RenderedUi(emptyList())
     }
+}
+
+/**
+ * What kind of repair [PluginUiCodec] made, as a value rather than words.
+ *
+ * The plugin editor turns these into advice, and turns [UNKNOWN_TYPE] into a
+ * search of the source for the type it names. None carries a line number, and
+ * none can: the codec walks a Lua table, and a table does not know where in the
+ * file it was built.
+ */
+enum class PluginRepair {
+    NOT_A_WIDGET,
+    TOO_DEEP,
+    TOO_MANY_WIDGETS,
+    NO_TYPE,
+    UNKNOWN_TYPE,
+    TABS_NO_PAGES,
+    TOO_MANY_TABS,
+    TEXT_BUDGET,
+    TEXT_SHORTENED,
 }
 
 /** Everything that can happen to a plugin's UI. All of it user-initiated. */
@@ -123,4 +145,62 @@ fun RenderedUi.inputIds(): Set<String> {
     }
     walk(root)
     return ids
+}
+
+/** The widgets in a tree that a user can act on, by kind. */
+data class PluginTargets(
+    val buttons: List<PluginWidget.Button>,
+    val toggles: List<PluginWidget.Toggle>,
+    val inputs: List<PluginWidget.Input>,
+    val tabs: List<PluginWidget.Tabs>,
+) {
+    val isEmpty: Boolean
+        get() = buttons.isEmpty() && toggles.isEmpty() && inputs.isEmpty() && tabs.isEmpty()
+
+    companion object {
+        val EMPTY = PluginTargets(emptyList(), emptyList(), emptyList(), emptyList())
+    }
+}
+
+/**
+ * Every button, toggle, input and tab strip in this tree, in document order. What
+ * the plugin editor's event injector offers to fire.
+ *
+ * Disabled buttons are included. The keyboard can never fire one, and that is the
+ * reason an author wants to: a handler should cope with an event it did not expect.
+ *
+ * Not built on [inputIds], and [inputIds] not built on this. That one runs on the
+ * keyboard's path after every render and this one only when the editor asks, so
+ * each stays exhaustive over [PluginWidget] on its own, and a widget type added
+ * later has to be answered for in both.
+ */
+fun RenderedUi.targets(): PluginTargets {
+    val buttons = ArrayList<PluginWidget.Button>()
+    val toggles = ArrayList<PluginWidget.Toggle>()
+    val inputs = ArrayList<PluginWidget.Input>()
+    val tabs = ArrayList<PluginWidget.Tabs>()
+    fun walk(widgets: List<PluginWidget>) {
+        for (widget in widgets) {
+            when (widget) {
+                is PluginWidget.Button -> buttons.add(widget)
+                is PluginWidget.Toggle -> toggles.add(widget)
+                is PluginWidget.Input -> inputs.add(widget)
+                is PluginWidget.Tabs -> {
+                    tabs.add(widget)
+                    widget.pages.forEach { walk(it.children) }
+                }
+
+                is PluginWidget.Column -> walk(widget.children)
+                is PluginWidget.Row -> walk(widget.children)
+                is PluginWidget.Label,
+                is PluginWidget.Output,
+                is PluginWidget.Spacer,
+                PluginWidget.Divider,
+                PluginWidget.Progress,
+                -> Unit
+            }
+        }
+    }
+    walk(root)
+    return PluginTargets(buttons, toggles, inputs, tabs)
 }

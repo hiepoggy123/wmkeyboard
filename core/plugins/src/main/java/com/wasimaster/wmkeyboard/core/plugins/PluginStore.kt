@@ -237,28 +237,36 @@ class PluginStore(private var baseDir: File?) {
      * the same id.
      *
      * An update keeps `storage.json` — the user's todo list should survive the
-     * plugin that owns it being upgraded — and resets [InstalledPlugin.enabled]
-     * and the abandonment strikes, since the new script deserves to be judged on
-     * its own behaviour rather than the old one's.
+     * plugin that owns it being upgraded — and by default resets
+     * [InstalledPlugin.enabled] and the abandonment strikes, since a new script
+     * from somewhere else deserves to be judged on its own behaviour rather than
+     * the old one's.
+     *
+     * [keepState] is the plugin editor's publish, where the new script is the
+     * user's own next edit of the same plugin. Switching back on a plugin they
+     * turned off, or forgiving strikes the runaway guard counted, is not what
+     * saving an edit means, so the existing record's flag and count carry over.
+     *
+     * Both files go through [writeAtomically]. The keyboard can load `main.lua`
+     * at any moment, and a write cut short must leave the previous script whole
+     * rather than a truncated one that fails to parse.
      */
     @Synchronized
     fun adopt(
         manifest: PluginManifest,
         script: String,
         now: Long = System.currentTimeMillis(),
+        keepState: Boolean = false,
     ): PluginAdoptResult {
         if (baseDir == null) return PluginAdoptResult.Failed
         val dir = dirFor(manifest.id) ?: return PluginAdoptResult.Failed
         val existing = pluginList.firstOrNull { it.id == manifest.id }
         if (existing == null && pluginList.size >= MAX_PLUGINS) return PluginAdoptResult.TooManyPlugins
 
-        val written = runCatching {
-            dir.mkdirs()
-            File(dir, MANIFEST_FILE).writeText(PluginManifestCodec.encode(manifest))
-            File(dir, SCRIPT_FILE).writeText(script)
-            true
-        }.getOrDefault(false)
+        val written = writeAtomically(File(dir, MANIFEST_FILE), PluginManifestCodec.encode(manifest)) &&
+            writeAtomically(File(dir, SCRIPT_FILE), script)
         if (!written) return PluginAdoptResult.Failed
+        val carried = existing?.takeIf { keepState }
 
         val record = InstalledPlugin(
             id = manifest.id,
@@ -268,9 +276,9 @@ class PluginStore(private var baseDir: File?) {
             description = manifest.description,
             apiVersion = manifest.apiVersion,
             permissions = manifest.permissions,
-            enabled = true,
+            enabled = carried?.enabled ?: true,
             installedAt = existing?.installedAt ?: now,
-            abandonedCount = 0,
+            abandonedCount = carried?.abandonedCount ?: 0,
         )
         // A permission the new version dropped must stop applying, which happens
         // for free: the record is rebuilt from the new manifest rather than
@@ -363,17 +371,16 @@ class PluginStore(private var baseDir: File?) {
         _revision.value++
     }
 
-    private fun writeAtomically(file: File, text: String) {
-        runCatching {
-            file.parentFile?.mkdirs()
-            val part = File(file.parentFile, file.name + ".part")
-            part.writeText(text)
-            if (!part.renameTo(file)) {
-                file.delete()
-                part.renameTo(file)
-            }
+    /** Writes through a `.part` file and a rename. False when the disk refused. */
+    private fun writeAtomically(file: File, text: String): Boolean = runCatching {
+        file.parentFile?.mkdirs()
+        val part = File(file.parentFile, file.name + ".part")
+        part.writeText(text)
+        part.renameTo(file) || run {
+            file.delete()
+            part.renameTo(file)
         }
-    }
+    }.getOrDefault(false)
 
     /** Points the store at [dir] and re-reads it. The direct-boot unlock path. */
     @Synchronized
