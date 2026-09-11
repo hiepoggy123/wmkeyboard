@@ -302,15 +302,171 @@ class TelexAutocorrectEngine private constructor() {
         }
     }
 
+    private val rejectedFlickCorrections: HashMap<String, HashSet<String>> = HashMap()
+
+    val FLICK_NEIGHBORS: Map<Char, List<Char>> = mapOf(
+        'd' to listOf('s', 'f', 'e', 'x', 'c'),
+        's' to listOf('a', 'w', 'd', 'z', 'x', 'e'),
+        'f' to listOf('d', 'r', 'g', 'c', 'v'),
+        'e' to listOf('w', 'r', 's', 'd'),
+        'r' to listOf('e', 't', 'd', 'f'),
+        'a' to listOf('q', 'w', 's', 'z'),
+        'x' to listOf('z', 's', 'd', 'c'),
+        'j' to listOf('h', 'k', 'u', 'n', 'm'),
+        'o' to listOf('i', 'p', 'k', 'l'),
+        'u' to listOf('y', 'i', 'h', 'j')
+    )
+
+    val FLICK_KEY_TELEX: Map<Char, List<String>> = mapOf(
+        's' to listOf("s"),
+        'f' to listOf("f"),
+        'r' to listOf("r"),
+        'x' to listOf("x"),
+        'j' to listOf("j"),
+        'a' to listOf("aa", "aw"),
+        'e' to listOf("ee"),
+        'o' to listOf("oo", "ow"),
+        'u' to listOf("uw"),
+        'd' to listOf("dd")
+    )
+
+    fun isAccented(word: String): Boolean {
+        for (ch in word) {
+            val lc = ch.lowercaseChar()
+            if (lc !in 'a'..'z') return true
+        }
+        return false
+    }
+
+    fun rejectFlickCorrection(original: String, committed: String) {
+        val origClean = original.lowercase().trim()
+        val commClean = committed.lowercase().trim()
+        if (origClean.isNotEmpty() && commClean.isNotEmpty()) {
+            rejectedFlickCorrections.getOrPut(origClean) { HashSet() }.add(commClean)
+        }
+    }
+
+    fun isFlickCorrectionRejected(original: String, committed: String): Boolean {
+        val origClean = original.lowercase().trim()
+        val commClean = committed.lowercase().trim()
+        return rejectedFlickCorrections[origClean]?.contains(commClean) == true
+    }
+
     fun isWordInDictionary(word: String): Boolean {
         val clean = word.lowercase()
         return languageModel.unigrams.containsKey(clean) || 
-               TelexWhitelist.isWhitelisted(clean) || 
-               VietnameseOrthography.isValidVietnameseSyllable(clean)
+               TelexWhitelist.isWhitelisted(clean)
     }
 
     fun isWhitelisted(word: String): Boolean {
         return TelexWhitelist.isWhitelisted(word)
+    }
+
+    /**
+     * Resolves ghost flick errors where a finger flicked on an adjacent key (e.g. key 'd' instead of 's').
+     * Tests neighboring keys' flick outputs and scores candidates via language model context.
+     */
+    fun resolveFlickNeighbors(
+        tokens: List<TypingToken>,
+        originalComposed: String,
+        previousWord: String? = null,
+        previousWord2: String? = null,
+        userLexicon: UserLexicon? = null,
+        maxResults: Int = 3
+    ): List<TelexCorrectionCandidate> {
+        if (!isReady || tokens.isEmpty()) return emptyList()
+
+        val flickIndices = tokens.indices.filter { tokens[it].isFlick }
+        if (flickIndices.isEmpty()) return emptyList()
+
+        val candidates = ArrayList<TelexCorrectionCandidate>()
+        val cleanPrev = previousWord?.trim()?.lowercase()
+        val cleanPrev2 = previousWord2?.trim()?.lowercase()
+
+        for (flickIdx in flickIndices) {
+            val token = tokens[flickIdx]
+            val baseKey = token.baseKey ?: continue
+            val neighbors = FLICK_NEIGHBORS[baseKey] ?: continue
+
+            val prefixSb = StringBuilder()
+            for (i in 0 until flickIdx) {
+                val t = tokens[i]
+                if (t.isFlick) {
+                    prefixSb.append(toCanonicalTelex(t.char.toString()))
+                } else {
+                    prefixSb.append(t.char.lowercaseChar())
+                }
+            }
+            val prefix = prefixSb.toString()
+
+            val suffixSb = StringBuilder()
+            for (i in (flickIdx + 1) until tokens.size) {
+                val t = tokens[i]
+                if (t.isFlick) {
+                    suffixSb.append(toCanonicalTelex(t.char.toString()))
+                } else {
+                    suffixSb.append(t.char.lowercaseChar())
+                }
+            }
+            val suffix = suffixSb.toString()
+
+            for (neighborKey in neighbors) {
+                val telexOptions = FLICK_KEY_TELEX[neighborKey] ?: continue
+                for (opt in telexOptions) {
+                    val telexCandidates = if (opt in listOf("s", "f", "r", "x", "j")) {
+                        listOf(prefix + opt + suffix, prefix + suffix + opt)
+                    } else {
+                        listOf(prefix + opt + suffix)
+                    }
+
+                    for (telexSeq in telexCandidates) {
+                        val word = trie.findWord(telexSeq) ?: continue
+                        if (!VietnameseOrthography.isValidVietnameseSyllable(word)) continue
+                        if (isFlickCorrectionRejected(originalComposed, word)) continue
+
+                        val baseUnigram = languageModel.getUnigramScore(word)
+                        var baseBigram = 0
+                        var baseTrigram = 0
+                        if (!cleanPrev.isNullOrEmpty()) {
+                            baseBigram = languageModel.getBigramScore(cleanPrev, word)
+                            if (!cleanPrev2.isNullOrEmpty()) {
+                                baseTrigram = languageModel.getTrigramScore(cleanPrev2, cleanPrev, word)
+                            }
+                        }
+                        val userUnigramCount = userLexicon?.frequencyOf(word) ?: 0
+                        val userBigramCount = if (!cleanPrev.isNullOrEmpty()) {
+                            userLexicon?.bigramCount(cleanPrev, word) ?: 0
+                        } else 0
+
+                        val totalScore = (baseUnigram * WEIGHT_UNIGRAM) +
+                                (baseBigram * WEIGHT_BIGRAM) +
+                                (baseTrigram * WEIGHT_TRIGRAM) +
+                                (userUnigramCount * WEIGHT_USER_UNIGRAM) +
+                                (userBigramCount * WEIGHT_USER_BIGRAM)
+
+                        candidates.add(
+                            TelexCorrectionCandidate(
+                                word = applyCasing(word, originalComposed),
+                                telex = telexSeq,
+                                penalty = 0.5,
+                                score = totalScore
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        candidates.sort()
+        val distinct = ArrayList<TelexCorrectionCandidate>()
+        val seen = HashSet<String>()
+        for (c in candidates) {
+            if (seen.add(c.word.lowercase())) {
+                distinct.add(c)
+                if (distinct.size >= maxResults) break
+            }
+        }
+        return distinct
     }
 
     @Synchronized
@@ -457,7 +613,8 @@ class TelexAutocorrectEngine private constructor() {
         previousWord: String? = null,
         previousWord2: String? = null,
         userLexicon: UserLexicon? = null,
-        maxResults: Int = 3
+        maxResults: Int = 3,
+        hasFlick: Boolean = true
     ): List<TelexCorrectionCandidate> {
         if (!isReady) return emptyList()
 
@@ -474,6 +631,12 @@ class TelexAutocorrectEngine private constructor() {
         val desyncCandidates = BimanualDesyncEngine.generateCandidates(cleanInput, this)
         for (desync in desyncCandidates) {
             val unicodeWord = desync.word
+            if (!hasFlick && !isAccented(cleanInput) && isAccented(unicodeWord)) {
+                continue
+            }
+            if (isFlickCorrectionRejected(cleanInput, unicodeWord)) {
+                continue
+            }
             val baseUnigram = languageModel.getUnigramScore(unicodeWord)
             var baseBigram = 0
             var baseTrigram = 0
@@ -511,6 +674,12 @@ class TelexAutocorrectEngine private constructor() {
         fun dfs(node: TelexTrieNode, idx: Int, currentPenalty: Double, errorCount: Int) {
             if (idx == cleanInput.length) {
                 node.word?.let { unicodeWord ->
+                    if (!hasFlick && !isAccented(cleanInput) && isAccented(unicodeWord)) {
+                        return
+                    }
+                    if (isFlickCorrectionRejected(cleanInput, unicodeWord)) {
+                        return
+                    }
                     val baseUnigram = node.unigramScore
                     var baseBigram = 0
                     var baseTrigram = 0

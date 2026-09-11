@@ -3039,6 +3039,8 @@ private fun TopBar(
                     textPadding = state.settings.suggestionStrip.chipPadding.dp,
                     centerPrimaryEnabled = state.settings.suggestionStrip.suggestionPrimaryCenter,
                     shiftState = state.shiftState,
+                    rawInputWord = state.rawInputWord,
+                    rawInputNotInDictionary = state.rawInputNotInDictionary,
                     // Only while the live candidates are the ones on screen: the
                     // strip holds the last set behind alpha 0, and a key promised
                     // against a faded word would commit something else.
@@ -3246,6 +3248,8 @@ private fun RowScope.LatinSuggestionChips(
     textPadding: Dp = SuggestionTextPadding,
     centerPrimaryEnabled: Boolean,
     shiftState: ShiftState,
+    rawInputWord: String? = null,
+    rawInputNotInDictionary: Boolean = false,
     /** The hotkey badges, or null when no physical keyboard is asking for them. */
     hints: HintPlan? = null,
     onSuggestion: (String) -> Unit,
@@ -3393,10 +3397,13 @@ private fun RowScope.LatinSuggestionChips(
                             availableWidthPx = with(density) { textWidth.toPx() },
                         )
                     }
-                    val textColor = if (isPrimary) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
+                    val isRawNotInDict = rawInputNotInDictionary &&
+                        rawInputWord != null &&
+                        suggestion.equals(rawInputWord, ignoreCase = true)
+                    val textColor = when {
+                        isRawNotInDict -> androidx.compose.ui.graphics.Color(0xFF4CAF50)
+                        isPrimary -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurface
                     }
                     Text(
                         text = display,

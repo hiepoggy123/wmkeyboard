@@ -327,4 +327,58 @@ class TelexAutocorrectEngineTest {
         assertTrue("class must be whitelisted", TelexWhitelist.isWhitelisted("class"))
         assertTrue("error must be whitelisted", TelexWhitelist.isWhitelisted("error"))
     }
+
+    @Test
+    fun testResolveFlickNeighbors_TrailingD_SuggestsDo() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "ddos": {"word": "đó", "freq": 800},
+                "ddof": {"word": "đò", "freq": 300}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"đó": 800, "đò": 300}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        val tokens = listOf(
+            TypingToken('đ', isFlick = false, baseKey = 'd'),
+            TypingToken('o', isFlick = false, baseKey = 'o'),
+            TypingToken('đ', isFlick = true, baseKey = 'd', flickOutput = "đ")
+        )
+
+        val results = engine.resolveFlickNeighbors(
+            tokens = tokens,
+            originalComposed = "đođ"
+        )
+        assertTrue("đođ should suggest đó via flick neighbor s", results.any { it.word == "đó" })
+    }
+
+    @Test
+    fun testResolveFlickNeighbors_RejectionSuppression() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "ddos": {"word": "đó", "freq": 800}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"đó": 800}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        val tokens = listOf(
+            TypingToken('đ', isFlick = false, baseKey = 'd'),
+            TypingToken('o', isFlick = false, baseKey = 'o'),
+            TypingToken('đ', isFlick = true, baseKey = 'd', flickOutput = "đ")
+        )
+
+        engine.rejectFlickCorrection("đođ", "đó")
+
+        val results = engine.resolveFlickNeighbors(
+            tokens = tokens,
+            originalComposed = "đođ"
+        )
+        assertTrue("đođ must NOT suggest đó after being rejected by user backspace", results.none { it.word == "đó" })
+    }
 }
+
