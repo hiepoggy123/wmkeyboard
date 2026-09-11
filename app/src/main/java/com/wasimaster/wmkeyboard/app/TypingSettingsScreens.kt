@@ -189,36 +189,6 @@ internal fun TypingSettings(
             }
         }
     }
-
-    SettingsGroup(stringResource(R.string.vietnamese_flick_group_title)) {
-        item {
-            ToggleSetting(
-                R.string.vietnamese_flick_enabled_title,
-                stringResource(R.string.vietnamese_flick_enabled_subtitle),
-                settings.vietnameseFlick.enabled,
-                default = SettingsDefaults.vietnameseFlick.enabled,
-            ) { scope.launch { repository.setVietnameseFlickEnabled(it) } }
-        }
-        if (settings.vietnameseFlick.enabled) {
-            item {
-                ToggleSetting(
-                    R.string.vietnamese_flick_pure_mode_title,
-                    stringResource(R.string.vietnamese_flick_pure_mode_subtitle),
-                    settings.vietnameseFlick.pureFlickMode,
-                    default = SettingsDefaults.vietnameseFlick.pureFlickMode,
-                ) { scope.launch { repository.setVietnameseFlickPureMode(it) } }
-            }
-            item {
-                NavRow(
-                    R.string.vietnamese_flick_directions_header,
-                    stringResource(R.string.vietnamese_flick_pick_direction),
-                    route = "typing/vietnamese_flick",
-                ) {
-                    onNavigate("typing/vietnamese_flick")
-                }
-            }
-        }
-    }
     SettingsGroup(stringResource(R.string.typing_group_backspace_title)) {
         item {
             ToggleSetting(
@@ -2074,14 +2044,17 @@ private fun FlickDirChoice(
     val downLabel = stringResource(R.string.vietnamese_flick_direction_down)
     val leftLabel = stringResource(R.string.vietnamese_flick_direction_left)
     val rightLabel = stringResource(R.string.vietnamese_flick_direction_right)
-    ChoiceSetting(
-        title = stringResource(titleRes),
-        options = listOf(
+    val options = remember(upLabel, downLabel, leftLabel, rightLabel) {
+        listOf(
             FlickDirection.UP to upLabel,
             FlickDirection.DOWN to downLabel,
             FlickDirection.LEFT to leftLabel,
             FlickDirection.RIGHT to rightLabel,
-        ),
+        )
+    }
+    ChoiceSetting(
+        title = stringResource(titleRes),
+        options = options,
         selected = selected,
         default = default,
         onChange = { scope.launch { repository.setVietnameseFlickDirection(key, it) } },
@@ -2119,7 +2092,7 @@ internal fun TypingVietnameseFlickSettings(
     }
 
     if (flick.enabled) {
-        SettingsGroup(stringResource(R.string.vietnamese_flick_directions_header)) {
+        SettingsGroup(stringResource(R.string.vietnamese_flick_vowels_header)) {
             item {
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_a_circumflex,
@@ -2183,6 +2156,9 @@ internal fun TypingVietnameseFlickSettings(
                     repository,
                 )
             }
+        }
+
+        SettingsGroup(stringResource(R.string.vietnamese_flick_tones_header)) {
             item {
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_tone_acute,

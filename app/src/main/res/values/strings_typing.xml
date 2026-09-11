@@ -567,6 +567,8 @@
     <string name="vietnamese_flick_pure_mode_title">Chế độ vuốt thuần túy (Pure Flick)</string>
     <string name="vietnamese_flick_pure_mode_subtitle">Chạm thông thường luôn xuất ký tự Latin 100% (bảo vệ tiếng Anh, mật khẩu, URL)</string>
     <string name="vietnamese_flick_directions_header">Cài đặt hướng vuốt phím</string>
+    <string name="vietnamese_flick_vowels_header">Nguyên âm và phụ âm (Mũ, Móc, Đ)</string>
+    <string name="vietnamese_flick_tones_header">Dấu thanh (Sắc, Huyền, Hỏi, Ngã, Nặng)</string>
     <string name="vietnamese_flick_dir_a_circumflex">Chữ Â (phím A)</string>
     <string name="vietnamese_flick_dir_a_breve">Chữ Ă (phím A)</string>
     <string name="vietnamese_flick_dir_e_circumflex">Chữ Ê (phím E)</string>

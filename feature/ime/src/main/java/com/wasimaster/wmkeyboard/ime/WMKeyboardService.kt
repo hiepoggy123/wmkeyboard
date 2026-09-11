@@ -4507,10 +4507,12 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         val output = keyOutput(key, _uiState.value)
+        val state = _uiState.value
+        val isVietnamese = state.composer.isTransliterating || state.language.id.startsWith("vi")
         // A converted Keyman layout owns its own dead keys, in its own context,
         // where its rules can match them. Running ours as well would apply an
         // accent twice.
-        processTypedText(output, applyDeadKeys = keymanSession == null)
+        processTypedText(output, applyDeadKeys = keymanSession == null && !isVietnamese)
         returnFromSymbolsAfter(output)
     }
 
@@ -4813,7 +4815,8 @@ open class WMKeyboardService : InputMethodService() {
         pendingWordSpace = false
         pendingPunctuationSpace = false
 
-        if (applyDeadKeys) {
+        val isVietnamese = state.composer.isTransliterating || state.language.id.startsWith("vi")
+        if (applyDeadKeys && !isVietnamese) {
             // Dead keys: the accent arms and waits, then fuses with the next
             // letter. Pressing the same accent twice types it literally, which
             // is the standard escape hatch for wanting the accent on its own.
@@ -7530,23 +7533,28 @@ open class WMKeyboardService : InputMethodService() {
             state.composer.isVietnameseTelex -> {
                 val isRawWhitelisted = TelexWhitelist.isWhitelisted(typed)
                 val composed = if (isRawWhitelisted) typed else state.composer.composeBuffer(typed)
+                val telexEngine = TelexAutocorrectEngine.getInstance()
+                if (!telexEngine.isReady) {
+                    telexEngine.initialize(assets, filesDir)
+                }
                 val top = if (isRawWhitelisted) {
                     typed
                 } else if (autocorrect && state.allowsTypingIntelligence && pre != null && pre.isTelex) {
                     pre.telexTop
                 } else if (
                     autocorrect && state.allowsTypingIntelligence &&
-                    composed.length >= 3 && typed.length >= 3 &&
+                    composed.length >= 3 &&
                     (!VietnameseTelexComposer.pureFlickMode || composed != typed)
                 ) {
                     val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
-                    val isComposedValid = TelexAutocorrectEngine.getInstance().isWordInDictionary(composed) || isUserLearned
+                    val isComposedValid = telexEngine.isWordInDictionary(composed) || isUserLearned
                     if (isComposedValid) {
                         composed
                     } else {
                         val prev2 = recentWords.getOrNull(recentWords.size - 2)
-                        TelexAutocorrectEngine.getInstance().correct(
-                            rawInput = typed,
+                        val canonical = telexEngine.toCanonicalTelex(typed)
+                        telexEngine.correct(
+                            rawInput = canonical.ifEmpty { typed },
                             previousWord = previousWord,
                             previousWord2 = prev2,
                             userLexicon = userLexicon,
@@ -10089,13 +10097,22 @@ open class WMKeyboardService : InputMethodService() {
 
                 val suggested = if (state.composer.isVietnameseTelex) {
                     if (typed.isEmpty()) {
-                        engine.suggest(
-                            composing = "",
+                        val nextWords = telexEngine.predictNextWords(
                             previousWord = previousWord,
                             previousWord2 = previousWord2,
-                            recentWords = recentSnapshot,
-                            allowRerank = true,
+                            maxResults = 3,
                         )
+                        if (nextWords.isNotEmpty()) {
+                            nextWords
+                        } else {
+                            engine.suggest(
+                                composing = "",
+                                previousWord = previousWord,
+                                previousWord2 = previousWord2,
+                                recentWords = recentSnapshot,
+                                allowRerank = true,
+                            )
+                        }
                     } else {
                         val dictSuggestions = engine.suggest(
                             composing = composed,
@@ -10104,36 +10121,40 @@ open class WMKeyboardService : InputMethodService() {
                             recentWords = recentSnapshot,
                             allowRerank = true,
                         )
+                        val telexCompletions = telexEngine.findCompletions(composed, maxResults = 4)
+                        val combinedDict = (dictSuggestions + telexCompletions).distinctBy { it.lowercase() }
+
                         val isWhitelisted = telexEngine.isWhitelisted(composed) || telexEngine.isWhitelisted(typed)
                         val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
                         val isComposedValid = telexEngine.isWordInDictionary(composed) || isUserLearned
 
                         if (composed.equals(rejectedVietnameseWord, ignoreCase = true) || isWhitelisted || typed.length < 2) {
                             val first = if (telexEngine.isWhitelisted(typed)) typed else composed
-                            (listOf(first) + dictSuggestions.filterNot { it.equals(first, ignoreCase = true) })
+                            (listOf(first) + combinedDict.filterNot { it.equals(first, ignoreCase = true) })
                                 .distinctBy { it.lowercase() }
                         } else {
-                            telexCandidates = if (typed.length >= 3 && !isComposedValid) {
+                            val canonical = telexEngine.toCanonicalTelex(typed)
+                            telexCandidates = if ((canonical.length >= 3 || typed.length >= 3) && !isComposedValid) {
                                 val prev2 = recentSnapshot.getOrNull(recentSnapshot.size - 2)
                                 telexEngine.correct(
-                                    rawInput = typed,
+                                    rawInput = canonical.ifEmpty { typed },
                                     previousWord = previousWord,
                                     previousWord2 = prev2,
                                     userLexicon = userLexicon,
-                                    maxResults = 5
+                                    maxResults = 5,
                                 ).map { it.word }
                             } else {
                                 emptyList()
                             }
 
                             val baseList = if (isComposedValid) {
-                                listOf(composed) + (dictSuggestions + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) }
+                                listOf(composed) + (combinedDict + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) }
                             } else if (telexCandidates.isNotEmpty()) {
-                                telexCandidates + listOf(composed) + dictSuggestions.filterNot { cand ->
+                                telexCandidates + listOf(composed) + combinedDict.filterNot { cand ->
                                     telexCandidates.any { it.equals(cand, ignoreCase = true) } || cand.equals(composed, ignoreCase = true)
                                 }
                             } else {
-                                listOf(composed) + dictSuggestions.filterNot { it.equals(composed, ignoreCase = true) }
+                                listOf(composed) + combinedDict.filterNot { it.equals(composed, ignoreCase = true) }
                             }
                             baseList.distinctBy { it.lowercase() }
                         }

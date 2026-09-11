@@ -121,7 +121,16 @@ internal object VietnameseEngine {
     }
 
     private fun render(letters: List<VLetter>, tone: VTone): String {
-        if (letters.isEmpty()) return ""
+        if (letters.isEmpty()) {
+            return when (tone) {
+                VTone.ACUTE -> "́"
+                VTone.GRAVE -> "̀"
+                VTone.HOOK -> "̉"
+                VTone.TILDE -> "̃"
+                VTone.DOT -> "̣"
+                VTone.NONE -> ""
+            }
+        }
         val nuc = if (tone == VTone.NONE) -1 else nucleus(letters)
         val sb = StringBuilder()
         letters.forEachIndexed { i, l ->
@@ -129,6 +138,9 @@ internal object VietnameseEngine {
             if (l.upper) c = c.uppercaseChar()
             sb.append(c)
             if (i == nuc) tone.combining?.let { sb.append(it) }
+        }
+        if (nuc == -1 && tone != VTone.NONE) {
+            tone.combining?.let { sb.append(it) }
         }
         return Normalizer.normalize(sb, Normalizer.Form.NFC)
     }
@@ -185,13 +197,15 @@ internal object VietnameseEngine {
 
             // Direct tone marks (from Flick gesture, Tone Popup or unicode diacritics)
             if (lc in "\u0301́\u0300̀\u0309̉\u0303̃\u0323̣") {
-                when (lc) {
-                    '\u0301', '́' -> if (hasVowel()) toggleTone(VTone.ACUTE) else letters.add(VLetter('́', VMark.NONE, false))
-                    '\u0300', '̀' -> if (hasVowel()) toggleTone(VTone.GRAVE) else letters.add(VLetter('̀', VMark.NONE, false))
-                    '\u0309', '̉' -> if (hasVowel()) toggleTone(VTone.HOOK) else letters.add(VLetter('̉', VMark.NONE, false))
-                    '\u0303', '̃' -> if (hasVowel()) toggleTone(VTone.TILDE) else letters.add(VLetter('̃', VMark.NONE, false))
-                    '\u0323', '̣' -> if (hasVowel()) toggleTone(VTone.DOT) else letters.add(VLetter('̣', VMark.NONE, false))
+                val t = when (lc) {
+                    '\u0301', '́' -> VTone.ACUTE
+                    '\u0300', '̀' -> VTone.GRAVE
+                    '\u0309', '̉' -> VTone.HOOK
+                    '\u0303', '̃' -> VTone.TILDE
+                    '\u0323', '̣' -> VTone.DOT
+                    else -> VTone.NONE
                 }
+                toggleTone(t)
                 continue
             }
 

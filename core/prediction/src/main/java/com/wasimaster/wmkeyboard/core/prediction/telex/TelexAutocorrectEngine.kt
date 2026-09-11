@@ -15,6 +15,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
+import java.text.Normalizer
 
 /**
  * Data class representing a correction candidate for Vietnamese Telex input.
@@ -315,6 +316,128 @@ class TelexAutocorrectEngine private constructor() {
     @Synchronized
     fun initialize(context: Context) {
         initialize(context.assets, context.filesDir)
+    }
+
+    /**
+     * Converts a Vietnamese word or composing buffer (which may contain precomposed
+     * characters or combining tone marks from flick gestures) into a canonical Telex
+     * keystroke sequence (e.g. "chao\u0300" -> "chaof", "toán" -> "toans", "tuệ" -> "tueej").
+     */
+    fun toCanonicalTelex(input: String): String {
+        if (input.isEmpty()) return ""
+        val normalized = Normalizer.normalize(input, Normalizer.Form.NFD)
+        val sb = StringBuilder()
+        var toneChar: Char? = null
+
+        var i = 0
+        while (i < normalized.length) {
+            val ch = normalized[i]
+            val lc = ch.lowercaseChar()
+            when (lc) {
+                // Diacritical tone marks in NFD
+                '\u0301' -> toneChar = 's' // sắc (acute)
+                '\u0300' -> toneChar = 'f' // huyền (grave)
+                '\u0309' -> toneChar = 'r' // hỏi (hook)
+                '\u0303' -> toneChar = 'x' // ngã (tilde)
+                '\u0323' -> toneChar = 'j' // nặng (dot below)
+                '\u0302' -> {
+                    // Circumflex: double the previous vowel ('a'->'aa', 'e'->'ee', 'o'->'oo')
+                    val prev = sb.lastOrNull()?.lowercaseChar()
+                    if (prev in "aeo") sb.append(prev)
+                }
+                '\u0306' -> sb.append('w') // Breve: 'a' + 'w' -> 'aw'
+                '\u031b' -> sb.append('w') // Horn: 'o' or 'u' + 'w' -> 'ow' or 'uw'
+                'đ' -> sb.append("dd")
+                'Đ' -> sb.append("DD")
+                else -> {
+                    // Precomposed tones or direct popup/flick marks
+                    when (ch) {
+                        '́' -> toneChar = 's'
+                        '̀' -> toneChar = 'f'
+                        '̉' -> toneChar = 'r'
+                        '̃' -> toneChar = 'x'
+                        '̣' -> toneChar = 'j'
+                        else -> sb.append(ch)
+                    }
+                }
+            }
+            i++
+        }
+        if (toneChar != null) {
+            sb.append(toneChar)
+        }
+        return sb.toString()
+    }
+
+    /**
+     * Predicts the most likely next Vietnamese words given the previous words context.
+     * Prioritizes binary NgramPack (.wmng) before falling back to in-memory JSON bigrams/trigrams.
+     */
+    fun predictNextWords(
+        previousWord: String?,
+        previousWord2: String? = null,
+        maxResults: Int = 3
+    ): List<String> {
+        if (!isReady || previousWord.isNullOrBlank()) return emptyList()
+        val prev1 = previousWord.trim().lowercase()
+        val prev2 = previousWord2?.trim()?.lowercase()
+
+        val results = LinkedHashSet<String>()
+
+        // 1. Trigrams from binary NgramPack
+        if (!prev2.isNullOrBlank() && !languageModel.ngramPack.isEmpty) {
+            val triCandidates = languageModel.ngramPack.nextWordsAfter(prev2, prev1, maxResults)
+            for (w in triCandidates) {
+                results.add(w)
+                if (results.size >= maxResults) return results.toList()
+            }
+        }
+
+        // 2. Trigrams from in-memory fallback
+        if (!prev2.isNullOrBlank()) {
+            val trigramMap = languageModel.trigrams["$prev2 $prev1"]
+            if (trigramMap != null) {
+                val sorted = trigramMap.entries.sortedByDescending { it.value }.map { it.key }
+                for (w in sorted) {
+                    results.add(w)
+                    if (results.size >= maxResults) return results.toList()
+                }
+            }
+        }
+
+        // 3. Bigrams from binary NgramPack
+        if (!languageModel.ngramPack.isEmpty) {
+            val biCandidates = languageModel.ngramPack.nextWords(prev1, maxResults)
+            for (w in biCandidates) {
+                results.add(w)
+                if (results.size >= maxResults) return results.toList()
+            }
+        }
+
+        // 4. Bigrams from in-memory fallback
+        val bigramMap = languageModel.bigrams[prev1]
+        if (bigramMap != null) {
+            val sorted = bigramMap.entries.sortedByDescending { it.value }.map { it.key }
+            for (w in sorted) {
+                results.add(w)
+                if (results.size >= maxResults) return results.toList()
+            }
+        }
+
+        return results.toList()
+    }
+
+    /**
+     * Finds Vietnamese word completions matching a prefix (e.g. "việ" -> ["việt", "việc", ...]).
+     */
+    fun findCompletions(prefix: String, maxResults: Int = 5): List<String> {
+        if (!isReady || prefix.isBlank()) return emptyList()
+        val clean = prefix.trim().lowercase()
+        return languageModel.unigrams.entries
+            .filter { it.key.startsWith(clean) && it.key != clean }
+            .sortedByDescending { it.value }
+            .take(maxResults)
+            .map { it.key }
     }
 
     /**

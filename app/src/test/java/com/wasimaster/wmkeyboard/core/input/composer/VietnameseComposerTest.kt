@@ -174,12 +174,18 @@ class VietnameseComposerTest {
     @Test
     fun testDirectToneMarks() {
         val c = VietnameseTelexComposer
+        // Tone after syllable
         assertEquals("chào", c.composeBuffer("chao\u0300"))
         assertEquals("chào", c.composeBuffer("chaò"))
         assertEquals("cháo", c.composeBuffer("chao\u0301"))
         assertEquals("chảo", c.composeBuffer("chao\u0309"))
         assertEquals("chão", c.composeBuffer("chao\u0303"))
         assertEquals("chạo", c.composeBuffer("chao\u0323"))
+
+        // Free tone placement: tone before vowel
+        assertEquals("à", c.composeBuffer("\u0300a"))
+        assertEquals("toán", c.composeBuffer("\u0301toan"))
+        assertEquals("toán", c.composeBuffer("toan\u0301"))
     }
 
     @Test
