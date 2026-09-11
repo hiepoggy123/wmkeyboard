@@ -342,8 +342,13 @@ class TelexAutocorrectEngine private constructor() {
                 '\u0323' -> toneChar = 'j' // nặng (dot below)
                 '\u0302' -> {
                     // Circumflex: double the previous vowel ('a'->'aa', 'e'->'ee', 'o'->'oo')
-                    val prev = sb.lastOrNull()?.lowercaseChar()
-                    if (prev in "aeo") sb.append(prev)
+                    val lastChar = sb.lastOrNull()
+                    if (lastChar != null) {
+                        val prev = lastChar.lowercaseChar()
+                        if (prev == 'a' || prev == 'e' || prev == 'o') {
+                            sb.append(prev)
+                        }
+                    }
                 }
                 '\u0306' -> sb.append('w') // Breve: 'a' + 'w' -> 'aw'
                 '\u031b' -> sb.append('w') // Horn: 'o' or 'u' + 'w' -> 'ow' or 'uw'
@@ -363,9 +368,7 @@ class TelexAutocorrectEngine private constructor() {
             }
             i++
         }
-        if (toneChar != null) {
-            sb.append(toneChar)
-        }
+        toneChar?.let { sb.append(it) }
         return sb.toString()
     }
 
