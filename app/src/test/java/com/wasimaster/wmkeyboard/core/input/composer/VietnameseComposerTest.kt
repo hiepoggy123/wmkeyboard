@@ -188,4 +188,46 @@ class VietnameseComposerTest {
         assertEquals("Việt", c.composeBuffer("Viet65"))
         assertEquals("Tiếng", c.composeBuffer("Tieng61"))
     }
+
+    @Test
+    fun testFlickVowelAndConsonantMarks() {
+        val c = VietnameseTelexComposer
+        // Flick on base key: base key + mark replaces base key with marked letter
+        assertEquals("câ", c.composeBuffer("caâ"))
+        assertEquals("că", c.composeBuffer("caă"))
+        assertEquals("mê", c.composeBuffer("meê"))
+        assertEquals("đ", c.composeBuffer("dđ"))
+        assertEquals("dô", c.composeBuffer("doô"))
+        assertEquals("dơ", c.composeBuffer("doơ"))
+        assertEquals("mư", c.composeBuffer("muư"))
+
+        // Direct flick without preceding tap
+        assertEquals("â", c.composeBuffer("â"))
+        assertEquals("đường", c.composeBuffer("đương\u0300"))
+    }
+
+    @Test
+    fun testPureFlickMode() {
+        val c = VietnameseTelexComposer
+        c.pureFlickMode = true
+        try {
+            // Telex keystrokes MUST NOT transliterate in pure flick mode
+            assertEquals("as", c.composeBuffer("as"))
+            assertEquals("af", c.composeBuffer("af"))
+            assertEquals("aa", c.composeBuffer("aa"))
+            assertEquals("aw", c.composeBuffer("aw"))
+            assertEquals("ee", c.composeBuffer("ee"))
+            assertEquals("oo", c.composeBuffer("oo"))
+            assertEquals("dd", c.composeBuffer("dd"))
+            assertEquals("test", c.composeBuffer("test"))
+            assertEquals("best", c.composeBuffer("best"))
+
+            // But flick marks and flick tones still work 100%
+            assertEquals("câ", c.composeBuffer("caâ"))
+            assertEquals("cả", c.composeBuffer("ca\u0309"))
+            assertEquals("chào", c.composeBuffer("chao\u0300"))
+        } finally {
+            c.pureFlickMode = false
+        }
+    }
 }

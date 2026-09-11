@@ -20,6 +20,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.wasimaster.wmkeyboard.core.layout.FlickDirection
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
 import com.wasimaster.wmkeyboard.core.settings.BackspaceSwipeUnit
@@ -178,12 +179,46 @@ internal fun TypingSettings(
                 onNavigate("typing/hardware")
             }
         }
+        item {
+            NavRow(
+                R.string.vietnamese_flick_group_title,
+                stringResource(R.string.vietnamese_flick_enabled_subtitle),
+                route = "typing/vietnamese_flick",
+            ) {
+                onNavigate("typing/vietnamese_flick")
+            }
+        }
     }
 
-
-
-
-
+    SettingsGroup(stringResource(R.string.vietnamese_flick_group_title)) {
+        item {
+            ToggleSetting(
+                R.string.vietnamese_flick_enabled_title,
+                stringResource(R.string.vietnamese_flick_enabled_subtitle),
+                settings.vietnameseFlick.enabled,
+                default = SettingsDefaults.vietnameseFlick.enabled,
+            ) { scope.launch { repository.setVietnameseFlickEnabled(it) } }
+        }
+        if (settings.vietnameseFlick.enabled) {
+            item {
+                ToggleSetting(
+                    R.string.vietnamese_flick_pure_mode_title,
+                    stringResource(R.string.vietnamese_flick_pure_mode_subtitle),
+                    settings.vietnameseFlick.pureFlickMode,
+                    default = SettingsDefaults.vietnameseFlick.pureFlickMode,
+                ) { scope.launch { repository.setVietnameseFlickPureMode(it) } }
+            }
+            item {
+                NavRow(
+                    R.string.vietnamese_flick_directions_header,
+                    stringResource(R.string.vietnamese_flick_pick_direction),
+                    route = "typing/vietnamese_flick",
+                ) {
+                    onNavigate("typing/vietnamese_flick")
+                }
+            }
+        }
+    }
     SettingsGroup(stringResource(R.string.typing_group_backspace_title)) {
         item {
             ToggleSetting(
@@ -2025,3 +2060,182 @@ private fun suggestionHotkeyDescRes(mode: SuggestionHotkeyMode): Int = when (mod
     SuggestionHotkeyMode.LEADER_DIGIT -> R.string.typing_hw_suggestion_hotkeys_leader_desc
     SuggestionHotkeyMode.ALT_DIGIT -> R.string.typing_hw_suggestion_hotkeys_alt_desc
 }
+
+@Composable
+private fun FlickDirChoice(
+    @StringRes titleRes: Int,
+    key: String,
+    selected: FlickDirection,
+    default: FlickDirection,
+    repository: SettingsRepository,
+) {
+    val scope = rememberCoroutineScope()
+    val upLabel = stringResource(R.string.vietnamese_flick_direction_up)
+    val downLabel = stringResource(R.string.vietnamese_flick_direction_down)
+    val leftLabel = stringResource(R.string.vietnamese_flick_direction_left)
+    val rightLabel = stringResource(R.string.vietnamese_flick_direction_right)
+    ChoiceSetting(
+        title = stringResource(titleRes),
+        options = listOf(
+            FlickDirection.UP to upLabel,
+            FlickDirection.DOWN to downLabel,
+            FlickDirection.LEFT to leftLabel,
+            FlickDirection.RIGHT to rightLabel,
+        ),
+        selected = selected,
+        default = default,
+        onChange = { scope.launch { repository.setVietnameseFlickDirection(key, it) } },
+    )
+}
+
+@Composable
+internal fun TypingVietnameseFlickSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+) {
+    val scope = rememberCoroutineScope()
+    val flick = settings.vietnameseFlick
+    val defaults = SettingsDefaults.vietnameseFlick
+
+    SettingsGroup(stringResource(R.string.vietnamese_flick_group_title)) {
+        item {
+            ToggleSetting(
+                R.string.vietnamese_flick_enabled_title,
+                stringResource(R.string.vietnamese_flick_enabled_subtitle),
+                flick.enabled,
+                default = defaults.enabled,
+            ) { scope.launch { repository.setVietnameseFlickEnabled(it) } }
+        }
+        if (flick.enabled) {
+            item {
+                ToggleSetting(
+                    R.string.vietnamese_flick_pure_mode_title,
+                    stringResource(R.string.vietnamese_flick_pure_mode_subtitle),
+                    flick.pureFlickMode,
+                    default = defaults.pureFlickMode,
+                ) { scope.launch { repository.setVietnameseFlickPureMode(it) } }
+            }
+        }
+    }
+
+    if (flick.enabled) {
+        SettingsGroup(stringResource(R.string.vietnamese_flick_directions_header)) {
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_a_circumflex,
+                    "a_circumflex",
+                    flick.dirA_Circumflex,
+                    defaults.dirA_Circumflex,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_a_breve,
+                    "a_breve",
+                    flick.dirA_Breve,
+                    defaults.dirA_Breve,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_e_circumflex,
+                    "e_circumflex",
+                    flick.dirE_Circumflex,
+                    defaults.dirE_Circumflex,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_d_stroke,
+                    "d_stroke",
+                    flick.dirD_Stroke,
+                    defaults.dirD_Stroke,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_o_circumflex,
+                    "o_circumflex",
+                    flick.dirO_Circumflex,
+                    defaults.dirO_Circumflex,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_o_horn,
+                    "o_horn",
+                    flick.dirO_Horn,
+                    defaults.dirO_Horn,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_u_horn,
+                    "u_horn",
+                    flick.dirU_Horn,
+                    defaults.dirU_Horn,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_tone_acute,
+                    "tone_acute",
+                    flick.dirTone_Acute,
+                    defaults.dirTone_Acute,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_tone_grave,
+                    "tone_grave",
+                    flick.dirTone_Grave,
+                    defaults.dirTone_Grave,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_tone_hook,
+                    "tone_hook",
+                    flick.dirTone_Hook,
+                    defaults.dirTone_Hook,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_tone_tilde,
+                    "tone_tilde",
+                    flick.dirTone_Tilde,
+                    defaults.dirTone_Tilde,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_tone_dot,
+                    "tone_dot",
+                    flick.dirTone_Dot,
+                    defaults.dirTone_Dot,
+                    repository,
+                )
+            }
+            item {
+                ActionRow(
+                    title = R.string.vietnamese_flick_reset_title,
+                    subtitle = null,
+                    action = stringResource(CommonR.string.common_reset),
+                ) { scope.launch { repository.resetVietnameseFlickDirections() } }
+            }
+        }
+    }
+}
+

@@ -9029,7 +9029,8 @@ internal fun Key?.startsLayerDrag(): Boolean =
  * the octopus leave the stroke alone. Asked at the down, where the answer
  * cannot change again.
  */
-internal fun Key?.ownsDrag(): Boolean = startsChordDrag() || startsLayerDrag()
+internal fun Key?.ownsDrag(): Boolean =
+    startsChordDrag() || startsLayerDrag() || (this?.action == KeyAction.Text && this.flick.isNotEmpty())
 
 /**
  * Whether lifting on this key during a layer peek types it (issue #108).
@@ -13496,6 +13497,15 @@ private fun FlickCrossPopup(key: Key, active: FlickDirection?, fontScale: Float)
     }
 }
 
+private fun displayFlickText(raw: String): String = when (raw) {
+    "\u0301" -> "◌́"
+    "\u0300" -> "◌̀"
+    "\u0309" -> "◌̉"
+    "\u0303" -> "◌̃"
+    "\u0323" -> "◌̣"
+    else -> raw
+}
+
 /** One chip of the flick cross: an empty/absent arm draws nothing. */
 @Composable
 private fun BoxScope.FlickCell(
@@ -13518,7 +13528,7 @@ private fun BoxScope.FlickCell(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = text,
+            text = displayFlickText(text),
             fontSize = (20 * fontScale).sp,
             color = if (highlighted) kb.keyText else kb.popupText,
         )
@@ -13915,7 +13925,7 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
             // is the mirror (issue #33) — this one key keeps its hint on a board
             // whose global toggle is off. hideHint wins if a file sets both.
             val hintIcon = if (key.hideHint) null else KeyIcons.byName(key.iconHint)
-            val hint = if (key.hideHint) null else key.longPress.firstOrNull()
+            val hint = if (key.hideHint) null else key.longPress.firstOrNull() ?: key.flick.values.firstOrNull()?.let { displayFlickText(it) }
             val showHints = settings.longPressHints || key.forceHint
             // A theme may name the hint colour outright (issue #72); otherwise
             // it is the label colour faded, so it follows a per-key override
@@ -13953,7 +13963,7 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                         .padding(top = 1.dp, end = 4.dp)
                         .size((11f * fontScale * settings.layoutBehavior.hintFontScale).dp),
                 )
-                showHints && key.opensAlternatesPopup() && hint != null -> Text(
+                showHints && (key.opensAlternatesPopup() || key.flick.isNotEmpty()) && hint != null -> Text(
                     text = hint,
                     modifier = Modifier
                         .align(Alignment.TopEnd)

@@ -147,6 +147,7 @@ import com.wasimaster.wmkeyboard.core.prediction.LearningBuffer
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
 import com.wasimaster.wmkeyboard.core.prediction.topWords
 import com.wasimaster.wmkeyboard.core.prediction.PendingLearn
+import com.wasimaster.wmkeyboard.core.input.composer.VietnameseTelexComposer
 import com.wasimaster.wmkeyboard.core.prediction.SecondaryDictionary
 import com.wasimaster.wmkeyboard.core.prediction.SeedBigrams
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
@@ -2081,6 +2082,8 @@ open class WMKeyboardService : InputMethodService() {
                     updateScreenshotObserver(settings.clipboard.userScreenshots)
                 }
                 if (!settings.floatingKeyboard) floatingPanelBounds = null
+                VietnameseTelexComposer.pureFlickMode =
+                    settings.vietnameseFlick.enabled && settings.vietnameseFlick.pureFlickMode
                 if (settings.contactSuggestions != contactsEnabled) {
                     contactsEnabled = settings.contactSuggestions
                     if (settings.contactSuggestions) {
@@ -2203,6 +2206,7 @@ open class WMKeyboardService : InputMethodService() {
                             form,
                             modeSettings.numberRow,
                             modeSettings.customLayouts,
+                            modeSettings.vietnameseFlick,
                         ),
                         activeModeId = mode?.id,
                     )
@@ -3441,6 +3445,7 @@ open class WMKeyboardService : InputMethodService() {
                     deviceForm.value,
                     modeSettings.numberRow,
                     modeSettings.customLayouts,
+                    modeSettings.vietnameseFlick,
                 ),
                 activeModeId = activeMode?.id,
                 activeSymbolSetId = null,
@@ -5275,9 +5280,14 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     private fun keyOutput(key: Key, state: KeyboardUiState): String {
-        val base = key.output ?: key.label
+        val keyOut = key.output
+        val base = keyOut ?: key.label
         val shiftLabel = key.shiftLabel
         val out = when {
+            keyOut != null -> {
+                if (state.shiftState != ShiftState.OFF) keyOut.uppercase()
+                else keyOut
+            }
             state.shiftState != ShiftState.OFF && shiftLabel != null -> shiftLabel
             state.shiftState != ShiftState.OFF && !state.composer.isClusterShaping ->
                 base.uppercase()
@@ -6889,14 +6899,41 @@ open class WMKeyboardService : InputMethodService() {
      * short-circuits on identity, and the settings flow hands back the same
      * instance until something actually changes.
      */
+    private fun applyVietnameseFlick(
+        layout: KeyboardLayout,
+        flick: com.wasimaster.wmkeyboard.core.settings.VietnameseFlickSettings,
+    ): KeyboardLayout {
+        if (!flick.enabled) return layout
+        val newRows = layout.rows.map { row ->
+            row.map { key ->
+                val newFlick: Map<com.wasimaster.wmkeyboard.core.layout.FlickDirection, String>? = when (key.label.lowercase()) {
+                    "a" -> mapOf(flick.dirA_Circumflex to "â", flick.dirA_Breve to "ă")
+                    "e" -> mapOf(flick.dirE_Circumflex to "ê")
+                    "d" -> mapOf(flick.dirD_Stroke to "đ")
+                    "o" -> mapOf(flick.dirO_Circumflex to "ô", flick.dirO_Horn to "ơ")
+                    "u" -> mapOf(flick.dirU_Horn to "ư")
+                    "s" -> mapOf(flick.dirTone_Acute to "\u0301")
+                    "f" -> mapOf(flick.dirTone_Grave to "\u0300")
+                    "r" -> mapOf(flick.dirTone_Hook to "\u0309")
+                    "x" -> mapOf(flick.dirTone_Tilde to "\u0303")
+                    "j" -> mapOf(flick.dirTone_Dot to "\u0323")
+                    else -> null
+                }
+                if (newFlick != null) key.copy(flick = newFlick) else key
+            }
+        }
+        return layout.copy(rows = newRows)
+    }
+
     private fun resolveLayoutSet(
         spec: LayoutSpec,
         fieldKind: FieldKind,
         form: DeviceForm,
         numberRowShown: Boolean,
         customs: List<LayoutSpec>,
+        vietnameseFlick: com.wasimaster.wmkeyboard.core.settings.VietnameseFlickSettings? = null,
     ): LayoutSet {
-        val key = LayoutSetKey(spec.id, fieldKind, form, numberRowShown)
+        val key = LayoutSetKey(spec.id, fieldKind, form, numberRowShown, vietnameseFlick)
         // The secondary grids ride along by reference, so an edit to one of
         // them — which re-decodes the custom list — misses the cache too.
         val secondaries = secondaryGrids(customs)
@@ -6911,12 +6948,18 @@ open class WMKeyboardService : InputMethodService() {
         // not a keypad any more.
         val expand = form.isTablet && safe.tabletExpand
         val gridWidth = if (expand) tabletGridWidth(letters, form) else null
+        val expandedLetters = if (gridWidth != null) {
+            letters.expandForTablet(form, numberRowShown)
+        } else {
+            letters
+        }
+        val finalLetters = if (vietnameseFlick != null && spec.id == AssetLayouts.VI_TELEX_ID) {
+            applyVietnameseFlick(expandedLetters, vietnameseFlick)
+        } else {
+            expandedLetters
+        }
         val set = LayoutSet(
-            letters = if (gridWidth != null) {
-                letters.expandForTablet(form, numberRowShown)
-            } else {
-                letters
-            },
+            letters = finalLetters,
             symbols = safe.compile(LayoutLayer.SYMBOLS),
             symbolsShifted = safe.compile(LayoutLayer.SYMBOLS_SHIFTED),
             // Only when the layout actually defines one: compile() falls back
@@ -6953,7 +6996,8 @@ open class WMKeyboardService : InputMethodService() {
         val layoutId: String,
         val fieldKind: FieldKind,
         val form: DeviceForm,
-        val numberRowShown: Boolean,
+        val numberRow: Boolean,
+        val vietnameseFlick: com.wasimaster.wmkeyboard.core.settings.VietnameseFlickSettings? = null,
     )
 
     private val layoutSetCache = HashMap<LayoutSetKey, Pair<LayoutSpec, LayoutSet>>()
@@ -7025,6 +7069,7 @@ open class WMKeyboardService : InputMethodService() {
                     deviceForm.value,
                     it.settings.numberRow,
                     it.settings.customLayouts,
+                    it.settings.vietnameseFlick,
                 ),
                 layoutMode = LayoutMode.LETTERS,
             )
@@ -7489,7 +7534,11 @@ open class WMKeyboardService : InputMethodService() {
                     typed
                 } else if (autocorrect && state.allowsTypingIntelligence && pre != null && pre.isTelex) {
                     pre.telexTop
-                } else if (autocorrect && state.allowsTypingIntelligence && composed.length >= 3 && typed.length >= 3) {
+                } else if (
+                    autocorrect && state.allowsTypingIntelligence &&
+                    composed.length >= 3 && typed.length >= 3 &&
+                    (!VietnameseTelexComposer.pureFlickMode || composed != typed)
+                ) {
                     val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
                     val isComposedValid = TelexAutocorrectEngine.getInstance().isWordInDictionary(composed) || isUserLearned
                     if (isComposedValid) {

@@ -584,6 +584,15 @@ private fun SettingsNavGraph(
                 TypingHardwareSettings(repository, settings, onOpenHardwareShortcuts = { navController.navigate("hwshortcuts") })
             }
         }
+        composable("typing/vietnamese_flick") {
+            SettingsScreen(
+                stringResource(R.string.vietnamese_flick_group_title),
+                { navController.popBackStack() },
+                route = "typing/vietnamese_flick",
+            ) {
+                TypingVietnameseFlickSettings(repository, settings)
+            }
+        }
         composable("keypress") {
             SettingsScreen(
                 stringResource(R.string.home_keypress_title),

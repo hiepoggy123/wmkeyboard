@@ -40,30 +40,83 @@ internal object VietnameseEngine {
         VMark.STROKE -> if (base == 'd') 'đ' else base
     }
 
-    /** The index of the tone-bearing vowel, or -1 if the syllable has no vowel. */
+    /** The index of the tone-bearing vowel, or -1 if the syllable has no vowel. Zero heap allocations. */
     private fun nucleus(letters: List<VLetter>): Int {
-        val vowels = letters.indices.filter { isVowel(letters[it].base) }.toMutableList()
+        if (letters.isEmpty()) return -1
+        var vCount = 0
+        var v0 = -1
+        var v1 = -1
+        var v2 = -1
+        var v3 = -1
+        var v4 = -1
+        var markedIdx = -1
+
+        for (i in letters.indices) {
+            if (isVowel(letters[i].base)) {
+                when (vCount) {
+                    0 -> v0 = i
+                    1 -> v1 = i
+                    2 -> v2 = i
+                    3 -> v3 = i
+                    4 -> v4 = i
+                }
+                vCount++
+                if (letters[i].mark != VMark.NONE) {
+                    markedIdx = i
+                }
+            }
+        }
+        if (vCount == 0) return -1
+
         // qu- and gi- onsets: the u / i is a glide, not the nucleus, unless it is
         // the syllable's only vowel.
-        if (letters.size >= 2 && letters[0].base == 'q' && letters[1].base == 'u' &&
-            vowels.any { it > 1 }
-        ) vowels.remove(1)
-        if (letters.size >= 2 && letters[0].base == 'g' && letters[1].base == 'i' &&
-            vowels.any { it > 1 }
-        ) vowels.remove(1)
-        if (vowels.isEmpty()) return -1
-        vowels.lastOrNull { letters[it].mark != VMark.NONE }?.let { return it }
-        if (vowels.size == 1) return vowels[0]
-        val last = vowels.last()
-        val hasCoda = (last + 1..letters.lastIndex).any { !isVowel(letters[it].base) }
+        if (letters.size >= 2 && vCount > 1) {
+            val b0 = letters[0].base
+            val b1 = letters[1].base
+            if ((b0 == 'q' && b1 == 'u' && v0 == 1) || (b0 == 'g' && b1 == 'i' && v0 == 1)) {
+                v0 = v1
+                v1 = v2
+                v2 = v3
+                v3 = v4
+                vCount--
+                if (markedIdx == 1) markedIdx = -1
+            }
+        }
+
+        if (vCount == 0) return -1
+        if (markedIdx >= 0) return markedIdx
+        if (vCount == 1) return v0
+
+        val last = when (vCount) {
+            2 -> v1
+            3 -> v2
+            4 -> v3
+            else -> v4
+        }
+
+        var hasCoda = false
+        for (i in (last + 1)..letters.lastIndex) {
+            if (!isVowel(letters[i].base)) {
+                hasCoda = true
+                break
+            }
+        }
         if (hasCoda) return last
-        if (vowels.size >= 3) return vowels[vowels.size - 2]
-        val a = letters[vowels[0]].base
-        val b = letters[vowels[1]].base
+
+        if (vCount >= 3) {
+            return when (vCount) {
+                3 -> v1
+                4 -> v2
+                else -> v3
+            }
+        }
+
+        val a = letters[v0].base
+        val b = letters[v1].base
         return if ((a == 'o' && b == 'a') || (a == 'o' && b == 'e') || (a == 'u' && b == 'y')) {
-            vowels[1]
+            v1
         } else {
-            vowels[0]
+            v0
         }
     }
 
@@ -93,7 +146,20 @@ internal object VietnameseEngine {
         return false
     }
 
-    fun transduce(raw: String, vni: Boolean): String {
+    private fun handleFlickMark(letters: ArrayList<VLetter>, base: Char, mark: VMark, upper: Boolean) {
+        val last = letters.lastOrNull()
+        if (last != null && last.base == base) {
+            if (last.mark == mark) {
+                last.mark = VMark.NONE
+            } else {
+                last.mark = mark
+            }
+        } else {
+            letters.add(VLetter(base, mark, upper))
+        }
+    }
+
+    fun transduce(raw: String, vni: Boolean, pureFlick: Boolean = false): String {
         val letters = ArrayList<VLetter>()
         var tone = VTone.NONE
 
@@ -116,6 +182,29 @@ internal object VietnameseEngine {
         for ((idx, ch) in raw.withIndex()) {
             val upper = ch.isUpperCase()
             val lc = ch.lowercaseChar()
+
+            // Direct tone marks (from Flick gesture, Tone Popup or unicode diacritics)
+            if (lc in "\u0301́\u0300̀\u0309̉\u0303̃\u0323̣") {
+                when (lc) {
+                    '\u0301', '́' -> if (hasVowel()) toggleTone(VTone.ACUTE) else letters.add(VLetter('́', VMark.NONE, false))
+                    '\u0300', '̀' -> if (hasVowel()) toggleTone(VTone.GRAVE) else letters.add(VLetter('̀', VMark.NONE, false))
+                    '\u0309', '̉' -> if (hasVowel()) toggleTone(VTone.HOOK) else letters.add(VLetter('̉', VMark.NONE, false))
+                    '\u0303', '̃' -> if (hasVowel()) toggleTone(VTone.TILDE) else letters.add(VLetter('̃', VMark.NONE, false))
+                    '\u0323', '̣' -> if (hasVowel()) toggleTone(VTone.DOT) else letters.add(VLetter('̣', VMark.NONE, false))
+                }
+                continue
+            }
+
+            // Precomposed vowel marks and đ from flick gestures
+            when (lc) {
+                'ă' -> { handleFlickMark(letters, 'a', VMark.BREVE, upper); continue }
+                'â' -> { handleFlickMark(letters, 'a', VMark.CIRCUMFLEX, upper); continue }
+                'ê' -> { handleFlickMark(letters, 'e', VMark.CIRCUMFLEX, upper); continue }
+                'ô' -> { handleFlickMark(letters, 'o', VMark.CIRCUMFLEX, upper); continue }
+                'ơ' -> { handleFlickMark(letters, 'o', VMark.HORN, upper); continue }
+                'ư' -> { handleFlickMark(letters, 'u', VMark.HORN, upper); continue }
+                'đ' -> { handleFlickMark(letters, 'd', VMark.STROKE, upper); continue }
+            }
             if (vni) {
                 when (lc) {
                     '1' -> {
@@ -147,6 +236,12 @@ internal object VietnameseEngine {
                 letters.add(VLetter(lc, VMark.NONE, upper))
                 continue
             }
+            if (pureFlick) {
+                // Pure flick mode: tap NEVER mutates or transliterates. 100% plain Latin text.
+                letters.add(VLetter(lc, VMark.NONE, upper))
+                continue
+            }
+
             // Telex
             when (lc) {
                 's', 'f', 'r', 'x', 'j' -> {
@@ -221,12 +316,6 @@ internal object VietnameseEngine {
                         letters.add(VLetter('d', VMark.NONE, upper))
                     }
                 }
-                // Direct tone marks (from Tone Popup or unicode diacritics)
-                '\u0301', '́' -> { if (hasVowel()) tone = VTone.ACUTE else letters.add(VLetter('́', VMark.NONE, false)); continue }
-                '\u0300', '̀' -> { if (hasVowel()) tone = VTone.GRAVE else letters.add(VLetter('̀', VMark.NONE, false)); continue }
-                '\u0309', '̉' -> { if (hasVowel()) tone = VTone.HOOK else letters.add(VLetter('̉', VMark.NONE, false)); continue }
-                '\u0303', '̃' -> { if (hasVowel()) tone = VTone.TILDE else letters.add(VLetter('̃', VMark.NONE, false)); continue }
-                '\u0323', '̣' -> { if (hasVowel()) tone = VTone.DOT else letters.add(VLetter('̣', VMark.NONE, false)); continue }
                 else -> letters.add(VLetter(lc, VMark.NONE, upper))
             }
         }
@@ -236,11 +325,12 @@ internal object VietnameseEngine {
 
 /** Vietnamese Telex: letters spell the diacritics (`as`→á, `aw`→ă, `dd`→đ). */
 object VietnameseTelexComposer : Composer {
+    var pureFlickMode: Boolean = false
     override val isTransliterating: Boolean get() = true
     override val isVietnameseTelex: Boolean get() = true
     override fun buffersChar(c: Char): Boolean = c in "\u0301\u0300\u0309\u0303\u0323"
     override fun isPlausibleWord(word: String): Boolean = VietnameseOrthography.isSyllable(word)
-    override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = false)
+    override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = false, pureFlick = pureFlickMode)
 }
 
 /** Vietnamese VNI: digits spell the diacritics (`a8`→ă, `a1`→á, `d9`→đ). */
