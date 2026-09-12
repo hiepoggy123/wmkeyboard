@@ -237,7 +237,6 @@ private fun CameraContent(
     onSend: (File) -> Unit,
     onClose: () -> Unit,
 ) {
-    val kb = LocalKbTheme.current
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
@@ -245,7 +244,7 @@ private fun CameraContent(
     val provider by produceState<ProcessCameraProvider?>(null) {
         value = withContext(Dispatchers.IO) { ProcessCameraProvider.getInstance(context).get() }
     }
-    var frontFacing by remember { mutableStateOf(state.settings.camera.preferFront) }
+    val frontFacing = remember { mutableStateOf(state.settings.camera.preferFront) }
     var flashMode by remember { mutableIntStateOf(ImageCapture.FLASH_MODE_OFF) }
     // Seeded from the stored value and written back on every change, so a
     // habitual three-second user stops re-picking it on every open.
@@ -324,7 +323,7 @@ private fun CameraContent(
     val hasFront = provider?.hasCameraSafe(CameraSelector.DEFAULT_FRONT_CAMERA) == true
     val hasBack = provider?.hasCameraSafe(CameraSelector.DEFAULT_BACK_CAMERA) == true
     val selector = when {
-        frontFacing && hasFront -> CameraSelector.DEFAULT_FRONT_CAMERA
+        frontFacing.value && hasFront -> CameraSelector.DEFAULT_FRONT_CAMERA
         hasBack -> CameraSelector.DEFAULT_BACK_CAMERA
         hasFront -> CameraSelector.DEFAULT_FRONT_CAMERA
         else -> null
@@ -657,7 +656,7 @@ private fun CameraContent(
                         active = usingFront,
                     ) {
                         feedback()
-                        frontFacing = !usingFront
+                        frontFacing.value = !usingFront
                     }
                 }
             }
