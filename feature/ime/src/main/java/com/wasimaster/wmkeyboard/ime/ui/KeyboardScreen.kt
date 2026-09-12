@@ -9632,6 +9632,32 @@ internal class KeyPreviewState(
         if (drop(token)) revision++
     }
 
+    /** Updates the displayed label of an already-shown preview bubble (e.g. flicking). */
+    fun updateLabel(token: Any, label: String) {
+        updatePreview(token, label)
+    }
+
+    /** Updates the displayed label and colors of an already-shown preview bubble (e.g. flicking). */
+    fun updatePreview(
+        token: Any,
+        label: String,
+        background: Color? = null,
+        text: Color? = null,
+    ) {
+        val index = shown.indexOfFirst { it.token === token }
+        if (index >= 0) {
+            val current = shown[index]
+            if (current.label != label || current.popupBackground != background || current.popupText != text) {
+                shown[index] = current.copy(
+                    label = label,
+                    popupBackground = background,
+                    popupText = text,
+                )
+                revision++
+            }
+        }
+    }
+
     /**
      * Drops every bubble whose time is up, and returns when the next one is due
      * (uptime millis), or null when nothing is waiting on a clock.
@@ -12721,7 +12747,29 @@ internal fun KeyButton(
                         alternatesHold.open()
                         keyPreview.cancel(previewToken)
                     },
-                    setFlickDirection = { flickDirection.value = it },
+                    setFlickDirection = { dir ->
+                        flickDirection.value = dir
+                        if (previewWanted.value && pressed.value) {
+                            val flickText = dir?.let { key.flick[it] }?.let { displayFlickText(it) }
+                            if (flickText != null) {
+                                val label = if (visual.label.firstOrNull()?.isUpperCase() == true) {
+                                    flickText.uppercase()
+                                } else {
+                                    flickText
+                                }
+                                val flickBg = kb.accent
+                                val flickTextCol = maxContrastOn(flickBg)
+                                keyPreview.updatePreview(previewToken, label, flickBg, flickTextCol)
+                            } else {
+                                keyPreview.updatePreview(
+                                    previewToken,
+                                    previewLabel.value,
+                                    previewColors.value.first,
+                                    previewColors.value.second,
+                                )
+                            }
+                        }
+                    },
                     onKey = debounced,
                     // Repeat ticks bypass the debounce (raw onKey), taps don't.
                     onKeyRepeat = onKey,
@@ -12848,6 +12896,7 @@ internal fun KeyButton(
             alternatesOpen = showAlternates,
             pressed = pressed,
             flickDirection = flickDirection,
+            previewActive = previewWanted.value,
         )
 
         // Tooltip above the spacebar while a swipe is cycling languages: the
@@ -13479,8 +13528,9 @@ private fun KeyFlickPopup(
     alternatesOpen: Boolean,
     pressed: State<Boolean>,
     flickDirection: State<FlickDirection?>,
+    previewActive: Boolean = false,
 ) {
-    if (key.flick.isNotEmpty() && !alternatesOpen && pressed.value) {
+    if (!previewActive && key.flick.isNotEmpty() && !alternatesOpen && pressed.value && flickDirection.value != null) {
         Popup(popupPositionProvider = FlickPopupPositionProvider) {
             FlickCrossPopup(key, flickDirection.value, fontScale)
         }
@@ -14856,7 +14906,10 @@ private fun Modifier.pointerInputKey(
                         dir = resolved
                         setFlickDirection(dir)
                         // Committing to a flick arm cancels the pending long press.
-                        if (dir != null) longJob?.cancel()
+                        if (dir != null) {
+                            longJob?.cancel()
+                            if (hapticOnLongPress) onKeyPress()
+                        }
                     }
                     change.consume()
                 }
