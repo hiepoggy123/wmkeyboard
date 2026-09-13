@@ -19,6 +19,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import com.wasimaster.wmkeyboard.core.layout.FlickDirection
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
@@ -2800,7 +2801,7 @@ internal fun TypingVietnameseFlickSettings(
                 ActionRow(
                     title = R.string.vietnamese_flick_reset_title,
                     subtitle = null,
-                    action = stringResource(com.wasimaster.wmkeyboard.core.common.R.string.common_reset),
+                    action = stringResource(CommonR.string.common_reset),
                 ) { scope.launch { repository.resetVietnameseFlickDirections() } }
             }
         }
