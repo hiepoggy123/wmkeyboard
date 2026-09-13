@@ -416,6 +416,7 @@ import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.ClipboardKeyAction
+import com.wasimaster.wmkeyboard.core.layout.FlickDirection
 import com.wasimaster.wmkeyboard.core.keyman.KeymanRuleStore
 import com.wasimaster.wmkeyboard.core.keyman.ProcessorKey
 import com.wasimaster.wmkeyboard.core.keyman.ProcessorResult
@@ -7879,14 +7880,41 @@ open class WMKeyboardService : InputMethodService() {
      * short-circuits on identity, and the settings flow hands back the same
      * instance until something actually changes.
      */
+    private fun applyVietnameseFlick(
+        layout: KeyboardLayout,
+        flick: VietnameseFlickSettings,
+    ): KeyboardLayout {
+        if (!flick.enabled) return layout
+        val newRows = layout.rows.map { row ->
+            row.map { key ->
+                val newFlick: Map<FlickDirection, String>? = when (key.label.lowercase()) {
+                    "a" -> mapOf(flick.dirA_Circumflex to "â", flick.dirA_Breve to "ă")
+                    "e" -> mapOf(flick.dirE_Circumflex to "ê")
+                    "d" -> mapOf(flick.dirD_Stroke to "đ")
+                    "o" -> mapOf(flick.dirO_Circumflex to "ô", flick.dirO_Horn to "ơ")
+                    "u" -> mapOf(flick.dirU_Horn to "ư")
+                    "s" -> mapOf(flick.dirTone_Acute to "\u0301")
+                    "f" -> mapOf(flick.dirTone_Grave to "\u0300")
+                    "r" -> mapOf(flick.dirTone_Hook to "\u0309")
+                    "x" -> mapOf(flick.dirTone_Tilde to "\u0303")
+                    "j" -> mapOf(flick.dirTone_Dot to "\u0323")
+                    else -> null
+                }
+                if (newFlick != null) key.copy(flick = newFlick) else key
+            }
+        }
+        return layout.copy(rows = newRows)
+    }
+
     private fun resolveLayoutSet(
         spec: LayoutSpec,
         fieldKind: FieldKind,
         form: DeviceForm,
         numberRowShown: Boolean,
         customs: List<LayoutSpec>,
+        vietnameseFlick: VietnameseFlickSettings? = null,
     ): LayoutSet {
-        val key = LayoutSetKey(spec.id, fieldKind, form, numberRowShown)
+        val key = LayoutSetKey(spec.id, fieldKind, form, numberRowShown, vietnameseFlick)
         // The secondary grids ride along by reference, so an edit to one of
         // them — which re-decodes the custom list — misses the cache too.
         val secondaries = secondaryGrids(customs)
@@ -7901,12 +7929,18 @@ open class WMKeyboardService : InputMethodService() {
         // not a keypad any more.
         val expand = form.isTablet && safe.tabletExpand
         val gridWidth = if (expand) tabletGridWidth(letters, form) else null
+        val expandedLetters = if (gridWidth != null) {
+            letters.expandForTablet(form, numberRowShown)
+        } else {
+            letters
+        }
+        val finalLetters = if (vietnameseFlick != null && spec.id == AssetLayouts.VI_TELEX_ID) {
+            applyVietnameseFlick(expandedLetters, vietnameseFlick)
+        } else {
+            expandedLetters
+        }
         val set = LayoutSet(
-            letters = if (gridWidth != null) {
-                letters.expandForTablet(form, numberRowShown)
-            } else {
-                letters
-            },
+            letters = finalLetters,
             symbols = safe.compile(LayoutLayer.SYMBOLS),
             symbolsShifted = safe.compile(LayoutLayer.SYMBOLS_SHIFTED),
             // Only when the layout actually defines one: compile() falls back
@@ -7950,6 +7984,7 @@ open class WMKeyboardService : InputMethodService() {
         val fieldKind: FieldKind,
         val form: DeviceForm,
         val numberRowShown: Boolean,
+        val vietnameseFlick: VietnameseFlickSettings? = null,
     )
 
     private val layoutSetCache = HashMap<LayoutSetKey, Pair<LayoutSpec, LayoutSet>>()
@@ -8021,6 +8056,7 @@ open class WMKeyboardService : InputMethodService() {
                     deviceForm.value,
                     it.settings.numberRow,
                     it.settings.customLayouts,
+                    it.settings.vietnameseFlick,
                 ),
                 layoutMode = LayoutMode.LETTERS,
             )
@@ -12312,6 +12348,7 @@ open class WMKeyboardService : InputMethodService() {
             // that while a composing region is open is how a composition ends
             // up pointing at the wrong span — so it waits for the space rather
             // than risking the word being typed.
+            val undo = undoableCorrection?.typed?.takeIf { typed.isEmpty() }
             val rawWord = if (state.composer.isVietnameseTelex && typed.isNotEmpty()) {
                 state.composer.composeBuffer(typed)
             } else null
