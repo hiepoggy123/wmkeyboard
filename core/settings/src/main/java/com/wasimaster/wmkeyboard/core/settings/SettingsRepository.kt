@@ -2547,6 +2547,8 @@ data class KeyboardSettings(
     val otp: OtpSettings = OtpSettings(),
     /** The backup that writes itself to a folder — see [AutoBackupSettings]. */
     val autoBackup: AutoBackupSettings = AutoBackupSettings(),
+    /** Vietnamese Flick gesture typing and direction mapping — see [VietnameseFlickSettings]. */
+    val vietnameseFlick: VietnameseFlickSettings = VietnameseFlickSettings(),
 )
 
 /**
@@ -6379,6 +6381,27 @@ class SettingsRepository(private val context: Context) {
         private val HF_TOKEN = stringPreferencesKey("hf_token")
         private val AI_SHOW_THINKING = booleanPreferencesKey("ai_show_thinking")
         private val AI_PANEL_MODEL_PICKER = booleanPreferencesKey("ai_panel_model_picker")
+
+        private val VIETNAMESE_FLICK_ENABLED = booleanPreferencesKey("vietnamese_flick_enabled")
+        private val VIETNAMESE_FLICK_PURE_MODE = booleanPreferencesKey("vietnamese_flick_pure_mode")
+        private val VIETNAMESE_FLICK_DIR_A_CIRCUMFLEX = stringPreferencesKey("vietnamese_flick_dir_a_circumflex")
+        private val VIETNAMESE_FLICK_DIR_A_BREVE = stringPreferencesKey("vietnamese_flick_dir_a_breve")
+        private val VIETNAMESE_FLICK_DIR_E_CIRCUMFLEX = stringPreferencesKey("vietnamese_flick_dir_e_circumflex")
+        private val VIETNAMESE_FLICK_DIR_D_STROKE = stringPreferencesKey("vietnamese_flick_dir_d_stroke")
+        private val VIETNAMESE_FLICK_DIR_O_CIRCUMFLEX = stringPreferencesKey("vietnamese_flick_dir_o_circumflex")
+        private val VIETNAMESE_FLICK_DIR_O_HORN = stringPreferencesKey("vietnamese_flick_dir_o_horn")
+        private val VIETNAMESE_FLICK_DIR_U_HORN = stringPreferencesKey("vietnamese_flick_dir_u_horn")
+        private val VIETNAMESE_FLICK_DIR_TONE_ACUTE = stringPreferencesKey("vietnamese_flick_dir_tone_acute")
+        private val VIETNAMESE_FLICK_DIR_TONE_GRAVE = stringPreferencesKey("vietnamese_flick_dir_tone_grave")
+        private val VIETNAMESE_FLICK_DIR_TONE_HOOK = stringPreferencesKey("vietnamese_flick_dir_tone_hook")
+        private val VIETNAMESE_FLICK_DIR_TONE_TILDE = stringPreferencesKey("vietnamese_flick_dir_tone_tilde")
+        private val VIETNAMESE_FLICK_DIR_TONE_DOT = stringPreferencesKey("vietnamese_flick_dir_tone_dot")
+
+        private fun parseFlickDir(
+            raw: String?,
+            default: com.wasimaster.wmkeyboard.core.layout.FlickDirection,
+        ): com.wasimaster.wmkeyboard.core.layout.FlickDirection =
+            raw?.let { runCatching { com.wasimaster.wmkeyboard.core.layout.FlickDirection.valueOf(it) }.getOrNull() } ?: default
     }
 
     /**
@@ -7701,6 +7724,22 @@ class SettingsRepository(private val context: Context) {
                 commonsUrl = p[SELF_HOSTED_COMMONS_URL] ?: defaults.selfHosted.commonsUrl,
                 endpoints = p[SELF_HOSTED_ENDPOINTS]?.let(::decodeEndpointMap) ?: defaults.selfHosted.endpoints,
                 repos = p[SELF_HOSTED_REPOS]?.let(::decodeRepoMap) ?: defaults.selfHosted.repos,
+            ),
+            vietnameseFlick = VietnameseFlickSettings(
+                enabled = p[VIETNAMESE_FLICK_ENABLED] ?: defaults.vietnameseFlick.enabled,
+                pureFlickMode = p[VIETNAMESE_FLICK_PURE_MODE] ?: defaults.vietnameseFlick.pureFlickMode,
+                dirA_Circumflex = parseFlickDir(p[VIETNAMESE_FLICK_DIR_A_CIRCUMFLEX], defaults.vietnameseFlick.dirA_Circumflex),
+                dirA_Breve = parseFlickDir(p[VIETNAMESE_FLICK_DIR_A_BREVE], defaults.vietnameseFlick.dirA_Breve),
+                dirE_Circumflex = parseFlickDir(p[VIETNAMESE_FLICK_DIR_E_CIRCUMFLEX], defaults.vietnameseFlick.dirE_Circumflex),
+                dirD_Stroke = parseFlickDir(p[VIETNAMESE_FLICK_DIR_D_STROKE], defaults.vietnameseFlick.dirD_Stroke),
+                dirO_Circumflex = parseFlickDir(p[VIETNAMESE_FLICK_DIR_O_CIRCUMFLEX], defaults.vietnameseFlick.dirO_Circumflex),
+                dirO_Horn = parseFlickDir(p[VIETNAMESE_FLICK_DIR_O_HORN], defaults.vietnameseFlick.dirO_Horn),
+                dirU_Horn = parseFlickDir(p[VIETNAMESE_FLICK_DIR_U_HORN], defaults.vietnameseFlick.dirU_Horn),
+                dirTone_Acute = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_ACUTE], defaults.vietnameseFlick.dirTone_Acute),
+                dirTone_Grave = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_GRAVE], defaults.vietnameseFlick.dirTone_Grave),
+                dirTone_Hook = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_HOOK], defaults.vietnameseFlick.dirTone_Hook),
+                dirTone_Tilde = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_TILDE], defaults.vietnameseFlick.dirTone_Tilde),
+                dirTone_Dot = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_DOT], defaults.vietnameseFlick.dirTone_Dot),
             ),
         )
     }
@@ -12485,5 +12524,49 @@ class SettingsRepository(private val context: Context) {
         editPrefs {
             it[AI_HISTORY_MAX] =
                 value.coerceIn(AiHistoryStore.MIN_MAX_ITEMS, AiHistoryStore.MAX_ITEMS_CEILING)
+        }
+
+    suspend fun setVietnameseFlickEnabled(enabled: Boolean) =
+        editPrefs { it[VIETNAMESE_FLICK_ENABLED] = enabled }
+
+    suspend fun setVietnameseFlickPureMode(pure: Boolean) =
+        editPrefs { it[VIETNAMESE_FLICK_PURE_MODE] = pure }
+
+    suspend fun setVietnameseFlickDirection(
+        key: String,
+        dir: com.wasimaster.wmkeyboard.core.layout.FlickDirection,
+    ) = editPrefs { prefs ->
+        val prefKey = when (key) {
+            "a_circumflex" -> VIETNAMESE_FLICK_DIR_A_CIRCUMFLEX
+            "a_breve" -> VIETNAMESE_FLICK_DIR_A_BREVE
+            "e_circumflex" -> VIETNAMESE_FLICK_DIR_E_CIRCUMFLEX
+            "d_stroke" -> VIETNAMESE_FLICK_DIR_D_STROKE
+            "o_circumflex" -> VIETNAMESE_FLICK_DIR_O_CIRCUMFLEX
+            "o_horn" -> VIETNAMESE_FLICK_DIR_O_HORN
+            "u_horn" -> VIETNAMESE_FLICK_DIR_U_HORN
+            "tone_acute" -> VIETNAMESE_FLICK_DIR_TONE_ACUTE
+            "tone_grave" -> VIETNAMESE_FLICK_DIR_TONE_GRAVE
+            "tone_hook" -> VIETNAMESE_FLICK_DIR_TONE_HOOK
+            "tone_tilde" -> VIETNAMESE_FLICK_DIR_TONE_TILDE
+            "tone_dot" -> VIETNAMESE_FLICK_DIR_TONE_DOT
+            else -> return@editPrefs
+        }
+        prefs[prefKey] = dir.name
+    }
+
+    suspend fun resetVietnameseFlickDirections() =
+        editPrefs { prefs ->
+            prefs.remove(VIETNAMESE_FLICK_DIR_A_CIRCUMFLEX)
+            prefs.remove(VIETNAMESE_FLICK_DIR_A_BREVE)
+            prefs.remove(VIETNAMESE_FLICK_DIR_E_CIRCUMFLEX)
+            prefs.remove(VIETNAMESE_FLICK_DIR_D_STROKE)
+            prefs.remove(VIETNAMESE_FLICK_DIR_O_CIRCUMFLEX)
+            prefs.remove(VIETNAMESE_FLICK_DIR_O_HORN)
+            prefs.remove(VIETNAMESE_FLICK_DIR_U_HORN)
+            prefs.remove(VIETNAMESE_FLICK_DIR_TONE_ACUTE)
+            prefs.remove(VIETNAMESE_FLICK_DIR_TONE_GRAVE)
+            prefs.remove(VIETNAMESE_FLICK_DIR_TONE_HOOK)
+            prefs.remove(VIETNAMESE_FLICK_DIR_TONE_TILDE)
+            prefs.remove(VIETNAMESE_FLICK_DIR_TONE_DOT)
         }
 }

@@ -3314,6 +3314,8 @@ private fun TopBar(
                     primaryColor = state.settings.suggestionStrip.primaryColor?.let { Color(it.toInt()) },
                     autocorrectWord = state.autocorrectWord,
                     shiftState = state.shiftState,
+                    rawInputWord = state.rawInputWord,
+                    rawInputNotInDictionary = state.rawInputNotInDictionary,
                     // Only while the live candidates are the ones on screen: the
                     // strip holds the last set behind alpha 0, and a key promised
                     // against a faded word would commit something else.
@@ -3534,6 +3536,8 @@ private fun RowScope.LatinSuggestionChips(
     /** The word autocorrect has decided a space will put in, or null (#90). */
     autocorrectWord: String? = null,
     shiftState: ShiftState,
+    rawInputWord: String? = null,
+    rawInputNotInDictionary: Boolean = false,
     /** The hotkey badges, or null when no physical keyboard is asking for them. */
     hints: HintPlan? = null,
     onSuggestion: (String) -> Unit,
@@ -3687,6 +3691,9 @@ private fun RowScope.LatinSuggestionChips(
                             availableWidthPx = with(density) { textWidth.toPx() },
                         )
                     }
+                    val isRawNotInDict = rawInputNotInDictionary &&
+                        rawInputWord != null &&
+                        suggestion.equals(rawInputWord, ignoreCase = true)
                     Text(
                         text = display,
                         modifier = Modifier.padding(horizontal = textPadding),
@@ -3699,13 +3706,11 @@ private fun RowScope.LatinSuggestionChips(
                         // reads the same whether it is a space or a fingertip
                         // about to keep it. The bold stays on the primary
                         // either way.
-                        color = if (
+                        color = when {
+                            isRawNotInDict -> Color(0xFF4CAF50)
                             primaryColor != null &&
-                                suggestion.equals(autocorrectWord, ignoreCase = true)
-                        ) {
-                            primaryColor
-                        } else {
-                            MaterialTheme.colorScheme.onSurface
+                                suggestion.equals(autocorrectWord, ignoreCase = true) -> primaryColor
+                            else -> MaterialTheme.colorScheme.onSurface
                         },
                         fontSize = baseSize * fit.fontScale,
                         softWrap = false,
@@ -10716,6 +10721,32 @@ internal class KeyPreviewState(
         if (drop(token)) revision++
     }
 
+    /** Updates the displayed label of an already-shown preview bubble (e.g. flicking). */
+    fun updateLabel(token: Any, label: String) {
+        updatePreview(token, label)
+    }
+
+    /** Updates the displayed label and colors of an already-shown preview bubble (e.g. flicking). */
+    fun updatePreview(
+        token: Any,
+        label: String,
+        background: Color? = null,
+        text: Color? = null,
+    ) {
+        val index = shown.indexOfFirst { it.token === token }
+        if (index >= 0) {
+            val current = shown[index]
+            if (current.label != label || current.popupBackground != background || current.popupText != text) {
+                shown[index] = current.copy(
+                    label = label,
+                    popupBackground = background,
+                    popupText = text,
+                )
+                revision++
+            }
+        }
+    }
+
     /**
      * Drops every bubble whose time is up, and returns when the next one is due
      * (uptime millis), or null when nothing is waiting on a clock.
@@ -14915,7 +14946,29 @@ internal fun KeyButton(
                         alternatesHold.open()
                         keyPreview.cancel(previewToken)
                     },
-                    setFlickDirection = { flickDirection.value = it },
+                    setFlickDirection = { dir ->
+                        flickDirection.value = dir
+                        if (previewWanted.value && pressed.value) {
+                            val flickText = dir?.let { key.flick[it] }?.let { displayFlickText(it) }
+                            if (flickText != null) {
+                                val label = if (visual.label.firstOrNull()?.isUpperCase() == true) {
+                                    flickText.uppercase()
+                                } else {
+                                    flickText
+                                }
+                                val flickBg = kb.accent
+                                val flickTextCol = maxContrastOn(flickBg)
+                                keyPreview.updatePreview(previewToken, label, flickBg, flickTextCol)
+                            } else {
+                                keyPreview.updatePreview(
+                                    previewToken,
+                                    previewLabel.value,
+                                    previewColors.value.first,
+                                    previewColors.value.second,
+                                )
+                            }
+                        }
+                    },
                     onKey = debounced,
                     // Repeat ticks bypass the debounce (raw onKey), taps don't.
                     onKeyRepeat = onKey,
@@ -15050,6 +15103,7 @@ internal fun KeyButton(
             alternatesOpen = showAlternates,
             pressed = pressed,
             flickDirection = flickDirection,
+            previewActive = previewWanted.value,
         )
 
         // Tooltip above the spacebar while a swipe is cycling languages: the
@@ -15689,8 +15743,9 @@ private fun KeyFlickPopup(
     alternatesOpen: Boolean,
     pressed: State<Boolean>,
     flickDirection: State<FlickDirection?>,
+    previewActive: Boolean = false,
 ) {
-    if (key.flick.isNotEmpty() && !alternatesOpen && pressed.value) {
+    if (!previewActive && key.flick.isNotEmpty() && !alternatesOpen && pressed.value && flickDirection.value != null) {
         Popup(popupPositionProvider = FlickPopupPositionProvider) {
             FlickCrossPopup(key, flickDirection.value, fontScale)
         }
@@ -15712,6 +15767,15 @@ private fun FlickCrossPopup(key: Key, active: FlickDirection?, fontScale: Float)
         FlickCell(key.flick[FlickDirection.RIGHT], active == FlickDirection.RIGHT, Alignment.CenterEnd, fontScale)
         FlickCell(key.flick[FlickDirection.DOWN], active == FlickDirection.DOWN, Alignment.BottomCenter, fontScale)
     }
+}
+
+private fun displayFlickText(raw: String): String = when (raw) {
+    "\u0301" -> "◌́"
+    "\u0300" -> "◌̀"
+    "\u0309" -> "◌̉"
+    "\u0303" -> "◌̃"
+    "\u0323" -> "◌̣"
+    else -> raw
 }
 
 /** One chip of the flick cross: an empty/absent arm draws nothing. */
@@ -15736,7 +15800,7 @@ private fun BoxScope.FlickCell(
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = text,
+            text = displayFlickText(text),
             fontSize = (20 * fontScale).sp,
             color = if (highlighted) kb.keyText else kb.popupText,
         )
@@ -16133,7 +16197,7 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
             // is the mirror (issue #33) — this one key keeps its hint on a board
             // whose global toggle is off. hideHint wins if a file sets both.
             val hintIcon = if (key.hideHint) null else KeyIcons.byName(key.iconHint)
-            val hint = if (key.hideHint) null else key.longPress.firstOrNull()
+            val hint = if (key.hideHint) null else key.longPress.firstOrNull() ?: key.flick.values.firstOrNull()?.let { displayFlickText(it) }
             val showHints = settings.longPressHints || key.forceHint
             // A theme may name the hint colour outright (issue #72); otherwise
             // it is the label colour faded, so it follows a per-key override
@@ -16191,7 +16255,7 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                         .padding(top = HintTopPadding, end = HintEndPadding)
                         .size((HintIconDp * fontScale * settings.layoutBehavior.hintFontScale).dp),
                 )
-                showHints && key.opensAlternatesPopup() && hint != null -> Text(
+                showHints && (key.opensAlternatesPopup() || key.flick.isNotEmpty()) && hint != null -> Text(
                     text = hint,
                     modifier = hintMask
                         .align(Alignment.TopEnd)
@@ -17154,7 +17218,10 @@ private fun Modifier.pointerInputKey(
                         dir = resolved
                         setFlickDirection(dir)
                         // Committing to a flick arm cancels the pending long press.
-                        if (dir != null) longJob?.cancel()
+                        if (dir != null) {
+                            longJob?.cancel()
+                            if (hapticOnLongPress) onKeyPress()
+                        }
                     }
                     change.consume()
                 }

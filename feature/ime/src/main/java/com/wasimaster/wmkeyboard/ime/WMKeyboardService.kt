@@ -178,6 +178,11 @@ import com.wasimaster.wmkeyboard.core.prediction.WordFacts
 import com.wasimaster.wmkeyboard.core.prediction.WordKey
 import com.wasimaster.wmkeyboard.core.prediction.WordRanks
 import com.wasimaster.wmkeyboard.core.prediction.WordSource
+import com.wasimaster.wmkeyboard.core.prediction.telex.TypingToken
+import com.wasimaster.wmkeyboard.core.prediction.telex.TelexAutocorrectEngine
+import com.wasimaster.wmkeyboard.core.prediction.telex.VietnameseOrthography
+import com.wasimaster.wmkeyboard.core.input.composer.VietnameseTelexComposer
+import com.wasimaster.wmkeyboard.core.settings.VietnameseFlickSettings
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
@@ -850,6 +855,9 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
+    private val composingTokens = mutableListOf<TypingToken>()
+    private var pendingFlickToken: TypingToken? = null
+
     private var composing = StringBuilder()
         set(value) {
             // A word the user came back to and edited in the buffer ends here,
@@ -862,6 +870,7 @@ open class WMKeyboardService : InputMethodService() {
             // word was never tapped in this session, so it degrades to the
             // adjacency model via an all-null frame.
             composingTouch.clear()
+            composingTokens.clear()
             // Same boundary, same reason: a re-armed word's characters were
             // never pressed on this board, so nothing is known about which
             // keys they came off and the decode falls back to reading them
@@ -986,6 +995,13 @@ open class WMKeyboardService : InputMethodService() {
                 (state.shiftState == ShiftState.ON && state.shiftPressedByUser)
         }
         composing.append(text)
+        val token = pendingFlickToken ?: TypingToken(char = text.firstOrNull() ?: ' ', isFlick = false)
+        if (text.length == 1) {
+            composingTokens.add(token)
+        } else {
+            repeat(text.length) { composingTokens.add(token) }
+        }
+        pendingFlickToken = null
         if (composingTouch.size == composing.length - text.length) {
             if (text.length == 1) {
                 composingTouch.add(pendingTouch)
@@ -1230,6 +1246,8 @@ open class WMKeyboardService : InputMethodService() {
         val isBengali: Boolean,
         /** Transliteration top for Bengali phonetic mode; null otherwise. */
         val bengaliTop: String?,
+        val isTelex: Boolean = false,
+        val telexTop: String? = null,
         /** English autocorrect target, or null when the word stands as typed. */
         val correction: String?,
         /** Near miss: not applied, but worth a chip. See [correctionOffer]. */
@@ -1259,6 +1277,9 @@ open class WMKeyboardService : InputMethodService() {
      * tap needs the original to find the span in the field.
      */
     private var correctionOfferFor: String? = null
+
+    @Volatile
+    private var rejectedVietnameseWord: String? = null
 
     /**
      * The offer waiting to be published by the next strip refresh, which is
@@ -2572,6 +2593,8 @@ open class WMKeyboardService : InputMethodService() {
                     updateScreenshotObserver(settings.clipboard.userScreenshots)
                 }
                 if (!settings.floatingKeyboard) floatingPanelBounds = null
+                VietnameseTelexComposer.pureFlickMode =
+                    settings.vietnameseFlick.enabled && settings.vietnameseFlick.pureFlickMode
                 if (settings.suggestionSources.contacts != contactsEnabled) {
                     contactsEnabled = settings.suggestionSources.contacts
                     if (settings.suggestionSources.contacts) {
@@ -2731,6 +2754,7 @@ open class WMKeyboardService : InputMethodService() {
                             form,
                             modeSettings.numberRow,
                             modeSettings.customLayouts,
+                            modeSettings.vietnameseFlick,
                         ),
                         activeModeId = mode?.id,
                     )
@@ -3186,6 +3210,12 @@ open class WMKeyboardService : InputMethodService() {
             // assets are optional: an absent or unreadable file leaves the composer
             // typing the raw reading (pinyin letters, or kana) with no candidates.
             loadCjkConversionTables()
+            val state = _uiState.value
+            if (state.composer.isVietnameseTelex || state.language.id.startsWith("vi")) {
+                withContext(Dispatchers.IO) {
+                    TelexAutocorrectEngine.getInstance().initialize(assets, filesDir)
+                }
+            }
             loadedDictToken = withContext(Dispatchers.Default) {
                 if (userUnlocked) DictionaryStore.stateToken(filesDir) else Int.MIN_VALUE
             }
@@ -4173,6 +4203,7 @@ open class WMKeyboardService : InputMethodService() {
                     deviceForm.value,
                     modeSettings.numberRow,
                     modeSettings.customLayouts,
+                    modeSettings.vietnameseFlick,
                 ),
                 activeModeId = activeMode?.id,
                 activeSymbolSetId = null,
@@ -5311,7 +5342,18 @@ open class WMKeyboardService : InputMethodService() {
             pendingPunctuationSpace = false
             return
         }
+        val isFlick = key.output != null && key.flick.containsValue(key.output)
+        val baseKey = key.label.firstOrNull()?.lowercaseChar()
+        val outChar = (key.output ?: key.label).firstOrNull() ?: ' '
+        pendingFlickToken = TypingToken(
+            char = outChar,
+            isFlick = isFlick,
+            baseKey = baseKey,
+            flickOutput = key.output
+        )
         val output = keyOutput(key, _uiState.value)
+        val state = _uiState.value
+        val isVietnamese = state.composer.isTransliterating || state.language.id.startsWith("vi")
         // What this key could have meant, for the append to pair with the
         // character it commits — the twin of [pendingTouch], and set here for
         // the same reason: the key is known at the press and gone by the time
@@ -5323,7 +5365,7 @@ open class WMKeyboardService : InputMethodService() {
         // A converted Keyman layout owns its own dead keys, in its own context,
         // where its rules can match them. Running ours as well would apply an
         // accent twice.
-        processTypedText(output, applyDeadKeys = keymanSession == null)
+        processTypedText(output, applyDeadKeys = keymanSession == null && !isVietnamese)
         returnFromSymbolsAfter(output)
     }
 
@@ -5626,7 +5668,8 @@ open class WMKeyboardService : InputMethodService() {
         pendingWordSpace = false
         pendingPunctuationSpace = false
 
-        if (applyDeadKeys) {
+        val isVietnamese = state.composer.isTransliterating || state.language.id.startsWith("vi")
+        if (applyDeadKeys && !isVietnamese) {
             // Dead keys: the accent arms and waits, then fuses with the next
             // letter. Pressing the same accent twice types it literally, which
             // is the standard escape hatch for wanting the accent on its own.
@@ -5795,7 +5838,9 @@ open class WMKeyboardService : InputMethodService() {
         // of committing. A digit on an empty buffer is a literal digit as usual —
         // except for a composer whose whole alphabet is digits (T9 pinyin), where
         // that rule would make the first key of every word commit as a number.
-        val singleWordChar = text.length == 1 && (
+        val isVietnameseTone = (state.composer.isVietnameseTelex || state.composer.isTransliterating) &&
+            text.isNotEmpty() && text.all { state.composer.buffersChar(it) }
+        val singleWordChar = (text.length == 1 && (
             text[0].isLetter() || text[0] == '\'' ||
                 state.composer.buffersChar(text[0]) ||
                 (
@@ -5814,7 +5859,7 @@ open class WMKeyboardService : InputMethodService() {
                         state.settings.suggestionStrip.numberRowCorrections &&
                         state.allowsTypingIntelligence
                     )
-            )
+            )) || isVietnameseTone
         val isWordChar = singleWordChar || clusterContinuation
         // Avro is a transliterating input method: its composing must run even
         // in password fields and with the strip off, or the roman keys commit
@@ -6548,6 +6593,7 @@ open class WMKeyboardService : InputMethodService() {
             composing.setLength(composing.length - length)
             repeat(length) { composingTouch.removeLastOrNull() }
             repeat(length) { composingKeys.removeLastOrNull() }
+            repeat(length) { composingTokens.removeLastOrNull() }
             ambiguousReading = null
             updateComposingText(ic)
             refreshSuggestions()
@@ -6610,6 +6656,10 @@ open class WMKeyboardService : InputMethodService() {
         commitResolution = null
         when (revert.kind) {
             RevertibleCommit.Kind.AUTOCORRECT -> {
+                rejectedVietnameseWord = revert.original
+                val telexEngine = TelexAutocorrectEngine.getInstance()
+                telexEngine.rejectFlickCorrection(revert.original, revert.committed)
+                pendingLearn.forget(revert.committed)
                 // Undoing the correction retires that exact pair: without
                 // this the very next space corrected the word straight back.
                 // Unconditional, unlike the personal dictionary entry below —
@@ -8401,7 +8451,7 @@ open class WMKeyboardService : InputMethodService() {
         // the trigger the user meant to type. All three also come before
         // apostrophes and autocorrect, so a trigger is matched as it was
         // actually typed.
-        if (!state.composer.isTransliterating && !state.composer.isConversion) {
+        if ((!state.composer.isTransliterating || state.composer.isVietnameseTelex) && !state.composer.isConversion) {
             if (tryPrefixExpansion(ic, typed)) return true
             // A trigger that asks first has already put its chip on the strip
             // (see [refreshSnippetOffer]); the word it matched commits as
@@ -8479,7 +8529,56 @@ open class WMKeyboardService : InputMethodService() {
                 (if (pre != null && pre.isBengali) pre.bengaliTop
                 else suggestionEngine?.suggest(typed, previousWord = null, avroMode = true)?.firstOrNull())
                     ?: state.composer.composeBuffer(typed)
-            // Other transliterators (Hangul, Vietnamese) commit the composed text
+            state.composer.isVietnameseTelex -> {
+                val composed = state.composer.composeBuffer(typed)
+                val telexEngine = TelexAutocorrectEngine.getInstance()
+                val target = if (pre != null && pre.isTelex) {
+                    pre.telexTop
+                } else if (
+                    autocorrect && state.allowsTypingIntelligence &&
+                    composed.length >= 3
+                ) {
+                    val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
+                    val isComposedValid = telexEngine.isWordInDictionary(composed) || isUserLearned
+                    val hasFlick = composingTokens.any { it.isFlick }
+                    if (isComposedValid) {
+                        composed
+                    } else {
+                        val prev2 = recentWords.getOrNull(recentWords.size - 2)
+                        val flickNeighbors = if (hasFlick) {
+                            telexEngine.resolveFlickNeighbors(
+                                tokens = composingTokens,
+                                originalComposed = composed,
+                                previousWord = previousWord,
+                                previousWord2 = prev2,
+                                userLexicon = userLexicon,
+                                maxResults = 1
+                            )
+                        } else emptyList()
+
+                        if (flickNeighbors.isNotEmpty()) {
+                            flickNeighbors.first().word
+                        } else {
+                            val canonical = telexEngine.toCanonicalTelex(typed)
+                            telexEngine.correct(
+                                rawInput = canonical.ifEmpty { typed },
+                                previousWord = previousWord,
+                                previousWord2 = prev2,
+                                userLexicon = userLexicon,
+                                maxResults = 1,
+                                hasFlick = hasFlick
+                            ).firstOrNull()?.word ?: composed
+                        }
+                    }
+                } else {
+                    composed
+                }
+                if (target != null && target != composed) {
+                    corrected = target
+                }
+                target ?: composed
+            }
+            // Other transliterators (Hangul, etc.) commit the composed text
             // directly, with no dictionary pass.
             state.composer.isTransliterating -> state.composer.composeBuffer(typed)
             // An ambiguous board commits its reading, always. There is no
@@ -8540,7 +8639,8 @@ open class WMKeyboardService : InputMethodService() {
             revisionFragment = ""
         }
         val revertible = corrected?.let {
-            RevertibleCommit(RevertibleCommit.Kind.AUTOCORRECT, original = typed, committed = it)
+            val originalWord = if (state.composer.isVietnameseTelex) state.composer.composeBuffer(typed) else typed
+            RevertibleCommit(RevertibleCommit.Kind.AUTOCORRECT, original = originalWord, committed = it)
         }
         lastRevertible = revertible
         if (revertible != null) {
@@ -8589,6 +8689,7 @@ open class WMKeyboardService : InputMethodService() {
             )
         }
         composing = StringBuilder()
+        rejectedVietnameseWord = null
         // Refill the strip in the same frame the word commits. Blanking it
         // and waiting for the async refresh left it empty for a frame or
         // two after every space, which read as a flicker.
@@ -8598,6 +8699,8 @@ open class WMKeyboardService : InputMethodService() {
                 composingPreview = "",
                 suggestions = nextWords,
                 emojiSuggestions = nextEmojis,
+                rawInputWord = null,
+                rawInputNotInDictionary = false,
                 autocorrectWord = null,
             )
         }
@@ -8990,7 +9093,7 @@ open class WMKeyboardService : InputMethodService() {
         // not a word a pattern can read.
         val allowed = state.allowsTypingIntelligence && !state.secureField &&
             !state.fieldNoSuggestions && state.panel == PanelMode.NONE &&
-            !state.composer.isTransliterating && !state.composer.isConversion
+            (!state.composer.isTransliterating || state.composer.isVietnameseTelex) && !state.composer.isConversion
         if (!allowed) {
             publishSnippetOffer(null)
             return
@@ -11911,17 +12014,101 @@ open class WMKeyboardService : InputMethodService() {
                 SUGGEST_LIMIT
             }
             val (results, emojis, bias, floating) = withContext(Dispatchers.Default) {
-                val deep = engine.suggest(
-                    composing = typed,
-                    previousWord = previousWord,
-                    avroMode = state.composer.isBengaliPhonetic,
-                    limit = askFor,
-                    touch = touchFrame,
-                    previousWord2 = previousWord2,
-                    recentWords = recentSnapshot,
-                    allowRerank = true,
-                    keys = keyFrame,
-                )
+                var telexCandidates: List<String> = emptyList()
+                val deep = if (state.composer.isVietnameseTelex) {
+                    val composed = state.composer.composeBuffer(typed)
+                    val telexEngine = TelexAutocorrectEngine.getInstance()
+                    if (typed.isEmpty()) {
+                        val nextWords = telexEngine.predictNextWords(
+                            previousWord = previousWord,
+                            previousWord2 = previousWord2,
+                            maxResults = askFor
+                        )
+                        if (nextWords.isNotEmpty()) {
+                            nextWords
+                        } else {
+                            engine.suggest(
+                                composing = "",
+                                previousWord = previousWord,
+                                previousWord2 = previousWord2,
+                                recentWords = recentSnapshot,
+                                allowRerank = true,
+                                limit = askFor,
+                            )
+                        }
+                    } else {
+                        val dictSuggestions = engine.suggest(
+                            composing = composed,
+                            previousWord = previousWord,
+                            previousWord2 = previousWord2,
+                            recentWords = recentSnapshot,
+                            allowRerank = true,
+                            limit = askFor,
+                        )
+                        val telexCompletions = telexEngine.findCompletions(composed, maxResults = 4)
+                        val combinedDict = (dictSuggestions + telexCompletions).distinctBy { it.lowercase() }
+
+                        val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
+                        val isComposedValid = telexEngine.isWordInDictionary(composed) || isUserLearned
+
+                        if (composed.equals(rejectedVietnameseWord, ignoreCase = true) || typed.length < 2) {
+                            (listOf(composed) + combinedDict.filterNot { it.equals(composed, ignoreCase = true) })
+                                .distinctBy { it.lowercase() }
+                        } else {
+                            val canonical = telexEngine.toCanonicalTelex(typed)
+                            val hasFlick = composingTokens.any { it.isFlick }
+                            val prev2 = recentSnapshot.getOrNull(recentSnapshot.size - 2)
+                            val flickNeighbors = if (hasFlick && !isComposedValid) {
+                                telexEngine.resolveFlickNeighbors(
+                                    tokens = composingTokens,
+                                    originalComposed = composed,
+                                    previousWord = previousWord,
+                                    previousWord2 = prev2,
+                                    userLexicon = userLexicon,
+                                    maxResults = 5
+                                ).map { it.word }
+                            } else emptyList()
+
+                            telexCandidates = if (flickNeighbors.isNotEmpty()) {
+                                flickNeighbors
+                            } else if ((canonical.length >= 3 || typed.length >= 3) && !isComposedValid) {
+                                telexEngine.correct(
+                                    rawInput = canonical.ifEmpty { typed },
+                                    previousWord = previousWord,
+                                    previousWord2 = prev2,
+                                    userLexicon = userLexicon,
+                                    maxResults = 5,
+                                    hasFlick = hasFlick
+                                ).map { it.word }
+                            } else {
+                                emptyList()
+                            }
+
+                            val baseList = if (isComposedValid) {
+                                listOf(composed) + (combinedDict + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) }
+                            } else if (telexCandidates.isNotEmpty()) {
+                                telexCandidates + listOf(composed) + combinedDict.filterNot { cand ->
+                                    telexCandidates.any { it.equals(cand, ignoreCase = true) } || cand.equals(composed, ignoreCase = true)
+                                }
+                            } else {
+                                listOf(composed) + combinedDict.filterNot { it.equals(composed, ignoreCase = true) }
+                            }
+                            baseList.distinctBy { it.lowercase() }
+                        }
+                    }
+                } else {
+                    engine.suggest(
+                        composing = typed,
+                        previousWord = previousWord,
+                        avroMode = state.composer.isBengaliPhonetic,
+                        limit = askFor,
+                        touch = touchFrame,
+                        previousWord2 = previousWord2,
+                        recentWords = recentSnapshot,
+                        allowRerank = true,
+                        keys = keyFrame,
+                    )
+                }
                 val suggested = deep.take(SUGGEST_LIMIT)
                 // A28: a personal-dictionary shortcut typed in full offers its
                 // expansion as the top chip (e.g. "omw" → "on my way"). Prepended
@@ -11942,7 +12129,10 @@ open class WMKeyboardService : InputMethodService() {
                 // only about the strip.
                 val skipTyped = state.settings.suggestionStrip.skipTypedWord && typed.isNotEmpty()
                 fun dropTyped(list: List<String>) =
-                    if (skipTyped) list.filterNot { it.equals(typed, ignoreCase = true) } else list
+                    if (skipTyped) {
+                        val composed = if (state.composer.isVietnameseTelex) state.composer.composeBuffer(typed) else typed
+                        list.filterNot { it.equals(typed, ignoreCase = true) || it.equals(composed, ignoreCase = true) }
+                    } else list
                 // Deliberately unfiltered: commitResolution below reads this,
                 // and on a Bengali or ambiguous board its first entry is what a
                 // space commits. Dropping the typed word from *that* would make
@@ -11977,6 +12167,18 @@ open class WMKeyboardService : InputMethodService() {
                         bengaliTop = words.firstOrNull(),
                         correction = null,
                     )
+                    state.composer.isVietnameseTelex -> {
+                        val composed = state.composer.composeBuffer(typed)
+                        val spaceWord = words.firstOrNull() ?: composed
+                        CommitResolution(
+                            typed = typed,
+                            isBengali = false,
+                            bengaliTop = null,
+                            isTelex = true,
+                            telexTop = spaceWord,
+                            correction = spaceWord.takeIf { it != composed },
+                        )
+                    }
                     // An ambiguous board's commit takes the reading rather than
                     // the buffer, so the reading is what there is to precompute
                     // — and autocorrect has nothing to say about anchor letters
@@ -12110,11 +12312,20 @@ open class WMKeyboardService : InputMethodService() {
             // that while a composing region is open is how a composition ends
             // up pointing at the wrong span — so it waits for the space rather
             // than risking the word being typed.
-            val undo = undoableCorrection?.typed?.takeIf { typed.isEmpty() }
+            val rawWord = if (state.composer.isVietnameseTelex && typed.isNotEmpty()) {
+                state.composer.composeBuffer(typed)
+            } else null
+            val telexEngine = TelexAutocorrectEngine.getInstance()
+            val rawNotInDict = rawWord != null &&
+                !telexEngine.isWordInDictionary(rawWord) &&
+                !userLexicon.contains(rawWord.lowercase())
+
             _uiState.update {
                 it.copy(
                     suggestions = results,
                     emojiSuggestions = shownEmojis,
+                    rawInputWord = rawWord,
+                    rawInputNotInDictionary = rawNotInDict,
                     punctuationSuggestions = punct,
                     nextLetterBias = bias,
                     octopus = floating,
@@ -12165,6 +12376,8 @@ open class WMKeyboardService : InputMethodService() {
                     suggestions = results,
                     emojiSuggestions = emptyList(),
                     punctuationSuggestions = emptyList(),
+                    rawInputWord = null,
+                    rawInputNotInDictionary = false,
                     inlineEmoji = false,
                     joinSuggestion = null,
                     revisionSuggestion = null,

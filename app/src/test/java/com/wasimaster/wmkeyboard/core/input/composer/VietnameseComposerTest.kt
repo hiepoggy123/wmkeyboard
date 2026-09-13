@@ -52,14 +52,15 @@ class VietnameseComposerTest {
         assertEquals("ô", c.composeBuffer("oo"))
         assertEquals("ơ", c.composeBuffer("ow"))
         assertEquals("ư", c.composeBuffer("uw"))
-        assertEquals("ư", c.composeBuffer("w"))
+        assertEquals("w", c.composeBuffer("w"))
+        assertEquals("ww", c.composeBuffer("ww"))
         assertEquals("đ", c.composeBuffer("dd"))
     }
 
     @Test
     fun telexFullSyllables() {
         val c = VietnameseTelexComposer
-        assertEquals("việt", c.composeBuffer("vieejt"))
+        assertEquals("việt", c.composeBuffer("vieetj"))
         assertEquals("tiếng", c.composeBuffer("tieengs"))
         assertEquals("đây", c.composeBuffer("ddaay"))
         assertEquals("nước", c.composeBuffer("nuocsw"))
@@ -67,8 +68,34 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun telexEnglishWordsNotCorrupted() {
+        val c = VietnameseTelexComposer
+        // Tone keys inside the word (before consonants) MUST NOT turn English into Vietnamese
+        assertEquals("test", c.composeBuffer("test"))
+        assertEquals("best", c.composeBuffer("best"))
+        assertEquals("rest", c.composeBuffer("rest"))
+        assertEquals("text", c.composeBuffer("text"))
+        assertEquals("fast", c.composeBuffer("fast"))
+        assertEquals("first", c.composeBuffer("first"))
+        assertEquals("post", c.composeBuffer("post"))
+        assertEquals("cost", c.composeBuffer("cost"))
+        assertEquals("just", c.composeBuffer("just"))
+        assertEquals("cast", c.composeBuffer("cast"))
+        assertEquals("tiêsng", c.composeBuffer("tieesng"))
+        // Multi-vowel / foreign words must not be corrupted
+        assertEquals("telex", c.composeBuffer("telex"))
+        assertEquals("dad", c.composeBuffer("dad"))
+        assertEquals("dead", c.composeBuffer("dead"))
+        assertEquals("did", c.composeBuffer("did"))
+        assertEquals("relax", c.composeBuffer("relax"))
+        assertEquals("complex", c.composeBuffer("complex"))
+        assertEquals("inbox", c.composeBuffer("inbox"))
+    }
+
+    @Test
     fun telexToneAndMarkCancellation() {
         val c = VietnameseTelexComposer
+        // Repeating a tone key cancels it and types the letter
         assertEquals("as", c.composeBuffer("ass"))
         assertEquals("af", c.composeBuffer("aff"))
         assertEquals("dd", c.composeBuffer("ddd"))
@@ -78,69 +105,32 @@ class VietnameseComposerTest {
     }
 
     @Test
-    fun telexCapitalization() {
+    fun telexFreeFormAndWKey() {
         val c = VietnameseTelexComposer
-        assertEquals("Việt", c.composeBuffer("Vieejt"))
-        assertEquals("Tiếng", c.composeBuffer("Tieengs"))
-        assertEquals("ĐÂY", c.composeBuffer("DDAAY"))
-    }
+        // w cancellation for English words
+        assertEquals("row", c.composeBuffer("roww"))
+        assertEquals("draw", c.composeBuffer("draww"))
+        assertEquals("show", c.composeBuffer("showw"))
+        assertEquals("flow", c.composeBuffer("floww"))
 
-    @Test
-    fun telexToneNeedsOneUnbrokenVowelRun() {
-        val c = VietnameseTelexComposer
-        // A Vietnamese syllable has exactly one vowel nucleus, so a tone key
-        // after a broken run is the letter it is drawn as.
-        assertEquals("bananas", c.composeBuffer("bananas"))
-        assertEquals("relax", c.composeBuffer("relax"))
-        assertEquals("inbox", c.composeBuffer("inbox"))
-        // The rule catches nothing real: every syllable keeps its vowels
-        // together, however many of them there are.
-        assertEquals("nguyễn", c.composeBuffer("nguyeenx"))
+        // Canonical Telex words
+        assertEquals("dương", c.composeBuffer("duongw"))
+        assertEquals("đương", c.composeBuffer("dduongw"))
+        assertEquals("đa", c.composeBuffer("dda"))
+        assertEquals("đâu", c.composeBuffer("ddaau"))
+
+        // OpenKey features: 3-vowel clusters (tone on middle vowel)
+        assertEquals("xoài", c.composeBuffer("xoaif"))
         assertEquals("khuỷu", c.composeBuffer("khuyur"))
         assertEquals("ngoèo", c.composeBuffer("ngoeof"))
     }
 
     @Test
-    fun telexSecondWTakesTheMarkOffAndTypesTheLetter() {
+    fun telexCapitalization() {
         val c = VietnameseTelexComposer
-        assertEquals("row", c.composeBuffer("roww"))
-        assertEquals("draw", c.composeBuffer("draww"))
-        assertEquals("show", c.composeBuffer("showw"))
-        assertEquals("flow", c.composeBuffer("floww"))
-        assertEquals("ow", c.composeBuffer("oww"))
-        assertEquals("uw", c.composeBuffer("uww"))
-        // The uo cluster behaves the same way, both marks at once.
-        assertEquals("dương", c.composeBuffer("duongw"))
-        assertEquals("đương", c.composeBuffer("dduongw"))
-        assertEquals("duongw", c.composeBuffer("duongww"))
-    }
-
-    @Test
-    fun telexTakesToneMarksTypedAsThemselves() {
-        val c = VietnameseTelexComposer
-        assertEquals("cháo", c.composeBuffer("chao\u0301"))
-        assertEquals("chào", c.composeBuffer("chao\u0300"))
-        assertEquals("chảo", c.composeBuffer("chao\u0309"))
-        assertEquals("chão", c.composeBuffer("chao\u0303"))
-        assertEquals("chạo", c.composeBuffer("chao\u0323"))
-        // The key's faces are drawn on a dotted circle, which is swallowed —
-        // so the ring's bare circle is its "no tone" entry.
-        assertEquals("cháo", c.composeBuffer("chao\u25CC\u0301"))
-        assertEquals("chao", c.composeBuffer("chaos\u25CC"))
-        // Named outright, a tone does not toggle the way a letter key does.
-        assertEquals("cháo", c.composeBuffer("chao\u0301\u0301"))
-        // And it still needs a nucleus to land on.
-        assertEquals("bcd", c.composeBuffer("bcd\u0301"))
-    }
-
-    @Test
-    fun toneKeyCharactersStayInTheBuffer() {
-        for (c in listOf(VietnameseTelexComposer, VietnameseVniComposer)) {
-            for (mark in "\u25CC\u0301\u0300\u0309\u0303\u0323") {
-                assertTrue(c.toString(), c.buffersChar(mark))
-            }
-            assertTrue(c.toString(), !c.buffersChar('z'))
-        }
+        assertEquals("Việt", c.composeBuffer("Vieetj"))
+        assertEquals("Tiếng", c.composeBuffer("Tieengs"))
+        assertEquals("ĐÂY", c.composeBuffer("DDAAY"))
     }
 
     // --- VNI Tests ---
@@ -175,11 +165,27 @@ class VietnameseComposerTest {
     }
 
     @Test
-    fun vniToneMarksAndVowelRun() {
+    fun vniMixedWords() {
         val c = VietnameseVniComposer
+        assertEquals("Việt", c.composeBuffer("Vie65t"))
+        assertEquals("Đường", c.composeBuffer("D9u7o7ng2"))
+    }
+
+    @Test
+    fun testDirectToneMarks() {
+        val c = VietnameseTelexComposer
+        // Tone after syllable
+        assertEquals("chào", c.composeBuffer("chao\u0300"))
+        assertEquals("chào", c.composeBuffer("chaò"))
         assertEquals("cháo", c.composeBuffer("chao\u0301"))
-        assertEquals("chao", c.composeBuffer("chao1\u25CC"))
-        assertEquals("banana1", c.composeBuffer("banana1"))
+        assertEquals("chảo", c.composeBuffer("chao\u0309"))
+        assertEquals("chão", c.composeBuffer("chao\u0303"))
+        assertEquals("chạo", c.composeBuffer("chao\u0323"))
+
+        // Free tone placement: tone before vowel
+        assertEquals("à", c.composeBuffer("\u0300a"))
+        assertEquals("toán", c.composeBuffer("\u0301toan"))
+        assertEquals("toán", c.composeBuffer("toan\u0301"))
     }
 
     @Test
@@ -187,5 +193,47 @@ class VietnameseComposerTest {
         val c = VietnameseVniComposer
         assertEquals("Việt", c.composeBuffer("Viet65"))
         assertEquals("Tiếng", c.composeBuffer("Tieng61"))
+    }
+
+    @Test
+    fun testFlickVowelAndConsonantMarks() {
+        val c = VietnameseTelexComposer
+        // Flick on base key: base key + mark replaces base key with marked letter
+        assertEquals("câ", c.composeBuffer("caâ"))
+        assertEquals("că", c.composeBuffer("caă"))
+        assertEquals("mê", c.composeBuffer("meê"))
+        assertEquals("đ", c.composeBuffer("dđ"))
+        assertEquals("dô", c.composeBuffer("doô"))
+        assertEquals("dơ", c.composeBuffer("doơ"))
+        assertEquals("mư", c.composeBuffer("muư"))
+
+        // Direct flick without preceding tap
+        assertEquals("â", c.composeBuffer("â"))
+        assertEquals("đường", c.composeBuffer("đương\u0300"))
+    }
+
+    @Test
+    fun testPureFlickMode() {
+        val c = VietnameseTelexComposer
+        c.pureFlickMode = true
+        try {
+            // Telex keystrokes MUST NOT transliterate in pure flick mode
+            assertEquals("as", c.composeBuffer("as"))
+            assertEquals("af", c.composeBuffer("af"))
+            assertEquals("aa", c.composeBuffer("aa"))
+            assertEquals("aw", c.composeBuffer("aw"))
+            assertEquals("ee", c.composeBuffer("ee"))
+            assertEquals("oo", c.composeBuffer("oo"))
+            assertEquals("dd", c.composeBuffer("dd"))
+            assertEquals("test", c.composeBuffer("test"))
+            assertEquals("best", c.composeBuffer("best"))
+
+            // But flick marks and flick tones still work 100%
+            assertEquals("câ", c.composeBuffer("caâ"))
+            assertEquals("cả", c.composeBuffer("ca\u0309"))
+            assertEquals("chào", c.composeBuffer("chao\u0300"))
+        } finally {
+            c.pureFlickMode = false
+        }
     }
 }

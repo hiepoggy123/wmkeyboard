@@ -2234,6 +2234,8 @@ data class KeyboardUiState(
     val launcherLoading: Boolean = false,
     /** The app whose activity list is open, or null for the grid. */
     val launcherDetail: LauncherDetailUi? = null,
+    val rawInputWord: String? = null,
+    val rawInputNotInDictionary: Boolean = false,
 ) {
     /**
      * Whether incognito is in force right now, from either source: the

@@ -30,6 +30,25 @@ class KeyPreviewStateTest {
     private fun labels() = state.shown.map { it.label }
 
     @Test
+    fun `updateLabel changes the label of an existing bubble`() {
+        state.press(preview("a", "a"))
+        state.updateLabel("a", "â")
+        assertEquals(listOf("â"), labels())
+    }
+
+    @Test
+    fun `updatePreview changes the label and colors of an existing bubble`() {
+        state.press(preview("a", "a"))
+        val accent = androidx.compose.ui.graphics.Color.Blue
+        val textCol = androidx.compose.ui.graphics.Color.White
+        state.updatePreview("a", "â", accent, textCol)
+        val bubble = state.shown.first()
+        assertEquals("â", bubble.label)
+        assertEquals(accent, bubble.popupBackground)
+        assertEquals(textCol, bubble.popupText)
+    }
+
+    @Test
     fun `two keys held at once show two bubbles`() {
         state.press(preview("a", "a"))
         clock = 10

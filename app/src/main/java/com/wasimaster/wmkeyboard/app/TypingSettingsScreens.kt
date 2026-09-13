@@ -19,7 +19,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.text.input.KeyboardCapitalization
+import com.wasimaster.wmkeyboard.core.layout.FlickDirection
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
@@ -197,6 +197,15 @@ internal fun TypingSettings(
                 route = "typing/hardware",
             ) {
                 onNavigate("typing/hardware")
+            }
+        }
+        item {
+            NavRow(
+                R.string.vietnamese_flick_group_title,
+                stringResource(R.string.vietnamese_flick_enabled_subtitle),
+                route = "typing/vietnamese_flick",
+            ) {
+                onNavigate("typing/vietnamese_flick")
             }
         }
     }
@@ -2616,5 +2625,184 @@ private fun SettingsGroupScope.glideVocabularyRows(
             onChange = { scope.launch { repository.setGestureCommitColorScope(it) } },
             default = SettingsDefaults.gesture.commitColorScope,
         )
+    }
+}
+
+@Composable
+private fun FlickDirChoice(
+    @StringRes titleRes: Int,
+    key: String,
+    selected: FlickDirection,
+    default: FlickDirection,
+    repository: SettingsRepository,
+) {
+    val scope = rememberCoroutineScope()
+    val upLabel = stringResource(R.string.vietnamese_flick_direction_up)
+    val downLabel = stringResource(R.string.vietnamese_flick_direction_down)
+    val leftLabel = stringResource(R.string.vietnamese_flick_direction_left)
+    val rightLabel = stringResource(R.string.vietnamese_flick_direction_right)
+    val options = remember(upLabel, downLabel, leftLabel, rightLabel) {
+        listOf(
+            FlickDirection.UP to upLabel,
+            FlickDirection.DOWN to downLabel,
+            FlickDirection.LEFT to leftLabel,
+            FlickDirection.RIGHT to rightLabel,
+        )
+    }
+    ChoiceSetting(
+        title = stringResource(titleRes),
+        options = options,
+        selected = selected,
+        default = default,
+        onChange = { scope.launch { repository.setVietnameseFlickDirection(key, it) } },
+    )
+}
+
+@Composable
+internal fun TypingVietnameseFlickSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+) {
+    val scope = rememberCoroutineScope()
+    val flick = settings.vietnameseFlick
+    val defaults = SettingsDefaults.vietnameseFlick
+
+    SettingsGroup(stringResource(R.string.vietnamese_flick_group_title)) {
+        item {
+            ToggleSetting(
+                R.string.vietnamese_flick_enabled_title,
+                stringResource(R.string.vietnamese_flick_enabled_subtitle),
+                flick.enabled,
+                default = defaults.enabled,
+            ) { enabled ->
+                scope.launch {
+                    repository.setVietnameseFlickEnabled(enabled)
+                    repository.setVietnameseFlickPureMode(enabled)
+                }
+            }
+        }
+    }
+
+    if (flick.enabled) {
+        SettingsGroup(stringResource(R.string.vietnamese_flick_vowels_header)) {
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_a_circumflex,
+                    "a_circumflex",
+                    flick.dirA_Circumflex,
+                    defaults.dirA_Circumflex,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_a_breve,
+                    "a_breve",
+                    flick.dirA_Breve,
+                    defaults.dirA_Breve,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_e_circumflex,
+                    "e_circumflex",
+                    flick.dirE_Circumflex,
+                    defaults.dirE_Circumflex,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_d_stroke,
+                    "d_stroke",
+                    flick.dirD_Stroke,
+                    defaults.dirD_Stroke,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_o_circumflex,
+                    "o_circumflex",
+                    flick.dirO_Circumflex,
+                    defaults.dirO_Circumflex,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_o_horn,
+                    "o_horn",
+                    flick.dirO_Horn,
+                    defaults.dirO_Horn,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_u_horn,
+                    "u_horn",
+                    flick.dirU_Horn,
+                    defaults.dirU_Horn,
+                    repository,
+                )
+            }
+        }
+
+        SettingsGroup(stringResource(R.string.vietnamese_flick_tones_header)) {
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_tone_acute,
+                    "tone_acute",
+                    flick.dirTone_Acute,
+                    defaults.dirTone_Acute,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_tone_grave,
+                    "tone_grave",
+                    flick.dirTone_Grave,
+                    defaults.dirTone_Grave,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_tone_hook,
+                    "tone_hook",
+                    flick.dirTone_Hook,
+                    defaults.dirTone_Hook,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_tone_tilde,
+                    "tone_tilde",
+                    flick.dirTone_Tilde,
+                    defaults.dirTone_Tilde,
+                    repository,
+                )
+            }
+            item {
+                FlickDirChoice(
+                    R.string.vietnamese_flick_dir_tone_dot,
+                    "tone_dot",
+                    flick.dirTone_Dot,
+                    defaults.dirTone_Dot,
+                    repository,
+                )
+            }
+            item {
+                ActionRow(
+                    title = R.string.vietnamese_flick_reset_title,
+                    subtitle = null,
+                    action = stringResource(com.wasimaster.wmkeyboard.core.common.R.string.common_reset),
+                ) { scope.launch { repository.resetVietnameseFlickDirections() } }
+            }
+        }
     }
 }

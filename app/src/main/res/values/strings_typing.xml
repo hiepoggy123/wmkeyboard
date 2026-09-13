@@ -755,4 +755,32 @@
     <string name="typing_adapt_taps_forget">Forget where my taps land</string>
     <string name="typing_adapt_taps_forget_title">Forget learned tap positions?</string>
     <string name="typing_adapt_taps_forget_body">Taps go back to being read against the keys exactly as drawn, and learning starts again from your next word. Learned words and corrections are not affected.</string>
+
+    <!-- ==== Vietnamese Flick Settings ==== -->
+    <string name="vietnamese_flick_group_title">Cử chỉ vuốt dấu tiếng Việt</string>
+    <string name="vietnamese_flick_enabled_title">Bật cử chỉ vuốt dấu tiếng Việt</string>
+    <string name="vietnamese_flick_enabled_subtitle">Vuốt trên các phím để tạo nguyên âm có mũ/móc và dấu thanh tự do</string>
+    <string name="vietnamese_flick_pure_mode_title">Chế độ vuốt thuần túy (Pure Flick)</string>
+    <string name="vietnamese_flick_pure_mode_subtitle">Chạm thông thường luôn xuất ký tự Latin 100% (bảo vệ tiếng Anh, mật khẩu, URL)</string>
+    <string name="vietnamese_flick_directions_header">Cài đặt hướng vuốt phím</string>
+    <string name="vietnamese_flick_vowels_header">Nguyên âm và phụ âm (Mũ, Móc, Đ)</string>
+    <string name="vietnamese_flick_tones_header">Dấu thanh (Sắc, Huyền, Hỏi, Ngã, Nặng)</string>
+    <string name="vietnamese_flick_dir_a_circumflex">Chữ Â (phím A)</string>
+    <string name="vietnamese_flick_dir_a_breve">Chữ Ă (phím A)</string>
+    <string name="vietnamese_flick_dir_e_circumflex">Chữ Ê (phím E)</string>
+    <string name="vietnamese_flick_dir_d_stroke">Chữ Đ (phím D)</string>
+    <string name="vietnamese_flick_dir_o_circumflex">Chữ Ô (phím O)</string>
+    <string name="vietnamese_flick_dir_o_horn">Chữ Ơ (phím O)</string>
+    <string name="vietnamese_flick_dir_u_horn">Chữ Ư (phím U)</string>
+    <string name="vietnamese_flick_dir_tone_acute">Dấu Sắc (phím S)</string>
+    <string name="vietnamese_flick_dir_tone_grave">Dấu Huyền (phím F)</string>
+    <string name="vietnamese_flick_dir_tone_hook">Dấu Hỏi (phím R)</string>
+    <string name="vietnamese_flick_dir_tone_tilde">Dấu Ngã (phím X)</string>
+    <string name="vietnamese_flick_dir_tone_dot">Dấu Nặng (phím J)</string>
+    <string name="vietnamese_flick_reset_title">Khôi phục hướng công thái học mặc định</string>
+    <string name="vietnamese_flick_pick_direction">Chọn hướng vuốt</string>
+    <string name="vietnamese_flick_direction_up">Lên (↑)</string>
+    <string name="vietnamese_flick_direction_down">Xuống (↓)</string>
+    <string name="vietnamese_flick_direction_left">Trái (←)</string>
+    <string name="vietnamese_flick_direction_right">Phải (→)</string>
 </resources>
