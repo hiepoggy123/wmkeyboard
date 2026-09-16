@@ -354,11 +354,13 @@ class TelexAutocorrectEngine private constructor() {
 
     fun isWordInDictionary(word: String): Boolean {
         val clean = word.lowercase()
-        return languageModel.unigrams.containsKey(clean)
+        return languageModel.unigrams.containsKey(clean) ||
+                TelexWhitelist.isWhitelisted(clean) ||
+                VietnameseOrthography.isValidVietnameseSyllable(clean)
     }
 
     fun isWhitelisted(word: String): Boolean {
-        return false
+        return TelexWhitelist.isWhitelisted(word)
     }
 
     /**
@@ -390,22 +392,14 @@ class TelexAutocorrectEngine private constructor() {
             val prefixSb = StringBuilder()
             for (i in 0 until flickIdx) {
                 val t = tokens[i]
-                if (t.isFlick) {
-                    prefixSb.append(toCanonicalTelex(t.char.toString()))
-                } else {
-                    prefixSb.append(t.char.lowercaseChar())
-                }
+                prefixSb.append(toCanonicalTelex(t.char.toString()))
             }
             val prefix = prefixSb.toString()
 
             val suffixSb = StringBuilder()
             for (i in (flickIdx + 1) until tokens.size) {
                 val t = tokens[i]
-                if (t.isFlick) {
-                    suffixSb.append(toCanonicalTelex(t.char.toString()))
-                } else {
-                    suffixSb.append(t.char.lowercaseChar())
-                }
+                suffixSb.append(toCanonicalTelex(t.char.toString()))
             }
             val suffix = suffixSb.toString()
 
@@ -619,6 +613,7 @@ class TelexAutocorrectEngine private constructor() {
 
         val cleanInput = rawInput.trim().lowercase()
         if (cleanInput.length < 3 || cleanInput.length > 12) return emptyList()
+        if (TelexWhitelist.isWhitelisted(cleanInput)) return emptyList()
 
         val cleanPrev = previousWord?.trim()?.lowercase()
         val cleanPrev2 = previousWord2?.trim()?.lowercase()
