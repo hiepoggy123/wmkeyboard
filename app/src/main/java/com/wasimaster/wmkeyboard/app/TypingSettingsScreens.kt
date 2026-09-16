@@ -62,6 +62,8 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.settings.usableTools
+import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.leaderLabel
 import androidx.compose.ui.unit.dp
 import android.os.Build
@@ -69,6 +71,7 @@ import com.wasimaster.wmkeyboard.core.settings.PickerTimeoutRange
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
+import com.wasimaster.wmkeyboard.core.settings.ShiftGlideMode
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerDwellMsRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerSensitivity
@@ -91,8 +94,10 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.NumberGrouping
 import com.wasimaster.wmkeyboard.core.settings.RankControl
+import com.wasimaster.wmkeyboard.core.settings.SuggestionOverflow
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.WordMenuItem
+import com.wasimaster.wmkeyboard.core.settings.LanguagePickerStyle
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import kotlin.math.roundToInt
@@ -612,6 +617,25 @@ internal fun TypingCorrectionsSettings(
         }
         item {
             ToggleSetting(
+                R.string.typing_hug_punctuation_title,
+                stringResource(R.string.typing_hug_punctuation_subtitle),
+                settings.autoText.hugPunctuation,
+                info = stringResource(R.string.typing_hug_punctuation_info),
+                default = SettingsDefaults.autoText.hugPunctuation,
+            ) { scope.launch { repository.setHugPunctuation(it) } }
+        }
+        if (settings.autoText.hugPunctuation) {
+            item {
+                TextFieldSetting(
+                    label = stringResource(R.string.typing_hug_punctuation_marks_title),
+                    value = settings.autoText.hugPunctuationMarks,
+                    hint = stringResource(R.string.typing_hug_punctuation_marks_hint),
+                    default = SettingsDefaults.autoText.hugPunctuationMarks,
+                ) { repository.setHugPunctuationMarks(it) }
+            }
+        }
+        item {
+            ToggleSetting(
                 R.string.typing_space_after_suggestion_title,
                 stringResource(R.string.typing_space_after_suggestion_subtitle),
                 settings.suggestionStrip.autoSpaceAfterSuggestion,
@@ -775,6 +799,20 @@ internal fun TypingSuggestionsSettings(
                 default = SettingsDefaults.suggestionStrip.suggestionPrimaryCenter,
             ) { scope.launch { repository.setSuggestionPrimaryCenter(it) } }
         }
+        // A scrolling strip draws every word whole, so there is nothing to cut.
+        if (!settings.suggestionStrip.scrollable) item {
+            ChoiceSetting(
+                R.string.typing_suggestion_overflow_title,
+                subtitle = stringResource(R.string.typing_suggestion_overflow_subtitle),
+                info = stringResource(R.string.typing_suggestion_overflow_info),
+                options = listOf(
+                    SuggestionOverflow.MIDDLE to stringResource(R.string.typing_suggestion_overflow_middle),
+                    SuggestionOverflow.END to stringResource(R.string.typing_suggestion_overflow_end),
+                ),
+                selected = settings.suggestionStrip.overflow,
+                default = SettingsDefaults.suggestionStrip.overflow,
+            ) { scope.launch { repository.setSuggestionOverflow(it) } }
+        }
         item {
             val permissionContext = LocalContext.current
             // Prominent disclosure before the system prompt, never the prompt on
@@ -868,6 +906,16 @@ internal fun TypingSuggestionsSettings(
                 info = stringResource(R.string.typing_skip_typed_word_info),
                 default = SettingsDefaults.suggestionStrip.skipTypedWord,
             ) { scope.launch { repository.setSkipTypedWord(it) } }
+        }
+        item {
+            // Issue #181: a word typed on digit-hinted keys also offers the number.
+            ToggleSetting(
+                R.string.typing_number_prediction_title,
+                stringResource(R.string.typing_number_prediction_subtitle),
+                settings.suggestionStrip.numberPrediction,
+                info = stringResource(R.string.typing_number_prediction_info),
+                default = SettingsDefaults.suggestionStrip.numberPrediction,
+            ) { scope.launch { repository.setNumberPrediction(it) } }
         }
             item {
                 ToggleSetting(
@@ -972,6 +1020,15 @@ internal fun TypingSuggestionsSettings(
                     )
                 },
             ) { scope.launch { repository.setRankControl(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.typing_delete_edits_lists_title,
+                stringResource(R.string.typing_delete_edits_lists_subtitle),
+                settings.suggestionStrip.deleteEditsImportedLists,
+                info = stringResource(R.string.typing_delete_edits_lists_info),
+                default = SettingsDefaults.suggestionStrip.deleteEditsImportedLists,
+            ) { scope.launch { repository.setDeleteEditsImportedLists(it) } }
         }
     }
 }
@@ -1204,6 +1261,7 @@ internal fun TypingSmartChipsSettings(
                     default = SettingsDefaults.smartCalc,
                 ) { scope.launch { repository.setSmartCalc(it) } }
             }
+            chipToolsOffItem(SmartSuggest.Family.CALC, settings.smartCalc, settings, repository)
             item {
                 ToggleSetting(
                     R.string.typing_smart_currency_title,
@@ -1212,6 +1270,7 @@ internal fun TypingSmartChipsSettings(
                     default = SettingsDefaults.smartCurrency,
                 ) { scope.launch { repository.setSmartCurrency(it) } }
             }
+            chipToolsOffItem(SmartSuggest.Family.CURRENCY, settings.smartCurrency, settings, repository)
             item {
                 ToggleSetting(
                     R.string.typing_smart_units_title,
@@ -1220,6 +1279,7 @@ internal fun TypingSmartChipsSettings(
                     default = SettingsDefaults.smartUnits,
                 ) { scope.launch { repository.setSmartUnits(it) } }
             }
+            chipToolsOffItem(SmartSuggest.Family.UNITS, settings.smartUnits, settings, repository)
             item {
                 ToggleSetting(
                     R.string.typing_smart_tool_keywords_title,
@@ -1237,6 +1297,7 @@ internal fun TypingSmartChipsSettings(
                     default = SettingsDefaults.smartChips.dates,
                 ) { scope.launch { repository.setSmartChipDates(it) } }
             }
+            chipToolsOffItem(SmartSuggest.Family.DATES, settings.smartChips.dates, settings, repository)
             item {
                 ToggleSetting(
                     R.string.typing_smart_weather_title,
@@ -1245,6 +1306,7 @@ internal fun TypingSmartChipsSettings(
                     default = SettingsDefaults.smartChips.weather,
                 ) { scope.launch { repository.setSmartChipWeather(it) } }
             }
+            chipToolsOffItem(SmartSuggest.Family.WEATHER, settings.smartChips.weather, settings, repository)
             item {
                 ToggleSetting(
                     R.string.typing_smart_lookups_title,
@@ -1253,6 +1315,7 @@ internal fun TypingSmartChipsSettings(
                     default = SettingsDefaults.smartChips.lookups,
                 ) { scope.launch { repository.setSmartChipLookups(it) } }
             }
+            chipToolsOffItem(SmartSuggest.Family.LOOKUPS, settings.smartChips.lookups, settings, repository)
             item {
                 ToggleSetting(
                     R.string.typing_smart_intents_title,
@@ -1261,6 +1324,7 @@ internal fun TypingSmartChipsSettings(
                     default = SettingsDefaults.smartChips.intents,
                 ) { scope.launch { repository.setSmartChipIntents(it) } }
             }
+            chipToolsOffItem(SmartSuggest.Family.TRANSLATE, settings.smartChips.intents, settings, repository)
             item {
                 ToggleSetting(
                     R.string.typing_smart_gifs_title,
@@ -1269,6 +1333,14 @@ internal fun TypingSmartChipsSettings(
                     default = SettingsDefaults.smartChips.gifs,
                 ) { scope.launch { repository.setSmartChipGifs(it) } }
             }
+            // Celebrations are read inside the translate hints (see chips.mdx),
+            // so with those off the GIF switch has no chips to warn about.
+            chipToolsOffItem(
+                SmartSuggest.Family.GIFS,
+                settings.smartChips.gifs && settings.smartChips.intents,
+                settings,
+                repository,
+            )
             item {
                 ToggleSetting(
                     R.string.typing_smart_numbers_title,
@@ -1278,6 +1350,7 @@ internal fun TypingSmartChipsSettings(
                     default = SettingsDefaults.smartChips.numbers,
                 ) { scope.launch { repository.setSmartChipNumbers(it) } }
             }
+            chipToolsOffItem(SmartSuggest.Family.NUMBERS, settings.smartChips.numbers, settings, repository)
             if (settings.smartChips.numbers) {
                 item {
                     ChoiceSetting(
@@ -1304,6 +1377,37 @@ internal fun TypingSmartChipsSettings(
                 }
             }
         }
+    }
+}
+
+/**
+ * Under a chip switch that is on: a banner when the tools its chips hand off
+ * to are switched off, naming them, with the one press that turns them on
+ * (#176). Without it the switch reads on while its chips never show, or show
+ * a gear that is not there, and nothing on either screen says why.
+ */
+private fun SettingsGroupScope.chipToolsOffItem(
+    family: SmartSuggest.Family,
+    switchOn: Boolean,
+    settings: KeyboardSettings,
+    repository: SettingsRepository,
+) {
+    if (!switchOn) return
+    // The keyboard gates on the usable set, so the banner asks the same one.
+    // A tool this build does not ship is no use to offer.
+    val missing = SmartSuggest.missingTools(family, usableTools(settings), canTurnOn = ::isSupportedTool)
+    if (missing.isEmpty()) return
+    item {
+        val scope = rememberCoroutineScope()
+        val names = missing.map { stringResource(toolTitle(it)) }
+        StateBanner(
+            text = when {
+                names.size > 1 -> stringResource(R.string.typing_smart_tools_off_hidden, names[0], names[1])
+                SmartSuggest.answersWithoutTool(family) -> stringResource(R.string.typing_smart_tool_off_gear, names[0])
+                else -> stringResource(R.string.typing_smart_tool_off_hidden, names[0])
+            },
+            action = stringResource(CommonR.string.common_enable),
+        ) { scope.launch { missing.forEach { repository.setToolEnabled(it, true) } } }
     }
 }
 
@@ -1526,6 +1630,25 @@ internal fun TypingGesturesSettings(
                         default = SettingsDefaults.gesture.shiftGlideCapitals,
                     ) { scope.launch { repository.setGestureShiftCapitals(it) } }
                 }
+                // How a crossing reads, only while crossings mean anything.
+                if (settings.gesture.shiftGlideCapitals) {
+                    item {
+                        ChoiceSetting(
+                            title = R.string.typing_shift_glide_mode_title,
+                            subtitle = stringResource(R.string.typing_shift_glide_mode_subtitle),
+                            info = stringResource(R.string.typing_shift_glide_mode_info),
+                            options = listOf(
+                                ShiftGlideMode.WORD to
+                                    stringResource(R.string.typing_shift_glide_mode_word_label),
+                                ShiftGlideMode.LETTER to
+                                    stringResource(R.string.typing_shift_glide_mode_letter_label),
+                            ),
+                            selected = settings.gesture.shiftGlideMode,
+                            onChange = { scope.launch { repository.setGestureShiftGlideMode(it) } },
+                            default = SettingsDefaults.gesture.shiftGlideMode,
+                        )
+                    }
+                }
                 item {
                     ToggleSetting(
                         R.string.typing_glide_picker_title,
@@ -1662,22 +1785,6 @@ internal fun TypingGesturesSettings(
                         default = SettingsDefaults.gesture.apostropheKey,
                         detail = { key -> ChoiceDetail(stringResource(glideApostropheDescRes(key))) },
                     )
-                }
-                // The possessive flick hangs off that key, and the spacebar
-                // cannot be its starting point, so the row appears only for the
-                // three choices it can actually work from.
-                if (settings.gesture.apostropheKey != GlideApostropheKey.OFF &&
-                    settings.gesture.apostropheKey != GlideApostropheKey.SPACE
-                ) {
-                    item {
-                        ToggleSetting(
-                            R.string.typing_glide_apostrophe_s_title,
-                            stringResource(R.string.typing_glide_apostrophe_s_subtitle),
-                            settings.gesture.apostropheS,
-                            info = stringResource(R.string.typing_glide_apostrophe_s_info),
-                            default = SettingsDefaults.gesture.apostropheS,
-                        ) { scope.launch { repository.setGestureApostropheS(it) } }
-                    }
                 }
             }
             item {
@@ -1913,6 +2020,40 @@ internal fun TypingGesturesSettings(
             ) { scope.launch { repository.setSpaceSwipeDownHide(it) } }
         }
         item {
+            // Issue #178: a quick flick down on a key types its corner hint.
+            ToggleSetting(
+                R.string.typing_hint_flick_title,
+                stringResource(R.string.typing_hint_flick_subtitle),
+                settings.layoutBehavior.hintFlick,
+                info = stringResource(R.string.typing_hint_flick_info),
+                default = SettingsDefaults.layoutBehavior.hintFlick,
+            ) { scope.launch { repository.setHintFlick(it) } }
+        }
+        item {
+            // Issue #169: a short straight swipe from a punctuation key to s
+            // appends 's to the last word. Its own key, its own row, outside
+            // the glide block: it works on tapped words with glide typing off.
+            ChoiceSetting(
+                title = R.string.typing_possessive_swipe_title,
+                subtitle = stringResource(R.string.typing_possessive_swipe_subtitle),
+                info = stringResource(R.string.typing_possessive_swipe_info),
+                options = listOf(
+                    GlideApostropheKey.OFF to
+                        stringResource(R.string.typing_glide_apostrophe_off_label),
+                    GlideApostropheKey.COMMA to
+                        stringResource(R.string.typing_glide_apostrophe_comma_label),
+                    GlideApostropheKey.PERIOD to
+                        stringResource(R.string.typing_glide_apostrophe_period_label),
+                    GlideApostropheKey.APOSTROPHE to
+                        stringResource(R.string.typing_glide_apostrophe_key_label),
+                ),
+                selected = settings.gesture.possessiveKey,
+                onChange = { scope.launch { repository.setGesturePossessiveKey(it) } },
+                default = SettingsDefaults.gesture.possessiveKey,
+                detail = { key -> ChoiceDetail(stringResource(possessiveSwipeDescRes(key))) },
+            )
+        }
+        item {
             // Issue #57: the characters the spacebar's long press offers, space
             // separated. Blank gives the hold back to the language picker.
             TextFieldSetting(
@@ -1953,6 +2094,22 @@ internal fun TypingGesturesSettings(
                 selected = settings.layoutBehavior.spacebarDisplay,
                 default = SettingsDefaults.layoutBehavior.spacebarDisplay,
             ) { scope.launch { repository.setSpacebarDisplay(it) } }
+        }
+        item {
+            // Issue #150: the picker a long ring opens, as a list or a carousel.
+            ChoiceSetting(
+                R.string.typing_language_picker_style_title,
+                subtitle = stringResource(R.string.typing_language_picker_style_subtitle),
+                info = stringResource(R.string.typing_language_picker_style_info),
+                options = listOf(
+                    LanguagePickerStyle.LIST to
+                        stringResource(R.string.typing_language_picker_style_list_label),
+                    LanguagePickerStyle.CAROUSEL to
+                        stringResource(R.string.typing_language_picker_style_carousel_label),
+                ),
+                selected = settings.layoutBehavior.languagePickerStyle,
+                default = SettingsDefaults.layoutBehavior.languagePickerStyle,
+            ) { scope.launch { repository.setLanguagePickerStyle(it) } }
         }
         item {
             TextFieldSetting(
@@ -2523,6 +2680,14 @@ private fun numberGroupingDescRes(style: NumberGrouping): Int = when (style) {
     NumberGrouping.AUTO -> R.string.typing_smart_number_grouping_auto_desc
     NumberGrouping.WESTERN -> R.string.typing_smart_number_grouping_western_desc
     NumberGrouping.SOUTH_ASIAN -> R.string.typing_smart_number_grouping_south_asian_desc
+}
+
+/** Where the possessive swipe starts, for its sheet (#169). */
+private fun possessiveSwipeDescRes(key: GlideApostropheKey): Int = when (key) {
+    GlideApostropheKey.COMMA -> R.string.typing_possessive_swipe_comma_desc
+    GlideApostropheKey.PERIOD -> R.string.typing_possessive_swipe_period_desc
+    GlideApostropheKey.APOSTROPHE -> R.string.typing_possessive_swipe_key_desc
+    GlideApostropheKey.OFF, GlideApostropheKey.SPACE -> R.string.typing_possessive_swipe_off_desc
 }
 
 /** Which key carries the apostrophe in a glide, and what it costs, for the sheet. */

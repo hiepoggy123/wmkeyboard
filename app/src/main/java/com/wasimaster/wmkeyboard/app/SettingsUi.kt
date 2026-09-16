@@ -265,6 +265,9 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "servers" to Color(0xFF8D6E63),
     "notifications" to Color(0xFF7E57C2),
     "selection_macros" to Color(0xFF5E6BC0),
+    "selection_macros/actions" to Color(0xFF5E6BC0),
+    "selection_macros/ai" to Color(0xFF5E6BC0),
+    "selection_macros/zones" to Color(0xFF5E6BC0),
     "advanced" to Color(0xFF8D6E63),
     "backup" to Color(0xFF78909C),
     "backup/auto" to Color(0xFF78909C),
@@ -347,6 +350,12 @@ internal val LocalAdvancedFolds = compositionLocalOf<AdvancedFolds?> { null }
 internal class ScreenSlots {
     var fab: (@Composable () -> Unit)? by mutableStateOf(null)
     var pinned: (@Composable () -> Unit)? by mutableStateOf(null)
+    /**
+     * Content docked along the bottom of the window, under the scrolling body
+     * and above the navigation bar, the way a keyboard sits under an app. The
+     * body's padding grows by its height, so nothing scrolls behind it.
+     */
+    var dock: (@Composable () -> Unit)? by mutableStateOf(null)
     var refresh: ScreenRefresh? by mutableStateOf(null)
 
     /**
@@ -407,6 +416,17 @@ internal fun RegisterPinned(content: @Composable () -> Unit) {
     val slots = LocalScreenSlots.current ?: return
     SideEffect { slots.pinned = content }
     DisposableEffect(slots) { onDispose { slots.pinned = null } }
+}
+
+/**
+ * Docks [content] along the bottom of the window while the caller is composed:
+ * the theme editor's full-size keyboard (#148). The frame's FAB rides above it.
+ */
+@Composable
+internal fun RegisterDock(content: @Composable () -> Unit) {
+    val slots = LocalScreenSlots.current ?: return
+    SideEffect { slots.dock = content }
+    DisposableEffect(slots) { onDispose { slots.dock = null } }
 }
 
 /**
@@ -1803,6 +1823,7 @@ private fun WmScreenFrame(
                 }
             },
             floatingActionButton = { (fab ?: slots.fab)?.invoke() },
+            bottomBar = { slots.dock?.invoke() },
             content = { padding ->
                 // Always wrapped, whether or not the screen has a refresh: the
                 // slot is filled by the content composing, so branching on it

@@ -43,6 +43,14 @@ Tap one anywhere on the device and WM Keyboard opens on that screen. A bare
 `wmkeyboard://settings` opens the settings home list. Every launcher shortcut
 carries one of these links, and so does every route in the table further down.
 
+So does every settings-location chip on this site, when you read it on an
+Android phone that has WM Keyboard installed. Tap
+<SettingsPath path="Typing / Automatic corrections" /> and the app opens on
+that screen, or scrolls to the row the chip names. Chrome checks that the app
+is there before the chip becomes a link; a browser that cannot check, such as
+Firefox, links it anyway. On a desktop the chip is plain text, since nothing
+there can open the address.
+
 You can send the same link yourself, for example from `adb`:
 
 ```sh
@@ -230,6 +238,9 @@ would show nothing.
 | `datasaver` | Data saver. |
 | `servers` | Servers: every service's address, read by the F-Droid edition only. |
 | `selection_macros` | Selection actions. |
+| `selection_macros/actions` | Selection actions: the list of actions and their order. |
+| `selection_macros/ai` | Selection actions: the AI buttons. |
+| `selection_macros/zones` | Selection actions: the time zones. |
 
 #### Privacy and backup
 

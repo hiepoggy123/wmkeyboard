@@ -6,10 +6,10 @@ import com.wasimaster.wmkeyboard.settings.R
 /**
  * What arms power saving by itself, on top of the manual switch.
  *
- * The default is [SYSTEM_SAVER] rather than a battery percentage: it only ever
- * fires because the user already asked the *system* to save power, so the
- * keyboard changing its feel is an answer to something they did, not a surprise
- * at some threshold they never set.
+ * The default is [OFF]: power saving changes how the keyboard feels (no
+ * vibration, no sounds, no animations), and that must never happen unless the
+ * user opted in here. Even following the system battery saver surprised people
+ * who turned that on for the phone, not for their keyboard.
  */
 enum class PowerSavingTrigger(@StringRes val labelRes: Int) {
     /** Nothing but the manual switch. */
@@ -64,7 +64,7 @@ data class PowerSavingSettings(
      */
     val manual: Boolean = false,
     /** What switches it on by itself. */
-    val trigger: PowerSavingTrigger = PowerSavingTrigger.SYSTEM_SAVER,
+    val trigger: PowerSavingTrigger = PowerSavingTrigger.OFF,
     /** The level [PowerSavingTrigger.LOW_BATTERY] fires at or below, in percent. */
     val batteryPercent: Int = 20,
     /**
@@ -100,13 +100,20 @@ data class PowerSavingSettings(
      * this is off by default and [dropGlideTrail] carries the cheap half.
      */
     val dropGestureTyping: Boolean = false,
-    /** Stop scanning what you type for emoji to suggest. */
-    val dropEmojiPrediction: Boolean = true,
+    /**
+     * Stop scanning what you type for emoji to suggest. Off by default: the
+     * scan is a dictionary look-up on a word already in hand, and a strip
+     * that stops offering emoji reads as broken rather than as saving power.
+     */
+    val dropEmojiPrediction: Boolean = false,
     /**
      * Stop the smart chips — the sums, unit and currency conversions and tool
-     * keywords matched against every word you type.
+     * keywords matched against every word you type. Off by default for the
+     * same reason as [dropEmojiPrediction]: a handful of pattern matches on
+     * the current word is not where a battery goes, and the chips vanishing
+     * is what users reported as a bug.
      */
-    val dropSmartChips: Boolean = true,
+    val dropSmartChips: Boolean = false,
     /**
      * Stop the optional network fetches that happen without being asked: link
      * previews for copied URLs and for scanned QR codes, and the dictionary's

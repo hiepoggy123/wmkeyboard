@@ -185,6 +185,27 @@ class SuggestionEngine(
     var systemWordCases: Map<String, String> = emptyMap()
 
     /**
+     * Text-expansion triggers — snippet triggers and the platform dictionary's
+     * shortcuts — that a glide may decode to (#170). Build with
+     * [triggerSource].
+     *
+     * Walked by [glide] only. A trigger is not a word: typing "omw" must not
+     * complete to it or keep it from being corrected, and the typed path
+     * already reaches the trigger through the composing buffer. A stroke has
+     * no buffer, so without this the decoder could never read "omw" at all.
+     * Rides the user tier at the lexicon's weight, like [systemDictionary], so
+     * a learned-words-only glide still finds it.
+     */
+    @Volatile
+    private var glideTriggersField: WordSource = PackedTrie.EMPTY
+    var glideTriggers: WordSource
+        get() = glideTriggersField
+        set(value) {
+            glideTriggersField = value
+            generation.incrementAndGet()
+        }
+
+    /**
      * Dictionaries for the user's secondary languages, consulted alongside the
      * primary so a bilingual typist gets both without switching. These are the
      * freq-1 imported lists, weighted below every primary source; a word valid
@@ -795,7 +816,8 @@ class SuggestionEngine(
     ): List<GlideBeam.Candidate> {
         val romanization = glideRomanization
         val sources = if (romanization.isEmpty) {
-            walkSources().let { all -> if (tiers == null) all else all.filter { it.tier in tiers } }
+            (walkSources() + glideTriggerSources())
+                .let { all -> if (tiers == null) all else all.filter { it.tier in tiers } }
         } else {
             romanization.walkSources()
         }
@@ -822,6 +844,14 @@ class SuggestionEngine(
         val kept = shiftGlideScores(words.filterNot { suppressed(it.word) })
         if (kept.isEmpty()) return kept
         return rerankGlide(kept, previousWord, previousWord2, recentWords)
+            // One word per spelling, whatever source it came from (#172). The
+            // decoder keys its results on each trie's own spelling, and the
+            // platform dictionary stores "boston" where a word list may store
+            // "Boston"; both walk the same stroke, and `displayForm` below
+            // would then put the platform capital back on the lower one — two
+            // identical chips. Folded here, before the slice, so the strip is
+            // not left a word short; first wins, which is the better score.
+            .distinctBy { WordKey.of(it.word) }
             .take(limit)
             // The whole complaint behind #44: a swipe knew the word but not
             // the capital, so every proper noun had to be re-picked off the
@@ -864,6 +894,52 @@ class SuggestionEngine(
             }
         }
         return if (moved) shifted.sortedByDescending { it.score } else decoded
+    }
+
+    /**
+     * The words that start with [drawn], nearest in spelling to [word] first —
+     * what the strip offers beside a word a lift finished early (issue #168).
+     *
+     * A finger that lifts part way through a word, on the strength of a
+     * guess, has done the same thing as a tap on a suggestion: it took the
+     * word it was shown. The stroke's other readings are then no use to it —
+     * they are words that end where the finger stopped, and the finger did
+     * not stop at the end of anything — while what it may still want is a
+     * neighbour of the word it took: the plural, the possessive, the verb
+     * form, the word one letter shorter that the guess ran past. All of
+     * those share the letters the stroke drew, and the longer the run of
+     * letters they share with the word itself, the nearer they are to it, so
+     * that is the order: shared prefix with [word] first, then the same
+     * weight the decoder gives a word. [word] itself is left out.
+     *
+     * Empty on a phonetic layout, where a guess is never made.
+     */
+    fun glideKin(drawn: String, word: String, limit: Int): List<String> {
+        if (drawn.isEmpty() || limit <= 0 || !glideRomanization.isEmpty) return emptyList()
+        val self = WordKey.of(word)
+        val best = HashMap<String, Double>()
+        val spelling = HashMap<String, String>()
+        for (src in walkSources()) {
+            for (s in TrieCompleter.complete(src.walker, drawn, GLIDE_KIN_SCAN)) {
+                val key = WordKey.of(s.word)
+                if (key.isEmpty() || key == self || suppressed(s.word)) continue
+                val score = src.logWeight + ln(1.0 + s.frequency) + rankOffset(s.word)
+                val prior = best[key]
+                if (prior == null || score > prior) {
+                    best[key] = score
+                    spelling[key] = s.word
+                }
+            }
+        }
+        val lower = word.lowercase()
+        return best.entries
+            .sortedWith(
+                compareByDescending<Map.Entry<String, Double>> {
+                    spelling.getValue(it.key).lowercase().commonPrefixWith(lower).length
+                }.thenByDescending { it.value }.thenBy { it.key }
+            )
+            .take(limit)
+            .map { displayForm(spelling.getValue(it.key)) }
     }
 
     /**
@@ -1003,6 +1079,7 @@ class SuggestionEngine(
             FuzzyBeamSearch.ScoredCandidate(
                 c.word, c.score - LANG_MISMATCH_DAMP, c.editCost, c.edits,
                 c.completedChars, c.tier, c.dictScore, c.userScore - LANG_MISMATCH_DAMP,
+                c.accents,
             )
         }
         if (!changed) return ranked
@@ -1053,6 +1130,12 @@ class SuggestionEngine(
         }
         return sources
     }
+
+    /** [glideTriggers] as walk sources, at the user tier. */
+    private fun glideTriggerSources(): List<FuzzyBeamSearch.WalkSource> =
+        glideTriggers.walkers().map {
+            FuzzyBeamSearch.WalkSource(it, LOG_USER_WORD_WEIGHT, FuzzyBeamSearch.Tier.USER)
+        }
 
     /**
      * Whether anything at all could complete a word in the language now being
@@ -1207,6 +1290,17 @@ class SuggestionEngine(
          * from the rarest word in a downloaded list to its commonest.
          */
         private const val RANK_OFFSET_STEP = 1.0
+        /**
+         * [triggers] as a [glideTriggers] source: lowercased the way
+         * snippet triggers are matched, flat frequency 1 like every user-tier
+         * entry, and nothing shorter than two characters, which a stroke
+         * cannot tell from a tap.
+         */
+        fun triggerSource(triggers: Iterable<String>): WordSource {
+            val keys = triggers.map { it.trim().lowercase() }.filter { it.length >= 2 }.distinct()
+            return if (keys.isEmpty()) PackedTrie.EMPTY else PackedTrie.of(keys.map { it to 1 })
+        }
+
         /** Learned words get a large boost so personalization wins quickly. */
         /** Completions scanned per source when building the next-letter map. */
         private const val NEXT_LETTER_SCAN = 24
@@ -1301,6 +1395,15 @@ class SuggestionEngine(
          * confidence, while a lone two-edit hit on a rare word does not.
          */
         private const val SOLO_RUNNER_UP_SCORE = 1.0
+
+        /**
+         * How many times commoner an accented twin must be before the
+         * accentless spelling stops counting as a word of its own; see
+         * [accentShadowed]. The Polish stand-ins sit at 50 to 90 times (`juz`,
+         * `sie`, `moze`). The real pairs sit well under 20: `ze`/`że` at 7,
+         * Spanish `mas`/`más` at 15.
+         */
+        private const val ACCENT_SHADOW_RATIO = 20.0
 
         /**
          * Share of the silent-replacement margin a candidate has to clear to
@@ -1405,6 +1508,15 @@ class SuggestionEngine(
          * guess, which is exactly the case a context model is there to fix.
          */
         private const val GLIDE_RERANK_POOL = 8
+
+        /**
+         * Completions read per source when a lift finishes a word early
+         * ([glideKin]). The commonest words under a prefix, of which the
+         * strip then shows the few nearest the word taken; wide enough that
+         * a plural or possessive ranked well below the word itself is still
+         * in the pool, narrow enough to stay a bounded walk.
+         */
+        private const val GLIDE_KIN_SCAN = 32
 
         /**
          * The pool a deep search keeps. Twice the ordinary one: the decoder's
@@ -1649,9 +1761,12 @@ class SuggestionEngine(
 
         // Contact words carry their own capitalization ("Wasi"), so the
         // same word can arrive in two cases; keep the better-scored one.
+        // Folded through [WordKey] rather than a bare lowercase: a word list
+        // and the platform dictionary can spell the same Bengali word with
+        // and without the nukta composed, and those render as one word (#172).
         val byLower = HashMap<String, Pair<String, Double>>()
         for ((word, score) in merged) {
-            val key = word.lowercase()
+            val key = WordKey.of(word)
             val current = byLower[key]
             if (current == null || score > current.second) byLower[key] = word to score
         }
@@ -2052,8 +2167,11 @@ class SuggestionEngine(
             result = result.sortedByDescending { rankOffsets[it.lowercase()] ?: 0 }
         }
         // Last, so nothing above has to reason about case: the ordering, the
-        // sentinel filter and the blacklist all work on keys.
-        return result.map(::displayForm)
+        // sentinel filter and the blacklist all work on keys. The set above
+        // holds keys from the lexicon beside surface spellings from the
+        // contacts ("boston" and "Boston"), and restoring the capital makes
+        // them one word — so the fold comes after the restore (#172).
+        return result.map(::displayForm).distinctBy(WordKey::of)
     }
 
     /**
@@ -2198,6 +2316,63 @@ class SuggestionEngine(
     }
 
     /**
+     * Whether the word lists hold [lower] only as the accentless spelling of a
+     * far commoner word (#200).
+     *
+     * Frequency lists come from real text, and real text is full of Polish
+     * typed without its accents. The Polish list holds `juz` 12,683 times
+     * beside `już` 690,940 times, and `sie` beside `się`. As known words those
+     * spellings stopped the fix from ever firing. A spelling that its accented
+     * twin outnumbers [ACCENT_SHADOW_RATIO] times over is that twin typed
+     * without the long-press. Under the ratio both spellings are words people
+     * mean: Polish `ze` and `że`, Spanish `mas` and `más`.
+     *
+     * A word in Android's personal dictionary was put there by the user, and
+     * is never shadowed. [customDictionary] earns no such exemption: for every
+     * language but English and Bengali it is where the *downloaded* list
+     * lives, beside anything imported, so exempting it exempted the very list
+     * that holds `juz`.
+     */
+    private fun accentShadowed(lower: String, touch: List<TouchPoint?>?): Boolean {
+        if (systemDictionary.contains(lower)) return false
+        // The same walk decideOrdinary ranks, so this reads the memoised result.
+        val ranked = rankedFor(lower, FuzzyBeamSearch.AUTOCORRECT_K / 2, touch)
+        val twin = ranked
+            .filter { it.edits == 0 && it.completedChars == 0 && it.accents > 0 }
+            // The accent price given back, so the ratio is between the two
+            // frequencies alone.
+            .maxOfOrNull { it.dictScore + it.accents * FuzzyBeamSearch.COST_ACCENT }
+            ?: return false
+        // Read from the lists directly. A stand-in is rare next to its twin,
+        // and the walk's top ranks fill with the twin's own inflections long
+        // before they reach it: `mowie` never makes the top 32 for `mówię`.
+        val typed = dictionaryScore(lower)
+        if (typed == Double.NEGATIVE_INFINITY) return false
+        return twin - typed >= ln(ACCENT_SHADOW_RATIO)
+    }
+
+    /**
+     * [lower]'s best score in the dictionary-tier walk sources, on the walk's
+     * own scale; NEGATIVE_INFINITY when no list holds it.
+     */
+    private fun dictionaryScore(lower: String): Double {
+        var best = Double.NEGATIVE_INFINITY
+        for (src in walkSources()) {
+            if (src.tier != FuzzyBeamSearch.Tier.DICTIONARY) continue
+            val walker = src.walker
+            var node = walker.root
+            for (ch in lower) {
+                node = walker.child(node, ch)
+                if (node < 0) break
+            }
+            if (node >= 0 && walker.isWord(node)) {
+                best = maxOf(best, src.logWeight + ln(1.0 + walker.frequency(node)))
+            }
+        }
+        return best
+    }
+
+    /**
      * The engine's own verdict on [word], from the dictionaries and the walk
      * alone; see [decideCorrection] for the contract.
      */
@@ -2207,7 +2382,11 @@ class SuggestionEngine(
         touch: List<TouchPoint?>?,
         timingMultiplier: Double,
     ): CorrectionDecision {
-        if (inDictionaries(lower) || userLexicon.isEstablished(lower, learnedWordMinCount)) {
+        // A shadowed spelling is protected by neither the lists nor the
+        // lexicon. The lexicon learned it only because a list vouched for it.
+        if (!accentShadowed(lower, touch) &&
+            (inDictionaries(lower) || userLexicon.isEstablished(lower, learnedWordMinCount))
+        ) {
             return NO_CORRECTION
         }
         // Contact and app names are known words too — never "corrected" away.
@@ -2222,7 +2401,7 @@ class SuggestionEngine(
         // silent-replacement decision stays on the same top-8 it has always
         // judged: a rank-20 word must never fire as a correction, nor may it
         // appear as the runner-up that tightens (or loosens) the gate.
-        val candidates = rankedFor(
+        val shaped = rankedFor(
             lower, FuzzyBeamSearch.AUTOCORRECT_K / 2, touch,
         ).take(FuzzyBeamSearch.AUTOCORRECT_K).filter { c ->
             // Silent replacement only trusts classic one-edit shapes: a single
@@ -2237,7 +2416,13 @@ class SuggestionEngine(
             // inflection ("questiom" -> "questions") must be neither a target
             // nor the runner-up that blocks the real fix.
             val correctionShaped = when (c.edits) {
-                0 -> c.completedChars == 1 && c.word != lower
+                // The typed word with its accents put back is a fix in place:
+                // same letters, same length.
+                0 -> if (c.accents > 0) {
+                    c.completedChars == 0
+                } else {
+                    c.completedChars == 1 && c.word != lower
+                }
                 1 -> c.completedChars == 0
                 else -> false
             }
@@ -2252,7 +2437,7 @@ class SuggestionEngine(
             // as a *correction* it is the old insert-at-end edit and must
             // carry that edit's weight — both as a target and as the
             // runner-up that gates someone else's correction.
-            if (c.edits == 0) {
+            if (c.edits == 0 && c.accents == 0) {
                 FuzzyBeamSearch.ScoredCandidate(
                     c.word, c.score - FuzzyBeamSearch.COST_INSERT_ADJACENT,
                     FuzzyBeamSearch.COST_INSERT_ADJACENT, 1, 0, c.tier,
@@ -2272,7 +2457,7 @@ class SuggestionEngine(
                 CorrectionStats.Penalty.PENALIZED -> FuzzyBeamSearch.ScoredCandidate(
                     c.word, c.score - PAIR_PENALTY, c.editCost, c.edits,
                     c.completedChars, c.tier,
-                    Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY,
+                    Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, c.accents,
                 )
                 // A pair on probation keeps its honest score, because the only
                 // thing it is here to do is clear the offer margin, and a
@@ -2283,13 +2468,20 @@ class SuggestionEngine(
                 CorrectionStats.Penalty.PROBATION -> FuzzyBeamSearch.ScoredCandidate(
                     c.word, c.score, c.editCost, c.edits,
                     c.completedChars, c.tier,
-                    Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY,
+                    Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, c.accents,
                 )
                 CorrectionStats.Penalty.NONE -> c
             }
         }.sortedWith(
             compareByDescending<FuzzyBeamSearch.ScoredCandidate> { it.score }.thenBy { it.word }
         )
+        // A reading that spends every keystroke as pressed and only puts
+        // accents back explains the word completely, and one that calls a key
+        // mistyped does not. So an edited reading is no rival to it, however
+        // common: `sie` is `się`, not a slip for `nie`, and `zona` is `żona`,
+        // not `ona` with a stray letter (#200). Accent readings still compete
+        // among themselves, so `zle` stays open between `źle` and `żle`.
+        val candidates = shaped.filter { it.edits == 0 && it.accents > 0 }.ifEmpty { shaped }
 
         // Two independent sources naming the same word is confidence enough
         // on its own.

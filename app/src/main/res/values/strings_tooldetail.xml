@@ -258,6 +258,12 @@
     <string name="tooldetail_typing_nav_title">All typing settings</string>
     <string name="tooldetail_typing_nav_subtitle">Suggestions, autocorrect, capital letters and more</string>
 
+    <!-- Selection actions tool. -->
+    <string name="tooldetail_selection_actions_title">Selection actions</string>
+    <string name="tooldetail_selection_actions_subtitle">The tool uses this same switch. You can also find it under Advanced</string>
+    <string name="tooldetail_selection_actions_nav_title">All selection action settings</string>
+    <string name="tooldetail_selection_actions_nav_subtitle">Where the bar appears, which actions it offers, and their order</string>
+
     <!-- Fancy text tool. -->
     <string name="tooldetail_fancy_style_title">Style to start with</string>
     <string name="tooldetail_fancy_style_subtitle">The style the tool turns on. The strip over the keys still changes it</string>
@@ -273,7 +279,7 @@
     <string name="tooldetail_fancy_language_nav_subtitle">The saved style, and the layout switch</string>
     <string name="tooldetail_fancy_info">The tool types with Unicode letters, not with a font. The letters stay fancy in every app, but a screen reader cannot read them and a search cannot find them.</string>
 
-    <!-- Custom layout tool. -->
+    <!-- Secondary layout tool. -->
     <string name="tooldetail_custom_layout_layout_title">Layout to show</string>
     <string name="tooldetail_custom_layout_layout_subtitle">The secondary layout the tool puts on screen, or a list to select from</string>
     <string name="tooldetail_custom_layout_layout_info">With no layout selected here, the tool opens a list of all your secondary layouts, or the only one you have. Select a layout and the tool shows that one directly. A press while a secondary layout is on screen always takes it off again. A key on any layout can also open a secondary layout.</string>
@@ -550,7 +556,27 @@
 
     <string name="tooldetail_launcher_recents_count_title">How many recent apps</string>
     <string name="tooldetail_launcher_recents_count_subtitle">Length of the recent apps row</string>
-    <string name="tooldetail_launcher_recents_count_info">The grid is three to six apps wide, so a number that divides by your grid width fills whole rows and leaves no gap at the end.</string>
+    <string name="tooldetail_launcher_recents_count_info">A number that divides by the apps per row of your grid fills whole rows and leaves no gap at the end.</string>
+
+    <string name="tooldetail_launcher_columns_title">Apps per row</string>
+    <string name="tooldetail_launcher_columns_subtitle">How many apps sit side by side in the grid</string>
+    <string name="tooldetail_launcher_columns_auto_label">Auto</string>
+    <string name="tooldetail_launcher_columns_info">Auto fits as many apps as the keyboard width holds, three to six on most phones. Set a number to get larger targets or more apps on the screen. If the icons do not fit in a row, they become smaller.</string>
+    <string name="tooldetail_launcher_icon_size_title">Icon size</string>
+    <string name="tooldetail_launcher_icon_size_subtitle">How large each app icon is in the grid</string>
+    <string name="tooldetail_launcher_icon_size_info">With apps per row on Auto, larger icons also make each cell wider, so fewer apps fit in a row. The pinned and recent row keeps its own size.</string>
+    <string name="tooldetail_launcher_icon_shape_title">Icon shape</string>
+    <string name="tooldetail_launcher_icon_shape_subtitle">The outline of each app icon</string>
+    <string name="tooldetail_launcher_icon_shape_circle_label">Circle</string>
+    <string name="tooldetail_launcher_icon_shape_rounded_label">Rounded square</string>
+    <string name="tooldetail_launcher_icon_shape_system_label">As on the phone</string>
+    <string name="tooldetail_launcher_icon_shape_info">As on the phone shows each icon with the shape your home screen gives it. Old apps without an adaptive icon keep their own outline.</string>
+    <string name="tooldetail_launcher_hidden_title">Hidden apps</string>
+    <string name="tooldetail_launcher_hidden_none_subtitle">No apps are hidden. Hide an app from its page in the panel.</string>
+    <plurals name="tooldetail_launcher_hidden_count">
+        <item quantity="one">%1$d app hidden. Tap to show it again.</item>
+        <item quantity="other">%1$d apps hidden. Tap to show all of them again.</item>
+    </plurals>
 
     <string name="tooldetail_camera_timer_title">Self-timer</string>
     <string name="tooldetail_camera_timer_subtitle">The timer the camera opens on</string>
@@ -590,6 +616,7 @@
     <string name="tooldetail_hold_repeats_subtitle">Press and hold repeats the move, so it cannot do a second action</string>
     <string name="tooldetail_hold_selects_subtitle">Press and hold turns selection mode on, so it cannot do a second action</string>
     <string name="tooldetail_hold_trackpad_subtitle">Press and hold opens the trackpad, so it cannot do a second action</string>
+    <string name="tooldetail_hold_voice_modes_subtitle">Press and hold picks a voice typing mode, so it cannot do a second action. Turn that off under Voice typing to bind one.</string>
     <!-- %1$s is the name of a tool, for example "Undo". -->
     <string name="tooldetail_hold_pick_title">Press and hold <xliff:g id="tool" example="Undo">%1$s</xliff:g></string>
 

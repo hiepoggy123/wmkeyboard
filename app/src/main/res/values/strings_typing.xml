@@ -131,6 +131,11 @@
     <string name="typing_auto_space_punctuation_title">Automatic space after punctuation</string>
     <string name="typing_auto_space_punctuation_subtitle">The keyboard adds a space after you type . , ? ! ; or :</string>
     <string name="typing_auto_space_punctuation_info">You do not need to press space at the end of a clause: \"hello,\" becomes \"hello, \" by itself. A group of marks (\"...\", \"?!\") stays together. If you press space yourself, the keyboard does not add a second space. Shift immediately after the space removes it. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads. A space in these fields is a mistake.</string>
+    <string name="typing_hug_punctuation_title">Remove a space before punctuation</string>
+    <string name="typing_hug_punctuation_subtitle">\"Hey .\" becomes \"Hey.\" when you type the mark</string>
+    <string name="typing_hug_punctuation_info">A space typed by mistake in front of a punctuation mark is removed when the mark lands. The mark must come after a word, a number or a closing bracket, so a mark at the start of a line is left alone. One backspace right after puts the space back. Off by default: some languages put a space in front of a question mark or a colon on purpose. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads.</string>
+    <string name="typing_hug_punctuation_marks_title">Marks that pull the space out</string>
+    <string name="typing_hug_punctuation_marks_hint">One character for each mark, with no spaces between them</string>
 
     <string name="typing_space_after_suggestion_title">Space after a suggestion</string>
     <string name="typing_space_after_suggestion_subtitle">Add a space when you select a word from the suggestion strip</string>
@@ -165,6 +170,12 @@
     <string name="typing_primary_center_subtitle">Show the best candidate in the middle slot</string>
     <string name="typing_primary_center_info">The best candidate, the one that autocorrect selects, goes in the middle of the strip. The second candidate goes on its left. Most keyboards use this layout. Turn this off to order the candidates from left to right.</string>
 
+    <string name="typing_suggestion_overflow_title">Shorten long words</string>
+    <string name="typing_suggestion_overflow_subtitle">Where to cut a word that does not fit its slot</string>
+    <string name="typing_suggestion_overflow_info">First, a long word gets smaller to fit its slot. If it is still too long, the keyboard removes some letters and shows an ellipsis (…) in their place. In the middle keeps the start and the end of the word, for example \"Punct…tion\". Most keyboards do this. At the end keeps only the start, for example \"Punctuat…\". This setting has no effect while Scroll the suggestions is on, because each word then keeps its full size.</string>
+    <string name="typing_suggestion_overflow_middle">In the middle</string>
+    <string name="typing_suggestion_overflow_end">At the end</string>
+
     <string name="typing_contact_names_title">Suggest contact names</string>
     <string name="typing_contact_names_subtitle">Complete names from your contacts as you type</string>
     <string name="typing_contact_names_info">The words in your contact names complete in the same way as the words in the word list. Example: \"was\" gives Wasi. The names also chain: after Wasi, the keyboard offers the family name. The keyboard reads the names into memory only. It stores nothing and sends nothing, and autocorrect never changes a name that it knows. This setting needs the Contacts permission.</string>
@@ -187,7 +198,7 @@
 
     <string name="typing_inline_autofill_title">Password manager suggestions</string>
     <string name="typing_inline_autofill_subtitle">Show saved logins from your autofill service in the suggestion strip</string>
-    <string name="typing_inline_autofill_info">When you select a login field, your password manager can offer saved entries as chips in the suggestion strip, instead of a separate popup. The password manager draws the chips itself. The keyboard gets only their size, and never sees the user name or the password inside them. Incognito mode turns this off by itself. This setting needs Android 11 or newer, and a password manager set as your system autofill service.</string>
+    <string name="typing_inline_autofill_info">When you select a login field, your password manager can offer saved entries as chips in the suggestion strip, instead of a separate popup. The password manager draws the chips itself. The keyboard gets only their size, and never sees the user name or the password inside them. The chips stay available in incognito mode, because they record nothing. This setting needs Android 11 or newer, and a password manager set as your system autofill service.</string>
 
     <string name="typing_smart_replies_title">Smart replies</string>
     <string name="typing_smart_replies_subtitle">Let the system offer replies to the message you answer</string>
@@ -198,6 +209,9 @@
 
     <string name="typing_skip_typed_word_title">Only offer new words</string>
     <string name="typing_skip_typed_word_subtitle">Leave out the word you have already typed</string>
+    <string name="typing_number_prediction_title">Numbers from the letter keys</string>
+    <string name="typing_number_prediction_subtitle">Type qwe with the number row off and the strip also offers 123</string>
+    <string name="typing_number_prediction_info">With the number row off, the top row of letters shows a small digit in each corner. When every letter of the word you are typing sits on one of those keys, the strip offers the number those digits spell in its last slot, beside the words, and one press types it. The word itself is never replaced without a press. Two or more letters are needed, so a single I or a single A stays a word. A number of five digits or more is grouped with separators when Group long numbers is on, using its grouping style. Nothing is offered while the number row is shown, since the digits are then on their own keys. This setting is off by default.</string>
     <string name="typing_skip_typed_word_info">The suggestion strip normally keeps one slot for the word exactly as you typed it, which is how you keep a spelling the dictionary does not know. Turn this on and that slot is given to another suggestion instead, so all three offer something new. The cost is that a word the keyboard does not recognise has one fewer way to survive a correction, and the strip no longer shows you which candidate is the literal thing you wrote.</string>
 
     <string name="typing_group_octopus_title">Words on the keys</string>
@@ -326,6 +340,11 @@
     <string name="typing_smart_number_grouping_western_desc">Groups of three: 1,234,567</string>
     <string name="typing_smart_number_grouping_south_asian">Lakh and crore</string>
     <string name="typing_smart_number_grouping_south_asian_desc">Three digits, then twos: 12,34,567 and 1,00,000</string>
+    <!-- A banner under a smart chip switch that is on while the tool its chips open is off. -->
+    <string name="typing_smart_tool_off_hidden">The <xliff:g id="tool" example="Calendar">%1$s</xliff:g> tool is off, so its chips do not show</string>
+    <string name="typing_smart_tools_off_hidden">The <xliff:g id="tool" example="Dictionary">%1$s</xliff:g> and <xliff:g id="other_tool" example="Wikipedia">%2$s</xliff:g> tools are off, so their chips do not show</string>
+    <!-- The same banner for a chip that still types its answer, and only loses the button that opens the tool. -->
+    <string name="typing_smart_tool_off_gear">The <xliff:g id="tool" example="Calculator">%1$s</xliff:g> tool is off, so these chips have no button to open it</string>
 
     <!-- ==== Typing settings: one-time codes ==== -->
     <string name="typing_group_otp_title">One-time codes</string>
@@ -365,7 +384,12 @@
     <string name="typing_space_glide_multiword_info">Keep your finger down. Glide a word, swipe across the spacebar, then glide the next word. Each crossing types the word and a space, so one stroke gives a full phrase. When this setting is off, a swipe across the spacebar makes one word.</string>
     <string name="typing_shift_glide_capitals_title">Glide over Shift to capitalize</string>
     <string name="typing_shift_glide_capitals_subtitle">Draw through the Shift key mid-swipe for a capital letter</string>
-    <string name="typing_shift_glide_capitals_info">Gliding a name meant stopping to tap Shift first, which breaks the stroke. With this on, draw through the Shift key on your way and the word comes out capitalized; cross it twice and the whole word is in capitals. The key has to actually be crossed, and its part of the path is ignored when the word is read, so the detour never adds a letter.</string>
+    <string name="typing_shift_glide_capitals_info">Gliding a name meant stopping to tap Shift first, which breaks the stroke. With this on, draw through the Shift key on your way and the word comes out capitalized; cross it twice and the whole word is in capitals. The key has to actually be crossed, and the walk out to it and back is cut from the path before the word is read, so the detour never adds a letter.</string>
+    <string name="typing_shift_glide_mode_title">What a pass over Shift capitalizes</string>
+    <string name="typing_shift_glide_mode_subtitle">The whole word, or the letter you just left</string>
+    <string name="typing_shift_glide_mode_info">Whole word: one pass capitalizes the word and a second pass makes it all capitals. One letter: each pass over Shift capitalizes the letter your finger came from, so a stroke can write HeLLo or LeanType, and ending the stroke on the Shift key makes the whole word capitals in one trip.</string>
+    <string name="typing_shift_glide_mode_word_label">Whole word</string>
+    <string name="typing_shift_glide_mode_letter_label">One letter</string>
 
     <string name="typing_glide_picker_title">Ask when a glide is unclear</string>
     <string name="typing_glide_picker_subtitle">Hold your finger still to choose between the closest words</string>
@@ -424,7 +448,7 @@
     <!-- One-of-three choice: whether a glide may finish a word for you. -->
     <string name="typing_glide_lookahead_title">Finish long words early</string>
     <string name="typing_glide_lookahead_subtitle">Offer a word before you have glided all of it</string>
-    <string name="typing_glide_lookahead_info">A swipe is normally read from end to end: the keyboard matches the first letter to where you started and the last to where you stopped, so a long word cannot be offered until you have glided every letter of it. Tapping does not work that way — four letters into \"dictionary\" the word is already there. With this on, the keyboard may offer a word your stroke has only started, and lifting your finger types it. It only does so when that word is clearly a better answer than anything you have actually spelled, so it stays quiet on short words and on strokes that could be many things. \"When sure\" is cautious; \"Eager\" offers a word as soon as it is ahead. Off by default. Not available on phonetic layouts such as Avro, where a stroke spells a romanization rather than the word itself.</string>
+    <string name="typing_glide_lookahead_info">A swipe is normally read from end to end: the keyboard matches the first letter to where you started and the last to where you stopped, so a long word cannot be offered until you have glided every letter of it. Tapping does not work that way — four letters into \"dictionary\" the word is already there. With this on, the keyboard may offer a word your stroke has only started, and lifting your finger types it. It only does so when that word is clearly a better answer than anything you have actually spelled, so it stays quiet on short words and on strokes that could be many things, and a word you have drawn in full keeps its place: \"thing\" glided to the g stays \"thing\", not \"things\". \"When sure\" is cautious; \"Eager\" offers a word as soon as it is ahead. Under \"Prefer my words\" and \"Only my words\" the early word is always one of your own, and the dictionary only reads a stroke you finish. Lifting on an early word is a choice, so the strip then offers that word\'s neighbours — its plural, possessive and the shorter word it ran past — instead of the stroke\'s other readings. Off by default. Not available on phonetic layouts such as Avro, where a stroke spells a romanization rather than the word itself.</string>
 
     <!-- One-of-four choice: which word a stroke colours instead of only bolding. -->
     <string name="typing_glide_commit_color_title">Color the word a lift will type</string>
@@ -456,10 +480,16 @@
     <string name="typing_glide_apostrophe_space_desc">Glide through the spacebar. \"Glide across the spacebar\" stops</string>
     <string name="typing_glide_apostrophe_key_desc">Glide through the apostrophe key, where the layout has one</string>
 
-    <!-- The 's is the English possessive ending, as in "the developer's keyboard". -->
-    <string name="typing_glide_apostrophe_s_title">Swipe to add \'s</string>
-    <string name="typing_glide_apostrophe_s_subtitle">Swipe from the apostrophe key to s to make the last word possessive</string>
-    <string name="typing_glide_apostrophe_s_info">Glide a word, then swipe from the apostrophe key to the s key. The keyboard adds \'s to that word, so \"developer\" becomes \"developer\'s\". Do this immediately after the glide. The keyboard adds nothing when you type or move the cursor first. Backspace deletes the whole word again in one press. This works with English only, and it needs a key for the apostrophe above. The spacebar cannot start this swipe.</string>
+    <!-- The 's is the English possessive ending, as in "the developer's keyboard".
+         One-of-four choice: which punctuation key the swipe starts from. -->
+    <string name="typing_possessive_swipe_title">Swipe to add \'s</string>
+    <string name="typing_possessive_swipe_subtitle">Swipe from a punctuation key to s to add \'s to the last word</string>
+    <string name="typing_possessive_swipe_info">Select a key here. A short, straight swipe from that key to the s key adds \'s to the word before the cursor, so \"developer\" becomes \"developer\'s\". This works after you type a word and after you glide one, with glide typing on or off. A space after the word moves behind the \'s. The key still types its own character when you press it. The swipe must be short and straight. A longer path from the same key to s is a glide, as before. This works with English only. The spacebar cannot start this swipe.</string>
+    <!-- One line under each option in the swipe to add 's picker. -->
+    <string name="typing_possessive_swipe_off_desc">No swipe adds \'s</string>
+    <string name="typing_possessive_swipe_comma_desc">Swipe from the comma key to s. A press still types a comma</string>
+    <string name="typing_possessive_swipe_period_desc">Swipe from the full stop key to s. A press still types a full stop</string>
+    <string name="typing_possessive_swipe_key_desc">Swipe from the apostrophe key to s, where the layout has one</string>
 
 
 
@@ -535,6 +565,10 @@
     <string name="typing_space_swipe_down_hide_subtitle">A swipe down on the spacebar closes the keyboard</string>
     <string name="typing_space_swipe_down_hide_info">Swipe straight down on the spacebar to close the keyboard. This setting is off by default, so an accidental swipe down never closes the keyboard. When the 2-D cursor touchpad is on, a swipe down moves the cursor instead. The touchpad has priority.</string>
 
+    <string name="typing_hint_flick_title">Swipe down to type the hint</string>
+    <string name="typing_hint_flick_subtitle">A quick swipe down on a key types its small corner character</string>
+    <string name="typing_hint_flick_info">Each key shows its first press-and-hold character in the corner, such as 1 on q. A short, quick swipe straight down on the key types that character with no hold. This works on any key that has press-and-hold characters, on every layer. The spacebar, backspace and the shift and modifier keys keep their own swipes. The swipe must be short, straight down and fast. A longer or slower drag is a glide, as before. With glide typing on, a very fast glide of a short word that goes straight down, such as \"ed\", can type the hint instead. This setting is off by default.</string>
+
     <string name="typing_space_hold_keys_label">Spacebar long press keys</string>
     <string name="typing_space_hold_keys_hint">Type the characters you want on the spacebar long press, with a space between each one. Example: 🙂 ❤️ 👍. The keyboard then shows them in a popup when you press and hold the spacebar. Leave this blank to keep the normal long press, which opens the language picker or repeats spaces.</string>
 
@@ -548,6 +582,11 @@
     <string name="typing_spacebar_display_language_label">Language</string>
     <string name="typing_spacebar_display_layout_label">Layout</string>
     <string name="typing_spacebar_display_both_label">Both</string>
+    <string name="typing_language_picker_style_title">Language picker shape</string>
+    <string name="typing_language_picker_style_subtitle">A list to drag through, or a carousel that keeps the swipe sideways</string>
+    <string name="typing_language_picker_style_info">This is the chooser that opens when you hold the spacebar with more than four layouts on, or press and hold the 🌐 key. List shows your layouts top to bottom, and a hold on the spacebar walks it up and down. Carousel shows them side by side, centred on the one you are typing in, and the same hold walks it left and right, the way the spacebar swipe already moves. Both let you tap a layout, and both keep Other keyboards… at the end.</string>
+    <string name="typing_language_picker_style_list_label">List</string>
+    <string name="typing_language_picker_style_carousel_label">Carousel</string>
 
     <string name="typing_spacebar_text_label">Spacebar text</string>
     <!-- %1$s is the literal token %s, which the user types into the field. Keep it as it is. -->
@@ -714,6 +753,9 @@
     <string name="typing_rank_control_offset_desc">Moves the word up or down the strip, whatever list it comes from</string>
     <string name="typing_rank_control_both_label">Both</string>
     <string name="typing_rank_control_both_desc">Shows the two controls one under the other</string>
+    <string name="typing_delete_edits_lists_title">Delete edits imported lists</string>
+    <string name="typing_delete_edits_lists_subtitle">Deleting a word takes it out of your imported word lists</string>
+    <string name="typing_delete_edits_lists_info">Deleting a word from the suggestion strip forgets it from your personal dictionary, the waiting room, your rank adjustments and Android\'s dictionary. With this on, a word that is also in a word list you imported is removed from that list\'s file too, so it is gone for good; a word in a downloaded list, which cannot be edited, goes on the blacklist instead. With this off, imported lists are left as you imported them and the word is blacklisted the same way, so it stays hidden until you choose Suggest again.</string>
 
     <string name="typing_ask_before_learning_info">When a word no dictionary knows is typed, the suggestion strip asks whether to add it. Tap the chip to save the word, or the ✕ to never be asked about it again. Nothing is saved unless you tap. Off by default, because a chip after a word you never think about again gets in the way.</string>
 

@@ -25,6 +25,7 @@ class UserLexiconTest {
         assertEquals(5, lexicon.frequencyOf("hello"))
         assertEquals(listOf("world"), lexicon.nextWords("hello", 3))
         assertEquals(2, lexicon.bigramCount("hello", "world"))
+        assertEquals(0, lexicon.skip2gramCount("hello", "world"))
     }
 
     @Test
@@ -150,6 +151,49 @@ class UserLexiconTest {
     }
 
     @Test
+    fun skip2gramsServeRoundTripAndCap() {
+        val f = file()
+        val lexicon = UserLexicon(f)
+        // "deploy the service", "deploy a service", "deploy my server": the
+        // gappy store pools the first two across their middle words.
+        lexicon.learnSkip2gram("deploy", "service")
+        lexicon.learnSkip2gram("deploy", "service")
+        lexicon.learnSkip2gram("deploy", "server")
+        assertEquals(2, lexicon.skip2gramCount("deploy", "service"))
+        assertEquals(1, lexicon.skip2gramCount("deploy", "server"))
+        // A different head is a different table, and the gappy store never
+        // leaks into the adjacent one.
+        assertEquals(0, lexicon.skip2gramCount("restart", "service"))
+        assertEquals(0, lexicon.bigramCount("deploy", "service"))
+        lexicon.save()
+        val back = UserLexicon(f)
+        assertEquals(2, back.skip2gramCount("deploy", "service"))
+        // Follower cap applies here too.
+        for (i in 0 until 40) back.learnSkip2gram("a", "w$i")
+        assertTrue((0 until 40).count { back.skip2gramCount("a", "w$it") > 0 } <= 32)
+        // forget() scrubs heads and followers that mention the word.
+        back.learnSkip2gram("target", "y")
+        back.learnSkip2gram("p", "target")
+        back.forget("target")
+        assertEquals(0, back.skip2gramCount("target", "y"))
+        assertEquals(0, back.skip2gramCount("p", "target"))
+    }
+
+    @Test
+    fun skip2gramHeadsAreCappedAtSave() {
+        val f = file()
+        val lexicon = UserLexicon(f)
+        // 2,100 heads; the hundred weakest go, the strongest stay.
+        for (i in 0 until 2_100) {
+            repeat(if (i < 100) 1 else 3) { lexicon.learnSkip2gram("h$i", "w") }
+        }
+        lexicon.save()
+        val back = UserLexicon(f)
+        assertEquals(0, back.skip2gramCount("h0", "w"))
+        assertEquals(3, back.skip2gramCount("h2099", "w"))
+    }
+
+    @Test
     fun nullFileModeLearnsInMemoryOnly() {
         val lexicon = UserLexicon(null)
         lexicon.learnWord("ghost", 3)
@@ -165,10 +209,14 @@ class UserLexiconTest {
         lexicon.learnWord("target", 5)
         lexicon.learnBigram("target", "next")
         lexicon.learnBigram("other", "target")
+        lexicon.learnSkip2gram("target", "next")
+        lexicon.learnSkip2gram("other", "target")
         lexicon.forget("target")
         assertFalse(lexicon.contains("target"))
         assertTrue(lexicon.nextWords("target", 5).isEmpty())
         assertFalse("target" in lexicon.followerCounts("other"))
+        assertEquals(0, lexicon.skip2gramCount("target", "next"))
+        assertEquals(0, lexicon.skip2gramCount("other", "target"))
     }
 
     @Test
@@ -195,6 +243,8 @@ class UserLexiconTest {
             learnBigram("hello", "teh")
             learnBigram("teh", "world")
             learnTrigram("hello", "teh", "world")
+            learnSkip2gram("teh", "world")
+            learnSkip2gram("hello", "teh")
             assertTrue(rename("teh", "the"))
             save()
         }
@@ -209,6 +259,11 @@ class UserLexiconTest {
         assertEquals(listOf("world"), back.nextWords("the", 3))
         assertEquals(1, back.trigramCount("hello", "the", "world"))
         assertEquals(0, back.trigramCount("hello", "teh", "world"))
+        // Gappy pairs where it led and where it followed both moved.
+        assertEquals(1, back.skip2gramCount("the", "world"))
+        assertEquals(0, back.skip2gramCount("teh", "world"))
+        assertEquals(1, back.skip2gramCount("hello", "the"))
+        assertEquals(0, back.skip2gramCount("hello", "teh"))
     }
 
     @Test
@@ -410,5 +465,172 @@ class UserLexiconTest {
         assertNull(reloaded.displayOf("boston"))
         reloaded.save()
         assertNull(UserLexicon(f).displayOf("boston"))
+    }
+
+    // ---- lower case is an incumbent too (#154) ----
+
+    @Test
+    fun oneShiftedSightingDoesNotFlipAWellWornLowerCaseWord() {
+        val lexicon = UserLexicon(null)
+        repeat(5) { lexicon.learnWord("keyboard", caseEvidence = true) }
+        lexicon.learnWord("Keyboard", caseEvidence = true)
+        assertNull(lexicon.displayOf("keyboard"))
+        // As many capitals as the lower case had, and it turns.
+        repeat(5) { lexicon.learnWord("Keyboard", caseEvidence = true) }
+        assertEquals("Keyboard", lexicon.displayOf("keyboard"))
+    }
+
+    @Test
+    fun aWordLearnedInLowerCaseWithoutVotesStillResistsOneCapital() {
+        val lexicon = UserLexicon(null)
+        // Swipes cast no case vote; the word's count stands in for them.
+        repeat(20) { lexicon.learnWord("keyboard") }
+        lexicon.learnWord("Keyboard", caseEvidence = true)
+        assertNull(lexicon.displayOf("keyboard"))
+        repeat(7) { lexicon.learnWord("Keyboard", caseEvidence = true) }
+        assertEquals("Keyboard", lexicon.displayOf("keyboard"))
+    }
+
+    @Test
+    fun aNewWordStillTakesItsCapitalOnTheFirstSighting() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnWord("Zorbek", caseEvidence = true)
+        assertEquals("Zorbek", lexicon.displayOf("zorbek"))
+    }
+
+    @Test
+    fun lowerCaseVotesSurviveASave() {
+        val f = file()
+        val lexicon = UserLexicon(f)
+        repeat(5) { lexicon.learnWord("keyboard", caseEvidence = true) }
+        lexicon.save()
+        val back = UserLexicon(f)
+        repeat(4) { back.learnWord("Keyboard", caseEvidence = true) }
+        assertNull(back.displayOf("keyboard"))
+    }
+
+    // ---- added by hand (#164) ----
+
+    @Test
+    fun aWordAddedByHandStartsAtOneUseAndIsStillShielded() {
+        val lexicon = UserLexicon(null)
+        lexicon.addWord("zorbek")
+        assertEquals(1, lexicon.frequencyOf("zorbek"))
+        assertTrue(lexicon.isAddedByHand("zorbek"))
+        assertTrue(lexicon.isEstablished("zorbek", minCount = 5))
+        lexicon.learnWord("organic")
+        assertFalse(lexicon.isAddedByHand("organic"))
+        assertFalse(lexicon.isEstablished("organic", minCount = 5))
+        // It earns weight like any other word.
+        lexicon.learnWord("zorbek")
+        assertEquals(2, lexicon.frequencyOf("zorbek"))
+    }
+
+    @Test
+    fun addedByHandSurvivesSaveRenameAndForget() {
+        val f = file()
+        val lexicon = UserLexicon(f)
+        lexicon.addWord("zorbek")
+        lexicon.save()
+        val back = UserLexicon(f)
+        assertTrue(back.isAddedByHand("zorbek"))
+        assertTrue(back.rename("zorbek", "zorbeck"))
+        assertTrue(back.isAddedByHand("zorbeck"))
+        assertFalse(back.isAddedByHand("zorbek"))
+        back.forget("zorbeck")
+        assertFalse(back.isAddedByHand("zorbeck"))
+    }
+
+    @Test
+    fun addedGenerationOrdersWordsByWhenTheyJoined() {
+        val f = file()
+        UserLexicon(f).apply {
+            learnWord("older", 2)
+            save()
+        }
+        UserLexicon(f).apply {
+            addWord("newer")
+            // Typing an old word again does not make it a new one (#194).
+            learnWord("older", 1)
+            save()
+        }
+        val back = UserLexicon(f)
+        assertTrue(back.addedGeneration("newer")!! > back.addedGeneration("older")!!)
+        assertNull(back.addedGeneration("missing"))
+    }
+
+    @Test
+    fun renameKeepsTheOlderAddedGeneration() {
+        val lex = UserLexicon(file())
+        lex.learnWord("teh", 2)
+        lex.save()
+        lex.addWord("fresh")
+        lex.save()
+        val old = lex.addedGeneration("teh")!!
+        assertTrue(lex.addedGeneration("fresh")!! > old)
+        assertTrue(lex.rename("teh", "tea"))
+        assertEquals(old, lex.addedGeneration("tea"))
+        assertNull(lex.addedGeneration("teh"))
+        // A merge keeps the older of the two.
+        assertTrue(lex.rename("fresh", "tea"))
+        assertEquals(old, lex.addedGeneration("tea"))
+        lex.forget("tea")
+        assertNull(lex.addedGeneration("tea"))
+    }
+
+    @Test
+    fun legacyFileReadsAddedGenerationFromLastUse() {
+        val f = file()
+        f.parentFile?.mkdirs()
+        f.writeText("""{"words":{"aa":1,"bb":1},"generation":9,"wordGen":{"bb":4}}""")
+        val lex = UserLexicon(f)
+        assertEquals(4L, lex.addedGeneration("bb"))
+        assertEquals(9L, lex.addedGeneration("aa"))
+    }
+
+    // ---- the gate on what is learned unasked (#185) ----
+
+    @Test
+    fun learningRefusesAWordWithASymbolGluedOn() {
+        val lexicon = UserLexicon(null)
+        assertFalse(lexicon.learnWord("manager\""))
+        assertFalse(lexicon.learnWord("man\"ager"))
+        assertFalse(lexicon.contains("manager\""))
+        assertTrue(lexicon.learnWord("manager"))
+        assertTrue(lexicon.contains("manager"))
+    }
+
+    @Test
+    fun addingByHandTakesWhateverTheUserSpelled() {
+        // The deliberate path is not gated: an oddity the user typed into a
+        // dialog is theirs to keep.
+        val lexicon = UserLexicon(null)
+        lexicon.addWord("c++")
+        assertTrue(lexicon.contains("c++"))
+        assertTrue(lexicon.isAddedByHand("c++"))
+    }
+
+    @Test
+    fun loadingDropsJunkThatGotInBeforeTheGateButKeepsHandAddedWords() {
+        val f = file()
+        f.parentFile?.mkdirs()
+        f.writeText(
+            """{"words":{"manager\"":3,"hello":2,"c++":1,"old\"":250},
+               "addedByHand":["c++"],
+               "bigrams":{"hello":{"manager\"":2,"world":1},"manager\"":{"hello":1}},
+               "trigrams":{"hello\u0000world":{"manager\"":1,"again":1}}}"""
+        )
+        val lexicon = UserLexicon(f)
+        assertFalse("learned unasked, dropped", lexicon.contains("manager\""))
+        assertTrue("a plain word stays", lexicon.contains("hello"))
+        assertTrue("added by hand, kept whatever it looks like", lexicon.contains("c++"))
+        assertTrue("the old 200 boost was the by-hand marker, kept too", lexicon.contains("old\""))
+        assertEquals("and its n-grams go with it", listOf("world"), lexicon.nextWords("hello", 3))
+        assertEquals(0, lexicon.bigramCount("manager\"", "hello"))
+        assertEquals(listOf("again"), lexicon.nextWordsAfter("hello", "world", 3))
+        // The cleanup is a change to persist: the next save must write it.
+        lexicon.save()
+        assertFalse(f.readText().contains("manager\\\""))
+        assertTrue(f.readText().contains("c++"))
     }
 }

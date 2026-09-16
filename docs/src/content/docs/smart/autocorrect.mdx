@@ -17,11 +17,12 @@ Autocorrect fixes typos as you finish typing a word, but only when one candidate
 
 ## How a correction is chosen
 
-The space bar is what triggers autocorrect. Nothing else does: ending a word with Enter or a full stop commits it exactly as typed. When you press space, WM Keyboard checks the word against every word one edit away: one letter dropped, added, doubled, swapped with its neighbour, or substituted. A word that is one letter short of a longer word ("hell" for "hello") counts as that same single edit. Two-edit candidates reach the suggestion strip but are never applied silently. Two independent sources score the candidates: the word lists (bundled, downloaded, imported, and any secondary language's) and your own personal dictionary of learned words.
+Space and Enter trigger autocorrect. A full stop or other punctuation does not: ending a word with one commits it exactly as typed. When you press space or Enter, WM Keyboard checks the word against every word one edit away: one letter dropped, added, doubled, swapped with its neighbour, or substituted. A word that is one letter short of a longer word ("hell" for "hello") counts as that same single edit. Two-edit candidates reach the suggestion strip but are never applied silently. Two independent sources score the candidates: the word lists (bundled, downloaded, imported, and any secondary language's) and your own personal dictionary of learned words.
 
 - **Two sources agreeing is enough on its own.** If the dictionary's best guess and your personal dictionary's best guess land on the exact same word, it's applied. The confidence factor below isn't even consulted.
 - **Otherwise, the best candidate has to clearly win.** It's applied only if it outscores the runner-up by the confidence factor (4&times; by default, see [Options](#options)). A close call is left alone rather than guessed at.
 - **The edit itself is weighted by how it happens.** Cheapest, and so likeliest, are three: a swapped pair of letters, a doubled letter (the hold-repeat slip in "helllo"), and a substitution toward a key right next to the one you meant. A dropped letter, or a stray one typed next to where your finger actually landed, costs noticeably more. A substitution or an insertion nowhere near the key you hit is the most expensive of all and rarely survives. The neighbour test uses the adjacency map for your *active layout*, so the same typo resolves differently on QWERTY than on AZERTY or Dvorak, and where the keyboard has your real tap coordinates it uses those instead of the map.
+- **A missing accent is not a typo.** Typing `z` where the word has `ż`, `e` for `é`, or `l` for `ł` costs almost nothing and does not count as an edit, because the accented letter is on the same key. So "juz" becomes "już", and a word with every accent left off ("zolw" for "żółw") is found as easily as a word with one.
 - **The fix keeps your capitalization.** Typing "hte" mid-sentence corrects to "the". Typing "Hte" at the start of one corrects to "The."
 
 The two candidates have to be genuinely far apart in score, which keeps autocorrect conservative by design. "helo" is evenly split between "hello" and "help", and "tesr" between "test" and "tear", so both are left for you to resolve yourself. An unambiguous slip like "wprld" resolves immediately.
@@ -31,7 +32,7 @@ The two candidates have to be genuinely far apart in score, which keeps autocorr
 A word is never a correction target, whatever the confidence factor is set to, if any of these apply:
 
 - **It's shorter than three letters.** Too little signal to guess at safely.
-- **It's already a known word.** Anything in the active dictionary, a downloaded or custom wordlist, a secondary-language dictionary, or your own personal dictionary is left exactly as typed. A known word is never "corrected." A word nothing recognises doesn't become known just by being typed once: it has to be typed and left alone three times before it joins your dictionary, which is what stops a typo shielding itself from the fix it needed. See [Personal dictionary](/smart/personal-dictionary/#words-wait-their-turn) for that, and **Learn a word after** under <SettingsPath path="Typing / Suggestions" /> for a further threshold on top of it.
+- **It's already a known word.** Anything in the active dictionary, a downloaded or custom wordlist, a secondary-language dictionary, or your own personal dictionary is left exactly as typed. A known word is never "corrected." There is one exception: a spelling that the word list holds only because people type another word without its accents. The Polish list contains "juz", but "już" is more than fifty times as common, so "juz" is corrected. When both spellings are common words, such as Polish "ze" and "że", the one you typed stays. A word you added to Android's personal dictionary is never treated this way. A word nothing recognises doesn't become known just by being typed once: it has to be typed and left alone three times before it joins your dictionary, which is what stops a typo shielding itself from the fix it needed. See [Personal dictionary](/smart/personal-dictionary/#words-wait-their-turn) for that, and **Learn a word after** under <SettingsPath path="Typing / Suggestions" /> for a further threshold on top of it.
 - **It's a contact's name or an installed app's label**, if [contact and app-name suggestions](/smart/contacts/) have indexed it.
 - **It's in your [suggestion blacklist](/smart/blacklist/), or offensive-word filtering catches it.** A blacklisted or filtered word is dropped from the candidate pool before scoring, so it can never be silently forced in as a fix.
 - **It's typed in ALL CAPS.** Acronyms and shouted words (ASAP, NOOO) are usually capitals on purpose. This is its own toggle, on by default (see [Options](#options)). A leading capital on an otherwise-lowercase word ("Wprld") is still corrected normally; only a fully-capitalized word is spared.
@@ -48,7 +49,7 @@ Missing apostrophes ("dont" &rarr; "don't") are fixed by a separate, fixed looku
 
 ## Undoing a correction
 
-<KeyCap>⌫</KeyCap> right after an autocorrected word undoes it, as long as nothing else has touched the text since. The cursor has to be sitting exactly where the correction left it, and the text right before it has to still read as the corrected word plus a space. Backspace then deletes both and retypes what you originally typed instead. Move the cursor, tap elsewhere, or keep typing first and the undo is gone. Only the immediate next backspace can trigger it.
+<KeyCap>⌫</KeyCap> right after an autocorrected word undoes it, as long as nothing else has touched the text since. The cursor has to be sitting exactly where the correction left it, and the text right before it has to still read as the corrected word plus the space or line break that ended it. Backspace then deletes both and retypes what you originally typed instead. Move the cursor, tap elsewhere, or keep typing first and the undo is gone. Only the immediate next backspace can trigger it.
 
 <PhoneFrame caption="Backspace right after a correction restores what you originally typed.">
   {/* shot: smart/autocorrect-backspace-undo */}
@@ -151,6 +152,12 @@ The straight double quote is the one mark that has to look at what came before i
 
 Getting to the mark does not spend the space. A colon and a slash live on the symbols page, so reaching either one means pressing `?123` first, and that press changes only what is drawn. The same goes for shift, the Fn and number pages, and the globe key. Any key that puts text in the field does spend it, panels included, because what comes out of a panel is text like any other.
 
+### A mark takes your own space back, if you ask
+
+The rule above never touches a space you typed. **Remove a space before punctuation** is the opt-in that does: with it on, `Hey .` lands as `Hey.` and `yes , no` as `yes, no`, the moment the mark is typed. It is narrow on purpose. The mark has to come after a word, a number or something that closes one (a bracket, a quote), so a mark at the start of a line or after another mark keeps its space, and a line break is never treated as a slip. A space in a password, an address or a number pad is left alone, same as every other rule here. One backspace straight after puts the space back.
+
+Which marks do this is yours to set. The list under the switch takes one character per mark with nothing between them, and starts out as the sentence and clause marks: `.,?!;:` and the Bengali `।`. It is off by default because some languages want that space. French sets a space in front of `?`, `!`, `:` and `;`, and a rule that eats it unasked is wrong there rather than helpful. Take those four off the list, or leave the switch off.
+
 ### A glided word joins an opening bracket
 
 Glide typing types a space in front of each word as well as after it, so two swiped words do not run together. That space is skipped when the character in front of it is one the word belongs against: an opening bracket, an opening quote, or the start of the line. `he said "` then a glided "hello" gives `he said "hello`. The double quote is read the same way as above, by counting the quotes on the line, so a closing quote still gets its space. In a web address field there is no leading space at all, since an address has no spaces in it.
@@ -195,10 +202,12 @@ Autopilot nudges which key a *borderline* tap resolves to, biasing toward whiche
 | Double space | Full stop (Two spaces / Full stop / Tab) | always |
 | Double space speed | 400 ms (range 200&ndash;800 ms) | Double space is Full stop or Tab |
 | Automatic space after punctuation | Off | always |
+| Remove a space before punctuation | Off | always |
+| Marks that pull the space out | `.,?!;:।` | Remove a space before punctuation on |
 
 The table covers the rows this page is about. The same group also carries **Adapt to app tone** and **Space after a suggestion** (both described on [Suggestions & prediction](/smart/suggestions/)), **Automatic capital letters**, and the two selection rules, wrap-with-a-pair and shift-re-cases-the-selection.
 
-The **Autocorrect** toggle is the master switch for the seventeen rows marked "Autocorrect on" above, from the confidence slider down to Fix number row slips. It is *not* a switch for the whole group. The apostrophe fix, both double-space rules and the auto-space after punctuation carry on working with autocorrect off, which is the point of them having their own toggles. Autocorrect is also reachable as a one-tap toolbar tool that flips the same switch without leaving the keyboard, showing a brief "Autocorrect on"/"Autocorrect off" confirmation.
+The **Autocorrect** toggle is the master switch for the seventeen rows marked "Autocorrect on" above, from the confidence slider down to Fix number row slips. It is *not* a switch for the whole group. The apostrophe fix, both double-space rules, the auto-space after punctuation and the space-before-punctuation fix carry on working with autocorrect off, which is the point of them having their own toggles. Autocorrect is also reachable as a one-tap toolbar tool that flips the same switch without leaving the keyboard, showing a brief "Autocorrect on"/"Autocorrect off" confirmation.
 
 **Autocorrect confidence** is the ratio the top candidate must beat the runner-up by. It's a continuous slider from 1.5&times; to 10&times;, labeled with the exact multiplier (for example "&times;4.0"). Lower makes autocorrect fire more eagerly, on less-certain calls. Higher restricts it to only the most unambiguous typos. Two-source agreement (see [How a correction is chosen](#how-a-correction-is-chosen)) always bypasses this slider, whatever it's set to.
 

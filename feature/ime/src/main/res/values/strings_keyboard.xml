@@ -216,6 +216,7 @@
          from the words: lifting now types nothing. -->
     <string name="ime_glide_picker_cancel_hint">Lift to cancel</string>
     <string name="ime_incognito_on_desc">Incognito is on</string>
+    <string name="ime_power_saving_on_desc">Power saving is on</string>
     <string name="ime_panel_back_desc">Back to the keyboard</string>
     <string name="ime_toolbox_desc">Toolbox</string>
 
@@ -326,6 +327,7 @@
          rather than for the theme grid it opened with. -->
     <string name="ime_tool_themes">Appearance</string>
     <string name="ime_tool_autocorrect">Autocorrect</string>
+    <string name="ime_tool_selection_actions">Selection actions</string>
     <string name="ime_tool_sound_haptics">Sound &amp; haptics</string>
     <string name="ime_tool_numpad">Numpad</string>
     <string name="ime_tool_handwriting">Handwriting</string>
@@ -357,7 +359,7 @@
     <string name="ime_tool_ai">AI</string>
     <string name="ime_tool_modes">Modes</string>
     <string name="ime_tool_fancy">Fancy text</string>
-    <string name="ime_tool_custom_layout">Custom layout</string>
+    <string name="ime_tool_custom_layout">Secondary layout</string>
     <string name="ime_tool_cursor_left">Left</string>
     <string name="ime_tool_cursor_right">Right</string>
     <string name="ime_tool_cursor_word_left">Word left</string>
@@ -424,6 +426,10 @@
     <string name="ime_launcher_app_info_action">App info</string>
     <string name="ime_launcher_pin_action">Pin app</string>
     <string name="ime_launcher_unpin_action">Unpin app</string>
+    <string name="ime_launcher_hide_action">Hide app from the grid</string>
+    <string name="ime_launcher_unhide_action">Show app in the grid again</string>
+    <!-- Marks a search result the user hid from the grid. -->
+    <string name="ime_launcher_hidden_label">Hidden from the grid</string>
     <!-- Marks a screen inside an app that only the app itself may open. -->
     <string name="ime_launcher_not_exported_label">Not openable from outside the app</string>
 
@@ -571,9 +577,44 @@
     <string name="ime_theme_animated_badge">Animated</string>
     <string name="ime_theme_animated_desc">This theme is animated</string>
 
+    <!-- The theme editor's live keyboard: the line it types into, above the keys. -->
+    <string name="ime_theme_preview_field_hint">Tap the keys to try the theme</string>
+    <string name="ime_theme_preview_clear_desc">Clear the text</string>
+
     <!-- Selection macros: the bar of one-tap actions for what is selected.
          The chip faces themselves live in :core:content, beside the engine
          that picks them; only the bar's own furniture is here. -->
     <string name="ime_selection_macro_back_desc">Back to the selection actions</string>
+    <string name="ime_selection_macro_stop_label">Stop</string>
+    <string name="ime_selection_macro_busy_desc">Working</string>
+    <string name="ime_selection_macro_nothing_to_undo_toast">Nothing left to undo</string>
+    <string name="ime_selection_macro_grammar_clean_toast">Nothing to fix</string>
+    <string name="ime_selection_macro_grammar_unavailable_toast">The grammar checker is not available</string>
+    <string name="ime_selection_macro_find_none_toast">No other match</string>
+    <string name="ime_selection_macro_bengali_unavailable_toast">Bengali is not loaded</string>
+    <string name="ime_selection_macro_no_app_toast">No app can open this</string>
+    <string name="ime_find_not_addressable">This field cannot be searched</string>
+    <!-- The Find and replace panel. -->
+    <string name="ime_find_hint">Find</string>
+    <string name="ime_replace_hint">Replace with</string>
+    <string name="ime_find_case_label" translatable="false">Aa</string>
+    <string name="ime_find_case_desc">Match case</string>
+    <string name="ime_find_whole_word_label" translatable="false">[ab]</string>
+    <string name="ime_find_whole_word_desc">Whole word</string>
+    <string name="ime_find_regex_label" translatable="false">.*</string>
+    <string name="ime_find_regex_desc">Regular expression</string>
+    <string name="ime_find_prev_desc">Previous match</string>
+    <string name="ime_find_next_desc">Next match</string>
+    <string name="ime_find_replace_action">Replace</string>
+    <string name="ime_find_replace_all_action">All</string>
+    <!-- %1$d the match selected, %2$d how many there are -->
+    <string name="ime_find_count">%1$d of %2$d</string>
+    <!-- %1$d how many matches there are, none of them selected -->
+    <string name="ime_find_count_none_selected">%1$d found</string>
+    <string name="ime_find_no_matches">No matches</string>
+    <string name="ime_find_too_many">Showing the first %1$d</string>
+    <string name="ime_find_regex_error">Pattern: %1$s</string>
+    <string name="ime_find_timeout">The pattern takes too long on this text</string>
+    <string name="ime_find_searching">Searching</string>
 
 </resources>

@@ -19,11 +19,22 @@ class PowerSavingSettingsTest {
     }
 
     @Test
-    fun `the default follows the system battery saver only`() {
+    fun `the default never turns on by itself`() {
         val config = PowerSavingSettings()
-        assertEquals(PowerSavingTrigger.SYSTEM_SAVER, config.trigger)
+        assertEquals(PowerSavingTrigger.OFF, config.trigger)
         assertFalse(config.appliesTo(full))
-        assertFalse("a low battery alone must not trigger the default", config.appliesTo(low))
+        assertFalse("a low battery must not trigger the default", config.appliesTo(low))
+        assertFalse(
+            "the system battery saver must not trigger the default",
+            config.appliesTo(low.copy(systemSaver = true)),
+        )
+    }
+
+    @Test
+    fun `the system saver trigger follows the system battery saver only`() {
+        val config = PowerSavingSettings(trigger = PowerSavingTrigger.SYSTEM_SAVER)
+        assertFalse(config.appliesTo(full))
+        assertFalse("a low battery alone is a different trigger", config.appliesTo(low))
         assertTrue(config.appliesTo(full.copy(systemSaver = true)))
     }
 
@@ -91,14 +102,16 @@ class PowerSavingSettingsTest {
         assertFalse(saving.haptics.enabled)
         assertTrue(saving.reduceMotion)
         assertEquals(0f, saving.gesture.trailOpacity, 0f)
-        assertFalse(saving.emojiPrediction)
-        assertFalse(saving.smartSuggestions)
         assertFalse(saving.clipboard.linkPreviews)
         assertFalse(saving.clipboard.userScreenshots)
         assertEquals("system", saving.whisper.engine)
         // Off by default, so these survive.
         assertTrue(saving.gestureTyping)
         assertTrue(saving.popup.enabled)
+        // The cheap typing helpers too: pattern matches on the current word
+        // cost nothing worth a feature that looks broken when it goes.
+        assertTrue(saving.emojiPrediction)
+        assertTrue(saving.smartSuggestions)
     }
 
     @Test

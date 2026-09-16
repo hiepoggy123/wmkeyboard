@@ -11,19 +11,19 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Area | Families | Features | Capabilities |
 |---|---|---|---|
-| Typing core: prediction, autocorrect, learning, spell check | 9 | 50 | 182 |
-| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 191 |
-| Languages, scripts, layouts, transliteration | 11 | 64 | 205 |
-| Themes and appearance | 14 | 73 | 179 |
+| Typing core: prediction, autocorrect, learning, spell check | 9 | 50 | 203 |
+| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 219 |
+| Languages, scripts, layouts, transliteration | 11 | 64 | 213 |
+| Themes and appearance | 14 | 73 | 183 |
 | Emoji, GIFs, stickers, kaomoji | 16 | 88 | 94 |
-| Toolbar and the tool set | 10 | 82 | 298 |
-| Clipboard, snippets, text expansion | 7 | 37 | 188 |
+| Toolbar and the tool set | 10 | 83 | 304 |
+| Clipboard, snippets, text expansion | 7 | 37 | 191 |
 | AI, voice, handwriting, scanning | 11 | 70 | 162 |
-| Privacy, backup, storage, statistics | 13 | 59 | 146 |
-| Accessibility, form factors, platform integration | 13 | 61 | 116 |
+| Privacy, backup, storage, statistics | 13 | 59 | 150 |
+| Accessibility, form factors, platform integration | 13 | 61 | 111 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
-| Modes, rows, field adaptation, runtime | 12 | 97 | 201 |
-| **Total** | **132** | **794** | **2115** |
+| Modes, rows, field adaptation, runtime | 12 | 97 | 203 |
+| **Total** | **132** | **795** | **2197** |
 
 ## Typing core: prediction, autocorrect, learning, spell check
 
@@ -49,6 +49,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Corpus pack then bundled seed pairs — 827 bundled English pairs cold-start a fresh install
     - Skip-gram rescue on an unknown previous word — Treats an OOV prev as transparent and backfills from the word before it
     - Sentence-start sentinel — U+0001 pseudo-word learned as context only; never offered, never a follower
+  - Numbers from the letter keys `RARE` — A word typed entirely on digit-hinted keys also offers the number those hints spell (#181); off by default
+    - Read off the pressed keys, not the letters — AZERTY's 1 is on a, Dvorak's on the apostrophe, German has none; a number row that is showing has already stripped the hints, so it is quiet then
+    - Last slot, never the primary — Never what a space commits and never autocorrected to; two letters at least, so a lone I is not an 8
+    - Grouped like the number chip — Five to fifteen digits, no leading zero, under the chip's grouping style, when that chip is on
   - Next-letter distribution `uncommon` — nextLetterWeights feeds autopilot
     - Weighted across three sources — Dictionary x1, lexicon x500, custom list x100; 24 completions scanned per source
     - Boundary-tap remap at pointer-down — Distance divided by (1 + strength x bias); capped reach; the touch is never consumed
@@ -125,15 +129,15 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Four memory levels `RARE` — Off keeps no pair memory, Light never retires a pair, Normal is the shipped balance, Strict retires on the first undo however it was read
     - Penalties age out — A pair untouched for 180 saves loses a count; 500-pair cap
     - Stored outside the lexicon — A rejection persists even with learning off or in incognito
-- **Personal learning** — On-device lexicon of words, bigrams and trigrams; nothing leaves the device
+- **Personal learning** — On-device lexicon of words, bigrams, trigrams and distance-2 skip-grams; nothing leaves the device
   - Graded reinforcement `RARE` — How deliberately a word was typed decides how hard it teaches
     - Tapped suggestion counts double
     - Typed and committed counts once
     - Autocorrected word earns nothing — Only the word pair around it is learned
-    - Manually added word boosted 200 — Doubles as the deliberately-added marker for eviction
+    - Manually added word starts at one use — Marked as added by hand instead of boosted (#164): shielded from autocorrect at any learn-after threshold, evicted last, and it earns weight by being typed like any other word; the row reads "You added this word · Seen N times" (#165)
   - Store shape and bounds `uncommon` — JSON snapshot in app-private storage
     - 10,000 words, evicting to 9,000 — 10% hysteresis so compaction doesn't churn on every save
-    - 5,000 bigram heads, 2,000 trigram contexts, 32 followers each
+    - 5,000 bigram heads, 2,000 trigram contexts, 2,000 skip-gram heads, 32 followers each
     - Exponential decay at compaction — count x 2^(-age/64 save-generations); user-added words evicted last
     - Dirty-flag save on dismissal — A dismissal with nothing new re-encodes nothing
     - Word length 32, count capped at 1,000,000
@@ -154,10 +158,12 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Learn-from-typing setting
     - Not incognito, when incognito is set to pause learning
     - Field allows typing intelligence — Password and secure fields never teach
+  - Only a word is learned unasked `RARE` — WordContext.isLearnableWord gates learnWord, PendingLearn.sight, the add chip and the held-menu Add (#185): letters and digits with at least one letter, single interior apostrophe/hyphen/ZWJ/ZWNJ, nothing else; `manager"` never reaches the store or the mirror. addWord (dialog, card, chip yes) is not gated, and UserLexicon.load drops pre-gate junk once, keeping hand-added words
   - Settle before learning — Nothing reaches the dictionary while the text is still moving
     - Every committed word queues — 500-word buffer, one field, memory only, never written out
     - Counted at the flush points — Keyboard closed, message sent, field cleared, another field, buffer full
-    - The caret going back drops the word it lands in — Backspacing over the word, tapping in to edit, re-picking a swipe; a glide that read the wrong word never counts
+    - What the keyboard deletes or writes over is dropped — Backspacing over the word, a delete swipe through it, re-picking a swipe, a fix typed on top of it; a glide that read the wrong word never counts (#160)
+    - The caret alone decides nothing — A caret parked on a word, or walked through it by a spacebar swipe, leaves it waiting; it settles with the rest if nothing is done to it (#159)
     - The words it jumped over settle instead — Going back to fix one line says nothing about the rest, so a proofreading pass counts the text it left alone rather than discarding the session
     - A dropped word is remembered for pairing — The word committed in its place, within a slip's distance, carries it as a suspected fix; confirmed against the field at the flush before anything is taught
     - Known words need one settled use, unknown ones three — The unknown count is the "Remember a new word after" setting
@@ -174,7 +180,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Bundled seed pairs at ln(1.5) — English modes only
   - NgramReranker `RARE` — Interpolated rescorer over the top 8 candidates, on-device only
     - Base is the engine's rank, not raw frequency — Preserves edit costs and touch likelihood already encoded in the incoming order
-    - Seven weighted, capped terms — User trigram/bigram, pack trigram/bigram, seed bigram, two skip-gram terms, plus recency
+    - Eight weighted, capped terms — User trigram/bigram/skip-gram, pack trigram/bigram, seed bigram, two OOV backoff terms, plus recency
+    - Stored distance-2 skip-gram, always consulted (#195) — The word two back vouches across any middle word; pools what the trigram splits, still speaks when the middle word is unknown; lifts one rank alone, never two
     - Returns null with no evidence — A reorder can only ever be evidence-driven
     - Skip-gram backoff behind an OOV previous word — Weaker than the direct bigram it stands in for
     - Never read by autocorrect — shouldAutocorrect reads the raw walk ranking, so a rerank can't become a silent replacement
@@ -262,7 +269,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 - **Held-word menu and word card** `uncommon` — Press and hold a suggestion for a menu about it (#99)
   - Contextual items with icons — Never suggest / Suggest again; Add "typed" while the word being typed is unlearned; Delete for a word the keyboard can forget; Edit always
   - Add pins the capitals — The typed spelling goes in at full strength and no later vote changes it (#100)
-  - Delete reaches every mutable store — Personal dictionary, waiting room, rank adjustments, Android's dictionary; a word still in a read-only list is blacklisted instead
+  - Delete reaches every mutable store — Personal dictionary, waiting room, rank adjustments, Android's dictionary, and the user's imported word lists, whose files are rewritten without the word (#190); a word still in a downloaded list is blacklisted instead
+    - "Delete edits imported lists" switch — Off leaves imported lists as imported and blacklists the word the old way
   - Word card — In-window modal over the keyboard: every source the word was found in, its "#N of M" place in each list, the word's spelling, its rank controls, and the same actions (#138)
   - Respell from the card — "Change" hands the keys to a bar in the strip's row (the card covers the board, and an IME cannot raise a field for itself); the draft starts from the word, Enter or ✓ applies it, back or ✕ leaves it, and nothing typed there reaches the app behind (#138)
     - A respelling carries the count, language tag and word pairs across, moves the rank adjustment, and drops the swipe shapes, waiting-room sightings and Android's copy of the old spelling; a case-only respelling pins the spelling instead; a word the lexicon does not have is added at the new spelling
@@ -393,6 +401,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Only when the hold is free — Skipped when the long-swipe slot names cursor or numpad, since that slot is the setting for what a hold does
     - Two shapes — Inline preview for up to 4 layouts, scrollable tappable list beyond that
     - Hold-drag walk — Vertical drag steps the highlighted row; release commits, a still hold leaves it up for tapping
+    - Carousel picker `RARE` — Language picker shape turns the list sideways: a chip strip centred on the current layout, the hold-drag walking it left and right by the swipe's own 44 dp step, the strip re-centring on the highlight; chips tappable, Other keyboards… a glyph past the divider (#150)
     - Never types a space — Release with the picker or preview up commits a layout instead
   - Spacebar long-press keys `RARE` — Characters typed into one setting become the spacebar's own alternates popup, on every layer
     - Claims the hold outright — Authored keys beat the language picker and the space repeat, because a hold cannot mean two things
@@ -468,19 +477,33 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Shift re-cases the selection — lower → Title → UPPER → lower, keeping the text selected so presses walk the cycle; mixed case normalises to lower
     - Brackets and quotes wrap — 11 pairs — ( [ { < " ' ` “ ‘ « ｢ — wrap the selection and leave the inner text selected for another pass
     - Space and backspace replace — Both drop the composing region first and commit over the selection
-  - Selection macros `RARE` — With text selected, the keyboard offers what that shape of text is for: Select all ahead of every row, then Copy | Share | Format | Call | Message | WhatsApp on a number, Email first on an address, Open and QR on a link. Off by default
+  - Selection macros `RARE` — With text selected, the keyboard offers what that shape of text is for and what any text is for: Undo, Select all, then Call | Message | WhatsApp | Contact on a number, Email first on an address, Open and QR on a link, and the edits, a find and replace, line tools, case and chat formatting, conversions, grammar, AI, both Bengali directions, speech, maps and calendars on prose. Off by default
     - Reads the selection whole — A sentence with a number in it is a sentence, and two lines are never one thing; its own pass over the selection rather than the clipboard's fragment scan, which is the surface that has room to show what it found and where
     - Four readings — Phone, address, link, plain text; bare domains need an ending off a short allow list so a selected filename is not a link, and phone shapes reuse the clipboard's own PhoneFormats masks
     - Format is entity-aware — A number is re-rendered into the user's own mask separators and all (01712345678 to +880 1712-345678), a link loses utm_*/fbclid/gclid and about twenty more while its path and fragment survive, an address is lower-cased; the chip is dropped when the rewrite would change nothing
     - Case ladder behind Format on prose — lower / Title / UPPER / Sentence in place of the row, each chip written in the case it applies; acronyms survive Title and Sentence unless the whole selection is capitals, and the result stays selected so the chips chain
     - Two placements — Its own BarRow.MACROS, animated in and out and reorderable with every other row, or over the suggestion strip at no height cost, since nothing is being typed while text is selected
-    - Thirteen actions behind one allow list — Select all, Copy, Share, Format, Search, Translate, Call, Message, WhatsApp, Email, Open, QR, Fancy; eleven shipped on, Search and Translate off because both are a round trip to a network service
+    - Forty-nine actions in seven groups behind one allow list — Editing, Lines, Format, Convert, Language, Look up, Open in; twenty-eight shipped on, the chat markers, programmer's cases, decoders, speech, zones, maps, calendars, Search and Translate off because each is a taste or a round trip
+    - One flat row in the user's own order — A reorderable list in settings decides the sequence; the row is filtered to what the selection allows and Undo is pinned first, so the row seen is shorter than the list
+    - Ladders only where an action is a pick — Format's case options, the Fancy styles, a colour's other spellings and the time zones replace the row with choices; every pick converts from the selection as it stood when the ladder opened, so picking again replaces the last choice
+    - Undo per selection session — Every rewrite is stacked (twenty deep) while the selection stays live; the chip checks the field still reads as the last rewrite before putting the original back, and the stack ends with the selection, a new field or a move onto other text
+    - Find and Replace — Find jumps to the next occurrence and wraps; Replace opens a panel with two buffers of the keyboard's own, Aa/whole word/regex toggles, previous/next, replace one and replace all as one undo entry, a count, and a matcher under a time budget enforced through a clock-watching CharSequence
+    - Line tools — Sort (natural order, digits as numbers, again for descending), Unique, Number and Bullets as toggles that convert into each other
+    - Programmer's cases — camelCase, snake_case, kebab-case and CONSTANT_CASE inside the Format ladder, each reading any convention in
+    - Chat markup per app — Bold, italic, strike and mono in the host app's own markers from a package table (WhatsApp, Telegram, Discord, Slack, Messenger, Google Chat and more), toggling off on a second tap, hidden in any app not in the table
+    - Converters — Any numeral system's digits to ASCII, a colour code's other spellings with a swatch on the chip, JSON pretty or minified with key order kept, Base64 and percent decoding behind gates strict enough that a word never qualifies
+    - Content detectors behind switches — Dates and times (numeric in either order, month names in English and Bengali, DateSuggest phrases, zone abbreviations) and places (coordinates read exactly, addresses guessed conservatively) only run while a macro that needs them is on
+    - Banglish both ways — To Bangla through the spelling map, then the phonetic index under the strip's own confidence rule, then literal Avro, letter runs only; to Banglish through the inverted map and a rule romaniser with the inherent vowel dropped where speech drops it
+    - Grammar, AI and speech — Harper over the selection alone with every fix committed at once; AI buttons that run a chosen action on the selection and land in the AI panel, whose Replace now swaps the selection rather than the field; reading aloud through the vocabulary speaker with a chip that reads Stop
+    - Intents with fallbacks — Contacts, Maps and Calendar each try two intents and toast when no app takes them
+    - One-time list reset — The on-list and the order carry a list version; a list stored under an older one reads as the shipped list, so every existing user gets the new actions once
     - Select all leads every row — A long-pressed word widens to the whole field in one tap; the chip is dropped once the selection already spans the field, which costs a one-character read only when the selection starts at offset 0
     - Only offers what can work — WhatsApp hidden without WhatsApp installed, Search/Translate/QR hidden when their tools are off, which the power-saving and direct-boot settings views have already decided
     - Never over a password field — isSecureField is asked before the read, so a password never reaches a Share chooser
     - Free while idle — Feature switch, secure field, collapsed caret and a span over 4,000 characters are all answered from the offsets onUpdateSelection reports, before the getSelectedText IPC that would otherwise run on every caret move
     - Acts on the text the chips were drawn for — The offer carries its own text, so a tap runs against what was read, not whatever the field holds by the time the finger lands
     - Direct-boot aware — Every macro that would start an activity is dropped before the first unlock, leaving select all, copy and the case ladder, which only touch the field the user is already in
+    - Toolbar switch — The Selection actions tool flips the feature from the keyboard, so the bar can be on only for the stretch it is wanted
   - Long-press letter shortcuts `uncommon` — A/C/V/X/Z/Y carry select-all, copy, paste, cut, undo and redo as entries in their own alternates popup, after the accents the key already has; all six on by default, and each key stays on any layout by naming its own letter
     - Raw-keystroke mode — Optional Ctrl+A/C/V/X as real key events instead of performContextMenuAction, for terminals
 - **Key press behaviour** — Long press, popups, repeat, chording and press feedback
@@ -719,10 +742,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Commits the reading, not the buffer — No confidence gate: the anchors are not a word, so "leave it as typed" would be the wrong answer rather than the safe one
     - Glide came free — GlideKeyMap has resolved several characters to one key since Probhat's ক/খ, so a swipe across T9 or the compact grid decodes with no decoder change at all
     - Proximity and the touch model follow — Neighbours derive between keys rather than letters, and every letter of a key reports that key's measured centre
-  - Secondary layouts `RARE` — Grids of your own reached by a key or the Custom layout tool, never by picking a language (#62)
+  - Secondary layouts `RARE` — Grids of your own reached by a key or the Secondary layout tool, never by picking a language (#62)
     - LayoutSpec.secondary — Stored beside the other custom layouts; excluded from the language cycle, the OS subtype list and the Languages screen
     - KeyAction.Layout(id) — Shows the named layout over the letters; a second press, ABC, or ?123 leaves it; also works as a press-and-hold alternate
-    - Custom layout tool — Toolbar toggle lit while any secondary layout is up; which one it shows is a setting on its page, the first by default
+    - Secondary layout tool — Toolbar toggle lit while any secondary layout is up; which one it shows is a setting on its page, the first by default
     - From scratch — A new one is three rows of blank keys plus an ABC key; validate and repair skip the delete/space/enter guarantees for it
   - Persistent layers `RARE` — LayerSpec.persistent keeps a symbols, Fn or secondary grid up across a close and reopen of the keyboard and across fields (#60)
     - One switch per layer — No global "persist if…" settings; the editor's toggle carries the "make sure you have a way to exit" warning and the Problems list repeats it
@@ -873,6 +896,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Spacebar label modes — Language / Layout / Both, auto-falling back to both when two enabled layouts share a language
   - Hold-drag picker `RARE` — Hold the spacebar and walk a scrollable list without lifting
     - Threshold at four layouts — Inline preview at four or fewer, scrollable list above that
+    - List or carousel — Language picker shape (default List) picks the vertical list or the sideways strip; the threshold and the swipe slots are untouched by it (#150)
     - First movement absorbed as calibration — Drift from before the hold fired cannot select a neighbour
     - Held-but-unmoved leaves the list open — So it can be tapped directly
   - Language-switch key — Tap cycles layouts (not languages); long-press opens the picker
@@ -1450,7 +1474,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 ## Toolbar and the tool set
 
-- **Toolbar & toolbox mechanics** `uncommon` — 64 tools in ToolbarTool enum; 3 pinned by default (Emoji, Clipboard, Settings)
+- **Toolbar & toolbox mechanics** `uncommon` — 71 tools in ToolbarTool enum; 3 pinned by default (Emoji, Clipboard, Settings)
   - Pinned bar vs toolbox — A tool is on the bar or in the toolbox grid, never both
     - Default pinned row — Emoji, Clipboard, Settings (DefaultToolbarTools)
     - Tablet-aware default pin set — 5 pinned on small tablets, 7 on large, applied only if user never rearranged
@@ -1480,6 +1504,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Toolbar only — The toolbox hold keeps opening settings pages, so no page loses its way in
     - Repeat tools excluded — A caret tool's hold is already spent repeating the move; its row says so rather than hiding
     - Self-binding refused — Encoder drops tool=itself, which is a tap done slowly
+    - Voice hold picks a mode `uncommon` — voiceBar.holdPicksTypingMode (default on, #173): a hold on the pinned Voice tool opens a menu of the three typing modes; a pick persists the mode and starts dictation at once (onVoiceModePick, optimistic state update ahead of the DataStore write). Its own flag, like trackpad.holdToOpen, since holdActions can only name a tool; off hands the hold back to the map
   - Toolbar chrome options `uncommon` — ToolbarBehavior + height/label/shape fields
     - Master strip switch — toolbarBehavior.enabled off reclaims the height for keys
     - Swipe down on the bar to hide keyboard — swipeDownHide, off by default
@@ -1491,7 +1516,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Tool labels under icons — toolbarLabels off; toolbarLabelSize default 10sp
     - Tool background radius and shape — toolCircleRadiusDp default 20, toolShape shares the key shapes; 0 removes it
     - Tool button width 38dp default — toolWidthDp stretches the circle into a pill
-  - Per-tool settings screen `RARE` — Every one of the 64 tools has its own screen under Settings → Tools
+  - Per-tool settings screen `RARE` — Every one of the 71 tools has its own screen under Settings → Tools
     - Eight groups plus an Other catch-all — Panels, Scanners, Online, Create & convert, Modes, Cursor, Quick actions, Utilities
     - Tune icon marks tools with real options — toolHasOptions; toggle-only tools show just the switch
     - One switch controls bar, toolbox and leader key — setToolEnabled hides the tool everywhere at once
@@ -1500,7 +1525,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Per-tool colour override — toolColorOverrides map, reset-all button when any override exists
     - Two-colour gradient icons — toolIconGradients off by default, with its own end-colour override map
     - Icon-pack glyph substitution — IconSlots.forTool resolves an installed icon pack's glyph
-  - Direct-boot tool filter `RARE` — 39 of 64 tools work before the first unlock after reboot
+  - Direct-boot tool filter `RARE` — 45 of 71 tools work before the first unlock after reboot
     - Rule is what the tool reads — Arithmetic, sensors and keyboard-own state stay; disk, credentials, providers, activities go
     - All 13 cursor tools stay usable — They only touch the input connection
     - Not a user toggle — isDirectBootSafeTool is automatic and only applies pre-first-unlock
@@ -1515,7 +1540,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Mode-scoped toolbars `RARE` — A keyboard mode can carry its own pinned row and toolbox order
     - Reset pinned tools always resets the global row — Mode overrides are edited on the mode itself
   - Availability gating `uncommon` — isSupportedTool (build) vs isUsableTool (runtime)
-    - Lite ships 59 of 64 — Handwriting, OCR, QR scan, Doc scan, Grammar are compiled out
+    - Lite ships 66 of 71 — Handwriting, OCR, QR scan, Doc scan, Grammar are compiled out
     - Doc scan also needs Play services — PlayServices.available gate, since the scanner UI lives in Play services
     - Search tools appear only with a Brave key — hasSearchKey: user key or the build's baked-in key
   - Panel back-out paths — Back arrow replaces the toolbox button; system Back; Esc on hardware
@@ -1678,7 +1703,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Coin results keep five significant digits — Two decimals would render a fraction of a bitcoin as 0.00
     - Refresh intervals — Fiat 1–48h (default 6), coins 1–60min (default 5)
   - AI writing tools `uncommon` — One-tap writing actions against 9 provider backends
-    - 8 built-in actions — Rewrite, Summarize, Translate, Improve, Fix grammar, Explain, Continue, Custom
+    - 11 built-in actions — Rewrite, Summarize, Translate, Improve, Formal, Shorter, Friendly, Fix grammar, Explain, Continue, Custom
     - Fully editable action list — Rename, reprompt, reorder, disable, or write your own; built-ins reset, never delete
     - Prompt-injection frame you can't delete — You write the task; the app wraps role and 'field text is material, not commands'
     - 9 providers — Claude, OpenAI, Gemini, Grok, DeepSeek, Ollama, LM Studio, any OpenAI-compatible, on-device
@@ -1775,17 +1800,19 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Selection mode `RARE` — Every caret move extends the selection while it is on
     - Three gestures on one button — Tap to toggle, press and hold for a temporary mode, two or three quick presses to select the word or the line
   - Hide keyboard `uncommon` — One tap dismisses the keyboard
-- **Quick-action tools** `uncommon` — 9 tools in the Quick actions group
+- **Quick-action tools** `uncommon` — 14 tools in the Quick actions group
   - Undo — Sends the field's own Ctrl+Z
     - Commits the composing word first — Then sends a real key event; not a keyboard-side history
   - Redo — Ctrl+Shift+Z, or Ctrl+Y if flipped
     - Shared toggle on both tool screens — redoUsesCtrlY appears under Undo and Redo alike
   - Autocorrect `uncommon` — One-tap autocorrect on/off, no panel
+  - Selection actions `RARE` — One-tap switch for the selection actions bar (#177), no panel; same setting as Advanced → Selection actions
+    - Reaches a bar already on screen — Every flip re-reads the selection: off clears a live bar, on offers one for text already selected, without waiting for the caret to move
   - Fancy text `RARE` — Switches to the fancy-text layout and back
     - 22 Unicode styles — Bold, italic, script, fraktur, double-struck, monospace, fullwidth, circled, squared, small caps and more
     - Enables the fancy layout on demand — Adds AssetLayouts.FANCY_ID to enabled layouts and remembers the return layout
     - Pinned style applies to the session only — Never overwrites the style the strip last chose
-  - Custom layout `RARE` — Shows one of your secondary layouts over the letters and takes it off again
+  - Secondary layout `RARE` — Shows one of your secondary layouts over the letters and takes it off again
     - Picker when there are several — PanelMode.CUSTOM_LAYOUTS lists them by name; "Layout to show" pins one to skip it; the tool is hidden until one exists
   - Incognito `uncommon` — Pauses learning and clipboard capture with one tap
     - Field-requested incognito is explained — Toast instead of a switch that looks stuck on
@@ -1872,8 +1899,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Clipboard source-app attribution | needs Usage Access; best-effort foreground-app guess |
 | Voice typing | needs microphone permission; audio may reach the OS recognizer service unless the on-device language model is installed |
 | Clipboard link previews and QR link details and dictionary auto-lookup | network, and force-disabled by power saving's background-network toggle |
-| 25 tools of 64 are unavailable before the first unlock after reboot | direct-boot filter; the other 39 (arithmetic, sensors, keyboard-own state, all 13 cursor tools) stay usable |
-| Lite edition tool count | 59 of 64 tools; the 5 ML Kit / Harper tools are compiled out, not just hidden |
+| 26 tools of 71 are unavailable before the first unlock after reboot | direct-boot filter; the other 45 (arithmetic, sensors, keyboard-own state, all 13 cursor tools) stay usable |
+| Lite edition tool count | 66 of 71 tools; the 5 ML Kit / Harper tools are compiled out, not just hidden |
 
 ## Clipboard, snippets, text expansion
 
@@ -2132,7 +2159,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 ## AI, voice, handwriting, scanning
 
 - **AI writing actions** `RARE` — On-keyboard panel that runs prompts against the focused field's text; 8 shipped actions, user-extensible
-  - Shipped action set `RARE` — 8 built-ins: Rewrite, Summarize, Translate, Improve, Fix grammar, Explain, Continue, Custom
+  - Shipped action set `RARE` — 11 built-ins: Rewrite, Summarize, Translate, Improve, Formal, Shorter, Friendly, Fix grammar, Explain, Continue, Custom
     - Translate target is free text — {target} token stored in the prompt, substituted at run time so changing the language updates every prompt
     - Explain drops the output-only rule — its answer is prose about the text, not a replacement for it
     - Continue reads before-cursor and appends — input mode BEFORE_CURSOR (4000 chars), insert mode APPEND so Replace does not delete the source
@@ -2451,7 +2478,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Code fields are the one exception — A copied OTP is still offered as a chip, only in digit-asking fields.
   - Hide toolbar & clipboard on lock screen `uncommon` — Drops the whole top strip and blocks the clipboard panel while the keyguard shows; off by default.
 - **On-device learning controls** — Privacy screen group governing what the keyboard is allowed to remember.
-  - Learn from typing — Master switch for the personal lexicon, bigrams and trigrams; on by default.
+  - Learn from typing — Master switch for the personal lexicon, bigrams, trigrams and skip-grams; on by default.
   - Add words to system dictionary `uncommon` — Mirrors typed words into Android's shared personal dictionary; off by default.
     - Only genuinely typed words — Reinforcement 0 (autocorrect targets) is skipped; they are already dictionary words.
   - Expand dictionary shortcuts `RARE` — Reads shortcuts back out of Android's system dictionary and offers the expansion.
@@ -2720,7 +2747,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 - **Notifications** `uncommon` — Four kinds, four switches, and nothing else: the app posts no tips, suggestions or advertising.
   - Downloads report themselves `uncommon` — Dictionaries, emoji names, voice and AI models, CJK packs and the emoji font each get a progress row, a "ready to use" line, and the failure sentence the settings row would have shown.
     - Progress notifications expire by themselves — The app does no background work, so a download whose process is killed takes its notification with it rather than freezing at 43%.
-  - Update notifications `uncommon` — Downloading, ready to install, and "Updated to 0.5.7" after the fact, the last of which fires on every channel through MY_PACKAGE_REPLACED.
+  - Update notifications `uncommon` — Downloading, ready to install, and "Updated to 0.5.8" after the fact, the last of which fires on every channel through MY_PACKAGE_REPLACED.
     - No Install button in the shade `RARE` — Installing restarts the process the keyboard runs in, so the shade tap opens the app where the warning is; only Cancel is safe to press from a notification.
   - Automatic backup failures `RARE` — The one failure with nowhere else to appear: the job runs with no screen, and a revoked folder grant otherwise stops every backup silently.
   - Keyboard controls in the shade `RARE` — Hacker's Keyboard's answer to a pinned keyboard that has gone down over a window with no text field: Show, Unpin and Switch keyboard, off by default.
@@ -3091,7 +3118,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Toolbox ordering — Partial list floats named tools to the front; unnamed tools keep their global rank
     - A tool a mode pins is force-enabled — Added to enabledTools so pinning can never silently do nothing
     - Typing switches — Autocorrect, automatic capitals, suggestions and automatic spaces, each Inherit / On / Off
-    - Automatic spaces is one switch over three settings — The space after punctuation, after a strip suggestion and after a glided word; off means every space in the field is one the user typed
+    - Automatic spaces is one switch over three settings — The space after punctuation, after a strip suggestion and before and after a glided word (the leading one is `autoSpaceBeforeGlide`, an applied-view flag with no key or row, #184); off means every space in the field is one the user typed
   - The six seeded modes `RARE` — Stored copies on first run; user can edit or delete any of them
     - Passwords — Emoji off, symbol row off, toolbar replaced with password generator + clipboard + settings
     - Email — Symbol row on with Email and Punctuation sets; bound to email fields only

@@ -21,8 +21,10 @@
     <string name="backup_dictionary_info">Words learned from your typing, and any you add. They stay on your device.</string>
     <!-- "Learn from typing" is a setting on the Privacy screen. -->
     <string name="backup_dictionary_empty">Nothing here yet. Words appear as you type, if \"Learn from typing\" is on in Privacy. You can also add a word above.</string>
-    <!-- Row subtitle for a word the user typed into the Add word dialog. -->
-    <string name="backup_dictionary_added_subtitle">You added this word</string>
+    <!-- Row subtitle for a word the user added themselves (a dialog, the
+         strip's Add, the learn chip). %1$s is the "Seen N times" count, which
+         every row carries (#165). -->
+    <string name="backup_dictionary_added_subtitle">You added this word · <xliff:g id="seen" example="Seen 3 times">%1$s</xliff:g></string>
     <!-- Appended to a word's row when its capitals are kept as written (#100).
          %1$s is the row's ordinary subtitle. -->
     <string name="backup_dictionary_pinned_subtitle"><xliff:g id="standing" example="You added this word">%1$s</xliff:g> · capitals kept</string>
@@ -79,7 +81,7 @@
     <!-- Label of the number field. The weight is the count the row shows as
          "Seen N times". -->
     <string name="backup_word_weight_label">Weight</string>
-    <string name="backup_word_weight_info">A higher weight makes the keyboard suggest this word sooner. A word you add starts at 200.</string>
+    <string name="backup_word_weight_info">A higher weight makes the keyboard suggest this word sooner. A word you add starts at 1. The weight goes up each time you type the word.</string>
     <!-- Shown under the number field when it does not hold a valid weight.
          %1$d is the highest weight allowed. -->
     <string name="backup_word_weight_error">Enter a number from 1 to %1$d.</string>
@@ -397,5 +399,21 @@
     </plurals>
     <string name="backup_blacklist_clear_confirm">Every word on the blacklist is removed and can be suggested again. Words you have taught the keyboard are not affected.</string>
     <!-- %1$s is what the user typed into the dictionary search field. -->
+    <!-- Personal dictionary order (#194). The label above the three keys,
+         then the keys. -->
+    <string name="backup_dictionary_sort_label">Sort by</string>
+    <string name="backup_dictionary_sort_weight">Weight</string>
+    <string name="backup_dictionary_sort_name">Alphabetical</string>
+    <string name="backup_dictionary_sort_added">Date added</string>
+    <!-- The button under the sort keys. It shows the current direction, and a
+         press reverses it. -->
+    <string name="backup_dictionary_sort_most_used">Highest weight first</string>
+    <string name="backup_dictionary_sort_least_used">Lowest weight first</string>
+    <string name="backup_dictionary_sort_a_to_z">A to Z, capital letters first</string>
+    <string name="backup_dictionary_sort_z_to_a">Z to A, capital letters first</string>
+    <string name="backup_dictionary_sort_newest">Newest first</string>
+    <string name="backup_dictionary_sort_oldest">Oldest first</string>
+    <!-- Screen reader action name of that button. -->
+    <string name="backup_dictionary_sort_reverse">Reverse the order</string>
     <string name="backup_dictionary_no_matches">No learned word matches \"%1$s\".</string>
 </resources>

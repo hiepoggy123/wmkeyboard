@@ -346,8 +346,19 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
      * Where a word's keys were visited along a stroke: the key index of each
      * visit (consecutive repeats collapsed) and the resampled stroke position
      * it was placed on, in key widths.
+     *
+     * [samples] is the resampled index each visit was placed on, `0` until
+     * [GlideWorkspace.SAMPLE_POINTS], and [chars] the offset in the word at
+     * which each visit's characters begin — together, what maps a place along
+     * the stroke back to the letters written there (see `GlideCase.Letters`).
      */
-    class Alignment(val keys: IntArray, val x: FloatArray, val y: FloatArray) {
+    class Alignment(
+        val keys: IntArray,
+        val x: FloatArray,
+        val y: FloatArray,
+        val samples: IntArray = IntArray(keys.size),
+        val chars: IntArray = IntArray(keys.size),
+    ) {
         val size: Int get() = keys.size
     }
 
@@ -431,8 +442,15 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         // Merged into one ranked list so a caller sees the decoder's whole
         // opinion in score order; `Candidate.ahead` is what tells the two
         // apart, and every caller that cares checks it.
-        val completions = ahead.values
-            .sortedWith(compareByDescending<Candidate> { it.score }.thenBy { it.word })
+        //
+        // The completions go through the shape channel too (issue #167).
+        // They used to skip it, and every caller compares a guess's score
+        // against the best ordinary reading's — so a reading paid the
+        // channel's charge, up to several nats on a real finger, and the
+        // guess extending it paid nothing. "thing" drawn to its last letter
+        // lost to "things" on that gap alone, and a word the stroke had
+        // spelled out could be beaten by any longer word it started.
+        val completions = rescoreShape(ahead.values.toList(), keys, ws, shapes)
             .take(lookAhead)
         return (read + completions).sortedWith(
             compareByDescending<Candidate> { it.score }.thenBy { it.word }
@@ -473,17 +491,21 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
     ): Alignment? {
         if (path.size < MIN_SAMPLES || keyWidth <= 0f || keys.keyCount == 0) return null
         val visits = IntArray(GlideWorkspace.MAX_IDEAL_POINTS)
+        val starts = IntArray(GlideWorkspace.MAX_IDEAL_POINTS)
         var count = 0
         var previous = -1
         var at = 0
         while (at < word.length) {
             val codePoint = word.codePointAt(at)
+            val start = at
             at += Character.charCount(codePoint)
             val key = keys.keyIndex(codePoint)
             if (key < 0) return null
             if (key == previous) continue
             if (count >= GlideWorkspace.MAX_IDEAL_POINTS) return null
-            visits[count++] = key
+            visits[count] = key
+            starts[count] = start
+            count++
             previous = key
         }
         if (count < 2) return null
@@ -539,13 +561,15 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
 
         val x = FloatArray(count)
         val y = FloatArray(count)
+        val samples = IntArray(count)
         var j = n - 1
         for (m in count - 1 downTo 0) {
             x[m] = ws.pathX[j]
             y[m] = ws.pathY[j]
+            samples[m] = j
             if (m > 0) j = back[m * n + j]
         }
-        return Alignment(visits.copyOf(count), x, y)
+        return Alignment(visits.copyOf(count), x, y, samples, starts.copyOf(count))
     }
 
     // ---- the walk ----
@@ -1371,7 +1395,11 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         shapes: GlideShapeSource?,
     ): List<Candidate> {
         val weight = tuning.shapeChannel
-        if (weight <= 0.0 || ranked.size < 2) return ranked
+        // A lone candidate is rescored too, not merely reordered: its score
+        // still gets compared, to the completions decoded beside it, and a
+        // reading that skipped the charge because it had no rival would be
+        // measured against guesses that paid it.
+        if (weight <= 0.0 || ranked.isEmpty()) return ranked
         normalise(ws.pathX, ws.pathY, ws.drawnShapeX, ws.drawnShapeY)
         val learned = shapes?.takeIf { tuning.learnedShapeGain > 0.0 }
         if (learned != null) quantise(ws.drawnShapeX, ws.drawnShapeY, ws.drawnShape8)
@@ -1380,14 +1408,19 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         for (candidate in ranked) {
             // A look-ahead candidate's ideal path runs through letters the
             // finger has not drawn, so comparing the whole shape against the
-            // whole word asks it to account for a stroke that does not exist
-            // yet. The channel has nothing to say about a prefix.
+            // whole word would ask it to account for a stroke that does not
+            // exist yet. What the finger *has* drawn is the prefix, and the
+            // prefix's ideal path is exactly what an ordinary reading of the
+            // same letters would be measured against — so a guess pays what
+            // the word it extends pays, and the two compare on the letters
+            // ahead alone. The learned shapes are of whole words and have
+            // nothing to say about a prefix.
             val distance = if (candidate.ahead > 0) {
-                null
+                shapeDistance(candidate.word.dropLast(candidate.ahead), keys, ws)
             } else {
                 shapeDistance(candidate.word, keys, ws)
+                    ?.let { ideal -> learnedDistance(candidate.word, ideal, learned, ws) }
             }
-                ?.let { ideal -> learnedDistance(candidate.word, ideal, learned, ws) }
 
             rescored.add(
                 if (distance == null) {

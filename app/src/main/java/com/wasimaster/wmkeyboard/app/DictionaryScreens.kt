@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.text.KeyboardOptions
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -46,9 +48,12 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.wasimaster.wmkeyboard.core.settings.DictionarySort
+import com.wasimaster.wmkeyboard.core.settings.DictionarySortKey
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.LEARNED_CORRECTIONS_FILE
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.sortDictionaryWords
 import com.wasimaster.wmkeyboard.core.prediction.CorrectionMemory
 import com.wasimaster.wmkeyboard.core.prediction.PendingLearn
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
@@ -79,7 +84,7 @@ private fun ShowMoreWordsRow(remaining: Int, onClick: () -> Unit) {
  * own in-memory copy) reloads from disk instead of clobbering the edit.
  */
 @Composable
-internal fun DictionarySettings(repository: SettingsRepository) {
+internal fun DictionarySettings(repository: SettingsRepository, settings: KeyboardSettings) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val file = remember { java.io.File(context.filesDir, "learning/user_lexicon.json") }
@@ -90,6 +95,10 @@ internal fun DictionarySettings(repository: SettingsRepository) {
     var words by remember { mutableStateOf<List<Pair<String, Int>>>(emptyList()) }
     // Words whose capitals are pinned (#100), by the spelling the row shows.
     var pinned by remember { mutableStateOf<Set<String>>(emptySet()) }
+    // Words the user added themselves (#164), the same way.
+    var added by remember { mutableStateOf<Set<String>>(emptySet()) }
+    // When each word joined the dictionary (#194), for the date-added order.
+    var born by remember { mutableStateOf<Map<String, Long>>(emptyMap()) }
     // The rank adjustments made from the keyboard's word card (#99): its own
     // file, read the same way, listed under the words so they can be undone.
     val ranksFile = remember { java.io.File(context.filesDir, "learning/word_ranks.json") }
@@ -102,12 +111,18 @@ internal fun DictionarySettings(repository: SettingsRepository) {
 
     fun pinnedIn(lex: UserLexicon, all: List<Pair<String, Int>>): Set<String> =
         all.mapNotNullTo(HashSet()) { (word, _) -> word.takeIf { lex.isCasePinned(it) } }
+    fun addedIn(lex: UserLexicon, all: List<Pair<String, Int>>): Set<String> =
+        all.mapNotNullTo(HashSet()) { (word, _) -> word.takeIf { lex.isAddedByHand(it) } }
+    fun bornIn(lex: UserLexicon, all: List<Pair<String, Int>>): Map<String, Long> =
+        all.mapNotNull { (word, _) -> lex.addedGeneration(word)?.let { word to it } }.toMap()
 
     LaunchedEffect(Unit) {
         val lex = withContext(Dispatchers.IO) { UserLexicon(file) }
         val all = lex.allWords()
-        words = all.sortedByDescending { it.second }
+        words = all
         pinned = pinnedIn(lex, all)
+        added = addedIn(lex, all)
+        born = bornIn(lex, all)
         lexicon = lex
         val adjustments = withContext(Dispatchers.IO) { WordRanks(ranksFile) }
         rankEntries = adjustments.all()
@@ -145,8 +160,10 @@ internal fun DictionarySettings(repository: SettingsRepository) {
                 }
             }
             val all = lex.allWords()
-            words = all.sortedByDescending { it.second }
+            words = all
             pinned = pinnedIn(lex, all)
+            added = addedIn(lex, all)
+            born = bornIn(lex, all)
             repository.bumpLexiconVersion()
         }
     }
@@ -154,9 +171,13 @@ internal fun DictionarySettings(repository: SettingsRepository) {
     // Words seen exactly once. Older versions learned every word the first time
     // it was committed, so for anyone upgrading this is where the swipe
     // misfires and mistyped words are — the clean-out the dictionary needed and
-    // had no way to do short of deleting entries one at a time. Words the user
-    // added by hand carry a boost far above 1 and are never in here.
-    val seenOnce = remember(words) { words.filter { it.second <= 1 }.map { it.first } }
+    // had no way to do short of deleting entries one at a time.
+    // Words the user added by hand are never in here (#164). They start at a
+    // weight of one, so the count cannot tell them apart: they are left out by
+    // name, which is what the dialog promises.
+    val seenOnce = remember(words, added) {
+        words.filter { it.second <= 1 && it.first !in added }.map { it.first }
+    }
     RegisterAddFab(stringResource(R.string.backup_add_word_action)) { showAdd = true }
     Row(
         modifier = Modifier.padding(horizontal = 16.dp),
@@ -195,9 +216,38 @@ internal fun DictionarySettings(repository: SettingsRepository) {
                 .padding(horizontal = 16.dp, vertical = 4.dp),
         )
     }
-    val shown = remember(words, query) {
+    // The list's order (#194): a key, and under it a button that names the
+    // direction and reverses it. The direction is not a second press on the
+    // key, so the current order is always written out on the screen.
+    val sort = settings.appUi.dictionarySort
+    if (words.size > 1) {
+        ChoiceControl(
+            options = listOf(
+                DictionarySortKey.WEIGHT to stringResource(R.string.backup_dictionary_sort_weight),
+                DictionarySortKey.NAME to stringResource(R.string.backup_dictionary_sort_name),
+                DictionarySortKey.ADDED to stringResource(R.string.backup_dictionary_sort_added),
+            ),
+            selected = sort.key,
+            label = stringResource(R.string.backup_dictionary_sort_label),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            onChange = { key -> scope.launch { repository.setDictionarySort(DictionarySort.of(key)) } },
+        )
+        TextButton(
+            onClick = { scope.launch { repository.setDictionarySort(sort.reversed()) } },
+            modifier = Modifier.padding(horizontal = 8.dp),
+        ) {
+            Icon(
+                Icons.Outlined.SwapVert,
+                contentDescription = stringResource(R.string.backup_dictionary_sort_reverse),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(sortDirectionLabel(sort)))
+        }
+    }
+    val sorted = remember(words, born, sort) { sortDictionaryWords(words, sort, born) }
+    val shown = remember(sorted, query) {
         val needle = query.trim().lowercase()
-        if (needle.isEmpty()) words else words.filter { needle in it.first.lowercase() }
+        if (needle.isEmpty()) sorted else sorted.filter { needle in it.first.lowercase() }
     }
     if (words.isEmpty()) {
         CaptionText(stringResource(R.string.backup_dictionary_empty))
@@ -209,14 +259,17 @@ internal fun DictionarySettings(repository: SettingsRepository) {
     // ran the app out of memory on the way in (#75). Keyed on the query and
     // not on the list: a new search starts over at page one, but deleting or
     // respelling a word must not fold everything the user had expanded (#85).
-    var visible by remember(query) { mutableIntStateOf(WORD_LIST_PAGE) }
+    var visible by remember(query, sort) { mutableIntStateOf(WORD_LIST_PAGE) }
     SettingsGroup {
         for ((word, count) in shown.take(visible)) {
             item {
-                val standing = if (count >= 200) {
-                    stringResource(R.string.backup_dictionary_added_subtitle)
+                // Every row carries its count (#165); a word the user added
+                // says so in front of it rather than instead of it.
+                val seen = pluralStringResource(R.plurals.backup_dictionary_seen_count, count, count)
+                val standing = if (word in added) {
+                    stringResource(R.string.backup_dictionary_added_subtitle, seen)
                 } else {
-                    pluralStringResource(R.plurals.backup_dictionary_seen_count, count, count)
+                    seen
                 }
                 WmRow(
                     title = word,
@@ -353,6 +406,15 @@ internal fun DictionarySettings(repository: SettingsRepository) {
             },
         )
     }
+}
+/** The words on the personal dictionary's direction button (#194). */
+private fun sortDirectionLabel(sort: DictionarySort): Int = when (sort) {
+    DictionarySort.MOST_USED_FIRST -> R.string.backup_dictionary_sort_most_used
+    DictionarySort.LEAST_USED_FIRST -> R.string.backup_dictionary_sort_least_used
+    DictionarySort.A_TO_Z -> R.string.backup_dictionary_sort_a_to_z
+    DictionarySort.Z_TO_A -> R.string.backup_dictionary_sort_z_to_a
+    DictionarySort.NEWEST_FIRST -> R.string.backup_dictionary_sort_newest
+    DictionarySort.OLDEST_FIRST -> R.string.backup_dictionary_sort_oldest
 }
 /**
  * Size of one press of the weight stepper: a single count under 10, a tenth

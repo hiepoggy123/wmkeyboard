@@ -4,6 +4,7 @@ import android.view.KeyEvent
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.otp.NotificationOtp
 import com.wasimaster.wmkeyboard.core.emoji.AnimatedEmoji
+import com.wasimaster.wmkeyboard.core.gesture.GlideCase
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
@@ -67,6 +68,35 @@ fun displayCaseForShift(word: String, shift: ShiftState): String {
         ShiftState.ON -> word.replaceFirstChar { it.uppercase() }
         ShiftState.OFF -> word
     }
+}
+
+/**
+ * The shift a glide commits under, and is previewed under.
+ *
+ * The board's own state, unless the stroke drew through the shift key and
+ * answered for itself (#115): once for a capital, twice for a shout, the same
+ * ladder tapping the key walks up. It overrides rather than combines, so a
+ * stroke that says "capital" gets a capital whatever the board was doing — the
+ * user drew the instruction after they saw the board.
+ *
+ * Under the per-letter reading (#163) the crossings name letters rather than
+ * a shift state, and those are applied after this — see
+ * [com.wasimaster.wmkeyboard.core.gesture.GlideCase.Letters.caseWord] — so
+ * the board's own shift still stands; only a stroke that *ended* on the key
+ * speaks here, as a shout.
+ *
+ * Here, beside [displayCaseForShift], rather than in the service: the pill
+ * and the strip case the mid-stroke preview with it too (#162), and the one
+ * ladder is what keeps the word on screen the word that lands.
+ */
+fun shiftForGlide(board: ShiftState, case: GlideCase): ShiftState = when (case) {
+    is GlideCase.Word -> when {
+        case.times >= 2 -> ShiftState.CAPS_LOCK
+        case.times == 1 -> ShiftState.ON
+        else -> board
+    }
+    is GlideCase.Letters -> if (case.shout) ShiftState.CAPS_LOCK else board
+    GlideCase.None -> board
 }
 
 /**
@@ -210,6 +240,14 @@ data class LayoutSet(
      * shipped one — see `KeyboardUiState.panelLayout`.
      */
     val panels: Map<PanelKind, PanelLayoutSpec> = emptyMap(),
+    /**
+     * The layout's own theme (`LayoutSpec.themeId`), before any layer lays its
+     * own over it. The compiled grids carry the merged answer, which is right
+     * for drawing the grid and wrong for a panel opened over it: a panel with
+     * no theme of its own inherits the *layout's*, as the editor shows it, not
+     * the letters layer's (issue #196).
+     */
+    val themeId: String? = null,
 ) {
     /**
      * Rows the key grid reserves.
@@ -482,11 +520,18 @@ enum class PanelMode {
     CANDIDATES,
 
     /**
-     * The Custom layout tool's picker: one button per secondary layout, shown
+     * The Secondary layout tool's picker: one button per secondary layout, shown
      * when the user has several and has not pinned one to the tool (issue
      * #62). A tap opens that layout and closes this.
      */
     CUSTOM_LAYOUTS,
+
+    /**
+     * Find and replace over the field, opened from the selection bar's Replace
+     * chip. Two buffers of its own (see [FindReplaceUi]); the key rows stay up
+     * to type into them.
+     */
+    FIND_REPLACE,
 }
 
 /**
@@ -638,6 +683,8 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     // screen's Restart — during a run the keys are the test.
     PanelMode.MEDIA_CONTROL, PanelMode.PLUGINS -> listOf(FocusRegion.RESULTS)
     PanelMode.QR_GEN, PanelMode.TYPING_TEST -> listOf(FocusRegion.ACTIONS)
+    // The two fields, the three toggles, then the buttons.
+    PanelMode.FIND_REPLACE -> listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.ACTIONS)
     PanelMode.PASSWORD_GEN ->
         listOf(FocusRegion.CHIPS, FocusRegion.ACTIONS, FocusRegion.RESULTS)
     // The dialect and Fix-all chips, then the lint cards. Seed-only (see
@@ -723,9 +770,10 @@ data class HandwritingUi(
  * Where the voice input panel is in a dictation session. TRANSCRIBING is the
  * offline-Whisper-only state after recording stops while the model turns the
  * captured audio into text (the system recognizer streams instead, so it never
- * enters it).
+ * enters it). MIC_BLOCKED is a session Android fed silence: the Microphone
+ * access or Sensors off tile in Quick Settings is on (see MicBlockWatcher).
  */
-enum class VoiceStatus { IDLE, LISTENING, FINISHING, TRANSCRIBING, NEED_PERMISSION, UNAVAILABLE, ERROR }
+enum class VoiceStatus { IDLE, LISTENING, FINISHING, TRANSCRIBING, NEED_PERMISSION, MIC_BLOCKED, UNAVAILABLE, ERROR }
 
 /**
  * On-device recognition model availability for the active language
@@ -795,6 +843,7 @@ fun KeyboardUiState.voiceChipOnly(): Boolean =
         !secureField &&
         !voice.whisperNeedsModel &&
         voice.status != VoiceStatus.NEED_PERMISSION &&
+        voice.status != VoiceStatus.MIC_BLOCKED &&
         voice.status != VoiceStatus.UNAVAILABLE &&
         voice.status != VoiceStatus.ERROR
 
@@ -1112,6 +1161,13 @@ sealed interface AiUi {
         val truncated: Boolean = false,
         /** The panel is showing the comparison, not the plain result. */
         val showDiff: Boolean = false,
+        /**
+         * [sourceText] was the selection, not the whole field, so Replace
+         * swaps the selection alone. Without it, running an action on a
+         * selected sentence and pressing Replace overwrote the whole field
+         * with one rewritten sentence.
+         */
+        val sourceFromSelection: Boolean = false,
         /**
          * A comparison against [sourceText] means something for this run.
          *
@@ -1818,6 +1874,22 @@ data class KeyboardUiState(
     /** Best gesture-typing candidate mid-swipe, shown floating above the finger. */
     val glideWord: String? = null,
     /**
+     * What the stroke behind [glideWord] has asked of the shift key so far —
+     * the capitals the lift will commit under (#115) — so the pill and the
+     * strip can show the word cased the way it will land (#162).
+     * [GlideCase.None] between strokes; see [shiftForGlide].
+     */
+    val glideCase: GlideCase = GlideCase.None,
+    /**
+     * The stroke's candidates as the per-letter reading of its shift crossings
+     * cases them (#163), keyed by the raw word: `hello` to `HeLLo`. Only the
+     * draw sites read it — the candidates themselves stay raw, because a
+     * picked word is compared against the decoder's list on the way back in.
+     * Empty under the whole-word reading, whose casing is one [ShiftState]
+     * every surface can apply itself.
+     */
+    val glideCased: Map<String, String> = emptyMap(),
+    /**
      * The words a mid-swipe decode is choosing between, best first, capped at
      * [GestureSettings.pickerChoices]. Populated for every preview while the
      * picker is on (empty when it is off), because a stroke that is not a
@@ -1844,6 +1916,13 @@ data class KeyboardUiState(
      * is a measurement over the dictionary, not a property of the layout.
      */
     val glideReady: Boolean = false,
+    /**
+     * The caret sits collapsed at the very start of the field, as last reported
+     * by the editor. Nothing has been typed in front of it, so any word on the
+     * strip is a sentence opener predicted before the first keystroke, and the
+     * bar only rests on those when "Suggestion strip always visible" is on.
+     */
+    val caretAtFieldStart: Boolean = false,
     val composingPreview: String = "",
     /**
      * The roman buffer [composingPreview] was transliterated from, mirrored
@@ -1941,6 +2020,13 @@ data class KeyboardUiState(
     val animatedEmojiFile: File? = null,
     /** True while [animatedEmojiFile] is on its way down. */
     val animatedEmojiLoading: Boolean = false,
+    /**
+     * True when no preview is coming for the open popup: data saving held it
+     * back, or the fetch failed. The popup offers Send anyway then, since
+     * pressing it is the answer data saving waits for, and a failed preview
+     * is no reason to refuse a GIF that may well come down on a second try.
+     */
+    val animatedEmojiNoPreview: Boolean = false,
     /** Emoji candidates for the suggestion strip (word being typed). */
     val emojiSuggestions: List<String> = emptyList(),
     /**
@@ -2211,6 +2297,8 @@ data class KeyboardUiState(
     val pluginInputs: Map<String, String> = emptyMap(),
     /** Which plugin input the keys are typing into, or null when they go to the field. */
     val pluginFocusedInput: String? = null,
+    /** The Find and replace panel's fields and matches; null while it is closed. */
+    val findReplace: FindReplaceUi? = null,
     val webSearch: WebSearchUi = WebSearchUi.Idle,
     val imageSearch: ImageSearchUi = ImageSearchUi.Idle,
     val translate: TranslateUi = TranslateUi(),
@@ -2422,6 +2510,14 @@ data class KeyboardUiState(
         get() = panel == PanelMode.PLUGINS && pluginFocusedInput != null
 
     /**
+     * Whether keystrokes belong to the Find and replace panel's fields. The
+     * same contract as [pluginTypingActive]: panel *and* state, so neither
+     * alone can leak a keystroke into the app behind the keyboard.
+     */
+    val findReplaceTypingActive: Boolean
+        get() = panel == PanelMode.FIND_REPLACE && findReplace != null
+
+    /**
      * Whether keystrokes belong to the word card's spelling editor rather
      * than to the text field (#138) — true while the spelling bar is up, so
      * respelling a suggestion never writes into the app behind the keyboard.
@@ -2442,7 +2538,7 @@ data class KeyboardUiState(
     val keysTakenByKeyboard: Boolean
         get() = typingTestActive || calcTypingActive || converterTypingActive ||
             aiCustomInputActive || pluginTypingActive || emojiSearchActive ||
-            wordSpellActive
+            wordSpellActive || findReplaceTypingActive
 
     /**
      * The item a panel should ring in [region], or null when the ring is

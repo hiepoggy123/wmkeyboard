@@ -212,6 +212,7 @@ import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.SwapVert
 import androidx.compose.material.icons.outlined.Swipe
 import androidx.compose.material.icons.outlined.SwipeDown
+import androidx.compose.material.icons.outlined.SwipeDownAlt
 import androidx.compose.material.icons.outlined.SwipeUp
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.TabletAndroid
@@ -688,6 +689,7 @@ internal object SettingsRowIcons {
         put(R.string.typing_adapt_taps_title) { Icons.Outlined.TouchApp }
         put(R.string.typing_skip_all_caps_title) { Icons.Outlined.KeyboardCapslock }
         put(R.string.typing_skip_typed_word_title) { Icons.Outlined.FilterList }
+        put(R.string.typing_number_prediction_title) { Icons.Outlined.Numbers }
         put(R.string.typing_block_offensive_title) { Icons.Outlined.Block }
         put(R.string.typing_auto_apostrophe_title) { Icons.Outlined.Spellcheck }
         put(R.string.typing_auto_capitalize_title) { Icons.Outlined.KeyboardCapslock }
@@ -716,6 +718,7 @@ internal object SettingsRowIcons {
         put(R.string.typing_blacklist_title) { Icons.Outlined.VisibilityOff }
         put(R.string.typing_word_menu_title) { Icons.Outlined.Tune }
         put(R.string.typing_rank_control_title) { Icons.Outlined.SwapVert }
+        put(R.string.typing_delete_edits_lists_title) { Icons.Outlined.Description }
         put(R.string.typing_smart_chips_title) { Icons.Outlined.AutoAwesome }
         put(R.string.typing_smart_calc_title) { Icons.Outlined.Calculate }
         put(R.string.typing_smart_currency_title) { Icons.Outlined.CurrencyExchange }
@@ -769,6 +772,7 @@ internal object SettingsRowIcons {
         put(R.string.typing_gesture_cooldown_title) { Icons.Outlined.Timer }
         put(R.string.typing_space_glide_multiword_title) { Icons.Outlined.SpaceBar }
         put(R.string.typing_shift_glide_capitals_title) { Icons.Outlined.KeyboardCapslock }
+        put(R.string.typing_shift_glide_mode_title) { Icons.Outlined.KeyboardCapslock }
         put(R.string.typing_space_after_glide_title) { Icons.Outlined.SpaceBar }
         put(R.string.appearance_toolbar_placement_title) { Icons.Outlined.ViewAgenda }
         put(R.string.tooldetail_hold_title) { Icons.Outlined.TouchApp }
@@ -776,7 +780,7 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_icon_colour_start_title) { Icons.Outlined.Colorize }
         put(R.string.tooldetail_icon_colour_end_title) { Icons.Outlined.Gradient }
         put(R.string.typing_glide_apostrophe_title) { Icons.Outlined.FormatQuote }
-        put(R.string.typing_glide_apostrophe_s_title) { Icons.Outlined.FormatQuote }
+        put(R.string.typing_possessive_swipe_title) { Icons.Outlined.FormatQuote }
         put(R.string.typing_swipe_start_distance_title) { Icons.Outlined.Straighten }
         put(R.string.typing_trail_width_title) { Icons.Outlined.LineWeight }
         put(R.string.typing_trail_length_title) { Icons.Outlined.Timeline }
@@ -790,9 +794,11 @@ internal object SettingsRowIcons {
         put(R.string.typing_glide_strip_preview_title) { Icons.Outlined.Lightbulb }
         put(R.string.typing_spacebar_language_arrows_title) { Icons.Outlined.SwapHoriz }
         put(R.string.typing_spacebar_display_title) { Icons.Outlined.SpaceBar }
+        put(R.string.typing_language_picker_style_title) { Icons.Outlined.ViewCarousel }
         put(R.string.typing_space_cursor_2d_title) { Icons.Outlined.Mouse }
         put(R.string.typing_space_cursor_step_title) { Icons.Outlined.Speed }
         put(R.string.typing_space_swipe_down_hide_title) { Icons.Outlined.SwipeDown }
+        put(R.string.typing_hint_flick_title) { Icons.Outlined.SwipeDownAlt }
         put(R.string.typing_space_hold_keys_label) { Icons.Outlined.TouchApp }
         put(R.string.typing_backspace_swipe_title) { Icons.AutoMirrored.Outlined.Backspace }
         put(R.string.typing_backspace_unit_title) { Icons.AutoMirrored.Outlined.Backspace }
@@ -874,6 +880,10 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_camera_resolution_title) { Icons.Outlined.PhotoSizeSelectLarge }
         put(R.string.tooldetail_launcher_sort_title) { Icons.AutoMirrored.Outlined.Sort }
         put(R.string.tooldetail_launcher_labels_title) { Icons.AutoMirrored.Outlined.Label }
+        put(R.string.tooldetail_launcher_columns_title) { Icons.Outlined.GridView }
+        put(R.string.tooldetail_launcher_icon_size_title) { Icons.Outlined.PhotoSizeSelectLarge }
+        put(R.string.tooldetail_launcher_icon_shape_title) { Icons.Outlined.RoundedCorner }
+        put(R.string.tooldetail_launcher_hidden_title) { Icons.Outlined.VisibilityOff }
         put(R.string.tooldetail_launcher_recents_title) { Icons.Outlined.History }
         put(R.string.tooldetail_launcher_recents_count_title) { Icons.Outlined.Numbers }
         put(R.string.tooldetail_launcher_drilldown_title) { Icons.Outlined.AppShortcut }
@@ -948,6 +958,8 @@ internal object SettingsRowIcons {
         put(R.string.selection_macros_placement_title) { Icons.Outlined.ViewStream }
         put(R.string.selection_macros_detect_title) { Icons.Outlined.Sensors }
         put(R.string.selection_macros_actions_title) { Icons.Outlined.Checklist }
+        put(R.string.selection_macros_ai_title) { Icons.Outlined.AutoAwesome }
+        put(R.string.selection_macros_zones_title) { Icons.Outlined.Public }
 
         // ---- Data saver ----
         put(R.string.datasaver_manual_title) { Icons.Outlined.DataSaverOn }
@@ -969,6 +981,8 @@ internal object SettingsRowIcons {
         put(R.string.statistics_toggle_title) { Icons.Outlined.QueryStats }
         put(R.string.tooldetail_power_drop_popup_title) { Icons.Outlined.Notifications }
         put(R.string.tooldetail_autocorrect_title) { Icons.Outlined.Spellcheck }
+        put(R.string.tooldetail_selection_actions_title) { Icons.Outlined.HighlightAlt }
+        put(R.string.tooldetail_selection_actions_nav_title) { Icons.Outlined.Checklist }
         put(R.string.tooldetail_fancy_style_title) { Icons.Outlined.TextFormat }
         put(R.string.tooldetail_fancy_keep_title) { Icons.Outlined.PushPin }
         put(R.string.tooldetail_fancy_auto_off_title) { Icons.Outlined.Timer }
@@ -1000,6 +1014,7 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_doc_scan_gallery_title) { Icons.Outlined.PhotoLibrary }
         put(R.string.voice_ui_title) { Icons.Outlined.ViewAgenda }
         put(R.string.voice_typing_title) { Icons.Outlined.RecordVoiceOver }
+        put(R.string.voice_hold_picks_title) { Icons.Outlined.TouchApp }
         put(R.string.voice_continuous_title) { Icons.Outlined.MicNone }
         put(R.string.voice_punctuation_title) { Icons.Outlined.MoreHoriz }
         put(R.string.voice_engine_title) { Icons.Outlined.GraphicEq }

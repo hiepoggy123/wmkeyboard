@@ -44,6 +44,9 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -55,6 +58,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -78,6 +82,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
 import com.wasimaster.wmkeyboard.ime.ui.ModeIcons
 import com.wasimaster.wmkeyboard.core.settings.BarRow
@@ -783,7 +789,12 @@ private fun modeBindingsSummary(mode: KeyboardMode): String {
             },
         )
     }
-    // " + " rather than " · ": with both set, both have to match.
+    if (mode.hints.isNotEmpty()) {
+        parts += resources.getQuantityString(
+            R.plurals.rows_mode_bindings_hints, mode.hints.size, mode.hints.size,
+        )
+    }
+    // " + " rather than " · ": with several set, all have to match.
     return if (parts.isEmpty()) {
         resources.getString(R.string.rows_mode_bindings_manual)
     } else {
@@ -800,6 +811,9 @@ private fun modeFieldLabel(field: ModeField): String = stringResource(
         ModeField.PHONE -> R.string.rows_mode_field_phone_label
         ModeField.TEXT -> R.string.rows_mode_field_text_label
         ModeField.NOTIFICATION_REPLY -> R.string.rows_mode_field_notification_reply_label
+        ModeField.MULTILINE -> R.string.rows_mode_field_multiline_label
+        ModeField.SINGLE_LINE -> R.string.rows_mode_field_single_line_label
+        ModeField.NO_SUGGESTIONS -> R.string.rows_mode_field_no_suggestions_label
     },
 )
 /** The same names, written the way they read inside a sentence. */
@@ -812,6 +826,9 @@ private fun modeFieldLowercaseLabel(field: ModeField): Int = when (field) {
     ModeField.PHONE -> R.string.rows_mode_field_phone_lowercase_label
     ModeField.TEXT -> R.string.rows_mode_field_text_lowercase_label
     ModeField.NOTIFICATION_REPLY -> R.string.rows_mode_field_notification_reply_lowercase_label
+    ModeField.MULTILINE -> R.string.rows_mode_field_multiline_lowercase_label
+    ModeField.SINGLE_LINE -> R.string.rows_mode_field_single_line_lowercase_label
+    ModeField.NO_SUGGESTIONS -> R.string.rows_mode_field_no_suggestions_lowercase_label
 }
 /** Row height inside [ReorderableColumn] — fixed, so drags map to index shifts. */
 private val ReorderRowHeight = 52.dp
@@ -1212,15 +1229,36 @@ internal fun ModesSettings(
     SettingsGroup(stringResource(R.string.modes_group_title)) {
         for (mode in settings.keyboardModes) {
             item {
+                // The switch is the mode's own on/off (#152): off, it stays in
+                // the list with everything it holds, and the keyboard simply
+                // never sees it. Deleting used to be the only way to silence
+                // one, and a mode is too much setup to throw away for a week
+                // without it.
+                val useModeDesc = stringResource(R.string.modes_use_action, mode.name)
                 WmRow(
                     title = mode.name,
-                    subtitle = modeBindingsSummary(mode),
+                    subtitle = if (mode.enabled) {
+                        modeBindingsSummary(mode)
+                    } else {
+                        stringResource(R.string.modes_row_off_subtitle)
+                    },
                     leading = {
                         Icon(ModeIcons.icon(mode.icon), contentDescription = null)
                     },
                     trailing = {
-                        IconButton(onClick = { confirmDelete = mode }) {
-                            Icon(Icons.Outlined.Delete, contentDescription = deleteModeDesc)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(
+                                checked = mode.enabled,
+                                onCheckedChange = { on ->
+                                    scope.launch {
+                                        repository.upsertKeyboardMode(mode.copy(enabled = on))
+                                    }
+                                },
+                                modifier = Modifier.semantics { contentDescription = useModeDesc },
+                            )
+                            IconButton(onClick = { confirmDelete = mode }) {
+                                Icon(Icons.Outlined.Delete, contentDescription = deleteModeDesc)
+                            }
                         }
                     },
                     onClick = { onNavigate("mode_edit/${mode.id}") },
@@ -1291,6 +1329,14 @@ internal fun ModeEditor(
     var confirmDelete by remember { mutableStateOf(false) }
 
     SettingsGroup {
+        item {
+            ToggleSetting(
+                R.string.modes_use_title,
+                stringResource(R.string.modes_use_subtitle),
+                mode.enabled,
+                info = stringResource(R.string.modes_use_info),
+            ) { save(mode.copy(enabled = it)) }
+        }
         item {
             TextFieldSetting(
                 label = stringResource(R.string.modes_name_label),
@@ -1645,8 +1691,14 @@ internal fun ModeEditor(
             }
         }
     }
-    val bothMatchNote = stringResource(R.string.modes_auto_both_match_body)
-        .takeIf { mode.apps.isNotEmpty() && mode.fieldKinds.isNotEmpty() }
+    // Two of the three conditions set: "both"; all three: "all".
+    val conditions = listOf(mode.apps, mode.fieldKinds, mode.hints).count { it.isNotEmpty() }
+    val bothMatchNote = when {
+        conditions == 2 && mode.hints.isEmpty() ->
+            stringResource(R.string.modes_auto_both_match_body)
+        conditions >= 2 -> stringResource(R.string.modes_auto_all_match_body)
+        else -> null
+    }
     SettingsGroup(
         stringResource(R.string.modes_auto_group_title),
         info = listOfNotNull(stringResource(R.string.modes_matching_body), bothMatchNote)
@@ -1677,6 +1729,52 @@ internal fun ModeEditor(
                         label = { Text(modeFieldLabel(field), maxLines = 1) },
                     )
                 }
+            }
+        }
+        item {
+            Text(
+                stringResource(R.string.modes_field_hints_title),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            Text(
+                stringResource(R.string.modes_field_hints_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        for (hint in mode.hints) {
+            item {
+                WmRow(
+                    title = hint,
+                    trailing = {
+                        IconButton(onClick = { save(mode.copy(hints = mode.hints - hint)) }) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = stringResource(R.string.modes_hint_remove_desc),
+                            )
+                        }
+                    },
+                )
+            }
+        }
+        item {
+            var editorOpen by remember { mutableStateOf(false) }
+            WmRow(
+                title = stringResource(R.string.modes_add_hint_title),
+                subtitle = stringResource(R.string.modes_add_hint_subtitle),
+                leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                onClick = { editorOpen = true },
+            )
+            if (editorOpen) {
+                HintEditorDialog(
+                    onAdd = { hint ->
+                        editorOpen = false
+                        if (hint !in mode.hints) save(mode.copy(hints = mode.hints + hint))
+                    },
+                    onDismiss = { editorOpen = false },
+                )
             }
         }
         for (pkg in mode.apps) {
@@ -1789,14 +1887,13 @@ internal fun ModeEditor(
     }
 }
 /**
- * Picks an icon from [ModeIcons.catalog]. Chips rather than a grid of
- * bare icons: the selected state comes styled and the touch targets land on
- * the same size the rest of the settings use.
+ * Picks an icon from [ModeIcons.catalog], as a grid of named cells — the
+ * same cell every icon picker in the app draws, so a glyph always says what
+ * it is called.
  *
  * Shared with the snippet folders, which wear the same catalogue — hence
  * [title], the one thing the two callers disagree about.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ModeIconPickerDialog(
     selected: String?,
@@ -1809,12 +1906,7 @@ internal fun ModeIconPickerDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            FlowRow(
-                modifier = Modifier
-                    .heightIn(max = 380.dp)
-                    .verticalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 // The way back out, for the callers that have a drawing of
                 // their own to fall back to — a snippet folder draws a folder.
                 // A mode has no such thing, so it passes no label and the chip
@@ -1826,14 +1918,20 @@ internal fun ModeIconPickerDialog(
                         label = { Text(clearLabel) },
                     )
                 }
-                for ((id, vector) in ModeIcons.catalog) {
-                    FilterChip(
-                        selected = id == selected,
-                        onClick = { onPick(id) },
-                        label = {
-                            Icon(vector, contentDescription = id, modifier = Modifier.size(22.dp))
-                        },
-                    )
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(IconGridCellMinWidth),
+                    modifier = Modifier.heightIn(max = 380.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    items(ModeIcons.catalog, key = { it.first }) { (id, vector) ->
+                        IconGridCell(
+                            vector = vector,
+                            name = id,
+                            selected = id == selected,
+                            onClick = { onPick(id) },
+                        )
+                    }
                 }
             }
         },
@@ -1926,4 +2024,36 @@ private fun <T> inheritDetail(): @Composable (T) -> ChoiceDetail? = { value ->
         // A layout id, on the one row of the five whose options are names.
         else -> ChoiceDetail(icon = Icons.Outlined.Keyboard)
     }
+}
+
+/**
+ * Asks for one hint text to bind a mode to. Matching is a case-ignored
+ * "contains", so a word is enough — "extension" catches "Extension" and
+ * "File extension" alike. Whitespace around it is not part of the match.
+ */
+@Composable
+private fun HintEditorDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
+    var text by remember { mutableStateOf("") }
+    val trimmed = text.trim()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.modes_add_hint_title)) },
+        text = {
+            OutlinedTextField(
+                value = text,
+                onValueChange = { text = it },
+                label = { Text(stringResource(R.string.modes_hint_label)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onAdd(trimmed) }, enabled = trimmed.isNotEmpty()) {
+                Text(stringResource(CommonR.string.common_add))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
 }

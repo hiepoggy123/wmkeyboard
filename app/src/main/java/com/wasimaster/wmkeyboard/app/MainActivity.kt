@@ -746,7 +746,7 @@ private fun SettingsNavGraph(
                 route = "dictionary",
                 subtitle = stringResource(R.string.backup_dictionary_info),
             ) {
-                DictionarySettings(repository)
+                DictionarySettings(repository, settings)
             }
         }
         composable("backup/auto") {
@@ -1228,11 +1228,11 @@ private fun SettingsNavGraph(
                 }
             }
         }
+        // Its own Scaffold rather than SettingsScreen, like the plugin editor:
+        // the code needs the window's height, and brings its own top bar.
         composable("keymap_json/{layoutId}") { backStackEntry ->
             val layoutId = backStackEntry.arguments?.getString("layoutId").orEmpty()
-            SettingsScreen(stringResource(R.string.home_screen_layout_json_title), { navController.popBackStack() }) {
-                KeyLayoutJsonScreen(repository, settings, layoutId) { navController.popBackStack() }
-            }
+            KeyLayoutJsonScreen(repository, settings, layoutId) { navController.popBackStack() }
         }
         // The panel layouts (issue #63): the emoji, clipboard and text-editing
         // panels in the layout editor's own controls. The argument is the
@@ -1248,9 +1248,7 @@ private fun SettingsNavGraph(
         composable("panel_json/{panel}") { backStackEntry ->
             val kind = PanelKind.entries.firstOrNull { it.name == backStackEntry.arguments?.getString("panel") }
                 ?: PanelKind.EMOJI
-            SettingsScreen(stringResource(R.string.panel_layout_json_title), { navController.popBackStack() }) {
-                PanelLayoutJsonScreen(repository, kind) { navController.popBackStack() }
-            }
+            PanelLayoutJsonScreen(repository, settings, kind) { navController.popBackStack() }
         }
         composable("languages") {
             SettingsScreen(
@@ -1511,7 +1509,34 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = SelectionMacroRoute,
             ) {
-                SelectionMacroSettingsScreen(repository, settings)
+                SelectionMacroSettingsScreen(repository, settings) { navController.navigate(it) }
+            }
+        }
+        composable(SelectionMacroActionsRoute) {
+            SettingsScreen(
+                stringResource(R.string.selection_macros_actions_title),
+                { navController.popBackStack() },
+                route = SelectionMacroActionsRoute,
+            ) {
+                SelectionMacroActionsScreen(repository, settings) { navController.navigate(it) }
+            }
+        }
+        composable(SelectionMacroAiRoute) {
+            SettingsScreen(
+                stringResource(R.string.selection_macros_ai_title),
+                { navController.popBackStack() },
+                route = SelectionMacroAiRoute,
+            ) {
+                SelectionMacroAiScreen(repository, settings) { navController.navigate(it) }
+            }
+        }
+        composable(SelectionMacroZonesRoute) {
+            SettingsScreen(
+                stringResource(R.string.selection_macros_zones_title),
+                { navController.popBackStack() },
+                route = SelectionMacroZonesRoute,
+            ) {
+                SelectionMacroZonesScreen(repository, settings)
             }
         }
         composable("advanced") {

@@ -691,7 +691,8 @@ private fun LanguageDataDeleteDialog(
  * is where every caller sends the user next.
  *
  * Adding is also the moment romanized languages get cross-wired with their
- * same-script company (see [RomanizedPairing]): [onPaired] fires with the new
+ * same-script company (see [RomanizedPairing]), limited to [language]'s own
+ * pairs so a link removed by hand elsewhere stays removed: [onPaired] fires with the new
  * links so the Languages screen can toast them, while onboarding leaves it at
  * its silent default.
  */
@@ -705,7 +706,7 @@ internal fun addLanguage(
     val first = language.layoutIds.firstOrNull() ?: return
     scope.launch {
         repository.setEnabledLayoutIds((settings.enabledLayoutIds + first).distinct())
-        val paired = repository.autoPairRomanizedSecondaries()
+        val paired = repository.autoPairRomanizedSecondaries(language.id)
         if (paired.isNotEmpty()) onPaired(paired)
     }
 }
@@ -1136,28 +1137,16 @@ internal fun LanguageDetailScreen(
         }
     }
     if (confirmMetered) {
-        AlertDialog(
-            onDismissRequest = { confirmMetered = false },
-            title = { Text(stringResource(R.string.languages_metered_confirm_title)) },
-            text = {
-                Text(
-                    stringResource(
-                        R.string.languages_metered_confirm_body,
-                        formatBytes(downloadable.bytes),
-                    ),
-                )
+        MeteredDownloadDialog(
+            detail = stringResource(
+                R.string.languages_metered_confirm_body,
+                formatBytes(downloadable.bytes),
+            ),
+            onConfirm = {
+                confirmMetered = false
+                startLanguageDataDownload(context, downloadable, notifyDownload)
             },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmMetered = false
-                    startLanguageDataDownload(context, downloadable, notifyDownload)
-                }) { Text(stringResource(CommonR.string.common_download)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmMetered = false }) {
-                    Text(stringResource(CommonR.string.common_cancel))
-                }
-            },
+            onDismiss = { confirmMetered = false },
         )
     }
     if (blockedMetered) MeteredBlockedDialog { blockedMetered = false }
