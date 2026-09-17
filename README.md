@@ -190,6 +190,13 @@ Good places to start: a dictionary for a language that has none, emoji keywords 
 a theme, or a layout you miss from another keyboard. Open an issue first for anything larger so
 we can agree on the shape of it.
 
+Cập nhật tính năng chính:
+- Gõ telex tốt hơn
+- Vuốt telex để nhanh hơn
+- Bổ sung cơ chế sửa lỗi gõ telex cực mạnh
+- Áp dụng Fancy text, Autocorect cho tiếng việt
+
+
 ## License
 
 MIT. See <a href="LICENSE" target="_blank" rel="noopener noreferrer">LICENSE</a>.
