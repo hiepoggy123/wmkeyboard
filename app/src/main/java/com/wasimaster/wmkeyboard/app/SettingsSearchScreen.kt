@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.app
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -13,7 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -67,6 +69,7 @@ import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.ViewAgenda
+import androidx.compose.material.icons.outlined.Tag
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material.icons.outlined.MusicNote
@@ -99,7 +102,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -119,6 +121,7 @@ import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.Sort
 import androidx.compose.material.icons.outlined.Spellcheck
 import androidx.compose.material.icons.outlined.Shortcut
 import androidx.compose.material.icons.outlined.Preview
@@ -128,6 +131,10 @@ import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.foundation.lazy.rememberLazyListState
+import com.wasimaster.wmkeyboard.core.ui.RailBucket
+import com.wasimaster.wmkeyboard.core.ui.ScrollRailBox
+import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
 
 /**
  * The setting the user picked out of search, remembered just long enough for
@@ -476,12 +483,14 @@ internal object SettingsRouteIcons {
         "layout/onehanded" to { Icons.Outlined.PanTool },
         "keymaps" to { Icons.Outlined.GridOn },
         "rows" to { Icons.Outlined.ViewAgenda },
+        "rows/symbol" to { Icons.Outlined.Tag },
         "ai_actions" to { Icons.Outlined.AutoAwesome },
         "ai_history" to { Icons.Outlined.History },
         "ai_chat" to { Icons.AutoMirrored.Outlined.Chat },
         "modes" to { Icons.Outlined.Tune },
         "emoji" to { Icons.Outlined.EmojiEmotions },
         "emoji/panel" to { Icons.Outlined.GridView },
+        "emojicategories" to { Icons.Outlined.Sort },
         "emojikeywords" to { Icons.Outlined.EmojiEmotions },
         "clipboard" to { Icons.Outlined.ContentPaste },
         "voice" to { Icons.Outlined.Mic },
@@ -579,9 +588,13 @@ internal fun SettingsSearchScreen(
     }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    val reduceMotion = settings.reduceMotion
     // Only on a fresh search: coming back to results with a query typed, the
-    // user wants to read them, not to have the keyboard cover them again.
-    LaunchedEffect(Unit) { if (query.isEmpty()) focusRequester.requestFocus() }
+    // user wants to read them, not to have the keyboard cover them again. The
+    // asking itself is the field's own job — see [focusOncePlaced] — because
+    // the field lives in a Scaffold top bar, which is subcomposed a pass later
+    // than the screen around it.
+    val takeCaret = remember { query.isEmpty() }
 
     // The path the result draws under itself, put on the trail before the jump
     // so the screen it opens wears the path it really lives at rather than the
@@ -609,7 +622,11 @@ internal fun SettingsSearchScreen(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }),
                         trailingIcon = {
-                            if (query.isNotEmpty()) {
+                            AnimatedVisibility(
+                                visible = query.isNotEmpty(),
+                                enter = searchClearEnter(reduceMotion),
+                                exit = searchClearExit(reduceMotion),
+                            ) {
                                 IconButton(onClick = { query = "" }) {
                                     Icon(
                                         Icons.Outlined.Close,
@@ -630,7 +647,7 @@ internal fun SettingsSearchScreen(
                         ),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .focusRequester(focusRequester),
+                            .focusOncePlaced(focusRequester, enabled = takeCaret),
                     )
                 },
                 navigationIcon = {
@@ -644,72 +661,188 @@ internal fun SettingsSearchScreen(
             )
         },
     ) { padding ->
-        when {
-            query.isBlank() -> RecentPicks(
-                recent = recent,
-                settings = settings,
-                onOpen = ::open,
-                onClear = {
-                    picks.clear()
-                    historyVersion++
-                },
-                modifier = Modifier.padding(padding),
+        // Which of the four pages the screen is showing. An enum rather than
+        // the results themselves: the page only changes when the *kind* of
+        // answer changes, so a keystroke that turns one result list into
+        // another edits the list in place — which is where the rows get to
+        // move — instead of replacing the whole page under it.
+        val stage = when {
+            query.isBlank() -> SearchStage.PICKS
+            // The corpus is built off the main thread (a thousand resource
+            // reads), so for a frame or two after the screen opens there is
+            // nothing to match a query against — which is not the same thing
+            // as nothing matching it. Placeholders until it lands, rather than
+            // telling the user their words found nothing.
+            corpus == null -> SearchStage.LOADING
+            results.isEmpty -> SearchStage.EMPTY
+            else -> SearchStage.RESULTS
+        }
+        AnimatedContent(
+            targetState = stage,
+            transitionSpec = { searchStageTransform(reduceMotion) },
+            label = "searchStage",
+            modifier = Modifier.padding(padding).fillMaxSize(),
+        ) { shown ->
+            when (shown) {
+                SearchStage.PICKS -> RecentPicks(
+                    recent = recent,
+                    settings = settings,
+                    reduceMotion = reduceMotion,
+                    onOpen = ::open,
+                    onClear = {
+                        picks.clear()
+                        historyVersion++
+                    },
+                )
+                SearchStage.LOADING -> GroupSkeleton(
+                    rowCount = SEARCH_SKELETON_ROWS,
+                    hasTitle = false,
+                )
+                SearchStage.EMPTY -> EmptyResults(query)
+                SearchStage.RESULTS -> ResultList(
+                    results = results,
+                    settings = settings,
+                    tokens = tokens,
+                    reduceMotion = reduceMotion,
+                    onOpen = ::open,
+                )
+            }
+        }
+    }
+}
+
+/** The four pages the search screen swaps between; see [searchStageTransform]. */
+private enum class SearchStage { PICKS, LOADING, EMPTY, RESULTS }
+
+/**
+ * The ranked results, with the weaker ones under their own heading.
+ *
+ * Every row carries both of the list's animations: the wave that puts the list
+ * on screen the first time, and the placement animation that keeps a row the
+ * same row while the query is edited around it. The wave's index runs across
+ * both groups and the heading between them, so the list arrives as one thing
+ * rather than as two lists that happen to be stacked.
+ */
+@Composable
+private fun ResultList(
+    results: SearchResults,
+    settings: KeyboardSettings,
+    tokens: List<String>,
+    reduceMotion: Boolean,
+    onOpen: (SettingsSearchEntry) -> Unit,
+) {
+    val list = rememberLazyListState()
+    val rail = rememberScrollRailState(list)
+    val reveal = rememberSearchReveal(reduceMotion)
+    // Two stops rather than an alphabet: the hits are ranked, and
+    // what a long result list hides is that a second, weaker set
+    // of matches starts somewhere below.
+    val mentionsTitle = stringResource(R.string.shell_search_mentions_title)
+    // Short enough for the bubble the rail draws beside a finger.
+    val hitsStop = stringResource(R.string.shell_search_results_stop)
+    val mentionsStop = stringResource(R.string.shell_search_mentions_stop)
+    val buckets = remember(results, hitsStop, mentionsStop) {
+        if (results.mentions.isEmpty()) {
+            emptyList()
+        } else {
+            listOf(
+                RailBucket(hitsStop, 0),
+                RailBucket(mentionsStop, results.hits.size),
             )
-            results.isEmpty -> EmptyResults(query, Modifier.padding(padding))
-            else -> LazyColumn(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(3.dp),
-            ) {
-                items(results.hits, key = { it.key }) { result ->
-                    ResultRow(result, settings, tokens) { open(result) }
+        }
+    }
+    ScrollRailBox(
+        state = rail,
+        modifier = Modifier.fillMaxSize(),
+        fadeColor = MaterialTheme.colorScheme.background,
+        buckets = buckets,
+        // The reader typed to get here. A list that jumps on its
+        // own while they are still typing reads as a glitch.
+        peek = false,
+    ) { rows ->
+        LazyColumn(
+            state = list,
+            modifier = rows.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            itemsIndexed(results.hits, key = { _, it -> it.key }) { index, result ->
+                ResultRow(
+                    result,
+                    settings,
+                    tokens,
+                    modifier = searchItemMotion(reduceMotion).searchReveal(reveal, index),
+                ) { onOpen(result) }
+            }
+            if (results.mentions.isNotEmpty()) {
+                val headingIndex = results.hits.size
+                item(key = "mentions") {
+                    ResultsHeading(
+                        mentionsTitle,
+                        modifier = searchItemMotion(reduceMotion)
+                            .searchReveal(reveal, headingIndex),
+                    )
                 }
-                if (results.mentions.isNotEmpty()) {
-                    item(key = "mentions") {
-                        ResultsHeading(stringResource(R.string.shell_search_mentions_title))
-                    }
-                    items(results.mentions, key = { it.key }) { result ->
-                        ResultRow(result, settings, tokens) { open(result) }
-                    }
+                itemsIndexed(results.mentions, key = { _, it -> it.key }) { index, result ->
+                    ResultRow(
+                        result,
+                        settings,
+                        tokens,
+                        modifier = searchItemMotion(reduceMotion)
+                            .searchReveal(reveal, headingIndex + 1 + index),
+                    ) { onOpen(result) }
                 }
             }
         }
     }
 }
 
+/** How many placeholder rows stand in for results while the corpus loads. */
+private const val SEARCH_SKELETON_ROWS = 6
+
 /**
- * The empty field's screen: how to search, and under it the rows this person
- * opened from here before, newest first. A "Clear" beside the heading forgets
- * them all; the ranking then starts over from the words alone.
+ * The empty field's screen: the rows this person opened from here before,
+ * newest first. A "Clear" beside the heading forgets them all; the ranking
+ * then starts over from the words alone.
+ *
+ * Nothing at all before the first pick is recorded, which is the point — the
+ * field above already says what it is for, and a page of instructions is one
+ * more thing between the reader and the letter they came here to type.
  */
 @Composable
 private fun RecentPicks(
     recent: List<SettingsSearchEntry>,
     settings: KeyboardSettings,
+    reduceMotion: Boolean,
     onOpen: (SettingsSearchEntry) -> Unit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val reveal = rememberSearchReveal(reduceMotion)
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        item(key = "hint") { SearchHint() }
         if (recent.isEmpty()) return@LazyColumn
         item(key = "recent") {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = searchItemMotion(reduceMotion)
+                    .searchReveal(reveal, 0)
+                    .fillMaxWidth(),
             ) {
                 ResultsHeading(stringResource(R.string.shell_search_recent_title), Modifier.weight(1f))
                 TextButton(onClick = onClear) { Text(stringResource(CommonR.string.common_clear)) }
             }
         }
-        items(recent, key = { it.key }) { entry ->
-            ResultRow(entry, settings, emptyList()) { onOpen(entry) }
+        itemsIndexed(recent, key = { _, it -> it.key }) { index, entry ->
+            ResultRow(
+                entry,
+                settings,
+                emptyList(),
+                modifier = searchItemMotion(reduceMotion).searchReveal(reveal, index + 1),
+            ) { onOpen(entry) }
         }
     }
 }
@@ -730,18 +863,30 @@ private fun ResultRow(
     entry: SettingsSearchEntry,
     settings: KeyboardSettings,
     tokens: List<String>,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val title = remember(entry.title, tokens) { highlightTitle(entry.title, tokens) }
+    // The result's glyph is the glyph of the screen it opens — the same tile,
+    // the same accent — so it flies into that screen's heading instead of the
+    // page appearing from nowhere. The row's own title is a setting's name and
+    // stays where it is: the heading is the screen's name, not the setting's.
+    val open = takeOffClick(onClick)
     androidx.compose.material3.Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         WmRow(
             title = entry.title,
             titleContent = { Text(title) },
-            leading = { ResultIcon(entry, settings) },
+            leading = {
+                ResultIcon(
+                    entry,
+                    settings,
+                    modifier = Modifier.wmSharedElement(takeOffKey("icon", entry.route)),
+                )
+            },
             supporting = {
                 Column {
                     if (entry.subtitle.isNotBlank()) Text(entry.subtitle)
@@ -752,7 +897,7 @@ private fun ResultRow(
                     )
                 }
             },
-            onClick = onClick,
+            onClick = open,
         )
     }
 }
@@ -802,7 +947,11 @@ private const val HIGHLIGHT_MIN_LENGTH = 3
  * magnifier is the fallback for a route with no icon of its own.
  */
 @Composable
-private fun ResultIcon(entry: SettingsSearchEntry, settings: KeyboardSettings) {
+private fun ResultIcon(
+    entry: SettingsSearchEntry,
+    settings: KeyboardSettings,
+    modifier: Modifier = Modifier,
+) {
     val tool = entry.tool
     if (tool != null) {
         // The tile's own wash keeps the raw accent; only the glyph inside is
@@ -812,6 +961,7 @@ private fun ResultIcon(entry: SettingsSearchEntry, settings: KeyboardSettings) {
         WmIconTile(
             accent = paint?.color ?: MaterialTheme.colorScheme.primary,
             brush = paint?.brush,
+            modifier = modifier,
         ) {
             SlotIcon(
                 IconSlots.forTool(tool),
@@ -825,15 +975,8 @@ private fun ResultIcon(entry: SettingsSearchEntry, settings: KeyboardSettings) {
     WmIconTile(
         SettingsRouteIcons[entry.route] ?: Icons.Outlined.Search,
         accent = routeAccent(entry.route),
+        modifier = modifier,
     )
-}
-
-@Composable
-private fun SearchHint(modifier: Modifier = Modifier) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Spacer(Modifier.height(16.dp))
-        CaptionText(stringResource(R.string.shell_search_help_body))
-    }
 }
 
 @Composable

@@ -116,6 +116,49 @@ class WordContextTest {
         assertNull(before("किया"))
     }
 
+    @Test fun aContractionIsOneContextWord() {
+        // The apostrophe is a letter inside the word, not the end of it: this
+        // used to hand the next suggestion "s" as the word before it, and the
+        // pair the keyboard learned was `s` followed by whatever came next
+        // (#240). Both apostrophes, since another keyboard may have typed the
+        // typographic one into the field.
+        assertEquals("that's", before("that's "))
+        assertEquals("don't", before("I don't "))
+        assertEquals("that\u2019s", before("that\u2019s "))
+        assertEquals("l'albero", before("l'albero "))
+        // Only medial. A quote around a word, and the one a possessive ends
+        // on, are punctuation and still end it.
+        assertEquals("hello", before("'hello' "))
+        assertEquals("developers", before("the developers' "))
+    }
+
+    @Test fun everyScriptsApostropheHoldsItsWordTogether() {
+        // Not an English problem, and not an ASCII one. Each of these is a
+        // word in a language the keyboard ships, and each was read as its
+        // last fragment before #240.
+        assertEquals("c'hoar", before("c'hoar "))          // Breton, a digraph
+        assertEquals("об'єкт", before("об'єкт "))          // Ukrainian
+        assertEquals("l'home", before("l'home "))          // Catalan
+        assertEquals("auto's", before("auto's "))          // Dutch plural
+        assertEquals("d'ith", before("d'ith "))            // Irish
+        assertEquals("ג׳ינס", before("ג׳ינס "))              // Hebrew geresh
+        // A smart-quote keyboard writes U+2019, a careless one U+2018.
+        assertEquals("that\u2019s", before("that\u2019s "))
+        assertEquals("that\u2018s", before("that\u2018s "))
+        // The modifier letters are letters already and need no rule:
+        // Hawaiian ʻokina, and the apostrophe Kazakh and Uzbek write.
+        assertEquals("hawaiʻi", before("Hawaiʻi "))
+        assertEquals("oʻzbek", before("oʻzbek "))
+    }
+
+    @Test fun bothContextWordsSurviveAnApostrophe() {
+        fun two(text: String?) = WordContext.lastTwoWords(text, enders)
+        assertEquals("don't" to "i", two("I don't "))
+        assertEquals("s" to "that's", two("that's s "))
+        val (p1, p2, p3) = WordContext.lastThreeWords("I don't think ", enders)
+        assertEquals(Triple("think", "don't", "i"), Triple(p1, p2, p3))
+    }
+
     @Test fun contextIsReadInTheStoresOwnSpelling() {
         // Field text is whatever some keyboard or paste left there, so both
         // spellings of য় turn up. They must key the same word — see WordKey.
@@ -129,6 +172,18 @@ class WordContextTest {
         assertFalse("the two spellings must differ as strings", decomposed == precomposed)
         assertEquals(decomposed, before("$precomposed "))
         assertEquals(before("$decomposed "), before("$precomposed "))
+    }
+
+    @Test fun lastThreeWordsRecoversAllOrDegrades() {
+        fun three(text: String?) = WordContext.lastThreeWords(text, enders)
+        assertEquals(Triple("that", "so", "gotten"), three("It has gotten so that "))
+        assertEquals(Triple("that", "so", "gotten"), three("gotten, so that, "))
+        // A boundary anywhere behind prev2 kills prev3 alone; behind prev1, both.
+        assertEquals(Triple("that", "so", null), three("Stop. So that "))
+        assertEquals(Triple("that", null, null), three("Stop. That "))
+        assertEquals(Triple("was", "i", null), three("I was "))
+        assertEquals(Triple(WordContext.SENTENCE_START, null, null), three("I was. "))
+        assertEquals(Triple(null, null, null), three(null))
     }
 
     @Test fun bothContextWordsSurviveCombiningMarks() {

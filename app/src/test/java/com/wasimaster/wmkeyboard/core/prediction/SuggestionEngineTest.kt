@@ -4,13 +4,14 @@ import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SuggestionEngineTest {
 
-    private fun engine(): SuggestionEngine {
+    private fun engine(lexicon: UserLexicon = UserLexicon(null)): SuggestionEngine {
         val dictionary = Trie().apply {
             insert("the", 100)
             insert("they", 90)
@@ -27,7 +28,7 @@ class SuggestionEngineTest {
                 "আমি" to 9000,
             )
         )
-        return SuggestionEngine(dictionary, bengali, UserLexicon(null))
+        return SuggestionEngine(dictionary, bengali, lexicon)
     }
 
     @Test fun anIndirectUndoOfANonWordIsNotBelieved() {
@@ -156,6 +157,21 @@ class SuggestionEngineTest {
         assertTrue(e.suggest("", previousWord = "priya").isEmpty())
         val rescued = e.suggest("", previousWord = "priya", previousWord2 = "met")
         assertTrue("yesterday" in rescued)
+    }
+
+    @Test fun learnedSkipGramsFeedNextWordsBehindTheDirectFollowers() {
+        // "how can someone" (#195): nothing learned follows "someone", but
+        // "help" has followed "can" one word later and "how" two words later.
+        val lexicon = UserLexicon(null)
+        lexicon.learnBigram("someone", "else")
+        repeat(2) { lexicon.learnSkip1gram("can", "help") }
+        repeat(3) { lexicon.learnSkip2gram("how", "please") }
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), lexicon)
+        val next = e.suggest("", previousWord = "someone", previousWord2 = "can", previousWord3 = "how")
+        // Direct follower first, then the gappy ones, nearer first.
+        assertEquals(listOf("else", "help", "please"), next)
+        // Without the context words there is nothing gappy to read.
+        assertEquals(listOf("else"), e.suggest("", previousWord = "someone"))
     }
 
     @Test fun dictionarySwapTakesEffectImmediately() {
@@ -846,13 +862,38 @@ class SuggestionEngineTest {
     // ---- missing-space splits ----
 
     @Test fun `stray spacebar-neighbour letter offers the split in the strip`() {
-        val out = engine().suggest("thebworld", previousWord = null)
+        val e = engine().apply { touchModel = KeyTouchModel(mapOf('b' to TouchPoint(5f, 3f))) }
+        val low = List(9) { i -> if (i == 3) TouchPoint(5f, 3.4f) else null }
+        val out = e.suggest("thebworld", previousWord = null, touch = low)
         assertTrue("expected 'the world' in $out", "the world" in out)
     }
 
     @Test fun `boundary letter far from the spacebar never reads as a space`() {
-        val out = engine().suggest("thexworld", previousWord = null)
+        val e = engine().apply { touchModel = KeyTouchModel(mapOf('x' to TouchPoint(2f, 3f))) }
+        val low = List(9) { i -> if (i == 3) TouchPoint(2f, 3.4f) else null }
+        val out = e.suggest("thexworld", previousWord = null, touch = low)
         assertTrue("unexpected split in $out", "the world" !in out)
+    }
+
+    @Test fun `a split never ends on a single letter`() {
+        // What a corpus tokenised at the apostrophe leaves behind: the
+        // downloadable English list carries a bare `s` at 110,000 and `don`
+        // at four million, so "thats" read as `that` + `s` and came back as
+        // "that s" (#240). The left half stays open to one letter, since
+        // "alot" really is *a lot*.
+        val e = SuggestionEngine(
+            PackedTrie.of(listOf("that" to 10_203_742, "s" to 110_199, "a" to 14_484_562, "lot" to 200_000)),
+            BengaliPhoneticIndex(emptyList()),
+            UserLexicon(null),
+        ).apply { autocorrectSplits = true }
+        assertFalse("that s" in e.suggest("thats", previousWord = null))
+        // Ordinary autocorrect still has its say — "thats" is one deletion
+        // from "that" — but the split is not what it says.
+        assertNotEquals("that s", e.shouldAutocorrect("thats"))
+        // ...while a one-letter *first* half still reads: "alot" is "a lot".
+        // On the strip rather than applied, because in a list this small a
+        // plain deletion reaches "lot" and outranks any split.
+        assertTrue("a lot" in e.suggest("alot", previousWord = null))
     }
 
     @Test fun `split autocorrect is off unless the IME enables it`() {
@@ -866,9 +907,61 @@ class SuggestionEngineTest {
         assertEquals("The world", e.shouldAutocorrect("Theworld"))
     }
 
+    // ---- the fat-fingered spacebar ----
+
+    /** A bottom-row model: `b` sits at y = 3, the spacebar a row below it. */
+    private fun bottomRowEngine(lexicon: UserLexicon = UserLexicon(null)): SuggestionEngine =
+        engine(lexicon).apply {
+            autocorrectSplits = true
+            touchModel = KeyTouchModel(mapOf('b' to TouchPoint(5f, 3f)))
+        }
+
+    /** Taps for "thebworld" with the `b` landing [bDrop] key widths below its centre. */
+    private fun thebworldTaps(bDrop: Float): List<TouchPoint?> =
+        List(9) { i -> if (i == 3) TouchPoint(5f, 3f + bDrop) else null }
+
     @Test fun `split autocorrect drops a fat-fingered space letter`() {
-        val e = engine().apply { autocorrectSplits = true }
-        assertEquals("the world", e.shouldAutocorrect("thebworld"))
+        val lexicon = UserLexicon(null).apply { learnBigram("the", "world") }
+        val e = bottomRowEngine(lexicon)
+        val low = thebworldTaps(bDrop = 0.4f)
+        assertEquals("the world", e.decideCorrection("thebworld", touch = low).apply)
+        assertTrue("the world" in e.suggest("thebworld", null, touch = low))
+    }
+
+    @Test fun `a letter tapped square on its key is never a space slip`() {
+        // "config" is not in the list, "co" and "fig" are, and `n` flanks the
+        // spacebar: with no tap to say the finger reached for the spacebar,
+        // the word the user typed stands (the "config" -> "co fig" report).
+        val lexicon = UserLexicon(null).apply { learnBigram("the", "world") }
+        val e = bottomRowEngine(lexicon)
+        assertNull(e.decideCorrection("thebworld").apply)
+        assertNull(e.decideCorrection("thebworld", touch = thebworldTaps(bDrop = 0f)).apply)
+        assertNull(e.decideCorrection("thebworld", touch = thebworldTaps(bDrop = -0.3f)).apply)
+        assertTrue("the world" !in e.suggest("thebworld", null))
+        assertTrue("the world" !in e.suggest("thebworld", null, touch = thebworldTaps(bDrop = 0f)))
+    }
+
+    @Test fun `a dropped-letter split needs a phrase the keyboard has seen`() {
+        val lexicon = UserLexicon(null)
+        val e = bottomRowEngine(lexicon)
+        val low = thebworldTaps(bDrop = 0.4f)
+        // Never typed "the world": the strip may offer it, the field is not rewritten.
+        assertNull(e.decideCorrection("thebworld", touch = low).apply)
+        assertTrue("the world" in e.suggest("thebworld", null, touch = low))
+        lexicon.learnBigram("the", "world")
+        assertEquals("the world", e.decideCorrection("thebworld", touch = low).apply)
+    }
+
+    @Test fun `a word learned once does not anchor a split`() {
+        val lexicon = UserLexicon(null).apply {
+            learnBigram("the", "wprld")
+            learnWord("wprld")
+        }
+        val e = bottomRowEngine(lexicon).apply { learnedWordMinCount = 3 }
+        val low = thebworldTaps(bDrop = 0.4f)
+        assertNull(e.decideCorrection("thebwprld", touch = low).apply)
+        lexicon.learnWord("wprld", count = 2)
+        assertEquals("the wprld", e.decideCorrection("thebwprld", touch = low).apply)
     }
 
     @Test fun `single-word fix always outranks a split`() {
@@ -1149,6 +1242,37 @@ class SuggestionEngineTest {
         e.systemWordCases = entries.shapes
         assertTrue("Boston" in e.suggest("bos", previousWord = null))
         assertTrue("AOSP" in e.suggest("aos", previousWord = null))
+    }
+
+    @Test fun aCapitalisedPhraseDoesNotCapitaliseItsWords() {
+        val entries = SystemUserDictionary.index(listOf("User Dictionary Manager"))
+        // The parts are known words, as any platform entry's parts are (#45)...
+        assertTrue(entries.source.contains("user"))
+        assertTrue(entries.source.contains("manager"))
+        // ...but the phrase's title case is the phrase's, not each word's (#221).
+        assertFalse("user" in entries.shapes)
+        assertFalse("dictionary" in entries.shapes)
+        assertFalse("manager" in entries.shapes)
+
+        val dictionary = Trie().apply { insert("user", 100) }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        e.systemDictionary = entries.source
+        e.systemWordCases = entries.shapes
+        // Typing or gliding the word gets the word back, lower case.
+        assertTrue("user" in e.suggest("use", previousWord = null))
+        assertFalse("User" in e.suggest("use", previousWord = null))
+        // And the case vote still reads it as a word that is spelled lower case.
+        assertTrue(e.spellsInLowerCase("user"))
+    }
+
+    @Test fun aSingleWordRowStillCapitalisesWhenAPhraseMentionsIt() {
+        // Row order must not decide the answer either way round.
+        val phraseFirst = SystemUserDictionary.index(listOf("Boston Red Sox", "Boston"))
+        val wordFirst = SystemUserDictionary.index(listOf("Boston", "Boston Red Sox"))
+        assertEquals("Boston", phraseFirst.shapes["boston"])
+        assertEquals("Boston", wordFirst.shapes["boston"])
+        assertFalse("red" in phraseFirst.shapes)
+        assertFalse("red" in wordFirst.shapes)
     }
 
     @Test fun aLearnedCapitalIsPutBackOnCompletionsAndNextWords() {

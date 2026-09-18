@@ -20,7 +20,6 @@ Home has no toggles of its own. It's pure navigation, plus the [setup card](/sta
 
 **Typing**
 - [Languages & layouts](/reference/settings/languages/): installed languages and layouts. First on purpose: it is the first thing anyone looks for on a new keyboard
-  - [Key layouts](/reference/settings/keymaps/): design your own key grid, or start from a built-in one. Reached from Languages & layouts, its one door
 - [Typing](/reference/settings/typing/): autocorrect, suggestions, gestures
   - [Dictionaries & words](/reference/settings/dictionaries/): personal dictionary, custom word lists, the blacklist, emoji keywords. A sub-screen reached from both Typing and Emoji, not a Home row of its own
 - [Key press](/reference/settings/keypress/): haptics, key popup, long-press shortcuts
@@ -31,6 +30,7 @@ Home has no toggles of its own. It's pure navigation, plus the [setup card](/sta
   - [Keyboard font](/reference/settings/fonts/): Google Fonts, imported fonts
   - [Icons](/reference/settings/icons/): icon packs and per-slot overrides
 - [Layout & size](/reference/settings/layout/): key size, number row, one-handed, split & floating
+  - [Key layouts](/reference/settings/keymaps/): design your own key grid, or start from a built-in one. Reached from Layout & size, and from the Secondary layout tool's own detail screen
 - [Rows & bars](/reference/settings/rows/): row order, the symbol row and its symbol sets
 
 **Features**
@@ -53,18 +53,18 @@ Home has no toggles of its own. It's pure navigation, plus the [setup card](/sta
   - [Addons](/reference/settings/addons/): repositories, installed addons, sticker packs, and the plugin manager. The sticker-pack and plugin managers are also addon-install destinations, so they're covered here rather than under Tools
   - [Data saver](/reference/settings/data-saver/): what the keyboard may fetch while the connection is metered, feature by feature
   - [Servers](/reference/settings/servers/): F-Droid edition only. Where each online service and each download repository is called
+  - Notifications: what the keyboard may post, toggled by kind: downloads, app updates, backup problems, and a persistent Keyboard controls entry for bringing it back
   - [Selection actions](/reference/settings/selection-actions/): the bar of actions the keyboard offers for the text you select, with its Actions list, AI buttons and Time zones screens
-  - Physical keyboard shortcuts: the shortcut key and the letter each tool answers to. Documented under [Typing](/reference/settings/typing/)
 
 **About**
 - [About & diagnostics](/reference/settings/about/): version, licence, open-source notices, updates, storage, diagnostics
   - [Statistics](/reference/settings/statistics/): how much you type, and the switch that stops the counting
 
-That's 27 screens in total: the 19 Home rows, plus eight sub-screens (Dictionaries, Themes, Fonts, Icons, Permissions, Statistics, Phone number formats, Selection actions) that earned their own page instead of folding into a parent's.
+That's 30 screens in total: the 16 Home rows, plus fourteen sub-screens (Dictionaries, Themes, Fonts, Icons, Key layouts, Phone number formats, Permissions, Keyboard modes, Addons, Data saver, Servers, Notifications, Selection actions, Statistics). Every one of them has its own page in this section except Notifications, which is covered above instead.
 
 ## Searching instead of browsing
 
-Tap the magnifier on Home. A full-screen search field opens and takes focus, so you can type straight away. Before you type, the field shows a hint: search every setting by name (like "haptic", "number row" or "incognito"), or by the tool it belongs to.
+Tap the magnifier on Home. A full-screen search field opens and takes focus, so you can type straight away. There is nothing to read first: under an empty field sit the settings you last opened from search, newest first, and nothing at all until you have opened one. Type a setting's name ("haptic", "number row", "incognito"), or the name of the tool it belongs to.
 
 <PhoneFrame caption="Typing a query in Settings search. Each result carries a breadcrumb to the screen it lives on.">
   ![Typing a query in Settings search. Each result carries a breadcrumb to the screen it lives on.](@assets/screens/reference/settings/search-results.webp)
@@ -72,13 +72,22 @@ Tap the magnifier on Home. A full-screen search field opens and takes focus, so 
 
 Rows that carry every word of your query win outright. When nothing carries all of them, the rows carrying the most words answer instead, as long as that's at least half the query, so "emoji row" still finds the emoji rows rather than emptying the screen. Results rank exact and prefix title matches above description-only matches, and each result carries a breadcrumb under its title (like "Tools › Camera") so you know where a row lives before you tap it.
 
+
+Weaker matches sit under a **Mentioned in the description** heading below the ranked ones. On a long list of results, the rail down the right edge is cut into two pieces, one for each of the two sets. Drag the rail to move through the results, and the name of the set you are over shows beside your finger.
+
 Tap a result and the owning screen opens, scrolled to that row, with a brief highlight on it. You never have to hunt for the setting you searched for. Toolbar tools are searchable too: every tool this build ships gets an entry automatically, whether or not you've turned it on, so a newly shipped tool is findable straight away, with no docs or search-index update behind it.
+
+A search can also succeed on a name another keyboard uses for the same feature. "Octopus" or "z10" finds Words on the keys, and "swype" or "flow" finds Glide typing. Neither word appears in the row's own title, and a row's own name still wins when it also matches.
+
+The list moves while you type, and the movement is the answer telling you what it did. The first letter puts a list on screen: the rows rise into place one after another from the top, so you can see how far down the list goes before you have read a word of it. Every letter after that edits the list you are already looking at. Rows that no longer match fade out, the rows that survive slide to their new places rather than blinking there, and the rows the new letter brought in fade in once the sliding has finished. A row that was fourth and is now first is visibly the same row that travelled, which is what lets you keep your eye on one result while you narrow the query around it. Deleting a letter runs the same thing backwards. Clearing the field, or typing a query nothing matches, cross-fades the whole page instead, because that is a different answer rather than the same answer rearranged.
+
+None of that runs when [Reduce motion](/reference/settings/accessibility/) is on. The rows simply appear in their new order.
 
 ## Putting one setting back
 
 Almost any row you've moved off its shipped value grows a small restore button next to its control. Tap it and that one setting goes back to the default, without touching anything else on the screen.
 
-The button only appears on rows you've actually changed, so it doubles as a map of what you've customised. Scroll a screen, and the rows carrying a restore button are the ones that no longer match the app's own defaults.
+The button only appears on rows you've actually changed, so it doubles as a map of what you've customised. Scroll a screen, and the rows carrying a restore button are the ones that no longer match the app's own defaults. Its place is held whether or not it is showing: a switch or a value never shifts sideways when the button appears or goes, so a row reads the same before and after you change it.
 
 A few rows work differently, because "the default" means something else there:
 
@@ -97,6 +106,8 @@ Two related topics live on their own pages rather than here:
 
 ## Details & edge cases
 
+- **A slider takes effect when you lift your finger**, not on every pixel of the drag. The number beside it and the thumb follow your finger, so you can see where you are going; the setting is written once, on release, because storing a value re-reads it across the app and the keyboard, and doing that on every frame is what used to make the thumb trail behind the finger. Two places still apply the value continuously, because they draw it while you drag: the [theme editor](/themes/editor/)'s sliders and the sticker editor's. The key sound's volume and a haptic's strength still play and buzz on every step of the drag, so you can hear or feel what you are choosing.
 - Per-tool settings live on each tool's own guide page under [Tools](/tools/overview/), cross-linked from [the Tools screen page](/reference/settings/tools/). Three screens are exceptions. The sticker-pack manager and plugin manager both open from a tool's detail screen *and* from Addons, since installing a sticker pack or a plugin addon lands you in the same manager, so they're covered under [Addons](/reference/settings/addons/) instead. The clipboard's [Phone number formats](/reference/settings/phone-formats/) gets a page of its own because its mask syntax is reference material rather than a guide.
 - Screen transitions are a 340&nbsp;ms horizontal push: the arriving screen slides the whole way in from the right while the one behind it drifts a third of the way left. Both surfaces are opaque, so nothing cross-fades. Turn on reduced motion under [Accessibility](/reference/settings/accessibility/) and that collapses to an instant cut with no animation at all.
+- Every screen but Home draws a tappable path strip below its heading, one pill for each step back. Tap an earlier step to jump straight to it, instead of pressing back repeatedly.
 - Every screen in this section is reachable from Home in three taps at most, and most of them in one or two. [Phone number formats](/reference/settings/phone-formats/) is the deepest, at Home → Clipboard → Phone number formats. Nothing here needs a hidden gesture or a developer option.

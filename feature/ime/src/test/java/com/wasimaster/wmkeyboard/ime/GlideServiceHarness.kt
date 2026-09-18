@@ -89,6 +89,9 @@ internal open class RecordingEditor(
     /** Key codes the service sent, downs and ups alike. */
     val keys = mutableListOf<Int>()
 
+    /** Editor actions the service fired, in order — Send, Done, an app's own id. */
+    val editorActions = mutableListOf<Int>()
+
     /** Whether the echo may arm a region; null leaves the editor unmodelled. */
     var mayArmRegion: (() -> Boolean)? = null
 
@@ -135,6 +138,11 @@ internal open class RecordingEditor(
 
     override fun sendKeyEvent(event: KeyEvent?): Boolean {
         event?.let { keys += it.keyCode }
+        return true
+    }
+
+    override fun performEditorAction(editorAction: Int): Boolean {
+        editorActions += editorAction
         return true
     }
 
@@ -223,13 +231,15 @@ internal fun octopusSentinel(
     word: String = "STALE",
     key: Char = 'q',
     kind: OctopusKind = OctopusKind.NEXT_WORD,
-): Map<Int, OctopusWord> = mapOf(
-    key.code to OctopusWord(
-        keyCodePoint = key.code,
-        word = word,
-        typedChars = 0,
-        kind = kind,
-        rank = 0,
+): OctopusBoard = mapOf(
+    key.code to listOf(
+        OctopusWord(
+            keyCodePoint = key.code,
+            word = word,
+            typedChars = 0,
+            kind = kind,
+            rank = 0,
+        ),
     ),
 )
 
@@ -261,8 +271,8 @@ internal fun glideReadyState(
     secureField: Boolean = false,
     fieldKind: FieldKind = FieldKind.TEXT,
     fieldNoSuggestions: Boolean = true,
-    octopus: Map<Int, OctopusWord> = emptyMap(),
-    octopusGlide: Map<Int, OctopusWord> = emptyMap(),
+    octopus: OctopusBoard = emptyMap(),
+    octopusGlide: OctopusBoard = emptyMap(),
 ): KeyboardUiState = KeyboardUiState(
     glideReady = glideReady,
     settings = settings,

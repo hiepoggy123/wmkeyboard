@@ -45,6 +45,7 @@
     -->
     <!-- Hidden search keywords. Never drawn; see SettingsSearchKeywords.kt. -->
     <string name="search_kw_octopus">octopus blackberry z10 bb10 inletter</string>
+    <string name="search_kw_octopus_glide">octopus glide gesture next word during</string>
     <string name="search_kw_about_diagnostics">log logcat debug troubleshoot</string>
     <string name="search_kw_about_launcher_name">launcher label rename drawer</string>
     <string name="search_kw_about_licences">credits attribution third party</string>
@@ -142,6 +143,9 @@
     <string name="search_kw_typing_block_offensive">swear curse cuss censor nsfw</string>
     <string name="search_kw_typing_contact_names">address book phonebook people</string>
     <string name="search_kw_typing_double_space">period full</string>
+    <string name="search_kw_typing_glide_end_radius">tolerance accuracy sloppy precision anchor lift</string>
+    <string name="search_kw_typing_glide_near_radius">tolerance accuracy sloppy precision corner cutting pathway</string>
+    <string name="search_kw_typing_glide_start_radius">tolerance accuracy sloppy precision anchor touchdown</string>
     <string name="search_kw_typing_glide_typing">flow swype shapewriter slide continuous</string>
     <string name="search_kw_typing_group_autopilot">hit detection hitbox proximity targeting</string>
     <string name="search_kw_typing_group_hardware">bluetooth external usb dock hardware</string>
@@ -154,7 +158,7 @@
     <string name="search_kw_typing_personal_dictionary">user saved remembered</string>
     <string name="search_kw_typing_shift_enter">newline linebreak carriage return</string>
     <string name="search_kw_typing_hint_flick">flick gesture alternate long press number symbol gboard</string>
-    <string name="search_kw_typing_possessive_swipe">possessive apostrophe gesture flick comma full stop</string>
+    <string name="search_kw_typing_possessive_swipe">possessive apostrophe contraction gesture flick comma full stop dont ill were youve</string>
     <string name="search_kw_typing_smart_currency">exchange rate forex dollar euro</string>
     <string name="search_kw_typing_smart_hit_detection">hit detection hitbox proximity targeting</string>
     <string name="search_kw_typing_smart_numbers">thousands separator comma</string>
@@ -283,6 +287,7 @@
     <string name="search_kw_musicapps">music apps, spotify, player apps, now playing, podcast apps</string>
     <string name="search_kw_customdictionaries">word lists, import words, wordlist</string>
     <string name="search_kw_emojikeywords">shortcodes, emoji names, emoji search</string>
+    <string name="search_kw_emojicategories">emoji order, category order, reorder emoji, hide emoji tabs, rearrange emoji</string>
     <string name="search_kw_storage">space, cache, clear data, downloads, free up</string>
     <string name="search_kw_addons">repository, community, downloads, packs, install</string>
     <string name="search_kw_licenses">open source, attribution, credits</string>

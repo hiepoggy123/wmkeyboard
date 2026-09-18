@@ -100,13 +100,25 @@ Long-pressing a cell on the history tab specifically also offers **Remove from r
 
 Off by default. Turn it on to add a "Clear recents" button to the Recent tab. It only appears on the Recent view, not Most used, since a frequency ranking isn't something a single tap should wipe.
 
+## Reordering the tabs and the emoji
+
+<SettingsPath path="Emoji / Emoji panel / Emoji categories" />
+
+The panel ships its category tabs in Unicode's own order. **Emoji categories** is where you change it: drag a category to move its tab, press the eye to hide a tab you never open, and press a category to open its emoji and arrange those too — press and hold one, then drag it where you want it.
+
+Hiding a category hides only its tab. Those emoji are still found by search and still offered in the suggestion strip.
+
+The history tab is not in that list: it orders itself, with your favourites pinned first as above. The Kaomoji and Emoticons tabs are not either — they are switched on and off by their own toggle, and always sit at the end.
+
+Full reference: [Emoji categories](/reference/settings/emoji/#emoji-categories).
+
 ## Animated emoji
 
 <SettingsPath path="Emoji / Emoji panel / Animated emoji" />
 
 Around 880 emoji have an animated version published by Google as part of [Noto Animated Emoji](https://googlefonts.github.io/noto-emoji-animation/). Long-press any of them in the panel and the popup loops the animation, with a **Send animated emoji** button under it that sends the 512×512 GIF into the field you're typing in.
 
-The button only appears once the animation has loaded, so no control ever offers to send something you haven't seen. The popup stays open afterward, preview and all, so you can fire off two in a row or pick a skin tone next.
+The button normally appears once the animation has loaded, so it doesn't offer to send something you haven't seen. The one exception is when no preview is coming at all, held back by data saving's "ask each time" or lost to a failed fetch. The button still appears there, since pressing it is the only way to answer that. The popup stays open afterward, preview and all, so you can fire off two in a row or pick a skin tone next.
 
 <PhoneFrame caption="Long-pressing 😀 shows its animation looping, over the send button.">
   {/* shot: emoji/animated-popup */}
@@ -128,7 +140,7 @@ Sending one counts as using that emoji, so it lands in your recents like an ordi
 
 <SettingsPath path="Emoji / Emoji panel / Send emoji as image" />
 
-Under the animation (and on every emoji, animated or not) is **Send image as sticker**: the emoji itself, drawn at 512×512 in whichever [emoji font](/emoji/customization/#choosing-an-emoji-font) you've picked, sent as a transparent WebP.
+Under the animation (and on every emoji, animated or not) is **Send emoji as image**: the emoji itself, drawn at 512×512 in whichever [emoji font](/emoji/customization/#choosing-an-emoji-font) you've picked, sent as a transparent WebP.
 
 It answers the oldest emoji problem there is: the other person's phone drawing your emoji as something else, or as an empty box. Send it as a picture and they see the one you saw.
 

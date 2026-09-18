@@ -146,6 +146,7 @@
     <string name="fonts_tool_page_down_desc">Move the cursor down one page</string>
     <string name="fonts_tool_select_word_desc">Select the word at the cursor</string>
     <string name="fonts_tool_select_line_desc">Select the full line at the cursor</string>
+    <string name="fonts_tool_select_all_desc">Select everything in the field</string>
     <string name="fonts_tool_select_mode_desc">Every cursor move selects text until you turn it off</string>
     <string name="fonts_tool_copy_desc">Copy the selected text</string>
     <string name="fonts_tool_cut_desc">Cut the selected text</string>
@@ -153,5 +154,6 @@
     <string name="fonts_tool_hide_keyboard_desc">Hide the keyboard with one press</string>
 
     <string name="fonts_tool_vocabulary_desc">Word cards, nudges and flashcards from downloadable vocabulary packs</string>
+    <string name="fonts_tool_learn_from_text_desc">List the words in what you have written that the keyboard does not know yet, and add them to your personal dictionary</string>
 
 </resources>

@@ -80,7 +80,9 @@ import com.wasimaster.wmkeyboard.ime.WMKeyboardService
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.settings.GrammarCategory
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
+import com.wasimaster.wmkeyboard.core.settings.GrammarLintKind
 import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
@@ -115,6 +117,7 @@ import com.wasimaster.wmkeyboard.core.settings.toolBlocker
 import com.wasimaster.wmkeyboard.core.settings.PowerSavingTrigger
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.ToolHoldAction
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.outlined.AltRoute
@@ -125,6 +128,9 @@ import androidx.compose.material.icons.outlined.TimerOff
 import androidx.compose.material.icons.outlined.PhotoSizeSelectActual
 import androidx.compose.material.icons.outlined.PhotoSizeSelectLarge
 import androidx.compose.material.icons.outlined.PhotoSizeSelectSmall
+import com.wasimaster.wmkeyboard.core.ui.ScrollRailBox
+import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
+import androidx.compose.foundation.lazy.rememberLazyListState
 
 /**
  * What a press and hold on this tool does while it is pinned to the toolbar.
@@ -173,23 +179,30 @@ private fun ToolHoldRow(
     NavRow(
         title = R.string.tooldetail_hold_title,
         subtitle = stringResource(R.string.tooldetail_hold_subtitle),
-        value = if (bound == null) {
-            stringResource(R.string.tooldetail_hold_settings_value)
-        } else {
-            stringResource(toolTitle(bound))
+        value = when (bound) {
+            null -> stringResource(R.string.tooldetail_hold_settings_value)
+            ToolHoldAction.None -> stringResource(R.string.tooldetail_hold_nothing_value)
+            is ToolHoldAction.Run -> stringResource(toolTitle(bound.tool))
         },
     ) { editing = true }
     if (editing) {
         ToolPickerDialog(
             title = stringResource(R.string.tooldetail_hold_pick_title, stringResource(toolTitle(tool))),
-            current = bound,
+            current = (bound as? ToolHoldAction.Run)?.tool,
             // Every tool but this one: holding a tool to run itself is a slow tap.
             options = ToolbarTool.entries.filter { isSupportedTool(it) && it != tool },
             noneSubtitle = stringResource(R.string.tooldetail_hold_settings_value),
+            // The third answer (#136): a hold that does nothing at all.
+            nothingSubtitle = stringResource(R.string.tooldetail_hold_nothing_subtitle),
+            nothingSelected = bound == ToolHoldAction.None,
             onDismiss = { editing = false },
             onPick = { picked ->
                 editing = false
-                scope.launch { repository.setToolHoldAction(tool, picked) }
+                scope.launch { repository.setToolHoldAction(tool, picked?.let(ToolHoldAction::Run)) }
+            },
+            onPickNothing = {
+                editing = false
+                scope.launch { repository.setToolHoldAction(tool, ToolHoldAction.None) }
             },
         )
     }
@@ -201,6 +214,11 @@ private fun ToolHoldRow(
  * [noneSubtitle] both words the "None" row and decides whether there is one: the
  * layout editor picks the tool a key opens, where "no tool" is not a key anyone
  * would want, so it passes null and the row goes.
+ *
+ * [nothingSubtitle] is the same shape for a "Does nothing" row (#136), which
+ * only the hold picker has a use for: a key that does nothing is a blank, a
+ * hold that does nothing is a choice. [nothingSelected] says whether it is the
+ * standing one, since the row is not a tool and [current] cannot name it.
  */
 @Composable
 internal fun ToolPickerDialog(
@@ -210,27 +228,51 @@ internal fun ToolPickerDialog(
     onDismiss: () -> Unit,
     onPick: (ToolbarTool?) -> Unit,
     noneSubtitle: String? = null,
+    nothingSubtitle: String? = null,
+    nothingSelected: Boolean = false,
+    onPickNothing: () -> Unit = {},
 ) {
+    val list = rememberLazyListState()
+    val rail = rememberScrollRailState(list)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
-                if (noneSubtitle != null) item {
-                    WmRow(
-                        title = stringResource(CommonR.string.common_none),
-                        supporting = { CaptionText(noneSubtitle) },
-                        trailing = { RadioButton(selected = current == null, onClick = { onPick(null) }) },
-                        onClick = { onPick(null) },
-                    )
-                }
-                items(options, key = { it.name }) { tool ->
-                    WmRow(
-                        title = stringResource(toolTitle(tool)),
-                        leading = { SlotIcon(IconSlots.forTool(tool), contentDescription = null) },
-                        trailing = { RadioButton(selected = current == tool, onClick = { onPick(tool) }) },
-                        onClick = { onPick(tool) },
-                    )
+            ScrollRailBox(state = rail, modifier = Modifier.heightIn(max = 420.dp)) { rows ->
+                LazyColumn(state = list, modifier = rows) {
+                    if (noneSubtitle != null) item {
+                        WmRow(
+                            title = stringResource(CommonR.string.common_none),
+                            supporting = { CaptionText(noneSubtitle) },
+                            trailing = {
+                                RadioButton(
+                                    selected = current == null && !nothingSelected,
+                                    onClick = { onPick(null) },
+                                )
+                            },
+                            onClick = { onPick(null) },
+                        )
+                    }
+                    if (nothingSubtitle != null) item {
+                        WmRow(
+                            title = stringResource(R.string.tooldetail_hold_nothing_value),
+                            supporting = { CaptionText(nothingSubtitle) },
+                            trailing = {
+                                RadioButton(selected = nothingSelected, onClick = onPickNothing)
+                            },
+                            onClick = onPickNothing,
+                        )
+                    }
+                    items(options, key = { it.name }) { tool ->
+                        WmRow(
+                            title = stringResource(toolTitle(tool)),
+                            leading = { SlotIcon(IconSlots.forTool(tool), contentDescription = null) },
+                            trailing = {
+                                RadioButton(selected = current == tool, onClick = { onPick(tool) })
+                            },
+                            onClick = { onPick(tool) },
+                        )
+                    }
                 }
             }
         },
@@ -893,7 +935,7 @@ internal fun ToolDetailSettings(
                             R.string.panel_layout_value_custom
                         },
                     ),
-                ) { onNavigate("panel_edit/${PanelKind.TEXT_EDIT.name}") }
+                ) { onNavigate(panelEditRoute(PanelKind.TEXT_EDIT)) }
             }
         }
         ToolbarTool.TRACKPAD -> {
@@ -968,7 +1010,7 @@ internal fun ToolDetailSettings(
                                 R.string.panel_layout_value_custom
                             },
                         ),
-                    ) { onNavigate("panel_edit/${PanelKind.TRACKPAD.name}") }
+                    ) { onNavigate(panelEditRoute(PanelKind.TRACKPAD)) }
                 }
             }
         }
@@ -1065,7 +1107,7 @@ internal fun ToolDetailSettings(
                             R.string.panel_layout_value_custom
                         },
                     ),
-                ) { onNavigate("panel_edit/${PanelKind.NUMPAD.name}") }
+                ) { onNavigate(panelEditRoute(PanelKind.NUMPAD)) }
             }
         }
         ToolbarTool.INCOGNITO -> {
@@ -1863,6 +1905,57 @@ internal fun ToolDetailSettings(
                         display = { msFormat.format(it.toInt()) },
                         default = SettingsDefaults.grammarDebounceMs.toFloat(),
                     ) { scope.launch { repository.setGrammarDebounceMs(it.toInt()) } }
+                }
+            }
+            // One fold per category, opening onto the kinds inside it. The same
+            // filter the keyboard's funnel writes, so a kind switched off here
+            // is gone from the panel's cards, its issue count and "Fix all".
+            val hiddenKinds = settings.grammarHiddenKinds
+            GrammarCategory.entries.forEach { category ->
+                val kinds = GrammarLintKind.of(category)
+                val shownKinds = kinds.filter { it !in hiddenKinds }
+                SettingsGroup(
+                    stringResource(category.labelRes),
+                    foldKey = "grammar_${category.name.lowercase()}",
+                    info = stringResource(grammarCategoryInfo(category)),
+                    foldSummary = {
+                        when (shownKinds.size) {
+                            0 -> stringResource(R.string.tooldetail_grammar_category_none_summary)
+                            kinds.size ->
+                                stringResource(R.string.tooldetail_grammar_category_all_summary)
+                            else -> shownKinds
+                                .map { stringResource(it.labelRes) }
+                                .joinToString(", ")
+                        }
+                    },
+                ) {
+                    item {
+                        ToggleSetting(
+                            grammarCategoryTitle(category),
+                            stringResource(
+                                R.string.tooldetail_grammar_category_toggle_subtitle,
+                                shownKinds.size,
+                                kinds.size,
+                            ),
+                            // Reads as on while any kind inside is on; switching
+                            // it sets every kind in the category at once.
+                            checked = shownKinds.isNotEmpty(),
+                        ) { on ->
+                            scope.launch { repository.setGrammarCategoryShown(category, on) }
+                        }
+                    }
+                    kinds.forEach { kind ->
+                        item {
+                            ToggleSetting(
+                                title = stringResource(kind.labelRes),
+                                subtitle = null,
+                                checked = kind !in hiddenKinds,
+                                onChange = { on ->
+                                    scope.launch { repository.setGrammarKindShown(kind, on) }
+                                },
+                            )
+                        }
+                    }
                 }
             }
             if (BuildConfig.ENABLE_GRAMMAR) {
@@ -2784,7 +2877,7 @@ internal fun TextFieldSetting(
             singleLine = true,
             supportingText = { Text(hint) },
             trailingIcon = {
-                ResetSetting(label, default != null && text != default) {
+                ResetSetting(label, default != null && text != default, possible = default != null) {
                     text = default.orEmpty()
                     scope.launch { onSave(default.orEmpty()) }
                 }
@@ -3386,4 +3479,24 @@ private fun qrEccDescRes(level: QrEccLevel): Int = when (level) {
     QrEccLevel.M -> R.string.tooldetail_qr_gen_ecc_m_desc
     QrEccLevel.Q -> R.string.tooldetail_qr_gen_ecc_q_desc
     QrEccLevel.H -> R.string.tooldetail_qr_gen_ecc_h_desc
+}
+
+/** The settings row that switches a whole grammar category on or off. */
+private fun grammarCategoryTitle(category: GrammarCategory): Int = when (category) {
+    GrammarCategory.CORRECTNESS -> R.string.tooldetail_grammar_correctness_title
+    GrammarCategory.CLARITY -> R.string.tooldetail_grammar_clarity_title
+    GrammarCategory.ENGAGEMENT -> R.string.tooldetail_grammar_engagement_title
+    GrammarCategory.DELIVERY -> R.string.tooldetail_grammar_delivery_title
+}
+
+/**
+ * What a grammar category covers, behind its fold's "?". The four names are
+ * borrowed from the way writing tools group this, and none of them says on its
+ * own which of the twenty kinds landed inside.
+ */
+private fun grammarCategoryInfo(category: GrammarCategory): Int = when (category) {
+    GrammarCategory.CORRECTNESS -> R.string.tooldetail_grammar_correctness_info
+    GrammarCategory.CLARITY -> R.string.tooldetail_grammar_clarity_info
+    GrammarCategory.ENGAGEMENT -> R.string.tooldetail_grammar_engagement_info
+    GrammarCategory.DELIVERY -> R.string.tooldetail_grammar_delivery_info
 }

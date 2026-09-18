@@ -22,6 +22,8 @@ While you hold a key, its character floats in a bubble above your finger. That b
 
 Hold past the **long-press delay** (300&nbsp;ms by default) and the key's alternates pop up, if it has any. `Q`–`P` lead with the digits 1–0. `A`–`L` and `Z`–`M` lead with a symbol (`@`, `#`, `$`, `&`…). Some letters carry accented forms after that first alternate: `e`, `u`, `i`, `o` after their digit (`e` → è é ê ë, `u` → ù ú û ü, and so on), and `a`, `s`, `z`, `c`, `n` after their symbol. The first alternate also prints as a small corner hint on the key itself, so you can see what a hold will lead with before you commit to it. That's the **Press and hold hints** toggle, on by default.
 
+With <KeyCap>Shift</KeyCap> on or caps lock locked, the popup and the corner hint show capitals: holding `e` offers È É Ê Ë, and the one you pick is typed as a capital. Digits and symbols stay as they are.
+
 A popup with more alternates than fit across the screen wraps onto a second row and a third, so nothing ever sits off the edge where you can't reach it. That's the case you meet with "All accents on press and hold" turned on, or with a raised popup text size, or on a key you gave a long list of your own.
 
 Keep your finger down and you can pick one without a second tap. The first alternate is highlighted as the popup opens, sliding the finger moves the highlight along, and letting go types whatever is lit. Hold and release without moving and you get that first alternate, which is what a hold does on any other keyboard. To back out, slide well away from the popup before you lift. If you'd rather have the older two-step popup, which stays open after you lift so you can tap the one you want, turn **Choose without lifting** off.
@@ -81,11 +83,15 @@ This is a different mechanism from <KeyCap>Ctrl</KeyCap>+letter on a physical ke
 
 The key's icon and behavior follow whatever the focused field asks for: Search, Send, Go, Next, Previous or Done, each with its own icon, or a plain newline when the field doesn't specify. When an app supplies its own label instead of a standard action ("Reply", "Post"), the key draws that text directly rather than an icon.
 
+A message box that asks for a line break gets one, even when the app also watches for the Enter key press itself. Discord's is the example: it declares Done and then asks the keyboard not to use it, so the key draws the newline symbol — and now types the break straight into the box rather than pressing a key the app would have read as Send.
+
 <PhoneFrame caption="Enter drawing a field's own action icon.">
   ![Enter drawing a field's own action icon.](@assets/screens/typing/enter-action-icons.webp)
 </PhoneFrame>
 
 **Shift and Enter type a new line** (on by default) lets you press <KeyCap>Shift</KeyCap> then <KeyCap>Enter</KeyCap>, or hold Shift on a physical keyboard, to force a line break in a field that would otherwise send or search. The key itself changes to the newline symbol while Shift is armed, so it never promises a Send it isn't about to do. Only a Shift you pressed yourself counts. The one-shot Shift that auto-capitalize arms at the start of a message is ignored, so the first line of a chat still sends normally, and Caps Lock is ignored too.
+
+While that setting is on, the key carries both things at once: whichever one it's about to do fills the key, and the other sits small in the top right corner, the way a letter's alternate does. So a Send field shows the paper plane with a newline symbol in the corner, and arming Shift swaps the two over — the newline fills the key and the paper plane moves to the corner. Send never leaves the keyboard; it just changes places.
 
 There's a second way in that doesn't need the setting at all: in any field where Enter has taken on the app's own action, press and hold the key. The popup that opens carries a newline entry, the same as Gboard's. Tap it and you get a line break, whatever the app declared. This one is always available and it never sends.
 
@@ -117,13 +123,13 @@ This screen's **Type native digits in** setting answers a different question: wh
 
 Every finger on the keyboard is tracked on its own, so pressing a second key before you release the first works correctly. Both register, whether that's rollover typing across the letters or two fast taps on the very same key.
 
-On the default layout, <KeyCap>⌫</KeyCap> and <KeyCap>Space</KeyCap> are the two keys that auto-repeat on a hold. Repeating has its own wait, **Time before a key repeats** (300&nbsp;ms by default, adjustable 150–800&nbsp;ms), separate from the long-press delay above. The two used to be one number, which meant lengthening the wait before accent popups also slowed backspace down. Past that wait each key fires again on its own cadence, **Delete repeat interval** and **Space repeat interval** (50&nbsp;ms and 100&nbsp;ms by default, both adjustable 20–200&nbsp;ms), because a runaway row of spaces costs more to undo than a fast delete does. A held backspace stops on its own once there's nothing left to delete. A forward-delete key (<KeyCap>⌦</KeyCap>) repeats the same way if you add one to a [custom layout](/languages/custom-layouts/). No built-in layout places one, and a physical keyboard's Delete-forward key goes straight to the system rather than through this engine. Every other key long-presses into its popup or shortcut instead of repeating.
+On the default layout, <KeyCap>⌫</KeyCap> and <KeyCap>Space</KeyCap> are the two keys that auto-repeat on a hold. Repeating has its own wait, **Time before a key repeats** (300&nbsp;ms by default, adjustable 150–800&nbsp;ms), separate from the long-press delay above. The two used to be one number, which meant lengthening the wait before accent popups also slowed backspace down. Past that wait each key fires again on its own cadence, **Delete repeat interval** and **Space repeat interval** (50&nbsp;ms and 100&nbsp;ms by default, both adjustable 20–200&nbsp;ms), because a runaway row of spaces costs more to undo than a fast delete does. A held backspace stops on its own once there's nothing left to delete. **Holding delete clears words** (off by default, on the same Timing group) turns that repeat into one whole word per tick, at its own slower **Word delete interval** (140&nbsp;ms, adjustable 60–500&nbsp;ms); a single press still deletes one character either way. A forward-delete key (<KeyCap>⌦</KeyCap>) repeats the same way if you add one to a [custom layout](/languages/custom-layouts/), and clears words the same way too. No built-in layout places one, and a physical keyboard's Delete-forward key goes straight to the system rather than through this engine. Every other key long-presses into its popup or shortcut instead of repeating.
 
 <SettingsPath path="Accessibility / Touch" />
 
 **Ignore repeated presses** (off by default) filters out the accidental double-taps a hand tremor causes. Auto-repeat deliberately bypasses that filter: the software repeat is already deterministic, so filtering it would only cap how fast delete or space can go.
 
-Backspace also has a drag-to-delete-whole-words gesture, on by default, separate from this hold-and-repeat. [Gestures](/typing/gestures/) covers it.
+Both delete keys also have a drag-to-delete-whole-words gesture, on by default, separate from this hold-and-repeat: leftward on <KeyCap>⌫</KeyCap>, rightward on <KeyCap>⌦</KeyCap>. [Gestures](/typing/gestures/) covers them.
 
 ## Options
 
@@ -145,7 +151,7 @@ Backspace also has a drag-to-delete-whole-words gesture, on by default, separate
 | Popup distance above key | 10&nbsp;dp (0–96&nbsp;dp) |
 | Popup sideways shift | 0&nbsp;dp (−64–64&nbsp;dp) |
 | Popup color / Popup text color | Automatic |
-| Press and hold delay | 300&nbsp;ms (150–700&nbsp;ms) |
+| Press and hold delay | 300&nbsp;ms (100–800&nbsp;ms) |
 | Time before a key repeats | 300&nbsp;ms (150–800&nbsp;ms) |
 | Delete repeat interval | 50&nbsp;ms (20–200&nbsp;ms) |
 | Space repeat interval | 100&nbsp;ms (20–200&nbsp;ms) |
@@ -155,7 +161,7 @@ Backspace also has a drag-to-delete-whole-words gesture, on by default, separate
 | Shifted letter on press and hold | Off |
 | Press and hold ?123 for the number pad | On |
 | Currency keys | ৳ € £ ¥ ₹ ₿ |
-| Press and hold A/C/X/V/Z/Y for select all/copy/cut/paste/undo/redo | Off (each) |
+| Press and hold A/C/X/V/Z/Y for select all/copy/cut/paste/undo/redo | On (each) |
 
 Open the **Key press** tile on the settings home grid, or search "Key press" in settings search. This table covers the Key popup, Alternate keys, Timing and Press and hold shortcuts groups. The same screen's Haptic feedback and Key press sound groups are covered on [Sound & vibration](/typing/feedback/). For the field-by-field breakdown see [Key press settings](/reference/settings/keypress/).
 
@@ -163,18 +169,18 @@ A handful of related settings live elsewhere:
 
 - **Automatic capital letters** is on by default, under <SettingsPath path="Typing / Automatic corrections" />.
 - **Autopilot** (<SettingsPath path="Typing / Suggestions / Autopilot" />) and **Shift and Enter type a new line** (<SettingsPath path="Typing / Enter key" />) are both on by default.
-- **Swipe to delete** is on by default, under <SettingsPath path="Typing / Backspace" />, and starts out deleting a word per step of the swipe.
+- **Swipe to delete** is on by default, under <SettingsPath path="Key press / Delete keys" />, and starts out deleting a word per step of the swipe.
 - **Number row** (<SettingsPath path="Layout & size / Number row" />) is on, and the numeral commit scope (<SettingsPath path="Layout & size / Numerals" />) starts on "Text fields". Full breakdown at [Layout & size settings](/reference/settings/layout/).
 - **Numeral system per language** starts on Auto, under <SettingsPath path="Languages & layouts / (a language) / Numerals" />. See [Languages](/languages/overview/).
 - **Ignore repeated presses** is off by default, under <SettingsPath path="Accessibility / Touch" />. See also [Accessibility](/accessibility/overview/).
 
 ## Details & edge cases
 
-- **A hold-shortcut on A/C/X/V/Z/Y replaces that letter's accent popup rather than adding to it.** With the Copy hold shortcut on, `c` no longer offers `'çć` on long-press at all.
+- **A hold-shortcut on A/C/X/V/Z/Y is appended to the end of that letter's accent popup, not swapped in for it.** With the Copy hold shortcut on, `c` still offers `'çć` first, then Copy. Turn on **Action first** to move the shortcut to the front instead.
 - **Exiting Caps Lock only takes one tap.** The double-tap window matters only on the way *into* Caps Lock. Any single tap while Shift or Caps Lock is already active turns it off.
-- **The Enter key never lies about what it's about to do.** With Shift + Enter's newline override active, the key visibly redraws to the newline symbol first. It doesn't swap behavior behind an unchanged icon.
-- **A line break from the popup is a real one, even in apps that read Enter themselves.** Some chat apps watch for the Enter key press and send on it regardless of what the keyboard meant. The popup entry types the character straight into the field instead of pressing a key, so there's nothing for the app to catch. Shift + Enter works the same way.
-- **The long-press delay has one home.** It's the Key press → Timing slider (150–800&nbsp;ms). Accessibility → Touch shows the current value and links to it.
+- **The Enter key never lies about what it's about to do.** With Shift + Enter's newline override active, the key visibly redraws to the newline symbol first. It doesn't swap behavior behind an unchanged icon. The action it stepped off doesn't vanish either — it moves to the key's corner, so you can see both what Enter does now and what letting the Shift go gives you back.
+- **A line break from the popup is a real one, even in apps that read Enter themselves.** Some chat apps watch for the Enter key press and send on it regardless of what the keyboard meant. The popup entry types the character straight into the field instead of pressing a key, so there's nothing for the app to catch. Shift + Enter works the same way, and so does plain Enter in a message box that asked for a line break.
+- **The long-press delay has one home.** It's the Key press → Timing slider (100–800&nbsp;ms). Accessibility → Touch shows the current value and links to it.
 - **Number row height is independent of key height.** Shrinking the digit row doesn't touch the letter keys below it, so you can get quick number access without paying for a full extra row of keyboard height.
 - **Ignore repeated presses only filters repeats of the *same* key.** Two different keys typed quickly are never blocked, so the setting can be raised without slowing normal typing down.
 

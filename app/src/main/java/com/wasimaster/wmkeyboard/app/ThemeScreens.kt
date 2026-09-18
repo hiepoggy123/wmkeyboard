@@ -122,6 +122,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeySoundStyle
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.ui.WmSlider
+import com.wasimaster.wmkeyboard.core.ui.rememberLiveSlider
 import com.wasimaster.wmkeyboard.core.util.PlayServices
 import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
@@ -152,6 +153,7 @@ import com.wasimaster.wmkeyboard.core.theme.GradientType
 import com.wasimaster.wmkeyboard.core.settings.DefaultThemesPanelBuiltIns
 import com.wasimaster.wmkeyboard.core.theme.DecalSpec
 import com.wasimaster.wmkeyboard.core.theme.KeyEffectKind
+import com.wasimaster.wmkeyboard.core.theme.KEY_OVERRIDE_LABEL_SCALE_RANGE
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
 import com.wasimaster.wmkeyboard.core.theme.popupOnKeyOrNull
 import com.wasimaster.wmkeyboard.core.theme.EFFECT_DURATION_RANGE
@@ -879,6 +881,32 @@ private fun TimeOfDayPickerDialog(
     )
 }
 
+/**
+ * One theme's editor, as flights name it.
+ *
+ * The navigation route with its argument filled in, which is what a flight is
+ * keyed on: the pattern (`theme_edit/{themeId}`) is the same string for every
+ * theme and would hang one key on all of them.
+ */
+internal fun themeEditRoute(themeId: String): String = "theme_edit/$themeId"
+
+/**
+ * The name the theme editor's heading wears: the look the route names, as the
+ * user typed it.
+ *
+ * Read by the nav graph rather than by the editor, because the heading belongs
+ * to the frame around it. Null for a theme that is not there — a stale link, or
+ * one deleted from under the back stack — and the frame then falls back to the
+ * generic title.
+ */
+@Composable
+internal fun themeEditTitle(settings: KeyboardSettings, themeId: String): String? =
+    settings.customThemes.findThemeFamily(themeId)
+        ?.selfAndVariants()
+        ?.find { it.id == themeId }
+        ?.let { themeName(it) }
+        ?.takeIf { it.isNotBlank() }
+
 // ---- theme gallery ----
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -1283,6 +1311,7 @@ fun ThemesScreen(
                             selected = members.any { it.id == settings.keyboardThemeId },
                             onSelect = { scope.launch { repository.setKeyboardThemeId(shown.id) } },
                             onEdit = { onEditTheme(shown.id) },
+                            editRoute = themeEditRoute(shown.id),
                             onExport = {
                                 // A family card exports the family; a flat card
                                 // exports the one look it shows.
@@ -1550,11 +1579,26 @@ private fun ThemeCard(
     title: String? = null,
     /** A family card's dot row, under the preview; null on single-look cards. */
     swatches: (@Composable () -> Unit)? = null,
+    /**
+     * The editor this card's pencil opens, when it opens one directly. The
+     * preview and the name then fly into that screen's own preview and
+     * heading, so the card reads as the thing being opened.
+     *
+     * Null on the cards whose pencil does something else first — a built-in is
+     * copied before it is edited, and the copy has an id this card never sees.
+     */
+    editRoute: String? = null,
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
     // A built-in theme draws its translated name; a theme the user made keeps
     // the name the user typed.
     val displayName = title ?: themeName(theme)
+    // The editor is headed with the *look's* name. On a plain card that is the
+    // headline; on a family card the headline is the family's label and the
+    // look's name is the line under it. The flight has to leave from whichever
+    // of the two says the same word the heading will.
+    val nameTag = if (editRoute == null) Modifier
+    else Modifier.wmSharedBounds(takeOffKey("title", editRoute))
     Column(
         modifier = Modifier
             .padding(4.dp)
@@ -1569,7 +1613,11 @@ private fun ThemeCard(
             .clickable(onClick = onSelect)
             .padding(6.dp),
     ) {
-        ThemePreview(theme)
+        ThemePreview(
+            theme,
+            modifier = if (editRoute == null) Modifier
+            else Modifier.wmSharedBounds(takeOffKey("preview", editRoute)),
+        )
         swatches?.invoke()
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
@@ -1578,7 +1626,9 @@ private fun ThemeCard(
                     style = MaterialTheme.typography.labelLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+                    modifier = Modifier
+                        .padding(start = 4.dp, top = 4.dp)
+                        .then(if (title == null) nameTag else Modifier),
                 )
                 if (subtitle != null) {
                     Text(
@@ -1587,7 +1637,9 @@ private fun ThemeCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(start = 4.dp),
+                        modifier = Modifier
+                            .padding(start = 4.dp)
+                            .then(if (title != null) nameTag else Modifier),
                     )
                 }
             }
@@ -1603,7 +1655,11 @@ private fun ThemeCard(
         if (onEdit != null || onExport != null || onDelete != null) {
             Row {
                 if (onEdit != null) {
-                    IconButton(onClick = onEdit, modifier = Modifier.size(34.dp)) {
+                    // Wrapped even with no route: a card that opens a copy
+                    // still has to say which screen the next one was opened
+                    // from, or the flight that lands there is keyed on nothing.
+                    val edit = takeOffClick(onEdit)
+                    IconButton(onClick = edit, modifier = Modifier.size(34.dp)) {
                         Icon(
                             Icons.Outlined.Edit,
                             contentDescription = stringResource(R.string.theme_edit_desc, displayName),
@@ -1865,6 +1921,11 @@ fun ThemeEditorScreen(
                     theme = theme,
                     sandbox = previewSandbox,
                     miniature = true,
+                    // The gallery card's miniature grows into this one. Both
+                    // draw the same theme at two sizes, which is what
+                    // [wmSharedBounds] is for — the keys scale rather than
+                    // being laid out again mid-flight.
+                    modifier = Modifier.wmSharedBounds(landingKey("preview")),
                 )
             }
         }
@@ -2694,6 +2755,9 @@ fun ThemeEditorScreen(
             override = theme.keyOverrides[id] ?: KeyOverride(),
             theme = theme,
             popupsShown = settings.popup.enabled,
+            // The theme's own effect group hides itself under reduce motion,
+            // and a per-key burst is the same burst.
+            effectsShown = !settings.reduceMotion,
             onChange = { changed ->
                 update { t -> t.copy(keyOverrides = t.keyOverrides + (id to changed)) }
             },
@@ -3739,20 +3803,34 @@ private fun themeSoundLabel(theme: ThemeSpec): String {
         KeySoundStyle.entries.firstOrNull { it.name == name }
     } ?: return stringResource(R.string.theme_follow_settings_label)
     // A theme names its sound in one field whichever kind it picked, so both
-    // styles resolve the same id against their own store.
+    // styles resolve the same id against their own store — by store id first
+    // and then by display name, exactly as the player resolves it at play time.
+    // A theme that arrived as an addon can only carry the name: the id is
+    // minted per device at install time, so matching on it alone left every
+    // distributed theme reading "Custom" here.
     if (style == KeySoundStyle.CUSTOM) {
         val name = remember(theme.soundCustomId) {
+            val wanted = theme.soundCustomId.orEmpty()
             SoundStore.get(context).sounds()
-                .firstOrNull { it.id == theme.soundCustomId }?.name
+                .firstOrNull { it.id == wanted || it.name.equals(wanted, ignoreCase = true) }
+                ?.name
         }
         if (name != null) return name
     }
     if (style == KeySoundStyle.PACK) {
         val name = remember(theme.soundCustomId) {
+            val wanted = theme.soundCustomId.orEmpty()
             SoundPackStore.get(context).packs()
-                .firstOrNull { it.id == theme.soundCustomId }?.name
+                .firstOrNull { it.id == wanted || it.name.equals(wanted, ignoreCase = true) }
+                ?.name
         }
         if (name != null) return name
+    }
+    // Custom and Pack are a pointer to an installed sound rather than a sound:
+    // with nothing behind the pointer the theme has no sound of its own, which
+    // is what it does at play time too ([ThemeSpec.keySound]).
+    if (style == KeySoundStyle.CUSTOM || style == KeySoundStyle.PACK) {
+        return stringResource(R.string.theme_follow_settings_label)
     }
     return stringResource(keySoundStyleLabelRes(style))
 }
@@ -3913,9 +3991,21 @@ private fun ThemeFontChoiceRow(
 }
 
 /**
+ * Whether a theme's `soundCustomId` names this installed sound or pack.
+ *
+ * By store id or by display name, the same pair the player accepts: a theme
+ * written on this device carries the id, while one that arrived as an addon can
+ * only carry the name, because the id is minted per device at install time.
+ */
+private fun namesSound(themeId: String?, storeId: String, name: String): Boolean {
+    val wanted = themeId.orEmpty()
+    return wanted == storeId || wanted.equals(name, ignoreCase = true)
+}
+
+/**
  * Picks the theme's key sound. Tapping a row previews it right away — a sound
- * has to be heard to be chosen. Installed sounds each get their own row (they
- * are the CUSTOM style plus an id under the hood).
+ * has to be heard to be chosen. Installed sounds and packs each get their own
+ * row (they are the CUSTOM and PACK styles plus an id under the hood).
  */
 @Composable
 private fun ThemeSoundPickerDialog(
@@ -3926,7 +4016,15 @@ private fun ThemeSoundPickerDialog(
 ) {
     val context = LocalContext.current
     val installed = remember { SoundStore.get(context).sounds() }
-    val styles = KeySoundStyle.entries.filter { it != KeySoundStyle.CUSTOM }
+    val installedPacks = remember { SoundPackStore.get(context).packs() }
+    // Custom and Pack are left out of the style rows and offered below as the
+    // sounds and packs themselves. Neither is a sound on its own — both are a
+    // pointer to something installed — so a row that set the style and named
+    // nothing saved a theme that could only ever play the system click, and
+    // did it in preference to whatever the user had picked in Settings.
+    val styles = KeySoundStyle.entries.filter {
+        it != KeySoundStyle.CUSTOM && it != KeySoundStyle.PACK
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.theme_sound_title)) },
@@ -3952,12 +4050,29 @@ private fun ThemeSoundPickerDialog(
                         label = sound.name,
                         family = null,
                         selected = currentStyle == KeySoundStyle.CUSTOM.name &&
-                            currentCustomId == sound.id,
+                            namesSound(currentCustomId, sound.id, sound.name),
                     ) {
                         KeySoundPlayer.preview(
                             context, KeySoundStyle.CUSTOM, PREVIEW_SOUND_VOLUME, sound.id,
                         )
                         onPick(KeySoundStyle.CUSTOM.name, sound.id)
+                    }
+                }
+                // Packs sit beside the sounds rather than behind a "Sound pack"
+                // style, for the reason above: the pack *is* the choice. The
+                // whole keystroke previews, since a pack that recorded the key
+                // coming back up is only half itself on the way down.
+                for (pack in installedPacks) {
+                    ThemeFontChoiceRow(
+                        label = pack.name,
+                        family = null,
+                        selected = currentStyle == KeySoundStyle.PACK.name &&
+                            namesSound(currentCustomId, pack.id, pack.name),
+                    ) {
+                        KeySoundPlayer.previewStroke(
+                            context, KeySoundStyle.PACK, PREVIEW_SOUND_VOLUME, pack.id,
+                        )
+                        onPick(KeySoundStyle.PACK.name, pack.id)
                     }
                 }
             }
@@ -4062,7 +4177,15 @@ private fun AddKeyOverrideDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit)
     )
 }
 
-/** One key's own colours: face, label, border, and its preview bubble. */
+/**
+ * One key's own style: its colours, its texture, the burst it throws and how
+ * its label is drawn (issue #107).
+ *
+ * Every row is nullable and reads "Automatic" until it is set, because the
+ * whole point of the sheet is that a key says what it does *differently* — a
+ * dialog of filled-in values would be a second theme editor, and a key that
+ * silently pinned the theme's current colour would stop following it.
+ */
 @Composable
 private fun KeyOverrideDialog(
     id: String,
@@ -4070,9 +4193,28 @@ private fun KeyOverrideDialog(
     theme: ThemeSpec,
     /** Off while key popups are, which is what hides the two popup colours. */
     popupsShown: Boolean,
+    /** Off under reduce motion, which is what hides the press effect. */
+    effectsShown: Boolean,
     onChange: (KeyOverride) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val texturePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch(Dispatchers.IO) {
+                runCancellable {
+                    val path = importKeyOverrideTexture(context, theme.id, id, uri)
+                    if (path != null) {
+                        override.texture?.let { File(it).delete() }
+                        onChange(override.copy(texture = path))
+                    }
+                }
+            }
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(keyOverrideDisplayName(id)) },
@@ -4088,6 +4230,11 @@ private fun KeyOverrideDialog(
                     stringResource(R.string.theme_key_text_title),
                     override.text, fallback = theme.keyText,
                     onChange = { onChange(override.copy(text = it)) },
+                )
+                NullableColorRow(
+                    stringResource(R.string.theme_hint_text_title),
+                    override.hint, fallback = theme.hintText ?: theme.keyText,
+                    onChange = { onChange(override.copy(hint = it)) },
                 )
                 NullableColorRow(
                     stringResource(R.string.theme_key_border_title),
@@ -4107,12 +4254,150 @@ private fun KeyOverrideDialog(
                         onChange = { onChange(override.copy(popupText = it)) },
                     )
                 }
+                ListItem(
+                    headlineContent = {
+                        Text(stringResource(R.string.theme_key_override_texture_title))
+                    },
+                    supportingContent = {
+                        Text(
+                            stringResource(
+                                if (override.texture != null) {
+                                    R.string.theme_texture_set_label
+                                } else {
+                                    R.string.theme_key_override_texture_unset
+                                },
+                            ),
+                        )
+                    },
+                    leadingContent = { ImageThumb(override.texture) },
+                    trailingContent = {
+                        if (override.texture != null) {
+                            IconButton(
+                                onClick = {
+                                    override.texture?.let { File(it).delete() }
+                                    onChange(override.copy(texture = null))
+                                },
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription =
+                                        stringResource(CommonR.string.common_remove),
+                                )
+                            }
+                        }
+                    },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable {
+                        texturePicker.launch(
+                            PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly,
+                            ),
+                        )
+                    },
+                )
+                if (effectsShown) {
+                    // Only the drawn kinds: a per-key image set would be a
+                    // transport and memory cost out of proportion to the
+                    // feature. See KeyOverride.effect.
+                    val kinds = KeyEffectKind.entries.filter { it != KeyEffectKind.CUSTOM_IMAGE }
+                    ChoiceControl(
+                        options = listOf<KeyEffectKind?>(null).plus(kinds).map { kind ->
+                            kind to when (kind) {
+                                null -> stringResource(CommonR.string.common_auto)
+                                KeyEffectKind.STARS ->
+                                    stringResource(R.string.theme_effect_stars_label)
+                                KeyEffectKind.HEARTS ->
+                                    stringResource(R.string.theme_effect_hearts_label)
+                                KeyEffectKind.SPARKLE ->
+                                    stringResource(R.string.theme_effect_sparkle_label)
+                                KeyEffectKind.CONFETTI ->
+                                    stringResource(R.string.theme_effect_confetti_label)
+                                else -> stringResource(R.string.theme_effect_emoji_label)
+                            }
+                        },
+                        selected = override.effectKind,
+                        modifier = Modifier.padding(vertical = 8.dp),
+                        label = stringResource(R.string.theme_key_override_effect_label),
+                    ) { kind -> onChange(override.copy(effect = kind?.name)) }
+                    if (override.effectKind == KeyEffectKind.EMOJI) {
+                        // Local state while typing, for the reason the theme's
+                        // own emoji field keeps it: the DataStore echo would
+                        // scramble the caret mid-edit.
+                        var emoji by remember(id) { mutableStateOf(override.effectParam.orEmpty()) }
+                        OutlinedTextField(
+                            value = emoji,
+                            onValueChange = { text ->
+                                val clipped = text.take(16)
+                                emoji = clipped
+                                onChange(override.copy(effectParam = clipped))
+                            },
+                            singleLine = true,
+                            label = {
+                                Text(stringResource(R.string.theme_effect_emoji_field_label))
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        )
+                    }
+                }
+                ChoiceControl(
+                    options = listOf(
+                        null to stringResource(CommonR.string.common_auto),
+                        false to stringResource(CommonR.string.common_off),
+                        true to stringResource(CommonR.string.common_on),
+                    ),
+                    selected = override.bold,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                    label = stringResource(R.string.theme_key_override_bold_label),
+                ) { bold -> onChange(override.copy(bold = bold)) }
+                ListItem(
+                    headlineContent = {
+                        Text(stringResource(R.string.theme_key_override_label_size_title))
+                    },
+                    supportingContent = {
+                        Text(
+                            override.labelScale?.let { "${(it * 100).toInt()}%" }
+                                ?: stringResource(CommonR.string.common_auto),
+                        )
+                    },
+                    trailingContent = {
+                        Switch(
+                            checked = override.labelScale != null,
+                            onCheckedChange = { on ->
+                                onChange(override.copy(labelScale = if (on) 1f else null))
+                            },
+                        )
+                    },
+                    colors = transparentListColors(),
+                )
+                override.labelScale?.let { scale ->
+                    SliderRow(
+                        stringResource(R.string.theme_key_override_label_size_title),
+                        value = scale,
+                        range = KEY_OVERRIDE_LABEL_SCALE_RANGE,
+                        display = { "${(it * 100).toInt()}%" },
+                    ) { onChange(override.copy(labelScale = (it * 20).toInt() / 20f)) }
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_done)) }
         },
     )
+}
+
+/**
+ * Copies a picked image into the theme-images folder as one key's texture.
+ * The same downscale the class textures get — a key is a few dozen dp either
+ * way — with the override's id in the filename so two keys never collide.
+ */
+private fun importKeyOverrideTexture(
+    context: android.content.Context,
+    themeId: String,
+    overrideId: String,
+    uri: android.net.Uri,
+): String? {
+    val tag = "keytex_" + overrideId.filter { it.isLetterOrDigit() }.ifEmpty { "k" }
+    return importThemeImage(context, "${themeId}_$tag", uri)
 }
 
 /**
@@ -4256,6 +4541,18 @@ private fun importKeyTexture(
     themeId: String,
     slot: KeyTextureSlot,
     uri: android.net.Uri,
+): String? = importThemeImage(context, "${themeId}_${slot.fileTag}", uri)
+
+/**
+ * Copies a picked image into the theme-images folder, downscaled to
+ * [KEY_TEXTURE_IMPORT_PX] on its longest edge and kept as PNG so transparency
+ * survives. [namePrefix] names the file; the timestamp after it is what keeps
+ * a replacement from being read out of the bitmap cache.
+ */
+private fun importThemeImage(
+    context: android.content.Context,
+    namePrefix: String,
+    uri: android.net.Uri,
 ): String? = runCatching {
     val source = context.contentResolver.requireInputStream(uri).use { input ->
         android.graphics.BitmapFactory.decodeStream(input)
@@ -4274,7 +4571,7 @@ private fun importKeyTexture(
     }
     val file = File(
         themeImagesDir(context),
-        "${themeId}_${slot.fileTag}_${System.currentTimeMillis()}.img",
+        "${namePrefix}_${System.currentTimeMillis()}.img",
     )
     file.outputStream().use { out ->
         scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
@@ -4556,9 +4853,12 @@ internal fun SliderRow(
     info: String? = null,
     onChange: (Float) -> Unit,
 ) {
-    // Local drag state, throttled writes — see rememberLiveSlider; without it
-    // the thumb waits for the theme to round-trip through DataStore.
-    val slider = rememberLiveSlider(value, onChange)
+    // Local drag state, and one of the few sliders that keeps writing while the
+    // finger is down (`live`): this row's own screen draws the theme it is
+    // editing, so the preview above it has to follow the thumb. See
+    // rememberLiveSlider; without the local state the thumb itself would wait
+    // for the theme to round-trip through DataStore.
+    val slider = rememberLiveSlider(value, onChange, live = true)
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.bodyLarge)

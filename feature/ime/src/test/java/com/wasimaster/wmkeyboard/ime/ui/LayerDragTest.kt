@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.ime.ui
 import android.view.KeyEvent
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
+import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.ime.LayoutMode
@@ -64,6 +65,29 @@ class LayerDragTest {
         assertNull(layerDragMode(null, LayoutMode.LETTERS))
     }
 
+    // ---- panelLayerDragMode (issue #210) ------------------------------------
+
+    /** A panel's `?123` takes the same step a tap on it would. */
+    @Test
+    fun `a panel's symbols key shows the layer a tap would reach`() {
+        assertEquals(LayoutMode.SYMBOLS, panelLayerDragMode(symbols, LayoutMode.LETTERS))
+        assertEquals(LayoutMode.SYMBOLS_SHIFTED, panelLayerDragMode(symbols, LayoutMode.SYMBOLS))
+    }
+
+    /** A panel is not a layer of the grid, so the letters are always somewhere to look. */
+    @Test
+    fun `a panel's ABC key shows the letters even over the letters`() {
+        assertEquals(LayoutMode.LETTERS, panelLayerDragMode(letters, LayoutMode.LETTERS))
+        assertEquals(LayoutMode.LETTERS, panelLayerDragMode(letters, LayoutMode.SYMBOLS))
+    }
+
+    @Test
+    fun `every other panel key starts nothing`() {
+        assertNull(panelLayerDragMode(Key("a"), LayoutMode.LETTERS))
+        assertNull(panelLayerDragMode(Key("", action = KeyAction.Shift), LayoutMode.LETTERS))
+        assertNull(panelLayerDragMode(null, LayoutMode.LETTERS))
+    }
+
     // ---- startsLayerDrag and ownsDrag ---------------------------------------
 
     @Test
@@ -88,6 +112,40 @@ class LayerDragTest {
         assertTrue(Key("Ctrl", action = KeyAction.Mod(ModifierKey.CTRL)).ownsDrag())
         assertFalse(Key("a").ownsDrag())
         assertFalse(null.ownsDrag())
+    }
+
+    /**
+     * The possessive key keeps glide and ink off its drags (#169), but only the
+     * key the setting names and only while it names one: a comma beside `s` on
+     * an unusual layout started a glide and the swipe decoded as a word.
+     */
+    @Test
+    fun `only the chosen possessive key starts its swipe`() {
+        val comma = Key(",", role = KeyRole.Comma)
+        assertTrue(comma.startsPossessiveSwipe(','))
+        assertTrue(Key("\u2019", output = "'").startsPossessiveSwipe('\''))
+        assertFalse(comma.startsPossessiveSwipe('.'))
+        assertFalse(comma.startsPossessiveSwipe(null))
+        assertFalse(Key("s").startsPossessiveSwipe(','))
+        assertFalse(Key(",", action = KeyAction.Shift).startsPossessiveSwipe(','))
+        assertFalse(null.startsPossessiveSwipe(','))
+    }
+
+    /**
+     * The delete keys keep glide, ink and the octopus off their drags (#243),
+     * each only while its own swipe is on: backspace beside the bottom letter
+     * row started a glide that typed a word on top of the swipe's deletion.
+     */
+    @Test
+    fun `a delete key starts its swipe only while that swipe is on`() {
+        val backspace = Key("", action = KeyAction.Delete)
+        val forward = Key("", action = KeyAction.ForwardDelete)
+        assertTrue(backspace.startsDeleteSwipe(backspace = true, forward = false))
+        assertFalse(backspace.startsDeleteSwipe(backspace = false, forward = true))
+        assertTrue(forward.startsDeleteSwipe(backspace = false, forward = true))
+        assertFalse(forward.startsDeleteSwipe(backspace = true, forward = false))
+        assertFalse(Key("m").startsDeleteSwipe(backspace = true, forward = true))
+        assertFalse(null.startsDeleteSwipe(backspace = true, forward = true))
     }
 
     // ---- commitsFromLayerDrag -----------------------------------------------

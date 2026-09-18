@@ -14,6 +14,7 @@ import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutSet
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.ShiftState
+import com.wasimaster.wmkeyboard.ime.shiftCased
 import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import org.junit.Assert.assertEquals
@@ -72,7 +73,7 @@ class KeyVisualTest {
             glideWord = "hello",
             expandedCandidates = listOf("hello"),
             octopus = mapOf(
-                'l'.code to OctopusWord('l'.code, "hello", 3, OctopusKind.COMPLETION, 0),
+                'l'.code to listOf(OctopusWord('l'.code, "hello", 3, OctopusKind.COMPLETION, 0)),
             ),
         )
         assertNotEquals(before, after)
@@ -162,6 +163,53 @@ class KeyVisualTest {
     }
 
     /**
+     * The Enter key carries both of the things it can do: the face draws the one
+     * it does now, the corner keeps the other in view. A shift the user put up
+     * trades them over (issue #107) — before this, the field's action simply
+     * left the board for as long as the shift was up, which read as the keyboard
+     * refusing to offer Send at all.
+     */
+    @Test
+    fun `a user shift swaps the enter key's face and its corner`() {
+        val enter = Key("⏎", action = KeyAction.Enter)
+        val send = state().copy(enterAction = EnterAction.SEND)
+        val plain = keyVisual(enter, send, palette)
+        assertEquals(IconSlots.KEY_ENTER_SEND, plain.iconSlot)
+        assertEquals(IconSlots.KEY_ENTER, plain.enterHint)
+
+        val shifted = keyVisual(
+            enter,
+            send.copy(shiftState = ShiftState.ON, shiftPressedByUser = true),
+            palette,
+        )
+        assertEquals(IconSlots.KEY_ENTER, shifted.iconSlot)
+        assertEquals(IconSlots.KEY_ENTER_SEND, shifted.enterHint)
+    }
+
+    /**
+     * The corner only ever holds a *second* action. A field that declared none
+     * leaves the key doing the one thing it has always done, and a shift that
+     * cannot change that has nothing to announce.
+     */
+    @Test
+    fun `the enter key's corner stays empty with nothing to swap`() {
+        val enter = Key("⏎", action = KeyAction.Enter)
+        assertNull(keyVisual(enter, state(), palette).enterHint)
+
+        // A shift the keyboard armed itself (auto-capitalize) is not a shift
+        // being held for a line break, so it swaps nothing either.
+        val auto = state().copy(enterAction = EnterAction.SEND, shiftState = ShiftState.ON)
+        assertEquals(IconSlots.KEY_ENTER_SEND, keyVisual(enter, auto, palette).iconSlot)
+
+        // And with the setting off there is no shift+enter line break to offer.
+        val off = KeyboardSettings().let {
+            it.copy(layoutBehavior = it.layoutBehavior.copy(shiftEnterNewline = false))
+        }
+        val plain = state(settings = off).copy(enterAction = EnterAction.SEND)
+        assertNull(keyVisual(enter, plain, palette).enterHint)
+    }
+
+    /**
      * Enter is the one key whose label colour flips under the finger: its own
      * text colour is picked for its accented face, which the press paints over.
      */
@@ -173,5 +221,28 @@ class KeyVisualTest {
 
         val letter = keyLabelled(state(), "q")
         assertEquals(letter.contentColor, letter.pressedContentColor)
+    }
+
+    @Test
+    fun `shift capitalises a key's alternates, and only on a key that has some`() {
+        val accents = Key("e", longPress = listOf("3", "é", "è"))
+        assertEquals(false, keyVisual(accents, state(), palette).alternatesShifted)
+        assertEquals(
+            true,
+            keyVisual(accents, state().copy(shiftState = ShiftState.ON), palette).alternatesShifted,
+        )
+        assertEquals(
+            true,
+            keyVisual(accents, state().copy(shiftState = ShiftState.CAPS_LOCK), palette).alternatesShifted,
+        )
+        // A bare key must not change under shift, or a shift press recomposes it.
+        val plain = Key(",")
+        assertEquals(
+            keyVisual(plain, state(), palette).alternatesShifted,
+            keyVisual(plain, state().copy(shiftState = ShiftState.ON), palette).alternatesShifted,
+        )
+        assertEquals("É", shiftCased("é", shifted = true))
+        assertEquals("3", shiftCased("3", shifted = true))
+        assertEquals("é", shiftCased("é", shifted = false))
     }
 }

@@ -41,8 +41,8 @@
     <string name="tooldetail_launcher_recents_subtitle">Show the apps you opened last in a row above the grid</string>
     <string name="tooldetail_launcher_recents_info">The keyboard keeps the last 10 apps you opened from this tool, on your device only. Turn this off to stop the tracking and delete the list.</string>
     <string name="tooldetail_launcher_drilldown_title">Open screens inside apps</string>
-    <string name="tooldetail_launcher_drilldown_subtitle">Press and hold an app to list its screens</string>
-    <string name="tooldetail_launcher_drilldown_info">With this off, press and hold pins the app instead.</string>
+    <string name="tooldetail_launcher_drilldown_subtitle">List an app’s screens on its page</string>
+    <string name="tooldetail_launcher_drilldown_info">Press and hold an app to open its page. With this off the page keeps its pin, hide and App info actions and leaves the screens out.</string>
     <string name="tooldetail_launcher_non_exported_title">Show private screens</string>
     <string name="tooldetail_launcher_non_exported_subtitle">Also list screens that only the app itself may open</string>
     <string name="tooldetail_launcher_non_exported_info">Android does not let other apps open these screens. They show dimmed, and a press on one does nothing. Useful to explore what an app contains.</string>
@@ -420,6 +420,18 @@
     <string name="tooldetail_grammar_dialect_subtitle">The spelling and style rules to check against</string>
     <string name="tooldetail_grammar_debounce_title">Re-check delay</string>
     <string name="tooldetail_grammar_debounce_subtitle">Pause after you stop typing before the issues refresh. A lower value feels faster, a higher value does less work</string>
+    <string name="tooldetail_grammar_correctness_title">Correctness issues</string>
+    <string name="tooldetail_grammar_clarity_title">Clarity issues</string>
+    <string name="tooldetail_grammar_engagement_title">Engagement issues</string>
+    <string name="tooldetail_grammar_delivery_title">Delivery issues</string>
+    <string name="tooldetail_grammar_category_search_subtitle">Show or hide this kind of issue in the grammar panel</string>
+    <string name="tooldetail_grammar_category_toggle_subtitle">%1$d of %2$d kinds shown</string>
+    <string name="tooldetail_grammar_category_all_summary">Every kind</string>
+    <string name="tooldetail_grammar_category_none_summary">Nothing shown</string>
+    <string name="tooldetail_grammar_correctness_info">Plain mistakes: a misspelling, a verb that disagrees with its subject, a missing comma, a word swapped for one that sounds like it. Leave these on unless something here is noisy for the way you write.</string>
+    <string name="tooldetail_grammar_clarity_info">Writing that is correct but harder work to read than it needs to be: long sentences, a word repeated, a phrase that says the same thing twice.</string>
+    <string name="tooldetail_grammar_engagement_info">Suggestions rather than fixes, offering a stronger way to say the same thing. Turn the group off if you would rather only hear about mistakes.</string>
+    <string name="tooldetail_grammar_delivery_info">How the writing reads for its audience: spacing and formatting, a form that is standard in one region but not another, an informal turn of phrase.</string>
     <string name="tooldetail_grammar_system_group">System-wide</string>
     <string name="tooldetail_grammar_system_title">Use Harper everywhere</string>
     <string name="tooldetail_grammar_system_subtitle">Set WM Keyboard as the spell checker of Android</string>
@@ -572,7 +584,7 @@
     <string name="tooldetail_launcher_icon_shape_system_label">As on the phone</string>
     <string name="tooldetail_launcher_icon_shape_info">As on the phone shows each icon with the shape your home screen gives it. Old apps without an adaptive icon keep their own outline.</string>
     <string name="tooldetail_launcher_hidden_title">Hidden apps</string>
-    <string name="tooldetail_launcher_hidden_none_subtitle">No apps are hidden. Hide an app from its page in the panel.</string>
+    <string name="tooldetail_launcher_hidden_none_subtitle">No apps are hidden. Press and hold an app in the panel, then tap the eye on its page.</string>
     <plurals name="tooldetail_launcher_hidden_count">
         <item quantity="one">%1$d app hidden. Tap to show it again.</item>
         <item quantity="other">%1$d apps hidden. Tap to show all of them again.</item>
@@ -767,4 +779,6 @@
     <string name="tooldetail_media_wiki_info">GIFs come from Wikimedia Commons, whose collection is largely educational rather than reactive. Leave this empty for Commons, or point it at another MediaWiki.</string>
     <string name="tooldetail_media_wiki_label">MediaWiki address</string>
     <string name="tooldetail_media_wiki_hint">https://commons.wikimedia.org</string>
+    <string name="tooldetail_hold_nothing_value">Does nothing</string>
+    <string name="tooldetail_hold_nothing_subtitle">The hold only vibrates. Nothing opens and nothing runs.</string>
 </resources>

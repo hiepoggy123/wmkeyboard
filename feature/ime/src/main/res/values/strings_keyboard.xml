@@ -121,6 +121,10 @@
     <string name="ime_word_menu_add">Add \"<xliff:g id="word" example="Wasi">%1$s</xliff:g>\"</string>
     <!-- Menu item that forgets a word. %1$s is the word the user held. -->
     <string name="ime_word_menu_delete">Delete \"<xliff:g id="word" example="mary">%1$s</xliff:g>\"</string>
+    <!-- Menu item that decodes the swipe that wrote the word the cursor is in
+         again, this time against every word list rather than the narrower set
+         the user has glide typing limited to. %1$s is that word. -->
+    <string name="ime_word_menu_search_all">Search all words for \"<xliff:g id="word" example="van">%1$s</xliff:g>\"</string>
     <!-- Menu item that opens the word card, where the word is spelled,
          weighted, ranked, deleted or banned. -->
     <string name="ime_word_menu_edit">Edit…</string>
@@ -255,6 +259,17 @@
     <string name="ime_sandbox_offer_only">Swipe using only your words?</string>
     <!-- The ✕ on the sandbox chip: screen reader text. -->
     <string name="ime_sandbox_offer_never_desc">Don\'t ask about this again</string>
+    <!-- The chip shown when glide typing is on but the active language has no
+         word list to decode a swipe against. %1$s is the language's English
+         name. Tapping the chip opens that language's page, where a list downloads. -->
+    <string name="ime_glide_word_list_offer">Glide typing needs a %1$s word list</string>
+    <!-- The ✕ on that chip: screen reader text. -->
+    <string name="ime_glide_word_list_offer_dismiss_desc">Dismiss</string>
+    <!-- The chip offering to decode a swiped word's stroke against every word
+         list, shown while the cursor rests inside a word a swipe wrote. -->
+    <string name="ime_glide_search_all_offer">Search all words for this swipe</string>
+    <!-- The \u2715 on that chip: screen reader text. -->
+    <string name="ime_glide_search_all_dismiss_desc">Dismiss</string>
     <!-- Easter egg: shown in the strip when S, O and S are keyed in a row on the
          morse layout. The dots and dashes at the start are morse for SOS. -->
     <string name="ime_morse_sos_egg_info">··· −−− ··· received. Help is not on the way.</string>
@@ -334,6 +349,45 @@
     <string name="ime_tool_camera">Camera</string>
     <string name="ime_tool_dictionary">Dictionary</string>
     <string name="ime_tool_vocabulary">Vocabulary</string>
+    <string name="ime_tool_learn_from_text">Learn from text</string>
+    <!-- Learn from text (#174): the panel that lists words the keyboard does not know yet. -->
+    <string name="ime_learn_select_all_action">Select all</string>
+    <string name="ime_learn_select_none_action">Select none</string>
+    <string name="ime_learn_add_action">Add %1$d</string>
+    <string name="ime_learn_pairs_label">Word pairs</string>
+    <string name="ime_learn_pairs_desc">Also learn the word pairs in this text</string>
+    <string name="ime_learn_sort_frequent_label">Most used</string>
+    <string name="ime_learn_sort_text_label">Text order</string>
+    <string name="ime_learn_sort_alpha_label">A to Z</string>
+    <string name="ime_learn_sort_desc">Change the order</string>
+    <plurals name="ime_learn_found_count">
+        <item quantity="one">%d new word</item>
+        <item quantity="other">%d new words</item>
+    </plurals>
+    <string name="ime_learn_scanning_progress">Reading the text…</string>
+    <string name="ime_learn_empty">No new words here. The keyboard knows every word in this text.</string>
+    <string name="ime_learn_blocked_info">This is a password field, so nothing was read.</string>
+    <string name="ime_learn_partial_info">Only part of this field could be read.</string>
+    <string name="ime_learn_capped_info">Showing the first %1$d new words.</string>
+    <plurals name="ime_learn_result_words">
+        <item quantity="one">Added %d word</item>
+        <item quantity="other">Added %d words</item>
+    </plurals>
+    <plurals name="ime_learn_result_pairs">
+        <item quantity="one">%d word pair</item>
+        <item quantity="other">%d word pairs</item>
+    </plurals>
+    <string name="ime_learn_result_both">%1$s · %2$s</string>
+    <string name="ime_learn_count_label">×%1$d</string>
+    <string name="ime_learn_seen_label">seen %1$d</string>
+    <string name="ime_learn_edited_label">%1$s → %2$s</string>
+    <string name="ime_learn_more_desc">More for %1$s</string>
+    <string name="ime_learn_edit_action">Edit</string>
+    <string name="ime_learn_show_action">Show in text</string>
+    <string name="ime_learn_never_action">Never suggest</string>
+    <string name="ime_learn_ignore_action">Ignore</string>
+    <string name="ime_learn_edit_hint">Spelling to add</string>
+    <string name="ime_learn_edit_done_action">Done</string>
     <string name="ime_tool_translate">Translate</string>
     <string name="ime_tool_gif">GIFs</string>
     <string name="ime_tool_sticker">Stickers</string>

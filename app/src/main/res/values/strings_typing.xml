@@ -10,7 +10,7 @@
     <string name="typing_group_glide_title">Glide typing</string>
     <string name="typing_group_glide_trail_title">Glide trail and preview</string>
     <string name="typing_group_spacebar_title">Spacebar gestures</string>
-    <string name="typing_group_backspace_title">Backspace</string>
+    <string name="typing_group_backspace_title">Delete keys</string>
     <string name="typing_group_enter_title">Enter key</string>
     <string name="typing_group_volume_title">Volume keys</string>
     <string name="typing_group_hardware_title">Physical keyboard</string>
@@ -54,7 +54,7 @@
 
     <string name="typing_autocorrect_splits_title">Add missing spaces</string>
     <string name="typing_autocorrect_splits_subtitle">Split two words typed together when you press space</string>
-    <string name="typing_autocorrect_splits_info">When the word you typed is unknown, but it divides into two words the keyboard knows, the keyboard can commit the two words with a space between them: "ofthe" becomes "of the". A letter next to the spacebar can also stand in for the space itself, so "amibtomake" becomes "ami tomake". The split applies only when no single word explains the typed text and both halves are clear words. Backspace right after the split puts your text back, like any other correction.</string>
+    <string name="typing_autocorrect_splits_info">When the word you typed is unknown, but it divides into two words the keyboard knows, the keyboard can commit the two words with a space between them: "ofthe" becomes "of the". A letter next to the spacebar can also stand in for the space itself, so "amibtomake" becomes "ami tomake", when that tap landed low on its key, toward the spacebar, and the two words are a pair you have typed before. The split applies only when no single word explains the typed text and both halves are clear words. Backspace right after the split puts your text back, like any other correction.</string>
 
     <string name="typing_language_detection_title">Detect the language you type</string>
     <string name="typing_language_detection_subtitle">Follow the language of the current message</string>
@@ -130,12 +130,15 @@
 
     <string name="typing_auto_space_punctuation_title">Automatic space after punctuation</string>
     <string name="typing_auto_space_punctuation_subtitle">The keyboard adds a space after you type . , ? ! ; or :</string>
-    <string name="typing_auto_space_punctuation_info">You do not need to press space at the end of a clause: \"hello,\" becomes \"hello, \" by itself. A group of marks (\"...\", \"?!\") stays together. If you press space yourself, the keyboard does not add a second space. Shift immediately after the space removes it. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads. A space in these fields is a mistake.</string>
+    <string name="typing_auto_space_punctuation_info">You do not need to press space at the end of a clause: \"hello,\" becomes \"hello, \" by itself. A group of marks (\"...\", \"?!\") stays together. A mark typed straight after a number gets no space, so \"5,000\", \"3.14\" and \"5:00\" stay whole. If you press space yourself, the keyboard does not add a second space. Shift immediately after the space removes it. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads. A space in these fields is a mistake.</string>
     <string name="typing_hug_punctuation_title">Remove a space before punctuation</string>
     <string name="typing_hug_punctuation_subtitle">\"Hey .\" becomes \"Hey.\" when you type the mark</string>
-    <string name="typing_hug_punctuation_info">A space typed by mistake in front of a punctuation mark is removed when the mark lands. The mark must come after a word, a number or a closing bracket, so a mark at the start of a line is left alone. One backspace right after puts the space back. Off by default: some languages put a space in front of a question mark or a colon on purpose. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads.</string>
+    <string name="typing_hug_punctuation_info">A space typed by mistake in front of a punctuation mark is removed when the mark lands. The mark must come after a word, a number or a closing bracket, so a mark at the start of a line is left alone. One backspace right after puts the space back. Languages that put a space in front of a mark on purpose, French among them, are handled by the setting below and are never hugged, whichever marks are listed here. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads.</string>
     <string name="typing_hug_punctuation_marks_title">Marks that pull the space out</string>
     <string name="typing_hug_punctuation_marks_hint">One character for each mark, with no spaces between them</string>
+    <string name="typing_language_punctuation_spacing_title">Space before French punctuation</string>
+    <string name="typing_language_punctuation_spacing_subtitle">\"Bonjour!\" becomes \"Bonjour !\" in French and its neighbours</string>
+    <string name="typing_language_punctuation_spacing_info">French keeps a space in front of the exclamation mark, the question mark, the semicolon, the colon and the closing guillemet, and one behind the opening guillemet, and so do Breton, Occitan, Walloon, Picard, Norman and Franco-Provençal. The keyboard types that space for you and stops every other rule from taking it back. It is a no-break space, so the mark can never wrap to the next line on its own. The mark must follow a word, a number or a closing bracket, so one at the start of a line is left alone. One backspace right after removes the space again. Every other language types exactly as before. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads.</string>
 
     <string name="typing_space_after_suggestion_title">Space after a suggestion</string>
     <string name="typing_space_after_suggestion_subtitle">Add a space when you select a word from the suggestion strip</string>
@@ -232,6 +235,10 @@
     <string name="typing_octopus_kinds_title">What may appear</string>
     <string name="typing_octopus_kinds_subtitle">Which kinds of guess are allowed onto the keys</string>
     <string name="typing_octopus_kinds_info">Completions carry on the word you are typing. Corrections fix it, and sit over the key where the word stops matching what you typed, so they are drawn in a different colour. Next words appear after a space, above their first letters, before you have typed anything. Turning all three off leaves the keys bare, the same as turning the whole feature off.</string>
+
+    <string name="typing_octopus_glide_title">While gliding</string>
+    <string name="typing_octopus_glide_subtitle">What the keys carry while a swipe is being drawn</string>
+    <string name="typing_octopus_glide_info">A stroke and a still finger want different things from the keys, so a glide has its own answer here and What may appear is left to say what a typed word may offer. Nothing keeps the board bare until you lift, which is what most glide typists want: mid-swipe a completion cannot be taken and a correction cannot be judged. Other readings floats the alternatives the keyboard is still holding, each above the key that reaches it, so you can steer to one. The next word offers what would follow the word you are drawing, above the key it starts with, so it can be flicked the moment the swipe ends. Whichever you choose, lifting your finger puts the next word on the keys as usual.</string>
 
     <string name="typing_octopus_kind_completion">Completions</string>
     <string name="typing_octopus_kind_correction">Corrections</string>
@@ -353,9 +360,9 @@
     <string name="typing_otp_chip_info">The keyboard watches incoming notifications for a one-time code. When it finds one, a chip with the code and the name of the app that sent it appears above the keys. Press the chip to type the code. This needs notification access. The keyboard reads notifications on your device only, keeps the code in memory only, and sends nothing anywhere. Turn this off and the keyboard stops reading notifications at once.</string>
     <string name="typing_otp_access_title">Allow notification access</string>
     <string name="typing_otp_access_subtitle">The chip cannot see codes arrive yet. Press to open the system switch</string>
-    <string name="typing_otp_number_fields_title">Only in number fields</string>
-    <string name="typing_otp_number_fields_subtitle">Show the chip only where the app asks for digits, which is the shape of most code boxes</string>
-    <string name="typing_otp_number_fields_info">Code boxes usually ask for a number keypad, so the chip shows there and nowhere else. Some apps use a plain text box for their code. If your code chip does not appear in an app, turn this off to offer codes in text fields too.</string>
+    <string name="typing_otp_code_fields_title">Only in code boxes</string>
+    <string name="typing_otp_code_fields_subtitle">Show the chip only where the app asks for a code, rather than in every field</string>
+    <string name="typing_otp_code_fields_info">A code box usually asks for a number keypad, or names itself \"OTP\", \"PIN\" or \"verification code\". With this on, the chip shows there and nowhere else. Some apps give their code box neither, and the chip cannot find it — leave this off and a code is offered in any field while it is still valid.</string>
     <string name="typing_otp_expiry_title">Offer a code for</string>
     <string name="typing_otp_expiry_subtitle">A code older than this stops being offered</string>
     <string name="typing_otp_dismiss_title">Clear the notification</string>
@@ -440,6 +447,12 @@
     <string name="typing_glide_sandbox_subtitle">Let glide typing lean on the words this keyboard has learned from you</string>
     <string name="typing_glide_sandbox_info">A glide tells the keyboard which keys your finger went near, so what it competes against decides how often it is right. Most people write with a few thousand words, and once the keyboard has learned yours, the rest of the dictionary is mostly competition. \"Only my words\" removes it: glide typing answers with the words you have written, and nothing else. In testing that reads the words you write about five points more accurately, and it cannot produce a word you have never written at all. \"Prefer my words\" changes almost nothing on its own — it runs both and counts how often your own words were enough, which is what \"Automatic\" uses to decide. \"Automatic\" starts at \"Every word\" and asks you before it moves up. Whichever you pick, backspacing a glided word searches every word in the dictionary for the stroke you drew, so a word the keyboard has not learned is never out of reach.</string>
 
+    <!-- Toggle: whether the chip offering a full search comes forward on its
+         own when the cursor lands inside a swiped word. -->
+    <string name="typing_glide_search_all_chip_title">Offer a full search while proofreading</string>
+    <string name="typing_glide_search_all_chip_subtitle">Show a chip for searching every word list when you tap back into a swiped word</string>
+    <string name="typing_glide_search_all_chip_info">When a glide produces the wrong word, the stroke you drew is the only record of what you meant — the letters left in the text are the keyboard\'s guess, not your finger\'s path. So the keyboard keeps the last dozen strokes of the field, and tapping back into one of those words can search its stroke against every word list you have, past whatever limit glide typing normally works under. That search is always available: hold a word on the suggestion strip and pick \"Search all words\". This setting adds a chip that offers it without the hold, at the cost of one suggestion slot whenever you read a swiped word back. Whichever way you reach it, taking a word off the search fixes the text and teaches the keyboard that stroke, so the same swipe reads correctly next time.</string>
+
     <!-- One-of-four choice: how hard the word shown mid-glide resists change. -->
     <string name="typing_glide_steadiness_title">Steadiness of the word while you glide</string>
     <string name="typing_glide_steadiness_subtitle">Stop the word changing under your finger on every small movement</string>
@@ -483,8 +496,8 @@
     <!-- The 's is the English possessive ending, as in "the developer's keyboard".
          One-of-four choice: which punctuation key the swipe starts from. -->
     <string name="typing_possessive_swipe_title">Swipe to add \'s</string>
-    <string name="typing_possessive_swipe_subtitle">Swipe from a punctuation key to s to add \'s to the last word</string>
-    <string name="typing_possessive_swipe_info">Select a key here. A short, straight swipe from that key to the s key adds \'s to the word before the cursor, so \"developer\" becomes \"developer\'s\". This works after you type a word and after you glide one, with glide typing on or off. A space after the word moves behind the \'s. The key still types its own character when you press it. The swipe must be short and straight. A longer path from the same key to s is a glide, as before. This works with English only. The spacebar cannot start this swipe.</string>
+    <string name="typing_possessive_swipe_subtitle">Swipe from a punctuation key to s to add \'s to the last word, or to t, d, m, l, r or v for \'t, \'d, \'m, \'ll, \'re or \'ve</string>
+    <string name="typing_possessive_swipe_info">Select a key here. A short, straight swipe from that key to the s key adds \'s to the word before the cursor, so \"developer\" becomes \"developer\'s\". Swipe to t, d, m, l, r or v to add \'t, \'d, \'m, \'ll, \'re or \'ve. \'t is added only after a word that ends in n, so \"don\" becomes \"don\'t\". A line from the key to your finger shows that the swipe is active. This works after you type a word and after you glide one, with glide typing on or off. A space after the word moves behind the \'s. The key still types its own character when you press it. The swipe must be short and straight. A longer path from the same key to s is a glide, as before. This works with English only. The spacebar cannot start this swipe.</string>
     <!-- One line under each option in the swipe to add 's picker. -->
     <string name="typing_possessive_swipe_off_desc">No swipe adds \'s</string>
     <string name="typing_possessive_swipe_comma_desc">Swipe from the comma key to s. A press still types a comma</string>
@@ -492,6 +505,19 @@
     <string name="typing_possessive_swipe_key_desc">Swipe from the apostrophe key to s, where the layout has one</string>
 
 
+
+    <!-- Three sliders for the glide decoder's tolerances, in key widths. -->
+    <string name="typing_glide_start_radius_title">Start error radius</string>
+    <string name="typing_glide_start_radius_subtitle">How far the start of a glide can be from the first letter</string>
+    <string name="typing_glide_start_radius_info">Measured in key widths. The keyboard offers a word only when your finger went down this close to the first letter of that word. A high value lets a glide start off the key and still find the word. A low value refuses a glide that starts in the wrong place, which is stricter but can lose the word you wanted. Move this up if your glides start late or low.</string>
+
+    <string name="typing_glide_end_radius_title">End error radius</string>
+    <string name="typing_glide_end_radius_subtitle">How far the end of a glide can be from the last letter</string>
+    <string name="typing_glide_end_radius_info">Measured in key widths. The keyboard offers a word only when you lifted your finger this close to the last letter of that word. The end of a glide is where a movement stops, so it is usually less accurate than the start. This is a separate value for that reason. Move it up if your glides slide past the last letter.</string>
+
+    <string name="typing_glide_near_radius_title">Path error radius</string>
+    <string name="typing_glide_near_radius_subtitle">How far a glide can pass from a letter on the way</string>
+    <string name="typing_glide_near_radius_info">Measured in key widths. A letter is available to a word only when the glide passed this close to its key. A high value lets you cut corners and still get the letter. A low value keeps the keyboard to the keys you touched, which is faster and more exact, but a cut corner then loses the word. Move this up if long words come out with a letter missing.</string>
 
     <string name="typing_swipe_start_distance_title">Swipe start distance</string>
     <string name="typing_swipe_start_distance_subtitle">How far to move before a glide starts. A low value is more sensitive</string>
@@ -610,6 +636,10 @@
     <string name="typing_backspace_preview_subtitle">Select the text as you swipe, and delete it when you lift your finger</string>
     <string name="typing_backspace_preview_info">The swipe highlights the text it is about to delete instead of deleting as it goes, so you can see how far you have got. Swipe back to the right to give text back, and lift your finger to delete what is left highlighted. Turn this off to delete each word or character the moment you swipe past it.</string>
 
+    <string name="typing_forward_delete_swipe_title">Swipe on forward delete</string>
+    <string name="typing_forward_delete_swipe_subtitle">Swipe right on the forward delete key to clear the text ahead</string>
+    <string name="typing_forward_delete_swipe_info">Press the forward delete key and swipe right. Each step of the swipe deletes one more word, or one more character, ahead of the cursor. It is the backspace swipe pointed the other way, and it follows the same three settings above: what one step takes off, whether you see it first, and how far you drag for one step.\n\nThe forward delete key is not on the standard keyboard. Add it to a row, or to a key you press and hold, in the layout editor.</string>
+
     <!-- ==== Typing settings: enter key ==== -->
     <string name="typing_shift_enter_title">Shift and Enter type a new line</string>
     <string name="typing_shift_enter_subtitle">Add a line break in a chat app instead of sending the message</string>
@@ -664,6 +694,10 @@
     <string name="typing_hw_panel_nav_title">Arrow keys move a highlight</string>
     <string name="typing_hw_panel_nav_subtitle">Arrows move a highlight in a tool, Enter selects it, Esc closes the tool</string>
     <string name="typing_hw_panel_nav_info">In a tool, the arrow keys move a highlight over the emoji, the clips or the results. Enter uses the item with the highlight. Tab moves between the search box, the category chips and the results.\n\nThe highlight shows only after you press a key. It never shows while you use the keyboard by touch.</string>
+
+    <string name="typing_hw_dpad_keys_title">Arrow keys move over the keys</string>
+    <string name="typing_hw_dpad_keys_subtitle">A ring on one key; the centre button or Enter types it</string>
+    <string name="typing_hw_dpad_keys_info">For a television remote, which has no other way to reach a key. The arrow keys move a ring from key to key and the centre button types the key it is on. Left and right stay inside the row. Up from the top row leaves the keyboard, so the remote can go back to the app.\n\nHold the centre button to open the alternates of the key the ring is on, then pick one with the arrows. Escape puts the ring away, so Enter goes back to the text field.\n\nOn a television this is on to begin with. Everywhere else it starts off, because the arrow keys belong to the text field you are typing in.</string>
 
     <string name="typing_hw_esc_title">Esc closes the tool</string>
     <string name="typing_hw_esc_subtitle">Escape closes an open tool instead of going to the app</string>
@@ -797,7 +831,6 @@
     <string name="typing_adapt_taps_forget">Forget where my taps land</string>
     <string name="typing_adapt_taps_forget_title">Forget learned tap positions?</string>
     <string name="typing_adapt_taps_forget_body">Taps go back to being read against the keys exactly as drawn, and learning starts again from your next word. Learned words and corrections are not affected.</string>
-
     <!-- ==== Vietnamese Flick Settings ==== -->
     <string name="vietnamese_flick_group_title">Cử chỉ vuốt dấu tiếng Việt</string>
     <string name="vietnamese_flick_enabled_title">Bật cử chỉ vuốt dấu tiếng Việt</string>
@@ -825,4 +858,8 @@
     <string name="vietnamese_flick_direction_down">Xuống (↓)</string>
     <string name="vietnamese_flick_direction_left">Trái (←)</string>
     <string name="vietnamese_flick_direction_right">Phải (→)</string>
+
+    <string name="typing_octopus_stack_title">Words per key</string>
+    <string name="typing_octopus_stack_subtitle">How many words one key can carry, stacked</string>
+    <string name="typing_octopus_stack_info">One word per key is what the BlackBerry and Octopus keyboards drew, and it is all a phone-sized key has room for. On a tablet the keys are tall enough for two or three, stacked away from the key with the likeliest word nearest it. A flick up takes the nearest word; a tap takes the word you touch. How many words still caps the whole keyboard.</string>
 </resources>

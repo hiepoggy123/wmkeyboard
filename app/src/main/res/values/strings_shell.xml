@@ -2,17 +2,19 @@
 <resources xmlns:tools="http://schemas.android.com/tools"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
-    <!-- Settings search screen: the search field and its two empty states. -->
+    <!-- Settings search screen: the search field and the line shown when it finds nothing. -->
     <!-- Placeholder inside the search field at the top of the search screen. -->
     <string name="shell_search_hint">Search settings</string>
-    <!-- Shown while the search field is still empty. The three quoted words are examples of what to type. -->
-    <string name="shell_search_help_body">Search every setting by name, for example \"haptic\", \"number row\" or \"incognito\". You can also search by the tool that the setting belongs to.</string>
     <!-- Shown when a search finds nothing. %1$s = the text the user typed. -->
     <string name="shell_search_empty">No setting matches \"<xliff:g id="query" example="haptic">%1$s</xliff:g>\".</string>
     <!-- Heading over the settings opened from search before, shown while the field is empty. -->
     <string name="shell_search_recent_title">Recent</string>
     <!-- Heading over the results that only carry the search words in their description or their path, not in their name. -->
     <string name="shell_search_mentions_title">Mentioned in the description</string>
+    <!-- Name of the ranked results on the index beside a long list of results. Kept to one word: it is drawn in a small bubble beside the reader's finger. -->
+    <string name="shell_search_results_stop">Matches</string>
+    <!-- Name of the weaker results on the index beside a long list of results. See shell_search_results_stop. -->
+    <string name="shell_search_mentions_stop">Mentions</string>
 
     <!-- The path strip under the heading, on screens more than one step below the settings home. -->
     <!-- Name of the settings home in the path strip. The screen itself is titled with the app name. -->

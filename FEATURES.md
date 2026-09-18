@@ -11,19 +11,19 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Area | Families | Features | Capabilities |
 |---|---|---|---|
-| Typing core: prediction, autocorrect, learning, spell check | 9 | 50 | 203 |
+| Typing core: prediction, autocorrect, learning, spell check | 9 | 50 | 205 |
 | Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 219 |
 | Languages, scripts, layouts, transliteration | 11 | 64 | 213 |
 | Themes and appearance | 14 | 73 | 183 |
 | Emoji, GIFs, stickers, kaomoji | 16 | 88 | 94 |
-| Toolbar and the tool set | 10 | 83 | 304 |
+| Toolbar and the tool set | 10 | 85 | 311 |
 | Clipboard, snippets, text expansion | 7 | 37 | 191 |
 | AI, voice, handwriting, scanning | 11 | 70 | 162 |
 | Privacy, backup, storage, statistics | 13 | 59 | 150 |
 | Accessibility, form factors, platform integration | 13 | 61 | 111 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 203 |
-| **Total** | **132** | **795** | **2197** |
+| **Total** | **132** | **797** | **2206** |
 
 ## Typing core: prediction, autocorrect, learning, spell check
 
@@ -47,6 +47,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Trigram context beats bigram — Learned (prev2, prev1) followers consulted before followers of prev1 alone
     - Contact name chaining — "Wasi" offers "Mollik" from the indexed name
     - Corpus pack then bundled seed pairs — 827 bundled English pairs cold-start a fresh install
+    - Learned skip-gram followers (#195) — What has followed the word two back one word later, then the word three back two words later; personal, so above the corpus, gappy, so below every direct follower
     - Skip-gram rescue on an unknown previous word — Treats an OOV prev as transparent and backfills from the word before it
     - Sentence-start sentinel — U+0001 pseudo-word learned as context only; never offered, never a follower
   - Numbers from the letter keys `RARE` — A word typed entirely on digit-hinted keys also offers the number those hints spell (#181); off by default
@@ -129,7 +130,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Four memory levels `RARE` — Off keeps no pair memory, Light never retires a pair, Normal is the shipped balance, Strict retires on the first undo however it was read
     - Penalties age out — A pair untouched for 180 saves loses a count; 500-pair cap
     - Stored outside the lexicon — A rejection persists even with learning off or in incognito
-- **Personal learning** — On-device lexicon of words, bigrams, trigrams and distance-2 skip-grams; nothing leaves the device
+- **Personal learning** — On-device lexicon of words, bigrams, trigrams and 1-skip and 2-skip bigrams (named by words skipped); nothing leaves the device
   - Graded reinforcement `RARE` — How deliberately a word was typed decides how hard it teaches
     - Tapped suggestion counts double
     - Typed and committed counts once
@@ -137,7 +138,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Manually added word starts at one use — Marked as added by hand instead of boosted (#164): shielded from autocorrect at any learn-after threshold, evicted last, and it earns weight by being typed like any other word; the row reads "You added this word · Seen N times" (#165)
   - Store shape and bounds `uncommon` — JSON snapshot in app-private storage
     - 10,000 words, evicting to 9,000 — 10% hysteresis so compaction doesn't churn on every save
-    - 5,000 bigram heads, 2,000 trigram contexts, 2,000 skip-gram heads, 32 followers each
+    - 5,000 bigram heads, 2,000 trigram contexts, 2,000 1-skip and 1,000 2-skip bigram heads, 32 followers each
     - Exponential decay at compaction — count x 2^(-age/64 save-generations); user-added words evicted last
     - Dirty-flag save on dismissal — A dismissal with nothing new re-encodes nothing
     - Word length 32, count capped at 1,000,000
@@ -154,6 +155,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Android personal dictionary interop `uncommon` — Two independent opt-ins against the platform UserDictionary provider
     - Mirror learned words out — So other keyboards and spell checkers know them; a session dedupe set avoids duplicate rows
     - Expand shortcuts stored there — An entry with a shortcut ("omw" to "on my way") offers the phrase as the top chip
+    - Import from Android's dictionary — Personal dictionary screen lists the platform words missing here as a checklist; added by hand, capitals kept, multi-word rows split (#174)
+    - Export to Android's dictionary — Checklist of personal-dictionary words the platform lacks, most used first; counts only rows the provider accepted; needs WM Keyboard to be the current keyboard (#174)
   - Learning gates — Three conditions must all hold before anything is remembered
     - Learn-from-typing setting
     - Not incognito, when incognito is set to pause learning
@@ -180,8 +183,9 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Bundled seed pairs at ln(1.5) — English modes only
   - NgramReranker `RARE` — Interpolated rescorer over the top 8 candidates, on-device only
     - Base is the engine's rank, not raw frequency — Preserves edit costs and touch likelihood already encoded in the incoming order
-    - Eight weighted, capped terms — User trigram/bigram/skip-gram, pack trigram/bigram, seed bigram, two OOV backoff terms, plus recency
-    - Stored distance-2 skip-gram, always consulted (#195) — The word two back vouches across any middle word; pools what the trigram splits, still speaks when the middle word is unknown; lifts one rank alone, never two
+    - Nine weighted, capped terms — User trigram/bigram/two skip-grams, pack trigram/bigram, seed bigram, two OOV backoff terms, plus recency
+    - Stored 1-skip bigram, always consulted (#195) — The word two back vouches across any middle word; pools what the trigram splits, still speaks when the middle word is unknown; lifts one rank alone, never two
+    - Stored 2-skip bigram (#195) — The word three back vouches across two middle words ("gotten so that you've"); weaker, lifts one rank alone only once seen a dozen times
     - Returns null with no evidence — A reorder can only ever be evidence-driven
     - Skip-gram backoff behind an OOV previous word — Weaker than the direct bigram it stands in for
     - Never read by autocorrect — shouldAutocorrect reads the raw walk ranking, so a rerank can't become a silent replacement
@@ -266,6 +270,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Suppresses suggesting, not typing — The word can still be typed and committed verbatim
     - Applies to strip, next-word, glide results and split halves
     - Added by hand in a settings dialog, or by holding a chip on the strip — "Never suggest", with "Suggest again" to undo
+    - Per-language lists (#136) — blacklistByLanguage, one string-set pref per language id; the engine sees global + the language being typed, re-pointed on every layout switch
+    - "Blocked from the keyboard" scope — blacklistScope decides where the hold menu's Never suggest lands (all languages by default, or the current one); the editor asks per word; Suggest again clears every list
 - **Held-word menu and word card** `uncommon` — Press and hold a suggestion for a menu about it (#99)
   - Contextual items with icons — Never suggest / Suggest again; Add "typed" while the word being typed is unlearned; Delete for a word the keyboard can forget; Edit always
   - Add pins the capitals — The typed spelling goes in at full strength and no later vote changes it (#100)
@@ -273,6 +279,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - "Delete edits imported lists" switch — Off leaves imported lists as imported and blacklists the word the old way
   - Word card — In-window modal over the keyboard: every source the word was found in, its "#N of M" place in each list, the word's spelling, its rank controls, and the same actions (#138)
   - Respell from the card — "Change" hands the keys to a bar in the strip's row (the card covers the board, and an IME cannot raise a field for itself); the draft starts from the word, Enter or ✓ applies it, back or ✕ leaves it, and nothing typed there reaches the app behind (#138)
+    - The draft edits like a field (#204) — its own caret and selection: tap/drag/hold on the bar, spacebar scrub (shift or selection mode extends), hardware arrows/Home/End, shift re-cases a selection, forward delete, and a glide types at the caret with no space and nothing learned; the scrub used to walk the app's caret behind the keyboard
     - A respelling carries the count, language tag and word pairs across, moves the rank adjustment, and drops the swipe shapes, waiting-room sightings and Android's copy of the old spelling; a case-only respelling pins the spelling instead; a word the lexicon does not have is added at the new spelling
   - Keep these capitals — The dictionary screen's pin switch, on the card, for a word the keyboard has learned (#138)
   - Two rank mechanisms, both shown by default and chosen in settings — Learned weight (the lexicon count, decade stepper) or a per-word −10..+10 offset applied in the engine to every source, glide and next-word included; never to autocorrect
@@ -346,7 +353,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Toggleable — Off makes a spacebar-crossing stroke decode as one word
   - Capitalize by gliding over Shift `uncommon` — Drawing through the Shift key mid-stroke capitalizes the word, twice shouts it; the key's points are dropped from the word the way the spacebar's are, so the detour spells nothing
     - The one capital a swipe can teach — A capital the decoder chose is never case evidence; a capital the finger drew is
-  - Readings kept for proofreading — The last dozen swiped words keep their stroke's other readings; putting the caret back on one puts them in front of the strip, and taking one counts as a correction of that stroke
+  - Readings kept for proofreading — The last 500 swiped words in the field keep their stroke's other readings; putting the caret back on one puts them in front of the strip, and taking one counts as a correction of that stroke
+  - Manual full search — The newest 24 of those also keep the stroke itself, so "Search all words" on a held strip word decodes it again against every list, past the sandbox and the vocabulary cap; a pick teaches the hand model, the shape and the pair, and an optional strip chip offers it without the hold (#135)
   - Swipe style learning `RARE` — Everything a kept swipe teaches apart from the word itself, behind one switch and one Forget; off freezes it, Forget deletes it without touching learned words
     - Hand adaptation — Kept swipes teach where the finger really lands on each key; later swipes decode against a grid moved to match (KeyOffsets)
     - Keyed by position, not letter — Half-key cells, so layouts with the same geometry share what either learned; a barely-swiped key follows the whole hand's mean
@@ -444,7 +452,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Same geometry as a key layout — Drawn by PanelLayoutGrid with real KeyButtons, so the tall left/right arrows are just a key three rows deep and the middle rows flow around them
     - Alternates on press and hold — Edit keys whose operation does not repeat open the alternates popup; Home and End ship holding to the start and end of the text
     - Repair on read, never reject — The panel repair drops components, shift and chorded keys, clamps widths and spans, and falls back to the shipped grid; an old TextEditLayout preference migrates key for key
-  - 13 one-tap cursor tools `RARE` — CursorTools list: left/right, word left/right, up/down, home/end, page up/down, select word, select line, selection mode — placeable on the toolbar
+  - 14 one-tap cursor tools `RARE` — CursorTools list: left/right, word left/right, up/down, home/end, page up/down, select word, select line, select all, selection mode — placeable on the toolbar
     - Shift extends the selection `RARE` — A shift the user pressed turns every toolbar cursor move into shift+arrow; auto-capitalise's own shift is excluded, and is held off the state while the selection is live
     - Hold to repeat `RARE` — The eight non-idempotent moves repeat on hold at the text-edit interval; one switch for the toolbar, defaulted on
     - Per-tool toolbox opt-in — A second switch, one tool at a time and off by default, since a repeating tool spends the toolbox hold that opens its settings page
@@ -456,6 +464,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Shared with the panel's Select key — Either surface arms it, either one turns it off, and both light up while it is on; the toolbar's mode outlives a panel opening, the panel's does not
   - Trackpad tool (issue #39) — The key area as a relative pointing surface: one finger drags the caret a character per stepXDp sideways and a line per stepYDp vertically, sub-step travel carried between frames (TrackpadAxis), every move a real arrow key through onTextEdit
     - Hold, then drag selects — The long press arms selectionHold through the Selection mode tool's own callback and the release disarms it; the selection stays in the editor
+    - The selection-actions bar waits for the lift (#136) — selectionMacroBarVisible is false while selectionHold is on, so the bar never pushes or swaps the toolbar out from under the held finger; it appears once the finger comes up
     - Two and three taps — Select word and select line at the caret (TrackpadTapCounter: window plus a distance test, since a surface is wide); switchable off
     - Two fingers — Drag moves by words (Ctrl+Arrow) at twice the character step; a two-finger tap types a space; a finger arriving or leaving re-anchors the centroid rather than counting as travel
     - Tap and hold modes — Tap toggles the panel; a press and hold on the toolbar tool opens it only while the finger stays (onTrackpadHold, paired like onSelectionHold, released on drag pick-up and on onFinishInputView); a hold over a tapped-open panel is a no-op
@@ -575,6 +584,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Never relocated — A candidate whose key is already claimed is dropped rather than moved, because a word over a key that would not type it is a lie about the affordance
   - The strip's own words — the pool is `suggest`'s finished list, so the keys and the strip never disagree; the engine's raw walk only fills keys the strip had no room for, and past a density of 9 the tries are fanned for the rest
   - Three placements — Floating in the gap above the key (no height change), a reserved lane per row, or inside the key; top-row words straddle the grid and are tapped on the half still over it
+  - Words per key (#136) — wordsPerKey 1–3, default 1; a key honours that many claims in rank order (OctopusWord.tier), stacked away from the key; the flick takes the nearest, a tap the one touched, density still caps the board
   - Flick or tap `uncommon` — Both switchable; the flick is judged at the lift against a sensitivity tier whose cone matches the glide picker's, so a glide that opens upward stays a glide
   - Live during a glide — Mid-stroke each alternate hangs off the key where it leaves the decoder's leader, which no other surface can show; one decode, one state write
   - Hints step aside — A key carrying a word drops its corner hint, read at draw time so the board keeps its per-keystroke recomposition skip; the transliteration hint is never hidden
@@ -1041,10 +1051,13 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - 3 gradient types — Linear, radial and sweep; angle slider on linear and sweep
     - 2–4 colour stops — Add/remove stops, each with its own alpha
     - Live strip preview — The row draws the actual shader brush the keyboard will use
-  - Per-key style overrides `RARE` — A named key gets its own face, label, border and popup colours
+  - Per-key style overrides `RARE` — A named key gets its own colours, image, press burst and label weight
     - Letter keys by label — Override follows the lowercase letter across layouts and languages
     - 7 special keys — Enter, Space, Shift, Delete, Symbols, Emoji, Language switch
-    - 5 colours each — Background, text, border, popup background, popup text — all nullable
+    - 6 colours each — Background, text, hint, border, popup background, popup text — all nullable
+    - Per-key image — One key's own texture, drawn at the board's texture fit and opacity; beats the class texture, works with no class texture at all
+    - Per-key press burst — Stars, hearts, sparkle, confetti or the key's own emoji; the board's intensity and physics still shape it, and one key's burst is enough to give a board with no effect a particle field
+    - Per-key label weight and size — Bold as a three-way answer (follow the board, on, off), and a label size that replaces the automatic rule; a size the layout authored wins over the theme's
 - **Key shapes and geometry** `RARE` — 12 shapes, applied independently to 6 surfaces
   - 12 key shapes `RARE` — Picker draws each one rather than naming it
     - No shape — Keys only: labels on the bare board, a rounded flash on press, latched modifiers and single-key faces still lit
@@ -1474,7 +1487,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 ## Toolbar and the tool set
 
-- **Toolbar & toolbox mechanics** `uncommon` — 71 tools in ToolbarTool enum; 3 pinned by default (Emoji, Clipboard, Settings)
+- **Toolbar & toolbox mechanics** `uncommon` — 74 tools in ToolbarTool enum; 3 pinned by default (Emoji, Clipboard, Settings)
   - Pinned bar vs toolbox — A tool is on the bar or in the toolbox grid, never both
     - Default pinned row — Emoji, Clipboard, Settings (DefaultToolbarTools)
     - Tablet-aware default pin set — 5 pinned on small tablets, 7 on large, applied only if user never rearranged
@@ -1504,15 +1517,18 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Toolbar only — The toolbox hold keeps opening settings pages, so no page loses its way in
     - Repeat tools excluded — A caret tool's hold is already spent repeating the move; its row says so rather than hiding
     - Self-binding refused — Encoder drops tool=itself, which is a tap done slowly
+    - "Does nothing" is a third answer (#136) — ToolHoldAction.None, stored as `TOOL=NONE`; the hold buzzes and nothing opens or runs
     - Voice hold picks a mode `uncommon` — voiceBar.holdPicksTypingMode (default on, #173): a hold on the pinned Voice tool opens a menu of the three typing modes; a pick persists the mode and starts dictation at once (onVoiceModePick, optimistic state update ahead of the DataStore write). Its own flag, like trackpad.holdToOpen, since holdActions can only name a tool; off hands the hold back to the map
   - Toolbar chrome options `uncommon` — ToolbarBehavior + height/label/shape fields
     - Master strip switch — toolbarBehavior.enabled off reclaims the height for keys
     - Swipe down on the bar to hide keyboard — swipeDownHide, off by default
+    - Rearrange by dragging can be turned off (#136) — dragToRearrange, on by default; off, a hold that travels stays a hold and the toolbox is where the bar is rearranged
+    - The drag-scope pill never covers the bar — parked below the toolbar, or above it when the row order puts the bar under the keys; the finger dodge goes to whichever end is not the toolbar's
     - Toolbar-only with a hardware keyboard — onlyWithHardwareKeyboard drops the key rows, keeps the strip
     - RTL mirroring of pinned order — reverseForRtl on by default; toolbox grid unaffected
     - Spread vs packed vs scrollable bar — greedy on by default; scrollable forces packed
     - Hide toolbar & clipboard on lock screen — hideWhenLocked, distinct from direct-boot filtering
-    - Toolbar height 32–80dp — toolbarHeightDp default 44
+    - Toolbar top/bottom padding 0–24dp — toolbarBehavior.paddingTopDp default 4, paddingBottomDp default 0, added around the 44dp toolbarHeightDp (#208); the height itself is only a theme override now
     - Tool labels under icons — toolbarLabels off; toolbarLabelSize default 10sp
     - Tool background radius and shape — toolCircleRadiusDp default 20, toolShape shares the key shapes; 0 removes it
     - Tool button width 38dp default — toolWidthDp stretches the circle into a pill
@@ -1525,9 +1541,9 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Per-tool colour override — toolColorOverrides map, reset-all button when any override exists
     - Two-colour gradient icons — toolIconGradients off by default, with its own end-colour override map
     - Icon-pack glyph substitution — IconSlots.forTool resolves an installed icon pack's glyph
-  - Direct-boot tool filter `RARE` — 45 of 71 tools work before the first unlock after reboot
+  - Direct-boot tool filter `RARE` — 46 of 74 tools work before the first unlock after reboot
     - Rule is what the tool reads — Arithmetic, sensors and keyboard-own state stay; disk, credentials, providers, activities go
-    - All 13 cursor tools stay usable — They only touch the input connection
+    - All 14 cursor tools stay usable — They only touch the input connection
     - Not a user toggle — isDirectBootSafeTool is automatic and only applies pre-first-unlock
   - Hardware leader-key tool access `RARE` — Double-tap Ctrl (default) then a letter
     - 25 default tool letters — DefaultToolLetters maps E/C/S/X/G/K/V/R/D/W/I/A/N/Y/L/U/M/P/Q/H/O/Z/B/J/F
@@ -1755,6 +1771,13 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Passphrases from the bundled English dictionary — 4–8 letter lowercase distinct words; no separate wordlist download
     - Passphrase options — 2–10 words, free-text separator, capitalise, append a digit
     - Entropy estimate in bits — Shown for both modes
+  - Learn from text `RARE` — Lists the words in the field or selection the keyboard does not know, to add to the personal dictionary in one go (#174)
+    - Selection, else the whole field — Password fields refused; a partial read or a list past 2,000 words says so
+    - Unknown means every source the engine asks — Active language mix, imported lists, personal and Android dictionaries, contacts, apps; blacklisted words, numbers, links and spaceless scripts skipped
+    - All rows checked, sortable — Select all/none; Most used, Text order or A to Z, remembered
+    - Per-row Edit, Show in text, Never suggest, Ignore — Edit types into the panel's own buffer with glide blocked; Ignore lasts one scan
+    - Add as by hand — Same path as Add word: out of the waiting room, off the blacklist, mirrored to Android when that is on
+    - Word pairs chip — Teaches the text's pairs, triples and skip-grams once each, only between known words, never across a sentence end or line break, not while learning is off or paused
   - Typing speed test `RARE` — Scored typing test on the real keys
     - Three modes — Timed (15/30/60/120s), word count (10/25/50/100), quote
     - 200 most common English words — Plus 14 public-domain quotations for quote mode
@@ -1782,7 +1805,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Only changed fields written — Unchanged values go as null, so a padding-only session keeps tablet height defaults
     - Handles turn red at a limit — Both heights keep their ratio from one clean drag-start baseline
     - Scrim eats every touch — Accent outline hugs the keyboard rectangle while resizing
-- **Cursor & selection tools** `RARE` — 13 one-tap toolbar tools; all direct-boot safe
+- **Cursor & selection tools** `RARE` — 14 one-tap toolbar tools; all direct-boot safe
   - Cursor left `uncommon` — Moves the caret one character left
   - Cursor right `uncommon` — Moves the caret one character right
   - Word left `uncommon` — Ctrl+Arrow word jump backwards
@@ -1797,6 +1820,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Boundaries computed, not Ctrl+Shift+Arrow — Sets the selection directly; no-ops on whitespace or punctuation
   - Select line `RARE` — Selects the whole line at the cursor
     - Turns selection mode on afterwards — No-op on an empty line
+  - Select all `RARE` — Selects the whole field in one tap (issue #228)
+    - Same action as the panel's key — performContextMenuAction(selectAll); leaves selection mode where it found it
   - Selection mode `RARE` — Every caret move extends the selection while it is on
     - Three gestures on one button — Tap to toggle, press and hold for a temporary mode, two or three quick presses to select the word or the line
   - Hide keyboard `uncommon` — One tap dismisses the keyboard
@@ -1899,8 +1924,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Clipboard source-app attribution | needs Usage Access; best-effort foreground-app guess |
 | Voice typing | needs microphone permission; audio may reach the OS recognizer service unless the on-device language model is installed |
 | Clipboard link previews and QR link details and dictionary auto-lookup | network, and force-disabled by power saving's background-network toggle |
-| 26 tools of 71 are unavailable before the first unlock after reboot | direct-boot filter; the other 45 (arithmetic, sensors, keyboard-own state, all 13 cursor tools) stay usable |
-| Lite edition tool count | 66 of 71 tools; the 5 ML Kit / Harper tools are compiled out, not just hidden |
+| 28 tools of 74 are unavailable before the first unlock after reboot | direct-boot filter; the other 46 (arithmetic, sensors, keyboard-own state, all 14 cursor tools) stay usable |
+| Lite edition tool count | 69 of 74 tools; the 5 ML Kit / Harper tools are compiled out, not just hidden |
 
 ## Clipboard, snippets, text expansion
 
@@ -3155,6 +3180,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Global only — a keyboard mode cannot reorder the stack
     - Migrated from the old emoji-row-above-toolbar boolean
   - Symbol row `RARE` — One-tap characters and snippets above the keys, off by default
+    - A page of its own (#136) — route `rows/symbol`: the Rows & bars row is a switch and a door (ToggleNavRow), the page repeats the switch and holds height, lines, scrolling and the symbol sets
     - 5 built-in sets, all enabled by default — Email (11 entries), Web (15), Coding (32), Math (22), Punctuation (20)
     - Left-edge picker chip, shown only when more than one set is enabled
     - Entries can be whole snippets, not just characters — @gmail.com, https://, ->, => and a literal tab

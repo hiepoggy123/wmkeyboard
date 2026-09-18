@@ -2,12 +2,14 @@ package com.wasimaster.wmkeyboard.ime
 
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
+import com.wasimaster.wmkeyboard.core.prediction.WordContext
 import kotlin.math.hypot
 
 /**
  * The text and shape decisions behind the spaces the keyboard types for the
  * user — after a glided word, after a word picked from the suggestion strip,
- * after a punctuation mark — and the possessive flick that can extend one.
+ * after a punctuation mark — and the possessive and contraction flick that can
+ * extend one.
  * Pulled out of `WMKeyboardService` so they can be checked without an
  * `InputConnection` or a live keyboard. The service does the field reads and
  * the edits; these only say what a read means.
@@ -131,7 +133,7 @@ internal fun spacesBeforeGlidedWord(
 ): Boolean {
     if (fieldKind == FieldKind.URI) return false
     val last = textBefore.lastOrNull() ?: return false
-    if (last.isWhitespace()) return false
+    if (WordContext.isSpaceLike(last)) return false
     if (last in WORD_OPENERS) return false
     // The quote behind the caret opened a quotation exactly when a quote typed
     // now would close it, so the word goes straight up against it.
@@ -140,7 +142,7 @@ internal fun spacesBeforeGlidedWord(
         // A joiner at the very start of the line has no word to be attached to,
         // and nothing to be separated from either.
         val beforeJoiner = textBefore.dropLast(1).lastOrNull() ?: return false
-        return beforeJoiner.isWhitespace()
+        return WordContext.isSpaceLike(beforeJoiner)
     }
     return true
 }
@@ -238,6 +240,40 @@ internal fun possessiveFlick(
         travelled += hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y)
     }
     return travelled <= direct * POSSESSIVE_MAX_DETOUR
+}
+
+/**
+ * What a swipe from the possessive key appends, by the letter it lifts on
+ * (issue #243, after #169's `'s`). The letter is the one the suffix is spelt
+ * with, or its first: `l` for `'ll`, `r` for `'re`, `v` for `'ve`, so the
+ * gesture reads as "comma, then the rest of the word".
+ */
+internal val CONTRACTION_SUFFIXES: Map<Char, String> = linkedMapOf(
+    's' to "'s",
+    'd' to "'d",
+    't' to "'t",
+    'm' to "'m",
+    'l' to "'ll",
+    'r' to "'re",
+    'v' to "'ve",
+)
+
+/**
+ * The letter of [targets] a swipe from [from] lifted on, or null when [points]
+ * is not that swipe: the target nearest the lift, judged by [possessiveFlick]
+ * against that one key. Nearest first, so two targets whose reaches overlap on
+ * a narrow board cannot both claim the stroke, and a stroke that is not the
+ * flick toward the key it ended on is not rescued by some other key.
+ */
+internal fun contractionFlick(
+    points: List<GesturePoint>,
+    from: KeyCenter,
+    targets: List<KeyCenter>,
+    keyWidthPx: Float,
+): Char? {
+    val end = points.lastOrNull() ?: return null
+    val nearest = targets.minByOrNull { hypot(it.x - end.x, it.y - end.y) } ?: return null
+    return nearest.codePoint.toChar().takeIf { possessiveFlick(points, from, nearest, keyWidthPx) }
 }
 
 /**

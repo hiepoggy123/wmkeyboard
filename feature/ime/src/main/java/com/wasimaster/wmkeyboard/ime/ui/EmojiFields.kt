@@ -42,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wasimaster.wmkeyboard.core.emoji.EmojiOrder
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.layout.PanelFieldKind
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
@@ -113,7 +114,11 @@ internal fun rememberEmojiPanelSession(state: KeyboardUiState): EmojiPanelSessio
     val historyMode = state.settings.emojiTabMode
     val history = (if (historyMode == EmojiTabMode.MOST_USED) state.emojiFrequents else state.emojiRecents)
         .let { if (state.hiddenEmoji.isEmpty()) it else it.filterNot { e -> e in state.hiddenEmoji } }
-    val categories = remember(state.emojiCatalog) { state.emojiCatalog.map { it.category }.distinct() }
+    val categoryOrder = state.settings.emoji.categoryOrder
+    val hiddenCategories = state.settings.emoji.hiddenCategories
+    val categories = remember(state.emojiCatalog, categoryOrder, hiddenCategories) {
+        EmojiOrder.categories(state.emojiCatalog, categoryOrder, hiddenCategories)
+    }
     val hasHistory = history.isNotEmpty()
     // Kaomoji and emoticons sit after the Unicode categories: opt-in extras,
     // and appending them leaves every existing tab where muscle memory expects it.
@@ -402,10 +407,9 @@ internal fun EmojiGridField(
                 }
             }
         } else {
-            val emojis = remember(state.emojiCatalog, tab, state.hiddenEmoji) {
-                state.emojiCatalog
-                    .filter { it.category == tab && it.parent == null && it.emoji !in state.hiddenEmoji }
-                    .map { it.emoji }
+            val emojiOrder = state.settings.emoji.categoryEmojiOrder[tab].orEmpty()
+            val emojis = remember(state.emojiCatalog, tab, state.hiddenEmoji, emojiOrder) {
+                EmojiOrder.emoji(state.emojiCatalog, tab, emojiOrder, state.hiddenEmoji)
             }
             val categoryGrid = rememberLazyGridState()
             val focusedEmoji = state.focusedIndex().takeIf { page == pagerState.currentPage }
@@ -471,10 +475,14 @@ internal fun EmojiSearchPanel(
     // mode hides the toolbar row too (see KeyboardBody).
     val barCompensation =
         if (state.settings.emojiBarMode == EmojiBarMode.ALWAYS) EmojiBarHeight else 0.dp
+    // The suggestion strip for the query takes a row between this panel and
+    // the keys (#161); it comes out of the panel, so opening search still does
+    // not resize the window.
+    val strip = captureStripHeight(state)
     val height = if (fullBleed) {
-        EmojiSearchPanelHeight + fullBleedHiddenRows(state)
+        EmojiSearchPanelHeight + fullBleedHiddenRows(state) - strip
     } else {
-        EmojiSearchPanelHeight + topBarHeight(state.settings) + barCompensation
+        EmojiSearchPanelHeight + topBarHeight(state.settings) + barCompensation - strip
     }
     Column(
         modifier = Modifier

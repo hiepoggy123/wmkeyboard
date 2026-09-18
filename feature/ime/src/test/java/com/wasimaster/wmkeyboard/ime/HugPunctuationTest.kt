@@ -1,11 +1,31 @@
 package com.wasimaster.wmkeyboard.ime
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HugPunctuationTest {
 
-    private val marks = ".,?!;:"
+    private val marks = ".,?!;:\u0964\u060C\u061B\u061F\u06D4"
+
+    @Test
+    fun `a mark after a digit belongs to the number`() {
+        assertTrue(markContinuesNumber("5"))
+        assertTrue(markContinuesNumber("costs 3"))
+        assertTrue(markContinuesNumber("৫"))
+        assertFalse(markContinuesNumber("hello"))
+        assertFalse(markContinuesNumber("5 "))
+        assertFalse(markContinuesNumber(""))
+    }
+
+    @Test
+    fun `the Arabic marks hug their words like every other mark`() {
+        assertEquals(1, straySpacesBefore("كيف ", '؟', marks))
+        assertEquals(1, straySpacesBefore("نعم ", '،', marks))
+        assertEquals(1, straySpacesBefore("هذا ", '؛', marks))
+        assertEquals(1, straySpacesBefore("ختم ", '۔', marks))
+    }
 
     @Test
     fun `a space between a word and a mark is taken back`() {

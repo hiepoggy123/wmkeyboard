@@ -24,11 +24,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
+      buildable: ${{ steps.v.outputs.buildable }}
     steps:
       - uses: actions/checkout@v4
       - id: v
         run: |
           declared=$(grep '^wmkb.versionName=' gradle.properties | cut -d= -f2)
+          # Tags older than this pipeline keep the version in
+          # app/build.gradle.kts and cannot be built by it. They were tagged
+          # after the fact so their notes have somewhere to live, so stand the
+          # run down rather than failing it; their releases are made by hand.
+          if [ -z "$declared" ]; then
+            echo "::notice::${{ github.ref_name }} has no wmkb.versionName and predates this workflow. Nothing to build."
+            {
+              echo "version="
+              echo "buildable=false"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "buildable=true" >> "$GITHUB_OUTPUT"
           echo "version=$declared" >> "$GITHUB_OUTPUT"
           if [ "${{ github.ref_type }}" = 'tag' ]; then
             tag='${{ github.ref_name }}'
@@ -42,6 +56,7 @@ jobs:
   apks:
     name: Signed APKs (direct download)
     needs: verify
+    if: needs.verify.outputs.buildable == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -91,10 +106,20 @@ jobs:
           WMKB_UNSPLASH_API_KEY: ${{ secrets.WMKB_UNSPLASH_API_KEY }}
           WMKB_PEXELS_API_KEY: ${{ secrets.WMKB_PEXELS_API_KEY }}
           WMKB_DROPBOX_APP_KEY: ${{ secrets.WMKB_DROPBOX_APP_KEY }}
-        # Both flavors compile at once and share one Kotlin daemon, whose 2 GB
-        # heap (gradle.properties) is sized for a 16 GB laptop next to an IDE.
-        # The runner has nothing else on it, so give the daemon room.
-        run: ./gradlew assembleFullRelease assembleLiteRelease -Pkotlin.daemon.jvmargs=-Xmx4g --stacktrace
+        # All four flavour combinations compile at once and share one Kotlin
+        # daemon, whose 2 GB heap (gradle.properties) is sized for a 16 GB
+        # laptop next to an IDE. The runner has nothing else on it, so give the
+        # daemon room.
+        #
+        # The `languages` flavour changes only which res/values-xx are packaged,
+        # but Gradle still gives each variant its own Kotlin compilation, so
+        # this is roughly twice the work the two-flavour build was. It ran in
+        # about 12 minutes; the timeout above has the room.
+        run: |
+          ./gradlew \
+            assembleFullIntlRelease assembleFullEnRelease \
+            assembleLiteIntlRelease assembleLiteEnRelease \
+            -Pkotlin.daemon.jvmargs=-Xmx4g --stacktrace
 
       # Versioned filenames (wmkeyboard-0.3.0-vc7-full-arm64-v8a.apk) so APKs
       # from different releases can sit in the same Downloads folder without
@@ -111,25 +136,38 @@ jobs:
             name=${name%-release}
             cp "$apk" "dist/wmkeyboard-${version}-vc${code}-${name}.apk"
           done
-          # R8 mappings, one per flavour (ABI splits share one). Taken from this
+          # R8 mappings, one per variant (ABI splits share one). Taken from this
           # job's build, not the bundle job's: the Play flags change what R8
           # renames, so the AAB's map does not retrace these APKs. The AAB
           # carries its own map in BUNDLE-METADATA, which Play reads by itself.
-          for flavor in full lite; do
-            map="app/build/outputs/mapping/${flavor}Release/mapping.txt"
-            if [ ! -f "$map" ]; then
-              echo "::error::No R8 mapping at $map"
-              exit 1
-            fi
-            gzip -9c "$map" > "dist/wmkeyboard-${version}-vc${code}-${flavor}-mapping.txt.gz"
+          #
+          # Four now rather than two. The two language builds are separate R8
+          # runs, so their maps are not interchangeable even though the Kotlin
+          # that went in was identical.
+          for capability in full lite; do
+            for language in Intl En; do
+              lower=$(echo "$language" | tr '[:upper:]' '[:lower:]')
+              map="app/build/outputs/mapping/${capability}${language}Release/mapping.txt"
+              if [ ! -f "$map" ]; then
+                echo "::error::No R8 mapping at $map"
+                exit 1
+              fi
+              gzip -9c "$map" \
+                > "dist/wmkeyboard-${version}-vc${code}-${capability}-${lower}-mapping.txt.gz"
+            done
           done
-          # Native symbols, full only: lite sets debugSymbolLevel NONE.
-          syms=app/build/outputs/native-debug-symbols/fullRelease/native-debug-symbols.zip
-          if [ -f "$syms" ]; then
-            cp "$syms" "dist/wmkeyboard-${version}-vc${code}-full-native-symbols.zip"
-          else
-            echo "::warning::No native debug symbols at $syms"
-          fi
+          # Native symbols, full only: lite sets debugSymbolLevel NONE. Both
+          # language builds carry the same .so files, but each variant writes
+          # its own zip and the release grid links them separately.
+          for language in Intl En; do
+            lower=$(echo "$language" | tr '[:upper:]' '[:lower:]')
+            syms="app/build/outputs/native-debug-symbols/full${language}Release/native-debug-symbols.zip"
+            if [ -f "$syms" ]; then
+              cp "$syms" "dist/wmkeyboard-${version}-vc${code}-full-${lower}-native-symbols.zip"
+            else
+              echo "::warning::No native debug symbols at $syms"
+            fi
+          done
           # nullglob: with no symbols zip, a literal `*.zip` would reach
           # sha256sum and fail the step under the runner's `bash -e`.
           shopt -s nullglob
@@ -148,6 +186,7 @@ jobs:
   bundle:
     name: Play bundle (artifact only)
     needs: verify
+    if: needs.verify.outputs.buildable == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -254,27 +293,108 @@ jobs:
     if: github.ref_type == 'tag' && !inputs.dry_run
     runs-on: ubuntu-latest
     steps:
+      # Full history: the notes script finds the previous tag and walks the
+      # commits between it and this one.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v4
         with:
           name: release-apks
           path: dist
 
+      # The body is built from the artifacts that were actually produced, so
+      # the download grid carries real file sizes and never links a file the
+      # build did not make.
+      - name: Build release notes
+        id: notes
+        run: |
+          code=$(grep '^wmkb.versionCode=' gradle.properties | cut -d= -f2)
+          .github/scripts/release-notes.sh \
+            '${{ needs.verify.outputs.version }}' \
+            "$code" \
+            '${{ github.ref_name }}' \
+            dist \
+            '${{ github.repository }}' > release-body.md
+          echo "--- release body ---"
+          cat release-body.md
+
+      # Done with the gh CLI rather than softprops/action-gh-release, which
+      # failed the 0.5.9 publish with "Error creating asset temp dir" and left
+      # a draft carrying three of its twelve files. Uploading one file at a
+      # time is slower and does not fall over.
+      #
+      # The release is made as a draft, filled, and only then published, so it
+      # never appears to a watcher with half its APKs attached. The whole step
+      # is idempotent: a re-run edits and re-uploads over whatever the last
+      # attempt managed.
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          TITLE: WM Keyboard ${{ needs.verify.outputs.version }}
+        run: |
+          shopt -s nullglob
+          files=(dist/*.apk dist/*-mapping.txt.gz dist/*-native-symbols.zip dist/SHA256SUMS.txt)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::Nothing in dist/ to attach"
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$REPO" \
+              --title "$TITLE" --notes-file release-body.md
+          else
+            gh release create "$TAG" --repo "$REPO" --draft \
+              --title "$TITLE" --notes-file release-body.md
+          fi
+          for f in "${files[@]}"; do
+            echo "uploading $(basename "$f")"
+            gh release upload "$TAG" --repo "$REPO" --clobber "$f"
+          done
+          gh release edit "$TAG" --repo "$REPO" --draft=false --latest
+
+  # Points the bug report form at the version just published, so reporters
+  # are asked to confirm they are on it. Runs after publish, so a failed or
+  # dry run never advertises a version nobody can download. Commits to main,
+  # not the tag: a tag can be cut from an older commit and the form must
+  # follow main.
+  issue-template:
+    name: Bump bug report version
+    needs: [verify, publish]
+    if: github.ref_type == 'tag' && !inputs.dry_run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
         with:
-          name: WM Keyboard ${{ needs.verify.outputs.version }}
-          generate_release_notes: true
-          files: |
-            dist/*.apk
-            dist/*-mapping.txt.gz
-            dist/*-native-symbols.zip
-            dist/SHA256SUMS.txt
-          body: |
-            Install the APK that matches your phone's CPU. `arm64-v8a` is
-            right for essentially every phone sold since 2017.
+          ref: main
 
-            **full** is the complete build. **lite** drops the ML Kit and
-            on-device model features (handwriting, OCR, document scanning,
-            Whisper, the local LLM) for a much smaller download.
-
-            Verify what you downloaded against `SHA256SUMS.txt`.
+      - name: Rewrite and push
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+        run: |
+          file=.github/ISSUE_TEMPLATE/bug_report.yml
+          old=$(sed -n 's/^# latest-version: //p' "$file")
+          if [ -z "$old" ]; then
+            echo "::error::$file has no '# latest-version:' line"
+            exit 1
+          fi
+          if [ "$old" = "$VERSION" ]; then
+            echo "Bug report already names $VERSION"
+            exit 0
+          fi
+          # Dots escaped so 0.5.9 does not also match 0x5y9.
+          pattern=$(printf '%s' "$old" | sed 's/\./\\./g')
+          sed -i "s/$pattern/$VERSION/g" "$file"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add "$file"
+          git commit -m "chore(issues): bug report asks for $VERSION"
+          # main may move while the release builds; rebase and retry.
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push origin HEAD:main && exit 0
+            sleep 5
+          done
+          echo "::error::Could not push the bug report bump to main"
+          exit 1

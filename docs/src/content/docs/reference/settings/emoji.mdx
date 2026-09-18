@@ -1,6 +1,6 @@
 ---
 title: "Emoji"
-description: "Every row on the Emoji settings screen: access, suggestions, skin tones, the panel, the emoji row, fonts, and keyword packs."
+description: "Every row on the Emoji settings screen: access, suggestions, the emoji row, skin tones, fonts, the panel page, and keyword packs."
 sidebar:
   order: 14
 ---
@@ -27,10 +27,14 @@ The Emoji screen collects every setting behind emoji access, suggestions, the pa
 |---|---|---|---|
 | Emoji button in toolbar | Toggle | On / Off | On |
 | Full-screen emoji panel | Toggle | On / Off | On |
+| Panel layout | Nav row | n/a | opens the emoji panel's layout editor |
+| Emoji panel | Nav row | n/a | opens the [Emoji panel](#emoji-panel) page |
 
 **Emoji button in toolbar** keeps a one-tap emoji launcher in the top bar even while suggestions are showing.
 
 **Full-screen emoji panel** makes the panel take over the whole keyboard: the toolbar, emoji row, and symbol row step aside, and the category tabs move into the row they leave behind, next to a back button. Turn it off to keep the toolbar within reach while picking emoji.
+
+**Panel layout** and **Emoji panel** are the two doors to the panel itself, side by side: the first edits the panel's grid of tabs, search and rows, the second holds every other panel setting. They sit together in this group so that everything about the panel starts from one place.
 
 Two more emoji-access toggles live on a different screen. See [Details & edge cases](#details--edge-cases) below.
 
@@ -51,24 +55,11 @@ Two more emoji-access toggles live on a different screen. See [Details & edge ca
 Typing `:cat:` to search or auto-commit an emoji from the suggestion strip is a separate toggle on the [Typing](/reference/settings/typing/) screen, not this one. See [Details & edge cases](#details--edge-cases).
 :::
 
-### Skin tone
-
-<SettingsPath path="Emoji / Skin tone" />
-
-| Setting | Control | Options / range | Default |
-|---|---|---|---|
-| Default skin tone | Choice | ✋ / ✋🏻 / ✋🏼 / ✋🏽 / ✋🏾 / ✋🏿 | ✋ (None) |
-| Override with last used | Toggle | On / Off | On |
-
-**Default skin tone** sets the Fitzpatrick tone applied to toned emoji (👍, 🙏, 🧑…) wherever they're drawn: the emoji panel's grid, the suggestion strip and emoji search results.
-
-**Override with last used**, on by default, keeps a tone you picked yourself from an emoji's long-press popup ahead of that default, for that emoji only. Turn it off and the default tone wins everywhere.
-
 ### Emoji panel
 
 <SettingsPath path="Emoji / Emoji panel" />
 
-This group is a page of its own, opened from the Emoji panel row on the Emoji screen.
+This group is a page of its own, opened from the Emoji panel row in the Access group of the Emoji screen. On the screen itself the Emoji row and Skin tone groups come next, in that order; they are documented below.
 
 | Setting | Control | Options / range | Default |
 |---|---|---|---|
@@ -78,11 +69,12 @@ This group is a page of its own, opened from the Emoji panel row on the Emoji sc
 | Clear emoji history | Button (confirms first) | n/a | n/a |
 | Return to the keyboard after you insert | Toggle | On / Off | Off |
 | History tab | Choice | Recent / Most used | Recent |
-| Clear recents button | Toggle | On / Off | Off |
+| Clear recents button *(shown only when History tab is Recent)* | Toggle | On / Off | Off |
 | Kaomoji and Emoticons | Toggle | On / Off | Off |
 | Emoji descriptions | Toggle | On / Off | On |
 | Animated emoji | Toggle | On / Off | On |
 | Send emoji as image | Toggle | On / Off | On |
+| Emoji categories | Opens **Emoji categories** | n/a | n/a |
 | Emoji keywords | Opens **Emoji keywords** | n/a | n/a |
 
 **Grid size** is the least each cell of the emoji grid may be. A smaller size fits more columns. When **Emoji size** needs more room than that, the cells grow to fit it.
@@ -104,6 +96,8 @@ This group is a page of its own, opened from the Emoji panel row on the Emoji sc
 **Animated emoji** adds a looping preview and a **Send animated emoji** button to that same long-press popup, for the roughly 880 emoji Google publishes an animation of. Full coverage: [Animated emoji](/emoji/picker/#animated-emoji).
 
 **Send emoji as image** adds a **Send image as sticker** button to the popup for *every* emoji. It draws the emoji at 512×512 in your chosen emoji font and sends it as a WebP image. Full coverage: [Sending an emoji as a picture](/emoji/picker/#sending-an-emoji-as-a-picture).
+
+**Emoji categories** is a navigation row, not a setting stored here: it opens the sub-screen documented below, where you reorder the panel's category tabs, hide the ones you never open, and arrange the emoji inside each one.
 
 **Emoji keywords** is a navigation row, not a setting stored here: it opens the sub-screen documented below.
 
@@ -135,6 +129,19 @@ When Emoji row is set to **Own row**, a caption on this screen points to **Rows 
 <PhoneFrame caption="The Emoji row group with Own row selected.">
   {/* shot: reference/settings/emoji-row-group */}
 </PhoneFrame>
+
+### Skin tone
+
+<SettingsPath path="Emoji / Skin tone" />
+
+| Setting | Control | Options / range | Default |
+|---|---|---|---|
+| Default skin tone | Choice | ✋ / ✋🏻 / ✋🏼 / ✋🏽 / ✋🏾 / ✋🏿 | ✋ (None) |
+| Override with last used | Toggle | On / Off | On |
+
+**Default skin tone** sets the Fitzpatrick tone applied to toned emoji (👍, 🙏, 🧑…) wherever they're drawn: the emoji panel's grid, the suggestion strip and emoji search results.
+
+**Override with last used**, on by default, keeps a tone you picked yourself from an emoji's long-press popup ahead of that default, for that emoji only. Turn it off and the default tone wins everywhere.
 
 ### Emoji style
 
@@ -169,6 +176,34 @@ While the download runs the button becomes a progress bar, and a failure leaves 
 
 Long-pressing any emoji in the panel opens its favourite and skin-tone controls: two-person emoji like 🤝 let you set each person's tone independently.
 
+## Emoji categories
+
+<SettingsPath path="Emoji / Emoji panel / Emoji categories" />
+
+The emoji panel ships its categories in the order Unicode defines them, which is rarely the order you reach for them in. This screen is where that changes. Nothing here touches the emoji themselves: it is an arrangement laid over the catalogue, and resetting it puts everything back.
+
+| Control | What it does |
+|---|---|
+| Drag handle | Moves a category's tab in the panel's tab strip |
+| Eye | Hides a category's tab, or brings it back |
+| The row itself | Opens that category's emoji, to arrange them |
+| Reset every order | Puts the tabs, the hidden ones and every category's emoji back the way they shipped |
+
+**Reordering a tab.** Drag a row by its handle. The order you leave it in is the order the tabs appear in the panel, left to right.
+
+**Hiding a tab.** Press the eye on a category you never open and its tab leaves the panel. The emoji are still found by [emoji search](/emoji/picker/#searching-for-an-emoji), and they still appear in the suggestion strip — only the tab goes. The last visible category cannot be hidden: the panel pages by category, so a panel with none would have nothing to page.
+
+**Arranging the emoji inside a category.** Press a category to open its grid, then press and hold an emoji and drag it where you want it. Dragging to the top or bottom edge scrolls. The order you leave is the order that category's page shows. **Reset** in the top bar puts one category back on its own.
+
+Three tabs are deliberately not listed here:
+
+- **Recent** (or **Most used**) orders itself by what you use, with your favourites pinned to the front. Reorder those from any favourited emoji's long-press popup.
+- **Kaomoji** and **Emoticons** are switched on and off by the **Kaomoji and Emoticons** toggle above, and always sit at the end of the strip.
+
+<PhoneFrame caption="The Emoji categories screen: drag to reorder a tab, press the eye to hide one.">
+  {/* shot: reference/settings/emoji-categories-screen */}
+</PhoneFrame>
+
 ## Emoji keywords
 
 <SettingsPath path="Emoji / Emoji panel / Emoji keywords" />
@@ -182,7 +217,7 @@ Reached from the **Emoji keywords** row in the Emoji panel group above, this sub
 
 **Download automatically** fetches a keyword pack (roughly 100 KB) in the background the first time you enable a language you type in. Off leaves it to the Download button next to each language below.
 
-**Download more** sits in the same group and opens the addon catalogue filtered to emoji keyword packs, which is where a pack lives if it isn't one of the 125 the data repository carries.
+**Download more** sits in the same group and opens the addon catalogue filtered to emoji keyword packs, which is where a pack lives if it isn't one of the 126 the data repository carries.
 
 Below that, one group appears per language you've enabled (plus any language that already has a downloaded or imported pack, even if you've since turned it off). Each group shows:
 
@@ -196,7 +231,7 @@ Packs stack on top of the bundled English and Bangla keywords rather than replac
   {/* shot: reference/settings/emoji-keywords-screen */}
 </PhoneFrame>
 
-The data repository currently covers 125 downloadable language packs: fewer than its raw language count because a handful of codes get remapped or merged with duplicates, and a few packs the source data leaves nearly empty are left out.
+The data repository currently covers 126 downloadable language packs: fewer than its raw language count because a handful of codes get remapped or merged with duplicates, and a few packs the source data leaves nearly empty are left out.
 
 Each enabled language's own settings screen also carries a matching **Emoji** group with the same download row and a shortcut back to this same screen, so you can start a download from either place and see the same state in both.
 
@@ -205,6 +240,7 @@ Each enabled language's own settings screen also carries a matching **Emoji** gr
 - **Two more emoji-access shortcuts live on a different screen.** **Emoji key instead of 🌐** (on by default) turns the <KeyCap>🌐</KeyCap> key into an emoji-panel launcher. **Comma key opens emoji** (off by default) does the same to the comma key. Both are under <SettingsPath path="Layout & size / Bottom row keys" />, not here. Turning on the comma-key version also removes the emoji tool from the toolbar, per its own info text.
 - **Inline `:word:` emoji search is a Typing setting, not an Emoji one.** <SettingsPath path="Typing / Suggestions / Inline emoji search" /> (on by default) turns a colon at a word boundary into a live emoji search in the suggestion strip, and auto-commits exact shortcode matches like `:tada:`. It's unrelated to the **Emoji suggestions** toggle above.
 - **Press an emoji suggestion only appears while Emoji suggestions is on.** Turning suggestions off hides the choice entirely rather than disabling it.
+- **Clear recents button only appears while History tab is Recent.** The Most used tab is a computed ranking rather than a remembered list, so there's nothing on it to clear.
 - **Emoji row content, count, and scrolling only appear while Emoji row is not Off.**
 - **Installed and Custom emoji fonts each reveal their own extra controls.** A font list pulled from Addons for Installed, an import button for Custom, shows only while that choice is selected.
 - **Kaomoji and emoticons insert as plain text.** Tapping one from those two tabs types it directly. It never joins your emoji recents or most-used history.

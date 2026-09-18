@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
+import com.wasimaster.wmkeyboard.core.settings.BackspaceSwipeUnit
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.AlertDialog
@@ -87,6 +88,14 @@ internal fun KeySoundGroup(
     // here and captured. The format also puts the number through the locale,
     // which is what gives Bengali or Arabic digits.
     val percentFormat = stringResource(R.string.typing_value_percent)
+    // Custom and Pack read their id from different fields, and a preview that
+    // passes neither plays the system click instead of the sound being previewed
+    // — which reads as the chosen sound not working at all. Resolved once here
+    // so every preview on this screen sounds what the keyboard will.
+    val soundId = when (settings.sound.style) {
+        KeySoundStyle.PACK -> settings.sound.packId
+        else -> settings.sound.customId
+    }
     SettingsGroup(stringResource(R.string.hardware_sound_group_title)) {
         item {
             ToggleSetting(
@@ -97,7 +106,9 @@ internal fun KeySoundGroup(
             ) {
                 scope.launch { repository.setKeySound(it) }
                 if (it) {
-                    KeySoundPlayer.preview(context, settings.sound.style, settings.sound.volume)
+                    KeySoundPlayer.preview(
+                        context, settings.sound.style, settings.sound.volume, soundId,
+                    )
                 }
             }
         }
@@ -131,6 +142,14 @@ internal fun KeySoundGroup(
                 val soundStore = remember { SoundStore.get(context) }
                 val soundRevision by soundStore.revision.collectAsStateWithLifecycle()
                 val installedSounds = remember(soundRevision) { soundStore.sounds() }
+                // Sound pack is the same shape of chip and needs the same
+                // fallback: the pack list below only appears once the style is
+                // Pack, so a chip that switched the style without choosing a
+                // pack left every key on the system click until the user
+                // guessed that a second tap was owed.
+                val packStore = remember { SoundPackStore.get(context) }
+                val packRevision by packStore.revision.collectAsStateWithLifecycle()
+                val installedPacks = remember(packRevision) { packStore.packs() }
                 // Chips rather than a segmented row. Six equal segments across a
                 // phone leave ~55dp of label each, which truncated "Chime" to
                 // "Chim" and "Custom" to "Custo"; a segmented row set to scroll is
@@ -146,35 +165,57 @@ internal fun KeySoundGroup(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     for (style in KeySoundStyle.entries) {
-                        val custom = style == KeySoundStyle.CUSTOM
                         FilterChip(
                             selected = settings.sound.style == style,
                             onClick = {
                                 scope.launch {
-                                    if (custom) {
-                                        // Falls back to the first installed sound
-                                        // when none has been chosen yet, so the
-                                        // chip always makes a sound. With nothing
-                                        // installed it still selects — the section
-                                        // it reveals is where a sound is imported,
-                                        // so a disabled chip would hide its own
-                                        // remedy.
-                                        val id = settings.sound.customId
-                                            .takeIf { id -> installedSounds.any { it.id == id } }
-                                            ?: installedSounds.firstOrNull()?.id
-                                        if (id == null) {
+                                    when (style) {
+                                        KeySoundStyle.CUSTOM -> {
+                                            // Falls back to the first installed
+                                            // sound when none has been chosen yet,
+                                            // so the chip always makes a sound.
+                                            // With nothing installed it still
+                                            // selects — the section it reveals is
+                                            // where a sound is imported, so a
+                                            // disabled chip would hide its own
+                                            // remedy.
+                                            val id = settings.sound.customId
+                                                .takeIf { id -> installedSounds.any { it.id == id } }
+                                                ?: installedSounds.firstOrNull()?.id
+                                            if (id == null) {
+                                                repository.setKeySoundStyle(style)
+                                            } else {
+                                                repository.setKeySoundCustomId(id)
+                                                KeySoundPlayer.preview(
+                                                    context, style, settings.sound.volume, id,
+                                                )
+                                            }
+                                        }
+                                        KeySoundStyle.PACK -> {
+                                            // Same, for packs. The whole keystroke
+                                            // previews, since a pack that recorded
+                                            // the key coming back up is only half
+                                            // itself on the way down.
+                                            val id = settings.sound.packId
+                                                .takeIf { id -> installedPacks.any { it.id == id } }
+                                                ?: installedPacks.firstOrNull()?.id
+                                            if (id == null) {
+                                                repository.setKeySoundStyle(style)
+                                            } else {
+                                                repository.setKeySoundPackId(id)
+                                                KeySoundPlayer.previewStroke(
+                                                    context, style, settings.sound.volume, id,
+                                                )
+                                            }
+                                        }
+                                        else -> {
                                             repository.setKeySoundStyle(style)
-                                        } else {
-                                            repository.setKeySoundCustomId(id)
+                                            // Sound the freshly picked style so the
+                                            // user hears the choice immediately.
                                             KeySoundPlayer.preview(
-                                                context, style, settings.sound.volume, id,
+                                                context, style, settings.sound.volume,
                                             )
                                         }
-                                    } else {
-                                        repository.setKeySoundStyle(style)
-                                        // Sound the freshly picked style so the user
-                                        // hears the choice immediately.
-                                        KeySoundPlayer.preview(context, style, settings.sound.volume)
                                     }
                                 }
                             },
@@ -223,10 +264,11 @@ internal fun KeySoundGroup(
                 range = 0.05f..1f,
                 display = { percentFormat.format((it * 100).roundToInt()) },
                 default = SettingsDefaults.sound.volume,
+                // Debounced inside the player, so dragging previews smoothly.
+                // The store waits for the finger to lift; the sound does not.
+                preview = { KeySoundPlayer.preview(context, settings.sound.style, it, soundId) },
             ) {
                 scope.launch { repository.setKeySoundVolume(it) }
-                // Debounced inside the player, so dragging previews smoothly.
-                KeySoundPlayer.preview(context, settings.sound.style, it)
             }
         }
     }
@@ -609,6 +651,92 @@ internal fun KeyPressSettings(
 
 
 
+    // Moved here from Typing (#136): a swipe on the backspace key is a thing a
+    // key does, and this is the screen for what keys do. The string names
+    // keep their typing_ prefix so nothing that links to them by name breaks.
+    SettingsGroup(stringResource(R.string.typing_group_backspace_title)) {
+        item {
+            ToggleSetting(
+                R.string.typing_backspace_swipe_title,
+                stringResource(R.string.typing_backspace_swipe_subtitle),
+                settings.backspaceSwipeDelete,
+                info = stringResource(R.string.typing_backspace_swipe_info),
+                default = SettingsDefaults.backspaceSwipeDelete,
+            ) { scope.launch { repository.setBackspaceSwipeDelete(it) } }
+        }
+        if (settings.backspaceSwipeDelete) {
+            item {
+                ChoiceSetting(
+                    R.string.typing_backspace_unit_title,
+                    subtitle = stringResource(R.string.typing_backspace_unit_subtitle),
+                    info = stringResource(R.string.typing_backspace_unit_info),
+                    options = listOf(
+                        BackspaceSwipeUnit.WORD to
+                            stringResource(R.string.typing_backspace_unit_word),
+                        BackspaceSwipeUnit.CHARACTER to
+                            stringResource(R.string.typing_backspace_unit_character),
+                    ),
+                    selected = settings.textEditing.backspaceSwipeUnit,
+                    default = SettingsDefaults.textEditing.backspaceSwipeUnit,
+                    detail = { unit ->
+                        ChoiceDetail(
+                            stringResource(
+                                if (unit == BackspaceSwipeUnit.WORD) {
+                                    R.string.typing_backspace_unit_word_desc
+                                } else {
+                                    R.string.typing_backspace_unit_character_desc
+                                },
+                            ),
+                        )
+                    },
+                ) { scope.launch { repository.setBackspaceSwipeUnit(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_backspace_preview_title,
+                    stringResource(R.string.typing_backspace_preview_subtitle),
+                    settings.textEditing.backspaceSwipePreview,
+                    info = stringResource(R.string.typing_backspace_preview_info),
+                    default = SettingsDefaults.textEditing.backspaceSwipePreview,
+                ) { scope.launch { repository.setBackspaceSwipePreview(it) } }
+            }
+            if (settings.textEditing.backspaceSwipeUnit == BackspaceSwipeUnit.WORD) {
+                item {
+                    SliderSetting(
+                        R.string.typing_backspace_step_title,
+                        subtitle = stringResource(R.string.typing_backspace_step_subtitle),
+                        value = settings.textEditing.backspaceWordStepDp.toFloat(),
+                        range = 32f..120f,
+                        display = { context.getString(R.string.typing_value_dp, it.toInt()) },
+                        info = stringResource(R.string.typing_backspace_step_info),
+                        default = SettingsDefaults.textEditing.backspaceWordStepDp.toFloat(),
+                    ) { scope.launch { repository.setBackspaceWordStepDp(it.toInt()) } }
+                }
+            } else {
+                item {
+                    SliderSetting(
+                        R.string.typing_backspace_char_step_title,
+                        subtitle = stringResource(R.string.typing_backspace_char_step_subtitle),
+                        value = settings.textEditing.backspaceCharStepDp.toFloat(),
+                        range = 8f..48f,
+                        display = { context.getString(R.string.typing_value_dp, it.toInt()) },
+                        info = stringResource(R.string.typing_backspace_char_step_info),
+                        default = SettingsDefaults.textEditing.backspaceCharStepDp.toFloat(),
+                    ) { scope.launch { repository.setBackspaceCharStepDp(it.toInt()) } }
+                }
+            }
+        }
+        item {
+            ToggleSetting(
+                R.string.typing_forward_delete_swipe_title,
+                stringResource(R.string.typing_forward_delete_swipe_subtitle),
+                settings.textEditing.forwardDeleteSwipe,
+                info = stringResource(R.string.typing_forward_delete_swipe_info),
+                default = SettingsDefaults.textEditing.forwardDeleteSwipe,
+            ) { scope.launch { repository.setForwardDeleteSwipe(it) } }
+        }
+    }
+
     // The alternates ("more keys") get their own group rather than joining the
     // bubble's: they are a different popup, sized against a grid instead of a
     // fixed box, and sharing the bubble's font slider was what kept them small
@@ -681,7 +809,7 @@ internal fun KeyPressSettings(
                 R.string.keypress_long_press_delay_title,
                 subtitle = stringResource(R.string.keypress_long_press_delay_subtitle),
                 value = settings.longPressDelayMs.toFloat(),
-                range = 150f..800f,
+                range = 100f..800f,
                 display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
                 info = stringResource(R.string.keypress_long_press_delay_info),
                 default = SettingsDefaults.longPressDelayMs.toFloat(),
@@ -710,6 +838,28 @@ internal fun KeyPressSettings(
             ) { scope.launch { repository.setDeleteRepeatIntervalMs(it.toInt()) } }
         }
         item {
+            ToggleSetting(
+                R.string.keypress_hold_words_title,
+                stringResource(R.string.keypress_hold_words_subtitle),
+                settings.textEditing.deleteHoldDeletesWords,
+                info = stringResource(R.string.keypress_hold_words_info),
+                default = SettingsDefaults.textEditing.deleteHoldDeletesWords,
+            ) { scope.launch { repository.setDeleteHoldDeletesWords(it) } }
+        }
+        if (settings.textEditing.deleteHoldDeletesWords) {
+            item {
+                SliderSetting(
+                    R.string.keypress_word_delete_repeat_title,
+                    subtitle = stringResource(R.string.keypress_word_delete_repeat_subtitle),
+                    value = settings.keyRepeat.wordDeleteMs.toFloat(),
+                    range = 60f..500f,
+                    display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                    info = stringResource(R.string.keypress_word_delete_repeat_info),
+                    default = SettingsDefaults.keyRepeat.wordDeleteMs.toFloat(),
+                ) { scope.launch { repository.setWordDeleteRepeatIntervalMs(it.toInt()) } }
+            }
+        }
+        item {
             SliderSetting(
                 R.string.keypress_space_repeat_title,
                 subtitle = stringResource(R.string.keypress_space_repeat_subtitle),
@@ -719,6 +869,17 @@ internal fun KeyPressSettings(
                 info = stringResource(R.string.keypress_space_repeat_info),
                 default = SettingsDefaults.keyRepeat.spaceMs.toFloat(),
             ) { scope.launch { repository.setSpaceRepeatIntervalMs(it.toInt()) } }
+        }
+        item {
+            SliderSetting(
+                R.string.keypress_custom_repeat_title,
+                subtitle = stringResource(R.string.keypress_custom_repeat_subtitle),
+                value = settings.keyRepeat.customKeyMs.toFloat(),
+                range = 20f..200f,
+                display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                info = stringResource(R.string.keypress_custom_repeat_info),
+                default = SettingsDefaults.keyRepeat.customKeyMs.toFloat(),
+            ) { scope.launch { repository.setCustomKeyRepeatIntervalMs(it.toInt()) } }
         }
         item {
             SliderSetting(
@@ -811,10 +972,12 @@ internal fun KeyPressHapticsSettings(
                     display = { context.getString(R.string.keypress_value_ms, it.roundToInt()) },
                     info = stringResource(R.string.keypress_haptic_strength_info),
                     default = SettingsDefaults.haptics.strengthMs.toFloat(),
+                    // Debounced inside the player, so dragging previews smoothly.
+                    preview = {
+                        HapticPlayer.preview(context, settings.haptics.style, settings.haptics.amplitude, it.toInt(), view)
+                    },
                 ) {
                     scope.launch { repository.setHapticStrengthMs(it.toInt()) }
-                    // Debounced inside the player, so dragging previews smoothly.
-                    HapticPlayer.preview(context, settings.haptics.style, settings.haptics.amplitude, it.toInt(), view)
                 }
             }
         }
@@ -830,9 +993,12 @@ internal fun KeyPressHapticsSettings(
                     },
                     info = stringResource(R.string.keypress_haptic_intensity_info),
                     default = SettingsDefaults.haptics.amplitude.toFloat(),
+                    // Debounced inside the player, so dragging previews smoothly.
+                    preview = {
+                        HapticPlayer.preview(context, settings.haptics.style, it.toInt(), settings.haptics.strengthMs, view)
+                    },
                 ) {
                     scope.launch { repository.setHapticAmplitude(it.toInt()) }
-                    HapticPlayer.preview(context, settings.haptics.style, it.toInt(), settings.haptics.strengthMs, view)
                 }
             }
         }

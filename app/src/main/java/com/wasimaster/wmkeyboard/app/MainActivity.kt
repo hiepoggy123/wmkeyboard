@@ -22,7 +22,9 @@ import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -85,26 +87,27 @@ import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
+import androidx.compose.material3.adaptive.layout.AnimatedPane
+import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
+import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.Stable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -112,11 +115,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import com.wasimaster.wmkeyboard.core.ui.WmSlider
+import com.wasimaster.wmkeyboard.core.ui.rememberLiveSlider
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import androidx.compose.ui.platform.LocalConfiguration
 import com.wasimaster.wmkeyboard.core.settings.DeviceForm
 import com.wasimaster.wmkeyboard.core.settings.applyDeviceForm
+import com.wasimaster.wmkeyboard.core.settings.isTelevision
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -136,8 +141,10 @@ import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.window.core.layout.WindowWidthSizeClass
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.util.PlayServices
 import com.wasimaster.wmkeyboard.ime.ui.LocalIconSet
@@ -156,7 +163,6 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.RowScope
@@ -169,8 +175,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material3.RadioButton
@@ -178,6 +182,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.draw.rotate
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material3.BottomSheetDefaults
+import com.wasimaster.wmkeyboard.core.ui.ScrollRail
+import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
 
 /**
  * Settings app: setup wizard plus every keyboard option, Material 3 +
@@ -330,8 +337,11 @@ class MainActivity : FragmentActivity() {
      */
     private fun navFor(intent: Intent?): PendingNav? {
         if (intent == null) return null
-        AddonDeepLink.routeFor(intent.data)?.let { return PendingNav(route = it) }
-        SettingsDeepLink.parse(intent.data)?.let { target -> return pendingFor(target) }
+        // An https /open/ address is one of ours wearing a web page's
+        // clothes; unwrap it first and everything below treats it the same.
+        val link = WebOpenLink.appLink(intent.data) ?: intent.data?.toString()
+        AddonDeepLink.routeFor(link)?.let { return PendingNav(route = it) }
+        SettingsDeepLink.parse(link)?.let { target -> return pendingFor(target) }
         // The extras are the same two addresses in intent form, for a caller
         // holding an Intent rather than writing a URL — the keyboard's own
         // "open settings", and any app that names the activity explicitly.
@@ -408,14 +418,14 @@ internal fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Uni
         val base = when {
             supportsDynamic && dark -> dynamicDarkColorScheme(context)
             supportsDynamic -> dynamicLightColorScheme(context)
-            dark -> darkColorScheme()
-            else -> lightColorScheme()
+            dark -> WmDarkColors
+            else -> WmLightColors
         }
-        if (settings.themeMode == ThemeMode.AMOLED) {
-            base.copy(background = Color.Black, surface = Color.Black)
-        } else {
-            base
-        }
+        // Every surface role, not the page alone — see [amoled]. Applied to a
+        // Monet scheme too: the tones it swaps in are dark enough that their
+        // hue is below the threshold the eye resolves, so a wallpaper-coloured
+        // scheme keeps its character everywhere the user can actually see it.
+        if (settings.themeMode == ThemeMode.AMOLED) base.amoled() else base
     }
     // Every settings surface draws tool icons, so the user's icon set is
     // provided here rather than per screen — the Tools list and the keyboard
@@ -424,8 +434,16 @@ internal fun AppTheme(settings: KeyboardSettings, content: @Composable () -> Uni
     // The type scale is the app's, not Material's — see [WmTypography]. It is
     // scoped to this theme, so it dresses the settings app and the screens the
     // core modules contribute to it, and leaves the keyboard itself alone.
-    MaterialTheme(colorScheme = scheme, typography = WmTypography) {
-        CompositionLocalProvider(LocalIconSet provides iconSet, content = content)
+    // On a television the D-pad is the only pointer there is, so the app says
+    // where it is pointing (see [TvFocusIndication]). Nothing is provided
+    // anywhere else, so a phone keeps the ripple and pays one boolean.
+    val television = remember(context) { context.isTelevision() }
+    val indication = remember(television, scheme.primary) {
+        if (television) arrayOf(LocalIndication provides TvFocusIndication(scheme.primary))
+        else emptyArray()
+    }
+    MaterialTheme(colorScheme = scheme, typography = WmTypography, shapes = WmShapes) {
+        CompositionLocalProvider(LocalIconSet provides iconSet, *indication, content = content)
     }
 }
 
@@ -474,18 +492,125 @@ private fun SettingsNavHost(
     // as a list and an unrelated page. Published for the whole graph here;
     // each destination adds its own scope, and the rows and headings pick both
     // up without being handed anything.
+    // Wide enough for the home list and a screen out of it to sit side by side,
+    // and past onboarding, which owns the whole window while it runs.
+    val twoPane = rememberWideWindow() && settings.onboardingDone
+    // Which home row the screen in the detail pane came from, so the list can
+    // show where the user is. Held rather than derived from the back stack: the
+    // stack's top is the *current* screen, which three steps into Tools is a
+    // tool's own page and not the row that opened it.
+    var openedFrom by rememberSaveable { mutableStateOf<String?>(null) }
+    val topRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
         CompositionLocalProvider(
             // A shared element is a motion and has no still version, so
-            // reduced motion switches it off at the source.
-            LocalSharedTransition provides if (settings.reduceMotion) null else this,
+            // reduced motion switches it off at the source. Two panes switch it
+            // off as well, and for a different reason: a flight needs one end
+            // visible and the other not, and here the home row a screen flew
+            // from is still on screen beside it.
+            LocalSharedTransition provides
+                if (settings.reduceMotion || twoPane) null else this,
             LocalSettingsCrumbTrail provides crumbs,
             LocalAdvancedFolds provides folds,
+            LocalTwoPane provides twoPane,
         ) {
-            SettingsNavGraph(navController, repository, settings, pending, onPendingHandled)
+            if (twoPane) {
+                SettingsTwoPane(
+                    list = {
+                        HomeScreen(
+                            settings = settings,
+                            selectedRoute = if (topRoute == HomeRoute) null else openedFrom,
+                            onNavigate = { route ->
+                                openedFrom = route
+                                // From the list pane the detail always replaces
+                                // what is in it rather than stacking on top:
+                                // the pane beside it *is* the step back, so a
+                                // stack of home rows would be one the user
+                                // never took.
+                                navController.navigate(route) {
+                                    popUpTo(HomeRoute)
+                                    launchSingleTop = true
+                                }
+                            },
+                        )
+                    },
+                    detail = {
+                        SettingsNavGraph(
+                            navController,
+                            repository,
+                            settings,
+                            pending,
+                            onPendingHandled,
+                        )
+                    },
+                )
+            } else {
+                SettingsNavGraph(navController, repository, settings, pending, onPendingHandled)
+            }
         }
     }
 }
+
+/**
+ * Whether this window is wide enough to hold two settings screens at once.
+ *
+ * Expanded in Material's own terms — 840 dp and up, which is a tablet either
+ * way up, a foldable opened, or a free-form window dragged out. Medium windows
+ * (a 7" tablet, a phone on its side) stay one screen and lean on the width cap
+ * in `WmScreenFrame` instead: 600 dp split in two is two columns too narrow to
+ * put a settings row in.
+ */
+@Composable
+private fun rememberWideWindow(): Boolean =
+    currentWindowAdaptiveInfo().windowSizeClass.windowWidthSizeClass ==
+        WindowWidthSizeClass.EXPANDED
+
+/**
+ * Whether the settings app is currently drawn as two panes.
+ *
+ * Read by the home destination, which has to draw something other than the home
+ * list when the list is already on screen in the pane beside it.
+ */
+internal val LocalTwoPane = compositionLocalOf { false }
+
+/**
+ * The home list and the screen opened from it, side by side.
+ *
+ * The navigation graph is unchanged and still owns every route, the back stack
+ * and the deep links — it simply draws into the detail pane, and the home
+ * destination inside it becomes a welcome panel (see [HomeWelcome]) because the
+ * list it would otherwise draw is in the pane to its left. That is what keeps
+ * this to a layout: `popUpTo(HomeRoute)`, the path strip, search and every
+ * `wmkeyboard://` link go on working without knowing there are two panes.
+ */
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
+@Composable
+private fun SettingsTwoPane(
+    list: @Composable () -> Unit,
+    detail: @Composable () -> Unit,
+) {
+    // The scaffold is used for its arrangement, not its navigation: at this
+    // width both panes are always up, and moving between screens is the graph's
+    // job. The navigator is here because it is what computes the directive and
+    // the value the scaffold needs.
+    val navigator = rememberListDetailPaneScaffoldNavigator<Unit>()
+    ListDetailPaneScaffold(
+        directive = navigator.scaffoldDirective,
+        value = navigator.scaffoldValue,
+        listPane = {
+            AnimatedPane(modifier = Modifier.preferredWidth(ListPaneWidth)) { list() }
+        },
+        detailPane = { AnimatedPane { detail() } },
+    )
+}
+
+/**
+ * How much of a wide window the home list takes.
+ *
+ * A phone's worth, so the rows in it keep the proportions they were written
+ * for, and everything past it goes to the screen the user is actually reading.
+ */
+private val ListPaneWidth = 360.dp
 
 @Composable
 private fun SettingsNavGraph(
@@ -568,25 +693,43 @@ private fun SettingsNavGraph(
             )
         }
         composable("home") {
-            HomeScreen(
-                settings = settings,
-                onNavigate = { route -> navController.navigate(route) },
-            )
+            // Beside the list, "home" is the pane the user has not chosen
+            // anything for yet; the list itself is already on screen to the
+            // left. On a phone it is the list.
+            if (LocalTwoPane.current) {
+                HomeWelcome()
+            } else {
+                HomeScreen(
+                    settings = settings,
+                    onNavigate = { route -> navController.navigate(route) },
+                    anim = this,
+                )
+            }
         }
         composable("search") {
-            SettingsSearchScreen(
-                settings = settings,
-                onBack = { navController.popBackStack() },
-                onOpen = { result ->
-                    // Arm the flash before navigating: the destination's rows
-                    // read it during their first composition.
-                    SettingsHighlight.request(result.titleRes)
-                    // The search screen stays on the back stack, so backing
-                    // out of a setting that was not the one lands on the same
-                    // results rather than on the home list (#92).
-                    navController.navigate(result.route)
-                },
-            )
+            // The search screen brings its own scaffold rather than going
+            // through SettingsScreen, so the two locals a flight needs are
+            // published here by hand. Without them a result's glyph is drawn
+            // twice — once in the list, once in the heading it opens — with
+            // nothing in between.
+            CompositionLocalProvider(
+                LocalNavAnimatedScope provides this,
+                LocalScreenRoute provides "search",
+            ) {
+                SettingsSearchScreen(
+                    settings = settings,
+                    onBack = { navController.popBackStack() },
+                    onOpen = { result ->
+                        // Arm the flash before navigating: the destination's
+                        // rows read it during their first composition.
+                        SettingsHighlight.request(result.titleRes)
+                        // The search screen stays on the back stack, so backing
+                        // out of a setting that was not the one lands on the
+                        // same results rather than on the home list (#92).
+                        navController.navigate(result.route)
+                    },
+                )
+            }
         }
         composable("typing") {
             SettingsScreen(
@@ -796,6 +939,29 @@ private fun SettingsNavGraph(
                 CustomDictionarySettings(repository, settings) { route -> navController.navigate(route) }
             }
         }
+        composable("emojicategories") {
+            SettingsScreen(
+                stringResource(R.string.langemoji_emoji_categories_title),
+                { navController.popBackStack() },
+                route = "emojicategories",
+                subtitle = stringResource(R.string.langemoji_emoji_categories_subtitle),
+                subtitleMaxLines = 2,
+            ) {
+                EmojiCategorySettings(repository, settings) { route -> navController.navigate(route) }
+            }
+        }
+        composable(
+            route = "$EMOJI_ORDER_ROUTE/{category}",
+            arguments = listOf(navArgument("category") { type = NavType.StringType }),
+        ) { entry ->
+            EmojiOrderScreen(
+                anim = this,
+                repository = repository,
+                settings = settings,
+                category = entry.arguments?.getString("category").orEmpty(),
+                onBack = { navController.popBackStack() },
+            )
+        }
         composable("emojikeywords") {
             SettingsScreen(
                 stringResource(R.string.home_screen_emoji_keywords_title),
@@ -955,7 +1121,16 @@ private fun SettingsNavGraph(
         }
         composable("theme_edit/{themeId}") { backStackEntry ->
             val themeId = backStackEntry.arguments?.getString("themeId").orEmpty()
-            SettingsScreen(stringResource(R.string.home_screen_theme_edit_title), { navController.popBackStack() }) {
+            // The look's own name, not "Edit theme": it is what the gallery
+            // card said, and the card's name flies up into it. A theme that is
+            // no longer there keeps the generic heading, which is all the
+            // screen under it can say anyway.
+            SettingsScreen(
+                themeEditTitle(settings, themeId)
+                    ?: stringResource(R.string.home_screen_theme_edit_title),
+                { navController.popBackStack() },
+                route = themeEditRoute(themeId),
+            ) {
                 ThemeEditorScreen(repository, settings, themeId) { route ->
                     navController.navigate(route)
                 }
@@ -1055,7 +1230,11 @@ private fun SettingsNavGraph(
         }
         composable("vocab/list/{packId}") { backStackEntry ->
             val packId = backStackEntry.arguments?.getString("packId").orEmpty()
-            SettingsScreen(stringResource(R.string.vocab_list_edit_title), { navController.popBackStack() }) {
+            SettingsScreen(
+                stringResource(R.string.vocab_list_edit_title),
+                { navController.popBackStack() },
+                route = vocabListRoute(packId),
+            ) {
                 VocabListEditorScreen(packId, repository, settings) { route ->
                     if (route == "vocab/lists") navController.popBackStack() else navController.navigate(route)
                 }
@@ -1075,7 +1254,7 @@ private fun SettingsNavGraph(
         composable("vocab/word/{packId}/{word}") { backStackEntry ->
             val packId = backStackEntry.arguments?.getString("packId").orEmpty()
             val word = android.net.Uri.decode(backStackEntry.arguments?.getString("word").orEmpty())
-            SettingsScreen(word, { navController.popBackStack() }) {
+            SettingsScreen(word, { navController.popBackStack() }, route = vocabWordRoute(packId, word)) {
                 VocabWordScreen(packId, word, settings) { route -> navController.navigate(route) }
             }
         }
@@ -1099,14 +1278,22 @@ private fun SettingsNavGraph(
         }
         composable("plugin/{pluginId}") { entry ->
             val pluginId = entry.arguments?.getString("pluginId").orEmpty()
-            SettingsScreen(stringResource(R.string.home_screen_plugin_title), { navController.popBackStack() }) {
+            SettingsScreen(
+                stringResource(R.string.home_screen_plugin_title),
+                { navController.popBackStack() },
+                route = pluginRoute(pluginId),
+            ) {
                 PluginDetailScreen(pluginId, onNavigate = { route -> navController.navigate(route) }) {
                     navController.popBackStack()
                 }
             }
         }
         composable("plugin_ide") {
-            SettingsScreen(stringResource(R.string.plugin_ide_projects_title), { navController.popBackStack() }) {
+            SettingsScreen(
+                stringResource(R.string.plugin_ide_projects_title),
+                { navController.popBackStack() },
+                route = "plugin_ide",
+            ) {
                 PluginIdeProjectsScreen { route -> navController.navigate(route) }
             }
         }
@@ -1192,7 +1379,11 @@ private fun SettingsNavGraph(
         }
         composable("sticker_pack/{packId}") { backStackEntry ->
             val packId = backStackEntry.arguments?.getString("packId").orEmpty()
-            SettingsScreen(stringResource(R.string.home_screen_sticker_pack_edit_title), { navController.popBackStack() }) {
+            SettingsScreen(
+                stringResource(R.string.home_screen_sticker_pack_edit_title),
+                { navController.popBackStack() },
+                route = stickerPackRoute(packId),
+            ) {
                 StickerPackScreen(packId) { route -> navController.navigate(route) }
             }
         }
@@ -1222,7 +1413,11 @@ private fun SettingsNavGraph(
             val layoutId = backStackEntry.arguments?.getString("layoutId").orEmpty()
             // The tab to open on, from a row of the gallery's layer list.
             val layer = backStackEntry.arguments?.getString("layer")?.takeIf { it.isNotEmpty() }
-            SettingsScreen(stringResource(R.string.home_screen_layout_edit_title), { navController.popBackStack() }) {
+            SettingsScreen(
+                stringResource(R.string.home_screen_layout_edit_title),
+                { navController.popBackStack() },
+                route = keyLayoutEditRoute(layoutId, layer),
+            ) {
                 KeyLayoutEditorScreen(repository, settings, layoutId, initialLayer = layer) { route ->
                     navController.navigate(route)
                 }
@@ -1241,7 +1436,13 @@ private fun SettingsNavGraph(
         composable("panel_edit/{panel}") { backStackEntry ->
             val kind = PanelKind.entries.firstOrNull { it.name == backStackEntry.arguments?.getString("panel") }
                 ?: PanelKind.EMOJI
-            SettingsScreen(stringResource(R.string.panel_layout_row_title), { navController.popBackStack() }) {
+            // Named after the panel rather than "Panel layout": the gallery
+            // row said "Emoji", and its name flies up into this heading.
+            SettingsScreen(
+                stringResource(panelTitleRes(kind)),
+                { navController.popBackStack() },
+                route = panelEditRoute(kind),
+            ) {
                 PanelLayoutEditorScreen(repository, settings, kind) { route -> navController.navigate(route) }
             }
         }
@@ -1353,6 +1554,7 @@ private fun SettingsNavGraph(
             SettingsScreen(
                 stringResource(R.string.expander_folder_title),
                 { navController.popBackStack() },
+                route = snippetFolderRoute(folderId),
             ) {
                 SnippetFolderScreen(
                     folderId,
@@ -1382,6 +1584,7 @@ private fun SettingsNavGraph(
                     if (snippetId == 0L) R.string.rows_snippet_new_title else R.string.rows_snippet_edit_title,
                 ),
                 { navController.popBackStack() },
+                route = snippetEditRoute(snippetId),
             ) {
                 SnippetEditor(settings, snippetId) { navController.popBackStack() }
             }
@@ -1557,6 +1760,15 @@ private fun SettingsNavGraph(
                 RowsSettings(repository, settings) { navController.navigate(it) }
             }
         }
+        composable("rows/symbol") {
+            SettingsScreen(
+                stringResource(R.string.rows_symbol_row_title),
+                { navController.popBackStack() },
+                route = "rows/symbol",
+            ) {
+                SymbolRowSettings(repository, settings) { navController.navigate(it) }
+            }
+        }
         composable("ai_actions") {
             SettingsScreen(
                 stringResource(R.string.home_screen_ai_actions_title),
@@ -1613,13 +1825,18 @@ private fun SettingsNavGraph(
             SettingsScreen(
                 stringResource(R.string.home_screen_ai_action_edit_title),
                 { navController.popBackStack() },
+                route = aiActionEditRoute(actionId),
             ) {
                 AiActionEditor(repository, settings, actionId) { navController.popBackStack() }
             }
         }
         composable("symbol_set_edit/{setId}") { backStackEntry ->
             val setId = backStackEntry.arguments?.getString("setId").orEmpty()
-            SettingsScreen(stringResource(R.string.home_screen_symbol_set_edit_title), { navController.popBackStack() }) {
+            SettingsScreen(
+                stringResource(R.string.home_screen_symbol_set_edit_title),
+                { navController.popBackStack() },
+                route = symbolSetEditRoute(setId),
+            ) {
                 SymbolSetEditor(repository, settings, setId) { navController.popBackStack() }
             }
         }
@@ -1634,7 +1851,17 @@ private fun SettingsNavGraph(
         }
         composable("mode_edit/{modeId}") { backStackEntry ->
             val modeId = backStackEntry.arguments?.getString("modeId").orEmpty()
-            SettingsScreen(stringResource(R.string.home_screen_mode_edit_title), { navController.popBackStack() }) {
+            // The mode's own name and glyph, both flown up from its row. A
+            // mode the Add button has not saved yet has neither, and keeps the
+            // generic heading.
+            SettingsScreen(
+                modeEditTitle(settings, modeId)
+                    ?: stringResource(R.string.home_screen_mode_edit_title),
+                { navController.popBackStack() },
+                route = modeEditRoute(modeId),
+                icon = modeEditIcon(settings, modeId),
+                iconTile = false,
+            ) {
                 ModeEditor(repository, settings, modeId) { navController.popBackStack() }
             }
         }
@@ -1737,9 +1964,21 @@ private fun SettingsNavGraph(
 // ---- home / setup ----
 
 @Composable
-private fun AnimatedVisibilityScope.HomeScreen(
+private fun HomeScreen(
     settings: KeyboardSettings,
     onNavigate: (String) -> Unit,
+    /**
+     * The destination's own animation scope, or null in the list pane of the
+     * two-pane layout, where the home list is not a destination being pushed
+     * and has no entrance to stay out of the way of.
+     */
+    anim: AnimatedVisibilityScope? = null,
+    /**
+     * The home row whose screen is showing in the pane beside this one. Null on
+     * a phone, where nothing is beside it, and on a wide window sitting on the
+     * welcome panel.
+     */
+    selectedRoute: String? = null,
 ) {
     val context = LocalContext.current
     val setup = rememberKeyboardSetup(context)
@@ -1773,7 +2012,7 @@ private fun AnimatedVisibilityScope.HomeScreen(
             // The heading here is the app's name; in the path strip of the
             // screens below, this one is where the settings start.
             crumbTitle = stringResource(R.string.shell_breadcrumb_home),
-            anim = this@HomeScreen,
+            anim = anim,
             actions = {
                 IconButton(onClick = { onNavigate("search") }) {
                     Icon(
@@ -1831,6 +2070,7 @@ private fun AnimatedVisibilityScope.HomeScreen(
                                 if (row.route == "languages") enabledLanguagesSummary(settings)
                                 else stringResource(row.subtitle),
                                 onNavigate,
+                                selected = row.route == selectedRoute,
                             )
                         }
                     }
@@ -1859,6 +2099,41 @@ internal val ActiveGreen = Color(0xFF43A047)
  * oversized by that ratio and masked back down — the same arithmetic the
  * launcher does.
  */
+/**
+ * What the detail pane holds before the user has opened anything.
+ *
+ * No bar of its own: a heading here would be the second one on screen saying
+ * the same thing, under the list's. What it needs to do is say that the panel
+ * is waiting rather than broken, which is the icon and one line.
+ */
+@Composable
+private fun HomeWelcome() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(32.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            AppIconBadge()
+            Spacer(Modifier.height(20.dp))
+            Text(
+                stringResource(R.string.home_welcome_title),
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(R.string.home_welcome_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
 @Composable
 private fun AppIconBadge() {
     val layer = HeaderBadgeSize * 108f / 72f
@@ -2104,6 +2379,12 @@ private fun HomeItem(
     title: String,
     subtitle: String,
     onNavigate: (String) -> Unit,
+    /**
+     * Whether this row's screen is the one showing in the detail pane. Only
+     * ever true in the two-pane layout: on a phone the screen the row opens is
+     * the whole window, and there is nothing to say "you are here" about.
+     */
+    selected: Boolean = false,
 ) {
     WmRow(
         title = title,
@@ -2111,9 +2392,26 @@ private fun HomeItem(
         icon = icon,
         accent = routeAccent(route),
         flightTo = route,
+        // The row's own accent at container strength rather than the theme's
+        // one selection colour, so the marked row and the heading of the screen
+        // it opened are visibly the same section. The group's card clips it to
+        // the run's corners, so a selected row at either end of a group keeps
+        // the rounding of the slab it is part of.
+        modifier = if (!selected) Modifier
+        else Modifier.background(routeAccent(route).copy(alpha = SelectedRowTint)),
         onClick = { onNavigate(route) },
     )
 }
+
+/**
+ * How much of a home row's accent the selected row is washed with.
+ *
+ * Enough to find without looking for it, and light enough that the row's name
+ * keeps `onSurface`'s contrast on top of it in both themes — the accents are
+ * mid-tone colours, so anything heavier needs its own foreground colour and a
+ * per-accent check that it passes.
+ */
+private const val SelectedRowTint = 0.18f
 
 // ---- shared scaffold & group card system ----
 
@@ -2229,7 +2527,12 @@ internal fun SettingsGroup(
     if (scope.items.isEmpty()) return
     // Below the fold while the screen is still animating in: come back for
     // the rows once the entrance can spare them — see [rememberGroupRevealed].
-    if (!rememberGroupRevealed(scope.items.size)) return
+    // Until then the group holds its place as slabs the size of its rows, so
+    // the screen opens at its full height instead of growing under the reader.
+    if (!rememberGroupRevealed(scope.items.size)) {
+        GroupSkeleton(scope.items.size, hasTitle = title != null)
+        return
+    }
     val folds = LocalAdvancedFolds.current
     val foldId = foldKey?.let { "${LocalScreenRoute.current.orEmpty()}/$it" }
     val highlighted = SettingsHighlight.target != 0 || SettingsHighlight.targetItems.isNotEmpty()
@@ -2869,6 +3172,13 @@ internal fun ToggleSetting(
     default: Boolean? = null,
     onChange: (Boolean) -> Unit,
 ) {
+    // Every switch in the app latches through here, so this is the one place
+    // the latch has to be given a feel — see [SettingsHaptics].
+    val haptics = rememberSettingsHaptics()
+    val change: (Boolean) -> Unit = { on ->
+        haptics.toggle(on)
+        onChange(on)
+    }
     HighlightableRow(title, highlightKey) {
         WmRow(
             title = title,
@@ -2877,12 +3187,12 @@ internal fun ToggleSetting(
             trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (info != null) InfoButton(title, info)
-                    ResetSetting(title, default != null && checked != default) {
-                        onChange(default == true)
+                    ResetSetting(title, default != null && checked != default, possible = default != null) {
+                        change(default == true)
                     }
                     Switch(
                         checked = checked,
-                        onCheckedChange = onChange,
+                        onCheckedChange = change,
                         enabled = enabled,
                         // The same switch the row that opened this screen was
                         // showing, when the caller says so.
@@ -2896,68 +3206,54 @@ internal fun ToggleSetting(
 }
 
 /**
- * How often a drag in progress is pushed through [SliderSetting]'s `onChange`,
- * i.e. written to DataStore. Live previews still follow the finger closely, but
- * a 100-pixel drag no longer queues 100 preference writes (each of which
- * recomposes the whole settings screen).
- */
-private const val SLIDER_WRITE_INTERVAL_MS = 40L
-
-/**
- * The live position of a settings slider, held locally so the thumb follows the
- * finger instead of the stored value: routing every touch event through a
- * DataStore write and waiting for the settings flow to come back made the thumb
- * visibly trail. Create one with [rememberLiveSlider], read [value] for both the
- * thumb and the readout, and hand [onDrag]/[onRelease] to the `WmSlider`.
- */
-@Stable
-internal class LiveSliderState(initial: Float) {
-    var value by mutableFloatStateOf(initial)
-        private set
-    internal var dragging by mutableStateOf(false)
-        private set
-
-    /** Replaced on every composition so the latest lambda is always called. */
-    internal var commit: (Float) -> Unit = {}
-
-    internal fun adopt(external: Float) {
-        if (!dragging) value = external
-    }
-
-    fun onDrag(next: Float) {
-        dragging = true
-        value = next
-    }
-
-    fun onRelease() {
-        dragging = false
-        commit(value)
-    }
-}
-
-/**
- * A [LiveSliderState] wired to [value] and [onChange]. Writes are throttled to
- * one per [SLIDER_WRITE_INTERVAL_MS] while dragging — enough for anything
- * previewing the setting to keep up, without queueing a preference write (and a
- * recomposition of the whole screen) per touch event — with a final write when
- * the finger lifts. [value] is adopted only while no drag is in progress, so an
- * edit from elsewhere (a reset, another screen showing the same setting) still
- * moves the thumb but the user's own drag is never fought.
+ * A row that is both a switch and a door (#136): the switch turns the feature
+ * on or off in place, and the rest of the row opens [route], the page holding
+ * everything else the feature has. The tools list is the same shape, and like
+ * it the switch flies into the destination's own enable row when that row
+ * takes `switchKey = landingKey("switch")`.
+ *
+ * [default] is what [ToggleSetting] takes it for: the per-setting reset.
  */
 @Composable
-internal fun rememberLiveSlider(value: Float, onChange: (Float) -> Unit): LiveSliderState {
-    val state = remember { LiveSliderState(value) }
-    state.commit = onChange
-    LaunchedEffect(value) { state.adopt(value) }
-    LaunchedEffect(state) {
-        snapshotFlow { state.value }
-            .conflate()
-            .collect {
-                if (state.dragging) state.commit(it)
-                delay(SLIDER_WRITE_INTERVAL_MS)
-            }
+internal fun ToggleNavRow(
+    @StringRes title: Int,
+    subtitle: String?,
+    checked: Boolean,
+    route: String,
+    info: String? = null,
+    default: Boolean? = null,
+    onChange: (Boolean) -> Unit,
+    onOpen: () -> Unit,
+) {
+    val name = stringResource(title)
+    HighlightableRow(name, title) {
+        WmRow(
+            title = name,
+            subtitle = subtitle,
+            icon = SettingsRowIcons[title],
+            flightTo = route,
+            trailing = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (info != null) InfoButton(name, info)
+                    ResetSetting(name, default != null && checked != default, possible = default != null) {
+                        onChange(default == true)
+                    }
+                    Switch(
+                        checked = checked,
+                        onCheckedChange = onChange,
+                        modifier = Modifier.wmSharedElement(takeOffKey("switch", route)),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Icon(
+                        Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            onClick = onOpen,
+        )
     }
-    return state
 }
 
 /** The gap between a row's icon tile and the words beside it. */
@@ -3018,6 +3314,7 @@ internal fun SliderSetting(
     icon: ImageVector? = SettingsRowIcons[title],
     enabled: Boolean = true,
     default: Float? = null,
+    preview: ((Float) -> Unit)? = null,
     onChange: (Float) -> Unit,
 ) = SliderSetting(
     title = stringResource(title),
@@ -3030,6 +3327,7 @@ internal fun SliderSetting(
     highlightKey = title,
     enabled = enabled,
     default = default,
+    preview = preview,
     onChange = onChange,
 )
 
@@ -3058,9 +3356,24 @@ internal fun SliderSetting(
     // [ToggleSetting]'s own `enabled`.
     enabled: Boolean = true,
     default: Float? = null,
+    /**
+     * Acts on the value under the finger on every step, for a row whose whole
+     * point is heard or felt rather than stored — the key sound's volume, a
+     * haptic's strength. [onChange] still runs once, on release.
+     */
+    preview: ((Float) -> Unit)? = null,
     onChange: (Float) -> Unit,
 ) {
-    val slider = rememberLiveSlider(value, onChange)
+    val slider = rememberLiveSlider(value, onChange, preview = preview)
+    // The readout is the slider's detent: this row's values are continuous, so
+    // the steps the user is actually aiming at are the ones the number they can
+    // read changes on. Keyed on the string rather than the float, so a drag
+    // across a range that formats to whole percent ticks a hundred times and
+    // not once per touch event. Silent when the value moved without a finger on
+    // it — a reset, or another screen writing the same setting.
+    val haptics = rememberSettingsHaptics()
+    val readout = display(slider.value)
+    LaunchedEffect(readout) { if (slider.dragging) haptics.tick() }
     HighlightableRow(title, highlightKey) {
         IconedRow(
             icon = icon,
@@ -3079,11 +3392,13 @@ internal fun SliderSetting(
                     if (info != null) InfoButton(title, info)
                 }
                 Text(
-                    display(slider.value),
+                    readout,
                     style = MaterialTheme.typography.labelLarge,
                     maxLines = 1,
                 )
-                ResetSetting(title, default != null && value != default) { onChange(default ?: 0f) }
+                ResetSetting(title, default != null && value != default, possible = default != null) {
+                    onChange(default ?: 0f)
+                }
             },
         ) {
             WmSlider(
@@ -3152,6 +3467,12 @@ internal fun StepperSetting(
     // clamps every write onto it, so this is a guard against a hand-edited
     // preference rather than a path the settings screen can take.
     val index = range.indexOf(value).coerceAtLeast(0)
+    // One step of the ladder, which is exactly what a tick means.
+    val haptics = rememberSettingsHaptics()
+    val step: (Int) -> Unit = { next ->
+        haptics.tick()
+        onChange(next)
+    }
     HighlightableRow(title, highlightKey) {
         IconedRow(
             icon = icon,
@@ -3164,7 +3485,9 @@ internal fun StepperSetting(
                     Text(title, style = MaterialTheme.typography.bodyLarge)
                     if (info != null) InfoButton(title, info)
                 }
-                ResetSetting(title, default != null && value != default) { onChange(default ?: 0) }
+                ResetSetting(title, default != null && value != default, possible = default != null) {
+                    onChange(default ?: 0)
+                }
             },
         ) {
             Row(
@@ -3173,7 +3496,7 @@ internal fun StepperSetting(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(
-                    onClick = { onChange(range[index - 1]) },
+                    onClick = { step(range[index - 1]) },
                     enabled = index > 0,
                 ) {
                     Icon(
@@ -3192,7 +3515,7 @@ internal fun StepperSetting(
                     modifier = Modifier.widthIn(min = 88.dp),
                 )
                 IconButton(
-                    onClick = { onChange(range[index + 1]) },
+                    onClick = { step(range[index + 1]) },
                     enabled = index < range.lastIndex,
                 ) {
                     Icon(
@@ -3388,7 +3711,7 @@ internal fun <T> ChoiceSetting(
                         // The same `default != null` that draws the control at all is what
                         // makes the let non-empty; there is no fallback option to reset to
                         // on a row that shipped without a default.
-                        ResetSetting(title, default != null && selected != default) {
+                        ResetSetting(title, default != null && selected != default, possible = default != null) {
                             default?.let(onChange)
                         }
                     },
@@ -3442,7 +3765,7 @@ internal fun <T> ChoiceSetting(
                 trailing = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (info != null) InfoButton(title, info)
-                        ResetSetting(title, default != null && selected != default) {
+                        ResetSetting(title, default != null && selected != default, possible = default != null) {
                             default?.let(onChange)
                         }
                         // The same glyph the sheet puts on this option, small
@@ -3590,15 +3913,14 @@ internal fun <T> ChoiceSheet(
     // three rows is a list whose fourth option the user has no reason to think
     // exists: the handle says "there is more here" only to someone who already
     // suspects it. The column below scrolls, so a long list still fits.
+    val rail = rememberScrollRailState()
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
-        Column(
-            modifier = Modifier
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 32.dp),
-        ) {
+        // The rail is the other half of opening at full height: the sheet says
+        // the list is long, and the rail says where in it you are.
+        ScrollRail(state = rail, fadeColor = BottomSheetDefaults.ContainerColor) {
             if (title != null) {
                 Text(
                     title,
@@ -3638,6 +3960,7 @@ internal fun <T> ChoiceSheet(
                     },
                 )
             }
+            Spacer(Modifier.height(32.dp))
         }
     }
 }
@@ -3676,6 +3999,14 @@ internal fun <T> ChoiceControl(
 ) {
     val measurer = rememberTextMeasurer()
     val tiers = segmentTypeTiers()
+    // A segment taking the selection is a step along a row of them, so it gets
+    // the same tick a stepper's arrow does. Silent when the press lands on the
+    // option that is already selected: nothing moved.
+    val haptics = rememberSettingsHaptics()
+    val pick: (T) -> Unit = { option ->
+        if (option != selected) haptics.tick()
+        onChange(option)
+    }
     Column(modifier = modifier.fillMaxWidth()) {
         if (label != null) {
             // Not the muted colour a subtitle gets: this is the name of the
@@ -3698,7 +4029,7 @@ internal fun <T> ChoiceControl(
                     options.forEachIndexed { index, (option, name) ->
                         SegmentedButton(
                             selected = selected == option,
-                            onClick = { onChange(option) },
+                            onClick = { pick(option) },
                             shape = SegmentedButtonDefaults.itemShape(index, options.size),
                         ) {
                             // The size the labels were measured at, which is
@@ -3711,7 +4042,7 @@ internal fun <T> ChoiceControl(
             }
             // The sheet gets the same question the control is drawn under, so
             // the compact form does not lose it on the way to the options.
-            ChoiceValueButton(title ?: label, options, selected, detail, onChange)
+            ChoiceValueButton(title ?: label, options, selected, detail, pick)
         }
     }
 }
@@ -3814,7 +4145,7 @@ internal fun <T> MultiChoiceSetting(
                 Text(name, style = MaterialTheme.typography.bodyLarge)
                 if (info != null) InfoButton(name, info)
                 Spacer(Modifier.weight(1f))
-                ResetSetting(name, default != null && selected != default) {
+                ResetSetting(name, default != null && selected != default, possible = default != null) {
                     default?.let(onChange)
                 }
             },

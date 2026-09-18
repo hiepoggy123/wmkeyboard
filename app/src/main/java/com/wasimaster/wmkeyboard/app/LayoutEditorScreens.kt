@@ -119,6 +119,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
@@ -155,6 +156,8 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.LayoutSeverity
 import com.wasimaster.wmkeyboard.core.layout.compile
+import com.wasimaster.wmkeyboard.ime.ui.BuiltinIcons
+import com.wasimaster.wmkeyboard.ime.ui.IconDefaults
 import com.wasimaster.wmkeyboard.ime.ui.KeyIcons
 import com.wasimaster.wmkeyboard.ime.ui.textEditIcon
 import com.wasimaster.wmkeyboard.core.layout.GridUnitStep
@@ -165,6 +168,7 @@ import com.wasimaster.wmkeyboard.core.layout.MaxKeyWidth
 import com.wasimaster.wmkeyboard.core.layout.MaxRowHeightScale
 import com.wasimaster.wmkeyboard.core.layout.MinRowHeightScale
 import com.wasimaster.wmkeyboard.core.layout.canHoldAlternates
+import com.wasimaster.wmkeyboard.core.layout.canRepeatOnHold
 import com.wasimaster.wmkeyboard.core.layout.isAmbiguous
 import com.wasimaster.wmkeyboard.core.layout.withLetters
 import com.wasimaster.wmkeyboard.core.layout.drawnFontScale
@@ -210,6 +214,22 @@ import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.FiberManualRecord
 import androidx.compose.material.icons.outlined.MoreHoriz
+import com.wasimaster.wmkeyboard.core.ui.ScrollRailBox
+import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import com.wasimaster.wmkeyboard.core.ui.ScrollRail
+import com.wasimaster.wmkeyboard.core.ui.railSection
+
+/**
+ * One key layout's editor, as flights name it.
+ *
+ * The navigation route with its argument filled in, which is what a flight is
+ * keyed on: the pattern (`keymap_edit/{layoutId}`) is the same string for every
+ * layout and would hang one key on all of them.
+ */
+internal fun keyLayoutEditRoute(layoutId: String, layer: String? = null): String =
+    if (layer.isNullOrEmpty()) "keymap_edit/$layoutId" else "keymap_edit/$layoutId?layer=$layer"
 
 // ---------------------------------------------------------------------------
 // Gallery
@@ -360,6 +380,8 @@ private fun ForeignLanguageDialog(
     // re-running the filter over the whole registry per keystroke is what makes
     // a search field feel heavy.
     val results = remember(query) { searchLanguages(query.trim().lowercase()) }
+    val list = rememberLazyListState()
+    val rail = rememberScrollRailState(list)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.layout_editor_foreign_language_title)) },
@@ -373,17 +395,19 @@ private fun ForeignLanguageDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
-                LazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
-                    items(results, key = { it.id }) { language ->
-                        WmRow(
-                            title = language.displayName,
-                            trailing = if (language.id == selected) {
-                                { Icon(Icons.Outlined.Check, contentDescription = null) }
-                            } else {
-                                null
-                            },
-                            onClick = { onPick(language.id) },
-                        )
+                ScrollRailBox(state = rail, modifier = Modifier.heightIn(max = 320.dp)) { rows ->
+                    LazyColumn(state = list, modifier = rows) {
+                        items(results, key = { it.id }) { language ->
+                            WmRow(
+                                title = language.displayName,
+                                trailing = if (language.id == selected) {
+                                    { Icon(Icons.Outlined.Check, contentDescription = null) }
+                                } else {
+                                    null
+                                },
+                                onClick = { onPick(language.id) },
+                            )
+                        }
                     }
                 }
             }
@@ -3619,6 +3643,28 @@ internal fun KeyEditSheet(
                 IconPickRow(R.string.layout_editor_icon_hint_field_label, key.iconHint) { pickingIcon = true }
             }
 
+            // Issue #231: a key whose action is worth doing twice can be told
+            // to repeat under a held finger, the way delete always has. Above
+            // the alternates on purpose — it is what takes them away, so it has
+            // to be readable from where they were.
+            if (key.canRepeatOnHold()) {
+                ToggleSetting(
+                    R.string.layout_editor_repeat_hold_title,
+                    stringResource(R.string.layout_editor_repeat_hold_subtitle),
+                    key.repeatOnHold,
+                    info = stringResource(R.string.layout_editor_repeat_hold_info),
+                ) { repeat -> onChange { it.copy(repeatOnHold = repeat) } }
+                // Only once both are true: the fields below have just vanished
+                // and the entries the author typed into them are still stored,
+                // so say where they went rather than leaving a key that quietly
+                // stopped opening its popup.
+                if (key.repeatOnHold &&
+                    (key.longPress.isNotEmpty() || key.actionAlternates.isNotEmpty())
+                ) {
+                    CaptionText(stringResource(R.string.layout_editor_repeat_hold_alternates_notice))
+                }
+            }
+
             // Not only text keys: every key whose press and hold is free can
             // carry alternates, which is what the enter key was missing (issue
             // #22). The ones left out are the ones that hold to repeat or chord,
@@ -3960,7 +4006,9 @@ private fun IconPickRow(@StringRes title: Int, name: String?, onClick: () -> Uni
 /**
  * Picks a key icon from [KeyIcons.pickerEntries]: the key glyphs, then the app's
  * own icons. Searchable by name, and each glyph wears the name a layout file
- * stores, so the picker doubles as the list of names (issue #187).
+ * stores, so the picker doubles as the list of names (issue #187) — searching
+ * also answers to an alias and to the name of the tool that wears the glyph,
+ * which is how anyone looks for one (issue #223).
  */
 @Composable
 private fun KeyIconPickerDialog(
@@ -3973,12 +4021,39 @@ private fun KeyIconPickerDialog(
     // Compared as drawings: a file may name the icon by an alias or in another
     // case ("Delete", "SEARCH"), and the cell should still light up.
     val selectedVector = KeyIcons.byName(selected)
-    val shown = remember(query) {
+    val iconGrid = rememberLazyGridState()
+    val iconRail = rememberScrollRailState(iconGrid)
+    val context = LocalContext.current
+    // What a search matches, beyond the name the layout file stores: the
+    // spaced-out form of a bundled name ("SelectAll" → "Select all"), the
+    // aliases that draw the same glyph, and the names of the tools that wear
+    // it. A key glyph is stored under a short name — the clipboard drawing is
+    // `paste`, selection mode's is `SelectAll` — so searching for the tool was
+    // answered with "no match" and the icon read as missing (issue #223).
+    val searchTerms = remember(context) {
+        val byTool = HashMap<ImageVector, MutableList<String>>()
+        for (tool in ToolbarTool.entries) {
+            byTool.getOrPut(IconDefaults.forTool(tool)) { mutableListOf() }
+                .add(context.getString(toolTitle(tool)))
+        }
+        KeyIcons.pickerEntries.associate { (name, vector) ->
+            name to buildList {
+                add(name)
+                add(name.replace('_', ' '))
+                add(BuiltinIcons.label(name))
+                addAll(KeyIcons.aliasesFor(name))
+                byTool[vector]?.let { addAll(it) }
+            }
+        }
+    }
+    val shown = remember(query, searchTerms) {
         val needle = query.trim()
         if (needle.isEmpty()) {
             KeyIcons.pickerEntries
         } else {
-            KeyIcons.pickerEntries.filter { (name, _) -> name.contains(needle, ignoreCase = true) }
+            KeyIcons.pickerEntries.filter { (name, _) ->
+                searchTerms[name].orEmpty().any { it.contains(needle, ignoreCase = true) }
+            }
         }
     }
     AlertDialog(
@@ -3996,19 +4071,25 @@ private fun KeyIconPickerDialog(
                 if (shown.isEmpty()) {
                     Text(stringResource(R.string.plugins_icons_picker_no_match, query.trim()))
                 } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(IconGridCellMinWidth),
+                    ScrollRailBox(
+                        state = iconRail,
                         modifier = Modifier.heightIn(max = 320.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        gridItems(shown, key = { it.first }) { (name, vector) ->
-                            IconGridCell(
-                                vector = vector,
-                                name = name,
-                                selected = vector == selectedVector,
-                                onClick = { onPick(name) },
-                            )
+                    ) { cells ->
+                        LazyVerticalGrid(
+                            state = iconGrid,
+                            columns = GridCells.Adaptive(IconGridCellMinWidth),
+                            modifier = cells,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            gridItems(shown, key = { it.first }) { (name, vector) ->
+                                IconGridCell(
+                                    vector = vector,
+                                    name = name,
+                                    selected = vector == selectedVector,
+                                    onClick = { onPick(name) },
+                                )
+                            }
                         }
                     }
                 }
@@ -4854,15 +4935,12 @@ private fun SecondaryLayoutPickerDialog(
     onDismiss: () -> Unit,
     onPick: (LayoutSpec) -> Unit,
 ) {
+    val rail = rememberScrollRailState()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.layout_editor_layout_picker_title)) },
         text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 380.dp)
-                    .verticalScroll(rememberScrollState()),
-            ) {
+            ScrollRail(state = rail, modifier = Modifier.heightIn(max = 380.dp)) {
                 if (options.isEmpty()) {
                     Text(stringResource(R.string.layout_editor_layout_picker_empty))
                 }
@@ -4898,19 +4976,21 @@ internal fun KeyActionPickerDialog(
     /** Narrowed by the popup-alternates picker, which cannot use them all. */
     options: List<KeyActionOption> = KeyActionCatalog,
 ) {
+    val rail = rememberScrollRailState()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.layout_editor_action_picker_title)) },
         text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = 380.dp)
-                    .verticalScroll(rememberScrollState()),
-            ) {
+            ScrollRail(state = rail, modifier = Modifier.heightIn(max = 380.dp)) {
                 var lastGroup: Int? = null
                 for (option in options) {
                     if (option.groupRes != lastGroup) {
-                        SectionHeaderPublic(stringResource(option.groupRes))
+                        val group = stringResource(option.groupRes)
+                        // The heading is what the rail measures a segment from,
+                        // so the strip beside the list reads as its groups.
+                        Box(modifier = Modifier.fillMaxWidth().railSection(rail, group)) {
+                            SectionHeaderPublic(group)
+                        }
                         lastGroup = option.groupRes
                     }
                     WmRow(

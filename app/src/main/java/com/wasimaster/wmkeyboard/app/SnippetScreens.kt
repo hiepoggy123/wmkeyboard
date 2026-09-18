@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.foundation.text.KeyboardActions
@@ -60,6 +58,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -111,6 +110,26 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Block
+import com.wasimaster.wmkeyboard.core.ui.ScrollRail
+import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
+
+/**
+ * One snippet folder's page, as flights name it.
+ *
+ * The navigation route with its argument filled in, which is what a flight is
+ * keyed on: the pattern (`expander/folder/{folderId}`) is the same string for every
+ * folder and would hang one key on all of them.
+ */
+internal fun snippetFolderRoute(folderId: Long): String = "expander/folder/$folderId"
+
+/**
+ * One snippet's editor, as flights name it.
+ *
+ * The navigation route with its argument filled in, which is what a flight is
+ * keyed on: the pattern (`expander/edit/{snippetId}`) is the same string for every
+ * snippet and would hang one key on all of them.
+ */
+internal fun snippetEditRoute(snippetId: Long): String = "expander/edit/$snippetId"
 
 // ---- text expander ----
 
@@ -157,6 +176,28 @@ internal fun SnippetSettings(
             }
             snippets = s.items()
             folders = s.folders()
+        }
+    }
+
+    val snackbar = LocalSettingsSnackbar.current
+    val undoLabel = stringResource(CommonR.string.common_undo)
+
+    /**
+     * Removes [snippet] at once and offers the way back for a few seconds.
+     *
+     * Undo restores the list the delete was made against rather than adding the
+     * snippet back: [SnippetStore.remove] also unlinks it from every snippet
+     * that pointed at it, and an add would hand it a new id those links would
+     * not find — see [SnippetStore.replaceAll].
+     */
+    fun deleteWithUndo(snippet: Snippet) {
+        val before = store?.items() ?: return
+        mutate { it.remove(snippet.id) }
+        snackbar?.undo(
+            message = context.getString(R.string.expander_deleted_snackbar, snippet.label),
+            undoLabel = undoLabel,
+        ) {
+            mutate { it.replaceAll(before) }
         }
     }
 
@@ -524,7 +565,7 @@ internal fun SnippetSettings(
             if (folders.isEmpty()) R.string.expander_snippets_empty else R.string.expander_no_folder_empty,
         ),
         onOpen = { snippet -> onNavigate("expander/edit/${snippet.id}") },
-        onDelete = { snippet -> mutate { it.remove(snippet.id) } },
+        onDelete = ::deleteWithUndo,
         onReorder = { ordered -> mutate { s -> s.reorder(regrouped(snippets, ordered)) } },
     )
 
@@ -635,16 +676,16 @@ internal fun SnippetSettings(
         )
     }
 
+    val exportNotesRail = rememberScrollRailState()
     if (pendingExport.isNotEmpty()) {
         val lines = pendingExport
         AlertDialog(
             onDismissRequest = { pendingExport = emptyList() },
             title = { Text(stringResource(R.string.expander_export_notes_title)) },
             text = {
-                Column(
-                    modifier = Modifier
-                        .heightIn(max = DialogScrollMaxHeight)
-                        .verticalScroll(rememberScrollState()),
+                ScrollRail(
+                    state = exportNotesRail,
+                    modifier = Modifier.heightIn(max = DialogScrollMaxHeight),
                 ) {
                     for (line in lines) Text("• ${line.resolve(context)}")
                 }
@@ -705,6 +746,28 @@ internal fun SnippetFolderScreen(
         }
     }
 
+    val snackbar = LocalSettingsSnackbar.current
+    val undoLabel = stringResource(CommonR.string.common_undo)
+
+    /**
+     * Removes [snippet] at once and offers the way back for a few seconds.
+     *
+     * Undo restores the list the delete was made against rather than adding the
+     * snippet back: [SnippetStore.remove] also unlinks it from every snippet
+     * that pointed at it, and an add would hand it a new id those links would
+     * not find — see [SnippetStore.replaceAll].
+     */
+    fun deleteWithUndo(snippet: Snippet) {
+        val before = store?.items() ?: return
+        mutate { it.remove(snippet.id) }
+        snackbar?.undo(
+            message = context.getString(R.string.expander_deleted_snackbar, snippet.label),
+            undoLabel = undoLabel,
+        ) {
+            mutate { it.replaceAll(before) }
+        }
+    }
+
     val here = folder
     LaunchedEffect(loaded, here) { if (loaded && here == null) onGone() }
     if (here == null) return
@@ -743,7 +806,7 @@ internal fun SnippetFolderScreen(
         snippets = snippets.filter { it.folderId == folderId },
         empty = stringResource(R.string.expander_folder_empty),
         onOpen = { snippet -> onNavigate("expander/edit/${snippet.id}") },
-        onDelete = { snippet -> mutate { it.remove(snippet.id) } },
+        onDelete = ::deleteWithUndo,
         // The whole store's order, with only this folder's part of it rewritten
         // — see [regrouped].
         onReorder = { ordered -> mutate { s -> s.reorder(regrouped(snippets, ordered)) } },
@@ -878,6 +941,7 @@ private fun SnippetEspansoImportDialog(
 ) {
     val context = LocalContext.current
     var folderName by remember { mutableStateOf(parsed.suggestedName) }
+    val rail = rememberScrollRailState()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -890,10 +954,9 @@ private fun SnippetEspansoImportDialog(
             )
         },
         text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = DialogScrollMaxHeight)
-                    .verticalScroll(rememberScrollState()),
+            ScrollRail(
+                state = rail,
+                modifier = Modifier.heightIn(max = DialogScrollMaxHeight),
             ) {
                 OutlinedTextField(
                     value = folderName,
@@ -931,14 +994,14 @@ private fun SnippetPackageDialog(onDismiss: () -> Unit, onExport: (EspansoManife
     var author by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     val cleaned = remember(name) { EspansoManifest.sanitizeName(name) }
+    val rail = rememberScrollRailState()
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.expander_package_title)) },
         text = {
-            Column(
-                modifier = Modifier
-                    .heightIn(max = DialogScrollMaxHeight)
-                    .verticalScroll(rememberScrollState()),
+            ScrollRail(
+                state = rail,
+                modifier = Modifier.heightIn(max = DialogScrollMaxHeight),
             ) {
                 OutlinedTextField(
                     value = name,
@@ -1097,11 +1160,19 @@ private fun SnippetGroup(
         }
         for (snippet in snippets) {
             item {
-                SnippetRow(
-                    snippet,
-                    onEdit = { onOpen(snippet) },
-                    onDelete = { onDelete(snippet) },
-                )
+                // Keyed on the snippet, not on its place in the list: the swipe
+                // state below is remembered per composition slot, and without
+                // this the row that slides up into a deleted row's place would
+                // inherit its dismissed state and disappear as well.
+                key(snippet.id) {
+                    SwipeToDelete(onDelete = { onDelete(snippet) }) {
+                        SnippetRow(
+                            snippet,
+                            onEdit = { onOpen(snippet) },
+                            onDelete = { onDelete(snippet) },
+                        )
+                    }
+                }
             }
         }
     }

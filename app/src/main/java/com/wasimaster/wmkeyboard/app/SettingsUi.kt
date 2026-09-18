@@ -1,11 +1,14 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.os.Build
+import android.view.HapticFeedbackConstants
+import android.view.View
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
-import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.ScaleToBounds
+import androidx.compose.animation.SharedTransitionScope.ResizeMode.Companion.scaleToBounds
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -44,6 +47,15 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.material.icons.outlined.Delete
+import kotlinx.coroutines.CoroutineScope
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
@@ -65,9 +77,13 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.animation.core.animate
 import androidx.compose.runtime.rememberCoroutineScope
@@ -82,7 +98,9 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -234,6 +252,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "layout/onehanded" to Color(0xFF5C6BC0),
     "keymaps" to Color(0xFF26C6DA),
     "rows" to Color(0xFF26A69A),
+    "rows/symbol" to Color(0xFF26A69A),
     "ai_actions" to Color(0xFF7E57C2),
     "ai_history" to Color(0xFF7E57C2),
     "ai_chat" to Color(0xFF7E57C2),
@@ -288,6 +307,10 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "phoneformats" to Color(0xFF42A5F5),
     "hwshortcuts" to Color(0xFF5C6BC0),
     "emojikeywords" to Color(0xFFFFB300),
+    // A child of the emoji panel, so it keeps the emoji amber. The
+    // per-category grid under it takes the default: its destination is
+    // "emojiorder/{category}", and the screen names itself by the literal.
+    "emojicategories" to Color(0xFFFFB300),
     // A child of the media control tool, so it keeps that tool's purple.
     "musicapps" to Color(0xFFAB47BC),
 )
@@ -404,11 +427,28 @@ internal fun RegisterPullRefresh(refreshing: Boolean, onRefresh: () -> Unit) {
 @Composable
 internal fun RegisterAddFab(label: String, onClick: () -> Unit) {
     RegisterFab {
-        FloatingActionButton(onClick = onClick) {
+        FloatingActionButton(
+            onClick = onClick,
+            // Every screen draws its own button, so without this the add
+            // button of the screen being left is destroyed on the same frame
+            // the next one's is created — it blinks out and back in half a
+            // screen away. One key for all of them: two screens that both have
+            // one are showing the same button, and it slides between them.
+            modifier = Modifier.wmSharedElement(AddFabKey),
+        ) {
             Icon(Icons.Outlined.Add, contentDescription = label)
         }
     }
 }
+
+/**
+ * The add button's flight key.
+ *
+ * Deliberately not keyed on the route: the point is that the button is the
+ * same object on every screen that has one, so it travels rather than being
+ * thrown away and rebuilt.
+ */
+private const val AddFabKey = "wm.fab.add"
 
 /** Pins [content] under the bar, above the scrolling body, while the caller is composed. */
 @Composable
@@ -499,6 +539,105 @@ internal class ScreenReveal {
     var wave by mutableIntStateOf(0)
 }
 
+/**
+ * What a group that has not been let in yet draws in the meantime.
+ *
+ * [rememberGroupRevealed] used to answer "not yet" by drawing nothing at all,
+ * which is the one thing worse than the wait it was added to spread out: the
+ * screen opened at a third of its height and then grew under the reader, group
+ * by group, and an empty page for three frames reads as jank rather than as
+ * something arriving. The slabs below are the shape the rows will be, so the
+ * screen opens at its real height and fills in.
+ *
+ * One node and one draw pass for a whole group, not a placeholder row per row —
+ * this stands in for work that was deferred *because* composing rows is what
+ * costs, so a skeleton that composed anything per row would spend the budget it
+ * exists to save. Everything is drawn, nothing is laid out.
+ *
+ * Deliberately not animated. A shimmer is an infinite transition, which means a
+ * recomposition or a redraw every frame of exactly the entrance this is keeping
+ * clear.
+ */
+@Composable
+internal fun GroupSkeleton(rowCount: Int, hasTitle: Boolean, modifier: Modifier = Modifier) {
+    val slab = MaterialTheme.colorScheme.surfaceContainer
+    val ink = MaterialTheme.colorScheme.onSurface.copy(alpha = SkeletonInkAlpha)
+    val density = LocalDensity.current
+    val headingLane = if (hasTitle) SkeletonHeadingLane else 0.dp
+    val height = headingLane + SkeletonRowHeight * rowCount + SkeletonRowGap * (rowCount - 1)
+    Spacer(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height + GroupTailSpace)
+            .drawBehind {
+                with(density) {
+                    if (hasTitle) {
+                        drawRoundRect(
+                            color = ink,
+                            topLeft = Offset(32.dp.toPx(), 6.dp.toPx()),
+                            size = Size(110.dp.toPx(), 12.dp.toPx()),
+                            cornerRadius = CornerRadius(6.dp.toPx()),
+                        )
+                    }
+                    val left = 16.dp.toPx()
+                    val right = size.width - 16.dp.toPx()
+                    val rowHeight = SkeletonRowHeight.toPx()
+                    val gap = SkeletonRowGap.toPx()
+                    var top = headingLane.toPx()
+                    repeat(rowCount) { index ->
+                        // The run's own corners: round on the outside, nearly
+                        // square where two rows meet — the same slab shape
+                        // [SettingsGroup] builds its cards out of.
+                        val first = index == 0
+                        val last = index == rowCount - 1
+                        drawRoundRect(
+                            color = slab,
+                            topLeft = Offset(left, top),
+                            size = Size(right - left, rowHeight),
+                            cornerRadius = CornerRadius(
+                                if (first || last) 24.dp.toPx() else 6.dp.toPx(),
+                            ),
+                        )
+                        drawRoundRect(
+                            color = ink,
+                            topLeft = Offset(left + 16.dp.toPx(), top + 16.dp.toPx()),
+                            size = Size(WmIconTileSize.toPx(), WmIconTileSize.toPx()),
+                            cornerRadius = CornerRadius(13.dp.toPx()),
+                        )
+                        drawRoundRect(
+                            color = ink,
+                            topLeft = Offset(left + 72.dp.toPx(), top + 20.dp.toPx()),
+                            size = Size((right - left) * 0.42f, 12.dp.toPx()),
+                            cornerRadius = CornerRadius(6.dp.toPx()),
+                        )
+                        drawRoundRect(
+                            color = ink,
+                            topLeft = Offset(left + 72.dp.toPx(), top + 40.dp.toPx()),
+                            size = Size((right - left) * 0.62f, 10.dp.toPx()),
+                            cornerRadius = CornerRadius(5.dp.toPx()),
+                        )
+                        top += rowHeight + gap
+                    }
+                }
+            },
+    )
+}
+
+/** How much of the text colour a placeholder bar carries. */
+private const val SkeletonInkAlpha = 0.08f
+
+/** A placeholder row's height: a name, a subtitle and the air around them. */
+private val SkeletonRowHeight = 72.dp
+
+/** The gap [SettingsGroup] leaves between two cards in a run. */
+private val SkeletonRowGap = 3.dp
+
+/** A heading's line plus the air above and below it. */
+private val SkeletonHeadingLane = 32.dp
+
+/** What a group leaves under its last card, matched to `GroupTail`. */
+private val GroupTailSpace = 16.dp
+
 /** Published by [WmScreen] around its column; null anywhere else. */
 internal val LocalScreenReveal = compositionLocalOf<ScreenReveal?> { null }
 
@@ -512,17 +651,46 @@ internal val LocalScreenReveal = compositionLocalOf<ScreenReveal?> { null }
 @Composable
 internal fun rememberGroupRevealed(rowCount: Int): Boolean {
     val reveal = LocalScreenReveal.current ?: return true
-    val queuePlace = remember {
-        when {
-            reveal.isSettled -> null
-            reveal.claimedRows < EagerRowBudget -> {
-                reveal.claimedRows += rowCount
-                null
-            }
-            else -> reveal.deferredCount++
-        }
-    }
+    val queuePlace = remember { reveal.claimGroup(rowCount) }
     return queuePlace == null || reveal.wave > queuePlace
+}
+
+/**
+ * Whether a group of [rowCount] rows joins the entrance or the queue, moving
+ * the ledger on for it: null to compose now, otherwise the place in the queue
+ * to wait in.
+ *
+ * Three rules, in this order:
+ *
+ * - **The first group always composes**, however big it is. A screen whose
+ *   first group is larger than the whole budget would otherwise open as
+ *   nothing but skeletons, which is the failure the budget exists to prevent.
+ * - **Once one group has queued, every later group queues too**, however
+ *   small. Letting a small group in behind a deferred one fills the page
+ *   around the gap the deferred one left rather than top to bottom.
+ * - Otherwise a group composes only if it **fits** in what is left of the
+ *   budget.
+ *
+ * That last rule is the whole point of the split. Testing the running total on
+ * its own — `claimedRows < EagerRowBudget` — admitted a group *whole* whenever
+ * everything before it was under the line, so one group bigger than the budget
+ * sailed straight through and the budget never bit. The mode editor's second
+ * group is eighteen rows of choice controls, reorderable lists and a flow row;
+ * it was composing in the very frame the entrance had to draw in, and measured
+ * 250-350 ms of main-thread work on a mid-range phone. That swallowed the
+ * entrance whole, and every shared-element flight riding on it with it.
+ *
+ * Pure, and public to its module, so [ScreenRevealTest] can pin the rules
+ * without a composition.
+ */
+internal fun ScreenReveal.claimGroup(rowCount: Int): Int? = when {
+    isSettled -> null
+    deferredCount > 0 -> deferredCount++
+    claimedRows == 0 || claimedRows + rowCount <= EagerRowBudget -> {
+        claimedRows += rowCount
+        null
+    }
+    else -> deferredCount++
 }
 
 /**
@@ -671,10 +839,34 @@ internal fun Modifier.wmSharedBounds(key: Any): Modifier {
             rememberSharedContentState(key),
             anim,
             boundsTransform = NavBoundsTransform,
-            resizeMode = ScaleToBounds(ContentScale.FillWidth, Alignment.CenterStart),
+            resizeMode = scaleToBounds(ContentScale.FillWidth, Alignment.CenterStart),
             zIndexInOverlay = 1f,
         )
     }
+}
+
+/**
+ * Hands this field the caret the first time it is really on screen.
+ *
+ * [FocusRequester.requestFocus] throws `FocusRequester is not initialized`
+ * when no focus node has attached yet, and running the request from a
+ * `LaunchedEffect` is no promise that one has: Material3's Scaffold
+ * subcomposes its top bar inside the measure pass, so an effect that lands
+ * between composition and the first layout finds no field to focus and takes
+ * the app down with it (#237). Waiting for `onPlaced` asks at the one moment
+ * the node is known to be there, and only once, so the keyboard does not come
+ * back every time the field is moved.
+ */
+@Composable
+internal fun Modifier.focusOncePlaced(
+    requester: FocusRequester,
+    enabled: Boolean = true,
+): Modifier {
+    var placed by remember(requester) { mutableStateOf(false) }
+    LaunchedEffect(placed, enabled, requester) {
+        if (placed && enabled) requester.requestFocus()
+    }
+    return focusRequester(requester).onPlaced { placed = true }
 }
 
 // ---- rows ----
@@ -805,6 +997,159 @@ internal fun WmRow(
  */
 internal val RowTrailingTextMaxWidth = 132.dp
 
+// ---- haptics ----
+
+/**
+ * The settings app's touch feedback.
+ *
+ * A keyboard is the one app on the phone whose whole job is how a press feels,
+ * and until this existed its own settings were the only surface in it that
+ * answered a press with nothing at all. These are the two feelings a settings
+ * screen has to give: something latched, and something stepped.
+ *
+ * Constants rather than Compose's [androidx.compose.ui.hapticfeedback.HapticFeedbackType],
+ * because the types that mean *these* two things — `TOGGLE_ON`/`TOGGLE_OFF` and
+ * `SEGMENT_TICK` — only exist on API 34 and up, and `minSdk` here is 24. The
+ * fallbacks are the nearest thing each older platform actually has: a context
+ * click for a latch, a clock tick for a step. Every one of them is routed
+ * through [View.performHapticFeedback], which already declines when the user
+ * has haptics off system-wide, so nothing here needs to read a setting.
+ */
+internal class SettingsHaptics(private val view: View) {
+    /** A switch latching. The two directions feel different on API 34+. */
+    fun toggle(on: Boolean) {
+        val effect = when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
+                if (on) HapticFeedbackConstants.TOGGLE_ON else HapticFeedbackConstants.TOGGLE_OFF
+            else -> HapticFeedbackConstants.CONTEXT_CLICK
+        }
+        view.performHapticFeedback(effect)
+    }
+
+    /**
+     * One step passing under the finger: a slider's readout changing, a
+     * stepper's arrow, a new option taking the selection.
+     */
+    fun tick() {
+        val effect = when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE ->
+                HapticFeedbackConstants.SEGMENT_TICK
+            else -> HapticFeedbackConstants.CLOCK_TICK
+        }
+        view.performHapticFeedback(effect)
+    }
+}
+
+// ---- undo ----
+
+/**
+ * The bar at the foot of a settings screen that says what just happened and
+ * offers to put it back.
+ *
+ * The app's lists — snippets, learnt words, blacklists, themes — were deleted
+ * from with a trash button and nothing else: the row went, and that was the
+ * whole of it. A confirmation dialog in front of every one of those is the
+ * usual answer and the wrong one for a list somebody is tidying, because it
+ * puts a modal between the user and each of the twenty rows they came to
+ * remove. Deleting at once and offering the way back for a few seconds costs
+ * nothing per row and still cannot lose anything.
+ *
+ * A screen reaches this through [LocalSettingsSnackbar]; the host itself lives
+ * in `WmScreenFrame`, so every settings screen has one without asking.
+ */
+internal class SettingsSnackbar(
+    private val host: SnackbarHostState,
+    private val scope: CoroutineScope,
+) {
+    /**
+     * Says [message] and offers [undoLabel]; [onUndo] runs if it is pressed.
+     *
+     * A second call replaces the first rather than queueing behind it. Someone
+     * clearing several rows should be offered the way back from the one they
+     * just removed, not made to watch the last four announcements go by — and
+     * the earlier deletes standing is exactly what dismissing those says.
+     */
+    fun undo(message: String, undoLabel: String, onUndo: () -> Unit) {
+        scope.launch {
+            host.currentSnackbarData?.dismiss()
+            val result = host.showSnackbar(
+                message = message,
+                actionLabel = undoLabel,
+                withDismissAction = false,
+                duration = SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) onUndo()
+        }
+    }
+}
+
+/** The screen's undo bar. Null outside a settings screen's frame. */
+internal val LocalSettingsSnackbar = compositionLocalOf<SettingsSnackbar?> { null }
+
+/**
+ * A row that is deleted by swiping it aside, either way.
+ *
+ * Pairs with [SettingsSnackbar]: the swipe is the fast way to remove a row and
+ * the bar is what makes removing it that easily safe. The trash button on the
+ * row stays — a swipe is a shortcut for people who know it is there, never the
+ * only way to reach something.
+ *
+ * Callers in a plain `Column` (which is what a settings group is) must wrap the
+ * call in `key(id) { }`. Without it the state remembered here belongs to a
+ * *position* in the list, and the row that slides up into a deleted row's place
+ * inherits its dismissed state and vanishes too.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun SwipeToDelete(onDelete: () -> Unit, content: @Composable () -> Unit) {
+    val haptics = rememberSettingsHaptics()
+    val state = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.Settled) return@rememberSwipeToDismissBoxState false
+            haptics.toggle(on = false)
+            onDelete()
+            true
+        },
+    )
+    SwipeToDismissBox(
+        state = state,
+        backgroundContent = { SwipeToDeleteBackground(state.dismissDirection) },
+        content = { content() },
+    )
+}
+
+/** What shows under a row being swiped away: the error colour and a bin. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeToDeleteBackground(direction: SwipeToDismissBoxValue) {
+    // Settled means the row is at rest and the background is not being looked
+    // at; painting it anyway leaves a red edge under every row in the list.
+    if (direction == SwipeToDismissBoxValue.Settled) return
+    val alignment =
+        if (direction == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart
+        else Alignment.CenterEnd
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.errorContainer)
+            .padding(horizontal = 24.dp),
+        contentAlignment = alignment,
+    ) {
+        Icon(
+            Icons.Outlined.Delete,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onErrorContainer,
+        )
+    }
+}
+
+/** The [SettingsHaptics] for the window this composable is drawn in. */
+@Composable
+internal fun rememberSettingsHaptics(): SettingsHaptics {
+    val view = LocalView.current
+    return remember(view) { SettingsHaptics(view) }
+}
+
 // ---- reset to default ----
 
 /**
@@ -833,10 +1178,25 @@ private val ResetGlyphSize = 18.dp
  * [name] is the setting's own name, and goes into the content description
  * rather than into anything drawn: the glyph is the same on every row, so
  * "Reset" alone would leave a screen reader with a dozen identical buttons.
+ *
+ * The control's slot is reserved while it is not drawn (#136): a row whose
+ * value can be reset keeps the same width for it whether or not it is changed
+ * right now, so the switch or the value beside it never shifts when the glyph
+ * comes and goes. [possible] is false on a row that could never reset — one
+ * with no shipped default — and such a row reserves nothing.
  */
 @Composable
-internal fun ResetSetting(name: String, changed: Boolean, onReset: () -> Unit) {
-    if (!changed) return
+internal fun ResetSetting(
+    name: String,
+    changed: Boolean,
+    possible: Boolean = true,
+    onReset: () -> Unit,
+) {
+    if (!possible) return
+    if (!changed) {
+        Spacer(Modifier.size(ResetTargetSize))
+        return
+    }
     IconButton(
         onClick = onReset,
         modifier = Modifier.size(ResetTargetSize),
@@ -1753,6 +2113,9 @@ private fun WmScreenFrame(
     RegisterSettingsCrumb(crumbTitle ?: title, route)
     val slots = remember { ScreenSlots() }
     val scope = rememberCoroutineScope()
+    // One per screen, published for everything it draws — see [SettingsSnackbar].
+    val snackbarHost = remember { SnackbarHostState() }
+    val snackbar = remember(snackbarHost, scope) { SettingsSnackbar(snackbarHost, scope) }
     // The path strip's last pill: the body scrolls to its top, and the bar
     // opens back up. The scroll alone would leave the bar collapsed when the
     // body is shorter than the distance the bar folds over, so the bar is
@@ -1772,84 +2135,116 @@ private fun WmScreenFrame(
         LocalScreenRoute provides route,
         LocalFlightOrigin provides origin,
         LocalScreenSlots provides slots,
+        LocalSettingsSnackbar provides snackbar,
     ) {
-        Scaffold(
-            modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-            topBar = {
-                Column {
-                    WmCollapsingTopBar(
-                        title = title,
-                        scrollBehavior = scrollBehavior,
-                        onBack = onBack,
-                        route = route,
-                        icon = icon,
-                        accent = accent,
-                        iconTile = iconTile,
-                        iconInBar = iconInBar,
-                        barTint = barTint,
-                        centerTitle = centerTitle,
-                        subtitle = subtitle,
-                        subtitleIcon = subtitleIcon,
-                        subtitleIconTint = subtitleIconTint,
-                        subtitleInBar = subtitleInBar,
-                        subtitleMaxLines = subtitleMaxLines,
-                        badge = badge,
-                        badgeInBar = badgeInBar,
-                        actions = actions,
-                    )
-                    // Below the bar rather than inside it: the bar measures
-                    // itself to the collapse, and a second line in there would
-                    // have to be written into that arithmetic. The strip draws
-                    // nothing on the home list, which pays an empty layout
-                    // node for it and no height.
-                    if (trail != null && entry != null) {
-                        SettingsBreadcrumbBar(
-                            trail = trail,
-                            entryId = entry.id,
-                            currentTitle = crumbTitle ?: title,
-                            currentRoute = route,
-                            onCurrent = toTop,
-                            // The heading's own colour, so the pill and the
-                            // tile above it are visibly the same section.
-                            accent = accent ?: routeAccent(route.orEmpty()),
-                            tint = barTints(route, barTint).collapsed,
+        // A settings row is a name on the left and a control on the right, and
+        // on a window wider than a phone the two end up a hand's width apart
+        // with nothing in between — the eye loses the line between the setting
+        // and the switch that belongs to it. The whole frame is capped rather
+        // than the body alone, so the heading, the path strip and the rows stay
+        // on one left edge instead of the title hanging off the window while
+        // the rows sit in the middle. The margins are painted in the same
+        // colour the Scaffold paints itself, so there is no seam to see.
+        //
+        // Inert in the two-pane layout, where the detail pane is already
+        // narrower than this — see [SettingsTwoPane].
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            Scaffold(
+                modifier = Modifier
+                    .widthIn(max = ScreenContentMaxWidth)
+                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                topBar = {
+                    Column {
+                        WmCollapsingTopBar(
+                            title = title,
+                            scrollBehavior = scrollBehavior,
+                            onBack = onBack,
+                            route = route,
+                            icon = icon,
+                            accent = accent,
+                            iconTile = iconTile,
+                            iconInBar = iconInBar,
+                            barTint = barTint,
+                            centerTitle = centerTitle,
+                            subtitle = subtitle,
+                            subtitleIcon = subtitleIcon,
+                            subtitleIconTint = subtitleIconTint,
+                            subtitleInBar = subtitleInBar,
+                            subtitleMaxLines = subtitleMaxLines,
+                            badge = badge,
+                            badgeInBar = badgeInBar,
+                            actions = actions,
+                        )
+                        // Below the bar rather than inside it: the bar measures
+                        // itself to the collapse, and a second line in there would
+                        // have to be written into that arithmetic. The strip draws
+                        // nothing on the home list, which pays an empty layout
+                        // node for it and no height.
+                        if (trail != null && entry != null) {
+                            SettingsBreadcrumbBar(
+                                trail = trail,
+                                entryId = entry.id,
+                                currentTitle = crumbTitle ?: title,
+                                currentRoute = route,
+                                onCurrent = toTop,
+                                // The heading's own colour, so the pill and the
+                                // tile above it are visibly the same section.
+                                accent = accent ?: routeAccent(route.orEmpty()),
+                                tint = barTints(route, barTint).collapsed,
+                            )
+                        }
+                        // Inside the bar's column rather than the body: the bar is
+                        // what Scaffold measures for its content padding, so a
+                        // pinned block costs no arithmetic here and stays put
+                        // while the collapsing title above it does its thing.
+                        (pinned ?: slots.pinned)?.invoke()
+                    }
+                },
+                floatingActionButton = { (fab ?: slots.fab)?.invoke() },
+                snackbarHost = { SnackbarHost(snackbarHost) },
+                bottomBar = { slots.dock?.invoke() },
+                content = { padding ->
+                    // Always wrapped, whether or not the screen has a refresh: the
+                    // slot is filled by the content composing, so branching on it
+                    // here would rebuild the whole screen one frame in.
+                    val refresh = slots.refresh
+                    val pullState = rememberPullToRefreshState()
+                    Box(
+                        modifier = Modifier.pullToRefresh(
+                            isRefreshing = refresh?.refreshing == true,
+                            state = pullState,
+                            enabled = refresh != null,
+                            onRefresh = { slots.refresh?.onRefresh?.invoke() },
+                        ),
+                    ) {
+                        content(padding)
+                        // Under the bar rather than at the top of the window, or a
+                        // collapsing title lands on top of the spinner.
+                        PullToRefreshDefaults.Indicator(
+                            state = pullState,
+                            isRefreshing = refresh?.refreshing == true,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = padding.calculateTopPadding()),
                         )
                     }
-                    // Inside the bar's column rather than the body: the bar is
-                    // what Scaffold measures for its content padding, so a
-                    // pinned block costs no arithmetic here and stays put
-                    // while the collapsing title above it does its thing.
-                    (pinned ?: slots.pinned)?.invoke()
-                }
-            },
-            floatingActionButton = { (fab ?: slots.fab)?.invoke() },
-            bottomBar = { slots.dock?.invoke() },
-            content = { padding ->
-                // Always wrapped, whether or not the screen has a refresh: the
-                // slot is filled by the content composing, so branching on it
-                // here would rebuild the whole screen one frame in.
-                val refresh = slots.refresh
-                val pullState = rememberPullToRefreshState()
-                Box(
-                    modifier = Modifier.pullToRefresh(
-                        isRefreshing = refresh?.refreshing == true,
-                        state = pullState,
-                        enabled = refresh != null,
-                        onRefresh = { slots.refresh?.onRefresh?.invoke() },
-                    ),
-                ) {
-                    content(padding)
-                    // Under the bar rather than at the top of the window, or a
-                    // collapsing title lands on top of the spinner.
-                    PullToRefreshDefaults.Indicator(
-                        state = pullState,
-                        isRefreshing = refresh?.refreshing == true,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .padding(top = padding.calculateTopPadding()),
-                    )
-                }
-            },
-        )
+                },
+            )
+        }
     }
 }
+
+/**
+ * How wide a settings screen's own column is allowed to get.
+ *
+ * Roughly two phones side by side. Past that a row's name and its control stop
+ * reading as one thing, and a paragraph of subtitle stops being a line and
+ * starts being a column of text. Windows wider than this get the two-pane
+ * layout instead, which fills them with a second screen rather than with air.
+ */
+private val ScreenContentMaxWidth = 720.dp

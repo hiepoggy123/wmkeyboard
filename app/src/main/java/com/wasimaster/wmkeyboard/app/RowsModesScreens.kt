@@ -118,15 +118,33 @@ import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.FindReplace
 import androidx.compose.material.icons.outlined.Keyboard
+import com.wasimaster.wmkeyboard.core.ui.ScrollRailBox
+import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 
 /** The line counts the symbol row stepper walks, one press per line. */
 private val SymbolRowLinesSteps: List<Int> = SymbolRowLinesRange.toList()
 
 // ---- rows & bars ----
 
+/**
+ * The row's name in the order list.
+ *
+ * The strip's own name depends on what is in it: with the tools sharing it
+ * there is one row and one entry for both, and with the tools on a row of
+ * their own ("Where the tools go" set to Always or Button) the strip is
+ * suggestions and nothing else, so it says so and the tools row is the entry
+ * next to it — see [barRowsListed], which is what drops the tools entry back
+ * out again when they return to the strip.
+ */
 @StringRes
-private fun barRowTitle(row: BarRow): Int = when (row) {
-    BarRow.TOPBAR -> R.string.rows_bar_topbar_title
+private fun barRowTitle(row: BarRow, settings: KeyboardSettings): Int = when (row) {
+    BarRow.TOPBAR -> if (settings.toolbarBehavior.placement.isOwnRow) {
+        R.string.rows_bar_topbar_suggestions_title
+    } else {
+        R.string.rows_bar_topbar_title
+    }
     BarRow.EMOJI -> R.string.rows_bar_emoji_title
     BarRow.SYMBOL -> R.string.rows_symbol_row_title
     BarRow.FANCY -> R.string.rows_bar_fancy_title
@@ -151,9 +169,10 @@ private fun barRowStatus(row: BarRow, settings: KeyboardSettings): Int? = when (
     }
     BarRow.SYMBOL -> CommonR.string.common_off.takeUnless { settings.symbolRowEnabled }
     BarRow.FANCY -> R.string.rows_bar_fancy_off_subtitle.takeUnless { fancyTextOn(settings) }
+    // Never listed with the tools on the strip ([barRowsListed]), so the only
+    // things left to say are "the toolbar is off" and "the row is a tap away".
     BarRow.TOOLS -> when {
         !settings.toolbarBehavior.enabled -> CommonR.string.common_off
-        settings.toolbarBehavior.placement == ToolbarPlacement.STRIP -> R.string.rows_bar_tools_strip_subtitle
         settings.toolbarBehavior.placement == ToolbarPlacement.ON_DEMAND_ROW ->
             R.string.rows_bar_tools_button_subtitle
         else -> null
@@ -186,6 +205,36 @@ private fun barRowShown(row: BarRow, settings: KeyboardSettings): Boolean = when
     BarRow.MACROS -> settings.selectionMacros.enabled &&
         settings.selectionMacros.placement == SelectionMacroPlacement.OWN_ROW
     BarRow.KEYBOARD -> true
+}
+
+/**
+ * The rows the order list offers, out of the stored order.
+ *
+ * Everything but the tools row, always; the tools row only while the tools
+ * have a row of their own. On the strip they are part of the strip entry
+ * above, and a second entry for a row that cannot be drawn is a slot the user
+ * can drag around to no effect.
+ */
+internal fun barRowsListed(order: List<BarRow>, settings: KeyboardSettings): List<BarRow> =
+    if (settings.toolbarBehavior.placement.isOwnRow) {
+        order
+    } else {
+        order.filter { it != BarRow.TOOLS }
+    }
+
+/**
+ * [listed], reordered by the user, merged back into the complete [stored]
+ * order — so a row the list is not showing keeps the place it had rather than
+ * being dropped or shuffled to an end. It goes back after the nearest row that
+ * preceded it in storage and is still present, which is where it was.
+ */
+internal fun barOrderMerged(listed: List<BarRow>, stored: List<BarRow>): List<BarRow> {
+    val out = listed.toMutableList()
+    for (row in stored.filter { it !in listed }) {
+        val before = stored.take(stored.indexOf(row)).lastOrNull { it in out }
+        out.add(before?.let { out.indexOf(it) + 1 } ?: 0, row)
+    }
+    return out
 }
 
 /** Height of a bar-order row: a title, an optional status line and the preview strip. */
@@ -370,8 +419,8 @@ internal fun RowsSettings(
     val scope = rememberCoroutineScope()
     // Resolved before the group: its builder is a plain lambda, and the drag
     // list takes a plain (T) -> String.
-    val order = settings.barOrder
-    val rowNames = order.associateWith { stringResource(barRowTitle(it)) }
+    val order = barRowsListed(settings.barOrder, settings)
+    val rowNames = order.associateWith { stringResource(barRowTitle(it, settings)) }
     val rowStatus = order.associateWith { row -> barRowStatus(row, settings)?.let { stringResource(it) } }
     // Every entry moves, the keys included (issue #83): a row dragged above
     // the Keyboard entry sits over the keys, one dragged below it sits under.
@@ -379,7 +428,7 @@ internal fun RowsSettings(
         stringResource(R.string.rows_row_order_title),
         info = stringResource(R.string.rows_row_order_caption),
         action = {
-            if (order != DefaultBarOrder) {
+            if (settings.barOrder != DefaultBarOrder) {
                 TextButton(onClick = { scope.launch { repository.setBarOrder(DefaultBarOrder) } }) {
                     Text(stringResource(CommonR.string.common_reset))
                 }
@@ -390,7 +439,11 @@ internal fun RowsSettings(
             ReorderableColumn(
                 order,
                 label = { rowNames[it].orEmpty() },
-                onReorder = { next -> scope.launch { repository.setBarOrder(next) } },
+                onReorder = { next ->
+                    scope.launch {
+                        repository.setBarOrder(barOrderMerged(next, settings.barOrder))
+                    }
+                },
                 modifier = Modifier.padding(horizontal = 16.dp),
                 rowHeight = BarOrderRowHeight,
             ) { row ->
@@ -425,13 +478,43 @@ internal fun RowsSettings(
             ) { scope.launch { repository.setDictionaryBarEnabled(it) } }
         }
     }
+    // The switch stays here, beside the other rows' switches; everything else
+    // about the symbol row is a page of its own behind it (#136).
     SettingsGroup(stringResource(R.string.rows_symbol_row_title)) {
+        item {
+            ToggleNavRow(
+                R.string.rows_symbol_row_title,
+                stringResource(R.string.rows_symbol_row_subtitle),
+                settings.symbolRowEnabled,
+                route = "rows/symbol",
+                info = stringResource(R.string.rows_symbol_row_info),
+                default = SettingsDefaults.symbolRowEnabled,
+                onChange = { scope.launch { repository.setSymbolRowEnabled(it) } },
+            ) { onNavigate("rows/symbol") }
+        }
+    }
+}
+
+/**
+ * The symbol row's own page (#136): its switch again, so the page can be used
+ * without going back, then the row's shape and the sets it offers. Reached
+ * from the switch row on Rows & bars, whose switch flies into this one.
+ */
+@Composable
+internal fun SymbolRowSettings(
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    onNavigate: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    SettingsGroup {
         item {
             ToggleSetting(
                 R.string.rows_symbol_row_title,
                 stringResource(R.string.rows_symbol_row_subtitle),
                 settings.symbolRowEnabled,
                 info = stringResource(R.string.rows_symbol_row_info),
+                switchKey = landingKey("switch"),
                 default = SettingsDefaults.symbolRowEnabled,
             ) { scope.launch { repository.setSymbolRowEnabled(it) } }
         }
@@ -537,7 +620,7 @@ internal fun RowsSettings(
                     // one stores an override under the same id, so modes that
                     // reference it keep working and "Reset" brings it back.
                     trailing = {
-                        IconButton(onClick = { onNavigate("symbol_set_edit/${set.id}") }) {
+                        IconButton(onClick = { onNavigate(symbolSetEditRoute(set.id)) }) {
                             Icon(
                                 Icons.Outlined.Edit,
                                 contentDescription = stringResource(
@@ -555,7 +638,7 @@ internal fun RowsSettings(
         }
     }
     RegisterAddFab(stringResource(R.string.rows_symbol_set_new_title)) {
-        onNavigate("symbol_set_edit/custom_${System.currentTimeMillis()}")
+        onNavigate(symbolSetEditRoute("custom_${System.currentTimeMillis()}"))
     }
 }
 /**
@@ -761,6 +844,44 @@ private fun SymbolPopupsEditor(
             }
         }
     }
+}
+
+/**
+ * One symbol set's editor, as flights name it.
+ *
+ * The navigation route with its argument filled in, which is what a flight is
+ * keyed on: the pattern (`symbol_set_edit/{setId}`) is the same string for every
+ * set and would hang one key on all of them.
+ */
+internal fun symbolSetEditRoute(setId: String): String = "symbol_set_edit/$setId"
+
+/**
+ * One mode's editor, as flights name it.
+ *
+ * The navigation route with its argument filled in, which is what a flight is
+ * keyed on: the pattern (`mode_edit/{modeId}`) is the same string for every
+ * mode and would hang one key on all of them.
+ */
+internal fun modeEditRoute(modeId: String): String = "mode_edit/$modeId"
+
+/**
+ * The name the mode editor's heading wears: the mode as the user named it.
+ *
+ * Read by the nav graph, which owns the heading. Null for a mode that is not
+ * there yet — the Add button navigates to an id nothing has saved — and the
+ * frame falls back to the generic title.
+ */
+internal fun modeEditTitle(settings: KeyboardSettings, modeId: String): String? =
+    settings.keyboardModes.find { it.id == modeId }?.name?.takeIf { it.isNotBlank() }
+
+/**
+ * The mode's glyph at heading size, or null for a mode that is not saved yet.
+ * The list row draws the same one, so the two ends of the flight match.
+ */
+@Composable
+internal fun modeEditIcon(settings: KeyboardSettings, modeId: String): (@Composable () -> Unit)? {
+    val mode = settings.keyboardModes.find { it.id == modeId } ?: return null
+    return { Icon(ModeIcons.icon(mode.icon), contentDescription = null) }
 }
 
 // ---- keyboard modes ----
@@ -1243,7 +1364,16 @@ internal fun ModesSettings(
                         stringResource(R.string.modes_row_off_subtitle)
                     },
                     leading = {
-                        Icon(ModeIcons.icon(mode.icon), contentDescription = null)
+                        // The mode's glyph, which is also the glyph its editor
+                        // wears in the heading — so it flies rather than being
+                        // drawn twice.
+                        Icon(
+                            ModeIcons.icon(mode.icon),
+                            contentDescription = null,
+                            modifier = Modifier.wmSharedElement(
+                                takeOffKey("icon", modeEditRoute(mode.id)),
+                            ),
+                        )
                     },
                     trailing = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1261,13 +1391,14 @@ internal fun ModesSettings(
                             }
                         }
                     },
-                    onClick = { onNavigate("mode_edit/${mode.id}") },
+                    flightTo = modeEditRoute(mode.id),
+                    onClick = { onNavigate(modeEditRoute(mode.id)) },
                 )
             }
         }
     }
     RegisterAddFab(stringResource(R.string.modes_new_title)) {
-        onNavigate("mode_edit/mode_custom_${System.currentTimeMillis()}")
+        onNavigate(modeEditRoute("mode_custom_${System.currentTimeMillis()}"))
     }
     SettingsGroup(stringResource(R.string.modes_rearrange_group_title)) {
         if (!settings.modesEnabled) return@SettingsGroup
@@ -1902,6 +2033,8 @@ internal fun ModeIconPickerDialog(
     title: String = stringResource(R.string.modes_icon_picker_title),
     clearLabel: String? = null,
 ) {
+    val iconGrid = rememberLazyGridState()
+    val iconRail = rememberScrollRailState(iconGrid)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -1918,19 +2051,25 @@ internal fun ModeIconPickerDialog(
                         label = { Text(clearLabel) },
                     )
                 }
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(IconGridCellMinWidth),
+                ScrollRailBox(
+                    state = iconRail,
                     modifier = Modifier.heightIn(max = 380.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    items(ModeIcons.catalog, key = { it.first }) { (id, vector) ->
-                        IconGridCell(
-                            vector = vector,
-                            name = id,
-                            selected = id == selected,
-                            onClick = { onPick(id) },
-                        )
+                ) { cells ->
+                    LazyVerticalGrid(
+                        state = iconGrid,
+                        columns = GridCells.Adaptive(IconGridCellMinWidth),
+                        modifier = cells,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(ModeIcons.catalog, key = { it.first }) { (id, vector) ->
+                            IconGridCell(
+                                vector = vector,
+                                name = id,
+                                selected = id == selected,
+                                onClick = { onPick(id) },
+                            )
+                        }
                     }
                 }
             }
@@ -1963,6 +2102,8 @@ private fun AppPickerDialog(
             (query.isBlank() || label.contains(query, ignoreCase = true) ||
                 pkg.contains(query, ignoreCase = true))
     }
+    val appList = rememberLazyListState()
+    val appRail = rememberScrollRailState(appList)
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.modes_app_picker_title)) },
@@ -1976,15 +2117,17 @@ private fun AppPickerDialog(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(8.dp))
-                LazyColumn(modifier = Modifier.heightIn(max = 380.dp)) {
-                    items(shown, key = { it.first }) { (pkg, label) ->
-                        ListItem(
-                            headlineContent = { Text(label) },
-                            supportingContent = { Text(pkg) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onPick(pkg) },
-                        )
+                ScrollRailBox(state = appRail, modifier = Modifier.heightIn(max = 380.dp)) { rows ->
+                    LazyColumn(state = appList, modifier = rows) {
+                        items(shown, key = { it.first }) { (pkg, label) ->
+                            ListItem(
+                                headlineContent = { Text(label) },
+                                supportingContent = { Text(pkg) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onPick(pkg) },
+                            )
+                        }
                     }
                 }
             }

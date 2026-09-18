@@ -84,14 +84,32 @@ There are three ways to reach the settings app from the keyboard itself:
 
 The settings app is a flat list of screens, one per section, grouped into six clusters on the home screen:
 
-- **Typing:** Typing, Key press, Languages
-- **Keyboard:** Appearance, Layout & size, Key layouts, Rows & bars, Keyboard modes
-- **Features:** Emoji, Tools, Add-ons
+- **Typing:** Languages & layouts, Typing, Key press
+- **Keyboard:** Appearance, Layout & size, Rows & bars
+- **Features:** Emoji, Voice typing, Clipboard, Text expansion, Tools
 - **Accessibility:** Accessibility
-- **Data:** Privacy, Backup & restore
+- **Data:** Privacy, Backup & restore, Advanced
 - **About:** About
 
-Each screen is just a title and a back button. There's no deep nesting to get lost in. Every section here has a matching reference page under [Reference → Settings](/reference/settings/) with the exact options and defaults. This tour only covers where things live, not every switch.
+Most screens are just a title and a back button, with one exception. **Advanced** bundles five screens few people open day to day: Keyboard modes, Add-ons, Data saver, Notifications and Selection actions. Key layouts lives inside Layout & size instead of its own home-screen row. Every section here has a matching reference page under [Reference → Settings](/reference/settings/) with the exact options and defaults. This tour only covers where things live, not every switch.
+
+### While a screen opens
+
+A settings screen composes its rows as it opens, so the ones below the fold arrive a frame or two after the ones at the top. While they are on their way the screen holds their place with blank rows the size of the real ones, which is why a long screen opens at its full height and fills in rather than growing under you.
+
+Settings search does the same. Its index is built the first time you open the search screen, so if you type immediately you get placeholder rows for a moment. Search only tells you that nothing matched once it has something to match against.
+
+### On a tablet
+
+On a screen wider than about 840 dp — a tablet either way up, a foldable opened out, or a large free-form window — the settings app splits in two. The home list stays down the left side and the section you open fills the rest of the window, so you can move between sections without going back first. The row you opened is marked in the list, and Back closes the section and leaves the list where it is. Until you open something, the right side shows the app icon and a line telling you to pick a section.
+
+Below that width the app stays one screen at a time, and on a screen wider than two phones the content stops stretching and sits in a column in the middle. A settings row is a name on one side and a switch on the other, and a very wide row puts too much space between the two.
+
+### Lists that keep going
+
+A list that is too long for its window gets a rail down the right edge. The rail shows how much of the list you can see and where in it you are. Drag the rail to move through a long list quickly. A list with groups, such as the key action picker, gets one piece of rail for each group, and the group you are reading is highlighted. Press and hold the rail on such a list and the group name follows your finger. The bottom edge of the list fades while there is more below it.
+
+The same rail is in the keyboard, on menus like the language list from the spacebar and the translation language picker. A list that scrolls also moves down a little and comes back when it opens, so that you can see it scrolls. It stays still if your device has its animations turned off.
 
 :::tip
 Long-press the WM Keyboard launcher icon on your home screen for shortcuts straight into Tools, Languages, AI chat and Themes. Handy if you tweak settings often.

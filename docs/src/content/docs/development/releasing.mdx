@@ -16,12 +16,12 @@ of it, so nothing here needs a branch or a patched source tree.
 
 | | GitHub release | F-Droid | Play Store |
 |---|---|---|---|
-| Flavor | `full` **and** `lite` | `lite` | `full` |
+| Flavor | `full` **and** `lite`, each in `intl` **and** `en` | `lite`, `en` | `full`, `intl` |
 | `wmkb.enablePlayStore` | `false` | `false` | `true` |
 | `wmkb.enableGms` | `true` | `false` | `true` |
 | `wmkb.enableFdroid` | `false` | `true` | `false` |
 | `wmkb.splitApks` | `true` | not used | ignored by `bundle*` |
-| Artifact | one APK per ABI, for both flavors, plus R8 mappings, native symbols and `SHA256SUMS.txt` | one APK, built by F-Droid | one AAB, with its R8 mapping and native symbols inside |
+| Artifact | one APK per ABI, for all four flavor combinations, plus R8 mappings, native symbols and `SHA256SUMS.txt` | one APK, built by F-Droid | one AAB, with its R8 mapping and native symbols inside |
 | ML Kit | bundled in the APK | absent | unbundled, fetched from Play services |
 | Local LLM | bundled | absent | on-demand `:feature:llm` module |
 | In-app updates | GitHub releases, downloads and installs | checks F-Droid, links out | Play In-App Updates |
@@ -65,8 +65,10 @@ and no installer at all, since F-Droid signs its own builds.
 The channel picks source directories and a manifest overlay, wired through the
 Variant API in `app/build.gradle.kts` (`channelSourceDirs` and
 `channelManifests`). There is no product flavour for it: the channel is
-orthogonal to `full`/`lite`, and a second dimension would double every variant
-and task name in the project.
+orthogonal to the others, and a dimension for it would double every variant and
+task name in the project for the sake of one file. The `languages` dimension
+was judged to be worth that price and the channel was not, because `languages`
+changes about 41 MB of what a user downloads.
 
 | Directory | Compiled when | Holds |
 |---|---|---|
@@ -100,14 +102,22 @@ That has to print `0` for a Play build and `1` for a GitHub one.
 
 The [`Release` workflow](https://github.com/wasi-master/wmkeyboard/blob/main/.github/workflows/release.yml)
 does the build. It runs on any tag starting with `v` and refuses to run if the
-tag disagrees with `wmkb.versionName`. It signs with your release key, then
-attaches one APK per ABI for each flavor, plus a `SHA256SUMS.txt`, to the
-release.
+tag disagrees with `wmkb.versionName`. A tag with no `wmkb.versionName` at all
+predates the property (`v0.1.0` and `v0.2.0` kept the version in
+`app/build.gradle.kts`), so the run stands down with a notice instead of
+comparing the tag against an empty string, and that release is written by hand.
+Neither of those two tags carries this workflow, so pushing them starts no run
+at all; the guard is for a tag that does reach it without a version to check. It signs with your release key, then
+attaches one APK per ABI for each of the four flavor combinations, plus a
+`SHA256SUMS.txt`, to the release.
 
 The release also carries the files you need to read a crash report from those
-APKs. `*-full-mapping.txt.gz` and `*-lite-mapping.txt.gz` are the R8 mappings,
-one per flavor, and `*-full-native-symbols.zip` holds the native debug
-symbols. Retrace a stack trace with the mapping from the same flavor and
+APKs. The `*-mapping.txt.gz` files are the R8 mappings, one per flavor
+combination (`full-intl`, `full-en`, `lite-intl`, `lite-en`), and
+`*-full-intl-native-symbols.zip` and `*-full-en-native-symbols.zip` hold the
+native debug symbols. The two language builds are separate R8 runs, so their
+mappings are not interchangeable even though the Kotlin that went in was
+identical. Retrace a stack trace with the mapping from the same flavor and
 version:
 
 ```sh
@@ -156,16 +166,23 @@ from the bundle.
    `gradle.properties`. The code must increase; the name is what the tag has
    to match.
 
-2. **Write the changelog.** `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
+2. **Write the store changelog.** `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
    F-Droid and Play both read this file, so it is the only place you write it.
+   Play caps it at 500 characters.
 
-3. **Tag and push.**
+3. **Write the release notes.** `release-notes/<versionName>.md`, in the repo
+   root. This is the prose at the top of the GitHub release: what changed, in
+   sections, with issue links. Leave it out and the release falls back to the
+   store changelog, which is a paragraph. That is fine for a bug-fix release
+   and thin for anything else.
+
+4. **Tag and push.**
 
    ```sh
    git tag v0.3.1 && git push origin v0.3.1
    ```
 
-4. **Watch the run.** It builds the APKs, builds the Play AAB as a separate
+5. **Watch the run.** It builds the APKs, builds the Play AAB as a separate
    artifact, and publishes the release. The AAB is not attached to the public
    release, because an AAB is not installable. The `play` job uploads it to
    the Play *internal* track through fastlane instead, or skips itself with a
@@ -173,6 +190,67 @@ from the bundle.
    production stays a decision you make by hand.
 
 </Steps>
+
+### What the release body looks like
+
+`.github/scripts/release-notes.sh` builds it in the `publish` job, after the
+APKs have been downloaded back from the `apks` job. Three parts:
+
+1. **What's new**: `release-notes/<versionName>.md` verbatim, inside a
+   `<details open>` so it can be folded away, or the store changelog if that
+   file is absent.
+2. **Download**: a grid of architecture against flavour, starred on
+   `arm64-v8a`, every cell carrying the file's real size. The sizes are measured
+   from the artifacts that were actually built, so a cell whose file is missing
+   shows an em dash rather than a link to a 404. Checksums, R8 mappings and
+   native symbols sit in a collapsed block under it.
+3. **One line** giving the commit count since the previous tag, linking the
+   compare view.
+
+The `publish` job then makes the release as a draft, uploads the files one at a
+time, and only publishes it once they are all attached, so a watcher never sees
+a release with half its APKs on it. It uses the `gh` CLI rather than
+`softprops/action-gh-release`, which failed the 0.5.9 publish with `Error
+creating asset temp dir` after attaching three of twelve files. The whole step
+is idempotent, so re-running it after a failure edits and re-uploads over
+whatever the last attempt managed.
+
+:::caution[A re-run replays the workflow from the tag]
+Actions runs the workflow file as it was at the ref that triggered it, so
+fixing `release.yml` on `main` does nothing for a re-run of a tag cut before
+the fix. Attach the files by hand in that case: `gh run download <run-id>
+--name release-apks`, then `gh release upload <tag> --clobber <files>` and
+`gh release edit <tag> --draft=false --latest`.
+:::
+
+There is deliberately no generated list of commit subjects. The prose in
+`release-notes/` is the changelog; the compare view is a better place to read
+every commit than a wall of subjects in the release body.
+
+Preview the whole body without cutting a release, against artifacts you already
+have in `dist/`:
+
+```sh
+.github/scripts/release-notes.sh 0.5.9 20 v0.5.9 dist wasi-master/wmkeyboard
+```
+
+### Rewriting a release that is already out
+
+`.github/scripts/backfill-release-notes.sh` puts a published release's body
+through the same generator, and creates the release when a tag has none:
+
+```sh
+.github/scripts/backfill-release-notes.sh --dry-run v0.4.0
+.github/scripts/backfill-release-notes.sh v0.4.0 v0.4.1
+```
+
+It downloads nothing. The asset list from the API carries each file's byte
+count, and the script writes sparse stand-ins of exactly that size for the
+generator to measure, so the grid ends up with the real numbers. Two details it
+handles on its own: 0.3.0 predates the versioned filenames, so its grid is
+pointed back at the `app-<flavor>-<abi>-release.apk` names actually attached;
+and a release it *creates* passes `--latest=false`, because a tag cut after the
+fact must not take the Latest badge that the in-app updater reads.
 
 :::tip[Rehearse without publishing]
 Run the workflow from the Actions tab with **dry run** left on. Everything
@@ -188,11 +266,32 @@ delivery libraries, `play-services-auth`) is declared `fullImplementation` or
 sits behind a channel flag, so `lite` has no Google artifact on its compile
 classpath at all.
 
+Since 0.5.10 the recipe's `gradle:` list has to name **two** flavours, not one:
+
+```yaml
+    gradle:
+      - lite
+      - en
+```
+
+fdroidserver joins them in order to build the task name, so those two lines
+mean `assembleLiteEnRelease`. They must be listed in the same order as the
+dimensions are declared in `app/build.gradle.kts`, which is `capabilities` and
+then `languages`. A recipe that still lists `lite` alone names a task that no
+longer exists and the build fails outright rather than quietly producing the
+wrong APK.
+
+F-Droid gets `en` on purpose. It ships one APK to everybody, so the 48
+translations would land on every installer whole, and they are worth about
+41 MB against a `lite` build that is otherwise around 12 MB. Anyone who wants
+the translated app can take an `intl` APK from the GitHub release.
+
 The build recipe is staged in the repo at `fdroid/com.wasimaster.wmkeyboard.yml`.
 F-Droid never reads it from there; it is versioned next to the code so the
 recipe and the build stay in step. It carries no comments, because fdroiddata's
 CI runs `fdroid rewritemeta` on every changed file and fails if the result
-differs by a byte — and `rewritemeta` strips comments. Field-by-field reasoning
+differs by a byte. `rewritemeta` strips comments, so any it found would trip
+that check. Field-by-field reasoning
 lives in [`fdroid/README.md`](https://github.com/wasi-master/wmkeyboard/blob/main/fdroid/README.md)
 instead.
 
@@ -213,14 +312,14 @@ instead.
    on their side means a round trip:
 
    ```sh
-   ./gradlew clean assembleLiteRelease -Pwmkb.enablePlayStore=false -Pwmkb.enableGms=false
+   ./gradlew clean assembleLiteEnRelease -Pwmkb.enablePlayStore=false -Pwmkb.enableGms=false
    ```
 
    :::caution[No module may ask for a JDK toolchain]
    The recipe deletes the foojay resolver, because the scanner rejects anything
    that could fetch a JDK over the network. Their builders also have
    auto-provisioning switched off. Together that makes any `jvmToolchain(n)` in
-   the tree fatal unless `n` is a JDK their image already carries —
+   the tree fatal unless `n` is a JDK their image already carries.
    `:tools:dictc` asked for 17 and failed the build outright with
    `Cannot find a Java installation ... matching {languageVersion=17}`. Set a **jvmTarget**
    instead: it fixes the bytecode level without demanding a particular JDK be
@@ -229,7 +328,7 @@ instead.
 
 3. **Run the three checks their CI runs.** `fdroid lint` must exit 0, and
    `fdroid rewritemeta` and `fdroid checkupdates --auto` must both leave the
-   file byte-identical — a pipeline job diffs the file after each. `lint` needs
+   file byte-identical, since a pipeline job diffs the file after each. `lint` needs
    fdroiddata's own `config/` directory to know the valid category and
    anti-feature names; [`fdroid/README.md`](https://github.com/wasi-master/wmkeyboard/blob/main/fdroid/README.md)
    has the copy-paste block that fetches it and runs all three.
@@ -245,16 +344,16 @@ instead.
    fork), then **open a merge request** titled `New app: WM Keyboard` and fill
    in their template. Expect review comments and a wait measured in weeks
    rather than days. The two questions that come up most are whether every
-   network service is optional — it is, and since 0.5.6 each one can also be
+   network service is optional, and whether anything prebuilt ends up in the
+   APK. Every service is optional, and since 0.5.6 each one can also be
    pointed at a server the user runs, which is why the recipe carries no
-   `AntiFeatures` block — and whether anything prebuilt ends up in the APK
-   (nothing does).
+   `AntiFeatures` block. Nothing prebuilt ends up in the APK either.
 
 6. **After it is accepted**, releases look after themselves. `UpdateCheckMode:
    Tags` walks the newest tags, and `UpdateCheckData` points it at
    `gradle.properties` as checked out at each one, so it reads the version a
    tag actually carries. `AutoUpdateMode: Version` then adds the next `Builds:`
-   entry and pins it to that tag's full commit hash — F-Droid wants hashes, not
+   entry and pins it to that tag's full commit hash. F-Droid wants hashes, not
    tags, because a tag can be moved after a build is accepted. What that costs
    you is a promise: a release whose build needs something the recipe does not
    do has to be caught before the tag is pushed, because nobody reviews the
@@ -403,8 +502,8 @@ bundle install
 | Lane | What it does |
 |---|---|
 | `preflight` | checks the changelog for the current `versionCode` exists, signing is configured, and both listing trees are within Play's character limits |
-| `bundle_play` | `bundleFullRelease` with the Play channel flags |
-| `apks` | sideload APKs, full + lite, one per ABI |
+| `bundle_play` | `bundleFullIntlRelease` with the Play channel flags. Play always gets `intl`: the bundle splits by language, so each installer downloads only their own and the translations cost them nothing |
+| `apks` | sideload APKs, full and lite in both language builds, one per ABI |
 | `internal` | checks the changelog, builds the AAB (or takes `aab:path`), uploads to the internal track. Only the build path checks signing, since a prebuilt `aab:` is assumed already signed |
 | `promote` | move the internal release to production (`to:`, `from:`, `rollout:` options) |
 | `listing` | push the **Play** store-listing text, from `fastlane/play/metadata/`, nothing else |

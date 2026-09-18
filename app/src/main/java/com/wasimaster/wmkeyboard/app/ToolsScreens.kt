@@ -121,6 +121,7 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CAMERA -> ImeR.string.ime_tool_camera
     ToolbarTool.DICTIONARY -> ImeR.string.ime_tool_dictionary
     ToolbarTool.VOCABULARY -> ImeR.string.ime_tool_vocabulary
+    ToolbarTool.LEARN_FROM_TEXT -> ImeR.string.ime_tool_learn_from_text
     ToolbarTool.TRANSLATE -> ImeR.string.ime_tool_translate
     ToolbarTool.GIF -> ImeR.string.ime_tool_gif
     ToolbarTool.STICKER -> ImeR.string.ime_tool_sticker
@@ -158,6 +159,7 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.PAGE_DOWN -> ImeR.string.ime_tool_page_down
     ToolbarTool.SELECT_WORD -> ImeR.string.ime_tool_select_word
     ToolbarTool.SELECT_LINE -> ImeR.string.ime_tool_select_line
+    ToolbarTool.SELECT_ALL -> CommonR.string.common_select_all
     ToolbarTool.SELECT_MODE -> ImeR.string.ime_tool_select_mode
     ToolbarTool.COPY -> ImeR.string.ime_tool_copy
     ToolbarTool.CUT -> ImeR.string.ime_tool_cut
@@ -197,6 +199,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CAMERA -> R.string.fonts_tool_camera_desc
     ToolbarTool.DICTIONARY -> R.string.fonts_tool_dictionary_desc
     ToolbarTool.VOCABULARY -> R.string.fonts_tool_vocabulary_desc
+    ToolbarTool.LEARN_FROM_TEXT -> R.string.fonts_tool_learn_from_text_desc
     ToolbarTool.TRANSLATE -> R.string.fonts_tool_translate_desc
     ToolbarTool.GIF -> R.string.fonts_tool_gif_desc
     ToolbarTool.STICKER -> R.string.fonts_tool_sticker_desc
@@ -234,6 +237,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.PAGE_DOWN -> R.string.fonts_tool_page_down_desc
     ToolbarTool.SELECT_WORD -> R.string.fonts_tool_select_word_desc
     ToolbarTool.SELECT_LINE -> R.string.fonts_tool_select_line_desc
+    ToolbarTool.SELECT_ALL -> R.string.fonts_tool_select_all_desc
     ToolbarTool.SELECT_MODE -> R.string.fonts_tool_select_mode_desc
     ToolbarTool.COPY -> R.string.fonts_tool_copy_desc
     ToolbarTool.CUT -> R.string.fonts_tool_cut_desc
@@ -529,7 +533,7 @@ internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
             ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
             ToolbarTool.TEXT_EDIT, ToolbarTool.TRACKPAD, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
             ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.DICTIONARY, ToolbarTool.VOCABULARY,
-            ToolbarTool.GRAMMAR, ToolbarTool.APP_LAUNCHER, ToolbarTool.MEDIA_CONTROL,
+            ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.GRAMMAR, ToolbarTool.APP_LAUNCHER, ToolbarTool.MEDIA_CONTROL,
         ),
     )
     add(

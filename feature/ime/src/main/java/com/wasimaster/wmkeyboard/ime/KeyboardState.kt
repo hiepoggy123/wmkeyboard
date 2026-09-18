@@ -34,6 +34,7 @@ import com.wasimaster.wmkeyboard.core.settings.DataSaverStatus
 import com.wasimaster.wmkeyboard.core.prediction.GlideSandboxPolicy
 import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import com.wasimaster.wmkeyboard.core.prediction.WordFacts
+import com.wasimaster.wmkeyboard.core.settings.GrammarLintKind
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.RankControl
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
@@ -55,6 +56,22 @@ import java.io.File
 enum class ShiftState { OFF, ON, CAPS_LOCK }
 
 /**
+ * Whether shift turns what a key types into its capital right now: shift on or
+ * locked, on a board that does not shape clusters (a Bengali fixed layout reads
+ * shift as a different letter, never as case).
+ *
+ * The one rule the service's key output and the long-press popup both read
+ * (issue #211). An alternate picked out of a popup is typed as a plain key, so
+ * shift has always capitalised it on the way out; the popup drew it lowercase
+ * all the same, and on a board full of accents that hid the capitals.
+ */
+fun KeyboardUiState.shiftCasesText(): Boolean =
+    shiftState != ShiftState.OFF && !composer.isClusterShaping
+
+/** [text] as a key with no shift label of its own types it: see [shiftCasesText]. */
+fun shiftCased(text: String, shifted: Boolean): String = if (shifted) text.uppercase() else text
+
+/**
  * Re-cases a suggestion for display/commit to follow the live [shift] state, so
  * pressing shift while a word is composing walks the strip through
  * lower → Title → UPPER the way the keys themselves do. [ShiftState.OFF] leaves
@@ -68,6 +85,50 @@ fun displayCaseForShift(word: String, shift: ShiftState): String {
         ShiftState.ON -> word.replaceFirstChar { it.uppercase() }
         ShiftState.OFF -> word
     }
+}
+
+/**
+ * [word] wearing the capitals of [replaced] — the word already standing in the
+ * field that a strip pick is about to overwrite (issue #212).
+ *
+ * [displayCaseForShift] cannot answer for these picks. It reads the live shift
+ * state, and by the time the strip is showing a committed word's alternates
+ * that shift is spent: the commit that wrote the word consumed it. Auto-
+ * capitalize is where it shows, because there the capital is never a keystroke
+ * the user could still be holding — glide "van" at the start of a sentence,
+ * take "can" off the strip, and the sentence used to restart in lower case.
+ *
+ * Only the shape of the capitals carries over, never the spelling: a shout
+ * ("VAN") shouts the replacement, a leading capital capitalizes it, and
+ * anything else leaves the word as the engine offered it. A null or empty
+ * [replaced] means the pick is not replacing anything, so it says nothing.
+ *
+ * Letters are counted by code point, or a cased script outside the BMP reads
+ * as "no letters at all" and every replacement for it would be shouted — the
+ * same trap `WordCase.kt` in :core:prediction was written for, mirrored here
+ * because those helpers are internal to that module.
+ */
+fun caseLike(word: String, replaced: String?): String {
+    if (word.isEmpty() || replaced.isNullOrEmpty() || '@' in word) return word
+    var at = 0
+    var letters = 0
+    var allUpper = true
+    while (at < replaced.length) {
+        val cp = replaced.codePointAt(at)
+        if (Character.isLetter(cp)) {
+            letters++
+            if (!Character.isUpperCase(cp)) allUpper = false
+        }
+        at += Character.charCount(cp)
+    }
+    // No letters at all ("42", "--") says nothing about capitals.
+    if (letters == 0) return word
+    if (letters > 1 && allUpper) return word.uppercase()
+    if (!Character.isUpperCase(replaced.codePointAt(0))) return word
+    val first = word.codePointAt(0)
+    val upper = Character.toUpperCase(first)
+    if (upper == first) return word
+    return String(Character.toChars(upper)) + word.substring(Character.charCount(first))
 }
 
 /**
@@ -532,6 +593,12 @@ enum class PanelMode {
      * to type into them.
      */
     FIND_REPLACE,
+
+    /**
+     * Learn from text (#174): the words in the field, or the selection, that the
+     * keyboard does not know yet, to add in one go. See [LearnFromTextUi].
+     */
+    LEARN_FROM_TEXT,
 }
 
 /**
@@ -685,6 +752,8 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.QR_GEN, PanelMode.TYPING_TEST -> listOf(FocusRegion.ACTIONS)
     // The two fields, the three toggles, then the buttons.
     PanelMode.FIND_REPLACE -> listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.ACTIONS)
+    // The header chips, then the word rows.
+    PanelMode.LEARN_FROM_TEXT -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS)
     PanelMode.PASSWORD_GEN ->
         listOf(FocusRegion.CHIPS, FocusRegion.ACTIONS, FocusRegion.RESULTS)
     // The dialect and Fix-all chips, then the lint cards. Seed-only (see
@@ -855,6 +924,21 @@ fun KeyboardUiState.voiceChipOnly(): Boolean =
  * before reading that mirror, so the two can never disagree about whether the
  * buffer is live.
  */
+/**
+ * The grammar issues the panel shows: everything the last check found, minus
+ * the kinds the filter hides ([KeyboardSettings.grammarHiddenKinds]).
+ *
+ * The one gate both sides share. The panel draws these and counts them, and
+ * "Fix all" rewrites exactly these — filtering only the cards would leave
+ * "Fix all" silently applying fixes for issues the user asked not to see.
+ */
+val KeyboardUiState.visibleGrammarLints: List<com.wasimaster.wmkeyboard.core.grammar.GrammarLint>
+    get() {
+        val hidden = settings.grammarHiddenKinds
+        if (hidden.isEmpty()) return grammar.lints
+        return grammar.lints.filter { GrammarLintKind.isVisible(it.kind, hidden) }
+    }
+
 fun KeyboardUiState.transliterationHintsShown(): Boolean =
     composer.isTransliterating &&
         settings.layoutBehavior.transliterationHints != TransliterationHintMode.OFF
@@ -1524,6 +1608,13 @@ sealed interface WordMenuAction {
 
     /** Open the word card for [word]. */
     data class Open(val word: String) : WordMenuAction
+
+    /**
+     * Decode the swipe that wrote the word the caret is in again, against
+     * every word list this time (#135). [word] is that word, for the service
+     * to check the caret has not moved on under the menu.
+     */
+    data class SearchAllWords(val word: String) : WordMenuAction
 }
 
 /** What the word card can ask of the service, once open (#99). */
@@ -1551,6 +1642,12 @@ sealed interface WordCardAction {
 
     /** Leave the spelling bar without respelling anything (#138). */
     data object CancelSpelling : WordCardAction
+
+    /**
+     * Put the spelling bar's selection from [start] to [end] — a tap is a
+     * caret, a drag a selection (#204). [end] is the end that moves.
+     */
+    data class SelectSpelling(val start: Int, val end: Int) : WordCardAction
 
     /** Add the typed word the card names, like [WordMenuAction.Add]. */
     data object Add : WordCardAction
@@ -1583,6 +1680,15 @@ data class WordMenuFacts(
     val deletable: Boolean = false,
     /** Whether the held word is on the never-suggest list. */
     val blacklisted: Boolean = false,
+    /**
+     * The word the caret is inside, when a swipe wrote it and its path is
+     * still kept, so the menu can offer to search that path against every
+     * word list (#135); null when there is no such word. Deliberately not
+     * about the *held* word: the search is about the text being read back,
+     * which is what the caret is in, exactly like [typedAddable] is about the
+     * word being typed rather than the chip.
+     */
+    val searchableStroke: String? = null,
 )
 
 /**
@@ -1624,13 +1730,116 @@ data class WordCard(
  * same trick the AI Custom instruction plays with its panel. [draft] is a
  * buffer the service owns, exactly like the emoji query: while it exists the
  * keys never reach the app behind the keyboard.
+ *
+ * The draft has its own caret and selection (#204), because the keys that
+ * normally edit a field's text — the spacebar scrub, shift over a selection,
+ * a glide — would otherwise have nothing to act on but the app behind. The
+ * selection runs from [anchor] to [cursor]; the two are equal when nothing is
+ * selected, and [cursor] is the end that moves.
  */
 data class WordSpell(
     /** The spelling the card was opened on, restored on cancel. */
     val word: String,
     /** What the keys have typed so far. */
     val draft: String,
-)
+    /** Where the caret stands in [draft], in UTF-16 units. */
+    val cursor: Int = draft.length,
+    /** The fixed end of the selection; [cursor] when nothing is selected. */
+    val anchor: Int = cursor,
+) {
+    val selectionStart: Int get() = minOf(cursor, anchor).coerceIn(0, draft.length)
+    val selectionEnd: Int get() = maxOf(cursor, anchor).coerceIn(0, draft.length)
+    val hasSelection: Boolean get() = selectionStart != selectionEnd
+
+    /**
+     * [text] typed at the caret, over the selection if there is one. What
+     * would push the draft past [maxLength] is cut from [text], never from
+     * the letters already there.
+     */
+    fun typed(text: String, maxLength: Int): WordSpell {
+        val kept = draft.length - (selectionEnd - selectionStart)
+        val room = (maxLength - kept).coerceAtLeast(0)
+        val insert = if (text.length <= room) text else text.take(safeCut(text, room))
+        val next = draft.substring(0, selectionStart) + insert + draft.substring(selectionEnd)
+        return collapsedAt(next, selectionStart + insert.length)
+    }
+
+    /** Backspace: the selection, else the character before the caret. */
+    fun deletedBackward(): WordSpell = when {
+        hasSelection -> typed("", Int.MAX_VALUE)
+        cursor <= 0 -> this
+        else -> {
+            val from = stepBack(draft, cursor)
+            collapsedAt(draft.substring(0, from) + draft.substring(cursor), from)
+        }
+    }
+
+    /** Forward delete: the selection, else the character after the caret. */
+    fun deletedForward(): WordSpell = when {
+        hasSelection -> typed("", Int.MAX_VALUE)
+        cursor >= draft.length -> this
+        else -> collapsedAt(draft.substring(0, cursor) + draft.substring(stepForward(draft, cursor)), cursor)
+    }
+
+    /**
+     * The caret moved [delta] characters. With [extend] the selection grows
+     * or shrinks from its anchor, shift+arrow style; without, a selection
+     * collapses to the side the move points at before any step is taken.
+     */
+    fun caretMoved(delta: Int, extend: Boolean): WordSpell {
+        if (!extend && hasSelection) {
+            return copy(cursor = if (delta < 0) selectionStart else selectionEnd).let { it.copy(anchor = it.cursor) }
+        }
+        var at = cursor.coerceIn(0, draft.length)
+        repeat(kotlin.math.abs(delta)) {
+            at = if (delta < 0) stepBack(draft, at) else stepForward(draft, at)
+        }
+        return copy(cursor = at, anchor = if (extend) anchor else at)
+    }
+
+    /** The caret put at [index], the start or end of the draft for the vertical moves. */
+    fun caretAt(index: Int, extend: Boolean): WordSpell {
+        val at = index.coerceIn(0, draft.length)
+        return copy(cursor = at, anchor = if (extend) anchor else at)
+    }
+
+    /** A selection from [start] to [end], as a touch on the bar drew it. */
+    fun selected(start: Int, end: Int): WordSpell =
+        copy(anchor = start.coerceIn(0, draft.length), cursor = end.coerceIn(0, draft.length))
+
+    /**
+     * The selection run through [recase], still selected so another press
+     * takes the next step; null when there is no selection or nothing about
+     * it changes (a caseless script).
+     */
+    fun recased(recase: (String) -> String): WordSpell? {
+        if (!hasSelection) return null
+        val selected = draft.substring(selectionStart, selectionEnd)
+        val next = recase(selected)
+        if (next == selected) return null
+        return copy(
+            draft = draft.substring(0, selectionStart) + next + draft.substring(selectionEnd),
+            anchor = selectionStart,
+            cursor = selectionStart + next.length,
+        )
+    }
+
+    private fun collapsedAt(text: String, at: Int) = copy(draft = text, cursor = at, anchor = at)
+
+    private companion object {
+        fun stepBack(s: String, at: Int): Int =
+            if (at >= 2 && Character.isLowSurrogate(s[at - 1]) && Character.isHighSurrogate(s[at - 2])) at - 2
+            else (at - 1).coerceAtLeast(0)
+
+        fun stepForward(s: String, at: Int): Int =
+            if (at + 1 < s.length && Character.isHighSurrogate(s[at]) && Character.isLowSurrogate(s[at + 1])) at + 2
+            else (at + 1).coerceAtMost(s.length)
+
+        /** [length], moved back one if it would split a surrogate pair. */
+        fun safeCut(s: String, length: Int): Int =
+            if (length in 1 until s.length && Character.isHighSurrogate(s[length - 1])) length - 1 else length
+    }
+}
 
 
 /**
@@ -1890,6 +2099,13 @@ data class KeyboardUiState(
      */
     val glideCased: Map<String, String> = emptyMap(),
     /**
+     * The stroke's candidates that are text-expansion triggers, keyed by the
+     * raw word, with what a lift would type in their place (#205). The pill,
+     * the strip and the picker's targets draw "fk = FUTO Keyboard" for these, since the trigger
+     * itself is not what lands. Empty between strokes.
+     */
+    val glideExpansions: Map<String, GlideExpansion> = emptyMap(),
+    /**
      * The words a mid-swipe decode is choosing between, best first, capped at
      * [GestureSettings.pickerChoices]. Populated for every preview while the
      * picker is on (empty when it is off), because a stroke that is not a
@@ -1958,7 +2174,7 @@ data class KeyboardUiState(
      * It changes on every keystroke, so a key that read it would cost the whole
      * board the recomposition skip that class exists to buy.
      */
-    val octopus: Map<Int, OctopusWord> = emptyMap(),
+    val octopus: OctopusBoard = emptyMap(),
     /**
      * The same, for a stroke that is still being drawn: each alternate the
      * decoder is still holding, over the key that would reach it.
@@ -1970,7 +2186,7 @@ data class KeyboardUiState(
      * had already been overwritten by the alternates and every flick fell
      * through to the decoder.
      */
-    val octopusGlide: Map<Int, OctopusWord> = emptyMap(),
+    val octopusGlide: OctopusBoard = emptyMap(),
     /** Text-edit panel: arrows extend the selection instead of moving the cursor. */
     val textEditSelecting: Boolean = false,
     /**
@@ -2094,6 +2310,13 @@ data class KeyboardUiState(
      */
     val otpSuggestion: NotificationOtp? = null,
     /**
+     * Whether the focused field reads as a box a verification code goes into
+     * — by its input class or by the words the app gave it. Gates both code
+     * chips when the user has narrowed them to code boxes; see
+     * [looksLikeCodeField].
+     */
+    val codeField: Boolean = false,
+    /**
      * The snippet chips on the strip: a match waiting to be chosen from, or the
      * alternatives to one that has already been inserted. Null whenever no
      * trigger has anything to offer — see [SnippetOfferSet].
@@ -2112,6 +2335,24 @@ data class KeyboardUiState(
      * policy picked by hand is the user's answer already.
      */
     val sandboxOffer: GlideSandboxPolicy? = null,
+    /**
+     * The language glide typing has no word list for, while the strip is
+     * saying so (#219), or null. A swipe on such a language goes nowhere, and
+     * with nothing on screen to explain it the keyboard looked broken. Put up
+     * by the readiness watcher, once per language per process; taken down by
+     * the next keystroke or its own ✕. Tapping it opens the language's page,
+     * where the list downloads.
+     */
+    val glideWordListOffer: LanguageDef? = null,
+    /**
+     * The word the caret is sitting in that a swipe wrote, while the strip is
+     * offering to search that swipe's path against every word list (#135), or
+     * null. Only ever set with `GestureSettings.searchAllChip` on: without it
+     * the same search is reached from the held-word menu and nothing claims a
+     * strip slot. Taken down by the caret leaving the word, and by the search
+     * itself once it has answered.
+     */
+    val glideSearchChip: String? = null,
     /** The word card a held suggestion opened, or null while none is up (#99). */
     val wordCard: WordCard? = null,
     /** The card's spelling editor while it is up; see [WordSpell] (#138). */
@@ -2167,6 +2408,26 @@ data class KeyboardUiState(
     val deviceLocked: Boolean = false,
     /** Field class/variation of the focused editor, from EditorInfo. */
     val fieldKind: FieldKind = FieldKind.TEXT,
+    /**
+     * The focused editor declares the TYPE_NULL class: a terminal emulator
+     * (Termux, issue #220) or the framework's fallback connection for a window
+     * with no editor at all, which is what a pinned keyboard (issue #58) sits
+     * over. Such an editor takes *committed* text and nothing else — Termux
+     * only flushes its buffer to the terminal on commitText/finishComposingText,
+     * and the fallback connection's buffer is read by nobody — so a composing
+     * region put there is invisible until something ends it. Typing "echo"
+     * showed nothing until the space after it, which then dumped the whole word
+     * at once. Nothing composes in such a field
+     * ([composesForSuggestions]) and none of the prose rules run in it
+     * ([allowsTypingIntelligence]): a shell prompt is not prose, and a space
+     * the keyboard types after a comma is a changed command line.
+     *
+     * Deliberately *not* extended to a transliterating composer (Avro): its
+     * roman keys have to buffer somewhere to become Bengali, and committing
+     * each intermediate form would need a delete-and-recommit that a terminal's
+     * connection cannot answer either. Avro in a terminal stays as it was.
+     */
+    val nullField: Boolean = false,
     /**
      * The field asked the keyboard to hide the *suggestion strip*
      * (TYPE_TEXT_FLAG_NO_SUGGESTIONS, or an email/URI/filter/password
@@ -2299,6 +2560,8 @@ data class KeyboardUiState(
     val pluginFocusedInput: String? = null,
     /** The Find and replace panel's fields and matches; null while it is closed. */
     val findReplace: FindReplaceUi? = null,
+    /** The Learn from text panel's rows and editor (#174); null while it is closed. */
+    val learnFromText: LearnFromTextUi? = null,
     val webSearch: WebSearchUi = WebSearchUi.Idle,
     val imageSearch: ImageSearchUi = ImageSearchUi.Idle,
     val translate: TranslateUi = TranslateUi(),
@@ -2324,6 +2587,22 @@ data class KeyboardUiState(
     val launcherDetail: LauncherDetailUi? = null,
     val rawInputWord: String? = null,
     val rawInputNotInDictionary: Boolean = false,
+    /**
+     * The caret in whichever keyboard-owned field has the keys (#161).
+     *
+     * One caret, not one per buffer: exactly one of those fields is focused at
+     * a time, and the buffer it belongs to is named in [CaptureCaret.key], so
+     * a caret left behind by a field that has since closed simply stops
+     * matching and the next field starts at its own end. See [captureTarget].
+     */
+    val captureCaret: CaptureCaret? = null,
+    /**
+     * The suggestion strip for the focused keyboard-owned field — drawn in the
+     * row above the keys, where a panel has taken the toolbar. Empty whenever
+     * no such field is focused, so nothing of the field behind the keyboard
+     * can leak into it and nothing of it can leak out.
+     */
+    val captureSuggestions: List<String> = emptyList(),
 ) {
     /**
      * Whether incognito is in force right now, from either source: the
@@ -2412,12 +2691,14 @@ data class KeyboardUiState(
      * belong to prose entry, so they apply to plain text fields only and are
      * deliberately independent of [fieldNoSuggestions]: an app that hides the
      * suggestion strip (Instagram, Google Keep) must not also lose autocorrect
-     * or the ability to type Bengali. Password fields ([secureField]) and
-     * structured fields (email, URI, number, phone, date) opt out — a keypad
-     * has no words to correct and an address should not be second-guessed.
+     * or the ability to type Bengali. Password fields ([secureField]),
+     * structured fields (email, URI, number, phone, date) and editors that
+     * take committed text only ([nullField] — a terminal) opt out — a keypad
+     * has no words to correct, an address should not be second-guessed, and a
+     * shell prompt is not prose.
      */
     val allowsTypingIntelligence: Boolean
-        get() = !secureField && fieldKind == FieldKind.TEXT
+        get() = !secureField && !nullField && fieldKind == FieldKind.TEXT
 
     /**
      * Whether a glide may be decoded and committed here. Wider than
@@ -2445,10 +2726,13 @@ data class KeyboardUiState(
      * structured kinds: an address has no dictionary words to complete. With
      * the strip hidden ([fieldNoSuggestions]) a URL bar does not compose at
      * all, since composing there would have nothing to show; a text field
-     * still does, because autocorrect reads the same buffer.
+     * still does, because autocorrect reads the same buffer. An editor that
+     * cannot show a composing region at all ([nullField]) stays out whatever
+     * the strip is doing: there the buffer is not merely unhelpful, it is
+     * text the user typed and cannot see (issue #220).
      */
     val composesForSuggestions: Boolean
-        get() = settings.suggestions && !secureField && (
+        get() = settings.suggestions && !secureField && !nullField && (
             fieldKind == FieldKind.TEXT ||
                 (fieldKind == FieldKind.URI && !fieldNoSuggestions)
             )
@@ -2518,6 +2802,13 @@ data class KeyboardUiState(
         get() = panel == PanelMode.FIND_REPLACE && findReplace != null
 
     /**
+     * Whether keystrokes belong to the Learn from text panel's spelling editor
+     * (#174). Panel *and* an open editor, like [findReplaceTypingActive].
+     */
+    val learnEditActive: Boolean
+        get() = panel == PanelMode.LEARN_FROM_TEXT && learnFromText?.editing != null
+
+    /**
      * Whether keystrokes belong to the word card's spelling editor rather
      * than to the text field (#138) — true while the spelling bar is up, so
      * respelling a suggestion never writes into the app behind the keyboard.
@@ -2533,12 +2824,90 @@ data class KeyboardUiState(
      * bypasses that path — the Keyman rule engine writes to the field directly —
      * has to ask this first, and asking a single property is the only way that
      * question stays answered the same way in both places. The two existing
-     * copies of this list have already drifted apart once.
+     * copies of this list have already drifted apart once — and a third copy,
+     * this one, used to omit the three search fields, which is part of why
+     * none of them could be glided into (#161). It is now [captureTarget]'s
+     * answer rather than a list of its own, so there is nothing left to drift.
      */
     val keysTakenByKeyboard: Boolean
-        get() = typingTestActive || calcTypingActive || converterTypingActive ||
-            aiCustomInputActive || pluginTypingActive || emojiSearchActive ||
-            wordSpellActive || findReplaceTypingActive
+        get() = captureTarget() != null
+
+    /**
+     * Which keyboard-owned field has the keys, or null when they belong to the
+     * app behind the keyboard.
+     *
+     * **The one ladder.** Every path that has to know — typed text, backspace,
+     * forward delete, space, enter, glide, the suggestion strip, the Keyman
+     * seam — asks this instead of re-deriving it, and the order here is the
+     * order `processTypedText` always used, so nothing changes hands.
+     */
+    fun captureTarget(): CaptureTarget? = when {
+        typingTestActive -> CaptureTarget.TYPING_TEST
+        aiCustomInputActive -> CaptureTarget.AI_CUSTOM
+        pluginTypingActive -> CaptureTarget.PLUGIN
+        findReplaceTypingActive ->
+            if (findReplace?.focused == FindReplaceField.REPLACE) {
+                CaptureTarget.FIND_REPLACEMENT
+            } else {
+                CaptureTarget.FIND_QUERY
+            }
+        learnEditActive -> CaptureTarget.LEARN_EDIT
+        calcTypingActive -> CaptureTarget.CALC
+        converterTypingActive -> CaptureTarget.CONVERTER
+        wordSpellActive -> CaptureTarget.WORD_SPELL
+        emojiSearchActive -> CaptureTarget.EMOJI_SEARCH
+        mediaSearchActive && panel.hasMediaSearch -> CaptureTarget.MEDIA_SEARCH
+        dictionarySearchActive -> CaptureTarget.DICTIONARY_SEARCH
+        clipboardSearchActive -> CaptureTarget.CLIPBOARD_SEARCH
+        else -> null
+    }
+
+    /**
+     * A stable identity for the focused buffer, for [CaptureCaret] to hang on.
+     * A plugin has one box per widget, so its id is part of the key; everything
+     * else is one buffer per target.
+     */
+    fun captureKey(): String? = when (val target = captureTarget()) {
+        null -> null
+        CaptureTarget.PLUGIN -> "PLUGIN:${pluginFocusedInput}"
+        else -> target.name
+    }
+
+    /** What is in the focused keyboard-owned buffer right now. */
+    fun captureBuffer(): String = when (captureTarget()) {
+        null -> ""
+        CaptureTarget.TYPING_TEST -> typingTest.current
+        CaptureTarget.AI_CUSTOM -> (ai as? AiUi.CustomInput)?.instruction.orEmpty()
+        CaptureTarget.PLUGIN -> pluginFocusedInput?.let { pluginInputs[it] }.orEmpty()
+        CaptureTarget.FIND_QUERY -> findReplace?.query.orEmpty()
+        CaptureTarget.FIND_REPLACEMENT -> findReplace?.replacement.orEmpty()
+        CaptureTarget.LEARN_EDIT -> learnFromText?.editText.orEmpty()
+        CaptureTarget.CALC -> calcExpression
+        CaptureTarget.CONVERTER -> converterValue
+        CaptureTarget.WORD_SPELL -> wordSpell?.draft.orEmpty()
+        CaptureTarget.EMOJI_SEARCH -> emojiQuery
+        CaptureTarget.MEDIA_SEARCH -> mediaQuery
+        CaptureTarget.DICTIONARY_SEARCH -> dictionaryQuery
+        CaptureTarget.CLIPBOARD_SEARCH -> clipboardQuery
+    }
+
+    /**
+     * The focused buffer with its caret, or null when the keys belong to the
+     * field. The caret is the end of the text whenever [captureCaret] is about
+     * some other buffer, which is what makes focus changes need no reset.
+     */
+    fun captureCaretText(): CaretText? {
+        val key = captureKey() ?: return null
+        val text = captureBuffer()
+        // The word card runs its own caret and selection (#204); reporting a
+        // second one here would let two of them disagree about the draft.
+        if (captureTarget()?.ownsCaret == true) return CaretText(text, wordSpell?.cursor ?: text.length)
+        val at = captureCaret?.takeIf { it.key == key && it.text == text }?.at ?: text.length
+        return CaretText(text, at)
+    }
+
+    /** Where the caret is drawn in the focused buffer, for the panels' fields. */
+    fun captureCaretIndex(): Int = captureCaretText()?.at ?: 0
 
     /**
      * The item a panel should ring in [region], or null when the ring is

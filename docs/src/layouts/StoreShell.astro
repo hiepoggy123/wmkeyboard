@@ -1,0 +1,90 @@
+---
+/**
+ * The page frame every /addons/* route uses: a Starlight splash page (site
+ * header, fonts, palette and the dark/light toggle come for free) with the
+ * store island filling the width below it.
+ *
+ * `init` is the store's starting state: the route this URL names and the
+ * manifests the build already fetched, so a prerendered addon page renders
+ * its content on the server and the client only hydrates.
+ */
+import StarlightPage from '@astrojs/starlight/components/StarlightPage.astro';
+import StoreApp from '../store/ui/StoreApp';
+import type { Route } from '../store/state';
+import '../store/store.css';
+import { appVersion } from '../lib/app-version.mjs';
+import { isNoindex } from '../lib/robots.mjs';
+import { graph } from '../lib/structured-data.mjs';
+import { SITE_URL } from '../site.mjs';
+
+interface Props {
+	title: string;
+	description: string;
+	/** Absolute or site-relative image for the social card; defaults to the site card. */
+	image?: string;
+	route: Route;
+	preloaded?: Record<string, unknown>;
+	preloadedSource?: 'live' | 'snapshot';
+	/**
+	 * The page's JSON-LD `@graph` nodes. Passing them means Head.astro publishes
+	 * these instead of the generic TechArticle it builds for a documentation
+	 * page — a store page is an addon or a list of them, not an article.
+	 */
+	jsonLd?: object[];
+}
+
+const { title, description, image, route, preloaded, preloadedSource, jsonLd } = Astro.props;
+
+/**
+ * Which store routes stay unindexed is decided in one place (src/lib/robots.mjs)
+ * because the sitemap has to agree with it. Each page used to pass its own
+ * `noindex` flag, the sitemap knew nothing about it, and all five of those
+ * pages shipped in the sitemap anyway.
+ */
+const noindex = isNoindex(Astro.url.pathname);
+const { versionCode, versionName } = appVersion();
+const init = {
+	route,
+	preloaded,
+	preloadedSource,
+	appVersionCode: versionCode,
+	appVersionName: versionName,
+	builtAt: new Date().toISOString(),
+};
+type Tag = { tag: 'meta' | 'script'; attrs?: Record<string, string>; content?: string };
+/**
+ * `wm:store` tells the components that render the page frame that the store
+ * owns this one. PageTitle uses it to stand down: the splash template's
+ * `<h1>` is hidden by CSS here (store.css hides the whole first panel), so
+ * every store page was shipping two `<h1>`s — the hidden one from the template
+ * and the visible one the store draws — and a crawler had to pick. Head.astro
+ * strips every `wm:` meta before the page is written out.
+ */
+/**
+ * `wm:own-title` tells PageTitle to stand down, because the store draws its own
+ * heading. The splash template's `<h1>` is hidden here by CSS (store.css hides
+ * the whole first panel), so every store page was shipping two `<h1>`s — the
+ * hidden one from the template and the visible one the store draws — and a
+ * crawler had to pick which was the page's heading. Head.astro strips every
+ * `wm:` meta before the page is written out.
+ */
+const head: Tag[] = [{ tag: 'meta', attrs: { name: 'wm:own-title', content: '' } }];
+if (image) head.push({ tag: 'meta', attrs: { name: 'wm:og-image', content: new URL(image, SITE_URL).href } });
+// `robots` comes from Head.astro, which reads the same isNoindex().
+if (jsonLd && !noindex) {
+	head.push({
+		tag: 'script',
+		attrs: { type: 'application/ld+json' },
+		content: JSON.stringify(graph(jsonLd)),
+	});
+}
+---
+
+<StarlightPage frontmatter={{ title, description, template: 'splash', tableOfContents: false, pagefind: false, head }} hasSidebar={false}>
+	<StoreApp client:load init={init} />
+</StarlightPage>
+
+<script is:inline>
+	// Before hydration: the store owns the page width and hides the splash title.
+	document.documentElement.setAttribute('data-wm-store', '');
+</script>
