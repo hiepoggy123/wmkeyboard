@@ -64,7 +64,7 @@ jobs:
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: ./gradlew assembleLiteRelease --stacktrace
+        run: ./gradlew assembleLiteIntlRelease --stacktrace
 
       - name: Collect artifacts
         run: |
@@ -73,7 +73,8 @@ jobs:
           sha=$(echo "${{ github.sha }}" | cut -c1-7)
           mkdir -p dist
           find app/build/outputs/apk -name '*.apk' | while read -r apk; do
-            cp "$apk" "dist/wmkeyboard-${version}-vc${code}-${sha}-lite-arm64.apk"
+            filename=$(basename "$apk")
+            cp "$apk" "dist/wmkeyboard-${version}-vc${code}-${sha}-${filename}"
           done
           ls -lh dist/
 
@@ -84,6 +85,6 @@ jobs:
       - name: Upload release APK
         uses: actions/upload-artifact@v4
         with:
-          name: release-apk-lite-arm64
+          name: release-apk-lite-intl
           path: dist/*.apk
           retention-days: 14
