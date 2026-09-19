@@ -1204,7 +1204,19 @@ fun KeyboardScreen(
         baseSettings.activeThemeSpec(darkSlot)
     }
     val settings = remember(baseSettings, variant, activeSpec) {
-        baseSettings.applyThemeOverrides(activeSpec).resolvedFor(variant)
+        val resolved = baseSettings.applyThemeOverrides(activeSpec).resolvedFor(variant)
+        if (variant == ScreenVariant.LANDSCAPE) {
+            val userOverride = baseSettings.sizingOverrides[ScreenVariant.LANDSCAPE]
+            val defaultKeyHeight = (resolved.keyHeightDp * 0.72f).roundToInt().coerceIn(32, 40)
+            val defaultNumberRowHeight = (resolved.numberRowHeightDp * 0.72f).roundToInt().coerceIn(28, 36)
+            resolved.copy(
+                keyHeightDp = userOverride?.keyHeightDp ?: defaultKeyHeight,
+                numberRowHeightDp = userOverride?.numberRowHeightDp ?: defaultNumberRowHeight,
+                bottomPaddingDp = userOverride?.bottomPaddingDp ?: 0,
+            )
+        } else {
+            resolved
+        }
     }
     // The layout's own font, which is deliberately NOT part of that chain. The
     // chain produces one KeyboardSettings for the whole board, and a layout's
@@ -1241,10 +1253,10 @@ fun KeyboardScreen(
             val values = rawState.settings.sizingValuesFor(variant)
             val scale = values.keyboardScale ?: 1f
             val entry = ResizeValues(
-                keyHeightDp = values.keyHeightDp ?: rawState.settings.keyHeightDp,
+                keyHeightDp = values.keyHeightDp ?: settings.keyHeightDp,
                 numberRowHeightDp = values.numberRowHeightDp
-                    ?: rawState.settings.numberRowHeightDp,
-                bottomPaddingDp = values.bottomPaddingDp ?: rawState.settings.bottomPaddingDp,
+                    ?: settings.numberRowHeightDp,
+                bottomPaddingDp = values.bottomPaddingDp ?: settings.bottomPaddingDp,
                 sidePadLeft = values.sidePadLeftScale
                     ?: rawState.settings.layoutBehavior.sidePadLeftScale,
                 sidePadRight = values.sidePadRightScale
@@ -1657,8 +1669,8 @@ private fun DockedKeyboardFrame(
     // entry and the keyboard's own box is the only thing that changes size
     // frame to frame — the drag never moves its own origin.
     val density = LocalDensity.current
-    // The empty band above the board where a top-row bubble goes.
-    val previewHeadroomPx = keyPreviewHeadroomPx(state.settings)
+    // The empty band above the board where a top-row bubble goes (omitted in landscape to preserve vertical space).
+    val previewHeadroomPx = if (landscape) 0 else keyPreviewHeadroomPx(state.settings)
     var frameOrigin by remember { mutableStateOf(Offset.Zero) }
     var frameSize by remember { mutableStateOf(IntSize.Zero) }
     val configuration = LocalConfiguration.current

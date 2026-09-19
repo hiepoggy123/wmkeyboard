@@ -68,6 +68,7 @@ internal object SettingsRoutes {
         "typing/chips",
         "typing/codes",
         "typing/gestures",
+        "typing/vietnamese_flick",
         "typing/hardware",
         "keypress",
         "keypress/haptics",

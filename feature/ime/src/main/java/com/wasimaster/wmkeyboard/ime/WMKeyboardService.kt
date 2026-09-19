@@ -4062,18 +4062,11 @@ open class WMKeyboardService : InputMethodService() {
         (VOICE_BAR_DOCK_SLOP_DP * resources.displayMetrics.density).toInt()
 
     /**
-     * Never use the fullscreen (extract) editor while floating or collapsed to
-     * the bar — nor over a window with no editor that a pinned keyboard is
-     * kept up on, where an extract view would have nothing to extract.
+     * Never use the fullscreen (extract) editor — keep the host app visible and
+     * dock the keyboard at the bottom rather than squashing the IME into an unusable
+     * extract view frame in landscape mode.
      */
-    override fun onEvaluateFullscreenMode(): Boolean =
-        if (_uiState.value.settings.floatingKeyboard || voiceBarShowing() ||
-            (pinnedNow() && isNullField())
-        ) {
-            false
-        } else {
-            super.onEvaluateFullscreenMode()
-        }
+    override fun onEvaluateFullscreenMode(): Boolean = false
 
     /**
      * The focused window has no editor: the framework serves it through a
