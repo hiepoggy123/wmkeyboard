@@ -1262,6 +1262,8 @@ sealed interface AiUi {
          * service sets this.
          */
         val diffable: Boolean = true,
+        /** Whether this result has already replaced/inserted into the field. */
+        val autoReplaced: Boolean = false,
     ) : AiUi
     data class Error(
         val action: com.wasimaster.wmkeyboard.core.tools.AiActionSpec,

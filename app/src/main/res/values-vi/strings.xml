@@ -4649,6 +4649,8 @@
     <string name="toolai_ai_compatible_url_label">Địa chỉ dịch vụ</string>
     <string name="toolai_ai_deepseek_key_hint">Lấy khóa từ platform.deepseek.com trên trang khóa API</string>
     <string name="toolai_ai_deepseek_key_label">Khóa API DeepSeek</string>
+    <string name="toolai_ai_auto_replace_subtitle">Trực tiếp thay thế nội dung đang nhập bằng kết quả khi AI hoàn thành</string>
+    <string name="toolai_ai_auto_replace_title">Tự động thay thế văn bản</string>
     <string name="toolai_ai_diff_first_subtitle">Bảng điều khiển bắt đầu bằng các thay đổi thay vì kết quả thuần túy</string>
     <string name="toolai_ai_diff_first_title">Mở kết quả về các thay đổi</string>
     <string name="toolai_ai_diff_subtitle">Bảng điều khiển có nút Thay đổi đánh dấu những gì mô hình đã thêm và những gì nó đã xóa</string>

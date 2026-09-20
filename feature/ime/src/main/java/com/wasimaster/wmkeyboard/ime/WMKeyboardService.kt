@@ -3892,6 +3892,7 @@ open class WMKeyboardService : InputMethodService() {
                 onQrSend = ::onQrSend,
                 onAiAction = ::onAiAction,
                 onAiReplace = ::onAiReplace,
+                onAiUndo = ::onAiUndo,
                 onAiInsert = ::onAiInsert,
                 onAiRetry = ::onAiRetry,
                 onAiRunCustom = ::onAiRunCustom,
@@ -20182,18 +20183,22 @@ open class WMKeyboardService : InputMethodService() {
                         if (settings.ai.showThinking) raw.trim()
                         else AiThinking.stripped(raw)
                     when {
-                        text.isNotBlank() -> AiUi.Ready(
-                            action, text, source,
-                            instruction = instruction,
-                            generated = generated,
-                            sourceFromSelection = fromSelection,
-                            stripMarkdown = aiStripMarkdownDefault(),
-                            truncated = completion.truncated,
-                            showDiff = settings.ai.diffView &&
-                                settings.ai.diffOpensFirst &&
-                                aiDiffable(action, generated),
-                            diffable = aiDiffable(action, generated),
-                        )
+                        text.isNotBlank() -> {
+                            val willAutoReplace = settings.ai.autoReplace && action.outputOnly
+                            AiUi.Ready(
+                                action, text, source,
+                                instruction = instruction,
+                                generated = generated,
+                                sourceFromSelection = fromSelection,
+                                stripMarkdown = aiStripMarkdownDefault(),
+                                truncated = completion.truncated,
+                                showDiff = settings.ai.diffView &&
+                                    settings.ai.diffOpensFirst &&
+                                    aiDiffable(action, generated),
+                                diffable = aiDiffable(action, generated),
+                                autoReplaced = willAutoReplace,
+                            )
+                        }
                         raw.isBlank() -> AiUi.Error(
                             action,
                             getString(R.string.ime_ai_error_empty_result),
@@ -20209,6 +20214,9 @@ open class WMKeyboardService : InputMethodService() {
                 },
             )
             _uiState.update { it.copy(ai = next) }
+            if (next is AiUi.Ready && next.autoReplaced) {
+                applyAiResult(next, vibrateFeedback = true)
+            }
             recordAiHistory(
                 action = action,
                 source = source,
@@ -20464,16 +20472,12 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
-    /**
-     * Puts the result into the field: in place of the text the action ran on,
-     * or after it for an action that adds to the text rather than replacing it.
-     * "Carry this on" is the case that needs the second one, where replacing
-     * would delete the very text the user asked to have continued.
-     */
-    fun onAiReplace() {
-        val ai = _uiState.value.ai as? AiUi.Ready ?: return
-        vibrate()
-        noteAiCommitted(AiHistoryEntry.COMMITTED_REPLACE)
+    private fun applyAiResult(ai: AiUi.Ready, vibrateFeedback: Boolean = true) {
+        if (vibrateFeedback) vibrate()
+        noteAiCommitted(
+            if (ai.action.insertMode == AiInsertMode.APPEND) AiHistoryEntry.COMMITTED_INSERT
+            else AiHistoryEntry.COMMITTED_REPLACE,
+        )
         if (ai.action.insertMode == AiInsertMode.APPEND) {
             commitToField(aiInsertableText(ai))
             return
@@ -20491,6 +20495,36 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         replaceFieldText(aiInsertableText(ai))
+    }
+
+    /**
+     * Puts the result into the field: in place of the text the action ran on,
+     * or after it for an action that adds to the text rather than replacing it.
+     * "Carry this on" is the case that needs the second one, where replacing
+     * would delete the very text the user asked to have continued.
+     */
+    fun onAiReplace() {
+        val ai = _uiState.value.ai as? AiUi.Ready ?: return
+        applyAiResult(ai, vibrateFeedback = true)
+        _uiState.update { (it.ai as? AiUi.Ready)?.let { ready -> it.copy(ai = ready.copy(autoReplaced = true)) } ?: it }
+    }
+
+    /** Reverts the auto-replaced or manually replaced AI result back to the original source text. */
+    fun onAiUndo() {
+        val ai = _uiState.value.ai as? AiUi.Ready ?: return
+        vibrate()
+        if (ai.sourceFromSelection) {
+            val now = currentInputConnection?.getSelectedText(0)?.toString()
+            val inserted = aiInsertableText(ai)
+            if (now != null && (now.trim() == inserted.trim() || now.trim() == ai.sourceText.trim())) {
+                rewriteSelection(ai.sourceText)
+            } else {
+                commitToField(ai.sourceText)
+            }
+        } else {
+            replaceFieldText(ai.sourceText)
+        }
+        _uiState.update { (it.ai as? AiUi.Ready)?.let { ready -> it.copy(ai = ready.copy(autoReplaced = false)) } ?: it }
     }
 
     fun onAiInsert() {

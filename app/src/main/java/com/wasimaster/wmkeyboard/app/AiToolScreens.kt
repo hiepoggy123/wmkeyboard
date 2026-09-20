@@ -365,6 +365,14 @@ internal fun AiToolSettings(
                 ) { scope.launch { repository.setAiDiffOpensFirst(it) } }
             }
         }
+        item {
+            ToggleSetting(
+                R.string.toolai_ai_auto_replace_title,
+                stringResource(R.string.toolai_ai_auto_replace_subtitle),
+                settings.ai.autoReplace,
+                default = SettingsDefaults.ai.autoReplace,
+            ) { scope.launch { repository.setAiAutoReplace(it) } }
+        }
     }
     SettingsGroup(stringResource(R.string.toolai_ai_chat_group_title)) {
         item {

@@ -45,6 +45,8 @@
     <string name="ime_ai_progress_thinking">Đang suy luận… Câu trả lời sẽ xuất hiện khi mô hình hoàn tất.</string>
     <string name="ime_ai_progress_waiting">%1$s… Đang chờ những từ đầu tiên.</string>
     <string name="ime_ai_replace">Thay thế</string>
+    <string name="ime_ai_replaced">Đã thay thế</string>
+    <string name="ime_ai_undo">Hoàn tác</string>
     <string name="ime_ai_report_action">Báo cáo</string>
     <string name="ime_ai_run_action">Chạy</string>
     <string name="ime_ai_settings_desc">Cài đặt AI</string>

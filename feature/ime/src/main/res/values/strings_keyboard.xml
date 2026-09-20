@@ -454,6 +454,8 @@
     <string name="ime_password_tab_passphrase">Passphrase</string>
     <string name="ime_typing_test_restart">Restart</string>
     <string name="ime_ai_replace">Replace</string>
+    <string name="ime_ai_replaced">Replaced</string>
+    <string name="ime_ai_undo">Undo</string>
     <string name="ime_ai_insert">Insert</string>
     <string name="ime_ai_settings_desc">AI settings</string>
 

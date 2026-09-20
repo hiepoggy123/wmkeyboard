@@ -3471,6 +3471,11 @@ data class AiSettings(
      * on every run, which is why it is a number and not simply raised.
      */
     val beforeCursorChars: Int = 4_000,
+    /**
+     * When an AI action finishes generating a result, automatically replace the
+     * focused field text with the answer instead of waiting for a manual tap.
+     */
+    val autoReplace: Boolean = true,
 )
 
 /**
@@ -7062,6 +7067,7 @@ class SettingsRepository(private val context: Context) {
         private val AI_BEFORE_CURSOR_CHARS = intPreferencesKey("ai_before_cursor_chars")
         private val AI_DIFF_VIEW = booleanPreferencesKey("ai_diff_view")
         private val AI_DIFF_OPENS_FIRST = booleanPreferencesKey("ai_diff_opens_first")
+        private val AI_AUTO_REPLACE = booleanPreferencesKey("ai_auto_replace")
         private val AI_CUSTOM_ACTIONS = stringPreferencesKey("ai_custom_actions")
         private val AI_ACTION_ORDER = stringPreferencesKey("ai_action_order")
         private val AI_ACTIONS_OFF = stringPreferencesKey("ai_actions_off")
@@ -8490,6 +8496,7 @@ class SettingsRepository(private val context: Context) {
                 panelModelPicker = p[AI_PANEL_MODEL_PICKER] ?: defaults.ai.panelModelPicker,
                 diffView = p[AI_DIFF_VIEW] ?: defaults.ai.diffView,
                 diffOpensFirst = p[AI_DIFF_OPENS_FIRST] ?: defaults.ai.diffOpensFirst,
+                autoReplace = p[AI_AUTO_REPLACE] ?: defaults.ai.autoReplace,
                 historyEnabled = p[AI_HISTORY_ENABLED] ?: defaults.ai.historyEnabled,
                 historyMax = p[AI_HISTORY_MAX] ?: defaults.ai.historyMax,
                 keepChats = p[AI_KEEP_CHATS] ?: defaults.ai.keepChats,
@@ -13691,6 +13698,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAiDiffOpensFirst(value: Boolean) =
         editPrefs { it[AI_DIFF_OPENS_FIRST] = value }
+
+    suspend fun setAiAutoReplace(value: Boolean) =
+        editPrefs { it[AI_AUTO_REPLACE] = value }
 
     suspend fun setAiHistoryEnabled(value: Boolean) =
         editPrefs { it[AI_HISTORY_ENABLED] = value }

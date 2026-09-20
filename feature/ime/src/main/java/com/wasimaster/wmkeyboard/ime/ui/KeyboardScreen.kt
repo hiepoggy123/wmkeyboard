@@ -1121,6 +1121,7 @@ fun KeyboardScreen(
     onQrSend: () -> Unit = {},
     onAiAction: (com.wasimaster.wmkeyboard.core.tools.AiActionSpec) -> Unit = {},
     onAiReplace: () -> Unit = {},
+    onAiUndo: () -> Unit = {},
     onAiInsert: () -> Unit = {},
     onAiRetry: () -> Unit = {},
     onAiRunCustom: () -> Unit = {},
@@ -1474,6 +1475,7 @@ fun KeyboardScreen(
                 onQrSend = onQrSend,
                 onAiAction = onAiAction,
                 onAiReplace = onAiReplace,
+                onAiUndo = onAiUndo,
                 onAiInsert = onAiInsert,
                 onAiRetry = onAiRetry,
                 onAiRunCustom = onAiRunCustom,
@@ -9038,6 +9040,7 @@ private fun KeyboardBody(
     onQrSend: () -> Unit,
     onAiAction: (com.wasimaster.wmkeyboard.core.tools.AiActionSpec) -> Unit,
     onAiReplace: () -> Unit,
+    onAiUndo: () -> Unit = {},
     onAiInsert: () -> Unit,
     onAiRetry: () -> Unit,
     onAiRunCustom: () -> Unit,
@@ -9963,37 +9966,47 @@ private fun KeyboardBody(
                     headerActions = {
                         val ai = state.ai
                         val ready = ai is AiUi.Ready && !ai.generating
+                        val hasUndo = ready && ai.autoReplaced
+                        val actionCount = if (ready) (if (hasUndo) 5 else 4) else 1
                         // The ring's ACTIONS region: Replace/Insert/Retry when
                         // there is a result, always the settings circle last.
                         PanelFocusTarget(
                             panel = PanelMode.AI,
                             region = FocusRegion.ACTIONS,
-                            count = if (ready) 4 else 1,
-                            columns = if (ready) 4 else 1,
+                            count = actionCount,
+                            columns = actionCount,
                         ) { index ->
                             when {
-                                !ready || index == 3 -> onOpenToolSettings(ToolbarTool.AI)
+                                !ready || index == actionCount - 1 -> onOpenToolSettings(ToolbarTool.AI)
                                 index == 0 -> onAiReplace()
-                                index == 1 -> onAiInsert()
-                                index == 2 -> onAiRetry()
+                                hasUndo && index == 1 -> onAiUndo()
+                                index == (if (hasUndo) 2 else 1) -> onAiInsert()
+                                index == (if (hasUndo) 3 else 2) -> onAiRetry()
                             }
                         }
                         val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
                         if (ready) {
                             ToolPanelChip(
-                                stringResource(R.string.ime_ai_replace),
-                                selected = true,
+                                stringResource(if (ai.autoReplaced) R.string.ime_ai_replaced else R.string.ime_ai_replace),
+                                selected = ai.autoReplaced,
                                 modifier = Modifier.focusRing(focusedAction == 0),
                             ) { onAiReplace() }
                             Spacer(Modifier.width(5.dp))
+                            if (hasUndo) {
+                                ToolPanelChip(
+                                    stringResource(R.string.ime_ai_undo),
+                                    modifier = Modifier.focusRing(focusedAction == 1),
+                                ) { onAiUndo() }
+                                Spacer(Modifier.width(5.dp))
+                            }
                             ToolPanelChip(
                                 stringResource(R.string.ime_ai_insert),
-                                modifier = Modifier.focusRing(focusedAction == 1),
+                                modifier = Modifier.focusRing(focusedAction == if (hasUndo) 2 else 1),
                             ) { onAiInsert() }
                             Spacer(Modifier.width(5.dp))
                             ToolPanelChip(
                                 "↻",
-                                modifier = Modifier.focusRing(focusedAction == 2),
+                                modifier = Modifier.focusRing(focusedAction == if (hasUndo) 3 else 2),
                             ) { onAiRetry() }
                             Spacer(Modifier.width(5.dp))
                         }
@@ -10002,7 +10015,7 @@ private fun KeyboardBody(
                             description = stringResource(R.string.ime_ai_settings_desc),
                             active = false,
                             modifier = Modifier.focusRing(
-                                focusedAction == if (ready) 3 else 0,
+                                focusedAction == actionCount - 1,
                                 CircleShape,
                             ),
                         ) { onOpenToolSettings(ToolbarTool.AI) }
