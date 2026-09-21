@@ -178,8 +178,10 @@ import com.wasimaster.wmkeyboard.core.settings.sizingValuesFor
 import com.wasimaster.wmkeyboard.core.settings.activeThemeSpec
 import com.wasimaster.wmkeyboard.core.settings.applyLayoutTheme
 import com.wasimaster.wmkeyboard.core.settings.applyThemeOverrides
+import com.wasimaster.wmkeyboard.core.settings.applyScreenDefaults
 import com.wasimaster.wmkeyboard.core.settings.resolvedFor
 import com.wasimaster.wmkeyboard.core.input.MorseCode
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Stable
@@ -322,7 +324,9 @@ import com.wasimaster.wmkeyboard.core.gesture.GlideShiftDetour
 import androidx.compose.ui.graphics.lerp
 import com.wasimaster.wmkeyboard.core.theme.KEY_OVERRIDE_LABEL_SCALE_RANGE
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
+import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.brush
+import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
 import com.wasimaster.wmkeyboard.core.ui.ToolPaint
 import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import com.wasimaster.wmkeyboard.core.grammar.GrammarFix
@@ -470,6 +474,8 @@ import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.letterSet
+import com.wasimaster.wmkeyboard.core.layout.deletesBackward
+import com.wasimaster.wmkeyboard.core.layout.deletesForward
 import com.wasimaster.wmkeyboard.core.layout.drawnFontScale
 import com.wasimaster.wmkeyboard.core.layout.drawnLabel
 import com.wasimaster.wmkeyboard.core.layout.drawnLabelScale
@@ -485,7 +491,8 @@ import com.wasimaster.wmkeyboard.core.layout.rowScaledKeyHeight
 import com.wasimaster.wmkeyboard.core.layout.sidePadFor
 import com.wasimaster.wmkeyboard.core.layout.spanBands
 import com.wasimaster.wmkeyboard.core.layout.spanSlots
-import com.wasimaster.wmkeyboard.core.layout.Layouts
+import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
+import com.wasimaster.wmkeyboard.core.layout.leadsWithDigitRow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -1185,8 +1192,9 @@ fun KeyboardScreen(
     // settings object on every keystroke whenever the variant had an override,
     // which is enough on its own to stop every key from skipping.
     //
-    // Overlay order: the active theme's layout overrides first, then the
-    // screen-variant sizing — a per-screen override the user set by hand is
+    // Overlay order: the shape's own defaults first (a landscape phone starts
+    // at a landscape-sized board, not a portrait one -- issue #251), then the
+    // active theme's layout overrides, then the screen-variant sizing — a per-screen override the user set by hand is
     // more specific than the theme and wins. The spec here is resolved by the
     // same helpers KeyboardThemeProvider uses, so the theme that paints the
     // board and the one that reshapes it are always the same theme.
@@ -1205,19 +1213,7 @@ fun KeyboardScreen(
         baseSettings.activeThemeSpec(darkSlot)
     }
     val settings = remember(baseSettings, variant, activeSpec) {
-        val resolved = baseSettings.applyThemeOverrides(activeSpec).resolvedFor(variant)
-        if (variant == ScreenVariant.LANDSCAPE) {
-            val userOverride = baseSettings.sizingOverrides[ScreenVariant.LANDSCAPE]
-            val defaultKeyHeight = (resolved.keyHeightDp * 0.72f).roundToInt().coerceIn(32, 40)
-            val defaultNumberRowHeight = (resolved.numberRowHeightDp * 0.72f).roundToInt().coerceIn(28, 36)
-            resolved.copy(
-                keyHeightDp = userOverride?.keyHeightDp ?: defaultKeyHeight,
-                numberRowHeightDp = userOverride?.numberRowHeightDp ?: defaultNumberRowHeight,
-                bottomPaddingDp = userOverride?.bottomPaddingDp ?: 0,
-            )
-        } else {
-            resolved
-        }
+        baseSettings.applyScreenDefaults(variant).applyThemeOverrides(activeSpec).resolvedFor(variant)
     }
     // The layout's own font, which is deliberately NOT part of that chain. The
     // chain produces one KeyboardSettings for the whole board, and a layout's
@@ -1671,8 +1667,15 @@ private fun DockedKeyboardFrame(
     // entry and the keyboard's own box is the only thing that changes size
     // frame to frame — the drag never moves its own origin.
     val density = LocalDensity.current
-    // The empty band above the board where a top-row bubble goes (omitted in landscape to preserve vertical space).
-    val previewHeadroomPx = if (landscape) 0 else keyPreviewHeadroomPx(state.settings)
+    // The empty band above the board where a top-row bubble goes: the height
+    // the bubbles ask for, and — once the measure pass has weighed it against
+    // the window — the height they actually got.
+    // Only a host with a window behind the band holds one; see [KeyPreviewBandMode].
+    val bandMode = LocalKeyPreviewBand.current
+    val wantedHeadroomPx = keyPreviewHeadroomPx(state.settings)
+    val previewHeadroomPx =
+        if (bandMode == KeyPreviewBandMode.WINDOW) wantedHeadroomPx else 0
+    val previewBand = remember { KeyPreviewBand() }
     var frameOrigin by remember { mutableStateOf(Offset.Zero) }
     var frameSize by remember { mutableStateOf(IntSize.Zero) }
     val configuration = LocalConfiguration.current
@@ -1695,8 +1698,8 @@ private fun DockedKeyboardFrame(
     // the whole frame on the very frame the row starts moving. A snapshot flow
     // sees the write from the layout pass that made it and delivers after the
     // frame, which is also where the service's requestLayout belongs.
-    LaunchedEffect(revealHeadroom, previewHeadroomPx, onWindowHeadroom) {
-        snapshotFlow { previewHeadroomPx + revealHeadroom.reservedPx }
+    LaunchedEffect(revealHeadroom, previewBand, onWindowHeadroom) {
+        snapshotFlow { previewBand.heldPx + revealHeadroom.reservedPx }
             .collect { onWindowHeadroom(it) }
     }
     // Two boxes: the frame proper under its band, and the bubbles over the
@@ -1715,7 +1718,7 @@ private fun DockedKeyboardFrame(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .keyPreviewHeadroom(previewHeadroomPx)
+                .keyPreviewHeadroom(previewHeadroomPx, previewBand)
                 .then(
                     if (resize == null) {
                         Modifier.rowRevealHeadroom(revealHeadroom)
@@ -1739,6 +1742,14 @@ private fun DockedKeyboardFrame(
                 // Under the keys and over the board, so a theme that gives the
                 // gesture bar a colour of its own paints only that band (#109).
                 NavigationBarBackground(LocalKbTheme.current)
+                // Below Android 15 the band above is never reached -- the IME
+                // window stops short of the bar -- so the window itself is
+                // asked for the colour instead (#255).
+                SystemNavigationBarColor(LocalKbTheme.current)
+                // Same trick for the inline-autofill chips: the service builds
+                // their presentation spec long before this composition runs, so
+                // the resolved colours are reported out to it (#250).
+                InlineChipPaletteReport(LocalKbTheme.current)
                 // navigationBarsPadding keeps the bottom key row clear of the
                 // gesture-navigation bar on edge-to-edge (SDK 35+) IME windows.
                 val oneHanded = state.settings.oneHandedMode
@@ -1825,6 +1836,10 @@ private fun DockedKeyboardFrame(
             frameOrigin,
             frameSize,
             modifier = Modifier.matchParentSize(),
+            // No band held, but the host lets the bubble out: anchor it as if
+            // the band were there and draw it above the frame, which is where
+            // the service's own band puts it.
+            virtualHeadroom = bandMode == KeyPreviewBandMode.OUTSIDE,
         )
         // Where the remote is pointing (a television, normally). Drawn at the
         // frame rather than inside the key grid because the ring also lands on
@@ -1849,22 +1864,94 @@ private fun DockedKeyboardFrame(
 }
 
 /**
- * Holds [px] of empty space above the frame's content: the band a top-row
+ * The band the frame is actually holding above the board right now, decided in
+ * the measure pass ([keyPreviewHeadroom]) rather than asked for in composition.
+ *
+ * A measure-written piece of snapshot state, like [RowReveal]'s two: the
+ * service has to be told the band it really got, because that is the part of
+ * the window it keeps out of the host app's insets. Telling it the band the
+ * settings *wanted* would lay the app out as if the keyboard were the
+ * difference shorter, and hide that much of the app behind the keys.
+ */
+internal class KeyPreviewBand {
+    var heldPx by mutableIntStateOf(0)
+}
+
+/**
+ * Where a top-row preview bubble goes, which is a question about the host
+ * rather than about the theme.
+ *
+ * The service has a window: the band is empty window above the board, kept out
+ * of the host app's insets, so the bubble drawn in it appears over the app and
+ * the board loses nothing. A host that simply places the keyboard inside its
+ * own layout — the theme editor's preview — has no such window. Room held
+ * there is dead space in that host's UI, and on a scaled miniature it is space
+ * the board itself could have been drawn in: the band is a fixed ~130dp, which
+ * on the editor's pinned strip was a third of the whole budget and shrank the
+ * board to half the width it had room for.
+ */
+internal enum class KeyPreviewBandMode {
+    /** Hold the band inside the frame, and draw the bubble in it. */
+    WINDOW,
+
+    /**
+     * No band; a bubble that wants one is drawn above the frame, over whatever
+     * the host has put there. What the service's band looks like from outside,
+     * for a host whose own content sits above the board and does not clip it.
+     */
+    OUTSIDE,
+
+    /**
+     * No band, and nothing may be drawn past the frame either: the bubble is
+     * clamped to the board's top edge instead, over the row above its key. For
+     * a host that clips the keyboard to its own bounds, where an escaping
+     * bubble would be cut in half rather than seen.
+     */
+    INSIDE,
+}
+
+/** How the host wants the key-preview band handled; see [KeyPreviewBandMode]. */
+internal val LocalKeyPreviewBand = staticCompositionLocalOf { KeyPreviewBandMode.WINDOW }
+
+/**
+ * Holds up to [px] of empty space above the frame's content: the band a top-row
  * bubble is drawn in. Window height, not keyboard height — the service
  * subtracts it from the app's insets (see [keyPreviewHeadroomPx]).
+ *
+ * "Up to", because the band is held out of the window's *leftover* and never
+ * out of the board's own room (issue #251). The child is measured against the
+ * whole window and the band is whatever is still free afterwards, capped at the
+ * height the bubbles asked for.
+ *
+ * Taking the band first was the bug. It is a fixed dp figure — a 34sp on-key
+ * label plus its gaps, around 130dp — which is a comfortable slice of a phone
+ * held upright and better than a third of the same phone turned sideways. The
+ * board was handed the window minus that slice, had no way to say it did not
+ * fit, and simply overflowed: on a landscape phone the bottom two key rows were
+ * measured, drawn past the window's edge and clipped away.
+ *
+ * Still one measure pass, not two: a child given the whole window reports the
+ * height it actually wants whenever it fits, and when it does not fit there is
+ * no leftover to hold anyway, so the same number answers both.
  */
-private fun Modifier.keyPreviewHeadroom(px: Int): Modifier =
-    if (px <= 0) this else layout { measurable, constraints ->
-        val inner = constraints.copy(
-            minHeight = (constraints.minHeight - px).coerceAtLeast(0),
-            maxHeight = if (constraints.hasBoundedHeight) {
-                (constraints.maxHeight - px).coerceAtLeast(0)
+private fun Modifier.keyPreviewHeadroom(px: Int, band: KeyPreviewBand): Modifier =
+    if (px <= 0) {
+        band.heldPx = 0
+        this
+    } else {
+        layout { measurable, constraints ->
+            val inner = constraints.copy(
+                minHeight = (constraints.minHeight - px).coerceAtLeast(0),
+            )
+            val placeable = measurable.measure(inner)
+            val held = if (constraints.hasBoundedHeight) {
+                (constraints.maxHeight - placeable.height).coerceIn(0, px)
             } else {
-                Constraints.Infinity
-            },
-        )
-        val placeable = measurable.measure(inner)
-        layout(placeable.width, placeable.height + px) { placeable.place(0, px) }
+                px
+            }
+            band.heldPx = held
+            layout(placeable.width, placeable.height + held) { placeable.place(0, held) }
+        }
     }
 
 /**
@@ -2354,8 +2441,14 @@ private fun OneHandedRail(
     onExit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // The rail already followed the theme, through the Material scheme the
+    // keyboard builds from it (see schemeFor), so this is not a fix for an
+    // unthemed surface. What it could not do was differ from the board, which
+    // is what a stylesheet states for it as its own element. The defaults are
+    // the colours it already drew.
+    val kb = LocalKbTheme.current
     Column(
-        modifier = modifier,
+        modifier = modifier.background(kb.oneHandedPanel),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -2367,14 +2460,14 @@ private fun OneHandedRail(
                     Icons.AutoMirrored.Outlined.ArrowBack
                 },
                 contentDescription = stringResource(R.string.ime_one_handed_flip_desc),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = kb.oneHandedPanelIcon,
             )
         }
         IconButton(onClick = onExit) {
             Icon(
                 Icons.Outlined.Fullscreen,
                 contentDescription = stringResource(R.string.ime_one_handed_exit_desc),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = kb.oneHandedPanelIcon,
             )
         }
     }
@@ -3173,6 +3266,39 @@ private fun TopBar(
                     wide = true,
                 ) { onToolTap(ToolbarTool.EMOJI) }
             }
+            // The English-words switch, kept beside the words it decides.
+            // A phonetic layout reading a Bangla word as English is only ever
+            // noticed while the word is on the strip, and that is precisely
+            // when the toolbar the switch otherwise lives on is off the row —
+            // so the one moment it is wanted is the one moment it could not be
+            // reached. It stays for as long as it can do something: a phonetic
+            // layout with English among that language's secondary suggestion
+            // languages, which is the gate the toggle itself refuses outside
+            // of. Lit while the switch is on, exactly as the toolbar copy is.
+            // Pinned rather than dragged here, so it cannot be dragged away
+            // either: the language's own screen has the setting that takes it
+            // off the strip for whoever never turns the thing off.
+            val phoneticEnglishLanguage = state.composer.phoneticLanguage?.takeIf {
+                state.settings.suggestionStrip.phoneticEnglishSwitch &&
+                    "en" in state.settings.secondaryLanguages[it].orEmpty()
+            }
+            // With the tools on a row of their own the switch is already in
+            // reach up there; a second copy beside the suggestions is the same
+            // button twice, the way the pinned emoji is above.
+            val phoneticEnglishOnToolsRow = toolsRowVisible &&
+                ToolbarTool.PHONETIC_ENGLISH in visibleToolbarTools(state)
+            if (phoneticEnglishLanguage != null && !phoneticEnglishOnToolsRow) {
+                ToolCircle(
+                    slot = IconSlots.forTool(ToolbarTool.PHONETIC_ENGLISH),
+                    description = stringResource(R.string.ime_tool_phonetic_english),
+                    active = state.settings.suggestionStrip.phoneticEnglishFor(phoneticEnglishLanguage),
+                    longPressLabel = stringResource(R.string.ime_tool_phonetic_english),
+                    // A switch beside the words, not a tool among tools: a
+                    // step down from the emoji button it sits next to, so the
+                    // row reads as words first.
+                    compact = true,
+                ) { onToolTap(ToolbarTool.PHONETIC_ENGLISH) }
+            }
             // Autofill chips take the whole strip while they are up: they
             // answer the field directly ("use this saved login"), which beats
             // any word the dictionary could offer, and they are transient —
@@ -3362,7 +3488,14 @@ private fun TopBar(
             if (snippetOffer == null && learnOffer == null && sandboxOffer == null && wordListOffer != null) {
                 val wordListShares = suggestionsShowing || state.smart != null
                 OfferChip(
-                    label = stringResource(R.string.ime_glide_word_list_offer, wordListOffer.englishName),
+                    label = stringResource(
+                        if (state.wordListOfferIsPhonetic) {
+                            R.string.ime_phonetic_word_list_offer
+                        } else {
+                            R.string.ime_glide_word_list_offer
+                        },
+                        wordListOffer.englishName,
+                    ),
                     icon = Icons.Outlined.Download,
                     declineDescription = stringResource(R.string.ime_glide_word_list_offer_dismiss_desc),
                     onAccept = { onStripOfferAction(StripOfferAction.Accept()) },
@@ -3376,32 +3509,54 @@ private fun TopBar(
                 )
                 if (!wordListShares) return@Row
             }
+            // The same chip for the other missing download: a conversion IME
+            // whose pack was never fetched types the reading and offers no
+            // character for it, which reads as a broken keyboard exactly the
+            // way a swipe going nowhere does (#260). The two cannot both be up
+            // — the one above is only raised for a composer that does not
+            // convert — so they share the row's precedence slot.
+            val packOffer = state.conversionPackOffer?.let { CjkDictCatalog.byId(it) }
+            if (snippetOffer == null && learnOffer == null && sandboxOffer == null &&
+                wordListOffer == null && packOffer != null
+            ) {
+                val packShares = suggestionsShowing || state.smart != null
+                OfferChip(
+                    label = stringResource(
+                        R.string.ime_conversion_pack_offer,
+                        stringResource(packOffer.displayNameRes),
+                    ),
+                    icon = Icons.Outlined.Download,
+                    declineDescription = stringResource(R.string.ime_conversion_pack_offer_dismiss_desc),
+                    onAccept = { onStripOfferAction(StripOfferAction.Accept()) },
+                    onDecline = { onStripOfferAction(StripOfferAction.Decline) },
+                    stretch = !packShares,
+                    modifier = if (packShares) {
+                        Modifier.widthIn(max = 260.dp).padding(horizontal = 4.dp)
+                    } else {
+                        Modifier.weight(1f).padding(horizontal = 4.dp)
+                    },
+                )
+                if (!packShares) return@Row
+            }
             // A word a swipe wrote, being read back: the chip hands that
             // stroke to every word list at once, which is what the sandbox
             // and the vocabulary cap keep the ordinary decode away from
             // (#135). Last of the chips — it is about text already in the
             // field, where the others are about what is being typed now — and
-            // narrow, because the words it shares the strip with are the ones
-            // it is offering to improve on.
+            // the one chip with no sentence on it: the words it shares the
+            // strip with are the ones it is offering to improve on, and
+            // spelling the offer out took half the row from them (#264).
             val searchChip = state.glideSearchChip
             if (snippetOffer == null && learnOffer == null && sandboxOffer == null &&
                 wordListOffer == null && searchChip != null
             ) {
-                val searchShares = suggestionsShowing || state.smart != null
-                OfferChip(
-                    label = stringResource(R.string.ime_glide_search_all_offer),
+                StripIconChip(
                     icon = Icons.Outlined.Search,
-                    declineDescription = stringResource(R.string.ime_glide_search_all_dismiss_desc),
+                    description = stringResource(R.string.ime_glide_search_all_offer),
+                    dismissDescription = stringResource(R.string.ime_glide_search_all_dismiss_desc),
                     onAccept = { onStripOfferAction(StripOfferAction.Accept()) },
-                    onDecline = { onStripOfferAction(StripOfferAction.Decline) },
-                    stretch = !searchShares,
-                    modifier = if (searchShares) {
-                        Modifier.widthIn(max = 200.dp).padding(horizontal = 4.dp)
-                    } else {
-                        Modifier.weight(1f).padding(horizontal = 4.dp)
-                    },
+                    onDismiss = { onStripOfferAction(StripOfferAction.Decline) },
                 )
-                if (!searchShares) return@Row
             }
             // A recognised sum/conversion answers the text directly, so it
             // takes the whole strip the way autofill chips do. A keyword
@@ -3785,24 +3940,16 @@ private fun InlineChipRow(
     chips: List<android.view.View>,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.horizontalScroll(rememberScrollState()),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        for (chip in chips) {
-            AndroidView(
-                // The same chip view can be re-hosted — a reply moves between
-                // the idle row and the tail row as candidates come and go — and
-                // a view that still remembers its old container throws on the
-                // way in, so detach it first.
-                factory = {
-                    (chip.parent as? android.view.ViewGroup)?.removeView(chip)
-                    chip
-                },
-                modifier = Modifier.padding(horizontal = 2.dp),
-            )
-        }
-    }
+    val gapPx = with(LocalDensity.current) { 2.dp.roundToPx() }
+    // An Android scroller rather than a Compose one, deliberately: these views
+    // are remote surfaces that ignore a Compose clip and keep their full width
+    // off screen, so a horizontalScroll let them paint over the strip's own
+    // controls and steal their touches. See [InlineChipScroller].
+    AndroidView(
+        factory = { InlineChipScroller(it) },
+        update = { it.setChips(chips, gapPx) },
+        modifier = modifier,
+    )
 }
 
 /**
@@ -5035,6 +5182,64 @@ private fun OfferChip(
     }
 }
 
+/**
+ * The same offer, shrunk to its icon: one accent-tinted button, no words.
+ *
+ * The strip is four candidates wide on a phone, and a chip that says what it
+ * does in a sentence takes half of that (#264). That is the worst trade
+ * exactly where this one is used — the words it would cover are the words the
+ * offer exists to improve on — so the sentence moves to the content
+ * description, the tool it belongs to and the setting's own info text, and the
+ * row keeps its candidates. Same accent language as [OfferChip] so the two
+ * still read as the same kind of thing.
+ *
+ * The ✕ goes with the label: there is no room for a second target, and the
+ * chip is transient anyway (the cursor leaving the word takes it down). The
+ * hold is the way to send it away early, and TalkBack is told so.
+ */
+@Composable
+private fun StripIconChip(
+    icon: ImageVector,
+    description: String,
+    dismissDescription: String,
+    onAccept: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val kb = LocalKbTheme.current
+    val feedback = LocalKeyPressFeedback.current
+    val tint = kb.accent
+    val chipShape = kb.chipShape()
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .padding(vertical = 5.dp, horizontal = 4.dp)
+            .width(34.dp)
+            .clip(chipShape)
+            .background(tint.copy(alpha = if (kb.dark) 0.20f else 0.11f))
+            .border(1.dp, tint.copy(alpha = 0.32f), chipShape)
+            .combinedClickable(
+                onLongClickLabel = dismissDescription,
+                onLongClick = {
+                    feedback()
+                    onDismiss()
+                },
+                onClick = {
+                    feedback()
+                    onAccept()
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            icon,
+            contentDescription = description,
+            tint = tint,
+            modifier = Modifier.size(17.dp),
+        )
+    }
+}
+
 /** Any run of spaces, tabs or newlines, folded to one space for a preview. */
 private val WHITESPACE_RUN = Regex("""\s+""")
 
@@ -6146,6 +6351,7 @@ internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CALENDAR -> R.string.ime_tool_calendar
     ToolbarTool.INCOGNITO -> R.string.ime_tool_incognito
     ToolbarTool.SELECTION_ACTIONS -> R.string.ime_tool_selection_actions
+    ToolbarTool.PHONETIC_ENGLISH -> R.string.ime_tool_phonetic_english
     ToolbarTool.POWER_SAVING -> R.string.ime_tool_power_saving
     ToolbarTool.THEMES -> R.string.ime_tool_themes
     ToolbarTool.AUTOCORRECT -> R.string.ime_tool_autocorrect
@@ -6227,6 +6433,8 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.CALENDAR -> state.panel == PanelMode.CALENDAR
     ToolbarTool.INCOGNITO -> state.incognitoOn
     ToolbarTool.SELECTION_ACTIONS -> state.settings.selectionMacros.enabled
+    ToolbarTool.PHONETIC_ENGLISH ->
+        state.settings.suggestionStrip.phoneticEnglishFor(state.composer.phoneticLanguage)
     ToolbarTool.POWER_SAVING -> state.powerSavingOn
     ToolbarTool.THEMES -> state.panel == PanelMode.THEMES
     ToolbarTool.AUTOCORRECT -> state.settings.correction.enabled
@@ -7257,6 +7465,10 @@ internal fun ToolCircle(
     // the picker arms, and a button that grew a row then would shove the whole
     // keyboard down under the user's hands.
     hint: String? = null,
+    // A smaller button for a switch that lives beside something else (the
+    // suggestion strip) rather than on the toolbar. Bare-icon form only: a
+    // labelled button already has its own, shorter box.
+    compact: Boolean = false,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -7348,9 +7560,10 @@ internal fun ToolCircle(
         }
         return
     }
+    val side = if (compact) CompactToolSide else 38
     Box(
         modifier = modifier
-            .size(width = (if (wide) kb.toolWidthDp else 38).dp, height = 38.dp)
+            .size(width = (if (wide && !compact) kb.toolWidthDp else side).dp, height = side.dp)
             .clip(shape)
             .background(background, shape)
             .then(outline)
@@ -7361,7 +7574,7 @@ internal fun ToolCircle(
             slot,
             contentDescription = description,
             modifier = Modifier
-                .size(ToolIconSize)
+                .size(if (compact) CompactToolIconSize else ToolIconSize)
                 // The icon steps up by half the badge's height so the badge sits
                 // under it rather than across it. The button's own 38 dp box is
                 // untouched, so nothing on the bar moves.
@@ -7440,6 +7653,10 @@ private fun GhostToolCircle(
  * be recognised on the way past.
  */
 private val ToolIconSize = 22.dp
+
+/** A [ToolCircle] drawn `compact`: the box's side in dp, and the glyph in it. */
+private const val CompactToolSide = 30
+private val CompactToolIconSize = 18.dp
 
 /**
  * The tools on a row of their own, above the suggestion strip — the row
@@ -11027,17 +11244,21 @@ internal fun Key?.startsPossessiveSwipe(possessiveChar: Char?): Boolean =
         (output ?: label).singleOrNull() == possessiveChar
 
 /**
- * Whether a drag off this key is a delete swipe (#36, #226): backspace while
- * "Swipe to delete" is on, forward delete while its own swipe is. Refused at
- * the down by glide typing, handwriting and the octopus for the reason
+ * Whether a stroke that starts on this key belongs to it as a delete key
+ * (#36, #226): backspace or forward delete, in either spelling. Refused at the
+ * down by glide typing, handwriting and the octopus for the reason
  * [startsPossessiveSwipe] gives: backspace sits beside the bottom letter row,
  * so a stroke from its inner half was inside a letter's radius and started a
  * glide. The glide loop runs first, so both happened: the swipe deleted and the
  * glide typed a word on top of it (#243).
+ *
+ * Not gated on "Swipe to delete". With the swipe off, a held backspace is
+ * repeating, and a finger that wanders off it mid-repeat glided a word in
+ * among the deletions just the same (#274). No stroke from a delete key is
+ * ever meant as a word.
  */
-internal fun Key?.startsDeleteSwipe(backspace: Boolean, forward: Boolean): Boolean =
-    (backspace && this?.action == KeyAction.Delete) ||
-        (forward && this?.action == KeyAction.ForwardDelete)
+internal fun Key?.ownsDeleteStroke(): Boolean =
+    this?.action?.let { it.deletesBackward() || it.deletesForward() } == true
 
 /**
  * Whether a short flick down off this key types its corner hint (issue #178).
@@ -11558,33 +11779,6 @@ internal fun DrawScope.drawTrailBand(
 }
 
 /**
- * Takes the place of the `?123` layer's own digit row when the number row is
- * on and already supplies those digits one row above. Carries the symbols
- * that layer has nowhere else to put.
- */
-private val SymbolsFillRow = listOf("=", "\\", "<", ">", "[", "]", "{", "}", "|", "~")
-    .map { Key(it) }
-
-/**
- * Replaces the digit number row while the symbols-2 (`=\<`) layer is showing.
- * The digits are one tap away on the symbols-1 layer, so this slot carries an
- * extra set of arrow and comparison symbols the symbol layers have no room for
- * rather than a second copy of the numbers.
- */
-private val SymbolsShiftedFillRow = listOf(
-    Key("←", longPress = listOf("⟵", "↔")),
-    Key("→", longPress = listOf("⟶", "↦")),
-    Key("↑", longPress = listOf("↕")),
-    Key("↓"),
-    Key("±", longPress = listOf("∓")),
-    Key("∞"),
-    Key("≈", longPress = listOf("≅", "≡")),
-    Key("≠"),
-    Key("≤", longPress = listOf("≪")),
-    Key("≥", longPress = listOf("≫")),
-)
-
-/**
  * Marks the key grid so a UI test can ask whether it is on screen at all.
  *
  * Several panels take the keys away from the user's field and are expected to
@@ -11709,6 +11903,12 @@ internal data class KeyVisual(
     /** Whether the theme made this one key's label bold; null follows the board. */
     val bold: Boolean? = null,
     /**
+     * The outline the theme gave this one key; null follows the board's own
+     * shape. A round enter key on a grid of soft rectangles is a look a whole
+     * family of imported themes is built on (issue #266).
+     */
+    val shapeKind: KeyShapeKind? = null,
+    /**
      * What this key is about to write in the target script, on a layout that
      * transliterates ([transliterationHint]). Null on every other board, and
      * on every key whose answer is nothing worth drawing.
@@ -11831,7 +12031,10 @@ internal fun keyVisual(
     // A theme with no key shape gives a key at rest no face, so its label sits on
     // the bare board. The latch and select states below still light theirs, and a
     // colour the theme gave this one key still paints it.
-    val faceless = !palette.keysHaveFaces && overrideBackground == null
+    // A per-key shape is also a per-key face: a theme whose board shape is NONE
+    // still means this one key to be drawn when it names a shape for it.
+    val overrideShape = keyShapeKindOrNull(override?.shape)
+    val faceless = !palette.keysHaveFaces && overrideBackground == null && overrideShape == null
     val background = overrideBackground ?: when {
         latch == ModifierState.LOCKED -> palette.accent
         latch == ModifierState.ARMED -> palette.pressedKey
@@ -11876,6 +12079,7 @@ internal fun keyVisual(
             ?.takeIf { it.isFinite() }
             ?.coerceIn(KEY_OVERRIDE_LABEL_SCALE_RANGE),
         bold = override?.bold,
+        shapeKind = overrideShape,
         transliteration = transliterationHint(key, state),
         alternatesShifted = key.longPress.isNotEmpty() && state.shiftCasesText(),
         iconSlot = when {
@@ -12415,7 +12619,7 @@ private fun KeyPreviewBubble(
     // The next tap has to reach that row through it.
     Box(
         modifier = Modifier
-            .shadow(elevationFor(kb.popupShapeKind, 6.dp), shape, clip = false)
+            .shadow(elevationFor(kb.popupShapeKind, kb.popupElevation), shape, clip = false)
             .then(if (border != null) Modifier.border(border, shape) else Modifier)
             // A per-key style first, then the user's own bubble colour, then the
             // theme: narrowest wins, and the theme is the one nobody picked by hand.
@@ -12733,10 +12937,7 @@ private fun KeyRows(
     // the loop below restarts when the choice changes and never otherwise.
     val possessiveFlickTaken = LocalPossessiveFlick.current
     val possessiveChar = state.settings.gesture.possessiveKey.sourceChar
-    // The delete keys' swipes (#36, #226) own their strokes the same way; see
-    // [startsDeleteSwipe].
-    val backspaceSwipes = state.settings.backspaceSwipeDelete
-    val forwardDeleteSwipes = state.settings.textEditing.forwardDeleteSwipe
+    // The delete keys own their strokes the same way; see [ownsDeleteStroke].
     // With glide typing on, the stroke belongs to the glide loop, which asks
     // the same question at its own lift and calls the same function to answer
     // it. Only a board without glide needs its own flick detector.
@@ -13070,7 +13271,6 @@ private fun KeyRows(
             .pointerInput(
                 octopusArmed, octopusTapHere, octopusFlickHere,
                 octopusSettings.flickSensitivity, startSlop, cooldownMs,
-                backspaceSwipes, forwardDeleteSwipes,
             ) {
                 if (!octopusArmed) return@pointerInput
                 awaitEachGesture {
@@ -13087,7 +13287,7 @@ private fun KeyRows(
                     // (#243): backspace sits against the bottom letter row.
                     val downKey = liveRects.value.keyAt(down.position + boxOrigin)
                     if (downKey.ownsDrag() ||
-                        downKey.startsDeleteSwipe(backspaceSwipes, forwardDeleteSwipes)
+                        downKey.ownsDeleteStroke()
                     ) {
                         return@awaitEachGesture
                     }
@@ -13177,7 +13377,7 @@ private fun KeyRows(
             }
             .pointerInput(
                 gestureEnabled, spaceGlide, startSlop, cooldownMs, trailMs,
-                possessiveChar, backspaceSwipes, forwardDeleteSwipes,
+                possessiveChar,
             ) {
                 if (!gestureEnabled) return@pointerInput
                 awaitEachGesture {
@@ -13202,7 +13402,7 @@ private fun KeyRows(
                     // otherwise start a glide from either.
                     val downKey = liveRects.value.keyAt(down.position + boxOrigin)
                     if (downKey.ownsDrag() || downKey.startsPossessiveSwipe(possessiveChar) ||
-                        downKey.startsDeleteSwipe(backspaceSwipes, forwardDeleteSwipes)
+                        downKey.ownsDeleteStroke()
                     ) {
                         return@awaitEachGesture
                     }
@@ -13616,7 +13816,7 @@ private fun KeyRows(
             // `gestureEnabled` is false whenever `handwriteSwipe` is true. A
             // press that never travels past the slop stays unconsumed and
             // falls through to the key, so taps still type.
-            .pointerInput(handwriteSwipe, dotCooldownMs, possessiveChar, backspaceSwipes, forwardDeleteSwipes) {
+            .pointerInput(handwriteSwipe, dotCooldownMs, possessiveChar) {
                 if (!handwriteSwipe) return@pointerInput
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
@@ -13627,7 +13827,7 @@ private fun KeyRows(
                     // drawn as ink either.
                     val downKey = liveRects.value.keyAt(down.position + boxOrigin)
                     if (downKey.ownsDrag() || downKey.startsPossessiveSwipe(possessiveChar) ||
-                        downKey.startsDeleteSwipe(backspaceSwipes, forwardDeleteSwipes)
+                        downKey.ownsDeleteStroke()
                     ) {
                         return@awaitEachGesture
                     }
@@ -13979,16 +14179,14 @@ private fun KeyRows(
                         }
                     }
                 }
-            val bodyRows = remember(layout, mode, symbolsGiveUpDigits) {
+            val fillRow = state.layouts.symbolsFillRow ?: BuiltInLayouts.SYMBOLS_FILL_ROW
+            val bodyRows = remember(layout, mode, symbolsGiveUpDigits, fillRow) {
                 // Only when that first row really is the digits. A custom
                 // symbols layer that leads with something else would otherwise
                 // lose its top row outright, with nothing on screen to explain
                 // where it went.
-                val leadsWithDigits = layout.rows.firstOrNull()
-                    ?.all { it.action == KeyAction.Text && (it.output ?: it.label).isSingleDigit() }
-                    ?: false
-                if (symbolsGiveUpDigits && mode == LayoutMode.SYMBOLS && leadsWithDigits) {
-                    listOf(SymbolsFillRow) + layout.rows.drop(1)
+                if (symbolsGiveUpDigits && mode == LayoutMode.SYMBOLS && leadsWithDigitRow(layout.rows)) {
+                    listOf(fillRow) + layout.rows.drop(1)
                 } else {
                     layout.rows
                 }
@@ -13999,8 +14197,6 @@ private fun KeyRows(
                 // Follows the same guard as the pad itself, so a search box
                 // opened over a number field gets its digit row back.
                 val kind = if (numericPadActive(state)) state.fieldKind else FieldKind.TEXT
-                // A layout can supply its own row for this layer; the built-in
-                // choices below are the fallback rather than the rule.
                 val authored = state.authoredNumberRow(state.layoutMode)
                 // The digit row tracks the active layer (and, optionally, shift)
                 // so the same slot serves more symbols the deeper the user goes:
@@ -14021,9 +14217,14 @@ private fun KeyRows(
                     state.layoutMode,
                     state.shiftState,
                     shiftSymbols,
+                    fillRow,
                     tabletRow,
                 ) {
-                    val base = authored ?: when {
+                    // The field's own rows and the shift-symbols option come
+                    // before a row the layout authored: a number row edited in
+                    // the layout editor is for typing text, and must not put a
+                    // second set of digits over a keypad or turn the option off.
+                    val base = when {
                         // A keypad already leads with digits, so the row
                         // carries what the pad lacks rather than a second set
                         // of the same numbers.
@@ -14033,17 +14234,19 @@ private fun KeyRows(
                         kind.isNumericPad ->
                             listOf("+", "-", "*", "/", "=", "(", ")", "%", ":", ".")
                                 .map { Key(it) }
-                        // Symbols-2 reuses the number-row slot for the arrow and
-                        // comparison symbols it has nowhere else to put.
-                        state.layoutMode == LayoutMode.SYMBOLS_SHIFTED -> SymbolsShiftedFillRow
                         // Opt-in: holding shift on the letters layer turns the
                         // digits into the symbol layer's bracket/math fill row,
                         // so symbols are reachable without switching layers.
                         state.layoutMode == LayoutMode.LETTERS &&
-                            state.shiftState != ShiftState.OFF && shiftSymbols -> SymbolsFillRow
-                        // Borrowed from the symbol layer so the digits carry
-                        // their fraction and superscript long-presses here too.
-                        else -> Layouts.SYMBOLS.rows.first()
+                            state.shiftState != ShiftState.OFF && shiftSymbols -> fillRow
+                        // A layout can supply its own row for this layer.
+                        authored != null -> authored
+                        // Symbols-2 reuses the number-row slot for the arrow and
+                        // comparison symbols it has nowhere else to put.
+                        state.layoutMode == LayoutMode.SYMBOLS_SHIFTED ->
+                            BuiltInLayouts.defaultNumberRow(LayoutLayer.SYMBOLS_SHIFTED)
+                        // The digits, with the symbol layer's long-presses.
+                        else -> BuiltInLayouts.defaultNumberRow(LayoutLayer.LETTERS)
                     }
                     if (tabletRow) base.expandNumberRowForTablet() else base
                 }
@@ -16327,7 +16530,12 @@ internal fun KeyButton(
     // The gap is handed to the shape as the room a leaning outline may spill
     // into: a slanted key then leans across the gap rather than out of its own
     // width, and neighbouring keys interlock instead of thinning out.
-    val keyShape = kb.keyShape(bleedDp = keyGapH(settings).value)
+    val keyShape = kb.keyShape(bleedDp = keyGapH(settings).value, kind = visual.shapeKind)
+    // A key the theme gave its own shape re-runs the shadow guard for that
+    // shape: a round enter key may cast one on a board whose own shape cannot.
+    val keyElevation = visual.shapeKind
+        ?.let { elevationFor(it, kb.keyElevation) }
+        ?: kb.keyElevation
 
     // Outer box = full grid cell and the touch target; inner box = the
     // visible key, inset by the gap. Presses in the gap between keys land
@@ -16586,6 +16794,17 @@ internal fun KeyButton(
                 )
             )
             .padding(horizontal = keyGapH(settings), vertical = keyGapV(settings))
+            // The theme's lift, under the fill and the border so both ride it.
+            // Modifier.shadow is a no-op at 0 dp with clip off, so a flat theme
+            // pays nothing for this being in the chain; kb.keyElevation is
+            // already 0 for a shape or a fill that must not cast one.
+            .then(
+                if (keyElevation > 0.dp) {
+                    Modifier.shadow(keyElevation, keyShape, clip = false)
+                } else {
+                    Modifier
+                }
+            )
             // The face and its sheen are painted here rather than by
             // Modifier.background, because both depend on the press: read inside
             // the draw lambda, a press invalidates only the draw, so pressing a
@@ -17499,7 +17718,7 @@ private fun BoxScope.FlickCell(
             .align(align)
             .padding(3.dp)
             .background(
-                if (highlighted) kb.accent else kb.popup,
+                if (highlighted) kb.popupSelected else kb.popup,
                 RoundedCornerShape(kb.popupRadiusDp.dp),
             )
             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -17508,7 +17727,7 @@ private fun BoxScope.FlickCell(
         Text(
             text = displayFlickText(text),
             fontSize = (20 * fontScale).sp,
-            color = if (highlighted) kb.keyText else kb.popupText,
+            color = if (highlighted) kb.popupSelectedText else kb.popupText,
         )
     }
 }
@@ -17596,7 +17815,7 @@ private fun LanguagePickerPopup(
                         val dragged = index == highlightIndex
                         Text(
                             text = layoutSwitchLabel(layoutId, enabledLayoutIds, customLayouts, displayMode),
-                            color = if (selected) kb.accent else kb.popupText,
+                            color = if (selected) kb.popupSelectedText else kb.popupText,
                             fontWeight = if (selected || dragged) FontWeight.Bold else FontWeight.Normal,
                             fontSize = 15.sp,
                             maxLines = 1,
@@ -17606,7 +17825,13 @@ private fun LanguagePickerPopup(
                                 // Fixed row height — the hold-drag gesture steps its
                                 // highlight by this exact amount of finger travel.
                                 .height(PickerRowHeightDp.dp)
-                                .background(if (dragged || (selected && highlightIndex == null)) kb.pressedKey else Color.Transparent)
+                                .background(
+                                    if (dragged || (selected && highlightIndex == null)) {
+                                        kb.popupSelected
+                                    } else {
+                                        Color.Transparent
+                                    },
+                                )
                                 .clickable { onPick(layoutId) }
                                 .padding(horizontal = 16.dp)
                                 .wrapContentHeight(Alignment.CenterVertically),
@@ -17711,7 +17936,7 @@ private fun LanguageCarouselPopup(
                         val dragged = index == highlightIndex
                         Text(
                             text = layoutSwitchLabel(layoutId, enabledLayoutIds, customLayouts, displayMode),
-                            color = if (selected) kb.accent else kb.popupText,
+                            color = if (selected) kb.popupSelectedText else kb.popupText,
                             fontWeight = if (selected || dragged) FontWeight.Bold else FontWeight.Normal,
                             fontSize = 15.sp,
                             maxLines = 1,
@@ -18954,8 +19179,8 @@ private fun Modifier.pointerInputKey(
             }
         }
     } else if (
-        (key.action == KeyAction.Delete && backspaceSwipeDelete) ||
-        (key.action == KeyAction.ForwardDelete && textEditing.forwardDeleteSwipe)
+        (key.action.deletesBackward() && backspaceSwipeDelete) ||
+        (key.action.deletesForward() && textEditing.forwardDeleteSwipe)
     ) {
         // A delete key owns its whole gesture rather than bolting a drag onto
         // the shared press handler: tap, hold-to-repeat and the delete swipe
@@ -18968,7 +19193,10 @@ private fun Modifier.pointerInputKey(
             // ⌦ runs the identical machine pointed the other way (issue #226):
             // the finger travels the way the deletion travels, so every step is
             // measured along [dir] and nothing else about the gesture forks.
-            val forward = key.action == KeyAction.ForwardDelete
+            // Asked of the action rather than compared to [KeyAction.ForwardDelete],
+            // so the text-editing pad's own delete keys — which are `Edit`
+            // actions, not these — run this machine too (issue #226).
+            val forward = key.action.deletesForward()
             val dir = if (forward) 1f else -1f
             fun canDeleteHere(): Boolean = if (forward) canForwardDelete() else canDelete()
             // The repeat clears whole words instead of characters (issue #216),
@@ -19289,24 +19517,25 @@ private fun Modifier.pointerInputKey(
                                         // Space and the two deletes each hold to
                                         // a different purpose, so each has its
                                         // own cadence.
+                                        val deletesBack = key.action.deletesBackward()
+                                        val deletesFwd = key.action.deletesForward()
                                         // A held delete key can clear whole
                                         // words (issue #216), which is slower
                                         // on purpose and so keeps its own
-                                        // number. The text-edit pad's own
-                                        // backspace is left out: it belongs to
-                                        // that tool's cadence.
+                                        // number. The text-edit pad's delete
+                                        // keys are delete keys too (issue
+                                        // #226), so they count here as well.
                                         val holdWords = textEditing.deleteHoldDeletesWords &&
-                                            (
-                                                key.action == KeyAction.Delete ||
-                                                    key.action == KeyAction.ForwardDelete
-                                                )
+                                            (deletesBack || deletesFwd)
                                         val intervalMs = when {
                                             key.action == KeyAction.Space -> keyRepeat.spaceMs
-                                            editOp != null -> textEditing.repeatMs
                                             holdWords -> keyRepeat.wordDeleteMs
-                                            key.action == KeyAction.Delete ||
-                                                key.action == KeyAction.ForwardDelete ->
-                                                keyRepeat.deleteMs
+                                            // Before the edit-key cadence, so a
+                                            // delete key on the pad repeats at
+                                            // the delete interval like every
+                                            // other delete key (issue #226).
+                                            deletesBack || deletesFwd -> keyRepeat.deleteMs
+                                            editOp != null -> textEditing.repeatMs
                                             // Everything left is a key an author
                                             // turned the repeat on for.
                                             else -> keyRepeat.customKeyMs
@@ -19318,9 +19547,8 @@ private fun Modifier.pointerInputKey(
                                         // so it polls its own predicate.
                                         while (
                                             when {
-                                                key.action == KeyAction.Delete -> canDelete()
-                                                key.action == KeyAction.ForwardDelete -> canForwardDelete()
-                                                editOp == TextEditAction.BACKSPACE -> canDelete()
+                                                deletesBack -> canDelete()
+                                                deletesFwd -> canForwardDelete()
                                                 else -> true
                                             }
                                         ) {
@@ -19333,10 +19561,7 @@ private fun Modifier.pointerInputKey(
                                             // itself only ever takes one
                                             // character.
                                             if (holdWords) {
-                                                deleteSwipe.onDeleteUnit(
-                                                    true,
-                                                    key.action == KeyAction.ForwardDelete,
-                                                )
+                                                deleteSwipe.onDeleteUnit(true, deletesFwd)
                                             } else {
                                                 onKeyRepeat(key)
                                             }

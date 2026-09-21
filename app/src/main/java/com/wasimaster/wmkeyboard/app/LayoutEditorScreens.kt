@@ -61,6 +61,7 @@ import androidx.compose.material.icons.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.layout.ConvertedLayout
 import com.wasimaster.wmkeyboard.core.keyman.KeymanImport
 import com.wasimaster.wmkeyboard.core.layout.ForeignLayouts
+import com.wasimaster.wmkeyboard.core.layout.FutoLayouts
 import com.wasimaster.wmkeyboard.core.layout.ForeignSource
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
@@ -150,6 +151,7 @@ import com.wasimaster.wmkeyboard.core.layout.panelLayer
 import com.wasimaster.wmkeyboard.core.layout.resolvePanelLayout
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
+import com.wasimaster.wmkeyboard.core.layout.leadsWithDigitRow
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.json.LayoutJsonRoot
 import com.wasimaster.wmkeyboard.core.layout.language
@@ -255,8 +257,16 @@ private const val KEYMAPS_ANCHOR = "keymaps"
  * anything from `text/plain` to `application/octet-stream`. Nothing is decided
  * from the MIME type — the converter reads the file and says whether it is one.
  */
-private val FOREIGN_LAYOUT_MIME_TYPES =
-    arrayOf("application/json", "text/plain", "application/octet-stream")
+private val FOREIGN_LAYOUT_MIME_TYPES = arrayOf(
+    "application/json",
+    "text/plain",
+    "application/octet-stream",
+    // FUTO's layouts are YAML, which providers report under three spellings
+    // and, as often as not, as one of the three above.
+    "application/yaml",
+    "text/yaml",
+    "text/x-yaml",
+)
 
 /** Largest foreign layout worth reading. The whole file is decoded as one string. */
 private const val MAX_FOREIGN_LAYOUT_BYTES = 4 * 1024 * 1024
@@ -369,8 +379,15 @@ private fun composerDescRes(type: ComposerType?): Int = when (type) {
     ComposerType.JYUTPING -> R.string.layout_editor_composer_jyutping_desc
 }
 
+/**
+ * The language picker a converted foreign layout has to go through.
+ *
+ * Internal rather than private: the file-association import dialog shows the
+ * same step for a layout opened from a file manager, and two pickers that could
+ * drift apart is how the two paths end up disagreeing about what a language is.
+ */
 @Composable
-private fun ForeignLanguageDialog(
+internal fun ForeignLanguageDialog(
     selected: String,
     onPick: (String) -> Unit,
     onDismiss: () -> Unit,
@@ -515,10 +532,17 @@ internal fun KeyLayoutsScreen(
                         // FlorisBoard reader would take one and return null
                         // rather than deferring, so order is the dispatch.
                         val text = bytes.decodeToString()
-                        if (KeymanImport.looksLikeTouchLayout(text)) {
-                            KeymanImport.convert(text, name)
-                        } else {
-                            ForeignLayouts.convert(text, name)
+                        when {
+                            KeymanImport.looksLikeTouchLayout(text) ->
+                                KeymanImport.convert(text, name)
+                            // FUTO before the JSON reader for the same reason:
+                            // a YAML parser accepts a JSON document happily, so
+                            // asking it last would be fine but asking it first
+                            // would swallow every FlorisBoard layout. This test
+                            // is on the document's own shape, not the parser.
+                            FutoLayouts.looksLikeFutoLayout(text) ->
+                                FutoLayouts.convert(text, name)
+                            else -> ForeignLayouts.convert(text, name)
                         }
                     }
                 }.getOrNull()
@@ -886,6 +910,7 @@ internal fun KeyLayoutsScreen(
                             when (converted.source) {
                                 ForeignSource.FLORIS_JSON -> R.string.layout_editor_foreign_from_json
                                 ForeignSource.HELIBOARD_TEXT -> R.string.layout_editor_foreign_from_text
+                                ForeignSource.FUTO_YAML -> R.string.layout_editor_foreign_from_futo
                                 ForeignSource.KEYMAN_TOUCH_LAYOUT ->
                                     R.string.layout_editor_foreign_from_keyman
                             },
@@ -1556,31 +1581,29 @@ internal fun KeyLayoutEditorScreen(
         }
         // A secondary layout types with the language of the layout under it,
         // so neither of these means anything on one.
-        if (!secondary) {
-            item {
-                WmRow(
-                    title = stringResource(R.string.layout_editor_language_title),
-                    subtitle = layout.langId.takeIf { it.isNotBlank() }
-                        ?.let { LanguageRegistry.byId(it).displayName }
-                        ?: stringResource(R.string.layout_editor_language_unset),
-                    onClick = { languagePickerOpen = true },
-                )
-            }
-            item {
-                // Null is "whatever this script normally uses", which is the right
-                // answer for almost every layout; the override exists because a
-                // phonetic and a direct grid for the same language differ only here.
-                val inheritLabel = stringResource(R.string.layout_editor_composer_inherit)
-                ChoiceSetting(
-                    title = R.string.layout_editor_composer_title,
-                    subtitle = stringResource(R.string.layout_editor_composer_subtitle),
-                    options = listOf<Pair<ComposerType?, String>>(null to inheritLabel) +
-                        ComposerType.entries.map { it to composerLabel(it) },
-                    selected = layout.composer,
-                    info = stringResource(R.string.layout_editor_composer_info),
-                    detail = { type -> ChoiceDetail(stringResource(composerDescRes(type))) },
-                ) { chosen -> edit { it.copy(composer = chosen) } }
-            }
+        item(visible = !secondary) {
+            WmRow(
+                title = stringResource(R.string.layout_editor_language_title),
+                subtitle = layout.langId.takeIf { it.isNotBlank() }
+                    ?.let { LanguageRegistry.byId(it).displayName }
+                    ?: stringResource(R.string.layout_editor_language_unset),
+                onClick = { languagePickerOpen = true },
+            )
+        }
+        item(visible = !secondary) {
+            // Null is "whatever this script normally uses", which is the right
+            // answer for almost every layout; the override exists because a
+            // phonetic and a direct grid for the same language differ only here.
+            val inheritLabel = stringResource(R.string.layout_editor_composer_inherit)
+            ChoiceSetting(
+                title = R.string.layout_editor_composer_title,
+                subtitle = stringResource(R.string.layout_editor_composer_subtitle),
+                options = listOf<Pair<ComposerType?, String>>(null to inheritLabel) +
+                    ComposerType.entries.map { it to composerLabel(it) },
+                selected = layout.composer,
+                info = stringResource(R.string.layout_editor_composer_info),
+                detail = { type -> ChoiceDetail(stringResource(composerDescRes(type))) },
+            ) { chosen -> edit { it.copy(composer = chosen) } }
         }
     }
 
@@ -1939,38 +1962,36 @@ internal fun KeyLayoutEditorScreen(
             }
         }
         selection?.let { ref ->
-            if (ref.row in rows.indices && rows[ref.row].size > 1) {
-                item {
-                    ReorderSetting(
-                        title = stringResource(
-                            R.string.layout_editor_reorder_keys_title,
-                            ref.row + 1,
-                        ),
-                        dialogTitle = stringResource(R.string.layout_editor_key_order_dialog_title),
-                        // Positions, not the keys themselves — the same shape the
-                        // row reorder above uses, and for the stronger of its two
-                        // reasons: a list of keys carries this composition's copy
-                        // of them, so writing it back would put a key edited a
-                        // frame ago back the way it was. It also disambiguates a
-                        // row holding two identical keys.
-                        items = rows[ref.row].indices.toList(),
-                        label = { keyReorderLabel(context, rows[ref.row][it]) },
-                    ) { order ->
-                        editRows { r ->
-                            r.mapIndexed { i, row ->
-                                // Guarded because the stored row may have gained
-                                // or lost a key since the dialog opened; a
-                                // permutation that no longer fits it is dropped
-                                // rather than allowed to delete keys.
-                                if (i == ref.row && order.size == row.size) {
-                                    order.map { row[it] }
-                                } else {
-                                    row
-                                }
+            item(visible = ref.row in rows.indices && rows[ref.row].size > 1) {
+                ReorderSetting(
+                    title = stringResource(
+                        R.string.layout_editor_reorder_keys_title,
+                        ref.row + 1,
+                    ),
+                    dialogTitle = stringResource(R.string.layout_editor_key_order_dialog_title),
+                    // Positions, not the keys themselves — the same shape the
+                    // row reorder above uses, and for the stronger of its two
+                    // reasons: a list of keys carries this composition's copy
+                    // of them, so writing it back would put a key edited a
+                    // frame ago back the way it was. It also disambiguates a
+                    // row holding two identical keys.
+                    items = rows[ref.row].indices.toList(),
+                    label = { keyReorderLabel(context, rows[ref.row][it]) },
+                ) { order ->
+                    editRows { r ->
+                        r.mapIndexed { i, row ->
+                            // Guarded because the stored row may have gained
+                            // or lost a key since the dialog opened; a
+                            // permutation that no longer fits it is dropped
+                            // rather than allowed to delete keys.
+                            if (i == ref.row && order.size == row.size) {
+                                order.map { row[it] }
+                            } else {
+                                row
                             }
                         }
-                        selection = null
                     }
+                    selection = null
                 }
             }
         }
@@ -1994,38 +2015,34 @@ internal fun KeyLayoutEditorScreen(
         // keyboard lands anyway. The subtitle carries the warning the issue
         // asked for, and the Problems list repeats it while the flag is on.
         // `edit`, not coalesced: one deliberate flip is one undo step.
-        if (layer != LayoutLayer.LETTERS || secondary) {
-            item {
-                ToggleSetting(
-                    R.string.layout_editor_persist_title,
-                    stringResource(R.string.layout_editor_persist_subtitle),
-                    layout.layer(layer)?.persistent ?: false,
-                    info = stringResource(R.string.layout_editor_persist_info),
-                ) { on -> editLayer { it.copy(persistent = on) } }
-            }
+        item(visible = layer != LayoutLayer.LETTERS || secondary) {
+            ToggleSetting(
+                R.string.layout_editor_persist_title,
+                stringResource(R.string.layout_editor_persist_subtitle),
+                layout.layer(layer)?.persistent ?: false,
+                info = stringResource(R.string.layout_editor_persist_info),
+            ) { on -> editLayer { it.copy(persistent = on) } }
         }
         // Issue #61 again, one layer down: a symbols page in its own colours.
         // Not on a secondary layout, whose one grid is the layout.
-        if (!secondary) {
-            item {
-                val layerThemeId = layout.layer(layer)?.themeId
-                WmRow(
-                    title = stringResource(
-                        R.string.layout_editor_layer_theme_title,
-                        stringResource(layerTitleRes(layer)),
-                    ),
-                    subtitle = layerThemeId?.let { themeDisplayName(settings, it) }
-                        ?: stringResource(R.string.layout_editor_layer_theme_inherit_subtitle),
-                    trailing = {
-                        if (layerThemeId != null) {
-                            TextButton(onClick = { editLayer { it.copy(themeId = null) } }) {
-                                Text(clearLabel)
-                            }
+        item(visible = !secondary) {
+            val layerThemeId = layout.layer(layer)?.themeId
+            WmRow(
+                title = stringResource(
+                    R.string.layout_editor_layer_theme_title,
+                    stringResource(layerTitleRes(layer)),
+                ),
+                subtitle = layerThemeId?.let { themeDisplayName(settings, it) }
+                    ?: stringResource(R.string.layout_editor_layer_theme_inherit_subtitle),
+                trailing = {
+                    if (layerThemeId != null) {
+                        TextButton(onClick = { editLayer { it.copy(themeId = null) } }) {
+                            Text(clearLabel)
                         }
-                    },
-                    onClick = { layerThemePickerOpen = true },
-                )
-            }
+                    }
+                },
+                onClick = { layerThemePickerOpen = true },
+            )
         }
         item {
             // Layer-scoped, and it sits above the layout-wide size deliberately:
@@ -2199,6 +2216,87 @@ internal fun KeyLayoutEditorScreen(
         }
     }
 
+    // Issue #273: the rows the keyboard draws around this grid rather than in
+    // it. The number row above every cycled layer, and on the symbols layer
+    // the row that stands in for its digits while the number row shows them.
+    // Both were built into the keyboard, so they typed and could not be
+    // changed; now they are this layer's own, edited like any other row.
+    // Not on an unauthored Fn layer: there is no grid there to sit above, and
+    // the first edit would author an empty one.
+    val extraRows = panelKind == null && !secondary && layer.isCycled &&
+        (layer != LayoutLayer.FN || layout.layer(layer) != null)
+    if (extraRows) {
+        val layerSpec = layout.layer(layer)
+        // Putting a row back to the standard one also drops the layer copy the
+        // first edit made, when nothing else in it differs from what it
+        // inherits, so the layer follows the built-in grid again.
+        fun resetExtraRow(clear: (LayerSpec) -> LayerSpec) {
+            edit { spec ->
+                val current = spec.layer(layer) ?: return@edit spec
+                val cleared = clear(current)
+                val without = spec.copy(layers = spec.layers - layer.key)
+                val inherited = without.compile(layer)
+                if (cleared == LayerSpec(rows = inherited.rows, rowHeights = inherited.rowHeights)) {
+                    without
+                } else {
+                    spec.copy(layers = spec.layers + (layer.key to cleared))
+                }
+            }
+        }
+        val shownHere = (layer != LayoutLayer.SYMBOLS && layer != LayoutLayer.SYMBOLS_SHIFTED) ||
+            settings.layoutBehavior.numberRowInSymbols
+        ExtraRowEditor(
+            title = stringResource(R.string.layout_editor_number_row_title),
+            caption = stringResource(
+                when {
+                    !settings.numberRow -> R.string.layout_editor_number_row_off_caption
+                    !shownHere -> R.string.layout_editor_number_row_hidden_caption
+                    else -> R.string.layout_editor_number_row_caption
+                },
+            ),
+            row = layerSpec?.numberRow ?: BuiltInLayouts.defaultNumberRow(layer),
+            authored = layerSpec?.numberRow != null,
+            layout = compiled,
+            settings = settings,
+            selectionKey = "number/$layoutId/${layer.key}",
+            edit = { transform ->
+                editLayer { it.copy(numberRow = transform(it.numberRow ?: BuiltInLayouts.defaultNumberRow(layer))) }
+            },
+            editCoalesced = { transform ->
+                editLayerCoalesced {
+                    it.copy(numberRow = transform(it.numberRow ?: BuiltInLayouts.defaultNumberRow(layer)))
+                }
+            },
+            onReset = { resetExtraRow { it.copy(numberRow = null) } },
+            secondaryLayouts = secondaryLayouts(settings.customLayouts),
+        )
+        if (layer == LayoutLayer.SYMBOLS && leadsWithDigitRow(rows)) {
+            ExtraRowEditor(
+                title = stringResource(R.string.layout_editor_fill_row_title),
+                caption = stringResource(
+                    if (settings.numberRow) {
+                        R.string.layout_editor_fill_row_caption
+                    } else {
+                        R.string.layout_editor_fill_row_off_caption
+                    },
+                ),
+                row = layerSpec?.fillRow ?: BuiltInLayouts.SYMBOLS_FILL_ROW,
+                authored = layerSpec?.fillRow != null,
+                layout = compiled,
+                settings = settings,
+                selectionKey = "fill/$layoutId",
+                edit = { transform ->
+                    editLayer { it.copy(fillRow = transform(it.fillRow ?: BuiltInLayouts.SYMBOLS_FILL_ROW)) }
+                },
+                editCoalesced = { transform ->
+                    editLayerCoalesced { it.copy(fillRow = transform(it.fillRow ?: BuiltInLayouts.SYMBOLS_FILL_ROW)) }
+                },
+                onReset = { resetExtraRow { it.copy(fillRow = null) } },
+                secondaryLayouts = secondaryLayouts(settings.customLayouts),
+            )
+        }
+    }
+
     val findings = validateLayout(layout)
     if (findings.isNotEmpty()) {
         SettingsGroup(stringResource(R.string.layout_editor_problems_title)) {
@@ -2321,6 +2419,128 @@ internal fun KeyLayoutEditorScreen(
             },
             onDismiss = { sheetOpen = false },
             secondaryLayouts = secondaryLayouts(settings.customLayouts),
+        )
+    }
+}
+
+/**
+ * One row the keyboard draws next to a layer's grid rather than in it — the
+ * number row, or the symbols layer's stand-in for its digits (issue #273) —
+ * previewed and edited on its own.
+ *
+ * A grid of its own rather than extra rows in the main preview, because every
+ * row tool up there (add, duplicate, delete, reorder, a key moved across rows)
+ * addresses the layer's rows by index, and none of them means anything for a
+ * row the layer does not hold. Here a key can be changed, moved along the row,
+ * duplicated and deleted, and the row can gain a key or go back to the one the
+ * keyboard ships.
+ *
+ * [edit] and [editCoalesced] hand over the row as stored — the layer's own, or
+ * the default it still follows — for the same staleness reason the main grid's
+ * edits do.
+ */
+@Composable
+private fun ExtraRowEditor(
+    title: String,
+    caption: String,
+    row: List<Key>,
+    authored: Boolean,
+    layout: KeyboardLayout,
+    settings: KeyboardSettings,
+    selectionKey: String,
+    edit: ((List<Key>) -> List<Key>) -> Unit,
+    editCoalesced: ((List<Key>) -> List<Key>) -> Unit,
+    onReset: () -> Unit,
+    secondaryLayouts: List<LayoutSpec>,
+) {
+    var selectedCol by remember(selectionKey) { mutableStateOf<Int?>(null) }
+    var sheetOpen by remember(selectionKey) { mutableStateOf(false) }
+    val rows = listOf(row)
+    SectionHeaderPublic(title)
+    CaptionText(caption)
+    EditorGrid(
+        layout = layout.copy(rows = rows, rowHeights = null),
+        settings = settings,
+        selection = selectedCol?.let { KeyRef(0, it) },
+        showShift = false,
+        actualSize = false,
+        onSelect = { ref ->
+            selectedCol = ref.col
+            sheetOpen = true
+        },
+        onKeyDragged = { from, to ->
+            edit { moveKeyIn(listOf(it), from, to).first() }
+            selectedCol = to.col
+        },
+    )
+    Row(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = { edit { it + Key("new") } }) {
+            Icon(
+                Icons.Outlined.Add,
+                contentDescription = stringResource(R.string.layout_editor_extra_row_add_key_desc),
+            )
+        }
+        Spacer(Modifier.weight(1f))
+        if (authored) {
+            TextButton(
+                onClick = {
+                    onReset()
+                    selectedCol = null
+                    sheetOpen = false
+                },
+            ) {
+                Text(stringResource(R.string.layout_editor_extra_row_reset))
+            }
+        }
+    }
+
+    val col = selectedCol
+    val key = col?.let { row.getOrNull(it) }
+    if (sheetOpen && col != null && key != null) {
+        KeyEditSheet(
+            key = key,
+            ref = KeyRef(0, col),
+            rowSize = row.size,
+            rowCount = 1,
+            gridWeight = gridWeightOf(rows),
+            otherWidthsInRow = row.sumOf { it.width.toDouble() }.toFloat() - key.width,
+            onChange = { change ->
+                editCoalesced { stored -> stored.mapIndexed { c, k -> if (c == col) change(k) else k } }
+            },
+            onMove = { delta ->
+                val target = col + delta
+                if (target in row.indices) {
+                    edit { stored ->
+                        if (col in stored.indices && target in stored.indices) {
+                            stored.toMutableList().apply { add(target, removeAt(col)) }
+                        } else {
+                            stored
+                        }
+                    }
+                    selectedCol = target
+                }
+            },
+            // One row: the sheet's up and down arrows are off at rowCount 1.
+            onMoveRow = {},
+            onDuplicate = {
+                edit { stored ->
+                    if (col in stored.indices) {
+                        stored.subList(0, col + 1) + stored[col] + stored.drop(col + 1)
+                    } else {
+                        stored
+                    }
+                }
+            },
+            onDelete = {
+                edit { stored -> stored.filterIndexed { c, _ -> c != col } }
+                selectedCol = null
+                sheetOpen = false
+            },
+            onDismiss = { sheetOpen = false },
+            secondaryLayouts = secondaryLayouts,
         )
     }
 }

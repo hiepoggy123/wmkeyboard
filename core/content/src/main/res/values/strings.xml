@@ -299,11 +299,14 @@
     <string name="core_content_selection_macro_ai" translatable="false">AI</string>
     <string name="core_content_selection_macro_to_bangla">Bangla</string>
     <string name="core_content_selection_macro_to_banglish">Banglish</string>
+    <string name="core_content_selection_macro_to_hindi">Hindi</string>
+    <string name="core_content_selection_macro_to_hinglish">Hinglish</string>
     <string name="core_content_selection_macro_digits_latin">Digits</string>
     <string name="core_content_selection_macro_colour">Colour</string>
     <string name="core_content_selection_macro_json" translatable="false">JSON</string>
     <string name="core_content_selection_macro_base64" translatable="false">Base64</string>
     <string name="core_content_selection_macro_url_decode">Decode</string>
+    <string name="core_content_selection_macro_strip_trackers">Remove trackers</string>
     <string name="core_content_selection_macro_chat_bold">Bold</string>
     <string name="core_content_selection_macro_chat_italic">Italic</string>
     <string name="core_content_selection_macro_chat_strike">Strike</string>

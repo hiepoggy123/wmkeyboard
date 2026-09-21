@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -151,17 +152,34 @@ class FlexThemeTest {
 
     // ---- the dialect ----
 
+    /**
+     * FlorisBoard 0.4's dialect. The element names differ — `keyboard` for the
+     * board, `key-popup` for the bubble, `smartbar-key` for a tool button — but
+     * the properties and the value syntax are the same, so it converts. An
+     * earlier build refused these outright, which threw away most of the themes
+     * in circulation: Dracula, Methone and Lurux are all this dialect.
+     */
     @Test
-    fun `a v1 stylesheet is refused rather than half mapped`() {
+    fun `the older dialect is read, not refused`() {
         val v1 = sheet(
             """
             {
-              "keyboard": { "background": "rgba(16,16,20,1)" },
-              "smartbar": { "background": "rgba(16,16,20,1)" }
+              "@defines": { "--bg": "rgba(16,16,20,1)", "--fg": "rgba(248,248,242,1)" },
+              "keyboard": { "background": "var(--bg)" },
+              "key": { "background": "rgba(68,71,90,1)", "foreground": "var(--fg)" },
+              "key-popup": { "background": "rgba(90,90,110,1)" },
+              "smartbar-key": { "foreground": "var(--fg)" },
+              "emoji-key": { "background": "rgba(0,0,0,0)" },
+              "system-nav-bar": { "background": "var(--bg)" }
             }
             """,
         )
-        assertEquals(FlexResult.SnyggV1, read(manifest(dayEntry), "stylesheets/day.json" to v1))
+        val theme = converted(read(manifest(dayEntry), "stylesheets/day.json" to v1)).themes[0].theme
+        assertEquals(0xFF101014, theme.boardBackground)
+        assertEquals(0xFF44475A, theme.keyBackground)
+        assertEquals(0xFF5A5A6E, theme.popupBackground)
+        assertEquals(0xFFF8F8F2, theme.toolbarIcon)
+        assertEquals(0xFF101014, theme.navigationBarBackground)
     }
 
     // ---- what lands ----
@@ -247,8 +265,8 @@ class FlexThemeTest {
         val fancy = sheet(
             """
             {
-              "@font": { "family": "Comic" },
-              "window": { "background": "#101014" },
+              "@font `comic`": [{ "src": "uri(`flex:/fonts/Comic.ttf`)" }],
+              "window": { "background": "#101014", "font-family": "`comic`" },
               "key": {
                 "background": "#2C2C34",
                 "foreground": "#FFFFFF",
@@ -262,11 +280,16 @@ class FlexThemeTest {
             """,
         )
         val result = converted(read(manifest(dayEntry), "stylesheets/day.json" to fancy))
+        // The sheet names a face and the archive does not carry it, which is
+        // the only shape that is still a loss. A `.flex` that ships the file
+        // installs it instead; see the font tests below.
         assertTrue(FlexUnsupported.FONT in result.dropped)
-        assertTrue(FlexUnsupported.ELEVATION in result.dropped)
         assertTrue(FlexUnsupported.PER_ELEMENT_SPACING in result.dropped)
         assertTrue(FlexUnsupported.PER_CORNER_RADIUS in result.dropped)
         assertTrue(FlexUnsupported.UNKNOWN_ELEMENT in result.dropped)
+        // The lift itself is carried now, so it is no longer reported as lost.
+        assertEquals(4f, result.themes[0].theme.keyElevationDp, 0.001f)
+        assertTrue(FlexUnsupported.SHADOW_COLOR !in result.dropped)
     }
 
     @Test
@@ -324,5 +347,85 @@ class FlexThemeTest {
     fun `a converted theme survives the codec`() {
         val theme = converted(read(manifest(dayEntry), "stylesheets/day.json" to v2Sheet)).themes[0].theme
         assertEquals(theme, ThemeCodec.decode(ThemeCodec.encode(theme)))
+    }
+
+    // ---- fonts a theme ships with itself ----
+
+    /** A sheet that declares a face and points the board at it. */
+    private fun fontSheet(family: String = "ndot", path: String = "fonts/Ndot57-Regular.otf") = sheet(
+        """
+        {
+          "@font `$family`": [{ "src": "uri(`flex:/$path`)" }],
+          "window": { "background": "#101014", "font-family": "`$family`" },
+          "key": { "background": "#2C2C34", "foreground": "#FFFFFF" }
+        }
+        """,
+    )
+
+    @Test
+    fun `a typeface the archive carries comes with the theme`() {
+        // Two of the six themes on the addon store ship their own face, and one
+        // of them is the dot-matrix font its whole look is built around.
+        val result = read(
+            manifest(dayEntry),
+            "stylesheets/day.json" to fontSheet(),
+            "fonts/Ndot57-Regular.otf" to ByteArray(4096) { 7 },
+        )
+        val converted = (result as FlexResult.Converted).themes.single()
+        val font = checkNotNull(converted.font) { "no font came across" }
+        assertEquals("ndot", font.name)
+        assertEquals("Ndot57-Regular.otf", font.fileName)
+        assertEquals(4096, font.bytes.size)
+        // And nothing is reported as lost, because nothing was.
+        assertFalse(FlexUnsupported.FONT in result.dropped)
+    }
+
+    @Test
+    fun `a font named but not shipped is still reported`() {
+        val result = read(
+            manifest(dayEntry),
+            "stylesheets/day.json" to fontSheet(),
+        )
+        assertTrue(FlexUnsupported.FONT in (result as FlexResult.Converted).dropped)
+        assertNull(result.themes.single().font)
+    }
+
+    @Test
+    fun `the at-rule is matched with its family name attached`() {
+        // The rule is always written `@font `name``, never the bare word, so
+        // matching the bare word meant a theme that shipped a face said
+        // nothing at all about it.
+        val result = read(
+            manifest(dayEntry),
+            "stylesheets/day.json" to fontSheet(family = "inter", path = "fonts/Inter.ttf"),
+            "fonts/Inter.ttf" to ByteArray(64) { 3 },
+        )
+        assertEquals("inter", (result as FlexResult.Converted).themes.single().font?.name)
+    }
+
+    @Test
+    fun `a sheet that sets no font asks for none`() {
+        val result = read(manifest(dayEntry), "stylesheets/day.json" to v2Sheet)
+        val converted = result as FlexResult.Converted
+        assertNull(converted.themes.single().font)
+        assertFalse(FlexUnsupported.FONT in converted.dropped)
+    }
+
+    @Test
+    fun `an inherited font family is not a font at all`() {
+        val result = read(
+            manifest(dayEntry),
+            "stylesheets/day.json" to sheet(
+                """
+                {
+                  "window": { "background": "#101014", "font-family": "inherit" },
+                  "key": { "background": "#2C2C34" }
+                }
+                """,
+            ),
+        )
+        val converted = result as FlexResult.Converted
+        assertNull(converted.themes.single().font)
+        assertFalse(FlexUnsupported.FONT in converted.dropped)
     }
 }

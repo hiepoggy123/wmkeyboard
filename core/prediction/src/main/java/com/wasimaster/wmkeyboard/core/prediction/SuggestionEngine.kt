@@ -7,8 +7,7 @@ import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
 import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
 import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
-import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
-import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
+import com.wasimaster.wmkeyboard.core.transliteration.PhoneticIndex
 import kotlin.math.exp
 import kotlin.math.ln
 
@@ -34,9 +33,9 @@ data class SecondaryDictionary(val langId: String, val source: WordSource)
  */
 class SuggestionEngine(
     dictionary: WordSource,
-    bengaliIndex: BengaliPhoneticIndex,
+    bengaliIndex: PhoneticIndex,
     private val userLexicon: UserLexicon,
-    private val spellings: BengaliSpellingMap = BengaliSpellingMap.EMPTY,
+    private val spellings: SpellingMap = SpellingMap.EMPTY,
     private val seedBigrams: SeedBigrams = SeedBigrams.EMPTY,
     private val mixConfidence: LanguageMixConfidence = LanguageMixConfidence(),
 ) {
@@ -335,11 +334,75 @@ class SuggestionEngine(
     var ngramPack: NgramPack = NgramPack.EMPTY
 
     /**
+     * Avro's backend. Bengali is the one phonetic language whose index and
+     * spelling map arrive through the constructor, which is history rather than
+     * design: every other scheme lives in [extraPhonetic].
+     */
+    private val bengaliBackend = PhoneticBackend(PhoneticSchemes.BENGALI, bengaliIndex, spellings)
+
+    /**
      * Bengali index, rebuilt when an imported Bengali list arrives so its
      * words become reachable by transliteration too.
      */
+    var bengaliIndex: PhoneticIndex
+        get() = bengaliBackend.index
+        set(value) {
+            bengaliBackend.index = value
+        }
+
+    /**
+     * Backends of the phonetic languages other than Bengali that are loaded,
+     * by language id. Replaced whole when one is added, dropped or rebuilt; a
+     * backend's own index can also be swapped in place when only its word list
+     * changed.
+     */
     @Volatile
-    var bengaliIndex: BengaliPhoneticIndex = bengaliIndex
+    var extraPhonetic: Map<String, PhoneticBackend> = emptyMap()
+
+    /**
+     * What a buffer typed on [languageId]'s phonetic layout is resolved
+     * through, or null when [languageId] names no phonetic scheme. A scheme
+     * whose data has not been loaded still answers — with its rules alone —
+     * because a phonetic layout that commits Latin is never what was asked for.
+     */
+    fun phoneticBackend(languageId: String?): PhoneticBackend? = when (languageId) {
+        null -> null
+        bengaliBackend.scheme.languageId -> bengaliBackend
+        else -> extraPhonetic[languageId]
+            ?: PhoneticSchemes.forLanguage(languageId)?.let { PhoneticBackend(it, PhoneticIndex.EMPTY) }
+    }
+
+    /**
+     * Whether a phonetic layout may commit an English word as English: `hello`
+     * typed on Avro stays hello, where it used to come out হ্যালো. Decided per
+     * buffer by [PhoneticScriptVerdict]; off, the layout only ever commits its
+     * own script and English is something the strip offers. Inert unless
+     * English is a secondary language of the layout's ([englishAsSecondary]).
+     */
+    @Volatile
+    private var phoneticAutoEnglishField: Boolean = false
+    var phoneticAutoEnglish: Boolean
+        get() = phoneticAutoEnglishField
+        set(value) {
+            if (value == phoneticAutoEnglishField) return
+            phoneticAutoEnglishField = value
+            generation.incrementAndGet()
+        }
+
+    /** The spellings the user has overruled the script of; see [recordScriptChoice]. */
+    @Volatile
+    var scriptChoices: PhoneticScriptChoices = PhoneticScriptChoices()
+
+    /**
+     * English's corpus n-grams while English rides as a secondary language,
+     * so the word after `hello` on Avro is predicted from English rather than
+     * from a Bengali pack that has never seen it. [NgramPack.EMPTY] otherwise.
+     */
+    @Volatile
+    var secondaryEnglishNgramPack: NgramPack = NgramPack.EMPTY
+
+    /** Whether English takes part on a phonetic layout at all. */
+    private val phoneticMixing: Boolean get() = englishAsSecondary && !englishSources
 
     /**
      * How much the winning candidate must outscore the runner-up before
@@ -636,6 +699,29 @@ class SuggestionEngine(
         if (englishAsSecondary && !englishSources && dictionary.contains(lower)) owners.add(EN)
         for (t in secondaryDictionaries) if (t.source.contains(lower)) owners.add(t.langId)
         userLexicon.languageOf(lower)?.let { owners.add(it) }
+        if (primaryLanguageId.isNotEmpty() && primaryLanguageId !in owners) {
+            val backend = phoneticBackend(primaryLanguageId)
+            when {
+                backend == null -> Unit
+                // The language's own list. For Bangla and Hindi that list
+                // reaches the engine as the phonetic index and as nothing
+                // else — there is no trie of it among the walk sources — so
+                // without this no Bangla word typed on Avro was ever counted
+                // as Bangla, and the field could only be seen leaning English.
+                backend.index.frequencyOf(lower) > 0 -> owners.add(primaryLanguageId)
+                // A listed loanword is a word of both: `ok` and `phone` are as
+                // much Banglish as English, so writing one says nothing about
+                // which language the sentence is in. Counted for English alone,
+                // `ok to bolo` had তো coming out as "to".
+                backend.spellings.isLoanword(lower) -> owners.add(primaryLanguageId)
+                // A language running on its rules with nothing downloaded has
+                // no list to know its own words by, so its script stands in.
+                // Only then: with a list, a native word the list does not have
+                // is as likely a collision the keyboard just got wrong (ঈ for
+                // "I"), and counting it would have the mistake vote for itself.
+                backend.index.isEmpty && lower.any(backend.scheme.isNative) -> owners.add(primaryLanguageId)
+            }
+        }
         return owners
     }
 
@@ -748,14 +834,28 @@ class SuggestionEngine(
     private var deepGlideBeam = GlideBeam(glideTuning.copy(vocabularyRank = 0))
 
     /**
-     * Point both decoders at new weights, rebuilding them only when something
+     * Point both decoders at [next], rebuilding them only when something
      * actually moved.
      *
-     * Every argument defaults to what the engine is already using, so a caller
-     * that knows about one setting does not have to know about the others. The
-     * three radii are the decoder's tolerances, exposed as settings by #222;
-     * [vocabularyRank] is how much of the dictionary a swipe may answer with,
-     * and is the one weight the deep decoder deliberately ignores.
+     * The whole tuning at once, because the settings that reach here arrive
+     * together: the caller reads one `GestureSettings` and turns it into one
+     * set of weights (`GestureSettings.glideTuning()` in :core:settings). The
+     * deep decoder takes the same weights with the vocabulary cap dropped,
+     * which is the one thing it deliberately ignores.
+     */
+    fun tuneGlide(next: GlideBeam.Tuning) {
+        if (next == glideTuning) return
+        glideTuning = next
+        glideBeam = GlideBeam(next)
+        deepGlideBeam = GlideBeam(next.copy(vocabularyRank = 0))
+    }
+
+    /**
+     * The same, one weight at a time: every argument defaults to what the
+     * engine is already using, so a caller that knows about one setting does
+     * not have to know about the others. The three radii are the decoder's
+     * tolerances, exposed as settings by #222; [vocabularyRank] is how much of
+     * the dictionary a swipe may answer with.
      */
     fun tuneGlide(
         startRadius: Float = glideTuning.startRadius,
@@ -763,16 +863,14 @@ class SuggestionEngine(
         nearRadius: Float = glideTuning.nearRadius,
         vocabularyRank: Int = glideTuning.vocabularyRank,
     ) {
-        val next = glideTuning.copy(
-            startRadius = startRadius,
-            endRadius = endRadius,
-            nearRadius = nearRadius,
-            vocabularyRank = vocabularyRank,
+        tuneGlide(
+            glideTuning.copy(
+                startRadius = startRadius,
+                endRadius = endRadius,
+                nearRadius = nearRadius,
+                vocabularyRank = vocabularyRank,
+            ),
         )
-        if (next == glideTuning) return
-        glideTuning = next
-        glideBeam = GlideBeam(next)
-        deepGlideBeam = GlideBeam(next.copy(vocabularyRank = 0))
     }
 
     /**
@@ -797,15 +895,8 @@ class SuggestionEngine(
 
     /** The curated Bengali spelling map this engine was built with, so the IME
      * can rebuild the romanization without reloading the assets behind it. */
-    val spellingMap: BengaliSpellingMap get() = spellings
+    val spellingMap: SpellingMap get() = spellings
 
-    /**
-     * Whether [alphabet] can spell enough of the language now being typed for a
-     * glide to mean anything. Only the dictionary tier is asked: the personal
-     * lexicon is small and can hold words from whatever the user typed last, so
-     * letting it vote would have a handful of leftover English words decide
-     * whether Bengali is glidable.
-     */
     /**
      * Whether the language being typed has a word list at all — bundled or
      * downloaded and imported — as opposed to enough of one for a layout. A
@@ -817,16 +908,33 @@ class SuggestionEngine(
     fun hasLanguageWords(): Boolean =
         (activeDictionary.walkers() + customDictionary.walkers()).any { it.maxSubtree(it.root) > 0 }
 
+    /**
+     * Whether [alphabet] can spell enough of the language now being typed for a
+     * glide to mean anything. Only the dictionary tier is asked: the personal
+     * lexicon is small and can hold words from whatever the user typed last, so
+     * letting it vote would have a handful of leftover English words decide
+     * whether Bengali is glidable.
+     *
+     * And only the language's own lists, not its secondaries' (#272). Each
+     * source is sampled at its own top, so a secondary language used to vote
+     * with as many words as the primary: Polish riding on English put 1,500
+     * words full of ł, ą and ż in front of a grid with no keys for them, the
+     * share fell under the threshold, and a swipe on a layout that spells
+     * English perfectly came out as a tap. A secondary's words the grid cannot
+     * draw are simply not decoded, which is all it costs. The secondaries are
+     * asked only when the language has no list of its own, where readiness
+     * earned on their words is what lets the missing-list chip say so (#219).
+     */
     fun glideCoverage(alphabet: Set<Int>): Float {
         val romanization = glideRomanization
         // Through the romanization when there is one: on Avro the question is
         // whether the Latin grid spells the *romanized* vocabulary, and asking
         // it of the Bengali word list would answer zero and switch off a layout
         // that decodes perfectly well.
-        val sources = if (romanization.isEmpty) {
-            walkSources().filter { it.tier == FuzzyBeamSearch.Tier.DICTIONARY }
-        } else {
-            romanization.walkSources()
+        val sources = when {
+            !romanization.isEmpty -> romanization.walkSources()
+            hasLanguageWords() -> dictionarySources(primaryLanguageId)
+            else -> dictionarySources(null)
         }
         return GlideCoverage.measure(sources.map { it.walker }, alphabet)
     }
@@ -1165,20 +1273,7 @@ class SuggestionEngine(
                 sources.add(FuzzyBeamSearch.WalkSource(walker, logWeight, tier))
             }
         }
-        // ln(1.0) = 0 while the field mix is neutral, keeping the primary's
-        // weights bit-identical to the pre-detection engine.
-        val primaryShift = ln(fieldFactorFor(primaryLanguageId))
-        add(activeDictionary, primaryShift, FuzzyBeamSearch.Tier.DICTIONARY)
-        add(customDictionary, LOG_CUSTOM_WORD_WEIGHT + primaryShift, FuzzyBeamSearch.Tier.DICTIONARY)
-        if (englishAsSecondary && !englishSources) {
-            val factor = englishSecondaryFactor()
-            if (factor > 0) add(dictionary, ln(factor), FuzzyBeamSearch.Tier.DICTIONARY)
-        }
-        for (t in secondaryDictionaries) {
-            val weight = SECONDARY_WORD_WEIGHT * mixConfidence.confidenceFor(t.langId) *
-                fieldFactorFor(t.langId)
-            if (weight > 0) add(t.source, ln(weight), FuzzyBeamSearch.Tier.DICTIONARY)
-        }
+        sources.addAll(dictionarySources(null))
         for (walker in userLexicon.walkers()) {
             sources.add(
                 FuzzyBeamSearch.WalkSource(walker, LOG_USER_WORD_WEIGHT, FuzzyBeamSearch.Tier.USER)
@@ -1191,6 +1286,42 @@ class SuggestionEngine(
             sources.add(
                 FuzzyBeamSearch.WalkSource(walker, LOG_USER_WORD_WEIGHT, FuzzyBeamSearch.Tier.USER)
             )
+        }
+        return sources
+    }
+
+    /**
+     * The dictionary tier of [walkSources], at the weights the mix gives it,
+     * narrowed to [onlyLang] when that is not null.
+     *
+     * One place owns those weights so a narrowed lookup and the full walk
+     * cannot drift apart: an elision's ratio weighs the word after the prefix
+     * against the fused spelling, and the two have to be measured on the same
+     * scale or a secondary language's reading quietly outranks a primary's.
+     */
+    private fun dictionarySources(onlyLang: String?): List<FuzzyBeamSearch.WalkSource> {
+        val sources = ArrayList<FuzzyBeamSearch.WalkSource>()
+        fun add(wordSource: WordSource, logWeight: Double) {
+            for (walker in wordSource.walkers()) {
+                sources.add(FuzzyBeamSearch.WalkSource(walker, logWeight, FuzzyBeamSearch.Tier.DICTIONARY))
+            }
+        }
+        // ln(1.0) = 0 while the field mix is neutral, keeping the primary's
+        // weights bit-identical to the pre-detection engine.
+        val primaryShift = ln(fieldFactorFor(primaryLanguageId))
+        if (onlyLang == null || onlyLang == primaryLanguageId) {
+            add(activeDictionary, primaryShift)
+            add(customDictionary, LOG_CUSTOM_WORD_WEIGHT + primaryShift)
+        }
+        if (englishAsSecondary && !englishSources && (onlyLang == null || onlyLang == EN)) {
+            val factor = englishSecondaryFactor()
+            if (factor > 0) add(dictionary, ln(factor))
+        }
+        for (t in secondaryDictionaries) {
+            if (onlyLang != null && t.langId != onlyLang) continue
+            val weight = SECONDARY_WORD_WEIGHT * mixConfidence.confidenceFor(t.langId) *
+                fieldFactorFor(t.langId)
+            if (weight > 0) add(t.source, ln(weight))
         }
         return sources
     }
@@ -1465,6 +1596,19 @@ class SuggestionEngine(
          * হলো (1900).
          */
         private const val SIBLING_CONFIDENCE = 2.0
+
+        /** Chips a strip is assumed to show when the caller does not say. */
+        const val DEFAULT_PHONETIC_SLOTS = 3
+
+        /**
+         * How common a word the user taught the keyboard under English counts
+         * as, on [PhoneticScriptVerdict]'s scale. It has no corpus frequency,
+         * but it was typed and kept several times, which no rare word was.
+         */
+        private const val LEARNED_LATIN_COMMONNESS = 0.6
+
+        private val NATIVE_UNCONTESTED =
+            PhoneticScriptVerdict.Verdict(PhoneticScript.NATIVE, contested = false)
 
         /** Log-space forms of the source weights, fed to the fuzzy walk. */
         private val LOG_USER_WORD_WEIGHT = ln(USER_WORD_WEIGHT.toDouble())
@@ -1758,8 +1902,9 @@ class SuggestionEngine(
     /**
      * @param composing the word currently being typed (may be empty)
      * @param previousWord last committed word, used for next-word prediction
-     * @param avroMode when true, [composing] is romanized Bengali and the
-     *        top suggestion is its transliteration
+     * @param phoneticLanguage the language of the phonetic layout [composing]
+     *        was typed on (`"bn"` for Avro), when there is one: [composing] is
+     *        then a romanization and the suggestions are that language's words
      * @param limit how many candidates to return
      * @param touch per-character tap positions (null entries fall back to
      *        the discrete adjacency model)
@@ -1772,11 +1917,14 @@ class SuggestionEngine(
      *        that puts several on a key (null on every 1:1 board)
      * @param previousWord3 the word before [previousWord2], for the reranker's
      *        2-skip bigrams (#195)
+     * @param phoneticSlots how many chips the strip shows, on a phonetic layout
+     *        that mixes English in: the other script's best is pinned to the
+     *        last of them rather than left somewhere off the end
      */
     fun suggest(
         composing: String,
         previousWord: String?,
-        avroMode: Boolean = false,
+        phoneticLanguage: String? = null,
         limit: Int = 5,
         touch: List<TouchPoint?>? = null,
         previousWord2: String? = null,
@@ -1784,12 +1932,20 @@ class SuggestionEngine(
         allowRerank: Boolean = false,
         keys: KeySets? = null,
         previousWord3: String? = null,
+        phoneticSlots: Int = DEFAULT_PHONETIC_SLOTS,
     ): List<String> {
         if (composing.isEmpty()) {
             return nextWords(previousWord, previousWord2, limit, previousWord3)
         }
-        if (avroMode) {
-            return bengaliSuggestions(composing, limit)
+        phoneticBackend(phoneticLanguage)?.let { backend ->
+            if (!phoneticMixing) return phoneticSuggestions(backend, composing, limit)
+            return phoneticStrip(backend, composing, previousWord, limit, phoneticSlots) {
+                suggest(
+                    composing, previousWord, phoneticLanguage = null, limit = limit, touch = touch,
+                    previousWord2 = previousWord2, recentWords = recentWords, keys = keys,
+                    previousWord3 = previousWord3,
+                )
+            }
         }
 
         val lower = composing.lowercase()
@@ -2297,14 +2453,18 @@ class SuggestionEngine(
      * space. Only the map layer, deliberately: it is keyed on the whole buffer,
      * so it either hits or it doesn't and the preview never flickers between
      * dictionary siblings on its way to the end of a word. It is also the layer
-     * that wins [bengaliSuggestions] outright, so what the preview shows is
+     * that wins [phoneticSuggestions] outright, so what the preview shows is
      * what a space would commit.
+     *
+     * @param languageId the language of the phonetic layout being typed on
      */
-    fun bengaliSpelling(composing: String): String? =
-        spellings.lookup(composing).firstOrNull { !suppressed(it) }
+    fun phoneticSpelling(languageId: String, composing: String): String? =
+        phoneticBackend(languageId)?.spellings?.lookup(composing)?.firstOrNull { !suppressed(it) }
 
-    private fun bengaliSuggestions(composing: String, limit: Int): List<String> {
-        val phonetic = AvroPhonetic.transliterate(composing)
+    private fun phoneticSuggestions(backend: PhoneticBackend, composing: String, limit: Int): List<String> {
+        val spellings = backend.spellings
+        val index = backend.index
+        val phonetic = backend.scheme.transliterate(composing)
         val ordered = LinkedHashSet<String>()
         // Listed spellings win outright — loanwords like "keyboard" → কিবোর্ড,
         // and chat shorthand like "tmr" → তোমার whose vowels were never typed.
@@ -2316,15 +2476,254 @@ class SuggestionEngine(
         // a near-tie sibling silently replacing it reads as a bug (হলো
         // becoming হল). A literal that isn't a dictionary word at all always
         // yields to siblings.
-        val siblings = bengaliIndex.lookup(composing)
-        val literalFreq = bengaliIndex.frequencyOf(phonetic)
-        val topSiblingFreq = siblings.firstOrNull()?.let { bengaliIndex.frequencyOf(it) } ?: 0
+        val siblings = index.lookup(composing)
+        val literalFreq = index.frequencyOf(phonetic)
+        val topSiblingFreq = siblings.firstOrNull()?.let { index.frequencyOf(it) } ?: 0
         if (literalFreq > 0 && topSiblingFreq < literalFreq * SIBLING_CONFIDENCE) {
             ordered.add(phonetic)
         }
         ordered.addAll(siblings)
+        // The literal reading, then whatever else the rules think the spelling
+        // could mean. For a scheme whose rules are never undecided (Avro) that
+        // is the literal again and adds nothing; for one that may be running
+        // with no word list behind it, the other readings are all there is to
+        // offer in place of the siblings a dictionary would have found.
         ordered.add(phonetic)
+        ordered.addAll(backend.scheme.variants(composing))
         return ordered.asSequence().filterNot(::suppressed).take(limit).toList()
+    }
+
+    /**
+     * What a space commits for [composing] on [languageId]'s phonetic layout,
+     * and what it would have committed in the other script.
+     *
+     * @param output the text the space bar writes
+     * @param script the script [output] is in
+     * @param alternate the other script's best, or null when there is none
+     *        worth a flip (see [PhoneticScriptVerdict.Verdict.contested])
+     */
+    class PhoneticCommit(val output: String, val script: PhoneticScript, val alternate: String?)
+
+    /**
+     * The commit for [composing], without the strip around it: no fuzzy walk,
+     * so it is cheap enough for the composing preview and a synchronous commit.
+     * The head of [suggest]'s list for the same buffer is always [PhoneticCommit.output]
+     * — both ask [scriptVerdict] — which is what lets the preview show it early.
+     */
+    fun phoneticCommit(languageId: String, composing: String, previousWord: String? = null): PhoneticCommit? {
+        val backend = phoneticBackend(languageId) ?: return null
+        if (composing.isEmpty()) return null
+        val native = phoneticSuggestions(backend, composing, 1).firstOrNull()
+            ?: backend.scheme.transliterate(composing)
+        if (!phoneticMixing) return PhoneticCommit(native, PhoneticScript.NATIVE, alternate = null)
+        val verdict = scriptVerdict(backend, composing, previousWord)
+        val latin = latinForm(composing)
+        return if (verdict.script == PhoneticScript.LATIN) {
+            PhoneticCommit(latin, PhoneticScript.LATIN, native.takeIf { verdict.contested })
+        } else {
+            PhoneticCommit(native, PhoneticScript.NATIVE, latin.takeIf { verdict.contested })
+        }
+    }
+
+    /** Which script a space would commit [composing] in; see [phoneticCommit]. */
+    fun phoneticScript(languageId: String, composing: String, previousWord: String? = null): PhoneticScript {
+        val backend = phoneticBackend(languageId) ?: return PhoneticScript.NATIVE
+        if (!phoneticMixing || composing.isEmpty()) return PhoneticScript.NATIVE
+        return scriptVerdict(backend, composing, previousWord).script
+    }
+
+    /**
+     * The English a space would commit for [composing], or null when it would
+     * commit the layout's own script. The composing preview's question, asked
+     * on the main thread at every keystroke, so it stops at the verdict and
+     * never builds the native list [phoneticCommit] needs for its alternate.
+     */
+    fun phoneticLatinPreview(languageId: String, composing: String, previousWord: String? = null): String? =
+        if (phoneticScript(languageId, composing, previousWord) == PhoneticScript.LATIN) {
+            latinForm(composing)
+        } else {
+            null
+        }
+
+    /**
+     * The user took [script] for [spelling] where the verdict had chosen the
+     * other one: the chip, or the backspace that flips a commit. Remembered
+     * per spelling, so the same word is not got wrong the same way twice.
+     */
+    fun recordScriptChoice(languageId: String, spelling: String, script: PhoneticScript) {
+        scriptChoices.record(languageId, spelling, script)
+        generation.incrementAndGet()
+    }
+
+    /** The buffer as an English word: as typed, or in the case the user's own lexicon keeps it in. */
+    private fun latinForm(composing: String): String = displayForm(composing)
+
+    @Volatile
+    private var scriptVerdictCache: Pair<String, PhoneticScriptVerdict.Verdict>? = null
+
+    private fun scriptVerdict(
+        backend: PhoneticBackend,
+        composing: String,
+        previousWord: String?,
+    ): PhoneticScriptVerdict.Verdict {
+        if (!phoneticAutoEnglish) return NATIVE_UNCONTESTED
+        // A romanization is letters. Anything else in the buffer is the
+        // scheme's own notation, and so is a capital past the first: Avro's T,
+        // D, N and O are letters in their own right, and nobody reaches for
+        // shift in the middle of an English word.
+        if (!composing.all { it in 'a'..'z' || it in 'A'..'Z' }) return NATIVE_UNCONTESTED
+        if (composing.drop(1).any { it.isUpperCase() }) return NATIVE_UNCONTESTED
+        val cacheKey = "${backend.scheme.languageId}:${generation.get()}:$composing:${previousWord.orEmpty()}"
+        scriptVerdictCache?.let { (key, verdict) -> if (key == cacheKey) return verdict }
+        val verdict = PhoneticScriptVerdict.decide(scriptEvidence(backend, composing, previousWord))
+        scriptVerdictCache = cacheKey to verdict
+        return verdict
+    }
+
+    private fun scriptEvidence(
+        backend: PhoneticBackend,
+        composing: String,
+        previousWord: String?,
+    ): PhoneticScriptVerdict.Evidence {
+        val lower = composing.lowercase()
+        val languageId = backend.scheme.languageId
+        val index = backend.index
+        // English: the bundled list, or a word the user has taught the
+        // keyboard under English. A word on the never-suggest list is not one
+        // the keyboard volunteers in either script.
+        val latin = when {
+            suppressed(lower) -> null
+            dictionary.contains(lower) ->
+                PhoneticScriptVerdict.commonness(dictionary.frequencyOf(lower), englishMaxFrequency())
+            userLexicon.contains(lower) && userLexicon.languageOf(lower) == EN -> LEARNED_LATIN_COMMONNESS
+            else -> null
+        }
+        // The language's own: a listed spelling or the rules' reading being a
+        // dictionary word is exact; a fold sibling is a looser claim.
+        val forms = backend.spellings.lookup(composing).filterNot(::suppressed)
+        val loanword = forms.isNotEmpty() && backend.spellings.isLoanword(composing)
+        val exact = maxOf(
+            forms.maxOfOrNull { index.frequencyOf(it) } ?: 0,
+            index.frequencyOf(backend.scheme.transliterate(composing)),
+        )
+        val folded = index.matchStrength(composing)
+        val native = when {
+            exact > 0 || folded > 0 -> maxOf(
+                PhoneticScriptVerdict.commonness(exact, index.maxFrequency),
+                PhoneticScriptVerdict.foldOnly(PhoneticScriptVerdict.commonness(folded, index.maxFrequency)),
+            )
+            forms.isNotEmpty() && !loanword -> PhoneticScriptVerdict.UNRANKED_LISTED
+            else -> null
+        }
+        val shares = if (fieldDetectionShift > 0.0) fieldMix.shares() else null
+        val context = shares?.let {
+            (it.shareOf(EN) - it.shareOf(languageId)) * it.ramp *
+                (fieldDetectionShift / FIELD_SHIFT_BALANCED).coerceAtMost(1.0)
+        } ?: 0.0
+        val prev = previousWord?.lowercase()?.takeIf { it.isNotEmpty() }
+        // Which way the word before pulls. A pair English writes (`i am`,
+        // `how are`) against a pair the language's own context knows for the
+        // reading it would commit; both known and they cancel. The sentence
+        // start counts only through the user's own habit: the bundled openers
+        // list `Are` and `So`, and আরে opens a Bangla message as readily.
+        var pair = 0
+        if (prev != null && latin != null && englishPair(prev, lower)) pair++
+        if (prev != null && native != null) {
+            val reading = phoneticSuggestions(backend, composing, 1).firstOrNull()
+            if (reading != null && nativePair(prev, reading)) pair--
+        }
+        return PhoneticScriptVerdict.Evidence(
+            latinCommonness = latin,
+            nativeCommonness = native,
+            loanword = loanword,
+            contextDelta = context,
+            choice = scriptChoices.choiceFor(languageId, lower),
+            pair = pair,
+            afterEnglish = prev != null && !WordContext.isSentinel(prev) &&
+                dictionary.contains(prev) && !backend.spellings.isLoanword(prev),
+            pronoun = composing == "I",
+        )
+    }
+
+    private fun englishPair(prev: String, word: String): Boolean {
+        if (userLexicon.bigramCount(prev, word) > 0) return true
+        if (WordContext.isSentinel(prev)) return false
+        return seedBigrams.nextWords(prev).any { it.equals(word, ignoreCase = true) } ||
+            secondaryEnglishNgramPack.bigramCount(prev, word) > 0
+    }
+
+    private fun nativePair(prev: String, reading: String): Boolean =
+        userLexicon.bigramCount(prev, reading) > 0 ||
+            (!WordContext.isSentinel(prev) && ngramPack.bigramCount(prev, reading) > 0)
+
+    @Volatile
+    private var englishMaxCache: Pair<WordSource, Int>? = null
+
+    /** The top frequency of the English list, the scale its words are read against. */
+    private fun englishMaxFrequency(): Int {
+        val source = dictionary
+        englishMaxCache?.let { (cached, max) -> if (cached === source) return max }
+        val max = source.walkers().maxOfOrNull { it.maxSubtree(it.root) } ?: 0
+        englishMaxCache = source to max
+        return max
+    }
+
+    /**
+     * The strip of a phonetic layout that English is mixed into. Its head is
+     * always what a space commits ([phoneticCommit]); the rest follows the
+     * language the field is being written in.
+     *
+     *  - The layout's own script leads and the field is not English: the list
+     *    is what it always was, with the buffer as typed pinned to the last
+     *    visible chip. One tap writes any word in Latin letters, and the
+     *    siblings a Bengali typist actually reaches for keep their places.
+     *  - The field has turned English but the commit has not (auto-English is
+     *    off): the native word stays first, because that is what the space bar
+     *    does, and English takes the rest.
+     *  - English leads: the buffer, its completions, and the native word pinned
+     *    where the Latin one would have been.
+     *
+     * [latinCompletions] is the ordinary walk, and is only run where English
+     * has chips to fill — a Bengali sentence costs what it always cost.
+     */
+    private fun phoneticStrip(
+        backend: PhoneticBackend,
+        composing: String,
+        previousWord: String?,
+        limit: Int,
+        slots: Int,
+        latinCompletions: () -> List<String>,
+    ): List<String> {
+        // Never empty: with every reading on the never-suggest list the rules'
+        // own is still what a space commits, and the head has to say so.
+        val native = phoneticSuggestions(backend, composing, limit)
+            .ifEmpty { listOf(backend.scheme.transliterate(composing)) }
+        val literal = latinForm(composing)
+        val latinLeads = scriptVerdict(backend, composing, previousWord).script == PhoneticScript.LATIN
+        val pin = (slots - 1).coerceIn(1, maxOf(1, limit - 1))
+        if (!latinLeads && detectedLanguageId() != EN) {
+            return pinned(native, literal, pin).take(limit)
+        }
+        val latin = LinkedHashSet<String>()
+        latin.add(literal)
+        for (word in latinCompletions()) {
+            if (!word.equals(literal, ignoreCase = true)) latin.add(word)
+        }
+        val ordered = if (latinLeads) {
+            val top = native.firstOrNull()
+            val head = if (top == null) latin.toList() else pinned(latin.toList(), top, pin)
+            head + native.drop(1)
+        } else {
+            native.take(1) + latin + native.drop(1)
+        }
+        return ordered.distinct().take(limit)
+    }
+
+    /** [list] with [item] at index [at], or at the end when the list is shorter. */
+    private fun pinned(list: List<String>, item: String, at: Int): List<String> {
+        val rest = list.filterNot { it == item }
+        val index = at.coerceAtMost(rest.size)
+        return rest.subList(0, index) + item + rest.subList(index, rest.size)
     }
 
     private fun nextWords(
@@ -2365,6 +2764,20 @@ class SuggestionEngine(
         }
         // Seed bigrams are English pairs; they only cold-start English modes.
         if (englishSources) ordered.addAll(seedBigrams.nextWords(prev))
+        // English riding as a secondary: after one of its words the primary's
+        // pack has nothing to say (`hello` on Avro), so English's own context
+        // answers instead. Only after a word English owns, so it never talks
+        // over the primary's followers.
+        if (englishAsSecondary && !englishSources && dictionary.contains(prev)) {
+            val englishPack = secondaryEnglishNgramPack
+            if (!englishPack.isEmpty) {
+                previousWord2?.lowercase()?.let { prev2 ->
+                    ordered.addAll(englishPack.nextWordsAfter(prev2, prev, limit))
+                }
+                ordered.addAll(englishPack.nextWords(prev, limit))
+            }
+            ordered.addAll(seedBigrams.nextWords(prev))
+        }
         // Skip-gram rescue: an unknown prev (a just-typed name, a typo) has
         // no followers anywhere and the strip would go quiet. Treat it as
         // transparent and backfill from the word before it — "met Priya"
@@ -2624,12 +3037,28 @@ class SuggestionEngine(
     }
 
     /**
+     * Just [langId]'s own dictionary sources, out of the mix's.
+     *
+     * An elision is a fact about one language: `d'` in front of an Italian
+     * word. Asked against every list at once, the Italian grammar reads the
+     * English *dart* as `d'art`, because the mix happens to hold an English
+     * *art* for it to point at. So the word after the prefix is looked up
+     * here, in the language whose grammar admitted the split, while whether
+     * the fused spelling is a *word* stays a question for the whole mix —
+     * English knowing `dart` is exactly the reason not to rewrite it (#240).
+     */
+    private fun languageSources(langId: String): List<FuzzyBeamSearch.WalkSource> =
+        dictionarySources(langId)
+
+    /**
      * [lower]'s best score in the dictionary-tier walk sources, on the walk's
      * own scale; NEGATIVE_INFINITY when no list holds it.
      */
-    private fun dictionaryScore(lower: String): Double {
+    private fun dictionaryScore(lower: String): Double = dictionaryScore(lower, walkSources())
+
+    private fun dictionaryScore(lower: String, sources: List<FuzzyBeamSearch.WalkSource>): Double {
         var best = Double.NEGATIVE_INFINITY
-        for (src in walkSources()) {
+        for (src in sources) {
             if (src.tier != FuzzyBeamSearch.Tier.DICTIONARY) continue
             val walker = src.walker
             var node = walker.root
@@ -2652,12 +3081,15 @@ class SuggestionEngine(
      * keystroke for the word after an elided prefix, and the only branching
      * is a letter's accented twins.
      */
-    private fun accentedLookup(lower: String): Pair<String, Double>? {
+    private fun accentedLookup(
+        lower: String,
+        sources: List<FuzzyBeamSearch.WalkSource> = walkSources(),
+    ): Pair<String, Double>? {
         var bestWord: String? = null
         var best = Double.NEGATIVE_INFINITY
         val children = ChildBuffer()
         val spelled = StringBuilder(lower.length)
-        for (src in walkSources()) {
+        for (src in sources) {
             if (src.tier != FuzzyBeamSearch.Tier.DICTIONARY) continue
             val walker = src.walker
             fun descend(node: Int, pos: Int) {
@@ -2706,7 +3138,12 @@ class SuggestionEngine(
      */
     private fun apostropheReading(lower: String): ElisionReading? {
         if (!apostropheFixes) return null
-        return contractionReading(lower) ?: elisionReading(lower)
+        var best: ElisionReading? = null
+        for (langId in mixLanguageIds()) {
+            val reading = contractionReading(lower, langId) ?: elisionReading(lower, langId)
+            if (reading != null && (best == null || reading.score > best.score)) best = reading
+        }
+        return best
     }
 
     /**
@@ -2723,8 +3160,8 @@ class SuggestionEngine(
      * it at commit. A strip that disagreed with the space bar would be the
      * bug this fixes.
      */
-    private fun contractionReading(lower: String): ElisionReading? {
-        if (!Apostrophes.servesLanguage(primaryLanguageId)) return null
+    private fun contractionReading(lower: String, langId: String): ElisionReading? {
+        if (!Apostrophes.servesLanguage(langId)) return null
         val fixed = Apostrophes.fix(lower) ?: return null
         val scored = maxOf(finiteScore(fixed.lowercase()), finiteScore(lower))
         return ElisionReading(fixed, scored + CONTRACTION_LEAD, shadowed = true)
@@ -2749,17 +3186,24 @@ class SuggestionEngine(
      * word that happens to split (`tas`, `lune`) leads its elided reading in
      * the strip by the same margin that keeps it from being corrected.
      */
-    private fun elisionReading(lower: String): ElisionReading? {
-        val rules = Elisions.rulesFor(primaryLanguageId) ?: return null
+    private fun elisionReading(lower: String, langId: String): ElisionReading? {
+        val rules = Elisions.rulesFor(langId) ?: return null
         val splits = rules.splits(lower)
         if (splits.isEmpty()) return null
+        // The word after the prefix has to be a word of *this* language; the
+        // fused spelling being a word is a question for the whole mix. See
+        // [languageSources].
+        val own = languageSources(langId)
+        if (own.isEmpty()) return null
         val typed = dictionaryScore(lower)
         val price = ln(ELISION_SHADOW_RATIO)
         var best: ElisionReading? = null
         for (split in splits) {
             val (word, score) = rules.respelled(split)
-                ?.let { spelled -> dictionaryScore(spelled).takeIf { it > Double.NEGATIVE_INFINITY }?.let { spelled to it } }
-                ?: accentedLookup(split.rest)
+                ?.let { spelled ->
+                    dictionaryScore(spelled, own).takeIf { it > Double.NEGATIVE_INFINITY }?.let { spelled to it }
+                }
+                ?: accentedLookup(split.rest, own)
                 ?: continue
             if (suppressed(word)) continue
             // A spelling no word begins with is an elision whatever a list

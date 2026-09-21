@@ -21,9 +21,30 @@ class FileAssociationTest {
         // Comments in this manifest quote the patterns they explain.
         .replace(Regex("<!--.*?-->", RegexOption.DOT_MATCHES_ALL), "")
 
+    /**
+     * The two import activities' own blocks. The file associations and the
+     * link filter are checked separately, because they claim deliberately
+     * different things: the file one claims the types our own exports arrive
+     * as, the link one claims text/plain and nothing else.
+     */
+    private fun activityBlock(name: String): String =
+        manifest.split("<activity").first { it.contains(name) }
+
+    private val fileActivity = activityBlock("ImportFileActivity")
+    private val linkActivity = activityBlock("ImportLinkActivity")
+
     private val patterns: List<String> =
         Regex("""android:pathPattern="([^"]+)"""")
-            .findAll(manifest).map { it.groupValues[1] }.toList()
+            .findAll(fileActivity).map { it.groupValues[1] }.toList()
+
+    /** Every MIME type the file associations claim, across their filters. */
+    private val claimedTypes: List<String> =
+        Regex("""android:mimeType="([^"]+)"""")
+            .findAll(fileActivity).map { it.groupValues[1] }.toList()
+
+    /** The filters that match on a type rather than on a file name. */
+    private val typedFilters: List<String> = fileActivity.split("<intent-filter")
+        .filter { it.contains("android:mimeType") && !it.contains("pathPattern") }
 
     /**
      * `.*\\..*\\.wmtheme\\.json` -> `wmtheme.json`: drop the leading wildcards,
@@ -56,7 +77,8 @@ class FileAssociationTest {
     @Test
     fun `no pattern claims a general file extension`() {
         // The whole point of the compound extensions: opening someone else's
-        // .json must not offer this app.
+        // .json must not offer this app *by name*. The typed filter below is
+        // offered for it, and says so about itself.
         //
         // One extension here is deliberately not ours. A `.flex` is a
         // FlorisBoard theme, which this app converts, and claiming it is how
@@ -74,10 +96,78 @@ class FileAssociationTest {
         }
     }
 
-    private companion object {
-        /** Other apps' formats this one deliberately reads. */
-        /** Extensions belonging to other projects that we deliberately claim. */
-        val FOREIGN_EXTENSIONS = setOf("flex", "kmp")
+    @Test
+    fun `a MIME-typed filter catches the URIs that carry no file name`() {
+        // A provider may hand out a URI with no name in it — the downloads
+        // provider's `msf:19` for anything MediaStore has indexed — and every
+        // pathPattern above misses those. Without a filter matching on the type
+        // alone, a theme downloaded in a browser opens in whichever other
+        // keyboard claims application/octet-stream and this one is never
+        // offered. One filter for VIEW, one for SEND.
+        assertEquals(2, typedFilters.size)
+        for (filter in typedFilters) {
+            for (type in NAMELESS_TYPES) {
+                assertTrue(
+                    "a type-matched filter does not claim $type",
+                    filter.contains("""android:mimeType="$type""""),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `the share sheet reaches the import activity`() {
+        // Sharing a theme out of a chat app reached FlorisBoard and not this
+        // app, because only one of the two declared ACTION_SEND.
+        val send = fileActivity.split("<intent-filter")
+            .filter { it.contains("android.intent.action.SEND\"") }
+        assertEquals(1, send.size)
+        // No scheme: a share sheet matches on the type alone, and a declared
+        // content:// would drop every app that shares its stream some other way.
+        assertTrue("the share filter declares a scheme", !send.single().contains("android:scheme"))
+    }
+
+    @Test
+    fun `a shared link reaches the link importer, and nothing else does`() {
+        // A browser shares a page as text/plain and nothing else, so this is
+        // the only filter a shared address can match. It is a wide claim and
+        // it belongs to one activity: text with no address in it opens that
+        // activity, says so, and closes. The file importer must never claim
+        // text/plain, or every shared message would offer to be imported as a
+        // theme.
+        val send = linkActivity.split("<intent-filter")
+            .filter { it.contains("android.intent.action.SEND\"") }
+        assertEquals(1, send.size)
+        assertTrue(
+            "the link share filter does not claim text/plain",
+            send.single().contains("""android:mimeType="text/plain""""),
+        )
+        assertTrue("the link share filter declares a scheme", !send.single().contains("android:scheme"))
+        assertTrue(
+            "the file importer claims text/plain",
+            !fileActivity.contains("""android:mimeType="text/plain""""),
+        )
+        // The written form, for a README or a support reply. Browsable for the
+        // same reason the addon links are: following one only ever opens a
+        // dialog, and the fetch waits for the user.
+        assertTrue(
+            "the wmkeyboard://import link is not declared",
+            linkActivity.contains("""android:scheme="wmkeyboard" android:host="import""""),
+        )
+    }
+
+    @Test
+    fun `no filter claims a type the app cannot make sense of`() {
+        // Being offered for files that are none of ours is the price of the
+        // filter above, and it is only worth paying for the types our own
+        // formats actually arrive as. Anything wider — text/*, or */* outside
+        // the name-matched filters — would put this app in the chooser for
+        // documents it has nothing to say about.
+        val loose = claimedTypes.toSet() - NAMELESS_TYPES - YAML_TYPES - "*/*"
+        assertTrue("the manifest claims $loose", loose.isEmpty())
+        for (filter in typedFilters) {
+            assertTrue("a type-matched filter claims */*", !filter.contains("""android:mimeType="*/*""""))
+        }
     }
 
     @Test
@@ -101,5 +191,36 @@ class FileAssociationTest {
                 filter.contains("""android:host="*""""),
             )
         }
+    }
+
+    private companion object {
+        /** Extensions belonging to other projects that we deliberately claim. */
+        val FOREIGN_EXTENSIONS = setOf("flex", "kmp")
+
+        /**
+         * The types a file of ours arrives as when its URI carries no name.
+         * JSON for the text formats; the other three are what a provider says
+         * about a ZIP whose extension it has never heard of.
+         */
+        val NAMELESS_TYPES = setOf(
+            "application/json",
+            "application/octet-stream",
+            "application/zip",
+            "application/x-zip-compressed",
+        )
+
+        /**
+         * YAML, in the four spellings providers use for it. Two formats this
+         * app reads arrive as YAML — a FUTO Keyboard layout and an Espanso
+         * snippet file — and claiming the type is how they are offered to this
+         * app at all. Deliberately not claimed by `pathPattern`: a `.yaml` name
+         * pattern would offer the app for every YAML file on the device.
+         */
+        val YAML_TYPES = setOf(
+            "application/yaml",
+            "application/x-yaml",
+            "text/yaml",
+            "text/x-yaml",
+        )
     }
 }

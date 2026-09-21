@@ -72,15 +72,22 @@ object FlexTheme {
     private const val MAX_TOTAL_BYTES = 16L * 1024 * 1024
     private const val MAX_MANIFEST_BYTES = 256 * 1024
     private const val MAX_IMAGE_BYTES = 4 * 1024 * 1024
+    private const val MAX_FONT_BYTES = 8 * 1024 * 1024
+    private const val TTF = ".ttf"
+    private const val OTF = ".otf"
 
     /**
      * Reads [input] and converts every theme in it.
      *
-     * Never throws: a truncated archive, a manifest for some other kind of
-     * extension and a stylesheet in a dialect this build cannot read are all
-     * ordinary outcomes with their own answer.
+     * [palette] resolves the Material roles a stylesheet can name — see
+     * [SnyggPalette]. The default stands in off-device and below Android 12;
+     * `:app` passes the device's own palette so that a theme written against
+     * Material You converts to the colours FlorisBoard would have drawn.
+     *
+     * Never throws: a truncated archive and a manifest for some other kind of
+     * extension are both ordinary outcomes with their own answer.
      */
-    fun read(input: InputStream): FlexResult {
+    fun read(input: InputStream, palette: SnyggPalette = SnyggPalette.Baseline): FlexResult {
         val files = runCatching { unpack(input) }.getOrNull() ?: return FlexResult.Unreadable
         val manifestText = files[MANIFEST]?.decodeToString() ?: return FlexResult.NotAFlex
         val manifest = runCatching { json.parseToJsonElement(manifestText) }.getOrNull() as? JsonObject
@@ -92,31 +99,32 @@ object FlexTheme {
         if (entries.isEmpty()) return FlexResult.NotAFlex
 
         val dropped = linkedSetOf<FlexUnsupported>()
+        val unknownElements = linkedSetOf<String>()
         var rules = 0
         var mapped = 0
         val themes = entries.mapNotNull { entry ->
             val sheet = stylesheetOf(entry, files) ?: return@mapNotNull null
-            val style = Stylesheet.parse(sheet) ?: return@mapNotNull null
+            val night = entry.boolean("isNight") ?: true
+            val style = Stylesheet.parse(sheet, palette, night) ?: return@mapNotNull null
             rules += style.ruleCount
             mapped += style.mappedCount
             dropped += style.dropped
+            unknownElements += style.unknownElements
             SnyggMapper(style).convert(
                 name = themeName(meta, entry, entries.size),
                 id = entry.string("id").orEmpty(),
-                night = entry.boolean("isNight") ?: true,
+                night = night,
                 files = files,
                 dropped = dropped,
             )
         }
         return when {
-            // A stylesheet written for FlorisBoard 0.4. The two dialects are not
-            // compatible, and half of a theme is worse than a clear no: the user
-            // ends up hand-fixing values that never came from their file.
-            themes.isEmpty() && FlexUnsupported.SNYGG_V1 in dropped -> FlexResult.SnyggV1
             themes.isEmpty() -> FlexResult.NotAFlex
             else -> FlexResult.Converted(
                 themes = themes,
                 dropped = dropped.toList(),
+                unknownElements = unknownElements.toList(),
+                wallpaperColours = palette.fromDevice,
                 ruleCount = rules,
                 mappedRuleCount = mapped,
                 license = meta?.string("license").orEmpty(),
@@ -185,8 +193,15 @@ object FlexTheme {
                         // one entry read before anything is known about the
                         // archive, so it must not be a way to spend the whole
                         // budget before the format has even been checked.
-                        val perEntry =
-                            if (entry.name == MANIFEST) MAX_MANIFEST_BYTES else MAX_IMAGE_BYTES
+                        val perEntry = when {
+                            entry.name == MANIFEST -> MAX_MANIFEST_BYTES
+                            // A font is bigger than an image by an order of
+                            // magnitude: the store's own Nothing theme ships an
+                            // 862 KB Inter and the whole archive is 464 KB
+                            // compressed, so the image cap would truncate it.
+                            entry.name.endsWith(TTF) || entry.name.endsWith(OTF) -> MAX_FONT_BYTES
+                            else -> MAX_IMAGE_BYTES
+                        }
                         val bytes = readCapped(zip, minOf(remaining, perEntry.toLong()).toInt())
                         total += bytes.size
                         files[entry.name] = bytes
@@ -249,6 +264,14 @@ sealed interface FlexResult {
         val themes: List<ConvertedTheme>,
         /** What the stylesheets asked for that this keyboard cannot draw. */
         val dropped: List<FlexUnsupported>,
+        /** The element names behind [FlexUnsupported.UNKNOWN_ELEMENT], to name them. */
+        val unknownElements: List<String> = emptyList(),
+        /**
+         * Whether the Material You roles resolved against the device's own
+         * palette. False below Android 12, where they fall back to stock
+         * Material and the import must not claim the wallpaper was read.
+         */
+        val wallpaperColours: Boolean = false,
         /** Style rules read, and how many had somewhere to go. */
         val ruleCount: Int,
         val mappedRuleCount: Int,
@@ -264,9 +287,6 @@ sealed interface FlexResult {
 
     /** A ZIP, but not a theme extension. */
     data object NotAFlex : FlexResult
-
-    /** A stylesheet in FlorisBoard 0.4's dialect, which is not the one below. */
-    data object SnyggV1 : FlexResult
 
     /** Truncated, not a ZIP at all, or past the size caps. */
     data object Unreadable : FlexResult
@@ -284,16 +304,58 @@ data class ConvertedTheme(
     val theme: ThemeSpec,
     /** Keyed by [ThemeSpec] asset slot, or `background` for the board image. */
     val images: Map<String, ByteArray>,
+    /**
+     * The typeface this theme asks for, when the archive carries it.
+     *
+     * A font here is an installed add-on that [ThemeSpec.fontId] names, so the
+     * bytes cannot be stored in the theme the way an image can. They travel to
+     * the caller, which installs them and writes the id back — the same shape
+     * as [images], and for the same reason: installing needs a store and a
+     * files directory, neither of which belongs in a parser.
+     */
+    val font: ConvertedFont? = null,
 )
+
+/** A typeface lifted out of a `.flex`, ready to install. */
+data class ConvertedFont(
+    /** The family name the stylesheet gave it, for naming the installed font. */
+    val name: String,
+    /** The file name inside the archive, which carries the real extension. */
+    val fileName: String,
+    val bytes: ByteArray,
+) {
+    // Arrays compare by identity, and this class rides inside a data class the
+    // import screen holds in Compose state, where that difference is visible.
+    override fun equals(other: Any?): Boolean =
+        this === other || (other is ConvertedFont && name == other.name && fileName == other.fileName)
+
+    override fun hashCode(): Int = 31 * name.hashCode() + fileName.hashCode()
+}
 
 /** Something a stylesheet asked for that has nowhere to go here. */
 enum class FlexUnsupported {
-    /** FlorisBoard 0.4's dialect. Not read at all, rather than read badly. */
-    SNYGG_V1,
-    ELEVATION,
+
+    /**
+     * The sheet gave a shadow a *colour*. The lift itself lands (see
+     * `PROP_ELEVATION`); only the colour has nowhere to go, and Android ignores
+     * one below version 9 anyway.
+     *
+     * Named for what is lost rather than for the property it was read from: as
+     * `ELEVATION` it read as "this app draws no shadows", which stopped being
+     * true when elevation started mapping and left the import telling users
+     * their shadows had been dropped when they had not.
+     */
+    SHADOW_COLOR,
     PER_CORNER_RADIUS,
     PER_ELEMENT_SPACING,
     FONT,
+
+    /**
+     * The sheet named a Material You role. It is resolved against the device's
+     * palette (see [SnyggPalette]) and stored as a literal colour, so the theme
+     * is a snapshot: it will not follow the next wallpaper the way FlorisBoard
+     * does.
+     */
     DYNAMIC_COLOR,
     UNKNOWN_ELEMENT,
 

@@ -27,7 +27,12 @@ fun LayoutSpec.compile(layer: LayoutLayer): KeyboardLayout = synchronized(compil
             ?: error("The default layout has no LETTERS layer")
     val built = KeyboardLayout(
         name = "$id/${layer.key}",
-        rows = resolved.rows,
+        // The spacebar absorbs whatever the bottom row is short of the grid, so
+        // a board whose letters are eleven or twelve columns wide does not draw
+        // its `?123` and Enter floating in from the edges. Done here rather than
+        // at the row's draw so the keyboard, the theme preview and the layout
+        // editor's preview all measure the same grid.
+        rows = fillSpaceRows(resolved.rows, gridWeightOf(resolved.rows)),
         rowHeights = resolved.rowHeights,
         // From this layout, never from whichever layout the *grid* was inherited
         // from: the appearance belongs to the board the user is typing on, so a
@@ -64,6 +69,21 @@ private fun LayoutSpec.appearanceFor(layer: LayerSpec): LayoutAppearance? {
 
 /** The number row this layout shows above [layer], or null to use the default. */
 fun LayoutSpec.numberRowFor(layer: LayoutLayer): List<Key>? = layer(layer)?.numberRow
+
+/** The row this layout draws in place of [layer]'s digit row, or null for the default. */
+fun LayoutSpec.fillRowFor(layer: LayoutLayer): List<Key>? = layer(layer)?.fillRow
+
+/**
+ * Whether [rows] opens with a row of plain digit keys: the row the symbols
+ * layer gives up to its fill row while the number row shows the same digits.
+ * Only then, so a custom symbols layer that leads with something else keeps
+ * its top row.
+ */
+fun leadsWithDigitRow(rows: List<List<Key>>): Boolean =
+    rows.firstOrNull()?.all { key ->
+        val text = key.output ?: key.label
+        key.action == KeyAction.Text && text.length == 1 && text[0].isDigit()
+    } ?: false
 
 private val compileCache =
     HashMap<Pair<String, LayoutLayer>, Pair<LayoutSpec, KeyboardLayout>>()

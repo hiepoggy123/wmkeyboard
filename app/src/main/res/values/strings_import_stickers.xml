@@ -10,6 +10,10 @@
     <!-- Above the list of lines that say what the app had to change to make the
          file usable. -->
     <string name="import_repairs_title">The app changed these items during the import:</string>
+    <!-- The same list, but on the dialog that asks *before* anything is
+         imported. That dialog's button says Import, so the past tense above
+         read as if the work had already happened. -->
+    <string name="import_repairs_pending_title">What the app will change when you import:</string>
 
     <!-- ==== Theme and layout files. ==== -->
 
@@ -27,6 +31,9 @@
     <string name="import_keyman_no_grid_body">This Keyman package holds no on-screen keyboard, so there is no layout to add. Packages built for desktop computers only are like this.</string>
     <!-- Languages is the name of a screen in the settings app. -->
     <string name="import_layout_body">The app adds the layout to your layouts. The layout stays off. To type with it, turn it on in Languages.</string>
+    <!-- FUTO Keyboard is the name of another keyboard app; leave it as it is.
+         Languages is the name of a screen in the settings app. -->
+    <string name="import_futo_body">This is a FUTO Keyboard layout. The app adds its letter keys as a layout of yours; the symbol and number keys stay the ones you have. The layout stays off. To type with it, turn it on in Languages.</string>
 
     <!-- ==== Backup files. ==== -->
 
@@ -90,6 +97,17 @@
         <item quantity="other">The app imported %1$d snippets.</item>
     </plurals>
 
+    <!-- ==== Espanso files. Espanso is a text expander for computers; its
+         snippet files are one of the formats this app reads. ==== -->
+
+    <!-- %1$s is the name of the folder the snippets land in. -->
+    <string name="import_espanso_body">This is an Espanso file. The app adds its snippets to yours, in a folder called <xliff:g id="folder_name" example="Emoji shortcuts">%1$s</xliff:g>, so you can turn all of them off at once.</string>
+    <!-- Stands in for the folder name when the file gives nothing to name it
+         after. It goes into import_espanso_body. -->
+    <string name="import_espanso_folder_fallback">Espanso</string>
+    <string name="import_espanso_title">Nothing to import</string>
+    <string name="import_espanso_none">This is an Espanso file, but the app could read no snippets from it.</string>
+
     <!-- ==== Sticker pack files. ==== -->
 
     <string name="import_stickers_title">Import sticker pack?</string>
@@ -133,24 +151,76 @@
     <!-- Shown when a file with more than one theme becomes one theme with
          several looks. %1$s is the theme's name, %2$d how many looks it has. -->
     <string name="import_floris_done_family" tools:ignore="PluralsCandidate">The app saved <xliff:g id="theme_name" example="Dusk">%1$s</xliff:g> with <xliff:g id="count" example="2">%2$d</xliff:g> looks. Open Themes to look at it.</string>
-    <string name="import_floris_old_title">Theme is for an older FlorisBoard</string>
-    <string name="import_floris_old_body">This theme is written for FlorisBoard 0.4. That style format is not the same as the one in FlorisBoard 0.5 and later, so the app cannot read it. A theme that this app read only in part would give you colours that your file never set.</string>
     <string name="import_floris_unreadable_body">The app cannot read this FlorisBoard file. It may be damaged, or it may be a language pack or a keyboard extension instead of a theme.</string>
 
+    <!-- ==== HeliBoard and LeanType colour themes. Those keyboards share a
+         theme as a line of text rather than as a file, so the app takes it
+         from a file or from the clipboard. ==== -->
+
+    <string name="import_heli_title">Theme from HeliBoard</string>
+    <string name="import_heli_body">HeliBoard and LeanType share a theme as a line of text. Copy it from the colour screen of that keyboard, or pick the file that you saved it in.</string>
+    <string name="import_heli_paste_action">Paste</string>
+    <string name="import_heli_file_action">Open a file</string>
+    <!-- %1$s is the name of the theme. %2$d is the number of colours the app
+         used, %3$d the number of colours in the theme. Not a plural: the word
+         "colours" agrees with the third number, which is never one. -->
+    <string name="import_heli_done" tools:ignore="PluralsCandidate">The app saved <xliff:g id="theme_name" example="Midnight">%1$s</xliff:g> and used %2$d of its %3$d colours. Open Themes to look at it.</string>
+    <string name="import_heli_unreadable_body">The app cannot read that as a HeliBoard theme. Copy the whole line of text from the menu at the top of the colour screen in HeliBoard or LeanType.</string>
+    <string name="import_heli_clipboard_empty_body">The clipboard is empty.</string>
+
     <!-- Lines in the "what the app changed" list of a FlorisBoard import. -->
-    <string name="import_floris_dropped_old">Part of the file uses the older FlorisBoard style format.</string>
-    <string name="import_floris_dropped_elevation">Key shadows are not set. This app draws keys without a shadow.</string>
-    <string name="import_floris_dropped_corners">Keys have one corner size. The file sets a different size for each corner.</string>
-    <string name="import_floris_dropped_spacing">Space around single parts is not set. This app sets the key gap for the whole keyboard.</string>
-    <string name="import_floris_dropped_font">The font is not included. A font is a separate add-on in this app.</string>
-    <string name="import_floris_dropped_dynamic">Colours that follow the system wallpaper are not set. Turn on Material You in Themes for the same effect.</string>
+    <string name="import_floris_dropped_shadow_color">The file picks a colour for the shadows under the keys. The shadows come across, but this app draws them in its own colour.</string>
+    <string name="import_floris_dropped_corners">The file rounds some corners more than others. This app uses one corner size per key, and takes the first of them.</string>
+    <string name="import_floris_dropped_spacing">The file sets its own spacing around single keys and panels. This app uses one gap between keys for the whole keyboard, so those spacings are not used.</string>
+    <string name="import_floris_dropped_font">The file asks for a font by name but does not contain it. A theme that carries its font is installed with it; this one does not, so install the font yourself and pick it in the theme editor.</string>
+    <!-- A stylesheet may name a Material You role instead of a colour. The app
+         resolves it against the palette in use at import and stores the result,
+         so the theme keeps those colours but stops following the wallpaper. -->
+    <string name="import_floris_dropped_dynamic_snapshot">Some colours in this file follow your wallpaper. The app saved the colours that your wallpaper gives right now. They stay as they are when you change your wallpaper later.</string>
+    <!-- Shown instead of the line above when the phone has no wallpaper
+         colours to read, which is every phone below Android 12. The colours
+         still resolved, but against stock Material rather than the wallpaper. -->
+    <string name="import_floris_dropped_dynamic_baseline">Some colours in this file follow the wallpaper on phones that support it. This phone does not, so the app used the standard Android colours for them.</string>
     <string name="import_floris_dropped_unknown">Some parts of the file name keyboard elements that this app does not have.</string>
+    <!-- The same line, with the parts named. %1$s is a comma-separated list of
+         the element names from the file, such as "extracted landscape input
+         layout, smartbar actions editor subheader". -->
+    <string name="import_floris_dropped_unknown_named">The file styles parts that this keyboard does not have: <xliff:g id="parts" example="extracted landscape input layout">%1$s</xliff:g>.</string>
+    <!-- %1$s is the named parts, %2$d how many more there are. -->
+    <plurals name="import_floris_dropped_unknown_named_more">
+        <item quantity="one">The file styles parts that this keyboard does not have: <xliff:g id="parts" example="extracted landscape input layout">%1$s</xliff:g>, and %2$d other.</item>
+        <item quantity="other">The file styles parts that this keyboard does not have: <xliff:g id="parts" example="extracted landscape input layout">%1$s</xliff:g>, and %2$d others.</item>
+    </plurals>
     <string name="import_floris_dropped_contrast">A key text colour was too close to the key colour to read. The app chose a colour that you can read.</string>
+
+    <!-- ==== Key sound packs (.wmsoundpack). ==== -->
+
+    <string name="import_sound_pack_title">Import key sounds?</string>
+    <string name="import_sound_pack_body">The app installs the pack and turns it on. Your keys play its recordings instead of the built-in sound.</string>
+    <!-- %1$s is the pack's name. %2$d is how many recordings it holds, and picks the wording. -->
+    <plurals name="import_sound_pack_done">
+        <item quantity="one">The app installed <xliff:g id="pack_name" example="Cherry MX Blue">%1$s</xliff:g> and turned it on. It has %2$d recording.</item>
+        <item quantity="other">The app installed <xliff:g id="pack_name" example="Cherry MX Blue">%1$s</xliff:g> and turned it on. It has %2$d recordings.</item>
+    </plurals>
 
     <!-- ==== A file the keyboard does not know, or cannot open. ==== -->
 
     <string name="import_unrecognized_title">Not a WM Keyboard file</string>
     <string name="import_unrecognized_body">The keyboard cannot read that file. It is not a theme, a layout, a snippet pack, a sticker pack, an icon pack, a plugin or a backup.</string>
+    <!-- Shown for a file that is readable text but none of the app's formats.
+         The app is offered for any JSON file and for files of unknown type, so
+         landing here is normal rather than a mistake. %1$s is the file name. -->
+    <string name="import_text_title">Open in the editor?</string>
+    <string name="import_text_body">The keyboard has no use for <xliff:g id="file_name" example="settings.json">%1$s</xliff:g>. It is not a theme, a layout, a snippet pack, a sticker pack, an icon pack, a plugin or a backup. You can still read and edit it here.</string>
+    <string name="import_open_editor_action">Open editor</string>
+
+    <!-- ==== The preview above the confirm dialog. ==== -->
+
+    <!-- How many entries the preview above is not showing. %1$d picks the wording. -->
+    <plurals name="import_preview_more">
+        <item quantity="one">and %1$d more</item>
+        <item quantity="other">and %1$d more</item>
+    </plurals>
     <string name="import_unreadable_title">The app cannot open that file</string>
     <string name="import_unreadable_body">The file is not available. Something moved or deleted it, or the app that shared it stopped access to it.</string>
 

@@ -263,8 +263,17 @@
          word list to decode a swipe against. %1$s is the language's English
          name. Tapping the chip opens that language's page, where a list downloads. -->
     <string name="ime_glide_word_list_offer">Glide typing needs a %1$s word list</string>
+    <string name="ime_phonetic_word_list_offer">Get the %1$s word list for better words</string>
     <!-- The ✕ on that chip: screen reader text. -->
     <string name="ime_glide_word_list_offer_dismiss_desc">Dismiss</string>
+    <!-- The chip shown when a conversion keyboard (Chinese Pinyin, Japanese,
+         Cantonese, stroke, Cangjie) has no dictionary pack, so typing a reading
+         offers no characters. %1$s is the pack's name, e.g. "Chinese Pinyin
+         dictionary". Tapping the chip opens that language's page, where the
+         pack downloads. -->
+    <string name="ime_conversion_pack_offer">Download the %1$s to type characters</string>
+    <!-- The ✕ on that chip: screen reader text. -->
+    <string name="ime_conversion_pack_offer_dismiss_desc">Dismiss</string>
     <!-- The chip offering to decode a swiped word's stroke against every word
          list, shown while the cursor rests inside a word a swipe wrote. -->
     <string name="ime_glide_search_all_offer">Search all words for this swipe</string>
@@ -343,6 +352,7 @@
     <string name="ime_tool_themes">Appearance</string>
     <string name="ime_tool_autocorrect">Autocorrect</string>
     <string name="ime_tool_selection_actions">Selection actions</string>
+    <string name="ime_tool_phonetic_english">English words</string>
     <string name="ime_tool_sound_haptics">Sound &amp; haptics</string>
     <string name="ime_tool_numpad">Numpad</string>
     <string name="ime_tool_handwriting">Handwriting</string>
@@ -642,12 +652,14 @@
          that picks them; only the bar's own furniture is here. -->
     <string name="ime_selection_macro_back_desc">Back to the selection actions</string>
     <string name="ime_selection_macro_stop_label">Stop</string>
+    <string name="ime_selection_macro_open_in_desc">Open in %1$s</string>
     <string name="ime_selection_macro_busy_desc">Working</string>
     <string name="ime_selection_macro_nothing_to_undo_toast">Nothing left to undo</string>
     <string name="ime_selection_macro_grammar_clean_toast">Nothing to fix</string>
     <string name="ime_selection_macro_grammar_unavailable_toast">The grammar checker is not available</string>
     <string name="ime_selection_macro_find_none_toast">No other match</string>
     <string name="ime_selection_macro_bengali_unavailable_toast">Bengali is not loaded</string>
+    <string name="ime_selection_macro_hindi_unavailable_toast">Hindi phonetic is not loaded</string>
     <string name="ime_selection_macro_no_app_toast">No app can open this</string>
     <string name="ime_find_not_addressable">This field cannot be searched</string>
     <!-- The Find and replace panel. -->

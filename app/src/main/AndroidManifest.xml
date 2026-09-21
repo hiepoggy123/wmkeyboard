@@ -127,6 +127,20 @@
             <action android:name="android.intent.action.SENDTO" />
             <data android:scheme="mailto" />
         </intent>
+        <!-- Web links, so the selection bar's Open chip can tell which app a
+             link lands in (and whether that app is only a browser) and wear
+             its icon. Without it API 30+ hides the handlers that have no
+             launcher entry, and the answer comes back wrong. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="http" />
+        </intent>
         <!-- Play services, so the two features that need it can be left out on
              a device that does not have it: the document scanner is a Play
              services activity, and the Google Fonts choices come from the font
@@ -405,6 +419,11 @@
                  API 24. Two filters because an intent with no type only ever matches
                  a filter with no type.
 
+                 Name matching alone is not enough — a provider that hands out no
+                 file name defeats every pattern here — so a MIME-typed filter
+                 follows the two below. These stay because they are what keeps a
+                 named file out of the chooser's "unknown binary" crowd.
+
                  Keep in step with WMFileTypes.EXTENSIONS.
             -->
             <intent-filter android:label="@string/import_file_label">
@@ -449,6 +468,10 @@
                 <data android:pathPattern=".*\\..*\\.wmvocab\\.json" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmvocab\\.json" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.wmvocab\\.json" />
+                <data android:pathPattern=".*\\.wmsoundpack" />
+                <data android:pathPattern=".*\\..*\\.wmsoundpack" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmsoundpack" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmsoundpack" />
                 <data android:pathPattern=".*\\.wmplugin" />
                 <data android:pathPattern=".*\\..*\\.wmplugin" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmplugin" />
@@ -504,6 +527,10 @@
                 <data android:pathPattern=".*\\..*\\.wmvocab\\.json" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmvocab\\.json" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.wmvocab\\.json" />
+                <data android:pathPattern=".*\\.wmsoundpack" />
+                <data android:pathPattern=".*\\..*\\.wmsoundpack" />
+                <data android:pathPattern=".*\\..*\\..*\\.wmsoundpack" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.wmsoundpack" />
                 <data android:pathPattern=".*\\.wmplugin" />
                 <data android:pathPattern=".*\\..*\\.wmplugin" />
                 <data android:pathPattern=".*\\..*\\..*\\.wmplugin" />
@@ -517,7 +544,126 @@
                 <data android:pathPattern=".*\\..*\\..*\\.kmp" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.kmp" />
             </intent-filter>
+
+            <!--
+                 The same formats once more, by MIME type, with no name to match
+                 on.
+
+                 A provider is free to hand out a URI that carries no file name,
+                 and the common ones do: the downloads provider answers `msf:19`
+                 for anything MediaStore has indexed, so a theme downloaded in a
+                 browser arrives without the `.wmtheme.json` every pathPattern
+                 above needs. Before this filter those files opened in whichever
+                 other keyboard claims application/octet-stream, and this app was
+                 not even offered.
+
+                 The price is being listed as an opener for JSON files and for
+                 unknown binaries that are none of ours. It is paid back at the
+                 other end: anything readable as text that turns out not to be
+                 one of the formats above opens in the file editor instead of an
+                 error, so being offered is never a dead end.
+            -->
+            <intent-filter android:label="@string/import_file_label">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
+                <!--
+                     YAML, which two formats this app reads arrive as: a FUTO
+                     Keyboard layout and an Espanso snippet file. Claimed by
+                     type rather than by a `.yaml` pathPattern on purpose —
+                     a name pattern would offer this app for every YAML on the
+                     device, which is exactly what the compound extensions
+                     above exist to avoid. A provider that says nothing more
+                     precise than octet-stream is already covered by the line
+                     above it.
+                -->
+                <data android:mimeType="application/yaml" />
+                <data android:mimeType="application/x-yaml" />
+                <data android:mimeType="text/yaml" />
+                <data android:mimeType="text/x-yaml" />
+            </intent-filter>
+
+            <!--
+                 Sharing into the app rather than opening: the share sheet in a
+                 chat app or a file manager. The file arrives as EXTRA_STREAM,
+                 which ImportFileActivity reads when the intent carries no data
+                 URI of its own. No scheme is declared because a share sheet
+                 matches on the type alone.
+            -->
+            <intent-filter android:label="@string/import_file_label">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/json" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
+                <data android:mimeType="application/yaml" />
+                <data android:mimeType="application/x-yaml" />
+                <data android:mimeType="text/yaml" />
+                <data android:mimeType="text/x-yaml" />
+            </intent-filter>
         </activity>
+
+        <!--
+             The other way in: a link instead of a file.
+
+             A theme, a layout, a pack or an add-on repository is nearly always
+             published as a page rather than as a file somebody already has on
+             their phone, so sharing that page's address has to lead somewhere.
+             ImportLinkActivity reads the address, works out what is behind it
+             (a raw file, a release asset, a gist, a folder, a build artifact,
+             an add-on repository), fetches it and hands it to the same import
+             dialog a file opened from the Files app goes through.
+
+             text/plain is a wide claim, and it is the whole point: a browser's
+             share sheet sends a link as text and nothing else. The price is
+             being listed whenever anybody shares any text, which is why the
+             filter carries its own label, "Import from a link", rather than the
+             app name. It is paid back the same way the typed file filter is:
+             text with no web address in it says so and closes, so being offered
+             is never a dead end.
+
+             The wmkeyboard://import form is for a link written on a page, in a
+             README or in a support reply. It is browsable for the same reason
+             the addon links are, and is safe to be for the same reason: it
+             fetches nothing until the dialog it opens is confirmed.
+        -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.ImportLinkActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/import_link_label"
+            android:theme="@style/Theme.WMKeyboard.Import">
+            <intent-filter android:label="@string/import_link_label">
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="wmkeyboard" android:host="import" />
+            </intent-filter>
+        </activity>
+
+        <!--
+             Where a file that is none of the keyboard's formats lands: the code
+             editor, over whatever text the file holds. Not exported — only
+             ImportFileActivity starts it, and it reads the URI under the grant
+             the opening app gave this process.
+        -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.FileEditorActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="@string/file_editor_label"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- Invisible one-shot activity: the IME cannot show the runtime
              permission dialog itself, so the camera tool bounces through

@@ -69,6 +69,8 @@ The button in the dialog's title swaps the wheel for **Hue** and **Saturation** 
 - **Suggestion strip** fills the bar the word candidates sit on, and every other bar around the keys with it: the toolbar row, the emoji row, the symbol row, the dictionary bar, the fancy text bar and the selection macros. Those rows stack straight against each other, so one color across all of them is the only thing that reads as deliberate. It sits on Auto until you pick a color, and Auto means the bars carry the board straight through, gradient, image, animation and all. Alpha works here, so a half-transparent fill tints the board rather than covering it. One thing to watch: the words on the strip take their color from the board, not from this fill, so if you paint the bars a long way from the board color, set **Suggestion text** under Panels and suggestions to match.
 - **Navigation bar** fills the band below the bottom key row, where the phone's own gesture bar or navigation buttons sit. Auto leaves it on the board, the same as the strip. Only the system's own band is painted. The extra space that **Bottom padding** (under <SettingsPath path="Layout & size / Size and position" />) adds above it belongs to the keyboard and stays on the board. On a phone with hardware navigation keys there is no band at all, so the color has nothing to paint and nothing changes.
 
+  On Android 15 and later the keyboard draws that band itself, so a gradient, image or animation carries through it. On Android 14 and earlier the keyboard window stops short of the bar and can only hand the system one flat color, which it does: the **Navigation bar** color if you set one, otherwise the far end of the gradient, otherwise the board color. Either way the bar follows the theme instead of staying whatever color the phone picked, and the system's hide-keyboard and language-switch glyphs flip between dark and light to stay readable on it.
+
 ### Keys
 
 - **Key shape**: a row that opens a picker with **None** and all twelve shapes listed by name, each drawn beside its name at key proportions and at this theme's own corner radius, so you can see what you're choosing before you choose it. The full list, and which shapes react to the radius slider, is under [Key shapes](#key-shapes) below.
@@ -103,6 +105,12 @@ Only the drawing changes. Touch targets stay rectangular for every shape, so the
 
 Slanted is the one shape that draws slightly outside its key. A parallelogram kept inside the key would lose about a third of the width at the top and the bottom, which on a phone-sized key reads as a row of thin straps. So it leans half its slant into the gap on each side instead. Every key stays exactly as wide as it would be with any other shape, and the gap between two keys keeps its width. The gap just runs on a diagonal. Where there is no gap to lean into, the lean is trimmed to fit.
 
+#### Key shadow
+
+**Key shadow** lifts every key off the board, 0 to 16 dp. It's drawn by the platform from the key's own outline, so it follows whatever shape you picked.
+
+Two shapes stay flat however far you push it. Scallop and Ticket are concave, and Android tessellates a concave shadow through a path that pins the render thread hard enough for the system to kill the keyboard, so they keep the shape and lose the shadow. A key you can see through stays flat too, since a shadow under nothing is just a smudge on the board. That's what keeps a borderless theme looking borderless.
+
 #### No key shape
 
 **None** takes the shape away completely, which isn't quite the same as a see-through key color. A key at rest draws no fill, no border and no texture, so every label sits straight on the board, Enter and the space bar included. The Enter icon switches to your **Modifier key text** color while it has no fill of its own, since **Enter key icon** is picked to read on the Enter key's fill.
@@ -132,6 +140,7 @@ One key can carry a style of its own. Add a letter (the style follows that lette
 - **Colors**: its face, its label, its hint, its border, and the two colors of the popup bubble it shows.
 - **Key image**: a picture for this one key, drawn with the same Crop/Stretch/Tile fit and opacity the board's [key textures](#key-textures) use, so a dressed key still reads as part of the set. It beats the class texture it would otherwise wear, and a key image works on a board with no class textures at all.
 - **Press effect**: the burst this key throws — Stars, Hearts, Sparkle, Confetti, or Emoji with its own field for the emoji. It overrides the board's [key press effect](#key-press-effect) for this key alone, and a board whose only effect is one key's still bursts on that key. The board's Intensity, Colour and the physics sliders shape every burst; a single-key style picks what is thrown, not how. Images aren't offered per key.
+- **Key shape**: this one key's outline. Automatic follows the board's shape; pick one to make a single key round, pill, cut or anything else in the list, including None. The board's corner radius still decides how round a rounded key is, and the shapes that measure themselves off the key (circle, pill, hexagon and the rest) ignore it as they always do. This is how a round Enter key on a grid of soft rectangles is made, and it is what carries over from an imported FlorisBoard theme built that way.
 - **Bold label** and **Label size**: how the label is drawn. Bold is a three-way choice — Automatic follows the board, On and Off answer for this key. Label size replaces the automatic rule rather than scaling it, which is how you get a `?123` drawn at full letter size. A size the *layout* gave the key in the [layout editor](/languages/custom-layouts/#editing-a-key) wins over the theme's, since the layout is the more specific answer.
 
 An armed or locked modifier still shows the accent or pressed face whatever color you gave it, because state has to stay visible. A key image and a press effect travel inside the exported theme the same way the board's do. High-contrast accessibility drops single-key styles with the rest of the decoration, and a press effect never plays under reduce motion or power saving.
@@ -176,12 +185,20 @@ A theme's sound is only ever a sound it can actually make. A theme whose sound i
 - **Tool background shape** is the outline of the background behind each toolbar tool, from the same twelve shapes. It follows <SettingsPath path="Appearance / Toolbar / Tool background shape" /> until you pick one here. Nothing draws at all while the tool radius is 0, which is the setting for bare icons.
 - **Tool icons** sets the toolbar's icon color, Auto by default.
 - **Tool circles** and **Active tool circle** paint the background behind a toolbar icon, at rest and while pressed or active. Both support alpha.
+- **Tool shadow** lifts that background off the bar.
+- **Active tool icon** colors the glyph sitting on an active tool. Auto picks whichever of black or white reads on the active circle, which is what this was before the row existed. Set it when the automatic pick is technically legible but not the colour you want.
 - **Tool outline** and **Tool outline width** put a border around that background, off until you pick a color, exactly like the key border in [Keys](#keys). The width row appears once a color is set, and nothing draws until it's above 0. A theme that sets one keeps it even with the accessibility **Key outlines** toggle on.
 
 ### Panels & suggestions
 
 - **Cards & search bar** is the `chipBackground` field. It covers suggestion chips and the search-bar surface across the tool panels. Auto falls back to Modifier keys, and the field supports alpha.
+- **Popup shadow** lifts the key preview and the long-press alternates off the board.
+- **Selected highlight** and **Selected text** color the letter your finger is on while you hold a key, and the selected row of the language list. Auto uses the accent, which is what these were before they had rows of their own.
+- **One-handed rail** and **One-handed rail icons** color the strip beside the keyboard in one-handed mode. It used to draw in the settings app's colors and ignore your keyboard theme entirely.
 - **Suggestion text** colors the suggestion strip and the panels' body text. Auto falls back to Key text, contrast-guarded against the board, so a theme whose keys invert against its board (dark ink on cream keys over a near-black board) still gets a legible strip. An explicit choice here is honoured as written.
+- **Secondary text** colors the quieter text beside the main text: the second word of a suggestion, and the kind and time on a clipboard entry. Auto draws Suggestion text at 65% alpha, which is what it was before the row existed. Alpha works here.
+- **Dividers** colors the hairlines between the parts of a panel and between suggestions. Auto draws Suggestion text at 25% alpha. Alpha works here too, so you can keep the rule faint in a hue of its own.
+- **Card shadow** lifts the panel cards off the panel.
 
 ### Chips & buttons
 
@@ -260,6 +277,7 @@ Delete isn't offered for built-in themes or for the Default theme, only for them
 
 - **Editing an existing custom theme doesn't switch to it.** Tapping the pencil on a theme already in Your Themes opens the editor without changing your active keyboard theme. Only Create, Duplicate (from a built-in), and Import set the edited theme as active, as a side effect of those actions rather than of editing.
 - **Typography is part of a theme, but only once you set it.** The key font, the per-script fonts, key label size, bold key labels and corner hint size are all theme fields. Each one is empty until you touch it, and an empty field follows your global setting instead. So a theme you never gave a font to picks up whatever [Keyboard fonts](/themes/fonts/) is set to, and changing that global font changes how the theme looks. Give the theme its own font and the global one stops applying to it. The sizes work the same way through the **Layout for this theme** switch.
+- **The key-preview bubble has no band to rise into here.** On the real keyboard, the bubble for a top-row key is drawn in an empty strip of window kept above the board, over whatever app you are typing into. The preview has no window of its own, so it holds no such strip — keeping one would be dead space taken out of the board's own room, and on the miniature it cost the board most of the width it had. The docked keyboard draws that bubble over the sections above it instead, the way the real one draws it over the app; the miniature, which is clipped to its own rounded corners, sits it on the board's top edge rather than letting it be cut in half.
 - **Two "Auto" swatches don't match the real keyboard.** Pressed key and Active tool circle, when left on Auto, are worked out by a different formula in the editor's swatch than on the board itself. The swatch blends the key colour 40% toward the accent; the keyboard blends it 25% toward the key text. On a theme with a strong accent the two are visibly different colours, so trust the live preview over the swatch. Every other Auto fallback (popup background, tool circles at rest, and so on) matches exactly.
 - **A theme's background image lives in this same editor**, under Board, but the picker, crop dialog, and opacity/blur sliders are covered in full on [Image backgrounds](/themes/backgrounds/) rather than here.
 - **Corner-radius overrides here are theme-specific**; the sliders they inherit from and the global key-shape basics are covered in [Theming overview](/themes/overview/).

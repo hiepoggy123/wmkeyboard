@@ -3,7 +3,9 @@ package com.wasimaster.wmkeyboard.core.prediction
 import java.io.InputStream
 
 /**
- * Spellings that resolve to a fixed Bengali form, for the Avro input mode.
+ * Spellings that resolve to a fixed native-script form, for a phonetic input
+ * mode — one map per language that has one ([PhoneticScheme.spellingAssets]).
+ * The examples below are Avro's, which is where the map began.
  *
  * Two kinds of spelling need this, and neither is reachable from phonetic
  * rules:
@@ -27,8 +29,9 @@ import java.io.InputStream
  * earlier one leads, which is how the hand-written list stays ahead of the
  * generated one.
  */
-class BengaliSpellingMap private constructor(
+class SpellingMap private constructor(
     private val byWord: Map<String, List<String>>,
+    private val loanwords: Set<String> = emptySet(),
 ) {
 
     /** Bengali forms for [spelling], best first; empty if unmapped. */
@@ -39,6 +42,16 @@ class BengaliSpellingMap private constructor(
     fun contains(spelling: String): Boolean =
         byWord.containsKey(spelling.trim().lowercase())
 
+    /**
+     * Whether [spelling] came from a loanword list: the spelling is itself a
+     * word of another language ("keyboard"), and the mapped form is only how
+     * that word is written in this script. A listed romanization ("tmr") says
+     * the typist meant this language; a listed loanword does not, which is what
+     * a caller deciding between the two scripts needs to know.
+     */
+    fun isLoanword(spelling: String): Boolean =
+        spelling.trim().lowercase() in loanwords
+
     val size: Int get() = byWord.size
 
     /** Every spelling this map knows, in file order — the curated romanized
@@ -47,7 +60,7 @@ class BengaliSpellingMap private constructor(
 
     companion object {
         /** Empty map, used as the default when no asset is supplied (tests). */
-        val EMPTY = BengaliSpellingMap(emptyMap())
+        val EMPTY = SpellingMap(emptyMap())
 
         /**
          * Languages that ship a spelling map, by
@@ -55,7 +68,9 @@ class BengaliSpellingMap private constructor(
          * get the settings row — a language with no lists behind it would be
          * offering a switch that does nothing.
          */
-        val LANGUAGES = setOf("bn")
+        val LANGUAGES: Set<String> = PhoneticSchemes.all
+            .filter { it.spellingAssets.isNotEmpty() }
+            .mapTo(LinkedHashSet()) { it.languageId }
 
         /**
          * Parses `spelling<TAB>bengali` TSVs. Blank lines and `#` comments are
@@ -63,10 +78,15 @@ class BengaliSpellingMap private constructor(
          * assets survive hand editing. Duplicate keys accumulate their Bengali
          * forms in the order the streams are given, de-duplicated — so passing
          * the curated list first leaves it outranking the generated one.
+         *
+         * The first [loanwordStreams] of them are loanword lists (see
+         * [isLoanword]); [PhoneticScheme.loanwordAssetCount] is how many of a
+         * scheme's assets are.
          */
-        fun load(vararg streams: InputStream): BengaliSpellingMap {
+        fun load(vararg streams: InputStream, loanwordStreams: Int = 0): SpellingMap {
             val byWord = LinkedHashMap<String, MutableList<String>>()
-            for (stream in streams) {
+            val loanwords = HashSet<String>()
+            for ((position, stream) in streams.withIndex()) {
                 stream.bufferedReader().useLines { lines ->
                     for (line in lines) {
                         val trimmed = line.trim()
@@ -78,10 +98,11 @@ class BengaliSpellingMap private constructor(
                         if (spelling.isEmpty() || bengali.isEmpty()) continue
                         val forms = byWord.getOrPut(spelling) { mutableListOf() }
                         if (bengali !in forms) forms.add(bengali)
+                        if (position < loanwordStreams) loanwords.add(spelling)
                     }
                 }
             }
-            return BengaliSpellingMap(byWord)
+            return SpellingMap(byWord, loanwords)
         }
     }
 }

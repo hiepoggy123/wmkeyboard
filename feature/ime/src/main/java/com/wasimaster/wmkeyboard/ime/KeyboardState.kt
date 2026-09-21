@@ -274,6 +274,12 @@ data class LayoutSet(
      */
     val numberRows: Map<LayoutMode, List<Key>> = emptyMap(),
     /**
+     * The row the symbols layer draws in place of its own digit row while the
+     * number row is on, when this layout authored one; null takes
+     * [com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts.SYMBOLS_FILL_ROW].
+     */
+    val symbolsFillRow: List<Key>? = null,
+    /**
      * The column count these grids were laid out against, when the tablet
      * expansion widened them; null on a phone and on any layout that declined it.
      *
@@ -1676,7 +1682,12 @@ sealed interface WordCardAction {
  * only, never a trie walk.
  */
 data class WordMenuFacts(
-    /** The word being typed, when it is not in the personal dictionary; else null. */
+    /**
+     * The word the user is working on — the one being typed, or the one the
+     * caret is parked inside while proofreading (#263) — when it is not in
+     * the personal dictionary; else null. Deliberately not about the *held*
+     * word, like [searchableStroke] below: the chips are known words already.
+     */
     val typedAddable: String? = null,
     /** Whether the held word is somewhere the keyboard can forget it from. */
     val deletable: Boolean = false,
@@ -1703,7 +1714,7 @@ data class WordMenuFacts(
 data class WordCard(
     /** The word as the chip showed it. */
     val word: String,
-    /** The composing word, when the card may add it; else null. */
+    /** The word being typed or read back, when the card may add it; else null. */
     val typed: String? = null,
     val facts: WordFacts? = null,
     /** Language id -> the name of that language's word list, for the sources. */
@@ -2346,6 +2357,25 @@ data class KeyboardUiState(
      * where the list downloads.
      */
     val glideWordListOffer: LanguageDef? = null,
+    /**
+     * Whether [glideWordListOffer] is up for a phonetic layout typing on its
+     * rules alone (#239) rather than for glide. Same chip, same tap, same
+     * dismissal — only the sentence on it differs.
+     */
+    val wordListOfferIsPhonetic: Boolean = false,
+    /**
+     * The [com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog] pack a
+     * conversion IME needs and does not have, while the strip is saying so
+     * (#260), or null.
+     *
+     * The conversion tables are too big to bundle, so Chinese and Japanese
+     * convert nothing until their pack is downloaded: the reading keeps
+     * composing and no character is ever offered for it, which on screen is a
+     * keyboard that does not work. Put up by the strip refresh once a reading
+     * has actually been typed, once per pack per process; tapping it opens the
+     * language's page, where the pack downloads.
+     */
+    val conversionPackOffer: String? = null,
     /**
      * The word the caret is sitting in that a swipe wrote, while the strip is
      * offering to search that swipe's path against every word list (#135), or

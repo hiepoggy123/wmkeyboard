@@ -28,11 +28,13 @@ interface Composer {
     val isTransliterating: Boolean get() = false
 
     /**
-     * Specifically the Bengali phonetic transliterator (Avro): its commit and
-     * suggestions route through the Bengali dictionary path. Other
-     * transliterators (Hangul) compose but do not, so this stays false for them.
+     * The language whose dictionary a phonetic transliterator is ranked against
+     * (`"bn"` for Avro), by `LanguageDef.id`: its commit and suggestions route
+     * through that language's phonetic index and spelling map rather than
+     * committing the rules' output as it stands. Null for every transliterator
+     * that composes but has no such dictionary pass (Hangul, Telex).
      */
-    val isBengaliPhonetic: Boolean get() = false
+    val phoneticLanguage: String? get() = null
 
     /**
      * Vietnamese Telex transliterator: its commit and suggestions route through
@@ -97,6 +99,22 @@ interface Composer {
      * instead of dictionary suggestions and a tap commits with no trailing space.
      */
     val isConversion: Boolean get() = false
+
+    /**
+     * The [CjkDictCatalog] pack this composer converts with, when that pack is
+     * not loaded — else null, which is also the answer for every composer that
+     * needs no pack at all.
+     *
+     * The conversion tables are far too big to bundle, so a fresh install has
+     * none of them and a conversion composer starts out able to convert
+     * nothing: it keeps typing, committing the raw reading, and no character is
+     * ever offered. That is indistinguishable on screen from a keyboard that
+     * does not work, so the service names the missing pack in a strip chip
+     * instead of leaving the user to find the row in Settings (issue #260).
+     *
+     * Asked per keystroke, so it stays a field read and a size check.
+     */
+    val missingPack: String? get() = null
 
     /**
      * The candidate conversions of [buffer] for a conversion IME, best first
@@ -203,6 +221,7 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
     ComposerType.INDIC_CLUSTER -> IndicClusterComposer(script)
     ComposerType.TRANSLITERATE -> when (script.id) {
         ScriptId.BENGALI -> BengaliTransliterateComposer
+        ScriptId.DEVANAGARI -> HindiTransliterateComposer
         else -> NoComposer
     }
     ComposerType.HANGUL -> HangulComposer

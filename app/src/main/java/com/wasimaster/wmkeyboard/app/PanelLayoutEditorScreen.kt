@@ -147,6 +147,7 @@ internal fun textEditActionTitle(op: TextEditAction): Int = when (op) {
     TextEditAction.COPY -> R.string.textedit_action_copy
     TextEditAction.PASTE -> R.string.textedit_action_paste
     TextEditAction.BACKSPACE -> R.string.textedit_action_backspace
+    TextEditAction.FORWARD_DELETE -> R.string.textedit_action_forward_delete
     TextEditAction.DOC_START -> R.string.textedit_action_doc_start
     TextEditAction.DOC_END -> R.string.textedit_action_doc_end
     TextEditAction.CUT -> R.string.textedit_action_cut
@@ -558,21 +559,19 @@ internal fun PanelEditorBody(
             }
         }
         selection?.let { ref ->
-            if (ref.row in rows.indices && rows[ref.row].size > 1) {
-                item {
-                    ReorderSetting(
-                        title = stringResource(R.string.layout_editor_reorder_keys_title, ref.row + 1),
-                        dialogTitle = stringResource(R.string.layout_editor_key_order_dialog_title),
-                        items = rows[ref.row].indices.toList(),
-                        label = { keyReorderLabel(context, rows[ref.row][it]) },
-                    ) { order ->
-                        editRows { r ->
-                            r.mapIndexed { i, row ->
-                                if (i == ref.row && order.size == row.size) order.map { row[it] } else row
-                            }
+            item(visible = ref.row in rows.indices && rows[ref.row].size > 1) {
+                ReorderSetting(
+                    title = stringResource(R.string.layout_editor_reorder_keys_title, ref.row + 1),
+                    dialogTitle = stringResource(R.string.layout_editor_key_order_dialog_title),
+                    items = rows[ref.row].indices.toList(),
+                    label = { keyReorderLabel(context, rows[ref.row][it]) },
+                ) { order ->
+                    editRows { r ->
+                        r.mapIndexed { i, row ->
+                            if (i == ref.row && order.size == row.size) order.map { row[it] } else row
                         }
-                        onSelectionChange(null)
                     }
+                    onSelectionChange(null)
                 }
             }
         }

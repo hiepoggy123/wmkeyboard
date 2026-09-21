@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import com.wasimaster.wmkeyboard.core.vocab.VocabPacks
 import com.wasimaster.wmkeyboard.core.vocab.VocabPackFile
 import com.wasimaster.wmkeyboard.core.vocab.VocabPack
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -11,6 +12,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -35,12 +38,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.core.content.IntentCompat
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackFile
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackImportResult
+import com.wasimaster.wmkeyboard.core.feedback.SoundPackStore
 import com.wasimaster.wmkeyboard.core.icons.IconImportResult
 import com.wasimaster.wmkeyboard.core.icons.IconPackFile
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
+import com.wasimaster.wmkeyboard.core.keyman.ConvertedKeymanLayout
 import com.wasimaster.wmkeyboard.core.keyman.KeymanResult
 import com.wasimaster.wmkeyboard.core.keyman.KeymanRuleStore
 import com.wasimaster.wmkeyboard.core.keyman.KeymanTouchLayoutReader
@@ -48,6 +56,8 @@ import com.wasimaster.wmkeyboard.core.keyman.TouchLayoutConverter
 import com.wasimaster.wmkeyboard.core.layout.KeymanBinding
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.keyman.KeymanPackage
+import com.wasimaster.wmkeyboard.core.layout.ConvertedLayout
+import com.wasimaster.wmkeyboard.core.layout.FutoLayouts
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
@@ -62,6 +72,7 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsBackup
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.snippets.ImportedSnippets
 import com.wasimaster.wmkeyboard.core.snippets.SnippetFile
+import com.wasimaster.wmkeyboard.core.snippets.SnippetPayload
 import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.stickers.StickerImportResult
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackFile
@@ -69,6 +80,10 @@ import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
 import com.wasimaster.wmkeyboard.core.theme.ConvertedTheme
 import com.wasimaster.wmkeyboard.core.theme.FlexResult
 import com.wasimaster.wmkeyboard.core.theme.FlexTheme
+import com.wasimaster.wmkeyboard.core.fonts.FontFile
+import com.wasimaster.wmkeyboard.core.fonts.FontImportResult
+import com.wasimaster.wmkeyboard.core.fonts.FontStore
+import com.wasimaster.wmkeyboard.core.theme.ConvertedFont
 import com.wasimaster.wmkeyboard.core.theme.FlexUnsupported
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
@@ -90,14 +105,21 @@ import java.io.File
  * Opening one of the keyboard's own files from outside the app — a file
  * manager, a chat app's "open with", a downloads notification.
  *
- * Every format the keyboard exports is either JSON or a ZIP, so a MIME-typed
- * intent filter would claim every `.json` and every archive on the device.
- * The manifest filters on the *file name* instead (`pathPattern` per
- * extension), which is why each export writes a compound extension:
- * `.wmtheme.json` rather than `.json`. Files whose content URI carries no
- * name — a downloads-provider `msf:1234`, say — simply don't match, and the
- * user opens them through the in-app pickers as before. That miss is the
- * intended trade for not being offered as a JSON viewer.
+ * Every format the keyboard exports is either JSON or a ZIP, so the manifest
+ * filters on the *file name* first (`pathPattern` per extension), which is why
+ * each export writes a compound extension: `.wmtheme.json` rather than
+ * `.json`. A name is the precise signal, and it is what keeps a file of ours
+ * out of the chooser's crowd of unknown binaries.
+ *
+ * A name is not always there, though. A provider may hand out a URI with no
+ * file name in it at all — the downloads provider answers `msf:19` for
+ * anything MediaStore has indexed — and every pattern misses those, which used
+ * to mean a theme downloaded in a browser opened in some other keyboard and
+ * never in this one. So the manifest also claims `application/json` and
+ * `application/octet-stream` outright, and this app is now offered for files
+ * that are nobody's business here. [Opened.Text] is the other half of that
+ * bargain: anything readable that turns out not to be ours opens in the editor
+ * rather than on an error.
  *
  * The extension only gets the file here. What is actually *done* with it is
  * decided by reading it: every format but the theme carries a format tag, so
@@ -121,6 +143,7 @@ object WMFileTypes {
         SnippetFile.FILE_EXTENSION,
         PluginFile.FILE_EXTENSION,
         VocabPackFile.FILE_EXTENSION,
+        SoundPackFile.FILE_EXTENSION,
         // The one extension here that is not ours. A `.flex` is FlorisBoard's
         // theme file, and claiming it is the point: someone moving over opens
         // the file they already have. FlorisBoard's own filter is unaffected —
@@ -153,6 +176,27 @@ object WMFileTypes {
         data class Snippets(val snippets: ImportedSnippets) : Opened
         data class Vocabulary(val pack: VocabPack) : Opened
 
+        /**
+         * A FUTO Keyboard layout, already converted.
+         *
+         * Its own case rather than a [Layout], for the same reason a
+         * [FlorisTheme] is not a [Theme]: the file came from another keyboard,
+         * only the letters came across, and the language is a guess that has to
+         * be settled before the grid is stored.
+         */
+        data class FutoLayout(val converted: ConvertedLayout) : Opened
+
+        /**
+         * An Espanso match file: somebody else's text expander, read into
+         * snippets of ours.
+         *
+         * Carries the whole [SnippetPayload.Parsed] rather than the snippets
+         * alone, because the notes are the point of the dialog — an Espanso file
+         * can say things this app has no equivalent for, and finding that out
+         * after the import is worse than being told and deciding.
+         */
+        data class EspansoSnippets(val parsed: SnippetPayload.Parsed) : Opened
+
         /** The older standalone `wmsettings.json`. */
         data class Settings(val text: String, val parsed: SettingsBackup.Parsed) : Opened
 
@@ -163,6 +207,12 @@ object WMFileTypes {
          */
         data object Stickers : Opened
         data object Icons : Opened
+
+        /**
+         * A key-sound pack. A ZIP with the same `pack.json` sticker and icon
+         * packs carry, told apart by its format tag like those two.
+         */
+        data object SoundPack : Opened
 
         /**
          * A FlorisBoard `.flex` theme extension, already converted.
@@ -199,7 +249,22 @@ object WMFileTypes {
          */
         data object Plugin : Opened
 
-        /** Readable, but not one of ours. */
+        /**
+         * Readable text that is none of the formats above: someone else's JSON,
+         * a config file, a note that arrived with the wrong extension. It opens
+         * in the editor.
+         *
+         * Carries no bytes, for the same reason [Stickers] and [Icons] do not:
+         * the editor re-opens the file for itself, because a document may be
+         * two million characters and an intent extra that size kills the
+         * process.
+         *
+         * Anything that is *not* text — a foreign archive, an image, a PDF —
+         * stays [Unrecognized]: a hex dump helps nobody.
+         */
+        data object Text : Opened
+
+        /** Not one of ours, and not something worth showing either. */
         data object Unrecognized : Opened
 
         /** Gone, or no permission, or not readable at all. */
@@ -244,7 +309,35 @@ object WMFileTypes {
         // Exports from before the truncating write could carry the tail of an
         // older, longer file after the document. The proposal below keeps this
         // trimmed text, so what gets applied is what got recognised.
-        return textKindFor(text.firstJsonDocument(), name)
+        val kind = textKindFor(text.firstJsonDocument(), name)
+        if (kind != Opened.Unrecognized) return kind
+        // None of ours. Text still opens — in the editor rather than on a dead
+        // end — now that the manifest claims application/json and
+        // application/octet-stream and files that are nobody's business here
+        // reach this activity on purpose.
+        return if (isEditableText(text)) Opened.Text else Opened.Unrecognized
+    }
+
+    /**
+     * Whether [text] is worth putting in an editor.
+     *
+     * `decodeToString` turns every byte it cannot read into U+FFFD rather than
+     * failing, so a PNG arrives here as a long string of replacement characters
+     * and would otherwise open as a screen of garbage. Control characters are
+     * counted with them: both are common in binary and vanishingly rare in the
+     * text files this is for. One stray byte in an otherwise readable file is
+     * not enough to refuse it, so the test is a share of the whole rather than
+     * a first sighting — except for NUL, which no text file has and every
+     * binary does.
+     */
+    internal fun isEditableText(text: String): Boolean {
+        if (text.isEmpty() || text.length > MAX_EDITABLE_CHARS) return false
+        var odd = 0
+        for (ch in text) {
+            if (ch == '\u0000') return false
+            if (ch == '\uFFFD' || (ch.code < 0x20 && ch != '\t' && ch != '\n' && ch != '\r')) odd++
+        }
+        return odd * BINARY_SHARE < text.length
     }
 
     /**
@@ -267,12 +360,33 @@ object WMFileTypes {
         // A theme has no tag and every field has a default, so decoding any JSON
         // object at all succeeds and yields an all-defaults theme. The file name
         // is the only evidence there is that this one was meant to be a theme.
-        // Nothing untagged may be added after this line: the name check is what
-        // stops the branch claiming every JSON file, and a second untagged
-        // format would have nothing left to be told apart by.
+        // No untagged *JSON* format may be added after this line: the name check
+        // is what stops the branch claiming every JSON file, and a second
+        // untagged one would have nothing left to be told apart by.
         if (name.endsWith(".${ThemeCodec.FILE_EXTENSION}", ignoreCase = true)) {
             ThemeCodec.decode(text)?.let { return Opened.Theme(it) }
         }
+
+        // The two YAML formats, which are the two that can follow the branch
+        // above safely. Both are somebody else's and neither carries a tag of
+        // ours, but each is recognised by a key at the start of a line — `rows:`
+        // for FUTO, `matches:` for Espanso — and a JSON document cannot have
+        // one, because every key in it is inside quotes. That is the whole
+        // reason they can sit here rather than needing a file name.
+        //
+        // FUTO first: it is the narrower test of the two, wanting both `name:`
+        // and `rows:`.
+        if (FutoLayouts.looksLikeFutoLayout(text)) {
+            FutoLayouts.convert(text, name)?.let { return Opened.FutoLayout(it) }
+        }
+        // Espanso's half of SnippetPayload. The native half of it already
+        // answered above, so an Espanso file is all that can still come back —
+        // and asking the shared reader rather than repeating its sniff here is
+        // what keeps this screen and the Text Expander screen from disagreeing
+        // about what a snippet file is.
+        SnippetPayload.readText(text, name)
+            ?.takeIf { it.isEspanso }
+            ?.let { return Opened.EspansoSnippets(it) }
         return Opened.Unrecognized
     }
 
@@ -324,7 +438,9 @@ object WMFileTypes {
         }
         if (isFlexManifest(manifest)) {
             val result = runCatching {
-                context.contentResolver.requireInputStream(uri).use { FlexTheme.read(it) }
+                context.contentResolver.requireInputStream(uri).use {
+                    FlexTheme.read(it, dynamicSnyggPalette(context))
+                }
             }.getOrElse { FlexResult.Unreadable }
             return Opened.FlorisTheme(result)
         }
@@ -340,6 +456,7 @@ object WMFileTypes {
         manifest.contains("\"${IconPackFile.FORMAT}\"") -> Opened.Icons
         manifest.contains("\"${StickerPackFile.FORMAT}\"") -> Opened.Stickers
         manifest.contains("\"${PluginFile.FORMAT}\"") -> Opened.Plugin
+        manifest.contains("\"${SoundPackFile.FORMAT}\"") -> Opened.SoundPack
         else -> Opened.Unrecognized
     }
 
@@ -365,14 +482,24 @@ object WMFileTypes {
     private const val MAX_MANIFEST_BYTES = 64 * 1024
 
     /**
-     * The manifest names the archive formats use. Sticker and icon packs share
-     * `pack.json` and are told apart by their format tag; a plugin names its
-     * manifest differently so that a `.wmplugin` is recognisable without
-     * reading any Lua.
+     * The longest file the editor will open. Well past any hand-written config
+     * and far short of what a field holding the whole document can lay out.
+     */
+    private const val MAX_EDITABLE_CHARS = 2_000_000
+
+    /** One odd character in this many is still text. */
+    private const val BINARY_SHARE = 100
+
+    /**
+     * The manifest names the archive formats use. Sticker, icon and sound packs
+     * all share `pack.json` and are told apart by their format tag; a plugin
+     * names its manifest differently so that a `.wmplugin` is recognisable
+     * without reading any Lua.
      */
     private val ARCHIVE_MANIFESTS =
         setOf(
             StickerPackFile.MANIFEST,
+            SoundPackFile.MANIFEST,
             PluginFile.MANIFEST,
             FlexTheme.MANIFEST,
             KeymanPackage.MANIFEST,
@@ -408,7 +535,7 @@ class ImportFileActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val uri = intent?.data
+        val uri = intent?.let(::sourceUri)
         if (uri == null) {
             finish()
             return
@@ -428,6 +555,21 @@ class ImportFileActivity : ComponentActivity() {
         }
     }
 }
+
+/**
+ * The file an intent points at.
+ *
+ * An "open with" carries it as the data URI. A share sheet carries it as
+ * `EXTRA_STREAM` instead, with no data URI at all, which is why the manifest's
+ * `ACTION_SEND` filter would otherwise reach an activity that finishes on
+ * arrival.
+ */
+private fun sourceUri(intent: Intent): Uri? = intent.data
+    ?: if (intent.action == Intent.ACTION_SEND) {
+        IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+    } else {
+        null
+    }
 
 /**
  * The pending import, once the file has been read and named.
@@ -454,9 +596,30 @@ private data class ImportProposal(
      * eight formats which need no such thing say nothing about it.
      */
     val applyWithPassphrase: (suspend (String) -> String)? = null,
+    /**
+     * Set instead of [apply] by a proposal whose confirm opens a screen rather
+     * than importing anything. The dialog runs it and closes; there is no
+     * result message to show, because the screen is the result.
+     */
+    val open: (() -> Unit)? = null,
+    /**
+     * The language a converted foreign layout is guessed to be in, and the seed
+     * for the row the dialog draws to change it. Set together with
+     * [applyWithLanguage].
+     *
+     * A step rather than a guess applied silently, exactly as the in-app import
+     * makes it: the language decides the dictionary, the autocorrect, the script
+     * rules, dictation and how shift behaves, and no foreign layout file states
+     * one.
+     */
+    val language: String? = null,
+    /** Set instead of [apply] by a proposal that has a [language] to settle. */
+    val applyWithLanguage: (suspend (String) -> String)? = null,
 ) {
-    /** Whether there is anything to press Import for. */
-    val actionable: Boolean get() = apply != null || applyWithPassphrase != null
+    /** Whether there is anything to press the confirm button for. */
+    val actionable: Boolean
+        get() = apply != null || applyWithPassphrase != null ||
+            applyWithLanguage != null || open != null
 }
 
 /** The proposal's heading, resolved against the screen's resources. */
@@ -478,7 +641,7 @@ private fun proposalTitle(proposal: ImportProposal): String {
 }
 
 @Composable
-private fun ImportFileDialog(
+internal fun ImportFileDialog(
     repository: SettingsRepository,
     uri: Uri,
     onClose: () -> Unit,
@@ -528,17 +691,37 @@ private fun ImportFileDialog(
 
     val proposal = rememberProposal(state, repository, context, uri)
     var passphrase by remember { mutableStateOf("") }
+    var language by remember(proposal) { mutableStateOf(proposal.language.orEmpty()) }
+    var pickingLanguage by remember { mutableStateOf(false) }
     val needsPassphrase = proposal.applyWithPassphrase != null
     AlertDialog(
         onDismissRequest = onClose,
         title = { Text(proposalTitle(proposal)) },
         text = {
-            Column {
+            // Scrolls: a preview, a long backup summary and a list of repairs
+            // together are taller than a dialog on a short screen, and a
+            // dialog that cannot reach its own text is worse than no preview.
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                ImportFilePreview(state, uri)
                 Text(proposal.body)
                 if (proposal.repairs.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
-                    Text(stringResource(R.string.import_repairs_title), fontWeight = FontWeight.Medium)
+                    // Future tense: this dialog is the *offer*, and its
+                    // button says Import. The past-tense heading belongs to
+                    // the messages shown once an import has happened.
+                    Text(
+                        stringResource(R.string.import_repairs_pending_title),
+                        fontWeight = FontWeight.Medium,
+                    )
                     for (line in proposal.repairs) Text("• $line")
+                }
+                if (proposal.language != null) {
+                    Spacer(Modifier.height(8.dp))
+                    WmRow(
+                        title = stringResource(R.string.layout_editor_foreign_language_title),
+                        subtitle = LanguageRegistry.byId(language).displayName,
+                        onClick = { pickingLanguage = true },
+                    )
                 }
                 if (needsPassphrase) {
                     Spacer(Modifier.height(16.dp))
@@ -558,7 +741,21 @@ private fun ImportFileDialog(
         confirmButton = {
             val apply = proposal.apply
             val applyWithPassphrase = proposal.applyWithPassphrase
+            val applyWithLanguage = proposal.applyWithLanguage
+            val open = proposal.open
             when {
+                // Closes on the way out: the screen it opens is the result, and
+                // a dialog left behind it would be waiting on a finished import.
+                open != null -> TextButton(onClick = {
+                    open()
+                    onClose()
+                }) { Text(stringResource(proposal.confirmLabelRes)) }
+
+                applyWithLanguage != null -> TextButton(onClick = {
+                    working = true
+                    scope.launch { message = applyWithLanguage(language); working = false }
+                }) { Text(stringResource(proposal.confirmLabelRes)) }
+
                 applyWithPassphrase != null -> TextButton(
                     enabled = passphrase.isNotEmpty(),
                     onClick = {
@@ -583,6 +780,36 @@ private fun ImportFileDialog(
             }
         },
     )
+
+    // Over the dialog above, the same picker the layout editor's own foreign
+    // import opens.
+    if (pickingLanguage) {
+        ForeignLanguageDialog(
+            selected = language,
+            onPick = {
+                language = it
+                pickingLanguage = false
+            },
+            onDismiss = { pickingLanguage = false },
+        )
+    }
+}
+
+/**
+ * The layout inside a Keyman package, or null for a package that carries no
+ * on-screen keyboard.
+ *
+ * Shared with the preview above the dialog, so the grid the user is shown is
+ * the grid Import would save rather than a second reading of the same file.
+ */
+internal fun keymanLayoutOf(contents: KeymanPackage.Contents): ConvertedKeymanLayout? {
+    val doc = contents.touchLayoutJson
+        ?.let { KeymanTouchLayoutReader.parse(it) as? KeymanResult.Success }
+        ?.value
+    return doc
+        ?.let { TouchLayoutConverter.convert(it, contents.keyboardId, contents.name) }
+        ?.let { it as? KeymanResult.Success }
+        ?.value
 }
 
 /**
@@ -600,13 +827,7 @@ private fun keymanProposal(
     repository: SettingsRepository,
     context: android.content.Context,
 ): ImportProposal {
-    val doc = contents.touchLayoutJson
-        ?.let { KeymanTouchLayoutReader.parse(it) as? KeymanResult.Success }
-        ?.value
-    val converted = doc
-        ?.let { TouchLayoutConverter.convert(it, contents.keyboardId, contents.name) }
-        ?.let { it as? KeymanResult.Success }
-        ?.value
+    val converted = keymanLayoutOf(contents)
 
     if (converted == null) {
         return ImportProposal(
@@ -713,6 +934,27 @@ private fun rememberProposal(
                 context.getString(R.string.import_done_name, state.layout.layout.name)
             },
         )
+
+        is WMFileTypes.Opened.FutoLayout -> ImportProposal(
+            titleRes = R.string.import_name_title,
+            titleArg = state.converted.layout.name,
+            body = context.getString(R.string.import_futo_body),
+            repairs = state.converted.notes.map { it.format(context.resources) },
+            language = state.converted.guessedLangId,
+            applyWithLanguage = { langId ->
+                // withLanguage is the only supported way out of a conversion,
+                // for the reason its own comment gives: a blank langId is
+                // migrated to English on the next read, which would give a
+                // Georgian grid an English dictionary with nothing to say why.
+                repository.upsertCustomLayout(
+                    state.converted.withLanguage(langId)
+                        .copy(id = "custom_${System.currentTimeMillis()}"),
+                )
+                context.getString(R.string.import_done_name, state.converted.layout.name)
+            },
+        )
+
+        is WMFileTypes.Opened.EspansoSnippets -> espansoProposal(state.parsed, context)
 
         is WMFileTypes.Opened.Config -> {
             val counts = repository.describeConfig(state.parsed)
@@ -973,6 +1215,37 @@ private fun rememberProposal(
 
         WMFileTypes.Opened.Plugin -> pluginProposal(context, uri)
 
+        WMFileTypes.Opened.SoundPack -> ImportProposal(
+            titleRes = R.string.import_sound_pack_title,
+            body = context.getString(R.string.import_sound_pack_body),
+            apply = {
+                val store = SoundPackStore.get(context)
+                // Names a pack whose own manifest gives no name, resolved here
+                // because the import runs off the main thread.
+                val fallbackName = WMFileTypes.displayName(context, uri)
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        context.contentResolver.requireInputStream(uri)
+                            .use { SoundPackFile.import(it, store, fallbackName) }
+                    }.getOrElse { SoundPackImportResult.Failed }
+                }
+                // Selected on arrival, the way an imported icon pack is: a pack
+                // that stays unselected makes no sound and reads as a failure.
+                if (result is SoundPackImportResult.Imported) repository.setKeySoundPackId(result.pack.id)
+                describeSoundPackImport(context, result)
+            },
+        )
+
+        WMFileTypes.Opened.Text -> ImportProposal(
+            // Its own title rather than the unrecognised one: the file *can* be
+            // opened, and a heading saying it is not a WM Keyboard file read as
+            // a dead end sitting above a button that is not one.
+            titleRes = R.string.import_text_title,
+            body = context.getString(R.string.import_text_body, WMFileTypes.displayName(context, uri)),
+            confirmLabelRes = R.string.import_open_editor_action,
+            open = { FileEditorActivity.start(context, uri) },
+        )
+
         WMFileTypes.Opened.Unrecognized -> ImportProposal(
             titleRes = R.string.import_unrecognized_title,
             body = context.getString(R.string.import_unrecognized_body),
@@ -985,6 +1258,60 @@ private fun rememberProposal(
             apply = null,
         )
     }
+}
+
+/**
+ * The confirmation for an Espanso match file.
+ *
+ * Worded as a conversion, like the FlorisBoard one below and unlike the app's
+ * own snippet file: Espanso can say things this app has no equivalent for, and
+ * the notes listing what did not survive are the reason the dialog exists.
+ *
+ * The snippets land in one folder named after the file, which is what gives an
+ * imported pack a single off switch — the same rule the Text Expander screen's
+ * own Espanso import follows.
+ */
+private fun espansoProposal(
+    parsed: SnippetPayload.Parsed,
+    context: android.content.Context,
+): ImportProposal {
+    val folderName = parsed.suggestedName.trim()
+    if (parsed.snippets.isEmpty()) {
+        return ImportProposal(
+            titleRes = R.string.import_espanso_title,
+            body = context.getString(R.string.import_espanso_none),
+            repairs = parsed.notes.map { it.resolve(context) },
+            apply = null,
+        )
+    }
+    return ImportProposal(
+        titlePluralRes = R.plurals.import_snippets_title,
+        titleQuantity = parsed.snippets.size,
+        body = context.getString(
+            R.string.import_espanso_body,
+            folderName.ifEmpty { context.getString(R.string.import_espanso_folder_fallback) },
+        ),
+        repairs = parsed.notes.map { it.resolve(context) },
+        apply = {
+            val store = withContext(Dispatchers.IO) {
+                SnippetStore(File(context.filesDir, "snippets/snippets.json"))
+            }
+            withContext(Dispatchers.IO) {
+                val target = folderName.takeIf { it.isNotEmpty() }?.let { store.addFolder(it).id } ?: 0L
+                // Whole snippets, not a handful of named fields, and fresh ids
+                // from the store: importing the same pack twice gives two
+                // independent sets rather than silently overwriting the first.
+                store.addAll(parsed.snippets, parsed.folders, fallbackFolderId = target)
+                // The adds are in-memory only; save() is what writes the file.
+                store.save()
+            }
+            context.resources.getQuantityString(
+                R.plurals.import_snippets_done,
+                parsed.snippets.size,
+                parsed.snippets.size,
+            )
+        },
+    )
 }
 
 /**
@@ -1027,7 +1354,7 @@ private fun florisProposal(
                 )
             }
         },
-        repairs = result.dropped.map { context.getString(florisDroppedRes(it)) },
+        repairs = result.dropped.map { florisDroppedLine(it, result, context) },
         apply = {
             val dir = withContext(Dispatchers.IO) {
                 File(context.filesDir, "theme_images").apply { mkdirs() }
@@ -1038,7 +1365,11 @@ private fun florisProposal(
                     // One id per theme, and distinct: a day and night pair would
                     // otherwise write their images over each other, since the
                     // extracted file names are keyed on the id.
-                    converted.stored(if (index == 0) base else "${base}_v$index", dir)
+                    converted.stored(
+                        if (index == 0) base else "${base}_v$index",
+                        dir,
+                        FontStore.get(context),
+                    )
                 }
             }
             // One entry, not N: an extension's themes are the looks of one
@@ -1061,12 +1392,6 @@ private fun florisProposal(
         },
     )
 
-    FlexResult.SnyggV1 -> ImportProposal(
-        titleRes = R.string.import_floris_old_title,
-        body = context.getString(R.string.import_floris_old_body),
-        apply = null,
-    )
-
     FlexResult.NotAFlex, FlexResult.Unreadable -> ImportProposal(
         titleRes = R.string.import_unrecognized_title,
         body = context.getString(R.string.import_floris_unreadable_body),
@@ -1084,24 +1409,91 @@ private fun florisProposal(
  * may only ever point inside our own storage. Going around it would mean a
  * second place that decides where a theme's images live.
  */
-internal fun ConvertedTheme.stored(id: String, dir: File): ThemeSpec {
+internal fun ConvertedTheme.stored(
+    id: String,
+    dir: File,
+    fontStore: FontStore? = null,
+): ThemeSpec {
     fun encode(bytes: ByteArray) = Base64.encodeToString(bytes, Base64.NO_WRAP)
-    return theme.copy(
+    val spec = theme.copy(
         id = id,
         backgroundImageBase64 = images[FlexTheme.IMAGE_BACKGROUND]?.let(::encode),
         assets = images.filterKeys { it != FlexTheme.IMAGE_BACKGROUND }
             .mapValues { (_, bytes) -> encode(bytes) },
     ).withExtractedImages(dir)
+    val installed = fontStore?.let { installConvertedFont(font, it) } ?: return spec
+    return spec.copy(fontId = installed)
+}
+
+/**
+ * Installs a typeface a `.flex` carried, and gives back the id a theme names it
+ * by, or null when there was none or it would not load.
+ *
+ * A font cannot ride inside a [ThemeSpec] the way an image can: here a font is
+ * an add-on in its own right, listed on the fonts screen and shared between
+ * themes, and [ThemeSpec.fontId] is only a reference to one. So it is installed
+ * through the same call the fonts screen uses, which is also what checks that
+ * Android can actually load the file.
+ *
+ * A failure is deliberately quiet. The theme still converted, and every other
+ * thing about it is worth having; a dialog about a typeface would be the only
+ * thing standing between the user and a theme they asked for.
+ */
+private fun installConvertedFont(font: ConvertedFont?, store: FontStore): String? {
+    if (font == null) return null
+    val result = runCatching {
+        font.bytes.inputStream().use { input ->
+            FontFile.import(input = input, store = store, name = font.name)
+        }
+    }.getOrNull()
+    return (result as? FontImportResult.Imported)?.font?.id?.let(FontStore::fontIdFor)
 }
 
 @StringRes
+/**
+ * One line of the "what will change" list.
+ *
+ * All but one are a fixed sentence. The unknown-element line names the parts
+ * instead: "some parts of the file" was true of every theme and told the user
+ * nothing, and the file's own words for them are what they can match against
+ * the stylesheet they are looking at.
+ */
+private fun florisDroppedLine(
+    dropped: FlexUnsupported,
+    result: FlexResult.Converted,
+    context: android.content.Context,
+): String {
+    // This phone may have no wallpaper palette at all, in which case those
+    // colours came from stock Material and saying "your wallpaper" is false.
+    if (dropped == FlexUnsupported.DYNAMIC_COLOR && !result.wallpaperColours) {
+        return context.getString(R.string.import_floris_dropped_dynamic_baseline)
+    }
+    if (dropped != FlexUnsupported.UNKNOWN_ELEMENT || result.unknownElements.isEmpty()) {
+        return context.getString(florisDroppedRes(dropped))
+    }
+    val named = result.unknownElements.take(MAX_NAMED_ELEMENTS).joinToString(", ")
+    val rest = result.unknownElements.size - MAX_NAMED_ELEMENTS
+    return if (rest > 0) {
+        context.resources.getQuantityString(
+            R.plurals.import_floris_dropped_unknown_named_more,
+            rest,
+            named,
+            rest,
+        )
+    } else {
+        context.getString(R.string.import_floris_dropped_unknown_named, named)
+    }
+}
+
+/** Enough to recognise the file, short enough to stay one line of prose. */
+private const val MAX_NAMED_ELEMENTS = 4
+
 private fun florisDroppedRes(dropped: FlexUnsupported): Int = when (dropped) {
-    FlexUnsupported.SNYGG_V1 -> R.string.import_floris_dropped_old
-    FlexUnsupported.ELEVATION -> R.string.import_floris_dropped_elevation
+    FlexUnsupported.SHADOW_COLOR -> R.string.import_floris_dropped_shadow_color
     FlexUnsupported.PER_CORNER_RADIUS -> R.string.import_floris_dropped_corners
     FlexUnsupported.PER_ELEMENT_SPACING -> R.string.import_floris_dropped_spacing
     FlexUnsupported.FONT -> R.string.import_floris_dropped_font
-    FlexUnsupported.DYNAMIC_COLOR -> R.string.import_floris_dropped_dynamic
+    FlexUnsupported.DYNAMIC_COLOR -> R.string.import_floris_dropped_dynamic_snapshot
     FlexUnsupported.UNKNOWN_ELEMENT -> R.string.import_floris_dropped_unknown
     FlexUnsupported.LOW_CONTRAST_FALLBACK -> R.string.import_floris_dropped_contrast
 }

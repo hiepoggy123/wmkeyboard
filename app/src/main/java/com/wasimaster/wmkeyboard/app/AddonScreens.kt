@@ -562,6 +562,11 @@ internal fun AddonsScreen(
         }
     }
 
+    // A link is the other way in, and it needs no repository at all: an
+    // address shared from a browser or pasted here reaches the same importer
+    // that a downloaded file does. See app/ImportFromLink.kt.
+    LinkImportGroup(store)
+
     // Only worth showing once there is a repository to fetch from; with none,
     // the auto-fetch has nothing to do and the rows explain nothing.
     if (repos.isNotEmpty()) {
@@ -964,15 +969,13 @@ private fun RefreshSettingsGroup(
                 default = true,
             ) { store.setAutoRefresh(it) }
         }
-        if (autoRefresh) {
-            item {
-                ToggleSetting(
-                    R.string.addon_refresh_unmetered_title,
-                    stringResource(R.string.addon_refresh_unmetered_subtitle),
-                    refreshUnmeteredOnly,
-                    default = false,
-                ) { store.setRefreshUnmeteredOnly(it) }
-            }
+        item(visible = autoRefresh) {
+            ToggleSetting(
+                R.string.addon_refresh_unmetered_title,
+                stringResource(R.string.addon_refresh_unmetered_subtitle),
+                refreshUnmeteredOnly,
+                default = false,
+            ) { store.setRefreshUnmeteredOnly(it) }
         }
     }
 }
@@ -1857,13 +1860,11 @@ private fun InstalledAddonDetail(
                 stringResource(R.string.addon_status_installed),
             )
         }
-        if (record.repoName.isNotBlank()) {
-            item {
-                DetailRow(
-                    stringResource(R.string.addon_detail_repository_label),
-                    record.repoName,
-                )
-            }
+        item(visible = record.repoName.isNotBlank()) {
+            DetailRow(
+                stringResource(R.string.addon_detail_repository_label),
+                record.repoName,
+            )
         }
     }
     StateBanner(stringResource(R.string.addon_detail_offline_body))
@@ -2270,11 +2271,9 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
                     )
                 }
             }
-            if (shown.total > shown.entries.size) {
-                item {
-                    val more = shown.total - shown.entries.size
-                    CaptionText(pluralStringResource(R.plurals.addon_preview_more_count, more, more))
-                }
+            item(visible = shown.total > shown.entries.size) {
+                val more = shown.total - shown.entries.size
+                CaptionText(pluralStringResource(R.plurals.addon_preview_more_count, more, more))
             }
         }
 
@@ -2618,7 +2617,8 @@ private fun DictionaryPreview(shown: AddonPreviewContent.Dictionary) {
  * installed-sound id and exists to fire the same short clip on every keystroke,
  * which is not what this is. One player, released as soon as it finishes.
  */
-private object AddonSoundPreview {
+/** Shared with the file-import dialog, which previews a sound pack the same way. */
+internal object AddonSoundPreview {
     fun play(file: java.io.File) {
         runCatching {
             android.media.MediaPlayer().apply {

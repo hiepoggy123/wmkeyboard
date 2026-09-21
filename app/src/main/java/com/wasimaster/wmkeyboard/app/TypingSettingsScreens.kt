@@ -73,6 +73,12 @@ import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.ShiftGlideMode
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.GlideRadiusRange
+import com.wasimaster.wmkeyboard.core.settings.GlideDwellFullRange
+import com.wasimaster.wmkeyboard.core.settings.GlideLoopMinArcRange
+import com.wasimaster.wmkeyboard.core.settings.GlideLoopExtentRange
+import com.wasimaster.wmkeyboard.core.settings.GlideLoopRadiusRange
+import com.wasimaster.wmkeyboard.core.settings.GlideWiggleExtentRange
+import com.wasimaster.wmkeyboard.core.settings.GlideWiggleWeightRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerDwellMsRange
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerSensitivity
 import com.wasimaster.wmkeyboard.core.settings.GlideCommitColor
@@ -246,16 +252,14 @@ internal fun TypingSettings(
                 default = SettingsDefaults.volumeCursor,
             ) { scope.launch { repository.setVolumeCursor(it) } }
         }
-        if (settings.volumeCursor) {
-            item {
-                ToggleSetting(
-                    R.string.typing_volume_cursor_media_title,
-                    stringResource(R.string.typing_volume_cursor_media_subtitle),
-                    settings.volumeCursorMediaAware,
-                    info = stringResource(R.string.typing_volume_cursor_media_info),
-                    default = SettingsDefaults.volumeCursorMediaAware,
-                ) { scope.launch { repository.setVolumeCursorMediaAware(it) } }
-            }
+        item(visible = settings.volumeCursor) {
+            ToggleSetting(
+                R.string.typing_volume_cursor_media_title,
+                stringResource(R.string.typing_volume_cursor_media_subtitle),
+                settings.volumeCursorMediaAware,
+                info = stringResource(R.string.typing_volume_cursor_media_info),
+                default = SettingsDefaults.volumeCursorMediaAware,
+            ) { scope.launch { repository.setVolumeCursorMediaAware(it) } }
         }
     }
 
@@ -331,19 +335,17 @@ internal fun TypingCorrectionsSettings(
                     default = SettingsDefaults.suggestionStrip.undoCorrectionChip,
                 ) { scope.launch { repository.setUndoCorrectionChip(it) } }
             }
-            if (settings.suggestionStrip.undoCorrectionChip) {
-                item {
-                    val percentFormat = stringResource(R.string.typing_value_percent)
-                    SliderSetting(
-                        R.string.typing_undo_chip_obviousness_title,
-                        subtitle = stringResource(R.string.typing_undo_chip_obviousness_subtitle),
-                        value = settings.suggestionStrip.undoChipObviousness,
-                        range = 0f..1f,
-                        display = { percentFormat.format((it * 100).toInt()) },
-                        info = stringResource(R.string.typing_undo_chip_obviousness_info),
-                        default = SettingsDefaults.suggestionStrip.undoChipObviousness,
-                    ) { scope.launch { repository.setUndoChipObviousness(it) } }
-                }
+            item(visible = settings.suggestionStrip.undoCorrectionChip) {
+                val percentFormat = stringResource(R.string.typing_value_percent)
+                SliderSetting(
+                    R.string.typing_undo_chip_obviousness_title,
+                    subtitle = stringResource(R.string.typing_undo_chip_obviousness_subtitle),
+                    value = settings.suggestionStrip.undoChipObviousness,
+                    range = 0f..1f,
+                    display = { percentFormat.format((it * 100).toInt()) },
+                    info = stringResource(R.string.typing_undo_chip_obviousness_info),
+                    default = SettingsDefaults.suggestionStrip.undoChipObviousness,
+                ) { scope.launch { repository.setUndoChipObviousness(it) } }
             }
             item {
                 ChoiceSetting(
@@ -433,46 +435,42 @@ internal fun TypingCorrectionsSettings(
                     default = SettingsDefaults.suggestionStrip.languageDetection,
                 ) { scope.launch { repository.setLanguageDetection(it) } }
             }
-            if (settings.suggestionStrip.languageDetection) {
-                item {
-                    ChoiceSetting(
-                        R.string.typing_language_detection_strength_title,
-                        info = stringResource(R.string.typing_language_detection_strength_info),
-                        options = listOf(
-                            LanguageDetectionStrength.GENTLE to
-                                stringResource(R.string.typing_language_detection_gentle),
-                            LanguageDetectionStrength.BALANCED to
-                                stringResource(R.string.typing_language_detection_balanced),
-                            LanguageDetectionStrength.AGGRESSIVE to
-                                stringResource(R.string.typing_language_detection_aggressive),
-                        ),
-                        selected = settings.suggestionStrip.languageDetectionStrength,
-                        default = SettingsDefaults.suggestionStrip.languageDetectionStrength,
-                        detail = { strength ->
-                            ChoiceDetail(stringResource(detectionStrengthDescRes(strength)))
-                        },
-                    ) { scope.launch { repository.setLanguageDetectionStrength(it) } }
-                }
-                item {
-                    ToggleSetting(
-                        R.string.typing_language_detection_by_app_title,
-                        stringResource(R.string.typing_language_detection_by_app_subtitle),
-                        settings.suggestionStrip.languageDetectionByApp,
-                        info = stringResource(R.string.typing_language_detection_by_app_info),
-                        default = SettingsDefaults.suggestionStrip.languageDetectionByApp,
-                    ) { scope.launch { repository.setLanguageDetectionByApp(it) } }
-                }
+            item(visible = settings.suggestionStrip.languageDetection) {
+                ChoiceSetting(
+                    R.string.typing_language_detection_strength_title,
+                    info = stringResource(R.string.typing_language_detection_strength_info),
+                    options = listOf(
+                        LanguageDetectionStrength.GENTLE to
+                            stringResource(R.string.typing_language_detection_gentle),
+                        LanguageDetectionStrength.BALANCED to
+                            stringResource(R.string.typing_language_detection_balanced),
+                        LanguageDetectionStrength.AGGRESSIVE to
+                            stringResource(R.string.typing_language_detection_aggressive),
+                    ),
+                    selected = settings.suggestionStrip.languageDetectionStrength,
+                    default = SettingsDefaults.suggestionStrip.languageDetectionStrength,
+                    detail = { strength ->
+                        ChoiceDetail(stringResource(detectionStrengthDescRes(strength)))
+                    },
+                ) { scope.launch { repository.setLanguageDetectionStrength(it) } }
             }
-            if (settings.numberRow) {
-                item {
-                    ToggleSetting(
-                        R.string.typing_number_row_corrections_title,
-                        stringResource(R.string.typing_number_row_corrections_subtitle),
-                        settings.suggestionStrip.numberRowCorrections,
-                        info = stringResource(R.string.typing_number_row_corrections_info),
-                        default = SettingsDefaults.suggestionStrip.numberRowCorrections,
-                    ) { scope.launch { repository.setNumberRowCorrections(it) } }
-                }
+            item(visible = settings.suggestionStrip.languageDetection) {
+                ToggleSetting(
+                    R.string.typing_language_detection_by_app_title,
+                    stringResource(R.string.typing_language_detection_by_app_subtitle),
+                    settings.suggestionStrip.languageDetectionByApp,
+                    info = stringResource(R.string.typing_language_detection_by_app_info),
+                    default = SettingsDefaults.suggestionStrip.languageDetectionByApp,
+                ) { scope.launch { repository.setLanguageDetectionByApp(it) } }
+            }
+            item(visible = settings.numberRow) {
+                ToggleSetting(
+                    R.string.typing_number_row_corrections_title,
+                    stringResource(R.string.typing_number_row_corrections_subtitle),
+                    settings.suggestionStrip.numberRowCorrections,
+                    info = stringResource(R.string.typing_number_row_corrections_info),
+                    default = SettingsDefaults.suggestionStrip.numberRowCorrections,
+                ) { scope.launch { repository.setNumberRowCorrections(it) } }
             }
         }
         item {
@@ -523,18 +521,16 @@ internal fun TypingCorrectionsSettings(
                 }
             }
         }
-        if (settings.autoText.doubleSpacePeriod || settings.autoText.doubleSpaceTab) {
-            item {
-                SliderSetting(
-                    R.string.typing_double_space_window_title,
-                    subtitle = stringResource(R.string.typing_double_space_window_subtitle),
-                    value = settings.textEditing.doubleSpaceWindowMs.toFloat(),
-                    range = 200f..800f,
-                    display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
-                    info = stringResource(R.string.typing_double_space_window_info),
-                    default = SettingsDefaults.textEditing.doubleSpaceWindowMs.toFloat(),
-                ) { scope.launch { repository.setDoubleSpaceWindowMs(it.toInt()) } }
-            }
+        item(visible = settings.autoText.doubleSpacePeriod || settings.autoText.doubleSpaceTab) {
+            SliderSetting(
+                R.string.typing_double_space_window_title,
+                subtitle = stringResource(R.string.typing_double_space_window_subtitle),
+                value = settings.textEditing.doubleSpaceWindowMs.toFloat(),
+                range = 200f..800f,
+                display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                info = stringResource(R.string.typing_double_space_window_info),
+                default = SettingsDefaults.textEditing.doubleSpaceWindowMs.toFloat(),
+            ) { scope.launch { repository.setDoubleSpaceWindowMs(it.toInt()) } }
         }
         item {
             ToggleSetting(
@@ -554,15 +550,13 @@ internal fun TypingCorrectionsSettings(
                 default = SettingsDefaults.autoText.hugPunctuation,
             ) { scope.launch { repository.setHugPunctuation(it) } }
         }
-        if (settings.autoText.hugPunctuation) {
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.typing_hug_punctuation_marks_title),
-                    value = settings.autoText.hugPunctuationMarks,
-                    hint = stringResource(R.string.typing_hug_punctuation_marks_hint),
-                    default = SettingsDefaults.autoText.hugPunctuationMarks,
-                ) { repository.setHugPunctuationMarks(it) }
-            }
+        item(visible = settings.autoText.hugPunctuation) {
+            TextFieldSetting(
+                label = stringResource(R.string.typing_hug_punctuation_marks_title),
+                value = settings.autoText.hugPunctuationMarks,
+                hint = stringResource(R.string.typing_hug_punctuation_marks_hint),
+                default = SettingsDefaults.autoText.hugPunctuationMarks,
+            ) { repository.setHugPunctuationMarks(it) }
         }
         item {
             ToggleSetting(
@@ -635,15 +629,13 @@ internal fun TypingSuggestionsSettings(
                 default = SettingsDefaults.suggestionStrip.punctuation,
             ) { scope.launch { repository.setPunctuationSuggestions(it) } }
         }
-        if (settings.suggestions && settings.suggestionStrip.punctuation) {
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.typing_punctuation_marks_title),
-                    value = settings.suggestionStrip.punctuationChips,
-                    hint = stringResource(R.string.typing_punctuation_marks_hint),
-                    default = SettingsDefaults.suggestionStrip.punctuationChips,
-                ) { repository.setPunctuationChips(it) }
-            }
+        item(visible = settings.suggestions && settings.suggestionStrip.punctuation) {
+            TextFieldSetting(
+                label = stringResource(R.string.typing_punctuation_marks_title),
+                value = settings.suggestionStrip.punctuationChips,
+                hint = stringResource(R.string.typing_punctuation_marks_hint),
+                default = SettingsDefaults.suggestionStrip.punctuationChips,
+            ) { repository.setPunctuationChips(it) }
         }
         item {
             SliderSetting(
@@ -697,19 +689,17 @@ internal fun TypingSuggestionsSettings(
                 default = SettingsDefaults.suggestionStrip.askBeforeLearning,
             ) { scope.launch { repository.setAskBeforeLearning(it) } }
         }
-        if (!settings.suggestionStrip.askBeforeLearning) {
-            item {
-                val immediately = stringResource(R.string.typing_new_word_sightings_once)
-                SliderSetting(
-                    R.string.typing_new_word_sightings_title,
-                    subtitle = stringResource(R.string.typing_new_word_sightings_subtitle),
-                    value = settings.suggestionStrip.newWordSightings.toFloat(),
-                    range = 1f..10f,
-                    display = { if (it.toInt() <= 1) immediately else it.toInt().toString() },
-                    info = stringResource(R.string.typing_new_word_sightings_info),
-                    default = SettingsDefaults.suggestionStrip.newWordSightings.toFloat(),
-                ) { scope.launch { repository.setNewWordSightings(it.toInt()) } }
-            }
+        item(visible = !settings.suggestionStrip.askBeforeLearning) {
+            val immediately = stringResource(R.string.typing_new_word_sightings_once)
+            SliderSetting(
+                R.string.typing_new_word_sightings_title,
+                subtitle = stringResource(R.string.typing_new_word_sightings_subtitle),
+                value = settings.suggestionStrip.newWordSightings.toFloat(),
+                range = 1f..10f,
+                display = { if (it.toInt() <= 1) immediately else it.toInt().toString() },
+                info = stringResource(R.string.typing_new_word_sightings_info),
+                default = SettingsDefaults.suggestionStrip.newWordSightings.toFloat(),
+            ) { scope.launch { repository.setNewWordSightings(it.toInt()) } }
         }
         item {
             ToggleSetting(
@@ -798,16 +788,14 @@ internal fun TypingSuggestionsSettings(
                 }
             }
         }
-        if (settings.suggestionSources.contactEmails) {
-            item {
-                ToggleSetting(
-                    R.string.typing_contact_emails_in_email_fields_title,
-                    stringResource(R.string.typing_contact_emails_in_email_fields_subtitle),
-                    settings.suggestionSources.contactEmailsInEmailFields,
-                    info = stringResource(R.string.typing_contact_emails_in_email_fields_info),
-                    default = SettingsDefaults.suggestionSources.contactEmailsInEmailFields,
-                ) { scope.launch { repository.setContactEmailSuggestionsInEmailFields(it) } }
-            }
+        item(visible = settings.suggestionSources.contactEmails) {
+            ToggleSetting(
+                R.string.typing_contact_emails_in_email_fields_title,
+                stringResource(R.string.typing_contact_emails_in_email_fields_subtitle),
+                settings.suggestionSources.contactEmailsInEmailFields,
+                info = stringResource(R.string.typing_contact_emails_in_email_fields_info),
+                default = SettingsDefaults.suggestionSources.contactEmailsInEmailFields,
+            ) { scope.launch { repository.setContactEmailSuggestionsInEmailFields(it) } }
         }
         item {
             ToggleSetting(
@@ -827,25 +815,23 @@ internal fun TypingSuggestionsSettings(
                 default = SettingsDefaults.suggestionSources.inlineEmojiSearch,
             ) { scope.launch { repository.setInlineEmojiSearch(it) } }
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            item {
-                ToggleSetting(
-                    R.string.typing_inline_autofill_title,
-                    stringResource(R.string.typing_inline_autofill_subtitle),
-                    settings.suggestionSources.inlineAutofill,
-                    info = stringResource(R.string.typing_inline_autofill_info),
-                    default = SettingsDefaults.suggestionSources.inlineAutofill,
-                ) { scope.launch { repository.setInlineAutofill(it) } }
-            }
-            item {
-                ToggleSetting(
-                    R.string.typing_smart_replies_title,
-                    stringResource(R.string.typing_smart_replies_subtitle),
-                    settings.suggestionStrip.systemSmartReplies,
-                    info = stringResource(R.string.typing_smart_replies_info),
-                    default = SettingsDefaults.suggestionStrip.systemSmartReplies,
-                ) { scope.launch { repository.setSystemSmartReplies(it) } }
-            }
+        item(visible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            ToggleSetting(
+                R.string.typing_inline_autofill_title,
+                stringResource(R.string.typing_inline_autofill_subtitle),
+                settings.suggestionSources.inlineAutofill,
+                info = stringResource(R.string.typing_inline_autofill_info),
+                default = SettingsDefaults.suggestionSources.inlineAutofill,
+            ) { scope.launch { repository.setInlineAutofill(it) } }
+        }
+        item(visible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            ToggleSetting(
+                R.string.typing_smart_replies_title,
+                stringResource(R.string.typing_smart_replies_subtitle),
+                settings.suggestionStrip.systemSmartReplies,
+                info = stringResource(R.string.typing_smart_replies_info),
+                default = SettingsDefaults.suggestionStrip.systemSmartReplies,
+            ) { scope.launch { repository.setSystemSmartReplies(it) } }
         }
         item {
             ToggleSetting(
@@ -1017,19 +1003,17 @@ internal fun TypingAutopilotSettings(
                     default = SettingsDefaults.layoutBehavior.autopilotShowEffect,
                 ) { scope.launch { repository.setAutopilotShowEffect(it) } }
             }
-            if (settings.layoutBehavior.autopilotShowEffect) {
-                item {
-                    val valueFormat = stringResource(R.string.typing_value_multiplier_prefix)
-                    SliderSetting(
-                        R.string.typing_autopilot_size_title,
-                        subtitle = stringResource(R.string.typing_autopilot_size_subtitle),
-                        value = settings.layoutBehavior.autopilotVisualScale,
-                        range = 1f..3f,
-                        display = { valueFormat.format("%.1f".format(it)) },
-                        info = stringResource(R.string.typing_autopilot_size_info),
-                        default = SettingsDefaults.layoutBehavior.autopilotVisualScale,
-                    ) { scope.launch { repository.setAutopilotVisualScale(it) } }
-                }
+            item(visible = settings.layoutBehavior.autopilotShowEffect) {
+                val valueFormat = stringResource(R.string.typing_value_multiplier_prefix)
+                SliderSetting(
+                    R.string.typing_autopilot_size_title,
+                    subtitle = stringResource(R.string.typing_autopilot_size_subtitle),
+                    value = settings.layoutBehavior.autopilotVisualScale,
+                    range = 1f..3f,
+                    display = { valueFormat.format("%.1f".format(it)) },
+                    info = stringResource(R.string.typing_autopilot_size_info),
+                    default = SettingsDefaults.layoutBehavior.autopilotVisualScale,
+                ) { scope.launch { repository.setAutopilotVisualScale(it) } }
             }
             item {
                 ToggleSetting(
@@ -1111,19 +1095,17 @@ internal fun TypingOctopusSettings(
             }
             // Hidden on a board that does not glide: it is a question about a
             // surface that never appears there.
-            if (settings.gestureTyping) {
-                item {
-                    ChoiceSetting(
-                        R.string.typing_octopus_glide_title,
-                        subtitle = stringResource(R.string.typing_octopus_glide_subtitle),
-                        info = stringResource(R.string.typing_octopus_glide_info),
-                        options = OctopusDuringGlide.entries.map {
-                            it to stringResource(it.labelRes)
-                        },
-                        selected = octopus.duringGlide,
-                        default = SettingsDefaults.octopus.duringGlide,
-                    ) { scope.launch { repository.setOctopusDuringGlide(it) } }
-                }
+            item(visible = settings.gestureTyping) {
+                ChoiceSetting(
+                    R.string.typing_octopus_glide_title,
+                    subtitle = stringResource(R.string.typing_octopus_glide_subtitle),
+                    info = stringResource(R.string.typing_octopus_glide_info),
+                    options = OctopusDuringGlide.entries.map {
+                        it to stringResource(it.labelRes)
+                    },
+                    selected = octopus.duringGlide,
+                    default = SettingsDefaults.octopus.duringGlide,
+                ) { scope.launch { repository.setOctopusDuringGlide(it) } }
             }
             item {
                 ToggleSetting(
@@ -1134,19 +1116,17 @@ internal fun TypingOctopusSettings(
                     default = SettingsDefaults.octopus.flickCommits,
                 ) { scope.launch { repository.setOctopusFlickCommits(it) } }
             }
-            if (octopus.flickCommits) {
-                item {
-                    ChoiceSetting(
-                        R.string.typing_octopus_sensitivity_title,
-                        subtitle = stringResource(R.string.typing_octopus_sensitivity_subtitle),
-                        info = stringResource(R.string.typing_octopus_sensitivity_info),
-                        options = OctopusFlickSensitivity.entries.map {
-                            it to stringResource(it.labelRes)
-                        },
-                        selected = octopus.flickSensitivity,
-                        default = SettingsDefaults.octopus.flickSensitivity,
-                    ) { scope.launch { repository.setOctopusFlickSensitivity(it) } }
-                }
+            item(visible = octopus.flickCommits) {
+                ChoiceSetting(
+                    R.string.typing_octopus_sensitivity_title,
+                    subtitle = stringResource(R.string.typing_octopus_sensitivity_subtitle),
+                    info = stringResource(R.string.typing_octopus_sensitivity_info),
+                    options = OctopusFlickSensitivity.entries.map {
+                        it to stringResource(it.labelRes)
+                    },
+                    selected = octopus.flickSensitivity,
+                    default = SettingsDefaults.octopus.flickSensitivity,
+                ) { scope.launch { repository.setOctopusFlickSensitivity(it) } }
             }
             item {
                 ToggleSetting(
@@ -1317,30 +1297,28 @@ internal fun TypingSmartChipsSettings(
                 ) { scope.launch { repository.setSmartChipNumbers(it) } }
             }
             chipToolsOffItem(SmartSuggest.Family.NUMBERS, settings.smartChips.numbers, settings, repository)
-            if (settings.smartChips.numbers) {
-                item {
-                    ChoiceSetting(
-                        R.string.typing_smart_number_grouping_title,
-                        subtitle = stringResource(
-                            R.string.typing_smart_number_grouping_subtitle,
-                        ),
-                        options = listOf(
-                            NumberGrouping.AUTO to
-                                stringResource(R.string.typing_smart_number_grouping_auto),
-                            NumberGrouping.WESTERN to
-                                stringResource(R.string.typing_smart_number_grouping_western),
-                            NumberGrouping.SOUTH_ASIAN to
-                                stringResource(
-                                    R.string.typing_smart_number_grouping_south_asian,
-                                ),
-                        ),
-                        selected = settings.smartChips.numberGrouping,
-                        default = SettingsDefaults.smartChips.numberGrouping,
-                        detail = { style ->
-                            ChoiceDetail(stringResource(numberGroupingDescRes(style)))
-                        },
-                    ) { scope.launch { repository.setSmartChipNumberGrouping(it) } }
-                }
+            item(visible = settings.smartChips.numbers) {
+                ChoiceSetting(
+                    R.string.typing_smart_number_grouping_title,
+                    subtitle = stringResource(
+                        R.string.typing_smart_number_grouping_subtitle,
+                    ),
+                    options = listOf(
+                        NumberGrouping.AUTO to
+                            stringResource(R.string.typing_smart_number_grouping_auto),
+                        NumberGrouping.WESTERN to
+                            stringResource(R.string.typing_smart_number_grouping_western),
+                        NumberGrouping.SOUTH_ASIAN to
+                            stringResource(
+                                R.string.typing_smart_number_grouping_south_asian,
+                            ),
+                    ),
+                    selected = settings.smartChips.numberGrouping,
+                    default = SettingsDefaults.smartChips.numberGrouping,
+                    detail = { style ->
+                        ChoiceDetail(stringResource(numberGroupingDescRes(style)))
+                    },
+                ) { scope.launch { repository.setSmartChipNumberGrouping(it) } }
             }
         }
     }
@@ -1404,15 +1382,13 @@ internal fun TypingCodesSettings(
             }
         }
         if (settings.otp.enabled) {
-            if (!notificationCodesGranted) {
-                item {
-                    val codesAccessRow =
-                        rememberDisclosedSpecialAccess(SpecialAccess.NOTIFICATION_CODES)
-                    NavRow(
-                        R.string.typing_otp_access_title,
-                        stringResource(R.string.typing_otp_access_subtitle),
-                    ) { codesAccessRow() }
-                }
+            item(visible = !notificationCodesGranted) {
+                val codesAccessRow =
+                    rememberDisclosedSpecialAccess(SpecialAccess.NOTIFICATION_CODES)
+                NavRow(
+                    R.string.typing_otp_access_title,
+                    stringResource(R.string.typing_otp_access_subtitle),
+                ) { codesAccessRow() }
             }
             item {
                 ToggleSetting(
@@ -1545,34 +1521,32 @@ internal fun TypingGesturesSettings(
         // What a letter swipe does — glide a word or handwrite it. Full builds
         // only (needs the ML Kit handwriting model), and only relevant once
         // letter swipes are switched on above.
-        if (BuildConfig.ENABLE_ML_KIT_HANDWRITING && settings.gestureTyping) {
-            item {
-                ChoiceSetting(
-                    title = R.string.typing_letter_swipe_action_title,
-                    subtitle = stringResource(R.string.typing_letter_swipe_action_subtitle),
-                    info = stringResource(R.string.typing_letter_swipe_action_info),
-                    options = listOf(
-                        LetterSwipeAction.TYPE_WORDS to
-                            stringResource(R.string.typing_letter_swipe_type_words_label),
-                        LetterSwipeAction.HANDWRITE to
-                            stringResource(R.string.typing_letter_swipe_handwrite_label),
-                    ),
-                    selected = settings.letterSwipeAction,
-                    onChange = { scope.launch { repository.setLetterSwipeAction(it) } },
-                    default = SettingsDefaults.letterSwipeAction,
-                    detail = { action ->
-                        ChoiceDetail(
-                            stringResource(
-                                if (action == LetterSwipeAction.HANDWRITE) {
-                                    R.string.typing_letter_swipe_handwrite_desc
-                                } else {
-                                    R.string.typing_letter_swipe_type_words_desc
-                                },
-                            ),
-                        )
-                    },
-                )
-            }
+        item(visible = BuildConfig.ENABLE_ML_KIT_HANDWRITING && settings.gestureTyping) {
+            ChoiceSetting(
+                title = R.string.typing_letter_swipe_action_title,
+                subtitle = stringResource(R.string.typing_letter_swipe_action_subtitle),
+                info = stringResource(R.string.typing_letter_swipe_action_info),
+                options = listOf(
+                    LetterSwipeAction.TYPE_WORDS to
+                        stringResource(R.string.typing_letter_swipe_type_words_label),
+                    LetterSwipeAction.HANDWRITE to
+                        stringResource(R.string.typing_letter_swipe_handwrite_label),
+                ),
+                selected = settings.letterSwipeAction,
+                onChange = { scope.launch { repository.setLetterSwipeAction(it) } },
+                default = SettingsDefaults.letterSwipeAction,
+                detail = { action ->
+                    ChoiceDetail(
+                        stringResource(
+                            if (action == LetterSwipeAction.HANDWRITE) {
+                                R.string.typing_letter_swipe_handwrite_desc
+                            } else {
+                                R.string.typing_letter_swipe_type_words_desc
+                            },
+                        ),
+                    )
+                },
+            )
         }
         if (settings.gestureTyping) {
             // Glide-word only: crossing the spacebar to chain words has no
@@ -1597,23 +1571,21 @@ internal fun TypingGesturesSettings(
                     ) { scope.launch { repository.setGestureShiftCapitals(it) } }
                 }
                 // How a crossing reads, only while crossings mean anything.
-                if (settings.gesture.shiftGlideCapitals) {
-                    item {
-                        ChoiceSetting(
-                            title = R.string.typing_shift_glide_mode_title,
-                            subtitle = stringResource(R.string.typing_shift_glide_mode_subtitle),
-                            info = stringResource(R.string.typing_shift_glide_mode_info),
-                            options = listOf(
-                                ShiftGlideMode.WORD to
-                                    stringResource(R.string.typing_shift_glide_mode_word_label),
-                                ShiftGlideMode.LETTER to
-                                    stringResource(R.string.typing_shift_glide_mode_letter_label),
-                            ),
-                            selected = settings.gesture.shiftGlideMode,
-                            onChange = { scope.launch { repository.setGestureShiftGlideMode(it) } },
-                            default = SettingsDefaults.gesture.shiftGlideMode,
-                        )
-                    }
+                item(visible = settings.gesture.shiftGlideCapitals) {
+                    ChoiceSetting(
+                        title = R.string.typing_shift_glide_mode_title,
+                        subtitle = stringResource(R.string.typing_shift_glide_mode_subtitle),
+                        info = stringResource(R.string.typing_shift_glide_mode_info),
+                        options = listOf(
+                            ShiftGlideMode.WORD to
+                                stringResource(R.string.typing_shift_glide_mode_word_label),
+                            ShiftGlideMode.LETTER to
+                                stringResource(R.string.typing_shift_glide_mode_letter_label),
+                        ),
+                        selected = settings.gesture.shiftGlideMode,
+                        onChange = { scope.launch { repository.setGestureShiftGlideMode(it) } },
+                        default = SettingsDefaults.gesture.shiftGlideMode,
+                    )
                 }
                 item {
                     ToggleSetting(
@@ -1654,16 +1626,14 @@ internal fun TypingGesturesSettings(
                     }
                     // Redundant under "Every pause", which already asks at
                     // the first hold.
-                    if (settings.gesture.pickerSensitivity != GlidePickerSensitivity.EVERY_PAUSE) {
-                        item {
-                            ToggleSetting(
-                                R.string.typing_glide_picker_hold_title,
-                                stringResource(R.string.typing_glide_picker_hold_subtitle),
-                                settings.gesture.pickerHoldToAsk,
-                                info = stringResource(R.string.typing_glide_picker_hold_info),
-                                default = SettingsDefaults.gesture.pickerHoldToAsk,
-                            ) { scope.launch { repository.setGesturePickerHoldToAsk(it) } }
-                        }
+                    item(visible = settings.gesture.pickerSensitivity != GlidePickerSensitivity.EVERY_PAUSE) {
+                        ToggleSetting(
+                            R.string.typing_glide_picker_hold_title,
+                            stringResource(R.string.typing_glide_picker_hold_subtitle),
+                            settings.gesture.pickerHoldToAsk,
+                            info = stringResource(R.string.typing_glide_picker_hold_info),
+                            default = SettingsDefaults.gesture.pickerHoldToAsk,
+                        ) { scope.launch { repository.setGesturePickerHoldToAsk(it) } }
                     }
                     item {
                         val numberFormat = stringResource(R.string.values_number)
@@ -1718,8 +1688,6 @@ internal fun TypingGesturesSettings(
                 // kept together and out of line: this screen's body is already
                 // past its length budget and these belong to one another.
                 glideVocabularyRows(settings, repository, scope)
-                // The three tolerances the decoder reads a stroke with (#222).
-                glideRadiusRows(settings, repository, scope)
                 item {
                     ToggleSetting(
                         R.string.typing_space_after_glide_title,
@@ -1769,20 +1737,18 @@ internal fun TypingGesturesSettings(
             }
             // Glide-word only: the guard raises the swipe-start bar, which never
             // runs in handwrite mode (there is no word glide to suppress).
-            if (settings.letterSwipeAction == LetterSwipeAction.TYPE_WORDS) {
-                item {
-                    val offLabel = stringResource(CommonR.string.common_off)
-                    val msFormat = stringResource(R.string.typing_value_milliseconds)
-                    SliderSetting(
-                        R.string.typing_gesture_cooldown_title,
-                        subtitle = stringResource(R.string.typing_gesture_cooldown_subtitle),
-                        value = settings.gesture.postTypeCooldownMs.toFloat(),
-                        range = 0f..500f,
-                        display = { if (it.roundToInt() == 0) offLabel else msFormat.format(it.roundToInt()) },
-                        info = stringResource(R.string.typing_gesture_cooldown_info),
-                        default = SettingsDefaults.gesture.postTypeCooldownMs.toFloat(),
-                    ) { scope.launch { repository.setGesturePostTypeCooldownMs(it.roundToInt()) } }
-                }
+            item(visible = settings.letterSwipeAction == LetterSwipeAction.TYPE_WORDS) {
+                val offLabel = stringResource(CommonR.string.common_off)
+                val msFormat = stringResource(R.string.typing_value_milliseconds)
+                SliderSetting(
+                    R.string.typing_gesture_cooldown_title,
+                    subtitle = stringResource(R.string.typing_gesture_cooldown_subtitle),
+                    value = settings.gesture.postTypeCooldownMs.toFloat(),
+                    range = 0f..500f,
+                    display = { if (it.roundToInt() == 0) offLabel else msFormat.format(it.roundToInt()) },
+                    info = stringResource(R.string.typing_gesture_cooldown_info),
+                    default = SettingsDefaults.gesture.postTypeCooldownMs.toFloat(),
+                ) { scope.launch { repository.setGesturePostTypeCooldownMs(it.roundToInt()) } }
             }
             // Handwrite-with-swipes only: window after a drawn stroke in which a
             // tap is grabbed as an ink dot rather than typing.
@@ -1803,6 +1769,21 @@ internal fun TypingGesturesSettings(
                     ) { scope.launch { repository.setGestureHandwriteDotCooldownMs(it.roundToInt()) } }
                 }
             }
+        }
+    }
+    // How the decoder reads a stroke: the three tolerances (#222) and the
+    // three marks for a doubled letter (#270). A fold, because they are for
+    // the people who want to tune and measure, and a screen that opens on
+    // eleven sliders buries the switches everyone else came for.
+    SettingsGroup(
+        stringResource(R.string.typing_group_glide_tuning_title),
+        foldKey = "typing/glide_tuning",
+        info = stringResource(R.string.typing_group_glide_tuning_info),
+        foldSummary = { stringResource(R.string.typing_group_glide_tuning_summary) },
+    ) {
+        if (settings.gestureTyping && settings.letterSwipeAction == LetterSwipeAction.TYPE_WORDS) {
+            glideRadiusRows(settings, repository, scope)
+            glideIntentRows(settings, repository, scope)
         }
     }
     SettingsGroup(stringResource(R.string.typing_group_glide_trail_title)) {
@@ -1863,61 +1844,59 @@ internal fun TypingGesturesSettings(
                         default = SettingsDefaults.gesture.wordPreview,
                     ) { scope.launch { repository.setGestureWordPreview(it) } }
                 }
-                if (settings.gesture.wordPreview) {
-                    item {
-                        val dpFormat = stringResource(R.string.typing_value_dp)
-                        SliderSetting(
-                            R.string.typing_glide_preview_height_title,
-                            subtitle = stringResource(R.string.typing_glide_preview_height_subtitle),
-                            value = settings.gesture.wordPreviewOffsetYDp.toFloat(),
-                            range = 0f..160f,
-                            display = { dpFormat.format(it.roundToInt()) },
-                            info = stringResource(R.string.typing_glide_preview_height_info),
-                            default = SettingsDefaults.gesture.wordPreviewOffsetYDp.toFloat(),
-                        ) { scope.launch { repository.setGestureWordPreviewOffsetYDp(it.roundToInt()) } }
-                    }
-                    item {
-                        val dpFormat = stringResource(R.string.typing_value_dp)
-                        SliderSetting(
-                            R.string.typing_glide_preview_shift_title,
-                            subtitle = stringResource(R.string.typing_glide_preview_shift_subtitle),
-                            value = settings.gesture.wordPreviewOffsetXDp.toFloat(),
-                            range = -80f..80f,
-                            display = { dpFormat.format(it.roundToInt()) },
-                            info = stringResource(R.string.typing_glide_preview_shift_info),
-                            default = SettingsDefaults.gesture.wordPreviewOffsetXDp.toFloat(),
-                        ) { scope.launch { repository.setGestureWordPreviewOffsetXDp(it.roundToInt()) } }
-                    }
-                    item {
-                        val spFormat = stringResource(R.string.values_sp)
-                        SliderSetting(
-                            R.string.typing_glide_preview_size_title,
-                            subtitle = stringResource(R.string.typing_glide_preview_size_subtitle),
-                            value = settings.gesture.wordPreviewFontSp.toFloat(),
-                            range = 12f..32f,
-                            display = { spFormat.format(it.roundToInt()) },
-                            info = stringResource(R.string.typing_glide_preview_size_info),
-                            default = SettingsDefaults.gesture.wordPreviewFontSp.toFloat(),
-                        ) { scope.launch { repository.setGestureWordPreviewFontSp(it.roundToInt()) } }
-                    }
-                    item {
-                        ColorSetting(
-                            R.string.typing_glide_preview_color_title,
-                            subtitle = stringResource(R.string.typing_glide_preview_color_subtitle),
-                            color = settings.gesture.wordPreviewBackground,
-                            fallback = MaterialTheme.colorScheme.surfaceVariant.argbLong(),
-                            info = stringResource(R.string.typing_glide_preview_color_info),
-                        ) { scope.launch { repository.setGestureWordPreviewBackground(it) } }
-                    }
-                    item {
-                        ColorSetting(
-                            R.string.typing_glide_preview_text_color_title,
-                            subtitle = stringResource(R.string.typing_glide_preview_text_color_subtitle),
-                            color = settings.gesture.wordPreviewTextColor,
-                            fallback = MaterialTheme.colorScheme.onSurfaceVariant.argbLong(),
-                            info = stringResource(R.string.typing_glide_preview_text_color_info),
-                        ) { scope.launch { repository.setGestureWordPreviewTextColor(it) } }
-                    }
+                item(visible = settings.gesture.wordPreview) {
+                    val dpFormat = stringResource(R.string.typing_value_dp)
+                    SliderSetting(
+                        R.string.typing_glide_preview_height_title,
+                        subtitle = stringResource(R.string.typing_glide_preview_height_subtitle),
+                        value = settings.gesture.wordPreviewOffsetYDp.toFloat(),
+                        range = 0f..160f,
+                        display = { dpFormat.format(it.roundToInt()) },
+                        info = stringResource(R.string.typing_glide_preview_height_info),
+                        default = SettingsDefaults.gesture.wordPreviewOffsetYDp.toFloat(),
+                    ) { scope.launch { repository.setGestureWordPreviewOffsetYDp(it.roundToInt()) } }
+                }
+                item(visible = settings.gesture.wordPreview) {
+                    val dpFormat = stringResource(R.string.typing_value_dp)
+                    SliderSetting(
+                        R.string.typing_glide_preview_shift_title,
+                        subtitle = stringResource(R.string.typing_glide_preview_shift_subtitle),
+                        value = settings.gesture.wordPreviewOffsetXDp.toFloat(),
+                        range = -80f..80f,
+                        display = { dpFormat.format(it.roundToInt()) },
+                        info = stringResource(R.string.typing_glide_preview_shift_info),
+                        default = SettingsDefaults.gesture.wordPreviewOffsetXDp.toFloat(),
+                    ) { scope.launch { repository.setGestureWordPreviewOffsetXDp(it.roundToInt()) } }
+                }
+                item(visible = settings.gesture.wordPreview) {
+                    val spFormat = stringResource(R.string.values_sp)
+                    SliderSetting(
+                        R.string.typing_glide_preview_size_title,
+                        subtitle = stringResource(R.string.typing_glide_preview_size_subtitle),
+                        value = settings.gesture.wordPreviewFontSp.toFloat(),
+                        range = 12f..32f,
+                        display = { spFormat.format(it.roundToInt()) },
+                        info = stringResource(R.string.typing_glide_preview_size_info),
+                        default = SettingsDefaults.gesture.wordPreviewFontSp.toFloat(),
+                    ) { scope.launch { repository.setGestureWordPreviewFontSp(it.roundToInt()) } }
+                }
+                item(visible = settings.gesture.wordPreview) {
+                    ColorSetting(
+                        R.string.typing_glide_preview_color_title,
+                        subtitle = stringResource(R.string.typing_glide_preview_color_subtitle),
+                        color = settings.gesture.wordPreviewBackground,
+                        fallback = MaterialTheme.colorScheme.surfaceVariant.argbLong(),
+                        info = stringResource(R.string.typing_glide_preview_color_info),
+                    ) { scope.launch { repository.setGestureWordPreviewBackground(it) } }
+                }
+                item(visible = settings.gesture.wordPreview) {
+                    ColorSetting(
+                        R.string.typing_glide_preview_text_color_title,
+                        subtitle = stringResource(R.string.typing_glide_preview_text_color_subtitle),
+                        color = settings.gesture.wordPreviewTextColor,
+                        fallback = MaterialTheme.colorScheme.onSurfaceVariant.argbLong(),
+                        info = stringResource(R.string.typing_glide_preview_text_color_info),
+                    ) { scope.launch { repository.setGestureWordPreviewTextColor(it) } }
                 }
                 // Issue #84. Outside the pill's own block on purpose: this is
                 // about the suggestion strip, so it stands whether the pill is
@@ -2118,55 +2097,53 @@ internal fun TypingHardwareSettings(
                 default = SettingsDefaults.hardwareKeyboard.shortcutsEnabled,
             ) { scope.launch { repository.setHwShortcutsEnabled(it) } }
         }
-        if (hw.shortcutsEnabled) {
-            item {
-                // A chord spells itself, so it arrives with no template around it.
-                val leaderParts = leaderLabel(parseLeader(hw.leader) ?: DefaultLeader)
-                val leaderText = if (leaderParts.templateRes == 0) {
-                    leaderParts.text
-                } else {
-                    stringResource(leaderParts.templateRes, leaderParts.text)
-                }
-                NavRow(
-                    R.string.typing_hw_shortcuts_list_title,
-                    stringResource(R.string.typing_hw_shortcuts_list_subtitle),
-                    value = leaderText,
-                    route = "hwshortcuts",
-                    onClick = onOpenHardwareShortcuts,
-                )
+        item(visible = hw.shortcutsEnabled) {
+            // A chord spells itself, so it arrives with no template around it.
+            val leaderParts = leaderLabel(parseLeader(hw.leader) ?: DefaultLeader)
+            val leaderText = if (leaderParts.templateRes == 0) {
+                leaderParts.text
+            } else {
+                stringResource(leaderParts.templateRes, leaderParts.text)
             }
-            item {
-                ToggleSetting(
-                    R.string.typing_hw_digit_chord_title,
-                    stringResource(R.string.typing_hw_digit_chord_subtitle),
-                    hw.toolbarDigitChord,
-                    info = stringResource(R.string.typing_hw_digit_chord_info),
-                    default = SettingsDefaults.hardwareKeyboard.toolbarDigitChord,
-                ) { scope.launch { repository.setHwToolbarDigitChord(it) } }
-            }
-            item {
-                ToggleSetting(
-                    R.string.typing_hw_modifier_words_title,
-                    stringResource(R.string.typing_hw_modifier_words_subtitle),
-                    hw.hintModifierWords,
-                    info = stringResource(R.string.typing_hw_modifier_words_info),
-                    default = SettingsDefaults.hardwareKeyboard.hintModifierWords,
-                ) { scope.launch { repository.setHwHintModifierWords(it) } }
-            }
-            item {
-                // The readout tracks the live thumb, so its format string is
-                // resolved out here: the display lambda is not composable.
-                val secondsFormat = stringResource(R.string.typing_hw_picker_timeout_value)
-                SliderSetting(
-                    R.string.typing_hw_picker_timeout_title,
-                    subtitle = stringResource(R.string.typing_hw_picker_timeout_subtitle),
-                    value = hw.pickerTimeoutMs.toFloat(),
-                    range = PickerTimeoutRange.first.toFloat()..PickerTimeoutRange.last.toFloat(),
-                    display = { secondsFormat.format("%.1f".format(it / 1000f)) },
-                    info = stringResource(R.string.typing_hw_picker_timeout_info),
-                    default = SettingsDefaults.hardwareKeyboard.pickerTimeoutMs.toFloat(),
-                ) { scope.launch { repository.setHwPickerTimeoutMs(it.toInt()) } }
-            }
+            NavRow(
+                R.string.typing_hw_shortcuts_list_title,
+                stringResource(R.string.typing_hw_shortcuts_list_subtitle),
+                value = leaderText,
+                route = "hwshortcuts",
+                onClick = onOpenHardwareShortcuts,
+            )
+        }
+        item(visible = hw.shortcutsEnabled) {
+            ToggleSetting(
+                R.string.typing_hw_digit_chord_title,
+                stringResource(R.string.typing_hw_digit_chord_subtitle),
+                hw.toolbarDigitChord,
+                info = stringResource(R.string.typing_hw_digit_chord_info),
+                default = SettingsDefaults.hardwareKeyboard.toolbarDigitChord,
+            ) { scope.launch { repository.setHwToolbarDigitChord(it) } }
+        }
+        item(visible = hw.shortcutsEnabled) {
+            ToggleSetting(
+                R.string.typing_hw_modifier_words_title,
+                stringResource(R.string.typing_hw_modifier_words_subtitle),
+                hw.hintModifierWords,
+                info = stringResource(R.string.typing_hw_modifier_words_info),
+                default = SettingsDefaults.hardwareKeyboard.hintModifierWords,
+            ) { scope.launch { repository.setHwHintModifierWords(it) } }
+        }
+        item(visible = hw.shortcutsEnabled) {
+            // The readout tracks the live thumb, so its format string is
+            // resolved out here: the display lambda is not composable.
+            val secondsFormat = stringResource(R.string.typing_hw_picker_timeout_value)
+            SliderSetting(
+                R.string.typing_hw_picker_timeout_title,
+                subtitle = stringResource(R.string.typing_hw_picker_timeout_subtitle),
+                value = hw.pickerTimeoutMs.toFloat(),
+                range = PickerTimeoutRange.first.toFloat()..PickerTimeoutRange.last.toFloat(),
+                display = { secondsFormat.format("%.1f".format(it / 1000f)) },
+                info = stringResource(R.string.typing_hw_picker_timeout_info),
+                default = SettingsDefaults.hardwareKeyboard.pickerTimeoutMs.toFloat(),
+            ) { scope.launch { repository.setHwPickerTimeoutMs(it.toInt()) } }
         }
         item {
             ToggleSetting(
@@ -2209,16 +2186,14 @@ internal fun TypingHardwareSettings(
                 detail = { mode -> ChoiceDetail(stringResource(suggestionHotkeyDescRes(mode))) },
             ) { scope.launch { repository.setHwSuggestionHotkeys(it) } }
         }
-        if (hw.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT) {
-            item {
-                ToggleSetting(
-                    R.string.typing_hw_suggestion_hints_title,
-                    stringResource(R.string.typing_hw_suggestion_hints_subtitle),
-                    hw.suggestionHintsAlways,
-                    info = stringResource(R.string.typing_hw_suggestion_hints_info),
-                    default = SettingsDefaults.hardwareKeyboard.suggestionHintsAlways,
-                ) { scope.launch { repository.setHwSuggestionHintsAlways(it) } }
-            }
+        item(visible = hw.suggestionHotkeys == SuggestionHotkeyMode.ALT_DIGIT) {
+            ToggleSetting(
+                R.string.typing_hw_suggestion_hints_title,
+                stringResource(R.string.typing_hw_suggestion_hints_subtitle),
+                hw.suggestionHintsAlways,
+                info = stringResource(R.string.typing_hw_suggestion_hints_info),
+                default = SettingsDefaults.hardwareKeyboard.suggestionHintsAlways,
+            ) { scope.launch { repository.setHwSuggestionHintsAlways(it) } }
         }
         item {
             ToggleSetting(
@@ -3020,3 +2995,121 @@ internal fun TypingVietnameseFlickSettings(
         }
     }
 }
+
+/**
+ * The three marks a stroke can carry for a doubled letter, and what each one
+ * has to look like before the decoder reads it (#270).
+ *
+ * A glide draws "good" and "god" identically, so shape has nothing to say and
+ * only an intent mark can: a pause on the key, a circle on it, or a rub back
+ * and forth over it. How readily each registers is a property of the hand, not
+ * of the layout, which is why they are worth moving at all. The pause is
+ * always on and has one number; the other two are readings that can be
+ * switched off, and their sliders are hidden while they are.
+ *
+ * Out of line beside [glideRadiusRows] for the same reason: the screen body is
+ * past its length budget. Every range is shared with the setter that stores it,
+ * so a value the slider reaches is always one that is kept (#241).
+ */
+private fun SettingsGroupScope.glideIntentRows(
+    settings: KeyboardSettings,
+    repository: SettingsRepository,
+    scope: CoroutineScope,
+) {
+    // The pause. No switch: a pause is also read as evidence against the words
+    // that have no letter where the finger stopped, so it is never off.
+    item {
+        val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
+        SliderSetting(
+            R.string.typing_glide_dwell_title,
+            subtitle = stringResource(R.string.typing_glide_dwell_subtitle),
+            value = settings.gesture.dwellFull,
+            range = GlideDwellFullRange,
+            display = { valueFormat.format("%.1f".format(it)) },
+            info = stringResource(R.string.typing_glide_dwell_info),
+            default = SettingsDefaults.gesture.dwellFull,
+        ) { scope.launch { repository.setGestureDwellFull(it) } }
+    }
+    // The circle, and the three things that decide whether a curl is one.
+    item {
+        ToggleSetting(
+            R.string.typing_glide_loop_title,
+            stringResource(R.string.typing_glide_loop_subtitle),
+            settings.gesture.loopDouble,
+            info = stringResource(R.string.typing_glide_loop_info),
+            default = SettingsDefaults.gesture.loopDouble,
+        ) { scope.launch { repository.setGestureLoopDouble(it) } }
+    }
+    item(visible = settings.gesture.loopDouble) {
+        val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
+        SliderSetting(
+            R.string.typing_glide_loop_arc_title,
+            subtitle = stringResource(R.string.typing_glide_loop_arc_subtitle),
+            value = settings.gesture.loopMinArc,
+            range = GlideLoopMinArcRange,
+            display = { valueFormat.format("%.1f".format(it)) },
+            info = stringResource(R.string.typing_glide_loop_arc_info),
+            default = SettingsDefaults.gesture.loopMinArc,
+        ) { scope.launch { repository.setGestureLoopMinArc(it) } }
+    }
+    item(visible = settings.gesture.loopDouble) {
+        val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
+        SliderSetting(
+            R.string.typing_glide_loop_extent_title,
+            subtitle = stringResource(R.string.typing_glide_loop_extent_subtitle),
+            value = settings.gesture.loopExtent,
+            range = GlideLoopExtentRange,
+            display = { valueFormat.format("%.1f".format(it)) },
+            info = stringResource(R.string.typing_glide_loop_extent_info),
+            default = SettingsDefaults.gesture.loopExtent,
+        ) { scope.launch { repository.setGestureLoopExtent(it) } }
+    }
+    item(visible = settings.gesture.loopDouble) {
+        val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
+        SliderSetting(
+            R.string.typing_glide_loop_radius_title,
+            subtitle = stringResource(R.string.typing_glide_loop_radius_subtitle),
+            value = settings.gesture.loopRadius,
+            range = GlideLoopRadiusRange,
+            display = { valueFormat.format("%.2f".format(it)) },
+            info = stringResource(R.string.typing_glide_loop_radius_info),
+            default = SettingsDefaults.gesture.loopRadius,
+        ) { scope.launch { repository.setGestureLoopRadius(it) } }
+    }
+    // The rub, which ships off: at the sloppy end of a stroke a slow pivot
+    // with tremor on it looks the same.
+    item {
+        ToggleSetting(
+            R.string.typing_glide_wiggle_title,
+            stringResource(R.string.typing_glide_wiggle_subtitle),
+            settings.gesture.wiggleDouble,
+            info = stringResource(R.string.typing_glide_wiggle_info),
+            default = SettingsDefaults.gesture.wiggleDouble,
+        ) { scope.launch { repository.setGestureWiggleDouble(it) } }
+    }
+    item(visible = settings.gesture.wiggleDouble) {
+        val percentFormat = stringResource(R.string.typing_value_percent)
+        SliderSetting(
+            R.string.typing_glide_wiggle_strength_title,
+            subtitle = stringResource(R.string.typing_glide_wiggle_strength_subtitle),
+            value = settings.gesture.wiggleWeight,
+            range = GlideWiggleWeightRange,
+            display = { percentFormat.format((it * 100).roundToInt()) },
+            info = stringResource(R.string.typing_glide_wiggle_strength_info),
+            default = SettingsDefaults.gesture.wiggleWeight,
+        ) { scope.launch { repository.setGestureWiggleWeight(it) } }
+    }
+    item(visible = settings.gesture.wiggleDouble) {
+        val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
+        SliderSetting(
+            R.string.typing_glide_wiggle_extent_title,
+            subtitle = stringResource(R.string.typing_glide_wiggle_extent_subtitle),
+            value = settings.gesture.wiggleExtent,
+            range = GlideWiggleExtentRange,
+            display = { valueFormat.format("%.2f".format(it)) },
+            info = stringResource(R.string.typing_glide_wiggle_extent_info),
+            default = SettingsDefaults.gesture.wiggleExtent,
+        ) { scope.launch { repository.setGestureWiggleExtent(it) } }
+    }
+}
+

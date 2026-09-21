@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -403,6 +404,39 @@ private fun InstalledSoundSection(
     }
 }
 /**
+ * What importing a sound pack came to, in words.
+ *
+ * Shared with the open-a-file dialog, which reports every outcome including the
+ * good one; the section below stays quiet on success and plays the pack instead.
+ */
+internal fun describeSoundPackImport(context: Context, result: SoundPackImportResult): String = when (result) {
+    is SoundPackImportResult.Imported -> context.resources.getQuantityString(
+        R.plurals.import_sound_pack_done,
+        result.pack.sampleCount,
+        result.pack.name,
+        result.pack.sampleCount,
+    )
+
+    SoundPackImportResult.NotASoundPack ->
+        context.getString(R.string.hardware_sound_pack_not_a_pack_error)
+
+    SoundPackImportResult.TooManyPacks -> context.resources.getQuantityString(
+        R.plurals.hardware_sound_pack_limit_error,
+        SoundPackStore.MAX_PACKS,
+        SoundPackStore.MAX_PACKS,
+    )
+
+    // The refusal carries at most one argument, and "" means none.
+    is SoundPackImportResult.Rejected -> if (result.messageArg.isEmpty()) {
+        context.getString(result.messageRes)
+    } else {
+        context.getString(result.messageRes, result.messageArg)
+    }
+
+    SoundPackImportResult.Failed -> context.getString(R.string.hardware_sound_pack_read_error)
+}
+
+/**
  * The installed sound packs, and the import button.
  *
  * A pack differs from a single sound in the one way worth showing on the row:
@@ -440,29 +474,15 @@ private fun InstalledSoundPackSection(
                     }
                 }.getOrElse { SoundPackImportResult.Failed }
             }
-            when (result) {
-                is SoundPackImportResult.Imported -> {
-                    repository.setKeySoundPackId(result.pack.id)
-                    KeySoundPlayer.previewStroke(
-                        context, KeySoundStyle.PACK, settings.sound.volume, result.pack.id,
-                    )
-                }
-                SoundPackImportResult.NotASoundPack ->
-                    message = context.getString(R.string.hardware_sound_pack_not_a_pack_error)
-                SoundPackImportResult.TooManyPacks ->
-                    message = context.resources.getQuantityString(
-                        R.plurals.hardware_sound_pack_limit_error,
-                        SoundPackStore.MAX_PACKS,
-                        SoundPackStore.MAX_PACKS,
-                    )
-                // The refusal carries at most one argument, and "" means none.
-                is SoundPackImportResult.Rejected -> message = if (result.messageArg.isEmpty()) {
-                    context.getString(result.messageRes)
-                } else {
-                    context.getString(result.messageRes, result.messageArg)
-                }
-                SoundPackImportResult.Failed ->
-                    message = context.getString(R.string.hardware_sound_pack_read_error)
+            if (result is SoundPackImportResult.Imported) {
+                repository.setKeySoundPackId(result.pack.id)
+                // Nothing is said on success here: the pack that was just
+                // selected plays itself, which says it better.
+                KeySoundPlayer.previewStroke(
+                    context, KeySoundStyle.PACK, settings.sound.volume, result.pack.id,
+                )
+            } else {
+                message = describeSoundPackImport(context, result)
             }
         }
     }
@@ -846,18 +866,16 @@ internal fun KeyPressSettings(
                 default = SettingsDefaults.textEditing.deleteHoldDeletesWords,
             ) { scope.launch { repository.setDeleteHoldDeletesWords(it) } }
         }
-        if (settings.textEditing.deleteHoldDeletesWords) {
-            item {
-                SliderSetting(
-                    R.string.keypress_word_delete_repeat_title,
-                    subtitle = stringResource(R.string.keypress_word_delete_repeat_subtitle),
-                    value = settings.keyRepeat.wordDeleteMs.toFloat(),
-                    range = 60f..500f,
-                    display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
-                    info = stringResource(R.string.keypress_word_delete_repeat_info),
-                    default = SettingsDefaults.keyRepeat.wordDeleteMs.toFloat(),
-                ) { scope.launch { repository.setWordDeleteRepeatIntervalMs(it.toInt()) } }
-            }
+        item(visible = settings.textEditing.deleteHoldDeletesWords) {
+            SliderSetting(
+                R.string.keypress_word_delete_repeat_title,
+                subtitle = stringResource(R.string.keypress_word_delete_repeat_subtitle),
+                value = settings.keyRepeat.wordDeleteMs.toFloat(),
+                range = 60f..500f,
+                display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                info = stringResource(R.string.keypress_word_delete_repeat_info),
+                default = SettingsDefaults.keyRepeat.wordDeleteMs.toFloat(),
+            ) { scope.launch { repository.setWordDeleteRepeatIntervalMs(it.toInt()) } }
         }
         item {
             SliderSetting(
@@ -962,44 +980,40 @@ internal fun KeyPressHapticsSettings(
                 }
             }
         }
-        if (settings.haptics.style == HapticStyle.CUSTOM) {
-            item {
-                SliderSetting(
-                    R.string.keypress_haptic_strength_title,
-                    subtitle = stringResource(R.string.keypress_haptic_strength_subtitle),
-                    value = settings.haptics.strengthMs.toFloat(),
-                    range = 5f..60f,
-                    display = { context.getString(R.string.keypress_value_ms, it.roundToInt()) },
-                    info = stringResource(R.string.keypress_haptic_strength_info),
-                    default = SettingsDefaults.haptics.strengthMs.toFloat(),
-                    // Debounced inside the player, so dragging previews smoothly.
-                    preview = {
-                        HapticPlayer.preview(context, settings.haptics.style, settings.haptics.amplitude, it.toInt(), view)
-                    },
-                ) {
-                    scope.launch { repository.setHapticStrengthMs(it.toInt()) }
-                }
+        item(visible = settings.haptics.style == HapticStyle.CUSTOM) {
+            SliderSetting(
+                R.string.keypress_haptic_strength_title,
+                subtitle = stringResource(R.string.keypress_haptic_strength_subtitle),
+                value = settings.haptics.strengthMs.toFloat(),
+                range = 5f..60f,
+                display = { context.getString(R.string.keypress_value_ms, it.roundToInt()) },
+                info = stringResource(R.string.keypress_haptic_strength_info),
+                default = SettingsDefaults.haptics.strengthMs.toFloat(),
+                // Debounced inside the player, so dragging previews smoothly.
+                preview = {
+                    HapticPlayer.preview(context, settings.haptics.style, settings.haptics.amplitude, it.toInt(), view)
+                },
+            ) {
+                scope.launch { repository.setHapticStrengthMs(it.toInt()) }
             }
         }
-        if (settings.haptics.style == HapticStyle.CUSTOM || settings.haptics.style == HapticStyle.SHARP) {
-            item {
-                SliderSetting(
-                    R.string.keypress_haptic_intensity_title,
-                    subtitle = stringResource(R.string.keypress_haptic_intensity_subtitle),
-                    value = settings.haptics.amplitude.toFloat(),
-                    range = 1f..255f,
-                    display = {
-                        context.getString(R.string.keypress_value_percent, it.roundToInt() * 100 / 255)
-                    },
-                    info = stringResource(R.string.keypress_haptic_intensity_info),
-                    default = SettingsDefaults.haptics.amplitude.toFloat(),
-                    // Debounced inside the player, so dragging previews smoothly.
-                    preview = {
-                        HapticPlayer.preview(context, settings.haptics.style, it.toInt(), settings.haptics.strengthMs, view)
-                    },
-                ) {
-                    scope.launch { repository.setHapticAmplitude(it.toInt()) }
-                }
+        item(visible = settings.haptics.style == HapticStyle.CUSTOM || settings.haptics.style == HapticStyle.SHARP) {
+            SliderSetting(
+                R.string.keypress_haptic_intensity_title,
+                subtitle = stringResource(R.string.keypress_haptic_intensity_subtitle),
+                value = settings.haptics.amplitude.toFloat(),
+                range = 1f..255f,
+                display = {
+                    context.getString(R.string.keypress_value_percent, it.roundToInt() * 100 / 255)
+                },
+                info = stringResource(R.string.keypress_haptic_intensity_info),
+                default = SettingsDefaults.haptics.amplitude.toFloat(),
+                // Debounced inside the player, so dragging previews smoothly.
+                preview = {
+                    HapticPlayer.preview(context, settings.haptics.style, it.toInt(), settings.haptics.strengthMs, view)
+                },
+            ) {
+                scope.launch { repository.setHapticAmplitude(it.toInt()) }
             }
         }
         item {
@@ -1022,52 +1036,50 @@ internal fun KeyPressHapticsSettings(
         }
         // Per-event gates: only meaningful while the master switch above is on,
         // so they fold away when it is off.
-        if (settings.haptics.enabled) {
-            item {
-                ToggleSetting(
-                    R.string.keypress_vibrate_space_title,
-                    stringResource(R.string.keypress_vibrate_space_subtitle),
-                    settings.feedback.vibrateOnSpace,
-                    info = stringResource(R.string.keypress_vibrate_space_info),
-                    default = SettingsDefaults.feedback.vibrateOnSpace,
-                ) { scope.launch { repository.setVibrateOnSpace(it) } }
-            }
-            item {
-                ToggleSetting(
-                    R.string.keypress_vibrate_delete_swipe_title,
-                    stringResource(R.string.keypress_vibrate_delete_swipe_subtitle),
-                    settings.feedback.vibrateOnDeleteSwipe,
-                    info = stringResource(R.string.keypress_vibrate_delete_swipe_info),
-                    default = SettingsDefaults.feedback.vibrateOnDeleteSwipe,
-                ) { scope.launch { repository.setVibrateOnDeleteSwipe(it) } }
-            }
-            item {
-                ToggleSetting(
-                    R.string.keypress_vibrate_repeat_title,
-                    stringResource(R.string.keypress_vibrate_repeat_subtitle),
-                    settings.feedback.vibrateOnRepeat,
-                    info = stringResource(R.string.keypress_vibrate_repeat_info),
-                    default = SettingsDefaults.feedback.vibrateOnRepeat,
-                ) { scope.launch { repository.setVibrateOnRepeat(it) } }
-            }
-            item {
-                ToggleSetting(
-                    R.string.keypress_system_touch_title,
-                    stringResource(R.string.keypress_system_touch_subtitle),
-                    settings.feedback.respectSystemTouchFeedback,
-                    info = stringResource(R.string.keypress_system_touch_info),
-                    default = SettingsDefaults.feedback.respectSystemTouchFeedback,
-                ) { scope.launch { repository.setRespectSystemTouchFeedback(it) } }
-            }
-            item {
-                ToggleSetting(
-                    R.string.keypress_dnd_mute_title,
-                    stringResource(R.string.keypress_dnd_mute_subtitle),
-                    settings.feedback.hapticsRespectDnd,
-                    info = stringResource(R.string.keypress_dnd_mute_info),
-                    default = SettingsDefaults.feedback.hapticsRespectDnd,
-                ) { scope.launch { repository.setHapticsRespectDnd(it) } }
-            }
+        item(visible = settings.haptics.enabled) {
+            ToggleSetting(
+                R.string.keypress_vibrate_space_title,
+                stringResource(R.string.keypress_vibrate_space_subtitle),
+                settings.feedback.vibrateOnSpace,
+                info = stringResource(R.string.keypress_vibrate_space_info),
+                default = SettingsDefaults.feedback.vibrateOnSpace,
+            ) { scope.launch { repository.setVibrateOnSpace(it) } }
+        }
+        item(visible = settings.haptics.enabled) {
+            ToggleSetting(
+                R.string.keypress_vibrate_delete_swipe_title,
+                stringResource(R.string.keypress_vibrate_delete_swipe_subtitle),
+                settings.feedback.vibrateOnDeleteSwipe,
+                info = stringResource(R.string.keypress_vibrate_delete_swipe_info),
+                default = SettingsDefaults.feedback.vibrateOnDeleteSwipe,
+            ) { scope.launch { repository.setVibrateOnDeleteSwipe(it) } }
+        }
+        item(visible = settings.haptics.enabled) {
+            ToggleSetting(
+                R.string.keypress_vibrate_repeat_title,
+                stringResource(R.string.keypress_vibrate_repeat_subtitle),
+                settings.feedback.vibrateOnRepeat,
+                info = stringResource(R.string.keypress_vibrate_repeat_info),
+                default = SettingsDefaults.feedback.vibrateOnRepeat,
+            ) { scope.launch { repository.setVibrateOnRepeat(it) } }
+        }
+        item(visible = settings.haptics.enabled) {
+            ToggleSetting(
+                R.string.keypress_system_touch_title,
+                stringResource(R.string.keypress_system_touch_subtitle),
+                settings.feedback.respectSystemTouchFeedback,
+                info = stringResource(R.string.keypress_system_touch_info),
+                default = SettingsDefaults.feedback.respectSystemTouchFeedback,
+            ) { scope.launch { repository.setRespectSystemTouchFeedback(it) } }
+        }
+        item(visible = settings.haptics.enabled) {
+            ToggleSetting(
+                R.string.keypress_dnd_mute_title,
+                stringResource(R.string.keypress_dnd_mute_subtitle),
+                settings.feedback.hapticsRespectDnd,
+                info = stringResource(R.string.keypress_dnd_mute_info),
+                default = SettingsDefaults.feedback.hapticsRespectDnd,
+            ) { scope.launch { repository.setHapticsRespectDnd(it) } }
         }
         // A click on each repeat is a sound, not a buzz: it belongs to the key
         // sound switch, which is where it was drawn from until this was fixed.
@@ -1116,38 +1128,36 @@ internal fun KeyPressPopupSettings(
                 default = SettingsDefaults.popup.enabled,
             ) { scope.launch { repository.setKeyPopup(it) } }
         }
-        if (settings.popup.enabled) {
-            item {
-                ToggleSetting(
-                    R.string.keypress_popup_numeric_title,
-                    stringResource(R.string.keypress_popup_numeric_subtitle),
-                    settings.popup.inNumericFields,
-                    info = stringResource(R.string.keypress_popup_numeric_info),
-                    default = SettingsDefaults.popup.inNumericFields,
-                ) { scope.launch { repository.setKeyPopupInNumericFields(it) } }
-            }
-            item {
-                SliderSetting(
-                    R.string.keypress_popup_min_duration_title,
-                    subtitle = stringResource(R.string.keypress_popup_min_duration_subtitle),
-                    value = settings.popup.minDurationMs.toFloat(),
-                    range = 0f..300f,
-                    display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
-                    info = stringResource(R.string.keypress_popup_min_duration_info),
-                    default = SettingsDefaults.popup.minDurationMs.toFloat(),
-                ) { scope.launch { repository.setKeyPopupMinDurationMs(it.toInt()) } }
-            }
-            item {
-                SliderSetting(
-                    R.string.keypress_popup_max_duration_title,
-                    subtitle = stringResource(R.string.keypress_popup_max_duration_subtitle),
-                    value = settings.popup.maxDurationMs.toFloat(),
-                    range = 400f..2000f,
-                    display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
-                    info = stringResource(R.string.keypress_popup_max_duration_info),
-                    default = SettingsDefaults.popup.maxDurationMs.toFloat(),
-                ) { scope.launch { repository.setKeyPopupMaxDurationMs(it.toInt()) } }
-            }
+        item(visible = settings.popup.enabled) {
+            ToggleSetting(
+                R.string.keypress_popup_numeric_title,
+                stringResource(R.string.keypress_popup_numeric_subtitle),
+                settings.popup.inNumericFields,
+                info = stringResource(R.string.keypress_popup_numeric_info),
+                default = SettingsDefaults.popup.inNumericFields,
+            ) { scope.launch { repository.setKeyPopupInNumericFields(it) } }
+        }
+        item(visible = settings.popup.enabled) {
+            SliderSetting(
+                R.string.keypress_popup_min_duration_title,
+                subtitle = stringResource(R.string.keypress_popup_min_duration_subtitle),
+                value = settings.popup.minDurationMs.toFloat(),
+                range = 0f..300f,
+                display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                info = stringResource(R.string.keypress_popup_min_duration_info),
+                default = SettingsDefaults.popup.minDurationMs.toFloat(),
+            ) { scope.launch { repository.setKeyPopupMinDurationMs(it.toInt()) } }
+        }
+        item(visible = settings.popup.enabled) {
+            SliderSetting(
+                R.string.keypress_popup_max_duration_title,
+                subtitle = stringResource(R.string.keypress_popup_max_duration_subtitle),
+                value = settings.popup.maxDurationMs.toFloat(),
+                range = 400f..2000f,
+                display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                info = stringResource(R.string.keypress_popup_max_duration_info),
+                default = SettingsDefaults.popup.maxDurationMs.toFloat(),
+            ) { scope.launch { repository.setKeyPopupMaxDurationMs(it.toInt()) } }
         }
         // These stop at the preview bubble, and no bubble is published while
         // the switch at the top of the group is off. The font size below is
@@ -1201,29 +1211,27 @@ internal fun KeyPressPopupSettings(
         // Only the floating bubble is placed by these. The on-key one grows out
         // of the key it covers, so there is no distance to set: its height is
         // what carries it past the finger, and that slider is above.
-        if (settings.popup.enabled && !settings.popup.onKey) {
-            item {
-                SliderSetting(
-                    R.string.keypress_popup_offset_y_title,
-                    subtitle = stringResource(R.string.keypress_popup_offset_y_subtitle),
-                    value = settings.popup.floatingOffsetYDp.toFloat(),
-                    range = 0f..96f,
-                    display = { context.getString(R.string.keypress_value_dp, it.toInt()) },
-                    info = stringResource(R.string.keypress_popup_offset_y_info),
-                    default = SettingsDefaults.popup.floatingOffsetYDp.toFloat(),
-                ) { scope.launch { repository.setKeyPopupFloatingOffsetYDp(it.toInt()) } }
-            }
-            item {
-                SliderSetting(
-                    R.string.keypress_popup_offset_x_title,
-                    subtitle = stringResource(R.string.keypress_popup_offset_x_subtitle),
-                    value = settings.popup.floatingOffsetXDp.toFloat(),
-                    range = -64f..64f,
-                    display = { context.getString(R.string.keypress_value_dp, it.toInt()) },
-                    info = stringResource(R.string.keypress_popup_offset_x_info),
-                    default = SettingsDefaults.popup.floatingOffsetXDp.toFloat(),
-                ) { scope.launch { repository.setKeyPopupFloatingOffsetXDp(it.toInt()) } }
-            }
+        item(visible = settings.popup.enabled && !settings.popup.onKey) {
+            SliderSetting(
+                R.string.keypress_popup_offset_y_title,
+                subtitle = stringResource(R.string.keypress_popup_offset_y_subtitle),
+                value = settings.popup.floatingOffsetYDp.toFloat(),
+                range = 0f..96f,
+                display = { context.getString(R.string.keypress_value_dp, it.toInt()) },
+                info = stringResource(R.string.keypress_popup_offset_y_info),
+                default = SettingsDefaults.popup.floatingOffsetYDp.toFloat(),
+            ) { scope.launch { repository.setKeyPopupFloatingOffsetYDp(it.toInt()) } }
+        }
+        item(visible = settings.popup.enabled && !settings.popup.onKey) {
+            SliderSetting(
+                R.string.keypress_popup_offset_x_title,
+                subtitle = stringResource(R.string.keypress_popup_offset_x_subtitle),
+                value = settings.popup.floatingOffsetXDp.toFloat(),
+                range = -64f..64f,
+                display = { context.getString(R.string.keypress_value_dp, it.toInt()) },
+                info = stringResource(R.string.keypress_popup_offset_x_info),
+                default = SettingsDefaults.popup.floatingOffsetXDp.toFloat(),
+            ) { scope.launch { repository.setKeyPopupFloatingOffsetXDp(it.toInt()) } }
         }
         // Shape and radius govern every popup surface, not only the preview
         // bubble: the long-press alternates, the language picker and the panel

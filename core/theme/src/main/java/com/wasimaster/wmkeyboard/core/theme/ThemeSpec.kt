@@ -233,6 +233,17 @@ data class ThemeSpec(
      */
     val suggestionBarBackground: Long? = null,
     /**
+     * Fill of the side rail shown in one-handed mode, and the colour of the two
+     * buttons on it.
+     *
+     * Null leaves the fill transparent, so the board runs on behind the rail,
+     * and draws the glyphs in [secondaryText] — which is what the rail already
+     * did. The rail was never unthemed; it simply had no way to differ from the
+     * board, and a stylesheet states it as its own element.
+     */
+    val oneHandedPanelBackground: Long? = null,
+    val oneHandedPanelIcon: Long? = null,
+    /**
      * Fill for the band the system navigation bar sits on, below the bottom key
      * row. Null inherits the board, as above. Only the gesture bar's own inset
      * is painted, not the extra breathing room the bottom-padding setting adds:
@@ -284,6 +295,17 @@ data class ThemeSpec(
     val pressedKeyBackground: Long? = null,
     val keyBorderColor: Long? = null,
     val keyBorderWidthDp: Float = 0f,
+    /**
+     * How far each key is lifted off the board, in dp; 0 draws no shadow.
+     *
+     * The bordered variants of nearly every popular FlorisBoard theme lift
+     * their keys 2 dp, and a converted theme without it reads as flatter than
+     * the one the user picked. A shape that cannot cast a shadow without
+     * hanging the RenderThread draws none whatever this says — see
+     * [castsElevationShadow], and a key whose fill is see-through draws none
+     * either, since a shadow under nothing is just a smudge.
+     */
+    val keyElevationDp: Float = 0f,
     // Accent (shift-on tint, gesture trail, active tools, links/buttons in panels)
     val accent: Long = 0xFF8AB4F8,
     /**
@@ -305,6 +327,23 @@ data class ThemeSpec(
     val popupBorderColor: Long? = null,
     val popupBorderWidthDp: Float = 0f,
     /**
+     * How far the preview bubble and the long-press alternates are lifted, in
+     * dp. Null keeps the 6 dp every popup drew before this field existed.
+     */
+    val popupElevationDp: Float? = null,
+    /**
+     * The highlight under the alternate your finger is on, and under the
+     * selected row of a menu. Null follows [accent], which is what every popup
+     * did before this field existed.
+     *
+     * Its own field because a stylesheet states it outright, as the focus state
+     * of the popup's items, and a theme whose accent is loud often wants the
+     * highlight quieter than it.
+     */
+    val popupSelectedBackground: Long? = null,
+    /** Text on that highlight; null derives a legible colour from its fill. */
+    val popupSelectedText: Long? = null,
+    /**
      * Image painted inside the preview bubble, over [popupBackground] and
      * under the label, clipped to the popup shape. Fit and alpha follow
      * [keyTextureScale] and [keyTextureOpacity]. Never set in exports — the
@@ -324,15 +363,40 @@ data class ThemeSpec(
     val toolCircleBackground: Long? = null,
     val toolCircleActiveBackground: Long? = null,
     /**
+     * Colour of the glyph on an *active* toolbar tool. Null derives a legible
+     * colour from that tool's fill, which is what every theme did before this
+     * field existed.
+     *
+     * Its own field because the active fill and the glyph on it are separate
+     * elements in a FlorisBoard stylesheet, and deriving one from the other
+     * throws away a colour the theme stated outright.
+     */
+    val toolCircleActiveIcon: Long? = null,
+    /**
      * Outline around the background of every toolbar tool. Null draws none,
      * exactly like [keyBorderColor], and [toolBorderWidthDp] still has to be
      * above 0 for it to show.
      */
     val toolBorderColor: Long? = null,
     val toolBorderWidthDp: Float = 0f,
+    /** How far the background behind a toolbar tool is lifted, in dp; 0 is flat. */
+    val toolElevationDp: Float = 0f,
     // Panels (clipboard/snippet cards, emoji search bar)
     val chipBackground: Long? = null,
     val suggestionText: Long? = null,
+    /**
+     * The quieter text beside the main one: a suggestion's secondary word, a
+     * clipboard entry's kind and timestamp, a panel subheading. Null draws
+     * [suggestionText] at 65% alpha, which is what this was before the field
+     * existed.
+     */
+    val secondaryText: Long? = null,
+    /**
+     * Hairlines between the parts of a panel and between suggestions. Null
+     * draws [suggestionText] at 25% alpha, as before. Alpha is honoured, so a
+     * theme can keep the rule faint in a hue of its own.
+     */
+    val dividerColor: Long? = null,
     // Chips (tool-panel buttons, style strips, plugin buttons)
     /** Text on an unselected chip; null derives from the modifier-key text. */
     val chipText: Long? = null,
@@ -343,6 +407,8 @@ data class ThemeSpec(
     /** Outline around every chip; null draws none, like [keyBorderColor]. */
     val chipBorderColor: Long? = null,
     val chipBorderWidthDp: Float = 0f,
+    /** How far a panel card is lifted off the panel, in dp; 0 is flat. */
+    val cardElevationDp: Float = 0f,
     /**
      * Chip outline shape, as a [KeyShapeKind] name; null keeps the soft
      * rectangle every chip has always drawn. A string for the same reason
@@ -620,12 +686,25 @@ data class KeyOverride(
      * [ThemeSpec.boldKeyLabels] and the accessibility switch under it).
      */
     val bold: Boolean? = null,
+    /**
+     * This key's own outline, as a [KeyShapeKind] name; null follows the
+     * board's [ThemeSpec.keyShape]. A string for the usual forward-compat
+     * reason; read through [keyShapeKindOrNull].
+     *
+     * A single round enter key on a grid of soft rectangles is a signature a
+     * whole family of themes is built on, and it is the one thing a per-key
+     * style could not say. The key's own radius still comes from the board:
+     * one number per theme is the shape the radius slider has, and a shape
+     * that needs its own is [KeyShapeKind.CIRCLE] or [KeyShapeKind.PILL],
+     * neither of which reads a radius.
+     */
+    val shape: String? = null,
 ) {
     val isEmpty: Boolean
         get() = background == null && text == null && border == null &&
             popupBackground == null && popupText == null && hint == null &&
             texture == null && effect == null && effectParam == null &&
-            labelScale == null && bold == null
+            labelScale == null && bold == null && shape == null
 
     /**
      * The kind of burst this key throws on its own, or null when it follows

@@ -58,6 +58,20 @@ body:
       required: true
 
   - type: textarea
+    id: crash-log
+    attributes:
+      label: Crash log
+      description: |
+        If the keyboard crashed, disappeared mid-typing, or swapped itself out for another keyboard, paste its own record here — **Settings › About › Diagnostics › Share diagnostics** ([open it directly](https://wmkeyboard.pages.dev/open/#wmkeyboard://settings/debug_log)).
+
+        **Keep the `version:` and `android:` lines at the top.** They are the part that makes the rest usable: a release build's stack trace reads `at q3.a(SourceFile:15)` and means nothing on its own, and those lines say which build to read it against — including whether it came from F-Droid, Google Play or the releases page here, which each need a different one. A trace pasted without them usually cannot be read at all.
+
+        In the app, **Settings › About › Diagnostics** → hold the crash text copies it with those lines already in front. Nothing you type is ever in there.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
     id: additional-information
     attributes:
       label: Additional Information

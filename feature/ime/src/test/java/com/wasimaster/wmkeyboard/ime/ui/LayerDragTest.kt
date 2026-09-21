@@ -5,6 +5,12 @@ import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
+import com.wasimaster.wmkeyboard.core.layout.deletesBackward
+import com.wasimaster.wmkeyboard.core.layout.deletesForward
+import com.wasimaster.wmkeyboard.core.layout.holdIsSpokenFor
+import com.wasimaster.wmkeyboard.core.layout.holdRepeats
+import com.wasimaster.wmkeyboard.core.settings.TextEditAction
+import com.wasimaster.wmkeyboard.core.settings.repeats
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import org.junit.Assert.assertEquals
@@ -133,19 +139,51 @@ class LayerDragTest {
 
     /**
      * The delete keys keep glide, ink and the octopus off their drags (#243),
-     * each only while its own swipe is on: backspace beside the bottom letter
-     * row started a glide that typed a word on top of the swipe's deletion.
+     * whether or not their swipe is on (#274): backspace beside the bottom
+     * letter row started a glide that typed a word on top of the deletions,
+     * from a swipe or from a held, repeating key alike.
      */
     @Test
-    fun `a delete key starts its swipe only while that swipe is on`() {
-        val backspace = Key("", action = KeyAction.Delete)
-        val forward = Key("", action = KeyAction.ForwardDelete)
-        assertTrue(backspace.startsDeleteSwipe(backspace = true, forward = false))
-        assertFalse(backspace.startsDeleteSwipe(backspace = false, forward = true))
-        assertTrue(forward.startsDeleteSwipe(backspace = false, forward = true))
-        assertFalse(forward.startsDeleteSwipe(backspace = true, forward = false))
-        assertFalse(Key("m").startsDeleteSwipe(backspace = true, forward = true))
-        assertFalse(null.startsDeleteSwipe(backspace = true, forward = true))
+    fun `a stroke from a delete key never starts a glide`() {
+        assertTrue(Key("", action = KeyAction.Delete).ownsDeleteStroke())
+        assertTrue(Key("", action = KeyAction.ForwardDelete).ownsDeleteStroke())
+        assertFalse(Key("m").ownsDeleteStroke())
+        assertFalse(null.ownsDeleteStroke())
+    }
+
+    /**
+     * And the text-editing pad's own delete keys are delete keys (#226): they
+     * carry an `Edit` action rather than [KeyAction.Delete], which is why a ⌫
+     * placed on a panel used to tap and repeat and never swipe, and glided.
+     */
+    @Test
+    fun `the pad's delete keys own their strokes too`() {
+        assertTrue(Key("", action = KeyAction.Edit(TextEditAction.BACKSPACE)).ownsDeleteStroke())
+        assertTrue(Key("", action = KeyAction.Edit(TextEditAction.FORWARD_DELETE)).ownsDeleteStroke())
+        assertFalse(Key("", action = KeyAction.Edit(TextEditAction.LEFT)).ownsDeleteStroke())
+    }
+
+    /** Both spellings of each delete key answer the direction question alike. */
+    @Test
+    fun `the direction of a delete key does not depend on how it was spelled`() {
+        assertTrue(KeyAction.Delete.deletesBackward())
+        assertTrue(KeyAction.Edit(TextEditAction.BACKSPACE).deletesBackward())
+        assertFalse(KeyAction.Delete.deletesForward())
+        assertFalse(KeyAction.Edit(TextEditAction.BACKSPACE).deletesForward())
+        assertTrue(KeyAction.ForwardDelete.deletesForward())
+        assertTrue(KeyAction.Edit(TextEditAction.FORWARD_DELETE).deletesForward())
+        assertFalse(KeyAction.ForwardDelete.deletesBackward())
+        assertFalse(KeyAction.Edit(TextEditAction.FORWARD_DELETE).deletesBackward())
+        assertFalse(KeyAction.Edit(TextEditAction.LEFT).deletesBackward())
+        assertFalse(KeyAction.Text.deletesBackward())
+    }
+
+    /** A held ⌦ on the pad repeats, so its hold is not free for alternates. */
+    @Test
+    fun `the pad's forward delete repeats while held`() {
+        assertTrue(TextEditAction.FORWARD_DELETE.repeats)
+        assertTrue(Key("", action = KeyAction.Edit(TextEditAction.FORWARD_DELETE)).holdRepeats())
+        assertTrue(KeyAction.Edit(TextEditAction.FORWARD_DELETE).holdIsSpokenFor())
     }
 
     // ---- commitsFromLayerDrag -----------------------------------------------

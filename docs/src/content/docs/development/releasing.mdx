@@ -16,12 +16,13 @@ of it, so nothing here needs a branch or a patched source tree.
 
 | | GitHub release | F-Droid | Play Store |
 |---|---|---|---|
-| Flavor | `full` **and** `lite`, each in `intl` **and** `en` | `lite`, `en` | `full`, `intl` |
+| Flavor | `full` **and** `lite`, each in `intl` **and** `en` | `lite`, `intl` | `full`, `en` |
+| Gradle task | the four `assemble*Release` | `assembleLiteRelease`, an alias for `assembleLiteIntlRelease` | `bundleFullEnRelease` |
 | `wmkb.enablePlayStore` | `false` | `false` | `true` |
 | `wmkb.enableGms` | `true` | `false` | `true` |
 | `wmkb.enableFdroid` | `false` | `true` | `false` |
 | `wmkb.splitApks` | `true` | not used | ignored by `bundle*` |
-| Artifact | one APK per ABI, for all four flavor combinations, plus R8 mappings, native symbols and `SHA256SUMS.txt` | one APK, built by F-Droid | one AAB, with its R8 mapping and native symbols inside |
+| Artifact | one APK per ABI, for all four flavor combinations, plus R8 mappings, native symbols and `SHA256SUMS.txt` | one APK, built by F-Droid, carrying our signature once it matches the release's `-fdroid.apk` | one AAB, with its R8 mapping and native symbols inside |
 | ML Kit | bundled in the APK | absent | unbundled, fetched from Play services |
 | Local LLM | bundled | absent | on-demand `:feature:llm` module |
 | In-app updates | GitHub releases, downloads and installs | checks F-Droid, links out | Play In-App Updates |
@@ -57,7 +58,8 @@ different key, and the app checks for that itself so the refusal at least
 arrives as a sentence rather than a silent failure.
 
 `wmkb.enableFdroid=true` gets a checker that asks F-Droid and opens F-Droid,
-and no installer at all, since F-Droid signs its own builds.
+and no installer at all. F-Droid's own client installs F-Droid builds, and
+installs up to 0.5.9 carry F-Droid's key rather than ours.
 :::
 
 ## Where the updater code lives
@@ -112,23 +114,71 @@ attaches one APK per ABI for each of the four flavor combinations, plus a
 `SHA256SUMS.txt`, to the release.
 
 The release also carries the files you need to read a crash report from those
-APKs. The `*-mapping.txt.gz` files are the R8 mappings, one per flavor
-combination (`full-intl`, `full-en`, `lite-intl`, `lite-en`), and
-`*-full-intl-native-symbols.zip` and `*-full-en-native-symbols.zip` hold the
-native debug symbols. The two language builds are separate R8 runs, so their
-mappings are not interchangeable even though the Kotlin that went in was
-identical. Retrace a stack trace with the mapping from the same flavor and
-version:
+APKs. The `*-mapping.txt.gz` files are the R8 mappings — one per flavor
+combination (`full-intl`, `full-en`, `lite-intl`, `lite-en`), plus a fifth,
+`*-play-mapping.txt.gz` — and `*-full-intl-native-symbols.zip` and
+`*-full-en-native-symbols.zip` hold the native debug symbols. The two language
+builds are separate R8 runs, so their mappings are not interchangeable even
+though the Kotlin that went in was identical. Retrace a stack trace with the
+mapping from the same flavor and version:
 
 ```sh
-gunzip -k wmkeyboard-0.5.8-vc19-full-mapping.txt.gz
-retrace wmkeyboard-0.5.8-vc19-full-mapping.txt stacktrace.txt
+gunzip -k wmkeyboard-0.5.9-vc24-full-intl-mapping.txt.gz
+retrace wmkeyboard-0.5.9-vc24-full-intl-mapping.txt stacktrace.txt
 ```
 
-Do not use these files for a crash from Play. The Play build uses different
-channel flags, so R8 renames the code differently. Play needs no upload for
-this: the AAB carries its own mapping and symbols, and Play Console reads them
-from the bundle.
+The fifth one comes from the `bundle` job rather than the `apks` job, and it is
+there because the Play build is compiled with different channel flags, so R8
+renames it differently and none of the other four fit a crash from a Play
+install. Play Console reads the copy inside the AAB and needs no upload; a
+reporter on GitHub cannot reach that copy, and neither can the retrace
+workflow below, so it is published like the rest.
+
+### The retrace workflow
+
+Nobody has to do any of the above by hand for a crash pasted into an issue.
+[`retrace.yml`](https://github.com/wasi-master/wmkeyboard/blob/main/.github/workflows/retrace.yml)
+watches new issues and comments, and when a body holds frames that look
+obfuscated it reads the `version:` line out of the app's own crash record,
+fetches the matching mapping off that release, runs R8's `retrace` over the
+whole body, and comments the result.
+
+What makes the lookup deterministic rather than a guess is that the record
+names its build. `DebugLog` writes `version: 0.5.9 (24) fullEn (Play Store)`,
+and the flavor there is the whole two-dimension name, which `:app` hands the
+log on startup — `:core:common` compiles against `:core:config`, whose
+`BuildConfig.FLAVOR` carries the `capabilities` dimension alone and would say
+just `full`. A record from an F-Droid install is refused with a note instead: the
+F-Droid build's mapping is not published. From 0.5.10 that build is
+identical to the release's `-fdroid.apk`, so its mapping could be.
+
+### Why a mapping is checked before it is used
+
+A wrong mapping does not fail. It renames every frame, into names that read
+perfectly and mean nothing — [#271](https://github.com/wasi-master/wmkeyboard/issues/271)
+was a crash in the translate panel, from an F-Droid install, and the first
+version of this workflow retraced it into `WmSlider` and `SoundPack` because
+it picked whichever mapping renamed *more* frames, 57 against 56.
+
+So before anything is retraced, each candidate mapping is checked against the
+trace: for a frame `a.b(SourceFile:12)`, the mapping has to hold class `a`, a
+member renamed to `b` inside it, and a line range around 12. Matching the
+class alone proves nothing, because every mapping of this app holds thousands
+of two-letter class names. The method and line together are what a different
+R8 run cannot fake.
+
+The separation is absolute, and measured rather than assumed — across #252,
+#253, #237 and #271 the correct mapping accounts for **100%** of the frames
+and every wrong one for **0–20%**, with nothing in between. Below 60% nothing
+is posted but a note saying so, which is what #271 gets now.
+
+Commenting `/retrace` on an issue re-runs it against the issue body, which is
+what to do when a trace was pasted before its release was published.
+
+The workflow treats every issue body as hostile text: it reaches the script
+through the environment and a file, never through a shell argument or a
+workflow expression inside a `run:` block, and the retraced output goes back
+inside a fence long enough that no backtick run in it can escape.
 
 ### One-time setup
 
@@ -167,8 +217,12 @@ from the bundle.
    to match.
 
 2. **Write the store changelog.** `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`.
-   F-Droid and Play both read this file, so it is the only place you write it.
-   Play caps it at 500 characters.
+   F-Droid and Play both read this file, so it is usually the only place you write it.
+   Play caps it at 500 characters. When Play needs different notes from F-Droid,
+   put Play's under `fastlane/play/metadata/android/en-US/changelogs/<versionCode>.txt`:
+   the `internal` lane uploads that one instead, and F-Droid keeps the shared
+   file. 0.5.10 does this, because its F-Droid notes open with the one-time
+   reinstall for [reproducible builds](#reproducible-builds).
 
 3. **Write the release notes.** `release-notes/<versionName>.md`, in the repo
    root. This is the prose at the top of the GitHub release: what changed, in
@@ -259,32 +313,47 @@ builds and uploads as workflow artifacts, and no release is created.
 
 ## Getting into F-Droid
 
-F-Droid does not take your APK. It builds from source on its own machines and
-signs with its own key, which is why the `lite` flavor exists. Every
+F-Droid does not take your APK as it is. It builds from source on its own
+machines, and publishes our signature only after its build turns out
+identical to ours (see [Reproducible builds](#reproducible-builds) below).
+Building from source is why the `lite` flavor exists. Every
 proprietary dependency in the tree (ML Kit, LiteRT, Play's update and feature
 delivery libraries, `play-services-auth`) is declared `fullImplementation` or
 sits behind a channel flag, so `lite` has no Google artifact on its compile
 classpath at all.
 
-Since 0.5.10 the recipe's `gradle:` list has to name **two** flavours, not one:
+The recipe's `gradle:` list names one flavour, `lite`, as it has since before
+`:app` had a second dimension. fdroidserver joins that list into a task name,
+so what it runs is `assembleLiteRelease`. AGP stopped registering a task by
+that name when the `languages` dimension arrived in 0.5.10: with two dimensions
+it offers `assembleLiteIntlRelease` and `assembleLiteEnRelease`, and answers
+the old name with an ambiguity error.
 
-```yaml
-    gradle:
-      - lite
-      - en
-```
+So `app/build.gradle.kts` registers `assembleLiteRelease` itself, as an alias
+for `assembleLiteIntlRelease`. The alias is there because the recipe cannot be
+counted on to change. `AutoUpdateMode: Version` writes each new `Builds:` entry
+by copying the last one, `gradle: [lite]` included, and nobody reviews what
+the bot writes.
 
-fdroidserver joins them in order to build the task name, so those two lines
-mean `assembleLiteEnRelease`. They must be listed in the same order as the
-dimensions are declared in `app/build.gradle.kts`, which is `capabilities` and
-then `languages`. A recipe that still lists `lite` alone names a task that no
-longer exists and the build fails outright rather than quietly producing the
-wrong APK.
+The alias does one thing besides run the build. fdroidserver looks for the APK
+in the directory under `app/build/outputs/apk/` whose name matches its flavour
+list, which is `lite`, and a two-dimension build writes to `liteIntl/`. Without
+help that ends in `Failed to find any output apks` after a build that
+succeeded. The alias therefore mirrors the APK into `apk/lite/release/`, where
+the single-dimension build used to put it. It is a `Sync` and not a `Copy`,
+because fdroidserver also refuses a directory that holds more than one APK.
 
-F-Droid gets `en` on purpose. It ships one APK to everybody, so the 48
-translations would land on every installer whole, and they are worth about
-41 MB against a `lite` build that is otherwise around 12 MB. Anyone who wants
-the translated app can take an `intl` APK from the GitHub release.
+`bundleFullRelease` is kept the same way, as an alias for `bundleFullEnRelease`
+that mirrors the AAB to `bundle/fullRelease/`. Nothing in this repo calls it
+any more: the release workflow and the `bundle_play` lane both name the real
+task.
+
+F-Droid gets `intl` on purpose. It ships one APK to everybody and nothing
+downstream of the build adds a language, so the APK is the only place an
+F-Droid user can get the translations from. That is worth about 41 MB on a
+`lite` build that is otherwise around 12 MB. The small `lite-en` APK is on the
+GitHub release, and from 0.5.10 it installs over an F-Droid install like any
+update, because both carry the same key.
 
 The build recipe is staged in the repo at `fdroid/com.wasimaster.wmkeyboard.yml`.
 F-Droid never reads it from there; it is versioned next to the code so the
@@ -312,8 +381,12 @@ instead.
    on their side means a round trip:
 
    ```sh
-   ./gradlew clean assembleLiteEnRelease -Pwmkb.enablePlayStore=false -Pwmkb.enableGms=false
+   ./gradlew clean assembleLiteRelease -Pwmkb.enablePlayStore=false -Pwmkb.enableGms=false
    ```
+
+   That is the task name fdroidserver runs. Afterwards
+   `app/build/outputs/apk/lite/release/` must hold exactly one APK, since that
+   is where it will look.
 
    :::caution[No module may ask for a JDK toolchain]
    The recipe deletes the foojay resolver, because the scanner rejects anything
@@ -361,6 +434,49 @@ instead.
 
 </Steps>
 
+### Reproducible builds
+
+From 0.5.10 the F-Droid build is signed with the same key as the GitHub
+APKs. F-Droid still compiles it: the recipe's `Binaries:` line points at
+`wmkeyboard-<version>-vc<code>-fdroid.apk` on the GitHub release, and after
+F-Droid's own build finishes it downloads that file and compares the two.
+If they are identical apart from the signature, it copies our signature onto
+its build and publishes that. If they are not, that version fails and does
+not ship on F-Droid. `AllowedAPKSigningKeys` pins the certificate, so a
+reference APK signed with anything else is refused as well.
+
+The `fdroid` job in the release workflow builds that file. It is the recipe
+copied exactly: `assembleLiteRelease` run from `app/`, the recipe's three
+`-P` flags, no API keys, no ABI split, on its own runner so nothing leaks in
+from the other builds. It skips the recipe's `prebuild` seds, because they
+only delete lines a `lite` build never reads. That was checked before the
+switch by rebuilding 0.5.9 and comparing it with the APK F-Droid had
+published.
+
+The rules that follow from this:
+
+- **Never re-upload the `-fdroid.apk`** of a release that is already out.
+  F-Droid fetches it days after the tag, and a file built from anything
+  other than the tagged commit fails the comparison.
+- **Anything that makes two builds of one commit differ breaks F-Droid.**
+  A timestamp or a random value in `BuildConfig`, a dependency pulled by a
+  version range, a JDK toolchain other than the one their image carries.
+  When a build fails the comparison, their build log holds the diff.
+- **Build it from a real clone.** AGP writes the commit hash into
+  `META-INF/version-control-info.textproto`. From a git worktree or a
+  tarball it cannot read the repository and writes `NO_VALID_GIT_FOUND`
+  instead, and that one file fails the comparison. The `fdroid` job checks
+  the hash is there.
+- **Keep the certificate check in the `fdroid` job in step with the recipe**
+  if the signing key ever changes.
+
+The switch cost one reinstall. Installs from F-Droid up to 0.5.9 were signed
+with F-Droid's key, and Android will not update an app to a build signed with
+a different one. Those users had to export a backup, uninstall, and install
+0.5.10 again. Dual signing (F-Droid publishes both signatures for each
+version, as Liseur does) would have spared them, at the price of a hand-made
+fdroiddata merge request for every release. It was turned down.
+
 :::note[Screenshots and description come from this repo]
 F-Droid reads `fastlane/metadata/android/en-US/` directly out of the source
 tree: `title.txt`, `short_description.txt`, `full_description.txt`, the
@@ -383,7 +499,9 @@ Play is the side that can be redirected, so Play is the side that moved.
 
 Only the three text files diverge. Images and changelogs stay in the shared
 tree, uploaded by `graphics` and `internal`, which read the default path. One
-copy of each, nothing to keep in step.
+copy of each, nothing to keep in step. The exception is a changelog placed
+under the Play tree for a version whose Play notes must differ, which
+`internal` prefers when it exists.
 
 :::caution[The lite description must not promise what lite does not ship]
 The lite flavour has no ML Kit, no Whisper and no Harper, so it has no
@@ -502,7 +620,7 @@ bundle install
 | Lane | What it does |
 |---|---|
 | `preflight` | checks the changelog for the current `versionCode` exists, signing is configured, and both listing trees are within Play's character limits |
-| `bundle_play` | `bundleFullIntlRelease` with the Play channel flags. Play always gets `intl`: the bundle splits by language, so each installer downloads only their own and the translations cost them nothing |
+| `bundle_play` | `bundleFullEnRelease` with the Play channel flags. Play always gets `en`: it translates the app strings itself and injects them into the bundle at upload, and the translations in the repo were recovered from Play to begin with, so an `intl` bundle would only hand them back |
 | `apks` | sideload APKs, full and lite in both language builds, one per ABI |
 | `internal` | checks the changelog, builds the AAB (or takes `aab:path`), uploads to the internal track. Only the build path checks signing, since a prebuilt `aab:` is assumed already signed |
 | `promote` | move the internal release to production (`to:`, `from:`, `rollout:` options) |

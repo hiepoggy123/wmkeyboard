@@ -33,7 +33,8 @@ SIDELOAD_PROPS = {
 # Play's tree is the one below, chosen with supply's `metadata_path`. Only the
 # three text files diverge. Images and changelogs stay in the shared tree and
 # are uploaded by the `graphics` and `internal` lanes, which read the default
-# path, so there is one copy of each and nothing to keep in step.
+# path, so there is one copy of each and nothing to keep in step. The one
+# exception is a Play-only changelog, see play_changelog_override below.
 PLAY_METADATA_PATH = File.expand_path("play/metadata/android", __dir__)
 PLAY_LISTING_DIR = File.join(PLAY_METADATA_PATH, "en-US")
 FDROID_LISTING_DIR = File.expand_path("metadata/android/en-US", __dir__)
@@ -107,6 +108,16 @@ def ensure_changelog!
   ) unless File.exist?(changelog)
 end
 
+# A changelog under the Play tree, when there is one, is what Play gets for that
+# version, and the shared one stays F-Droid's. For a note only F-Droid users
+# need: 0.5.10 tells F-Droid installs to reinstall once for the switch to
+# reproducible builds, which would only confuse a Play user. Most versions have
+# no override and Play reads the shared file as before.
+def play_changelog_override
+  path = File.join(PLAY_LISTING_DIR, "changelogs", "#{version_code}.txt")
+  File.exist?(path) ? path : nil
+end
+
 platform :android do
   desc "Verify version, changelog and signing are consistent before a release"
   lane :preflight do
@@ -116,15 +127,21 @@ platform :android do
     UI.success("#{version_name} (#{version_code}) — changelog present, signing configured")
   end
 
-  # Play always gets the `intl` build. The bundle splits by language and each
-  # user downloads only their own, so the 48 translations cost a Play installer
-  # nothing, and an `en` bundle would take them away for no saving. The `en`
-  # flavour exists for the single-APK channels, GitHub and F-Droid, where one
-  # file has to carry every language it offers.
-  desc "Build the Play AAB (bundleFullIntlRelease with the Play channel flags)"
+  # Play always gets the `en` build. Play translates the app strings itself and
+  # injects them into the bundle at upload, so a Play installer reads the app in
+  # their own language either way. The 48 translations in the repo were
+  # recovered from Play to begin with, and an `intl` bundle would only hand
+  # them back. They are there for the channels nobody translates for: F-Droid
+  # builds `intl`, and GitHub offers both.
+  #
+  # The task is named in full rather than by the `bundleFullRelease` alias in
+  # app/build.gradle.kts, which builds the same bundle but also mirrors it to
+  # bundle/fullRelease/. The gradle action reports the newest .aab it can find
+  # as GRADLE_AAB_OUTPUT_PATH, and one candidate is better than two.
+  desc "Build the Play AAB (bundleFullEnRelease with the Play channel flags)"
   lane :bundle_play do
     ensure_signing!
-    gradle(task: "bundleFullIntlRelease", properties: PLAY_PROPS)
+    gradle(task: "bundleFullEnRelease", properties: PLAY_PROPS)
   end
 
   desc "Build the sideload/GitHub-release APKs: full + lite in both language builds, one APK per ABI"
@@ -159,7 +176,7 @@ platform :android do
       bundle_play
       aab = lane_context[SharedValues::GRADLE_AAB_OUTPUT_PATH]
     end
-    upload_to_play_store(
+    upload = {
       track: "internal",
       aab: aab,
       release_status: "completed",
@@ -171,7 +188,15 @@ platform :android do
       # First uploads and some policy states cannot be auto-submitted for
       # review; land the change in the Console instead of failing the lane.
       rescue_changes_not_sent_for_review: true,
-    )
+    }
+    # Only changelogs are read from metadata_path here (metadata, images and
+    # screenshots are all skipped above), so pointing it at the Play tree swaps
+    # the release notes and nothing else.
+    if (override = play_changelog_override)
+      UI.message("Release notes from the Play-only #{override}")
+      upload[:metadata_path] = PLAY_METADATA_PATH
+    end
+    upload_to_play_store(**upload)
     UI.success("#{version_name} (#{version_code}) is on the internal track")
   end
 

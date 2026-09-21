@@ -50,7 +50,12 @@ import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictStore
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
+import com.wasimaster.wmkeyboard.core.input.composer.FlexLanguagePack
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
@@ -62,7 +67,8 @@ import com.wasimaster.wmkeyboard.core.layout.KeymanBinding
 import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
-import com.wasimaster.wmkeyboard.core.prediction.BengaliSpellingMap
+import com.wasimaster.wmkeyboard.core.prediction.PhoneticSchemes
+import com.wasimaster.wmkeyboard.core.prediction.SpellingMap
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.DeviceLocales
 import com.wasimaster.wmkeyboard.core.script.FancyStyles
@@ -973,7 +979,7 @@ internal fun LanguageDetailScreen(
     // rather than ত্ম্র. Off is for the person who wants the letter-for-letter
     // reading and cannot otherwise get it, since the map outranks every other
     // suggestion source.
-    if (langId in BengaliSpellingMap.LANGUAGES) {
+    if (langId in SpellingMap.LANGUAGES) {
         SettingsGroup(stringResource(R.string.languages_spelling_map_title)) {
             item {
                 ToggleSetting(
@@ -1092,6 +1098,31 @@ internal fun LanguageDetailScreen(
                             )
                         }
                     }
+                }
+            }
+        }
+        // English typed on this language's phonetic layout (Avro, Hindi
+        // phonetic). Only with English picked just above: without it the rule
+        // has no English to weigh, and these would be switches that do nothing.
+        if (PhoneticSchemes.forLanguage(langId) != null && "en" in secondaries) {
+            SettingsGroup(stringResource(R.string.languages_phonetic_english_group)) {
+                item {
+                    ToggleSetting(
+                        R.string.languages_phonetic_english_title,
+                        stringResource(R.string.languages_phonetic_english_subtitle),
+                        settings.suggestionStrip.phoneticEnglishFor(langId),
+                        info = stringResource(R.string.languages_phonetic_english_info, lang.englishName),
+                        default = SettingsDefaults.suggestionStrip.phoneticEnglishFor(langId),
+                    ) { scope.launch { repository.setPhoneticEnglish(langId, it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.languages_phonetic_english_switch_title,
+                        stringResource(R.string.languages_phonetic_english_switch_subtitle),
+                        settings.suggestionStrip.phoneticEnglishSwitch,
+                        info = stringResource(R.string.languages_phonetic_english_switch_info),
+                        default = SettingsDefaults.suggestionStrip.phoneticEnglishSwitch,
+                    ) { scope.launch { repository.setPhoneticEnglishSwitch(it) } }
                 }
             }
         }
@@ -1250,6 +1281,13 @@ internal fun EmojiDictRow(entry: EmojiDictEntry) {
 }
 
 /**
+ * The packs a FlorisBoard language pack can fill: the two shape-based schemes
+ * this app has composers for. Wubi, Zhengma and the rest are in those files
+ * too and have nowhere to go here.
+ */
+private val FLEX_FILLABLE_PACKS = setOf("cangjie", "stroke")
+
+/**
  * Download/delete rows for a language's [CjkDictCatalog] packs, driven by the
  * process-level [CjkDictDownloadManager] so progress survives navigation. The
  * pack replaces the small bundled dictionary once fetched (the service reloads
@@ -1268,6 +1306,46 @@ private fun CjkDictPackManager(
     val notifyDownload = rememberDownloadNotifier()
     val states by CjkDictDownloadManager.states.collectAsState()
     LaunchedEffect(langId) { CjkDictDownloadManager.refresh(filesDir) }
+
+    // Whatever the last FlorisBoard language-pack import had to say, shown in
+    // place of the row's subtitle. A pack is a large file and a silent button
+    // would read as one that did nothing.
+    var flexMessage by remember { mutableStateOf<String?>(null) }
+    var flexBusy by remember { mutableStateOf(false) }
+    val flexLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        flexBusy = true
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        FlexLanguagePack.import(input, filesDir, context.cacheDir)
+                    }
+                }.getOrNull() ?: FlexLanguagePack.Result.Unreadable
+            }
+            flexBusy = false
+            flexMessage = when (result) {
+                is FlexLanguagePack.Result.Imported -> context.getString(
+                    R.string.languages_cjk_flex_import_done,
+                    result.schema,
+                    result.rows,
+                )
+                is FlexLanguagePack.Result.NoUsableTable -> context.getString(
+                    R.string.languages_cjk_flex_import_unusable,
+                    result.schemas.joinToString(", "),
+                )
+                FlexLanguagePack.Result.NotALanguagePack ->
+                    context.getString(R.string.languages_cjk_flex_import_not_a_pack)
+                FlexLanguagePack.Result.Unreadable ->
+                    context.getString(R.string.languages_cjk_flex_import_unreadable)
+            }
+            // A new pack on disk changes the state token, and the row above has
+            // to notice it without a trip out of the screen and back.
+            CjkDictDownloadManager.refresh(filesDir)
+        }
+    }
 
     // Named from the registry rather than an if-chain, so a new CJK language
     // does not silently inherit another language's heading.
@@ -1339,6 +1417,23 @@ private fun CjkDictPackManager(
             }
         }
 
+        // A FlorisBoard language pack holds the same shape-based tables the
+        // Cangjie and stroke packs above do, so somebody arriving with one can
+        // fill them without a download. Only offered for the language whose
+        // packs those are.
+        item(visible = CjkDictCatalog.forLang(langId).any { it.id in FLEX_FILLABLE_PACKS }) {
+            WmRow(
+                title = stringResource(R.string.languages_cjk_flex_import_title),
+                subtitle = flexMessage ?: stringResource(R.string.languages_cjk_flex_import_subtitle),
+                trailing = {
+                    TextButton(
+                        enabled = !flexBusy,
+                        onClick = { flexLauncher.launch(FlexLanguagePack.IMPORT_MIME_TYPES) },
+                    ) { Text(stringResource(CommonR.string.common_import)) }
+                },
+            )
+        }
+
         // Traditional output suits both Chinese (Taiwan) and Cantonese (Hong Kong),
         // so unlike the pinyin options below it is not gated to zh.
         item {
@@ -1354,31 +1449,27 @@ private fun CjkDictPackManager(
         // Traditional characters are only half of writing Traditional: Taipei
         // says 計程車 where the mainland says 出租車, and no character map
         // reaches that. Only worth showing once the toggle above is on.
-        if (settings.cjk.traditionalOutput) {
-            item {
-                ChoiceSetting(
-                    R.string.languages_cjk_region_title,
-                    info = stringResource(R.string.languages_cjk_region_info),
-                    options = HanVariant.HanRegion.entries.map { it to stringResource(cjkRegionLabelRes(it)) },
-                    selected = settings.cjk.hanRegion,
-                    default = SettingsDefaults.cjk.hanRegion,
-                    detail = { region -> ChoiceDetail(stringResource(cjkRegionDescRes(region))) },
-                ) { region -> scope.launch { repository.setCjkHanRegion(region) } }
-            }
+        item(visible = settings.cjk.traditionalOutput) {
+            ChoiceSetting(
+                R.string.languages_cjk_region_title,
+                info = stringResource(R.string.languages_cjk_region_info),
+                options = HanVariant.HanRegion.entries.map { it to stringResource(cjkRegionLabelRes(it)) },
+                selected = settings.cjk.hanRegion,
+                default = SettingsDefaults.cjk.hanRegion,
+                detail = { region -> ChoiceDetail(stringResource(cjkRegionDescRes(region))) },
+            ) { region -> scope.launch { repository.setCjkHanRegion(region) } }
         }
 
         // Cantonese-only: the sound mergers most Hong Kong speakers have, and
         // therefore spell — without this, someone who says 你 as lei5 types `lei`
         // and the dictionary (which files it under nei5) offers nothing at all.
-        if (langId == "yue") {
-            item {
-                ToggleSetting(
-                    R.string.languages_cjk_lazy_title,
-                    stringResource(R.string.languages_cjk_lazy_subtitle),
-                    settings.cjk.jyutpingLazy,
-                    default = SettingsDefaults.cjk.jyutpingLazy,
-                ) { on -> scope.launch { repository.setJyutpingLazy(on) } }
-            }
+        item(visible = langId == "yue") {
+            ToggleSetting(
+                R.string.languages_cjk_lazy_title,
+                stringResource(R.string.languages_cjk_lazy_subtitle),
+                settings.cjk.jyutpingLazy,
+                default = SettingsDefaults.cjk.jyutpingLazy,
+            ) { on -> scope.launch { repository.setJyutpingLazy(on) } }
         }
 
     }
@@ -1428,14 +1519,12 @@ private fun CjkDictPackManager(
                         )
                     }
                 }
-                if (settings.cjk.pinyinFuzzyPairs != PinyinFuzzy.ALL_PAIRS) {
-                    item {
-                        ActionRow(
-                            title = R.string.languages_cjk_fuzzy_pairs_reset_title,
-                            subtitle = null,
-                            action = stringResource(CommonR.string.common_reset),
-                        ) { scope.launch { repository.resetPinyinFuzzyPairs() } }
-                    }
+                item(visible = settings.cjk.pinyinFuzzyPairs != PinyinFuzzy.ALL_PAIRS) {
+                    ActionRow(
+                        title = R.string.languages_cjk_fuzzy_pairs_reset_title,
+                        subtitle = null,
+                        action = stringResource(CommonR.string.common_reset),
+                    ) { scope.launch { repository.resetPinyinFuzzyPairs() } }
                 }
             }
             item {

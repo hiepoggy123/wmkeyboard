@@ -89,6 +89,8 @@ Tapping a candidate (in the strip or the grid) resolves by its position in the r
 
 If a reading has no dictionary match at all, it always falls back to committing what you typed as-is (raw pinyin letters, kana, or a stroke code) rather than trapping you in an empty buffer.
 
+The candidate bar is not the ordinary suggestion strip wearing a different coat, and it isn't switched off by the things that switch that strip off. Turning **Suggestions** off, or typing into a field that asks for a silent strip (search and filter boxes, address bars, email fields, password boxes), leaves the candidates exactly where they are. For a conversion method the candidate list *is* the input method, so hiding it wouldn't quiet a guess, it would stop you typing the language at all. Password boxes convert too, and what they don't do is remember the pick afterwards, which is the same rule the rest of the keyboard's learning follows.
+
 <PhoneFrame caption="The expanded candidate grid: every ranked candidate, wrapped to fit, covering the key rows while it's open.">
   {/* shot: languages/cjk-candidate-grid-expanded */}
 </PhoneFrame>
@@ -131,6 +133,8 @@ CJK picks live in a file of their own, but the **Delete the learned words** butt
 
 None of the conversion dictionaries ship in the app. Until you download the matching pack, a Chinese or Cantonese layout still composes and shows the buffer, but the candidate list stays empty. Japanese is the exception: its plain hiragana, katakana and half-width katakana forms are appended to every ranking, so they're on offer with no pack at all.
 
+You don't have to know that in advance. The first time you type a reading on a keyboard whose pack isn't on the device, a chip appears on the strip naming the pack you need — "Download the Chinese Pinyin dictionary to type characters" — and tapping it opens that language's page, where the pack's row is. The chip asks once per pack, and the ✕ dismisses it. It never appears in a password field.
+
 | Language | Pack | Approx. size | Coverage |
 |---|---|---|---|
 | Chinese | Pinyin (also covers Zhuyin & T9 Pinyin) | ~2.5 MB | ~120k entries, CC-CEDICT-derived |
@@ -138,6 +142,8 @@ None of the conversion dictionaries ship in the app. Until you download the matc
 | Chinese | Cangjie (also covers Cangjie Quick) | ~350 KB | ~29k characters |
 | Cantonese | Jyutping | ~3.4 MB | ~163k entries |
 | Japanese | Kana → kanji | ~42 MB | ~1.08M entries, Mozc-derived |
+
+The two shape-based tables have a second source. **Import from FlorisBoard**, in the same group, reads a FlorisBoard language pack (`.flex`) and fills the Cangjie or Stroke pack from the SQLite table inside it, with no download at all. Only those two land, since Wubi, Zhengma and the rest have no composer here; the app names whatever else it found back to you. See [Importing other keyboards](/reference/importing-other-keyboards/).
 
 Each download is checksum-verified before it's used and, once on disk, needs no further network access. See [Network policy](/privacy/network/) for what the keyboard contacts and when, and [Downloadable dictionaries](/languages/dictionaries/) for how the separate word-list system (which does have entries for plain Japanese and Korean word suggestions, just not for the conversion dictionaries here) works.
 

@@ -105,6 +105,7 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -183,6 +184,9 @@ import com.wasimaster.wmkeyboard.core.theme.safeContainerKind
 import com.wasimaster.wmkeyboard.core.theme.findThemeFamily
 import com.wasimaster.wmkeyboard.core.theme.flattenedThemes
 import com.wasimaster.wmkeyboard.core.theme.groupAsFamily
+import com.wasimaster.wmkeyboard.core.theme.onColorFor
+import com.wasimaster.wmkeyboard.ime.ui.DEFAULT_POPUP_ELEVATION_DP
+import com.wasimaster.wmkeyboard.ime.ui.MAX_ELEVATION_DP
 import com.wasimaster.wmkeyboard.core.theme.replacingMember
 import com.wasimaster.wmkeyboard.core.theme.reseeded
 import com.wasimaster.wmkeyboard.core.theme.selfAndVariants
@@ -203,6 +207,8 @@ import kotlin.math.roundToInt
 import androidx.compose.material.icons.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.theme.FlexResult
 import com.wasimaster.wmkeyboard.core.theme.FlexTheme
+import com.wasimaster.wmkeyboard.core.theme.HeliResult
+import com.wasimaster.wmkeyboard.core.theme.HeliTheme
 import androidx.compose.material.icons.outlined.Crop169
 import androidx.compose.material.icons.outlined.CropFree
 import androidx.compose.material.icons.outlined.CropSquare
@@ -978,16 +984,13 @@ fun ThemesScreen(
         scope.launch {
             val result = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.requireInputStream(uri).use { FlexTheme.read(it) }
+                    context.contentResolver.requireInputStream(uri).use {
+                        FlexTheme.read(it, dynamicSnyggPalette(context))
+                    }
                 }.getOrElse { FlexResult.Unreadable }
             }
             if (result !is FlexResult.Converted) {
-                message = context.getString(
-                    when (result) {
-                        FlexResult.SnyggV1 -> R.string.import_floris_old_body
-                        else -> R.string.import_floris_unreadable_body
-                    },
-                )
+                message = context.getString(R.string.import_floris_unreadable_body)
                 return@launch
             }
             val dir = withContext(Dispatchers.IO) { themeImagesDir(context) }
@@ -997,7 +1000,11 @@ fun ThemesScreen(
                     // A day and night pair need distinct ids: the extracted
                     // image file names are keyed on the id, so a shared one
                     // would have the second theme overwrite the first's images.
-                    converted.stored(if (index == 0) base else "${base}_v$index", dir)
+                    converted.stored(
+                        if (index == 0) base else "${base}_v$index",
+                        dir,
+                        FontStore.get(context),
+                    )
                 }
             }
             // One entry, not N: an extension's themes are the looks of one
@@ -1019,6 +1026,46 @@ fun ThemesScreen(
                     stored.size,
                 )
             }
+        }
+    }
+    // HeliBoard and LeanType have no theme file: a theme is a line of JSON,
+    // copied out of their colour screen and pasted into a forum post. So this
+    // import takes text from either source, and the button opens a two-way
+    // chooser rather than a file picker.
+    var heliChooser by remember { mutableStateOf(false) }
+    suspend fun applyHeliTheme(text: String?) {
+        if (text.isNullOrBlank()) {
+            message = context.getString(R.string.import_heli_clipboard_empty_body)
+            return
+        }
+        val result = withContext(Dispatchers.Default) { HeliTheme.read(text) }
+        if (result !is HeliResult.Converted) {
+            message = context.getString(R.string.import_heli_unreadable_body)
+            return
+        }
+        val stored = result.theme.copy(id = "custom_${System.currentTimeMillis()}")
+        repository.upsertCustomTheme(stored)
+        // Saved, not switched to, for the reason the FlorisBoard import is:
+        // a converted theme is the thing worth looking at first.
+        message = context.getString(
+            R.string.import_heli_done,
+            stored.name,
+            result.coloursUsed,
+            result.coloursRead,
+        )
+    }
+    val heliLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri)
+                        .use { it.readBytes().decodeToString() }
+                }.getOrNull()
+            }
+            applyHeliTheme(text)
         }
     }
     fun export(theme: ThemeSpec) {
@@ -1121,24 +1168,22 @@ fun ThemesScreen(
                     value = autoSlotSummary(settings, darkSlot = true),
                 ) { pickerForLight = false }
             }
-            if (auto.usesRandomSlot) {
-                item {
-                    ChoiceSetting(
-                        title = R.string.theme_shuffle_interval_title,
-                        subtitle = stringResource(R.string.theme_shuffle_interval_subtitle),
-                        options = RotationInterval.entries
-                            .map { it to stringResource(it.labelRes) },
-                        selected = auto.shuffleInterval,
-                        default = SettingsDefaults.autoTheme.shuffleInterval,
-                    ) { value -> scope.launch { repository.setAutoThemeShuffleInterval(value) } }
-                }
-                item {
-                    ActionRow(
-                        title = R.string.theme_shuffle_now_title,
-                        subtitle = stringResource(R.string.theme_shuffle_now_subtitle),
-                        action = stringResource(R.string.theme_shuffle_now_action),
-                    ) { scope.launch { repository.shuffleAutoThemeNow() } }
-                }
+            item(visible = auto.usesRandomSlot) {
+                ChoiceSetting(
+                    title = R.string.theme_shuffle_interval_title,
+                    subtitle = stringResource(R.string.theme_shuffle_interval_subtitle),
+                    options = RotationInterval.entries
+                        .map { it to stringResource(it.labelRes) },
+                    selected = auto.shuffleInterval,
+                    default = SettingsDefaults.autoTheme.shuffleInterval,
+                ) { value -> scope.launch { repository.setAutoThemeShuffleInterval(value) } }
+            }
+            item(visible = auto.usesRandomSlot) {
+                ActionRow(
+                    title = R.string.theme_shuffle_now_title,
+                    subtitle = stringResource(R.string.theme_shuffle_now_subtitle),
+                    action = stringResource(R.string.theme_shuffle_now_action),
+                ) { scope.launch { repository.shuffleAutoThemeNow() } }
             }
             item {
                 ChoiceControl(
@@ -1270,6 +1315,32 @@ fun ThemesScreen(
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.theme_import_floris_action))
         }
+        OutlinedButton(onClick = { heliChooser = true }) {
+            Icon(Icons.Outlined.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.theme_import_heli_action))
+        }
+    }
+    if (heliChooser) {
+        val clipboard = LocalClipboardManager.current
+        AlertDialog(
+            onDismissRequest = { heliChooser = false },
+            title = { Text(stringResource(R.string.import_heli_title)) },
+            text = { Text(stringResource(R.string.import_heli_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    heliChooser = false
+                    val pasted = clipboard.getText()?.text
+                    scope.launch { applyHeliTheme(pasted) }
+                }) { Text(stringResource(R.string.import_heli_paste_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    heliChooser = false
+                    heliLauncher.launch(HeliTheme.IMPORT_MIME_TYPES)
+                }) { Text(stringResource(R.string.import_heli_file_action)) }
+            },
+        )
     }
     Spacer(Modifier.height(8.dp))
 
@@ -2198,6 +2269,30 @@ fun ThemeEditorScreen(
             )
         }
         item {
+            // The rail beside the board in one-handed mode. Auto leaves it
+            // transparent, so the board runs on behind it.
+            NullableColorRow(
+                stringResource(R.string.theme_one_handed_title),
+                theme.oneHandedPanelBackground,
+                fallback = theme.boardBackground,
+                supportsAlpha = true,
+                info = stringResource(R.string.theme_one_handed_body),
+                onChange = { update { t -> t.copy(oneHandedPanelBackground = it) } },
+            )
+        }
+        // Nested: the glyphs only need their own colour once the rail has a
+        // fill of its own to sit on.
+        if (theme.oneHandedPanelBackground != null) {
+            item {
+                NullableColorRow(
+                    stringResource(R.string.theme_one_handed_icon_title),
+                    theme.oneHandedPanelIcon,
+                    fallback = theme.secondaryText ?: theme.suggestionText ?: theme.keyText,
+                    onChange = { update { t -> t.copy(oneHandedPanelIcon = it) } },
+                )
+            }
+        }
+        item {
             ListItem(
                 headlineContent = { Text(stringResource(R.string.theme_background_image_title)) },
                 supportingContent = {
@@ -2322,32 +2417,28 @@ fun ThemeEditorScreen(
         // Only offered once there is something to rotate. Most people set one
         // photo and stop, and a row for a feature they have not started is
         // clutter in the one screen they do use.
-        if (showRotation) {
-            item {
-                NavRow(
-                    R.string.photo_rotation_title,
-                    subtitle = stringResource(R.string.photo_rotation_subtitle),
-                    value = stringResource(
-                        if (settings.photoBackground.rotateEnabled) {
-                            CommonR.string.common_on
-                        } else {
-                            CommonR.string.common_off
-                        },
-                    ),
-                    route = PHOTO_ROTATION_ROUTE,
-                ) { onNavigate(PHOTO_ROTATION_ROUTE) }
-            }
+        item(visible = showRotation) {
+            NavRow(
+                R.string.photo_rotation_title,
+                subtitle = stringResource(R.string.photo_rotation_subtitle),
+                value = stringResource(
+                    if (settings.photoBackground.rotateEnabled) {
+                        CommonR.string.common_on
+                    } else {
+                        CommonR.string.common_off
+                    },
+                ),
+                route = PHOTO_ROTATION_ROUTE,
+            ) { onNavigate(PHOTO_ROTATION_ROUTE) }
         }
         // Likewise: somebody who never opens the online picker has no key to
         // manage. The picker's own "add a key" action reaches this screen.
-        if (showServices) {
-            item {
-                NavRow(
-                    R.string.photo_services_title,
-                    subtitle = stringResource(R.string.photo_services_subtitle),
-                    route = PHOTO_HUB_ROUTE,
-                ) { onNavigate(PHOTO_HUB_ROUTE) }
-            }
+        item(visible = showServices) {
+            NavRow(
+                R.string.photo_services_title,
+                subtitle = stringResource(R.string.photo_services_subtitle),
+                route = PHOTO_HUB_ROUTE,
+            ) { onNavigate(PHOTO_HUB_ROUTE) }
         }
     }
 
@@ -2591,6 +2682,18 @@ fun ThemeEditorScreen(
                 ) { update { t -> t.copy(keyBorderWidthDp = (it * 10).toInt() / 10f) } }
             }
         }
+        item {
+            // A lift, not a colour: the shadow is drawn by the platform from
+            // the key's own outline. Shapes that cannot cast one stay flat
+            // however far this is pushed, and so does a see-through key.
+            SliderRow(
+                stringResource(R.string.theme_key_elevation_title),
+                value = theme.keyElevationDp,
+                range = 0f..MAX_ELEVATION_DP,
+                display = { "%.1f dp".format(it) },
+                info = stringResource(R.string.theme_key_elevation_body),
+            ) { update { t -> t.copy(keyElevationDp = (it * 10).toInt() / 10f) } }
+        }
     }
 
     var texturePickerSlot by remember(theme.id) { mutableStateOf<KeyTextureSlot?>(null) }
@@ -2820,19 +2923,17 @@ fun ThemeEditorScreen(
                 )
             }
         }
-        if (theme.decals.size < MAX_DECALS) {
-            item {
-                OutlinedButton(
-                    onClick = {
-                        decalPicker.launch(
-                            PickVisualMediaRequest(
-                                ActivityResultContracts.PickVisualMedia.ImageOnly,
-                            ),
-                        )
-                    },
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                ) { Text(stringResource(R.string.theme_decal_add_action)) }
-            }
+        item(visible = theme.decals.size < MAX_DECALS) {
+            OutlinedButton(
+                onClick = {
+                    decalPicker.launch(
+                        PickVisualMediaRequest(
+                            ActivityResultContracts.PickVisualMedia.ImageOnly,
+                        ),
+                    )
+                },
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            ) { Text(stringResource(R.string.theme_decal_add_action)) }
         }
     }
     decalEditorId?.let { id ->
@@ -2955,6 +3056,35 @@ fun ThemeEditorScreen(
             }
         }
         item {
+            SliderRow(
+                stringResource(R.string.theme_popup_elevation_title),
+                value = theme.popupElevationDp ?: DEFAULT_POPUP_ELEVATION_DP,
+                range = 0f..MAX_ELEVATION_DP,
+                display = { "%.1f dp".format(it) },
+            ) { update { t -> t.copy(popupElevationDp = (it * 10).toInt() / 10f) } }
+        }
+        item {
+            // The highlight under the alternate your finger is on, and under
+            // the selected row of the language picker.
+            NullableColorRow(
+                stringResource(R.string.theme_popup_selected_title),
+                theme.popupSelectedBackground, fallback = theme.accent,
+                supportsAlpha = true,
+                info = stringResource(R.string.theme_popup_selected_body),
+                onChange = { update { t -> t.copy(popupSelectedBackground = it) } },
+            )
+        }
+        theme.popupSelectedBackground?.let { highlight ->
+            item {
+                NullableColorRow(
+                    stringResource(R.string.theme_popup_selected_text_title),
+                    theme.popupSelectedText,
+                    fallback = onColorFor(highlight),
+                    onChange = { update { t -> t.copy(popupSelectedText = it) } },
+                )
+            }
+        }
+        item {
             // The list menus (language picker, clipboard and emoji menus)
             // derive a safe shape from the popup shape unless named here — a
             // slanted bubble is charming, a slanted menu clips its rows.
@@ -3031,6 +3161,17 @@ fun ThemeEditorScreen(
             )
         }
         item {
+            // The glyph on an active tool. Its own row rather than a shade of
+            // the fill: a FlorisBoard sheet states the two separately, and
+            // deriving one from the other threw away a colour the theme set.
+            NullableColorRow(
+                stringResource(R.string.theme_tool_circle_active_icon_title),
+                theme.toolCircleActiveIcon,
+                fallback = theme.toolCircleActiveBackground?.let(::onColorFor) ?: theme.accent,
+                onChange = { update { t -> t.copy(toolCircleActiveIcon = it) } },
+            )
+        }
+        item {
             // Colour then width, the way the key border is set: the colour is
             // what turns the outline on, and the width row appears with it.
             NullableColorRow(
@@ -3050,6 +3191,14 @@ fun ThemeEditorScreen(
                 ) { update { t -> t.copy(toolBorderWidthDp = (it * 10).toInt() / 10f) } }
             }
         }
+        item {
+            SliderRow(
+                stringResource(R.string.theme_tool_elevation_title),
+                value = theme.toolElevationDp,
+                range = 0f..MAX_ELEVATION_DP,
+                display = { "%.1f dp".format(it) },
+            ) { update { t -> t.copy(toolElevationDp = (it * 10).toInt() / 10f) } }
+        }
     }
 
     SettingsGroup(stringResource(R.string.theme_panels_section_title), foldKey = "theme/panels") {
@@ -3066,6 +3215,29 @@ fun ThemeEditorScreen(
                 stringResource(R.string.theme_suggestion_text_title),
                 theme.suggestionText, fallback = theme.keyText,
                 onChange = { update { t -> t.copy(suggestionText = it) } },
+            )
+        }
+        item {
+            // The quieter line beside the main one, and the hairlines between
+            // panel parts. Both used to be the suggestion colour at a fixed
+            // alpha, which no theme could overrule.
+            NullableColorRow(
+                stringResource(R.string.theme_secondary_text_title),
+                theme.secondaryText,
+                fallback = theme.suggestionText ?: theme.keyText,
+                supportsAlpha = true,
+                info = stringResource(R.string.theme_secondary_text_body),
+                onChange = { update { t -> t.copy(secondaryText = it) } },
+            )
+        }
+        item {
+            NullableColorRow(
+                stringResource(R.string.theme_divider_title),
+                theme.dividerColor,
+                fallback = theme.suggestionText ?: theme.keyText,
+                supportsAlpha = true,
+                info = stringResource(R.string.theme_divider_body),
+                onChange = { update { t -> t.copy(dividerColor = it) } },
             )
         }
     }
@@ -3114,6 +3286,14 @@ fun ThemeEditorScreen(
                     display = { "%.1f dp".format(it) },
                 ) { update { t -> t.copy(chipBorderWidthDp = (it * 10).toInt() / 10f) } }
             }
+        }
+        item {
+            SliderRow(
+                stringResource(R.string.theme_card_elevation_title),
+                value = theme.cardElevationDp,
+                range = 0f..MAX_ELEVATION_DP,
+                display = { "%.1f dp".format(it) },
+            ) { update { t -> t.copy(cardElevationDp = (it * 10).toInt() / 10f) } }
         }
         item {
             val chipShape = keyShapeKindOrNull(theme.chipShape) ?: KeyShapeKind.ROUNDED
@@ -3206,31 +3386,29 @@ fun ThemeEditorScreen(
                 }
             }
         }
-        if (hasCustomRadii) {
-            item {
-                SliderRow(
-                    stringResource(R.string.theme_key_radius_title),
-                    value = (theme.keyCornerRadiusDp ?: 8).toFloat(),
-                    range = 0f..28f,
-                    display = { "${it.toInt()} dp" },
-                ) { update { t -> t.copy(keyCornerRadiusDp = it.toInt()) } }
-            }
-            item {
-                SliderRow(
-                    stringResource(R.string.theme_popup_radius_title),
-                    value = (theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp).toFloat(),
-                    range = 0f..40f,
-                    display = { "${it.toInt()} dp" },
-                ) { update { t -> t.copy(popupCornerRadiusDp = it.toInt()) } }
-            }
-            item {
-                SliderRow(
-                    stringResource(R.string.theme_tool_circle_radius_title),
-                    value = (theme.toolCircleRadiusDp ?: 20).toFloat(),
-                    range = 0f..20f,
-                    display = { if (it.toInt() == 0) offLabel else "${it.toInt()} dp" },
-                ) { update { t -> t.copy(toolCircleRadiusDp = it.toInt()) } }
-            }
+        item(visible = hasCustomRadii) {
+            SliderRow(
+                stringResource(R.string.theme_key_radius_title),
+                value = (theme.keyCornerRadiusDp ?: 8).toFloat(),
+                range = 0f..28f,
+                display = { "${it.toInt()} dp" },
+            ) { update { t -> t.copy(keyCornerRadiusDp = it.toInt()) } }
+        }
+        item(visible = hasCustomRadii) {
+            SliderRow(
+                stringResource(R.string.theme_popup_radius_title),
+                value = (theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp).toFloat(),
+                range = 0f..40f,
+                display = { "${it.toInt()} dp" },
+            ) { update { t -> t.copy(popupCornerRadiusDp = it.toInt()) } }
+        }
+        item(visible = hasCustomRadii) {
+            SliderRow(
+                stringResource(R.string.theme_tool_circle_radius_title),
+                value = (theme.toolCircleRadiusDp ?: 20).toFloat(),
+                range = 0f..20f,
+                display = { if (it.toInt() == 0) offLabel else "${it.toInt()} dp" },
+            ) { update { t -> t.copy(toolCircleRadiusDp = it.toInt()) } }
         }
     }
 
@@ -3431,15 +3609,13 @@ fun ThemeEditorScreen(
                 detail = { anim -> ChoiceDetail(stringResource(themeAnimationDescRes(anim))) },
             ) { anim -> update { t -> t.copy(animation = anim) } }
         }
-        if (theme.animation != ThemeAnimation.NONE) {
-            item {
-                SliderRow(
-                    stringResource(R.string.theme_animation_speed_title),
-                    value = theme.animationSpeed,
-                    range = 0.25f..3f,
-                    display = { "%.2f×".format(it) },
-                ) { update { t -> t.copy(animationSpeed = (it * 20).toInt() / 20f) } }
-            }
+        item(visible = theme.animation != ThemeAnimation.NONE) {
+            SliderRow(
+                stringResource(R.string.theme_animation_speed_title),
+                value = theme.animationSpeed,
+                range = 0.25f..3f,
+                display = { "%.2f×".format(it) },
+            ) { update { t -> t.copy(animationSpeed = (it * 20).toInt() / 20f) } }
         }
     }
 
@@ -3494,28 +3670,26 @@ fun ThemeEditorScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             ) { kind -> update { t -> t.copy(keyEffect = kind?.name) } }
         }
-        if (keyEffectKindOrNull(theme.keyEffect) == KeyEffectKind.EMOJI) {
-            item {
-                // Local state is the source of truth while typing: a field
-                // bound straight to the async theme write scrambles input when
-                // the DataStore emission echoes back mid-edit.
-                var emojiParam by remember(theme.id) {
-                    mutableStateOf(theme.keyEffectParam.orEmpty())
-                }
-                OutlinedTextField(
-                    value = emojiParam,
-                    onValueChange = { text ->
-                        val clipped = text.take(16)
-                        emojiParam = clipped
-                        update { t -> t.copy(keyEffectParam = clipped) }
-                    },
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.theme_effect_emoji_field_label)) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                )
+        item(visible = keyEffectKindOrNull(theme.keyEffect) == KeyEffectKind.EMOJI) {
+            // Local state is the source of truth while typing: a field
+            // bound straight to the async theme write scrambles input when
+            // the DataStore emission echoes back mid-edit.
+            var emojiParam by remember(theme.id) {
+                mutableStateOf(theme.keyEffectParam.orEmpty())
             }
+            OutlinedTextField(
+                value = emojiParam,
+                onValueChange = { text ->
+                    val clipped = text.take(16)
+                    emojiParam = clipped
+                    update { t -> t.copy(keyEffectParam = clipped) }
+                },
+                singleLine = true,
+                label = { Text(stringResource(R.string.theme_effect_emoji_field_label)) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            )
         }
         if (keyEffectKindOrNull(theme.keyEffect) == KeyEffectKind.CUSTOM_IMAGE) {
             theme.keyEffectImages.forEachIndexed { index, path ->
@@ -3555,19 +3729,17 @@ fun ThemeEditorScreen(
                     )
                 }
             }
-            if (theme.keyEffectImages.size < MAX_EFFECT_IMAGES) {
-                item {
-                    OutlinedButton(
-                        onClick = {
-                            effectImagePicker.launch(
-                                PickVisualMediaRequest(
-                                    ActivityResultContracts.PickVisualMedia.ImageOnly,
-                                ),
-                            )
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    ) { Text(stringResource(R.string.theme_effect_image_add_action)) }
-                }
+            item(visible = theme.keyEffectImages.size < MAX_EFFECT_IMAGES) {
+                OutlinedButton(
+                    onClick = {
+                        effectImagePicker.launch(
+                            PickVisualMediaRequest(
+                                ActivityResultContracts.PickVisualMedia.ImageOnly,
+                            ),
+                        )
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                ) { Text(stringResource(R.string.theme_effect_image_add_action)) }
             }
         }
         if (keyEffectKindOrNull(theme.keyEffect) != null) {
@@ -3629,14 +3801,12 @@ fun ThemeEditorScreen(
                     selected = mode,
                 ) { picked -> update { t -> t.copy(keyEffectColor = picked.name) } }
             }
-            if (keyEffectColorMode(theme.keyEffectColor) == KeyEffectColorMode.CUSTOM) {
-                item {
-                    NullableColorRow(
-                        stringResource(R.string.theme_effect_color_custom_label),
-                        theme.keyEffectCustomColor, fallback = theme.accent,
-                        onChange = { update { t -> t.copy(keyEffectCustomColor = it) } },
-                    )
-                }
+            item(visible = keyEffectColorMode(theme.keyEffectColor) == KeyEffectColorMode.CUSTOM) {
+                NullableColorRow(
+                    stringResource(R.string.theme_effect_color_custom_label),
+                    theme.keyEffectCustomColor, fallback = theme.accent,
+                    onChange = { update { t -> t.copy(keyEffectCustomColor = it) } },
+                )
             }
             item {
                 SliderRow(
@@ -4200,6 +4370,7 @@ private fun KeyOverrideDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var shapePickerOpen by rememberSaveable(id) { mutableStateOf(false) }
     val texturePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -4214,6 +4385,26 @@ private fun KeyOverrideDialog(
                 }
             }
         }
+    }
+    if (shapePickerOpen) {
+        // The board's radius still decides how round a rounded key is: one
+        // number per theme is the shape the slider has, and the shapes that
+        // need their own (circle, pill) read no radius at all.
+        KeyShapePickerDialog(
+            selected = keyShapeKindOrNull(override.shape),
+            radiusDp = theme.keyCornerRadiusDp ?: 8,
+            title = R.string.theme_key_override_shape_title,
+            onAuto = {
+                onChange(override.copy(shape = null))
+                shapePickerOpen = false
+            },
+            onPick = {
+                onChange(override.copy(shape = it.name))
+                shapePickerOpen = false
+            },
+            onDismiss = { shapePickerOpen = false },
+            offerNone = true,
+        )
     }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -4339,6 +4530,19 @@ private fun KeyOverrideDialog(
                         )
                     }
                 }
+                ListItem(
+                    headlineContent = {
+                        Text(stringResource(R.string.theme_key_override_shape_title))
+                    },
+                    supportingContent = {
+                        Text(
+                            keyShapeKindOrNull(override.shape)?.let { keyShapeName(it) }
+                                ?: stringResource(CommonR.string.common_auto),
+                        )
+                    },
+                    colors = transparentListColors(),
+                    modifier = Modifier.clickable { shapePickerOpen = true },
+                )
                 ChoiceControl(
                     options = listOf(
                         null to stringResource(CommonR.string.common_auto),
