@@ -48,6 +48,7 @@ import androidx.compose.material.icons.outlined.Check
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.app.storage.StorageCategories
 import com.wasimaster.wmkeyboard.app.storage.StorageCategoryScreen
+import com.wasimaster.wmkeyboard.app.netlog.NetworkActivityScreen
 import com.wasimaster.wmkeyboard.app.statistics.StatisticsScreen
 import com.wasimaster.wmkeyboard.app.storage.StorageScreen
 import com.wasimaster.wmkeyboard.app.storage.storageRoute
@@ -1005,6 +1006,16 @@ private fun SettingsNavGraph(
                 MusicAppsScreen(repository, settings)
             }
         }
+        composable("kdeconnect/devices") {
+            SettingsScreen(
+                stringResource(R.string.kdeconnect_devices_title),
+                { navController.popBackStack() },
+                route = "kdeconnect/devices",
+                subtitle = stringResource(R.string.kdeconnect_devices_screen_subtitle),
+            ) {
+                com.wasimaster.wmkeyboard.app.kdeconnect.KdeDevicesScreen(repository, settings)
+            }
+        }
         composable("phoneformats") {
             SettingsScreen(
                 stringResource(R.string.home_screen_phoneformats_title),
@@ -1272,6 +1283,32 @@ private fun SettingsNavGraph(
                 StickerPacksScreen { route -> navController.navigate(route) }
             }
         }
+        composable(SIGNAL_STICKERS_ROUTE) {
+            SettingsScreen(
+                stringResource(R.string.import_signal_row_title),
+                { navController.popBackStack() },
+                route = SIGNAL_STICKERS_ROUTE,
+            ) {
+                SignalStickersScreen { route -> navController.navigate(route) }
+            }
+        }
+        composable("signal_pack/{packId}/{packKey}") { backStackEntry ->
+            val packId = backStackEntry.arguments?.getString("packId").orEmpty()
+            val packKey = backStackEntry.arguments?.getString("packKey").orEmpty()
+            SettingsScreen(
+                stringResource(R.string.import_signal_pack_title),
+                { navController.popBackStack() },
+                route = signalPackRoute(packId, packKey),
+            ) {
+                SignalPackScreen(
+                    packId = packId,
+                    packKey = packKey,
+                    settings = settings,
+                    onNavigate = { route -> navController.navigate(route) },
+                    onBack = { navController.popBackStack() },
+                )
+            }
+        }
         composable("plugins") {
             SettingsScreen(
                 stringResource(R.string.home_screen_plugins_title),
@@ -1390,6 +1427,18 @@ private fun SettingsNavGraph(
                 route = stickerPackRoute(packId),
             ) {
                 StickerPackScreen(packId) { route -> navController.navigate(route) }
+            }
+        }
+        composable("sticker_pack/{packId}/add") { backStackEntry ->
+            // The keyboard's add button: the same page, with the photo picker
+            // already up, so adding one sticker is a pick and not a hunt.
+            val packId = backStackEntry.arguments?.getString("packId").orEmpty()
+            SettingsScreen(
+                stringResource(R.string.home_screen_sticker_pack_edit_title),
+                { navController.popBackStack() },
+                route = stickerPackRoute(packId),
+            ) {
+                StickerPackScreen(packId, openPicker = true) { route -> navController.navigate(route) }
             }
         }
         composable(STICKER_EDITOR_ROUTE) {
@@ -1661,6 +1710,15 @@ private fun SettingsNavGraph(
                 route = "privacy",
             ) {
                 PrivacySettings(repository, settings) { navController.navigate(it) }
+            }
+        }
+        composable("network_activity") {
+            SettingsScreen(
+                stringResource(R.string.netlog_title),
+                { navController.popBackStack() },
+                route = "network_activity",
+            ) {
+                NetworkActivityScreen(repository, settings) { navController.navigate(it) }
             }
         }
         composable("permissions") {

@@ -3,6 +3,9 @@ package com.wasimaster.wmkeyboard.core.dictionaries
 import android.os.StatFs
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.netlog.NetLog
+import com.wasimaster.wmkeyboard.core.netlog.NetSource
+import com.wasimaster.wmkeyboard.core.prediction.AospScores
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrie
 import com.wasimaster.wmkeyboard.core.prediction.PackedTrieCodec
 import com.wasimaster.wmkeyboard.prediction.R
@@ -274,12 +277,14 @@ object WordlistDownloadManager {
         }
 
         val connection = URL(entry.url).openConnection() as HttpURLConnection
+        val netCall = NetLog.call(NetSource.DOWNLOAD_WORDLIST, "GET", entry.url, route = NetLog.pathOf(entry.url))
         try {
             connection.connectTimeout = 15_000
             connection.readTimeout = 30_000
             connection.instanceFollowRedirects = true
             connection.setRequestProperty("User-Agent", USER_AGENT)
             connection.setRequestProperty("Accept-Encoding", "identity")
+            netCall.status = connection.responseCode
             val status = connection.responseCode
             if (status != HttpURLConnection.HTTP_OK) {
                 throw FailedException(
@@ -295,7 +300,7 @@ object WordlistDownloadManager {
             val words = arrayOfNulls<String>(wordCap)
             val frequencies = IntArray(wordCap)
             var count = 0
-            val counting = CountingInputStream(connection.inputStream)
+            val counting = CountingInputStream(netCall.countIn(connection.inputStream))
             var lastUpdate = 0L
             // Whether the noise cut below applies at all, decided by the first
             // usable line. A few repo lists are bare wordlists wearing the
@@ -304,7 +309,11 @@ object WordlistDownloadManager {
             // as unreadable. A list whose *most frequent* word is already under
             // the floor has no frequencies to rank by, so there is no noise
             // tail to trim and every word is kept.
-            var ranked: Boolean? = null
+            //
+            // An AOSP list has no noise tail to cut either: it is curated, and
+            // its bottom is real words AOSP rated rare, down to 0.
+            val aosp = entry.source == WordlistSource.AOSP
+            var ranked: Boolean? = if (aosp) false else null
             GZIPInputStream(counting, 32 * 1024).bufferedReader().useLines { lines ->
                 for (line in lines) {
                     currentCoroutineContext().ensureActive()
@@ -313,7 +322,8 @@ object WordlistDownloadManager {
                     val separator = trimmed.lastIndexOf(' ')
                     if (separator <= 0) continue
                     val word = trimmed.substring(0, separator).trim()
-                    val frequency = trimmed.substring(separator + 1).toIntOrNull() ?: continue
+                    val raw = trimmed.substring(separator + 1).toIntOrNull() ?: continue
+                    val frequency = if (aosp) AospScores.listCount(raw) else raw
                     if (ranked == null) ranked = frequency >= MIN_FREQUENCY
                     // Sorted desc, so on a ranked list only noise follows.
                     if (ranked == true && frequency < MIN_FREQUENCY) break
@@ -333,8 +343,12 @@ object WordlistDownloadManager {
                 throw FailedException(FailReason.MALFORMED, R.string.core_pred_wordlist_malformed_error)
             }
             return Wordlist(words, frequencies, count)
+        } catch (t: Throwable) {
+            netCall.fail(t)
+            throw t
         } finally {
             connection.disconnect()
+            netCall.end()
         }
     }
 }

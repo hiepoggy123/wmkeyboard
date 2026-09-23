@@ -19,11 +19,11 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Toolbar and the tool set | 10 | 85 | 311 |
 | Clipboard, snippets, text expansion | 7 | 37 | 191 |
 | AI, voice, handwriting, scanning | 11 | 70 | 162 |
-| Privacy, backup, storage, statistics | 13 | 59 | 150 |
+| Privacy, backup, storage, statistics | 14 | 65 | 163 |
 | Accessibility, form factors, platform integration | 13 | 61 | 111 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 203 |
-| **Total** | **132** | **797** | **2206** |
+| **Total** | **133** | **803** | **2219** |
 
 ## Typing core: prediction, autocorrect, learning, spell check
 
@@ -878,6 +878,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Japanese — Romaji, 12-key Flick, and Kana JIS layouts all feeding one composer
     - Romaji to kana transduction — Tracks the romaji span behind every kana unit so consumed lengths report keystrokes, not morae
     - Flick pad — Per-key four-direction flick map in the layout data (あ flicks to い/う/え/お)
+    - Kana without marks — かつこう finds 学校 (がっこう): a plain kana typed on Flick or Kana JIS also reads as its small, dakuten or handakuten form behind a small per-mark penalty tuned against the real pack; marks are only ever added, and romaji is never widened
     - Kana-variant key — 小゛゜ cycles the last kana through dakuten/handakuten/small forms (か to が, は to ば to ぱ, つ to っ to づ)
     - Always usable as a bare kana keyboard — With no pack downloaded the reading still commits as hiragana, katakana or half-width katakana
     - Tap resolved by index, not text — ja_kana lists 行 under い, いき, ゆき and こう, so matching by string would eat a mora the user never chose
@@ -1457,7 +1458,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Undo 12 strokes deep — One alpha snapshot per step; raster work only
     - Border 0–24px, white or black — Stamped from the subject's own alpha in a ring of up to 104 offsets behind it
     - Letterboxed, never stretched — A non-square crop gets transparent bars inside the square canvas
-  - One-tap background removal `RARE` — ML Kit subject segmentation; model arrives from Play services on demand with a progress bar.
+  - One-tap background removal `RARE` — ML Kit subject segmentation where there are Play services (module on demand), the app's own U²-Net-P on LiteRT where there are none (#278); either way the model arrives on the first tap with a progress bar.
+    - Own model — 4.6 MB `u2netp.tflite` from wmkeyboard-data `models/cutout/`, SHA-256 pinned, resumable, kept in `files/cutout`, listed under Stickers on the storage screen, excluded from Android backup
     - Refuses degenerate masks — Under 1% or over 99% coverage reports "no subject" rather than erasing the picture
     - Brushes still work without it — Lite builds and un-fetchable models just lose the button
   - Edits resume across sessions `RARE` — Reopens the source photo with the crop, mask, border and brush size still applied.
@@ -1481,8 +1483,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Feature | Needs |
 |---|---|
-| Sticker editor: one-tap background removal | full flavour only (ML Kit subject segmentation); lite ships a stub reporting supported=false |
-| Sticker editor: segmentation model | needs Google Play services on-demand module download (network); button offers the download and falls back to brushes if it cannot be fetched |
+| Sticker editor: one-tap background removal | full flavour only (ML Kit subject segmentation, or U²-Net-P on the LiteRT interpreter without Play services); lite ships a stub reporting supported=false |
+| Sticker editor: segmentation model | needs a one-time download (network): the Play services on-demand module, or without Play services (or when they lack the module) the app's own 4.6 MB model from the data repository (on Play the LiteRT interpreter that runs it is the on-demand :feature:litert split, fetched first under the same bar); button offers the download and falls back to brushes if neither can be fetched |
 | GIF search and send (Klipy, GIPHY) | needs a user-supplied API key for at least one provider, plus network |
 | Sticker search and send (Klipy, GIPHY) | needs a user-supplied API key for at least one provider, plus network; keys shared with the GIF tool |
 | Animated emoji preview and send | network fetch from fonts.gstatic.com on long press (no key, no query, no identifier) |
@@ -1522,6 +1524,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Strip stops flipping — With a row of their own the strip is only ever candidates, so the surface swap, the emoji handoff and the settle beat all rest
     - Chevron changes job — Opens and closes the row on ON_DEMAND_ROW, and disappears on ALWAYS_ROW where it would do nothing
     - Same row, one renderer — The standalone row wraps the same ToolbarRow the strip hosts, so widths, labels, drag and RTL mirroring are identical
+    - Strip can go (#302) — showStrip off under ALWAYS_ROW drops the suggestion strip and its height, leaving only the tools row; compact dictation still takes the row, and full-bleed panels stop counting it
   - Press-and-hold actions on the toolbar `RARE` — Per-tool holdActions map: a hold runs another tool's tap instead of opening that tool's settings page
     - Any tool is a target — "Holding this does what tapping that does" needs no second action vocabulary; the bound tool goes through the same dispatcher a tap uses
     - Toolbar only — The toolbox hold keeps opening settings pages, so no page loses its way in
@@ -1685,8 +1688,17 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Save to gallery — Off by default; writes to Pictures/WM Keyboard
 - **Online tools** `uncommon` — 8 tools in the Online group
   - Translate — Type-and-translate panel with its own search bar
-    - 32 target languages — TranslateClient.languages; source is always auto-detected
-    - Two providers behind one switch — Google's free public endpoint, or Cloud Translation v2 with your key
+    - 63 languages — TranslateClient.languages; source is detected, or picked from the source chip for the visit
+    - Swap — Result becomes the text, its language the source, the detected language the new target
+    - Two online providers behind one switch — Google's free public endpoint, or Cloud Translation v2 with your key
+    - On-demand on Play — The translator's ~16 MB/ABI lives in the :feature:translate split, fetched through SplitInstall when an on-device engine is first picked; sideload builds compile the same bridge into :core:intelligence
+    - On-device engine (full) — ML Kit Translate, 59 languages, one ~30 MB model each, pivots through English; Online / On device / Automatic from the panel's engine chip or the tool page
+    - Automatic falls back — On device when both models are here, online for a missing model, an online-only language or romanised text; the chip's icon says which one answered
+    - Download offer in the panel — A query that needs a model turns the result area into the offer and the action row into Download/Cancel; retranslates the moment the models land
+    - One model store for keyboard and settings — OnDeviceTranslator.models; progress read off the system DownloadManager row ML Kit enqueues, shade notification, data-saver ask
+    - Source detection on device — Bundled ML Kit language-id; a weak answer falls back on the typed languages and shows as a guess ("French?")
+    - Line structure survives — Each line translated on its own, blank lines and indentation put back
+    - Translators released with the panel — And on memory pressure; a loaded pair is tens of MB
     - Insert vs Replace text — Replace swaps the whole field's contents
     - Debounced re-translate — ~400ms after typing stops; immediate on return or target change
     - 2500-character cap — Silently truncated before sending
@@ -1897,12 +1909,28 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Eight phase names — Plus percent illuminated and days into the cycle
     - Next full and new moon dates — From a synodic-month constant and a reference new moon
     - Southern-hemisphere mirroring — Changes only the drawing, not the name or dates
-- **Other tools** `uncommon` — 2 tools the group list doesn't claim, caught by the Other section
+- **Other tools** `uncommon` — 3 tools the group list doesn't claim, caught by the Other section
   - Media controls `uncommon` — Transport for the active media session
     - Album art, title, artist, album — Music-note placeholder when the app publishes none
     - Seek bar when the session reports duration — Disabled the same way skip buttons are when unsupported
     - Skip buttons dim on unsupported actions — Reflects what the session actually advertises
     - Empty listener service — MediaNotificationListener exists only to satisfy the access check; reads no notifications
+  - KDE Connect tool (issue #285) `RARE` — A paired computer from the keyboard, and the computer typing back: a from-scratch client for the KDE Connect LAN protocol (version 8) in `:core:kdeconnect`, owned per process by KdeConnectHub. Works with kdeconnect-kde, GSConnect and Valent; the KDE Connect Android app is not needed
+    - Own protocol engine, no GPL code — UDP discovery on 1716 plus mDNS (`_kdeconnect._udp` through NsdManager), the inverted-role TLS handshake with the encrypted identity re-exchange, trust-on-first-use then an exact certificate pin, pairing with the shared 8-character verification code (KdeVerificationKey), payload sockets on 1739–1764. The certificate is DER written by hand (DerCertificate), so there is no BouncyCastle
+    - Nothing under `:core:kdeconnect` names an Android class — two whole engines pair and exchange files over localhost in plain JUnit (LoopbackTest), and InteropTest drives a real kdeconnect-kde daemon through its own CLI (`-Pkde.interop=1`)
+    - Off until Turn on is pressed — KdeConnectSettings.enabled defaults false; the hub opens no socket before it, and none without a paired device unless a device list is on screen
+    - Link lifetime — KdeLinkLifetime PANEL / KEYBOARD (default, 60 s linger) / ALWAYS, decided by KdeConnectHub from the reasons held (SERVICE, KEYBOARD, PANEL, SETTINGS, SHARE); no foreground service; power saving's background-network switch turns ALWAYS into KEYBOARD
+    - Strangers only while browsing — an unpaired device is linked only while a device list is up (engine.setDiscovering), in the panel or on the settings screen
+    - Input tab — KdeRemotePad: drag moves, tap clicks, two and three finger taps are right and middle click, two fingers scroll (ScrollAccumulator releases a step at a time, since X11 reads every packet as a wheel click), hold-then-drag and tap-then-drag hold the button; PointerAcceleration is ours, nothing about feel is on the wire; queued pure moves are summed by the link's writer rather than replayed
+    - Type on computer — CaptureTarget.KDE_REMOTE: the whole keyboard types there, glide and strip picks included, because every buffer change is replayed as backspaces plus text (RemoteTextDiff, counted in code points); arrows, Home/End and page keys go to the computer as special keys; Ctrl/Alt/Super armed on the panel's strip or the board turn the next key into a chord. KDE_COMPOSE edits a line locally and sends it on Enter
+    - The computer types here — `mousepad.request` with `key`/`specialKey` lands in the field through commitToField (literal) or the hardware-keyboard path (remoteTypingPipeline); only while the keyboard view is shown and the device is unlocked, which is also when `keyboardstate: true` is sent, without which Plasma's remote-keyboard box never appears; echoes always carry `key` and `isAck` or kdeconnect-kde drops them
+    - Clipboard both ways — hooked ahead of the clipboard history's own gate so sync works with history off; sensitive clips (EXTRA_IS_SENSITIVE or ClipSensitivity) are never auto-sent, nothing from a secure field or while incognito pauses the clipboard; the engine records received text before the system clipboard is written, which is what stops the echo
+    - Media, volume, run, slides, device tabs — MPRIS players with partial-packet merge and art over payload or HTTP, the computer's sinks in raw units against maxVolume, run commands with live output (`commandList` is JSON inside JSON), presenter pointer in screen fractions kept alive every 250 ms, ping, ring, lock
+    - Files — sent from the panel's picker (KdeFilePickerActivity) or another app's share sheet (KdeShareAlias, an activity-alias enabled only once something is paired); received into Downloads/WM Keyboard through MediaStore (app files behind the clipboard FileProvider below API 29) and added to the clipboard history; file names from the peer are reduced to a bare name
+    - Phone side — battery report, and the phone's media as an MPRIS player for the computer (a second MediaControlManager; needs the notification-listener grant)
+    - Not built, on purpose — SMS and telephony, notification mirroring, SFTP, contacts, find-my-phone, mouse receiver
+    - Identity out of every backup — `filesDir/kdeconnect` (key.pk8, cert.der, devices.json) is excluded in backup_rules and data_extraction_rules: a restored key would clone the device id onto a second phone
+    - Nested KdeConnectSettings — one KeyboardSettings slot, flat `kde_*` keys; hidden in direct boot (restrictedToDirectBoot turns it off); NotificationKind.CONNECT for a pair request, file or ping that arrives while the keyboard is hidden
   - Plugins `RARE` — Runs installed .wmplugin Lua plugins in a panel
     - List then running view — Cards for installed plugins, Manage row at the end
     - Plugin-owned input field — Panel takes keystrokes; copy/paste/insert callbacks are host-mediated
@@ -2178,6 +2206,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Inflated at WRAP_CONTENT in both axes — chips size to their own content, and an exact height outside the spec's range would make inflate throw into a swallowed catch, vanishing every chip silently
     - Measured and inflated against the display context on Android 11–12, where the service's own resources still describe the built-in panel
     - Chips are remote-rendered; the keyboard never sees their contents
+    - Chip taps buzz and click like a key — the tap never reaches the keyboard (the renderer sends it straight to the autofill system), so it is read from the empty response that withdraws the row just before the fill, unless a keypress, a field edit or a new field in the last 400 ms explains it; a focus change up to 60 ms later cancels it. A locked vault's tap sends no withdrawal and stays silent (#250)
     - Chip background and text colours follow the theme — the strip's own chip colours, reported out of the composition because the request is built on the service; the first request after process start carries none, since nothing has resolved a theme yet
     - Renderer version read off the request's uiExtras, not echoed back into the request's own extras — an undeclared renderer is taken at v1, since the bundle is empty on every device tested and v1 is the only version there is
     - Both lanes inflated and delivered in one callback — Stops a reply landing a frame before a credential chip and moving the row
@@ -2341,7 +2370,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Rail keys are Delete, Space, context-aware Enter, back-to-keys
     - Hold-to-talk — past 600 ms the mic is walkie-talkie: listens while held, stops on release; a tap still toggles
     - Rail keys do not end the recording — except when a system partial is sitting in the editor as composing text
+    - Stop anywhere while listening (#283) — the whole side left of the rail takes the stop press, tinted while it does; chips and the mic keep their own presses, pointerInput so TalkBack still has one mic node
   - Compact strip over the keys `uncommon` — replaces the suggestion strip, keys stay usable underneath
+    - Stop anywhere while listening (#283) — everywhere on the bar that is not another button finishes the phrase; listening only, an idle bar never opens the mic for a stray touch
+  - Voice tool is the stop button (#283) — pressed over a dictation running on the strip or panel it finishes the phrase (endVoiceFromTool) and the surface closes once the words land (settleVoiceToolEnding); it used to cancel, which threw a Whisper or server clip away. The strip's close button (VoiceBarAction.CloseStrip) and the panel's keyboard key still abandon; an error keeps the surface up
   - Floating collapsed bar `RARE` — Gboard-style voice toolbar: the keyboard gives its whole window to a draggable pill so the app behind is visible
     - Touchable region shrunk to the pill — everything around it falls through to the app
     - Horizontal pill snaps to 3 rests and keeps its height
@@ -2671,6 +2703,22 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Typing-test achievements `RARE` — 4 badges stored as one comma-list preference; unlocks only accumulate.
     - The four — 100 WPM, a flawless run of 30+ chars, a pangram quote, 50 completed tests.
     - Unknown ids dropped on decode — Encoding is order-stable against the ALL list.
+- **Network activity log** `RARE` — Settings › Privacy › Network activity: every request the keyboard's own code makes, on the device only.
+  - Every network path recorded `RARE` — ToolHttp, the download managers, OkHttp (backup sinks, media loader), FTP and KDE Connect sockets all go through NetLog.
+    - Build-time guard — NetworkCallSitesTest fails when a file opens a connection, client or socket without the log.
+    - Honest about the gaps — ML Kit, Play services fonts, Play Store libraries and the system speech recognizer are named as outside it.
+  - Address without what was typed `RARE` — Host plus a route the call site names; no query strings, headers, bodies or error messages.
+    - Placeholders for secrets in paths — KLIPY's key and Signal's pack id show as {key} and {pack}; dictionary and Wikipedia routes stop before the word.
+    - Real byte counts — Counted off the streams, not Content-Length.
+  - Burst merging `RARE` — Identical requests within 60 s become one row with a count, summed bytes and a mean duration.
+  - Totals kept apart from rows `uncommon` — 2,000 rows or 30 days; per-day totals by feature, server and hour survive the row cap.
+    - Direct boot — Rows held in memory until the first unlock, then written.
+  - Screen `RARE` — Live "contacting…" line, Today / 7 days / 30 days card with a stacked, scrubbable chart in each tool's own colour, By feature and Servers contacted cards, filtered timeline, per-request sheet.
+    - Server badges — New (after the log is 7 days old), Your server (self-hosted and backup addresses), Local network (decided from the name, never resolved).
+    - Request sheet — Why it happened, result in words, data each way, time taken, what that feature sends, links to its settings and Data saver.
+    - Incognito marked, not paused — Rows made while incognito are badged and filterable.
+    - CSV export, clear with undo — Also listed on the Storage screen.
+  - Keyboard activity dot `RARE` — Off by default; a dot on the toolbar in the requesting tool's colour, hold to read the server.
 - **Permissions & disclosures** `uncommon` — Prominent-disclosure layer plus an in-app permission inventory screen.
   - Prominent disclosure before every prompt `uncommon` — 7 disclosure definitions covering 6 runtime permissions; refusable without granting.
     - Three sanctioned request paths only — IME trampoline activity, settings-side composable helper, special-access helper; no bare launch().
@@ -2924,6 +2972,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Play In-App Updates (card, About rows, flexible/immediate flows) | play-channel builds only (wmkb.enablePlayStore); also requires the install to have come from Play and a network call |
 | Document scanner tool | full flavour only (ML Kit) and hidden entirely on devices without Google Play services |
 | Handwriting, OCR, QR scan, grammar check, offline Whisper dictation, local LLM | full flavour only (ML Kit / LiteRT / Harper native) — power saving's 'drop on-device models' and the direct-boot restriction both fall back to system alternatives |
+| Offline Whisper dictation, the sticker editor's own background remover, handwriting recognition | on Play, each runtime is an on-demand split fetched on first use (:feature:litert for the LiteRT interpreter the first two share, :feature:handwriting for ML Kit's ink recogniser); the language-to-model mapping for handwriting is compiled in (InkModelTags) so the tool knows what it is offering before the split arrives; sideload builds compile the same bridges into :core:voice, :core:content and :core:intelligence |
 | Google Drive backup destination | GMS-enabled builds only (wmkb.enableGms); reports unavailable in F-Droid builds |
 | Servers screen (Advanced) and per-tool server fields | F-Droid builds only (wmkb.enableFdroid) |
 | Launcher shortcuts | API 25+; ignored on the minSdk 24 floor |

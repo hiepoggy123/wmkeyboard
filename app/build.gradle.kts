@@ -294,6 +294,14 @@ android {
     // the module is not even part of the build graph.
     if (playStoreChannel) {
         dynamicFeatures += ":feature:llm"
+        // ML Kit's translator, the same way: ~16 MB per ABI that only the
+        // people who turn on-device translation on ever download.
+        dynamicFeatures += ":feature:translate"
+        // The LiteRT interpreter (~4 MB per ABI) behind offline Whisper and
+        // the sticker editor's own background remover, and ML Kit's ink
+        // recogniser (~6.5 MB per ABI) behind the handwriting tool.
+        dynamicFeatures += ":feature:litert"
+        dynamicFeatures += ":feature:handwriting"
     }
 
     // See the splitApks flag at the top of this file. Splits shape APK
@@ -321,6 +329,15 @@ android {
             // ships stripped (measured: 48 bytes of symbol table across all
             // three ABIs), so keeping them was buying nothing.
         }
+    }
+    // AGP signs a dependency list into every APK's signing block, encrypted
+    // with a key only Google can read. F-Droid's `check apk` job rejects an APK
+    // carrying it, and the F-Droid reference APK on each GitHub release is one
+    // of ours. It lives only in the signing block, so dropping it changes no
+    // file inside the APK. The bundle keeps it: Play is who reads it.
+    dependenciesInfo {
+        includeInApk = false
+        includeInBundle = true
     }
 
     buildFeatures {
@@ -738,6 +755,7 @@ dependencies {
     implementation(project(":core:theme"))
     implementation(project(":core:icons"))
     implementation(project(":core:tools"))
+    implementation(project(":core:kdeconnect"))
     implementation(project(":core:content"))
     implementation(project(":core:addons"))
     implementation(project(":core:voice"))
@@ -779,8 +797,33 @@ dependencies {
     // Google binary is linked into an F-Droid or direct-download APK.
     if (playStoreChannel) {
         implementation(libs.play.app.update)
-        // SplitInstall + SplitCompat for the on-demand :feature:llm module.
+        // SplitInstall + SplitCompat for the on-demand :feature:llm,
+        // :feature:translate, :feature:litert and :feature:handwriting modules.
         implementation(libs.play.feature.delivery)
+        // ML Kit's own half of running from an on-demand module. It has to be
+        // in the base: it is what lets the ML Kit context that started with
+        // the process find a library that arrived after it. Full flavour only,
+        // since lite has no ML Kit for it to serve.
+        "fullImplementation"(libs.mlkit.dynamic.feature.support) {
+            // 16.0.0-beta2 still depends on the monolithic play:core 1.10.0,
+            // which the two split artifacts above replaced: its classes
+            // duplicate theirs (checkDuplicateClasses fails the bundle), and
+            // its manifest declares asset-pack services whose
+            // `@bool/enable_system_*_service_default` come from a WorkManager
+            // the feature modules do not have, so their AAPT step fails too.
+            // The library itself only needs SplitInstall, which
+            // feature-delivery provides under the same package names.
+            exclude(group = "com.google.android.play", module = "core")
+        }
+        // WorkManager, which digital-ink declares and uses for its model
+        // downloads. It has to be in the base even though the library that
+        // wants it is in the :feature:handwriting split: its initializer is
+        // an androidx.startup entry that only runs for the base at process
+        // start, and its manifest services are enabled by its own `@bool`
+        // resources, which the base's resource link needs to resolve once
+        // AGP merges the split's components into the base manifest. Outside
+        // Play it comes with digital-ink itself.
+        "fullImplementation"(libs.androidx.work.runtime)
     }
     // Only for the Drive backup destination's OAuth token. The Drive calls
     // themselves are plain HTTP and need nothing from Google.

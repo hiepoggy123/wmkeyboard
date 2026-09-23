@@ -99,6 +99,8 @@
     <string name="about_bundled_kotlin_used">The language runtime, concurrency and settings serialisation</string>
     <string name="about_bundled_coil_used">Loads the images in the GIF, sticker and search panels</string>
     <string name="about_bundled_okhttp_used">The HTTP client for Coil and the network tools</string>
+    <!-- APNG is an image format. Keep it as it is. -->
+    <string name="about_bundled_apng_used">Reads animated PNG stickers</string>
     <string name="about_bundled_zxing_used">Makes the QR codes</string>
     <string name="about_bundled_luaj_used">The Lua interpreter that runs the plugins in their sandbox</string>
     <string name="about_bundled_harper_used">Checks the grammar and the style offline (native library)</string>
@@ -123,6 +125,8 @@
 
     <!-- What the app uses each downloadable data pack for. -->
     <string name="about_pack_wordlists_used">The prediction word lists for more than 300 languages, from FrequencyWords (OpenSubtitles), Leipzig Corpora, Wikimedia, wordfreq and others</string>
+    <!-- AOSP is the Android Open Source Project and stays as it is. -->
+    <string name="about_pack_aosp_wordlists_used">The curated word lists for 23 languages that Android\'s own keyboard uses, preferred where a language has one</string>
     <string name="about_pack_offensive_used">The optional filter lists for the suggestions in the languages you download</string>
     <string name="about_pack_emoji_keywords_used">The emoji search keywords in 141 languages, from KDE\'s kemoji</string>
     <!-- "Noto Animated Emoji" is the name of the image set. Keep it as it is. -->
@@ -134,6 +138,8 @@
     <string name="about_pack_stroke_used">The stroke sequence input for Chinese</string>
     <!-- kCangjie is the name of the field inside the Unihan database. -->
     <string name="about_pack_unihan_used">The Cangjie input code table (the kCangjie field)</string>
+    <string name="about_pack_cutout_used">The sticker editor\'s own background remover, used where Google Play services cannot supply one</string>
+    <string name="about_pack_llm_used">The on-device AI models in the catalog. Each model row names its own licence; Gemma 3 has Google\'s terms, the others are Apache-2.0</string>
 
     <!-- What the app uses each online service for. -->
     <string name="about_service_brave_used">The web and image search results</string>

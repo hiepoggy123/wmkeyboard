@@ -5,8 +5,11 @@ import android.content.Context
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.app.drive.installDriveAuth
 import com.wasimaster.wmkeyboard.app.llm.installLlmDelivery
+import com.wasimaster.wmkeyboard.app.translate.installTranslateDelivery
 import com.wasimaster.wmkeyboard.app.llm.llmSplitCompat
+import com.wasimaster.wmkeyboard.app.modules.installOnDemandDelivery
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
+import com.wasimaster.wmkeyboard.core.netlog.NetLog
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupClients
 
 /**
@@ -52,6 +55,9 @@ class WMApplication : Application() {
         // carries it.
         DebugLog.setBuildTag(BuildConfig.FLAVOR)
         DebugLog.attach(this)
+        // The network activity log, before anything in this process can make
+        // a request. Cheap: it reads two small files, or waits for the unlock.
+        NetLog.attach(this)
         // Publishes the Drive token provider, if this build has one at all, so
         // the backup job can find it. Here rather than in the activity or the
         // keyboard because either of those may be what started the process, and
@@ -62,6 +68,11 @@ class WMApplication : Application() {
         // delivers the AI runtime on demand at all. A no-op elsewhere: those
         // builds compile the runtime in, and the default gate already says so.
         installLlmDelivery(this)
+        // The same for ML Kit's translator and OnDeviceTranslator.
+        installTranslateDelivery(this)
+        // And for the LiteRT interpreter (WhisperEngine, LocalSubjectCutout)
+        // and ML Kit's ink recogniser (HandwritingModels).
+        installOnDemandDelivery(this)
         // The Dropbox and OneDrive client ids, which live in BuildConfig and
         // so cannot be read from the library module that needs them.
         BackupClients.install(

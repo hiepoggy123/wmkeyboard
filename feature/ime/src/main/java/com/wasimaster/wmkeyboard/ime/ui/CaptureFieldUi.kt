@@ -38,4 +38,23 @@ data class CaptureCallbacks(
     val onCaretTap: (Int) -> Unit = {},
     /** A word was picked off the field's own suggestion strip. */
     val onSuggestion: (String) -> Unit = {},
+    /**
+     * The AI panel's chat mode (#280). It rides here rather than as a parameter
+     * of its own for the reason this bundle exists at all, and it belongs: the
+     * chat's composer is one of the keyboard's own fields.
+     */
+    val onAiChat: (com.wasimaster.wmkeyboard.ime.AiChatAction) -> Unit = {},
+    /**
+     * The KDE Connect panel (#285), here for the same reason: its "type on the
+     * computer" line and its address box are keyboard-owned fields. Three
+     * entries rather than one sealed type because two of them are on the path
+     * of every special-key press and should not allocate to get there.
+     */
+    val onKde: (com.wasimaster.wmkeyboard.ime.KdeAction) -> Unit = {},
+    val onKdeKey: (
+        com.wasimaster.wmkeyboard.core.kdeconnect.KdeSpecialKey,
+        com.wasimaster.wmkeyboard.core.kdeconnect.KdeModifiers,
+    ) -> Unit = { _, _ -> },
+    /** Compose mode's Send: the line as one piece of text, with Enter after it or without. */
+    val onKdeSend: (Boolean) -> Unit = {},
 )

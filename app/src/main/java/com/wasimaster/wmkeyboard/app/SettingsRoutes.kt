@@ -48,6 +48,11 @@ internal object SettingsRoutes {
         // Same shape: PhotoSelection.current is set by the browse screen as it
         // navigates, and the screen pops itself when it is null.
         "photo_detail" to "opens only on the photo the browse screen just handed over",
+        // The route carries a pack key, and the screen asks Signal's servers
+        // for the pack as it opens. Both belong behind a link the user pasted
+        // or a row they pressed, where the link importer's confirm or the
+        // pack list stands in front of it.
+        "signal_pack/{packId}/{packKey}" to "opens on a pack the user picked or pasted; see AddonDeepLink",
     )
 
     /**
@@ -85,6 +90,7 @@ internal object SettingsRoutes {
         "blacklist",
         "learnedcorrections",
         "musicapps",
+        "kdeconnect/devices",
         "phoneformats",
         "hwshortcuts",
         "appearance",
@@ -104,6 +110,7 @@ internal object SettingsRoutes {
         "photo_rotation",
         "keymaps",
         "sticker_packs",
+        "signal_stickers",
         "vocab/packs",
         "vocab/lists",
         "vocab/list/{packId}",
@@ -118,6 +125,7 @@ internal object SettingsRoutes {
         "addon_repo/{repoUrl}",
         "addon/{repoUrl}/{addonId}",
         "sticker_pack/{packId}",
+        "sticker_pack/{packId}/add",
         "keymap_edit/{layoutId}",
         "keymap_json/{layoutId}",
         "panel_edit/{panel}",
@@ -139,6 +147,7 @@ internal object SettingsRoutes {
         "accessibility",
         "privacy",
         "permissions",
+        "network_activity",
         "applock",
         "datasaver",
         "servers",

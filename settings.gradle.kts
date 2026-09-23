@@ -41,6 +41,7 @@ include(":core:emoji")
 include(":core:theme")
 include(":core:icons")
 include(":core:tools")
+include(":core:kdeconnect")
 include(":core:content")
 include(":core:addons")
 include(":core:voice")
@@ -72,6 +73,12 @@ val playStoreChannel: Boolean = run {
 }
 if (playStoreChannel) {
     include(":feature:llm")
+    // The same arrangement for ML Kit's on-device translator.
+    include(":feature:translate")
+    // The LiteRT interpreter (offline Whisper, the sticker editor's own
+    // background remover) and ML Kit's ink recogniser, the same way.
+    include(":feature:litert")
+    include(":feature:handwriting")
 }
 // Host-side dictionary compiler: turns dictionaries-src/*.txt into the .wmdict
 // binary assets at build time, sharing the app's own trie/codec sources so the

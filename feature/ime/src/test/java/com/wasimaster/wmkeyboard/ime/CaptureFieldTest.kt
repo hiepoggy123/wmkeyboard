@@ -127,6 +127,33 @@ class CaptureFieldTest {
         assertEquals(CaretText("hello", 5), text.replacedWordAtCaret("hello", spaceAfter = false))
     }
 
+    @Test
+    fun `a second glide at the end of a query adds a word instead of replacing the first`() {
+        val first = CaretText("").glided("hello")
+        assertEquals(CaretText("hello", 5), first)
+        assertEquals(CaretText("hello world", 11), first.glided("world"))
+    }
+
+    @Test
+    fun `a glide after a space does not add another`() {
+        assertEquals(CaretText("hello world", 11), CaretText("hello ").glided("world"))
+    }
+
+    @Test
+    fun `a glide in front of a word spaces itself off it`() {
+        val next = CaretText("hello there", caret = 6).glided("big")
+        assertEquals("hello big there", next.text)
+        assertEquals(10, next.at)
+        val onGap = CaretText("hello there", caret = 5).glided("big")
+        assertEquals("hello big there", onGap.text)
+        assertEquals(10, onGap.at)
+    }
+
+    @Test
+    fun `a glide before punctuation leaves it attached`() {
+        assertEquals(CaretText("hello world?", 11), CaretText("hello?", caret = 5).glided("world"))
+    }
+
     // ---- the one ladder ----
 
     @Test
@@ -192,6 +219,43 @@ class CaptureFieldTest {
     }
 
     @Test
+    fun `the clip editor has the keys only with its panel open`() {
+        val editing = KeyboardUiState(
+            panel = PanelMode.CLIPBOARD,
+            clipEdit = ClipEdit(id = 7, original = "teh", draft = "the"),
+        )
+        assertEquals(CaptureTarget.CLIP_EDIT, editing.captureTarget())
+        assertEquals("the", editing.captureBuffer())
+        assertTrue(editing.clipboardTakesKeys)
+        // An edit left behind by a panel that closed some other way must not
+        // keep typing into a buffer nothing is drawing.
+        val closed = editing.copy(panel = PanelMode.NONE)
+        assertNull(closed.captureTarget())
+        assertFalse(closed.clipboardTakesKeys)
+    }
+
+    @Test
+    fun `the clip editor outranks the clipboard search`() {
+        val state = KeyboardUiState(
+            panel = PanelMode.CLIPBOARD,
+            clipboardSearchActive = true,
+            clipboardQuery = "x",
+            clipEdit = ClipEdit(id = 1, original = "a"),
+        )
+        assertEquals(CaptureTarget.CLIP_EDIT, state.captureTarget())
+        assertTrue(CaptureTarget.CLIP_EDIT.takesWords)
+        assertTrue(CaptureTarget.CLIP_EDIT.movableCaret)
+    }
+
+    @Test
+    fun `a clip edit saves only a real change`() {
+        assertFalse(ClipEdit(1, "same").canSave)
+        assertFalse(ClipEdit(1, "same", draft = " same\n").canSave)
+        assertFalse(ClipEdit(1, "text", draft = "   ").canSave)
+        assertTrue(ClipEdit(1, "text", draft = "text!").canSave)
+    }
+
+    @Test
     fun `a media search only counts on a panel that has one`() {
         val searching = KeyboardUiState(
             panel = PanelMode.TRANSLATE,
@@ -201,6 +265,25 @@ class CaptureFieldTest {
         assertEquals(CaptureTarget.MEDIA_SEARCH, searching.captureTarget())
         val elsewhere = searching.copy(panel = PanelMode.COMPASS)
         assertNull(elsewhere.captureTarget())
+    }
+
+    @Test
+    fun `the chat composer has the keys only while it is up and focused`() {
+        val composing = KeyboardUiState(
+            panel = PanelMode.AI,
+            aiChat = AiChatUi(open = true, composing = true, draft = "hello"),
+        )
+        assertEquals(CaptureTarget.AI_CHAT, composing.captureTarget())
+        assertEquals("hello", composing.captureBuffer())
+        assertTrue(CaptureTarget.AI_CHAT.takesWords)
+        // Every one of its conditions alone gives the keys back: the panel
+        // closed, the actions showing, the composer not focused, the list of
+        // conversations up over it, and a chat that may not be offered at all.
+        assertNull(composing.copy(panel = PanelMode.NONE).captureTarget())
+        assertNull(composing.copy(aiChat = composing.aiChat.copy(open = false)).captureTarget())
+        assertNull(composing.copy(aiChat = composing.aiChat.copy(composing = false)).captureTarget())
+        assertNull(composing.copy(aiChat = composing.aiChat.copy(showSessions = true)).captureTarget())
+        assertNull(composing.copy(aiChat = composing.aiChat.copy(available = false)).captureTarget())
     }
 
     @Test

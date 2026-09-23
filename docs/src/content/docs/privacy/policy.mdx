@@ -80,7 +80,7 @@ only while you are actively using it:
 
 | Tool | What it sends | To |
 |---|---|---|
-| Translate | the text in the panel | Google Cloud Translation |
+| Translate | the text in the panel. Nothing, when the engine is set to On device | Google Cloud Translation |
 | Web and image search | your query | Brave Search |
 | GIF and sticker search | your query | KLIPY, GIPHY |
 | Dictionary | one word | `api.dictionaryapi.dev` |
@@ -90,7 +90,7 @@ only while you are actively using it:
 | Photo backgrounds | your search terms | Unsplash, Pexels |
 | AI writing tools | the text you ran an action on | the provider you chose, using your own API key |
 | Voice typing | your speech audio | Android's own speech service, unless you use the offline Whisper option |
-| Language and model downloads | nothing about you | GitHub, Hugging Face |
+| Language and model downloads | nothing about you, except that a gated on-device AI model (the two Gemma 3 builds) is fetched with the Hugging Face token you entered for it | GitHub, Hugging Face |
 
 Four of these can fire without you opening a tool under default settings.
 They are the weather smart chip, the currency smart chip, automatic language
@@ -127,7 +127,8 @@ project receives nothing from them. None of them can be switched off from
 inside the app either, so your only choice is whether to use the feature.
 
 - **ML Kit** powers handwriting input, OCR, QR and barcode scanning, the
-  document scanner and sticker background removal, in the full edition only.
+  document scanner, sticker background removal and on-device translation, in
+  the full edition only.
   Google
   [states](https://developers.google.com/ml-kit/android-data-disclosure) that
   its SDK sends device information (make, model, OS build, available ML

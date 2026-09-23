@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FileOpen
@@ -36,11 +37,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -147,50 +150,7 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
                 }.getOrDefault(StickerImportResult.Failed)
             }
             revision++
-            message = when (result) {
-                is StickerImportResult.Imported -> buildString {
-                    append(
-                        context.resources.getQuantityString(
-                            R.plurals.import_stickers_done,
-                            result.pack.stickers.size,
-                            result.pack.name,
-                            result.pack.stickers.size,
-                        ),
-                    )
-                    if (result.repairs.isNotEmpty()) {
-                        append("\n\n").append(context.getString(R.string.import_repairs_title))
-                        // The reader hands back a resource and its arguments,
-                        // so the note is worded here.
-                        for (line in result.repairs) append("\n• ${line.resolve(context)}")
-                    }
-                }
-                StickerImportResult.NotAStickerPack ->
-                    context.getString(R.string.import_not_a_sticker_pack)
-                is StickerImportResult.NoStickers -> buildString {
-                    append(context.getString(R.string.import_stickers_none_read))
-                    for (line in result.repairs.take(MAX_SHOWN_REPAIRS)) {
-                        append("\n• ${line.resolve(context)}")
-                    }
-                    val extra = result.repairs.size - MAX_SHOWN_REPAIRS
-                    if (extra > 0) {
-                        append("\n• ")
-                        append(
-                            context.resources.getQuantityString(
-                                R.plurals.import_repairs_more,
-                                extra,
-                                extra,
-                            ),
-                        )
-                    }
-                }
-                StickerImportResult.TooManyPacks ->
-                    context.resources.getQuantityString(
-                        R.plurals.import_stickers_too_many,
-                        StickerPackStore.MAX_PACKS,
-                        StickerPackStore.MAX_PACKS,
-                    )
-                StickerImportResult.Failed -> context.getString(R.string.import_file_unreadable)
-            }
+            message = result.describe(context)
         }
     }
 
@@ -228,6 +188,16 @@ internal fun StickerPacksScreen(onNavigate: (String) -> Unit) {
     RegisterAddFab(stringResource(R.string.import_sticker_pack_new_title)) { newPackName = "" }
     SettingsGroup {
         item { AddonStoreRow(AddonType.Stickers, onNavigate) }
+        item {
+            WmRow(
+                title = stringResource(R.string.import_signal_row_title),
+                subtitle = stringResource(R.string.import_signal_row_subtitle),
+                icon = Icons.AutoMirrored.Outlined.StickyNote2,
+                accent = routeAccent("sticker_packs"),
+                highlightKey = R.string.import_signal_row_title,
+                onClick = { onNavigate(SIGNAL_STICKERS_ROUTE) },
+            )
+        }
         item {
             WmRow(
                 title = stringResource(R.string.import_sticker_pack_import_title),
@@ -379,9 +349,19 @@ private fun StickerPackRow(
     )
 }
 
-/** One pack: rename it, add stickers from photos, edit or remove each one. */
+/**
+ * One pack: rename it, add stickers from photos, edit or remove each one.
+ *
+ * @param openPicker put the photo picker up as the page opens, for the
+ *   keyboard's add button (#281). Once per visit: coming back from the editor
+ *   or from a rotation lands on the page, not on a second picker.
+ */
 @Composable
-internal fun StickerPackScreen(packId: String, onNavigate: (String) -> Unit) {
+internal fun StickerPackScreen(
+    packId: String,
+    openPicker: Boolean = false,
+    onNavigate: (String) -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = remember { StickerPackStore.get(context) }
@@ -458,6 +438,16 @@ internal fun StickerPackScreen(packId: String, onNavigate: (String) -> Unit) {
             busy = false
             revision++
             message = outcome.describe(context)
+        }
+    }
+
+    // Saved with the back-stack entry, so the editor's pop back to this page
+    // finds it already spent.
+    var pickerOpened by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (openPicker && !pickerOpened && pack != null) {
+            pickerOpened = true
+            pickLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
     }
 
@@ -636,6 +626,45 @@ internal fun StickerPackScreen(packId: String, onNavigate: (String) -> Unit) {
             },
         )
     }
+}
+
+/** What came of an import, as the one message the screen shows for it. */
+internal fun StickerImportResult.describe(context: Context): String = when (this) {
+    is StickerImportResult.Imported -> buildString {
+        append(
+            context.resources.getQuantityString(
+                R.plurals.import_stickers_done,
+                pack.stickers.size,
+                pack.name,
+                pack.stickers.size,
+            ),
+        )
+        if (repairs.isNotEmpty()) {
+            append("\n\n").append(context.getString(R.string.import_repairs_title))
+            // The reader hands back a resource and its arguments, so the note
+            // is worded here.
+            for (line in repairs.take(MAX_SHOWN_REPAIRS)) append("\n• ${line.resolve(context)}")
+            appendMoreRepairs(context, repairs.size - MAX_SHOWN_REPAIRS)
+        }
+    }
+    StickerImportResult.NotAStickerPack -> context.getString(R.string.import_not_a_sticker_pack)
+    is StickerImportResult.NoStickers -> buildString {
+        append(context.getString(R.string.import_stickers_none_read))
+        for (line in repairs.take(MAX_SHOWN_REPAIRS)) append("\n• ${line.resolve(context)}")
+        appendMoreRepairs(context, repairs.size - MAX_SHOWN_REPAIRS)
+    }
+    StickerImportResult.TooManyPacks -> context.resources.getQuantityString(
+        R.plurals.import_stickers_too_many,
+        StickerPackStore.MAX_PACKS,
+        StickerPackStore.MAX_PACKS,
+    )
+    StickerImportResult.Failed -> context.getString(R.string.import_file_unreadable)
+}
+
+private fun StringBuilder.appendMoreRepairs(context: Context, extra: Int) {
+    if (extra <= 0) return
+    append("\n• ")
+    append(context.resources.getQuantityString(R.plurals.import_repairs_more, extra, extra))
 }
 
 /** How many photos one trip through the picker may add. */

@@ -26,6 +26,8 @@
         <!-- On-device speech and LLM weights: hundreds of MB, re-downloadable. -->
         <exclude domain="file" path="models" />
         <exclude domain="file" path="whisper" />
+        <!-- The sticker editor's background remover: small, but the same kind of thing. -->
+        <exclude domain="file" path="cutout" />
         <!-- Compiled and downloaded word lists, likewise. -->
         <exclude domain="file" path="dict" />
         <exclude domain="file" path="cjk_dicts" />
@@ -43,11 +45,25 @@
            edit. A sticker pack the user exports never carries them either.
         -->
         <exclude domain="file" path="stickers/.originals" />
+        <!--
+           The KDE Connect identity: this device's private key and certificate,
+           and the certificates of paired computers. Restored onto another
+           phone they would put two devices on the network under one identity,
+           and hand the second one every pairing the first ever made.
+        -->
+        <exclude domain="file" path="kdeconnect" />
+        <!--
+           The network activity log. A record of this device's requests, not a
+           setting: restored onto another phone it would describe traffic that
+           phone never made.
+        -->
+        <exclude domain="file" path="netlog" />
     </cloud-backup>
 
     <device-transfer>
         <exclude domain="file" path="models" />
         <exclude domain="file" path="whisper" />
+        <exclude domain="file" path="cutout" />
         <exclude domain="file" path="dict" />
         <exclude domain="file" path="cjk_dicts" />
         <exclude domain="file" path="emoji_dict" />
@@ -56,5 +72,12 @@
         <exclude domain="file" path="docscan" />
         <exclude domain="file" path="clipboard/images" />
         <exclude domain="file" path="stickers/.originals" />
+        <exclude domain="file" path="kdeconnect" />
+        <!--
+           The network activity log. A record of this device's requests, not a
+           setting: restored onto another phone it would describe traffic that
+           phone never made.
+        -->
+        <exclude domain="file" path="netlog" />
     </device-transfer>
 </data-extraction-rules>

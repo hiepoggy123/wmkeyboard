@@ -90,6 +90,7 @@ internal val SettingsSearchKeywords: Map<Int, Int> = buildMap {
     put(ImeR.string.ime_tool_sticker, R.string.search_kw_ime_tool_sticker)
     put(ImeR.string.ime_tool_text_edit, R.string.search_kw_ime_tool_text_edit)
     put(ImeR.string.ime_tool_trackpad, R.string.search_kw_ime_tool_trackpad)
+    put(ImeR.string.ime_tool_kde_connect, R.string.search_kw_ime_tool_kde_connect)
     put(ImeR.string.ime_tool_translate, R.string.search_kw_ime_tool_translate)
     put(ImeR.string.ime_tool_vocabulary, R.string.search_kw_ime_tool_vocabulary)
     put(ImeR.string.ime_tool_weather, R.string.search_kw_ime_tool_weather)
@@ -112,6 +113,7 @@ internal val SettingsSearchKeywords: Map<Int, Int> = buildMap {
     put(R.string.langemoji_lang_os_switcher_title, R.string.search_kw_langemoji_lang_os_switcher)
     put(R.string.languages_cjk_fuzzy_title, R.string.search_kw_languages_cjk_fuzzy)
     put(R.string.languages_cjk_lazy_title, R.string.search_kw_languages_cjk_lazy)
+    put(R.string.languages_cjk_loose_marks_title, R.string.search_kw_languages_cjk_loose_marks)
     put(R.string.languages_cjk_traditional_title, R.string.search_kw_languages_cjk_traditional)
     put(R.string.languages_conjunct_backspace_title, R.string.search_kw_languages_conjunct_backspace)
     put(R.string.languages_fancy_style_row_title, R.string.search_kw_languages_fancy_style_row)
@@ -178,6 +180,8 @@ internal val SettingsSearchKeywords: Map<Int, Int> = buildMap {
     put(R.string.typing_undo_autocorrect_title, R.string.search_kw_typing_undo_autocorrect)
     put(R.string.typing_wrap_selection_title, R.string.search_kw_typing_wrap_selection)
     put(R.string.update_row_check_title, R.string.search_kw_update_row_check)
+    put(R.string.tooldetail_translate_engine_title, R.string.search_kw_translate_engine)
+    put(R.string.tooldetail_translate_models_group, R.string.search_kw_translate_models)
     put(R.string.voice_engine_title, R.string.search_kw_voice_engine)
 }
 

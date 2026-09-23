@@ -9,6 +9,7 @@ import com.wasimaster.wmkeyboard.app.updates.UpdateChannel
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
+import com.wasimaster.wmkeyboard.core.translate.OnDeviceTranslator
 
 /**
  * How much an entry is worth next to the others, as a percentage applied to
@@ -701,6 +702,7 @@ private fun SearchStrings.appearanceToolbarRows(): List<SettingsSearchEntry> {
     return listOf(
         row(R.string.appearance_toolbar_show_title, R.string.appearance_toolbar_show_subtitle),
         row(R.string.appearance_toolbar_placement_title, R.string.appearance_toolbar_placement_subtitle),
+        row(R.string.appearance_toolbar_show_strip_title, R.string.appearance_toolbar_show_strip_subtitle),
         row(R.string.appearance_toolbar_swipe_down_title, R.string.appearance_toolbar_swipe_down_subtitle),
         row(R.string.appearance_toolbar_drag_title, R.string.appearance_toolbar_drag_subtitle),
         row(R.string.appearance_toolbar_hardware_only_title, R.string.appearance_toolbar_hardware_only_subtitle),
@@ -848,6 +850,7 @@ private fun SearchStrings.languageRows(): List<SettingsSearchEntry> {
         row(R.string.languages_word_pairs_title),
         row(R.string.languages_cjk_traditional_title, R.string.languages_cjk_traditional_subtitle),
         row(R.string.languages_cjk_lazy_title, R.string.languages_cjk_lazy_subtitle),
+        row(R.string.languages_cjk_loose_marks_title, R.string.languages_cjk_loose_marks_subtitle),
         row(R.string.languages_cjk_fuzzy_title, R.string.languages_cjk_fuzzy_subtitle),
     )
 }
@@ -908,6 +911,8 @@ private fun SearchStrings.voiceRows(): List<SettingsSearchEntry> {
         row(R.string.voice_continuous_title, R.string.voice_continuous_subtitle),
         row(R.string.voice_punctuation_title, R.string.voice_punctuation_subtitle),
         row(R.string.voice_translate_title, R.string.voice_translate_subtitle),
+        row(R.string.voice_server_language_title, R.string.voice_server_language_subtitle),
+        row(R.string.voice_server_test_title, R.string.voice_server_test_subtitle),
     )
 }
 
@@ -925,6 +930,8 @@ private fun SearchStrings.clipboardRows(): List<SettingsSearchEntry> {
         row(R.string.clipboard_max_title, R.string.clipboard_max_subtitle),
         row(R.string.panel_layout_row_title, R.string.panel_layout_row_subtitle),
         row(R.string.clipboard_full_bleed_title, R.string.clipboard_full_bleed_subtitle),
+        row(R.string.clipboard_view_title, R.string.clipboard_view_subtitle),
+        row(R.string.clipboard_numbers_title, R.string.clipboard_numbers_subtitle),
         row(R.string.clipboard_pinned_last_title, R.string.clipboard_pinned_last_subtitle),
         row(R.string.clipboard_search_title, R.string.clipboard_search_subtitle),
         row(R.string.clipboard_entities_title, R.string.clipboard_entities_subtitle),
@@ -1152,6 +1159,26 @@ private fun SearchStrings.toolPageRowsA(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.MEDIA_CONTROL, R.string.tooldetail_mediactl_apps_title),
     // Same reason: the drawn subtitle says whether the grant is in place.
     toolEntry(ToolbarTool.MEDIA_CONTROL, R.string.tooldetail_mediactl_access_title),
+    // KDE Connect (#285): every row on the tool's own page.
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_enabled_title, R.string.kdeconnect_enabled_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_lifetime_title, R.string.kdeconnect_lifetime_keyboard_detail),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_auto_connect_title, R.string.kdeconnect_auto_connect_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_clipboard_receive_title, R.string.kdeconnect_clipboard_receive_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_clipboard_send_title, R.string.kdeconnect_clipboard_send_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_remote_typing_title, R.string.kdeconnect_remote_typing_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_pipeline_title, R.string.kdeconnect_pipeline_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_pad_speed_title),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_pad_accel_title, R.string.kdeconnect_pad_accel_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_scroll_speed_title),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_natural_scroll_title, R.string.kdeconnect_natural_scroll_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_tap_click_title, R.string.kdeconnect_tap_click_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_pad_haptics_title),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_receive_files_title, R.string.kdeconnect_receive_files_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_share_sheet_title, R.string.kdeconnect_share_sheet_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_battery_title, R.string.kdeconnect_battery_subtitle),
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_media_title, R.string.kdeconnect_media_subtitle),
+    // Subtitle left off: the drawn one says whether the grant is in place.
+    toolEntry(ToolbarTool.KDE_CONNECT, R.string.kdeconnect_media_access_title),
     toolEntry(ToolbarTool.APP_LAUNCHER, R.string.tooldetail_launcher_sort_title, R.string.tooldetail_launcher_sort_subtitle),
     toolEntry(ToolbarTool.APP_LAUNCHER, R.string.tooldetail_launcher_labels_title, R.string.tooldetail_launcher_labels_subtitle),
     toolEntry(ToolbarTool.APP_LAUNCHER, R.string.tooldetail_launcher_columns_title, R.string.tooldetail_launcher_columns_subtitle),
@@ -1326,6 +1353,7 @@ private fun SearchStrings.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.WIKIPEDIA, R.string.tooldetail_wiki_language_label, R.string.tooldetail_wiki_language_hint),
     toolEntry(ToolbarTool.WIKIPEDIA, R.string.tooldetail_wiki_markdown_title, R.string.tooldetail_wiki_markdown_subtitle),
     toolEntry(ToolbarTool.CALCULATOR, R.string.tooldetail_calc_degrees_title, R.string.tooldetail_calc_degrees_subtitle),
+    toolEntry(ToolbarTool.CALCULATOR, R.string.tooldetail_calc_phone_layout_title, R.string.tooldetail_calc_phone_layout_subtitle),
     toolEntry(ToolbarTool.CALCULATOR, R.string.tooldetail_calc_precision_title, R.string.tooldetail_calc_precision_subtitle),
     toolEntry(
         ToolbarTool.UNIT_CONVERT,
@@ -1334,6 +1362,7 @@ private fun SearchStrings.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     ),
     toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_currency_auto_fetch_title, R.string.tooldetail_currency_auto_fetch_subtitle),
     toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_currency_decimals_title, R.string.tooldetail_currency_decimals_subtitle),
+    toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_currency_label_title, R.string.tooldetail_currency_label_subtitle),
     toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_currency_refresh_title, R.string.tooldetail_currency_refresh_subtitle),
     toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_currency_source_title, R.string.tooldetail_currency_source_subtitle),
     toolEntry(ToolbarTool.CURRENCY, R.string.tooldetail_crypto_enable_title, R.string.tooldetail_crypto_enable_subtitle),
@@ -1390,6 +1419,7 @@ private fun SearchStrings.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_diff_title, R.string.toolai_ai_diff_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_diff_first_title, R.string.toolai_ai_diff_first_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_chat_nav_title, R.string.toolai_ai_chat_nav_subtitle),
+    toolEntry(ToolbarTool.AI, R.string.toolai_chat_enter_sends_title, R.string.toolai_chat_enter_sends_subtitle),
     // The AI history screen's own heading. Indexed on that screen, not on the
     // tool page: the tool page only draws the NavRow that opens it (next).
     entry(
@@ -1409,7 +1439,26 @@ private fun SearchStrings.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
         screenParent = R.string.home_tools_title,
     ),
     toolEntry(ToolbarTool.TRANSLATE, R.string.toolai_translate_into_title, R.string.toolai_translate_into_subtitle),
-)
+) + translateEngineRows()
+
+/**
+ * The translate page's engine row and model list. Only where the on-device
+ * engine exists: on any other build the page does not draw them, and a result
+ * that lands on a row that is not there flashes nothing.
+ */
+private fun SearchStrings.translateEngineRows(): List<SettingsSearchEntry> =
+    if (!OnDeviceTranslator.AVAILABLE) {
+        emptyList()
+    } else {
+        listOf(
+            toolEntry(
+                ToolbarTool.TRANSLATE,
+                R.string.tooldetail_translate_engine_title,
+                R.string.tooldetail_translate_engine_subtitle,
+            ),
+            toolEntry(ToolbarTool.TRANSLATE, R.string.tooldetail_translate_models_group),
+        )
+    }
 
 /**
  * Rows on Backup, on the sticker and plugin screens, and on Privacy, Rows &
@@ -1495,6 +1544,7 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
         backupContents(R.string.backup_section_emoji_label, R.string.backup_include_emoji_subtitle),
         stickerPack(R.string.import_sticker_pack_new_title, 0),
         stickerPack(R.string.import_sticker_pack_import_title, R.string.import_sticker_pack_import_subtitle),
+        stickerPack(R.string.import_signal_row_title, R.string.import_signal_row_subtitle),
         // Lands on the pack list: the editor itself cannot open without an
         // image to edit, so there is nothing to deep-link to.
         stickerPack(R.string.import_sticker_editor_title, R.string.import_sticker_editor_subtitle),
@@ -1533,6 +1583,7 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
         ),
         dataSaver(R.string.datasaver_downloads_title, R.string.datasaver_downloads_subtitle),
         dataSaver(R.string.datasaver_ai_title, R.string.datasaver_ai_subtitle),
+        dataSaver(R.string.datasaver_voice_title, R.string.datasaver_voice_subtitle),
         // The four kinds of notification, each one a thing someone will come
         // looking for by name the first time it arrives or stops arriving.
         notifications(R.string.notify_downloads_title, R.string.notify_downloads_subtitle),
@@ -1878,6 +1929,15 @@ private fun SearchStrings.sectionRows(): List<SettingsSearchEntry> {
             screenParent = R.string.home_tools_title,
             keywords = R.string.search_kw_musicapps,
         ),
+        // The same shape for KDE Connect's devices screen (#285).
+        entry(
+            title = R.string.kdeconnect_devices_title,
+            subtitle = R.string.kdeconnect_devices_screen_subtitle,
+            screen = toolTitle(ToolbarTool.KDE_CONNECT),
+            route = "kdeconnect/devices",
+            screenParent = R.string.home_tools_title,
+            keywords = R.string.search_kw_kdeconnect_devices,
+        ),
         // The Clipboard screen has a row for this, but the row only opens this
         // screen, so it is indexed once and points straight at it.
         under(
@@ -1910,6 +1970,10 @@ private fun SearchStrings.sectionRows(): List<SettingsSearchEntry> {
         under(
             R.string.privacy_permissions_title, R.string.privacy_permissions_subtitle,
             R.string.home_privacy_title, "permissions", R.string.search_kw_permissions,
+        ),
+        under(
+            R.string.netlog_title, R.string.netlog_subtitle,
+            R.string.home_privacy_title, "network_activity", R.string.search_kw_netlog,
         ),
         under(
             R.string.privacy_lock_title, R.string.privacy_lock_subtitle,

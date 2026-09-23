@@ -52,6 +52,14 @@
     <!-- they live beside the code that resolves it.                          -->
 
     <!-- ================================================================== -->
+    <!-- Translate tool: where the translation comes from.                  -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_translate_engine_online_label">Online</string>
+    <string name="core_settings_translate_engine_on_device_label">On device</string>
+    <string name="core_settings_translate_engine_auto_label">Automatic</string>
+
+    <!-- ================================================================== -->
     <!-- Grammar tool: which English the offline checker reads against.     -->
     <!-- ================================================================== -->
 
@@ -127,6 +135,8 @@
     <!-- ================================================================== -->
 
     <string name="core_settings_copied_code_chip_off_label">Never</string>
+    <string name="core_settings_clipboard_view_grid_label">Grid</string>
+    <string name="core_settings_clipboard_view_list_label">List</string>
     <string name="core_settings_copied_code_chip_code_fields_label">Code boxes only</string>
     <string name="core_settings_copied_code_chip_any_field_label">Any field</string>
 

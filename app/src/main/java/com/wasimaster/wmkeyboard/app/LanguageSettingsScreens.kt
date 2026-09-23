@@ -469,10 +469,7 @@ internal fun entryBytes(entry: DictionaryEntry, size: DictionaryCatalog.Dictiona
 
 /** Everything downloadable for [langId], sized for a prompt. */
 internal fun languageData(langId: String): LanguageData {
-    val lists = DictionaryCatalog.forLanguage(langId)
-    // Where a language has several lists (Portuguese), the one whose id is the
-    // language itself is its default; the other is the regional variant.
-    val wordlist = lists.firstOrNull { it.id == langId } ?: lists.firstOrNull()
+    val wordlist = DictionaryCatalog.preferred(langId)
     val emojiDict = EmojiDictCatalog.forLanguage(langId)
     val ngram = NgramPackCatalog.forLanguage(langId)
     val data = LanguageData(wordlist = wordlist, emojiDict = emojiDict, ngram = ngram, bytes = 0L)
@@ -1470,6 +1467,18 @@ private fun CjkDictPackManager(
                 settings.cjk.jyutpingLazy,
                 default = SettingsDefaults.cjk.jyutpingLazy,
             ) { on -> scope.launch { repository.setJyutpingLazy(on) } }
+        }
+
+        // Japanese-only: on the flick pad every ゛, ゜ and small kana is an extra
+        // key, so かつこう is how がっこう gets typed. Romaji never sees this.
+        item(visible = langId == "ja") {
+            ToggleSetting(
+                R.string.languages_cjk_loose_marks_title,
+                stringResource(R.string.languages_cjk_loose_marks_subtitle),
+                settings.cjk.kanaLooseMarks,
+                info = stringResource(R.string.languages_cjk_loose_marks_info),
+                default = SettingsDefaults.cjk.kanaLooseMarks,
+            ) { on -> scope.launch { repository.setKanaLooseMarks(on) } }
         }
 
     }

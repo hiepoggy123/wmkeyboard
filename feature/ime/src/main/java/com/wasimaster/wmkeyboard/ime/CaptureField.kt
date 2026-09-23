@@ -125,6 +125,33 @@ data class CaretText(val text: String, val caret: Int = text.length) {
         return CaretText("$head $tail", head.length + 1)
     }
 
+    /**
+     * A glided [word] put in at the caret as a word of its own, with the
+     * caret after it.
+     *
+     * A glide is not a pick: it never finishes the word in front of the
+     * caret, it adds another one (issue #300). A glide at the end of a query
+     * leaves no trailing space behind it, so the word it lands next to is
+     * usually the previous glide's, and swapping that out would leave every
+     * query one word long. So a word touching the caret gets a space between
+     * it and the new one, and a word after the caret gets one too, stepping
+     * over a gap that is already there rather than doubling it. At the very
+     * end nothing trails: the next stroke brings its own space.
+     */
+    fun glided(word: String): CaretText {
+        val i = at
+        val head = text.substring(0, i)
+        val tail = text.substring(i)
+        val lead = if (head.isNotEmpty() && isWordChar(head.last())) " " else ""
+        val body = head + lead + word
+        return when {
+            tail.isEmpty() -> CaretText(body, body.length)
+            tail.startsWith(" ") -> CaretText(body + tail, body.length + 1)
+            isWordChar(tail.first()) -> CaretText("$body $tail", body.length + 1)
+            else -> CaretText(body + tail, body.length)
+        }
+    }
+
     private fun clamp(index: Int): Int {
         val i = index.coerceIn(0, text.length)
         return safeBack(i)
@@ -190,6 +217,22 @@ enum class CaptureTarget(
 ) {
     TYPING_TEST(takesWords = false, movableCaret = false),
     AI_CUSTOM(takesWords = true),
+    /** The AI panel's chat composer (#280): free text, newlines and all. */
+    AI_CHAT(takesWords = true),
+
+    /** The KDE Connect panel's "add by address" box: an IP address or a host name. */
+    KDE_HOST(takesWords = false),
+
+    /**
+     * Typing on the paired computer, live (#285). The buffer is the line the
+     * computer has been sent, and every change to it is replayed there as
+     * backspaces and text — which only works while changes happen at the end,
+     * so the caret does not move: arrow keys go to the computer instead.
+     */
+    KDE_REMOTE(takesWords = true, movableCaret = false),
+
+    /** The same panel in compose mode: a line edited here and sent whole on Enter. */
+    KDE_COMPOSE(takesWords = true),
     PLUGIN(takesWords = true),
     FIND_QUERY(takesWords = true),
     FIND_REPLACEMENT(takesWords = true),
@@ -201,6 +244,8 @@ enum class CaptureTarget(
     MEDIA_SEARCH(takesWords = true),
     DICTIONARY_SEARCH(takesWords = true),
     CLIPBOARD_SEARCH(takesWords = true),
+    /** The clipboard panel's clip editor: free text, newlines and all. */
+    CLIP_EDIT(takesWords = true),
     ;
 
     /**

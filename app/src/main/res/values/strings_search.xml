@@ -112,6 +112,7 @@
     <string name="search_kw_langemoji_lang_os_switcher">ime subtype</string>
     <string name="search_kw_languages_cjk_fuzzy">mandarin putonghua</string>
     <string name="search_kw_languages_cjk_lazy">cantonese jyutping</string>
+    <string name="search_kw_languages_cjk_loose_marks">japanese flick dakuten handakuten sokuon modifier insensitive</string>
     <string name="search_kw_languages_cjk_traditional">taiwan hong kong hanzi</string>
     <string name="search_kw_languages_conjunct_backspace">hindi devanagari indic akshara cluster</string>
     <string name="search_kw_languages_fancy_style_row">unicode aesthetic cursive strikethrough</string>
@@ -130,6 +131,7 @@
     <string name="search_kw_privacy_lock">biometric face unlock applock</string>
     <string name="search_kw_selection_macros">highlight context menu share</string>
     <string name="search_kw_selection_macros_actions">cut paste sort json base64 camelcase markdown undo</string>
+    <string name="search_kw_netlog">network, traffic, requests, connections, servers, data, privacy log</string>
     <string name="search_kw_statistics">heatmap keystrokes streak counter</string>
     <string name="search_kw_theme_auto">automatic schedule sunset system</string>
     <string name="search_kw_theme_shuffle_interval">shuffle rotate cycle</string>
@@ -145,7 +147,7 @@
     <string name="search_kw_typing_double_space">period full</string>
     <string name="search_kw_typing_glide_dwell">dwell hesitate linger wait repeat</string>
     <string name="search_kw_typing_glide_end_radius">tolerance accuracy sloppy precision anchor lift</string>
-    <string name="search_kw_typing_glide_loop">circle ring round doubling</string>
+    <string name="search_kw_typing_glide_loop">ring round doubling</string>
     <string name="search_kw_typing_glide_near_radius">tolerance accuracy sloppy precision corner cutting pathway</string>
     <string name="search_kw_typing_glide_start_radius">tolerance accuracy sloppy precision anchor touchdown</string>
     <string name="search_kw_typing_glide_typing">flow swype shapewriter slide continuous</string>
@@ -174,7 +176,9 @@
     <string name="search_kw_typing_undo_autocorrect">revert original</string>
     <string name="search_kw_typing_wrap_selection">surround parentheses quotes auto braces</string>
     <string name="search_kw_update_row_check">upgrade latest release</string>
-    <string name="search_kw_voice_engine">offline whisper device model</string>
+    <string name="search_kw_voice_engine">offline whisper device model server transcription selfhosted hosted speaches remote</string>
+    <string name="search_kw_translate_engine">offline private internet airplane local device ml kit google model download cloud</string>
+    <string name="search_kw_translate_models">offline translation model download delete storage ml kit google</string>
 
     <string-array name="search_word_groups">
         <item>haptics haptic vibration vibrate vibrations vibrator buzz rumble</item>
@@ -288,6 +292,8 @@
     <string name="search_kw_phoneformats">phone number, dial code, country code, mobile number, clipboard chips</string>
     <string name="search_kw_codes">otp, one time password, 2fa, two factor, verification code, sms code, login code</string>
     <string name="search_kw_musicapps">music apps, spotify, player apps, now playing, podcast apps</string>
+    <string name="search_kw_kdeconnect_devices">pair computer, paired devices, pc, laptop, desktop, gsconnect, valent, unpair, add by ip address</string>
+    <string name="search_kw_ime_tool_kde_connect">gsconnect valent pc laptop desktop linux remote touchpad sync share presentation slides</string>
     <string name="search_kw_customdictionaries">word lists, import words, wordlist</string>
     <string name="search_kw_emojikeywords">shortcodes, emoji names, emoji search</string>
     <string name="search_kw_emojicategories">emoji order, category order, reorder emoji, hide emoji tabs, rearrange emoji</string>

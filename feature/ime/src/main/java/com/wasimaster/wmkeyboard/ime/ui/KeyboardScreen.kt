@@ -170,6 +170,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.node.LayoutModifierNode
+import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.platform.LocalConfiguration
 import com.wasimaster.wmkeyboard.core.prediction.GlideSandboxPolicy
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
@@ -223,7 +225,12 @@ import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.IntrinsicMeasurable
+import androidx.compose.ui.layout.IntrinsicMeasureScope
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.Measurable
+import androidx.compose.ui.layout.MeasureResult
+import androidx.compose.ui.layout.MeasureScope
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.layoutId
@@ -263,7 +270,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.constrain
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.isSpecified
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.round
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toOffset
@@ -387,6 +397,7 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarPlacement
 import com.wasimaster.wmkeyboard.core.settings.ToolHoldAction
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isOwnRow
+import com.wasimaster.wmkeyboard.core.settings.stripHidden
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import com.wasimaster.wmkeyboard.core.settings.ToolboxLayout
 import com.wasimaster.wmkeyboard.core.settings.ToolboxPageSizeRange
@@ -413,6 +424,7 @@ import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.symbolChipLabel
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
 import com.wasimaster.wmkeyboard.core.tools.WebResult
+import com.wasimaster.wmkeyboard.ime.AiChatAction
 import com.wasimaster.wmkeyboard.ime.AiUi
 import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.FieldKind
@@ -1098,9 +1110,7 @@ fun KeyboardScreen(
     onWebResultOpen: (WebResult) -> Unit = {},
     onImageResult: (ImageResult) -> Unit = {},
     onImageResultLink: (ImageResult) -> Unit = {},
-    onTranslateTarget: (String) -> Unit = {},
-    onTranslateReplace: () -> Unit = {},
-    onTranslateInsert: () -> Unit = {},
+    translateCallbacks: TranslateCallbacks = TranslateCallbacks(),
     onGrammarFix: (GrammarLint, GrammarFix) -> Unit = { _, _ -> },
     onGrammarFixAll: () -> Unit = {},
     onGrammarDismiss: (GrammarLint) -> Unit = {},
@@ -1444,9 +1454,7 @@ fun KeyboardScreen(
                 onWebResultOpen = onWebResultOpen,
                 onImageResult = onImageResult,
                 onImageResultLink = onImageResultLink,
-                onTranslateTarget = onTranslateTarget,
-                onTranslateReplace = onTranslateReplace,
-                onTranslateInsert = onTranslateInsert,
+                translateCallbacks = translateCallbacks,
                 onGrammarFix = onGrammarFix,
                 onGrammarFixAll = onGrammarFixAll,
                 onGrammarDismiss = onGrammarDismiss,
@@ -2644,8 +2652,8 @@ private fun TopBar(
     onVoiceUndo: () -> Unit = {},
     onVoicePermissionRequest: () -> Unit = {},
     onOpenVoiceSettings: () -> Unit = {},
-    /** Strip's collapse button: switch dictation to the collapsed bar. */
-    onVoiceCollapse: () -> Unit = {},
+    /** The strip's collapse and close buttons; the one slot [VoiceBarAction] rides. */
+    onVoiceAction: (VoiceBarAction) -> Unit = {},
     onDismissInlineSuggestions: () -> Unit = {},
     onSmartAccept: () -> Unit = {},
     onSmartOpen: () -> Unit = {},
@@ -3044,9 +3052,12 @@ private fun TopBar(
                     onUndo = onVoiceUndo,
                     onRequestPermission = onVoicePermissionRequest,
                     onOpenVoiceSettings = onOpenVoiceSettings,
-                    onCollapse = onVoiceCollapse,
-                    // The tool tap toggles the strip, so it also closes it.
-                    onClose = { onToolTap(ToolbarTool.VOICE) },
+                    onCollapse = {
+                        onVoiceAction(VoiceBarAction.SwitchSurface(VoiceBarSettings.MODE_BAR))
+                    },
+                    // Not the tool tap: over a running dictation that finishes
+                    // the phrase (#283), and this button is the way to drop it.
+                    onClose = { onVoiceAction(VoiceBarAction.CloseStrip) },
                     modifier = Modifier.weight(1f),
                 )
                 return@Row
@@ -4493,7 +4504,7 @@ private fun RowScope.CandidateStrip(
         horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        itemsIndexed(candidates, key = { index, text -> "$index $text" }) { index, suggestion ->
+        itemsIndexed(candidates, key = { index, text -> "$index\u0000$text" }) { index, suggestion ->
             if (index > 0) {
                 VerticalDivider(
                     modifier = Modifier.height(20.dp),
@@ -6381,6 +6392,7 @@ internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.PASSWORD_GEN -> R.string.ime_tool_password_gen
     ToolbarTool.TYPING_TEST -> R.string.ime_tool_typing_test
     ToolbarTool.MEDIA_CONTROL -> R.string.ime_tool_media_control
+    ToolbarTool.KDE_CONNECT -> R.string.ime_tool_kde_connect
     ToolbarTool.PLUGINS -> R.string.ime_tool_plugins
     ToolbarTool.APP_LAUNCHER -> R.string.ime_tool_app_launcher
     ToolbarTool.AI -> R.string.ime_tool_ai
@@ -6464,6 +6476,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.PASSWORD_GEN -> state.panel == PanelMode.PASSWORD_GEN
     ToolbarTool.TYPING_TEST -> state.panel == PanelMode.TYPING_TEST
     ToolbarTool.MEDIA_CONTROL -> state.panel == PanelMode.MEDIA_CONTROL
+    ToolbarTool.KDE_CONNECT -> state.panel == PanelMode.KDE_CONNECT
     ToolbarTool.PLUGINS -> state.panel == PanelMode.PLUGINS
     ToolbarTool.APP_LAUNCHER -> state.panel == PanelMode.APP_LAUNCHER
     ToolbarTool.AI -> state.panel == PanelMode.AI
@@ -8878,7 +8891,7 @@ private val FullBleedPanels = setOf(
     PanelMode.OCR, PanelMode.QR_SCAN, PanelMode.CALCULATOR, PanelMode.CURRENCY,
     PanelMode.UNIT_CONVERT, PanelMode.CALENDAR, PanelMode.AI,
     PanelMode.TRANSLATE, PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH,
-    PanelMode.DICTIONARY, PanelMode.SYMBOLS, PanelMode.MEDIA_CONTROL,
+    PanelMode.DICTIONARY, PanelMode.SYMBOLS, PanelMode.MEDIA_CONTROL, PanelMode.KDE_CONNECT,
     PanelMode.VOCABULARY, PanelMode.LEARN_FROM_TEXT,
     PanelMode.APP_LAUNCHER, PanelMode.THEMES, PanelMode.SNIPPETS,
 )
@@ -8904,7 +8917,8 @@ private fun isFullBleedPanel(panel: PanelMode, settings: KeyboardSettings): Bool
  * chrome instead of using [FullBleedTool].
  */
 internal fun fullBleedHiddenRows(state: KeyboardUiState): Dp =
-    topBarHeight(state.settings) +
+    // The strip, unless it has given its row up to the tools' (#302).
+    (if (state.settings.toolbarBehavior.stripHidden) 0.dp else topBarHeight(state.settings)) +
         // An always-open tools row is one more strip's worth hidden under the
         // panel. An on-demand row is not counted: whether it was open is
         // composable-local state this function cannot see, and a row the user
@@ -9230,9 +9244,7 @@ private fun KeyboardBody(
     onWebResultOpen: (WebResult) -> Unit,
     onImageResult: (ImageResult) -> Unit,
     onImageResultLink: (ImageResult) -> Unit,
-    onTranslateTarget: (String) -> Unit,
-    onTranslateReplace: () -> Unit,
-    onTranslateInsert: () -> Unit,
+    translateCallbacks: TranslateCallbacks,
     onGrammarFix: (GrammarLint, GrammarFix) -> Unit,
     onGrammarFixAll: () -> Unit,
     onGrammarDismiss: (GrammarLint) -> Unit,
@@ -9416,7 +9428,14 @@ private fun KeyboardBody(
                             // Only with no panel open, because there the chevron on this
                             // row is the way back out of the panel.
                             stripMacros -> SelectionMacroBar(state, toolHold.selection)
-                            else -> TopBar(
+                            // The strip given up for the tools' own row (#302).
+                            // Compact dictation still takes it: that bar is the
+                            // session's only status and its only way out.
+                            state.settings.toolbarBehavior.stripHidden && !state.voice.strip -> {}
+                            else -> WithNetActivityDot(
+                                state.settings.networkLog.showOnKeyboard,
+                                state.settings.toolColorOverrides,
+                            ) { TopBar(
                                 state,
                                 toolsRowOpen = toolsRowOpen,
                                 onToolsRowToggle = { toolsRowOpen = !toolsRowOpen },
@@ -9436,11 +9455,7 @@ private fun KeyboardBody(
                                 onVoiceUndo = onVoiceUndo,
                                 onVoicePermissionRequest = onVoicePermissionRequest,
                                 onOpenVoiceSettings = onOpenVoiceSettings,
-                                onVoiceCollapse = {
-                                    onVoiceRailKey(
-                                        VoiceBarAction.SwitchSurface(VoiceBarSettings.MODE_BAR),
-                                    )
-                                },
+                                onVoiceAction = onVoiceRailKey,
                                 onDismissInlineSuggestions = onDismissInlineSuggestions,
                                 onSmartAccept = onSmartAccept,
                                 onSmartOpen = onSmartOpen,
@@ -9453,7 +9468,7 @@ private fun KeyboardBody(
                                 onOtpDismiss = onOtpDismiss,
                                 onEmojiRowShown = onEmojiRowShown,
                                 onSwipeDownHide = onHideKeyboard,
-                            )
+                            ) }
                         }
                         BarRow.EMOJI -> if (showEmojiRow) {
                             EmojiBarStrip(
@@ -9618,6 +9633,7 @@ private fun KeyboardBody(
                     onDelete = onClipboardDelete,
                     onSearchToggle = onClipboardSearchToggle,
                     onEntity = onClipboardEntity,
+                    actions = toolHold.clipboard,
                 ),
                 trackpad = TrackpadFieldCallbacks(
                     onKey = onKey,
@@ -9840,6 +9856,18 @@ private fun KeyboardBody(
                         onResume = onMediaResume,
                     )
                 }
+                // A paired computer (#285). While its keys are typing there, or
+                // into the address box, the panel collapses over the key rows
+                // the way the chat composer's does — and keeps enough height
+                // for the key strip, the echo line and a sliver of touchpad.
+                PanelMode.KDE_CONNECT -> FullBleedTool(
+                    state,
+                    title = stringResource(R.string.ime_tool_kde_connect),
+                    onClose = { onPanelChange(PanelMode.KDE_CONNECT) },
+                    compact = state.kdeTypingActive || state.kdeHostEntryActive,
+                    compactHeight = if (state.kdeHostEntryActive) 96.dp else KdeTypingCompactHeight,
+                    headerActions = { KdeHeaderActions(state, capture.onKde) },
+                ) { KdeConnectPanel(state, capture) }
                 PanelMode.DICTIONARY -> FullBleedTool(
                     state, title = "",
                     onClose = { onPanelChange(PanelMode.DICTIONARY) },
@@ -9893,12 +9921,7 @@ private fun KeyboardBody(
                         )
                     },
                 ) {
-                    TranslatePanel(
-                        state = state,
-                        onTarget = onTranslateTarget,
-                        onReplace = onTranslateReplace,
-                        onInsert = onTranslateInsert,
-                    )
+                    TranslatePanel(state = state, callbacks = translateCallbacks)
                 }
                 PanelMode.GRAMMAR -> if (BuildConfig.ENABLE_GRAMMAR) {
                     GrammarPanel(
@@ -10169,61 +10192,90 @@ private fun KeyboardBody(
                 ) { TypingTestPanel(state, onTypingTestAction) }
                 PanelMode.AI -> FullBleedTool(
                     state = state,
-                    title = stringResource(R.string.ime_tool_ai),
+                    // With the chat on offer the header holds the mode switch,
+                    // and that is the panel's name: there is no room for both.
+                    title = if (state.aiChat.available) "" else stringResource(R.string.ime_tool_ai),
                     onClose = { onPanelChange(PanelMode.AI) },
                     // Reasoning models stream their think block into the same
-                    // box as the answer, so that mode — and only that mode —
-                    // needs the taller window; otherwise the panel stays at
-                    // the normal keyboard height.
-                    extraHeight = if (state.settings.ai.showThinking) 160.dp else 0.dp,
-                    // The Custom instruction types on the key rows, so the
-                    // panel collapses to leave room for them below.
-                    compact = state.aiCustomInputActive,
-                    compactHeight = 132.dp,
+                    // box as the answer, so that mode needs the taller window,
+                    // and so does a conversation, which is read more than it is
+                    // glanced at (#280); otherwise the panel stays at the
+                    // normal keyboard height.
+                    extraHeight = when {
+                        state.aiChatShown -> 120.dp
+                        state.settings.ai.showThinking -> 160.dp
+                        else -> 0.dp
+                    },
+                    // The Custom instruction and the chat's composer both type
+                    // on the key rows, so the panel collapses to leave room for
+                    // them below. The chat keeps more: the newest messages stay
+                    // in sight above the composer while the next one is typed.
+                    compact = state.aiCustomInputActive || state.aiChatComposing,
+                    compactHeight = if (state.aiChatComposing) AiChatCompactHeight else 132.dp,
                     headerActions = {
                         val ai = state.ai
-                        val ready = ai is AiUi.Ready && !ai.generating
+                        val chatMode = state.aiChatShown
+                        val ready = !chatMode && ai is AiUi.Ready && !ai.generating
                         val hasUndo = ready && ai.autoReplaced
-                        val actionCount = if (ready) (if (hasUndo) 5 else 4) else 1
-                        // The ring's ACTIONS region: Replace/Insert/Retry when
-                        // there is a result, always the settings circle last.
+                        // The mode switch takes the ring's first two slots
+                        // whenever it is drawn, and everything after it moves up.
+                        val base = if (state.aiChat.available) 2 else 0
+                        val own = when {
+                            chatMode -> AiChatHeaderActionCount
+                            ready -> if (hasUndo) 4 else 3
+                            else -> 0
+                        }
+                        // The ring's ACTIONS region: the switch, then the
+                        // chat's three or Replace/Undo/Insert/Retry when there is a
+                        // result, and always the settings circle last.
                         PanelFocusTarget(
                             panel = PanelMode.AI,
                             region = FocusRegion.ACTIONS,
-                            count = actionCount,
-                            columns = actionCount,
+                            count = base + own + 1,
+                            columns = base + own + 1,
                         ) { index ->
+                            val slot = index - base
                             when {
-                                !ready || index == actionCount - 1 -> onOpenToolSettings(ToolbarTool.AI)
-                                index == 0 -> onAiReplace()
-                                hasUndo && index == 1 -> onAiUndo()
-                                index == (if (hasUndo) 2 else 1) -> onAiInsert()
-                                index == (if (hasUndo) 3 else 2) -> onAiRetry()
+                                index < base -> capture.onAiChat(AiChatAction.SetMode(chat = index == 1))
+                                slot >= own -> onOpenToolSettings(ToolbarTool.AI)
+                                chatMode -> activateAiChatHeader(slot, capture.onAiChat)
+                                slot == 0 -> onAiReplace()
+                                hasUndo && slot == 1 -> onAiUndo()
+                                slot == (if (hasUndo) 2 else 1) -> onAiInsert()
+                                slot == (if (hasUndo) 3 else 2) -> onAiRetry()
                             }
                         }
                         val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
+                        if (state.aiChat.available) AiModeSwitch(state, focusedAction, capture.onAiChat)
+                        if (chatMode) {
+                            AiChatHeaderActions(state, focusedAction, base, capture.onAiChat)
+                        } else if (state.aiChat.available) {
+                            // No title to push them there, so the actions'
+                            // own controls are sent to the right by hand.
+                            Spacer(Modifier.weight(1f))
+                        }
                         if (ready) {
                             ToolPanelChip(
                                 stringResource(if (ai.autoReplaced) R.string.ime_ai_replaced else R.string.ime_ai_replace),
                                 selected = ai.autoReplaced,
-                                modifier = Modifier.focusRing(focusedAction == 0),
+                                modifier = Modifier.focusRing(focusedAction == base),
                             ) { onAiReplace() }
                             Spacer(Modifier.width(5.dp))
                             if (hasUndo) {
                                 ToolPanelChip(
                                     stringResource(R.string.ime_ai_undo),
-                                    modifier = Modifier.focusRing(focusedAction == 1),
+                                    modifier = Modifier.focusRing(focusedAction == base + 1),
                                 ) { onAiUndo() }
                                 Spacer(Modifier.width(5.dp))
                             }
                             ToolPanelChip(
                                 stringResource(R.string.ime_ai_insert),
-                                modifier = Modifier.focusRing(focusedAction == if (hasUndo) 2 else 1),
+                                modifier = Modifier.focusRing(focusedAction == base + (if (hasUndo) 2 else 1)),
                             ) { onAiInsert() }
                             Spacer(Modifier.width(5.dp))
                             ToolPanelChip(
                                 "↻",
-                                modifier = Modifier.focusRing(focusedAction == if (hasUndo) 3 else 2),
+                                modifier = Modifier.focusRing(focusedAction == base + (if (hasUndo) 3 else 2)),
                             ) { onAiRetry() }
                             Spacer(Modifier.width(5.dp))
                         }
@@ -10231,14 +10283,13 @@ private fun KeyboardBody(
                             slot = IconSlots.forTool(ToolbarTool.SETTINGS),
                             description = stringResource(R.string.ime_ai_settings_desc),
                             active = false,
-                            modifier = Modifier.focusRing(
-                                focusedAction == actionCount - 1,
-                                CircleShape,
-                            ),
+                            modifier = Modifier.focusRing(focusedAction == base + own, CircleShape),
                         ) { onOpenToolSettings(ToolbarTool.AI) }
                     },
                 ) {
-                    AiPanel(
+                    if (state.aiChatShown) {
+                        AiChatPanel(state, capture.onAiChat, onOpenToolSettings)
+                    } else AiPanel(
                         state = state,
                         onAction = onAiAction,
                         onRetry = onAiRetry,
@@ -10284,7 +10335,7 @@ private fun KeyboardBody(
                 // The emoji and clipboard panels reroute their search pills;
                 // the rest are only ever up with their own panel open.
                 CaptureTarget.EMOJI_SEARCH -> state.panel == PanelMode.EMOJI
-                CaptureTarget.CLIPBOARD_SEARCH -> clipboardSearching
+                CaptureTarget.CLIPBOARD_SEARCH, CaptureTarget.CLIP_EDIT -> clipboardSearching
                 CaptureTarget.DICTIONARY_SEARCH -> state.panel == PanelMode.DICTIONARY
                 CaptureTarget.MEDIA_SEARCH -> state.panel.hasMediaSearch
                 else -> true
@@ -16136,9 +16187,12 @@ internal fun numberRowShown(state: KeyboardUiState): Boolean =
 internal fun barLockHidden(state: KeyboardUiState): Boolean =
     state.deviceLocked && state.settings.toolbarBehavior.hideWhenLocked
 
-/** The clipboard panel has traded its full-bleed height for a search field. */
+/**
+ * The clipboard panel has traded its full-bleed height for one of its own
+ * fields — the search pill or the clip editor — with the keys back beneath.
+ */
 internal fun barClipboardSearching(state: KeyboardUiState): Boolean =
-    state.panel == PanelMode.CLIPBOARD && state.clipboardSearchActive && !barLockHidden(state)
+    state.clipboardTakesKeys && !barLockHidden(state)
 
 /** A panel is claiming the strip's height, so the rows above the keys are gone. */
 internal fun barFullBleed(state: KeyboardUiState): Boolean =
@@ -17277,19 +17331,24 @@ private fun AlternatesPopup(
     // hold-drag needs the entries in. So the provider is wrapped rather than the
     // arithmetic being repeated on the other side, where it would go quietly
     // stale the first time the clamping changed.
-    val provider = remember(popupPosition, hold) {
-        if (hold == null) {
-            popupPosition
-        } else {
-            object : PopupPositionProvider {
-                override fun calculatePosition(
-                    anchorBounds: IntRect,
-                    windowSize: IntSize,
-                    layoutDirection: LayoutDirection,
-                    popupContentSize: IntSize,
-                ): IntOffset = popupPosition
+    //
+    // The wrap also keeps the side margin the width budget above set aside. The
+    // anchor's provider only keeps the popup on the display, so a popup as wide
+    // as that budget, over a key right of centre (the spacebar), sat flush
+    // against the right edge with twice the margin on the left (#298).
+    val marginPx = with(LocalDensity.current) { PopupSideMarginDp.dp.roundToPx() }
+    val provider = remember(popupPosition, hold, marginPx) {
+        object : PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: IntRect,
+                windowSize: IntSize,
+                layoutDirection: LayoutDirection,
+                popupContentSize: IntSize,
+            ): IntOffset {
+                val at = popupPosition
                     .calculatePosition(anchorBounds, windowSize, layoutDirection, popupContentSize)
-                    .also { hold.popupOffset = it }
+                val x = alternatesPopupX(at.x, windowSize.width - popupContentSize.width, marginPx)
+                return IntOffset(x, at.y).also { hold?.popupOffset = it }
             }
         }
     }
@@ -17330,7 +17389,7 @@ private fun AlternatesPopup(
                                 .alternateHighlight(
                                     index, hold, kb.pressedKey, kb.popupRadiusDp.dp,
                                 )
-                                .padding(entryPadding),
+                                .alternatePadding(entryPadding),
                             fontSize = (18 * fontScale).sp,
                             color = kb.popupText,
                         )
@@ -17371,7 +17430,9 @@ private fun AlternatesPopup(
  * down to centring a part-full row under the ones it shares the popup with. Any
  * other value is a fixed column count: every entry takes the width of the widest,
  * so the columns line up down the popup, and a part-full row keeps its place on
- * that grid rather than being centred off it.
+ * that grid rather than being centred off it. The count is a ceiling rather than
+ * a promise: when the display cannot fit that many of the widest glyph across,
+ * the grid lays out as many as it can ([fittedAlternateColumns]).
  *
  * [nearestFirst] flips which end of the popup the first entry lands on. Off, the
  * rows are placed in order and the popup fills like a paragraph — first entry
@@ -17398,18 +17459,30 @@ private fun AlternatesGrid(
         val bounded = constraints.maxWidth != Constraints.Infinity
         val limit = if (bounded) constraints.maxWidth else Int.MAX_VALUE
         // A fixed-column entry is measured against its share of the width rather
-        // than the whole of it, so a long one ellipsises inside its cell instead
-        // of pushing the grid off the screen.
-        val cell = if (columns > 0) (limit / columns).coerceAtLeast(1) else limit
+        // than the whole of it, so a long one wraps inside its cell instead of
+        // pushing the grid off the screen. Only down to its longest unbreakable
+        // run, though: squeezed past that, an emoji still draws at full width,
+        // spilling out of its cell to the right while the finger is matched
+        // against the cell (#298). So a count that cannot hold every entry's
+        // glyph drops to one that can. The entries' side padding has already
+        // given way by then ([alternatePadding]), which is why the width asked
+        // of them here is the glyph's alone.
+        val fitted = if (columns > 0) {
+            val floor = measurables.maxOfOrNull { it.minIntrinsicWidth(Constraints.Infinity) } ?: 0
+            fittedAlternateColumns(columns, floor, limit)
+        } else {
+            columns
+        }
+        val cell = if (fitted > 0) (limit / fitted).coerceAtLeast(1) else limit
         val placeables = measurables.map { it.measure(Constraints(maxWidth = cell)) }
         var taken = 0
-        val rows = alternateRowSizes(placeables.map { it.width }, columns, limit).map { count ->
+        val rows = alternateRowSizes(placeables.map { it.width }, fitted, limit).map { count ->
             placeables.subList(taken, taken + count).also { taken += count }
         }
         val heights = rows.map { row -> row.maxOfOrNull { it.height } ?: 0 }
         val cellWidth = (placeables.maxOfOrNull { it.width } ?: 0).coerceAtMost(cell)
-        val widest = if (columns > 0) {
-            cellWidth * minOf(columns, placeables.size)
+        val widest = if (fitted > 0) {
+            cellWidth * minOf(fitted, placeables.size)
         } else {
             rows.maxOfOrNull { row -> row.sumOf { it.width } } ?: 0
         }
@@ -17424,12 +17497,12 @@ private fun AlternatesGrid(
             for (index in if (nearestFirst) rows.indices.reversed() else rows.indices) {
                 val row = rows[index]
                 val rowHeight = heights[index]
-                var x = if (columns > 0) 0 else (width - row.sumOf { it.width }) / 2
+                var x = if (fitted > 0) 0 else (width - row.sumOf { it.width }) / 2
                 // Where this row starts in the content, which is what the rows
                 // were cut from and so is the sum of every earlier row's size.
                 var slot = rows.take(index).sumOf { it.size }
                 for (placeable in row) {
-                    val lane = if (columns > 0) cellWidth else placeable.width
+                    val lane = if (fitted > 0) cellWidth else placeable.width
                     val left = x + (lane - placeable.width) / 2
                     val top = y + (rowHeight - placeable.height) / 2
                     placeable.place(left, top)
@@ -17490,6 +17563,93 @@ internal fun alternateRowSizes(widths: List<Int>, columns: Int, limit: Int): Lis
 }
 
 /**
+ * The column count [AlternatesGrid] actually lays out: the one asked for, or
+ * fewer when a share of [limit] that small is narrower than [floor], the widest
+ * any entry can be squeezed to. Never below one column. [columns] of 0 is the
+ * automatic wrap and passes through untouched.
+ */
+internal fun fittedAlternateColumns(columns: Int, floor: Int, limit: Int): Int =
+    if (columns <= 0 || floor <= 0) {
+        columns
+    } else {
+        columns.coerceAtMost((limit / floor).coerceAtLeast(1))
+    }
+
+/**
+ * How much of [padding] each side of an alternate keeps when the entry is
+ * offered [maxWidth] and its content cannot go narrower than [content]: all of
+ * it while there is room, then an equal share of what is left, down to none.
+ */
+internal fun alternateSidePadding(maxWidth: Int, content: Int, padding: Int): Int =
+    ((maxWidth - content) / 2).coerceIn(0, padding)
+
+/**
+ * Where the alternates popup's left edge goes: [x] as the anchor's provider
+ * placed it, held [margin] clear of both sides of the display. [room] is the
+ * display's width less the popup's. A popup too wide for both margins is
+ * centred instead, which is still the most room it can have on each side.
+ */
+internal fun alternatesPopupX(x: Int, room: Int, margin: Int): Int =
+    if (room >= margin * 2) x.coerceIn(margin, room - margin) else (room / 2).coerceAtLeast(0)
+
+/**
+ * An alternate's padding, whose sides give way before its content does.
+ *
+ * The padding is both the gap between entries and their touch target
+ * ([KeyPopupSettings.alternatesPaddingDp]), and a fixed column count
+ * ([AlternatesGrid]) can offer an entry less than its glyph plus both sides.
+ * Plain padding keeps its sides and hands the squeeze to the text, but an emoji
+ * cannot wrap: it drew at full width from the left inset, off-centre in its cell
+ * and out past it (#298). Here the sides shrink evenly to what the content's
+ * longest unbreakable run leaves, so the glyph stays whole and centred, and the
+ * cell the hold-drag matches the finger against is the cell the glyph is in.
+ * Top and bottom keep the full padding; nothing squeezes a row's height.
+ *
+ * For the same reason the entry's minimum intrinsic width is its content's alone:
+ * the sides can go to nothing, and that is the width [AlternatesGrid] fits its
+ * column count to.
+ */
+private fun Modifier.alternatePadding(padding: Dp): Modifier = this then AlternatePaddingElement(padding)
+
+private data class AlternatePaddingElement(val padding: Dp) : ModifierNodeElement<AlternatePaddingNode>() {
+    override fun create() = AlternatePaddingNode(padding)
+
+    override fun update(node: AlternatePaddingNode) {
+        node.padding = padding
+    }
+}
+
+private class AlternatePaddingNode(var padding: Dp) : Modifier.Node(), LayoutModifierNode {
+    override fun MeasureScope.measure(measurable: Measurable, constraints: Constraints): MeasureResult {
+        val pad = padding.roundToPx()
+        val side = if (constraints.hasBoundedWidth) {
+            alternateSidePadding(constraints.maxWidth, measurable.minIntrinsicWidth(constraints.maxHeight), pad)
+        } else {
+            pad
+        }
+        val placeable = measurable.measure(constraints.offset(-side * 2, -pad * 2))
+        return layout(
+            constraints.constrainWidth(placeable.width + side * 2),
+            constraints.constrainHeight(placeable.height + pad * 2),
+        ) {
+            placeable.place(side, pad)
+        }
+    }
+
+    override fun IntrinsicMeasureScope.minIntrinsicWidth(measurable: IntrinsicMeasurable, height: Int): Int =
+        measurable.minIntrinsicWidth(height)
+
+    override fun IntrinsicMeasureScope.maxIntrinsicWidth(measurable: IntrinsicMeasurable, height: Int): Int =
+        measurable.maxIntrinsicWidth(height) + padding.roundToPx() * 2
+
+    override fun IntrinsicMeasureScope.minIntrinsicHeight(measurable: IntrinsicMeasurable, width: Int): Int =
+        measurable.minIntrinsicHeight(width) + padding.roundToPx() * 2
+
+    override fun IntrinsicMeasureScope.maxIntrinsicHeight(measurable: IntrinsicMeasurable, width: Int): Int =
+        measurable.maxIntrinsicHeight(width) + padding.roundToPx() * 2
+}
+
+/**
  * One action entry of the alternates popup: the tool's own icon, a named icon,
  * or the action's glyph — in that order, which is the order that answers "what
  * will this do" fastest.
@@ -17544,7 +17704,7 @@ private fun AlternateAction(
         modifier = Modifier
             .clickable(onClick = onClick)
             .then(modifier)
-            .padding(padding),
+            .alternatePadding(padding),
         contentAlignment = Alignment.Center,
     ) {
         when {
@@ -19907,7 +20067,7 @@ internal fun TextArtGrid(kaomoji: Boolean, onTap: (String) -> Unit) {
             }
             // Keyed by group + entry: a handful of faces appear in more than
             // one mood, and a bare entry key would collide across groups.
-            items(group.items, key = { "${group.name} $it" }) { art ->
+            items(group.items, key = { "${group.name}\u0000$it" }) { art ->
                 TextArtCell(art = art, onTap = onTap)
             }
         }
@@ -20737,6 +20897,8 @@ data class ToolHoldCallbacks(
     val findReplace: FindReplaceCallbacks = FindReplaceCallbacks(),
     /** The Learn from text panel's callbacks (#174); here for the same reason as [dictionaryBar]. */
     val learnFromText: LearnFromTextCallbacks = LearnFromTextCallbacks(),
+    /** The clipboard panel's editor and view switch; here for the same reason as [dictionaryBar]. */
+    val clipboard: ClipboardPanelActions = ClipboardPanelActions(),
 )
 
 // ---- snippets panel ----
@@ -21479,6 +21641,8 @@ internal fun ClipActionCircle(
 internal fun ClipInfoPopup(
     item: ClipItem,
     onSendSticker: (() -> Unit)? = null,
+    /** Opens the clip in the panel's editor; null for a clip that has no text to edit. */
+    onEdit: (() -> Unit)? = null,
     onDismiss: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -21541,6 +21705,16 @@ internal fun ClipInfoPopup(
                 ClipInfoRow(stringResource(R.string.ime_clip_info_type), typeLabel, kb.popupText)
                 sizeLabel?.let {
                     ClipInfoRow(stringResource(R.string.ime_clip_info_size), it, kb.popupText)
+                }
+                if (onEdit != null) {
+                    TextButton(
+                        onClick = onEdit,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Outlined.Edit, contentDescription = null)
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.ime_clip_edit))
+                    }
                 }
                 if (onSendSticker != null) {
                     TextButton(

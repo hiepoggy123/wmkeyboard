@@ -22,6 +22,7 @@ import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
 import com.wasimaster.wmkeyboard.core.endpoints.repoLocationFromFields
 import com.wasimaster.wmkeyboard.core.endpoints.toFields
+import com.wasimaster.wmkeyboard.core.netlog.NetLog
 import com.wasimaster.wmkeyboard.core.settings.sink.S3Sink
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.clipboard.ClipboardStore
@@ -61,6 +62,7 @@ import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
+import com.wasimaster.wmkeyboard.core.tools.CurrencyLabel
 import com.wasimaster.wmkeyboard.core.tools.SolarTimes
 import com.wasimaster.wmkeyboard.core.tools.Weekend
 import com.wasimaster.wmkeyboard.core.tools.defaultAltCalendars
@@ -592,6 +594,35 @@ enum class LocalLlmBackend(@StringRes val labelRes: Int) {
 
 /** Error-correction level for generated QR codes (higher = more redundant). */
 enum class QrEccLevel { L, M, Q, H }
+
+/**
+ * Where the translate tool gets its translations.
+ *
+ * Stored by name. [ONLINE] is first and the default because it is what the
+ * tool has always done and it needs nothing downloaded; the other two only
+ * mean anything in a build that carries ML Kit.
+ */
+enum class TranslateEngine(@StringRes val labelRes: Int) {
+    /** The online service: Google's endpoint, a Cloud key, or a LibreTranslate server. */
+    ONLINE(R.string.core_settings_translate_engine_online_label),
+
+    /** ML Kit on the device, and nothing else: text never leaves the phone. */
+    ON_DEVICE(R.string.core_settings_translate_engine_on_device_label),
+
+    /**
+     * On the device whenever both languages are downloaded, online for the
+     * rest: a language with no model, romanised text, a pair not fetched yet.
+     */
+    AUTO(R.string.core_settings_translate_engine_auto_label),
+}
+
+/**
+ * The translate tool's own settings. A nested bag for the usual reason: one
+ * slot on [KeyboardSettings] however many settings end up inside.
+ */
+data class TranslateSettings(
+    val engine: TranslateEngine = TranslateEngine.ONLINE,
+)
 
 /**
  * English dialect the offline grammar tool lints against. Ordinals are the
@@ -1386,6 +1417,16 @@ data class ToolbarBehavior(
      */
     val placement: ToolbarPlacement = ToolbarPlacement.STRIP,
     /**
+     * Whether the suggestion strip keeps its row while the tools have one of
+     * their own and it is always open ([ToolbarPlacement.ALWAYS_ROW]). On by
+     * default. Off is for someone who has turned suggestions off and was left
+     * with an empty band over the tools (#302): the tools row stays, and the
+     * strip's height goes back to the keys. Read only under ALWAYS_ROW, since
+     * the other own-row placement opens its row from the strip's chevron. See
+     * [stripHidden].
+     */
+    val showStrip: Boolean = true,
+    /**
      * What a press and hold on a pinned tool does, per tool, as tool name →
      * action token (see [ToolHoldActions]).
      *
@@ -1439,6 +1480,13 @@ enum class ToolbarPlacement { STRIP, ON_DEMAND_ROW, ALWAYS_ROW }
 
 /** True while the tools have a row of their own rather than sharing the strip. */
 val ToolbarPlacement.isOwnRow: Boolean get() = this != ToolbarPlacement.STRIP
+
+/**
+ * True while the suggestion strip has given up its row (#302): the tools are
+ * on an always-open row of their own and [ToolbarBehavior.showStrip] is off.
+ */
+val ToolbarBehavior.stripHidden: Boolean
+    get() = enabled && placement == ToolbarPlacement.ALWAYS_ROW && !showStrip
 
 /**
  * The `tool=action` CSV behind [ToolbarBehavior.holdActions].
@@ -2651,6 +2699,8 @@ data class KeyboardSettings(
     val redoUsesCtrlY: Boolean = false,
     /** Units and saved place for the weather tool (see [WeatherSettings]). */
     val weather: WeatherSettings = WeatherSettings(),
+    /** The network activity log's two switches (see [NetworkLogSettings]). */
+    val networkLog: NetworkLogSettings = NetworkLogSettings(),
     /** Alternate calendars and the weekend, for the calendar tool (see [CalendarToolSettings]). */
     val calendarTool: CalendarToolSettings = CalendarToolSettings(),
     /** Handwriting canvas ignores finger touches; only a stylus draws. */
@@ -2673,6 +2723,8 @@ data class KeyboardSettings(
     val launcher: LauncherToolSettings = LauncherToolSettings(),
     /** Media-control tool settings, grouped (see [MediaControlSettings]). */
     val mediaControl: MediaControlSettings = MediaControlSettings(),
+    /** The KDE Connect tool: the link to a paired computer (see [KdeConnectSettings]). */
+    val kdeConnect: KdeConnectSettings = KdeConnectSettings(),
     /** Free-software service endpoints for the F-Droid build (see [SelfHostedSettings]). */
     val selfHosted: SelfHostedSettings = SelfHostedSettings(),
     /** How sticker-tool picks are sent. WhatsApp shows real stickers for these. */
@@ -2725,6 +2777,11 @@ data class KeyboardSettings(
     val cloudBackup: Boolean = false,
     /** Decimal places on currency conversion results. */
     val currencyDecimals: Int = 2,
+    /**
+     * How a currency chip names the currency it converted into: "96.04
+     * Rupee", "₹96.04" or "96.04 INR". Coins keep their ticker either way.
+     */
+    val currencyLabel: CurrencyLabel = CurrencyLabel.NAME,
     /** Hours exchange rates stay fresh before the panel refetches on open. */
     val currencyCacheHours: Int = 6,
     /** Where rates come from, and how cryptocurrency is handled. */
@@ -2747,6 +2804,8 @@ data class KeyboardSettings(
     val toolboxColumns: Int = 4,
     /** ISO 639-1 code the translate tool translates into (source is auto-detected). */
     val translateTargetLang: String = "en",
+    /** Which engine the translate tool uses (see [TranslateSettings]). */
+    val translate: TranslateSettings = TranslateSettings(),
     /** English dialect the offline grammar tool checks against. */
     val grammarDialect: GrammarDialect = GrammarDialect.AMERICAN,
     /**
@@ -2847,6 +2906,8 @@ data class KeyboardSettings(
     val toolKeywordCase: String = "",
     /** Trig in degrees (off = radians) for the calculator tool. */
     val calcDegrees: Boolean = true,
+    /** Calculator keypad with 1 2 3 on the top row, like a dialer (issue #294). */
+    val calcPhoneLayout: Boolean = false,
     /** Decimal places in calculator/converter results. */
     val calcPrecision: Int = 8,
     /** Currency codes the converter starts on. */
@@ -3467,6 +3528,19 @@ data class AiSettings(
      */
     val keepChats: Boolean = true,
     /**
+     * Enter sends the message in the chat on the keyboard's AI panel (#280).
+     *
+     * Off: Enter adds a line and only the Send button sends, which is what a
+     * prompt of more than one line needs and what messaging apps do.
+     */
+    val chatEnterSends: Boolean = false,
+    /**
+     * The AI panel was last left in its chat mode, so it opens there again.
+     * Remembered for the user, not set by them: there is no row for it, the
+     * switch on the panel's header is the control.
+     */
+    val panelChat: Boolean = false,
+    /**
      * How much text before the cursor a "carry this on" action sends, in
      * characters.
      *
@@ -3798,6 +3872,14 @@ data class CjkSettings(
      * nothing back from a dictionary that files it under nei5.
      */
     val jyutpingLazy: Boolean = true,
+    /**
+     * Japanese: on the flick pad and the JIS kana layout, read a plain kana as
+     * its small, dakuten or handakuten form too, so かつこう finds 学校 (#293).
+     * On by default, as it is in Google Japanese Input: every mark there is an
+     * extra key, an exactly-typed reading still wins a near tie, and romaji
+     * typing never sees it.
+     */
+    val kanaLooseMarks: Boolean = true,
     /** Which region's vocabulary Traditional output should prefer. */
     val hanRegion: HanVariant.HanRegion = HanVariant.HanRegion.GENERIC,
 )
@@ -3946,7 +4028,10 @@ fun VoiceBarSettings.plainTyping(): Boolean = typingMode == VoiceBarSettings.TYP
  * DataStore keys stay flat.
  */
 data class WhisperSettings(
-    /** Dictation backend: "system" = OS SpeechRecognizer, "whisper" = offline LiteRT. */
+    /**
+     * Dictation backend: "system" = OS SpeechRecognizer, "whisper" = offline
+     * LiteRT, "server" = a transcription server the user runs (#286).
+     */
     val engine: String = "system",
     /**
      * The fallback Whisper catalog id — the model used for any language without
@@ -3963,6 +4048,21 @@ data class WhisperSettings(
     val modelByLang: Map<String, String> = emptyMap(),
     /** Force Whisper to translate speech to English instead of transcribing verbatim. */
     val translate: Boolean = false,
+    /**
+     * The transcription server's API root for the "server" engine, e.g.
+     * `http://192.168.1.10:8000/v1`. Any server that speaks OpenAI's
+     * `/audio/transcriptions` works; see `TranscriptionClient.endpoint`.
+     */
+    val serverUrl: String = "",
+    /** Bearer token for the server; blank sends no Authorization header. */
+    val serverKey: String = "",
+    /** The `model` field; blank leaves it out so the server uses its default. */
+    val serverModel: String = "",
+    /**
+     * Send the active layout's language with each clip. Off lets the server
+     * detect it, which suits people who dictate two languages on one layout.
+     */
+    val serverSendLanguage: Boolean = true,
 )
 
 /**
@@ -4445,6 +4545,26 @@ enum class CopiedCodeChip {
 }
 
 /**
+ * How the clipboard panel lays its history out.
+ */
+enum class ClipboardView {
+    /** Two columns of cards, packed independently: images read best this way. */
+    GRID,
+
+    /** One clip per row across the full width: long text reads best this way. */
+    LIST,
+    ;
+
+    /** Caption for this choice; resolve it where it is drawn. */
+    @get:StringRes
+    val labelRes: Int
+        get() = when (this) {
+            GRID -> R.string.core_settings_clipboard_view_grid_label
+            LIST -> R.string.core_settings_clipboard_view_list_label
+        }
+}
+
+/**
  * Clipboard-tool settings — history capture, the panel, and the paste chip on
  * the suggestion strip — grouped into their own object (see [CameraSettings]
  * for why). DataStore keys stay flat.
@@ -4475,8 +4595,12 @@ data class ClipboardSettings(
      * What to do with a clip the copying app marked sensitive (Android 13's
      * `ClipDescription.EXTRA_IS_SENSITIVE`, which is what a password manager
      * sets on a copied password).
+     *
+     * [SensitiveClipHandling.KEEP] by default: hiding and expiring secrets is
+     * an opt-in for the privacy-minded, not something every user pays for with
+     * masked clips they cannot read or edit.
      */
-    val sensitiveHandling: SensitiveClipHandling = SensitiveClipHandling.SHORT_LIVED,
+    val sensitiveHandling: SensitiveClipHandling = SensitiveClipHandling.KEEP,
     /**
      * Also apply [sensitiveHandling] to clips that *look* like a password or a
      * bare one-time code, not just the ones flagged by their source. Most
@@ -4519,10 +4643,11 @@ data class ClipboardSettings(
      * Delete a clip from history *and* from the system clipboard the moment it
      * is pasted into a password field. A password pasted out of a manager is
      * the single most sensitive thing the clipboard ever holds, and it would
-     * otherwise sit there — readable by every app — until it expired. On by
-     * default; turning it off keeps the clip like any other paste.
+     * otherwise sit there — readable by every app — until it expired. Off by
+     * default, like the rest of the password handling: an opt-in for the
+     * privacy-minded.
      */
-    val clearAfterPasswordPaste: Boolean = true,
+    val clearAfterPasswordPaste: Boolean = false,
     /**
      * Pull one-time codes, phone numbers and links out of clips and offer them
      * as their own chips above the history, so the six digits inside a
@@ -4549,6 +4674,18 @@ data class ClipboardSettings(
      * them are on screen at once. Turning it off keeps the toolbar in reach.
      */
     val fullBleed: Boolean = true,
+    /**
+     * Cards in two columns, or one clip per row. The panel's own toggle
+     * writes this too, so the choice survives the panel closing.
+     */
+    val view: ClipboardView = ClipboardView.GRID,
+    /**
+     * Number every clip by its place in the history, so the one meant is the
+     * one tapped. The number belongs to the clip, not to the row it lands in:
+     * a search keeps each clip's own number rather than counting from 1 again.
+     * Off by default.
+     */
+    val showNumbers: Boolean = false,
 )
 
 /**
@@ -6692,6 +6829,7 @@ class SettingsRepository(private val context: Context) {
         private val DS_ANIMATED_EMOJI = stringPreferencesKey("data_saver_animated_emoji")
         private val DS_DOWNLOADS = stringPreferencesKey("data_saver_downloads")
         private val DS_CLOUD_AI = stringPreferencesKey("data_saver_cloud_ai")
+        private val DS_CLOUD_VOICE = stringPreferencesKey("data_saver_cloud_voice")
         private val BACKSPACE_SWIPE_DELETE = booleanPreferencesKey("backspace_swipe_delete")
         private val HARDWARE_KEYBOARD_INPUT = booleanPreferencesKey("hardware_keyboard_input")
         private val HW_SHORTCUTS_ENABLED = booleanPreferencesKey("hw_shortcuts_enabled")
@@ -6749,6 +6887,7 @@ class SettingsRepository(private val context: Context) {
         private val PINYIN_DOUBLE_PINYIN = stringPreferencesKey("pinyin_double_pinyin")
         private val CJK_TRADITIONAL_OUTPUT = booleanPreferencesKey("cjk_traditional_output")
         private val JYUTPING_LAZY = booleanPreferencesKey("jyutping_lazy")
+        private val KANA_LOOSE_MARKS = booleanPreferencesKey("kana_loose_marks")
         private val CJK_HAN_REGION = stringPreferencesKey("cjk_han_region")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
         // One-handed width leaves room for the rail on the inner edge, so it is
@@ -6806,6 +6945,8 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_DETECT_ENTITIES = booleanPreferencesKey("clipboard_detect_entities")
         private val CLIPBOARD_PHONE_FORMATS = stringSetPreferencesKey("clipboard_phone_formats")
         private val CLIPBOARD_FULL_BLEED = booleanPreferencesKey("clipboard_full_bleed")
+        private val CLIPBOARD_VIEW = stringPreferencesKey("clipboard_view")
+        private val CLIPBOARD_SHOW_NUMBERS = booleanPreferencesKey("clipboard_show_numbers")
         private val OTP_CHIP_ENABLED = booleanPreferencesKey("otp_chip_enabled")
         // Stored under its old name: the test behind it grew from "number
         // field" to "code box", but a user who turned it on meant the same
@@ -6900,6 +7041,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBAR_PADDING_TOP = intPreferencesKey("toolbar_padding_top")
         private val TOOLBAR_PADDING_BOTTOM = intPreferencesKey("toolbar_padding_bottom")
         private val TOOLBAR_PLACEMENT = stringPreferencesKey("toolbar_placement")
+        private val TOOLBAR_SHOW_STRIP = booleanPreferencesKey("toolbar_show_strip")
         private val TOOLBAR_HOLD_ACTIONS = stringPreferencesKey("toolbar_hold_actions")
         private val TOOLBAR_DRAG_REARRANGE = booleanPreferencesKey("toolbar_drag_rearrange")
         private val THEMES_PANEL_BUILTINS = stringSetPreferencesKey("themes_panel_builtins")
@@ -6954,6 +7096,8 @@ class SettingsRepository(private val context: Context) {
         private val LEVEL_SHOW_ANGLES = booleanPreferencesKey("level_show_angles")
         private val REDO_USES_CTRL_Y = booleanPreferencesKey("redo_uses_ctrl_y")
         private val MOON_SOUTHERN = booleanPreferencesKey("moon_southern_hemisphere")
+        private val NETWORK_LOG_KEEP = booleanPreferencesKey("network_log_keep")
+        private val NETWORK_LOG_ON_KEYBOARD = booleanPreferencesKey("network_log_on_keyboard")
         private val WEATHER_FAHRENHEIT = booleanPreferencesKey("weather_fahrenheit")
         private val WEATHER_LAT = floatPreferencesKey("weather_lat")
         private val WEATHER_LON = floatPreferencesKey("weather_lon")
@@ -6991,6 +7135,10 @@ class SettingsRepository(private val context: Context) {
         private val WHISPER_MODEL_ID = stringPreferencesKey("whisper_model_id")
         private val WHISPER_MODEL_BY_LANG = stringPreferencesKey("whisper_model_by_lang")
         private val WHISPER_TRANSLATE = booleanPreferencesKey("whisper_translate")
+        private val VOICE_SERVER_URL = stringPreferencesKey("voice_server_url")
+        private val VOICE_SERVER_KEY = stringPreferencesKey("voice_server_key")
+        private val VOICE_SERVER_MODEL = stringPreferencesKey("voice_server_model")
+        private val VOICE_SERVER_SEND_LANGUAGE = booleanPreferencesKey("voice_server_send_language")
         private val CAMERA_PREFER_FRONT = booleanPreferencesKey("camera_prefer_front")
         private val CAMERA_TIMER_SECONDS = intPreferencesKey("camera_timer_seconds")
         private val CAMERA_CAPTURE_MAX_PX = intPreferencesKey("camera_capture_max_px")
@@ -7067,6 +7215,7 @@ class SettingsRepository(private val context: Context) {
         private val QR_SCAN_AUTO_INSERT = booleanPreferencesKey("qr_scan_auto_insert")
         private val QR_SCAN_LINK_PREVIEWS = booleanPreferencesKey("qr_scan_link_previews")
         private val CURRENCY_DECIMALS = intPreferencesKey("currency_decimals")
+        private val CURRENCY_LABEL = stringPreferencesKey("currency_label")
         private val CURRENCY_CACHE_HOURS = intPreferencesKey("currency_cache_hours")
         private val FIAT_PROVIDERS = stringPreferencesKey("fiat_rate_providers")
         private val CRYPTO_ENABLED = booleanPreferencesKey("crypto_enabled")
@@ -7106,6 +7255,7 @@ class SettingsRepository(private val context: Context) {
         private val CORRECTIONS_VERSION = intPreferencesKey("corrections_version")
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
+        private val TRANSLATE_ENGINE = stringPreferencesKey("translate_engine")
         private val GRAMMAR_DIALECT = stringPreferencesKey("grammar_dialect")
         private val GRAMMAR_HIDDEN_KINDS = stringSetPreferencesKey("grammar_hidden_kinds")
         private val SPELL_CHECKER_NO_SUGGESTIONS =
@@ -7159,6 +7309,27 @@ class SettingsRepository(private val context: Context) {
         // Absent means "never chosen", which takes the seeded defaults; an
         // empty set is a real choice (nothing counts as music) and is kept.
         private val MEDIA_MUSIC_APPS = stringSetPreferencesKey("media_music_apps")
+        private val KDE_ENABLED = booleanPreferencesKey("kde_enabled")
+        private val KDE_DEVICE_NAME = stringPreferencesKey("kde_device_name")
+        private val KDE_LIFETIME = stringPreferencesKey("kde_lifetime")
+        private val KDE_AUTO_CONNECT = booleanPreferencesKey("kde_auto_connect")
+        private val KDE_CLIPBOARD_RECEIVE = booleanPreferencesKey("kde_clipboard_receive")
+        private val KDE_CLIPBOARD_SEND = booleanPreferencesKey("kde_clipboard_send")
+        private val KDE_REMOTE_TYPING = booleanPreferencesKey("kde_remote_typing")
+        private val KDE_REMOTE_TYPING_PIPELINE = booleanPreferencesKey("kde_remote_typing_pipeline")
+        private val KDE_PAD_SENSITIVITY = floatPreferencesKey("kde_pad_sensitivity")
+        private val KDE_PAD_ACCELERATION = booleanPreferencesKey("kde_pad_acceleration")
+        private val KDE_SCROLL_SPEED = floatPreferencesKey("kde_scroll_speed")
+        private val KDE_NATURAL_SCROLL = booleanPreferencesKey("kde_natural_scroll")
+        private val KDE_TAP_TO_CLICK = booleanPreferencesKey("kde_tap_to_click")
+        private val KDE_PAD_HAPTICS = booleanPreferencesKey("kde_pad_haptics")
+        private val KDE_BATTERY_REPORT = booleanPreferencesKey("kde_battery_report")
+        private val KDE_EXPOSE_MEDIA = booleanPreferencesKey("kde_expose_media")
+        private val KDE_SHARE_SHEET = booleanPreferencesKey("kde_share_sheet")
+        private val KDE_RECEIVE_FILES = booleanPreferencesKey("kde_receive_files")
+        private val KDE_COMPOSE_MODE = booleanPreferencesKey("kde_compose_mode")
+        private val KDE_LAST_TAB = stringPreferencesKey("kde_last_tab")
+        private val KDE_HOSTS = stringSetPreferencesKey("kde_hosts")
         private val SMART_SUGGESTIONS = booleanPreferencesKey("smart_suggestions")
         private val SMART_CALC = booleanPreferencesKey("smart_calc")
         private val SMART_CURRENCY = booleanPreferencesKey("smart_currency")
@@ -7195,6 +7366,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOL_KEYWORDS = stringPreferencesKey("tool_keywords")
         private val TOOL_KEYWORD_CASE = stringPreferencesKey("tool_keyword_case")
         private val CALC_DEGREES = booleanPreferencesKey("calc_degrees")
+        private val CALC_PHONE_LAYOUT = booleanPreferencesKey("calc_phone_layout")
         private val CALC_PRECISION = intPreferencesKey("calc_precision")
         private val CURRENCY_FROM = stringPreferencesKey("currency_from")
         private val CURRENCY_TO = stringPreferencesKey("currency_to")
@@ -7246,6 +7418,8 @@ class SettingsRepository(private val context: Context) {
         private val AI_HISTORY_ENABLED = booleanPreferencesKey("ai_history_enabled")
         private val AI_HISTORY_MAX = intPreferencesKey("ai_history_max")
         private val AI_KEEP_CHATS = booleanPreferencesKey("ai_keep_chats")
+        private val AI_CHAT_ENTER_SENDS = booleanPreferencesKey("ai_chat_enter_sends")
+        private val AI_PANEL_CHAT = booleanPreferencesKey("ai_panel_chat")
         private val AI_DOWNLOAD_UNMETERED = booleanPreferencesKey("ai_download_unmetered_only")
         private val AI_BEFORE_CURSOR_CHARS = intPreferencesKey("ai_before_cursor_chars")
         private val AI_DIFF_VIEW = booleanPreferencesKey("ai_diff_view")
@@ -7378,7 +7552,12 @@ class SettingsRepository(private val context: Context) {
         // Every reader of settings also brings the service addresses up to date,
         // so a download manager deep in a feature module reads the address the
         // user set without being handed the settings. See [ServiceEndpoints].
-        .onEach { ServiceEndpoints.update(it.selfHosted.endpoints, it.selfHosted.repos) }
+        .onEach {
+            ServiceEndpoints.update(it.selfHosted.endpoints, it.selfHosted.repos)
+            // Same reasoning for the network log's switch: whoever reads
+            // settings keeps the log's idea of "on" current.
+            NetLog.enabled = it.networkLog.keep
+        }
         .flowOn(Dispatchers.Default)
 
     /**
@@ -7865,6 +8044,7 @@ class SettingsRepository(private val context: Context) {
                     ?: defaults.cjk.pinyinDoublePinyin,
                 traditionalOutput = p[CJK_TRADITIONAL_OUTPUT] ?: defaults.cjk.traditionalOutput,
                 jyutpingLazy = p[JYUTPING_LAZY] ?: defaults.cjk.jyutpingLazy,
+                kanaLooseMarks = p[KANA_LOOSE_MARKS] ?: defaults.cjk.kanaLooseMarks,
                 hanRegion = p[CJK_HAN_REGION]
                     ?.let { runCatching { HanVariant.HanRegion.valueOf(it) }.getOrNull() }
                     ?: defaults.cjk.hanRegion,
@@ -7908,6 +8088,10 @@ class SettingsRepository(private val context: Context) {
                 detectEntities = p[CLIPBOARD_DETECT_ENTITIES] ?: defaults.clipboard.detectEntities,
                 phoneFormats = p[CLIPBOARD_PHONE_FORMATS] ?: seededPhoneFormats(),
                 fullBleed = p[CLIPBOARD_FULL_BLEED] ?: defaults.clipboard.fullBleed,
+                view = p[CLIPBOARD_VIEW]
+                    ?.let { runCatching { ClipboardView.valueOf(it) }.getOrNull() }
+                    ?: defaults.clipboard.view,
+                showNumbers = p[CLIPBOARD_SHOW_NUMBERS] ?: defaults.clipboard.showNumbers,
             ),
             otp = OtpSettings(
                 enabled = p[OTP_CHIP_ENABLED] ?: defaults.otp.enabled,
@@ -8220,6 +8404,7 @@ class SettingsRepository(private val context: Context) {
                 placement = p[TOOLBAR_PLACEMENT]
                     ?.let { runCatching { ToolbarPlacement.valueOf(it) }.getOrNull() }
                     ?: defaults.toolbarBehavior.placement,
+                showStrip = p[TOOLBAR_SHOW_STRIP] ?: defaults.toolbarBehavior.showStrip,
                 holdActions = ToolHoldActions.decode(p[TOOLBAR_HOLD_ACTIONS]),
             ),
             toolbarHeightDp = p[TOOLBAR_HEIGHT] ?: defaults.toolbarHeightDp,
@@ -8308,6 +8493,10 @@ class SettingsRepository(private val context: Context) {
                 moonSouthern = p[MOON_SOUTHERN] ?: isSouthernHemisphere(deviceRegion),
             ),
             redoUsesCtrlY = p[REDO_USES_CTRL_Y] ?: defaults.redoUsesCtrlY,
+            networkLog = NetworkLogSettings(
+                keep = p[NETWORK_LOG_KEEP] ?: defaults.networkLog.keep,
+                showOnKeyboard = p[NETWORK_LOG_ON_KEYBOARD] ?: defaults.networkLog.showOnKeyboard,
+            ),
             weather = WeatherSettings(
                 fahrenheit = p[WEATHER_FAHRENHEIT] ?: defaults.weather.fahrenheit,
                 latitude = p[WEATHER_LAT],
@@ -8353,6 +8542,11 @@ class SettingsRepository(private val context: Context) {
                 modelByLang = p[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) }
                     ?: defaults.whisper.modelByLang,
                 translate = p[WHISPER_TRANSLATE] ?: defaults.whisper.translate,
+                serverUrl = p[VOICE_SERVER_URL] ?: defaults.whisper.serverUrl,
+                serverKey = p[VOICE_SERVER_KEY] ?: defaults.whisper.serverKey,
+                serverModel = p[VOICE_SERVER_MODEL] ?: defaults.whisper.serverModel,
+                serverSendLanguage = p[VOICE_SERVER_SEND_LANGUAGE]
+                    ?: defaults.whisper.serverSendLanguage,
             ),
             camera = CameraSettings(
                 preferFront = p[CAMERA_PREFER_FRONT] ?: defaults.camera.preferFront,
@@ -8512,6 +8706,9 @@ class SettingsRepository(private val context: Context) {
             autoIncognito = p[AUTO_INCOGNITO] ?: defaults.autoIncognito,
             cloudBackup = p[CloudBackup.KEY] ?: defaults.cloudBackup,
             currencyDecimals = p[CURRENCY_DECIMALS] ?: defaults.currencyDecimals,
+            currencyLabel = p[CURRENCY_LABEL]
+                ?.let { runCatching { CurrencyLabel.valueOf(it) }.getOrNull() }
+                ?: defaults.currencyLabel,
             currencyCacheHours = p[CURRENCY_CACHE_HOURS] ?: defaults.currencyCacheHours,
             rateSources = RateSourceSettings(
                 fiatProviders = p[FIAT_PROVIDERS]?.split('\n')?.filter { it.isNotEmpty() }
@@ -8530,6 +8727,11 @@ class SettingsRepository(private val context: Context) {
             compoundUnits = p[COMPOUND_UNITS] ?: defaults.compoundUnits,
             toolboxColumns = p[TOOLBOX_COLUMNS] ?: defaults.toolboxColumns,
             translateTargetLang = p[TRANSLATE_TARGET_LANG] ?: defaults.translateTargetLang,
+            translate = TranslateSettings(
+                engine = p[TRANSLATE_ENGINE]
+                    ?.let { name -> TranslateEngine.entries.firstOrNull { it.name == name } }
+                    ?: defaults.translate.engine,
+            ),
             grammarDialect = p[GRAMMAR_DIALECT]
                 ?.let { runCatching { GrammarDialect.valueOf(it) }.getOrNull() }
                 ?: defaults.grammarDialect,
@@ -8610,6 +8812,7 @@ class SettingsRepository(private val context: Context) {
             toolKeywords = p[TOOL_KEYWORDS] ?: defaults.toolKeywords,
             toolKeywordCase = p[TOOL_KEYWORD_CASE] ?: defaults.toolKeywordCase,
             calcDegrees = p[CALC_DEGREES] ?: defaults.calcDegrees,
+            calcPhoneLayout = p[CALC_PHONE_LAYOUT] ?: defaults.calcPhoneLayout,
             calcPrecision = p[CALC_PRECISION] ?: defaults.calcPrecision,
             currencyFrom = p[CURRENCY_FROM] ?: defaults.currencyFrom,
             currencyTo = p[CURRENCY_TO] ?: defaults.currencyTo,
@@ -8696,6 +8899,8 @@ class SettingsRepository(private val context: Context) {
                 historyEnabled = p[AI_HISTORY_ENABLED] ?: defaults.ai.historyEnabled,
                 historyMax = p[AI_HISTORY_MAX] ?: defaults.ai.historyMax,
                 keepChats = p[AI_KEEP_CHATS] ?: defaults.ai.keepChats,
+                chatEnterSends = p[AI_CHAT_ENTER_SENDS] ?: defaults.ai.chatEnterSends,
+                panelChat = p[AI_PANEL_CHAT] ?: defaults.ai.panelChat,
                 beforeCursorChars = p[AI_BEFORE_CURSOR_CHARS]
                     ?: defaults.ai.beforeCursorChars,
             ),
@@ -8726,6 +8931,32 @@ class SettingsRepository(private val context: Context) {
                 pinWhilePlaying = p[MEDIA_PIN_WHILE_PLAYING]
                     ?: defaults.mediaControl.pinWhilePlaying,
                 musicApps = p[MEDIA_MUSIC_APPS] ?: defaults.mediaControl.musicApps,
+            ),
+            kdeConnect = KdeConnectSettings(
+                enabled = p[KDE_ENABLED] ?: defaults.kdeConnect.enabled,
+                deviceName = p[KDE_DEVICE_NAME] ?: defaults.kdeConnect.deviceName,
+                lifetime = p[KDE_LIFETIME]
+                    ?.let { runCatching { KdeLinkLifetime.valueOf(it) }.getOrNull() }
+                    ?: defaults.kdeConnect.lifetime,
+                autoConnect = p[KDE_AUTO_CONNECT] ?: defaults.kdeConnect.autoConnect,
+                clipboardReceive = p[KDE_CLIPBOARD_RECEIVE] ?: defaults.kdeConnect.clipboardReceive,
+                clipboardSend = p[KDE_CLIPBOARD_SEND] ?: defaults.kdeConnect.clipboardSend,
+                remoteTyping = p[KDE_REMOTE_TYPING] ?: defaults.kdeConnect.remoteTyping,
+                remoteTypingPipeline = p[KDE_REMOTE_TYPING_PIPELINE]
+                    ?: defaults.kdeConnect.remoteTypingPipeline,
+                padSensitivity = p[KDE_PAD_SENSITIVITY] ?: defaults.kdeConnect.padSensitivity,
+                padAcceleration = p[KDE_PAD_ACCELERATION] ?: defaults.kdeConnect.padAcceleration,
+                scrollSpeed = p[KDE_SCROLL_SPEED] ?: defaults.kdeConnect.scrollSpeed,
+                naturalScroll = p[KDE_NATURAL_SCROLL] ?: defaults.kdeConnect.naturalScroll,
+                tapToClick = p[KDE_TAP_TO_CLICK] ?: defaults.kdeConnect.tapToClick,
+                padHaptics = p[KDE_PAD_HAPTICS] ?: defaults.kdeConnect.padHaptics,
+                batteryReport = p[KDE_BATTERY_REPORT] ?: defaults.kdeConnect.batteryReport,
+                exposeMedia = p[KDE_EXPOSE_MEDIA] ?: defaults.kdeConnect.exposeMedia,
+                shareSheet = p[KDE_SHARE_SHEET] ?: defaults.kdeConnect.shareSheet,
+                receiveFiles = p[KDE_RECEIVE_FILES] ?: defaults.kdeConnect.receiveFiles,
+                composeMode = p[KDE_COMPOSE_MODE] ?: defaults.kdeConnect.composeMode,
+                lastTab = p[KDE_LAST_TAB] ?: defaults.kdeConnect.lastTab,
+                hosts = p[KDE_HOSTS] ?: defaults.kdeConnect.hosts,
             ),
             selfHosted = SelfHostedSettings(
                 libreTranslateUrl = p[SELF_HOSTED_LIBRETRANSLATE_URL]
@@ -8936,6 +9167,52 @@ class SettingsRepository(private val context: Context) {
     suspend fun setMediaPinWhilePlaying(value: Boolean) =
         editPrefs { it[MEDIA_PIN_WHILE_PLAYING] = value }
 
+    // ---- KDE Connect (issue #285) ----
+
+    suspend fun setKdeEnabled(value: Boolean) = editPrefs { it[KDE_ENABLED] = value }
+
+    // Stored as typed, minus the edges; the engine strips what no desktop
+    // would show. Blank falls back to the phone's model.
+    suspend fun setKdeDeviceName(value: String) = editPrefs { it[KDE_DEVICE_NAME] = value.trim().take(64) }
+    suspend fun setKdeLifetime(value: KdeLinkLifetime) = editPrefs { it[KDE_LIFETIME] = value.name }
+    suspend fun setKdeAutoConnect(value: Boolean) = editPrefs { it[KDE_AUTO_CONNECT] = value }
+    suspend fun setKdeClipboardReceive(value: Boolean) = editPrefs { it[KDE_CLIPBOARD_RECEIVE] = value }
+    suspend fun setKdeClipboardSend(value: Boolean) = editPrefs { it[KDE_CLIPBOARD_SEND] = value }
+    suspend fun setKdeRemoteTyping(value: Boolean) = editPrefs { it[KDE_REMOTE_TYPING] = value }
+    suspend fun setKdeRemoteTypingPipeline(value: Boolean) =
+        editPrefs { it[KDE_REMOTE_TYPING_PIPELINE] = value }
+
+    suspend fun setKdePadSensitivity(value: Float) = editPrefs {
+        it[KDE_PAD_SENSITIVITY] = value.coerceIn(KdeConnectSettings.PAD_SPEED_RANGE)
+    }
+
+    suspend fun setKdePadAcceleration(value: Boolean) = editPrefs { it[KDE_PAD_ACCELERATION] = value }
+
+    suspend fun setKdeScrollSpeed(value: Float) = editPrefs {
+        it[KDE_SCROLL_SPEED] = value.coerceIn(KdeConnectSettings.PAD_SPEED_RANGE)
+    }
+
+    suspend fun setKdeNaturalScroll(value: Boolean) = editPrefs { it[KDE_NATURAL_SCROLL] = value }
+    suspend fun setKdeTapToClick(value: Boolean) = editPrefs { it[KDE_TAP_TO_CLICK] = value }
+    suspend fun setKdePadHaptics(value: Boolean) = editPrefs { it[KDE_PAD_HAPTICS] = value }
+    suspend fun setKdeBatteryReport(value: Boolean) = editPrefs { it[KDE_BATTERY_REPORT] = value }
+    suspend fun setKdeExposeMedia(value: Boolean) = editPrefs { it[KDE_EXPOSE_MEDIA] = value }
+    suspend fun setKdeShareSheet(value: Boolean) = editPrefs { it[KDE_SHARE_SHEET] = value }
+    suspend fun setKdeReceiveFiles(value: Boolean) = editPrefs { it[KDE_RECEIVE_FILES] = value }
+    suspend fun setKdeComposeMode(value: Boolean) = editPrefs { it[KDE_COMPOSE_MODE] = value }
+    suspend fun setKdeLastTab(value: String) = editPrefs { it[KDE_LAST_TAB] = value }
+
+    suspend fun addKdeHost(host: String) = editPrefs { prefs ->
+        val clean = host.trim()
+        if (clean.isEmpty()) return@editPrefs
+        val current = prefs[KDE_HOSTS].orEmpty()
+        if (current.size < KdeConnectSettings.MAX_HOSTS) prefs[KDE_HOSTS] = current + clean
+    }
+
+    suspend fun removeKdeHost(host: String) = editPrefs { prefs ->
+        prefs[KDE_HOSTS] = prefs[KDE_HOSTS].orEmpty() - host
+    }
+
     // Endpoints are stored trimmed: a URL pasted from a README arrives with
     // whitespace often enough, and the clients would otherwise build a request
     // against a host with a space in it.
@@ -9041,6 +9318,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setMoonSouthernHemisphere(value: Boolean) =
         editPrefs { it[MOON_SOUTHERN] = value }
+
+    suspend fun setNetworkLogKeep(value: Boolean) =
+        editPrefs { it[NETWORK_LOG_KEEP] = value }
+
+    suspend fun setNetworkLogOnKeyboard(value: Boolean) =
+        editPrefs { it[NETWORK_LOG_ON_KEYBOARD] = value }
 
     suspend fun setWeatherFahrenheit(value: Boolean) =
         editPrefs { it[WEATHER_FAHRENHEIT] = value }
@@ -9214,6 +9497,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setWhisperTranslate(value: Boolean) =
         editPrefs { it[WHISPER_TRANSLATE] = value }
+
+    suspend fun setVoiceServerUrl(value: String) =
+        editPrefs { it[VOICE_SERVER_URL] = value.trim().trimEnd('/') }
+
+    suspend fun setVoiceServerKey(value: String) =
+        editPrefs { it[VOICE_SERVER_KEY] = value.trim() }
+
+    suspend fun setVoiceServerModel(value: String) =
+        editPrefs { it[VOICE_SERVER_MODEL] = value.trim() }
+
+    suspend fun setVoiceServerSendLanguage(value: Boolean) =
+        editPrefs { it[VOICE_SERVER_SEND_LANGUAGE] = value }
 
     suspend fun setCameraPreferFront(value: Boolean) =
         editPrefs { it[CAMERA_PREFER_FRONT] = value }
@@ -9391,6 +9686,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setCurrencyDecimals(value: Int) =
         editPrefs { it[CURRENCY_DECIMALS] = value.coerceIn(0, 6) }
+
+    suspend fun setCurrencyLabel(value: CurrencyLabel) =
+        editPrefs { it[CURRENCY_LABEL] = value.name }
 
     suspend fun setCurrencyCacheHours(value: Int) =
         editPrefs { it[CURRENCY_CACHE_HOURS] = value.coerceIn(1, 48) }
@@ -9583,6 +9881,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setToolbarPlacement(value: ToolbarPlacement) =
         editPrefs { it[TOOLBAR_PLACEMENT] = value.name }
+
+    suspend fun setToolbarShowStrip(value: Boolean) =
+        editPrefs { it[TOOLBAR_SHOW_STRIP] = value }
 
     /**
      * Sets or clears one tool's press-and-hold action. Null puts that tool back
@@ -10655,6 +10956,7 @@ class SettingsRepository(private val context: Context) {
             animatedEmoji = p.policy(DS_ANIMATED_EMOJI, d.animatedEmoji),
             downloads = p.policy(DS_DOWNLOADS, legacyDownloads),
             cloudAi = p.policy(DS_CLOUD_AI, d.cloudAi),
+            cloudVoice = p.policy(DS_CLOUD_VOICE, d.cloudVoice),
         )
     }
 
@@ -12055,6 +12357,11 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAiKeepChats(value: Boolean) = editPrefs { it[AI_KEEP_CHATS] = value }
 
+    suspend fun setAiChatEnterSends(value: Boolean) =
+        editPrefs { it[AI_CHAT_ENTER_SENDS] = value }
+
+    suspend fun setAiPanelChat(value: Boolean) = editPrefs { it[AI_PANEL_CHAT] = value }
+
     suspend fun setAiBeforeCursorChars(value: Int) =
         editPrefs { it[AI_BEFORE_CURSOR_CHARS] = value.coerceIn(500, 32_000) }
 
@@ -12611,6 +12918,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDataSaverCloudAi(value: MeteredPolicy) =
         editPrefs { it[DS_CLOUD_AI] = value.name }
 
+    suspend fun setDataSaverCloudVoice(value: MeteredPolicy) =
+        editPrefs { it[DS_CLOUD_VOICE] = value.name }
+
     /**
      * Picks [value] as [langId]'s numeral system. [NumeralSystem.AUTO] drops the
      * entry, so the language falls back to its own default and the map stays
@@ -12851,6 +13161,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setJyutpingLazy(value: Boolean) =
         context.dataStore.edit { it[JYUTPING_LAZY] = value }
 
+    suspend fun setKanaLooseMarks(value: Boolean) =
+        context.dataStore.edit { it[KANA_LOOSE_MARKS] = value }
+
     suspend fun setCjkHanRegion(value: HanVariant.HanRegion) =
         context.dataStore.edit { it[CJK_HAN_REGION] = value.name }
 
@@ -13002,6 +13315,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardFullBleed(value: Boolean) =
         editPrefs { it[CLIPBOARD_FULL_BLEED] = value }
+
+    suspend fun setClipboardView(value: ClipboardView) =
+        editPrefs { it[CLIPBOARD_VIEW] = value.name }
+
+    suspend fun setClipboardShowNumbers(value: Boolean) =
+        editPrefs { it[CLIPBOARD_SHOW_NUMBERS] = value }
 
     suspend fun setOtpChipEnabled(value: Boolean) =
         editPrefs { it[OTP_CHIP_ENABLED] = value }
@@ -13319,6 +13638,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTranslateTargetLang(value: String) =
         editPrefs { it[TRANSLATE_TARGET_LANG] = value }
+
+    suspend fun setTranslateEngine(value: TranslateEngine) =
+        editPrefs { it[TRANSLATE_ENGINE] = value.name }
 
     suspend fun setGrammarDialect(value: GrammarDialect) =
         editPrefs { it[GRAMMAR_DIALECT] = value.name }
@@ -13695,6 +14017,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setCalcDegrees(value: Boolean) =
         editPrefs { it[CALC_DEGREES] = value }
+
+    suspend fun setCalcPhoneLayout(value: Boolean) =
+        editPrefs { it[CALC_PHONE_LAYOUT] = value }
 
     suspend fun setCalcPrecision(value: Int) =
         editPrefs { it[CALC_PRECISION] = value.coerceIn(0, 12) }

@@ -417,6 +417,7 @@
     <string name="ime_tool_password_gen">Password</string>
     <string name="ime_tool_typing_test">Typing speed</string>
     <string name="ime_tool_media_control">Media</string>
+    <string name="ime_tool_kde_connect" translatable="false">KDE Connect</string>
     <string name="ime_tool_plugins">Plugins</string>
     <string name="ime_tool_app_launcher">Apps</string>
     <!-- Artificial intelligence. Keep the short form the toolbar can fit. -->
@@ -567,6 +568,15 @@
     <!-- Button in the press-and-hold details for an image clip. The image is
          fitted into a transparent 512 × 512 sticker canvas before sending. -->
     <string name="ime_clip_send_as_sticker">Send as sticker</string>
+    <string name="ime_clip_edit">Edit</string>
+    <string name="ime_clip_edit_title">Edit clip</string>
+    <string name="ime_clip_edit_save">Save</string>
+    <string name="ime_clip_edit_placeholder">Type the clip’s text</string>
+    <string name="ime_clip_edit_rich_note">Saving a change drops the formatting</string>
+    <string name="ime_clipboard_view_list_desc">Show clips as a list</string>
+    <string name="ime_clipboard_view_grid_desc">Show clips as a grid</string>
+    <!-- Spoken before a clip's content when clip numbers are on. %1$d is the clip's number in the history. -->
+    <string name="ime_clip_number_desc">Clip <xliff:g id="number" example="3">%1$d</xliff:g></string>
     <string name="ime_clip_entity_hint">Found in your clips. Press to paste only this part</string>
     <!-- Title of the popup for one part of a clip. %1$s names the kind of
          part, such as a phone number or a one-time code. -->
@@ -684,5 +694,7 @@
     <string name="ime_find_regex_error">Pattern: %1$s</string>
     <string name="ime_find_timeout">The pattern takes too long on this text</string>
     <string name="ime_find_searching">Searching</string>
+    <!-- The network activity dot on the toolbar. %1$s is a server name. -->
+    <string name="ime_netlog_dot_desc">The keyboard is contacting <xliff:g id="host" example="translate.googleapis.com">%1$s</xliff:g></string>
 
 </resources>

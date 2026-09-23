@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.AutoStories
@@ -53,6 +54,7 @@ import androidx.compose.material.icons.outlined.GridOn
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Palette
@@ -506,6 +508,7 @@ internal object SettingsRouteIcons {
         "accessibility" to { Icons.Outlined.Accessibility },
         "privacy" to { Icons.Outlined.Security },
         "permissions" to { Icons.Outlined.Key },
+        "network_activity" to { Icons.Outlined.NetworkCheck },
         "applock" to { Icons.Outlined.Fingerprint },
         "datasaver" to { Icons.Outlined.DataSaverOn },
         "servers" to { Icons.Outlined.Dns },
@@ -530,6 +533,7 @@ internal object SettingsRouteIcons {
         "phoneformats" to { Icons.Outlined.Phone },
         "hwshortcuts" to { Icons.Outlined.Keyboard },
         "musicapps" to { Icons.Outlined.MusicNote },
+        "kdeconnect/devices" to { Icons.Outlined.Devices },
     )
 
     operator fun get(route: String): ImageVector? = map[route]?.invoke()

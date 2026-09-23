@@ -322,6 +322,20 @@
     <string name="tooldetail_themes_nav_subtitle">Create, edit, import and export keyboard themes</string>
 
     <!-- Translate tool. -->
+    <string name="tooldetail_translate_engine_title">Translation engine</string>
+    <string name="tooldetail_translate_engine_subtitle">Where the translation comes from. You can also change this on the panel.</string>
+    <string name="tooldetail_translate_engine_info">Online sends the text to the translation service and knows the most languages. On device uses Google ML Kit models that you download, about 30 MB for each language: the text stays on the phone and it works with no connection. Automatic uses the device when the languages are downloaded and the online service for the rest. On-device translation is good for messages and short text, and less exact than the online service for long or technical text.</string>
+    <string name="tooldetail_translate_models_group">Languages on the device</string>
+    <string name="tooldetail_translate_models_info">Each language is one download. A translation needs the models of the two languages, and goes through English when neither of them is English. The list starts with the language you translate into and the languages you type in.</string>
+    <string name="tooldetail_translate_models_more_group">More languages</string>
+    <string name="tooldetail_translate_module_missing_info">On-device translation is an extra part of the keyboard that comes from Google Play. Download it, then select the languages.</string>
+    <string name="tooldetail_translate_module_installing_info">Google Play is downloading the on-device translation part…</string>
+    <string name="tooldetail_translate_module_installing_sized_info">Google Play is downloading the on-device translation part: <xliff:g id="done" example="4.1 MB">%1$s</xliff:g> of <xliff:g id="total" example="9 MB">%2$s</xliff:g></string>
+    <string name="tooldetail_translate_module_failed_info">Google Play did not deliver the download. Check the connection and that the Play Store works, then try again.</string>
+    <string name="tooldetail_translate_module_metered_body">The on-device translation part comes from Google Play.</string>
+    <string name="tooldetail_translate_model_builtin_label">Part of the engine. No download is necessary</string>
+    <string name="tooldetail_translate_model_cancel_desc">Cancel the download for %1$s</string>
+    <string name="tooldetail_translate_model_metered_body">The <xliff:g id="language" example="Bengali">%1$s</xliff:g> translation model is about <xliff:g id="size" example="30 MB">%2$s</xliff:g>.</string>
     <string name="tooldetail_translate_key_group">API key</string>
     <string name="tooldetail_translate_key_label">Cloud Translation API key (optional)</string>
     <string name="tooldetail_translate_key_hint">Without a key, translation uses the free public endpoint of Google</string>
@@ -463,6 +477,8 @@
     <!-- Calculator tool. -->
     <string name="tooldetail_calc_degrees_title">Degrees</string>
     <string name="tooldetail_calc_degrees_subtitle">Trigonometry functions use degrees. Off uses radians</string>
+    <string name="tooldetail_calc_phone_layout_title">Phone layout</string>
+    <string name="tooldetail_calc_phone_layout_subtitle">1 2 3 on the top row, like a dialer and the numpad. Off puts 7 8 9 on top, like a desk calculator</string>
     <string name="tooldetail_calc_precision_title">Result precision</string>
     <string name="tooldetail_calc_precision_subtitle">Maximum number of decimal places. The unit converter uses it too</string>
 
@@ -476,6 +492,12 @@
     <!-- %1$s is the currency code that the tool converts into, for example USD. -->
     <string name="tooldetail_currency_decimals_title">Decimal places</string>
     <string name="tooldetail_currency_decimals_subtitle">Rounding of the converted amount. Coins have their own setting</string>
+    <string name="tooldetail_currency_label_title">Write the result as</string>
+    <string name="tooldetail_currency_label_subtitle">How a currency chip names the currency that it converted into</string>
+    <string name="tooldetail_currency_label_info">Name writes \"96.04 Rupee\", Symbol writes \"₹96.04\" and Code writes \"96.04 INR\". A currency with no symbol of its own falls back to its code. Coins keep their ticker, such as BTC, with every choice.</string>
+    <string name="tooldetail_currency_label_name">Name</string>
+    <string name="tooldetail_currency_label_symbol">Symbol</string>
+    <string name="tooldetail_currency_label_code">Code</string>
     <string name="tooldetail_currency_refresh_title">Refresh the rates every</string>
     <string name="tooldetail_currency_refresh_subtitle">How long a fetched exchange rate stays fresh</string>
     <string name="tooldetail_currency_refresh_info">The upstream rates update about one time each day. A value below 24 hours mostly changes how soon the keyboard tries a failed fetch again.</string>

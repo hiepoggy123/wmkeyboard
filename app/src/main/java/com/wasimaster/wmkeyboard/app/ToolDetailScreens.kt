@@ -32,6 +32,7 @@ import com.wasimaster.wmkeyboard.core.settings.LauncherIconShape
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
+import com.wasimaster.wmkeyboard.core.tools.CurrencyLabel
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Delete
@@ -100,6 +101,9 @@ import com.wasimaster.wmkeyboard.core.tools.typingConfigLanguage
 import com.wasimaster.wmkeyboard.core.tools.TypingHistory
 import com.wasimaster.wmkeyboard.core.tools.TypingTestMode
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
+import com.wasimaster.wmkeyboard.core.translate.OnDeviceTranslator
+import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
+import com.wasimaster.wmkeyboard.core.settings.TranslateEngine
 import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
@@ -360,6 +364,8 @@ internal fun ToolDetailSettings(
     }
     ToolKeywordSetting(repository, settings, tool)
     when (tool) {
+        ToolbarTool.KDE_CONNECT ->
+            com.wasimaster.wmkeyboard.app.kdeconnect.KdeConnectToolSettings(repository, settings, onNavigate)
         ToolbarTool.MEDIA_CONTROL -> {
             // Re-read whenever this screen comes back to the foreground: the
             // grant is made on a system screen, so the user leaves, ticks the
@@ -1547,9 +1553,37 @@ internal fun ToolDetailSettings(
             }
         }
         ToolbarTool.TRANSLATE -> {
+            // The engine row and the model list exist only where the engine
+            // does. On a build without ML Kit both would be a choice of one.
+            val onDevice = OnDeviceTranslator.AVAILABLE
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item { TranslateLanguageSetting(repository, settings) }
+                if (onDevice) {
+                    item {
+                        val context = LocalContext.current
+                        ChoiceSetting(
+                            R.string.tooldetail_translate_engine_title,
+                            subtitle = stringResource(R.string.tooldetail_translate_engine_subtitle),
+                            info = stringResource(R.string.tooldetail_translate_engine_info),
+                            options = TranslateEngine.entries.map { it to stringResource(it.labelRes) },
+                            selected = settings.translate.engine,
+                            default = SettingsDefaults.translate.engine,
+                        ) { engine ->
+                            scope.launch { repository.setTranslateEngine(engine) }
+                            // Picking an engine that needs the on-demand
+                            // module is asking for it (Play only; a no-op
+                            // elsewhere). Data saver holding downloads leaves
+                            // it to the banner below, which asks properly.
+                            if (engine != TranslateEngine.ONLINE &&
+                                downloadDecisionNow(context, settings) == MeteredDecision.ALLOWED
+                            ) {
+                                OnDeviceTranslator.requestModule()
+                            }
+                        }
+                    }
+                }
             }
+            if (onDevice) TranslateModelManager(settings)
             if (BuildConfig.ENABLE_FDROID) {
                 // This build translates against a LibreTranslate server the
                 // user runs or trusts, so the field is an address rather than
@@ -2076,6 +2110,14 @@ internal fun ToolDetailSettings(
                 ) { scope.launch { repository.setCalcDegrees(it) } }
             }
             item {
+                ToggleSetting(
+                    R.string.tooldetail_calc_phone_layout_title,
+                    stringResource(R.string.tooldetail_calc_phone_layout_subtitle),
+                    settings.calcPhoneLayout,
+                    default = SettingsDefaults.calcPhoneLayout,
+                ) { scope.launch { repository.setCalcPhoneLayout(it) } }
+            }
+            item {
                 SliderSetting(
                     R.string.tooldetail_calc_precision_title,
                     subtitle = stringResource(R.string.tooldetail_calc_precision_subtitle),
@@ -2143,6 +2185,20 @@ internal fun ToolDetailSettings(
                         display = { numberFormat.format(it.toInt()) },
                         default = SettingsDefaults.currencyDecimals.toFloat(),
                     ) { scope.launch { repository.setCurrencyDecimals(it.toInt()) } }
+                }
+                item {
+                    ChoiceSetting(
+                        R.string.tooldetail_currency_label_title,
+                        subtitle = stringResource(R.string.tooldetail_currency_label_subtitle),
+                        info = stringResource(R.string.tooldetail_currency_label_info),
+                        options = listOf(
+                            CurrencyLabel.NAME to stringResource(R.string.tooldetail_currency_label_name),
+                            CurrencyLabel.SYMBOL to stringResource(R.string.tooldetail_currency_label_symbol),
+                            CurrencyLabel.CODE to stringResource(R.string.tooldetail_currency_label_code),
+                        ),
+                        selected = settings.currencyLabel,
+                        default = SettingsDefaults.currencyLabel,
+                    ) { scope.launch { repository.setCurrencyLabel(it) } }
                 }
                 item {
                     SliderSetting(

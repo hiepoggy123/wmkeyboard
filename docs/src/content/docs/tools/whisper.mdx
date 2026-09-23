@@ -22,7 +22,7 @@ Offline Whisper is a second dictation engine that runs entirely on your phone. I
 
 The system recognizer, covered in [Voice typing](/tools/voice/), is fast and shows words as you speak. It also leans on your OS and its installed languages, and without the on-device language pack it sends audio to a recognizer service. Offline Whisper trades all of that away for a hard guarantee: it works across many languages and never sends audio anywhere.
 
-You feel that trade every time you dictate, because Whisper doesn't stream. It records into a buffer and transcribes the whole clip once you stop talking, or once you hit the 30-second cap (see [Details & edge cases](#details--edge-cases)). The panel shows "Listening. Press when you are done." rather than live partial words.
+You feel that trade every time you dictate, because Whisper doesn't stream. It records into a buffer and transcribes the whole clip once you stop talking, or once you hit the 30-second cap (see [Details & edge cases](#details--edge-cases)). The panel shows "Listening. Press when you are done." rather than live partial words. That press doesn't need aim: the whole panel left of the action rail takes it, so does anywhere on the compact bar, and so does the Voice tool on the toolbar (see [Starting dictation](/tools/voice/#starting-dictation)).
 
 Bigger models trade download size and speed for accuracy:
 
@@ -34,6 +34,8 @@ Bigger models trade download size and speed for accuracy:
 - **Large**: the most accurate graphs there are, and far too big for most phones. A 1.5 GB download that only high-memory devices can load. Two are listed, and if you're going to spend the 1.5 GB, **Large v3** is the one to take: it's the newer model and it recognises languages much more reliably than the original Large.
 
 ## The model catalog
+
+On the Play Store build the interpreter that runs these models is not in the app you install: it is a small extra part (about 2 MB) that Google Play delivers the first time you need it. The Whisper settings screen offers it at the top until it is here, the keyboard asks for it on its own the first time you dictate with a model downloaded, and until it lands dictation says so instead of recording. Direct-download builds carry it from the start.
 
 The catalog has 29 downloadable models. Ten are multilingual graphs: seven auto-detect the spoken language, and three are grouped models you can pin to one language. The other 19 are single-language models covering 13 languages, several at more than one size: English, German, Spanish, French, Hindi, Italian, Japanese, Portuguese, Russian, Tamil, Telugu, Urdu, and Chinese. A single-language model only appears in the catalog once you've enabled that language on the Languages screen.
 
@@ -111,7 +113,13 @@ Nine of the 10 multilingual models support translation. Turbo doesn't, because l
 
 ## Details & edge cases
 
-**Every clip is a fixed 30-second window.** Whisper always processes a full 30-second spectrogram: a short utterance is padded, and hitting the 30-second mark auto-triggers transcription of whatever was captured. This makes transcription latency roughly constant per phrase rather than scaling with how long you spoke.
+**Every clip is a fixed 30-second window.** Whisper always processes a full 30-second spectrogram: a short utterance is padded, and hitting the 30-second mark auto-triggers transcription of whatever was captured. The model's own work is therefore roughly constant per phrase rather than scaling with how long you spoke. The preparation in front of it isn't: the padding is silence, whose spectrogram is known without computing it, so only the part you spoke is analysed. The model also loads while you're still talking instead of after you stop, so the first phrase of a session doesn't wait for it.
+
+**A silent clip types nothing.** Whisper has no way to answer "I heard nothing". Hand it a silent window and it writes the likeliest caption for one, which after training on subtitled video is "Thank you." or "Thanks for watching!". So a clip shorter than 0.3 seconds, or one whose loudest moment is no louder than a quiet room, is never transcribed at all. A clip that is faint but not silent is transcribed, and if all that comes back is one of those stock phrases it isn't typed. Say "thank you" at speaking volume and it's typed like anything else. A transcript that is only a sound caption, such as `[Music]` or `(coughs)`, is never typed, and a word or short phrase the decoder repeats five or more times in a row is folded back to one. The [transcription server](/tools/transcription-server/) gets the same treatment, which also saves the upload.
+
+**An open microphone winds down.** With **Keep listening** on, a full 30-second clip with nothing in it starts the next one quietly, but only twice in a row; after that dictation goes idle. The [type-while-you-speak modes](/tools/voice/#typing-while-you-dictate) allow twelve, as they do for the system recognizer.
+
+**A microphone that drops out keeps what it had.** If capture fails in the middle of a clip, because another app tore it down or the audio service restarted, what you said up to that point is transcribed as though you had pressed stop. If it fails before anything was recorded, the panel says the microphone couldn't be opened.
 
 **Only three rows here can be reset.** **Recognition engine**, **Translate to English** and **Model for other languages** are ordinary settings, so each grows the usual restore button once you move it off the default. See [Putting one setting back](/reference/settings/#putting-one-setting-back). The per-language routing rows and the catalog aren't settings rows at all, so they have no button. You undo a pin by opening that language's dialog and picking **Automatic** again.
 

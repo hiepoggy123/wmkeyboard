@@ -2,6 +2,12 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BatteryStd
+import androidx.compose.material.icons.outlined.Devices
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Phonelink
+import androidx.compose.material.icons.outlined.SwipeVertical
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.Backspace
 import androidx.compose.material.icons.automirrored.outlined.Chat
@@ -111,6 +117,7 @@ import androidx.compose.material.icons.outlined.FormatColorFill
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.FormatSize
 import androidx.compose.material.icons.outlined.FormatUnderlined
+import androidx.compose.material.icons.outlined.FormatListNumbered
 import androidx.compose.material.icons.outlined.Fullscreen
 import androidx.compose.material.icons.outlined.ControlCamera
 import androidx.compose.material.icons.outlined.Gamepad
@@ -528,6 +535,7 @@ internal object SettingsRowIcons {
         put(R.string.languages_cjk_traditional_title) { Icons.Outlined.Translate }
         put(R.string.languages_cjk_fuzzy_title) { Icons.Outlined.BlurOn }
         put(R.string.languages_cjk_lazy_title) { Icons.Outlined.RecordVoiceOver }
+        put(R.string.languages_cjk_loose_marks_title) { Icons.Outlined.Spellcheck }
         put(R.string.languages_cjk_fuzzy_pairs_reset_title) { Icons.Outlined.Restore }
         put(R.string.languages_fancy_style_row_title) { Icons.Outlined.TextFormat }
         put(R.string.languages_spelling_map_row_title) { Icons.Outlined.Spellcheck }
@@ -796,6 +804,7 @@ internal object SettingsRowIcons {
         put(R.string.typing_shift_glide_mode_title) { Icons.Outlined.KeyboardCapslock }
         put(R.string.typing_space_after_glide_title) { Icons.Outlined.SpaceBar }
         put(R.string.appearance_toolbar_placement_title) { Icons.Outlined.ViewAgenda }
+        put(R.string.appearance_toolbar_show_strip_title) { Icons.AutoMirrored.Outlined.ShortText }
         put(R.string.tooldetail_hold_title) { Icons.Outlined.TouchApp }
         put(R.string.tooldetail_icon_colour_title) { Icons.Outlined.Colorize }
         put(R.string.tooldetail_icon_colour_start_title) { Icons.Outlined.Colorize }
@@ -881,6 +890,8 @@ internal object SettingsRowIcons {
         put(R.string.clipboard_sensitive_expiry_title) { Icons.Outlined.Timer }
         put(R.string.panel_layout_row_title) { Icons.Outlined.ViewAgenda }
         put(R.string.clipboard_full_bleed_title) { Icons.Outlined.Fullscreen }
+        put(R.string.clipboard_view_title) { Icons.Outlined.GridView }
+        put(R.string.clipboard_numbers_title) { Icons.Outlined.FormatListNumbered }
         put(R.string.clipboard_pinned_last_title) { Icons.Outlined.PushPin }
         put(R.string.clipboard_search_title) { Icons.Outlined.Search }
         put(R.string.clipboard_password_paste_title) { Icons.Outlined.Password }
@@ -983,6 +994,27 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_mediactl_pin_title) { Icons.Outlined.PushPin }
         put(R.string.tooldetail_mediactl_apps_title) { Icons.Outlined.MusicNote }
         put(R.string.tooldetail_mediactl_access_title) { Icons.Outlined.Notifications }
+        // KDE Connect (#285)
+        put(R.string.kdeconnect_enabled_title) { Icons.Outlined.Phonelink }
+        put(R.string.kdeconnect_devices_title) { Icons.Outlined.Devices }
+        put(R.string.kdeconnect_lifetime_title) { Icons.Outlined.Link }
+        put(R.string.kdeconnect_auto_connect_title) { Icons.Outlined.Sync }
+        put(R.string.kdeconnect_clipboard_receive_title) { Icons.Outlined.ContentPaste }
+        put(R.string.kdeconnect_clipboard_send_title) { Icons.Outlined.ContentCopy }
+        put(R.string.kdeconnect_remote_typing_title) { Icons.Outlined.Keyboard }
+        put(R.string.kdeconnect_pipeline_title) { Icons.Outlined.Translate }
+        put(R.string.kdeconnect_pad_speed_title) { Icons.Outlined.Speed }
+        put(R.string.kdeconnect_pad_accel_title) { Icons.Outlined.Mouse }
+        put(R.string.kdeconnect_scroll_speed_title) { Icons.Outlined.SwapVert }
+        put(R.string.kdeconnect_natural_scroll_title) { Icons.Outlined.SwipeVertical }
+        put(R.string.kdeconnect_tap_click_title) { Icons.Outlined.TouchApp }
+        put(R.string.kdeconnect_pad_haptics_title) { Icons.Outlined.Vibration }
+        put(R.string.kdeconnect_receive_files_title) { Icons.Outlined.Download }
+        put(R.string.kdeconnect_share_sheet_title) { Icons.Outlined.Share }
+        put(R.string.kdeconnect_battery_title) { Icons.Outlined.BatteryStd }
+        put(R.string.kdeconnect_media_title) { Icons.Outlined.MusicNote }
+        put(R.string.kdeconnect_media_access_title) { Icons.Outlined.Notifications }
+        put(R.string.kdeconnect_notify_title) { Icons.Outlined.Phonelink }
         put(R.string.musicapps_reset_title) { Icons.Outlined.Restore }
 
         // ---- Selection actions ----
@@ -1009,6 +1041,7 @@ internal object SettingsRowIcons {
         put(R.string.datasaver_animated_emoji_title) { Icons.Outlined.EmojiEmotions }
         put(R.string.datasaver_downloads_title) { Icons.Outlined.CloudDownload }
         put(R.string.datasaver_ai_title) { Icons.Outlined.AutoAwesome }
+        put(R.string.datasaver_voice_title) { Icons.Outlined.Dns }
         // The signpost left behind on the languages screen, where the metered
         // download confirmation used to live.
         put(R.string.langemoji_lang_metered_title) { Icons.Outlined.DataSaverOn }
@@ -1053,6 +1086,8 @@ internal object SettingsRowIcons {
         put(R.string.voice_punctuation_title) { Icons.Outlined.MoreHoriz }
         put(R.string.voice_engine_title) { Icons.Outlined.GraphicEq }
         put(R.string.voice_translate_title) { Icons.Outlined.Translate }
+        put(R.string.voice_server_language_title) { Icons.Outlined.Language }
+        put(R.string.voice_server_test_title) { Icons.Outlined.Dns }
         put(R.string.voice_hold_title) { Icons.Outlined.TouchApp }
         put(R.string.models_whisper_fallback_title) { Icons.Outlined.Memory }
         put(R.string.tooldetail_grammar_dialect_title) { Icons.Outlined.Language }
@@ -1067,11 +1102,13 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_wiki_link_limit_title) { Icons.Outlined.Numbers }
         put(R.string.tooldetail_chips_nav_title) { Icons.Outlined.Calculate }
         put(R.string.tooldetail_calc_degrees_title) { Icons.Outlined.Architecture }
+        put(R.string.tooldetail_calc_phone_layout_title) { Icons.Outlined.Dialpad }
         put(R.string.tooldetail_calc_precision_title) { Icons.Outlined.Numbers }
         put(R.string.tooldetail_units_compound_title) { Icons.Outlined.Height }
         put(R.string.tooldetail_currency_auto_fetch_title) { Icons.Outlined.CloudDownload }
         put(R.string.servers_title) { Icons.Outlined.Dns }
         put(R.string.tooldetail_currency_decimals_title) { Icons.Outlined.Numbers }
+        put(R.string.tooldetail_currency_label_title) { Icons.Outlined.CurrencyExchange }
         put(R.string.tooldetail_currency_refresh_title) { Icons.Outlined.Refresh }
         put(R.string.tooldetail_currency_source_title) { Icons.Outlined.Cloud }
         put(R.string.tooldetail_crypto_enable_title) { Icons.Outlined.CurrencyBitcoin }
@@ -1112,6 +1149,7 @@ internal object SettingsRowIcons {
         put(R.string.toolai_ai_history_max_title) { Icons.Outlined.Numbers }
         put(R.string.toolai_continue_context_title) { Icons.AutoMirrored.Outlined.TextSnippet }
         put(R.string.toolai_keep_chats_title) { Icons.AutoMirrored.Outlined.Chat }
+        put(R.string.toolai_chat_enter_sends_title) { Icons.AutoMirrored.Outlined.KeyboardReturn }
         put(R.string.toolai_delete_chats_title) { Icons.Outlined.DeleteSweep }
         put(R.string.toolai_ai_action_raw_title) { Icons.Outlined.Code }
         put(R.string.toolai_ai_action_ask_title) { Icons.Outlined.QuestionAnswer }
@@ -1121,6 +1159,7 @@ internal object SettingsRowIcons {
         put(R.string.toolai_ai_action_append_title) { Icons.AutoMirrored.Outlined.PlaylistAdd }
         put(R.string.toolai_ai_action_output_only_title) { Icons.AutoMirrored.Outlined.ShortText }
         put(R.string.toolai_translate_into_title) { Icons.Outlined.Translate }
+        put(R.string.tooldetail_translate_engine_title) { Icons.Outlined.CloudSync }
         put(R.string.customdict_emoji_auto_download_title) { Icons.Outlined.CloudDownload }
         put(R.string.customdict_only_my_lists_title) { Icons.Outlined.FilterAlt }
 

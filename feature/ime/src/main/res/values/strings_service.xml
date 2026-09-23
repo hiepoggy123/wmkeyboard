@@ -111,6 +111,8 @@
     <!-- Data saver held an AI request back. Retry is the panel's own action, and it means yes. -->
     <string name="ime_ai_error_metered_ask">Data saver is on. Retry to send this over mobile data.</string>
     <string name="ime_ai_error_metered_blocked">AI is turned off while you are on mobile data. You can change this in Settings, under Data saver.</string>
+    <string name="ime_voice_server_metered_ask">Data saver is on. Press the microphone again to send your voice over mobile data.</string>
+    <string name="ime_voice_server_metered_blocked">The transcription server is turned off while you are on mobile data. You can change this in Settings, under Data saver.</string>
     <string name="ime_ai_error_only_reasoning">The model used the whole response to reason. Try again, or turn on “Show reasoning” in the settings.</string>
     <string name="ime_ai_error_request_failed">The request did not work</string>
     <string name="ime_ai_error_model_missing">The selected model is gone. Download it again in the settings.</string>
@@ -189,6 +191,10 @@
     <string name="ime_service_copied_paste_toast">Copied. You can paste it anywhere.</string>
     <string name="ime_service_file_copy_error_toast">The keyboard cannot copy that file</string>
     <string name="ime_service_file_not_accepted_toast">This app does not accept files here. The keyboard copied the file. Paste it instead.</string>
+    <!-- GIF is an image format. Keep it as it is. The keyboard shows this
+         while it changes an animated sticker to a GIF file. It does that for
+         an app that does not play an animated sticker as it is. -->
+    <string name="ime_service_converting_to_gif_toast">The keyboard sends this animated sticker as a GIF, so that it moves in this app…</string>
     <string name="ime_service_image_not_accepted_toast">This app does not accept images here. The keyboard copied the image. Paste it instead.</string>
     <string name="ime_service_folder_insert_toast">The keyboard cannot insert a folder. It typed the name and copied the folder for you to paste.</string>
     <!-- Stands in for the name of a copied file when the file has no name. -->

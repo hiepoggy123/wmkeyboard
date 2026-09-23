@@ -583,6 +583,9 @@ enum class PanelMode {
     WIKIPEDIA, SYMBOLS, CALCULATOR, UNIT_CONVERT, CURRENCY, QR_GEN, PASSWORD_GEN, AI,
     MODES, TYPING_TEST, MEDIA_CONTROL, PLUGINS, APP_LAUNCHER,
 
+    /** A paired computer over KDE Connect (issue #285). See [KdeUi]. */
+    KDE_CONNECT,
+
     /** The CJK candidate grid: the strip's overflow, opened from its chevron. */
     CANDIDATES,
 
@@ -755,6 +758,9 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     // so its ring only needs Send. The typing test's ACTIONS is the results
     // screen's Restart — during a run the keys are the test.
     PanelMode.MEDIA_CONTROL, PanelMode.PLUGINS -> listOf(FocusRegion.RESULTS)
+    // The tab rail, then whatever the open tab offers to press. The touchpad
+    // itself publishes nothing: it is a pointing surface.
+    PanelMode.KDE_CONNECT -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS)
     PanelMode.QR_GEN, PanelMode.TYPING_TEST -> listOf(FocusRegion.ACTIONS)
     // The two fields, the three toggles, then the buttons.
     PanelMode.FIND_REPLACE -> listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.ACTIONS)
@@ -843,9 +849,9 @@ data class HandwritingUi(
 
 /**
  * Where the voice input panel is in a dictation session. TRANSCRIBING is the
- * offline-Whisper-only state after recording stops while the model turns the
- * captured audio into text (the system recognizer streams instead, so it never
- * enters it). MIC_BLOCKED is a session Android fed silence: the Microphone
+ * state after recording stops while offline Whisper or the transcription
+ * server turns the captured audio into text (the system recognizer streams
+ * instead, so it never enters it). MIC_BLOCKED is a session Android fed silence: the Microphone
  * access or Sensors off tile in Quick Settings is on (see MicBlockWatcher).
  */
 enum class VoiceStatus { IDLE, LISTENING, FINISHING, TRANSCRIBING, NEED_PERMISSION, MIC_BLOCKED, UNAVAILABLE, ERROR }
@@ -899,7 +905,18 @@ data class VoiceUi(
     val translate: Boolean = false,
     /** Offline Whisper is selected but no model is downloaded — panel prompts to get one. */
     val whisperNeedsModel: Boolean = false,
+    /**
+     * The transcription server engine runs this session (#286). Like [whisper]
+     * it records a clip and transcribes it after the user stops, so the
+     * surfaces show the same "tap to finish" hint for both.
+     */
+    val remote: Boolean = false,
+    /** The server engine is selected but has no address yet — panel points to settings. */
+    val serverNeedsSetup: Boolean = false,
 )
+
+/** The session records a whole clip and transcribes it after the stop tap. */
+val VoiceUi.clipBased: Boolean get() = whisper || remote
 
 /** The persisted settings say the collapsed voice bar should be up. */
 fun VoiceBarSettings.armed(): Boolean = mode == VoiceBarSettings.MODE_BAR && active
@@ -917,6 +934,7 @@ fun KeyboardUiState.voiceChipOnly(): Boolean =
     settings.voiceBar.interactiveTyping() &&
         !secureField &&
         !voice.whisperNeedsModel &&
+        !voice.serverNeedsSetup &&
         voice.status != VoiceStatus.NEED_PERMISSION &&
         voice.status != VoiceStatus.MIC_BLOCKED &&
         voice.status != VoiceStatus.UNAVAILABLE &&
@@ -989,6 +1007,13 @@ sealed interface VoiceBarAction {
      * this one setting changes without a trip to the settings app.
      */
     data class SwitchSurface(val mode: String) : VoiceBarAction
+
+    /**
+     * The strip's close button: the session is abandoned and the strip goes.
+     * It used to be a press of the voice tool, until that press over a running
+     * dictation became the stop button (#283) and the two had to part.
+     */
+    data object CloseStrip : VoiceBarAction
 
     /**
      * The collapsed bar's on-screen rectangle in window coordinates — the
@@ -1127,7 +1152,50 @@ data class TranslateUi(
     val detectedSource: String = "",
     val translating: Boolean = false,
     val error: String? = null,
+    /**
+     * The source language the user picked for this visit to the panel, as a
+     * picker code, or "" to detect it. Session state on purpose: a wrong
+     * detection is a fact about one piece of text, not a preference.
+     */
+    val sourceOverride: String = "",
+    /**
+     * [detectedSource] is a guess taken from the keyboard's own language,
+     * because the on-device identifier could not tell. Drawn with a "?".
+     */
+    val sourceGuessed: Boolean = false,
+    /** [translated] came from the on-device engine, not from a server. */
+    val onDevice: Boolean = false,
+    /**
+     * Model codes the on-device engine needs before it can translate the
+     * current query. Non-empty is what puts the download offer on screen.
+     */
+    val missingModels: List<String> = emptyList(),
+    /**
+     * The download was held by data saver and the panel is asking. The next
+     * press of the same button is the yes.
+     */
+    val meteredAsk: Boolean = false,
+    /** The on-device models' states, mirrored here while the panel is open. */
+    val models: Map<String, com.wasimaster.wmkeyboard.core.translate.OfflineModelState> = emptyMap(),
+    /**
+     * The on-device engine itself is what the query is waiting for: a Play
+     * install that has not fetched the on-demand module yet. Puts the same
+     * download offer on screen as [missingModels], one step earlier.
+     */
+    val moduleMissing: Boolean = false,
+    /** Where that module stands, mirrored from its gate while the panel is open. */
+    val module: com.wasimaster.wmkeyboard.core.translate.TranslateModuleState =
+        com.wasimaster.wmkeyboard.core.translate.TranslateModuleState.Installed,
 )
+
+/**
+ * The panel with its result wiped and everything that outlives a result kept:
+ * the user's source pick and the mirrored model states. What every "start
+ * over" in the translate flow wants instead of a bare `TranslateUi()`, which
+ * would quietly put the source chip back on detect.
+ */
+fun TranslateUi.cleared(): TranslateUi =
+    TranslateUi(sourceOverride = sourceOverride, models = models, module = module)
 
 /**
  * Grammar strip state. Like translate, the strip follows the focused field:
@@ -1275,6 +1343,151 @@ sealed interface AiUi {
         val action: com.wasimaster.wmkeyboard.core.tools.AiActionSpec,
         val message: String,
     ) : AiUi
+}
+
+/**
+ * The AI panel's chat mode (#280): which conversation is up and what is in the
+ * composer.
+ *
+ * Deliberately small. The transcript and the answer that is forming are not
+ * here: the panel reads those from
+ * [com.wasimaster.wmkeyboard.ime.aichat.AiChatController], the same object the
+ * chat screen in the settings app reads, which is what lets a chat move between
+ * the two with nothing to hand over. What is here is only what the keyboard
+ * alone knows: the draft its keys are writing, and whether they are writing it.
+ */
+data class AiChatUi(
+    /**
+     * Chat can be offered at all. False on the lock screen and before the first
+     * unlock: the conversations are in credential-encrypted storage, and a
+     * transcript is not something to show over a keyguard.
+     */
+    val available: Boolean = true,
+    /** The panel is in its chat mode rather than showing the actions. */
+    val open: Boolean = false,
+    /** Below zero is a chat not started yet; the first send creates it. */
+    val conversationId: Long = -1L,
+    val draft: String = "",
+    /** The composer has the keys, so the key rows are up under the panel. */
+    val composing: Boolean = false,
+    /** The conversation list is up in place of the transcript. */
+    val showSessions: Boolean = false,
+    val attachment: AiChatAttachment? = null,
+    /** [com.wasimaster.wmkeyboard.ime.aichat.AiChatController.ModelChoice.key]. */
+    val modelKey: String = "",
+)
+
+/**
+ * Text from the field, quoted along with the next message. A snapshot taken
+ * when the user asked for it: while the composer has the keys nothing can type
+ * into the field, so it cannot go stale under them.
+ */
+data class AiChatAttachment(val text: String, val fromSelection: Boolean)
+
+/**
+ * Everything the chat mode can ask of the service, as one type.
+ *
+ * One callback rather than twenty for the reason [TypingTestAction] gives, and
+ * a harder one: the composable that passes the service's callbacks down is at
+ * the JVM's 64K method ceiling, where a parameter is not free.
+ */
+sealed interface AiChatAction {
+    data class SetMode(val chat: Boolean) : AiChatAction
+    data object FocusComposer : AiChatAction
+    data object BlurComposer : AiChatAction
+    data object Send : AiChatAction
+    data object Stop : AiChatAction
+    data object Retry : AiChatAction
+    data object Regenerate : AiChatAction
+    data object EditLast : AiChatAction
+    data object NewChat : AiChatAction
+    data class Open(val conversationId: Long) : AiChatAction
+    data class Delete(val conversationId: Long) : AiChatAction
+    data object ToggleSessions : AiChatAction
+    data class PickModel(val key: String) : AiChatAction
+    data object ToggleAttachment : AiChatAction
+    data object Paste : AiChatAction
+    /** [raw] is for code, which goes in as written; an answer loses its markdown. */
+    data class Insert(val text: String, val raw: Boolean = false) : AiChatAction
+    data class Copy(val text: String) : AiChatAction
+    /** A suggested opening: puts [text] in the composer, with the field's text if [attach]. */
+    data class Starter(val text: String, val attach: Boolean) : AiChatAction
+    /** The chat screen in the settings app: this conversation, or the list. */
+    data class OpenInApp(val list: Boolean = false) : AiChatAction
+    /** The answer at [index] of the conversation, reported (Play builds). */
+    data class Report(val index: Int) : AiChatAction
+}
+
+/** The KDE Connect panel's tabs, in rail order. */
+enum class KdeTab { INPUT, MEDIA, SEND, RUN, SLIDES, DEVICE }
+
+/**
+ * The KDE Connect panel (issue #285): what only the keyboard knows.
+ *
+ * Deliberately small, for the reason [AiChatUi] is. Devices, pairing, players,
+ * volumes, transfers — everything that arrives over the network — is read by
+ * the panel straight from `KdeConnectHub.state`, so a pointer drag or a
+ * position tick from the computer never enters the state the key rows compare
+ * on every keystroke. What is here is what the keys need: which buffer they are
+ * writing, and what is in it.
+ */
+data class KdeUi(
+    val tab: KdeTab = KdeTab.INPUT,
+    /** The computer the panel is about; null follows the first one connected. */
+    val deviceId: String? = null,
+    /** The list of nearby and paired devices is up over the tabs. */
+    val showDevices: Boolean = false,
+    /** The keys type on the computer instead of into the app. */
+    val typing: Boolean = false,
+    /**
+     * Live mode: the text the computer has been sent on this line, which the
+     * next keystroke is diffed against. Compose mode: the draft.
+     */
+    val line: String = "",
+    /** The "add by address" box has the keys. */
+    val hostEntry: Boolean = false,
+    val hostDraft: String = "",
+    /** One line of feedback under the header — "Clipboard sent", "Ping from Desk" — that fades. */
+    val notice: String = "",
+    val noticeAtMs: Long = 0,
+    /**
+     * Ctrl / Alt / Super / Shift armed on the panel's key strip, for the next
+     * key sent to the computer and no further. The board's own modifier keys
+     * work too, where a layout has them; most phone layouts do not.
+     */
+    val mods: com.wasimaster.wmkeyboard.core.kdeconnect.KdeModifiers =
+        com.wasimaster.wmkeyboard.core.kdeconnect.KdeModifiers.None,
+)
+
+enum class KdeModKey { SHIFT, CTRL, ALT, META }
+
+/**
+ * What the KDE Connect panel asks of the service. Only what touches the
+ * keyboard's own state, the field, or the settings comes through here; remote
+ * control (pointer, media, volume, commands) goes from the panel straight to the
+ * hub, which keeps a touchpad drag off the main state path entirely.
+ */
+sealed interface KdeAction {
+    data object TurnOn : KdeAction
+    data class SetTab(val tab: KdeTab) : KdeAction
+    data class SelectDevice(val deviceId: String) : KdeAction
+    data class ShowDevices(val show: Boolean) : KdeAction
+    data class SetTyping(val on: Boolean) : KdeAction
+    data class SetCompose(val on: Boolean) : KdeAction
+    data class ToggleModifier(val key: KdeModKey) : KdeAction
+    data class HostEntry(val open: Boolean) : KdeAction
+    data object SubmitHost : KdeAction
+    data object SendClipboard : KdeAction
+
+    /** The selection if there is one, otherwise the whole field. */
+    data object SendFieldText : KdeAction
+    data object PickFiles : KdeAction
+    data class Insert(val text: String) : KdeAction
+    data class Copy(val text: String) : KdeAction
+    data class Open(val location: String, val fileName: String) : KdeAction
+    data class Notice(val text: String) : KdeAction
+    data object OpenSettings : KdeAction
+    data object OpenDevices : KdeAction
 }
 
 /** Weather panel state, owned by the service (it does the fetching). */
@@ -1733,6 +1946,38 @@ data class WordCard(
      */
     val casePinned: Boolean = false,
 )
+
+/**
+ * A clip being edited in the clipboard panel's editor dialog.
+ *
+ * The same shape as [WordSpell]: an IME has no text field of its own to raise,
+ * so the keys type into [draft], a buffer the service owns, and nothing
+ * reaches the app behind the keyboard while it exists. The caret is the shared
+ * capture caret, and Enter types a newline — a clip is free text, so saving is
+ * the dialog's own button rather than a key.
+ */
+data class ClipEdit(
+    /** The clip being edited, by [ClipItem.id]. */
+    val id: Long,
+    /** Its text when the editor opened, so an unchanged draft saves nothing. */
+    val original: String,
+    /** What the keys have made of it so far. */
+    val draft: String = original,
+    /** The clip was rich text, whose formatting a changed draft gives up. */
+    val rich: Boolean = false,
+) {
+    /** Whether saving would change anything. Blank never saves. */
+    val canSave: Boolean get() = draft.isNotBlank() && draft.trim() != original
+
+    companion object {
+        /**
+         * The editor's ceiling, in UTF-16 units. Generous for anything copied
+         * by hand, and small enough that one draft cannot make every
+         * keystroke re-lay-out a book.
+         */
+        const val MAX_LENGTH = 20_000
+    }
+}
 
 /**
  * The word card's spelling editor (#138): the word being respelled, and what
@@ -2308,6 +2553,8 @@ data class KeyboardUiState(
     val clipboardQuery: String = "",
     /** Typing edits [clipboardQuery] instead of the field, like emoji search. */
     val clipboardSearchActive: Boolean = false,
+    /** The clip open in the clipboard panel's editor; see [clipEditActive]. */
+    val clipEdit: ClipEdit? = null,
     /**
      * Most recently copied text, offered as a paste chip on the suggestion strip
      * (Gboard style). Null when nothing recent, the chip expired, was dismissed,
@@ -2536,6 +2783,8 @@ data class KeyboardUiState(
      * detects itself (like the voice panel checks the mic permission).
      */
     val mediaControl: MediaSnapshot? = null,
+    /** The KDE Connect panel: tab, and the buffers its keys write (see [KdeUi]). */
+    val kde: KdeUi = KdeUi(),
     /**
      * Whether the media tool is currently auto-pinned to the toolbar because
      * music is playing (see [KeyboardSettings.mediaControl]).
@@ -2610,6 +2859,7 @@ data class KeyboardUiState(
      * else reads it.
      */
     val aiHasText: Boolean = false,
+    val aiChat: AiChatUi = AiChatUi(),
     val typingTest: TypingTestUi = TypingTestUi(),
     /** Launchable apps for the app-launcher panel; empty until first opened. */
     val launcherApps: List<LauncherApp> = emptyList(),
@@ -2811,6 +3061,35 @@ data class KeyboardUiState(
     val aiCustomInputActive: Boolean
         get() = panel == PanelMode.AI && ai is AiUi.CustomInput
 
+    /** The AI panel is showing its chat mode rather than its actions (#280). */
+    val aiChatShown: Boolean
+        get() = panel == PanelMode.AI && aiChat.open && aiChat.available
+
+    /**
+     * Whether keystrokes belong to the chat composer on the AI panel. Panel
+     * *and* mode *and* a focused composer, the [findReplaceTypingActive]
+     * contract: no one of them alone can keep the keys from the app behind.
+     */
+    val aiChatComposing: Boolean
+        get() = aiChatShown && aiChat.composing && !aiChat.showSessions
+
+    /**
+     * Whether keystrokes belong to the KDE Connect panel's "add by address"
+     * box. Panel *and* an open box, the [findReplaceTypingActive] contract.
+     */
+    val kdeHostEntryActive: Boolean
+        get() = panel == PanelMode.KDE_CONNECT && kde.hostEntry
+
+    /**
+     * Whether keystrokes are being typed on the paired computer instead of
+     * into the app behind the keyboard (issue #285). Panel *and* the Input tab
+     * *and* the switch: closing the panel, changing tab or opening the device
+     * list each hand the keys back on their own.
+     */
+    val kdeTypingActive: Boolean
+        get() = panel == PanelMode.KDE_CONNECT && kde.typing && kde.tab == KdeTab.INPUT &&
+            !kde.showDevices && !kde.hostEntry
+
     /**
      * Whether keystrokes belong to a plugin's own text box rather than to the
      * text field.
@@ -2849,6 +3128,25 @@ data class KeyboardUiState(
         get() = wordSpell != null
 
     /**
+     * Whether keystrokes belong to the clipboard panel's clip editor. Panel
+     * *and* an open edit, like [learnEditActive], so an edit left behind by a
+     * panel that closed some other way cannot keep the keys.
+     */
+    val clipEditActive: Boolean
+        get() = panel == PanelMode.CLIPBOARD && clipEdit != null
+
+    /**
+     * Whether the clipboard panel has handed the key rows back for one of its
+     * own fields — the search pill or the clip editor — and shrunk to make
+     * room for them.
+     */
+    val clipboardTakesKeys: Boolean
+        get() = when (captureTarget()) {
+            CaptureTarget.CLIPBOARD_SEARCH, CaptureTarget.CLIP_EDIT -> panel == PanelMode.CLIPBOARD
+            else -> false
+        }
+
+    /**
      * Whether some buffer inside the keyboard owns the keys, so nothing typed
      * may reach the app behind it.
      *
@@ -2876,6 +3174,10 @@ data class KeyboardUiState(
     fun captureTarget(): CaptureTarget? = when {
         typingTestActive -> CaptureTarget.TYPING_TEST
         aiCustomInputActive -> CaptureTarget.AI_CUSTOM
+        aiChatComposing -> CaptureTarget.AI_CHAT
+        kdeHostEntryActive -> CaptureTarget.KDE_HOST
+        kdeTypingActive ->
+            if (settings.kdeConnect.composeMode) CaptureTarget.KDE_COMPOSE else CaptureTarget.KDE_REMOTE
         pluginTypingActive -> CaptureTarget.PLUGIN
         findReplaceTypingActive ->
             if (findReplace?.focused == FindReplaceField.REPLACE) {
@@ -2887,6 +3189,7 @@ data class KeyboardUiState(
         calcTypingActive -> CaptureTarget.CALC
         converterTypingActive -> CaptureTarget.CONVERTER
         wordSpellActive -> CaptureTarget.WORD_SPELL
+        clipEditActive -> CaptureTarget.CLIP_EDIT
         emojiSearchActive -> CaptureTarget.EMOJI_SEARCH
         mediaSearchActive && panel.hasMediaSearch -> CaptureTarget.MEDIA_SEARCH
         dictionarySearchActive -> CaptureTarget.DICTIONARY_SEARCH
@@ -2910,6 +3213,9 @@ data class KeyboardUiState(
         null -> ""
         CaptureTarget.TYPING_TEST -> typingTest.current
         CaptureTarget.AI_CUSTOM -> (ai as? AiUi.CustomInput)?.instruction.orEmpty()
+        CaptureTarget.AI_CHAT -> aiChat.draft
+        CaptureTarget.KDE_HOST -> kde.hostDraft
+        CaptureTarget.KDE_REMOTE, CaptureTarget.KDE_COMPOSE -> kde.line
         CaptureTarget.PLUGIN -> pluginFocusedInput?.let { pluginInputs[it] }.orEmpty()
         CaptureTarget.FIND_QUERY -> findReplace?.query.orEmpty()
         CaptureTarget.FIND_REPLACEMENT -> findReplace?.replacement.orEmpty()
@@ -2921,6 +3227,7 @@ data class KeyboardUiState(
         CaptureTarget.MEDIA_SEARCH -> mediaQuery
         CaptureTarget.DICTIONARY_SEARCH -> dictionaryQuery
         CaptureTarget.CLIPBOARD_SEARCH -> clipboardQuery
+        CaptureTarget.CLIP_EDIT -> clipEdit?.draft.orEmpty()
     }
 
     /**

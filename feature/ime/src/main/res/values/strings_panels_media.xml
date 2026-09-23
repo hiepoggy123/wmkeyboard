@@ -36,6 +36,8 @@
          microphone can do nothing. Keep this to one short line: the two chips
          directly below it are what name the ways forward. -->
     <string name="ime_voice_status_no_model">Offline voice typing has no model yet</string>
+    <string name="ime_voice_status_no_server">The transcription server has no address yet</string>
+    <string name="ime_voice_server_setup_action">Set up the server</string>
     <string name="ime_voice_status_error">Speech recognition did not work. Try again.</string>
     <!-- Android gave the microphone only silence. "Microphone access" is the
          name of the Quick Settings tile on Android 12 and later. -->
@@ -69,6 +71,7 @@
     <!-- The compact bar fits one short line beside its Settings button, which is
          where both the model downloads and the engine choice are. -->
     <string name="ime_voice_strip_no_model">No offline voice model yet</string>
+    <string name="ime_voice_strip_no_server">No transcription server set</string>
     <string name="ime_voice_strip_allow_action">Allow</string>
     <!-- Opens the voice typing settings from the compact bar. -->
     <string name="ime_voice_strip_settings_action">Settings</string>
@@ -173,6 +176,8 @@
     <!-- Chip that shows the stickers of every pack together. -->
     <string name="ime_sticker_pack_all_label">All</string>
     <string name="ime_sticker_manage_packs_action">Manage packs</string>
+    <string name="ime_sticker_add_desc">Add stickers</string>
+    <string name="ime_sticker_add_to_pack_action">Add to <xliff:g id="pack" example="My stickers">%1$s</xliff:g></string>
     <string name="ime_sticker_save_new_pack_action">Save to a new pack</string>
     <!-- %1$s is the name the user gave the pack. -->
     <string name="ime_sticker_save_to_pack_action">Save to <xliff:g id="pack" example="My stickers">%1$s</xliff:g></string>
@@ -200,6 +205,27 @@
     <string name="ime_translate_progress">Translating…</string>
     <string name="ime_translate_select_language_desc">Select the language</string>
     <string name="ime_translate_replace_action">Replace text</string>
+    <string name="ime_translate_select_source_desc">Select the source language</string>
+    <string name="ime_translate_select_engine_desc">Select where the translation comes from</string>
+    <string name="ime_translate_swap_desc">Swap the languages</string>
+    <!-- The source language was guessed, not detected. The question mark says so. -->
+    <string name="ime_translate_source_guessed_label"><xliff:g id="language" example="Bengali">%1$s</xliff:g>?</string>
+    <string name="ime_translate_engine_online_info">Uses the online service.</string>
+    <string name="ime_translate_engine_on_device_info">Private. Works with no connection.</string>
+    <string name="ime_translate_engine_auto_info">On device when the languages are downloaded. Online for the rest.</string>
+    <string name="ime_translate_online_only_label">Online only</string>
+    <string name="ime_translate_downloaded_desc">Downloaded</string>
+    <string name="ime_translate_need_models_body">To translate on the device, download: <xliff:g id="languages" example="Bengali, German">%1$s</xliff:g>. About <xliff:g id="size" example="60 MB">%2$s</xliff:g>.</string>
+    <string name="ime_translate_downloading_progress">Downloading: <xliff:g id="languages" example="Bengali, German">%1$s</xliff:g>…</string>
+    <string name="ime_translate_download_of_total_progress"><xliff:g id="done" example="9.1 MB">%1$s</xliff:g> of <xliff:g id="total" example="30 MB">%2$s</xliff:g></string>
+    <string name="ime_translate_download_failed_error">The download did not finish. Check the connection, then try again.</string>
+    <string name="ime_translate_offline_unsupported_error"><xliff:g id="language" example="Malayalam">%1$s</xliff:g> is not available on the device. Select the online engine for this language.</string>
+    <string name="ime_translate_offline_romanized_error"><xliff:g id="language" example="Hindi">%1$s</xliff:g> in Latin letters is not supported on the device. Select the online engine for this text.</string>
+    <string name="ime_translate_offline_undetermined_error">The language is not clear from this text. Select it with the first chip.</string>
+    <string name="ime_translate_module_missing_body">On-device translation is an extra part of the keyboard that comes from Google Play. Download it to translate with no connection.</string>
+    <string name="ime_translate_module_installing_action">Downloading…</string>
+    <string name="ime_translate_module_failed_error">Google Play did not deliver the download. Check the connection, then try again. If it fails again, download it from Settings, Tools, Translate.</string>
+    <string name="ime_translate_offline_failed_error">On-device translation did not start. Try again, or select the online engine.</string>
 
     <!-- Plugins panel. -->
     <string name="ime_plugin_empty_title">No plugins yet</string>

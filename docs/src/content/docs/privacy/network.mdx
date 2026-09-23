@@ -13,7 +13,9 @@ The core typing engine has no network code anywhere in it. Prediction,
 autocorrect, gesture typing and layouts all behave the same with the radio
 off. A set of optional tools do reach the internet, each one only while
 you're actively using it. Automatic backup runs on a timer too, if you set
-one up. This page is the complete list of what goes where.
+one up. This page is the complete list of what goes where, and
+[Network activity](/privacy/network-activity/) shows every one of those
+requests as it happens, on your own device.
 
 In the F-Droid edition every address on this page is a setting.
 <SettingsPath path="Advanced / Servers" /> lists each service and each
@@ -35,6 +37,7 @@ it.
 | Tool | Endpoint | Sends | Fires when |
 |---|---|---|---|
 | Translate | `translate.googleapis.com` (no key) or `translation.googleapis.com` (with a key) | the text you typed into the panel, up to 2,500 characters, plus the target language | as you type, about 400ms after you stop, only while the panel is open |
+| Translate, on-device models | `dl.google.com` (through Android's download manager), full edition only | nothing you typed: the request names the language model | when you press Download for a language, in the panel or under Tools / Translate |
 | GIF search | `api.klipy.com`, `api.giphy.com` | your search text, or nothing for the trending feed | immediately when you open the panel (trending), then live as you type |
 | Sticker search | same clients as GIF search | same | same |
 | Reporting a GIF or sticker result | none of the app's own | nothing: it builds a mail draft naming the provider, your search term, and the result's id and URL | only when you tap Report in the long-press menu, and only your mail app sends it |
@@ -42,6 +45,7 @@ it.
 | Image search | `api.search.brave.com` | your search query | same (submit only) |
 | Dictionary | `api.dictionaryapi.dev` | one English word: your selection, or the word at the cursor | on panel open, if "Look up the word at the cursor" is on (the default); also on manual search |
 | Wikipedia | `wikipedia.org` | your search text or an article title | only when you search or open an article, never on panel open |
+| [KDE Connect](/tools/kde-connect/) | no server at all: computers on your local network, over UDP 1716 and TLS on TCP 1716 to 1764 | a name, a random device id and the list of features, to find computers; then, to a computer you paired, whatever you use the tool for: pointer moves, what you type there, the clipboard, files, media commands, battery level | never until you press Turn on. After that only while the link is allowed to exist (keyboard showing, by default), and to unpaired computers only while a device list is open. Album art for a player on the computer may be fetched from the web address that player names |
 | Currency converter | `open.er-api.com`, falling back to `api.frankfurter.dev`. The F-Droid edition starts from `cdn.jsdelivr.net` (currency-api, which uses `latest.currency-api.pages.dev` when jsDelivr fails) and falls back to `api.frankfurter.dev`. The source is yours to pick from those and `api.coinbase.com` | nothing identifying: it fetches the whole rate table, converted locally | on panel open, or the first time a smart chip sees an amount. In the F-Droid edition that chip waits for your tap unless **Fetch rates as you type** is on. Cached for hours, not fetched per conversion |
 | Cryptocurrency prices | `api.coinbase.com`, falling back to `cdn.jsdelivr.net`; the F-Droid edition uses `cdn.jsdelivr.net` alone. `api.coingecko.com` is the other choice | nothing identifying: it fetches prices for the coins you have turned on, converted locally | only when you type a coin amount or select a coin on the panel, never on a plain panel open. In the F-Droid edition a typed amount waits for a tap on its chip. Cached for a few minutes |
 | Weather | `api.open-meteo.com`, `geocoding-api.open-meteo.com` | the location you typed or searched, or nothing beyond a saved lat/long | on panel open, cached for a while, or when a weather chip needs a forecast (in the F-Droid edition that chip waits for your tap unless **Fetch the forecast as you type** is on); geocoding only fires while you're editing the location |
@@ -54,6 +58,7 @@ it.
 | QR scan link previews <Flavor edition="full" /> | whatever URL a scanned code contains | a GET request to that page | off by default; when on, right after a QR code decodes to a URL |
 | Voice typing (system recognizer) | Android's platform speech service (not WM Keyboard's own code) | your speech audio | whenever the on-device model for that language isn't installed: always, below Android 12 |
 | Voice typing (Whisper) <Flavor edition="full" /> | none | nothing leaves the phone during dictation | never: fully offline once the model is downloaded |
+| Voice typing ([transcription server](/tools/transcription-server/)) | a server address you enter, on your own network or a service such as Groq or OpenAI | the recording of each phrase (16 kHz WAV, up to 30 seconds), the model name you set, and the layout's language unless you turn that off | once per phrase, after you stop speaking, only while you dictate with this engine |
 
 The AI panel's **Report** button is the one row that quotes your own text
 without any network of its own. It opens a draft in your mail app holding
@@ -130,7 +135,9 @@ what's already in the table above:
   can only point you back at the F-Droid client.
 - **`raw.githubusercontent.com/wasi-master/wmkeyboard-data`** is the
   project's own data repository, source for downloadable dictionaries,
-  word-pair (n-gram) packs, emoji keyword packs, and CJK conversion tables.
+  word-pair (n-gram) packs, emoji keyword packs, CJK conversion tables, and
+  the 5 MB background remover the sticker editor fetches on a phone that has
+  no Google Play services to supply one.
   See [Downloads](#downloads-dictionaries-models-and-addons) below.
 - **`raw.githubusercontent.com/wasi-master/wmkeyboard-addon-repository`** is
   the sample addon repository, and also where the one-tap **Noto Color
@@ -190,7 +197,8 @@ and Image search's Brave key, photo backgrounds' Unsplash and Pexels keys,
 and the AI tool's per-provider keys
 (Anthropic, OpenAI, Gemini, Grok, DeepSeek, and whatever key the
 OpenAI-compatible service you pointed it at wants) plus its Hugging Face
-token for gated on-device models. Leave any of them blank and that tool
+token for gated on-device models, and Voice typing's transcription server
+key. Leave any of them blank and that tool
 either falls back to a free endpoint (Translate) or shows a "needs an API
 key" state (GIF, search, AI). See each tool's own page under
 [Tools](/tools/overview/) for exactly where its field lives.
@@ -229,6 +237,7 @@ some are.
 | Offline Whisper speech models | Hugging Face | no checksum, a file-size floor only | Yes, around 150 MB. See [Offline voice (Whisper)](/tools/whisper/#downloading-and-managing-models) |
 | On-device AI models | Hugging Face, per model | no checksum, a file-size floor only | Yes, at 500 MB. See [AI tools](/tools/ai/#local-models) |
 | Addons (themes, icon packs, plugins, sounds, layouts, sticker packs) | whichever repository you added | **SHA-256 verified when the manifest supplies one**, and mandatory for plugins specifically, since they run code | No |
+| [Signal sticker packs](/emoji/stickers/#signal-sticker-packs) | Signal's sticker storage, `cdn-ca.signal.org`. No Signal account is involved, and the request names the pack and nothing about you. The signalstickers.org gallery that the same screen links to opens in your browser, and the keyboard itself never contacts it | every file is checked against the key in the pack link (HMAC-SHA256) before it is opened, so a file that was changed on the way is refused | Yes. The pack preview asks before its first request while [Data saver](/privacy/data-saver/) is on and its **Downloads** row is set to *Ask each time* (the default) |
 | Addon repository manifests themselves | the repository URL you added | none: it's the trust root, so there's nothing to check it against. Capped at a fixed size instead | No |
 | App updates (GitHub builds only) | this project's GitHub releases | **SHA-256 verified** against the checksum published in the release, and then the APK's signing key is compared against the key your install is signed with. A release with no checksum is refused rather than installed on trust | Yes, and it names the size before it starts |
 
@@ -250,9 +259,9 @@ choice is whether to use the feature.
 
 | Component | In which build | Reaches Google when | What it sends |
 |---|---|---|---|
-| **ML Kit** (handwriting, OCR, QR/barcode scanning, document scanning, sticker background removal) | full edition only | when you use one of those features | Per [Google's own disclosure](https://developers.google.com/ml-kit/android-data-disclosure): device make, model, OS build and available ML accelerators; the app's package name and version; a per-install identifier; latency figures, the API settings and input/output sizes; the SDK version, the kind of event (init, model download, detection) and any error codes. Google describes this as diagnostics and usage analytics, says it's encrypted in transit and not passed to third parties, and provides no switch to disable it. |
+| **ML Kit** (handwriting, OCR, QR/barcode scanning, document scanning, sticker background removal, on-device translation) | full edition only | when you use one of those features | Per [Google's own disclosure](https://developers.google.com/ml-kit/android-data-disclosure): device make, model, OS build and available ML accelerators; the app's package name and version; a per-install identifier; latency figures, the API settings and input/output sizes; the SDK version, the kind of event (init, model download, detection) and any error codes. Google describes this as diagnostics and usage analytics, says it's encrypted in transit and not passed to third parties, and provides no switch to disable it. |
 | **Downloadable fonts** | every build with Play services present | the first time a script's default keyboard font is needed, and whenever you pick a Google font in the theme editor | the font family name and this app's package name, asked of the Play services font provider. Play services makes the actual request, not this app. |
-| **Play Store libraries** (in-app updates, and the on-demand download of the on-device AI runtime) | Play Store builds only | on the update check, and when you first use an on-device AI model | the app's package and version, handled by the Play Store app that installed it |
+| **Play Store libraries** (in-app updates, and the on-demand downloads of the on-device AI runtime, the on-device translation engine, the interpreter behind offline voice typing and the sticker editor's own background remover, and the handwriting recogniser) | Play Store builds only | on the update check, when you first use an on-device AI model, when you first pick on-device translation, when you first use offline voice typing or a background removal without Play services, and when you first download a handwriting model | the app's package and version, handled by the Play Store app that installed it |
 
 On a Play Store build the update check is the only thing that library is asked, and it is asked only when the app can see that the Play Store installed this copy. Sideload a Play-flagged APK and the app doesn't ask at all, because the answer can only ever be a refusal.
 

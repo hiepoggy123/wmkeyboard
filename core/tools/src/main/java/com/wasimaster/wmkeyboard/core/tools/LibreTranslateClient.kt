@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
+import com.wasimaster.wmkeyboard.core.netlog.NetLog
+import com.wasimaster.wmkeyboard.core.netlog.NetSource
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -39,13 +41,14 @@ object LibreTranslateClient {
         target: String,
         endpoint: String,
         apiKey: String = "",
+        source: String = TranslateClient.AUTO,
     ): Translation {
         val trimmed = text.take(MAX_CHARS)
         val payload = buildJsonObject {
             put("q", trimmed)
-            // Always auto: the panel reports what came back as the detected
-            // source, exactly as the Google path does.
-            put("source", "auto")
+            // Auto unless the user named the source in the panel; either way
+            // the panel reports what came back, exactly as the Google path does.
+            put("source", source.ifBlank { TranslateClient.AUTO })
             put("target", target)
             put("format", "text")
             if (apiKey.isNotBlank()) put("api_key", apiKey)
@@ -54,8 +57,15 @@ object LibreTranslateClient {
             url = translateUrl(endpoint),
             body = payload.toString(),
             headers = mapOf("Accept" to "application/json"),
+            source = NetSource.TRANSLATE,
+            route = NetLog.pathOf(translateUrl(endpoint)),
         )
-        return parse(body)
+        val parsed = parse(body)
+        return if (parsed.detectedSource.isBlank() && source.isNotBlank() && source != TranslateClient.AUTO) {
+            parsed.copy(detectedSource = source)
+        } else {
+            parsed
+        }
     }
 
     /**

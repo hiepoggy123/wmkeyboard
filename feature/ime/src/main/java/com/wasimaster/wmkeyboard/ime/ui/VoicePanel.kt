@@ -29,6 +29,7 @@ import androidx.compose.material.icons.outlined.KeyboardDoubleArrowDown
 import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SpaceBar
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.CircularProgressIndicator
@@ -70,6 +71,7 @@ import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.VoiceBarAction
 import com.wasimaster.wmkeyboard.ime.VoiceModelState
 import com.wasimaster.wmkeyboard.ime.VoiceStatus
+import com.wasimaster.wmkeyboard.ime.clipBased
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import kotlinx.coroutines.Job
@@ -159,6 +161,17 @@ internal fun VoicePanel(
     val languageRingIndex = undoRingIndex + (if (undoVisible) 1 else 0)
     val collapseRingIndex = languageRingIndex + (if (languageChipVisible) 1 else 0)
 
+    // While the mic is open, this whole side of the panel is the stop button,
+    // not only the 64dp circle in the middle of it (#283). The stop press is
+    // made mid-sentence without looking, and a clip engine types nothing until
+    // it is made. The chips and the mic take their own presses first, so this
+    // only ever hears the ones that missed. pointerInput, not clickable:
+    // TalkBack and the focus ring already have the mic, and a second node that
+    // does the same thing is noise. The tint says where the button now ends.
+    val listening = voice.status == VoiceStatus.LISTENING
+    val stopAnywhere by rememberUpdatedState(listening)
+    val stop by rememberUpdatedState(onToggle)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -169,7 +182,15 @@ internal fun VoicePanel(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(2.dp),
+                .padding(2.dp)
+                .then(
+                    if (listening) {
+                        Modifier.background(kb.accent.copy(alpha = 0.08f), kb.keyShape())
+                    } else {
+                        Modifier
+                    },
+                )
+                .pointerInput(Unit) { detectTapGestures(onTap = { if (stopAnywhere) stop() }) },
         ) {
             when {
                 state.secureField -> VoiceNotice(
@@ -462,8 +483,10 @@ private fun MicContent(
             voice.status == VoiceStatus.MIC_BLOCKED ->
                 stringResource(R.string.ime_voice_status_mic_blocked)
             voice.whisperNeedsModel -> stringResource(R.string.ime_voice_status_no_model)
-            // Whisper gives no live partials, so guide the user to press when done.
-            listening && voice.whisper -> stringResource(R.string.ime_voice_status_listening_hint)
+            voice.serverNeedsSetup -> stringResource(R.string.ime_voice_status_no_server)
+            // Whisper and the server give no live partials, so guide the user
+            // to press when done.
+            listening && voice.clipBased -> stringResource(R.string.ime_voice_status_listening_hint)
             listening -> voice.partial.ifEmpty { listeningLabel }
             transcribing -> stringResource(R.string.ime_voice_status_transcribing)
             finishing -> "…"
@@ -484,8 +507,10 @@ private fun MicContent(
         // Offline Whisper chips: a prompt to download a model, or the
         // translate-to-English toggle. Whisper auto-detects language, so there
         // is no language chip — the choice is transcribe vs translate.
-        if (voice.whisper || voice.whisperNeedsModel) {
-            if (voice.whisperNeedsModel) {
+        // The server engine shares the first half: its own setup prompt, and no
+        // system-recognizer model chip below.
+        if (voice.clipBased || voice.whisperNeedsModel || voice.serverNeedsSetup) {
+            if (voice.whisperNeedsModel || voice.serverNeedsSetup) {
                 // Both ways out of a dead mic, side by side: fetch a model, or go
                 // back to the recognizer that needs no download. Offering only the
                 // download left anyone who did not want a 250 MB file with no way
@@ -495,8 +520,12 @@ private fun MicContent(
                     modifier = Modifier.padding(top = 8.dp),
                 ) {
                     VoiceChipAction(
-                        text = stringResource(R.string.ime_voice_download_model_action),
-                        icon = Icons.Outlined.FileDownload,
+                        text = if (voice.serverNeedsSetup) {
+                            stringResource(R.string.ime_voice_server_setup_action)
+                        } else {
+                            stringResource(R.string.ime_voice_download_model_action)
+                        },
+                        icon = if (voice.serverNeedsSetup) Icons.Outlined.Settings else Icons.Outlined.FileDownload,
                         onClick = onOpenVoiceSettings,
                     )
                     VoiceChipAction(
@@ -505,7 +534,7 @@ private fun MicContent(
                         onClick = onUseSystemEngine,
                     )
                 }
-            } else {
+            } else if (voice.whisper) {
                 val translate = state.settings.whisper.translate
                 val toggleShape = kb.chipShape()
                 Row(
@@ -666,9 +695,17 @@ internal fun VoiceStripBar(
     val transcribing = voice.status == VoiceStatus.TRANSCRIBING
     val busy = finishing || transcribing
     val feedback = LocalKeyPressFeedback.current
+    // Same as the panel, and more needed: the mic here is 30dp. While it is
+    // open, everywhere on the bar that is not another button stops it (#283).
+    // Only while it is open. An idle bar that opened the mic for any stray
+    // touch on the way to the top row of keys would be a worse trade.
+    val stopAnywhere by rememberUpdatedState(listening)
+    val stop by rememberUpdatedState(onToggle)
 
     Row(
-        modifier = modifier.fillMaxHeight(),
+        modifier = modifier
+            .fillMaxHeight()
+            .pointerInput(Unit) { detectTapGestures(onTap = { if (stopAnywhere) stop() }) },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -733,7 +770,8 @@ internal fun VoiceStripBar(
             voice.status == VoiceStatus.MIC_BLOCKED ->
                 stringResource(R.string.ime_voice_strip_mic_blocked)
             voice.whisperNeedsModel -> stringResource(R.string.ime_voice_strip_no_model)
-            listening && voice.whisper -> stringResource(R.string.ime_voice_strip_listening_hint)
+            voice.serverNeedsSetup -> stringResource(R.string.ime_voice_strip_no_server)
+            listening && voice.clipBased -> stringResource(R.string.ime_voice_strip_listening_hint)
             listening -> voice.partial.ifEmpty { listeningLabel }
             transcribing -> stringResource(R.string.ime_voice_status_transcribing)
             finishing -> "…"
@@ -758,7 +796,7 @@ internal fun VoiceStripBar(
         val action = when {
             voice.status == VoiceStatus.NEED_PERMISSION ->
                 stringResource(R.string.ime_voice_strip_allow_action) to onRequestPermission
-            voice.whisperNeedsModel ->
+            voice.whisperNeedsModel || voice.serverNeedsSetup ->
                 stringResource(R.string.ime_voice_strip_settings_action) to onOpenVoiceSettings
             else -> null
         }
