@@ -131,7 +131,11 @@ class LoopbackTest {
         await("linked") { phone.engine.state.value.device(pc.id)?.reachable == true && pc.engine.state.value.device(phone.id)?.reachable == true }
 
         phone.engine.requestPair(pc.id)
-        await("pc is asked") { pc.events.any { it is KdeEvent.PairRequested } }
+        await("pc is asked") {
+            pc.events.any { it is KdeEvent.PairRequested } &&
+                phone.engine.state.value.device(pc.id)?.verificationKey != null &&
+                pc.engine.state.value.device(phone.id)?.verificationKey != null
+        }
         val ours = phone.engine.state.value.device(pc.id)!!.verificationKey
         val theirs = pc.engine.state.value.device(phone.id)!!.verificationKey
         assertNotNull(ours)
