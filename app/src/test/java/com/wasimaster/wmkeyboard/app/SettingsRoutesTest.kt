@@ -60,10 +60,12 @@ class SettingsRoutesTest {
         val found = call.findAll(mainActivity).map { it.groupValues[1] }.map { raw ->
             val text = if (raw.startsWith("\"")) {
                 raw.trim('"').replace(Regex("""\$\{?([A-Za-z_.]+)}?""")) { m ->
-                    constants[m.groupValues[1]] ?: error("unknown route constant ${m.groupValues[1]}")
+                    val k = if ('.' in m.groupValues[1]) m.groupValues[1].split('.').takeLast(2).joinToString(".") else m.groupValues[1]
+                    constants[m.groupValues[1]] ?: constants[k] ?: error("unknown route constant ${m.groupValues[1]}")
                 }
             } else {
-                constants[raw] ?: error("unknown route constant $raw")
+                val k = if ('.' in raw) raw.split('.').takeLast(2).joinToString(".") else raw
+                constants[raw] ?: constants[k] ?: error("unknown route constant $raw")
             }
             text.substringBefore('?')
         }.toList()

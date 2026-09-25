@@ -195,6 +195,8 @@ import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.BottomSheetDefaults
 import com.wasimaster.wmkeyboard.core.ui.ScrollRail
 import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
+import com.wasimaster.wmkeyboard.app.launcher.LauncherCombos
+import com.wasimaster.wmkeyboard.app.launcher.LauncherCombosScreen
 
 /**
  * Settings app: setup wizard plus every keyboard option, Material 3 +
@@ -1164,13 +1166,13 @@ private fun SettingsNavGraph(
                 MusicAppsScreen(repository, settings)
             }
         }
-        composable(com.wasimaster.wmkeyboard.app.launcher.LauncherCombos.ROUTE) {
+        composable(LauncherCombos.ROUTE) {
             SettingsScreen(
                 stringResource(R.string.launchercombos_title),
                 { navController.popBackStack() },
-                route = com.wasimaster.wmkeyboard.app.launcher.LauncherCombos.ROUTE,
+                route = LauncherCombos.ROUTE,
             ) {
-                com.wasimaster.wmkeyboard.app.launcher.LauncherCombosScreen(repository, settings)
+                LauncherCombosScreen(repository, settings)
             }
         }
         composable("kdeconnect/devices") {
