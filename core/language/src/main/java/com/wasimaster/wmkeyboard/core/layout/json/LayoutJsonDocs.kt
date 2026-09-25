@@ -132,6 +132,7 @@ object LayoutJsonDocs {
         "action:space" to "Types a space. Holding it opens the language picker, unless the key has alternates.",
         "action:enter" to "Enter, or the field's own action, such as Send or Search.",
         "action:newline" to "Types a line break, and never the field's Send or Search action.",
+        "action:editor_action" to "Runs the field's own action, such as Send or Search, and never a line break.",
         "action:symbols" to "Goes from the letters to the symbols, and between the two symbol pages.",
         "action:letters" to "Goes straight back to the letters.",
         "action:language_switch" to "Goes to the next layout that is on.",
