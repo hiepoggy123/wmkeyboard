@@ -8,11 +8,12 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
+import Shot from '@components/Shot.astro';
 
 The suggestion strip is the row of tappable words above the keys. It offers completions while you're mid-word, corrections when what you typed doesn't look like a real word, and next-word predictions once you've finished one. All three come out of the same on-device engine, which also learns your own vocabulary and phrasing the more you type.
 
 <PhoneFrame caption="Word candidates in the suggestion strip, mid-word.">
-  {/* shot: smart/suggestion-strip-anatomy */}
+  <Shot id="smart/suggestion-strip-anatomy" alt="Word candidates in the suggestion strip, mid-word." />
 </PhoneFrame>
 
 This page covers the strip itself: its layout, the completion/correction/prediction engine, and how ranking adapts to you. A few things that also live in the strip have their own pages: [autocorrect](/smart/autocorrect/)'s confidence math, the [personal dictionary](/smart/personal-dictionary/) screen, the [suggestion blacklist](/smart/blacklist/), [smart chips](/smart/chips/) (calculator, currency, unit conversion), [password-manager chips and smart replies](/smart/autofill/), [contact and app-name suggestions](/smart/contacts/), and [emoji suggestions](/emoji/customization/). Each is linked from the relevant section below rather than repeated here. Everything on this page is about the Latin/English-style strip. A conversion IME like pinyin or kana&rarr;kanji draws a different, scrolling candidate row that isn't covered here.
@@ -25,11 +26,11 @@ Slots are equal width, so a long word gets no more room than a short one. Rather
 
 If you'd rather the strip never shrank anything, turn on **Scroll the suggestions**. Every word is then drawn at its natural size and the row scrolls sideways when the words overrun the strip. A slot still gets at least its equal share of the width, so a set of short words looks exactly as it does with the setting off. It's the setting for a narrow phone that wants five or six candidates: at fixed widths those slots are too tight to read. A new set of candidates always starts back at the left edge.
 
-Up to four predicted emoji can ride after the word chips (see [Emoji in the strip](#emoji-in-the-strip)), and a row of punctuation marks can ride after that (see [Punctuation chips](#punctuation-chips)), but never both at once. The emoji tail always wins the shared space. Punctuation only appears when no emoji prediction is offered.
-
-<PhoneFrame caption="Word candidates followed by predicted emoji.">
-  {/* shot: smart/suggestion-strip-emoji-tail */}
+<PhoneFrame side caption="Word candidates followed by predicted emoji.">
+  <Shot id="smart/suggestion-strip-emoji-tail" alt="Word candidates followed by predicted emoji." />
 </PhoneFrame>
+
+Up to four predicted emoji can ride after the word chips (see [Emoji in the strip](#emoji-in-the-strip)), and a row of punctuation marks can ride after that (see [Punctuation chips](#punctuation-chips)), but never both at once. The emoji tail always wins the shared space. Punctuation only appears when no emoji prediction is offered.
 
 When one of the keyboard's own text boxes has the keys — a panel's search bar, the AI prompt, Find and replace, a plugin's field — the strip moves to the row directly above the keys, since the panel has taken the toolbar's row. It shows the same words for the box's text that it would for your field, and tapping one replaces the word at the box's caret. The exception is the emoji panel's search box, which is querying the emoji catalogue rather than writing prose: its strip offers [emoji search terms](/emoji/picker/#searching-for-an-emoji) instead of dictionary words. See [Panels and captured keys](/tools/overview/#panels-and-captured-keys).
 
@@ -44,8 +45,8 @@ One engine produces everything in the word-candidate slots, drawing from several
 - **Predictions.** With nothing composing, right after you finish a word, the strip predicts what comes next instead. Your own learned pairs come first, the three-word context ahead of the two-word one. Next comes the following part of a contact's name, if the previous word matched one. Then your own gappy habits: what has tended to follow the word two back one word later, and the word three back two words later, so "how can someone" can still offer "help". Then a downloaded n-gram pack for your language, if you have one installed. Last is a small bundled set of common English pairs, so a fresh install has something to offer before you've typed anything of your own. If nothing knows the word you just typed, a name or a typo, the strip falls back to what tends to follow the word before it rather than going quiet.
 - **Openers.** An empty field, and the space just after a full stop, are both the start of a sentence, and the strip predicts from that the same way it predicts from a word: the openers you actually use come first, then a bundled set of common English ones, so there is something to tap before you have typed a letter. The word you pick is learned as an opener too, so the list becomes yours.
 
-<PhoneFrame caption="A genuinely ambiguous typo offered as two tappable candidates instead of being auto-corrected.">
-  {/* shot: smart/suggestion-strip-ambiguous-correction */}
+<PhoneFrame side caption="A genuinely ambiguous typo offered as two tappable candidates instead of being auto-corrected.">
+  <Shot id="smart/suggestion-strip-ambiguous-correction" alt="A genuinely ambiguous typo offered as two tappable candidates instead of being auto-corrected." />
 </PhoneFrame>
 
 Candidates from every source merge into one ranked list, and the sources don't count equally. Each is weighted well above plain dictionary frequency, so a source that's more clearly *you* (or more clearly what you're reaching for) dominates once it has anything to offer:
@@ -79,7 +80,7 @@ A word a swipe wrote gets one thing more: the strip leads with that stroke's oth
 Turn on **Punctuation suggestions** (off by default) and a short row of marks (<KeyCap>.</KeyCap> <KeyCap>,</KeyCap> <KeyCap>?</KeyCap> <KeyCap>!</KeyCap> <KeyCap>'</KeyCap>) rides after the word candidates, set off by a thin divider. Tap one and it commits exactly as typing that key would, so a full stop or comma is one tap away without switching to the symbols layout. Those five marks are only the default. A **Punctuation marks** text field appears under the toggle and takes up to twelve characters, one chip per character, so a Bengali danda or the Spanish inverted marks can sit here instead. Clearing the field puts the five back.
 
 <PhoneFrame caption="Punctuation chips riding after the word candidates.">
-  {/* shot: smart/punctuation-chips */}
+  <Shot id="smart/punctuation-chips" alt="Punctuation chips riding after the word candidates." />
 </PhoneFrame>
 
 The row only appears while word candidates are already showing, and only when no emoji prediction has claimed the tail instead.
@@ -89,7 +90,7 @@ The row only appears while word candidates are already showing, and only when no
 Arm <KeyCap>Shift</KeyCap> and every chip in the strip re-cases in real time to match what would actually be typed if you tapped it right then. Shift is a latch rather than a hold, so one tap gives you Title Case, a double tap (caps lock) gives you UPPERCASE, and another tap goes back to lowercase. The chips follow the shift state, so they revert the moment it clears, which includes the letter or suggestion that spends it. The whole row follows, not only the top candidate. One thing is left alone: a contact-email suggestion, meaning anything containing `@`, since an address isn't meant to change case.
 
 <PhoneFrame caption="Suggestion chips re-cased to Title Case while Shift is armed.">
-  {/* shot: smart/suggestion-strip-shift-recase */}
+  <Shot id="smart/suggestion-strip-shift-recase" alt="Suggestion chips re-cased to Title Case while Shift is held." />
 </PhoneFrame>
 
 This is a display rule only. It doesn't reject or change which candidate is offered, and it's unrelated to [reverting an autocorrected word](/smart/autocorrect/#undoing-a-correction) with backspace.
@@ -108,13 +109,17 @@ If you type in more than one language, the keyboard separately tracks which seco
 
 ## Removing an unwanted suggestion
 
-Press and hold the word on the strip. The menu that opens has **Never suggest "word"**, which puts it on the [suggestion blacklist](/smart/blacklist/), and **Delete "word"** for a word the keyboard can forget: one you learned, one still waiting to be learned, one in Android's dictionary, one you adjusted the rank of, or one from a word list you imported. **Edit** opens the word card, which carries both of those and the rank controls besides. The [Personal dictionary](/smart/personal-dictionary/#from-the-suggestion-strip) page describes the menu and the card in full, and **Word menu** under <SettingsPath path="Typing / Suggestions" /> picks which of the optional items it shows.
+Press and hold the word on the strip. The menu that opens has **Never suggest "word"**, which puts it on the [suggestion blacklist](/smart/blacklist/), and **Delete "word"** for a word the keyboard can forget: one you learned, one still waiting to be learned, one in Android's dictionary, one you adjusted the rank of, or one from a word list you imported. **Synonyms** lists words with the same meaning, and tapping one puts it in place of the word. **Edit** opens the word card, which carries Never suggest and Delete and the rank controls besides. The [Personal dictionary](/smart/personal-dictionary/#from-the-suggestion-strip) page describes the menu and the card in full, and **Word menu** under <SettingsPath path="Typing / Suggestions" /> picks which of the optional items it shows.
 
 The same two lists are editable from settings, if you would rather not chase the word on the strip: the [Personal dictionary](/smart/personal-dictionary/) screen for learned words, and the [suggestion blacklist](/smart/blacklist/) screen for words that should never be offered or corrected to, whether or not they were ever learned.
 
 ## Options
 
 <SettingsPath path="Typing / Suggestions" />
+
+<PhoneFrame side caption="The Suggestions group on the Typing settings screen.">
+  <Shot id="smart/suggestions-settings-group" alt="The Suggestions group on the Typing settings screen." />
+</PhoneFrame>
 
 | Setting | Default |
 | --- | --- |
@@ -147,10 +152,6 @@ Four of the rows above aren't in the Suggestions group at all. They live under <
 - **Adapt to app tone** (on, and visible whatever autocorrect is set to) tilts ranking by where you're typing. Chat-speak like "lol" and "gonna" ranks a little higher in messaging apps and a little lower in email apps and email fields. It's ranking only: no word is ever hidden or blocked, and autocorrect doesn't change.
 
 A physical keyboard can also pick a strip candidate by number without touching the screen (see [Hardware keyboard](/typing/hardware-keyboard/) for how that's bound).
-
-<PhoneFrame caption="The Suggestions group on the Typing settings screen.">
-  ![The Suggestions group on the Typing settings screen.](@assets/screens/smart/suggestions-settings-group.webp)
-</PhoneFrame>
 
 ## Details & edge cases
 

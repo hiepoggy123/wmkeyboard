@@ -1,8 +1,5 @@
 package com.wasimaster.wmkeyboard.app.statistics
 
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -40,11 +37,13 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.app.CaptionText
+import com.wasimaster.wmkeyboard.app.LiveSettings
 import com.wasimaster.wmkeyboard.app.ChoiceControl
 import com.wasimaster.wmkeyboard.app.SectionHeader
 import com.wasimaster.wmkeyboard.app.SettingsGroup
 import com.wasimaster.wmkeyboard.app.ToggleSetting
 import com.wasimaster.wmkeyboard.app.WmRow
+import com.wasimaster.wmkeyboard.app.rememberGrowIn
 import com.wasimaster.wmkeyboard.app.storage.ConfirmDeleteDialog
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
@@ -79,7 +78,7 @@ import com.wasimaster.wmkeyboard.app.ChoiceDetail
  * its in-memory copy instead of writing the old numbers back.
  */
 @Composable
-internal fun StatisticsScreen(repository: SettingsRepository, settings: KeyboardSettings) {
+internal fun StatisticsScreen(repository: SettingsRepository, settings: LiveSettings) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var confirmDelete by remember { mutableStateOf(false) }
@@ -88,7 +87,7 @@ internal fun StatisticsScreen(repository: SettingsRepository, settings: Keyboard
     var totals by remember { mutableStateOf<TypingStats.Totals?>(null) }
     // statsVersion is the reload signal both here and in the keyboard: the
     // delete below bumps it, and this effect re-reads the emptied file.
-    LaunchedEffect(settings.statsVersion) {
+    LaunchedEffect(settings.watch { it.statsVersion }) {
         val read = withContext(Dispatchers.IO) {
             val stats = TypingStats(File(context.filesDir, TypingStats.FILE_PATH))
             stats.dayEntries() to stats.lifetime()
@@ -97,16 +96,17 @@ internal fun StatisticsScreen(repository: SettingsRepository, settings: Keyboard
         totals = read.second
     }
 
+    val statsOn = settings.watch { it.typingStatsEnabled }
     ToggleSetting(
         R.string.statistics_toggle_title,
         stringResource(R.string.statistics_toggle_subtitle),
-        settings.typingStatsEnabled,
+        statsOn,
         info = stringResource(R.string.statistics_toggle_info),
         default = SettingsDefaults.typingStatsEnabled,
     ) { scope.launch { repository.setTypingStatsEnabled(it) } }
 
     val lifetime = totals
-    if (!settings.typingStatsEnabled) {
+    if (!statsOn) {
         CaptionText(stringResource(R.string.statistics_off_body))
     } else if (lifetime != null && lifetime.chars == 0L) {
         CaptionText(stringResource(R.string.statistics_empty_body))
@@ -361,11 +361,10 @@ private fun HistoryBars(
     highlight: Int = values.lastIndex,
 ) {
     val accent = MaterialTheme.colorScheme.primary
-    val grown by animateFloatAsState(
-        targetValue = if (values.any { it > 0.0 }) 1f else 0f,
-        animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
-        label = "statsBars",
-    )
+    // Grows in once, the first time there is a bar to draw, including when the
+    // numbers are already there on the first frame; switching period after
+    // that moves the bars rather than growing them again.
+    val grown by rememberGrowIn(ready = values.any { it > 0.0 })
     Canvas(
         modifier = modifier
             .fillMaxWidth()
@@ -397,11 +396,8 @@ private fun HistoryBars(
 private fun SpeedLine(values: List<Double>, modifier: Modifier = Modifier) {
     val accent = MaterialTheme.colorScheme.primary
     val grid = MaterialTheme.colorScheme.surfaceVariant
-    val grown by animateFloatAsState(
-        targetValue = if (values.any { it > 0.0 }) 1f else 0f,
-        animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
-        label = "statsLine",
-    )
+    // Rises from the floor once, the same way the bars grow. See [HistoryBars].
+    val grown by rememberGrowIn(ready = values.any { it > 0.0 })
     Canvas(
         modifier = modifier
             .fillMaxWidth()

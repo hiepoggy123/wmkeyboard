@@ -7,11 +7,12 @@ sidebar:
 
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
+import Shot from '@components/Shot.astro';
 
 The emoji panel itself (search, skin tones, favourites) is covered in [Emoji picker & search](/emoji/picker/). This page is about the settings that shape it: which font draws the emoji, which languages emoji search understands, when emoji get suggested while you type, and whether a dedicated row of them sits above the keys.
 
 <PhoneFrame caption="The Emoji settings screen, with the live font preview row.">
-  ![The Emoji settings screen, with the live font preview row.](@assets/screens/emoji/settings-overview.webp)
+  <Shot id="emoji/settings-overview" alt="The Emoji settings screen, with the live font preview row." />
 </PhoneFrame>
 
 ## Choosing an emoji font
@@ -53,11 +54,11 @@ This toggle (off by default) checks both your chosen font and the phone's own sy
 
 <SettingsPath path="Emoji / Emoji panel / Emoji keywords" />
 
-Emoji search ships with English and Bangla keywords built in, so it works out of the box in both languages. For anything else, download a keyword pack. WM Keyboard's data repository carries packs for 126 languages, each a small gzipped file of `{emoji, name, keywords, category}` entries sourced from Unicode CLDR.
-
-<PhoneFrame caption="The Emoji keywords screen, with per-language download and delete controls.">
-  ![The Emoji keywords screen, with per-language download and delete controls.](@assets/screens/emoji/keyword-packs.webp)
+<PhoneFrame side caption="The Emoji keywords screen, with per-language download and delete controls.">
+  <Shot id="emoji/keyword-packs" alt="The Emoji keywords screen, with per-language download and delete controls." />
 </PhoneFrame>
+
+Emoji search ships with English and Bangla keywords built in, so it works out of the box in both languages. For anything else, download a keyword pack. WM Keyboard's data repository carries packs for 126 languages, each a small gzipped file of `{emoji, name, keywords, category}` entries sourced from Unicode CLDR.
 
 Packs stack on top of the bundled English and Bangla keywords rather than replacing them, so downloading, say, Spanish adds Spanish search terms without losing the two you already had.
 
@@ -75,6 +76,10 @@ You can also import a pack by hand. Two formats work: a plain tab-separated file
 
 <SettingsPath path="Emoji / Suggestions / Emoji suggestions" />
 
+<PhoneFrame side caption="Emoji suggestions appended to the strip after typing a whole word.">
+  <Shot id="emoji/word-suggestions" alt="Emoji suggestions appended to the strip after typing a whole word." />
+</PhoneFrame>
+
 Turn this on (it's on by default) and matching emoji append to the end of the suggestion strip as you finish typing a whole word. "Birthday" offers 🎂🎉🥳🎁, and it works the same way for Bangla words. It also fires on an empty buffer from words you've just typed, learned over time, so a word like "you" can suggest ❤️ without you typing anything new.
 
 The chip doesn't vanish at the space, which is exactly when you'd reach for it. Type "happy birthday" and 🎂 is still there after the space, until the next word replaces it. Four sources feed the match, stacked so a hit from any one of them counts:
@@ -83,10 +88,6 @@ The chip doesn't vanish at the space, which is exactly when you'd reach for it. 
 - GitHub's own word-to-emoji data, which covers far more English than a hand-written table can: "hooray", "espresso", "workout";
 - the `:shortcode:` names, which mostly earn their place on two-word matches nothing else can reach. "Alarm clock" offers ⏰, "crossed fingers" offers 🤞. Two-letter codes are left out on purpose, because `:it:` and `:us:` are flags, and firing them at anyone typing "it" or "us" is the wrong-emoji case this whole feature avoids;
 - exact keyword hits from the emoji catalog, in whatever languages you have keyword packs for.
-
-<PhoneFrame caption="Emoji suggestions appended to the strip after typing a whole word.">
-  {/* shot: emoji/word-suggestions */}
-</PhoneFrame>
 
 **Press an emoji suggestion**, the row under the switch, decides what happens when you tap one:
 
@@ -106,7 +107,7 @@ Typing a `:` isn't part of the suggestions setting above. It has its own toggle,
 With this on (the default), typing a colon at a word boundary turns the whole suggestion strip into an emoji search: `:cat` offers 🐱 and friends, replacing ordinary word suggestions entirely while the search is active. Backspacing over the colon returns to normal suggestions.
 
 <PhoneFrame caption="Typing a colon turns the suggestion strip into emoji search results.">
-  {/* shot: emoji/inline-colon-search */}
+  <Shot id="emoji/inline-colon-search" alt="Typing a colon turns the suggestion strip into emoji search results." />
 </PhoneFrame>
 
 The same toggle also covers exact shortcode names. If you type the *closing* colon and the text between the two colons is an exact match (`:tada:`, `:thumbsup:`), the whole thing is replaced with the emoji immediately, with no tap needed. A name that's only a partial or unknown match is left as ordinary typed text. An unrecognized shortcode is never quietly eaten.
@@ -117,13 +118,13 @@ The same toggle also covers exact shortcode names. If you type the *closing* col
 
 A row of your own emoji, similar to Gboard's, that sits between the toolbar and the keys.
 
+<PhoneFrame side caption="The emoji row in Own row mode, above the key rows.">
+  <Shot id="emoji/emoji-row-own" alt="The emoji row in Own row mode, above the key rows." />
+</PhoneFrame>
+
 - **Off** (default): no emoji row.
 - **Button**: adds a toggle to the toolbar strip that swaps it for the emoji row on tap.
 - **Own row**: keeps the emoji row permanently visible above the keys.
-
-<PhoneFrame caption="The emoji row in Own row mode, above the key rows.">
-  {/* shot: emoji/emoji-row-own */}
-</PhoneFrame>
 
 Once the row is showing (anything other than Off), three more settings appear:
 

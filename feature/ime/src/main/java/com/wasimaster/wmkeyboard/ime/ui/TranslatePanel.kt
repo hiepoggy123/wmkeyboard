@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.TranslateEngine
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
 import com.wasimaster.wmkeyboard.core.translate.OfflineModelState
@@ -80,8 +81,17 @@ data class TranslateCallbacks(
     val onInsert: () -> Unit = {},
 )
 
+/** How tall the panel stands while its text is typed into, keys underneath. */
+internal val TranslateCompactHeight = 260.dp
+
+/** The most the text box grows before it scrolls. */
+private val TranslateQueryMaxHeight = 96.dp
+
 /** Which of the header's menus is open. One at a time: they share the ring's RESULTS region. */
 private enum class TranslateMenu { SOURCE, TARGET, ENGINE }
+
+/** Key of the menu row that shows the languages the short list left out. */
+private const val ALL_LANGUAGES_KEY = "\u0000all"
 
 /** One row of a header menu. */
 private data class TranslateMenuRow(
@@ -121,22 +131,31 @@ private val TranslateEngine.icon: ImageVector
 internal fun TranslatePanel(
     state: KeyboardUiState,
     callbacks: TranslateCallbacks,
+    /** Starts typing into the text box: the media-search key reroute. */
+    onQueryTap: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
     val translate = state.translate
     val target = state.settings.translateTargetLang
     val engine = if (OnDeviceTranslator.AVAILABLE) state.settings.translate.engine else TranslateEngine.ONLINE
     var menu by remember { mutableStateOf<TranslateMenu?>(null) }
+    // "All languages" opens the rest of one menu, once: the next menu starts
+    // short again, which is the point of the short list.
+    var showAll by remember(menu) { mutableStateOf(false) }
     val offerDownload = translate.missingModels.isNotEmpty() || translate.moduleMissing
 
-    val rows = menu?.let { translateMenuRows(it, translate, target, engine) }.orEmpty()
+    val rows = menu?.let { translateMenuRows(it, translate, target, engine, state.settings, showAll) }.orEmpty()
     val pick: (TranslateMenu, String) -> Unit = { which, key ->
-        menu = null
-        when (which) {
-            TranslateMenu.SOURCE -> callbacks.onSource(key)
-            TranslateMenu.TARGET -> callbacks.onTarget(key)
-            TranslateMenu.ENGINE ->
-                TranslateEngine.entries.firstOrNull { it.name == key }?.let(callbacks.onEngine)
+        if (key == ALL_LANGUAGES_KEY) {
+            showAll = true
+        } else {
+            menu = null
+            when (which) {
+                TranslateMenu.SOURCE -> callbacks.onSource(key)
+                TranslateMenu.TARGET -> callbacks.onTarget(key)
+                TranslateMenu.ENGINE ->
+                    TranslateEngine.entries.firstOrNull { it.name == key }?.let(callbacks.onEngine)
+            }
         }
     }
 
@@ -152,6 +171,13 @@ internal fun TranslatePanel(
         add(TranslateMenu.TARGET)
         if (OnDeviceTranslator.AVAILABLE) add(TranslateMenu.ENGINE)
     }
+    PanelFocusTarget(
+        panel = PanelMode.TRANSLATE,
+        region = FocusRegion.SEARCH,
+        count = 1,
+        columns = 1,
+        onActivate = { onQueryTap() },
+    )
     PanelFocusTarget(
         panel = PanelMode.TRANSLATE,
         region = FocusRegion.CHIPS,
@@ -190,15 +216,20 @@ internal fun TranslatePanel(
 
     val focusedChip = state.focusedIndex(FocusRegion.CHIPS)
     val focusedRow = state.focusedIndex(FocusRegion.RESULTS)
-    // The panel is its own translation window: the query types into the
-    // header search bar (field text is never read). The FullBleedTool
-    // wrapper collapses the panel while typing — the keys sit right below
-    // and the live result still fits above them.
+    // The panel is its own translation window: the text types into the box
+    // at its top (field text is never read). The FullBleedTool wrapper
+    // collapses the panel while typing — the keys sit right below and the
+    // live result still fits above them.
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 8.dp),
     ) {
+        TranslateQueryBox(
+            state = state,
+            focused = state.focusedIndex(FocusRegion.SEARCH) == 0,
+            onQueryTap = onQueryTap,
+        )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.weight(1f, fill = false)) {
                 TranslateChip(
@@ -238,6 +269,18 @@ internal fun TranslatePanel(
                 }
             }
             Spacer(Modifier.weight(1f))
+            // Says which service answered only when it is the one the user
+            // brought (#331): DeepL falls back to the usual service for a
+            // language it does not have, and that switch should not be silent.
+            if (translate.viaDeepL && translate.translated.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.ime_translate_deepl_label),
+                    color = kb.secondaryText,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    modifier = Modifier.padding(end = 6.dp),
+                )
+            }
             if (translate.translating) {
                 CircularProgressIndicator(
                     modifier = Modifier
@@ -346,6 +389,51 @@ internal fun TranslatePanel(
 }
 
 /**
+ * The text being translated: a box of several lines, where the header's search
+ * bar held one. While it has the keys it is an editor of the capture ladder's
+ * buffer, caret and all, the same as the AI chat's composer; otherwise a tap
+ * gives it the keys.
+ */
+@Composable
+private fun TranslateQueryBox(state: KeyboardUiState, focused: Boolean, onQueryTap: () -> Unit) {
+    val kb = LocalKbTheme.current
+    val shape = kb.cardShape()
+    val hint = stringResource(R.string.ime_translate_hint)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 2.dp, bottom = 6.dp)
+            .clip(shape)
+            .background(kb.chip)
+            .chipBorder(kb, shape)
+            .focusRing(focused, shape)
+            .clickable(enabled = !state.mediaSearchActive) { onQueryTap() }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        if (state.mediaSearchActive) {
+            ClipEditText(
+                text = state.mediaQuery,
+                placeholder = hint,
+                textColor = kb.chipText,
+                placeholderColor = kb.secondaryText,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 20.dp, max = TranslateQueryMaxHeight),
+            )
+        } else {
+            Text(
+                state.mediaQuery.ifEmpty { hint },
+                color = if (state.mediaQuery.isEmpty()) kb.secondaryText else kb.chipText,
+                fontSize = 14.sp,
+                lineHeight = 19.sp,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+/**
  * What the source chip says: the user's pick, or what was detected, or the
  * invitation to let it detect. A guess off the keyboard's language carries a
  * "?", because that is what it is, and tapping the chip is how to correct it.
@@ -363,12 +451,36 @@ private fun sourceLabel(translate: TranslateUi): String = when {
     else -> TranslateClient.languageName(translate.detectedSource)
 }
 
+/**
+ * The languages of one menu, as picker codes, in the order they are drawn.
+ * Kept free of Compose so the rules can be tested alone.
+ *
+ * [ready] is a language the engine can take without a new download: its model
+ * is on the device or on its way. [downloadedFirst] puts those at the top,
+ * each group still in picker order. [shortList] leaves out the rest, except
+ * what [keep] holds on to (the selection, the languages the user types in).
+ */
+internal fun arrangeTranslateLanguages(
+    codes: List<String>,
+    ready: (String) -> Boolean,
+    keep: (String) -> Boolean,
+    downloadedFirst: Boolean,
+    shortList: Boolean,
+): List<String> {
+    val shown = if (shortList) codes.filter { ready(it) || keep(it) } else codes
+    if (!downloadedFirst) return shown
+    val (top, rest) = shown.partition(ready)
+    return top + rest
+}
+
 @Composable
 private fun translateMenuRows(
     menu: TranslateMenu,
     translate: TranslateUi,
     target: String,
     engine: TranslateEngine,
+    settings: KeyboardSettings,
+    showAll: Boolean,
 ): List<TranslateMenuRow> {
     if (menu == TranslateMenu.ENGINE) {
         return TranslateEngine.entries.map { entry ->
@@ -391,20 +503,49 @@ private fun translateMenuRows(
     val showModels = engine != TranslateEngine.ONLINE
     val onlineOnly = stringResource(R.string.ime_translate_online_only_label)
     val selected = if (menu == TranslateMenu.SOURCE) translate.sourceOverride else target
-    val languages = TranslateClient.languages.map { (code, name) ->
+    val names = TranslateClient.languages.toMap()
+    val downloaded: (String) -> Boolean = { code ->
+        val model = OfflineTranslateLanguages.modelCode(code)
+        model == OfflineTranslateLanguages.PIVOT || translate.models[model] is OfflineModelState.Downloaded
+    }
+    val typed = settings.enabledLanguages.mapNotNullTo(mutableSetOf()) { OfflineTranslateLanguages.modelCode(it.id) }
+    // An empty map is "not looked yet", not "nothing downloaded": a short
+    // list drawn off it would be English alone.
+    val shortList = engine == TranslateEngine.ON_DEVICE && settings.translate.onlyDownloaded &&
+        !showAll && translate.models.isNotEmpty()
+    val codes = TranslateClient.languages.map { it.first }
+    val arranged = arrangeTranslateLanguages(
+        codes = codes,
+        ready = { code ->
+            downloaded(code) ||
+                translate.models[OfflineTranslateLanguages.modelCode(code)] is OfflineModelState.Downloading
+        },
+        keep = { code ->
+            code.equals(selected, ignoreCase = true) || OfflineTranslateLanguages.modelCode(code) in typed
+        },
+        downloadedFirst = showModels && settings.translate.downloadedFirst,
+        shortList = shortList,
+    )
+    val languages = arranged.map { code ->
         val model = OfflineTranslateLanguages.modelCode(code)
         TranslateMenuRow(
             key = code,
-            label = name,
+            label = names[code] ?: code,
             selected = code.equals(selected, ignoreCase = true),
             note = onlineOnly.takeIf { showModels && model == null },
-            downloaded = showModels && model != null &&
-                (model == OfflineTranslateLanguages.PIVOT || translate.models[model] is OfflineModelState.Downloaded),
+            downloaded = showModels && model != null && downloaded(code),
             // Only a dead end when nothing else can take it: Automatic hands
             // these to the online service.
             dimmed = engine == TranslateEngine.ON_DEVICE && model == null,
         )
-    }
+    } + listOfNotNull(
+        TranslateMenuRow(
+            key = ALL_LANGUAGES_KEY,
+            label = stringResource(R.string.ime_translate_all_languages_label),
+            selected = false,
+            info = stringResource(R.string.ime_translate_all_languages_info),
+        ).takeIf { arranged.size < codes.size },
+    )
     if (menu == TranslateMenu.TARGET) return languages
     val detect = TranslateMenuRow(
         key = "",

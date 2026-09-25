@@ -19,6 +19,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -30,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.app.LiveSettings
 import com.wasimaster.wmkeyboard.app.MeteredBlockedDialog
 import com.wasimaster.wmkeyboard.app.MeteredDownloadDialog
 import com.wasimaster.wmkeyboard.app.NavRow
@@ -42,7 +46,6 @@ import com.wasimaster.wmkeyboard.app.downloadDecisionNow
 import com.wasimaster.wmkeyboard.app.isMeteredNow
 import com.wasimaster.wmkeyboard.app.rememberDisclosedSpecialAccess
 import com.wasimaster.wmkeyboard.common.R as CommonR
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 
 /**
@@ -55,9 +58,13 @@ import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
  * page.
  */
 @Composable
-internal fun UpdateCard(settings: KeyboardSettings, modifier: Modifier = Modifier) {
+internal fun UpdateCard(settings: LiveSettings, modifier: Modifier = Modifier) {
     val updater = LocalAppUpdater.current
     val state by updater.state.collectAsStateWithLifecycle()
+    val switching by updater.switchingToAllLanguages.collectAsStateWithLifecycle()
+    // The move to every language is drawn on the About screen's App language
+    // row, where it was started. As a card it would read as a version update.
+    if (switching) return
     when (val current = state) {
         is UpdateState.Available ->
             if (current.dismissed) Unit else AvailableCard(current, updater, settings, modifier)
@@ -85,14 +92,24 @@ internal fun UpdateCard(settings: KeyboardSettings, modifier: Modifier = Modifie
 internal fun UpdatedCard(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
-    val justUpdated = remember {
-        UpdatePrefs(context).takeJustUpdated(BuildConfig.VERSION_CODE, System.currentTimeMillis())
+    // Whether it was the move to every language rather than a new version,
+    // read before takeJustUpdated clears the record it lives in.
+    val (justUpdated, switchedLanguages) = remember {
+        val prefs = UpdatePrefs(context)
+        val switched = prefs.justSwitchedLanguages
+        prefs.takeJustUpdated(BuildConfig.VERSION_CODE, System.currentTimeMillis()) to switched
     }
     var showing by remember { mutableStateOf(justUpdated) }
     if (!showing) return
     UpdateCardFrame(
-        title = stringResource(R.string.update_card_updated_title, BuildConfig.VERSION_NAME),
-        body = stringResource(R.string.update_card_updated_body),
+        title = if (switchedLanguages) {
+            stringResource(R.string.update_card_switched_title)
+        } else {
+            stringResource(R.string.update_card_updated_title, BuildConfig.VERSION_NAME)
+        },
+        body = stringResource(
+            if (switchedLanguages) R.string.update_card_switched_body else R.string.update_card_updated_body,
+        ),
         modifier = modifier,
     ) {
         Button(onClick = { showing = false }) {
@@ -118,12 +135,13 @@ internal fun UpdatedCard(modifier: Modifier = Modifier) {
  * screen would open on whichever screen the user happened not to be on.
  */
 @Composable
-internal fun UpdatePromptDialog(settings: KeyboardSettings) {
+internal fun UpdatePromptDialog(settings: LiveSettings) {
     val updater = LocalAppUpdater.current
     val state by updater.state.collectAsStateWithLifecycle()
     val notes by updater.releaseNotes.collectAsStateWithLifecycle()
+    val switching by updater.switchingToAllLanguages.collectAsStateWithLifecycle()
     val available = state as? UpdateState.Available ?: return
-    if (!available.promptOpen) return
+    if (!available.promptOpen || switching) return
     val download = rememberUpdateDownloadRequest(updater, available.sizeBytes, settings)
     var showNotes by remember(available.versionCode) { mutableStateOf(false) }
     if (showNotes) {
@@ -168,7 +186,7 @@ internal fun UpdatePromptDialog(settings: KeyboardSettings) {
 private fun AvailableCard(
     state: UpdateState.Available,
     updater: AppUpdater,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     modifier: Modifier = Modifier,
 ) {
     val notes by updater.releaseNotes.collectAsStateWithLifecycle()
@@ -334,10 +352,10 @@ private fun UpdateCardFrame(
  * The check itself is never gated, being a few kilobytes of JSON.
  */
 @Composable
-private fun rememberUpdateDownloadRequest(
+internal fun rememberUpdateDownloadRequest(
     updater: AppUpdater,
     sizeBytes: Long,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
 ): () -> Unit {
     val context = LocalContext.current
     var blocked by remember { mutableStateOf(false) }
@@ -358,7 +376,7 @@ private fun rememberUpdateDownloadRequest(
         if (!updater.ownsDownload) {
             updater.start()
         } else {
-            when (downloadDecisionNow(context, settings)) {
+            when (downloadDecisionNow(context, settings.value)) {
                 MeteredDecision.BLOCKED -> blocked = true
                 MeteredDecision.ASK -> confirming = true
                 MeteredDecision.ALLOWED ->
@@ -370,7 +388,7 @@ private fun rememberUpdateDownloadRequest(
 
 /** What the button that starts an update says, which depends on where it goes. */
 @Composable
-private fun startActionLabel(updater: AppUpdater): String = when {
+internal fun startActionLabel(updater: AppUpdater): String = when {
     updater.startsExternally ->
         stringResource(R.string.update_action_open_source, stringResource(updater.sourceNameRes))
     updater.ownsDownload -> stringResource(R.string.update_action_download)
@@ -414,9 +432,10 @@ private fun UpdateState.Downloading.progressText(): String? {
  * lying about what pressing it does.
  */
 @Composable
-internal fun UpdateSettings(settings: KeyboardSettings) {
+internal fun UpdateSettings(settings: LiveSettings) {
     val updater = LocalAppUpdater.current
     val state by updater.state.collectAsStateWithLifecycle()
+    val switching by updater.switchingToAllLanguages.collectAsStateWithLifecycle()
     if (state is UpdateState.Unsupported) return
 
     // These settings live in SharedPreferences, not in the settings DataStore,
@@ -426,8 +445,11 @@ internal fun UpdateSettings(settings: KeyboardSettings) {
     val prereleases = remember { mutableStateOf(updater.includePrereleases) }
 
     SettingsGroup(stringResource(R.string.update_section_title)) {
-        item { UpdateRow(state, updater, settings) }
-        (state as? UpdateState.Available)?.releaseUrl?.let { url ->
+        // While the move to every language runs, the state is that move's, and
+        // the App language row above draws it. Drawn here too it would say
+        // "Download the update" about something that is not one.
+        item(visible = !switching) { UpdateRow(state, updater, settings) }
+        (state as? UpdateState.Available)?.releaseUrl?.takeUnless { switching }?.let { url ->
             item { ReleasePageRow(url) }
         }
         item {
@@ -458,7 +480,7 @@ internal fun UpdateSettings(settings: KeyboardSettings) {
 }
 
 @Composable
-private fun UpdateRow(state: UpdateState, updater: AppUpdater, settings: KeyboardSettings) {
+private fun UpdateRow(state: UpdateState, updater: AppUpdater, settings: LiveSettings) {
     val context = LocalContext.current
     when (state) {
         is UpdateState.Available -> AvailableRow(state, updater, settings, context)
@@ -494,7 +516,7 @@ private fun UpdateRow(state: UpdateState, updater: AppUpdater, settings: Keyboar
 private fun AvailableRow(
     state: UpdateState.Available,
     updater: AppUpdater,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     context: Context,
 ) {
     val download = rememberUpdateDownloadRequest(updater, state.sizeBytes, settings)
@@ -619,4 +641,165 @@ internal fun UpdateFailure?.subtitle(): Int = when (this) {
     UpdateFailure.INSTALL_BLOCKED -> R.string.update_row_failed_blocked_subtitle
     UpdateFailure.INSTALL_FAILED -> R.string.update_row_failed_install_subtitle
     UpdateFailure.NETWORK, null -> R.string.update_row_failed_subtitle
+}
+
+/**
+ * The App language row on an English-only (`en`) build, which has nothing to
+ * choose between (#322). It says so, and offers the one fix there is: the
+ * build of the same release with every language, fetched and installed by
+ * the GitHub updater. Only GitHub hands out the `en` APK, so where there is no
+ * GitHub updater to do it the row links to the releases page instead.
+ *
+ * From the press on, the row follows the updater through the ordinary steps
+ * (find, download, install), with words that say what they are for. The
+ * download starts as soon as the file is found, through the same data-saving
+ * questions as any update; the install waits for its own press, because it
+ * restarts the keyboard. [extraLanguages] is how many the other build adds.
+ */
+@Composable
+internal fun AllLanguagesRow(settings: LiveSettings, extraLanguages: Int, englishName: String) {
+    val updater = LocalAppUpdater.current
+    val uriHandler = LocalUriHandler.current
+    if (!updater.canSwitchToAllLanguages) {
+        NavRow(
+            R.string.about_app_language_title,
+            subtitle = pluralStringResource(
+                R.plurals.about_app_language_english_only_link, extraLanguages, extraLanguages,
+            ),
+            value = englishName,
+            onClick = { uriHandler.openUri(GithubReleases.LIST_PAGE) },
+        )
+        return
+    }
+    val state by updater.state.collectAsStateWithLifecycle()
+    val switching by updater.switchingToAllLanguages.collectAsStateWithLifecycle()
+    var confirming by rememberSaveable { mutableStateOf(false) }
+    // Set by the press that starts the move, and spent on the first offer that
+    // arrives, so a later offer (after a cancel) waits for its own press.
+    var continueWhenFound by rememberSaveable { mutableStateOf(false) }
+    val available = (state as? UpdateState.Available)?.takeIf { switching }
+    val download = rememberUpdateDownloadRequest(updater, available?.sizeBytes ?: 0L, settings)
+    val begin = {
+        continueWhenFound = true
+        updater.switchToAllLanguages()
+    }
+    LaunchedEffect(switching, available, continueWhenFound) {
+        when {
+            !continueWhenFound -> Unit
+            available != null -> {
+                continueWhenFound = false
+                download()
+            }
+            // The press did not take (an update was installing) or the move
+            // was dropped before anything was found. Read live rather than
+            // from `switching`: the press sets it synchronously, and the
+            // collected copy is a frame behind.
+            !updater.switchingToAllLanguages.value -> continueWhenFound = false
+        }
+    }
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text(stringResource(R.string.about_all_languages_dialog_title)) },
+            text = { Text(pluralStringResource(R.plurals.about_all_languages_dialog_body, extraLanguages, extraLanguages)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirming = false
+                        begin()
+                    },
+                ) {
+                    Text(stringResource(R.string.about_all_languages_dialog_confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
+    if (!switching) {
+        NavRow(
+            R.string.about_app_language_title,
+            subtitle = pluralStringResource(
+                R.plurals.about_app_language_english_only, extraLanguages, extraLanguages,
+            ),
+            value = englishName,
+            onClick = { confirming = true },
+        )
+        return
+    }
+    val context = LocalContext.current
+    when (val current = state) {
+        is UpdateState.Available -> NavRow(
+            R.string.about_all_languages_download_title,
+            subtitle = if (current.sizeBytes > 0L) {
+                stringResource(
+                    R.string.about_all_languages_download_subtitle,
+                    current.versionName.orEmpty(),
+                    Formatter.formatShortFileSize(context, current.sizeBytes),
+                )
+            } else {
+                null
+            },
+            onClick = download,
+        )
+        is UpdateState.Downloading -> ProgressRow(
+            R.string.about_all_languages_downloading_title,
+            current.progressText(),
+            current.fraction,
+        )
+        UpdateState.Downloaded -> {
+            val grant = updater.installGrant
+            val requestGrant = rememberDisclosedSpecialAccess(SpecialAccess.INSTALL_UPDATES)
+            NavRow(
+                R.string.about_all_languages_install_title,
+                subtitle = stringResource(R.string.about_all_languages_install_subtitle),
+                onClick = {
+                    updater.install()
+                    if (grant != null) requestGrant()
+                },
+            )
+        }
+        UpdateState.Installing -> ProgressRow(R.string.about_all_languages_installing_title, null, null)
+        is UpdateState.Failed -> NavRow(
+            R.string.about_all_languages_failed_title,
+            subtitle = stringResource(
+                if (current.cancelled) R.string.about_all_languages_retry_subtitle else current.reason.subtitle(),
+            ),
+            onClick = begin,
+        )
+        // Looking for the file. Also the one frame between the press and the
+        // updater saying so.
+        UpdateState.Unsupported,
+        UpdateState.Idle,
+        UpdateState.Checking,
+        is UpdateState.UpToDate,
+        -> ProgressRow(R.string.about_all_languages_checking_title, null, null)
+    }
+}
+
+/**
+ * The way out of the move to every language, under [AllLanguagesRow]: stops
+ * the download, deletes it, and puts the Updates group back. Shown from the
+ * moment there is something to stop until the install begins.
+ */
+@Composable
+internal fun KeepEnglishOnlyRow() {
+    val updater = LocalAppUpdater.current
+    NavRow(
+        R.string.about_all_languages_keep_title,
+        subtitle = stringResource(R.string.about_all_languages_keep_subtitle),
+        onClick = updater::abandonLanguageSwitch,
+    )
+}
+
+/** Whether [KeepEnglishOnlyRow] belongs on screen right now. */
+@Composable
+internal fun languageSwitchCanBeDropped(): Boolean {
+    val updater = LocalAppUpdater.current
+    val state by updater.state.collectAsStateWithLifecycle()
+    val switching by updater.switchingToAllLanguages.collectAsStateWithLifecycle()
+    return switching && state != UpdateState.Installing
 }

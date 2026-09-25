@@ -35,10 +35,12 @@ import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.tools.QrCodeGen
+import com.wasimaster.wmkeyboard.core.tools.rememberLayoutSwitch
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinFuzzy
 import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
+import com.wasimaster.wmkeyboard.core.gesture.GlideShapeStore
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
@@ -46,7 +48,7 @@ import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
 import com.wasimaster.wmkeyboard.prediction.R as PredictionR
 import com.wasimaster.wmkeyboard.core.snippets.MultiExpandMode
 import com.wasimaster.wmkeyboard.core.layout.AlternateColumnsRange
-import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
+import com.wasimaster.wmkeyboard.core.layout.isShippedLayoutId
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutCodec
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -62,6 +64,8 @@ import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
+import com.wasimaster.wmkeyboard.core.tools.DictionarySourceChoice
+import com.wasimaster.wmkeyboard.core.tools.DictionarySources
 import com.wasimaster.wmkeyboard.core.tools.CurrencyLabel
 import com.wasimaster.wmkeyboard.core.tools.SolarTimes
 import com.wasimaster.wmkeyboard.core.tools.Weekend
@@ -118,6 +122,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
@@ -132,10 +137,13 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 import kotlin.random.Random
 import com.wasimaster.wmkeyboard.settings.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.thesaurus.SynonymSourceChoice
+import com.wasimaster.wmkeyboard.core.thesaurus.SynonymSources
 import com.wasimaster.wmkeyboard.core.vocab.VocabAccent
 import com.wasimaster.wmkeyboard.core.vocab.VocabAudioSource
 import com.wasimaster.wmkeyboard.core.vocab.VocabChipTap
@@ -596,11 +604,23 @@ enum class LocalLlmBackend(@StringRes val labelRes: Int) {
 enum class QrEccLevel { L, M, Q, H }
 
 /**
+ * What reads the text in the scan text tool (full builds). ML Kit reads only
+ * Latin script; Tesseract reads most scripts but needs each language's data
+ * downloaded first.
+ */
+enum class OcrEngine {
+    /** ML Kit for Latin-script languages, Tesseract for every other script. */
+    AUTO,
+    ML_KIT,
+    TESSERACT,
+}
+
+/**
  * Where the translate tool gets its translations.
  *
- * Stored by name. [ONLINE] is first and the default because it is what the
- * tool has always done and it needs nothing downloaded; the other two only
- * mean anything in a build that carries ML Kit.
+ * Stored by name. [ONLINE] is first, what the tool has always done, and the
+ * default everywhere but Play (see [TranslateSettings.engine]); the other two
+ * only mean anything in a build that carries ML Kit.
  */
 enum class TranslateEngine(@StringRes val labelRes: Int) {
     /** The online service: Google's endpoint, a Cloud key, or a LibreTranslate server. */
@@ -621,8 +641,90 @@ enum class TranslateEngine(@StringRes val labelRes: Int) {
  * slot on [KeyboardSettings] however many settings end up inside.
  */
 data class TranslateSettings(
-    val engine: TranslateEngine = TranslateEngine.ONLINE,
+    /**
+     * [TranslateEngine.ON_DEVICE] on Play, [TranslateEngine.ONLINE] elsewhere.
+     * The Play build ships no Cloud Translation key, so its online engine is
+     * Google's keyless public endpoint, which is not an API Google offers to
+     * apps; and a shared key would be billed per character with no cap once
+     * it is out of the APK. On the device, the first translation offers the
+     * module and the model instead of fetching anything unasked. The other
+     * builds keep Online: lite has no ML Kit, and a GitHub or F-Droid user
+     * has always had it.
+     */
+    val engine: TranslateEngine =
+        if (BuildConfig.ENABLE_PLAY_STORE) TranslateEngine.ON_DEVICE else TranslateEngine.ONLINE,
+    /**
+     * The panel's language menus list the languages whose model is on the
+     * device first, while the engine is On device or Automatic. On Online
+     * the models are not in play, so the menus keep their plain order.
+     */
+    val downloadedFirst: Boolean = true,
+    /**
+     * On the On device engine, the panel's language menus list only the
+     * languages it can translate without a new download, the languages the
+     * user types in and the current selection, then an "All languages" row
+     * that shows the rest. Automatic is left alone: every language works
+     * there, online if not on the device. Issue #324.
+     */
+    val onlyDownloaded: Boolean = true,
+    /** DeepL, the user's own opt-in service (see [DeepLSettings]). Issue #331. */
+    val deepl: DeepLSettings = DeepLSettings(),
 )
+
+/**
+ * How DeepL Write should rewrite the text. DeepL's `prefer_` values: a
+ * language whose Write model has no styles yet takes the text as plain
+ * [DEFAULT] instead of refusing it. At most one of [writingStyle] and [tone]
+ * is set, since DeepL takes only one per request.
+ *
+ * Stored by name, so rename nothing.
+ */
+enum class DeepLWriteStyle(
+    @StringRes val labelRes: Int,
+    val writingStyle: String? = null,
+    val tone: String? = null,
+) {
+    DEFAULT(R.string.core_settings_deepl_style_default_label),
+    SIMPLE(R.string.core_settings_deepl_style_simple_label, writingStyle = "prefer_simple"),
+    BUSINESS(R.string.core_settings_deepl_style_business_label, writingStyle = "prefer_business"),
+    ACADEMIC(R.string.core_settings_deepl_style_academic_label, writingStyle = "prefer_academic"),
+    CASUAL(R.string.core_settings_deepl_style_casual_label, writingStyle = "prefer_casual"),
+    FRIENDLY(R.string.core_settings_deepl_style_friendly_label, tone = "prefer_friendly"),
+    CONFIDENT(R.string.core_settings_deepl_style_confident_label, tone = "prefer_confident"),
+    DIPLOMATIC(R.string.core_settings_deepl_style_diplomatic_label, tone = "prefer_diplomatic"),
+    ENTHUSIASTIC(R.string.core_settings_deepl_style_enthusiastic_label, tone = "prefer_enthusiastic"),
+}
+
+/**
+ * DeepL, with a key the user brings (issue #331). Nothing here does anything
+ * until [apiKey] or [endpoint] is filled in: the keyboard ships no DeepL key,
+ * and with both blank the translate panel, the grammar panel and the
+ * selection bar look and behave exactly as they would without this.
+ */
+data class DeepLSettings(
+    /** DeepL API key. A Free key ends in `:fx` and is sent to DeepL's Free host. */
+    val apiKey: String = "",
+    /**
+     * A server to send DeepL requests to instead of DeepL's own, for a proxy
+     * the user runs. Blank means DeepL's host for the kind of key.
+     */
+    val endpoint: String = "",
+    /** The translate tool asks DeepL first while a key is set. */
+    val translate: Boolean = true,
+    /**
+     * DeepL Write shows in the grammar panel and the selection bar. Off until
+     * asked for: Write needs an API Pro key, and a Free key is the common one.
+     */
+    val write: Boolean = false,
+    val writeStyle: DeepLWriteStyle = DeepLWriteStyle.DEFAULT,
+) {
+    /** A key or a server to reach: the one thing that turns DeepL on at all. */
+    val configured: Boolean get() = apiKey.isNotBlank() || endpoint.isNotBlank()
+
+    val translateActive: Boolean get() = configured && translate
+
+    val writeActive: Boolean get() = configured && write
+}
 
 /**
  * English dialect the offline grammar tool lints against. Ordinals are the
@@ -728,6 +830,25 @@ enum class GifContentFilter { OFF, LOW, MEDIUM, HIGH }
  * evenly into one grid.
  */
 enum class GifSourceMode { TABS, MIX }
+
+/**
+ * How stickers of your own are offered while you type their title, a keyword
+ * or an emoji (#329).
+ *
+ * [TRAY] is a row of full-size stickers above the suggestion strip, arriving
+ * with the match and leaving with it; the strip keeps its words. [STRIP] puts
+ * a few small ones on the strip beside the words, with a button that opens the
+ * tray for the rest. [CHIP] is one narrow chip saying how many there are,
+ * which opens the tray when tapped.
+ */
+enum class StickerSuggestStyle { TRAY, STRIP, CHIP }
+
+/**
+ * What sending a suggested sticker does to the text that asked for it:
+ * [DELETE] takes the title, keyword or emoji back out of the field, so the
+ * sticker stands in for it; [KEEP] leaves the text where it is.
+ */
+enum class StickerTriggerAction { DELETE, KEEP }
 
 /**
  * Key-press sound. [CLICK] and [STANDARD] come from the device's own sound
@@ -1478,6 +1599,29 @@ sealed interface ToolHoldAction {
  */
 enum class ToolbarPlacement { STRIP, ON_DEMAND_ROW, ALWAYS_ROW }
 
+/**
+ * The bottom padding the keyboard uses while [KeyboardSettings.bottomPaddingDp]
+ * is unset.
+ *
+ * From Android 15 the IME window runs edge to edge and the keys stand on
+ * `navigationBarsPadding`. Above a gesture bar that inset is only the thin
+ * handle strip, and a bottom row that close to the edge starts the home
+ * gesture by mistake, so the default adds 32dp. Above three-button navigation
+ * the inset is the whole button bar, which is tappable and starts nothing, and
+ * the same 32dp left an empty band between the space bar and the buttons
+ * (#343). There, and anywhere below 15 where the window stops above the bar,
+ * it is 8dp.
+ *
+ * @param gestureBar true when a gesture handle, not a row of buttons, is what
+ *   sits along the bottom edge.
+ */
+fun autoBottomPaddingDp(gestureBar: Boolean): Int =
+    if (gestureBar && Build.VERSION.SDK_INT >= 35) 32 else 8
+
+/** [KeyboardSettings.bottomPaddingDp], or [autoBottomPaddingDp] while it is unset. */
+fun KeyboardSettings.bottomPaddingOr(gestureBar: Boolean): Int =
+    bottomPaddingDp ?: autoBottomPaddingDp(gestureBar)
+
 /** True while the tools have a row of their own rather than sharing the strip. */
 val ToolbarPlacement.isOwnRow: Boolean get() = this != ToolbarPlacement.STRIP
 
@@ -1592,6 +1736,16 @@ data class ToolboxSettings(
      * enlarged one was left with two label sizes that disagreed.
      */
     val labelSizeSp: Int = 0,
+    /**
+     * Tools left out of the toolbox grid while staying switched on everywhere
+     * else: the toolbar, a search by name, selection actions, hardware
+     * shortcuts. For someone who only ever reaches a tool one of those other
+     * ways and would rather the grid were one cell shorter. Empty by default.
+     *
+     * Separate from [KeyboardSettings.enabledTools], which turns a tool off
+     * outright. A hidden tool that is pinned stays on the bar.
+     */
+    val hiddenTools: Set<ToolbarTool> = emptySet(),
 ) {
     /** The caption size to draw at, resolving 0 against the toolbar's setting. */
     fun labelSizeOr(toolbarLabelSize: Int): Int =
@@ -1848,7 +2002,28 @@ data class LongPressLetterActions(
      * entry is what a plain hold commits" comes from.
      */
     val actionFirst: Boolean = false,
+    /**
+     * Press 🌐 and slide onto one of the six [letters] to run its action on
+     * release: onto `c` copies, onto `v` pastes, and so on. The same six
+     * actions as the long press, on the same keys, and independent of the six
+     * switches above (those decide what each key's popup offers). A drag that
+     * starts once the 🌐 hold has already opened the language picker is left to
+     * the picker. Off by default: it changes what a drag off 🌐 does.
+     */
+    val globeDrag: Boolean = false,
 ) {
+    /**
+     * The action bound to the key that types [text], as an index into
+     * [letters] in declaration order, or -1 when that key carries none.
+     */
+    fun actionFor(text: String): Int {
+        val ch = text.singleOrNull()?.lowercaseChar() ?: return -1
+        for (i in DEFAULT_LONG_PRESS_LETTERS.indices) {
+            if (letterFor(i)?.lowercaseChar() == ch) return i
+        }
+        return -1
+    }
+
     /**
      * The key [action] is bound to, or null when this value is malformed.
      * [action] is an index into [letters] in the declaration order above.
@@ -2185,6 +2360,8 @@ data class ScannerSettings(
     val qrSendMode: MediaSendMode = MediaSendMode.IMAGE,
     /** Text scanner results start with every word selected (deselect to trim). */
     val ocrAutoSelectWords: Boolean = true,
+    /** Which engine the text scanner reads with; see [OcrEngine]. */
+    val ocrEngine: OcrEngine = OcrEngine.AUTO,
     /** Vibrate when the QR scanner spots a code. */
     val qrScanHaptics: Boolean = true,
     /** Insert a scanned code into the field the moment it is spotted. */
@@ -2220,6 +2397,16 @@ data class GifSettings(
     val resultLimit: Int = 24,
     /** How GIF picks are sent. Sticker mode only applies to WebP-backed GIFs. */
     val sendMode: MediaSendMode = MediaSendMode.IMAGE,
+    /**
+     * Offer your own stickers while typing: a sticker's full title, one of
+     * its keywords, or an emoji it carries (#329). Only in a field that takes
+     * images, so only in the places a sticker could be sent.
+     */
+    val stickerSuggest: Boolean = true,
+    /** Where those stickers show up; see [StickerSuggestStyle]. */
+    val stickerSuggestStyle: StickerSuggestStyle = StickerSuggestStyle.TRAY,
+    /** What sending one does to the text that asked for it; see [StickerTriggerAction]. */
+    val stickerSuggestTrigger: StickerTriggerAction = StickerTriggerAction.DELETE,
 )
 
 /**
@@ -2253,6 +2440,13 @@ data class KeyboardSettings(
     val activeLayoutId: String = BuiltInLayouts.DEFAULT_ID,
     /** Layouts the 🌐 key and the spacebar swipe cycle between, in order. */
     val enabledLayoutIds: List<String> = BuiltInLayouts.defaultEnabledIds,
+    /**
+     * Layouts switched to, most recent first (#311). Recorded on every explicit
+     * switch whether or not [globeRecentOrder] is on, so turning it on has a
+     * history to go by from the first press. May hold layouts no longer
+     * enabled; readers filter.
+     */
+    val recentLayoutIds: List<String> = emptyList(),
     /** User-created layouts, and edits shadowing a built-in by reusing its id. */
     val customLayouts: List<LayoutSpec> = emptyList(),
     /** Languages of [enabledLayoutIds], deduped, in switch order. */
@@ -2317,9 +2511,13 @@ data class KeyboardSettings(
     val photoBackground: PhotoBackgroundSettings = PhotoBackgroundSettings(),
     val keyHeightDp: Int = 48,
     val numberRowHeightDp: Int = 42,
-    // Edge-to-edge IME windows (enforced on Android 15+) draw behind the
-    // gesture bar; a larger default keeps the bottom row comfortably above it.
-    val bottomPaddingDp: Int = if (Build.VERSION.SDK_INT >= 35) 32 else 8,
+    /**
+     * Room under the bottom key row, above the system navigation bar, or null
+     * for the automatic amount, [autoBottomPaddingDp], which depends on what
+     * kind of bar is there and so can only be decided where the window insets
+     * are known.
+     */
+    val bottomPaddingDp: Int? = null,
     val splitKeyboard: Boolean = false,
     val splitGapPercent: Int = 12,
     val floatingKeyboard: Boolean = false,
@@ -2524,6 +2722,13 @@ data class KeyboardSettings(
      * switching stays on the spacebar gestures.
      */
     val showGlobeKey: Boolean = true,
+    /**
+     * The 🌐 key (and a physical keyboard's language key) goes by recent use
+     * rather than switch order (#311): one press goes back to the layout used
+     * before this one, and presses in quick succession walk further back
+     * through [recentLayoutIds], like Alt+Tab. Off by default.
+     */
+    val globeRecentOrder: Boolean = false,
     /**
      * List each enabled layout as an Android input-method subtype, so the
      * system language switcher (the "Choose input method" sheet) lists them and
@@ -2735,6 +2940,8 @@ data class KeyboardSettings(
     val gif: GifSettings = GifSettings(),
     /** Dictionary tool looks up the word at the cursor when it opens. */
     val dictionaryAutoLookup: Boolean = true,
+    /** Where the Dictionary tool looks, in the order it asks, each on or off. */
+    val dictionarySources: List<DictionarySourceChoice> = DictionarySources.DEFAULT,
     /** Text-editing tool and selection-editing settings (see [TextEditingSettings]). */
     val textEditing: TextEditingSettings = TextEditingSettings(),
     /** The trackpad tool: sensitivity and the gestures it answers to (see [TrackpadSettings]). */
@@ -3013,7 +3220,7 @@ data class OtpSettings(
 /**
  * Where an automatic backup goes.
  *
- * Three destinations, none of them a server of ours. That is the whole shape of
+ * Eleven destinations, none of them a server of ours. That is the whole shape of
  * this feature: the app writes a file somewhere the user already has, and never
  * holds a copy.
  */
@@ -3065,6 +3272,18 @@ enum class BackupDestination(
      * because a lot of home NAS boxes and cheap web hosts offer nothing else.
      */
     FTP("ftp"),
+
+    /** An SSH server's SFTP subsystem. See [SftpConfig]. */
+    SFTP("sftp"),
+
+    /** A Windows or Samba share, over SMB 2 or 3. See [SmbConfig]. */
+    SMB("smb"),
+
+    /** A folder in a GitHub, GitLab, Gitea or Forgejo repository. See [GitConfig]. */
+    GIT("git"),
+
+    /** A folder of messages in a mail account. See [ImapConfig]. */
+    IMAP("imap"),
 }
 
 /**
@@ -3098,6 +3317,10 @@ data class S3Config(
      * a bucket name cannot be prepended to one.
      */
     val pathStyle: Boolean = false,
+    /** An [S3Preset] id, for the screen. Empty: the endpoint was typed. */
+    val preset: String = "",
+    /** The `{account}` part of the preset's endpoint. See [S3Account]. */
+    val account: String = "",
 )
 
 /** An FTP server. */
@@ -3125,7 +3348,7 @@ data class FtpConfig(
  * where the user chose, on a schedule.
  *
  * Nothing here reaches a server of ours, which is why this exists in this shape
- * and not as an account. See [BackupDestination] for the three places it can go.
+ * and not as an account. See [BackupDestination] for the places it can go.
  *
  * Grouped (see [CameraSettings] for why); DataStore keys stay flat.
  *
@@ -3263,6 +3486,34 @@ data class AutoBackupSettings(
      * the backups were for is gone.
      */
     val lastError: String = "",
+
+    /**
+     * Every place backups go. Replaces the single [destination] and its
+     * fields, which are still read once to seed this list (see
+     * [BackupLocation.fromLegacy]) and are otherwise left alone.
+     */
+    val locations: List<BackupLocation> = emptyList(),
+
+    /** How the last run went at each location, by [BackupLocation.id]. */
+    val locationStatus: Map<String, LocationStatus> = emptyMap(),
+
+    /**
+     * What the manual "Export to a file" puts in, as section ids. Its own
+     * list since the automatic backup and sync got theirs: the three are
+     * different decisions, a one-off file to hand to someone included.
+     */
+    val exportSections: Set<String> = DEFAULT_SECTIONS,
+
+    /** Keeping several devices the same. See [SyncSettings]. */
+    val sync: SyncSettings = SyncSettings(),
+
+    /**
+     * Whether the automatic backup carries API keys. Its own switch, off,
+     * rather than [includeSecrets], which belongs to the manual export: a key
+     * someone chose to put in one file they handed over must not start
+     * riding in every scheduled upload.
+     */
+    val backupIncludeSecrets: Boolean = false,
 ) {
     companion object {
 
@@ -3289,6 +3540,90 @@ data class AutoBackupSettings(
 /** [AutoBackupSettings.sections] as the sections themselves. */
 val AutoBackupSettings.sectionSet: Set<ConfigBackup.Section>
     get() = ConfigBackup.Section.entries.filterTo(LinkedHashSet()) { it.id in sections }
+
+/** [AutoBackupSettings.exportSections] as the sections themselves. */
+val AutoBackupSettings.exportSectionSet: Set<ConfigBackup.Section>
+    get() = ConfigBackup.Section.entries.filterTo(LinkedHashSet()) { it.id in exportSections }
+
+/** Locations that can be tried at all: enabled and configured. */
+val AutoBackupSettings.activeLocations: List<BackupLocation>
+    get() = locations.filter { it.active }
+
+/** Where an automatic backup goes: every usable location ticked for backups. */
+val AutoBackupSettings.backupTargets: List<BackupLocation>
+    get() = locations.filter { it.active && it.backup }
+
+/**
+ * How sync runs: shortly after a change, on a timer, or only when asked.
+ * Stored by [id]; never store an enum's name.
+ */
+enum class SyncMode(val id: String) { SOON("soon"), SCHEDULE("schedule"), MANUAL("manual") }
+
+/**
+ * Sync between devices.
+ *
+ * Off by default, like every trigger in this app. Everything here is per
+ * install (see [SettingsBackup.TRANSIENT_KEYS]): a phone restored from a
+ * bundle, or reached by another phone's sync file, does not start syncing
+ * by itself.
+ */
+data class SyncSettings(
+    val enabled: Boolean = false,
+    val mode: SyncMode = SyncMode.SOON,
+    /** Hours between runs for [SyncMode.SCHEDULE]. See [AutoBackupIntervals]. */
+    val intervalHours: Int = 6,
+    /**
+     * The locations sync reads and writes, by [BackupLocation.id]. Any number:
+     * devices only have to share one, and more copies mean sync still works
+     * while one service is down. Not every location by default, because sync
+     * files are small but frequent, and a folder on this phone is no use to
+     * another one.
+     */
+    val locationIds: Set<String> = emptySet(),
+    /** What syncs, as section ids. */
+    val sections: Set<String> = DEFAULT_SECTIONS,
+    /**
+     * Whether API keys and passwords sync. Off by default, and the screen
+     * warns before turning it on without a passphrase, but it is the user's
+     * call: their keys, their storage.
+     */
+    val includeSecrets: Boolean = false,
+    /**
+     * Groups of settings this device keeps to itself, by
+     * [com.wasimaster.wmkeyboard.core.settings.sync.SyncKeys.LocalGroup.id].
+     * None by default: everything in Settings syncs until the user says a
+     * part of it should differ here.
+     */
+    val keepLocal: Set<String> = emptySet(),
+    val lastRunAtMs: Long = 0L,
+    /** A `SinkError` name, a sync-specific reason, or empty. */
+    val lastError: String = "",
+) {
+    companion object {
+        /**
+         * The set-up keyboard, without the personal parts. What the owner of
+         * two phones most obviously wants to match, and nothing a person
+         * might not expect to cross over.
+         */
+        val DEFAULT_SECTIONS: Set<String> = setOf(
+            ConfigBackup.Section.SETTINGS.id,
+            ConfigBackup.Section.THEMES.id,
+            ConfigBackup.Section.SNIPPETS.id,
+        )
+    }
+}
+
+/** [SyncSettings.keepLocal] as the groups themselves. */
+val SyncSettings.keepLocalGroups: Set<com.wasimaster.wmkeyboard.core.settings.sync.SyncKeys.LocalGroup>
+    get() = com.wasimaster.wmkeyboard.core.settings.sync.SyncKeys.LocalGroup.of(keepLocal)
+
+/** [SyncSettings.sections] as the sections themselves. */
+val SyncSettings.sectionSet: Set<ConfigBackup.Section>
+    get() = ConfigBackup.Section.entries.filterTo(LinkedHashSet()) { it.id in sections }
+
+/** The locations sync reads and writes: the ticked ones that can be tried. */
+fun SyncSettings.targets(locations: List<BackupLocation>): List<BackupLocation> =
+    locations.filter { it.active && it.id in locationIds }
 
 /**
  * What [KeyboardSettings.fontScale] can be set to, on the Accessibility screen
@@ -3402,6 +3737,9 @@ val AutoBackupSettings.destinationConfigured: Boolean
         BackupDestination.DROPBOX -> dropboxRefreshToken.isNotEmpty()
         BackupDestination.ONEDRIVE -> oneDriveRefreshToken.isNotEmpty()
         BackupDestination.FTP -> ftp.host.isNotEmpty() && ftp.user.isNotEmpty()
+        // Only ever a location in the list. The single destination these
+        // settings describe predates them and cannot name one.
+        BackupDestination.SFTP, BackupDestination.SMB, BackupDestination.GIT, BackupDestination.IMAP -> false
     }
 
 /**
@@ -3415,6 +3753,16 @@ val AutoBackupSettings.destinationConfigured: Boolean
  */
 val BackupDestination.needsNetwork: Boolean
     get() = this != BackupDestination.FOLDER
+
+/**
+ * Whether access is an account sign-in rather than a folder grant or typed
+ * credentials. Decides the words for a lost permission: "choose the folder
+ * again" is the wrong advice for Dropbox.
+ */
+val BackupDestination.signsIn: Boolean
+    get() = this == BackupDestination.DRIVE ||
+        this == BackupDestination.DROPBOX ||
+        this == BackupDestination.ONEDRIVE
 
 /**
  * AI-tool settings, grouped rather than flat because [KeyboardSettings] sits against
@@ -3600,6 +3948,74 @@ enum class AppSortOrder { ALPHABETICAL, RECENT_FIRST }
 enum class LauncherIconShape { CIRCLE, ROUNDED, SYSTEM }
 
 /**
+ * Where a tap in the app-launcher panel opens the app. [FLOATING] asks for a
+ * centred window and lands full screen on a phone without a freeform or
+ * desktop mode; [SPLIT] puts the app beside the one being typed in and needs
+ * Android 12L (API 32) or later, where the system split screen accepts an
+ * adjacent launch from a keyboard.
+ */
+enum class LauncherOpenMode { NORMAL, FLOATING, SPLIT }
+
+/**
+ * Two apps the launcher opens side by side: [first] on top (or left), then
+ * [second] beside it. [name] is optional; the panel falls back to both labels.
+ */
+data class LauncherSplitCombo(
+    val first: String,
+    val second: String,
+    val name: String = "",
+) {
+    companion object {
+        /**
+         * One combo per line, `first<TAB>second<TAB>name`. Tabs and line breaks
+         * in a name become spaces on the way in, so a name can never break the
+         * record it sits in.
+         */
+        fun encode(combos: List<LauncherSplitCombo>): String =
+            combos.joinToString("\n") { combo ->
+                val name = combo.name
+                    .replace('\t', ' ')
+                    .replace('\n', ' ')
+                    .replace('\r', ' ')
+                    .trim()
+                listOf(combo.first, combo.second, name).joinToString("\t")
+            }
+
+        /** Skips malformed lines rather than failing the whole list. */
+        fun decode(raw: String?): List<LauncherSplitCombo> =
+            raw.orEmpty().split('\n').mapNotNull { line ->
+                val parts = line.split('\t')
+                val first = parts.getOrNull(0)?.trim().orEmpty()
+                val second = parts.getOrNull(1)?.trim().orEmpty()
+                if (first.isEmpty() || second.isEmpty()) return@mapNotNull null
+                LauncherSplitCombo(first, second, parts.getOrNull(2)?.trim().orEmpty())
+            }
+
+        /**
+         * [combos] with [combo] appended, unless the same pair in the same
+         * order is already there: a second copy would only be a second chip.
+         */
+        fun add(
+            combos: List<LauncherSplitCombo>,
+            combo: LauncherSplitCombo,
+        ): List<LauncherSplitCombo> =
+            if (combos.any { it.first == combo.first && it.second == combo.second }) {
+                combos
+            } else {
+                combos + combo
+            }
+
+        /** [combos] with the entry at [from] moved to [to]; out of range is a no-op. */
+        fun move(combos: List<LauncherSplitCombo>, from: Int, to: Int): List<LauncherSplitCombo> {
+            if (from !in combos.indices || to !in combos.indices || from == to) return combos
+            val next = combos.toMutableList()
+            next.add(to, next.removeAt(from))
+            return next
+        }
+    }
+}
+
+/**
  * App-launcher tool settings, grouped like [AiSettings] (same 255-slot
  * rationale). The keys stay flat (`launcher_*`), so backup and locked-settings
  * handling need no change.
@@ -3644,6 +4060,10 @@ data class LauncherToolSettings(
      * results, shows it again.
      */
     val hidden: List<String> = emptyList(),
+    /** What a plain tap on an app does; the hold menu offers all three. */
+    val openMode: LauncherOpenMode = LauncherOpenMode.NORMAL,
+    /** User-made split-screen pairs, in the user's order. */
+    val combos: List<LauncherSplitCombo> = emptyList(),
 ) {
     companion object {
         const val MAX_RECENTS = 10
@@ -3880,9 +4300,53 @@ data class CjkSettings(
      * typing never sees it.
      */
     val kanaLooseMarks: Boolean = true,
+    /**
+     * The languages whose space bar types the ideographic space U+3000 (the
+     * full-width 　) instead of an ASCII one, by language id (#341). Only a
+     * press with nothing composing reaches it: a space mid-reading converts,
+     * as it always has.
+     *
+     * Per language rather than one switch, because Japanese and Chinese
+     * conventions differ (Japanese IMEs type a full-width space by default,
+     * Chinese ones a half-width one) and a person typing both may want each
+     * its own way. Empty by default, so nobody's space changes under them.
+     */
+    val fullWidthSpaceLanguages: Set<String> = emptySet(),
     /** Which region's vocabulary Traditional output should prefer. */
     val hanRegion: HanVariant.HanRegion = HanVariant.HanRegion.GENERIC,
 )
+
+/**
+ * Where the camera tool's Search button sends a photo (#349). Stored by name.
+ */
+enum class PhotoSearchTarget {
+    /**
+     * The Google app's Lens, when it is installed; the Android share sheet
+     * when it is not, so the button never dead-ends on a phone without it.
+     */
+    LENS,
+
+    /** Upload to the [PhotoSearchEngine] and open its results in the browser. */
+    WEB,
+
+    /** The Android share sheet: any app that takes an image. */
+    SHARE,
+}
+
+/**
+ * The reverse image search site for [PhotoSearchTarget.WEB]. Stored by name.
+ * None of them has a documented upload API; each is the request the site's
+ * own upload button makes, so any one of them can break without notice.
+ */
+enum class PhotoSearchEngine {
+    GOOGLE_LENS,
+    BING,
+    YANDEX,
+    TINEYE,
+
+    /** The user's own server: [CameraSettings.searchCustomUrl]. */
+    CUSTOM,
+}
 
 data class CameraSettings(
     /** Camera tool opens on the selfie camera. */
@@ -3915,6 +4379,24 @@ data class CameraSettings(
      * send; this keeps the slivers that ran off the top and the bottom too.
      */
     val fullFrame: Boolean = false,
+    /**
+     * A Search button beside Retake and Send on the confirm step (#349). Off
+     * by default: most photos taken here are for sending. The image search
+     * tool's own camera button shows it whatever this says.
+     */
+    val searchButton: Boolean = false,
+    /** Where Search sends the photo. */
+    val searchWith: PhotoSearchTarget = PhotoSearchTarget.LENS,
+    /** The site [PhotoSearchTarget.WEB] uploads to. */
+    val searchEngine: PhotoSearchEngine = PhotoSearchEngine.GOOGLE_LENS,
+    /**
+     * Upload address for [PhotoSearchEngine.CUSTOM]. The keyboard posts the
+     * photo there as multipart form data and opens the page the server
+     * answers with: a redirect, a bare URL, or JSON with a `url` field.
+     */
+    val searchCustomUrl: String = "",
+    /** Form field the photo goes in, for [PhotoSearchEngine.CUSTOM]. */
+    val searchCustomField: String = "image",
 )
 
 /**
@@ -4063,6 +4545,27 @@ data class WhisperSettings(
      * detect it, which suits people who dictate two languages on one layout.
      */
     val serverSendLanguage: Boolean = true,
+    /**
+     * Words dictation should listen for, handed to the system recognizer and
+     * the transcription server with each phrase (#305): the words the user
+     * added by hand, the ones the keyboard learned that no word list has
+     * (names, jargon), and Android's personal dictionary. Offline Whisper
+     * cannot take a hint and ignores it.
+     */
+    val biasPersonalWords: Boolean = true,
+    /**
+     * More words to listen for, typed in by the user and separated by commas.
+     * Sent ahead of the learned ones, so they are the last to be cut when a
+     * server has a limit.
+     */
+    val biasWords: String = "",
+    /**
+     * Text sent as the transcription server's `prompt`. Whisper models read it
+     * as the text that came before the clip, so it steers spelling and style.
+     * They keep only its last 224 tokens; newer models read far more. The
+     * words above are sent in front of it.
+     */
+    val serverPrompt: String = "",
 )
 
 /**
@@ -4139,6 +4642,20 @@ data class TextEditingSettings(
      */
     val wrapSelectionWithPair: Boolean = true,
     /**
+     * Typing an opening bracket with nothing selected types its closer too and
+     * leaves the caret between the two, so the next character lands inside the
+     * pair — "(" gives "(|)". Pressing the closer while it is the character in
+     * front of the caret steps over it instead of typing a second one, and one
+     * backspace on an empty pair takes both halves out.
+     *
+     * Off by default, because it changes what a bracket key types. Brackets
+     * only: quotes are left alone, since the apostrophe in "don't" is the same
+     * key and closing it would be wrong far more often than right. `<` is left
+     * alone too — outside code it is a less-than sign, and "5 <" is not a
+     * bracket anybody is opening.
+     */
+    val autoCloseBrackets: Boolean = false,
+    /**
      * Pressing shift with text selected cycles its case (lower → Title → UPPER)
      * instead of arming shift for the next character.
      */
@@ -4163,6 +4680,12 @@ data class TextEditingSettings(
      * overshoots.
      */
     val spaceCursorStepDp: Int = 16,
+    /**
+     * A magnifier over the caret while a spacebar cursor swipe moves it
+     * (discussion #303): the line around the caret, enlarged, in a bubble over
+     * the text. The trackpad has its own switch, [TrackpadSettings.magnifier].
+     */
+    val spaceCursorMagnifier: Boolean = true,
     /**
      * How far a backspace swipe drags before the first word goes.
      *
@@ -4282,6 +4805,12 @@ data class TrackpadSettings(
     val haptics: Boolean = true,
     /** Draw the finger's trail and a crosshair on the surface while dragging. */
     val trail: Boolean = true,
+    /**
+     * A magnifier over the caret while a drag moves it (discussion #303): the
+     * line around the caret, enlarged, in a bubble over the text, so the finger
+     * on the pad can see where the caret is without looking for it.
+     */
+    val magnifier: Boolean = true,
 )
 
 /**
@@ -4302,6 +4831,31 @@ data class PerAppLanguageSettings(
 
 /** Bounds for the Morse commit pause, in ms; the settings slider shares them. */
 val MorseCommitMsRange = 300..2000
+
+/** One corner of the docked keyboard, on screen (left is left, in any language). */
+enum class BoardCorner {
+    TOP_LEFT,
+    TOP_RIGHT,
+    BOTTOM_LEFT,
+    BOTTOM_RIGHT,
+    ;
+
+    /** Caption for this choice; resolve it where it is drawn. */
+    @get:StringRes
+    val labelRes: Int
+        get() = when (this) {
+            TOP_LEFT -> R.string.core_settings_board_corner_top_left_label
+            TOP_RIGHT -> R.string.core_settings_board_corner_top_right_label
+            BOTTOM_LEFT -> R.string.core_settings_board_corner_bottom_left_label
+            BOTTOM_RIGHT -> R.string.core_settings_board_corner_bottom_right_label
+        }
+}
+
+/** Bounds for the docked keyboard's corner radii, in dp; 0 is square. */
+val BoardCornerRadiusRange = 0..40
+
+/** Bounds for [LayoutBehaviorSettings.globeTypingGuardMs]; 0 is off. The slider shares them. */
+val GlobeTypingGuardMsRange = 0..1000
 
 /** How many languages the user said they type in during onboarding. */
 enum class PersonaLanguages { UNSET, ONE, MANY }
@@ -4368,6 +4922,21 @@ data class AppUiSettings(
      * the keyboard reads it.
      */
     val dictionarySort: DictionarySort = DictionarySort.MOST_USED_FIRST,
+    /**
+     * Whether settings rows and screen headings carry their coloured icon
+     * tiles. Off is the plain list of words the app had before the tiles
+     * arrived, for readers who find a column of colour more noise than help.
+     * Only the settings app reads it; the keyboard's own icons are untouched.
+     */
+    val rowIcons: Boolean = true,
+    /**
+     * Whether a row's icon and name fly into the heading of the screen it
+     * opens. Off takes the flights out *and* the shared-transition layout
+     * that hosts them: that layout measures the whole settings tree twice on
+     * every pass, flights or not, which is most of the lag a slow phone
+     * shows opening a screen. The plain slide between screens stays.
+     */
+    val screenTransitions: Boolean = true,
 )
 
 /** What the symbol row's height slider offers, matching the number row's. */
@@ -4564,6 +5133,41 @@ enum class ClipboardView {
         }
 }
 
+/** The time a clip in the panel shows under its text, if any. */
+enum class ClipTimeLabel {
+    /** No time on the clips. */
+    OFF,
+
+    /** How long ago it was copied: "5 min ago". */
+    COPIED,
+
+    /** How long until it expires: "2 h left". Nothing on a clip that never does. */
+    EXPIRES,
+    ;
+
+    /** Caption for this choice; resolve it where it is drawn. */
+    @get:StringRes
+    val labelRes: Int
+        get() = when (this) {
+            OFF -> R.string.core_settings_clip_time_off_label
+            COPIED -> R.string.core_settings_clip_time_copied_label
+            EXPIRES -> R.string.core_settings_clip_time_expires_label
+        }
+}
+
+/** Lines of text a clip may show in the panel; 0 is the view's own (see [ClipboardSettings.previewLines]). */
+val ClipPreviewLinesRange = 0..20
+
+/** Columns the grid view may have. */
+val ClipGridColumnsRange = 1..4
+
+/**
+ * The stops of the per-clip text limit, in characters; 0 is no limit. A
+ * slider over these rather than over every number, since nobody means 13,417.
+ * 20,000 is Gboard's own limit.
+ */
+val ClipMaxTextCharsSteps = listOf(0, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000, 100_000)
+
 /**
  * Clipboard-tool settings — history capture, the panel, and the paste chip on
  * the suggestion strip — grouped into their own object (see [CameraSettings]
@@ -4686,6 +5290,41 @@ data class ClipboardSettings(
      * Off by default.
      */
     val showNumbers: Boolean = false,
+    /**
+     * Offer an Undo bar for a few seconds after a clip is deleted from the
+     * panel (#327). A swipe deletes with no confirmation, and one made while
+     * scrolling is easy to make by accident. On by default: it only shows up
+     * when something was just deleted.
+     */
+    val undoDelete: Boolean = true,
+    /**
+     * Swiping a card sideways deletes it (#344). On by default. Off, a
+     * sideways drag does nothing, and the press-and-hold popup gains a Delete
+     * button in its place, for anyone who kept losing clips to a swipe made
+     * while scrolling. The bin circle on each card is there either way.
+     */
+    val swipeToDelete: Boolean = true,
+    /**
+     * Lines of text each clip shows in the panel. 0, the default, is the
+     * view's own: six on a grid card, three in a list row. See
+     * [ClipPreviewLinesRange].
+     */
+    val previewLines: Int = 0,
+    /**
+     * Columns of cards in the grid view, 1 to 4 ([ClipGridColumnsRange]). Two
+     * by default, as before; a wide screen or short clips suit more. The list
+     * view is always one clip per row.
+     */
+    val gridColumns: Int = 2,
+    /** The time each clip shows: none, when it was copied, or when it expires. */
+    val timeLabel: ClipTimeLabel = ClipTimeLabel.OFF,
+    /**
+     * The most characters of text one clip keeps, 0 for no limit (the
+     * default). A longer copy is stored cut to this length. Gboard cuts at
+     * 20,000; here nothing is cut unless the user asks, since a clip cut short
+     * pastes something other than what was copied. See [ClipMaxTextCharsSteps].
+     */
+    val maxTextChars: Int = 0,
 )
 
 /**
@@ -4926,6 +5565,12 @@ val GlideWiggleExtentRange = 0.2f..0.9f
  * zero is the reading switched off, which is what the toggle is for.
  */
 val GlideWiggleWeightRange = 0.1f..1f
+
+/**
+ * Bounds for [GestureSettings.shapesPerWord]. The top is the shape store's own
+ * ceiling, so a value the slider reaches is always one the store keeps.
+ */
+val GlideShapesPerWordRange = 1..GlideShapeStore.MAX_SHAPES_PER_WORD
 
 /** Glide-typing behaviour and swipe-trail appearance. See [KeyboardSettings.gesture]. */
 data class GestureSettings(
@@ -5287,6 +5932,15 @@ data class GestureSettings(
      */
     val learnSwipeStyle: Boolean = true,
     /**
+     * How many ways of drawing one word [learnSwipeStyle] keeps apart
+     * (#326). Three is what the store always kept; the ceiling is high on
+     * purpose, so a user can let it grow and see in a backup how many a hand
+     * really uses before the default is revisited. Lowering it hides the
+     * least-used extras from the decoder at once and drops them only when the
+     * word next learns a new way. Range [GlideShapesPerWordRange].
+     */
+    val shapesPerWord: Int = GlideShapeStore.DEFAULT_SHAPES_PER_WORD,
+    /**
      * Offer the full search as a chip on the suggestion strip whenever the
      * caret lands inside a word a swipe wrote and whose path is still kept
      * (#135).
@@ -5377,6 +6031,20 @@ data class LayoutBehaviorSettings(
      */
     val symbolsLongPressNumpad: Boolean = true,
     /**
+     * Holding the enter key offers the emoji panel, the way SwiftKey's enter
+     * key does, for a layout whose bottom row has no emoji key of its own.
+     *
+     * It is an entry in the key's press and hold popup rather than a hold that
+     * jumps straight to the panel, because the hold is already shared: a field
+     * that declares Send/Go/Search puts the line break it displaces there. Both
+     * stay reachable that way. The emoji entry goes first, so with hold to
+     * select on a plain hold and release opens the panel — that is what
+     * turning this on asks for — and the line break is one slide along.
+     *
+     * Off by default: it changes what an existing hold on enter does.
+     */
+    val enterLongPressEmoji: Boolean = false,
+    /**
      * Swiping straight down on the spacebar dismisses the keyboard, the way a
      * downward flick on the toolbar can. Off by default so a stray vertical
      * drag never closes the keyboard mid-type.
@@ -5397,6 +6065,39 @@ data class LayoutBehaviorSettings(
      * decoder, and the setting's own text says what it costs.
      */
     val hintFlick: Boolean = false,
+    /**
+     * The upward twin of [hintFlick]: a short, quick swipe up on a letter
+     * types its capital, or on a key with a shifted character of its own
+     * ([com.wasimaster.wmkeyboard.core.layout.Key.shiftLabel]) that character,
+     * without touching shift. What Gboard-patches calls up-flick uppercase.
+     *
+     * A key carrying an octopus word keeps its flick for the word. Off by
+     * default for the reason [hintFlick] is: a fast glide that opens straight
+     * up off a key ("de") can read as a flick.
+     */
+    val capitalFlick: Boolean = false,
+    /**
+     * For this long after a typed key, a tap on the 🌐 key is ignored, in ms
+     * (0 = off). The globe sits between `?123`/comma and the spacebar, and a
+     * thumb reaching for either mid-word lands on it often enough to switch
+     * language in the middle of a sentence. A deliberate switch comes after a
+     * pause; an accidental one comes straight out of typing. Holding the key
+     * still opens the picker at any time. Off by default: nothing about the
+     * key changes until someone asks for it.
+     */
+    val globeTypingGuardMs: Int = 0,
+    /**
+     * How round the docked keyboard's top corners are, in dp (0 = square, the
+     * default). The corners are cut out of the whole board, so the app shows
+     * through them, the way Gboard-patches' rounded panel does. The floating
+     * panel and the television card have rounded corners of their own and are
+     * left alone. See [BoardCornerRadiusRange].
+     */
+    val boardCornerTopDp: Int = 0,
+    /** The same for the two bottom corners, which suit gesture navigation. */
+    val boardCornerBottomDp: Int = 0,
+    /** Which of the four corners [boardCornerTopDp] and [boardCornerBottomDp] round. All four by default. */
+    val boardCorners: Set<BoardCorner> = BoardCorner.entries.toSet(),
     /**
      * Turn the spacebar cursor slide into a 2-D touchpad: a vertical drag moves
      * the caret up and down as well as left and right. Only applies while a
@@ -5424,6 +6125,13 @@ data class LayoutBehaviorSettings(
      */
     val languagePickerStyle: LanguagePickerStyle = LanguagePickerStyle.LIST,
     /**
+     * Whether a spacebar hold with more than four layouts on opens the full
+     * picker ([languagePickerStyle]) rather than the inline preview. On is what
+     * shipped. Off keeps the sideways preview at every ring length: it scrolls
+     * and windows itself, so a long ring stays reachable from it.
+     */
+    val spaceHoldPickerForLongRing: Boolean = true,
+    /**
      * Size multiplier for the small corner hint character on each key (the
      * first long-press alternate, shown when [KeyboardSettings.longPressHints]
      * is on). 1.0 keeps the default 10sp base.
@@ -5440,11 +6148,12 @@ data class LayoutBehaviorSettings(
      * script it is about to type rather than its long-press alternate: ক on
      * the `k`, কা on the `a` once a consonant is composing, ক্ক on the `k`
      * after one. The hints follow the composing buffer and the shift state, so
-     * the roman grid reads as the Bengali it produces. On by default — it is
-     * the only thing on a phonetic board that says what a key does — and
+     * the roman grid reads as the Bengali it produces. Off by default: the
+     * hints change on every keystroke, so they cost every key a redraw per
+     * letter typed, and a phonetic typist mostly knows the scheme already.
      * [TransliterationHintMode] picks how much of the cluster it shows.
      */
-    val transliterationHints: TransliterationHintMode = TransliterationHintMode.CLUSTER,
+    val transliterationHints: TransliterationHintMode = TransliterationHintMode.OFF,
     /**
      * When on, holding shift on the letters layer swaps the extra number row's
      * digits for the symbol layer's bracket/math fill row (`=\<>[]{}|~`), so
@@ -5688,6 +6397,15 @@ data class LayoutBehaviorSettings(
      * different answers there.
      */
     val keyboardWidthUntouched: Boolean = true,
+    /**
+     * The 🌐 key sits in the same place on every layout (#310): the slot the
+     * built-in bottom row gives it, beside the spacebar, whatever the layout's
+     * own bottom row says. A layout imported from Keyman can put it at the far
+     * left, or after `?123`, and someone switching between three languages
+     * then chases it around the row. On by default: the built-in layouts
+     * already have it there, so they are left exactly as they were.
+     */
+    val globeInOnePlace: Boolean = true,
 ) {
     /** The characters that spring the symbols layer back, with the default applied. */
     fun symbolsReturnCharSet(): String =
@@ -5759,9 +6477,11 @@ enum class LanguageDetectionStrength { GENTLE, BALANCED, AGGRESSIVE }
  * The optional items of the menu that opens when a word on the suggestion
  * strip is pressed and held (#99). "Edit" is not here because it is always
  * offered: it opens the word card, which carries every one of these actions
- * too, so hiding all three still leaves everything reachable.
+ * too, so hiding all of them still leaves everything reachable. [SYNONYMS]
+ * is the one the card does not carry (#321): it replaces the word in the
+ * text rather than editing it in the dictionary.
  */
-enum class WordMenuItem { NEVER_SUGGEST, ADD, DELETE }
+enum class WordMenuItem { NEVER_SUGGEST, ADD, DELETE, SYNONYMS }
 
 /**
  * What the word card's rank control changes (#99).
@@ -6121,6 +6841,13 @@ data class SuggestionStripSettings(
      */
     val spellingMapOffLangs: Set<String> = emptySet(),
     /**
+     * Phonetic languages whose space bar commits the letter-for-letter reading
+     * instead of a dictionary word that sounds like it ("asi" → আসি rather
+     * than আছি). The sound-alikes stay in the strip. Stored as the switched-off
+     * set, so a language nobody has touched keeps them on, as it always had.
+     */
+    val phoneticSiblingsOffLangs: Set<String> = emptySet(),
+    /**
      * Languages whose suggestions come from the user's own imported word lists
      * alone: the bundled list and any downloaded one are dropped for them
      * (issue #28).
@@ -6195,6 +6922,13 @@ data class SuggestionStripSettings(
      * only to stay under its JVM field ceiling.
      */
     val wordMenuItems: Set<WordMenuItem> = WordMenuItem.entries.toSet(),
+    /**
+     * Where the held-word menu's Synonyms looks (#321), in the order it asks:
+     * each source is asked only when the ones before it had no synonyms for
+     * the word or could not be reached. A source switched off stays in the
+     * list, in its place, so switching it back on does not lose the order.
+     */
+    val synonymSources: List<SynonymSourceChoice> = SynonymSources.DEFAULT,
     /** What the word card's rank controls edit; see [RankControl]. */
     val rankControl: RankControl = RankControl.BOTH,
     /**
@@ -6220,6 +6954,9 @@ data class SuggestionStripSettings(
 ) {
     /** Whether the fixed-spelling map applies to [langId]. */
     fun spellingMapEnabledFor(langId: String): Boolean = langId !in spellingMapOffLangs
+
+    /** Whether a space on [langId]'s phonetic layout may commit a sound-alike dictionary word. */
+    fun phoneticSiblingsEnabledFor(langId: String): Boolean = langId !in phoneticSiblingsOffLangs
 
     /** Whether [langId]'s phonetic layout commits English words as English; null is no phonetic layout. */
     fun phoneticEnglishFor(langId: String?): Boolean = langId != null && langId in phoneticEnglishLangs
@@ -6402,6 +7139,7 @@ class SettingsRepository(private val context: Context) {
         private val ENABLED_MODES = stringPreferencesKey("enabled_modes")
         private val ACTIVE_LAYOUT_ID = stringPreferencesKey("active_layout_id")
         private val ENABLED_LAYOUT_IDS = stringPreferencesKey("enabled_layout_ids")
+        private val RECENT_LAYOUT_IDS = stringPreferencesKey("recent_layout_ids")
         private val CUSTOM_LAYOUTS = stringPreferencesKey("custom_layouts")
         private val SECONDARY_LANGUAGES = stringPreferencesKey("secondary_languages")
         private val AUTO_PAIR_ROMANIZED_DONE =
@@ -6601,6 +7339,7 @@ class SettingsRepository(private val context: Context) {
         private val LANGUAGE_PUNCTUATION_SPACING =
             booleanPreferencesKey("language_punctuation_spacing")
         private val WRAP_SELECTION_WITH_PAIR = booleanPreferencesKey("wrap_selection_with_pair")
+        private val AUTO_CLOSE_BRACKETS = booleanPreferencesKey("auto_close_brackets")
         /**
          * Read only: the text-editing pad's grid from before panel layouts. Folded
          * into [customPanelLayouts] while no TEXT_EDIT layout is stored, and
@@ -6670,9 +7409,19 @@ class SettingsRepository(private val context: Context) {
             return out ?: emptyMap()
         }
         private val SPELLING_MAP_OFF_LANGS = stringSetPreferencesKey("spelling_map_off_langs")
+        private val PHONETIC_SIBLINGS_OFF_LANGS = stringSetPreferencesKey("phonetic_siblings_off_langs")
         private val IMPORTED_ONLY_LANGS = stringSetPreferencesKey("imported_only_langs")
         private val WORD_PAIRS_OFF_LANGS = stringSetPreferencesKey("word_pairs_off_langs")
         private val WORD_MENU_ITEMS = stringSetPreferencesKey("word_menu_items")
+
+        /**
+         * Written into [WORD_MENU_ITEMS] beside the item names from the build
+         * that added Synonyms (#321) on. A stored set without it was chosen
+         * before Synonyms existed, so Synonyms is read as on rather than as
+         * switched off by someone who never saw it.
+         */
+        private const val WORD_MENU_SYNONYMS_MARK = "~synonyms"
+        private val SYNONYM_SOURCES = stringPreferencesKey("synonym_sources")
         private val WORD_RANK_CONTROL = stringPreferencesKey("word_rank_control")
         private val DELETE_EDITS_IMPORTED_LISTS = booleanPreferencesKey("delete_edits_imported_lists")
         private val LEARN_FROM_TEXT_SORT = stringPreferencesKey("learn_from_text_sort")
@@ -6726,6 +7475,7 @@ class SettingsRepository(private val context: Context) {
         private val GESTURE_COMMIT_COLOR_SCOPE =
             stringPreferencesKey("gesture_commit_color_scope")
         private val GESTURE_LEARN_SWIPE_STYLE = booleanPreferencesKey("gesture_learn_swipe_style")
+        private val GESTURE_SHAPES_PER_WORD = intPreferencesKey("gesture_shapes_per_word")
         private val GESTURE_SEARCH_ALL_CHIP = booleanPreferencesKey("gesture_search_all_chip")
         private val GESTURE_SWIPE_STYLE_VERSION = intPreferencesKey("gesture_swipe_style_version")
         // Legacy boolean, read only to migrate into SPACE_LONG_SWIPE.
@@ -6735,8 +7485,16 @@ class SettingsRepository(private val context: Context) {
         private val SPACEBAR_LANGUAGE_ARROWS = booleanPreferencesKey("spacebar_language_arrows")
         private val SPACEBAR_LABEL = stringPreferencesKey("spacebar_label")
         private val SYMBOLS_LONGPRESS_NUMPAD = booleanPreferencesKey("symbols_longpress_numpad")
+        private val ENTER_LONGPRESS_EMOJI = booleanPreferencesKey("enter_longpress_emoji")
         private val SPACE_SWIPE_DOWN_HIDE = booleanPreferencesKey("space_swipe_down_hide")
+        private val GLOBE_IN_ONE_PLACE = booleanPreferencesKey("globe_in_one_place")
         private val HINT_FLICK = booleanPreferencesKey("hint_flick")
+        private val CAPITAL_FLICK = booleanPreferencesKey("capital_flick")
+        private val GLOBE_TYPING_GUARD_MS = intPreferencesKey("globe_typing_guard_ms")
+        private val GLOBE_DRAG_SHORTCUTS = booleanPreferencesKey("globe_drag_shortcuts")
+        private val BOARD_CORNER_TOP = intPreferencesKey("board_corner_top")
+        private val BOARD_CORNER_BOTTOM = intPreferencesKey("board_corner_bottom")
+        private val BOARD_CORNERS = stringSetPreferencesKey("board_corners")
         private val SPACE_CURSOR_2D = booleanPreferencesKey("space_cursor_2d")
         private val HINT_FONT_SCALE = floatPreferencesKey("hint_font_scale")
         private val HINT_OFFSET = intPreferencesKey("hint_offset_dp")
@@ -6789,6 +7547,7 @@ class SettingsRepository(private val context: Context) {
         private val AUTOPILOT_VISUAL_SCALE = floatPreferencesKey("autopilot_visual_scale")
         private val SPACEBAR_DISPLAY = stringPreferencesKey("spacebar_display")
         private val LANGUAGE_PICKER_STYLE = stringPreferencesKey("language_picker_style")
+        private val SPACE_HOLD_PICKER_FOR_LONG_RING = booleanPreferencesKey("space_hold_picker_for_long_ring")
         private val NUMERAL_SYSTEM_BY_LANG = stringPreferencesKey("numeral_system_by_lang")
         private val NUMERAL_COMMIT_SCOPE = stringPreferencesKey("numeral_commit_scope")
         private val SHIFT_ENTER_NEWLINE = booleanPreferencesKey("shift_enter_newline")
@@ -6851,6 +7610,7 @@ class SettingsRepository(private val context: Context) {
         private val VOLUME_CURSOR_MEDIA_AWARE = booleanPreferencesKey("volume_cursor_media_aware")
         private val GLOBE_AS_EMOJI = booleanPreferencesKey("globe_as_emoji")
         private val SHOW_GLOBE_KEY = booleanPreferencesKey("show_globe_key")
+        private val GLOBE_RECENT_ORDER = booleanPreferencesKey("globe_recent_order")
         private val OS_LANGUAGE_SWITCHER = booleanPreferencesKey("os_language_switcher")
         private val SUBTYPE_APP_NAME_FIRST = booleanPreferencesKey("subtype_app_name_first")
         private val PER_APP_LANGUAGE_ENABLED = booleanPreferencesKey("per_app_language_enabled")
@@ -6864,6 +7624,8 @@ class SettingsRepository(private val context: Context) {
         private val ADVANCED_OPEN = stringSetPreferencesKey("advanced_open")
         private val DEFAULT_WORDLIST_SIZE = stringPreferencesKey("default_wordlist_size")
         private val DICTIONARY_SORT = stringPreferencesKey("dictionary_sort")
+        private val SETTINGS_ROW_ICONS = booleanPreferencesKey("settings_row_icons")
+        private val SETTINGS_SCREEN_TRANSITIONS = booleanPreferencesKey("settings_screen_transitions")
         private val SYMBOL_ROW_HEIGHT = intPreferencesKey("symbol_row_height")
         private val SYMBOL_ROW_LINES = intPreferencesKey("symbol_row_lines")
         private val SYMBOL_ROW_SCROLL = stringPreferencesKey("symbol_row_scroll")
@@ -6888,6 +7650,7 @@ class SettingsRepository(private val context: Context) {
         private val CJK_TRADITIONAL_OUTPUT = booleanPreferencesKey("cjk_traditional_output")
         private val JYUTPING_LAZY = booleanPreferencesKey("jyutping_lazy")
         private val KANA_LOOSE_MARKS = booleanPreferencesKey("kana_loose_marks")
+        private val FULL_WIDTH_SPACE_LANGUAGES = stringSetPreferencesKey("full_width_space_languages")
         private val CJK_HAN_REGION = stringPreferencesKey("cjk_han_region")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
         // One-handed width leaves room for the rail on the inner edge, so it is
@@ -6947,6 +7710,12 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_FULL_BLEED = booleanPreferencesKey("clipboard_full_bleed")
         private val CLIPBOARD_VIEW = stringPreferencesKey("clipboard_view")
         private val CLIPBOARD_SHOW_NUMBERS = booleanPreferencesKey("clipboard_show_numbers")
+        private val CLIPBOARD_UNDO_DELETE = booleanPreferencesKey("clipboard_undo_delete")
+        private val CLIPBOARD_SWIPE_TO_DELETE = booleanPreferencesKey("clipboard_swipe_to_delete")
+        private val CLIPBOARD_PREVIEW_LINES = intPreferencesKey("clipboard_preview_lines")
+        private val CLIPBOARD_GRID_COLUMNS = intPreferencesKey("clipboard_grid_columns")
+        private val CLIPBOARD_TIME_LABEL = stringPreferencesKey("clipboard_time_label")
+        private val CLIPBOARD_MAX_TEXT_CHARS = intPreferencesKey("clipboard_max_text_chars")
         private val OTP_CHIP_ENABLED = booleanPreferencesKey("otp_chip_enabled")
         // Stored under its old name: the test behind it grew from "number
         // field" to "code box", but a user who turned it on meant the same
@@ -6997,6 +7766,21 @@ class SettingsRepository(private val context: Context) {
             stringPreferencesKey(SettingsBackup.AUTO_BACKUP_DROPBOX_TOKEN)
         private val AUTO_BACKUP_ONEDRIVE_TOKEN =
             stringPreferencesKey(SettingsBackup.AUTO_BACKUP_ONEDRIVE_TOKEN)
+        private val AUTO_BACKUP_LOCATIONS = stringPreferencesKey(SettingsBackup.AUTO_BACKUP_LOCATIONS)
+        private val AUTO_BACKUP_LOCATION_STATUS =
+            stringPreferencesKey(SettingsBackup.AUTO_BACKUP_LOCATION_STATUS)
+        private val EXPORT_SECTIONS = stringSetPreferencesKey("export_sections")
+        private val AUTO_BACKUP_INCLUDE_KEYS = booleanPreferencesKey("auto_backup_include_keys")
+        private val SYNC_ENABLED = booleanPreferencesKey(SettingsBackup.SYNC_ENABLED)
+        private val SYNC_MODE = stringPreferencesKey(SettingsBackup.SYNC_MODE)
+        private val SYNC_INTERVAL_HOURS = intPreferencesKey(SettingsBackup.SYNC_INTERVAL_HOURS)
+        private val SYNC_LOCATION_ID = stringPreferencesKey(SettingsBackup.SYNC_LOCATION_ID)
+        private val SYNC_LOCATION_IDS = stringSetPreferencesKey(SettingsBackup.SYNC_LOCATION_IDS)
+        private val SYNC_SECTIONS = stringSetPreferencesKey(SettingsBackup.SYNC_SECTIONS)
+        private val SYNC_INCLUDE_SECRETS = booleanPreferencesKey(SettingsBackup.SYNC_INCLUDE_SECRETS)
+        private val SYNC_KEEP_LOCAL = stringSetPreferencesKey(SettingsBackup.SYNC_KEEP_LOCAL)
+        private val SYNC_LAST_RUN_AT = longPreferencesKey(SettingsBackup.SYNC_LAST_RUN_AT)
+        private val SYNC_LAST_ERROR = stringPreferencesKey(SettingsBackup.SYNC_LAST_ERROR)
         private val LONG_PRESS_DELAY = intPreferencesKey("long_press_delay")
         // The pre-split single interval. Still read, as the fallback for both
         // keys below, so a cadence tuned before the split survives the upgrade.
@@ -7139,6 +7923,9 @@ class SettingsRepository(private val context: Context) {
         private val VOICE_SERVER_KEY = stringPreferencesKey("voice_server_key")
         private val VOICE_SERVER_MODEL = stringPreferencesKey("voice_server_model")
         private val VOICE_SERVER_SEND_LANGUAGE = booleanPreferencesKey("voice_server_send_language")
+        private val VOICE_BIAS_PERSONAL_WORDS = booleanPreferencesKey("voice_bias_personal_words")
+        private val VOICE_BIAS_WORDS = stringPreferencesKey("voice_bias_words")
+        private val VOICE_SERVER_PROMPT = stringPreferencesKey("voice_server_prompt")
         private val CAMERA_PREFER_FRONT = booleanPreferencesKey("camera_prefer_front")
         private val CAMERA_TIMER_SECONDS = intPreferencesKey("camera_timer_seconds")
         private val CAMERA_CAPTURE_MAX_PX = intPreferencesKey("camera_capture_max_px")
@@ -7149,12 +7936,18 @@ class SettingsRepository(private val context: Context) {
         private val CAMERA_HAPTICS = booleanPreferencesKey("camera_haptics")
         private val CAMERA_SAVE_TO_GALLERY = booleanPreferencesKey("camera_save_to_gallery")
         private val CAMERA_FULL_FRAME = booleanPreferencesKey("camera_full_frame")
+        private val CAMERA_SEARCH_BUTTON = booleanPreferencesKey("camera_search_button")
+        private val CAMERA_SEARCH_WITH = stringPreferencesKey("camera_search_with")
+        private val CAMERA_SEARCH_ENGINE = stringPreferencesKey("camera_search_engine")
+        private val CAMERA_SEARCH_CUSTOM_URL = stringPreferencesKey("camera_search_custom_url")
+        private val CAMERA_SEARCH_CUSTOM_FIELD = stringPreferencesKey("camera_search_custom_field")
         private val DOC_SCAN_SAVE_TO_GALLERY = booleanPreferencesKey("doc_scan_save_to_gallery")
         private val QR_SAVE_TO_GALLERY = booleanPreferencesKey("qr_save_to_gallery")
         private val STICKER_SEND_MODE = stringPreferencesKey("sticker_send_mode")
         private val GIF_SEND_MODE = stringPreferencesKey("gif_send_mode")
         private val QR_SEND_MODE = stringPreferencesKey("qr_send_mode")
         private val DICTIONARY_AUTO_LOOKUP = booleanPreferencesKey("dictionary_auto_lookup")
+        private val DICTIONARY_SOURCES = stringPreferencesKey("dictionary_sources")
         private val TEXT_EDIT_REPEAT_MS = intPreferencesKey("text_edit_repeat_ms")
         private val CURSOR_TOOLS_REPEAT_ON_HOLD =
             booleanPreferencesKey("cursor_tools_repeat_on_hold")
@@ -7167,6 +7960,7 @@ class SettingsRepository(private val context: Context) {
         private val TRACKPAD_MULTI_TAP = booleanPreferencesKey("trackpad_multi_tap")
         private val TRACKPAD_HAPTICS = booleanPreferencesKey("trackpad_haptics")
         private val TRACKPAD_TRAIL = booleanPreferencesKey("trackpad_trail")
+        private val TRACKPAD_MAGNIFIER = booleanPreferencesKey("trackpad_magnifier")
         private val VOCAB_NUDGES = booleanPreferencesKey("vocab_nudges")
         private val VOCAB_NUDGE_SELF = booleanPreferencesKey("vocab_nudge_self")
         private val VOCAB_NUDGE_SCOPE = stringPreferencesKey("vocab_nudge_scope")
@@ -7188,6 +7982,7 @@ class SettingsRepository(private val context: Context) {
         private val VOCAB_TRANSLATION_LANGS = stringPreferencesKey("vocab_translation_langs")
         private val DOUBLE_SPACE_WINDOW_MS = intPreferencesKey("double_space_window_ms")
         private val SPACE_CURSOR_STEP_DP = intPreferencesKey("space_cursor_step_dp")
+        private val SPACE_CURSOR_MAGNIFIER = booleanPreferencesKey("space_cursor_magnifier")
         private val BACKSPACE_WORD_STEP_DP = intPreferencesKey("backspace_word_step_dp")
         private val BACKSPACE_SWIPE_UNIT = stringPreferencesKey("backspace_swipe_unit")
         private val BACKSPACE_SWIPE_PREVIEW = booleanPreferencesKey("backspace_swipe_preview")
@@ -7211,6 +8006,7 @@ class SettingsRepository(private val context: Context) {
         private val INCOGNITO_PAUSES_LEARNING = booleanPreferencesKey("incognito_pauses_learning")
         private val AUTO_INCOGNITO = booleanPreferencesKey("auto_incognito")
         private val OCR_AUTO_SELECT_WORDS = booleanPreferencesKey("ocr_auto_select_words")
+        private val OCR_ENGINE = stringPreferencesKey("ocr_engine")
         private val QR_SCAN_HAPTICS = booleanPreferencesKey("qr_scan_haptics")
         private val QR_SCAN_AUTO_INSERT = booleanPreferencesKey("qr_scan_auto_insert")
         private val QR_SCAN_LINK_PREVIEWS = booleanPreferencesKey("qr_scan_link_previews")
@@ -7231,6 +8027,12 @@ class SettingsRepository(private val context: Context) {
         private val APP_LOCK_TARGETS = stringSetPreferencesKey("app_lock_targets")
         private val APP_LOCK_RELOCK = stringPreferencesKey("app_lock_relock")
         private val APP_LOCK_ALLOW_CREDENTIAL = booleanPreferencesKey("app_lock_allow_credential")
+
+        // Automation intents; see [AutomationSettings]. One flag per
+        // [AutomationPermission], keyed by its stable [AutomationPermission.key].
+        private val AUTOMATION_ENABLED = booleanPreferencesKey("automation_enabled")
+        private fun automationKey(permission: AutomationPermission) =
+            booleanPreferencesKey("automation_allow_${permission.key}")
         private val CRYPTO_DECIMALS = intPreferencesKey("crypto_decimals")
         private val GRAMMAR_DEBOUNCE_MS = intPreferencesKey("grammar_debounce_ms")
         private val UNIT_CONVERT_LAST = stringPreferencesKey("unit_convert_last")
@@ -7242,6 +8044,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBOX_PAGINATE = booleanPreferencesKey("toolbox_paginate")
         private val TOOLBOX_PAGE_SIZE = intPreferencesKey("toolbox_page_size")
         private val TOOLBOX_LABEL_SIZE = intPreferencesKey("toolbox_label_size")
+        private val TOOLBOX_HIDDEN_TOOLS = stringPreferencesKey("toolbox_hidden_tools")
         private val SUGGESTION_TEXT_SCALE = floatPreferencesKey("suggestion_text_scale")
         private val LEARNED_WORD_MIN_COUNT = intPreferencesKey("learned_word_min_count")
         private val NEW_WORD_SIGHTINGS = intPreferencesKey("new_word_sightings")
@@ -7256,6 +8059,13 @@ class SettingsRepository(private val context: Context) {
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
         private val TRANSLATE_ENGINE = stringPreferencesKey("translate_engine")
+        private val TRANSLATE_DOWNLOADED_FIRST = booleanPreferencesKey("translate_downloaded_first")
+        private val TRANSLATE_ONLY_DOWNLOADED = booleanPreferencesKey("translate_only_downloaded")
+        private val DEEPL_API_KEY = stringPreferencesKey("deepl_api_key")
+        private val DEEPL_ENDPOINT = stringPreferencesKey("deepl_endpoint")
+        private val DEEPL_TRANSLATE = booleanPreferencesKey("deepl_translate")
+        private val DEEPL_WRITE = booleanPreferencesKey("deepl_write")
+        private val DEEPL_WRITE_STYLE = stringPreferencesKey("deepl_write_style")
         private val GRAMMAR_DIALECT = stringPreferencesKey("grammar_dialect")
         private val GRAMMAR_HIDDEN_KINDS = stringSetPreferencesKey("grammar_hidden_kinds")
         private val SPELL_CHECKER_NO_SUGGESTIONS =
@@ -7267,6 +8077,9 @@ class SettingsRepository(private val context: Context) {
         private val GIF_SOURCE_MODE = stringPreferencesKey("gif_source_mode")
         private val GIF_CONTENT_FILTER = stringPreferencesKey("gif_content_filter")
         private val GIF_RESULT_LIMIT = intPreferencesKey("gif_result_limit")
+        private val STICKER_SUGGEST = booleanPreferencesKey("sticker_suggest")
+        private val STICKER_SUGGEST_STYLE = stringPreferencesKey("sticker_suggest_style")
+        private val STICKER_SUGGEST_TRIGGER = stringPreferencesKey("sticker_suggest_trigger")
         private val SEARCH_SAFE = booleanPreferencesKey("search_safe")
         private val SEARCH_RESULT_COUNT = intPreferencesKey("search_result_count")
         private val WIKI_LANGUAGE = stringPreferencesKey("wiki_language")
@@ -7299,6 +8112,8 @@ class SettingsRepository(private val context: Context) {
         private val LAUNCHER_ICON_SIZE = intPreferencesKey("launcher_icon_size")
         private val LAUNCHER_ICON_SHAPE = stringPreferencesKey("launcher_icon_shape")
         private val LAUNCHER_HIDDEN = stringPreferencesKey("launcher_hidden")
+        private val LAUNCHER_OPEN_MODE = stringPreferencesKey("launcher_open_mode")
+        private val LAUNCHER_COMBOS = stringPreferencesKey("launcher_combos")
         private val MEDIA_PIN_WHILE_PLAYING = booleanPreferencesKey("media_pin_while_playing")
         private val SELF_HOSTED_LIBRETRANSLATE_URL = stringPreferencesKey("self_hosted_libretranslate_url")
         private val SELF_HOSTED_LIBRETRANSLATE_KEY = stringPreferencesKey("self_hosted_libretranslate_key")
@@ -7541,13 +8356,14 @@ class SettingsRepository(private val context: Context) {
         // Run the mapping off the main thread. The IME collects on
         // Dispatchers.Main.immediate, so without this the layout and theme
         // JSON was decoded on the thread drawing the keyboard, on the very
-        // frame it was trying to appear. [mapPreferences] touches no Context
-        // and no disk, so it is free to move; its one piece of outside state
-        // is the shipped-layout catalogue, which is immutable except for the
-        // once-per-process [AssetLayouts.load] — and the keyboard re-resolves
-        // the layout for itself on every field focus rather than relying on
-        // this object's copy, so a mapping that ran before the assets finished
-        // parsing is not what decides which grid gets drawn.
+        // frame it was trying to appear. [mapPreferences] touches no Context,
+        // so it is free to move; its one piece of outside state is the
+        // shipped-layout catalogue, whose JSON half parses a layout the first
+        // time it is resolved — one more reason this belongs off main. The
+        // keyboard re-resolves the layout for itself on every field focus
+        // rather than relying on this object's copy, so a mapping that ran
+        // before the layout index was read is not what decides which grid
+        // gets drawn.
         .map { mapPreferences(it) }
         // Every reader of settings also brings the service addresses up to date,
         // so a download manager deep in a feature module reads the address the
@@ -7575,10 +8391,21 @@ class SettingsRepository(private val context: Context) {
      * is writable. Locked, edits land in the device-protected mirror: the
      * keyboard's own toggles keep working on the lock screen, and the first
      * emission after unlock overwrites them.
+     *
+     * The edit runs on [Dispatchers.IO], not on the caller's dispatcher.
+     * DataStore takes its write lock first and then runs [transform] in the
+     * caller's context, so an edit launched from the keyboard's main-thread
+     * scope held the lock until the main looper got round to the transform.
+     * A looper that never does — a Robolectric test that ends without idling
+     * it — left the process-wide store locked, and every later write in that
+     * JVM waited forever. Off the main thread is also where the JSON these
+     * transforms decode and re-encode belongs.
      */
     private suspend fun editPrefs(transform: suspend (MutablePreferences) -> Unit) {
-        if (unlocked.value) context.dataStore.edit { transform(it) }
-        else locked.edit { transform(it) }
+        withContext(Dispatchers.IO) {
+            if (unlocked.value) context.dataStore.edit { transform(it) }
+            else locked.edit { transform(it) }
+        }
     }
 
     /**
@@ -7631,6 +8458,8 @@ class SettingsRepository(private val context: Context) {
         return KeyboardSettings(
             activeLayoutId = layoutSelection.active.id,
             enabledLayoutIds = layoutSelection.enabledLayoutIds,
+            recentLayoutIds = p[RECENT_LAYOUT_IDS]?.split(',')?.filter { it.isNotEmpty() }
+                ?: defaults.recentLayoutIds,
             customLayouts = customLayouts,
             enabledLanguages = layoutSelection.enabledLanguages,
             secondaryLanguages = p[SECONDARY_LANGUAGES]?.let { decodeSecondaryLanguages(it) }
@@ -7643,70 +8472,11 @@ class SettingsRepository(private val context: Context) {
             keyboardThemeId = p[KEYBOARD_THEME_ID] ?: defaults.keyboardThemeId,
             customThemes = p[CUSTOM_THEMES]?.let { ThemeCodec.decodeList(it) }
                 ?: defaults.customThemes,
-            autoTheme = AutoThemeSettings(
-                enabled = p[AUTO_THEME_ENABLED] ?: defaults.autoTheme.enabled,
-                lightThemeId = p[AUTO_THEME_LIGHT_ID] ?: defaults.autoTheme.lightThemeId,
-                darkThemeId = p[AUTO_THEME_DARK_ID] ?: defaults.autoTheme.darkThemeId,
-                trigger = p[AUTO_THEME_TRIGGER]
-                    ?.let { runCatching { AutoThemeTrigger.valueOf(it) }.getOrNull() }
-                    ?: defaults.autoTheme.trigger,
-                dayStartMinutes = p[AUTO_THEME_DAY_START] ?: defaults.autoTheme.dayStartMinutes,
-                nightStartMinutes = p[AUTO_THEME_NIGHT_START] ?: defaults.autoTheme.nightStartMinutes,
-                lightRandom = p[AUTO_THEME_LIGHT_RANDOM] ?: defaults.autoTheme.lightRandom,
-                darkRandom = p[AUTO_THEME_DARK_RANDOM] ?: defaults.autoTheme.darkRandom,
-                lightPoolIds = p[AUTO_THEME_LIGHT_POOL] ?: defaults.autoTheme.lightPoolIds,
-                darkPoolIds = p[AUTO_THEME_DARK_POOL] ?: defaults.autoTheme.darkPoolIds,
-                shuffleInterval = p[AUTO_THEME_SHUFFLE_INTERVAL]
-                    ?.let { runCatching { RotationInterval.valueOf(it) }.getOrNull() }
-                    ?: defaults.autoTheme.shuffleInterval,
-                shuffleLightId = p[AUTO_THEME_SHUFFLE_LIGHT_ID]
-                    ?: defaults.autoTheme.shuffleLightId,
-                shuffleDarkId = p[AUTO_THEME_SHUFFLE_DARK_ID] ?: defaults.autoTheme.shuffleDarkId,
-                shuffledAtEpochMs = p[AUTO_THEME_SHUFFLED_AT]
-                    ?: defaults.autoTheme.shuffledAtEpochMs,
-                shuffledAtElapsedMs = p[AUTO_THEME_SHUFFLED_AT_ELAPSED]
-                    ?: defaults.autoTheme.shuffledAtElapsedMs,
-            ),
-            photoBackground = PhotoBackgroundSettings(
-                unsplashApiKey = p[PHOTO_UNSPLASH_KEY] ?: defaults.photoBackground.unsplashApiKey,
-                pexelsApiKey = p[PHOTO_PEXELS_KEY] ?: defaults.photoBackground.pexelsApiKey,
-                rotateEnabled = p[PHOTO_ROTATE_ENABLED] ?: defaults.photoBackground.rotateEnabled,
-                interval = p[PHOTO_ROTATE_INTERVAL]
-                    ?.let { runCatching { RotationInterval.valueOf(it) }.getOrNull() }
-                    ?: defaults.photoBackground.interval,
-                scope = p[PHOTO_ROTATE_SCOPE]
-                    ?.let { runCatching { RotationScope.valueOf(it) }.getOrNull() }
-                    ?: defaults.photoBackground.scope,
-                scopeThemeIds = p[PHOTO_ROTATE_SCOPE_THEMES] ?: defaults.photoBackground.scopeThemeIds,
-                // An unknown name is dropped rather than failing the whole set,
-                // so a build that adds a source stays readable by an older one.
-                sources = p[PHOTO_ROTATE_SOURCES]
-                    ?.mapNotNull { name -> runCatching { RotationSourceKind.valueOf(name) }.getOrNull() }
-                    ?.toSet()
-                    ?: defaults.photoBackground.sources,
-                // Tab-joined, the same shape `symbol_recents` uses; a tab is
-                // stripped from a search term on the way in.
-                topics = p[PHOTO_ROTATE_TOPICS]?.split('\t')?.filter { it.isNotEmpty() }
-                    ?: defaults.photoBackground.topics,
-                queries = p[PHOTO_ROTATE_QUERIES]?.split('\t')?.filter { it.isNotEmpty() }
-                    ?: defaults.photoBackground.queries,
-                landscapeOnly = p[PHOTO_LANDSCAPE_ONLY] ?: defaults.photoBackground.landscapeOnly,
-                safeSearch = p[PHOTO_SAFE_SEARCH] ?: defaults.photoBackground.safeSearch,
-                fetchOnMetered = p[PHOTO_FETCH_ON_METERED] ?: defaults.photoBackground.fetchOnMetered,
-                poolTarget = (p[PHOTO_POOL_TARGET] ?: defaults.photoBackground.poolTarget)
-                    .coerceIn(
-                        PhotoBackgroundSettings.MIN_POOL_TARGET,
-                        PhotoBackgroundSettings.MAX_POOL_TARGET,
-                    ),
-                seedPalette = p[PHOTO_SEED_PALETTE] ?: defaults.photoBackground.seedPalette,
-                keyOpacity = p[PHOTO_KEY_OPACITY] ?: defaults.photoBackground.keyOpacity,
-                poolBudgetMb = p[PHOTO_POOL_BUDGET_MB] ?: defaults.photoBackground.poolBudgetMb,
-                readabilityGuard = p[PHOTO_READABILITY_GUARD]
-                    ?: defaults.photoBackground.readabilityGuard,
-            ),
+            autoTheme = readAutoTheme(p, defaults),
+            photoBackground = readPhotoBackground(p, defaults),
             keyHeightDp = p[KEY_HEIGHT] ?: defaults.keyHeightDp,
             numberRowHeightDp = p[NUMBER_ROW_HEIGHT] ?: p[KEY_HEIGHT] ?: defaults.numberRowHeightDp,
-            bottomPaddingDp = p[BOTTOM_PADDING] ?: defaults.bottomPaddingDp,
+            bottomPaddingDp = p[BOTTOM_PADDING],
             splitKeyboard = p[SPLIT_KEYBOARD] ?: defaults.splitKeyboard,
             splitGapPercent = p[SPLIT_GAP_PERCENT] ?: defaults.splitGapPercent,
             floatingKeyboard = p[FLOATING_KEYBOARD] ?: defaults.floatingKeyboard,
@@ -7722,26 +8492,7 @@ class SettingsRepository(private val context: Context) {
             keyGapScale = p[KEY_GAP_SCALE] ?: defaults.keyGapScale,
             keyCornerRadiusDp = p[KEY_CORNER_RADIUS] ?: defaults.keyCornerRadiusDp,
             fontScale = p[FONT_SCALE] ?: defaults.fontScale,
-            sizingOverrides = ScreenVariant.entries
-                .filter { it.isOverride }
-                .associateWith { v ->
-                    SizingOverride(
-                        keyHeightDp = p[keyHeightKey(v)],
-                        numberRowHeightDp = p[numberRowHeightKey(v)],
-                        bottomPaddingDp = p[bottomPaddingKey(v)],
-                        keyboardWidthPercent = p[widthPercentKey(v)],
-                        fontScale = p[fontScaleKey(v)],
-                        keyboardAlignment = p[alignmentKey(v)]
-                            ?.let { name -> runCatching { KeyboardAlignment.valueOf(name) }.getOrNull() },
-                        keyboardScale = p[keyboardScaleKey(v)],
-                        keyGapScale = p[keyGapScaleKey(v)],
-                        sidePadLeftScale = p[sidePadLeftScaleKey(v)] ?: p[sidePadScaleKey(v)],
-                        sidePadRightScale = p[sidePadRightScaleKey(v)] ?: p[sidePadScaleKey(v)],
-                        bottomRowHeightDp = p[bottomRowHeightKey(v)],
-                        numberRow = p[variantNumberRowKey(v)],
-                    )
-                }
-                .filterValues { !it.isEmpty },
+            sizingOverrides = readSizingOverrides(p, defaults),
             keyFontId = p[KEY_FONT_ID] ?: defaults.keyFontId,
             customFontName = p[CUSTOM_FONT_NAME] ?: defaults.customFontName,
             scriptFontIds = scriptFontIdsFromPrefs(p, defaults),
@@ -7759,177 +8510,22 @@ class SettingsRepository(private val context: Context) {
             emojiFontInstalled = EmojiFontSettings(
                 installedId = p[EMOJI_FONT_INSTALLED_ID] ?: defaults.emojiFontInstalled.installedId,
             ),
-            haptics = HapticSettings(
-                enabled = p[HAPTIC] ?: defaults.haptics.enabled,
-                strengthMs = p[HAPTIC_STRENGTH] ?: defaults.haptics.strengthMs,
-                amplitude = p[HAPTIC_AMPLITUDE] ?: defaults.haptics.amplitude,
-                style = p[HAPTIC_STYLE]?.let { runCatching { HapticStyle.valueOf(it) }.getOrNull() }
-                    ?: defaults.haptics.style,
-                onLongPress = p[HAPTIC_ON_LONG_PRESS] ?: defaults.haptics.onLongPress,
-                onLongPressRelease = p[HAPTIC_ON_LONG_PRESS_RELEASE]
-                    ?: defaults.haptics.onLongPressRelease,
-            ),
-            feedback = FeedbackSettings(
-                vibrateOnSpace = p[FEEDBACK_VIBRATE_SPACE] ?: defaults.feedback.vibrateOnSpace,
-                vibrateOnDeleteSwipe = p[FEEDBACK_VIBRATE_DELETE_SWIPE]
-                    ?: defaults.feedback.vibrateOnDeleteSwipe,
-                vibrateOnRepeat = p[FEEDBACK_VIBRATE_REPEAT] ?: defaults.feedback.vibrateOnRepeat,
-                soundOnRepeat = p[FEEDBACK_SOUND_REPEAT] ?: defaults.feedback.soundOnRepeat,
-                respectSystemTouchFeedback = p[FEEDBACK_RESPECT_SYSTEM_TOUCH]
-                    ?: defaults.feedback.respectSystemTouchFeedback,
-                toastOnCopy = p[FEEDBACK_TOAST_ON_COPY] ?: defaults.feedback.toastOnCopy,
-                hapticsRespectDnd = p[FEEDBACK_HAPTICS_RESPECT_DND]
-                    ?: defaults.feedback.hapticsRespectDnd,
-            ),
-            sound = KeySoundSettings(
-                enabled = p[KEY_SOUND] ?: defaults.sound.enabled,
-                style = p[KEY_SOUND_STYLE]
-                    ?.let { runCatching { KeySoundStyle.valueOf(it) }.getOrNull() }
-                    ?: defaults.sound.style,
-                volume = p[KEY_SOUND_VOLUME] ?: defaults.sound.volume,
-                customId = p[KEY_SOUND_CUSTOM_ID] ?: defaults.sound.customId,
-                packId = p[KEY_SOUND_PACK_ID] ?: defaults.sound.packId,
-                playRelease = p[KEY_SOUND_RELEASE] ?: defaults.sound.playRelease,
-            ),
+            haptics = readHaptics(p, defaults),
+            feedback = readFeedback(p, defaults),
+            sound = readSound(p, defaults),
             popup = popupFromPrefs(p, defaults),
-            accessibility = AccessibilitySettings(
-                colorVision = p[COLOR_VISION_FILTER]
-                    ?.let { runCatching { ColorVisionFilter.valueOf(it) }.getOrNull() }
-                    ?: defaults.accessibility.colorVision,
-                highContrast = p[HIGH_CONTRAST_KEYS] ?: defaults.accessibility.highContrast,
-                keyOutlines = p[KEY_OUTLINES] ?: defaults.accessibility.keyOutlines,
-                boldLabels = p[BOLD_KEY_LABELS] ?: defaults.accessibility.boldLabels,
-                screenReader = p[SCREEN_READER_MODE]
-                    ?.let { runCatching { ScreenReaderMode.valueOf(it) }.getOrNull() }
-                    ?: defaults.accessibility.screenReader,
-                keyDebounceMs = p[KEY_DEBOUNCE_MS] ?: defaults.accessibility.keyDebounceMs,
-            ),
+            accessibility = readAccessibility(p, defaults),
             reduceMotion = p[REDUCE_MOTION] ?: defaults.reduceMotion,
             numberRow = p[NUMBER_ROW] ?: defaults.numberRow,
-            correction = AutocorrectSettings(
-                enabled = p[AUTOCORRECT] ?: defaults.correction.enabled,
-                confidence = p[AUTOCORRECT_CONFIDENCE] ?: defaults.correction.confidence,
-                adaptive = p[AUTOCORRECT_ADAPTIVE] ?: defaults.correction.adaptive,
-                revertOnBackspace = p[REVERT_AUTOCORRECT_ON_BACKSPACE]
-                    ?: defaults.correction.revertOnBackspace,
-                undoMemory = p[AUTOCORRECT_UNDO_MEMORY]
-                    ?.let { runCatching { UndoMemory.valueOf(it) }.getOrNull() }
-                    ?: defaults.correction.undoMemory,
-                skipAllCaps = p[AUTOCORRECT_SKIP_ALL_CAPS] ?: defaults.correction.skipAllCaps,
-            ),
-            autoText = AutoTextSettings(
-                apostrophe = p[AUTO_APOSTROPHE] ?: defaults.autoText.apostrophe,
-                capitalize = p[AUTO_CAPITALIZE] ?: defaults.autoText.capitalize,
-                doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.autoText.doubleSpacePeriod,
-                doubleSpaceTab = p[DOUBLE_SPACE_TAB] ?: defaults.autoText.doubleSpaceTab,
-                spaceAfterPunctuation = p[AUTO_SPACE_AFTER_PUNCTUATION]
-                    ?: defaults.autoText.spaceAfterPunctuation,
-                hugPunctuation = p[HUG_PUNCTUATION] ?: defaults.autoText.hugPunctuation,
-                hugPunctuationMarks = p[HUG_PUNCTUATION_MARKS]?.takeIf { it.isNotBlank() }
-                    ?: defaults.autoText.hugPunctuationMarks,
-                languagePunctuationSpacing = p[LANGUAGE_PUNCTUATION_SPACING]
-                    ?: defaults.autoText.languagePunctuationSpacing,
-            ),
+            correction = readCorrection(p, defaults),
+            autoText = readAutoText(p, defaults),
             suggestions = p[SUGGESTIONS] ?: defaults.suggestions,
-            suggestionSources = SuggestionSourceSettings(
-                inAllFields = p[SHOW_SUGGESTIONS_ALL_FIELDS]
-                    ?: defaults.suggestionSources.inAllFields,
-                contacts = p[CONTACT_SUGGESTIONS] ?: defaults.suggestionSources.contacts,
-                contactEmails = p[CONTACT_EMAIL_SUGGESTIONS]
-                    ?: defaults.suggestionSources.contactEmails,
-                contactEmailsInEmailFields = p[CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS]
-                    ?: defaults.suggestionSources.contactEmailsInEmailFields,
-                appNames = p[APP_NAME_SUGGESTIONS] ?: defaults.suggestionSources.appNames,
-                blacklist = p[SUGGESTION_BLACKLIST] ?: defaults.suggestionSources.blacklist,
-                blacklistByLanguage = blacklistsByLanguage(p),
-                blacklistScope = p[SUGGESTION_BLACKLIST_SCOPE]
-                    ?.let { runCatching { BlacklistScope.valueOf(it) }.getOrNull() }
-                    ?: defaults.suggestionSources.blacklistScope,
-                inlineEmojiSearch = p[INLINE_EMOJI_SEARCH]
-                    ?: defaults.suggestionSources.inlineEmojiSearch,
-                inlineAutofill = p[INLINE_AUTOFILL] ?: defaults.suggestionSources.inlineAutofill,
-            ),
+            suggestionSources = readSuggestionSources(p, defaults),
             gestureTyping = p[GESTURE_TYPING] ?: defaults.gestureTyping,
             letterSwipeAction = p[LETTER_SWIPE_ACTION]
                 ?.let { runCatching { LetterSwipeAction.valueOf(it) }.getOrNull() }
                 ?: defaults.letterSwipeAction,
-            gesture = GestureSettings(
-                spaceGlideMultiWord = p[GESTURE_SPACE_MULTI_WORD] ?: defaults.gesture.spaceGlideMultiWord,
-                shiftGlideCapitals = p[GESTURE_SHIFT_CAPITALS] ?: defaults.gesture.shiftGlideCapitals,
-                shiftGlideMode = p[GESTURE_SHIFT_MODE]
-                    ?.let { runCatching { ShiftGlideMode.valueOf(it) }.getOrNull() }
-                    ?: defaults.gesture.shiftGlideMode,
-                ambiguityPicker = p[GESTURE_AMBIGUITY_PICKER] ?: defaults.gesture.ambiguityPicker,
-                // Coerced on the way in as well as on the way out: a value
-                // restored from an edited backup must never index past the
-                // picker's target array.
-                pickerDwellMs = (p[GESTURE_PICKER_DWELL_MS] ?: defaults.gesture.pickerDwellMs)
-                    .coerceIn(GlidePickerDwellMsRange),
-                pickerSensitivity = p[GESTURE_PICKER_SENSITIVITY]
-                    ?.let { runCatching { GlidePickerSensitivity.valueOf(it) }.getOrNull() }
-                    ?: defaults.gesture.pickerSensitivity,
-                pickerHoldToAsk = p[GESTURE_PICKER_HOLD_TO_ASK] ?: defaults.gesture.pickerHoldToAsk,
-                pickerChoices = (p[GESTURE_PICKER_CHOICES] ?: defaults.gesture.pickerChoices)
-                    .coerceIn(GlidePickerChoicesRange),
-                apostropheKey = p[GESTURE_APOSTROPHE_KEY]
-                    ?.let { runCatching { GlideApostropheKey.valueOf(it) }.getOrNull() }
-                    ?: defaults.gesture.apostropheKey,
-                possessiveKey = p[GESTURE_POSSESSIVE_KEY]
-                    ?.let { runCatching { GlideApostropheKey.valueOf(it) }.getOrNull() }
-                    ?: legacyPossessiveKey(p, defaults),
-                autoSpaceAfterGlide = p[GESTURE_AUTO_SPACE] ?: defaults.gesture.autoSpaceAfterGlide,
-                startThresholdSlop = p[GESTURE_START_THRESHOLD_SLOP] ?: defaults.gesture.startThresholdSlop,
-                postTypeCooldownMs = p[GESTURE_POST_TYPE_COOLDOWN_MS] ?: defaults.gesture.postTypeCooldownMs,
-                handwriteDotCooldownMs = p[GESTURE_HANDWRITE_DOT_COOLDOWN_MS] ?: defaults.gesture.handwriteDotCooldownMs,
-                trailWidthDp = p[GESTURE_TRAIL_WIDTH_DP] ?: defaults.gesture.trailWidthDp,
-                trailDurationMs = p[GESTURE_TRAIL_DURATION_MS] ?: defaults.gesture.trailDurationMs,
-                trailOpacity = p[GESTURE_TRAIL_OPACITY] ?: defaults.gesture.trailOpacity,
-                wordPreview = p[GESTURE_WORD_PREVIEW] ?: defaults.gesture.wordPreview,
-                wordPreviewOffsetYDp = p[GESTURE_WORD_PREVIEW_OFFSET_Y]
-                    ?: defaults.gesture.wordPreviewOffsetYDp,
-                wordPreviewOffsetXDp = p[GESTURE_WORD_PREVIEW_OFFSET_X]
-                    ?: defaults.gesture.wordPreviewOffsetXDp,
-                wordPreviewFontSp = p[GESTURE_WORD_PREVIEW_FONT_SP]
-                    ?: defaults.gesture.wordPreviewFontSp,
-                wordPreviewBackground = p[GESTURE_WORD_PREVIEW_BACKGROUND]
-                    ?: defaults.gesture.wordPreviewBackground,
-                wordPreviewTextColor = p[GESTURE_WORD_PREVIEW_TEXT_COLOR]
-                    ?: defaults.gesture.wordPreviewTextColor,
-                stripPreviewOnly = p[GESTURE_STRIP_PREVIEW_ONLY]
-                    ?: defaults.gesture.stripPreviewOnly,
-                vocabulary = p[GESTURE_VOCABULARY]
-                    ?.let { runCatching { GlideVocabulary.valueOf(it) }.getOrNull() }
-                    ?: defaults.gesture.vocabulary,
-                sandbox = p[GESTURE_SANDBOX]
-                    ?.let { runCatching { GlideSandbox.valueOf(it) }.getOrNull() }
-                    ?: defaults.gesture.sandbox,
-                previewSteadiness = p[GESTURE_PREVIEW_STEADINESS]
-                    ?.let { runCatching { GlidePreviewSteadiness.valueOf(it) }.getOrNull() }
-                    ?: defaults.gesture.previewSteadiness,
-                lookAhead = p[GESTURE_LOOK_AHEAD]
-                    ?.let { runCatching { GlideLookAhead.valueOf(it) }.getOrNull() }
-                    ?: defaults.gesture.lookAhead,
-                commitColor = p[GESTURE_COMMIT_COLOR]
-                    ?.let { runCatching { GlideCommitColor.valueOf(it) }.getOrNull() }
-                    ?: defaults.gesture.commitColor,
-                commitColorScope = p[GESTURE_COMMIT_COLOR_SCOPE]
-                    ?.let { runCatching { GlideCommitColorScope.valueOf(it) }.getOrNull() }
-                    ?: defaults.gesture.commitColorScope,
-                startRadius = p[GESTURE_START_RADIUS] ?: defaults.gesture.startRadius,
-                endRadius = p[GESTURE_END_RADIUS] ?: defaults.gesture.endRadius,
-                nearRadius = p[GESTURE_NEAR_RADIUS] ?: defaults.gesture.nearRadius,
-                dwellFull = p[GESTURE_DWELL_FULL] ?: defaults.gesture.dwellFull,
-                loopDouble = p[GESTURE_LOOP_DOUBLE] ?: defaults.gesture.loopDouble,
-                loopMinArc = p[GESTURE_LOOP_MIN_ARC] ?: defaults.gesture.loopMinArc,
-                loopExtent = p[GESTURE_LOOP_EXTENT] ?: defaults.gesture.loopExtent,
-                loopRadius = p[GESTURE_LOOP_RADIUS] ?: defaults.gesture.loopRadius,
-                wiggleDouble = p[GESTURE_WIGGLE_DOUBLE] ?: defaults.gesture.wiggleDouble,
-                wiggleExtent = p[GESTURE_WIGGLE_EXTENT] ?: defaults.gesture.wiggleExtent,
-                wiggleWeight = p[GESTURE_WIGGLE_WEIGHT] ?: defaults.gesture.wiggleWeight,
-                learnSwipeStyle = p[GESTURE_LEARN_SWIPE_STYLE] ?: defaults.gesture.learnSwipeStyle,
-                searchAllChip = p[GESTURE_SEARCH_ALL_CHIP] ?: defaults.gesture.searchAllChip,
-                swipeStyleVersion = p[GESTURE_SWIPE_STYLE_VERSION] ?: defaults.gesture.swipeStyleVersion,
-            ),
+            gesture = readGesture(p, defaults),
             spaceShortSwipe = p[SPACE_SHORT_SWIPE]
                 ?.let { runCatching { SpaceSwipeAction.valueOf(it) }.getOrNull() }
                 ?: defaults.spaceShortSwipe,
@@ -7943,470 +8539,51 @@ class SettingsRepository(private val context: Context) {
             spacebarLabel = p[SPACEBAR_LABEL] ?: defaults.spacebarLabel,
             backspaceSwipeDelete = p[BACKSPACE_SWIPE_DELETE] ?: defaults.backspaceSwipeDelete,
             hardwareKeyboardInput = p[HARDWARE_KEYBOARD_INPUT] ?: defaults.hardwareKeyboardInput,
-            hardwareKeyboard = HardwareKeyboardSettings(
-                shortcutsEnabled = p[HW_SHORTCUTS_ENABLED] ?: defaults.hardwareKeyboard.shortcutsEnabled,
-                panelNavigation = p[HW_PANEL_NAVIGATION] ?: defaults.hardwareKeyboard.panelNavigation,
-                dpadKeyNavigation = p[HW_DPAD_KEY_NAVIGATION]
-                    ?: defaults.hardwareKeyboard.dpadKeyNavigation,
-                dpadKeyNavigationUntouched = p[HW_DPAD_KEY_NAVIGATION] == null,
-                escClosesPanel = p[HW_ESC_CLOSES_PANEL] ?: defaults.hardwareKeyboard.escClosesPanel,
-                suggestionHotkeys = p[HW_SUGGESTION_HOTKEYS]
-                    ?.let { raw -> runCatching { SuggestionHotkeyMode.valueOf(raw) }.getOrNull() }
-                    ?: defaults.hardwareKeyboard.suggestionHotkeys,
-                suggestionHintsAlways = p[HW_SUGGESTION_HINTS_ALWAYS]
-                    ?: defaults.hardwareKeyboard.suggestionHintsAlways,
-                toolbarDigitChord = p[HW_TOOLBAR_DIGIT_CHORD]
-                    ?: defaults.hardwareKeyboard.toolbarDigitChord,
-                macShortcuts = p[HW_MAC_SHORTCUTS] ?: defaults.hardwareKeyboard.macShortcuts,
-                languageSwitchChord = p[HW_LANGUAGE_SWITCH_CHORD]
-                    ?: defaults.hardwareKeyboard.languageSwitchChord,
-                hintModifierWords = p[HW_HINT_MODIFIER_WORDS]
-                    ?: defaults.hardwareKeyboard.hintModifierWords,
-                autoShowUi = p[HW_AUTO_SHOW_UI] ?: defaults.hardwareKeyboard.autoShowUi,
-                leader = p[HW_LEADER] ?: defaults.hardwareKeyboard.leader,
-                pickerTimeoutMs = p[HW_PICKER_TIMEOUT_MS] ?: defaults.hardwareKeyboard.pickerTimeoutMs,
-                // Absent, not empty, means "never edited": an empty stored map is
-                // a user who unbound every letter, and must stay empty.
-                toolByLetter = p[HW_TOOL_LETTERS]?.let(::decodeToolLetters)
-                    ?: defaults.hardwareKeyboard.toolByLetter,
-            ),
+            hardwareKeyboard = readHardwareKeyboard(p, defaults),
             volumeCursor = p[VOLUME_CURSOR] ?: defaults.volumeCursor,
             volumeCursorMediaAware = p[VOLUME_CURSOR_MEDIA_AWARE] ?: defaults.volumeCursorMediaAware,
             globeAsEmoji = p[GLOBE_AS_EMOJI] ?: defaults.globeAsEmoji,
             showGlobeKey = p[SHOW_GLOBE_KEY] ?: defaults.showGlobeKey,
+            globeRecentOrder = p[GLOBE_RECENT_ORDER] ?: defaults.globeRecentOrder,
             osLanguageSwitcher = p[OS_LANGUAGE_SWITCHER] ?: defaults.osLanguageSwitcher,
             subtypeAppNameFirst = p[SUBTYPE_APP_NAME_FIRST] ?: defaults.subtypeAppNameFirst,
-            perAppLanguage = PerAppLanguageSettings(
-                enabled = p[PER_APP_LANGUAGE_ENABLED] ?: defaults.perAppLanguage.enabled,
-                layoutByPackage = p[PER_APP_LAYOUT_MAP]?.let { decodePerAppLayouts(it) }
-                    ?: defaults.perAppLanguage.layoutByPackage,
-            ),
+            perAppLanguage = readPerAppLanguage(p, defaults),
             onboardingDone = p[ONBOARDING_DONE] ?: defaults.onboardingDone,
-            onboarding = OnboardingSettings(
-                personaLanguages = p[ONBOARDING_PERSONA_LANGUAGES]
-                    ?.let { runCatching { PersonaLanguages.valueOf(it) }.getOrNull() }
-                    ?: defaults.onboarding.personaLanguages,
-                personaDepth = p[ONBOARDING_PERSONA_DEPTH]
-                    ?.let { runCatching { PersonaDepth.valueOf(it) }.getOrNull() }
-                    ?: defaults.onboarding.personaDepth,
-                personaPrivacy = p[ONBOARDING_PERSONA_PRIVACY]
-                    ?.let { runCatching { PersonaPrivacy.valueOf(it) }.getOrNull() }
-                    ?: defaults.onboarding.personaPrivacy,
-            ),
-            appUi = AppUiSettings(
-                themeGalleryStyle = p[THEME_GALLERY_STYLE]
-                    ?.let { runCatching { ThemeGalleryStyle.valueOf(it) }.getOrNull() }
-                    ?: defaults.appUi.themeGalleryStyle,
-                advancedOpen = p[ADVANCED_OPEN] ?: defaults.appUi.advancedOpen,
-                defaultWordlistSize = p[DEFAULT_WORDLIST_SIZE]
-                    ?.let {
-                        runCatching { DictionaryCatalog.DictionarySize.valueOf(it) }.getOrNull()
-                    }
-                    ?: defaults.appUi.defaultWordlistSize,
-                dictionarySort = p[DICTIONARY_SORT]
-                    ?.let { runCatching { DictionarySort.valueOf(it) }.getOrNull() }
-                    ?: defaults.appUi.dictionarySort,
-            ),
-            toolLimits = ToolLimitSettings(
-                weatherRefreshMinutes = p[WEATHER_REFRESH_MINUTES]
-                    ?: defaults.toolLimits.weatherRefreshMinutes,
-                wikiLinkLimit = p[WIKI_LINK_LIMIT] ?: defaults.toolLimits.wikiLinkLimit,
-                qrMaxChars = p[QR_MAX_CHARS] ?: defaults.toolLimits.qrMaxChars,
-                passwordSymbols = p[PASSWORD_SYMBOLS] ?: defaults.toolLimits.passwordSymbols,
-            ),
-            rows = RowSettings(
-                symbolRowHeightDp = p[SYMBOL_ROW_HEIGHT] ?: defaults.rows.symbolRowHeightDp,
-                // Clamped on the way in as well as on the way out: a value
-                // outside the range is a row the screen cannot draw.
-                symbolRowLines = p[SYMBOL_ROW_LINES]
-                    ?.coerceIn(SymbolRowLinesRange.first, SymbolRowLinesRange.last)
-                    ?: defaults.rows.symbolRowLines,
-                symbolRowScroll = p[SYMBOL_ROW_SCROLL]
-                    ?.let { runCatching { SymbolRowScroll.valueOf(it) }.getOrNull() }
-                    ?: defaults.rows.symbolRowScroll,
-                manualModeDuration = p[MANUAL_MODE_DURATION]
-                    ?.let { runCatching { ManualModeDuration.valueOf(it) }.getOrNull() }
-                    ?: defaults.rows.manualModeDuration,
-                dictionaryBarEnabled = p[DICTIONARY_BAR_ENABLED] ?: defaults.rows.dictionaryBarEnabled,
-                dictionaryBarFilter = p[DICTIONARY_BAR_FILTER] ?: defaults.rows.dictionaryBarFilter,
-            ),
+            onboarding = readOnboarding(p, defaults),
+            appUi = readAppUi(p, defaults),
+            toolLimits = readToolLimits(p, defaults),
+            rows = readRows(p, defaults),
             conjunctBackspaceLanguages = conjunctLanguagesFromPrefs(p, layoutSelection.enabledLanguages),
-            cjk = CjkSettings(
-                pinyinFuzzy = p[PINYIN_FUZZY] ?: defaults.cjk.pinyinFuzzy,
-                // Unknown ids are dropped rather than kept: a pair removed in
-                // a later build must not sit in the set forever, and the
-                // composer would ignore it anyway.
-                pinyinFuzzyPairs = p[PINYIN_FUZZY_PAIRS]
-                    ?.filterTo(LinkedHashSet()) { it in PinyinFuzzy.ALL_PAIRS }
-                    ?: defaults.cjk.pinyinFuzzyPairs,
-                pinyinDoublePinyin = p[PINYIN_DOUBLE_PINYIN]
-                    ?.let { runCatching { DoublePinyinScheme.valueOf(it) }.getOrNull() }
-                    ?: defaults.cjk.pinyinDoublePinyin,
-                traditionalOutput = p[CJK_TRADITIONAL_OUTPUT] ?: defaults.cjk.traditionalOutput,
-                jyutpingLazy = p[JYUTPING_LAZY] ?: defaults.cjk.jyutpingLazy,
-                kanaLooseMarks = p[KANA_LOOSE_MARKS] ?: defaults.cjk.kanaLooseMarks,
-                hanRegion = p[CJK_HAN_REGION]
-                    ?.let { runCatching { HanVariant.HanRegion.valueOf(it) }.getOrNull() }
-                    ?: defaults.cjk.hanRegion,
-            ),
+            cjk = readCjk(p, defaults),
             oneHandedMode = p[ONE_HANDED_MODE]
                 ?.let { runCatching { OneHandedMode.valueOf(it) }.getOrNull() }
                 ?: defaults.oneHandedMode,
-            oneHanded = OneHandedSettings(
-                portrait = readOneHandedProfile(p, landscape = false, defaults.oneHanded.portrait),
-                landscape = readOneHandedProfile(p, landscape = true, defaults.oneHanded.landscape),
-            ),
+            oneHanded = readOneHanded(p, defaults),
             learnFromTyping = p[LEARN_FROM_TYPING] ?: defaults.learnFromTyping,
             addWordsToSystemDictionary =
                 p[ADD_WORDS_TO_SYSTEM_DICTIONARY] ?: defaults.addWordsToSystemDictionary,
-            clipboard = ClipboardSettings(
-                history = p[CLIPBOARD_HISTORY] ?: defaults.clipboard.history,
-                pasteChipSeconds = p[CLIPBOARD_PASTE_CHIP_SECONDS]
-                    ?: defaults.clipboard.pasteChipSeconds,
-                expiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboard.expiryHours,
-                maxItems = p[CLIPBOARD_MAX_ITEMS] ?: defaults.clipboard.maxItems,
-                sensitiveHandling = p[CLIPBOARD_SENSITIVE_HANDLING]
-                    ?.let { runCatching { SensitiveClipHandling.valueOf(it) }.getOrNull() }
-                    ?: defaults.clipboard.sensitiveHandling,
-                detectSensitive = p[CLIPBOARD_DETECT_SENSITIVE] ?: defaults.clipboard.detectSensitive,
-                sensitiveExpiryMinutes = p[CLIPBOARD_SENSITIVE_EXPIRY_MINUTES]
-                    ?: defaults.clipboard.sensitiveExpiryMinutes,
-                linkPreviews = p[CLIPBOARD_LINK_PREVIEWS] ?: defaults.clipboard.linkPreviews,
-                trackSource = p[CLIPBOARD_TRACK_SOURCE] ?: defaults.clipboard.trackSource,
-                suggestRecent = p[CLIPBOARD_SUGGEST_RECENT] ?: defaults.clipboard.suggestRecent,
-                copiedCodeChip = p[CLIPBOARD_COPIED_CODE_CHIP]
-                    ?.let { runCatching { CopiedCodeChip.valueOf(it) }.getOrNull() }
-                    ?: p[CLIPBOARD_SUGGEST_CODES_IN_CODE_FIELDS]?.let {
-                        if (it) CopiedCodeChip.ANY_FIELD else CopiedCodeChip.OFF
-                    }
-                    ?: defaults.clipboard.copiedCodeChip,
-                pinnedLast = p[CLIPBOARD_PINNED_LAST] ?: defaults.clipboard.pinnedLast,
-                search = p[CLIPBOARD_SEARCH] ?: defaults.clipboard.search,
-                userScreenshots = p[CLIPBOARD_USER_SCREENSHOTS] ?: defaults.clipboard.userScreenshots,
-                clearAfterPasswordPaste = p[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE]
-                    ?: defaults.clipboard.clearAfterPasswordPaste,
-                detectEntities = p[CLIPBOARD_DETECT_ENTITIES] ?: defaults.clipboard.detectEntities,
-                phoneFormats = p[CLIPBOARD_PHONE_FORMATS] ?: seededPhoneFormats(),
-                fullBleed = p[CLIPBOARD_FULL_BLEED] ?: defaults.clipboard.fullBleed,
-                view = p[CLIPBOARD_VIEW]
-                    ?.let { runCatching { ClipboardView.valueOf(it) }.getOrNull() }
-                    ?: defaults.clipboard.view,
-                showNumbers = p[CLIPBOARD_SHOW_NUMBERS] ?: defaults.clipboard.showNumbers,
-            ),
-            otp = OtpSettings(
-                enabled = p[OTP_CHIP_ENABLED] ?: defaults.otp.enabled,
-                codeFieldsOnly = p[OTP_CODE_FIELDS_ONLY] ?: defaults.otp.codeFieldsOnly,
-                expiryMinutes = p[OTP_EXPIRY_MINUTES] ?: defaults.otp.expiryMinutes,
-                dismissNotification = p[OTP_DISMISS_NOTIFICATION]
-                    ?: defaults.otp.dismissNotification,
-                perDigitEntry = p[OTP_PER_DIGIT_ENTRY] ?: defaults.otp.perDigitEntry,
-            ),
-            autoBackup = AutoBackupSettings(
-                enabled = p[AUTO_BACKUP_ENABLED] ?: defaults.autoBackup.enabled,
-                destination = p[AUTO_BACKUP_DESTINATION]
-                    ?.let { id -> BackupDestination.entries.firstOrNull { it.id == id } }
-                    ?: defaults.autoBackup.destination,
-                webDavUrl = p[AUTO_BACKUP_WEBDAV_URL] ?: defaults.autoBackup.webDavUrl,
-                webDavUser = p[AUTO_BACKUP_WEBDAV_USER] ?: defaults.autoBackup.webDavUser,
-                webDavPassword = p[AUTO_BACKUP_WEBDAV_PASSWORD]
-                    ?: defaults.autoBackup.webDavPassword,
-                s3 = S3Config(
-                    endpoint = p[AUTO_BACKUP_S3_ENDPOINT] ?: defaults.autoBackup.s3.endpoint,
-                    region = p[AUTO_BACKUP_S3_REGION] ?: defaults.autoBackup.s3.region,
-                    bucket = p[AUTO_BACKUP_S3_BUCKET] ?: defaults.autoBackup.s3.bucket,
-                    prefix = p[AUTO_BACKUP_S3_PREFIX] ?: defaults.autoBackup.s3.prefix,
-                    accessKeyId = p[AUTO_BACKUP_S3_KEY_ID] ?: defaults.autoBackup.s3.accessKeyId,
-                    secretAccessKey = p[AUTO_BACKUP_S3_SECRET]
-                        ?: defaults.autoBackup.s3.secretAccessKey,
-                    pathStyle = p[AUTO_BACKUP_S3_PATH_STYLE] ?: defaults.autoBackup.s3.pathStyle,
-                ),
-                ftp = FtpConfig(
-                    host = p[AUTO_BACKUP_FTP_HOST] ?: defaults.autoBackup.ftp.host,
-                    port = p[AUTO_BACKUP_FTP_PORT] ?: defaults.autoBackup.ftp.port,
-                    user = p[AUTO_BACKUP_FTP_USER] ?: defaults.autoBackup.ftp.user,
-                    password = p[AUTO_BACKUP_FTP_PASSWORD] ?: defaults.autoBackup.ftp.password,
-                    path = p[AUTO_BACKUP_FTP_PATH] ?: defaults.autoBackup.ftp.path,
-                    secure = p[AUTO_BACKUP_FTP_SECURE] ?: defaults.autoBackup.ftp.secure,
-                ),
-                dropboxRefreshToken = p[AUTO_BACKUP_DROPBOX_TOKEN]
-                    ?: defaults.autoBackup.dropboxRefreshToken,
-                oneDriveRefreshToken = p[AUTO_BACKUP_ONEDRIVE_TOKEN]
-                    ?: defaults.autoBackup.oneDriveRefreshToken,
-                folderUri = p[AUTO_BACKUP_FOLDER_URI] ?: defaults.autoBackup.folderUri,
-                intervalHours = p[AUTO_BACKUP_INTERVAL_HOURS]
-                    ?: defaults.autoBackup.intervalHours,
-                keep = p[AUTO_BACKUP_KEEP] ?: defaults.autoBackup.keep,
-                requireUnmetered = p[AUTO_BACKUP_UNMETERED]
-                    ?: defaults.autoBackup.requireUnmetered,
-                requireCharging = p[AUTO_BACKUP_CHARGING]
-                    ?: defaults.autoBackup.requireCharging,
-                // Absent means never chosen, so the defaults stand. An empty
-                // set is a choice — every section turned off — and round-trips
-                // as one, because the setter writes the key either way.
-                sections = p[AUTO_BACKUP_SECTIONS] ?: defaults.autoBackup.sections,
-                includeSecrets = p[AUTO_BACKUP_INCLUDE_SECRETS]
-                    ?: defaults.autoBackup.includeSecrets,
-                encrypt = p[AUTO_BACKUP_ENCRYPT] ?: defaults.autoBackup.encrypt,
-                passphrase = p[AUTO_BACKUP_PASSPHRASE] ?: defaults.autoBackup.passphrase,
-                kdfSalt = p[AUTO_BACKUP_KDF_SALT] ?: defaults.autoBackup.kdfSalt,
-                lastRunAtMs = p[AUTO_BACKUP_LAST_RUN_AT] ?: defaults.autoBackup.lastRunAtMs,
-                lastError = p[AUTO_BACKUP_LAST_ERROR] ?: defaults.autoBackup.lastError,
-            ),
-            suggestionStrip = SuggestionStripSettings(
-                punctuation = p[PUNCTUATION_SUGGESTIONS] ?: defaults.suggestionStrip.punctuation,
-                punctuationChips = p[PUNCTUATION_CHIPS]?.takeIf { it.isNotBlank() }
-                    ?: defaults.suggestionStrip.punctuationChips,
-                slotCount = p[SUGGESTION_SLOT_COUNT] ?: defaults.suggestionStrip.slotCount,
-                textScale = p[SUGGESTION_TEXT_SCALE] ?: defaults.suggestionStrip.textScale,
-                scrollable = p[SUGGESTION_SCROLLABLE] ?: defaults.suggestionStrip.scrollable,
-                primaryColor = p[SUGGESTION_PRIMARY_COLOR] ?: defaults.suggestionStrip.primaryColor,
-                chipPadding = p[SUGGESTION_CHIP_PADDING] ?: defaults.suggestionStrip.chipPadding,
-                learnedWordMinCount = p[LEARNED_WORD_MIN_COUNT]
-                    ?: defaults.suggestionStrip.learnedWordMinCount,
-                newWordSightings = p[NEW_WORD_SIGHTINGS]
-                    ?: defaults.suggestionStrip.newWordSightings,
-                askBeforeLearning = p[ASK_BEFORE_LEARNING]
-                    ?: defaults.suggestionStrip.askBeforeLearning,
-                offerNearMissCorrections = p[OFFER_NEAR_MISS_CORRECTIONS]
-                    ?: defaults.suggestionStrip.offerNearMissCorrections,
-                undoCorrectionChip = p[UNDO_CORRECTION_CHIP]
-                    ?: defaults.suggestionStrip.undoCorrectionChip,
-                undoChipObviousness = p[UNDO_CHIP_OBVIOUSNESS]
-                    ?: defaults.suggestionStrip.undoChipObviousness,
-                learnFromCorrections = p[LEARN_FROM_CORRECTIONS]
-                    ?: defaults.suggestionStrip.learnFromCorrections,
-                adaptToTaps = p[ADAPT_TO_TAPS] ?: defaults.suggestionStrip.adaptToTaps,
-                correctionsVersion = p[CORRECTIONS_VERSION]
-                    ?: defaults.suggestionStrip.correctionsVersion,
-                suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionStrip.suggestionsFirst,
-                suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
-                    ?: defaults.suggestionStrip.suggestionPrimaryCenter,
-                overflow = p[SUGGESTION_OVERFLOW]
-                    ?.let { runCatching { SuggestionOverflow.valueOf(it) }.getOrNull() }
-                    ?: defaults.suggestionStrip.overflow,
-                blockOffensiveWords = p[BLOCK_OFFENSIVE_WORDS]
-                    ?: defaults.suggestionStrip.blockOffensiveWords,
-                contextRerank = p[CONTEXT_RERANK]
-                    ?: defaults.suggestionStrip.contextRerank,
-                autoSpaceAfterSuggestion = p[AUTO_SPACE_AFTER_SUGGESTION]
-                    ?: defaults.suggestionStrip.autoSpaceAfterSuggestion,
-                skipTypedWord = p[SKIP_TYPED_WORD] ?: defaults.suggestionStrip.skipTypedWord,
-                expandUserDictShortcuts = p[EXPAND_USER_DICT_SHORTCUTS]
-                    ?: defaults.suggestionStrip.expandUserDictShortcuts,
-                useSystemDictionary = p[USE_SYSTEM_DICTIONARY]
-                    ?: defaults.suggestionStrip.useSystemDictionary,
-                snippetMultiExpand = p[SNIPPET_MULTI_EXPAND]
-                    ?.let { runCatching { MultiExpandMode.valueOf(it) }.getOrNull() }
-                    ?: defaults.suggestionStrip.snippetMultiExpand,
-                systemSmartReplies = p[SYSTEM_SMART_REPLIES]
-                    ?: defaults.suggestionStrip.systemSmartReplies,
-                registerPriors = p[REGISTER_PRIORS]
-                    ?: defaults.suggestionStrip.registerPriors,
-                timingSignalStrength = p[TIMING_SIGNAL_STRENGTH]
-                    ?: defaults.suggestionStrip.timingSignalStrength,
-                numberRowCorrections = p[NUMBER_ROW_CORRECTIONS]
-                    ?: defaults.suggestionStrip.numberRowCorrections,
-                numberPrediction = p[NUMBER_PREDICTION]
-                    ?: defaults.suggestionStrip.numberPrediction,
-                autocorrectSplits = p[AUTOCORRECT_SPLITS]
-                    ?: defaults.suggestionStrip.autocorrectSplits,
-                spellingMapOffLangs = p[SPELLING_MAP_OFF_LANGS]
-                    ?: defaults.suggestionStrip.spellingMapOffLangs,
-                importedOnlyLangs = p[IMPORTED_ONLY_LANGS]
-                    ?: defaults.suggestionStrip.importedOnlyLangs,
-                wordPairsOffLangs = p[WORD_PAIRS_OFF_LANGS]
-                    ?: defaults.suggestionStrip.wordPairsOffLangs,
-                languageDetection = p[LANGUAGE_DETECTION]
-                    ?: defaults.suggestionStrip.languageDetection,
-                languageDetectionStrength = p[LANGUAGE_DETECTION_STRENGTH]
-                    ?.let { runCatching { LanguageDetectionStrength.valueOf(it) }.getOrNull() }
-                    ?: defaults.suggestionStrip.languageDetectionStrength,
-                languageDetectionByApp = p[LANGUAGE_DETECTION_BY_APP]
-                    ?: defaults.suggestionStrip.languageDetectionByApp,
-                phoneticEnglishLangs = p[PHONETIC_ENGLISH_LANGS]
-                    ?: LEGACY_PHONETIC_ENGLISH_LANGS.takeIf { p[PHONETIC_AUTO_ENGLISH] == true }
-                    ?: defaults.suggestionStrip.phoneticEnglishLangs,
-                phoneticEnglishSwitch = p[PHONETIC_ENGLISH_SWITCH]
-                    ?: defaults.suggestionStrip.phoneticEnglishSwitch,
-                // An item name this build does not know is dropped, not kept
-                // as a stale string.
-                wordMenuItems = p[WORD_MENU_ITEMS]
-                    ?.mapNotNullTo(mutableSetOf()) { runCatching { WordMenuItem.valueOf(it) }.getOrNull() }
-                    ?: defaults.suggestionStrip.wordMenuItems,
-                rankControl = p[WORD_RANK_CONTROL]
-                    ?.let { runCatching { RankControl.valueOf(it) }.getOrNull() }
-                    ?: defaults.suggestionStrip.rankControl,
-                deleteEditsImportedLists = p[DELETE_EDITS_IMPORTED_LISTS]
-                    ?: defaults.suggestionStrip.deleteEditsImportedLists,
-                learnFromTextSort = p[LEARN_FROM_TEXT_SORT]
-                    ?.let { runCatching { LearnFromTextSort.valueOf(it) }.getOrNull() }
-                    ?: defaults.suggestionStrip.learnFromTextSort,
-                learnFromTextPairs = p[LEARN_FROM_TEXT_PAIRS]
-                    ?: defaults.suggestionStrip.learnFromTextPairs,
-            ),
+            clipboard = readClipboard(p, defaults),
+            otp = readOtp(p, defaults),
+            autoBackup = readAutoBackup(p, defaults),
+            suggestionStrip = readSuggestionStrip(p, defaults),
             longPressDelayMs = p[LONG_PRESS_DELAY] ?: defaults.longPressDelayMs,
-            keyRepeat = KeyRepeatSettings(
-                deleteMs = p[KEY_REPEAT_DELETE] ?: p[KEY_REPEAT_INTERVAL]
-                    ?: defaults.keyRepeat.deleteMs,
-                wordDeleteMs = p[KEY_REPEAT_WORD_DELETE] ?: defaults.keyRepeat.wordDeleteMs,
-                spaceMs = p[KEY_REPEAT_SPACE] ?: p[KEY_REPEAT_INTERVAL]
-                    ?: defaults.keyRepeat.spaceMs,
-                customKeyMs = p[KEY_REPEAT_CUSTOM] ?: defaults.keyRepeat.customKeyMs,
-                startDelayMs = p[KEY_REPEAT_START_DELAY] ?: defaults.keyRepeat.startDelayMs,
-            ),
+            keyRepeat = readKeyRepeat(p, defaults),
             longPressHints = p[LONG_PRESS_HINTS] ?: defaults.longPressHints,
-            octopus = OctopusSettings(
-                enabled = p[OCTOPUS_ENABLED] ?: defaults.octopus.enabled,
-                placement = p[OCTOPUS_PLACEMENT]
-                    ?.let { runCatching { OctopusPlacement.valueOf(it) }.getOrNull() }
-                    ?: defaults.octopus.placement,
-                density = p[OCTOPUS_DENSITY] ?: defaults.octopus.density,
-                kinds = p[OCTOPUS_KINDS]?.let(::decodeOctopusKinds) ?: defaults.octopus.kinds,
-                duringGlide = p[OCTOPUS_DURING_GLIDE]
-                    ?.let { runCatching { OctopusDuringGlide.valueOf(it) }.getOrNull() }
-                    ?: defaults.octopus.duringGlide,
-                flickCommits = p[OCTOPUS_FLICK_COMMITS] ?: defaults.octopus.flickCommits,
-                tapCommits = p[OCTOPUS_TAP_COMMITS] ?: defaults.octopus.tapCommits,
-                flickSensitivity = p[OCTOPUS_FLICK_SENSITIVITY]
-                    ?.let { runCatching { OctopusFlickSensitivity.valueOf(it) }.getOrNull() }
-                    ?: defaults.octopus.flickSensitivity,
-                fontScale = p[OCTOPUS_FONT_SCALE] ?: defaults.octopus.fontScale,
-                suppressHints = p[OCTOPUS_SUPPRESS_HINTS] ?: defaults.octopus.suppressHints,
-                longPressKeys = p[OCTOPUS_LONG_PRESS_KEYS] ?: defaults.octopus.longPressKeys,
-                wordsPerKey = p[OCTOPUS_WORDS_PER_KEY]
-                    ?.coerceIn(OctopusSettings.WORDS_PER_KEY_RANGE)
-                    ?: defaults.octopus.wordsPerKey,
-            ),
-            layoutBehavior = LayoutBehaviorSettings(
-                symbolsLongPressNumpad =
-                    p[SYMBOLS_LONGPRESS_NUMPAD] ?: defaults.layoutBehavior.symbolsLongPressNumpad,
-                spaceSwipeDownHide =
-                    p[SPACE_SWIPE_DOWN_HIDE] ?: defaults.layoutBehavior.spaceSwipeDownHide,
-                hintFlick = p[HINT_FLICK] ?: defaults.layoutBehavior.hintFlick,
-                spaceCursor2d = p[SPACE_CURSOR_2D] ?: defaults.layoutBehavior.spaceCursor2d,
-                spaceHoldKeys = p[SPACE_HOLD_KEYS]
-                    ?.split('\n')?.filter { it.isNotEmpty() }
-                    ?: defaults.layoutBehavior.spaceHoldKeys,
-                hintFontScale = p[HINT_FONT_SCALE] ?: defaults.layoutBehavior.hintFontScale,
-                hintOffsetDp = p[HINT_OFFSET] ?: defaults.layoutBehavior.hintOffsetDp,
-                transliterationHints = p[TRANSLITERATION_HINTS]
-                    ?.let { runCatching { TransliterationHintMode.valueOf(it) }.getOrNull() }
-                    ?: defaults.layoutBehavior.transliterationHints,
-                fancyStyleId = p[FANCY_STYLE] ?: legacyFancyStyle(p)
-                    ?: defaults.layoutBehavior.fancyStyleId,
-                // An empty string is how "no pinned style" is stored, so the
-                // setting can go back to following the strip.
-                fancyToolStyleId = p[FANCY_TOOL_STYLE]?.takeIf { it.isNotEmpty() }
-                    ?: defaults.layoutBehavior.fancyToolStyleId,
-                fancyToolKeepsLanguage = p[FANCY_TOOL_KEEPS_LANGUAGE]
-                    ?: defaults.layoutBehavior.fancyToolKeepsLanguage,
-                fancyToolAutoOff = p[FANCY_TOOL_AUTO_OFF]
-                    ?: defaults.layoutBehavior.fancyToolAutoOff,
-                // Empty is "the first one", the same spelling the fancy style uses.
-                customLayoutToolId = p[CUSTOM_LAYOUT_TOOL]?.takeIf { it.isNotEmpty() }
-                    ?: defaults.layoutBehavior.customLayoutToolId,
-                numberRowShiftSymbols =
-                    p[NUMBER_ROW_SHIFT_SYMBOLS] ?: defaults.layoutBehavior.numberRowShiftSymbols,
-                smartHitDetection =
-                    p[SMART_HIT_DETECTION] ?: defaults.layoutBehavior.smartHitDetection,
-                autopilotStrength = p[AUTOPILOT_STRENGTH]
-                    ?: defaults.layoutBehavior.autopilotStrength,
-                autopilotShowEffect = p[AUTOPILOT_SHOW_EFFECT]
-                    ?: defaults.layoutBehavior.autopilotShowEffect,
-                autopilotOutline = p[AUTOPILOT_OUTLINE]
-                    ?: defaults.layoutBehavior.autopilotOutline,
-                autopilotVisualScale = p[AUTOPILOT_VISUAL_SCALE]
-                    ?: defaults.layoutBehavior.autopilotVisualScale,
-                spacebarDisplay = p[SPACEBAR_DISPLAY]
-                    ?.let { runCatching { SpacebarDisplay.valueOf(it) }.getOrNull() }
-                    ?: defaults.layoutBehavior.spacebarDisplay,
-                languagePickerStyle = p[LANGUAGE_PICKER_STYLE]
-                    ?.let { runCatching { LanguagePickerStyle.valueOf(it) }.getOrNull() }
-                    ?: defaults.layoutBehavior.languagePickerStyle,
-                numeralSystemByLang = p[NUMERAL_SYSTEM_BY_LANG]
-                    ?.let { decodeNumeralSystems(it) }
-                    ?: defaults.layoutBehavior.numeralSystemByLang,
-                numeralCommitScope = p[NUMERAL_COMMIT_SCOPE]
-                    ?.let { runCatching { NumeralCommitScope.valueOf(it) }.getOrNull() }
-                    ?: defaults.layoutBehavior.numeralCommitScope,
-                shiftEnterNewline =
-                    p[SHIFT_ENTER_NEWLINE] ?: defaults.layoutBehavior.shiftEnterNewline,
-                numberRowInSymbols =
-                    p[NUMBER_ROW_IN_SYMBOLS] ?: defaults.layoutBehavior.numberRowInSymbols,
-                bottomRowHeightDp =
-                    p[BOTTOM_ROW_HEIGHT] ?: defaults.layoutBehavior.bottomRowHeightDp,
-                sidePadLeftScale = p[SIDE_PAD_LEFT_SCALE] ?: p[SIDE_PAD_SCALE]
-                    ?: defaults.layoutBehavior.sidePadLeftScale,
-                sidePadRightScale = p[SIDE_PAD_RIGHT_SCALE] ?: p[SIDE_PAD_SCALE]
-                    ?: defaults.layoutBehavior.sidePadRightScale,
-                splitOnlyOnLargeScreens = p[SPLIT_ONLY_LARGE]
-                    ?: defaults.layoutBehavior.splitOnlyOnLargeScreens,
-                shiftCapsLockMs = p[SHIFT_CAPS_LOCK_MS] ?: defaults.layoutBehavior.shiftCapsLockMs,
-                showAllPopupKeys = p[SHOW_ALL_POPUP_KEYS] ?: defaults.layoutBehavior.showAllPopupKeys,
-                shiftedPopupKeys = p[SHIFTED_POPUP_KEYS]
-                    ?: defaults.layoutBehavior.shiftedPopupKeys,
-                currencyKeys = p[CURRENCY_KEYS]
-                    ?.split('\n')?.filter { it.isNotEmpty() }
-                    ?: defaults.layoutBehavior.currencyKeys,
-                symbolsReturnToLetters = p[SYMBOLS_RETURN_TO_LETTERS]
-                    ?: defaults.layoutBehavior.symbolsReturnToLetters,
-                symbolsReturnChars = p[SYMBOLS_RETURN_CHARS]
-                    ?: defaults.layoutBehavior.symbolsReturnChars,
-                // Derived from whether the key is *there*, not from its value —
-                // see the fields' own docs. This is the only place that
-                // information survives; every other read collapses it with `?:`.
-                numberRowUntouched = p[NUMBER_ROW] == null,
-                keyHeightUntouched = p[KEY_HEIGHT] == null,
-                keyboardWidthUntouched = p[KEYBOARD_WIDTH_PERCENT] == null,
-            ),
+            octopus = readOctopus(p, defaults),
+            layoutBehavior = readLayoutBehavior(p, defaults),
             rawClipboardShortcuts = p[RAW_CLIPBOARD_SHORTCUTS] ?: defaults.rawClipboardShortcuts,
-            longPressLetterActions = LongPressLetterActions(
-                selectAll = p[LONG_PRESS_A_SELECT_ALL] ?: defaults.longPressLetterActions.selectAll,
-                copy = p[LONG_PRESS_C_COPY] ?: defaults.longPressLetterActions.copy,
-                paste = p[LONG_PRESS_V_PASTE] ?: defaults.longPressLetterActions.paste,
-                cut = p[LONG_PRESS_X_CUT] ?: defaults.longPressLetterActions.cut,
-                undo = p[LONG_PRESS_Z_UNDO] ?: defaults.longPressLetterActions.undo,
-                redo = p[LONG_PRESS_Y_REDO] ?: defaults.longPressLetterActions.redo,
-                letters = p[LONG_PRESS_LETTERS] ?: defaults.longPressLetterActions.letters,
-                actionFirst = p[LONG_PRESS_ACTION_FIRST]
-                    ?: defaults.longPressLetterActions.actionFirst,
-            ),
+            longPressLetterActions = readLongPressLetterActions(p, defaults),
             emojiToolbar = p[EMOJI_TOOLBAR] ?: defaults.emojiToolbar,
             coloredToolIcons = p[COLORED_TOOL_ICONS] ?: defaults.coloredToolIcons,
             toolColorOverrides = decodeToolColors(p[TOOL_COLOR_OVERRIDES]),
             toolIconGradients = p[TOOL_ICON_GRADIENTS] ?: defaults.toolIconGradients,
             toolColorEndOverrides = decodeToolColors(p[TOOL_COLOR_END_OVERRIDES]),
-            icons = IconSettings(
-                activePackId = p[ICON_PACK_ID] ?: defaults.icons.activePackId,
-                overrides = IconOverrides.decode(p[ICON_OVERRIDES]),
-            ),
+            icons = readIcons(p, defaults),
             incognito = p[INCOGNITO] ?: defaults.incognito,
             // Empty stored string is a valid state (everything in the toolbox),
             // distinct from never-set (defaults apply).
-            toolbarTools = p[TOOLBAR_TOOLS]?.let { csv ->
-                if (csv.isEmpty()) emptyList()
-                else csv.split(',').mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
-            } ?: defaults.toolbarTools,
-            toolbarBehavior = ToolbarBehavior(
-                enabled = p[TOOLBAR_ENABLED] ?: defaults.toolbarBehavior.enabled,
-                swipeDownHide = p[TOOLBAR_SWIPE_DOWN_HIDE] ?: defaults.toolbarBehavior.swipeDownHide,
-                dragToRearrange = p[TOOLBAR_DRAG_REARRANGE] ?: defaults.toolbarBehavior.dragToRearrange,
-                onlyWithHardwareKeyboard =
-                    p[TOOLBAR_ONLY_HW_KEYBOARD] ?: defaults.toolbarBehavior.onlyWithHardwareKeyboard,
-                reverseForRtl = p[REVERSE_TOOLBAR_RTL] ?: defaults.toolbarBehavior.reverseForRtl,
-                greedy = p[TOOLBAR_GREEDY] ?: defaults.toolbarBehavior.greedy,
-                scrollable = p[TOOLBAR_SCROLLABLE] ?: defaults.toolbarBehavior.scrollable,
-                hideWhenLocked = p[TOOLBAR_HIDE_WHEN_LOCKED] ?: defaults.toolbarBehavior.hideWhenLocked,
-                toolWidthDp = p[TOOLBAR_TOOL_WIDTH] ?: defaults.toolbarBehavior.toolWidthDp,
-                paddingTopDp = p[TOOLBAR_PADDING_TOP] ?: defaults.toolbarBehavior.paddingTopDp,
-                paddingBottomDp = p[TOOLBAR_PADDING_BOTTOM] ?: defaults.toolbarBehavior.paddingBottomDp,
-                themesPanelBuiltIns = p[THEMES_PANEL_BUILTINS],
-                placement = p[TOOLBAR_PLACEMENT]
-                    ?.let { runCatching { ToolbarPlacement.valueOf(it) }.getOrNull() }
-                    ?: defaults.toolbarBehavior.placement,
-                showStrip = p[TOOLBAR_SHOW_STRIP] ?: defaults.toolbarBehavior.showStrip,
-                holdActions = ToolHoldActions.decode(p[TOOLBAR_HOLD_ACTIONS]),
-            ),
+            toolbarTools = readToolbarTools(p, defaults),
+            toolbarBehavior = readToolbarBehavior(p, defaults),
             toolbarHeightDp = p[TOOLBAR_HEIGHT] ?: defaults.toolbarHeightDp,
             toolbarLabels = p[TOOLBAR_LABELS] ?: defaults.toolbarLabels,
             toolbarLabelSize = p[TOOLBAR_LABEL_SIZE] ?: defaults.toolbarLabelSize,
@@ -8431,272 +8608,37 @@ class SettingsRepository(private val context: Context) {
             emojiInsertMode = p[EMOJI_INSERT_MODE]
                 ?.let { runCatching { EmojiInsertMode.valueOf(it) }.getOrNull() }
                 ?: defaults.emojiInsertMode,
-            emoji = EmojiSettings(
-                defaultSkinTone = p[EMOJI_DEFAULT_SKIN_TONE]
-                    ?.let { runCatching { EmojiSkinTone.valueOf(it) }.getOrNull() }
-                    ?: defaults.emoji.defaultSkinTone,
-                toneOverrideByLastUsed = p[EMOJI_TONE_OVERRIDE_LAST_USED]
-                    ?: defaults.emoji.toneOverrideByLastUsed,
-                closeAfterInsert = p[EMOJI_CLOSE_AFTER_INSERT] ?: defaults.emoji.closeAfterInsert,
-                hideUnrenderable = p[EMOJI_HIDE_UNRENDERABLE] ?: defaults.emoji.hideUnrenderable,
-                barScrollable = p[EMOJI_BAR_SCROLLABLE] ?: defaults.emoji.barScrollable,
-                barCount = p[EMOJI_BAR_COUNT]?.coerceIn(EmojiBarCountRange)
-                    ?: defaults.emoji.barCount,
-                gridCellSize = p[EMOJI_GRID_CELL_SIZE]?.coerceIn(EmojiGridCellSizeRange)
-                    ?: defaults.emoji.gridCellSize,
-                gridEmojiSize = p[EMOJI_GRID_EMOJI_SIZE]?.coerceIn(EmojiGridEmojiSizeRange)
-                    ?: defaults.emoji.gridEmojiSize,
-                recentsLimit = p[EMOJI_RECENTS_LIMIT]?.coerceIn(EmojiRecentsRange)
-                    ?: defaults.emoji.recentsLimit,
-                mediaGridColumns = p[MEDIA_GRID_COLUMNS]?.coerceIn(2, 5)
-                    ?: defaults.emoji.mediaGridColumns,
-                kaomojiTabs = p[EMOJI_KAOMOJI_TABS] ?: defaults.emoji.kaomojiTabs,
-                keywordPackVersion = p[EMOJI_KEYWORD_PACK_VERSION]
-                    ?: defaults.emoji.keywordPackVersion,
-                autoDownloadKeywords = p[EMOJI_AUTO_DOWNLOAD_KEYWORDS]
-                    ?: defaults.emoji.autoDownloadKeywords,
-                disabledKeywordLangs = p[EMOJI_DISABLED_KEYWORD_LANGS]
-                    ?: defaults.emoji.disabledKeywordLangs,
-                usageVersion = p[EMOJI_USAGE_VERSION] ?: defaults.emoji.usageVersion,
-                animated = p[EMOJI_ANIMATED] ?: defaults.emoji.animated,
-                sendAsSticker = p[EMOJI_SEND_AS_STICKER] ?: defaults.emoji.sendAsSticker,
-                categoryOrder = p[EMOJI_CATEGORY_ORDER]
-                    ?.split(',')
-                    ?.map { it.trim() }
-                    ?.filter { it.isNotEmpty() }
-                    ?.distinct()
-                    ?: defaults.emoji.categoryOrder,
-                hiddenCategories = p[EMOJI_HIDDEN_CATEGORIES] ?: defaults.emoji.hiddenCategories,
-                categoryEmojiOrder = decodeEmojiOrder(p[EMOJI_CATEGORY_EMOJI_ORDER])
-                    .ifEmpty { defaults.emoji.categoryEmojiOrder },
-            ),
+            emoji = readEmoji(p, defaults),
             enabledTools = ToolbarTool.entries - decodeDisabledTools(p[DISABLED_TOOLS]),
             toolboxOrder = decodeToolOrder(p[TOOLBOX_ORDER]),
             toolboxHintDismissed = p[TOOLBOX_HINT_DISMISSED] ?: defaults.toolboxHintDismissed,
-            toolbox = ToolboxSettings(
-                layout = p[TOOLBOX_LAYOUT]?.let { runCatching { ToolboxLayout.valueOf(it) }.getOrNull() }
-                    ?: defaults.toolbox.layout,
-                pillColumns = p[TOOLBOX_PILL_COLUMNS]?.coerceIn(1, 3)
-                    ?: defaults.toolbox.pillColumns,
-                pillFilled = p[TOOLBOX_PILL_FILLED] ?: defaults.toolbox.pillFilled,
-                paginate = p[TOOLBOX_PAGINATE] ?: defaults.toolbox.paginate,
-                pageSize = p[TOOLBOX_PAGE_SIZE]?.coerceIn(ToolboxPageSizeRange)
-                    ?: defaults.toolbox.pageSize,
-                labelSizeSp = p[TOOLBOX_LABEL_SIZE] ?: defaults.toolbox.labelSizeSp,
-            ),
-            sensorTools = SensorToolSettings(
-                flashlightAutoOff = p[FLASHLIGHT_AUTO_OFF]
-                    ?: defaults.sensorTools.flashlightAutoOff,
-                compassDegrees = p[COMPASS_SHOW_DEGREES] ?: defaults.sensorTools.compassDegrees,
-                compassQibla = p[COMPASS_SHOW_QIBLA] ?: defaults.sensorTools.compassQibla,
-                levelAngles = p[LEVEL_SHOW_ANGLES] ?: defaults.sensorTools.levelAngles,
-                moonSouthern = p[MOON_SOUTHERN] ?: isSouthernHemisphere(deviceRegion),
-            ),
+            toolbox = readToolbox(p, defaults),
+            sensorTools = readSensorTools(p, defaults),
             redoUsesCtrlY = p[REDO_USES_CTRL_Y] ?: defaults.redoUsesCtrlY,
-            networkLog = NetworkLogSettings(
-                keep = p[NETWORK_LOG_KEEP] ?: defaults.networkLog.keep,
-                showOnKeyboard = p[NETWORK_LOG_ON_KEYBOARD] ?: defaults.networkLog.showOnKeyboard,
-            ),
-            weather = WeatherSettings(
-                fahrenheit = p[WEATHER_FAHRENHEIT] ?: defaults.weather.fahrenheit,
-                latitude = p[WEATHER_LAT],
-                longitude = p[WEATHER_LON],
-                placeName = p[WEATHER_PLACE] ?: defaults.weather.placeName,
-                autoFetch = p[WEATHER_AUTO_FETCH] ?: defaults.weather.autoFetch,
-            ),
-            calendarTool = CalendarToolSettings(
-                altOne = calendarAltFromPrefs(p, first = true),
-                altTwo = calendarAltFromPrefs(p, first = false),
-                weekend = p[CALENDAR_WEEKEND]?.let { Weekend.fromId(it) }
-                    ?: Weekend.forRegion(deviceRegion),
-                hijriAdjustDays = p[HIJRI_ADJUST_DAYS] ?: defaults.calendarTool.hijriAdjustDays,
-            ),
+            networkLog = readNetworkLog(p, defaults),
+            weather = readWeather(p, defaults),
+            calendarTool = readCalendarTool(p, defaults),
             handwritingStylusOnly = p[HANDWRITING_STYLUS_ONLY] ?: defaults.handwritingStylusOnly,
             handwritingCommitDelayMs = p[HANDWRITING_COMMIT_DELAY]
                 ?: defaults.handwritingCommitDelayMs,
             handwritingAutoSpace = p[HANDWRITING_AUTO_SPACE] ?: defaults.handwritingAutoSpace,
-            voiceBar = VoiceBarSettings(
-                mode = p[VOICE_UI_MODE] ?: if (p[VOICE_STRIP_MODE] == true) {
-                    VoiceBarSettings.MODE_STRIP
-                } else {
-                    defaults.voiceBar.mode
-                },
-                typingMode = p[VOICE_TYPING_MODE] ?: defaults.voiceBar.typingMode,
-                active = p[VOICE_BAR_ACTIVE] ?: defaults.voiceBar.active,
-                vertical = p[VOICE_BAR_VERTICAL] ?: defaults.voiceBar.vertical,
-                snap = p[VOICE_BAR_SNAP] ?: defaults.voiceBar.snap,
-                rightEdge = p[VOICE_BAR_EDGE_RIGHT] ?: defaults.voiceBar.rightEdge,
-                yBias = p[VOICE_BAR_Y_BIAS] ?: defaults.voiceBar.yBias,
-                dockBias = p[VOICE_BAR_DOCK_BIAS] ?: defaults.voiceBar.dockBias,
-                holdToTalkMs = p[VOICE_HOLD_TO_TALK_MS] ?: defaults.voiceBar.holdToTalkMs,
-                holdPicksTypingMode = p[VOICE_HOLD_PICKS_MODE] ?: defaults.voiceBar.holdPicksTypingMode,
-                returnMode = p[VOICE_UI_RETURN_MODE] ?: defaults.voiceBar.returnMode,
-                inline = p[VOICE_BAR_INLINE] ?: defaults.voiceBar.inline,
-            ),
+            voiceBar = readVoiceBar(p, defaults),
             voiceContinuous = p[VOICE_CONTINUOUS] ?: defaults.voiceContinuous,
             voiceSpokenPunctuation = p[VOICE_SPOKEN_PUNCTUATION]
                 ?: defaults.voiceSpokenPunctuation,
-            whisper = WhisperSettings(
-                engine = p[VOICE_ENGINE] ?: defaults.whisper.engine,
-                modelId = p[WHISPER_MODEL_ID] ?: defaults.whisper.modelId,
-                modelByLang = p[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) }
-                    ?: defaults.whisper.modelByLang,
-                translate = p[WHISPER_TRANSLATE] ?: defaults.whisper.translate,
-                serverUrl = p[VOICE_SERVER_URL] ?: defaults.whisper.serverUrl,
-                serverKey = p[VOICE_SERVER_KEY] ?: defaults.whisper.serverKey,
-                serverModel = p[VOICE_SERVER_MODEL] ?: defaults.whisper.serverModel,
-                serverSendLanguage = p[VOICE_SERVER_SEND_LANGUAGE]
-                    ?: defaults.whisper.serverSendLanguage,
-            ),
-            camera = CameraSettings(
-                preferFront = p[CAMERA_PREFER_FRONT] ?: defaults.camera.preferFront,
-                timerSeconds = p[CAMERA_TIMER_SECONDS] ?: defaults.camera.timerSeconds,
-                captureMaxPx = p[CAMERA_CAPTURE_MAX_PX] ?: defaults.camera.captureMaxPx,
-                mirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.camera.mirrorFront,
-                shutterSound = p[CAMERA_SHUTTER_SOUND] ?: defaults.camera.shutterSound,
-                haptics = p[CAMERA_HAPTICS] ?: defaults.camera.haptics,
-                saveToGallery = p[CAMERA_SAVE_TO_GALLERY] ?: defaults.camera.saveToGallery,
-                fullFrame = p[CAMERA_FULL_FRAME] ?: defaults.camera.fullFrame,
-            ),
+            whisper = readWhisper(p, defaults),
+            camera = readCamera(p, defaults),
             stickerSendMode = p[STICKER_SEND_MODE]
                 ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
                 ?: defaults.stickerSendMode,
-            scanner = ScannerSettings(
-                docSaveToGallery = p[DOC_SCAN_SAVE_TO_GALLERY]
-                    ?: defaults.scanner.docSaveToGallery,
-                qrSaveToGallery = p[QR_SAVE_TO_GALLERY] ?: defaults.scanner.qrSaveToGallery,
-                qrSendMode = p[QR_SEND_MODE]
-                    ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
-                    ?: defaults.scanner.qrSendMode,
-                ocrAutoSelectWords = p[OCR_AUTO_SELECT_WORDS]
-                    ?: defaults.scanner.ocrAutoSelectWords,
-                qrScanHaptics = p[QR_SCAN_HAPTICS] ?: defaults.scanner.qrScanHaptics,
-                qrScanAutoInsert = p[QR_SCAN_AUTO_INSERT] ?: defaults.scanner.qrScanAutoInsert,
-                qrScanLinkPreviews = p[QR_SCAN_LINK_PREVIEWS]
-                    ?: defaults.scanner.qrScanLinkPreviews,
-                qrSizePx = p[QR_SIZE_PX] ?: defaults.scanner.qrSizePx,
-                qrEcc = p[QR_ECC]?.let { runCatching { QrEccLevel.valueOf(it) }.getOrNull() }
-                    ?: defaults.scanner.qrEcc,
-            ),
-            gif = GifSettings(
-                klipyApiKey = p[KLIPY_API_KEY] ?: defaults.gif.klipyApiKey,
-                giphyApiKey = p[GIPHY_API_KEY] ?: defaults.gif.giphyApiKey,
-                contentFilter = p[GIF_CONTENT_FILTER]
-                    ?.let { runCatching { GifContentFilter.valueOf(it) }.getOrNull() }
-                    ?: defaults.gif.contentFilter,
-                sourceMode = p[GIF_SOURCE_MODE]
-                    ?.let { runCatching { GifSourceMode.valueOf(it) }.getOrNull() }
-                    ?: defaults.gif.sourceMode,
-                resultLimit = p[GIF_RESULT_LIMIT] ?: defaults.gif.resultLimit,
-                sendMode = p[GIF_SEND_MODE]
-                    ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
-                    ?: defaults.gif.sendMode,
-            ),
+            scanner = readScanner(p, defaults),
+            gif = readGif(p, defaults),
             dictionaryAutoLookup = p[DICTIONARY_AUTO_LOOKUP] ?: defaults.dictionaryAutoLookup,
-            textEditing = TextEditingSettings(
-                repeatMs = p[TEXT_EDIT_REPEAT_MS] ?: defaults.textEditing.repeatMs,
-                cursorToolsRepeatOnHold = p[CURSOR_TOOLS_REPEAT_ON_HOLD]
-                    ?: defaults.textEditing.cursorToolsRepeatOnHold,
-                // Filtered rather than trusted: the stored list outlives a tool
-                // leaving HoldRepeatCursorTools, and a name in here that no
-                // longer repeats would quietly cost that tool its toolbox hold.
-                toolboxRepeatTools = p[TOOLBOX_REPEAT_TOOLS]
-                    ?.let { csv -> decodeToolNames(csv).filterTo(HashSet()) { it in HoldRepeatCursorTools } }
-                    ?: defaults.textEditing.toolboxRepeatTools,
-                selectionModeHold = p[SELECTION_MODE_HOLD]
-                    ?: defaults.textEditing.selectionModeHold,
-                selectionModeMultiTap = p[SELECTION_MODE_MULTI_TAP]
-                    ?: defaults.textEditing.selectionModeMultiTap,
-                wrapSelectionWithPair =
-                    p[WRAP_SELECTION_WITH_PAIR] ?: defaults.textEditing.wrapSelectionWithPair,
-                recapitalizeSelectionWithShift = p[RECAPITALIZE_SELECTION_WITH_SHIFT]
-                    ?: defaults.textEditing.recapitalizeSelectionWithShift,
-                doubleSpaceWindowMs = p[DOUBLE_SPACE_WINDOW_MS]
-                    ?: defaults.textEditing.doubleSpaceWindowMs,
-                spaceCursorStepDp = p[SPACE_CURSOR_STEP_DP]
-                    ?: defaults.textEditing.spaceCursorStepDp,
-                backspaceWordStepDp = p[BACKSPACE_WORD_STEP_DP]
-                    ?: defaults.textEditing.backspaceWordStepDp,
-                backspaceSwipeUnit = p[BACKSPACE_SWIPE_UNIT]
-                    ?.let { runCatching { BackspaceSwipeUnit.valueOf(it) }.getOrNull() }
-                    ?: defaults.textEditing.backspaceSwipeUnit,
-                backspaceSwipePreview = p[BACKSPACE_SWIPE_PREVIEW]
-                    ?: defaults.textEditing.backspaceSwipePreview,
-                backspaceCharStepDp = p[BACKSPACE_CHAR_STEP_DP]
-                    ?: defaults.textEditing.backspaceCharStepDp,
-                deleteHoldDeletesWords = p[DELETE_HOLD_DELETES_WORDS]
-                    ?: defaults.textEditing.deleteHoldDeletesWords,
-                forwardDeleteSwipe = p[FORWARD_DELETE_SWIPE]
-                    ?: defaults.textEditing.forwardDeleteSwipe,
-            ),
-            trackpad = TrackpadSettings(
-                stepXDp = p[TRACKPAD_STEP_X_DP] ?: defaults.trackpad.stepXDp,
-                stepYDp = p[TRACKPAD_STEP_Y_DP] ?: defaults.trackpad.stepYDp,
-                holdToOpen = p[TRACKPAD_HOLD_TO_OPEN] ?: defaults.trackpad.holdToOpen,
-                multiTap = p[TRACKPAD_MULTI_TAP] ?: defaults.trackpad.multiTap,
-                haptics = p[TRACKPAD_HAPTICS] ?: defaults.trackpad.haptics,
-                trail = p[TRACKPAD_TRAIL] ?: defaults.trackpad.trail,
-            ),
-            vocabulary = VocabularySettings(
-                nudges = p[VOCAB_NUDGES] ?: defaults.vocabulary.nudges,
-                nudgeOnVocabWord = p[VOCAB_NUDGE_SELF] ?: defaults.vocabulary.nudgeOnVocabWord,
-                nudgeScope = p[VOCAB_NUDGE_SCOPE]?.let { runCatching { VocabNudgeScope.valueOf(it) }.getOrNull() }
-                    ?: defaults.vocabulary.nudgeScope,
-                nudgeLevel = p[VOCAB_NUDGE_LEVEL]?.let { runCatching { VocabNudgeLevel.valueOf(it) }.getOrNull() }
-                    ?: defaults.vocabulary.nudgeLevel,
-                cooldown = p[VOCAB_COOLDOWN]?.let { runCatching { VocabCooldown.valueOf(it) }.getOrNull() }
-                    ?: defaults.vocabulary.cooldown,
-                chipTapAction = p[VOCAB_CHIP_TAP]?.let { runCatching { VocabChipTap.valueOf(it) }.getOrNull() }
-                    ?: defaults.vocabulary.chipTapAction,
-                relatedTap = p[VOCAB_RELATED_TAP]?.let { runCatching { VocabRelatedTap.valueOf(it) }.getOrNull() }
-                    ?: defaults.vocabulary.relatedTap,
-                scheduler = p[VOCAB_SCHEDULER]?.let { runCatching { VocabScheduler.valueOf(it) }.getOrNull() }
-                    ?: defaults.vocabulary.scheduler,
-                dailyGoal = p[VOCAB_DAILY_GOAL] ?: defaults.vocabulary.dailyGoal,
-                wordOfTheDayCard = p[VOCAB_WOTD_CARD] ?: defaults.vocabulary.wordOfTheDayCard,
-                wordOfTheDayChip = p[VOCAB_WOTD_CHIP] ?: defaults.vocabulary.wordOfTheDayChip,
-                wordInterval = p[VOCAB_WORD_INTERVAL]?.let { runCatching { VocabWordInterval.valueOf(it) }.getOrNull() }
-                    ?: defaults.vocabulary.wordInterval,
-                chipTimesPerWord = p[VOCAB_CHIP_TIMES]?.coerceIn(VocabularySettings.MIN_CHIP_TIMES, VocabularySettings.MAX_CHIP_TIMES)
-                    ?: defaults.vocabulary.chipTimesPerWord,
-                audioSource = p[VOCAB_AUDIO_SOURCE]?.let { runCatching { VocabAudioSource.valueOf(it) }.getOrNull() }
-                    ?: defaults.vocabulary.audioSource,
-                accent = p[VOCAB_ACCENT]?.let { runCatching { VocabAccent.valueOf(it) }.getOrNull() }
-                    ?: defaults.vocabulary.accent,
-                ttsRate = p[VOCAB_TTS_RATE] ?: defaults.vocabulary.ttsRate,
-                ttsPitch = p[VOCAB_TTS_PITCH] ?: defaults.vocabulary.ttsPitch,
-                cardFields = p[VOCAB_CARD_FIELDS] ?: defaults.vocabulary.cardFields,
-                translationLangs = p[VOCAB_TRANSLATION_LANGS] ?: defaults.vocabulary.translationLangs,
-            ),
-            powerSaving = PowerSavingSettings(
-                manual = p[PS_MANUAL] ?: defaults.powerSaving.manual,
-                trigger = p[PS_TRIGGER]
-                    ?.let { runCatching { PowerSavingTrigger.valueOf(it) }.getOrNull() }
-                    ?: defaults.powerSaving.trigger,
-                batteryPercent = p[PS_BATTERY_PERCENT] ?: defaults.powerSaving.batteryPercent,
-                offWhileCharging =
-                    p[PS_OFF_WHILE_CHARGING] ?: defaults.powerSaving.offWhileCharging,
-                dropHaptics = p[PS_DROP_HAPTICS] ?: defaults.powerSaving.dropHaptics,
-                dropKeySound = p[PS_DROP_KEY_SOUND] ?: defaults.powerSaving.dropKeySound,
-                dropAnimations = p[PS_DROP_ANIMATIONS] ?: defaults.powerSaving.dropAnimations,
-                dropGlideTrail = p[PS_DROP_GLIDE_TRAIL] ?: defaults.powerSaving.dropGlideTrail,
-                dropKeyPopup = p[PS_DROP_KEY_POPUP] ?: defaults.powerSaving.dropKeyPopup,
-                dropGestureTyping =
-                    p[PS_DROP_GESTURE_TYPING] ?: defaults.powerSaving.dropGestureTyping,
-                dropEmojiPrediction =
-                    p[PS_DROP_EMOJI_PREDICTION] ?: defaults.powerSaving.dropEmojiPrediction,
-                dropSmartChips = p[PS_DROP_SMART_CHIPS] ?: defaults.powerSaving.dropSmartChips,
-                dropBackgroundNetwork =
-                    p[PS_DROP_BACKGROUND_NETWORK] ?: defaults.powerSaving.dropBackgroundNetwork,
-                dropScreenshotWatch =
-                    p[PS_DROP_SCREENSHOT_WATCH] ?: defaults.powerSaving.dropScreenshotWatch,
-                dropOnDeviceModels =
-                    p[PS_DROP_ON_DEVICE_MODELS] ?: defaults.powerSaving.dropOnDeviceModels,
-                dropTypingStats =
-                    p[PS_DROP_TYPING_STATS] ?: defaults.powerSaving.dropTypingStats,
-                dropMediaPin =
-                    p[PS_DROP_MEDIA_PIN] ?: defaults.powerSaving.dropMediaPin,
-            ),
+            dictionarySources = p[DICTIONARY_SOURCES]?.let(DictionarySources::decode) ?: defaults.dictionarySources,
+            textEditing = readTextEditing(p, defaults),
+            trackpad = readTrackpad(p, defaults),
+            vocabulary = readVocabulary(p, defaults),
+            powerSaving = readPowerSaving(p, defaults),
             dataSaver = dataSaverFromPrefs(p, defaults),
             numpadCalculatorLayout = p[NUMPAD_CALCULATOR_LAYOUT]
                 ?: p[NUMPAD_PHONE_LAYOUT]?.not()
@@ -8710,47 +8652,21 @@ class SettingsRepository(private val context: Context) {
                 ?.let { runCatching { CurrencyLabel.valueOf(it) }.getOrNull() }
                 ?: defaults.currencyLabel,
             currencyCacheHours = p[CURRENCY_CACHE_HOURS] ?: defaults.currencyCacheHours,
-            rateSources = RateSourceSettings(
-                fiatProviders = p[FIAT_PROVIDERS]?.split('\n')?.filter { it.isNotEmpty() }
-                    ?: defaults.rateSources.fiatProviders,
-                cryptoEnabled = p[CRYPTO_ENABLED] ?: defaults.rateSources.cryptoEnabled,
-                cryptoProviders = p[CRYPTO_PROVIDERS]?.split('\n')?.filter { it.isNotEmpty() }
-                    ?: defaults.rateSources.cryptoProviders,
-                cryptoCacheMinutes = p[CRYPTO_CACHE_MINUTES]
-                    ?: defaults.rateSources.cryptoCacheMinutes,
-                cryptoTickers = p[CRYPTO_TICKERS] ?: defaults.rateSources.cryptoTickers,
-                cryptoDecimals = p[CRYPTO_DECIMALS] ?: defaults.rateSources.cryptoDecimals,
-                autoFetch = p[CURRENCY_AUTO_FETCH] ?: defaults.rateSources.autoFetch,
-            ),
+            rateSources = readRateSources(p, defaults),
             grammarDebounceMs = p[GRAMMAR_DEBOUNCE_MS] ?: defaults.grammarDebounceMs,
             unitConvertLast = p[UNIT_CONVERT_LAST] ?: defaults.unitConvertLast,
             compoundUnits = p[COMPOUND_UNITS] ?: defaults.compoundUnits,
             toolboxColumns = p[TOOLBOX_COLUMNS] ?: defaults.toolboxColumns,
             translateTargetLang = p[TRANSLATE_TARGET_LANG] ?: defaults.translateTargetLang,
-            translate = TranslateSettings(
-                engine = p[TRANSLATE_ENGINE]
-                    ?.let { name -> TranslateEngine.entries.firstOrNull { it.name == name } }
-                    ?: defaults.translate.engine,
-            ),
+            translate = readTranslate(p, defaults),
             grammarDialect = p[GRAMMAR_DIALECT]
                 ?.let { runCatching { GrammarDialect.valueOf(it) }.getOrNull() }
                 ?: defaults.grammarDialect,
-            grammarHiddenKinds = p[GRAMMAR_HIDDEN_KINDS]
-                ?.mapNotNullTo(mutableSetOf()) {
-                    runCatching { GrammarLintKind.valueOf(it) }.getOrNull()
-                }
-                ?: defaults.grammarHiddenKinds,
+            grammarHiddenKinds = readGrammarHiddenKinds(p, defaults),
             spellCheckerNoSuggestions = p[SPELL_CHECKER_NO_SUGGESTIONS]
                 ?: defaults.spellCheckerNoSuggestions,
             translateApiKey = p[TRANSLATE_API_KEY] ?: defaults.translateApiKey,
-            webSearch = WebSearchSettings(
-                braveApiKey = p[BRAVE_API_KEY] ?: defaults.webSearch.braveApiKey,
-                safe = p[SEARCH_SAFE] ?: defaults.webSearch.safe,
-                resultCount = p[SEARCH_RESULT_COUNT] ?: defaults.webSearch.resultCount,
-                wikiLanguage = p[WIKI_LANGUAGE] ?: defaults.webSearch.wikiLanguage,
-                wikiLinksMarkdown = p[WIKI_LINKS_MARKDOWN]
-                    ?: defaults.webSearch.wikiLinksMarkdown,
-            ),
+            webSearch = readWebSearch(p, defaults),
             symbolRecents = p[SYMBOL_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }
                 ?: defaults.symbolRecents,
             symbolRowEnabled = p[SYMBOL_ROW_ENABLED] ?: defaults.symbolRowEnabled,
@@ -8761,18 +8677,7 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.customSymbolSets,
             // Never stored: honor the legacy emoji-row position toggle so
             // existing users keep their arrangement.
-            barOrder = p[BAR_ORDER]
-                ?.split(',')
-                ?.mapNotNull { runCatching { BarRow.valueOf(it) }.getOrNull() }
-                ?.let { sanitizeBarOrder(it) }
-                ?: if (p[EMOJI_ROW_ABOVE_TOOLBAR] == false) {
-                    // Legacy toggle explicitly off = emoji row below the toolbar.
-                    // true (emoji above) and unset both fall through to the
-                    // default order, which already puts the emoji row first.
-                    sanitizeBarOrder(listOf(BarRow.TOPBAR, BarRow.EMOJI, BarRow.SYMBOL))
-                } else {
-                    defaults.barOrder
-                },
+            barOrder = readBarOrder(p, defaults),
             emojiFullBleed = p[EMOJI_FULL_BLEED] ?: defaults.emojiFullBleed,
             mediaFullBleed = p[MEDIA_FULL_BLEED] ?: defaults.mediaFullBleed,
             modeToolOrderEdits = p[MODE_TOOL_ORDER_EDITS] ?: defaults.modeToolOrderEdits,
@@ -8785,30 +8690,8 @@ class SettingsRepository(private val context: Context) {
             smartCurrency = p[SMART_CURRENCY] ?: defaults.smartCurrency,
             smartUnits = p[SMART_UNITS] ?: defaults.smartUnits,
             smartToolKeywords = p[SMART_TOOL_KEYWORDS] ?: defaults.smartToolKeywords,
-            smartChips = SmartChipSettings(
-                dates = p[SMART_CHIP_DATES] ?: defaults.smartChips.dates,
-                weather = p[SMART_CHIP_WEATHER] ?: defaults.smartChips.weather,
-                lookups = p[SMART_CHIP_LOOKUPS] ?: defaults.smartChips.lookups,
-                intents = p[SMART_CHIP_INTENTS] ?: defaults.smartChips.intents,
-                gifs = p[SMART_CHIP_GIFS] ?: defaults.smartChips.gifs,
-                numbers = p[SMART_CHIP_NUMBERS] ?: defaults.smartChips.numbers,
-                numberGrouping = p[SMART_CHIP_NUMBER_GROUPING]
-                    ?.let { runCatching { NumberGrouping.valueOf(it) }.getOrNull() }
-                    ?: defaults.smartChips.numberGrouping,
-            ),
-            selectionMacros = SelectionMacroSettings(
-                enabled = p[SELECTION_MACROS_ENABLED] ?: defaults.selectionMacros.enabled,
-                placement = p[SELECTION_MACROS_PLACEMENT]
-                    ?.let { name -> runCatching { SelectionMacroPlacement.valueOf(name) }.getOrNull() }
-                    ?: defaults.selectionMacros.placement,
-                macros = SelectionMacroCodec.decodeMacros(p[SELECTION_MACROS_LIST_VERSION], p[SELECTION_MACROS_ON]),
-                order = SelectionMacroCodec.decodeOrder(p[SELECTION_MACROS_LIST_VERSION], p[SELECTION_MACROS_ORDER]),
-                aiDirectActions = p[SELECTION_MACROS_AI_ACTIONS]?.let(AiActionCodec::decodeIds)
-                    ?: defaults.selectionMacros.aiDirectActions,
-                timeZones = p[SELECTION_MACROS_TIME_ZONES]?.let(AiActionCodec::decodeIds)
-                    ?: defaults.selectionMacros.timeZones,
-                detectEntities = p[SELECTION_MACROS_DETECT] ?: defaults.selectionMacros.detectEntities,
-            ),
+            smartChips = readSmartChips(p, defaults),
+            selectionMacros = readSelectionMacros(p, defaults),
             toolKeywords = p[TOOL_KEYWORDS] ?: defaults.toolKeywords,
             toolKeywordCase = p[TOOL_KEYWORD_CASE] ?: defaults.toolKeywordCase,
             calcDegrees = p[CALC_DEGREES] ?: defaults.calcDegrees,
@@ -8818,174 +8701,1424 @@ class SettingsRepository(private val context: Context) {
             currencyTo = p[CURRENCY_TO] ?: defaults.currencyTo,
             // The keys stay flat across the grouping, so a user's stored
             // generator settings survive the refactor untouched.
-            passwordGenerator = PasswordGeneratorSettings(
-                pwLength = p[PW_LENGTH] ?: defaults.passwordGenerator.pwLength,
-                pwUppercase = p[PW_UPPERCASE] ?: defaults.passwordGenerator.pwUppercase,
-                pwDigits = p[PW_DIGITS] ?: defaults.passwordGenerator.pwDigits,
-                pwSymbols = p[PW_SYMBOLS] ?: defaults.passwordGenerator.pwSymbols,
-                pwExcludeAmbiguous = p[PW_EXCLUDE_AMBIGUOUS]
-                    ?: defaults.passwordGenerator.pwExcludeAmbiguous,
-                pwPassphraseMode = p[PW_PASSPHRASE_MODE]
-                    ?: defaults.passwordGenerator.pwPassphraseMode,
-                ppWordCount = p[PP_WORD_COUNT] ?: defaults.passwordGenerator.ppWordCount,
-                ppSeparator = p[PP_SEPARATOR] ?: defaults.passwordGenerator.ppSeparator,
-                ppCapitalize = p[PP_CAPITALIZE] ?: defaults.passwordGenerator.ppCapitalize,
-                ppIncludeDigit = p[PP_INCLUDE_DIGIT] ?: defaults.passwordGenerator.ppIncludeDigit,
-            ),
-            typingTest = TypingTestSettings(
-                mode = p[TT_MODE]?.let { runCatching { TypingTestMode.valueOf(it) }.getOrNull() }
-                    ?: defaults.typingTest.mode,
-                duration = p[TT_DURATION] ?: defaults.typingTest.duration,
-                wordCount = p[TT_WORD_COUNT] ?: defaults.typingTest.wordCount,
-                punctuation = p[TT_PUNCTUATION] ?: defaults.typingTest.punctuation,
-                numbers = p[TT_NUMBERS] ?: defaults.typingTest.numbers,
-                glide = p[TT_GLIDE] ?: defaults.typingTest.glide,
-                suggestions = p[TT_SUGGESTIONS] ?: defaults.typingTest.suggestions,
-                bests = p[TT_BESTS] ?: defaults.typingTest.bests,
-                history = p[TT_HISTORY] ?: defaults.typingTest.history,
-                completed = p[TT_COMPLETED] ?: defaults.typingTest.completed,
-                achievements = p[TT_ACHIEVEMENTS] ?: defaults.typingTest.achievements,
-            ),
+            passwordGenerator = readPasswordGenerator(p, defaults),
+            typingTest = readTypingTest(p, defaults),
             typingStatsEnabled = p[TYPING_STATS_ENABLED] ?: defaults.typingStatsEnabled,
             statsVersion = p[STATS_VERSION] ?: defaults.statsVersion,
-            ai = AiSettings(
-                provider = p[AI_PROVIDER]
-                    ?.let { runCatching { AiProvider.valueOf(it) }.getOrNull() }
-                    // On-device models exist only where the engine does. A value
-                    // restored from a full-build backup would otherwise open the
-                    // model downloader on lite, which reaches Hugging Face for a
-                    // model nothing there can run.
-                    ?.takeUnless { it == AiProvider.ON_DEVICE && !BuildConfig.ENABLE_LOCAL_LLM }
-                    ?: defaults.ai.provider,
-                anthropicKey = p[AI_ANTHROPIC_KEY] ?: defaults.ai.anthropicKey,
-                openAiKey = p[AI_OPENAI_KEY] ?: defaults.ai.openAiKey,
-                geminiKey = p[AI_GEMINI_KEY] ?: defaults.ai.geminiKey,
-                anthropicModel = p[AI_ANTHROPIC_MODEL] ?: defaults.ai.anthropicModel,
-                openAiModel = p[AI_OPENAI_MODEL] ?: defaults.ai.openAiModel,
-                geminiModel = p[AI_GEMINI_MODEL] ?: defaults.ai.geminiModel,
-                ollamaUrl = p[AI_OLLAMA_URL] ?: defaults.ai.ollamaUrl,
-                ollamaModel = p[AI_OLLAMA_MODEL] ?: defaults.ai.ollamaModel,
-                lmStudioUrl = p[AI_LM_STUDIO_URL] ?: defaults.ai.lmStudioUrl,
-                lmStudioModel = p[AI_LM_STUDIO_MODEL] ?: defaults.ai.lmStudioModel,
-                xaiKey = p[AI_XAI_KEY] ?: defaults.ai.xaiKey,
-                xaiModel = p[AI_XAI_MODEL] ?: defaults.ai.xaiModel,
-                deepSeekKey = p[AI_DEEPSEEK_KEY] ?: defaults.ai.deepSeekKey,
-                deepSeekModel = p[AI_DEEPSEEK_MODEL] ?: defaults.ai.deepSeekModel,
-                compatibleUrl = p[AI_COMPATIBLE_URL] ?: defaults.ai.compatibleUrl,
-                compatibleKey = p[AI_COMPATIBLE_KEY] ?: defaults.ai.compatibleKey,
-                compatibleModel = p[AI_COMPATIBLE_MODEL] ?: defaults.ai.compatibleModel,
-                maxTokens = p[AI_MAX_TOKENS] ?: defaults.ai.maxTokens,
-                localContextTokens = p[AI_LOCAL_CONTEXT_TOKENS] ?: defaults.ai.localContextTokens,
-                translateTo = p[AI_TRANSLATE_TO] ?: defaults.ai.translateTo,
-                // Folded in on every read rather than behind a "migrated" flag:
-                // a restored backup puts the old keys back, and a flag would
-                // make that restored prompt invisible for good.
-                customActions = mergeLegacyAiPrompts(
-                    custom = AiActionCodec.decodeList(p[AI_CUSTOM_ACTIONS].orEmpty()),
-                    legacy = legacyAiPrompts(p),
-                ),
-                actionOrder = AiActionCodec.decodeIds(p[AI_ACTION_ORDER].orEmpty()),
-                hiddenActions = AiActionCodec.decodeIds(p[AI_ACTIONS_OFF].orEmpty()),
-                localModelId = p[AI_LOCAL_MODEL_ID] ?: defaults.ai.localModelId,
-                localBackend = p[AI_LOCAL_BACKEND]
-                    ?.let { runCatching { LocalLlmBackend.valueOf(it) }.getOrNull() }
-                    ?: defaults.ai.localBackend,
-                hfToken = p[HF_TOKEN] ?: defaults.ai.hfToken,
-                showThinking = p[AI_SHOW_THINKING] ?: defaults.ai.showThinking,
-                panelModelPicker = p[AI_PANEL_MODEL_PICKER] ?: defaults.ai.panelModelPicker,
-                diffView = p[AI_DIFF_VIEW] ?: defaults.ai.diffView,
-                diffOpensFirst = p[AI_DIFF_OPENS_FIRST] ?: defaults.ai.diffOpensFirst,
-                autoReplace = p[AI_AUTO_REPLACE] ?: defaults.ai.autoReplace,
-                historyEnabled = p[AI_HISTORY_ENABLED] ?: defaults.ai.historyEnabled,
-                historyMax = p[AI_HISTORY_MAX] ?: defaults.ai.historyMax,
-                keepChats = p[AI_KEEP_CHATS] ?: defaults.ai.keepChats,
-                chatEnterSends = p[AI_CHAT_ENTER_SENDS] ?: defaults.ai.chatEnterSends,
-                panelChat = p[AI_PANEL_CHAT] ?: defaults.ai.panelChat,
-                beforeCursorChars = p[AI_BEFORE_CURSOR_CHARS]
-                    ?: defaults.ai.beforeCursorChars,
-            ),
-            launcher = LauncherToolSettings(
-                sortOrder = p[LAUNCHER_SORT]
-                    ?.let { runCatching { AppSortOrder.valueOf(it) }.getOrNull() }
-                    ?: defaults.launcher.sortOrder,
-                showLabels = p[LAUNCHER_SHOW_LABELS] ?: defaults.launcher.showLabels,
-                recentsEnabled = p[LAUNCHER_RECENTS_ENABLED] ?: defaults.launcher.recentsEnabled,
-                maxRecents = p[LAUNCHER_MAX_RECENTS] ?: defaults.launcher.maxRecents,
-                activityDrilldown = p[LAUNCHER_DRILLDOWN] ?: defaults.launcher.activityDrilldown,
-                showNonExported =
-                    p[LAUNCHER_SHOW_NON_EXPORTED] ?: defaults.launcher.showNonExported,
-                pinned = p[LAUNCHER_PINNED]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty(),
-                // Trimmed on read as well as on write: a cap lowered while the
-                // stored list was longer takes effect immediately rather than
-                // on the next launch that happens to rewrite the list.
-                recents = p[LAUNCHER_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty()
-                    .take(p[LAUNCHER_MAX_RECENTS] ?: defaults.launcher.maxRecents),
-                gridColumns = p[LAUNCHER_GRID_COLUMNS] ?: defaults.launcher.gridColumns,
-                iconSizeDp = p[LAUNCHER_ICON_SIZE] ?: defaults.launcher.iconSizeDp,
-                iconShape = p[LAUNCHER_ICON_SHAPE]
-                    ?.let { runCatching { LauncherIconShape.valueOf(it) }.getOrNull() }
-                    ?: defaults.launcher.iconShape,
-                hidden = p[LAUNCHER_HIDDEN]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty(),
-            ),
-            mediaControl = MediaControlSettings(
-                pinWhilePlaying = p[MEDIA_PIN_WHILE_PLAYING]
-                    ?: defaults.mediaControl.pinWhilePlaying,
-                musicApps = p[MEDIA_MUSIC_APPS] ?: defaults.mediaControl.musicApps,
-            ),
-            kdeConnect = KdeConnectSettings(
-                enabled = p[KDE_ENABLED] ?: defaults.kdeConnect.enabled,
-                deviceName = p[KDE_DEVICE_NAME] ?: defaults.kdeConnect.deviceName,
-                lifetime = p[KDE_LIFETIME]
-                    ?.let { runCatching { KdeLinkLifetime.valueOf(it) }.getOrNull() }
-                    ?: defaults.kdeConnect.lifetime,
-                autoConnect = p[KDE_AUTO_CONNECT] ?: defaults.kdeConnect.autoConnect,
-                clipboardReceive = p[KDE_CLIPBOARD_RECEIVE] ?: defaults.kdeConnect.clipboardReceive,
-                clipboardSend = p[KDE_CLIPBOARD_SEND] ?: defaults.kdeConnect.clipboardSend,
-                remoteTyping = p[KDE_REMOTE_TYPING] ?: defaults.kdeConnect.remoteTyping,
-                remoteTypingPipeline = p[KDE_REMOTE_TYPING_PIPELINE]
-                    ?: defaults.kdeConnect.remoteTypingPipeline,
-                padSensitivity = p[KDE_PAD_SENSITIVITY] ?: defaults.kdeConnect.padSensitivity,
-                padAcceleration = p[KDE_PAD_ACCELERATION] ?: defaults.kdeConnect.padAcceleration,
-                scrollSpeed = p[KDE_SCROLL_SPEED] ?: defaults.kdeConnect.scrollSpeed,
-                naturalScroll = p[KDE_NATURAL_SCROLL] ?: defaults.kdeConnect.naturalScroll,
-                tapToClick = p[KDE_TAP_TO_CLICK] ?: defaults.kdeConnect.tapToClick,
-                padHaptics = p[KDE_PAD_HAPTICS] ?: defaults.kdeConnect.padHaptics,
-                batteryReport = p[KDE_BATTERY_REPORT] ?: defaults.kdeConnect.batteryReport,
-                exposeMedia = p[KDE_EXPOSE_MEDIA] ?: defaults.kdeConnect.exposeMedia,
-                shareSheet = p[KDE_SHARE_SHEET] ?: defaults.kdeConnect.shareSheet,
-                receiveFiles = p[KDE_RECEIVE_FILES] ?: defaults.kdeConnect.receiveFiles,
-                composeMode = p[KDE_COMPOSE_MODE] ?: defaults.kdeConnect.composeMode,
-                lastTab = p[KDE_LAST_TAB] ?: defaults.kdeConnect.lastTab,
-                hosts = p[KDE_HOSTS] ?: defaults.kdeConnect.hosts,
-            ),
-            selfHosted = SelfHostedSettings(
-                libreTranslateUrl = p[SELF_HOSTED_LIBRETRANSLATE_URL]
-                    ?: defaults.selfHosted.libreTranslateUrl,
-                libreTranslateApiKey = p[SELF_HOSTED_LIBRETRANSLATE_KEY]
-                    ?: defaults.selfHosted.libreTranslateApiKey,
-                searxUrl = p[SELF_HOSTED_SEARX_URL] ?: defaults.selfHosted.searxUrl,
-                commonsUrl = p[SELF_HOSTED_COMMONS_URL] ?: defaults.selfHosted.commonsUrl,
-                endpoints = p[SELF_HOSTED_ENDPOINTS]?.let(::decodeEndpointMap) ?: defaults.selfHosted.endpoints,
-                repos = p[SELF_HOSTED_REPOS]?.let(::decodeRepoMap) ?: defaults.selfHosted.repos,
-            ),
-            vietnameseFlick = VietnameseFlickSettings(
-                enabled = p[VIETNAMESE_FLICK_ENABLED] ?: defaults.vietnameseFlick.enabled,
-                pureFlickMode = p[VIETNAMESE_FLICK_PURE_MODE] ?: defaults.vietnameseFlick.pureFlickMode,
-                dirA_Circumflex = parseFlickDir(p[VIETNAMESE_FLICK_DIR_A_CIRCUMFLEX], defaults.vietnameseFlick.dirA_Circumflex),
-                dirA_Breve = parseFlickDir(p[VIETNAMESE_FLICK_DIR_A_BREVE], defaults.vietnameseFlick.dirA_Breve),
-                dirE_Circumflex = parseFlickDir(p[VIETNAMESE_FLICK_DIR_E_CIRCUMFLEX], defaults.vietnameseFlick.dirE_Circumflex),
-                dirD_Stroke = parseFlickDir(p[VIETNAMESE_FLICK_DIR_D_STROKE], defaults.vietnameseFlick.dirD_Stroke),
-                dirO_Circumflex = parseFlickDir(p[VIETNAMESE_FLICK_DIR_O_CIRCUMFLEX], defaults.vietnameseFlick.dirO_Circumflex),
-                dirO_Horn = parseFlickDir(p[VIETNAMESE_FLICK_DIR_O_HORN], defaults.vietnameseFlick.dirO_Horn),
-                dirU_Horn = parseFlickDir(p[VIETNAMESE_FLICK_DIR_U_HORN], defaults.vietnameseFlick.dirU_Horn),
-                dirTone_Acute = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_ACUTE], defaults.vietnameseFlick.dirTone_Acute),
-                dirTone_Grave = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_GRAVE], defaults.vietnameseFlick.dirTone_Grave),
-                dirTone_Hook = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_HOOK], defaults.vietnameseFlick.dirTone_Hook),
-                dirTone_Tilde = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_TILDE], defaults.vietnameseFlick.dirTone_Tilde),
-                dirTone_Dot = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_DOT], defaults.vietnameseFlick.dirTone_Dot),
-            ),
+            ai = readAi(p, defaults),
+            launcher = readLauncher(p, defaults),
+            mediaControl = readMediaControl(p, defaults),
+            kdeConnect = readKdeConnect(p, defaults),
+            selfHosted = readSelfHosted(p, defaults),
+            vietnameseFlick = readVietnameseFlick(p, defaults),
         )
     }
+
+    // ---- mapPreferences, one settings family per function ----
+    //
+    // Split out of mapPreferences so that no one method passes ART's
+    // huge-method limit (10,000 dex instructions). As one expression it was
+    // ~25,700 and was never compiled, AOT or JIT: every settings emission,
+    // the keyboard's first one included, ran it in the interpreter.
+
+    private fun readAutoTheme(p: Preferences, defaults: KeyboardSettings) =
+        AutoThemeSettings(
+            enabled = p[AUTO_THEME_ENABLED] ?: defaults.autoTheme.enabled,
+            lightThemeId = p[AUTO_THEME_LIGHT_ID] ?: defaults.autoTheme.lightThemeId,
+            darkThemeId = p[AUTO_THEME_DARK_ID] ?: defaults.autoTheme.darkThemeId,
+            trigger = p[AUTO_THEME_TRIGGER]
+                ?.let { runCatching { AutoThemeTrigger.valueOf(it) }.getOrNull() }
+                ?: defaults.autoTheme.trigger,
+            dayStartMinutes = p[AUTO_THEME_DAY_START] ?: defaults.autoTheme.dayStartMinutes,
+            nightStartMinutes = p[AUTO_THEME_NIGHT_START] ?: defaults.autoTheme.nightStartMinutes,
+            lightRandom = p[AUTO_THEME_LIGHT_RANDOM] ?: defaults.autoTheme.lightRandom,
+            darkRandom = p[AUTO_THEME_DARK_RANDOM] ?: defaults.autoTheme.darkRandom,
+            lightPoolIds = p[AUTO_THEME_LIGHT_POOL] ?: defaults.autoTheme.lightPoolIds,
+            darkPoolIds = p[AUTO_THEME_DARK_POOL] ?: defaults.autoTheme.darkPoolIds,
+            shuffleInterval = p[AUTO_THEME_SHUFFLE_INTERVAL]
+                ?.let { runCatching { RotationInterval.valueOf(it) }.getOrNull() }
+                ?: defaults.autoTheme.shuffleInterval,
+            shuffleLightId = p[AUTO_THEME_SHUFFLE_LIGHT_ID]
+                ?: defaults.autoTheme.shuffleLightId,
+            shuffleDarkId = p[AUTO_THEME_SHUFFLE_DARK_ID] ?: defaults.autoTheme.shuffleDarkId,
+            shuffledAtEpochMs = p[AUTO_THEME_SHUFFLED_AT]
+                ?: defaults.autoTheme.shuffledAtEpochMs,
+            shuffledAtElapsedMs = p[AUTO_THEME_SHUFFLED_AT_ELAPSED]
+                ?: defaults.autoTheme.shuffledAtElapsedMs,
+        )
+
+    private fun readPhotoBackground(p: Preferences, defaults: KeyboardSettings) =
+        PhotoBackgroundSettings(
+            unsplashApiKey = p[PHOTO_UNSPLASH_KEY] ?: defaults.photoBackground.unsplashApiKey,
+            pexelsApiKey = p[PHOTO_PEXELS_KEY] ?: defaults.photoBackground.pexelsApiKey,
+            rotateEnabled = p[PHOTO_ROTATE_ENABLED] ?: defaults.photoBackground.rotateEnabled,
+            interval = p[PHOTO_ROTATE_INTERVAL]
+                ?.let { runCatching { RotationInterval.valueOf(it) }.getOrNull() }
+                ?: defaults.photoBackground.interval,
+            scope = p[PHOTO_ROTATE_SCOPE]
+                ?.let { runCatching { RotationScope.valueOf(it) }.getOrNull() }
+                ?: defaults.photoBackground.scope,
+            scopeThemeIds = p[PHOTO_ROTATE_SCOPE_THEMES] ?: defaults.photoBackground.scopeThemeIds,
+            // An unknown name is dropped rather than failing the whole set,
+            // so a build that adds a source stays readable by an older one.
+            sources = p[PHOTO_ROTATE_SOURCES]
+                ?.mapNotNull { name -> runCatching { RotationSourceKind.valueOf(name) }.getOrNull() }
+                ?.toSet()
+                ?: defaults.photoBackground.sources,
+            // Tab-joined, the same shape `symbol_recents` uses; a tab is
+            // stripped from a search term on the way in.
+            topics = p[PHOTO_ROTATE_TOPICS]?.split('\t')?.filter { it.isNotEmpty() }
+                ?: defaults.photoBackground.topics,
+            queries = p[PHOTO_ROTATE_QUERIES]?.split('\t')?.filter { it.isNotEmpty() }
+                ?: defaults.photoBackground.queries,
+            landscapeOnly = p[PHOTO_LANDSCAPE_ONLY] ?: defaults.photoBackground.landscapeOnly,
+            safeSearch = p[PHOTO_SAFE_SEARCH] ?: defaults.photoBackground.safeSearch,
+            fetchOnMetered = p[PHOTO_FETCH_ON_METERED] ?: defaults.photoBackground.fetchOnMetered,
+            poolTarget = (p[PHOTO_POOL_TARGET] ?: defaults.photoBackground.poolTarget)
+                .coerceIn(
+                    PhotoBackgroundSettings.MIN_POOL_TARGET,
+                    PhotoBackgroundSettings.MAX_POOL_TARGET,
+                ),
+            seedPalette = p[PHOTO_SEED_PALETTE] ?: defaults.photoBackground.seedPalette,
+            keyOpacity = p[PHOTO_KEY_OPACITY] ?: defaults.photoBackground.keyOpacity,
+            poolBudgetMb = p[PHOTO_POOL_BUDGET_MB] ?: defaults.photoBackground.poolBudgetMb,
+            readabilityGuard = p[PHOTO_READABILITY_GUARD]
+                ?: defaults.photoBackground.readabilityGuard,
+        )
+
+    private fun readSizingOverrides(p: Preferences, defaults: KeyboardSettings) =
+        ScreenVariant.entries
+            .filter { it.isOverride }
+            .associateWith { v ->
+                SizingOverride(
+                    keyHeightDp = p[keyHeightKey(v)],
+                    numberRowHeightDp = p[numberRowHeightKey(v)],
+                    bottomPaddingDp = p[bottomPaddingKey(v)],
+                    keyboardWidthPercent = p[widthPercentKey(v)],
+                    fontScale = p[fontScaleKey(v)],
+                    keyboardAlignment = p[alignmentKey(v)]
+                        ?.let { name -> runCatching { KeyboardAlignment.valueOf(name) }.getOrNull() },
+                    keyboardScale = p[keyboardScaleKey(v)],
+                    keyGapScale = p[keyGapScaleKey(v)],
+                    sidePadLeftScale = p[sidePadLeftScaleKey(v)] ?: p[sidePadScaleKey(v)],
+                    sidePadRightScale = p[sidePadRightScaleKey(v)] ?: p[sidePadScaleKey(v)],
+                    bottomRowHeightDp = p[bottomRowHeightKey(v)],
+                    numberRow = p[variantNumberRowKey(v)],
+                )
+            }
+            .filterValues { !it.isEmpty }
+
+    private fun readHaptics(p: Preferences, defaults: KeyboardSettings) =
+        HapticSettings(
+            enabled = p[HAPTIC] ?: defaults.haptics.enabled,
+            strengthMs = p[HAPTIC_STRENGTH] ?: defaults.haptics.strengthMs,
+            amplitude = p[HAPTIC_AMPLITUDE] ?: defaults.haptics.amplitude,
+            style = p[HAPTIC_STYLE]?.let { runCatching { HapticStyle.valueOf(it) }.getOrNull() }
+                ?: defaults.haptics.style,
+            onLongPress = p[HAPTIC_ON_LONG_PRESS] ?: defaults.haptics.onLongPress,
+            onLongPressRelease = p[HAPTIC_ON_LONG_PRESS_RELEASE]
+                ?: defaults.haptics.onLongPressRelease,
+        )
+
+    private fun readFeedback(p: Preferences, defaults: KeyboardSettings) =
+        FeedbackSettings(
+            vibrateOnSpace = p[FEEDBACK_VIBRATE_SPACE] ?: defaults.feedback.vibrateOnSpace,
+            vibrateOnDeleteSwipe = p[FEEDBACK_VIBRATE_DELETE_SWIPE]
+                ?: defaults.feedback.vibrateOnDeleteSwipe,
+            vibrateOnRepeat = p[FEEDBACK_VIBRATE_REPEAT] ?: defaults.feedback.vibrateOnRepeat,
+            soundOnRepeat = p[FEEDBACK_SOUND_REPEAT] ?: defaults.feedback.soundOnRepeat,
+            respectSystemTouchFeedback = p[FEEDBACK_RESPECT_SYSTEM_TOUCH]
+                ?: defaults.feedback.respectSystemTouchFeedback,
+            toastOnCopy = p[FEEDBACK_TOAST_ON_COPY] ?: defaults.feedback.toastOnCopy,
+            hapticsRespectDnd = p[FEEDBACK_HAPTICS_RESPECT_DND]
+                ?: defaults.feedback.hapticsRespectDnd,
+        )
+
+    private fun readSound(p: Preferences, defaults: KeyboardSettings) =
+        KeySoundSettings(
+            enabled = p[KEY_SOUND] ?: defaults.sound.enabled,
+            style = p[KEY_SOUND_STYLE]
+                ?.let { runCatching { KeySoundStyle.valueOf(it) }.getOrNull() }
+                ?: defaults.sound.style,
+            volume = p[KEY_SOUND_VOLUME] ?: defaults.sound.volume,
+            customId = p[KEY_SOUND_CUSTOM_ID] ?: defaults.sound.customId,
+            packId = p[KEY_SOUND_PACK_ID] ?: defaults.sound.packId,
+            playRelease = p[KEY_SOUND_RELEASE] ?: defaults.sound.playRelease,
+        )
+
+    private fun readAccessibility(p: Preferences, defaults: KeyboardSettings) =
+        AccessibilitySettings(
+            colorVision = p[COLOR_VISION_FILTER]
+                ?.let { runCatching { ColorVisionFilter.valueOf(it) }.getOrNull() }
+                ?: defaults.accessibility.colorVision,
+            highContrast = p[HIGH_CONTRAST_KEYS] ?: defaults.accessibility.highContrast,
+            keyOutlines = p[KEY_OUTLINES] ?: defaults.accessibility.keyOutlines,
+            boldLabels = p[BOLD_KEY_LABELS] ?: defaults.accessibility.boldLabels,
+            screenReader = p[SCREEN_READER_MODE]
+                ?.let { runCatching { ScreenReaderMode.valueOf(it) }.getOrNull() }
+                ?: defaults.accessibility.screenReader,
+            keyDebounceMs = p[KEY_DEBOUNCE_MS] ?: defaults.accessibility.keyDebounceMs,
+        )
+
+    private fun readCorrection(p: Preferences, defaults: KeyboardSettings) =
+        AutocorrectSettings(
+            enabled = p[AUTOCORRECT] ?: defaults.correction.enabled,
+            confidence = p[AUTOCORRECT_CONFIDENCE] ?: defaults.correction.confidence,
+            adaptive = p[AUTOCORRECT_ADAPTIVE] ?: defaults.correction.adaptive,
+            revertOnBackspace = p[REVERT_AUTOCORRECT_ON_BACKSPACE]
+                ?: defaults.correction.revertOnBackspace,
+            undoMemory = p[AUTOCORRECT_UNDO_MEMORY]
+                ?.let { runCatching { UndoMemory.valueOf(it) }.getOrNull() }
+                ?: defaults.correction.undoMemory,
+            skipAllCaps = p[AUTOCORRECT_SKIP_ALL_CAPS] ?: defaults.correction.skipAllCaps,
+        )
+
+    private fun readAutoText(p: Preferences, defaults: KeyboardSettings) =
+        AutoTextSettings(
+            apostrophe = p[AUTO_APOSTROPHE] ?: defaults.autoText.apostrophe,
+            capitalize = p[AUTO_CAPITALIZE] ?: defaults.autoText.capitalize,
+            doubleSpacePeriod = p[DOUBLE_SPACE_PERIOD] ?: defaults.autoText.doubleSpacePeriod,
+            doubleSpaceTab = p[DOUBLE_SPACE_TAB] ?: defaults.autoText.doubleSpaceTab,
+            spaceAfterPunctuation = p[AUTO_SPACE_AFTER_PUNCTUATION]
+                ?: defaults.autoText.spaceAfterPunctuation,
+            hugPunctuation = p[HUG_PUNCTUATION] ?: defaults.autoText.hugPunctuation,
+            hugPunctuationMarks = p[HUG_PUNCTUATION_MARKS]?.takeIf { it.isNotBlank() }
+                ?: defaults.autoText.hugPunctuationMarks,
+            languagePunctuationSpacing = p[LANGUAGE_PUNCTUATION_SPACING]
+                ?: defaults.autoText.languagePunctuationSpacing,
+        )
+
+    private fun readSuggestionSources(p: Preferences, defaults: KeyboardSettings) =
+        SuggestionSourceSettings(
+            inAllFields = p[SHOW_SUGGESTIONS_ALL_FIELDS]
+                ?: defaults.suggestionSources.inAllFields,
+            contacts = p[CONTACT_SUGGESTIONS] ?: defaults.suggestionSources.contacts,
+            contactEmails = p[CONTACT_EMAIL_SUGGESTIONS]
+                ?: defaults.suggestionSources.contactEmails,
+            contactEmailsInEmailFields = p[CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS]
+                ?: defaults.suggestionSources.contactEmailsInEmailFields,
+            appNames = p[APP_NAME_SUGGESTIONS] ?: defaults.suggestionSources.appNames,
+            blacklist = p[SUGGESTION_BLACKLIST] ?: defaults.suggestionSources.blacklist,
+            blacklistByLanguage = blacklistsByLanguage(p),
+            blacklistScope = p[SUGGESTION_BLACKLIST_SCOPE]
+                ?.let { runCatching { BlacklistScope.valueOf(it) }.getOrNull() }
+                ?: defaults.suggestionSources.blacklistScope,
+            inlineEmojiSearch = p[INLINE_EMOJI_SEARCH]
+                ?: defaults.suggestionSources.inlineEmojiSearch,
+            inlineAutofill = p[INLINE_AUTOFILL] ?: defaults.suggestionSources.inlineAutofill,
+        )
+
+    private fun readGesture(p: Preferences, defaults: KeyboardSettings) =
+        GestureSettings(
+            spaceGlideMultiWord = p[GESTURE_SPACE_MULTI_WORD] ?: defaults.gesture.spaceGlideMultiWord,
+            shiftGlideCapitals = p[GESTURE_SHIFT_CAPITALS] ?: defaults.gesture.shiftGlideCapitals,
+            shiftGlideMode = p[GESTURE_SHIFT_MODE]
+                ?.let { runCatching { ShiftGlideMode.valueOf(it) }.getOrNull() }
+                ?: defaults.gesture.shiftGlideMode,
+            ambiguityPicker = p[GESTURE_AMBIGUITY_PICKER] ?: defaults.gesture.ambiguityPicker,
+            // Coerced on the way in as well as on the way out: a value
+            // restored from an edited backup must never index past the
+            // picker's target array.
+            pickerDwellMs = (p[GESTURE_PICKER_DWELL_MS] ?: defaults.gesture.pickerDwellMs)
+                .coerceIn(GlidePickerDwellMsRange),
+            pickerSensitivity = p[GESTURE_PICKER_SENSITIVITY]
+                ?.let { runCatching { GlidePickerSensitivity.valueOf(it) }.getOrNull() }
+                ?: defaults.gesture.pickerSensitivity,
+            pickerHoldToAsk = p[GESTURE_PICKER_HOLD_TO_ASK] ?: defaults.gesture.pickerHoldToAsk,
+            pickerChoices = (p[GESTURE_PICKER_CHOICES] ?: defaults.gesture.pickerChoices)
+                .coerceIn(GlidePickerChoicesRange),
+            apostropheKey = p[GESTURE_APOSTROPHE_KEY]
+                ?.let { runCatching { GlideApostropheKey.valueOf(it) }.getOrNull() }
+                ?: defaults.gesture.apostropheKey,
+            possessiveKey = p[GESTURE_POSSESSIVE_KEY]
+                ?.let { runCatching { GlideApostropheKey.valueOf(it) }.getOrNull() }
+                ?: legacyPossessiveKey(p, defaults),
+            autoSpaceAfterGlide = p[GESTURE_AUTO_SPACE] ?: defaults.gesture.autoSpaceAfterGlide,
+            startThresholdSlop = p[GESTURE_START_THRESHOLD_SLOP] ?: defaults.gesture.startThresholdSlop,
+            postTypeCooldownMs = p[GESTURE_POST_TYPE_COOLDOWN_MS] ?: defaults.gesture.postTypeCooldownMs,
+            handwriteDotCooldownMs = p[GESTURE_HANDWRITE_DOT_COOLDOWN_MS] ?: defaults.gesture.handwriteDotCooldownMs,
+            trailWidthDp = p[GESTURE_TRAIL_WIDTH_DP] ?: defaults.gesture.trailWidthDp,
+            trailDurationMs = p[GESTURE_TRAIL_DURATION_MS] ?: defaults.gesture.trailDurationMs,
+            trailOpacity = p[GESTURE_TRAIL_OPACITY] ?: defaults.gesture.trailOpacity,
+            wordPreview = p[GESTURE_WORD_PREVIEW] ?: defaults.gesture.wordPreview,
+            wordPreviewOffsetYDp = p[GESTURE_WORD_PREVIEW_OFFSET_Y]
+                ?: defaults.gesture.wordPreviewOffsetYDp,
+            wordPreviewOffsetXDp = p[GESTURE_WORD_PREVIEW_OFFSET_X]
+                ?: defaults.gesture.wordPreviewOffsetXDp,
+            wordPreviewFontSp = p[GESTURE_WORD_PREVIEW_FONT_SP]
+                ?: defaults.gesture.wordPreviewFontSp,
+            wordPreviewBackground = p[GESTURE_WORD_PREVIEW_BACKGROUND]
+                ?: defaults.gesture.wordPreviewBackground,
+            wordPreviewTextColor = p[GESTURE_WORD_PREVIEW_TEXT_COLOR]
+                ?: defaults.gesture.wordPreviewTextColor,
+            stripPreviewOnly = p[GESTURE_STRIP_PREVIEW_ONLY]
+                ?: defaults.gesture.stripPreviewOnly,
+            vocabulary = p[GESTURE_VOCABULARY]
+                ?.let { runCatching { GlideVocabulary.valueOf(it) }.getOrNull() }
+                ?: defaults.gesture.vocabulary,
+            sandbox = p[GESTURE_SANDBOX]
+                ?.let { runCatching { GlideSandbox.valueOf(it) }.getOrNull() }
+                ?: defaults.gesture.sandbox,
+            previewSteadiness = p[GESTURE_PREVIEW_STEADINESS]
+                ?.let { runCatching { GlidePreviewSteadiness.valueOf(it) }.getOrNull() }
+                ?: defaults.gesture.previewSteadiness,
+            lookAhead = p[GESTURE_LOOK_AHEAD]
+                ?.let { runCatching { GlideLookAhead.valueOf(it) }.getOrNull() }
+                ?: defaults.gesture.lookAhead,
+            commitColor = p[GESTURE_COMMIT_COLOR]
+                ?.let { runCatching { GlideCommitColor.valueOf(it) }.getOrNull() }
+                ?: defaults.gesture.commitColor,
+            commitColorScope = p[GESTURE_COMMIT_COLOR_SCOPE]
+                ?.let { runCatching { GlideCommitColorScope.valueOf(it) }.getOrNull() }
+                ?: defaults.gesture.commitColorScope,
+            startRadius = p[GESTURE_START_RADIUS] ?: defaults.gesture.startRadius,
+            endRadius = p[GESTURE_END_RADIUS] ?: defaults.gesture.endRadius,
+            nearRadius = p[GESTURE_NEAR_RADIUS] ?: defaults.gesture.nearRadius,
+            dwellFull = p[GESTURE_DWELL_FULL] ?: defaults.gesture.dwellFull,
+            loopDouble = p[GESTURE_LOOP_DOUBLE] ?: defaults.gesture.loopDouble,
+            loopMinArc = p[GESTURE_LOOP_MIN_ARC] ?: defaults.gesture.loopMinArc,
+            loopExtent = p[GESTURE_LOOP_EXTENT] ?: defaults.gesture.loopExtent,
+            loopRadius = p[GESTURE_LOOP_RADIUS] ?: defaults.gesture.loopRadius,
+            wiggleDouble = p[GESTURE_WIGGLE_DOUBLE] ?: defaults.gesture.wiggleDouble,
+            wiggleExtent = p[GESTURE_WIGGLE_EXTENT] ?: defaults.gesture.wiggleExtent,
+            wiggleWeight = p[GESTURE_WIGGLE_WEIGHT] ?: defaults.gesture.wiggleWeight,
+            learnSwipeStyle = p[GESTURE_LEARN_SWIPE_STYLE] ?: defaults.gesture.learnSwipeStyle,
+            shapesPerWord = (p[GESTURE_SHAPES_PER_WORD] ?: defaults.gesture.shapesPerWord)
+                .coerceIn(GlideShapesPerWordRange),
+            searchAllChip = p[GESTURE_SEARCH_ALL_CHIP] ?: defaults.gesture.searchAllChip,
+            swipeStyleVersion = p[GESTURE_SWIPE_STYLE_VERSION] ?: defaults.gesture.swipeStyleVersion,
+        )
+
+    private fun readHardwareKeyboard(p: Preferences, defaults: KeyboardSettings) =
+        HardwareKeyboardSettings(
+            shortcutsEnabled = p[HW_SHORTCUTS_ENABLED] ?: defaults.hardwareKeyboard.shortcutsEnabled,
+            panelNavigation = p[HW_PANEL_NAVIGATION] ?: defaults.hardwareKeyboard.panelNavigation,
+            dpadKeyNavigation = p[HW_DPAD_KEY_NAVIGATION]
+                ?: defaults.hardwareKeyboard.dpadKeyNavigation,
+            dpadKeyNavigationUntouched = p[HW_DPAD_KEY_NAVIGATION] == null,
+            escClosesPanel = p[HW_ESC_CLOSES_PANEL] ?: defaults.hardwareKeyboard.escClosesPanel,
+            suggestionHotkeys = p[HW_SUGGESTION_HOTKEYS]
+                ?.let { raw -> runCatching { SuggestionHotkeyMode.valueOf(raw) }.getOrNull() }
+                ?: defaults.hardwareKeyboard.suggestionHotkeys,
+            suggestionHintsAlways = p[HW_SUGGESTION_HINTS_ALWAYS]
+                ?: defaults.hardwareKeyboard.suggestionHintsAlways,
+            toolbarDigitChord = p[HW_TOOLBAR_DIGIT_CHORD]
+                ?: defaults.hardwareKeyboard.toolbarDigitChord,
+            macShortcuts = p[HW_MAC_SHORTCUTS] ?: defaults.hardwareKeyboard.macShortcuts,
+            languageSwitchChord = p[HW_LANGUAGE_SWITCH_CHORD]
+                ?: defaults.hardwareKeyboard.languageSwitchChord,
+            hintModifierWords = p[HW_HINT_MODIFIER_WORDS]
+                ?: defaults.hardwareKeyboard.hintModifierWords,
+            autoShowUi = p[HW_AUTO_SHOW_UI] ?: defaults.hardwareKeyboard.autoShowUi,
+            leader = p[HW_LEADER] ?: defaults.hardwareKeyboard.leader,
+            pickerTimeoutMs = p[HW_PICKER_TIMEOUT_MS] ?: defaults.hardwareKeyboard.pickerTimeoutMs,
+            // Absent, not empty, means "never edited": an empty stored map is
+            // a user who unbound every letter, and must stay empty.
+            toolByLetter = p[HW_TOOL_LETTERS]?.let(::decodeToolLetters)
+                ?: defaults.hardwareKeyboard.toolByLetter,
+        )
+
+    private fun readPerAppLanguage(p: Preferences, defaults: KeyboardSettings) =
+        PerAppLanguageSettings(
+            enabled = p[PER_APP_LANGUAGE_ENABLED] ?: defaults.perAppLanguage.enabled,
+            layoutByPackage = p[PER_APP_LAYOUT_MAP]?.let { decodePerAppLayouts(it) }
+                ?: defaults.perAppLanguage.layoutByPackage,
+        )
+
+    private fun readOnboarding(p: Preferences, defaults: KeyboardSettings) =
+        OnboardingSettings(
+            personaLanguages = p[ONBOARDING_PERSONA_LANGUAGES]
+                ?.let { runCatching { PersonaLanguages.valueOf(it) }.getOrNull() }
+                ?: defaults.onboarding.personaLanguages,
+            personaDepth = p[ONBOARDING_PERSONA_DEPTH]
+                ?.let { runCatching { PersonaDepth.valueOf(it) }.getOrNull() }
+                ?: defaults.onboarding.personaDepth,
+            personaPrivacy = p[ONBOARDING_PERSONA_PRIVACY]
+                ?.let { runCatching { PersonaPrivacy.valueOf(it) }.getOrNull() }
+                ?: defaults.onboarding.personaPrivacy,
+        )
+
+    private fun readAppUi(p: Preferences, defaults: KeyboardSettings) =
+        AppUiSettings(
+            themeGalleryStyle = p[THEME_GALLERY_STYLE]
+                ?.let { runCatching { ThemeGalleryStyle.valueOf(it) }.getOrNull() }
+                ?: defaults.appUi.themeGalleryStyle,
+            advancedOpen = p[ADVANCED_OPEN] ?: defaults.appUi.advancedOpen,
+            defaultWordlistSize = p[DEFAULT_WORDLIST_SIZE]
+                ?.let {
+                    runCatching { DictionaryCatalog.DictionarySize.valueOf(it) }.getOrNull()
+                }
+                ?: defaults.appUi.defaultWordlistSize,
+            dictionarySort = p[DICTIONARY_SORT]
+                ?.let { runCatching { DictionarySort.valueOf(it) }.getOrNull() }
+                ?: defaults.appUi.dictionarySort,
+            rowIcons = p[SETTINGS_ROW_ICONS] ?: defaults.appUi.rowIcons,
+            screenTransitions = p[SETTINGS_SCREEN_TRANSITIONS]
+                ?: defaults.appUi.screenTransitions,
+        )
+
+    private fun readToolLimits(p: Preferences, defaults: KeyboardSettings) =
+        ToolLimitSettings(
+            weatherRefreshMinutes = p[WEATHER_REFRESH_MINUTES]
+                ?: defaults.toolLimits.weatherRefreshMinutes,
+            wikiLinkLimit = p[WIKI_LINK_LIMIT] ?: defaults.toolLimits.wikiLinkLimit,
+            qrMaxChars = p[QR_MAX_CHARS] ?: defaults.toolLimits.qrMaxChars,
+            passwordSymbols = p[PASSWORD_SYMBOLS] ?: defaults.toolLimits.passwordSymbols,
+        )
+
+    private fun readRows(p: Preferences, defaults: KeyboardSettings) =
+        RowSettings(
+            symbolRowHeightDp = p[SYMBOL_ROW_HEIGHT] ?: defaults.rows.symbolRowHeightDp,
+            // Clamped on the way in as well as on the way out: a value
+            // outside the range is a row the screen cannot draw.
+            symbolRowLines = p[SYMBOL_ROW_LINES]
+                ?.coerceIn(SymbolRowLinesRange.first, SymbolRowLinesRange.last)
+                ?: defaults.rows.symbolRowLines,
+            symbolRowScroll = p[SYMBOL_ROW_SCROLL]
+                ?.let { runCatching { SymbolRowScroll.valueOf(it) }.getOrNull() }
+                ?: defaults.rows.symbolRowScroll,
+            manualModeDuration = p[MANUAL_MODE_DURATION]
+                ?.let { runCatching { ManualModeDuration.valueOf(it) }.getOrNull() }
+                ?: defaults.rows.manualModeDuration,
+            dictionaryBarEnabled = p[DICTIONARY_BAR_ENABLED] ?: defaults.rows.dictionaryBarEnabled,
+            dictionaryBarFilter = p[DICTIONARY_BAR_FILTER] ?: defaults.rows.dictionaryBarFilter,
+        )
+
+    private fun readCjk(p: Preferences, defaults: KeyboardSettings) =
+        CjkSettings(
+            pinyinFuzzy = p[PINYIN_FUZZY] ?: defaults.cjk.pinyinFuzzy,
+            // Unknown ids are dropped rather than kept: a pair removed in
+            // a later build must not sit in the set forever, and the
+            // composer would ignore it anyway.
+            pinyinFuzzyPairs = p[PINYIN_FUZZY_PAIRS]
+                ?.filterTo(LinkedHashSet()) { it in PinyinFuzzy.ALL_PAIRS }
+                ?: defaults.cjk.pinyinFuzzyPairs,
+            pinyinDoublePinyin = p[PINYIN_DOUBLE_PINYIN]
+                ?.let { runCatching { DoublePinyinScheme.valueOf(it) }.getOrNull() }
+                ?: defaults.cjk.pinyinDoublePinyin,
+            traditionalOutput = p[CJK_TRADITIONAL_OUTPUT] ?: defaults.cjk.traditionalOutput,
+            jyutpingLazy = p[JYUTPING_LAZY] ?: defaults.cjk.jyutpingLazy,
+            kanaLooseMarks = p[KANA_LOOSE_MARKS] ?: defaults.cjk.kanaLooseMarks,
+            fullWidthSpaceLanguages = p[FULL_WIDTH_SPACE_LANGUAGES] ?: defaults.cjk.fullWidthSpaceLanguages,
+            hanRegion = p[CJK_HAN_REGION]
+                ?.let { runCatching { HanVariant.HanRegion.valueOf(it) }.getOrNull() }
+                ?: defaults.cjk.hanRegion,
+        )
+
+    private fun readOneHanded(p: Preferences, defaults: KeyboardSettings) =
+        OneHandedSettings(
+            portrait = readOneHandedProfile(p, landscape = false, defaults.oneHanded.portrait),
+            landscape = readOneHandedProfile(p, landscape = true, defaults.oneHanded.landscape),
+        )
+
+    private fun readClipboard(p: Preferences, defaults: KeyboardSettings) =
+        ClipboardSettings(
+            history = p[CLIPBOARD_HISTORY] ?: defaults.clipboard.history,
+            pasteChipSeconds = p[CLIPBOARD_PASTE_CHIP_SECONDS]
+                ?: defaults.clipboard.pasteChipSeconds,
+            expiryHours = p[CLIPBOARD_EXPIRY_HOURS] ?: defaults.clipboard.expiryHours,
+            maxItems = p[CLIPBOARD_MAX_ITEMS] ?: defaults.clipboard.maxItems,
+            sensitiveHandling = p[CLIPBOARD_SENSITIVE_HANDLING]
+                ?.let { runCatching { SensitiveClipHandling.valueOf(it) }.getOrNull() }
+                ?: defaults.clipboard.sensitiveHandling,
+            detectSensitive = p[CLIPBOARD_DETECT_SENSITIVE] ?: defaults.clipboard.detectSensitive,
+            sensitiveExpiryMinutes = p[CLIPBOARD_SENSITIVE_EXPIRY_MINUTES]
+                ?: defaults.clipboard.sensitiveExpiryMinutes,
+            linkPreviews = p[CLIPBOARD_LINK_PREVIEWS] ?: defaults.clipboard.linkPreviews,
+            trackSource = p[CLIPBOARD_TRACK_SOURCE] ?: defaults.clipboard.trackSource,
+            suggestRecent = p[CLIPBOARD_SUGGEST_RECENT] ?: defaults.clipboard.suggestRecent,
+            copiedCodeChip = p[CLIPBOARD_COPIED_CODE_CHIP]
+                ?.let { runCatching { CopiedCodeChip.valueOf(it) }.getOrNull() }
+                ?: p[CLIPBOARD_SUGGEST_CODES_IN_CODE_FIELDS]?.let {
+                    if (it) CopiedCodeChip.ANY_FIELD else CopiedCodeChip.OFF
+                }
+                ?: defaults.clipboard.copiedCodeChip,
+            pinnedLast = p[CLIPBOARD_PINNED_LAST] ?: defaults.clipboard.pinnedLast,
+            search = p[CLIPBOARD_SEARCH] ?: defaults.clipboard.search,
+            userScreenshots = p[CLIPBOARD_USER_SCREENSHOTS] ?: defaults.clipboard.userScreenshots,
+            clearAfterPasswordPaste = p[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE]
+                ?: defaults.clipboard.clearAfterPasswordPaste,
+            detectEntities = p[CLIPBOARD_DETECT_ENTITIES] ?: defaults.clipboard.detectEntities,
+            phoneFormats = p[CLIPBOARD_PHONE_FORMATS] ?: seededPhoneFormats(),
+            fullBleed = p[CLIPBOARD_FULL_BLEED] ?: defaults.clipboard.fullBleed,
+            view = p[CLIPBOARD_VIEW]
+                ?.let { runCatching { ClipboardView.valueOf(it) }.getOrNull() }
+                ?: defaults.clipboard.view,
+            showNumbers = p[CLIPBOARD_SHOW_NUMBERS] ?: defaults.clipboard.showNumbers,
+            undoDelete = p[CLIPBOARD_UNDO_DELETE] ?: defaults.clipboard.undoDelete,
+            swipeToDelete = p[CLIPBOARD_SWIPE_TO_DELETE] ?: defaults.clipboard.swipeToDelete,
+            previewLines = p[CLIPBOARD_PREVIEW_LINES]?.coerceIn(ClipPreviewLinesRange)
+                ?: defaults.clipboard.previewLines,
+            gridColumns = p[CLIPBOARD_GRID_COLUMNS]?.coerceIn(ClipGridColumnsRange)
+                ?: defaults.clipboard.gridColumns,
+            timeLabel = p[CLIPBOARD_TIME_LABEL]
+                ?.let { runCatching { ClipTimeLabel.valueOf(it) }.getOrNull() }
+                ?: defaults.clipboard.timeLabel,
+            maxTextChars = p[CLIPBOARD_MAX_TEXT_CHARS]?.coerceAtLeast(0)
+                ?: defaults.clipboard.maxTextChars,
+        )
+
+    private fun readOtp(p: Preferences, defaults: KeyboardSettings) =
+        OtpSettings(
+            enabled = p[OTP_CHIP_ENABLED] ?: defaults.otp.enabled,
+            codeFieldsOnly = p[OTP_CODE_FIELDS_ONLY] ?: defaults.otp.codeFieldsOnly,
+            expiryMinutes = p[OTP_EXPIRY_MINUTES] ?: defaults.otp.expiryMinutes,
+            dismissNotification = p[OTP_DISMISS_NOTIFICATION]
+                ?: defaults.otp.dismissNotification,
+            perDigitEntry = p[OTP_PER_DIGIT_ENTRY] ?: defaults.otp.perDigitEntry,
+        )
+
+    private fun readAutoBackup(p: Preferences, defaults: KeyboardSettings) =
+        AutoBackupSettings(
+            enabled = p[AUTO_BACKUP_ENABLED] ?: defaults.autoBackup.enabled,
+            destination = p[AUTO_BACKUP_DESTINATION]
+                ?.let { id -> BackupDestination.entries.firstOrNull { it.id == id } }
+                ?: defaults.autoBackup.destination,
+            webDavUrl = p[AUTO_BACKUP_WEBDAV_URL] ?: defaults.autoBackup.webDavUrl,
+            webDavUser = p[AUTO_BACKUP_WEBDAV_USER] ?: defaults.autoBackup.webDavUser,
+            webDavPassword = p[AUTO_BACKUP_WEBDAV_PASSWORD]
+                ?: defaults.autoBackup.webDavPassword,
+            s3 = S3Config(
+                endpoint = p[AUTO_BACKUP_S3_ENDPOINT] ?: defaults.autoBackup.s3.endpoint,
+                region = p[AUTO_BACKUP_S3_REGION] ?: defaults.autoBackup.s3.region,
+                bucket = p[AUTO_BACKUP_S3_BUCKET] ?: defaults.autoBackup.s3.bucket,
+                prefix = p[AUTO_BACKUP_S3_PREFIX] ?: defaults.autoBackup.s3.prefix,
+                accessKeyId = p[AUTO_BACKUP_S3_KEY_ID] ?: defaults.autoBackup.s3.accessKeyId,
+                secretAccessKey = p[AUTO_BACKUP_S3_SECRET]
+                    ?: defaults.autoBackup.s3.secretAccessKey,
+                pathStyle = p[AUTO_BACKUP_S3_PATH_STYLE] ?: defaults.autoBackup.s3.pathStyle,
+            ),
+            ftp = FtpConfig(
+                host = p[AUTO_BACKUP_FTP_HOST] ?: defaults.autoBackup.ftp.host,
+                port = p[AUTO_BACKUP_FTP_PORT] ?: defaults.autoBackup.ftp.port,
+                user = p[AUTO_BACKUP_FTP_USER] ?: defaults.autoBackup.ftp.user,
+                password = p[AUTO_BACKUP_FTP_PASSWORD] ?: defaults.autoBackup.ftp.password,
+                path = p[AUTO_BACKUP_FTP_PATH] ?: defaults.autoBackup.ftp.path,
+                secure = p[AUTO_BACKUP_FTP_SECURE] ?: defaults.autoBackup.ftp.secure,
+            ),
+            dropboxRefreshToken = p[AUTO_BACKUP_DROPBOX_TOKEN]
+                ?: defaults.autoBackup.dropboxRefreshToken,
+            oneDriveRefreshToken = p[AUTO_BACKUP_ONEDRIVE_TOKEN]
+                ?: defaults.autoBackup.oneDriveRefreshToken,
+            folderUri = p[AUTO_BACKUP_FOLDER_URI] ?: defaults.autoBackup.folderUri,
+            intervalHours = p[AUTO_BACKUP_INTERVAL_HOURS]
+                ?: defaults.autoBackup.intervalHours,
+            keep = p[AUTO_BACKUP_KEEP] ?: defaults.autoBackup.keep,
+            requireUnmetered = p[AUTO_BACKUP_UNMETERED]
+                ?: defaults.autoBackup.requireUnmetered,
+            requireCharging = p[AUTO_BACKUP_CHARGING]
+                ?: defaults.autoBackup.requireCharging,
+            // Absent means never chosen, so the defaults stand. An empty
+            // set is a choice — every section turned off — and round-trips
+            // as one, because the setter writes the key either way.
+            sections = p[AUTO_BACKUP_SECTIONS] ?: defaults.autoBackup.sections,
+            includeSecrets = p[AUTO_BACKUP_INCLUDE_SECRETS]
+                ?: defaults.autoBackup.includeSecrets,
+            encrypt = p[AUTO_BACKUP_ENCRYPT] ?: defaults.autoBackup.encrypt,
+            passphrase = p[AUTO_BACKUP_PASSPHRASE] ?: defaults.autoBackup.passphrase,
+            kdfSalt = p[AUTO_BACKUP_KDF_SALT] ?: defaults.autoBackup.kdfSalt,
+            lastRunAtMs = p[AUTO_BACKUP_LAST_RUN_AT] ?: defaults.autoBackup.lastRunAtMs,
+            lastError = p[AUTO_BACKUP_LAST_ERROR] ?: defaults.autoBackup.lastError,
+            locationStatus = LocationStatus.decodeMap(p[AUTO_BACKUP_LOCATION_STATUS]),
+            // Until an export list is chosen, the one the manual export
+            // always used: the shared list it had before it got its own.
+            exportSections = p[EXPORT_SECTIONS] ?: p[AUTO_BACKUP_SECTIONS]
+                ?: defaults.autoBackup.exportSections,
+            backupIncludeSecrets = p[AUTO_BACKUP_INCLUDE_KEYS] ?: defaults.autoBackup.backupIncludeSecrets,
+            sync = SyncSettings(
+                enabled = p[SYNC_ENABLED] ?: defaults.autoBackup.sync.enabled,
+                mode = p[SYNC_MODE]?.let { id -> SyncMode.entries.firstOrNull { it.id == id } }
+                    ?: defaults.autoBackup.sync.mode,
+                intervalHours = p[SYNC_INTERVAL_HOURS] ?: defaults.autoBackup.sync.intervalHours,
+                // Filled in below, once the locations are known.
+                locationIds = defaults.autoBackup.sync.locationIds,
+                sections = p[SYNC_SECTIONS] ?: defaults.autoBackup.sync.sections,
+                includeSecrets = p[SYNC_INCLUDE_SECRETS] ?: defaults.autoBackup.sync.includeSecrets,
+                keepLocal = p[SYNC_KEEP_LOCAL] ?: defaults.autoBackup.sync.keepLocal,
+                lastRunAtMs = p[SYNC_LAST_RUN_AT] ?: defaults.autoBackup.sync.lastRunAtMs,
+                lastError = p[SYNC_LAST_ERROR] ?: defaults.autoBackup.sync.lastError,
+            ),
+        ).let { auto ->
+            // The list, once written, is the truth. Before that, the old
+            // single destination is shown as the one location it was.
+            val stored = p[AUTO_BACKUP_LOCATIONS]
+            val locations = if (stored != null) {
+                BackupLocation.decodeList(stored)
+            } else {
+                listOfNotNull(BackupLocation.fromLegacy(auto))
+            }
+            auto.copy(
+                locations = locations,
+                sync = auto.sync.copy(locationIds = syncLocationIds(p, locations)),
+            )
+        }
+
+    private fun readSuggestionStrip(p: Preferences, defaults: KeyboardSettings) =
+        SuggestionStripSettings(
+            punctuation = p[PUNCTUATION_SUGGESTIONS] ?: defaults.suggestionStrip.punctuation,
+            punctuationChips = p[PUNCTUATION_CHIPS]?.takeIf { it.isNotBlank() }
+                ?: defaults.suggestionStrip.punctuationChips,
+            slotCount = p[SUGGESTION_SLOT_COUNT] ?: defaults.suggestionStrip.slotCount,
+            textScale = p[SUGGESTION_TEXT_SCALE] ?: defaults.suggestionStrip.textScale,
+            scrollable = p[SUGGESTION_SCROLLABLE] ?: defaults.suggestionStrip.scrollable,
+            primaryColor = p[SUGGESTION_PRIMARY_COLOR] ?: defaults.suggestionStrip.primaryColor,
+            chipPadding = p[SUGGESTION_CHIP_PADDING] ?: defaults.suggestionStrip.chipPadding,
+            learnedWordMinCount = p[LEARNED_WORD_MIN_COUNT]
+                ?: defaults.suggestionStrip.learnedWordMinCount,
+            newWordSightings = p[NEW_WORD_SIGHTINGS]
+                ?: defaults.suggestionStrip.newWordSightings,
+            askBeforeLearning = p[ASK_BEFORE_LEARNING]
+                ?: defaults.suggestionStrip.askBeforeLearning,
+            offerNearMissCorrections = p[OFFER_NEAR_MISS_CORRECTIONS]
+                ?: defaults.suggestionStrip.offerNearMissCorrections,
+            undoCorrectionChip = p[UNDO_CORRECTION_CHIP]
+                ?: defaults.suggestionStrip.undoCorrectionChip,
+            undoChipObviousness = p[UNDO_CHIP_OBVIOUSNESS]
+                ?: defaults.suggestionStrip.undoChipObviousness,
+            learnFromCorrections = p[LEARN_FROM_CORRECTIONS]
+                ?: defaults.suggestionStrip.learnFromCorrections,
+            adaptToTaps = p[ADAPT_TO_TAPS] ?: defaults.suggestionStrip.adaptToTaps,
+            correctionsVersion = p[CORRECTIONS_VERSION]
+                ?: defaults.suggestionStrip.correctionsVersion,
+            suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionStrip.suggestionsFirst,
+            suggestionPrimaryCenter = p[SUGGESTION_PRIMARY_CENTER]
+                ?: defaults.suggestionStrip.suggestionPrimaryCenter,
+            overflow = p[SUGGESTION_OVERFLOW]
+                ?.let { runCatching { SuggestionOverflow.valueOf(it) }.getOrNull() }
+                ?: defaults.suggestionStrip.overflow,
+            blockOffensiveWords = p[BLOCK_OFFENSIVE_WORDS]
+                ?: defaults.suggestionStrip.blockOffensiveWords,
+            contextRerank = p[CONTEXT_RERANK]
+                ?: defaults.suggestionStrip.contextRerank,
+            autoSpaceAfterSuggestion = p[AUTO_SPACE_AFTER_SUGGESTION]
+                ?: defaults.suggestionStrip.autoSpaceAfterSuggestion,
+            skipTypedWord = p[SKIP_TYPED_WORD] ?: defaults.suggestionStrip.skipTypedWord,
+            expandUserDictShortcuts = p[EXPAND_USER_DICT_SHORTCUTS]
+                ?: defaults.suggestionStrip.expandUserDictShortcuts,
+            useSystemDictionary = p[USE_SYSTEM_DICTIONARY]
+                ?: defaults.suggestionStrip.useSystemDictionary,
+            snippetMultiExpand = p[SNIPPET_MULTI_EXPAND]
+                ?.let { runCatching { MultiExpandMode.valueOf(it) }.getOrNull() }
+                ?: defaults.suggestionStrip.snippetMultiExpand,
+            systemSmartReplies = p[SYSTEM_SMART_REPLIES]
+                ?: defaults.suggestionStrip.systemSmartReplies,
+            registerPriors = p[REGISTER_PRIORS]
+                ?: defaults.suggestionStrip.registerPriors,
+            timingSignalStrength = p[TIMING_SIGNAL_STRENGTH]
+                ?: defaults.suggestionStrip.timingSignalStrength,
+            numberRowCorrections = p[NUMBER_ROW_CORRECTIONS]
+                ?: defaults.suggestionStrip.numberRowCorrections,
+            numberPrediction = p[NUMBER_PREDICTION]
+                ?: defaults.suggestionStrip.numberPrediction,
+            autocorrectSplits = p[AUTOCORRECT_SPLITS]
+                ?: defaults.suggestionStrip.autocorrectSplits,
+            spellingMapOffLangs = p[SPELLING_MAP_OFF_LANGS]
+                ?: defaults.suggestionStrip.spellingMapOffLangs,
+            phoneticSiblingsOffLangs = p[PHONETIC_SIBLINGS_OFF_LANGS]
+                ?: defaults.suggestionStrip.phoneticSiblingsOffLangs,
+            importedOnlyLangs = p[IMPORTED_ONLY_LANGS]
+                ?: defaults.suggestionStrip.importedOnlyLangs,
+            wordPairsOffLangs = p[WORD_PAIRS_OFF_LANGS]
+                ?: defaults.suggestionStrip.wordPairsOffLangs,
+            languageDetection = p[LANGUAGE_DETECTION]
+                ?: defaults.suggestionStrip.languageDetection,
+            languageDetectionStrength = p[LANGUAGE_DETECTION_STRENGTH]
+                ?.let { runCatching { LanguageDetectionStrength.valueOf(it) }.getOrNull() }
+                ?: defaults.suggestionStrip.languageDetectionStrength,
+            languageDetectionByApp = p[LANGUAGE_DETECTION_BY_APP]
+                ?: defaults.suggestionStrip.languageDetectionByApp,
+            phoneticEnglishLangs = p[PHONETIC_ENGLISH_LANGS]
+                ?: LEGACY_PHONETIC_ENGLISH_LANGS.takeIf { p[PHONETIC_AUTO_ENGLISH] == true }
+                ?: defaults.suggestionStrip.phoneticEnglishLangs,
+            phoneticEnglishSwitch = p[PHONETIC_ENGLISH_SWITCH]
+                ?: defaults.suggestionStrip.phoneticEnglishSwitch,
+            // An item name this build does not know is dropped, not kept
+            // as a stale string.
+            wordMenuItems = p[WORD_MENU_ITEMS]
+                ?.let { stored ->
+                    val items = stored.mapNotNullTo(mutableSetOf()) { runCatching { WordMenuItem.valueOf(it) }.getOrNull() }
+                    if (WORD_MENU_SYNONYMS_MARK in stored) items else items + WordMenuItem.SYNONYMS
+                }
+                ?: defaults.suggestionStrip.wordMenuItems,
+            synonymSources = p[SYNONYM_SOURCES]?.let(SynonymSources::decode)
+                ?: defaults.suggestionStrip.synonymSources,
+            rankControl = p[WORD_RANK_CONTROL]
+                ?.let { runCatching { RankControl.valueOf(it) }.getOrNull() }
+                ?: defaults.suggestionStrip.rankControl,
+            deleteEditsImportedLists = p[DELETE_EDITS_IMPORTED_LISTS]
+                ?: defaults.suggestionStrip.deleteEditsImportedLists,
+            learnFromTextSort = p[LEARN_FROM_TEXT_SORT]
+                ?.let { runCatching { LearnFromTextSort.valueOf(it) }.getOrNull() }
+                ?: defaults.suggestionStrip.learnFromTextSort,
+            learnFromTextPairs = p[LEARN_FROM_TEXT_PAIRS]
+                ?: defaults.suggestionStrip.learnFromTextPairs,
+        )
+
+    private fun readKeyRepeat(p: Preferences, defaults: KeyboardSettings) =
+        KeyRepeatSettings(
+            deleteMs = p[KEY_REPEAT_DELETE] ?: p[KEY_REPEAT_INTERVAL]
+                ?: defaults.keyRepeat.deleteMs,
+            wordDeleteMs = p[KEY_REPEAT_WORD_DELETE] ?: defaults.keyRepeat.wordDeleteMs,
+            spaceMs = p[KEY_REPEAT_SPACE] ?: p[KEY_REPEAT_INTERVAL]
+                ?: defaults.keyRepeat.spaceMs,
+            customKeyMs = p[KEY_REPEAT_CUSTOM] ?: defaults.keyRepeat.customKeyMs,
+            startDelayMs = p[KEY_REPEAT_START_DELAY] ?: defaults.keyRepeat.startDelayMs,
+        )
+
+    private fun readOctopus(p: Preferences, defaults: KeyboardSettings) =
+        OctopusSettings(
+            enabled = p[OCTOPUS_ENABLED] ?: defaults.octopus.enabled,
+            placement = p[OCTOPUS_PLACEMENT]
+                ?.let { runCatching { OctopusPlacement.valueOf(it) }.getOrNull() }
+                ?: defaults.octopus.placement,
+            density = p[OCTOPUS_DENSITY] ?: defaults.octopus.density,
+            kinds = p[OCTOPUS_KINDS]?.let(::decodeOctopusKinds) ?: defaults.octopus.kinds,
+            duringGlide = p[OCTOPUS_DURING_GLIDE]
+                ?.let { runCatching { OctopusDuringGlide.valueOf(it) }.getOrNull() }
+                ?: defaults.octopus.duringGlide,
+            flickCommits = p[OCTOPUS_FLICK_COMMITS] ?: defaults.octopus.flickCommits,
+            tapCommits = p[OCTOPUS_TAP_COMMITS] ?: defaults.octopus.tapCommits,
+            flickSensitivity = p[OCTOPUS_FLICK_SENSITIVITY]
+                ?.let { runCatching { OctopusFlickSensitivity.valueOf(it) }.getOrNull() }
+                ?: defaults.octopus.flickSensitivity,
+            fontScale = p[OCTOPUS_FONT_SCALE] ?: defaults.octopus.fontScale,
+            suppressHints = p[OCTOPUS_SUPPRESS_HINTS] ?: defaults.octopus.suppressHints,
+            longPressKeys = p[OCTOPUS_LONG_PRESS_KEYS] ?: defaults.octopus.longPressKeys,
+            wordsPerKey = p[OCTOPUS_WORDS_PER_KEY]
+                ?.coerceIn(OctopusSettings.WORDS_PER_KEY_RANGE)
+                ?: defaults.octopus.wordsPerKey,
+        )
+
+    private fun readLayoutBehavior(p: Preferences, defaults: KeyboardSettings) =
+        LayoutBehaviorSettings(
+            symbolsLongPressNumpad =
+                p[SYMBOLS_LONGPRESS_NUMPAD] ?: defaults.layoutBehavior.symbolsLongPressNumpad,
+            enterLongPressEmoji =
+                p[ENTER_LONGPRESS_EMOJI] ?: defaults.layoutBehavior.enterLongPressEmoji,
+            spaceSwipeDownHide =
+                p[SPACE_SWIPE_DOWN_HIDE] ?: defaults.layoutBehavior.spaceSwipeDownHide,
+            globeInOnePlace = p[GLOBE_IN_ONE_PLACE] ?: defaults.layoutBehavior.globeInOnePlace,
+            hintFlick = p[HINT_FLICK] ?: defaults.layoutBehavior.hintFlick,
+            capitalFlick = p[CAPITAL_FLICK] ?: defaults.layoutBehavior.capitalFlick,
+            globeTypingGuardMs = p[GLOBE_TYPING_GUARD_MS]?.coerceIn(GlobeTypingGuardMsRange)
+                ?: defaults.layoutBehavior.globeTypingGuardMs,
+            boardCornerTopDp = p[BOARD_CORNER_TOP]?.coerceIn(BoardCornerRadiusRange)
+                ?: defaults.layoutBehavior.boardCornerTopDp,
+            boardCornerBottomDp = p[BOARD_CORNER_BOTTOM]?.coerceIn(BoardCornerRadiusRange)
+                ?: defaults.layoutBehavior.boardCornerBottomDp,
+            // Names this build does not know are dropped, not fatal.
+            boardCorners = p[BOARD_CORNERS]
+                ?.mapNotNullTo(mutableSetOf()) { name -> BoardCorner.entries.firstOrNull { it.name == name } }
+                ?: defaults.layoutBehavior.boardCorners,
+            spaceCursor2d = p[SPACE_CURSOR_2D] ?: defaults.layoutBehavior.spaceCursor2d,
+            spaceHoldKeys = p[SPACE_HOLD_KEYS]
+                ?.split('\n')?.filter { it.isNotEmpty() }
+                ?: defaults.layoutBehavior.spaceHoldKeys,
+            hintFontScale = p[HINT_FONT_SCALE] ?: defaults.layoutBehavior.hintFontScale,
+            hintOffsetDp = p[HINT_OFFSET] ?: defaults.layoutBehavior.hintOffsetDp,
+            transliterationHints = p[TRANSLITERATION_HINTS]
+                ?.let { runCatching { TransliterationHintMode.valueOf(it) }.getOrNull() }
+                ?: defaults.layoutBehavior.transliterationHints,
+            fancyStyleId = p[FANCY_STYLE] ?: legacyFancyStyle(p)
+                ?: defaults.layoutBehavior.fancyStyleId,
+            // An empty string is how "no pinned style" is stored, so the
+            // setting can go back to following the strip.
+            fancyToolStyleId = p[FANCY_TOOL_STYLE]?.takeIf { it.isNotEmpty() }
+                ?: defaults.layoutBehavior.fancyToolStyleId,
+            fancyToolKeepsLanguage = p[FANCY_TOOL_KEEPS_LANGUAGE]
+                ?: defaults.layoutBehavior.fancyToolKeepsLanguage,
+            fancyToolAutoOff = p[FANCY_TOOL_AUTO_OFF]
+                ?: defaults.layoutBehavior.fancyToolAutoOff,
+            // Empty is "the first one", the same spelling the fancy style uses.
+            customLayoutToolId = p[CUSTOM_LAYOUT_TOOL]?.takeIf { it.isNotEmpty() }
+                ?: defaults.layoutBehavior.customLayoutToolId,
+            numberRowShiftSymbols =
+                p[NUMBER_ROW_SHIFT_SYMBOLS] ?: defaults.layoutBehavior.numberRowShiftSymbols,
+            smartHitDetection =
+                p[SMART_HIT_DETECTION] ?: defaults.layoutBehavior.smartHitDetection,
+            autopilotStrength = p[AUTOPILOT_STRENGTH]
+                ?: defaults.layoutBehavior.autopilotStrength,
+            autopilotShowEffect = p[AUTOPILOT_SHOW_EFFECT]
+                ?: defaults.layoutBehavior.autopilotShowEffect,
+            autopilotOutline = p[AUTOPILOT_OUTLINE]
+                ?: defaults.layoutBehavior.autopilotOutline,
+            autopilotVisualScale = p[AUTOPILOT_VISUAL_SCALE]
+                ?: defaults.layoutBehavior.autopilotVisualScale,
+            spacebarDisplay = p[SPACEBAR_DISPLAY]
+                ?.let { runCatching { SpacebarDisplay.valueOf(it) }.getOrNull() }
+                ?: defaults.layoutBehavior.spacebarDisplay,
+            languagePickerStyle = p[LANGUAGE_PICKER_STYLE]
+                ?.let { runCatching { LanguagePickerStyle.valueOf(it) }.getOrNull() }
+                ?: defaults.layoutBehavior.languagePickerStyle,
+            spaceHoldPickerForLongRing = p[SPACE_HOLD_PICKER_FOR_LONG_RING]
+                ?: defaults.layoutBehavior.spaceHoldPickerForLongRing,
+            numeralSystemByLang = p[NUMERAL_SYSTEM_BY_LANG]
+                ?.let { decodeNumeralSystems(it) }
+                ?: defaults.layoutBehavior.numeralSystemByLang,
+            numeralCommitScope = p[NUMERAL_COMMIT_SCOPE]
+                ?.let { runCatching { NumeralCommitScope.valueOf(it) }.getOrNull() }
+                ?: defaults.layoutBehavior.numeralCommitScope,
+            shiftEnterNewline =
+                p[SHIFT_ENTER_NEWLINE] ?: defaults.layoutBehavior.shiftEnterNewline,
+            numberRowInSymbols =
+                p[NUMBER_ROW_IN_SYMBOLS] ?: defaults.layoutBehavior.numberRowInSymbols,
+            bottomRowHeightDp =
+                p[BOTTOM_ROW_HEIGHT] ?: defaults.layoutBehavior.bottomRowHeightDp,
+            sidePadLeftScale = p[SIDE_PAD_LEFT_SCALE] ?: p[SIDE_PAD_SCALE]
+                ?: defaults.layoutBehavior.sidePadLeftScale,
+            sidePadRightScale = p[SIDE_PAD_RIGHT_SCALE] ?: p[SIDE_PAD_SCALE]
+                ?: defaults.layoutBehavior.sidePadRightScale,
+            splitOnlyOnLargeScreens = p[SPLIT_ONLY_LARGE]
+                ?: defaults.layoutBehavior.splitOnlyOnLargeScreens,
+            shiftCapsLockMs = p[SHIFT_CAPS_LOCK_MS] ?: defaults.layoutBehavior.shiftCapsLockMs,
+            showAllPopupKeys = p[SHOW_ALL_POPUP_KEYS] ?: defaults.layoutBehavior.showAllPopupKeys,
+            shiftedPopupKeys = p[SHIFTED_POPUP_KEYS]
+                ?: defaults.layoutBehavior.shiftedPopupKeys,
+            currencyKeys = p[CURRENCY_KEYS]
+                ?.split('\n')?.filter { it.isNotEmpty() }
+                ?: defaults.layoutBehavior.currencyKeys,
+            symbolsReturnToLetters = p[SYMBOLS_RETURN_TO_LETTERS]
+                ?: defaults.layoutBehavior.symbolsReturnToLetters,
+            symbolsReturnChars = p[SYMBOLS_RETURN_CHARS]
+                ?: defaults.layoutBehavior.symbolsReturnChars,
+            // Derived from whether the key is *there*, not from its value —
+            // see the fields' own docs. This is the only place that
+            // information survives; every other read collapses it with `?:`.
+            numberRowUntouched = p[NUMBER_ROW] == null,
+            keyHeightUntouched = p[KEY_HEIGHT] == null,
+            keyboardWidthUntouched = p[KEYBOARD_WIDTH_PERCENT] == null,
+        )
+
+    private fun readLongPressLetterActions(p: Preferences, defaults: KeyboardSettings) =
+        LongPressLetterActions(
+            selectAll = p[LONG_PRESS_A_SELECT_ALL] ?: defaults.longPressLetterActions.selectAll,
+            copy = p[LONG_PRESS_C_COPY] ?: defaults.longPressLetterActions.copy,
+            paste = p[LONG_PRESS_V_PASTE] ?: defaults.longPressLetterActions.paste,
+            cut = p[LONG_PRESS_X_CUT] ?: defaults.longPressLetterActions.cut,
+            undo = p[LONG_PRESS_Z_UNDO] ?: defaults.longPressLetterActions.undo,
+            redo = p[LONG_PRESS_Y_REDO] ?: defaults.longPressLetterActions.redo,
+            letters = p[LONG_PRESS_LETTERS] ?: defaults.longPressLetterActions.letters,
+            actionFirst = p[LONG_PRESS_ACTION_FIRST]
+                ?: defaults.longPressLetterActions.actionFirst,
+            globeDrag = p[GLOBE_DRAG_SHORTCUTS] ?: defaults.longPressLetterActions.globeDrag,
+        )
+
+    private fun readIcons(p: Preferences, defaults: KeyboardSettings) =
+        IconSettings(
+            activePackId = p[ICON_PACK_ID] ?: defaults.icons.activePackId,
+            overrides = IconOverrides.decode(p[ICON_OVERRIDES]),
+        )
+
+    private fun readToolbarTools(p: Preferences, defaults: KeyboardSettings) =
+        p[TOOLBAR_TOOLS]?.let { csv ->
+            if (csv.isEmpty()) emptyList()
+            else csv.split(',').mapNotNull { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
+        } ?: defaults.toolbarTools
+
+    private fun readToolbarBehavior(p: Preferences, defaults: KeyboardSettings) =
+        ToolbarBehavior(
+            enabled = p[TOOLBAR_ENABLED] ?: defaults.toolbarBehavior.enabled,
+            swipeDownHide = p[TOOLBAR_SWIPE_DOWN_HIDE] ?: defaults.toolbarBehavior.swipeDownHide,
+            dragToRearrange = p[TOOLBAR_DRAG_REARRANGE] ?: defaults.toolbarBehavior.dragToRearrange,
+            onlyWithHardwareKeyboard =
+                p[TOOLBAR_ONLY_HW_KEYBOARD] ?: defaults.toolbarBehavior.onlyWithHardwareKeyboard,
+            reverseForRtl = p[REVERSE_TOOLBAR_RTL] ?: defaults.toolbarBehavior.reverseForRtl,
+            greedy = p[TOOLBAR_GREEDY] ?: defaults.toolbarBehavior.greedy,
+            scrollable = p[TOOLBAR_SCROLLABLE] ?: defaults.toolbarBehavior.scrollable,
+            hideWhenLocked = p[TOOLBAR_HIDE_WHEN_LOCKED] ?: defaults.toolbarBehavior.hideWhenLocked,
+            toolWidthDp = p[TOOLBAR_TOOL_WIDTH] ?: defaults.toolbarBehavior.toolWidthDp,
+            paddingTopDp = p[TOOLBAR_PADDING_TOP] ?: defaults.toolbarBehavior.paddingTopDp,
+            paddingBottomDp = p[TOOLBAR_PADDING_BOTTOM] ?: defaults.toolbarBehavior.paddingBottomDp,
+            themesPanelBuiltIns = p[THEMES_PANEL_BUILTINS],
+            placement = p[TOOLBAR_PLACEMENT]
+                ?.let { runCatching { ToolbarPlacement.valueOf(it) }.getOrNull() }
+                ?: defaults.toolbarBehavior.placement,
+            showStrip = p[TOOLBAR_SHOW_STRIP] ?: defaults.toolbarBehavior.showStrip,
+            holdActions = ToolHoldActions.decode(p[TOOLBAR_HOLD_ACTIONS]),
+        )
+
+    private fun readEmoji(p: Preferences, defaults: KeyboardSettings) =
+        EmojiSettings(
+            defaultSkinTone = p[EMOJI_DEFAULT_SKIN_TONE]
+                ?.let { runCatching { EmojiSkinTone.valueOf(it) }.getOrNull() }
+                ?: defaults.emoji.defaultSkinTone,
+            toneOverrideByLastUsed = p[EMOJI_TONE_OVERRIDE_LAST_USED]
+                ?: defaults.emoji.toneOverrideByLastUsed,
+            closeAfterInsert = p[EMOJI_CLOSE_AFTER_INSERT] ?: defaults.emoji.closeAfterInsert,
+            hideUnrenderable = p[EMOJI_HIDE_UNRENDERABLE] ?: defaults.emoji.hideUnrenderable,
+            barScrollable = p[EMOJI_BAR_SCROLLABLE] ?: defaults.emoji.barScrollable,
+            barCount = p[EMOJI_BAR_COUNT]?.coerceIn(EmojiBarCountRange)
+                ?: defaults.emoji.barCount,
+            gridCellSize = p[EMOJI_GRID_CELL_SIZE]?.coerceIn(EmojiGridCellSizeRange)
+                ?: defaults.emoji.gridCellSize,
+            gridEmojiSize = p[EMOJI_GRID_EMOJI_SIZE]?.coerceIn(EmojiGridEmojiSizeRange)
+                ?: defaults.emoji.gridEmojiSize,
+            recentsLimit = p[EMOJI_RECENTS_LIMIT]?.coerceIn(EmojiRecentsRange)
+                ?: defaults.emoji.recentsLimit,
+            mediaGridColumns = p[MEDIA_GRID_COLUMNS]?.coerceIn(2, 5)
+                ?: defaults.emoji.mediaGridColumns,
+            kaomojiTabs = p[EMOJI_KAOMOJI_TABS] ?: defaults.emoji.kaomojiTabs,
+            keywordPackVersion = p[EMOJI_KEYWORD_PACK_VERSION]
+                ?: defaults.emoji.keywordPackVersion,
+            autoDownloadKeywords = p[EMOJI_AUTO_DOWNLOAD_KEYWORDS]
+                ?: defaults.emoji.autoDownloadKeywords,
+            disabledKeywordLangs = p[EMOJI_DISABLED_KEYWORD_LANGS]
+                ?: defaults.emoji.disabledKeywordLangs,
+            usageVersion = p[EMOJI_USAGE_VERSION] ?: defaults.emoji.usageVersion,
+            animated = p[EMOJI_ANIMATED] ?: defaults.emoji.animated,
+            sendAsSticker = p[EMOJI_SEND_AS_STICKER] ?: defaults.emoji.sendAsSticker,
+            categoryOrder = p[EMOJI_CATEGORY_ORDER]
+                ?.split(',')
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.distinct()
+                ?: defaults.emoji.categoryOrder,
+            hiddenCategories = p[EMOJI_HIDDEN_CATEGORIES] ?: defaults.emoji.hiddenCategories,
+            categoryEmojiOrder = decodeEmojiOrder(p[EMOJI_CATEGORY_EMOJI_ORDER])
+                .ifEmpty { defaults.emoji.categoryEmojiOrder },
+        )
+
+    private fun readToolbox(p: Preferences, defaults: KeyboardSettings) =
+        ToolboxSettings(
+            layout = p[TOOLBOX_LAYOUT]?.let { runCatching { ToolboxLayout.valueOf(it) }.getOrNull() }
+                ?: defaults.toolbox.layout,
+            pillColumns = p[TOOLBOX_PILL_COLUMNS]?.coerceIn(1, 3)
+                ?: defaults.toolbox.pillColumns,
+            pillFilled = p[TOOLBOX_PILL_FILLED] ?: defaults.toolbox.pillFilled,
+            paginate = p[TOOLBOX_PAGINATE] ?: defaults.toolbox.paginate,
+            pageSize = p[TOOLBOX_PAGE_SIZE]?.coerceIn(ToolboxPageSizeRange)
+                ?: defaults.toolbox.pageSize,
+            labelSizeSp = p[TOOLBOX_LABEL_SIZE] ?: defaults.toolbox.labelSizeSp,
+            hiddenTools = decodeToolNames(p[TOOLBOX_HIDDEN_TOOLS]).toSet(),
+        )
+
+    private fun readSensorTools(p: Preferences, defaults: KeyboardSettings) =
+        SensorToolSettings(
+            flashlightAutoOff = p[FLASHLIGHT_AUTO_OFF]
+                ?: defaults.sensorTools.flashlightAutoOff,
+            compassDegrees = p[COMPASS_SHOW_DEGREES] ?: defaults.sensorTools.compassDegrees,
+            compassQibla = p[COMPASS_SHOW_QIBLA] ?: defaults.sensorTools.compassQibla,
+            levelAngles = p[LEVEL_SHOW_ANGLES] ?: defaults.sensorTools.levelAngles,
+            moonSouthern = p[MOON_SOUTHERN] ?: isSouthernHemisphere(deviceRegion),
+        )
+
+    private fun readNetworkLog(p: Preferences, defaults: KeyboardSettings) =
+        NetworkLogSettings(
+            keep = p[NETWORK_LOG_KEEP] ?: defaults.networkLog.keep,
+            showOnKeyboard = p[NETWORK_LOG_ON_KEYBOARD] ?: defaults.networkLog.showOnKeyboard,
+        )
+
+    private fun readWeather(p: Preferences, defaults: KeyboardSettings) =
+        WeatherSettings(
+            fahrenheit = p[WEATHER_FAHRENHEIT] ?: defaults.weather.fahrenheit,
+            latitude = p[WEATHER_LAT],
+            longitude = p[WEATHER_LON],
+            placeName = p[WEATHER_PLACE] ?: defaults.weather.placeName,
+            autoFetch = p[WEATHER_AUTO_FETCH] ?: defaults.weather.autoFetch,
+        )
+
+    private fun readCalendarTool(p: Preferences, defaults: KeyboardSettings) =
+        CalendarToolSettings(
+            altOne = calendarAltFromPrefs(p, first = true),
+            altTwo = calendarAltFromPrefs(p, first = false),
+            weekend = p[CALENDAR_WEEKEND]?.let { Weekend.fromId(it) }
+                ?: Weekend.forRegion(deviceRegion),
+            hijriAdjustDays = p[HIJRI_ADJUST_DAYS] ?: defaults.calendarTool.hijriAdjustDays,
+        )
+
+    private fun readVoiceBar(p: Preferences, defaults: KeyboardSettings) =
+        VoiceBarSettings(
+            mode = p[VOICE_UI_MODE] ?: if (p[VOICE_STRIP_MODE] == true) {
+                VoiceBarSettings.MODE_STRIP
+            } else {
+                defaults.voiceBar.mode
+            },
+            typingMode = p[VOICE_TYPING_MODE] ?: defaults.voiceBar.typingMode,
+            active = p[VOICE_BAR_ACTIVE] ?: defaults.voiceBar.active,
+            vertical = p[VOICE_BAR_VERTICAL] ?: defaults.voiceBar.vertical,
+            snap = p[VOICE_BAR_SNAP] ?: defaults.voiceBar.snap,
+            rightEdge = p[VOICE_BAR_EDGE_RIGHT] ?: defaults.voiceBar.rightEdge,
+            yBias = p[VOICE_BAR_Y_BIAS] ?: defaults.voiceBar.yBias,
+            dockBias = p[VOICE_BAR_DOCK_BIAS] ?: defaults.voiceBar.dockBias,
+            holdToTalkMs = p[VOICE_HOLD_TO_TALK_MS] ?: defaults.voiceBar.holdToTalkMs,
+            holdPicksTypingMode = p[VOICE_HOLD_PICKS_MODE] ?: defaults.voiceBar.holdPicksTypingMode,
+            returnMode = p[VOICE_UI_RETURN_MODE] ?: defaults.voiceBar.returnMode,
+            inline = p[VOICE_BAR_INLINE] ?: defaults.voiceBar.inline,
+        )
+
+    private fun readWhisper(p: Preferences, defaults: KeyboardSettings) =
+        WhisperSettings(
+            engine = p[VOICE_ENGINE] ?: defaults.whisper.engine,
+            modelId = p[WHISPER_MODEL_ID] ?: defaults.whisper.modelId,
+            modelByLang = p[WHISPER_MODEL_BY_LANG]?.let { decodeWhisperModelByLang(it) }
+                ?: defaults.whisper.modelByLang,
+            translate = p[WHISPER_TRANSLATE] ?: defaults.whisper.translate,
+            serverUrl = p[VOICE_SERVER_URL] ?: defaults.whisper.serverUrl,
+            serverKey = p[VOICE_SERVER_KEY] ?: defaults.whisper.serverKey,
+            serverModel = p[VOICE_SERVER_MODEL] ?: defaults.whisper.serverModel,
+            serverSendLanguage = p[VOICE_SERVER_SEND_LANGUAGE]
+                ?: defaults.whisper.serverSendLanguage,
+            biasPersonalWords = p[VOICE_BIAS_PERSONAL_WORDS] ?: defaults.whisper.biasPersonalWords,
+            biasWords = p[VOICE_BIAS_WORDS] ?: defaults.whisper.biasWords,
+            serverPrompt = p[VOICE_SERVER_PROMPT] ?: defaults.whisper.serverPrompt,
+        )
+
+    private fun readCamera(p: Preferences, defaults: KeyboardSettings) =
+        CameraSettings(
+            preferFront = p[CAMERA_PREFER_FRONT] ?: defaults.camera.preferFront,
+            timerSeconds = p[CAMERA_TIMER_SECONDS] ?: defaults.camera.timerSeconds,
+            captureMaxPx = p[CAMERA_CAPTURE_MAX_PX] ?: defaults.camera.captureMaxPx,
+            mirrorFront = p[CAMERA_MIRROR_FRONT] ?: defaults.camera.mirrorFront,
+            shutterSound = p[CAMERA_SHUTTER_SOUND] ?: defaults.camera.shutterSound,
+            haptics = p[CAMERA_HAPTICS] ?: defaults.camera.haptics,
+            saveToGallery = p[CAMERA_SAVE_TO_GALLERY] ?: defaults.camera.saveToGallery,
+            fullFrame = p[CAMERA_FULL_FRAME] ?: defaults.camera.fullFrame,
+            searchButton = p[CAMERA_SEARCH_BUTTON] ?: defaults.camera.searchButton,
+            searchWith = p[CAMERA_SEARCH_WITH]
+                ?.let { runCatching { PhotoSearchTarget.valueOf(it) }.getOrNull() }
+                ?: defaults.camera.searchWith,
+            searchEngine = p[CAMERA_SEARCH_ENGINE]
+                ?.let { runCatching { PhotoSearchEngine.valueOf(it) }.getOrNull() }
+                ?: defaults.camera.searchEngine,
+            searchCustomUrl = p[CAMERA_SEARCH_CUSTOM_URL] ?: defaults.camera.searchCustomUrl,
+            searchCustomField = p[CAMERA_SEARCH_CUSTOM_FIELD]
+                ?.takeIf { it.isNotBlank() } ?: defaults.camera.searchCustomField,
+        )
+
+    private fun readScanner(p: Preferences, defaults: KeyboardSettings) =
+        ScannerSettings(
+            docSaveToGallery = p[DOC_SCAN_SAVE_TO_GALLERY]
+                ?: defaults.scanner.docSaveToGallery,
+            qrSaveToGallery = p[QR_SAVE_TO_GALLERY] ?: defaults.scanner.qrSaveToGallery,
+            qrSendMode = p[QR_SEND_MODE]
+                ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
+                ?: defaults.scanner.qrSendMode,
+            ocrAutoSelectWords = p[OCR_AUTO_SELECT_WORDS]
+                ?: defaults.scanner.ocrAutoSelectWords,
+            ocrEngine = p[OCR_ENGINE]?.let { runCatching { OcrEngine.valueOf(it) }.getOrNull() }
+                ?: defaults.scanner.ocrEngine,
+            qrScanHaptics = p[QR_SCAN_HAPTICS] ?: defaults.scanner.qrScanHaptics,
+            qrScanAutoInsert = p[QR_SCAN_AUTO_INSERT] ?: defaults.scanner.qrScanAutoInsert,
+            qrScanLinkPreviews = p[QR_SCAN_LINK_PREVIEWS]
+                ?: defaults.scanner.qrScanLinkPreviews,
+            qrSizePx = p[QR_SIZE_PX] ?: defaults.scanner.qrSizePx,
+            qrEcc = p[QR_ECC]?.let { runCatching { QrEccLevel.valueOf(it) }.getOrNull() }
+                ?: defaults.scanner.qrEcc,
+        )
+
+    private fun readGif(p: Preferences, defaults: KeyboardSettings) =
+        GifSettings(
+            klipyApiKey = p[KLIPY_API_KEY] ?: defaults.gif.klipyApiKey,
+            giphyApiKey = p[GIPHY_API_KEY] ?: defaults.gif.giphyApiKey,
+            contentFilter = p[GIF_CONTENT_FILTER]
+                ?.let { runCatching { GifContentFilter.valueOf(it) }.getOrNull() }
+                ?: defaults.gif.contentFilter,
+            sourceMode = p[GIF_SOURCE_MODE]
+                ?.let { runCatching { GifSourceMode.valueOf(it) }.getOrNull() }
+                ?: defaults.gif.sourceMode,
+            resultLimit = p[GIF_RESULT_LIMIT] ?: defaults.gif.resultLimit,
+            sendMode = p[GIF_SEND_MODE]
+                ?.let { runCatching { MediaSendMode.valueOf(it) }.getOrNull() }
+                ?: defaults.gif.sendMode,
+            stickerSuggest = p[STICKER_SUGGEST] ?: defaults.gif.stickerSuggest,
+            stickerSuggestStyle = p[STICKER_SUGGEST_STYLE]
+                ?.let { runCatching { StickerSuggestStyle.valueOf(it) }.getOrNull() }
+                ?: defaults.gif.stickerSuggestStyle,
+            stickerSuggestTrigger = p[STICKER_SUGGEST_TRIGGER]
+                ?.let { runCatching { StickerTriggerAction.valueOf(it) }.getOrNull() }
+                ?: defaults.gif.stickerSuggestTrigger,
+        )
+
+    private fun readTextEditing(p: Preferences, defaults: KeyboardSettings) =
+        TextEditingSettings(
+            repeatMs = p[TEXT_EDIT_REPEAT_MS] ?: defaults.textEditing.repeatMs,
+            cursorToolsRepeatOnHold = p[CURSOR_TOOLS_REPEAT_ON_HOLD]
+                ?: defaults.textEditing.cursorToolsRepeatOnHold,
+            // Filtered rather than trusted: the stored list outlives a tool
+            // leaving HoldRepeatCursorTools, and a name in here that no
+            // longer repeats would quietly cost that tool its toolbox hold.
+            toolboxRepeatTools = p[TOOLBOX_REPEAT_TOOLS]
+                ?.let { csv -> decodeToolNames(csv).filterTo(HashSet()) { it in HoldRepeatCursorTools } }
+                ?: defaults.textEditing.toolboxRepeatTools,
+            selectionModeHold = p[SELECTION_MODE_HOLD]
+                ?: defaults.textEditing.selectionModeHold,
+            selectionModeMultiTap = p[SELECTION_MODE_MULTI_TAP]
+                ?: defaults.textEditing.selectionModeMultiTap,
+            wrapSelectionWithPair =
+                p[WRAP_SELECTION_WITH_PAIR] ?: defaults.textEditing.wrapSelectionWithPair,
+            autoCloseBrackets =
+                p[AUTO_CLOSE_BRACKETS] ?: defaults.textEditing.autoCloseBrackets,
+            recapitalizeSelectionWithShift = p[RECAPITALIZE_SELECTION_WITH_SHIFT]
+                ?: defaults.textEditing.recapitalizeSelectionWithShift,
+            doubleSpaceWindowMs = p[DOUBLE_SPACE_WINDOW_MS]
+                ?: defaults.textEditing.doubleSpaceWindowMs,
+            spaceCursorStepDp = p[SPACE_CURSOR_STEP_DP]
+                ?: defaults.textEditing.spaceCursorStepDp,
+            spaceCursorMagnifier = p[SPACE_CURSOR_MAGNIFIER]
+                ?: defaults.textEditing.spaceCursorMagnifier,
+            backspaceWordStepDp = p[BACKSPACE_WORD_STEP_DP]
+                ?: defaults.textEditing.backspaceWordStepDp,
+            backspaceSwipeUnit = p[BACKSPACE_SWIPE_UNIT]
+                ?.let { runCatching { BackspaceSwipeUnit.valueOf(it) }.getOrNull() }
+                ?: defaults.textEditing.backspaceSwipeUnit,
+            backspaceSwipePreview = p[BACKSPACE_SWIPE_PREVIEW]
+                ?: defaults.textEditing.backspaceSwipePreview,
+            backspaceCharStepDp = p[BACKSPACE_CHAR_STEP_DP]
+                ?: defaults.textEditing.backspaceCharStepDp,
+            deleteHoldDeletesWords = p[DELETE_HOLD_DELETES_WORDS]
+                ?: defaults.textEditing.deleteHoldDeletesWords,
+            forwardDeleteSwipe = p[FORWARD_DELETE_SWIPE]
+                ?: defaults.textEditing.forwardDeleteSwipe,
+        )
+
+    private fun readTrackpad(p: Preferences, defaults: KeyboardSettings) =
+        TrackpadSettings(
+            stepXDp = p[TRACKPAD_STEP_X_DP] ?: defaults.trackpad.stepXDp,
+            stepYDp = p[TRACKPAD_STEP_Y_DP] ?: defaults.trackpad.stepYDp,
+            holdToOpen = p[TRACKPAD_HOLD_TO_OPEN] ?: defaults.trackpad.holdToOpen,
+            multiTap = p[TRACKPAD_MULTI_TAP] ?: defaults.trackpad.multiTap,
+            haptics = p[TRACKPAD_HAPTICS] ?: defaults.trackpad.haptics,
+            trail = p[TRACKPAD_TRAIL] ?: defaults.trackpad.trail,
+            magnifier = p[TRACKPAD_MAGNIFIER] ?: defaults.trackpad.magnifier,
+        )
+
+    private fun readVocabulary(p: Preferences, defaults: KeyboardSettings) =
+        VocabularySettings(
+            nudges = p[VOCAB_NUDGES] ?: defaults.vocabulary.nudges,
+            nudgeOnVocabWord = p[VOCAB_NUDGE_SELF] ?: defaults.vocabulary.nudgeOnVocabWord,
+            nudgeScope = p[VOCAB_NUDGE_SCOPE]?.let { runCatching { VocabNudgeScope.valueOf(it) }.getOrNull() }
+                ?: defaults.vocabulary.nudgeScope,
+            nudgeLevel = p[VOCAB_NUDGE_LEVEL]?.let { runCatching { VocabNudgeLevel.valueOf(it) }.getOrNull() }
+                ?: defaults.vocabulary.nudgeLevel,
+            cooldown = p[VOCAB_COOLDOWN]?.let { runCatching { VocabCooldown.valueOf(it) }.getOrNull() }
+                ?: defaults.vocabulary.cooldown,
+            chipTapAction = p[VOCAB_CHIP_TAP]?.let { runCatching { VocabChipTap.valueOf(it) }.getOrNull() }
+                ?: defaults.vocabulary.chipTapAction,
+            relatedTap = p[VOCAB_RELATED_TAP]?.let { runCatching { VocabRelatedTap.valueOf(it) }.getOrNull() }
+                ?: defaults.vocabulary.relatedTap,
+            scheduler = p[VOCAB_SCHEDULER]?.let { runCatching { VocabScheduler.valueOf(it) }.getOrNull() }
+                ?: defaults.vocabulary.scheduler,
+            dailyGoal = p[VOCAB_DAILY_GOAL] ?: defaults.vocabulary.dailyGoal,
+            wordOfTheDayCard = p[VOCAB_WOTD_CARD] ?: defaults.vocabulary.wordOfTheDayCard,
+            wordOfTheDayChip = p[VOCAB_WOTD_CHIP] ?: defaults.vocabulary.wordOfTheDayChip,
+            wordInterval = p[VOCAB_WORD_INTERVAL]?.let { runCatching { VocabWordInterval.valueOf(it) }.getOrNull() }
+                ?: defaults.vocabulary.wordInterval,
+            chipTimesPerWord = p[VOCAB_CHIP_TIMES]?.coerceIn(VocabularySettings.MIN_CHIP_TIMES, VocabularySettings.MAX_CHIP_TIMES)
+                ?: defaults.vocabulary.chipTimesPerWord,
+            audioSource = p[VOCAB_AUDIO_SOURCE]?.let { runCatching { VocabAudioSource.valueOf(it) }.getOrNull() }
+                ?: defaults.vocabulary.audioSource,
+            accent = p[VOCAB_ACCENT]?.let { runCatching { VocabAccent.valueOf(it) }.getOrNull() }
+                ?: defaults.vocabulary.accent,
+            ttsRate = p[VOCAB_TTS_RATE] ?: defaults.vocabulary.ttsRate,
+            ttsPitch = p[VOCAB_TTS_PITCH] ?: defaults.vocabulary.ttsPitch,
+            cardFields = p[VOCAB_CARD_FIELDS] ?: defaults.vocabulary.cardFields,
+            translationLangs = p[VOCAB_TRANSLATION_LANGS] ?: defaults.vocabulary.translationLangs,
+        )
+
+    private fun readPowerSaving(p: Preferences, defaults: KeyboardSettings) =
+        PowerSavingSettings(
+            manual = p[PS_MANUAL] ?: defaults.powerSaving.manual,
+            trigger = p[PS_TRIGGER]
+                ?.let { runCatching { PowerSavingTrigger.valueOf(it) }.getOrNull() }
+                ?: defaults.powerSaving.trigger,
+            batteryPercent = p[PS_BATTERY_PERCENT] ?: defaults.powerSaving.batteryPercent,
+            offWhileCharging =
+                p[PS_OFF_WHILE_CHARGING] ?: defaults.powerSaving.offWhileCharging,
+            dropHaptics = p[PS_DROP_HAPTICS] ?: defaults.powerSaving.dropHaptics,
+            dropKeySound = p[PS_DROP_KEY_SOUND] ?: defaults.powerSaving.dropKeySound,
+            dropAnimations = p[PS_DROP_ANIMATIONS] ?: defaults.powerSaving.dropAnimations,
+            dropGlideTrail = p[PS_DROP_GLIDE_TRAIL] ?: defaults.powerSaving.dropGlideTrail,
+            dropKeyPopup = p[PS_DROP_KEY_POPUP] ?: defaults.powerSaving.dropKeyPopup,
+            dropGestureTyping =
+                p[PS_DROP_GESTURE_TYPING] ?: defaults.powerSaving.dropGestureTyping,
+            dropEmojiPrediction =
+                p[PS_DROP_EMOJI_PREDICTION] ?: defaults.powerSaving.dropEmojiPrediction,
+            dropSmartChips = p[PS_DROP_SMART_CHIPS] ?: defaults.powerSaving.dropSmartChips,
+            dropBackgroundNetwork =
+                p[PS_DROP_BACKGROUND_NETWORK] ?: defaults.powerSaving.dropBackgroundNetwork,
+            dropScreenshotWatch =
+                p[PS_DROP_SCREENSHOT_WATCH] ?: defaults.powerSaving.dropScreenshotWatch,
+            dropOnDeviceModels =
+                p[PS_DROP_ON_DEVICE_MODELS] ?: defaults.powerSaving.dropOnDeviceModels,
+            dropTypingStats =
+                p[PS_DROP_TYPING_STATS] ?: defaults.powerSaving.dropTypingStats,
+            dropMediaPin =
+                p[PS_DROP_MEDIA_PIN] ?: defaults.powerSaving.dropMediaPin,
+        )
+
+    private fun readRateSources(p: Preferences, defaults: KeyboardSettings) =
+        RateSourceSettings(
+            fiatProviders = p[FIAT_PROVIDERS]?.split('\n')?.filter { it.isNotEmpty() }
+                ?: defaults.rateSources.fiatProviders,
+            cryptoEnabled = p[CRYPTO_ENABLED] ?: defaults.rateSources.cryptoEnabled,
+            cryptoProviders = p[CRYPTO_PROVIDERS]?.split('\n')?.filter { it.isNotEmpty() }
+                ?: defaults.rateSources.cryptoProviders,
+            cryptoCacheMinutes = p[CRYPTO_CACHE_MINUTES]
+                ?: defaults.rateSources.cryptoCacheMinutes,
+            cryptoTickers = p[CRYPTO_TICKERS] ?: defaults.rateSources.cryptoTickers,
+            cryptoDecimals = p[CRYPTO_DECIMALS] ?: defaults.rateSources.cryptoDecimals,
+            autoFetch = p[CURRENCY_AUTO_FETCH] ?: defaults.rateSources.autoFetch,
+        )
+
+    private fun readTranslate(p: Preferences, defaults: KeyboardSettings) =
+        TranslateSettings(
+            engine = p[TRANSLATE_ENGINE]
+                ?.let { name -> TranslateEngine.entries.firstOrNull { it.name == name } }
+                ?: defaults.translate.engine,
+            downloadedFirst = p[TRANSLATE_DOWNLOADED_FIRST] ?: defaults.translate.downloadedFirst,
+            onlyDownloaded = p[TRANSLATE_ONLY_DOWNLOADED] ?: defaults.translate.onlyDownloaded,
+            deepl = DeepLSettings(
+                apiKey = p[DEEPL_API_KEY] ?: defaults.translate.deepl.apiKey,
+                endpoint = p[DEEPL_ENDPOINT] ?: defaults.translate.deepl.endpoint,
+                translate = p[DEEPL_TRANSLATE] ?: defaults.translate.deepl.translate,
+                write = p[DEEPL_WRITE] ?: defaults.translate.deepl.write,
+                writeStyle = p[DEEPL_WRITE_STYLE]
+                    ?.let { name -> DeepLWriteStyle.entries.firstOrNull { it.name == name } }
+                    ?: defaults.translate.deepl.writeStyle,
+            ),
+        )
+
+    private fun readGrammarHiddenKinds(p: Preferences, defaults: KeyboardSettings) =
+        p[GRAMMAR_HIDDEN_KINDS]
+            ?.mapNotNullTo(mutableSetOf()) {
+                runCatching { GrammarLintKind.valueOf(it) }.getOrNull()
+            }
+            ?: defaults.grammarHiddenKinds
+
+    private fun readWebSearch(p: Preferences, defaults: KeyboardSettings) =
+        WebSearchSettings(
+            braveApiKey = p[BRAVE_API_KEY] ?: defaults.webSearch.braveApiKey,
+            safe = p[SEARCH_SAFE] ?: defaults.webSearch.safe,
+            resultCount = p[SEARCH_RESULT_COUNT] ?: defaults.webSearch.resultCount,
+            wikiLanguage = p[WIKI_LANGUAGE] ?: defaults.webSearch.wikiLanguage,
+            wikiLinksMarkdown = p[WIKI_LINKS_MARKDOWN]
+                ?: defaults.webSearch.wikiLinksMarkdown,
+        )
+
+    private fun readBarOrder(p: Preferences, defaults: KeyboardSettings) =
+        p[BAR_ORDER]
+            ?.split(',')
+            ?.mapNotNull { runCatching { BarRow.valueOf(it) }.getOrNull() }
+            ?.let { sanitizeBarOrder(it) }
+            ?: if (p[EMOJI_ROW_ABOVE_TOOLBAR] == false) {
+                // Legacy toggle explicitly off = emoji row below the toolbar.
+                // true (emoji above) and unset both fall through to the
+                // default order, which already puts the emoji row first.
+                sanitizeBarOrder(listOf(BarRow.TOPBAR, BarRow.EMOJI, BarRow.SYMBOL))
+            } else {
+                defaults.barOrder
+            }
+
+    private fun readSmartChips(p: Preferences, defaults: KeyboardSettings) =
+        SmartChipSettings(
+            dates = p[SMART_CHIP_DATES] ?: defaults.smartChips.dates,
+            weather = p[SMART_CHIP_WEATHER] ?: defaults.smartChips.weather,
+            lookups = p[SMART_CHIP_LOOKUPS] ?: defaults.smartChips.lookups,
+            intents = p[SMART_CHIP_INTENTS] ?: defaults.smartChips.intents,
+            gifs = p[SMART_CHIP_GIFS] ?: defaults.smartChips.gifs,
+            numbers = p[SMART_CHIP_NUMBERS] ?: defaults.smartChips.numbers,
+            numberGrouping = p[SMART_CHIP_NUMBER_GROUPING]
+                ?.let { runCatching { NumberGrouping.valueOf(it) }.getOrNull() }
+                ?: defaults.smartChips.numberGrouping,
+        )
+
+    private fun readSelectionMacros(p: Preferences, defaults: KeyboardSettings) =
+        SelectionMacroSettings(
+            enabled = p[SELECTION_MACROS_ENABLED] ?: defaults.selectionMacros.enabled,
+            placement = p[SELECTION_MACROS_PLACEMENT]
+                ?.let { name -> runCatching { SelectionMacroPlacement.valueOf(name) }.getOrNull() }
+                ?: defaults.selectionMacros.placement,
+            macros = SelectionMacroCodec.decodeMacros(p[SELECTION_MACROS_LIST_VERSION], p[SELECTION_MACROS_ON]),
+            order = SelectionMacroCodec.decodeOrder(p[SELECTION_MACROS_LIST_VERSION], p[SELECTION_MACROS_ORDER]),
+            aiDirectActions = p[SELECTION_MACROS_AI_ACTIONS]?.let(AiActionCodec::decodeIds)
+                ?: defaults.selectionMacros.aiDirectActions,
+            timeZones = p[SELECTION_MACROS_TIME_ZONES]?.let(AiActionCodec::decodeIds)
+                ?: defaults.selectionMacros.timeZones,
+            detectEntities = p[SELECTION_MACROS_DETECT] ?: defaults.selectionMacros.detectEntities,
+        )
+
+    private fun readPasswordGenerator(p: Preferences, defaults: KeyboardSettings) =
+        PasswordGeneratorSettings(
+            pwLength = p[PW_LENGTH] ?: defaults.passwordGenerator.pwLength,
+            pwUppercase = p[PW_UPPERCASE] ?: defaults.passwordGenerator.pwUppercase,
+            pwDigits = p[PW_DIGITS] ?: defaults.passwordGenerator.pwDigits,
+            pwSymbols = p[PW_SYMBOLS] ?: defaults.passwordGenerator.pwSymbols,
+            pwExcludeAmbiguous = p[PW_EXCLUDE_AMBIGUOUS]
+                ?: defaults.passwordGenerator.pwExcludeAmbiguous,
+            pwPassphraseMode = p[PW_PASSPHRASE_MODE]
+                ?: defaults.passwordGenerator.pwPassphraseMode,
+            ppWordCount = p[PP_WORD_COUNT] ?: defaults.passwordGenerator.ppWordCount,
+            ppSeparator = p[PP_SEPARATOR] ?: defaults.passwordGenerator.ppSeparator,
+            ppCapitalize = p[PP_CAPITALIZE] ?: defaults.passwordGenerator.ppCapitalize,
+            ppIncludeDigit = p[PP_INCLUDE_DIGIT] ?: defaults.passwordGenerator.ppIncludeDigit,
+        )
+
+    private fun readTypingTest(p: Preferences, defaults: KeyboardSettings) =
+        TypingTestSettings(
+            mode = p[TT_MODE]?.let { runCatching { TypingTestMode.valueOf(it) }.getOrNull() }
+                ?: defaults.typingTest.mode,
+            duration = p[TT_DURATION] ?: defaults.typingTest.duration,
+            wordCount = p[TT_WORD_COUNT] ?: defaults.typingTest.wordCount,
+            punctuation = p[TT_PUNCTUATION] ?: defaults.typingTest.punctuation,
+            numbers = p[TT_NUMBERS] ?: defaults.typingTest.numbers,
+            glide = p[TT_GLIDE] ?: defaults.typingTest.glide,
+            suggestions = p[TT_SUGGESTIONS] ?: defaults.typingTest.suggestions,
+            bests = p[TT_BESTS] ?: defaults.typingTest.bests,
+            history = p[TT_HISTORY] ?: defaults.typingTest.history,
+            completed = p[TT_COMPLETED] ?: defaults.typingTest.completed,
+            achievements = p[TT_ACHIEVEMENTS] ?: defaults.typingTest.achievements,
+        )
+
+    private fun readAi(p: Preferences, defaults: KeyboardSettings) =
+        AiSettings(
+            provider = p[AI_PROVIDER]
+                ?.let { runCatching { AiProvider.valueOf(it) }.getOrNull() }
+                // On-device models exist only where the engine does. A value
+                // restored from a full-build backup would otherwise open the
+                // model downloader on lite, which reaches Hugging Face for a
+                // model nothing there can run.
+                ?.takeUnless { it == AiProvider.ON_DEVICE && !BuildConfig.ENABLE_LOCAL_LLM }
+                ?: defaults.ai.provider,
+            anthropicKey = p[AI_ANTHROPIC_KEY] ?: defaults.ai.anthropicKey,
+            openAiKey = p[AI_OPENAI_KEY] ?: defaults.ai.openAiKey,
+            geminiKey = p[AI_GEMINI_KEY] ?: defaults.ai.geminiKey,
+            anthropicModel = p[AI_ANTHROPIC_MODEL] ?: defaults.ai.anthropicModel,
+            openAiModel = p[AI_OPENAI_MODEL] ?: defaults.ai.openAiModel,
+            geminiModel = p[AI_GEMINI_MODEL] ?: defaults.ai.geminiModel,
+            ollamaUrl = p[AI_OLLAMA_URL] ?: defaults.ai.ollamaUrl,
+            ollamaModel = p[AI_OLLAMA_MODEL] ?: defaults.ai.ollamaModel,
+            lmStudioUrl = p[AI_LM_STUDIO_URL] ?: defaults.ai.lmStudioUrl,
+            lmStudioModel = p[AI_LM_STUDIO_MODEL] ?: defaults.ai.lmStudioModel,
+            xaiKey = p[AI_XAI_KEY] ?: defaults.ai.xaiKey,
+            xaiModel = p[AI_XAI_MODEL] ?: defaults.ai.xaiModel,
+            deepSeekKey = p[AI_DEEPSEEK_KEY] ?: defaults.ai.deepSeekKey,
+            deepSeekModel = p[AI_DEEPSEEK_MODEL] ?: defaults.ai.deepSeekModel,
+            compatibleUrl = p[AI_COMPATIBLE_URL] ?: defaults.ai.compatibleUrl,
+            compatibleKey = p[AI_COMPATIBLE_KEY] ?: defaults.ai.compatibleKey,
+            compatibleModel = p[AI_COMPATIBLE_MODEL] ?: defaults.ai.compatibleModel,
+            maxTokens = p[AI_MAX_TOKENS] ?: defaults.ai.maxTokens,
+            localContextTokens = p[AI_LOCAL_CONTEXT_TOKENS] ?: defaults.ai.localContextTokens,
+            translateTo = p[AI_TRANSLATE_TO] ?: defaults.ai.translateTo,
+            // Folded in on every read rather than behind a "migrated" flag:
+            // a restored backup puts the old keys back, and a flag would
+            // make that restored prompt invisible for good.
+            customActions = mergeLegacyAiPrompts(
+                custom = AiActionCodec.decodeList(p[AI_CUSTOM_ACTIONS].orEmpty()),
+                legacy = legacyAiPrompts(p),
+            ),
+            actionOrder = AiActionCodec.decodeIds(p[AI_ACTION_ORDER].orEmpty()),
+            hiddenActions = AiActionCodec.decodeIds(p[AI_ACTIONS_OFF].orEmpty()),
+            localModelId = p[AI_LOCAL_MODEL_ID] ?: defaults.ai.localModelId,
+            localBackend = p[AI_LOCAL_BACKEND]
+                ?.let { runCatching { LocalLlmBackend.valueOf(it) }.getOrNull() }
+                ?: defaults.ai.localBackend,
+            hfToken = p[HF_TOKEN] ?: defaults.ai.hfToken,
+            showThinking = p[AI_SHOW_THINKING] ?: defaults.ai.showThinking,
+            panelModelPicker = p[AI_PANEL_MODEL_PICKER] ?: defaults.ai.panelModelPicker,
+            diffView = p[AI_DIFF_VIEW] ?: defaults.ai.diffView,
+            diffOpensFirst = p[AI_DIFF_OPENS_FIRST] ?: defaults.ai.diffOpensFirst,
+            historyEnabled = p[AI_HISTORY_ENABLED] ?: defaults.ai.historyEnabled,
+            historyMax = p[AI_HISTORY_MAX] ?: defaults.ai.historyMax,
+            keepChats = p[AI_KEEP_CHATS] ?: defaults.ai.keepChats,
+            chatEnterSends = p[AI_CHAT_ENTER_SENDS] ?: defaults.ai.chatEnterSends,
+            panelChat = p[AI_PANEL_CHAT] ?: defaults.ai.panelChat,
+            beforeCursorChars = p[AI_BEFORE_CURSOR_CHARS]
+                ?: defaults.ai.beforeCursorChars,
+        )
+
+    private fun readLauncher(p: Preferences, defaults: KeyboardSettings) =
+        LauncherToolSettings(
+            sortOrder = p[LAUNCHER_SORT]
+                ?.let { runCatching { AppSortOrder.valueOf(it) }.getOrNull() }
+                ?: defaults.launcher.sortOrder,
+            showLabels = p[LAUNCHER_SHOW_LABELS] ?: defaults.launcher.showLabels,
+            recentsEnabled = p[LAUNCHER_RECENTS_ENABLED] ?: defaults.launcher.recentsEnabled,
+            maxRecents = p[LAUNCHER_MAX_RECENTS] ?: defaults.launcher.maxRecents,
+            activityDrilldown = p[LAUNCHER_DRILLDOWN] ?: defaults.launcher.activityDrilldown,
+            showNonExported =
+                p[LAUNCHER_SHOW_NON_EXPORTED] ?: defaults.launcher.showNonExported,
+            pinned = p[LAUNCHER_PINNED]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty(),
+            // Trimmed on read as well as on write: a cap lowered while the
+            // stored list was longer takes effect immediately rather than
+            // on the next launch that happens to rewrite the list.
+            recents = p[LAUNCHER_RECENTS]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty()
+                .take(p[LAUNCHER_MAX_RECENTS] ?: defaults.launcher.maxRecents),
+            gridColumns = p[LAUNCHER_GRID_COLUMNS] ?: defaults.launcher.gridColumns,
+            iconSizeDp = p[LAUNCHER_ICON_SIZE] ?: defaults.launcher.iconSizeDp,
+            iconShape = p[LAUNCHER_ICON_SHAPE]
+                ?.let { runCatching { LauncherIconShape.valueOf(it) }.getOrNull() }
+                ?: defaults.launcher.iconShape,
+            hidden = p[LAUNCHER_HIDDEN]?.split('\t')?.filter { it.isNotEmpty() }.orEmpty(),
+            openMode = p[LAUNCHER_OPEN_MODE]
+                ?.let { runCatching { LauncherOpenMode.valueOf(it) }.getOrNull() }
+                ?: defaults.launcher.openMode,
+            combos = LauncherSplitCombo.decode(p[LAUNCHER_COMBOS]),
+        )
+
+    private fun readMediaControl(p: Preferences, defaults: KeyboardSettings) =
+        MediaControlSettings(
+            pinWhilePlaying = p[MEDIA_PIN_WHILE_PLAYING]
+                ?: defaults.mediaControl.pinWhilePlaying,
+            musicApps = p[MEDIA_MUSIC_APPS] ?: defaults.mediaControl.musicApps,
+        )
+
+    private fun readKdeConnect(p: Preferences, defaults: KeyboardSettings) =
+        KdeConnectSettings(
+            enabled = p[KDE_ENABLED] ?: defaults.kdeConnect.enabled,
+            deviceName = p[KDE_DEVICE_NAME] ?: defaults.kdeConnect.deviceName,
+            lifetime = p[KDE_LIFETIME]
+                ?.let { runCatching { KdeLinkLifetime.valueOf(it) }.getOrNull() }
+                ?: defaults.kdeConnect.lifetime,
+            autoConnect = p[KDE_AUTO_CONNECT] ?: defaults.kdeConnect.autoConnect,
+            clipboardReceive = p[KDE_CLIPBOARD_RECEIVE] ?: defaults.kdeConnect.clipboardReceive,
+            clipboardSend = p[KDE_CLIPBOARD_SEND] ?: defaults.kdeConnect.clipboardSend,
+            remoteTyping = p[KDE_REMOTE_TYPING] ?: defaults.kdeConnect.remoteTyping,
+            remoteTypingPipeline = p[KDE_REMOTE_TYPING_PIPELINE]
+                ?: defaults.kdeConnect.remoteTypingPipeline,
+            padSensitivity = p[KDE_PAD_SENSITIVITY] ?: defaults.kdeConnect.padSensitivity,
+            padAcceleration = p[KDE_PAD_ACCELERATION] ?: defaults.kdeConnect.padAcceleration,
+            scrollSpeed = p[KDE_SCROLL_SPEED] ?: defaults.kdeConnect.scrollSpeed,
+            naturalScroll = p[KDE_NATURAL_SCROLL] ?: defaults.kdeConnect.naturalScroll,
+            tapToClick = p[KDE_TAP_TO_CLICK] ?: defaults.kdeConnect.tapToClick,
+            padHaptics = p[KDE_PAD_HAPTICS] ?: defaults.kdeConnect.padHaptics,
+            batteryReport = p[KDE_BATTERY_REPORT] ?: defaults.kdeConnect.batteryReport,
+            exposeMedia = p[KDE_EXPOSE_MEDIA] ?: defaults.kdeConnect.exposeMedia,
+            shareSheet = p[KDE_SHARE_SHEET] ?: defaults.kdeConnect.shareSheet,
+            receiveFiles = p[KDE_RECEIVE_FILES] ?: defaults.kdeConnect.receiveFiles,
+            composeMode = p[KDE_COMPOSE_MODE] ?: defaults.kdeConnect.composeMode,
+            lastTab = p[KDE_LAST_TAB] ?: defaults.kdeConnect.lastTab,
+            hosts = p[KDE_HOSTS] ?: defaults.kdeConnect.hosts,
+        )
+
+    private fun readSelfHosted(p: Preferences, defaults: KeyboardSettings) =
+        SelfHostedSettings(
+            libreTranslateUrl = p[SELF_HOSTED_LIBRETRANSLATE_URL]
+                ?: defaults.selfHosted.libreTranslateUrl,
+            libreTranslateApiKey = p[SELF_HOSTED_LIBRETRANSLATE_KEY]
+                ?: defaults.selfHosted.libreTranslateApiKey,
+            searxUrl = p[SELF_HOSTED_SEARX_URL] ?: defaults.selfHosted.searxUrl,
+            commonsUrl = p[SELF_HOSTED_COMMONS_URL] ?: defaults.selfHosted.commonsUrl,
+            endpoints = p[SELF_HOSTED_ENDPOINTS]?.let(::decodeEndpointMap) ?: defaults.selfHosted.endpoints,
+            repos = p[SELF_HOSTED_REPOS]?.let(::decodeRepoMap) ?: defaults.selfHosted.repos,
+        )
+
+    private fun readVietnameseFlick(p: Preferences, defaults: KeyboardSettings) =
+        VietnameseFlickSettings(
+            enabled = p[VIETNAMESE_FLICK_ENABLED] ?: defaults.vietnameseFlick.enabled,
+            pureFlickMode = p[VIETNAMESE_FLICK_PURE_MODE] ?: defaults.vietnameseFlick.pureFlickMode,
+            dirA_Circumflex = parseFlickDir(p[VIETNAMESE_FLICK_DIR_A_CIRCUMFLEX], defaults.vietnameseFlick.dirA_Circumflex),
+            dirA_Breve = parseFlickDir(p[VIETNAMESE_FLICK_DIR_A_BREVE], defaults.vietnameseFlick.dirA_Breve),
+            dirE_Circumflex = parseFlickDir(p[VIETNAMESE_FLICK_DIR_E_CIRCUMFLEX], defaults.vietnameseFlick.dirE_Circumflex),
+            dirD_Stroke = parseFlickDir(p[VIETNAMESE_FLICK_DIR_D_STROKE], defaults.vietnameseFlick.dirD_Stroke),
+            dirO_Circumflex = parseFlickDir(p[VIETNAMESE_FLICK_DIR_O_CIRCUMFLEX], defaults.vietnameseFlick.dirO_Circumflex),
+            dirO_Horn = parseFlickDir(p[VIETNAMESE_FLICK_DIR_O_HORN], defaults.vietnameseFlick.dirO_Horn),
+            dirU_Horn = parseFlickDir(p[VIETNAMESE_FLICK_DIR_U_HORN], defaults.vietnameseFlick.dirU_Horn),
+            dirTone_Acute = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_ACUTE], defaults.vietnameseFlick.dirTone_Acute),
+            dirTone_Grave = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_GRAVE], defaults.vietnameseFlick.dirTone_Grave),
+            dirTone_Hook = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_HOOK], defaults.vietnameseFlick.dirTone_Hook),
+            dirTone_Tilde = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_TILDE], defaults.vietnameseFlick.dirTone_Tilde),
+            dirTone_Dot = parseFlickDir(p[VIETNAMESE_FLICK_DIR_TONE_DOT], defaults.vietnameseFlick.dirTone_Dot),
+        )
 
     /**
      * Enables or disables one tool everywhere on the keyboard. Disabling
@@ -8997,6 +10130,18 @@ class SettingsRepository(private val context: Context) {
             val disabled = decodeDisabledTools(prefs[DISABLED_TOOLS])
             val next = if (enabled) disabled - tool else (disabled + tool).distinct()
             prefs[DISABLED_TOOLS] = next.joinToString(",") { it.name }
+        }
+
+    /**
+     * Leaves one tool out of the toolbox grid, or puts it back, without
+     * touching whether it is on. See [ToolboxSettings.hiddenTools].
+     */
+    suspend fun setToolHiddenInToolbox(tool: ToolbarTool, hidden: Boolean) =
+        editPrefs { prefs ->
+            val current = decodeToolNames(prefs[TOOLBOX_HIDDEN_TOOLS])
+            val next = if (hidden) (current + tool).distinct() else current - tool
+            if (next.isEmpty()) prefs.remove(TOOLBOX_HIDDEN_TOOLS)
+            else prefs[TOOLBOX_HIDDEN_TOOLS] = next.joinToString(",") { it.name }
         }
 
     /** Replaces the whole enabled set at once (the onboarding tools page). */
@@ -9163,6 +10308,36 @@ class SettingsRepository(private val context: Context) {
         }
 
     suspend fun clearLauncherHidden() = editPrefs { it.remove(LAUNCHER_HIDDEN) }
+
+    suspend fun setLauncherOpenMode(value: LauncherOpenMode) =
+        editPrefs { it[LAUNCHER_OPEN_MODE] = value.name }
+
+    /** Appends a split pair; the same pair in the same order is kept once. */
+    suspend fun addLauncherCombo(combo: LauncherSplitCombo) = editLauncherCombos {
+        LauncherSplitCombo.add(it, combo)
+    }
+
+    suspend fun removeLauncherCombo(combo: LauncherSplitCombo) = editLauncherCombos { it - combo }
+
+    suspend fun moveLauncherCombo(from: Int, to: Int) = editLauncherCombos {
+        LauncherSplitCombo.move(it, from, to)
+    }
+
+    /** Replaces the combo at [index]: a rename or a side swap. */
+    suspend fun updateLauncherCombo(index: Int, combo: LauncherSplitCombo) = editLauncherCombos {
+        if (index in it.indices) it.toMutableList().apply { set(index, combo) } else it
+    }
+
+    private suspend fun editLauncherCombos(
+        change: (List<LauncherSplitCombo>) -> List<LauncherSplitCombo>,
+    ) = editPrefs { prefs ->
+        val next = change(LauncherSplitCombo.decode(prefs[LAUNCHER_COMBOS]))
+        if (next.isEmpty()) {
+            prefs.remove(LAUNCHER_COMBOS)
+        } else {
+            prefs[LAUNCHER_COMBOS] = LauncherSplitCombo.encode(next)
+        }
+    }
 
     suspend fun setMediaPinWhilePlaying(value: Boolean) =
         editPrefs { it[MEDIA_PIN_WHILE_PLAYING] = value }
@@ -9510,6 +10685,15 @@ class SettingsRepository(private val context: Context) {
     suspend fun setVoiceServerSendLanguage(value: Boolean) =
         editPrefs { it[VOICE_SERVER_SEND_LANGUAGE] = value }
 
+    suspend fun setVoiceBiasPersonalWords(value: Boolean) =
+        editPrefs { it[VOICE_BIAS_PERSONAL_WORDS] = value }
+
+    suspend fun setVoiceBiasWords(value: String) =
+        editPrefs { it[VOICE_BIAS_WORDS] = value }
+
+    suspend fun setVoiceServerPrompt(value: String) =
+        editPrefs { it[VOICE_SERVER_PROMPT] = value }
+
     suspend fun setCameraPreferFront(value: Boolean) =
         editPrefs { it[CAMERA_PREFER_FRONT] = value }
 
@@ -9527,6 +10711,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setCameraFullFrame(value: Boolean) =
         editPrefs { it[CAMERA_FULL_FRAME] = value }
+
+    suspend fun setCameraSearchButton(value: Boolean) =
+        editPrefs { it[CAMERA_SEARCH_BUTTON] = value }
+
+    suspend fun setCameraSearchWith(value: PhotoSearchTarget) =
+        editPrefs { it[CAMERA_SEARCH_WITH] = value.name }
+
+    suspend fun setCameraSearchEngine(value: PhotoSearchEngine) =
+        editPrefs { it[CAMERA_SEARCH_ENGINE] = value.name }
+
+    suspend fun setCameraSearchCustomUrl(value: String) =
+        editPrefs { it[CAMERA_SEARCH_CUSTOM_URL] = value.trim() }
+
+    suspend fun setCameraSearchCustomField(value: String) =
+        editPrefs { it[CAMERA_SEARCH_CUSTOM_FIELD] = value.trim() }
 
     suspend fun setDocScanSaveToGallery(value: Boolean) =
         editPrefs { it[DOC_SCAN_SAVE_TO_GALLERY] = value }
@@ -9573,6 +10772,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSpaceCursorStepDp(value: Int) =
         editPrefs { it[SPACE_CURSOR_STEP_DP] = value.coerceIn(8, 32) }
 
+    suspend fun setSpaceCursorMagnifier(value: Boolean) =
+        editPrefs { it[SPACE_CURSOR_MAGNIFIER] = value }
+
     suspend fun setBackspaceWordStepDp(value: Int) =
         editPrefs { it[BACKSPACE_WORD_STEP_DP] = value.coerceIn(32, 120) }
 
@@ -9608,6 +10810,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setTrackpadTrail(value: Boolean) =
         editPrefs { it[TRACKPAD_TRAIL] = value }
+
+    suspend fun setTrackpadMagnifier(value: Boolean) =
+        editPrefs { it[TRACKPAD_MAGNIFIER] = value }
 
     suspend fun setVocabNudges(value: Boolean) = editPrefs { it[VOCAB_NUDGES] = value }
 
@@ -9674,6 +10879,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setOcrAutoSelectWords(value: Boolean) =
         editPrefs { it[OCR_AUTO_SELECT_WORDS] = value }
+
+    suspend fun setOcrEngine(value: OcrEngine) =
+        editPrefs { it[OCR_ENGINE] = value.name }
 
     suspend fun setQrScanHaptics(value: Boolean) =
         editPrefs { it[QR_SCAN_HAPTICS] = value }
@@ -9752,6 +10960,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setDictionaryAutoLookup(value: Boolean) =
         editPrefs { it[DICTIONARY_AUTO_LOOKUP] = value }
+
+    /** Replaces the Dictionary tool's sources, order and switches together. */
+    suspend fun setDictionarySources(value: List<DictionarySourceChoice>) =
+        editPrefs { it[DICTIONARY_SOURCES] = DictionarySources.encode(value) }
 
     suspend fun setToolboxColumns(value: Int) =
         editPrefs { it[TOOLBOX_COLUMNS] = value.coerceIn(3, 6) }
@@ -9926,8 +11138,12 @@ class SettingsRepository(private val context: Context) {
      * Ordinary saves deliberately do not, so the editor can hold a half-built
      * grid; but the moment a layout becomes the thing you type on it must have
      * a delete key, because you cannot fix the typo that lost you the key.
+     *
+     * [recentFrom] records the switch in the recently-used list (#311), in the
+     * same edit so a switch costs one settings emission, not two. Null for
+     * writes that are not the user switching (restores, repairs).
      */
-    suspend fun setActiveLayoutId(id: String) =
+    suspend fun setActiveLayoutId(id: String, recentFrom: String? = null) =
         editPrefs { prefs ->
             val custom = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) }.orEmpty()
             val stored = custom.firstOrNull { it.id == id }
@@ -9941,6 +11157,11 @@ class SettingsRepository(private val context: Context) {
                     LayoutCodec.encodeList(custom.filter { it.id != id } + repaired)
             }
             prefs[ACTIVE_LAYOUT_ID] = repaired.id
+            if (recentFrom != null) {
+                val recent = prefs[RECENT_LAYOUT_IDS]?.split(',')?.filter { it.isNotEmpty() }.orEmpty()
+                prefs[RECENT_LAYOUT_IDS] =
+                    rememberLayoutSwitch(recent, recentFrom, repaired.id).joinToString(",")
+            }
         }
 
     suspend fun setRawClipboardShortcuts(value: Boolean) =
@@ -10054,7 +11275,7 @@ class SettingsRepository(private val context: Context) {
      * shipped grid comes back under the same id, so every reference to it stays
      * valid, which is why the reference cleanup below is skipped for those.
      * "Shipped" covers the JSON asset layouts as well as the compiled built-ins:
-     * `resolveLayouts` splices both back in, so an edited BÉPO restores exactly
+     * `findLayout` puts both back, so an edited BÉPO restores exactly
      * like an edited QWERTY does, and stripping its references would switch off
      * a layout that is still there.
      */
@@ -10062,7 +11283,7 @@ class SettingsRepository(private val context: Context) {
         editPrefs { prefs ->
             val current = prefs[CUSTOM_LAYOUTS]?.let { LayoutCodec.decodeList(it) }.orEmpty()
             prefs[CUSTOM_LAYOUTS] = LayoutCodec.encodeList(current.filter { it.id != id })
-            if (BuiltInLayouts.byId(id) != null || AssetLayouts.byId(id) != null) return@editPrefs
+            if (isShippedLayoutId(id)) return@editPrefs
             prefs[ENABLED_LAYOUT_IDS]?.let { stored ->
                 val kept = stored.split(',')
                     .filter { it.isNotEmpty() && it != id }
@@ -10456,6 +11677,39 @@ class SettingsRepository(private val context: Context) {
      * fail-open written into a security feature on the strength of somewhere
      * else's invariant is the kind of thing that stops being true quietly.
      */
+    /**
+     * Whether other apps may control the keyboard, and what they may do; see
+     * [AutomationSettings]. Its own flow rather than a [KeyboardSettings] field:
+     * the automation receiver is its main reader.
+     *
+     * Locked, it answers "off" rather than reading the direct-boot mirror,
+     * which does not carry these keys. The receiver cannot run before the
+     * first unlock anyway, and failing closed is the right way to be wrong.
+     */
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val automation: Flow<AutomationSettings> = unlocked
+        .flatMapLatest { isUnlocked ->
+            if (isUnlocked) {
+                context.dataStore.data.map { p ->
+                    AutomationSettings(
+                        enabled = p[AUTOMATION_ENABLED] ?: false,
+                        allowed = AutomationPermission.entries.filterTo(LinkedHashSet()) {
+                            p[automationKey(it)] ?: it.defaultAllowed
+                        },
+                    )
+                }
+            } else {
+                flowOf(AutomationSettings())
+            }
+        }
+        .distinctUntilChanged()
+
+    suspend fun setAutomationEnabled(value: Boolean) =
+        editPrefs { it[AUTOMATION_ENABLED] = value }
+
+    suspend fun setAutomationAllowed(permission: AutomationPermission, value: Boolean) =
+        editPrefs { it[automationKey(permission)] = value }
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val appLock: Flow<AppLockSettings> = unlocked
         .flatMapLatest { isUnlocked ->
@@ -10813,6 +12067,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setBottomPaddingDp(value: Int) =
         editPrefs { it[BOTTOM_PADDING] = value.coerceIn(0, MAX_BOTTOM_PADDING_DP) }
 
+    /** Hands bottom padding back to the automatic amount, [autoBottomPaddingDp]. */
+    suspend fun resetBottomPaddingDp() = editPrefs { it.remove(BOTTOM_PADDING) }
+
     suspend fun setKeyCornerRadiusDp(value: Int) =
         editPrefs { it[KEY_CORNER_RADIUS] = value.coerceIn(0, 28) }
 
@@ -11104,6 +12361,27 @@ class SettingsRepository(private val context: Context) {
         return buildJsonObject { put("items", JsonArray(kept)) }
     }
 
+    /**
+     * Takes synced clipboard [portable] (text clips only, the same view
+     * [portableClipboard] exports) into this phone's history without losing
+     * what never syncs: image, file and sensitive clips stay, and so does
+     * every other field of the file. The synced clips replace this phone's
+     * text clips, which the merge already accounted for.
+     */
+    suspend fun applySyncedClipboard(portable: JsonObject) {
+        val path = "clipboard/history.json"
+        val local = readStore(path) as? JsonObject ?: JsonObject(emptyMap())
+        val localItems = local["items"] as? JsonArray ?: JsonArray(emptyList())
+        val stays = localItems.filter { item ->
+            val entry = item as? JsonObject
+            val kind = (entry?.get("kind") as? JsonPrimitive)?.contentOrNull ?: "TEXT"
+            val sensitive = (entry?.get("sensitive") as? JsonPrimitive)?.booleanOrNull == true
+            sensitive || kind !in TEXTUAL_CLIP_KINDS
+        }
+        val incoming = portable["items"] as? JsonArray ?: JsonArray(emptyList())
+        writeStore(path, JsonObject(local + ("items" to JsonArray(incoming + stays))))
+    }
+
     /** Relative path of the sticker manifest, the one file that isn't binary. */
     private val stickerManifestPath =
         "${StickerPackStore.DIR_NAME}/packs.json"
@@ -11383,7 +12661,8 @@ class SettingsRepository(private val context: Context) {
      * Embedded verbatim the way every other file-backed section is, so this
      * repository never has to model a shape store's internals. Bounded without
      * a cap of its own: the shapes file is the big one, and it holds at most
-     * `GlideShapeStore.MAX_WORDS` words of a few hundred bytes each.
+     * `GlideShapeStore.MAX_WORDS` words of a few hundred bytes each at the
+     * default three shapes a word, about 2 KB at the most a user can ask for.
      */
     private fun swipeSection(): JsonElement? {
         val parts = SWIPE_SECTION_KEYS.mapNotNull { (key, path) ->
@@ -11509,6 +12788,8 @@ class SettingsRepository(private val context: Context) {
         includeSecrets: Boolean,
         appVersion: Int,
         appVersionName: String,
+        /** Settings left out on top of the usual ones; see [AutoBackupRunner]. */
+        excludeKeys: Set<String> = emptySet(),
     ): String {
         val prefs = context.dataStore.data.first()
         val out = LinkedHashMap<ConfigBackup.Section, JsonElement>()
@@ -11517,7 +12798,7 @@ class SettingsRepository(private val context: Context) {
                 SettingsBackup.encodeSettings(
                     prefs,
                     includeSecrets,
-                    exclude = SettingsBackup.THEME_KEYS + SettingsBackup.TRANSIENT_KEYS,
+                    exclude = SettingsBackup.THEME_KEYS + SettingsBackup.TRANSIENT_KEYS + excludeKeys,
                 )
         }
         if (ConfigBackup.Section.THEMES in sections) {
@@ -12166,6 +13447,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setWrapSelectionWithPair(value: Boolean) =
         editPrefs { it[WRAP_SELECTION_WITH_PAIR] = value }
 
+    suspend fun setAutoCloseBrackets(value: Boolean) =
+        editPrefs { it[AUTO_CLOSE_BRACKETS] = value }
+
     suspend fun setRecapitalizeSelectionWithShift(value: Boolean) =
         editPrefs { it[RECAPITALIZE_SELECTION_WITH_SHIFT] = value }
 
@@ -12425,6 +13709,17 @@ class SettingsRepository(private val context: Context) {
         }
 
     /**
+     * Let one phonetic language's space bar commit a sound-alike dictionary
+     * word, or keep it to the letter-for-letter reading. Only the switched-off
+     * languages are stored.
+     */
+    suspend fun setPhoneticSiblingsEnabled(langId: String, enabled: Boolean) =
+        editPrefs {
+            val off = it[PHONETIC_SIBLINGS_OFF_LANGS].orEmpty()
+            it[PHONETIC_SIBLINGS_OFF_LANGS] = if (enabled) off - langId else off + langId
+        }
+
+    /**
      * Turn the bundled and downloaded dictionaries on or off for one language,
      * leaving it to the user's imported lists. Only the switched-off languages
      * are stored, so a language nobody has touched keeps the shipped
@@ -12445,7 +13740,11 @@ class SettingsRepository(private val context: Context) {
 
     /** Replaces the whole set of optional held-word menu items (#99). */
     suspend fun setWordMenuItems(value: Set<WordMenuItem>) =
-        editPrefs { it[WORD_MENU_ITEMS] = value.mapTo(mutableSetOf()) { item -> item.name } }
+        editPrefs { it[WORD_MENU_ITEMS] = value.mapTo(mutableSetOf(WORD_MENU_SYNONYMS_MARK)) { item -> item.name } }
+
+    /** Replaces the synonym sources, order and switches together (#321). */
+    suspend fun setSynonymSources(value: List<SynonymSourceChoice>) =
+        editPrefs { it[SYNONYM_SOURCES] = SynonymSources.encode(value) }
 
     suspend fun setRankControl(value: RankControl) =
         editPrefs { it[WORD_RANK_CONTROL] = value.name }
@@ -12570,6 +13869,10 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGestureLearnSwipeStyle(value: Boolean) =
         editPrefs { it[GESTURE_LEARN_SWIPE_STYLE] = value }
+
+    /** @see GestureSettings.shapesPerWord */
+    suspend fun setGestureShapesPerWord(value: Int) =
+        editPrefs { it[GESTURE_SHAPES_PER_WORD] = value.coerceIn(GlideShapesPerWordRange) }
 
     suspend fun setGestureSearchAllChip(value: Boolean) =
         editPrefs { it[GESTURE_SEARCH_ALL_CHIP] = value }
@@ -12699,8 +14002,41 @@ class SettingsRepository(private val context: Context) {
     suspend fun setGestureVocabulary(value: GlideVocabulary) =
         editPrefs { it[GESTURE_VOCABULARY] = value.name }
 
-    suspend fun setGestureSandbox(value: GlideSandbox) =
-        editPrefs { it[GESTURE_SANDBOX] = value.name }
+    /**
+     * Leaving [GlideSandbox.AUTOMATIC] puts its ladder back at the bottom (#316).
+     * Otherwise a rung the user once accepted outlives the setting: picking
+     * "Every word" and then "Automatic" again would land straight back on
+     * "Only my words", with nothing on screen to say so.
+     */
+    suspend fun setGestureSandbox(value: GlideSandbox) {
+        var leftAutomatic = false
+        editPrefs {
+            leftAutomatic = it[GESTURE_SANDBOX] == GlideSandbox.AUTOMATIC.name &&
+                value != GlideSandbox.AUTOMATIC
+            it[GESTURE_SANDBOX] = value.name
+        }
+        // A running keyboard resets its own copy on the same change.
+        if (leftAutomatic) runCatching { File(context.filesDir, GLIDE_SANDBOX_FILE).delete() }
+    }
+
+    /**
+     * The rung [GlideSandbox.AUTOMATIC] has climbed to, as the option it
+     * behaves like: [GlideSandbox.NORMAL] until the user accepts an offer on the
+     * suggestion strip. Read off the keyboard's ladder file, whose `accepted`
+     * holds a `GlideSandboxPolicy` name from :core:prediction.
+     */
+    suspend fun glideSandboxRung(): GlideSandbox = withContext(Dispatchers.IO) {
+        val accepted = runCatching {
+            val file = File(context.filesDir, GLIDE_SANDBOX_FILE)
+            if (!file.exists()) return@runCatching null
+            Json.parseToJsonElement(file.readText()).jsonObject["accepted"]?.jsonPrimitive?.content
+        }.getOrNull()
+        when (accepted) {
+            "PREFER_LEARNED" -> GlideSandbox.PREFER_LEARNED
+            "LEARNED_ONLY" -> GlideSandbox.LEARNED_ONLY
+            else -> GlideSandbox.NORMAL
+        }
+    }
 
     suspend fun setGesturePreviewSteadiness(value: GlidePreviewSteadiness) =
         editPrefs { it[GESTURE_PREVIEW_STEADINESS] = value.name }
@@ -12729,11 +14065,35 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSymbolsLongPressNumpad(value: Boolean) =
         editPrefs { it[SYMBOLS_LONGPRESS_NUMPAD] = value }
 
+    suspend fun setEnterLongPressEmoji(value: Boolean) =
+        editPrefs { it[ENTER_LONGPRESS_EMOJI] = value }
+
     suspend fun setSpaceSwipeDownHide(value: Boolean) =
         editPrefs { it[SPACE_SWIPE_DOWN_HIDE] = value }
 
+    suspend fun setGlobeInOnePlace(value: Boolean) =
+        editPrefs { it[GLOBE_IN_ONE_PLACE] = value }
+
     suspend fun setHintFlick(value: Boolean) =
         editPrefs { it[HINT_FLICK] = value }
+
+    suspend fun setCapitalFlick(value: Boolean) =
+        editPrefs { it[CAPITAL_FLICK] = value }
+
+    suspend fun setGlobeTypingGuardMs(value: Int) =
+        editPrefs { it[GLOBE_TYPING_GUARD_MS] = value.coerceIn(GlobeTypingGuardMsRange) }
+
+    suspend fun setGlobeDragShortcuts(value: Boolean) =
+        editPrefs { it[GLOBE_DRAG_SHORTCUTS] = value }
+
+    suspend fun setBoardCornerTopDp(value: Int) =
+        editPrefs { it[BOARD_CORNER_TOP] = value.coerceIn(BoardCornerRadiusRange) }
+
+    suspend fun setBoardCornerBottomDp(value: Int) =
+        editPrefs { it[BOARD_CORNER_BOTTOM] = value.coerceIn(BoardCornerRadiusRange) }
+
+    suspend fun setBoardCorners(value: Set<BoardCorner>) =
+        editPrefs { prefs -> prefs[BOARD_CORNERS] = value.mapTo(mutableSetOf()) { it.name } }
 
     suspend fun setSpaceCursor2d(value: Boolean) =
         editPrefs { it[SPACE_CURSOR_2D] = value }
@@ -12941,6 +14301,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setLanguagePickerStyle(value: LanguagePickerStyle) =
         editPrefs { it[LANGUAGE_PICKER_STYLE] = value.name }
 
+    suspend fun setSpaceHoldPickerForLongRing(value: Boolean) =
+        editPrefs { it[SPACE_HOLD_PICKER_FOR_LONG_RING] = value }
+
     suspend fun setNumeralCommitScope(value: NumeralCommitScope) =
         editPrefs { it[NUMERAL_COMMIT_SCOPE] = value.name }
 
@@ -13027,6 +14390,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setShowGlobeKey(value: Boolean) =
         editPrefs { it[SHOW_GLOBE_KEY] = value }
 
+    suspend fun setGlobeRecentOrder(value: Boolean) =
+        editPrefs { it[GLOBE_RECENT_ORDER] = value }
+
     suspend fun setOsLanguageSwitcher(value: Boolean) =
         editPrefs { it[OS_LANGUAGE_SWITCHER] = value }
 
@@ -13071,6 +14437,14 @@ class SettingsRepository(private val context: Context) {
     /** See [AppUiSettings.dictionarySort]. */
     suspend fun setDictionarySort(value: DictionarySort) =
         editPrefs { it[DICTIONARY_SORT] = value.name }
+
+    /** See [AppUiSettings.rowIcons]. */
+    suspend fun setSettingsRowIcons(value: Boolean) =
+        editPrefs { it[SETTINGS_ROW_ICONS] = value }
+
+    /** See [AppUiSettings.screenTransitions]. */
+    suspend fun setSettingsScreenTransitions(value: Boolean) =
+        editPrefs { it[SETTINGS_SCREEN_TRANSITIONS] = value }
 
     suspend fun setWeatherRefreshMinutes(value: Int) =
         editPrefs { it[WEATHER_REFRESH_MINUTES] = value.coerceIn(1, 180) }
@@ -13142,30 +14516,35 @@ class SettingsRepository(private val context: Context) {
     }
 
     suspend fun setPinyinFuzzy(value: Boolean) =
-        context.dataStore.edit { it[PINYIN_FUZZY] = value }
+        editPrefs { it[PINYIN_FUZZY] = value }
 
-    suspend fun setPinyinFuzzyPair(id: String, on: Boolean) = context.dataStore.edit { p ->
+    suspend fun setPinyinFuzzyPair(id: String, on: Boolean) = editPrefs { p ->
         val current = p[PINYIN_FUZZY_PAIRS] ?: PinyinFuzzy.ALL_PAIRS
         p[PINYIN_FUZZY_PAIRS] = if (on) current + id else current - id
     }
 
     suspend fun resetPinyinFuzzyPairs() =
-        context.dataStore.edit { it.remove(PINYIN_FUZZY_PAIRS) }
+        editPrefs { it.remove(PINYIN_FUZZY_PAIRS) }
 
     suspend fun setPinyinDoublePinyin(value: DoublePinyinScheme) =
-        context.dataStore.edit { it[PINYIN_DOUBLE_PINYIN] = value.name }
+        editPrefs { it[PINYIN_DOUBLE_PINYIN] = value.name }
 
     suspend fun setCjkTraditionalOutput(value: Boolean) =
-        context.dataStore.edit { it[CJK_TRADITIONAL_OUTPUT] = value }
+        editPrefs { it[CJK_TRADITIONAL_OUTPUT] = value }
 
     suspend fun setJyutpingLazy(value: Boolean) =
-        context.dataStore.edit { it[JYUTPING_LAZY] = value }
+        editPrefs { it[JYUTPING_LAZY] = value }
 
     suspend fun setKanaLooseMarks(value: Boolean) =
-        context.dataStore.edit { it[KANA_LOOSE_MARKS] = value }
+        editPrefs { it[KANA_LOOSE_MARKS] = value }
+
+    suspend fun setFullWidthSpace(languageId: String, value: Boolean) = editPrefs { p ->
+        val current = p[FULL_WIDTH_SPACE_LANGUAGES] ?: emptySet()
+        p[FULL_WIDTH_SPACE_LANGUAGES] = if (value) current + languageId else current - languageId
+    }
 
     suspend fun setCjkHanRegion(value: HanVariant.HanRegion) =
-        context.dataStore.edit { it[CJK_HAN_REGION] = value.name }
+        editPrefs { it[CJK_HAN_REGION] = value.name }
 
     suspend fun setOneHandedMode(value: OneHandedMode) =
         editPrefs { it[ONE_HANDED_MODE] = value.name }
@@ -13322,6 +14701,24 @@ class SettingsRepository(private val context: Context) {
     suspend fun setClipboardShowNumbers(value: Boolean) =
         editPrefs { it[CLIPBOARD_SHOW_NUMBERS] = value }
 
+    suspend fun setClipboardUndoDelete(value: Boolean) =
+        editPrefs { it[CLIPBOARD_UNDO_DELETE] = value }
+
+    suspend fun setClipboardSwipeToDelete(value: Boolean) =
+        editPrefs { it[CLIPBOARD_SWIPE_TO_DELETE] = value }
+
+    suspend fun setClipboardPreviewLines(value: Int) =
+        editPrefs { it[CLIPBOARD_PREVIEW_LINES] = value.coerceIn(ClipPreviewLinesRange) }
+
+    suspend fun setClipboardGridColumns(value: Int) =
+        editPrefs { it[CLIPBOARD_GRID_COLUMNS] = value.coerceIn(ClipGridColumnsRange) }
+
+    suspend fun setClipboardTimeLabel(value: ClipTimeLabel) =
+        editPrefs { it[CLIPBOARD_TIME_LABEL] = value.name }
+
+    suspend fun setClipboardMaxTextChars(value: Int) =
+        editPrefs { it[CLIPBOARD_MAX_TEXT_CHARS] = value.coerceAtLeast(0) }
+
     suspend fun setOtpChipEnabled(value: Boolean) =
         editPrefs { it[OTP_CHIP_ENABLED] = value }
 
@@ -13459,6 +14856,154 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutoBackupOutcome(ranAtMs: Long, error: String) = editPrefs {
         if (error.isEmpty()) it[AUTO_BACKUP_LAST_RUN_AT] = ranAtMs
         it[AUTO_BACKUP_LAST_ERROR] = error
+    }
+
+    /** The stored list, or the legacy single destination until one is written. */
+    private fun currentLocations(prefs: Preferences): List<BackupLocation> =
+        prefs[AUTO_BACKUP_LOCATIONS]?.let(BackupLocation::decodeList)
+            ?: mapPreferences(prefs).autoBackup.locations
+
+    /**
+     * Adds [location], or replaces the one with its id. Trims what the user
+     * typed the way the old per-field setters did, since a stray space in a
+     * host name is a failure that looks like a wrong password.
+     */
+    suspend fun upsertBackupLocation(location: BackupLocation) = editPrefs { prefs ->
+        val clean = location.copy(
+            name = location.name.trim(),
+            webDavUrl = location.webDavUrl.trim().let {
+                if (it.isEmpty() || it.endsWith("/")) it else "$it/"
+            },
+            webDavUser = location.webDavUser.trim(),
+            s3 = location.s3.copy(
+                endpoint = location.s3.endpoint.trim(),
+                region = S3Sink.normalizeRegion(location.s3.region),
+                bucket = location.s3.bucket.trim(),
+                prefix = location.s3.prefix.trim().trim('/'),
+                accessKeyId = location.s3.accessKeyId.trim(),
+            ),
+            ftp = location.ftp.copy(
+                host = location.ftp.host.trim(),
+                port = location.ftp.port.coerceIn(1, 65535),
+                user = location.ftp.user.trim(),
+                path = location.ftp.path.trim().trim('/'),
+            ),
+        )
+        val list = currentLocations(prefs)
+        val next = if (list.any { it.id == clean.id }) {
+            list.map { if (it.id == clean.id) clean else it }
+        } else {
+            list + clean
+        }
+        prefs[AUTO_BACKUP_LOCATIONS] = BackupLocation.encodeList(next)
+    }
+
+    /** Removes a location and its run record. */
+    suspend fun removeBackupLocation(id: String) = editPrefs { prefs ->
+        prefs[AUTO_BACKUP_LOCATIONS] =
+            BackupLocation.encodeList(currentLocations(prefs).filterNot { it.id == id })
+        val status = LocationStatus.decodeMap(prefs[AUTO_BACKUP_LOCATION_STATUS]) - id
+        prefs[AUTO_BACKUP_LOCATION_STATUS] = LocationStatus.encodeMap(status)
+    }
+
+    /** Changes one location in place, if it still exists. */
+    suspend fun updateBackupLocation(id: String, change: (BackupLocation) -> BackupLocation) {
+        val current = settings.first().autoBackup.locations.firstOrNull { it.id == id } ?: return
+        upsertBackupLocation(change(current))
+    }
+
+    /** Rewrites one location's run record. */
+    suspend fun setLocationStatus(id: String, change: (LocationStatus) -> LocationStatus) = editPrefs { prefs ->
+        val status = LocationStatus.decodeMap(prefs[AUTO_BACKUP_LOCATION_STATUS])
+        prefs[AUTO_BACKUP_LOCATION_STATUS] =
+            LocationStatus.encodeMap(status + (id to change(status[id] ?: LocationStatus())))
+    }
+
+    /** Writes the key even when [value] is empty: an empty set is a choice. */
+    suspend fun setExportSections(value: Set<ConfigBackup.Section>) =
+        editPrefs { prefs -> prefs[EXPORT_SECTIONS] = value.mapTo(HashSet()) { it.id } }
+
+    suspend fun setBackupIncludeSecrets(value: Boolean) = editPrefs { it[AUTO_BACKUP_INCLUDE_KEYS] = value }
+
+    suspend fun setSyncEnabled(value: Boolean) = editPrefs { it[SYNC_ENABLED] = value }
+
+    suspend fun setSyncMode(value: SyncMode) = editPrefs { it[SYNC_MODE] = value.id }
+
+    suspend fun setSyncIntervalHours(value: Int) =
+        editPrefs { it[SYNC_INTERVAL_HOURS] = value.coerceIn(1, 24 * 30) }
+
+    /**
+     * The ticked sync locations: the stored set, or, before there was one,
+     * what the single choice meant. An empty choice then meant "the first
+     * usable location", and read as "none" it would quietly stop a sync that
+     * had been running.
+     */
+    private fun syncLocationIds(prefs: Preferences, locations: List<BackupLocation>): Set<String> =
+        prefs[SYNC_LOCATION_IDS]
+            ?: prefs[SYNC_LOCATION_ID]?.takeIf { it.isNotEmpty() }?.let { setOf(it) }
+            ?: if (prefs[SYNC_ENABLED] == true) {
+                setOfNotNull(locations.firstOrNull { it.active }?.id)
+            } else {
+                emptySet()
+            }
+
+    /** Ticks or unticks one location for sync. */
+    suspend fun setSyncLocation(id: String, on: Boolean) = editPrefs { prefs ->
+        val current = syncLocationIds(prefs, currentLocations(prefs))
+        prefs[SYNC_LOCATION_IDS] = if (on) current + id else current - id
+    }
+
+    /** Writes the key even when [value] is empty: an empty set is a choice. */
+    suspend fun setSyncSections(value: Set<ConfigBackup.Section>) =
+        editPrefs { prefs -> prefs[SYNC_SECTIONS] = value.mapTo(HashSet()) { it.id } }
+
+    suspend fun setSyncIncludeSecrets(value: Boolean) = editPrefs { it[SYNC_INCLUDE_SECRETS] = value }
+
+    /** Keeps one group of settings on this device, or lets it sync again. */
+    suspend fun setSyncKeepLocal(group: com.wasimaster.wmkeyboard.core.settings.sync.SyncKeys.LocalGroup, on: Boolean) =
+        editPrefs { prefs ->
+            val current = prefs[SYNC_KEEP_LOCAL].orEmpty()
+            prefs[SYNC_KEEP_LOCAL] = if (on) current + group.id else current - group.id
+        }
+
+    /**
+     * Writes settings another device changed, and removes ones it reset.
+     *
+     * [put] is the typed `{ key: { type, value } }` map the settings section
+     * uses. Unlike [importConfig] this can delete, because a sync carries
+     * resets and a restore does not.
+     */
+    suspend fun applySyncedSettings(put: JsonObject, remove: Set<String>) {
+        val (entries, _) = SettingsBackup.decodeSettings(put)
+        editPrefs { prefs ->
+            entries.forEach { prefs.put(it) }
+            if (remove.isNotEmpty()) {
+                prefs.asMap().keys.filter { it.name in remove }.forEach { prefs.remove(it) }
+            }
+        }
+    }
+
+    /**
+     * A cheap fingerprint of every setting that syncs, for noticing a change
+     * worth pushing. Not a hash of the whole store: the keyboard writes its
+     * own counters and state all day, and those must not wake a sync.
+     */
+    fun syncFingerprint(
+        includeSecrets: Boolean,
+        keepLocal: Set<com.wasimaster.wmkeyboard.core.settings.sync.SyncKeys.LocalGroup>,
+    ): Flow<Int> =
+        context.dataStore.data.map { prefs ->
+            prefs.asMap().entries
+                .filter {
+                    com.wasimaster.wmkeyboard.core.settings.sync.SyncKeys.syncable(it.key.name, includeSecrets, keepLocal)
+                }
+                .sumOf { (it.key.name to it.value.toString()).hashCode() }
+        }.distinctUntilChanged()
+
+    /** Records how a sync pass ended. [error] empty means it worked. */
+    suspend fun setSyncOutcome(ranAtMs: Long, error: String) = editPrefs {
+        if (error.isEmpty()) it[SYNC_LAST_RUN_AT] = ranAtMs
+        it[SYNC_LAST_ERROR] = error
     }
 
     suspend fun setLongPressDelayMs(value: Int) =
@@ -13642,6 +15187,27 @@ class SettingsRepository(private val context: Context) {
     suspend fun setTranslateEngine(value: TranslateEngine) =
         editPrefs { it[TRANSLATE_ENGINE] = value.name }
 
+    suspend fun setTranslateDownloadedFirst(value: Boolean) =
+        editPrefs { it[TRANSLATE_DOWNLOADED_FIRST] = value }
+
+    suspend fun setTranslateOnlyDownloaded(value: Boolean) =
+        editPrefs { it[TRANSLATE_ONLY_DOWNLOADED] = value }
+
+    suspend fun setDeepLApiKey(value: String) =
+        editPrefs { it[DEEPL_API_KEY] = value.trim() }
+
+    suspend fun setDeepLEndpoint(value: String) =
+        editPrefs { it[DEEPL_ENDPOINT] = value.trim() }
+
+    suspend fun setDeepLTranslate(value: Boolean) =
+        editPrefs { it[DEEPL_TRANSLATE] = value }
+
+    suspend fun setDeepLWrite(value: Boolean) =
+        editPrefs { it[DEEPL_WRITE] = value }
+
+    suspend fun setDeepLWriteStyle(value: DeepLWriteStyle) =
+        editPrefs { it[DEEPL_WRITE_STYLE] = value.name }
+
     suspend fun setGrammarDialect(value: GrammarDialect) =
         editPrefs { it[GRAMMAR_DIALECT] = value.name }
 
@@ -13681,6 +15247,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setGifSourceMode(value: GifSourceMode) =
         editPrefs { it[GIF_SOURCE_MODE] = value.name }
+
+    suspend fun setStickerSuggest(value: Boolean) =
+        editPrefs { it[STICKER_SUGGEST] = value }
+
+    suspend fun setStickerSuggestStyle(value: StickerSuggestStyle) =
+        editPrefs { it[STICKER_SUGGEST_STYLE] = value.name }
+
+    suspend fun setStickerSuggestTrigger(value: StickerTriggerAction) =
+        editPrefs { it[STICKER_SUGGEST_TRIGGER] = value.name }
 
     suspend fun setGifContentFilter(value: GifContentFilter) =
         editPrefs { it[GIF_CONTENT_FILTER] = value.name }
@@ -13765,6 +15340,35 @@ class SettingsRepository(private val context: Context) {
                 .orEmpty()
             val clean = set.copy(popups = sanitizeSymbolPopups(set.chars, set.popups))
             val next = current.filter { it.id != set.id } + clean
+            prefs[CUSTOM_SYMBOL_SETS] = SymbolSetCodec.encodeList(next)
+        }
+
+    /**
+     * Takes one entry out of a set, from a hold on the symbol row (#323).
+     *
+     * [index] is where the row drew [entry]; it is only trusted while it still
+     * names that entry, so a set edited in the meantime loses the first copy
+     * of the text instead of whatever moved into the slot. A shipped set is
+     * edited the way its editor edits it, as an override under the same id,
+     * which the editor's Reset undoes. The last entry of a set stays: an empty
+     * set is a row with nothing on it.
+     */
+    suspend fun removeSymbolSetEntry(setId: String, index: Int, entry: String) =
+        editPrefs { prefs ->
+            val current = prefs[CUSTOM_SYMBOL_SETS]?.let { SymbolSetCodec.decodeList(it) }
+                .orEmpty()
+            val set = current.firstOrNull { it.id == setId } ?: BuiltInSymbolSets.byId(setId)
+                ?: return@editPrefs
+            val at = index.takeIf { set.chars.getOrNull(it) == entry } ?: set.chars.indexOf(entry)
+            if (at < 0 || set.chars.size <= 1) return@editPrefs
+            val chars = set.chars.toMutableList().apply { removeAt(at) }
+            val edited = set.copy(chars = chars, popups = sanitizeSymbolPopups(chars, set.popups))
+            // In place, so a custom set keeps its spot in the picker.
+            val next = if (current.any { it.id == setId }) {
+                current.map { if (it.id == setId) edited else it }
+            } else {
+                current + edited
+            }
             prefs[CUSTOM_SYMBOL_SETS] = SymbolSetCodec.encodeList(next)
         }
 

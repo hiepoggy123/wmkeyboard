@@ -8,6 +8,7 @@ sidebar:
 import SettingsPath from '@components/SettingsPath.astro';
 import PhoneFrame from '@components/PhoneFrame.astro';
 import KeyCap from '@components/KeyCap.astro';
+import Shot from '@components/Shot.astro';
 
 WM Keyboard has two separate ways of not learning from you. Incognito mode is
 a switch that you, or a private-browsing tab, control. Secure fields are
@@ -15,7 +16,7 @@ declared outright by the app you're typing into. They pause different things,
 so it's worth keeping them apart.
 
 <PhoneFrame caption="The incognito badge next to the toolbar, and the toolbox tool that turns it on.">
-  {/* shot: privacy/incognito-toolbar-badge */}
+  <Shot id="privacy/incognito-toolbar-badge" alt="The incognito badge next to the toolbar, and the toolbox tool that turns it on." />
 </PhoneFrame>
 
 ## Turning incognito on
@@ -108,8 +109,8 @@ password boxes, visible-password fields and PIN-style number fields alike.
 Detection needs no permission and no guessing, because it reads straight off
 the field's declared input type.
 
-<PhoneFrame caption="A password field: no suggestion strip, no smart chips.">
-  ![A password field: no suggestion strip, no smart chips.](@assets/screens/privacy/secure-field-no-suggestions.webp)
+<PhoneFrame side caption="A password field: no suggestion strip, no smart chips.">
+  <Shot id="privacy/secure-field-no-suggestions" alt="A password field: no suggestion strip, no smart chips." />
 </PhoneFrame>
 
 A secure field switches off, for as long as it has focus:
@@ -174,7 +175,7 @@ beside the sensitive-clip options below rather than with the rest of
 clipboard history.
 
 <PhoneFrame caption="Sensitive-clip handling under Passwords & codes, both turned on.">
-  ![Passwords & codes: sensitive-clip handling and the paste-time purge, both turned on.](@assets/screens/privacy/clipboard-settings-passwords.webp)
+  <Shot id="privacy/clipboard-settings-passwords" alt="Passwords & codes: sensitive-clip handling and the paste-time purge, both on by default." />
 </PhoneFrame>
 
 Neither of these depends on incognito being on. They run any time the

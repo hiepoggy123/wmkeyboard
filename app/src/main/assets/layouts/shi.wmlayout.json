@@ -14,19 +14,22 @@
               "label": "ⵇ"
             },
             {
-              "label": "ⵡ"
+              "label": "ⵡ",
+              "shiftLabel": "ⵯ"
             },
             {
               "label": "ⴻ"
             },
             {
               "label": "ⵔ",
+              "shiftLabel": "ⵕ",
               "longPress": [
                 "ⵕ"
               ]
             },
             {
               "label": "ⵜ",
+              "shiftLabel": "ⵟ",
               "longPress": [
                 "ⵟ"
               ]
@@ -41,7 +44,10 @@
               "label": "ⵉ"
             },
             {
-              "label": "ⵒ"
+              "label": "ⵄ"
+            },
+            {
+              "label": "ⵃ"
             }
           ],
           [
@@ -50,12 +56,14 @@
             },
             {
               "label": "ⵙ",
+              "shiftLabel": "ⵚ",
               "longPress": [
                 "ⵚ"
               ]
             },
             {
               "label": "ⴷ",
+              "shiftLabel": "ⴹ",
               "longPress": [
                 "ⴹ"
               ]
@@ -66,15 +74,13 @@
             {
               "label": "ⴳ",
               "longPress": [
-                "ⴲ",
-                "ⴴ"
+                "ⴳⵯ"
               ]
             },
             {
               "label": "ⵀ",
               "longPress": [
-                "ⵁ",
-                "ⵃ"
+                "ⵁ"
               ]
             },
             {
@@ -83,6 +89,7 @@
             {
               "label": "ⴽ",
               "longPress": [
+                "ⴽⵯ",
                 "ⴾ"
               ]
             },
@@ -100,6 +107,7 @@
             },
             {
               "label": "ⵣ",
+              "shiftLabel": "ⵥ",
               "longPress": [
                 "ⵥ"
               ]
@@ -108,13 +116,23 @@
               "label": "ⵅ"
             },
             {
-              "label": "ⵛ"
+              "label": "ⵛ",
+              "longPress": [
+                "ⵞ"
+              ]
             },
             {
-              "label": "ⵞ"
+              "label": "ⵖ",
+              "longPress": [
+                "ⴴ"
+              ]
             },
             {
-              "label": "ⴱ"
+              "label": "ⴱ",
+              "longPress": [
+                "ⴲ",
+                "ⵒ"
+              ]
             },
             {
               "label": "ⵏ"

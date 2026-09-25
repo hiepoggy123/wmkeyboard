@@ -8,11 +8,12 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
+import Shot from '@components/Shot.astro';
 
 Fixing a typo three lines up, selecting a whole paragraph, or nudging the cursor one character at a time is fiddly on a touchscreen with no physical arrow keys. WM Keyboard adds a dedicated text-editing panel, a set of one-tap cursor tools for the toolbar, and one-tap undo/redo. Together they stand in for the arrow keys and Ctrl-shortcuts a hardware keyboard would give you.
 
 <PhoneFrame caption="The text-editing panel: a d-pad for moving the cursor, Select/Select all/Copy/Paste on the right, and Home/End/Backspace along the bottom.">
-  {/* shot: tools/text-edit-panel */}
+  <Shot id="tools/text-edit-panel" alt="The text-editing panel: a d-pad for moving the cursor, Select/Select all/Copy/Paste on the right, and Home/End/Backspace along the bottom." />
 </PhoneFrame>
 
 ## Moving and selecting text
@@ -122,7 +123,7 @@ This isn't a typing history WM Keyboard keeps of its own. It has no way to reach
 **Numpad** opens a dedicated 4×4 number pad over whatever field you're in. Don't confuse it with the keyboard switching to a numeric layout on its own, which happens in a field already typed as a phone or number field. Numpad is a panel you open by hand, and it works over any field, numeric or not.
 
 <PhoneFrame caption="The numpad panel: a 4×4 grid in phone or calculator digit order, with Backspace repeating on hold.">
-  {/* shot: tools/numpad-panel */}
+  <Shot id="tools/numpad-panel" alt="The numpad panel: a 4×4 grid in phone or calculator digit order, with Backspace repeating on hold." />
 </PhoneFrame>
 
 It comes in two layouts, switched under [Options](#options):
@@ -218,7 +219,7 @@ This is the only place cut lives: there's no Cut button in the text-editing pane
 ## Details & edge cases
 
 - **Shift on a live selection re-cases it rather than switching Shift off**, with one exception: a Shift that's currently holding the selection open. There the first tap is read as putting the modifier down, so a selection you dragged out with Shift can always be ended with the same key; the tap after that re-cases. That's the "Tapping Shift with text selected cycles its case" toggle in the next bullet, on by default; turn it off and Shift goes back to being a plain Shift.
-- **Two Typing-screen toggles change what Select mode does elsewhere on the keyboard**, even though neither is on this page's own settings screens. Typing a bracket or quote with text selected wraps the selection in the pair instead of replacing it (on by default). Tapping Shift with text selected cycles its case instead of arming Shift for the next letter (also on by default, and a no-op in caseless scripts like Bengali). Both live under <SettingsPath path="Typing / Automatic corrections" />.
+- **Two Typing-screen toggles change what Select mode does elsewhere on the keyboard**, even though neither is on this page's own settings screens. Typing a bracket or quote with text selected wraps the selection in the pair instead of replacing it (on by default). Either half works: `(` and `)` both turn a selected "abc" into "(abc)". Tapping Shift with text selected cycles its case instead of arming Shift for the next letter (also on by default, and a no-op in caseless scripts like Bengali). Both live under <SettingsPath path="Typing / Automatic corrections" />.
 - **Every tool on this page works before you've unlocked your device for the first time after a restart** (direct boot). The panel, the cursor tools, undo/redo and the numpad only touch the input connection, never stored data, so none of them wait on your device being unlocked. Compare [Media controls](/tools/media/), which can't.
 - **Nothing here is edition-gated.** The panel, every cursor tool, undo/redo, and the numpad all work identically on the full and lite builds.
 - The hardware [leader key](/reference/shortcuts/) reaches Text editing (<KeyCap>X</KeyCap>) and Numpad (<KeyCap>N</KeyCap>) as panels, and fires Undo (<KeyCap>Z</KeyCap>) directly. There's no leader-key letter for Redo or for any individual cursor tool.

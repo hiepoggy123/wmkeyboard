@@ -50,7 +50,6 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.content.R as ContentR
 import com.wasimaster.wmkeyboard.core.addons.ImportLink
 import com.wasimaster.wmkeyboard.core.addons.SignalStickerDownloads
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.stickers.ApngFrames
 import com.wasimaster.wmkeyboard.core.stickers.StickerPack
@@ -213,7 +212,7 @@ private data class PackProgress(val phase: SignalStickerDownloads.Phase, val don
 internal fun SignalPackScreen(
     packId: String,
     packKey: String,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -253,7 +252,7 @@ internal fun SignalPackScreen(
     }
 
     LaunchedEffect(packId, packKey) {
-        when (downloadDecisionNow(context, settings)) {
+        when (downloadDecisionNow(context, settings.value)) {
             MeteredDecision.ALLOWED -> fetch()
             MeteredDecision.ASK -> askMetered = true
             MeteredDecision.BLOCKED -> blockedMetered = true
@@ -384,6 +383,7 @@ private fun LoadedPack(
 
                 mine != null -> WmRow(
                     title = stringResource(R.string.import_signal_added_title),
+                    icon = SettingsRowIcons[R.string.import_signal_added_title],
                     subtitle = stringResource(R.string.import_signal_added_subtitle, mine.name),
                     accent = routeAccent("sticker_packs"),
                     onClick = onOpenMine,

@@ -1,6 +1,9 @@
 package com.wasimaster.wmkeyboard.core.layout
 
 import com.wasimaster.wmkeyboard.core.prediction.KeyProximity
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.script.ScriptId
+import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -213,5 +216,134 @@ class AmbiguousLayoutTest {
             assertFalse("${spec.name} is secondary", spec.secondary)
             assertFalse("${spec.name} starts enabled", spec.id in BuiltInLayouts.defaultEnabledIds)
         }
+    }
+
+    /**
+     * The per-language keypads (issue #332), shipped as assets: the English
+     * grid with each language's own letter groups. Read off disk the way
+     * `AssetLayoutsTest` reads every asset, since the loader wants a device.
+     */
+    private val languageKeypads: List<LayoutSpec> =
+        File("src/main/assets/layouts")
+            .listFiles { f -> f.name.endsWith("_t9.${LayoutFile.FILE_EXTENSION}") }
+            .orEmpty()
+            .sortedBy { it.name }
+            .map { LayoutFile.decode(it.readText())!!.layout }
+            // The pinyin pad types digits for a composer; it has no letter sets.
+            .filterNot { it.id == AssetLayouts.ZH_PINYIN_T9_ID }
+
+    @Test
+    fun theLanguageKeypadsShip() {
+        assertEquals(315, languageKeypads.size)
+    }
+
+    @Test
+    fun everyLanguageKeypadKeepsTheEnglishOnesShape() {
+        // Same grid as builtin_t9, so a T9 typist switching language finds
+        // every key where it was: eight letter keys, the digits 2-9 on them in
+        // keypad order, one width throughout, and no tablet widening.
+        val englishShape = letterRows(BuiltInLayouts.T9).map { row -> row.map { it.width } }
+        for (spec in languageKeypads) {
+            // Keys 2-9 by their digit hint. Every one carries letters except
+            // Armenian's 9, which ETSI ES 202 130 keeps for the script's
+            // punctuation, as Armenian phones did.
+            val keys = textKeys(spec).filter { it.longPress.firstOrNull() in KEYPAD_DIGITS }
+            assertEquals("${spec.id} digit hints", KEYPAD_DIGITS, keys.map { it.longPress.first() })
+            assertTrue(
+                "${spec.id} has a digit key with no letters",
+                keys.count { it.isAmbiguous() } >= if (spec.langId in ARMENIAN) 7 else 8,
+            )
+            assertEquals(
+                "${spec.id} grid shape",
+                englishShape,
+                letterRows(spec).map { row -> row.map { it.width } },
+            )
+            assertFalse("${spec.id} asks for tablet expansion", spec.tabletExpand)
+        }
+    }
+
+    @Test
+    fun everyLanguageKeypadKeepsTheAnchorAndSpellingRules() {
+        for (spec in languageKeypads) {
+            for (key in textKeys(spec).filter { it.isAmbiguous() }) {
+                val set = key.letterSet()
+                assertEquals("${spec.id}: ${key.label} anchor", set.first().toString(), key.output)
+                assertEquals("${spec.id}: ${key.label} set", key, key.withLetters(set))
+                for (letter in set) {
+                    assertTrue(
+                        "${spec.id}: ${key.label} cannot spell '$letter'",
+                        letter.toString() in key.longPress,
+                    )
+                }
+            }
+            val letters = textKeys(spec).flatMap { it.letterSet().toList() }
+            assertEquals("${spec.id} puts a letter on two keys", letters.distinct(), letters)
+        }
+    }
+
+    @Test
+    fun aLatinKeypadAddsItsLettersToTheKeypadNotAroundIt() {
+        // The ITU groups stay the first letters of every key, so the anchor a
+        // tap commits and the keys a word's shape runs through are the English
+        // keypad's; what a language adds (ä, ł, ñ) rides on its base letter's key.
+        val itu = listOf("abc", "def", "ghi", "jkl", "mno", "pqrs", "tuv", "wxyz")
+        for (spec in languageKeypads.filter { it.script().id == ScriptId.LATIN }) {
+            val sets = textKeys(spec).filter { it.isAmbiguous() }.map { it.letterSet() }
+            for ((set, group) in sets.zip(itu)) {
+                // ETSI orders a key by alphabet, so Vietnamese's 2 reads a ă â b c:
+                // the key keeps its ITU letters and anchors on the first of them.
+                assertTrue("${spec.id}: $set is missing some of $group", group.all { it in set })
+                assertEquals("${spec.id}: $set anchor", group.first(), set.first())
+            }
+        }
+    }
+
+    @Test
+    fun everyLanguageKeypadIsOfferedByItsLanguage() {
+        // An asset no language lists is shipped and unreachable, which is what
+        // happened to builtin_t9 for two days (a699c1ef).
+        for (spec in languageKeypads) {
+            assertTrue(
+                "${spec.id} is not listed under ${spec.langId}",
+                spec.id in LanguageRegistry.byId(spec.langId).layoutIds,
+            )
+        }
+    }
+
+    /**
+     * The keypads of scripts written with combining marks (#332) put the
+     * script's signs on 1 -- candrabindu, anusvara, visarga, virama -- the way
+     * the phones of the Indian market did (ETSI ES 202 130 Annex A), so 1 is a
+     * letter key there and the sentence's punctuation takes the fourth column.
+     */
+    @Test
+    fun anIndicKeypadCarriesItsSignsOnOne() {
+        val hindi = languageKeypads.first { it.langId == "hi" }
+        val rows = letterRows(hindi)
+        val one = rows[0][0]
+        assertEquals("1", one.longPress.first())
+        for (sign in listOf('ँ', 'ं', 'ः', '्')) {
+            assertTrue("hi: 1 does not carry $sign", sign in one.letterSet())
+        }
+        // The vowels and their signs share a key: अ with ा on 2, ए with े on 3.
+        assertTrue('अ' in rows[0][1].letterSet() && 'ा' in rows[0][1].letterSet())
+        assertTrue('ए' in rows[0][2].letterSet() && 'े' in rows[0][2].letterSet())
+        val stop = rows[1][3]
+        assertEquals("।", stop.output)
+        assertEquals(KeyRole.Period, stop.role)
+    }
+
+    /** A combining mark is part of a written word, so a letter set keeps it. */
+    @Test
+    fun aLetterSetKeepsCombiningMarks() {
+        val key = Key("ं").withLetters("ँं्1 ")
+        assertEquals("ँं्", key.letters)
+        assertEquals("ँ", key.output)
+        assertTrue(key.isAmbiguous())
+    }
+
+    private companion object {
+        val KEYPAD_DIGITS = listOf("2", "3", "4", "5", "6", "7", "8", "9")
+        val ARMENIAN = setOf("hy", "hyw")
     }
 }

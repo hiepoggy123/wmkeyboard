@@ -11,6 +11,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import Flavor from '@components/Flavor.astro';
+import Shot from '@components/Shot.astro';
 
 Grammar check runs your writing past Harper, the same open-source engine behind `harper-ls`, and surfaces fixable issues right above the keys as you type. <Flavor edition="full" /> Everything happens on-device. Nothing you type leaves the phone to get checked.
 
@@ -33,11 +34,11 @@ Each issue also lints against a specific English dialect: **American** (the defa
 
 ## Using the panel
 
-Open **Grammar check** from the toolbox to check whatever's in the field you're writing in. It isn't pinned to the toolbar by default, but two built-in [keyboard modes](/typing/modes/) (**Chat** and **Writing**) promote it to the front of the toolbox, since it's one of the first things worth reaching for in either.
-
-<PhoneFrame caption="Grammar check's tile in the toolbox, ready to open.">
-  {/* shot: smart/grammar-toolbox-entry */}
+<PhoneFrame side caption="Grammar check's tile in the toolbox, ready to open.">
+  <Shot id="smart/grammar-toolbox-entry" alt="Grammar check in the toolbox, with the dialect chip and a live issue count." />
 </PhoneFrame>
+
+Open **Grammar check** from the toolbox to check whatever's in the field you're writing in. It isn't pinned to the toolbar by default, but two built-in [keyboard modes](/typing/modes/) (**Chat** and **Writing**) promote it to the front of the toolbox, since it's one of the first things worth reaching for in either.
 
 The panel sits in a fixed strip above the key rows rather than covering them, so you can fix an issue by editing the text directly just as easily as by tapping a fix chip. Open the panel and it checks the field's current text immediately, with no wait. After that, edits re-check after a short pause (see [Fully offline](#fully-offline-in-process) below).
 
@@ -45,6 +46,8 @@ Each issue is a card: a colored dot and category label, the flagged text struck 
 
 - **Tap a fix chip** to apply that one fix. The field re-checks straight after.
 - **Tap the card itself**, meaning neither a chip nor the dismiss icon, to jump the field's cursor to the issue. A multi-word span parks the cursor at its start. A single word with a real replacement gets selected, so you can type over it. Anything else parks the cursor right after the issue.
+- **Tap the copy icon** to copy Harper's explanation.
+- **Tap the sparkle** beside the dismiss icon, shown while the [AI tool](/tools/ai/) is on, to ask the AI about the issue. The AI panel opens a [chat](/tools/ai-chat/#asking-about-another-tools-text) with the issue, Harper's explanation, its fixes and the sentence around it attached, so you can ask why, or whether the fix is right.
 - **Tap the dismiss icon** (**×**) to hide a card. It stays hidden only until the text changes and re-lints. Dismissing isn't remembered past that.
 - **Tap "Fix all"**, shown whenever at least one issue has a suggestion, to apply every issue's top fix in one go. Fixes go in back to front, so earlier issues don't shift the ones after them. An issue whose span overlaps one already fixed is skipped rather than risk mangling the text.
 - **Tap the dialect chip** in the header to switch American/British/Canadian/Australian on the fly. The same text re-checks immediately under the new dialect.
@@ -60,7 +63,7 @@ If nothing's flagged, the panel says so. If the field is empty, it invites you t
 
 Harper is thorough, and thoroughness is not always what you want. If you don't care to be told about regionalisms, or you want spelling but not style suggestions, the funnel in the panel header turns individual kinds off.
 
-<PhoneFrame caption="The filter open in the panel header, with a category expanded onto the kinds inside it.">
+<PhoneFrame side caption="The filter open in the panel header, with a category expanded onto the kinds inside it.">
   {/* shot: smart/grammar-filter-open */}
 </PhoneFrame>
 
@@ -90,12 +93,20 @@ Re-checks are debounced. After you stop typing, the panel waits before re-lintin
 The very first check after opening the panel can take a beat longer, since building Harper's linter costs roughly 100&nbsp;ms the first time. That cost is already paid by the time you open the panel if [Harper is also set as your system spell checker](/smart/spell-checker/). Its own service warms the linter up on its own. Opening the Grammar tool alone doesn't pre-warm it.
 :::
 
+## DeepL Write
+
+With a DeepL API Pro key set up under [Tools / Translate](/tools/translate/#deepl) and **DeepL Write** turned on there, the panel gets one more button beside the filter. Tap it and DeepL rewrites the text in the field: grammar, wording, and the style you picked. Unlike Harper, DeepL Write reads German, French, Spanish, Italian, Portuguese, Japanese, Korean and Chinese as well as English.
+
+The answer takes the place of the issue list until you tap **Replace** or close it with its X. **Replace** swaps the text for DeepL's version. On a field longer than 2,500 characters, only the first 2,500 go to DeepL and only those are replaced. If you edit the text before the answer arrives, the answer is dropped, because it no longer matches what is in the field.
+
+This is the one part of Grammar check that goes online. The text in the field and your DeepL key go to DeepL, and only when you tap the button. Without a DeepL key, or with DeepL Write off, the button is not there and the panel works as described above. The same rewrite is available on selected text as the **DeepL Write** [selection action](/smart/selection-actions/).
+
 ## Options
 
 <SettingsPath path="Tools / Grammar check" />
 
-<PhoneFrame caption="The Grammar check settings screen: dialect, re-check delay, and the system-wide group.">
-  ![The Grammar check settings screen: dialect, re-check delay, and the system-wide group.](@assets/screens/smart/grammar-settings.webp)
+<PhoneFrame side caption="The Grammar check settings screen: dialect, re-check delay, and the system-wide group.">
+  <Shot id="smart/grammar-settings" alt="The Grammar check settings screen: dialect, re-check delay, and the system-wide group." />
 </PhoneFrame>
 
 | Setting | Default | Range/options |
@@ -113,7 +124,7 @@ A **System-wide** group sits below these two, with a **Use Harper everywhere** b
 
 ## Details & edge cases
 
-- **English only.** Harper doesn't check any other language, and the dialect setting is global. It applies no matter which typing language or layout is currently active. Grammar check has nothing to do while you're typing in a non-English language.
+- **English only.** Apart from the optional [DeepL Write](#deepl-write) button, Harper doesn't check any other language, and the dialect setting is global. It applies no matter which typing language or layout is currently active. Grammar check has nothing to do while you're typing in a non-English language.
 - **Full edition only.** Grammar check doesn't exist at all in the lite build. It's absent from both the toolbar customization list and the toolbox, rather than sitting there disabled or grayed out, because lite ships without Harper's native library. If you're on lite and don't see it, that's expected.
 - **A missing engine fails safely.** If `libharper_jni.so` somehow didn't load, the panel opens normally and says the grammar engine isn't in this build, rather than crashing or hanging on "checking."
 - **A fix only touches the words it flagged.** Applying a chip (or "Fix all") replaces the flagged spans and nothing else, so the rest of what you wrote isn't re-typed into the field. That's what keeps formatting alive in apps that have any: bold, colour, a checklist item in Google Keep. The one exception is an editor that won't tell the keyboard where its text starts. There's no way to address a span in one of those, so the fix falls back to rewriting the whole field, which flattens any styling it was carrying.

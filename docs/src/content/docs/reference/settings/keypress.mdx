@@ -8,11 +8,12 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
+import Shot from '@components/Shot.astro';
 
 The Key press screen collects everything about the physical act of pressing a key: vibration, sound, the backspace swipe, the preview bubble, timing, and press-and-hold shortcuts. This page lists them in the order they appear on screen. It's the field reference. For the reasoning behind each option, read [Sound & vibration](/typing/feedback/) and [Typing basics](/typing/basics/) instead.
 
 <PhoneFrame caption="The top of the Key press screen: the Haptic feedback group with its style chips.">
-  {/* shot: reference/settings/keypress-overview */}
+  <Shot id="reference/settings/keypress-overview" alt="The top of the Key press screen: the Haptic feedback group with its style chips." />
 </PhoneFrame>
 
 ## Options
@@ -46,8 +47,8 @@ The Key press screen is a hub. Haptics and sound, Key popup and Press and hold s
 
 Two of the per-event rows are odd ones out. **Click on key repeat** has nothing to do with vibration at all: it's the sound half of "Vibrate on key repeat", playing the key sound on every auto-repeat while <KeyCap>⌫</KeyCap> or <KeyCap>Space</KeyCap> is held, and it does nothing unless Key sound is on. **Follow the system touch feedback setting** isn't a per-event gate either. It hands the master switch over to Android's own touch-vibration toggle. It ships off, so turning off touch feedback in Android's sound settings leaves the keyboard buzzing. Turn this on if you expect the system switch to cover the keyboard too.
 
-<PhoneFrame caption="Haptic style set to Custom, showing the strength and intensity sliders.">
-  {/* shot: reference/settings/keypress-haptic-custom-sliders */}
+<PhoneFrame side caption="Haptic style set to Custom, showing the strength and intensity sliders.">
+  <Shot id="reference/settings/keypress-haptic-custom-sliders" alt="Haptic style set to Custom, showing the strength and intensity sliders." />
 </PhoneFrame>
 
 ### Key press sound
@@ -103,8 +104,8 @@ A theme can carry a key sound of its own, and where it does, it wins over everyt
 
 **Popup shape** and **Popup corner radius** reach past the preview bubble. They set the outline of every popup surface the keyboard draws, press-and-hold alternates, the language picker and the panel menus included. The radius applies only to the rounded and cut shapes. The rest size their corners off the popup itself. A theme can override either one.
 
-<PhoneFrame caption="Key popup and Timing groups, mid-screen.">
-  {/* shot: reference/settings/keypress-popup-timing */}
+<PhoneFrame side caption="Key popup and Timing groups, mid-screen.">
+  <Shot id="reference/settings/keypress-popup-timing" alt="Key popup and Timing groups, mid-screen." />
 </PhoneFrame>
 
 ### Delete keys
@@ -187,11 +188,17 @@ The repeat interval is two sliders, because delete and space are held for opposi
 | All accents on press and hold | Toggle | On / Off | Off |
 | Shifted letter on press and hold | Toggle | On / Off | Off |
 | Press and hold ?123 for the number pad | Toggle | On / Off | On |
+| Press and hold enter for emoji | Toggle | On / Off | Off |
 | Currency keys | Free-text field, space-separated | Any characters | ৳ € £ ¥ ₹ ₿ |
 | Ctrl shortcuts as raw key events | Toggle | On / Off | Off |
 | Hold shortcuts | Filter chips, any number | Select all, Copy, Cut, Paste, Undo, Redo | All six on |
 | Action first *(shown once at least one hold shortcut is on)* | Toggle | On / Off | Off |
-| Shortcut keys *(same)* | Nav row → dialog | one letter per action | a c v x z y |
+| Slide from 🌐 for shortcuts | Toggle | On / Off | Off |
+| Shortcut keys *(shown once a hold shortcut or the 🌐 slide is on)* | Nav row → dialog | one letter per action | a c v x z y |
+
+<PhoneFrame side caption="Press and hold shortcuts: the currency keys field and the hold-letter toggles.">
+  <Shot id="reference/settings/keypress-long-press-shortcuts" alt="Long-press shortcuts: the currency keys field and the Hold-letter toggles." />
+</PhoneFrame>
 
 **Press and hold hints** puts a small corner label on each key, previewing its first press-and-hold character.
 
@@ -201,6 +208,8 @@ The repeat interval is two sliders, because delete and space are held for opposi
 
 **Press and hold ?123 for the number pad** is on out of the box. Hold the symbols key and a full number pad panel opens over the current field. A quick tap still switches to the symbol layer as usual.
 
+**Press and hold enter for emoji** is off by default. Turn it on and holding <KeyCap>Enter</KeyCap> opens a popup with an emoji entry first, so with **Choose without lifting** on (the default) a plain hold and release opens the emoji panel. In a field where Enter shows Send, Go or Search, the line break it replaces stays in the same popup, one slide along. A tap still does what Enter always does. The same switch also sits under **Layout & size → Bottom row keys**, beside Comma key opens emoji.
+
 **Currency keys** is stored empty by default. The field shows and edits the built-in set (৳ € £ ¥ ₹ ₿) until you type your own space-separated list. Clear it back to blank and the built-in set comes back.
 
 **Ctrl shortcuts as raw key events** only matters for a Ctrl key on a custom layout, whether you tap it or [drag from it onto another key](/typing/gestures/#dragging-from-a-modifier-key). Off, A/C/V/X route through Android's clipboard actions, which work in web pages and Compose apps too. On, the raw key event goes through instead. A terminal app needs that, since it reads Ctrl+C as interrupt rather than copy.
@@ -209,11 +218,9 @@ The repeat interval is two sliders, because delete and space are held for opposi
 
 **Action first** sits next to Hold shortcuts and starts off. Off, holding a shortcut letter still opens on its first accent, the same as a letter with no shortcuts. Copy or cut still sits at the end of that popup. Turn it on and the shortcut moves to the front instead, so a plain hold on <KeyCap>C</KeyCap> runs Copy right away. Keep your finger down and slide on to reach `çć` instead of releasing. It needs **Choose without lifting**, under Alternate keys, turned on, since a popup that just sits open has nothing to run on release.
 
-**Shortcut keys** is one row for all six bindings rather than six rows, and it appears whenever at least one of them is on. The shipped `a c v x z y` is a QWERTY answer, so a layout without those letters (Bangla, Russian) needs the whole set moved onto keys it actually draws. The row's subtitle lists the keys currently bound. Tap it to open a dialog with one field per switched-on action, saved in one go.
+**Slide from 🌐 for shortcuts** is off by default. On, pressing 🌐 and sliding onto one of the six shortcut keys runs that key's action when you lift, whether or not its hold shortcut is on. See [Switching languages](/languages/switching/#sliding-from--onto-a-shortcut).
 
-<PhoneFrame caption="Press and hold shortcuts: the currency keys field and the hold-letter toggles.">
-  {/* shot: reference/settings/keypress-long-press-shortcuts */}
-</PhoneFrame>
+**Shortcut keys** is one row for all six bindings rather than six rows, and it appears whenever at least one of them, or the 🌐 slide, is on. The shipped `a c v x z y` is a QWERTY answer, so a layout without those letters (Bangla, Russian) needs the whole set moved onto keys it actually draws. The row's subtitle lists the keys currently bound. Tap it to open a dialog with one field per switched-on action, saved in one go.
 
 ## Details & edge cases
 

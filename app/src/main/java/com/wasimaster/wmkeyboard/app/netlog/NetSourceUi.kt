@@ -12,9 +12,11 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Photo
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material3.Icon
@@ -101,16 +103,19 @@ internal fun NetSourceTile(look: NetSourceLook, modifier: Modifier = Modifier, s
 
 private fun texts(source: NetSource): Pair<Int, Int> = when (source) {
     NetSource.TRANSLATE -> R.string.netlog_source_translate to R.string.netlog_sent_translate
+    NetSource.DEEPL_WRITE -> R.string.netlog_source_deepl_write to R.string.netlog_sent_deepl_write
     NetSource.GIF -> R.string.netlog_source_gif to R.string.netlog_sent_gif
     NetSource.STICKER -> R.string.netlog_source_sticker to R.string.netlog_sent_sticker
     NetSource.WEB_SEARCH -> R.string.netlog_source_web_search to R.string.netlog_sent_web_search
     NetSource.IMAGE_SEARCH -> R.string.netlog_source_image_search to R.string.netlog_sent_image_search
+    NetSource.PHOTO_SEARCH -> R.string.netlog_source_photo_search to R.string.netlog_sent_photo_search
     NetSource.AI -> R.string.netlog_source_ai to R.string.netlog_sent_ai
     NetSource.AI_CHAT -> R.string.netlog_source_ai_chat to R.string.netlog_sent_ai_chat
     NetSource.TRANSCRIPTION -> R.string.netlog_source_transcription to R.string.netlog_sent_transcription
     NetSource.WIKIPEDIA -> R.string.netlog_source_wikipedia to R.string.netlog_sent_wikipedia
     NetSource.DICTIONARY -> R.string.netlog_source_dictionary to R.string.netlog_sent_dictionary
     NetSource.VOCABULARY -> R.string.netlog_source_vocabulary to R.string.netlog_sent_vocabulary
+    NetSource.SYNONYMS -> R.string.netlog_source_synonyms to R.string.netlog_sent_synonyms
     NetSource.WEATHER -> R.string.netlog_source_weather to R.string.netlog_sent_weather
     NetSource.CURRENCY -> R.string.netlog_source_currency to R.string.netlog_sent_currency
     NetSource.PHOTOS -> R.string.netlog_source_photos to R.string.netlog_sent_photos
@@ -125,9 +130,11 @@ private fun texts(source: NetSource): Pair<Int, Int> = when (source) {
     NetSource.DOWNLOAD_VOCAB -> R.string.netlog_source_download_vocab to R.string.netlog_sent_download
     NetSource.DOWNLOAD_FONT -> R.string.netlog_source_download_font to R.string.netlog_sent_download
     NetSource.DOWNLOAD_CUTOUT -> R.string.netlog_source_download_cutout to R.string.netlog_sent_download
+    NetSource.DOWNLOAD_OCR -> R.string.netlog_source_download_ocr to R.string.netlog_sent_download
     NetSource.ADDONS -> R.string.netlog_source_addons to R.string.netlog_sent_addons
     NetSource.KEYMAN -> R.string.netlog_source_keyman to R.string.netlog_sent_keyman
     NetSource.SIGNAL_STICKERS -> R.string.netlog_source_signal_stickers to R.string.netlog_sent_signal_stickers
+    NetSource.RBOARD_THEMES -> R.string.netlog_source_rboard_themes to R.string.netlog_sent_rboard_themes
     NetSource.LINK_IMPORT -> R.string.netlog_source_link_import to R.string.netlog_sent_link_import
     NetSource.BACKUP -> R.string.netlog_source_backup to R.string.netlog_sent_backup
     NetSource.UPDATES -> R.string.netlog_source_updates to R.string.netlog_sent_updates
@@ -138,12 +145,14 @@ private fun texts(source: NetSource): Pair<Int, Int> = when (source) {
 /** Where a source that is not a tool keeps its settings. */
 private fun ownerRoute(source: NetSource): String? = when (source) {
     NetSource.PHOTOS -> "photos"
+    NetSource.SYNONYMS -> "typing/suggestions"
     NetSource.MEDIA_IMAGES -> "emoji"
     NetSource.DOWNLOAD_WORDLIST, NetSource.DOWNLOAD_NGRAM, NetSource.DOWNLOAD_CJK -> "languages"
     NetSource.DOWNLOAD_EMOJI -> "emojikeywords"
     NetSource.DOWNLOAD_FONT -> "fonts"
     NetSource.ADDONS, NetSource.LINK_IMPORT -> "addons"
     NetSource.KEYMAN -> "keymaps"
+    NetSource.RBOARD_THEMES -> "themes"
     NetSource.BACKUP -> "backup"
     NetSource.UPDATES -> "about"
     else -> null
@@ -160,7 +169,9 @@ private fun fallbackIcon(source: NetSource): ImageVector = when (source) {
     NetSource.ADDONS -> Icons.Outlined.Extension
     NetSource.LINK_IMPORT, NetSource.LINK_PREVIEW -> Icons.Outlined.Link
     NetSource.KEYMAN -> Icons.Outlined.Keyboard
+    NetSource.RBOARD_THEMES -> Icons.Outlined.Palette
     NetSource.BACKUP -> Icons.Outlined.Save
+    NetSource.SYNONYMS -> Icons.Outlined.SwapHoriz
     NetSource.UPDATES -> Icons.Outlined.SystemUpdate
     NetSource.OTHER -> Icons.Outlined.Public
     else -> Icons.Outlined.CloudDownload
@@ -171,8 +182,8 @@ private fun fallbackIcon(source: NetSource): ImageVector = when (source) {
  * row for: every one except these, which it deliberately leaves alone.
  */
 private val DataSaverSources = NetSource.entries.toSet() - setOf(
-    NetSource.TRANSLATE, NetSource.BACKUP, NetSource.UPDATES, NetSource.KDE_CONNECT,
-    NetSource.LINK_IMPORT, NetSource.OTHER,
+    NetSource.TRANSLATE, NetSource.DEEPL_WRITE, NetSource.BACKUP, NetSource.UPDATES, NetSource.KDE_CONNECT,
+    NetSource.LINK_IMPORT, NetSource.SYNONYMS, NetSource.OTHER,
 )
 
 private val NeutralAccent = Color(0xFF90A4AE)

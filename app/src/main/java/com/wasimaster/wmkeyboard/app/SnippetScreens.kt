@@ -86,7 +86,6 @@ import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.BuildConfig
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.snippets.MultiExpand
 import com.wasimaster.wmkeyboard.core.snippets.MultiExpandMode
@@ -146,7 +145,7 @@ internal fun snippetEditRoute(snippetId: Long): String = "expander/edit/$snippet
 @Composable
 internal fun SnippetSettings(
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -432,7 +431,7 @@ internal fun SnippetSettings(
                     MultiExpandMode.INSERT_FIRST to
                         stringResource(R.string.expander_multi_expand_insert_label),
                 ),
-                selected = settings.suggestionStrip.snippetMultiExpand,
+                selected = settings.watch { it.suggestionStrip.snippetMultiExpand },
                 default = SettingsDefaults.suggestionStrip.snippetMultiExpand,
                 detail = { mode ->
                     ChoiceDetail(
@@ -794,7 +793,7 @@ internal fun SnippetFolderScreen(
         }
         item {
             ToggleSetting(
-                title = stringResource(R.string.expander_folder_enabled_title),
+                title = R.string.expander_folder_enabled_title,
                 subtitle = stringResource(R.string.expander_folder_enabled_subtitle),
                 checked = here.enabled,
                 onChange = { on -> mutate { it.setFolderEnabled(folderId, on) } },
@@ -1445,7 +1444,7 @@ private enum class SnippetTriggerMode { WORD, PATTERN }
  */
 @Composable
 internal fun SnippetEditor(
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     snippetId: Long,
     initialFolderId: Long = 0,
     onDone: () -> Unit,
@@ -1498,7 +1497,7 @@ internal fun SnippetEditor(
 @Composable
 @Suppress("LongMethod")
 private fun SnippetEditorForm(
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     initial: Snippet?,
     all: List<Snippet>,
     folders: List<SnippetFolder>,
@@ -1572,27 +1571,21 @@ private fun SnippetEditorForm(
             // "None" teaches nothing and costs a row.
             if (folders.isNotEmpty()) {
                 item {
-                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        Spacer(Modifier.height(12.dp))
-                        Text(
-                            stringResource(R.string.rows_snippet_folder_label),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        ChoiceControl(
-                            options = listOf(
-                                0L to stringResource(R.string.rows_snippet_folder_none_label),
-                            ) + folders.map { it.id to it.name },
-                            selected = folderId,
-                            detail = { id ->
-                                ChoiceDetail(
-                                    icon = if (id == 0L) Icons.Outlined.Block
-                                    else Icons.Outlined.Folder,
-                                )
-                            },
-                            onChange = { folderId = it },
-                        )
-                    }
+                    ChoiceControl(
+                        options = listOf(
+                            0L to stringResource(R.string.rows_snippet_folder_none_label),
+                        ) + folders.map { it.id to it.name },
+                        selected = folderId,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp),
+                        label = stringResource(R.string.rows_snippet_folder_label),
+                        detail = { id ->
+                            ChoiceDetail(
+                                icon = if (id == 0L) Icons.Outlined.Block
+                                else Icons.Outlined.Folder,
+                            )
+                        },
+                        onChange = { folderId = it },
+                    )
                 }
             }
         }
@@ -1662,34 +1655,6 @@ private fun SnippetEditorForm(
                                 color = MaterialTheme.colorScheme.error,
                             )
                         }
-                        Spacer(Modifier.height(12.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                stringResource(R.string.rows_snippet_propagate_case_label),
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Switch(checked = propagateCase, onCheckedChange = { propagateCase = it })
-                        }
-                        DialogNote(stringResource(R.string.rows_snippet_propagate_case_body))
-                        // The style only means anything for a trigger typed with
-                        // one leading capital. An all-caps trigger always shouts.
-                        if (propagateCase) {
-                            Spacer(Modifier.height(8.dp))
-                            ChoiceControl(
-                                options = listOf(
-                                    UppercaseStyle.CAPITALIZE to
-                                        stringResource(R.string.rows_snippet_case_first_label),
-                                    UppercaseStyle.CAPITALIZE_WORDS to
-                                        stringResource(R.string.rows_snippet_case_words_label),
-                                    UppercaseStyle.UPPERCASE to
-                                        stringResource(R.string.rows_snippet_case_all_label),
-                                ),
-                                selected = uppercaseStyle,
-                                label = stringResource(R.string.rows_snippet_case_style_label),
-                                onChange = { uppercaseStyle = it },
-                            )
-                        }
                     } else {
                         SnippetPatternFields(
                             pattern = pattern,
@@ -1702,21 +1667,40 @@ private fun SnippetEditorForm(
                     }
                 }
             }
+            item(visible = word) {
+                ToggleSetting(
+                    R.string.rows_snippet_propagate_case_label,
+                    stringResource(R.string.rows_snippet_propagate_case_body),
+                    checked = propagateCase,
+                ) { propagateCase = it }
+            }
+            // The style only means anything for a trigger typed with one
+            // leading capital. An all-caps trigger always shouts.
+            item(visible = word && propagateCase) {
+                ChoiceControl(
+                    options = listOf(
+                        UppercaseStyle.CAPITALIZE to
+                            stringResource(R.string.rows_snippet_case_first_label),
+                        UppercaseStyle.CAPITALIZE_WORDS to
+                            stringResource(R.string.rows_snippet_case_words_label),
+                        UppercaseStyle.UPPERCASE to
+                            stringResource(R.string.rows_snippet_case_all_label),
+                    ),
+                    selected = uppercaseStyle,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    label = stringResource(R.string.rows_snippet_case_style_label),
+                    onChange = { uppercaseStyle = it },
+                )
+            }
         }
 
         SettingsGroup(stringResource(R.string.expander_behaviour_title)) {
             item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            stringResource(R.string.rows_snippet_confirm_label),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Switch(checked = confirm, onCheckedChange = { confirm = it })
-                    }
-                    DialogNote(stringResource(R.string.rows_snippet_confirm_body))
-                }
+                ToggleSetting(
+                    R.string.rows_snippet_confirm_label,
+                    stringResource(R.string.rows_snippet_confirm_body),
+                    checked = confirm,
+                ) { confirm = it }
             }
             // Nothing to choose between until there is more than one thing to
             // insert, so the row appears when the snippet earns it.
@@ -1728,7 +1712,7 @@ private fun SnippetEditorForm(
                             MultiExpand.DEFAULT to stringResource(
                                 R.string.rows_snippet_multi_expand_default_label,
                                 stringResource(
-                                    multiExpandLabel(settings.suggestionStrip.snippetMultiExpand),
+                                    multiExpandLabel(settings.watch { it.suggestionStrip.snippetMultiExpand }),
                                 ),
                             ),
                             MultiExpand.CHIPS_ONLY to

@@ -1,6 +1,10 @@
 import io.gitlab.arturbosch.detekt.Detekt
 import io.gitlab.arturbosch.detekt.DetektCreateBaselineTask
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.time.Duration
 import java.util.Properties
+import java.util.zip.ZipFile
 
 plugins {
     alias(libs.plugins.android.application)
@@ -69,13 +73,35 @@ val gmsSourceDir = if (gmsChannel) "src/gms/java" else "src/nogms/java"
 
 val channelSourceDirs = listOfNotNull(playServicesSourceDir, updaterSourceDir, gmsSourceDir)
 
+// A build with no internet permission at all (#292), for anyone who wants one:
+// `-Pwmkb.noInternet=true`. Not a release variant, there are enough of those.
+// Everything on the device keeps working; each feature that fetches something
+// fails the way it does offline.
+val noInternet = flag("wmkb.noInternet", "WMKB_NO_INTERNET")
+
 // Manifest entries that belong to exactly one channel. REQUEST_INSTALL_PACKAGES
 // and the install-result receiver must not exist in a Play or F-Droid APK, and
 // the Play Store package query is pointless anywhere but Play.
 val channelManifests = listOfNotNull(
     "src/play/AndroidManifest.xml".takeIf { playStoreChannel },
     "src/github/AndroidManifest.xml".takeIf { githubChannel },
+    "src/nointernet/AndroidManifest.xml".takeIf { noInternet },
 )
+
+// Every interface language the repo has a translation for, as BCP-47 tags
+// ("en,ar,bn,…,zh-CN"), read off the res/values-xx folders so the in-app
+// picker cannot drift from what is actually translated. English is the
+// unqualified res/values (see resources.properties).
+val translatedLocales: String = run {
+    val folder = Regex("values-([a-z]{2,3})(?:-r([A-Z]{2}))?")
+    val tags = file("src/main/res").listFiles().orEmpty().mapNotNull { dir ->
+        val match = folder.matchEntire(dir.name) ?: return@mapNotNull null
+        if (!File(dir, "strings.xml").isFile) return@mapNotNull null
+        val (language, region) = match.destructured
+        if (region.isEmpty()) language else "$language-$region"
+    }
+    (listOf("en") + tags.sorted()).joinToString(",")
+}
 
 // Sideload packaging. With `-Pwmkb.splitApks=true`, assemble<Variant> emits one
 // APK per ABI plus a universal fallback instead of a single fat APK — the
@@ -134,6 +160,9 @@ android {
         // Diagnostic builds only — see the same field in :core:config, which is
         // the copy DebugLog reads. Mirrored here for the app-package screens.
         buildConfigField("Boolean", "ENABLE_CRASH_SCREEN", "${flag("wmkb.enableCrashScreen", "WMKB_ENABLE_CRASH_SCREEN")}")
+        // How many interface languages the `intl` build adds to English, for the
+        // English-only build's App language row to name when it offers them.
+        buildConfigField("int", "TRANSLATED_LANGUAGE_COUNT", "${translatedLocales.split(',').size - 1}")
     }
 
     // Build flavors for storage-constrained devices.
@@ -180,8 +209,21 @@ android {
         }
 
         // Declared first, so it is what the IDE and a bare `assemble` pick.
-        create("intl") { dimension = "languages" }
-        create("en") { dimension = "languages" }
+        //
+        // APP_LOCALES is what the in-app language picker (About, and the first
+        // wizard page) offers, so it must name only languages this install can
+        // actually show. `en` on Play still gets the full list: Play injects
+        // its translations into the bundle at upload, and Android 13+ fetches
+        // the language split when the app language changes.
+        create("intl") {
+            dimension = "languages"
+            buildConfigField("String", "APP_LOCALES", "\"$translatedLocales\"")
+        }
+        create("en") {
+            dimension = "languages"
+            val shipped = if (playStoreChannel) translatedLocales else "en"
+            buildConfigField("String", "APP_LOCALES", "\"$shipped\"")
+        }
     }
 
     signingConfigs {
@@ -445,11 +487,261 @@ val compileBundledDictionaries =
         toolClasspath.from(dictc)
     }
 
+// Writes assets/layouts-index.tsv: one line per shipped JSON layout, in file
+// order — `id<TAB>name<TAB>langId<TAB>keymanId<TAB>keymanVersion`. The keyboard
+// reads this instead of the layouts themselves (see AssetLayouts): there are
+// over fifteen hundred of them and a user has a handful on, so parsing the rest
+// at every process start only filled the heap and held up the first settings
+// frame. Names, languages and Keyman bindings are what the lists and the
+// search need without opening a grid.
+abstract class GenerateLayoutIndexTask : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val layoutsDir: DirectoryProperty
+
+    /** Assets root chosen by AGP; the index lands at its top level. */
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        val suffix = ".wmlayout.json"
+        val slurper = groovy.json.JsonSlurper()
+        val lines = layoutsDir.get().asFile.listFiles { f -> f.name.endsWith(suffix) }.orEmpty()
+            .sortedBy { it.name }
+            .map { file ->
+                @Suppress("UNCHECKED_CAST")
+                val root = slurper.parse(file) as Map<String, Any?>
+                @Suppress("UNCHECKED_CAST")
+                val layout = root["layout"] as Map<String, Any?>
+                val id = "asset_" + file.name.removeSuffix(suffix)
+                check(layout["id"] == id) { "${file.name}: id ${layout["id"]} does not match its file name" }
+                fun clean(value: Any?) = (value as? String).orEmpty().replace('\t', ' ').replace('\n', ' ')
+                @Suppress("UNCHECKED_CAST")
+                val keyman = layout["keyman"] as? Map<String, Any?>
+                listOf(
+                    id,
+                    clean(layout["name"]),
+                    clean(layout["langId"]),
+                    clean(keyman?.get("keyboardId")),
+                    clean(keyman?.get("version")),
+                ).joinToString("\t")
+            }
+        val out = outputDir.get().asFile
+        out.mkdirs()
+        out.resolve("layouts-index.tsv").writeText(lines.joinToString("\n", postfix = "\n"))
+    }
+}
+
+// Guards the two limits ART puts on a method's size, which nothing else in
+// the build notices and which cost the keyboard its typing speed twice before
+// anyone saw it (KeyboardScreen, then KeyRows: 14% of the main thread in a
+// typing burst, from a function the compiler had silently given up on).
+//
+// - 10,000 dex instructions: past it ART never compiles the method, JIT or
+//   AOT, baseline profile or not. It is interpreted for the life of the app.
+// - A 3 KB frame for its fast interpreter (nterp): 184 bytes plus 8 per
+//   register plus 4 per outgoing argument slot, on arm64. Past it the method
+//   runs in the slow interpreter until the JIT compiles it — which is every
+//   call right after an install or an update. Registers and outs grow with
+//   the widest call in the method: a single inline `KeyboardSettings.copy`
+//   (208 argument slots) is enough on its own.
+//
+// Reads the dex out of a `fast` APK: release-mode d8, like the shipped build,
+// but without R8, so the names are the source's own. Every method of the app's
+// own that is past 9,000 instructions (headroom under the hard limit) or past
+// the nterp frame fails the check unless dex-method-budget.txt names it with
+// a ceiling it has not outgrown — and a method belongs there only if it runs
+// rarely: a class initialiser, a settings screen, a one-off decode.
+//
+//     ./gradlew :app:checkDexMethodsFullEnFast
+abstract class CheckDexMethodsTask : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val apkDir: DirectoryProperty
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val budgetFile: RegularFileProperty
+
+    @get:OutputFile
+    abstract val report: RegularFileProperty
+
+    private class Method(val name: String, val insns: Int, val registers: Int, val outs: Int) {
+        /** nterp's frame for this method on arm64 (NterpGetFrameSize), rounded to the 16-byte stack alignment. */
+        val frame: Int get() = (160 + registers * 8 + 8 + 8 + outs * 4 + 8 + 15) / 16 * 16
+    }
+
+    @TaskAction
+    fun run() {
+        val apk = apkDir.get().asFile.listFiles { f -> f.name.endsWith(".apk") }.orEmpty().singleOrNull()
+            ?: error("expected exactly one APK in ${apkDir.get().asFile}")
+        val methods = ZipFile(apk).use { zip ->
+            zip.entries().asSequence()
+                .filter { it.name.matches(Regex("classes\\d*\\.dex")) }
+                .flatMap { entry -> readMethods(zip.getInputStream(entry).use { it.readBytes() }) }
+                .filter { it.name.startsWith(APP_PACKAGE) }
+                .toList()
+        }
+        check(methods.isNotEmpty()) { "no ${APP_PACKAGE} methods in ${apk.name}" }
+        // Overloads share a name here; the widest one speaks for them.
+        val byName = methods.groupBy { it.name }.mapValues { (_, all) ->
+            Method(all.first().name, all.maxOf { it.insns }, all.maxOf { it.registers }, all.maxOf { it.outs })
+        }
+        val budget = budgetFile.get().asFile.readLines()
+            .map { it.substringBefore('#').trim() }
+            .filter { it.isNotEmpty() }
+            .associate { line ->
+                val parts = line.split(Regex("\\s+"))
+                require(parts.size == 3) { "dex-method-budget.txt: want `<method> <max insns> <max frame bytes>`, got `$line`" }
+                parts[0] to (parts[1].toInt() to parts[2].toInt())
+            }
+        val failures = mutableListOf<String>()
+        for (m in byName.values.sortedByDescending { it.insns }) {
+            val over = m.insns > INSNS_HEADROOM || m.frame > NTERP_MAX_FRAME
+            val allowed = budget[m.name]
+            when {
+                allowed != null && (m.insns > allowed.first || m.frame > allowed.second) ->
+                    failures += "${m.name}: ${m.insns} insns / ${m.frame} B frame, past its budget of " +
+                        "${allowed.first} / ${allowed.second}"
+                allowed == null && over ->
+                    failures += "${m.name}: ${m.insns} insns / ${m.frame} B frame " +
+                        "(${m.registers} registers, ${m.outs} outs)"
+            }
+        }
+        val stale = budget.keys.filter { name ->
+            val m = byName[name]
+            m == null || (m.insns <= INSNS_HEADROOM && m.frame <= NTERP_MAX_FRAME)
+        }
+        val lines = byName.values
+            .filter { it.insns > INSNS_HEADROOM / 2 || it.frame > NTERP_MAX_FRAME * 3 / 4 }
+            .sortedByDescending { it.insns }
+            .map { "%6d insns  %4d regs  %3d outs  %5d B frame  %s".format(it.insns, it.registers, it.outs, it.frame, it.name) }
+        report.get().asFile.writeText(lines.joinToString("\n", postfix = "\n"))
+        stale.forEach { logger.warn("dex-method-budget.txt: $it is back under both limits (or gone); drop its line") }
+        if (failures.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("Methods too big for ART to run well (limits: $INSNS_HEADROOM insns, of ART's hard $INSNS_LIMIT; $NTERP_MAX_FRAME B nterp frame):")
+                    failures.forEach { appendLine("  $it") }
+                    appendLine("Split the method (a big lambda body can go in a composable lambda of its own), move wide")
+                    appendLine("calls such as KeyboardSettings.copy / KeyboardUiState.copy into a small plain function, or,")
+                    appendLine("for a method that genuinely runs rarely, give it a line in app/dex-method-budget.txt.")
+                    append("Every method near the limits: ${report.get().asFile}")
+                },
+            )
+        }
+    }
+
+    /** Every method with code in one dex file: its name and the sizes from its code_item header. */
+    private fun readMethods(bytes: ByteArray): List<Method> {
+        val dex = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
+        var pos = 0
+        fun uleb(): Int {
+            var result = 0
+            var shift = 0
+            while (true) {
+                val b = bytes[pos++].toInt() and 0xFF
+                result = result or ((b and 0x7F) shl shift)
+                if (b and 0x80 == 0) return result
+                shift += 7
+            }
+        }
+        fun string(index: Int): String {
+            pos = dex.getInt(dex.getInt(0x3C) + index * 4)
+            uleb()
+            val out = StringBuilder()
+            while (true) {
+                val a = bytes[pos++].toInt() and 0xFF
+                if (a == 0) break
+                val c = when {
+                    a < 0x80 -> a
+                    a and 0xE0 == 0xC0 -> ((a and 0x1F) shl 6) or (bytes[pos++].toInt() and 0x3F)
+                    else -> ((a and 0x0F) shl 12) or ((bytes[pos++].toInt() and 0x3F) shl 6) or (bytes[pos++].toInt() and 0x3F)
+                }
+                out.append(c.toChar())
+            }
+            return out.toString()
+        }
+        fun typeName(index: Int): String =
+            string(dex.getInt(dex.getInt(0x44) + index * 4)).removePrefix("L").removeSuffix(";").replace('/', '.')
+        val methodIds = dex.getInt(0x5C)
+        val classDefs = dex.getInt(0x64)
+        val out = mutableListOf<Method>()
+        for (c in 0 until dex.getInt(0x60)) {
+            val classDataOff = dex.getInt(classDefs + c * 32 + 24)
+            if (classDataOff == 0) continue
+            pos = classDataOff
+            val staticFields = uleb()
+            val instanceFields = uleb()
+            val direct = uleb()
+            val virtual = uleb()
+            repeat((staticFields + instanceFields) * 2) { uleb() }
+            val entries = mutableListOf<Pair<Int, Int>>()
+            for (count in listOf(direct, virtual)) {
+                var index = 0
+                repeat(count) {
+                    index += uleb()
+                    uleb()
+                    val codeOff = uleb()
+                    if (codeOff != 0) entries += index to codeOff
+                }
+            }
+            for ((index, codeOff) in entries) {
+                val id = methodIds + index * 8
+                val owner = typeName(dex.getShort(id).toInt() and 0xFFFF)
+                val name = string(dex.getInt(id + 4))
+                out += Method(
+                    name = "$owner.$name",
+                    insns = dex.getInt(codeOff + 12),
+                    registers = dex.getShort(codeOff).toInt() and 0xFFFF,
+                    outs = dex.getShort(codeOff + 4).toInt() and 0xFFFF,
+                )
+            }
+        }
+        return out
+    }
+
+    private companion object {
+        const val APP_PACKAGE = "com.wasimaster.wmkeyboard."
+        /** ART's CompilerOptions huge-method threshold: at or past it, never compiled. */
+        const val INSNS_LIMIT = 10_000
+        /** Where the check starts complaining: a tenth under the hard limit. */
+        const val INSNS_HEADROOM = 9_000
+        /** interpreter::kNterpMaxFrame. */
+        const val NTERP_MAX_FRAME = 3 * 1024
+    }
+}
+
+val generateLayoutIndex =
+    tasks.register<GenerateLayoutIndexTask>("generateLayoutIndex") {
+        layoutsDir.set(layout.projectDirectory.dir("src/main/assets/layouts"))
+    }
+
+// Only the `fast` build: release-mode d8 like the shipped APK, but no R8, so
+// the dex still carries the source's names. See [CheckDexMethodsTask].
+androidComponents {
+    onVariants(selector().withBuildType("fast")) { variant ->
+        val name = variant.name.replaceFirstChar { it.uppercase() }
+        tasks.register<CheckDexMethodsTask>("checkDexMethods$name") {
+            group = "verification"
+            description = "Fails when an app method in the $name APK is too big for ART to compile or for nterp to run."
+            apkDir.set(variant.artifacts.get(com.android.build.api.artifact.SingleArtifact.APK))
+            budgetFile.set(layout.projectDirectory.file("dex-method-budget.txt"))
+            report.set(layout.buildDirectory.file("reports/dex-methods/$name.txt"))
+        }
+    }
+}
+
 androidComponents {
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(
             compileBundledDictionaries,
             CompileDictionariesTask::outputDir,
+        )
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            generateLayoutIndex,
+            GenerateLayoutIndexTask::outputDir,
         )
         // The update-channel driver picked at the top of this file, added to
         // every production variant. This is the Variant API rather than the
@@ -791,6 +1083,10 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
+    // Compiled against by src/full's WMFullApplication, which starts
+    // WorkManager on demand. Already in every full APK at runtime (ML Kit's
+    // digital-ink brings it), so this adds nothing to what ships.
+    "fullImplementation"(libs.androidx.work.runtime)
 
     // Play In-App Updates, for Play-channel builds only. Compiled against by
     // src/play/java; src/noplay/java is what every other channel gets, so no
@@ -856,5 +1152,70 @@ if (providers.gradleProperty("wmkb.skipBenchmarks").map(String::toBoolean).getOr
             excludeTestsMatching("*LatencyBench")
             excludeTestsMatching("*NoiseSweepTest")
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Docs screenshots: `-Pwmkb.docShots=true`
+//
+//   ./gradlew :app:testFullEnDebugUnitTest -Pwmkb.docShots=true
+//
+// Renders settings screens on the JVM (Robolectric native graphics +
+// Roborazzi) and writes PNGs to build/docshots/. Everything below exists only
+// under the flag: without it no dependency, source directory, resource link or
+// heap setting here reaches a normal build or test run, which is the point.
+// With it, the run is *only* the shots; the ordinary unit tests are filtered
+// out, since the resource linking this needs makes them slower for nothing.
+// ---------------------------------------------------------------------------
+val docShots = flag("wmkb.docShots", "WMKB_DOC_SHOTS")
+
+if (docShots) {
+    android {
+        // Robolectric needs the merged resources and manifest to inflate the
+        // real theme, strings and the activity. Off by default because it
+        // drags AAPT2 linking into every unit-test run.
+        testOptions.unitTests.isIncludeAndroidResources = true
+        // Native graphics plus a whole activity tree; 2g is the ordinary suite's.
+        testOptions.unitTests.all {
+            it.maxHeapSize = "4g"
+            // Shots are independent, so two workers halve the run.
+            it.maxParallelForks = 2
+            // A shot that wedges must not hold the run forever.
+            it.timeout.set(Duration.ofMinutes(90))
+        }
+    }
+
+    androidComponents {
+        onVariants { variant ->
+            // Variant API for the same reason as the channel directories above:
+            // AGP 9 no longer mirrors an extra Java directory into Kotlin.
+            variant.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.sources?.let {
+                it.kotlin?.addStaticSourceDirectory("src/docShots/java")
+                // robolectric.properties pins sdk=34: compileSdk is the minor
+                // level 36.1 and Robolectric has no android-all jar for it.
+                it.resources?.addStaticSourceDirectory("src/docShots/resources")
+            }
+        }
+    }
+
+    dependencies {
+        testImplementation(libs.robolectric)
+        testImplementation(libs.roborazzi)
+        testImplementation(libs.roborazzi.compose)
+        testImplementation(platform(libs.androidx.compose.bom))
+        testImplementation(libs.androidx.compose.ui.test.junit4)
+        testImplementation(libs.androidx.junit)
+    }
+
+    tasks.withType<Test>().configureEach {
+        filter { includeTestsMatching("com.wasimaster.wmkeyboard.docshots.*") }
+        systemProperty("roborazzi.test.record", "true")
+        systemProperty("wmkb.docShots.out", layout.buildDirectory.dir("docshots").get().asFile.absolutePath)
+        // `-Pwmkb.docShots.only=<regex>` renders just the ids it matches.
+        systemProperty("wmkb.docShots.only", providers.gradleProperty("wmkb.docShots.only").getOrElse(""))
+        // `-Pwmkb.docShots.modes=light` (or dark) renders one of the two, for a quick look.
+        systemProperty("wmkb.docShots.modes", providers.gradleProperty("wmkb.docShots.modes").getOrElse(""))
+        // Every shot is a separate test; the report shows which ones failed.
+        outputs.upToDateWhen { false }
     }
 }

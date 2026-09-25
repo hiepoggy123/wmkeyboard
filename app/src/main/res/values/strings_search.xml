@@ -47,6 +47,7 @@
     <string name="search_kw_octopus">octopus blackberry z10 bb10 inletter</string>
     <string name="search_kw_octopus_glide">octopus glide gesture next word during</string>
     <string name="search_kw_about_diagnostics">log logcat debug troubleshoot</string>
+    <string name="search_kw_about_app_language">interface translation translated locale display ui</string>
     <string name="search_kw_about_launcher_name">launcher label rename drawer</string>
     <string name="search_kw_about_licences">credits attribution third party</string>
     <string name="search_kw_about_replay_onboarding">onboarding wizard welcome tour</string>
@@ -57,6 +58,8 @@
     <string name="search_kw_accessibility_color_vision">deuteranopia protanopia tritanopia daltonism</string>
     <string name="search_kw_accessibility_debounce">tremor shaky bounce accidental</string>
     <string name="search_kw_accessibility_readable_font">dyslexia dyslexic legible</string>
+    <string name="search_kw_accessibility_row_icons">plain classic old simple minimal clutter</string>
+    <string name="search_kw_accessibility_screen_transitions">animation slow lag stutter performance smooth fast</string>
     <string name="search_kw_accessibility_talkback">blind voiceover</string>
     <string name="search_kw_appearance_key_corner_radius">rounded square rectangular pill</string>
     <string name="search_kw_appearance_themes">material monet dynamic skin</string>
@@ -103,6 +106,7 @@
     <string name="search_kw_keypress_long_press_hints">secondary labels marks</string>
     <string name="search_kw_keypress_popup">preview flyout magnifier</string>
     <string name="search_kw_keypress_symbols_numpad">numpad keypad dialpad</string>
+    <string name="search_kw_keypress_enter_emoji">return smiley emoticon longpress</string>
     <string name="search_kw_langemoji_emoji_animated">gif live</string>
     <string name="search_kw_langemoji_emoji_font">noto twemoji blob style</string>
     <string name="search_kw_langemoji_emoji_hide_unrenderable">tofu missing broken glyph</string>
@@ -112,11 +116,13 @@
     <string name="search_kw_langemoji_lang_os_switcher">ime subtype</string>
     <string name="search_kw_languages_cjk_fuzzy">mandarin putonghua</string>
     <string name="search_kw_languages_cjk_lazy">cantonese jyutping</string>
+    <string name="search_kw_languages_cjk_full_width_space">japanese chinese zenkaku ideographic double wide u3000</string>
     <string name="search_kw_languages_cjk_loose_marks">japanese flick dakuten handakuten sokuon modifier insensitive</string>
     <string name="search_kw_languages_cjk_traditional">taiwan hong kong hanzi</string>
     <string name="search_kw_languages_conjunct_backspace">hindi devanagari indic akshara cluster</string>
     <string name="search_kw_languages_fancy_style_row">unicode aesthetic cursive strikethrough</string>
     <string name="search_kw_languages_translit_hints_row">transliteration phonetic romanized</string>
+    <string name="search_kw_languages_phonetic_guide">key map keymap avro hinglish help cheat sheet chandrabindu hasant</string>
     <string name="search_kw_layout_floating">undock detached unpinned draggable</string>
     <string name="search_kw_layout_globe_emoji">globe world</string>
     <string name="search_kw_layout_key_height">taller shorter bigger smaller</string>
@@ -124,6 +130,7 @@
     <string name="search_kw_layout_one_handed">single hand compact reachable</string>
     <string name="search_kw_layout_persistent">pin persistent sticky always</string>
     <string name="search_kw_layout_show_globe">hide remove globe language</string>
+    <string name="search_kw_layout_globe_recent">recent previous toggle alt tab switch</string>
     <string name="search_kw_layout_size_position">resize shrink compact grow</string>
     <string name="search_kw_layout_split">thumb ergonomic tablet</string>
     <string name="search_kw_privacy_backup">phone migrate</string>
@@ -138,6 +145,7 @@
     <string name="search_kw_tooldetail_crypto_enable">bitcoin crypto ethereum</string>
     <string name="search_kw_tooldetail_currency_auto_fetch">offline automatic download exchange</string>
     <string name="search_kw_tooldetail_weather_auto_fetch">offline automatic download</string>
+    <string name="search_kw_tooldetail_camera_search_button">reverse image lens visual identify plant insect tineye yandex bing</string>
     <string name="search_kw_typing_auto_capitalize">autocaps autocapitalize autocapitalisation</string>
     <string name="search_kw_typing_autocorrect_confidence">threshold aggressive aggressiveness modest</string>
     <string name="search_kw_typing_autocorrect">auto replace changing</string>
@@ -162,6 +170,9 @@
     <string name="search_kw_typing_letter_swipe_action">graffiti unistroke scribble</string>
     <string name="search_kw_typing_personal_dictionary">user saved remembered</string>
     <string name="search_kw_typing_shift_enter">newline linebreak carriage return</string>
+    <string name="search_kw_typing_capital_flick">uppercase caps shift flick gesture gboard</string>
+    <string name="search_kw_layout_globe_guard">accidental mistake language switch delay interval gboard</string>
+    <string name="search_kw_keypress_globe_drag">cut undo redo select clipboard gesture gboard</string>
     <string name="search_kw_typing_hint_flick">flick gesture alternate long press number symbol gboard</string>
     <string name="search_kw_typing_possessive_swipe">possessive apostrophe contraction gesture flick comma full stop dont ill were youve</string>
     <string name="search_kw_typing_smart_currency">exchange rate forex dollar euro</string>
@@ -174,11 +185,16 @@
     <string name="search_kw_typing_suggestions">candidates wordbar</string>
     <string name="search_kw_typing_swipe_start_distance">accidental unwanted stray</string>
     <string name="search_kw_typing_undo_autocorrect">revert original</string>
+    <string name="search_kw_typing_auto_close_brackets">autoclose pair parentheses braces parenthesis matching complete</string>
     <string name="search_kw_typing_wrap_selection">surround parentheses quotes auto braces</string>
     <string name="search_kw_update_row_check">upgrade latest release</string>
     <string name="search_kw_voice_engine">offline whisper device model server transcription selfhosted hosted speaches remote</string>
+    <string name="search_kw_deepl">write rephrase rewrite improve polish style tone translation</string>
+    <string name="search_kw_sticker_suggest">suggestions suggest tray prediction autocomplete</string>
     <string name="search_kw_translate_engine">offline private internet airplane local device ml kit google model download cloud</string>
     <string name="search_kw_translate_models">offline translation model download delete storage ml kit google</string>
+    <string name="search_kw_translate_downloaded_first">order sort top offline model picker menu list</string>
+    <string name="search_kw_translate_only_downloaded">hide filter offline model picker menu short</string>
 
     <string-array name="search_word_groups">
         <item>haptics haptic vibration vibrate vibrations vibrator buzz rumble</item>
@@ -274,6 +290,7 @@
     <string name="search_kw_tools">toolbar, toolbox, shortcuts, widgets, buttons</string>
     <string name="search_kw_privacy">incognito, permissions, tracking, learning, data</string>
     <string name="search_kw_permissions">grant, allow, revoke, access, microphone, camera, contacts, calendar, notification access, usage access</string>
+    <string name="search_kw_automation">automation, tasker, macrodroid, automate, adb, intent, broadcast, command, script, remote control</string>
     <string name="search_kw_applock">fingerprint, biometric, touch id, face unlock, app lock, lock, unlock, padlock, pin, passcode, protect, secure, privacy lock</string>
     <string name="search_kw_notifications">notification, notifications, shade, status bar, alerts, download finished, update installed, backup failed, keyboard controls, pin keyboard</string>
     <string name="search_kw_datasaver">mobile data, cellular, metered, roaming, wifi only, data usage, bandwidth, offline, save data</string>
@@ -292,6 +309,7 @@
     <string name="search_kw_phoneformats">phone number, dial code, country code, mobile number, clipboard chips</string>
     <string name="search_kw_codes">otp, one time password, 2fa, two factor, verification code, sms code, login code</string>
     <string name="search_kw_musicapps">music apps, spotify, player apps, now playing, podcast apps</string>
+    <string name="search_kw_launchercombos">split screen, multi window, two apps, side by side, app pairs</string>
     <string name="search_kw_kdeconnect_devices">pair computer, paired devices, pc, laptop, desktop, gsconnect, valent, unpair, add by ip address</string>
     <string name="search_kw_ime_tool_kde_connect">gsconnect valent pc laptop desktop linux remote touchpad sync share presentation slides</string>
     <string name="search_kw_customdictionaries">word lists, import words, wordlist</string>

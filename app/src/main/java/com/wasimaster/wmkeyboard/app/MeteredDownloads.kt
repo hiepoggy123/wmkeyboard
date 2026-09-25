@@ -46,9 +46,9 @@ internal fun downloadDecisionNow(
 
 /** [downloadDecisionNow] as a callback, for screens that ask on a button press. */
 @Composable
-internal fun rememberDownloadDecision(settings: KeyboardSettings): () -> MeteredDecision {
+internal fun rememberDownloadDecision(settings: LiveSettings): () -> MeteredDecision {
     val context = LocalContext.current
-    return remember(settings.dataSaver) { { downloadDecisionNow(context, settings) } }
+    return remember(settings) { { downloadDecisionNow(context, settings.value) } }
 }
 
 /**
@@ -118,9 +118,9 @@ internal fun meteredLinkOf(cellular: Boolean, vpn: Boolean, wifi: Boolean): Mete
 /** The [MeteredLink] of the connection in use right now. */
 internal fun meteredLinkNow(context: Context): MeteredLink {
     val cm = context.getSystemService(ConnectivityManager::class.java)
-    val capabilities = cm?.activeNetwork?.let { network ->
-        runCatching { cm.getNetworkCapabilities(network) }.getOrNull()
-    } ?: return MeteredLink.OTHER
+    val capabilities = runCatching {
+        cm?.activeNetwork?.let { network -> cm.getNetworkCapabilities(network) }
+    }.getOrNull() ?: return MeteredLink.OTHER
     return meteredLinkOf(
         cellular = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR),
         vpn = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN),

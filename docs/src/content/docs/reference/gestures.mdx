@@ -9,11 +9,12 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import Flavor from '@components/Flavor.astro';
+import Shot from '@components/Shot.astro';
 
 Every drag, long-press, and hold on WM Keyboard, flattened onto one page: what it does, where it lives, and the setting that controls it. Each family gets its own short table here. For the reasoning and the numbers behind each one, follow the link into its full page.
 
 <PhoneFrame caption="The Gestures group on the Typing settings screen, home to most of the spacebar and backspace gestures below.">
-  ![The Gestures group on the Typing settings screen, home to most of the spacebar and backspace gestures below.](@assets/screens/reference/gestures-typing-screen.webp)
+  <Shot id="reference/gestures-typing-screen" alt="The Gestures group on the Typing settings screen — home to most of the spacebar and backspace gestures below." />
 </PhoneFrame>
 
 This page covers touch gestures only. For the physical-keyboard leader key, its letter bindings, and panel navigation, see [Hardware shortcuts](/reference/shortcuts/) instead.
@@ -29,9 +30,10 @@ Which action a spacebar swipe runs depends on *when* the drag starts relative to
 | Tap, no movement | Spacebar | Types a space | None |
 | Swipe starting before the press-and-hold delay | Spacebar | Runs the quick-swipe slot's action | Quick swipe on the spacebar (default Language) |
 | Hold past the press-and-hold delay, then swipe | Spacebar | Runs the hold-swipe slot's action | Press and hold, then swipe (default Cursor) |
-| Slot = Language, swipe sideways | Spacebar | Steps through enabled layouts (44&nbsp;dp per step, 110&nbsp;dp to wrap past either end) | Either slot set to Language |
+| Slot = Language, swipe sideways | Spacebar | Steps through enabled layouts (a flick moves one; a continued swipe steps every 44&nbsp;dp after a 200&nbsp;ms pause, 110&nbsp;dp to wrap past either end) | Either slot set to Language |
 | Slot = Cursor, swipe sideways | Spacebar | Moves the text cursor one character per 16&nbsp;dp of drag | Either slot set to Cursor |
 | Same, dragging vertically | Spacebar | Also steps the cursor a line at a time | 2-D cursor touchpad (Off) |
+| Same, while the drag moves the cursor | Spacebar | Shows the text at the cursor, enlarged, in a bubble over the text | Cursor magnifier (On) |
 | Slot = Numpad, cross the initial slop | Spacebar | Opens the numeric keypad (one-shot, so the rest of the drag does nothing) | Either slot set to Numpad |
 | Straight downward drag, steeper than it is wide | Spacebar | Dismisses the keyboard | Swipe down to hide the keyboard (Off) |
 | Press and hold (~250&nbsp;ms, or your press-and-hold delay if shorter), with two or more layouts enabled | Spacebar | Opens the inline language preview or a scrollable picker list | None |
@@ -67,6 +69,7 @@ The full field-by-field list (haptics, sound, popup timing, and every long-press
 | --- | --- | --- | --- |
 | Long-press a letter key | Letter keys | Opens its accent/alternate-character popup | Press and hold hints (On) · All accents on press and hold (Off) |
 | Long-press <KeyCap>?123</KeyCap> | <KeyCap>?123</KeyCap> | Opens the numeric keypad panel (a tap still switches symbol layers as usual) | Press and hold ?123 for the number pad (On) |
+| Long-press <KeyCap>Enter</KeyCap> | <KeyCap>Enter</KeyCap> | Opens a popup with emoji first; releasing on it opens the emoji panel. In a Send/Go/Search field the line break is in the popup too | Press and hold enter for emoji (Off) |
 | Long-press <KeyCap>A</KeyCap>/<KeyCap>C</KeyCap>/<KeyCap>X</KeyCap>/<KeyCap>V</KeyCap>/<KeyCap>Z</KeyCap>/<KeyCap>Y</KeyCap> | Those letter keys, or whichever six you rebind them to | Adds select-all / copy / cut / paste / undo / redo as an extra entry in that letter's accent popup | Press and hold A to select all, and its five siblings (all On) |
 | Double-tap <KeyCap>Shift</KeyCap> within the window | Shift key | Turns on caps lock | Caps lock double press (350 ms) |
 | Hold any key still | Any key | Shows the key preview bubble | Key popup (On) |
@@ -123,7 +126,7 @@ A grab-bag of drags that live on their own feature pages, linked below each row.
 | Drag a row in that list | The reorder list | Moves the favourite, saved on confirm | None |
 | Long-press a Klipy/GIPHY result | [Stickers panel](/emoji/stickers/) | Opens an action sheet: save to each of your packs (or "Save to a new pack" if you have none), Copy, Report | None |
 | Long-press a GIF result | [GIF panel](/emoji/gifs/) | Opens the same sheet with Copy and Report. Saving to a pack is sticker-only | None |
-| Swipe a card left or right | [Clipboard panel](/tools/clipboard/) | Deletes it once the drag passes 40% of the card's width (no confirmation, no undo) | None |
+| Swipe a card left or right | [Clipboard panel](/tools/clipboard/) | Deletes it once the drag passes 40% of the card's width. No confirmation, but an Undo bar offers it back for five seconds | None |
 | Hold and drag a tool | [Toolbar / toolbox](/tools/overview/) | Pins, unpins, or reorders it | None |
 | Swipe down on the toolbar strip | Toolbar | Dismisses the keyboard | Swipe down to hide, toolbar (Off) |
 | Drag the seek bar | [Media controls](/tools/media/) | Scrubs playback to that point | None |
@@ -142,6 +145,7 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | Quick swipe on the spacebar | Typing → Gestures | Language |
 | Press and hold, then swipe | Typing → Gestures | Cursor |
 | 2-D cursor touchpad | Typing → Gestures | Off |
+| Cursor magnifier | Typing → Gestures | On |
 | Swipe down to hide the keyboard | Typing → Gestures | Off |
 | Glide typing | Typing → Gestures | On |
 | Swipe to delete | Typing → Delete keys | On |
@@ -161,6 +165,7 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | All accents on press and hold | Key press → Press and hold shortcuts | Off |
 | Shifted letter on press and hold | Key press → Press and hold shortcuts | Off |
 | Press and hold ?123 for the number pad | Key press → Press and hold shortcuts | **On** |
+| Press and hold enter for emoji | Key press → Press and hold shortcuts | Off |
 | Press and hold A/C/X/V/Z/Y to … | Key press → Press and hold shortcuts | **On** (each) |
 | Choose without lifting | Key press → Alternate keys | **On** |
 | Emoji descriptions | Emoji → Emoji panel | On |

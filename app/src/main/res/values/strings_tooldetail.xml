@@ -13,6 +13,10 @@
     <string name="tooldetail_enabled_needs_key_subtitle">Add the API key below to turn this tool on</string>
     <string name="tooldetail_enabled_needs_instance_subtitle">Needs a SearXNG instance. Add its address under Search settings.</string>
     <string name="tooldetail_enabled_needs_layout_subtitle">Make a secondary layout under Key layouts below to turn this tool on</string>
+    <!-- A switch under the one above. Off takes the tool out of the toolbox grid
+         (the panel that lists every tool) while it stays on everywhere else. -->
+    <string name="tooldetail_show_in_toolbox_title">Show in toolbox</string>
+    <string name="tooldetail_show_in_toolbox_subtitle">Off keeps it out of the toolbox. It still works from the toolbar, by typing its name and from selection actions.</string>
     <string name="tooldetail_icon_colour_title">Icon colour</string>
     <!-- The two ends of the icon gradient, shown instead of the row above
          while "Gradient tool colors" is on. -->
@@ -42,7 +46,7 @@
     <string name="tooldetail_launcher_recents_info">The keyboard keeps the last 10 apps you opened from this tool, on your device only. Turn this off to stop the tracking and delete the list.</string>
     <string name="tooldetail_launcher_drilldown_title">Open screens inside apps</string>
     <string name="tooldetail_launcher_drilldown_subtitle">List an app’s screens on its page</string>
-    <string name="tooldetail_launcher_drilldown_info">Press and hold an app to open its page. With this off the page keeps its pin, hide and App info actions and leaves the screens out.</string>
+    <string name="tooldetail_launcher_drilldown_info">Press and hold an app and pick the last item in the menu to open its page. With this off the page keeps its pin, hide and App info actions and leaves the screens out.</string>
     <string name="tooldetail_launcher_non_exported_title">Show private screens</string>
     <string name="tooldetail_launcher_non_exported_subtitle">Also list screens that only the app itself may open</string>
     <string name="tooldetail_launcher_non_exported_info">Android does not let other apps open these screens. They show dimmed, and a press on one does nothing. Useful to explore what an app contains.</string>
@@ -128,6 +132,30 @@
     <string name="tooldetail_camera_gallery_title">Save to the gallery</string>
     <string name="tooldetail_camera_gallery_subtitle">Also keep photos in Pictures/WM Keyboard</string>
     <string name="tooldetail_camera_gallery_info">This setting is off by default, because photos that you take here are normally one-time sends and not photos to keep. On: the keyboard copies every photo into the gallery and also sends it.</string>
+    <!-- Search by photo (#349): the camera tool's Search button. -->
+    <string name="tooldetail_camera_search_group">Search by photo</string>
+    <string name="tooldetail_camera_search_info">Search finds pages about what is in a photo: a plant, an insect, a landmark, a product. The image search tool has a camera button that always offers Search. The switch below adds Search to the camera tool too.</string>
+    <string name="tooldetail_camera_search_button_title">Search button</string>
+    <string name="tooldetail_camera_search_button_subtitle">Add Search next to Retake and Send</string>
+    <string name="tooldetail_camera_search_with_title">Search with</string>
+    <string name="tooldetail_camera_search_with_info">Google Lens and the share sheet give the photo to another app, and the keyboard sends nothing itself. Web sends the photo to the search site that you pick and opens the results in your browser.</string>
+    <string name="tooldetail_camera_search_with_lens">Google Lens</string>
+    <string name="tooldetail_camera_search_with_lens_desc">Opens Lens in the Google app. If the Google app is not installed, the share sheet opens.</string>
+    <string name="tooldetail_camera_search_with_web">Web</string>
+    <string name="tooldetail_camera_search_with_web_desc">Sends the photo to a search site and opens its results in your browser. No Google app necessary.</string>
+    <string name="tooldetail_camera_search_with_share">Share sheet</string>
+    <string name="tooldetail_camera_search_with_share_desc">Lets you pick an app that searches with a photo, each time.</string>
+    <string name="tooldetail_camera_search_engine_title">Search site</string>
+    <string name="tooldetail_camera_search_engine_info">None of these sites has a public way to send photos. The keyboard does what the site\'s own upload button does, so a site can stop working when it changes. If that happens, pick a different site. Custom sends the photo to your own server.</string>
+    <string name="tooldetail_camera_search_engine_lens" translatable="false">Google Lens</string>
+    <string name="tooldetail_camera_search_engine_bing" translatable="false">Bing</string>
+    <string name="tooldetail_camera_search_engine_yandex" translatable="false">Yandex</string>
+    <string name="tooldetail_camera_search_engine_tineye" translatable="false">TinEye</string>
+    <string name="tooldetail_camera_search_engine_custom">Custom</string>
+    <string name="tooldetail_camera_search_custom_url_label">Upload address</string>
+    <string name="tooldetail_camera_search_custom_url_hint">The keyboard sends the photo here as form data. The server answers with a redirect to the results, or with the results address.</string>
+    <string name="tooldetail_camera_search_custom_field_label">Photo field name</string>
+    <string name="tooldetail_camera_search_custom_field_hint">The form field that holds the photo</string>
     <string name="tooldetail_camera_fullframe_title">Send the whole photo</string>
     <string name="tooldetail_camera_fullframe_subtitle">Keep the full 4:3 picture instead of the part in the viewfinder</string>
     <string name="tooldetail_camera_fullframe_info">The viewfinder is as wide as the keyboard, so the top and the bottom of the picture go off the screen. The keyboard usually cuts those parts away, and you send what you saw. On: you send the full 4:3 photo, which holds more than the viewfinder showed you. The preview does not change.</string>
@@ -142,7 +170,10 @@
     <!-- Dictionary tool. -->
     <string name="tooldetail_dictionary_auto_title">Look up the word at the cursor</string>
     <string name="tooldetail_dictionary_auto_subtitle">The tool searches the selected word or the current word when it opens</string>
-    <string name="tooldetail_dictionary_info">Definitions come from the Free Dictionary API (dictionaryapi.dev). The keyboard sends the word that you look up to that service, only when you use the tool.</string>
+    <string name="tooldetail_dictionary_info">Definitions come from the sources below, in their order. The keyboard sends the word that you look up to an online source only when you use the tool.</string>
+    <string name="tooldetail_dictionary_sources_title">Dictionary sources</string>
+    <string name="tooldetail_dictionary_sources_subtitle">Where the tool looks for definitions, in order</string>
+    <string name="tooldetail_dictionary_sources_info">The tool asks the first source that is on. When that source does not know the word, or cannot be reached, the tool asks the next one. Drag a source to change the order, and turn off a source to never ask it. Online sources receive only the word you look up.</string>
 
     <!-- Text editing tool. -->
     <string name="tooldetail_text_edit_repeat_title">Key repeat interval</string>
@@ -180,6 +211,9 @@
     <string name="tooldetail_trackpad_haptics_subtitle">A short tick for every character or line the cursor moves</string>
     <string name="tooldetail_trackpad_trail_title">Show the trail</string>
     <string name="tooldetail_trackpad_trail_subtitle">Draw your finger\'s path and a crosshair on the trackpad while you drag</string>
+    <string name="tooldetail_trackpad_magnifier_title">Magnifier</string>
+    <string name="tooldetail_trackpad_magnifier_subtitle">Show the text at the cursor, larger, above the cursor while you drag</string>
+    <string name="tooldetail_trackpad_magnifier_info">The magnifier shows the line of text around the cursor. It goes above the cursor when the app tells the keyboard where the cursor is. If the app does not, it goes above the keyboard.</string>
     <string name="tooldetail_trackpad_info">One finger moves the cursor. Hold, then drag to select. Two fingers move a word at a time, and a two-finger tap types a space.</string>
 
     <!-- Numpad tool. -->
@@ -325,6 +359,10 @@
     <string name="tooldetail_translate_engine_title">Translation engine</string>
     <string name="tooldetail_translate_engine_subtitle">Where the translation comes from. You can also change this on the panel.</string>
     <string name="tooldetail_translate_engine_info">Online sends the text to the translation service and knows the most languages. On device uses Google ML Kit models that you download, about 30 MB for each language: the text stays on the phone and it works with no connection. Automatic uses the device when the languages are downloaded and the online service for the rest. On-device translation is good for messages and short text, and less exact than the online service for long or technical text.</string>
+    <string name="tooldetail_translate_downloaded_first_title">Downloaded languages first</string>
+    <string name="tooldetail_translate_downloaded_first_subtitle">The language lists on the panel start with the languages on the device. With On device and Automatic.</string>
+    <string name="tooldetail_translate_only_downloaded_title">Only downloaded languages</string>
+    <string name="tooldetail_translate_only_downloaded_subtitle">With On device, the language lists on the panel show the downloaded languages, the languages you type in and the current selection. All languages, at the end of the list, shows the rest.</string>
     <string name="tooldetail_translate_models_group">Languages on the device</string>
     <string name="tooldetail_translate_models_info">Each language is one download. A translation needs the models of the two languages, and goes through English when neither of them is English. The list starts with the language you translate into and the languages you type in.</string>
     <string name="tooldetail_translate_models_more_group">More languages</string>
@@ -339,12 +377,45 @@
     <string name="tooldetail_translate_key_group">API key</string>
     <string name="tooldetail_translate_key_label">Cloud Translation API key (optional)</string>
     <string name="tooldetail_translate_key_hint">Without a key, translation uses the free public endpoint of Google</string>
-    <string name="tooldetail_translate_info">The keyboard sends the text that you translate to Google either way, and only while the translate panel is open. The free endpoint is unofficial and rate limited. A Cloud Translation key makes it official and reliable.</string>
+    <string name="tooldetail_translate_info">The keyboard sends the text that you translate to Google either way, and only while the translate panel is open. The free endpoint is unofficial and rate limited. A Cloud Translation key makes it official and reliable. If you set up DeepL below, DeepL gets the text instead, and Google gets only the languages that DeepL does not have.</string>
+
+    <!-- DeepL (issue #331): the user's own key, for Translate and for DeepL Write. DeepL, DeepL Write, API Free and API Pro are names. -->
+    <string name="tooldetail_deepl_group">DeepL</string>
+    <string name="tooldetail_deepl_info">DeepL is optional. Nothing changes until you add a DeepL API key or a server address. Get a key in your DeepL account. The Free plan includes 500,000 characters each month. The keyboard sends text to DeepL only when you translate or when you tap DeepL Write.</string>
+    <string name="tooldetail_deepl_key_label">DeepL API key</string>
+    <string name="tooldetail_deepl_key_hint">Free keys end in :fx. The keyboard picks the correct DeepL server for your key.</string>
+    <string name="tooldetail_deepl_endpoint_label">DeepL server (optional)</string>
+    <string name="tooldetail_deepl_endpoint_hint">For a proxy that you run. Keep empty to use the DeepL servers.</string>
+    <string name="tooldetail_deepl_translate_title">Translate with DeepL</string>
+    <string name="tooldetail_deepl_translate_subtitle">The online engine uses DeepL. Languages that DeepL does not have use the usual service.</string>
+    <string name="tooldetail_deepl_write_title">DeepL Write</string>
+    <string name="tooldetail_deepl_write_subtitle">Adds a DeepL Write button to the grammar panel and a DeepL Write action to the selection actions</string>
+    <string name="tooldetail_deepl_write_info">DeepL Write corrects and rewrites text in the same language. It works with a DeepL API Pro key only. A Free key gets an error.</string>
+    <string name="tooldetail_deepl_style_title">Writing style</string>
+    <string name="tooldetail_deepl_style_subtitle">How DeepL Write rewrites your text. Languages without styles ignore it.</string>
 
     <!-- GIF and sticker tools. -->
     <string name="tooldetail_sticker_packs_group">Your stickers</string>
     <string name="tooldetail_sticker_packs_title">Sticker packs</string>
     <string name="tooldetail_sticker_packs_subtitle">Make, edit, import and export your own packs</string>
+    <string name="tooldetail_sticker_suggest_group">Suggest while typing</string>
+    <string name="tooldetail_sticker_suggest_title">Offer your stickers as you type</string>
+    <string name="tooldetail_sticker_suggest_subtitle">In a chat, type the title of a sticker, one of its keywords or one of its emoji to see it</string>
+    <string name="tooldetail_sticker_suggest_info">Only your own stickers, from your sticker packs. A sticker shows when the text before the cursor ends with its full title, with one of its keywords, or with one of its emoji. Set the title and the keywords when you edit a sticker in its pack. The keyboard does this only in fields that can receive images, so it never offers a sticker that the app cannot take. It also works in the emoji panel: pick an emoji that one of your stickers has and the sticker shows above the panel. Nothing leaves the phone to find them.</string>
+    <string name="tooldetail_sticker_suggest_style_title">Where they show</string>
+    <string name="tooldetail_sticker_suggest_style_tray">Tray</string>
+    <string name="tooldetail_sticker_suggest_style_strip">On the strip</string>
+    <string name="tooldetail_sticker_suggest_style_chip">One chip</string>
+    <!-- One line under each option in the "Where they show" picker. -->
+    <string name="tooldetail_sticker_suggest_style_tray_desc">A row of large stickers at the top of the keyboard. The word suggestions stay where they are. Move the row in Rows and bars</string>
+    <string name="tooldetail_sticker_suggest_style_strip_desc">Three small stickers on the suggestion strip, next to the words. A button shows the rest</string>
+    <string name="tooldetail_sticker_suggest_style_chip_desc">A small chip on the strip that says how many stickers there are. Tap it to see them</string>
+    <string name="tooldetail_sticker_suggest_trigger_title">After you send one</string>
+    <string name="tooldetail_sticker_suggest_trigger_delete">Remove the typed text</string>
+    <string name="tooldetail_sticker_suggest_trigger_keep">Keep the typed text</string>
+    <!-- One line under each option in the "After you send one" picker. -->
+    <string name="tooldetail_sticker_suggest_trigger_delete_desc">The sticker replaces the title, keyword or emoji that you typed</string>
+    <string name="tooldetail_sticker_suggest_trigger_keep_desc">The sticker is sent and your text stays in the field</string>
     <string name="tooldetail_media_layout_group">Layout</string>
     <string name="tooldetail_media_full_bleed_title">Full-screen picker</string>
     <string name="tooldetail_media_full_bleed_subtitle">Hide the toolbar and move the search up next to a back button</string>
@@ -409,7 +480,15 @@
     <!-- Text scan (OCR) tool. -->
     <string name="tooldetail_ocr_select_all_title">Start with everything selected</string>
     <string name="tooldetail_ocr_select_all_subtitle">Deselect words to cut the capture down. Off starts empty, and you select the words one by one</string>
-    <string name="tooldetail_ocr_info">Recognition runs on your device with ML Kit. No photo and no text leaves your device, and it works offline. It reads Latin script text, for example English. The text recognizer of ML Kit does not support Bengali yet. After a capture, press words to select exactly what the keyboard types or copies.</string>
+    <string name="tooldetail_ocr_info">Recognition runs on your device. No photo and no text leaves your device, and it works offline. After a capture, press words to select exactly what the keyboard types or copies.</string>
+    <string name="tooldetail_ocr_engine_title">Text recognition</string>
+    <string name="tooldetail_ocr_engine_info">ML Kit reads only Latin script text, for example English or French. Tesseract reads more than 100 languages in most scripts, for example Bangla, Arabic, Russian and Chinese, but each language needs a one-time download. Automatic reads Latin script with ML Kit and every other script with Tesseract.</string>
+    <string name="tooldetail_ocr_engine_auto">Automatic</string>
+    <string name="tooldetail_ocr_engine_mlkit" translatable="false">ML Kit</string>
+    <string name="tooldetail_ocr_engine_tesseract" translatable="false">Tesseract</string>
+    <string name="tooldetail_ocr_packs_header">Tesseract languages</string>
+    <string name="tooldetail_ocr_packs_info">Tesseract reads a language only after the data for that language is on your device. There is one download for each language that you type in, from 0.4 MB to 12 MB. The data comes from the tessdata_fast set of the Tesseract project on GitHub. You can also download a language from the scanner itself.</string>
+    <string name="tooldetail_ocr_packs_none_info">None of the languages you turned on has Tesseract data. Add a language on the Languages screen. Its data then shows here.</string>
 
     <!-- QR and barcode scanner tool. -->
     <string name="tooldetail_qr_scan_auto_title">Insert automatically</string>
@@ -608,11 +687,24 @@
     <string name="tooldetail_launcher_icon_shape_system_label">As on the phone</string>
     <string name="tooldetail_launcher_icon_shape_info">As on the phone shows each icon with the shape your home screen gives it. Old apps without an adaptive icon keep their own outline.</string>
     <string name="tooldetail_launcher_hidden_title">Hidden apps</string>
-    <string name="tooldetail_launcher_hidden_none_subtitle">No apps are hidden. Press and hold an app in the panel, then tap the eye on its page.</string>
+    <string name="tooldetail_launcher_hidden_none_subtitle">No apps are hidden. Press and hold an app in the panel, open its page from the menu, then tap the eye.</string>
     <plurals name="tooldetail_launcher_hidden_count">
         <item quantity="one">%1$d app hidden. Tap to show it again.</item>
         <item quantity="other">%1$d apps hidden. Tap to show all of them again.</item>
     </plurals>
+    <string name="tooldetail_launcher_open_mode_title">Open apps</string>
+    <string name="tooldetail_launcher_open_mode_subtitle">What a tap on an app does</string>
+    <string name="tooldetail_launcher_open_mode_normal_label">Normally</string>
+    <string name="tooldetail_launcher_open_mode_floating_label">Floating</string>
+    <string name="tooldetail_launcher_open_mode_split_label">Split screen</string>
+    <string name="tooldetail_launcher_open_mode_info">A press and hold on an app offers all three whatever you pick here. Split screen puts the app beside the one you are typing in and needs Android 12L or later. A floating window needs a device with a desktop or freeform window mode, such as many tablets; elsewhere the app opens full screen.</string>
+    <string name="tooldetail_launcher_open_mode_info_no_split">A press and hold on an app offers both whatever you pick here. A floating window needs a device with a desktop or freeform window mode, such as many tablets; elsewhere the app opens full screen. Split screen needs Android 12L or later.</string>
+    <string name="tooldetail_launcher_combos_title">Split screen pairs</string>
+    <plurals name="tooldetail_launcher_combos_count">
+        <item quantity="one">%1$d pair</item>
+        <item quantity="other">%1$d pairs</item>
+    </plurals>
+    <string name="tooldetail_launcher_combos_none_subtitle">Two apps that open side by side with one tap</string>
 
     <string name="tooldetail_camera_timer_title">Self-timer</string>
     <string name="tooldetail_camera_timer_subtitle">The timer the camera opens on</string>

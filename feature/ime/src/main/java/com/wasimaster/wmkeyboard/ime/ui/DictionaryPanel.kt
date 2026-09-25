@@ -43,10 +43,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.tools.DictEntry
 import com.wasimaster.wmkeyboard.core.tools.DictMeaning
+import com.wasimaster.wmkeyboard.core.tools.DictionarySource
 import com.wasimaster.wmkeyboard.ime.DictionaryUi
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
+import com.wasimaster.wmkeyboard.ime.aichat.AskAiContext
 
 /**
  * English dictionary lookup in the tool viewbox. Opening the tool
@@ -111,6 +113,18 @@ internal fun RowScope.DictionaryHeaderSearchBar(
             }
         }
     }
+    // Ask AI about everything the lookup found (#352), or copy it (#348); a
+    // long press on a definition does either for just that.
+    val ready = state.dictionary as? DictionaryUi.Ready
+    if (ready != null && !state.dictionarySearchActive && ready.entries.isNotEmpty()) {
+        val word = ready.entries.first().word
+        AskAiChip(
+            stringResource(R.string.ime_ask_ai_label_dict, word),
+            modifier = Modifier.padding(end = 4.dp),
+        ) { AskAiContext.dictionary(ready.entries) }
+        // The same text, to the clipboard (#348).
+        CopyTextChip(Modifier.padding(end = 6.dp)) { AskAiContext.dictionary(ready.entries) }
+    }
 }
 
 @Composable
@@ -135,7 +149,8 @@ internal fun DictionaryPanel(
             is DictionaryUi.NotFound -> DictionaryMessage(
                 stringResource(R.string.ime_dict_not_found_empty, dict.word),
             )
-            is DictionaryUi.Ready -> DictionaryEntries(state, dict.entries, onLookup, onInsert, onAddToVocab)
+            DictionaryUi.NoSources -> DictionaryMessage(stringResource(R.string.ime_dict_no_sources))
+            is DictionaryUi.Ready -> DictionaryEntries(state, dict.entries, dict.source, onLookup, onInsert, onAddToVocab)
         }
     }
 }
@@ -157,6 +172,7 @@ private fun DictionaryMessage(text: String) {
 private fun DictionaryEntries(
     state: KeyboardUiState,
     entries: List<DictEntry>,
+    source: DictionarySource,
     onLookup: (String) -> Unit,
     onInsert: (String) -> Unit,
     onAddToVocab: (String) -> Unit,
@@ -252,9 +268,19 @@ private fun DictionaryEntries(
             }
             entry.meanings.forEachIndexed { meaningIndex, meaning ->
                 item(key = "meaning$entryIndex-$meaningIndex") {
-                    DictionaryMeaning(meaning, serif, onLookup)
+                    DictionaryMeaning(meaning, serif, onLookup, entry.word)
                 }
             }
+        }
+        // Which source answered: the user's order decides, and Wiktionary's
+        // licence asks for the credit.
+        item(key = "source") {
+            Text(
+                stringResource(R.string.ime_dict_from, stringResource(source.labelRes)),
+                color = kb.toolbarIcon,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(top = 12.dp),
+            )
         }
     }
 }
@@ -264,8 +290,11 @@ private fun DictionaryMeaning(
     meaning: DictMeaning,
     serif: FontFamily,
     onLookup: (String) -> Unit,
+    word: String,
 ) {
     val kb = LocalKbTheme.current
+    val askLabel = stringResource(R.string.ime_ask_ai_label_dict, word)
+    val ask = remember(word, askLabel) { AskAiSource(AskAiContext.dictionarySource(word), askLabel) }
     Column(modifier = Modifier.padding(top = 6.dp)) {
         if (meaning.partOfSpeech.isNotEmpty()) {
             Text(
@@ -286,14 +315,16 @@ private fun DictionaryMeaning(
                     modifier = Modifier.width(20.dp),
                 )
                 Column {
-                    Text(
+                    // A long press selects: Ask AI, Copy or Insert (#352).
+                    SelectableText(
                         definition.text,
                         color = kb.modifierKeyText,
                         fontSize = 13.sp,
                         lineHeight = 17.sp,
+                        ask = ask,
                     )
                     if (definition.example != null) {
-                        Text(
+                        SelectableText(
                             "“${definition.example}”",
                             color = kb.toolbarIcon,
                             fontSize = 12.sp,
@@ -301,6 +332,7 @@ private fun DictionaryMeaning(
                             fontStyle = FontStyle.Italic,
                             fontFamily = serif,
                             modifier = Modifier.padding(top = 1.dp),
+                            ask = ask,
                         )
                     }
                 }

@@ -63,6 +63,7 @@ import androidx.compose.material.icons.outlined.Save
 import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Mic
@@ -103,6 +104,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -114,7 +116,6 @@ import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import kotlinx.coroutines.Dispatchers
@@ -236,6 +237,19 @@ internal object SettingsHighlight {
     fun clearIfUnchanged(serialAtEntry: Int) {
         if (serial == serialAtEntry) clear()
     }
+
+    /**
+     * Keeps a highlight standing instead of pulsing it once, untinted, and
+     * names it [HIGHLIGHT_TAG] for a test to find.
+     *
+     * Only the docs screenshot run sets this (app/src/docShots): it marks the
+     * setting a page is about, and a pulse that has already faded by the time
+     * the frame is captured marks nothing. Never set in the app.
+     */
+    var hold: Boolean = false
+
+    /** The test tag a held highlight carries; see [hold]. */
+    const val HIGHLIGHT_TAG = "settingHighlight"
 }
 
 /**
@@ -404,7 +418,7 @@ private fun HighlightFrame(
     var flashing by remember { mutableStateOf(false) }
     val requester = remember { BringIntoViewRequester() }
     val color by animateColorAsState(
-        targetValue = if (flashing) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+        targetValue = if (flashing && !SettingsHighlight.hold) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
         else Color.Transparent,
         animationSpec = tween(durationMillis = 320),
         label = "settingHighlight",
@@ -423,6 +437,7 @@ private fun HighlightFrame(
         if (rank != HighlightRank.ITEM && SettingsHighlight.scrollTaken()) return@LaunchedEffect
         if (SettingsHighlight.claimScroll()) requester.bringIntoView()
         flashing = true
+        if (SettingsHighlight.hold) return@LaunchedEffect
         delay(1400)
         flashing = false
         // Consumed: a later visit to the same screen must not flash again.
@@ -432,6 +447,7 @@ private fun HighlightFrame(
         modifier = Modifier
             .fillMaxWidth()
             .bringIntoViewRequester(requester)
+            .then(if (flashing && SettingsHighlight.hold) Modifier.testTag(SettingsHighlight.HIGHLIGHT_TAG) else Modifier)
             .background(color),
     ) {
         content()
@@ -510,6 +526,7 @@ internal object SettingsRouteIcons {
         "permissions" to { Icons.Outlined.Key },
         "network_activity" to { Icons.Outlined.NetworkCheck },
         "applock" to { Icons.Outlined.Fingerprint },
+        "automation" to { Icons.Outlined.Checklist },
         "datasaver" to { Icons.Outlined.DataSaverOn },
         "servers" to { Icons.Outlined.Dns },
         "notifications" to { Icons.Outlined.Notifications },
@@ -520,6 +537,7 @@ internal object SettingsRouteIcons {
         "advanced" to { Icons.Outlined.Tune },
         "backup" to { Icons.Outlined.Save },
         "backup/auto" to { Icons.Outlined.Schedule },
+        "backup/sync" to { Icons.Outlined.Sync },
         "backup/contents" to { Icons.Outlined.Checklist },
         "about" to { Icons.Outlined.Info },
         "storage" to { Icons.Outlined.PieChart },
@@ -557,7 +575,7 @@ private const val RECENT_PICKS_SHOWN = 6
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsSearchScreen(
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     onBack: () -> Unit,
     onOpen: (SettingsSearchEntry) -> Unit,
 ) {
@@ -592,7 +610,7 @@ internal fun SettingsSearchScreen(
     }
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
-    val reduceMotion = settings.reduceMotion
+    val reduceMotion = settings.watch { it.reduceMotion }
     // Only on a fresh search: coming back to results with a query typed, the
     // user wants to read them, not to have the keyboard cover them again. The
     // asking itself is the field's own job — see [focusOncePlaced] — because
@@ -730,7 +748,7 @@ private enum class SearchStage { PICKS, LOADING, EMPTY, RESULTS }
 @Composable
 private fun ResultList(
     results: SearchResults,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     tokens: List<String>,
     reduceMotion: Boolean,
     onOpen: (SettingsSearchEntry) -> Unit,
@@ -816,7 +834,7 @@ private const val SEARCH_SKELETON_ROWS = 6
 @Composable
 private fun RecentPicks(
     recent: List<SettingsSearchEntry>,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     reduceMotion: Boolean,
     onOpen: (SettingsSearchEntry) -> Unit,
     onClear: () -> Unit,
@@ -865,7 +883,7 @@ private fun ResultsHeading(text: String, modifier: Modifier = Modifier) {
 @Composable
 private fun ResultRow(
     entry: SettingsSearchEntry,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     tokens: List<String>,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
@@ -884,12 +902,16 @@ private fun ResultRow(
         WmRow(
             title = entry.title,
             titleContent = { Text(title) },
-            leading = {
-                ResultIcon(
-                    entry,
-                    settings,
-                    modifier = Modifier.wmSharedElement(takeOffKey("icon", entry.route)),
-                )
+            // Gone with the rows' own tiles when "Icons in settings" is off:
+            // the result would otherwise be the one tile left in the app.
+            leading = if (!LocalIconReveal.current.present) null else {
+                {
+                    ResultIcon(
+                        entry,
+                        settings,
+                        modifier = Modifier.wmSharedElement(takeOffKey("icon", entry.route)),
+                    )
+                }
             },
             supporting = {
                 Column {
@@ -953,14 +975,14 @@ private const val HIGHLIGHT_MIN_LENGTH = 3
 @Composable
 private fun ResultIcon(
     entry: SettingsSearchEntry,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     modifier: Modifier = Modifier,
 ) {
     val tool = entry.tool
     if (tool != null) {
         // The tile's own wash keeps the raw accent; only the glyph inside is
         // darkened, which is what WmIconTile does for a flat accent too.
-        val paint = toolAccentPaint(tool, settings)
+        val paint = settings.watch { toolAccentPaint(tool, it) }
         val glyph = tileToolPaint(paint)
         WmIconTile(
             accent = paint?.color ?: MaterialTheme.colorScheme.primary,

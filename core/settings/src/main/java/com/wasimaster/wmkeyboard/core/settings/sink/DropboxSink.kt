@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.settings.sink
 
 import com.wasimaster.wmkeyboard.core.net.BackupTraffic
+import com.wasimaster.wmkeyboard.core.net.InternetGate
 import com.wasimaster.wmkeyboard.core.net.NetLogInterceptor
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
 import com.wasimaster.wmkeyboard.core.util.runCancellable
@@ -48,6 +49,7 @@ class DropboxSink(
 
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .addInterceptor(InternetGate)
             .addNetworkInterceptor(NetLogInterceptor(NetSource.BACKUP, NetLogInterceptor.PATH) { BackupTraffic.unattended })
             .connectTimeout(CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_S, TimeUnit.SECONDS)
@@ -57,6 +59,7 @@ class DropboxSink(
 
     private fun bearer(): String = tokens.accessToken(refreshToken)
         ?: throw BackupSinkException(SinkError.PERMISSION_LOST)
+            .also { BackupLog.w("dropbox: refresh refused (token empty=${refreshToken.isEmpty()})") }
 
     private fun rpc(endpoint: String, body: JsonObject): Request = Request.Builder()
         .url("$API/$endpoint")
@@ -90,6 +93,7 @@ class DropboxSink(
     ): Result<SinkEntry> = withContext(Dispatchers.IO) {
         runCancellable {
             val bytes = ByteArrayOutputStream().also(body).toByteArray()
+            BackupLog.d("dropbox write $name ${bytes.size} B")
             val arg = json.encodeToString(
                 JsonObject.serializer(),
                 buildJsonObject {
@@ -131,7 +135,7 @@ class DropboxSink(
 
                 root["entries"]?.jsonArray?.forEach { element ->
                     entryOf(element.jsonObject)
-                        ?.takeIf { AutoBackupNaming.isOurs(it.name) }
+                        ?.takeIf { AutoBackupNaming.isListed(it.name) }
                         ?.let(out::add)
                 }
                 cursor = if (root["has_more"]?.jsonPrimitive?.contentOrNull == "true") {
@@ -193,28 +197,46 @@ class DropboxSink(
     }
 
     private fun <T> call(request: Request, read: (Response) -> T): T {
+        val what = request.url.encodedPath
         val response = try {
             client.newCall(request).execute()
         } catch (failure: Throwable) {
+            BackupLog.w("dropbox $what failed to connect", failure)
             throw BackupSinkException(SinkError.IO, failure)
         }
         response.use {
+            BackupLog.d("dropbox $what -> ${it.code}")
             if (it.isSuccessful) return read(it)
-            throw BackupSinkException(statusError(it.code))
+            val summary = if (it.code == HTTP_CONFLICT) errorSummary(it) else null
+            val error = statusError(it.code, summary)
+            BackupLog.w("dropbox $what -> ${it.code} summary=$summary => $error")
+            throw BackupSinkException(error)
         }
     }
 
-    private fun statusError(code: Int): SinkError = when (code) {
-        HTTP_UNAUTHORIZED, HTTP_FORBIDDEN -> SinkError.PERMISSION_LOST
-        // Dropbox answers 409 for "no such path" and for "out of space", with
-        // the difference only in the body. The commoner of the two wins.
-        HTTP_CONFLICT, HTTP_NOT_FOUND -> SinkError.TARGET_MISSING
-        HTTP_QUOTA -> SinkError.OUT_OF_SPACE
-        else -> SinkError.IO
-    }
+    private fun errorSummary(response: Response): String? = runCatching {
+        json.parseToJsonElement(response.body?.string().orEmpty())
+            .jsonObject["error_summary"]?.jsonPrimitive?.contentOrNull
+    }.getOrNull()
 
     companion object {
         const val ID = "dropbox"
+
+        /**
+         * Dropbox answers 409 for every endpoint-specific error and names which
+         * in `error_summary`, for example `path/insufficient_space/..`. A full
+         * account and a missing path are different sentences to the user, and
+         * `too_many_write_operations` is neither: it is contention, and passes.
+         */
+        fun statusError(code: Int, summary: String? = null): SinkError = when {
+            code == HTTP_UNAUTHORIZED || code == HTTP_FORBIDDEN -> SinkError.PERMISSION_LOST
+            code == HTTP_CONFLICT && summary?.contains("insufficient_space") == true -> SinkError.OUT_OF_SPACE
+            code == HTTP_CONFLICT && summary?.contains("not_found") == true -> SinkError.TARGET_MISSING
+            code == HTTP_CONFLICT && summary == null -> SinkError.TARGET_MISSING
+            code == HTTP_NOT_FOUND -> SinkError.TARGET_MISSING
+            code == HTTP_QUOTA -> SinkError.OUT_OF_SPACE
+            else -> SinkError.IO
+        }
 
         const val TOKEN_URL = "https://api.dropbox.com/oauth2/token"
         const val AUTHORIZE_URL = "https://www.dropbox.com/oauth2/authorize"

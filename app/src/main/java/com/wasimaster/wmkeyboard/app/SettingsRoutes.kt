@@ -53,6 +53,10 @@ internal object SettingsRoutes {
         // or a row they pressed, where the link importer's confirm or the
         // pack list stands in front of it.
         "signal_pack/{packId}/{packKey}" to "opens on a pack the user picked or pasted; see AddonDeepLink",
+        // Asks GitHub for the Rboard list as it opens. A request to a third
+        // party belongs behind a button the user pressed on the Themes screen,
+        // not behind a link another app can fire.
+        "rboard_themes" to "fetches the Rboard list as it opens; reached from the Themes screen's Gboard button",
     )
 
     /**
@@ -82,6 +86,7 @@ internal object SettingsRoutes {
         "dictionary",
         "backup",
         "backup/auto",
+        "backup/sync",
         "backup/contents",
         "customdictionaries",
         "emojicategories",
@@ -147,6 +152,7 @@ internal object SettingsRoutes {
         "accessibility",
         "privacy",
         "permissions",
+        "automation",
         "network_activity",
         "applock",
         "datasaver",
@@ -202,7 +208,17 @@ internal object SettingsRoutes {
      * may shout `THEMES` and still land on `themes` — and the link's own text
      * for every argument, whose case and encoding are the caller's to decide.
      */
-    fun resolve(path: String?): String? {
+    fun resolve(path: String?): String? = match(path)?.second
+
+    /**
+     * The pattern in [all] that [route] fills in, such as `mode_edit/{modeId}`
+     * for `mode_edit/mode_browser`, or null when it names no screen. A plain
+     * screen is its own pattern.
+     */
+    fun patternOf(route: String?): String? = match(route)?.first
+
+    /** The matching pattern and the route it resolves to, or null. */
+    private fun match(path: String?): Pair<String, String>? {
         val segments = path.orEmpty().trim('/').split('/')
         if (segments.isEmpty() || segments.any { it.isEmpty() }) return null
         // "." and ".." mean something to a URI resolver and nothing to the nav
@@ -223,7 +239,7 @@ internal object SettingsRoutes {
                     break
                 }
             }
-            if (matched) return filled.joinToString("/")
+            if (matched) return pattern.joinToString("/") to filled.joinToString("/")
         }
         return null
     }

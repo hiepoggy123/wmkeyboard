@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.clipboard
 
+import com.wasimaster.wmkeyboard.core.util.SnapshotFile
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
@@ -178,14 +179,31 @@ class ClipboardStore(
      * code is useful for a minute and a liability for a day.
      */
     var sensitiveExpiryMillis: Long = DEFAULT_SENSITIVE_EXPIRY_MILLIS,
+    /**
+     * The most characters of text one clip keeps (0 = no limit). A longer copy
+     * is stored cut to this length, and its rich-text markup, which no longer
+     * matches the cut text, is dropped. What is on the system clipboard itself
+     * is never touched.
+     */
+    var maxTextChars: Int = 0,
 ) {
 
     @Serializable
     private data class Snapshot(val items: List<ClipItem> = emptyList())
 
     private val items = ArrayList<ClipItem>()
+    /**
+     * Clips taken out by [detach] whose Undo is still on offer. They are gone
+     * from [items], so nothing lists, caps or expires them, but an image clip
+     * keeps its file until [discard]: deleting it at once would leave Undo
+     * nothing to put back.
+     */
+    private val detached = ArrayList<ClipItem>()
     private val json = Json { ignoreUnknownKeys = true }
     private var nextId = 1L
+
+    /** Where [save] writes, so the encode and the write can run off the caller's thread. */
+    private val snapshotFile = storageFile?.let(::SnapshotFile)
 
     companion object {
         const val DEFAULT_EXPIRY_MILLIS = 24L * 60 * 60 * 1000 // 1 day
@@ -207,6 +225,9 @@ class ClipboardStore(
      */
     @Synchronized
     fun reload() {
+        // A save drawn before this describes the list being thrown away; it
+        // must not land over whatever the settings app left in the file.
+        snapshotFile?.supersede()
         items.clear()
         nextId = 1L
         restore()
@@ -225,12 +246,16 @@ class ClipboardStore(
                         }
                     }
                 )
-                nextId = (items.maxOfOrNull { it.id } ?: 0L) + 1
             }
         }
+        // A clip waiting on its Undo still owns its id, or a new clip could
+        // take it and Undo would put back two clips with one id.
+        nextId = ((items + detached).maxOfOrNull { it.id } ?: 0L) + 1
         // Image files whose item is gone (crash between file copy and save).
+        // A detached clip's file is not an orphan yet: Undo may still want it.
+        // One left behind by a process death is swept on the next start.
         imagesDir?.listFiles()?.let { files ->
-            val referenced = items.mapNotNull { it.imagePath }.toSet()
+            val referenced = (items + detached).mapNotNull { it.imagePath }.toSet()
             files.filter { it.absolutePath !in referenced }.forEach { it.delete() }
         }
     }
@@ -337,8 +362,12 @@ class ClipboardStore(
         now: Long,
         sensitive: Boolean = false,
     ): ClipItem? {
-        val trimmed = text.trim()
-        if (trimmed.isEmpty()) return null
+        val whole = text.trim()
+        if (whole.isEmpty()) return null
+        // A cut can land after a space; the clip should not end in one.
+        val trimmed = capClipText(whole, maxTextChars).trimEnd()
+        // Markup for the whole text would paste back what the cut dropped.
+        val html = html.takeIf { trimmed.length == whole.length }
         val isLink = html == null && ClipLinks.asUrl(trimmed) != null
         // Re-copying an existing item moves it to the top instead of duplicating.
         val existing = items.firstOrNull { it.kind.isTextual && it.text == trimmed }
@@ -466,7 +495,7 @@ class ClipboardStore(
         if (index < 0) return null
         val item = items[index]
         if (!item.kind.isTextual) return null
-        val trimmed = text.trim()
+        val trimmed = capClipText(text.trim(), maxTextChars).trimEnd()
         if (trimmed.isEmpty()) return null
         // Saved without a change: nothing to lose, so rich text keeps its markup.
         if (trimmed == item.text) return item
@@ -490,6 +519,58 @@ class ClipboardStore(
         removeWhere { it.id == id }
     }
 
+    /**
+     * Takes a clip out of the history the way [remove] does, but keeps an
+     * image clip's file, so [reattach] can put the clip back whole. Every
+     * detached clip ends in exactly one of [reattach] or [discard].
+     *
+     * Returns the clip as it was, or null when there is no such clip.
+     */
+    @Synchronized
+    fun detach(id: Long): ClipItem? {
+        val item = items.firstOrNull { it.id == id } ?: return null
+        items.remove(item)
+        detached.add(item)
+        return item
+    }
+
+    /**
+     * Undoes a [detach]: the clip goes back with its id, pin and timestamp,
+     * so it lands in the slot it left rather than at the top.
+     *
+     * Not when the same text or file was copied again in the meantime: that
+     * copy already stands where the clip would, and copying the same thing
+     * twice never makes two entries. Expiry and the entry cap still apply, so
+     * a clip that ran out while it was away does not come back.
+     *
+     * Returns the clip as stored, or null when it was not put back.
+     */
+    @Synchronized
+    fun reattach(item: ClipItem, now: Long = System.currentTimeMillis()): ClipItem? {
+        val held = detached.firstOrNull { it.id == item.id } ?: return null
+        detached.remove(held)
+        val copiedAgain = items.any {
+            (held.kind.isTextual && it.kind.isTextual && it.text == held.text) ||
+                (held.uriString != null && it.uriString == held.uriString)
+        }
+        if (copiedAgain || (held.kind == ClipKind.IMAGE && held.imagePath?.let { File(it).exists() } != true)) {
+            held.imagePath?.let { File(it).delete() }
+            return null
+        }
+        val restored = if (items.any { it.id == held.id }) held.copy(id = nextId++) else held
+        items.add(restored)
+        prune(now)
+        return restored.takeIf { items.contains(it) }
+    }
+
+    /** Ends a [detach] for good: an image clip's file is deleted now. */
+    @Synchronized
+    fun discard(item: ClipItem) {
+        val held = detached.firstOrNull { it.id == item.id } ?: return
+        detached.remove(held)
+        held.imagePath?.let { File(it).delete() }
+    }
+
     @Synchronized
     fun clearUnpinned() {
         removeWhere { !it.pinned }
@@ -498,24 +579,25 @@ class ClipboardStore(
     @Synchronized
     fun search(query: String): List<ClipItem> = items().filter { it.matchesQuery(query) }
 
-    @Synchronized
+    /**
+     * Writes the history. The list is copied under the store's lock; the
+     * encoding — the whole history, every time, text and markup included —
+     * and the write happen outside it, so the caller can run this on any
+     * thread and the store stays usable meanwhile. Saves on different
+     * threads land in the order their copies were taken ([SnapshotFile]).
+     */
     fun save() {
-        val file = storageFile ?: return
-        runCatching {
-            file.parentFile?.mkdirs()
-            file.writeText(json.encodeToString(Snapshot(items.toList())))
-        }
+        val file = snapshotFile ?: return
+        val (ticket, snapshot) = synchronized(this) { file.ticket() to Snapshot(items.toList()) }
+        file.write(ticket) { json.encodeToString(snapshot) }
     }
 
     private fun prune(now: Long) {
-        if (expiryMillis > 0) {
-            removeWhere { !it.pinned && now - it.timestamp > expiryMillis }
-        }
         // Sensitive clips are swept on their own shorter timer, which is not
         // capped by the history one: a five-minute leash has to hold even when
-        // history is set to keep everything forever.
-        if (sensitiveExpiryMillis > 0) {
-            removeWhere { it.sensitive && !it.pinned && now - it.timestamp > sensitiveExpiryMillis }
+        // history is set to keep everything forever. [expiresAt] has both.
+        removeWhere { item ->
+            item.expiresAt(expiryMillis, sensitiveExpiryMillis)?.let { now > it } == true
         }
         val cap = maxItems.coerceAtLeast(1)
         while (items.count { !it.pinned } > cap) {
@@ -529,4 +611,58 @@ class ClipboardStore(
         items.removeAll(predicate)
         removed.forEach { item -> item.imagePath?.let { File(it).delete() } }
     }
+}
+
+/**
+ * When [this] clip expires, in epoch millis, or null when it never does: a
+ * pinned clip, or history set to keep everything with no shorter leash for a
+ * sensitive one. [expiryMillis] and [sensitiveExpiryMillis] are the store's
+ * own; 0 turns either off. The one rule the store prunes by and the panel's
+ * "expires in" label reads, so the two cannot disagree.
+ */
+fun ClipItem.expiresAt(expiryMillis: Long, sensitiveExpiryMillis: Long): Long? {
+    if (pinned) return null
+    val history = if (expiryMillis > 0) timestamp + expiryMillis else null
+    val leash = if (sensitive && sensitiveExpiryMillis > 0) timestamp + sensitiveExpiryMillis else null
+    return listOfNotNull(history, leash).minOrNull()
+}
+
+/**
+ * [text] cut to [max] characters, one fewer rather than splitting a surrogate
+ * pair; unchanged when it fits or [max] is 0 or less (no limit).
+ */
+fun capClipText(text: String, max: Int): String {
+    if (max <= 0 || text.length <= max) return text
+    var end = max
+    if (Character.isHighSurrogate(text[end - 1])) end--
+    return text.substring(0, end)
+}
+
+/**
+ * The most characters of a clip the panel hands to text layout. Laying out a
+ * paragraph measures all of it, however few lines are drawn, so a clip of a
+ * whole book would otherwise cost a book's worth of shaping on every panel
+ * open. Far more than any preview line count can show.
+ */
+const val CLIP_PREVIEW_CHAR_CAP = 4_000
+
+/**
+ * The part of [text] a preview of [lines] lines can show: up to the line break
+ * after the one past the last shown line, and never past [cap]. One extra line
+ * is kept so the text still overflows, and the preview still ends in an
+ * ellipsis when there is more.
+ */
+fun clipPreviewText(text: String, lines: Int, cap: Int = CLIP_PREVIEW_CHAR_CAP): String {
+    val shown = lines.coerceAtLeast(1)
+    val limit = minOf(text.length, cap)
+    var breaks = 0
+    var end = limit
+    for (i in 0 until limit) {
+        if (text[i] == '\n' && ++breaks > shown) {
+            end = i
+            break
+        }
+    }
+    if (end >= text.length) return text
+    return capClipText(text, end.coerceAtLeast(1))
 }

@@ -11,7 +11,7 @@ import khmer from '../../../../../app/src/main/assets/layouts/kmn_khmer_angkor.w
 
 862 of the layouts in WM Keyboard started life as [Keyman](https://keyman.com/) keyboards. That's where most of the language catalogue's long tail comes from: Adyghe, Hatran, Osage, Cypro-Minoan, and several hundred more that no other Android keyboard ships a layout for.
 
-They behave like any other layout once enabled. Each appears under its language in <SettingsPath path="Languages & layouts" />, is editable in the layout editor, and exports as a file like any other. Before that, most sit behind a **More layouts** row on the language's own screen, since Amharic or Arabic alone can have hundreds.
+They behave like any other layout once enabled. Each appears under its language in <SettingsPath path="Languages & layouts" />, is editable in the layout editor, and exports as a file like any other. Before that, most sit behind a **More layouts** card at the end of the language's row of layout cards, so its own layouts stay up front.
 
 <LayoutExplorer layout={khmer} />
 
@@ -29,10 +29,10 @@ A Keyman keyboard is two things: the visual key grid, and a set of rules that de
 
 What comes across:
 
-- The key grid itself, including every layer the keyboard defines
-- Long-press alternates
-- Flicks, for the four directions WM Keyboard supports
-- The shift layer, folded into per-key shift labels where the two grids line up
+- Every layer the keyboard defines. Besides letters, numbers and symbols that includes right-Alt pages, caps pages and the pages some keyboards keep for one consonant's vowel forms, which open from the keys that lead to them, just as in Keyman.
+- The shift and caps pages as their author drew them. Shift and caps lock work the way they do on every other layout here (one tap for one shifted key, a double tap to lock), and while shift is on you see and type the keyboard's own shift page, long presses and all.
+- Long-press alternates and flicks, each typing through the keyboard's rules the way it does in Keyman, not just the character on its label.
+- Keys that exist for the rules to act on, such as the vowel keys of the GFF Ethiopic keyboards, which turn the consonant before them into a syllable.
 
 What doesn't:
 
@@ -54,11 +54,23 @@ The grids ship with WM Keyboard; the rules are downloaded per keyboard, from key
 
 **When you switch a layout on, the app asks.** If that layout needs rules and doesn't have them yet, a prompt offers to fetch them there and then, which is the moment you're deciding to type in the language rather than the moment you notice the output looks wrong. Choose Not now and nothing is lost: the row is still there.
 
-Each layout has its own **Typing rules for (layout name)** row directly beneath it. The name is in the row on purpose, because a language can offer several Keyman keyboards and their rows stack one after another. Press it to download; press it again later to remove them. Nothing is fetched until you ask.
+The **More layouts** page shows every Keyman layout the language has as a card with a small preview of the keyboard, in your theme. Tap a card to turn that layout on or off. With more than six layouts a search box sits at the top, and once any of them is on, **All** and **On** filters show either the whole list or only the ones you use. The order never changes when you turn one on, so a card doesn't move out from under your finger.
+
+Under each card is that layout's typing rules: **Typing rules ready** once they are on the phone, or a **Get typing rules** button while they are not. The button turns red when the layout is already on without its rules, because that is the case where your typing comes out wrong. The delete button next to downloaded rules asks before it removes them. Once a Keyman layout is on, a **Typing rules for (layout name)** row also sits under the layout cards on the language's own screen, and does the same thing. Nothing is fetched until you ask.
 
 Until you do, the layout types its key caps. The grid is still right, the long-press alternates are still there, and nothing damages your text. It just isn't doing the character mapping its author wrote. If you enable one of these and the output doesn't match the caps, that's this.
 
 Rules are only fetched for keyboards whose upstream licence permits it, and the downloaded file has to parse as a keyboard before it's kept.
+
+keyman.com is always asked first. If it doesn't answer, or no longer offers a keyboard, the rules come from a copy the project keeps in its [data repository](https://github.com/wasi-master/wmkeyboard-data/tree/HEAD/keyman) instead: the same files, unmodified, for the 812 bundled keyboards that have any. That copy is checked against the checksum listed beside it before it's used. It may be a version or two behind, and the next time keyman.com answers with something newer, pressing the row again replaces it.
+
+### How closely it matches Keyman
+
+On a phone, Keyman types through KeymanWeb, and that is what the rules here are checked against: random typing on each keyboard's own touch layout, keys, long presses, flicks and page changes, fed to KeymanWeb and to WM Keyboard, compared after every keystroke. Of the 811 bundled keyboards whose rules can be downloaded, 800 type exactly what KeymanWeb types. The other 11 contain rules their authors marked for Keyman on computers only, or for KeymanWeb only, and the downloadable rules are the computer version, so those keyboards type what Keyman on a computer would.
+
+One difference is on purpose. In Keyman a shift key stays down until something releases it; here shift lets go after one key, as on every other layout, unless the keyboard itself decides when shift ends.
+
+50 keyboards, most of them from the FirstVoices collection, are published without the file the rules come from, so there is nothing to download for them and they type their key caps.
 
 ## Undetermined languages
 

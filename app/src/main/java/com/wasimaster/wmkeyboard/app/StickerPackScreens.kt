@@ -67,7 +67,7 @@ import com.wasimaster.wmkeyboard.core.stickers.StickerImportResult
 import com.wasimaster.wmkeyboard.core.stickers.StickerPack
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackFile
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
-import com.wasimaster.wmkeyboard.core.stickers.StickerSearchWords
+import com.wasimaster.wmkeyboard.core.stickers.StickerKeywords
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import com.wasimaster.wmkeyboard.ime.ui.rememberMediaImageLoader
@@ -465,6 +465,7 @@ internal fun StickerPackScreen(
             WmRow(
                 title = pack.name,
                 subtitle = stringResource(R.string.import_sticker_pack_rename_subtitle),
+                icon = SettingsRowIcons[R.string.import_sticker_pack_rename_subtitle],
                 onClick = { renaming = pack.name },
             )
         }
@@ -510,6 +511,7 @@ internal fun StickerPackScreen(
         // Read out for a sticker with no name of its own. Resolved once here
         // rather than in every cell of the grid.
         val unnamedSticker = stringResource(R.string.import_sticker_desc_fallback)
+        val reduceMotion = LocalReduceMotion.current
         LazyVerticalGrid(
             columns = GridCells.Adaptive(96.dp),
             modifier = Modifier
@@ -520,8 +522,11 @@ internal fun StickerPackScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(pack.stickers, key = { it.id }) { sticker ->
+                // Deleting, moving out or nudging a sticker along moves the
+                // cells after it; they slide to their new places rather than
+                // the grid redrawing in the new order.
                 Box(
-                    modifier = Modifier
+                    modifier = gridItemMotion(reduceMotion)
                         .aspectRatio(1f)
                         .clip(RoundedCornerShape(10.dp))
                         .background(MaterialTheme.colorScheme.surfaceVariant)
@@ -567,8 +572,8 @@ internal fun StickerPackScreen(
             sticker = sticker,
             otherPacks = allPacks.filter { it.id != packId },
             onDismiss = { editing = null },
-            onSave = { name, emojis ->
-                store.updateSticker(packId, sticker.id, name, emojis)
+            onSave = { title, keywords ->
+                store.updateSticker(packId, sticker.id, title, keywords)
                 revision++
                 editing = null
             },
@@ -723,10 +728,12 @@ private fun StickerEditDialog(
     onReorder: (Int) -> Unit,
     onDelete: () -> Unit,
 ) {
-    // One field, not a name plus "emoji tags": both feed the same search, and
-    // the first word stays the name so the label a screen reader gets is one
-    // word and not the whole list. See [StickerSearchWords].
-    var words by remember(sticker.id) { mutableStateOf(StickerSearchWords.of(sticker)) }
+    // Two fields, because they do two jobs while typing (#329): the title
+    // offers the sticker only once it is typed out in full, while a keyword
+    // can be any shorter handle for it, or an emoji. Both feed the panel's
+    // search alike. See [StickerKeywords] for how the keywords line is read.
+    var title by remember(sticker.id) { mutableStateOf(sticker.name) }
+    var keywords by remember(sticker.id) { mutableStateOf(StickerKeywords.format(sticker.keywords)) }
     var moveOpen by remember { mutableStateOf(false) }
 
     AlertDialog(
@@ -735,11 +742,21 @@ private fun StickerEditDialog(
         text = {
             Column {
                 OutlinedTextField(
-                    value = words,
-                    onValueChange = { words = it },
-                    label = { Text(stringResource(R.string.import_sticker_search_words_label)) },
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text(stringResource(R.string.import_sticker_title_label)) },
                     supportingText = {
-                        Text(stringResource(R.string.import_sticker_search_words_hint))
+                        Text(stringResource(R.string.import_sticker_title_hint))
+                    },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = keywords,
+                    onValueChange = { keywords = it },
+                    label = { Text(stringResource(R.string.import_sticker_keywords_label)) },
+                    supportingText = {
+                        Text(stringResource(R.string.import_sticker_keywords_hint))
                     },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
@@ -789,8 +806,7 @@ private fun StickerEditDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                val (name, tags) = StickerSearchWords.split(words)
-                onSave(name, tags)
+                onSave(title.trim(), StickerKeywords.parse(keywords))
             }) { Text(stringResource(CommonR.string.common_save)) }
         },
         dismissButton = {

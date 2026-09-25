@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.BuildConfig
 import android.graphics.BitmapFactory
+import android.os.Build
 import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -13,6 +15,12 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -71,13 +79,14 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.TriStateCheckbox
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -90,6 +99,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
@@ -103,6 +113,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -207,6 +218,9 @@ import kotlin.math.roundToInt
 import androidx.compose.material.icons.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.theme.FlexResult
 import com.wasimaster.wmkeyboard.core.theme.FlexTheme
+import com.wasimaster.wmkeyboard.core.theme.dynamicSnyggPalette
+import com.wasimaster.wmkeyboard.core.theme.GboardResult
+import com.wasimaster.wmkeyboard.core.theme.GboardTheme
 import com.wasimaster.wmkeyboard.core.theme.HeliResult
 import com.wasimaster.wmkeyboard.core.theme.HeliTheme
 import androidx.compose.material.icons.outlined.Crop169
@@ -309,12 +323,13 @@ private const val FREE_CROP_ASPECT = -1f
  * itself is what gets stored, never this text.
  */
 @Composable
-internal fun themeDisplayName(settings: KeyboardSettings, id: String): String {
+internal fun themeDisplayName(settings: LiveSettings, id: String): String {
     val defaultName = stringResource(R.string.theme_default_name)
     val builtInName = builtInThemeNameRes(id)?.let { stringResource(it) }
+    val customName = settings.watch { s -> s.customThemes.flattenedThemes().find { it.id == id }?.name }
     return when (id) {
         DEFAULT_THEME_ID -> defaultName
-        else -> settings.customThemes.flattenedThemes().find { it.id == id }?.name
+        else -> customName
             ?: builtInName
             ?: defaultName
     }
@@ -325,13 +340,13 @@ internal fun themeDisplayName(settings: KeyboardSettings, id: String): String {
  * the theme's name, or how many themes it selects from.
  */
 @Composable
-private fun autoSlotSummary(settings: KeyboardSettings, darkSlot: Boolean): String {
-    val auto = settings.autoTheme
-    if (!auto.slotRandom(darkSlot)) {
-        return themeDisplayName(settings, auto.slotFixedId(darkSlot))
+private fun autoSlotSummary(settings: LiveSettings, darkSlot: Boolean): String {
+    val fixedId = settings.watch { it.autoTheme.slotFixedId(darkSlot) }
+    if (!settings.watch { it.autoTheme.slotRandom(darkSlot) }) {
+        return themeDisplayName(settings, fixedId)
     }
-    val count = auto.slotPool(darkSlot).size
-    if (count == 0) return themeDisplayName(settings, auto.slotFixedId(darkSlot))
+    val count = settings.watch { it.autoTheme.slotPool(darkSlot).size }
+    if (count == 0) return themeDisplayName(settings, fixedId)
     return pluralStringResource(R.plurals.theme_auto_slot_random_summary, count, count)
 }
 
@@ -359,11 +374,11 @@ internal sealed interface ThemePickerRow {
  * bare row can never trail a family heading.
  */
 @Composable
-internal fun themePickerRows(settings: KeyboardSettings): List<ThemePickerRow> {
+internal fun themePickerRows(settings: LiveSettings): List<ThemePickerRow> {
     val context = LocalContext.current
     return themePickerRows(
         builtIns = BuiltInThemes,
-        customs = settings.customThemes,
+        customs = settings.watch { it.customThemes },
         defaultName = stringResource(R.string.theme_default_name),
         builtInLabel = stringResource(R.string.theme_picker_section_builtin_label),
         customLabel = stringResource(R.string.theme_picker_section_custom_label),
@@ -477,7 +492,7 @@ private fun ThemePickerChoiceRow(
 @Composable
 private fun ThemePickerDialog(
     title: String,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     selectedId: String,
     randomOn: Boolean,
     poolIds: Set<String>,
@@ -583,7 +598,7 @@ private fun FamilyPoolCheckbox(
  */
 @Composable
 internal fun ModeThemePickerDialog(
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     selectedId: String?,
     onPick: (String?) -> Unit,
     onDismiss: () -> Unit,
@@ -906,10 +921,12 @@ internal fun themeEditRoute(themeId: String): String = "theme_edit/$themeId"
  * generic title.
  */
 @Composable
-internal fun themeEditTitle(settings: KeyboardSettings, themeId: String): String? =
-    settings.customThemes.findThemeFamily(themeId)
-        ?.selfAndVariants()
-        ?.find { it.id == themeId }
+internal fun themeEditTitle(settings: LiveSettings, themeId: String): String? =
+    settings.watch { s ->
+        s.customThemes.findThemeFamily(themeId)
+            ?.selfAndVariants()
+            ?.find { it.id == themeId }
+    }
         ?.let { themeName(it) }
         ?.takeIf { it.isNotBlank() }
 
@@ -919,7 +936,7 @@ internal fun themeEditTitle(settings: KeyboardSettings, themeId: String): String
 @Composable
 fun ThemesScreen(
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     onNavigate: (String) -> Unit,
     onEditTheme: (String) -> Unit,
 ) {
@@ -1068,6 +1085,28 @@ fun ThemesScreen(
             applyHeliTheme(text)
         }
     }
+    // Gboard themes: a ZIP picked here, or the Rboard collection on its own
+    // screen. What was read waits in gboardRead for the dialogs to take it.
+    var gboardChooser by remember { mutableStateOf(false) }
+    var gboardRead by remember { mutableStateOf<GboardResult.Converted?>(null) }
+    val gboardLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val name = WMFileTypes.displayName(context, uri).substringBeforeLast('.')
+                    context.contentResolver.requireInputStream(uri).use { GboardTheme.read(it, name) }
+                }.getOrElse { GboardResult.Unreadable }
+            }
+            if (result is GboardResult.Converted) {
+                gboardRead = result
+            } else {
+                message = gboardFailureMessage(context, result)
+            }
+        }
+    }
     fun export(theme: ThemeSpec) {
         pendingExport = theme
         exportLauncher.launch("${theme.name.ifBlank { "theme" }}.${ThemeCodec.FILE_EXTENSION}")
@@ -1109,7 +1148,7 @@ fun ThemesScreen(
         item {
             ChoiceControl(
                 options = ThemeMode.entries.map { it to stringResource(themeModeLabelRes(it)) },
-                selected = settings.themeMode,
+                selected = settings.watch { it.themeMode },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 label = stringResource(R.string.theme_mode_choice_label),
                 detail = { mode -> ChoiceDetail(stringResource(themeModeDescRes(mode))) },
@@ -1119,7 +1158,7 @@ fun ThemesScreen(
             ToggleSetting(
                 R.string.theme_material_you_title,
                 stringResource(R.string.theme_material_you_subtitle),
-                checked = settings.dynamicColor,
+                checked = settings.watch { it.dynamicColor },
                 default = SettingsDefaults.dynamicColor,
             ) { scope.launch { repository.setDynamicColor(it) } }
         }
@@ -1129,14 +1168,18 @@ fun ThemesScreen(
     var pickerForLight by remember { mutableStateOf<Boolean?>(null) }
     // null = closed; true = editing when day starts, false = when night does.
     var timePickerForDay by remember { mutableStateOf<Boolean?>(null) }
-    val auto = settings.autoTheme
+    // What decides which rows the auto group holds, and what its "?" says;
+    // each row reads its own value.
+    val autoOn = settings.watch { it.autoTheme.enabled }
+    val autoTrigger = settings.watch { it.autoTheme.trigger }
+    val shuffles = settings.watch { it.autoTheme.usesRandomSlot }
     // The chosen trigger's explanation rides in the section's "?" with the
     // rest; the one state that needs doing something about — sun times with
     // no place to compute them for — is a banner instead.
-    val hasSunLocation = settings.weather.latitude != null && settings.weather.longitude != null
-    val sunPlace = settings.weather.placeName.takeIf { it.isNotBlank() }
+    val hasSunLocation = settings.watch { it.weather.latitude != null && it.weather.longitude != null }
+    val sunPlace = settings.watch { it.weather.placeName }.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.theme_auto_trigger_sun_place_fallback)
-    val triggerNote = when (auto.trigger) {
+    val triggerNote = when (autoTrigger) {
         AutoThemeTrigger.SYSTEM -> stringResource(R.string.theme_auto_trigger_system_body)
         AutoThemeTrigger.SUN ->
             if (hasSunLocation) stringResource(R.string.theme_auto_trigger_sun_body, sunPlace) else null
@@ -1151,11 +1194,11 @@ fun ThemesScreen(
             ToggleSetting(
                 R.string.theme_auto_title,
                 stringResource(R.string.theme_auto_subtitle),
-                checked = auto.enabled,
+                checked = autoOn,
                 default = SettingsDefaults.autoTheme.enabled,
             ) { scope.launch { repository.setAutoThemeEnabled(it) } }
         }
-        if (auto.enabled) {
+        if (autoOn) {
             item {
                 NavRow(
                     R.string.theme_auto_light_title,
@@ -1168,17 +1211,17 @@ fun ThemesScreen(
                     value = autoSlotSummary(settings, darkSlot = true),
                 ) { pickerForLight = false }
             }
-            item(visible = auto.usesRandomSlot) {
+            item(visible = shuffles) {
                 ChoiceSetting(
                     title = R.string.theme_shuffle_interval_title,
                     subtitle = stringResource(R.string.theme_shuffle_interval_subtitle),
                     options = RotationInterval.entries
                         .map { it to stringResource(it.labelRes) },
-                    selected = auto.shuffleInterval,
+                    selected = settings.watch { it.autoTheme.shuffleInterval },
                     default = SettingsDefaults.autoTheme.shuffleInterval,
                 ) { value -> scope.launch { repository.setAutoThemeShuffleInterval(value) } }
             }
-            item(visible = auto.usesRandomSlot) {
+            item(visible = shuffles) {
                 ActionRow(
                     title = R.string.theme_shuffle_now_title,
                     subtitle = stringResource(R.string.theme_shuffle_now_subtitle),
@@ -1188,7 +1231,7 @@ fun ThemesScreen(
             item {
                 ChoiceControl(
                     options = AutoThemeTrigger.entries.map { it to stringResource(it.labelRes) },
-                    selected = auto.trigger,
+                    selected = autoTrigger,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     label = stringResource(R.string.theme_auto_trigger_label),
                     detail = { trigger ->
@@ -1196,19 +1239,19 @@ fun ThemesScreen(
                     },
                 ) { trigger -> scope.launch { repository.setAutoThemeTrigger(trigger) } }
             }
-            when (auto.trigger) {
+            when (autoTrigger) {
                 AutoThemeTrigger.SYSTEM -> Unit
                 AutoThemeTrigger.SCHEDULE -> {
                     item {
                         NavRow(
                             R.string.theme_auto_light_from_title,
-                            value = formatMinutesOfDay(auto.dayStartMinutes),
+                            value = formatMinutesOfDay(settings.watch { it.autoTheme.dayStartMinutes }),
                         ) { timePickerForDay = true }
                     }
                     item {
                         NavRow(
                             R.string.theme_auto_dark_from_title,
-                            value = formatMinutesOfDay(auto.nightStartMinutes),
+                            value = formatMinutesOfDay(settings.watch { it.autoTheme.nightStartMinutes }),
                         ) { timePickerForDay = false }
                     }
                 }
@@ -1224,7 +1267,9 @@ fun ThemesScreen(
                 if (forDay) R.string.theme_auto_light_from_title
                 else R.string.theme_auto_dark_from_title,
             ),
-            minutes = if (forDay) auto.dayStartMinutes else auto.nightStartMinutes,
+            minutes = settings.watch {
+                if (forDay) it.autoTheme.dayStartMinutes else it.autoTheme.nightStartMinutes
+            },
             onPick = { picked ->
                 scope.launch {
                     if (forDay) repository.setAutoThemeDayStart(picked)
@@ -1242,9 +1287,9 @@ fun ThemesScreen(
                 if (forLight) R.string.theme_auto_light_title else R.string.theme_auto_dark_title,
             ),
             settings = settings,
-            selectedId = auto.slotFixedId(darkSlot),
-            randomOn = auto.slotRandom(darkSlot),
-            poolIds = auto.slotPool(darkSlot),
+            selectedId = settings.watch { it.autoTheme.slotFixedId(darkSlot) },
+            randomOn = settings.watch { it.autoTheme.slotRandom(darkSlot) },
+            poolIds = settings.watch { it.autoTheme.slotPool(darkSlot) },
             onModeChange = { on ->
                 scope.launch { repository.setAutoThemeSlotRandom(darkSlot, on) }
             },
@@ -1266,11 +1311,11 @@ fun ThemesScreen(
 
     // The gallery is a grid of theme cards, which are their own surfaces, so
     // it keeps a plain header rather than being wrapped in a settings card.
-    val grouped = settings.themeGalleryGrouped()
+    val grouped = settings.watch { it.themeGalleryGrouped() }
     // The "?" used to describe whichever style was live, which said nothing
     // about the other two; each style now describes itself in the picker.
     SectionHeaderPublic(stringResource(R.string.theme_gallery_section_title))
-    if (auto.enabled) {
+    if (autoOn) {
         // Not a sentence telling the user where to go: the card carries the
         // switch that makes the gallery live again.
         StateBanner(
@@ -1280,7 +1325,7 @@ fun ThemesScreen(
     }
     ChoiceControl(
         options = ThemeGalleryStyle.entries.map { it to stringResource(themeGalleryStyleLabelRes(it)) },
-        selected = settings.appUi.themeGalleryStyle,
+        selected = settings.watch { it.appUi.themeGalleryStyle },
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         label = stringResource(R.string.theme_gallery_style_label),
         detail = { style -> ChoiceDetail(stringResource(themeGalleryStyleDescRes(style))) },
@@ -1320,6 +1365,47 @@ fun ThemesScreen(
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.theme_import_heli_action))
         }
+        // The Play build has no Rboard browser (it would fetch a collection of
+        // unlicensed third-party artwork from inside the app), so there is
+        // nothing to choose between and the button opens the file picker.
+        OutlinedButton(onClick = {
+            if (BuildConfig.ENABLE_PLAY_STORE) {
+                gboardLauncher.launch(GboardTheme.IMPORT_MIME_TYPES)
+            } else {
+                gboardChooser = true
+            }
+        }) {
+            Icon(Icons.Outlined.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.theme_import_gboard_action))
+        }
+    }
+    if (gboardChooser) {
+        AlertDialog(
+            onDismissRequest = { gboardChooser = false },
+            title = { Text(stringResource(R.string.import_gboard_title)) },
+            text = { Text(stringResource(R.string.import_gboard_chooser_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    gboardChooser = false
+                    onNavigate(RBOARD_THEMES_ROUTE)
+                }) { Text(stringResource(R.string.import_gboard_browse_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    gboardChooser = false
+                    gboardLauncher.launch(GboardTheme.IMPORT_MIME_TYPES)
+                }) { Text(stringResource(R.string.import_gboard_file_action)) }
+            },
+        )
+    }
+    gboardRead?.let { read ->
+        GboardImportDialogs(
+            result = read,
+            repository = repository,
+            onDismiss = { gboardRead = null },
+            onMessage = { message = it },
+        )
     }
     if (heliChooser) {
         val clipboard = LocalClipboardManager.current
@@ -1344,9 +1430,12 @@ fun ThemesScreen(
     }
     Spacer(Modifier.height(8.dp))
 
+    // The cards are drawn in the screen's own body rather than in rows, so the
+    // theme that is on is read once, here, for all of them.
+    val selectedThemeId = settings.watch { it.keyboardThemeId }
     // Default (system) card first, then customs, then built-ins — two per row.
     DefaultThemeCard(
-        selected = settings.keyboardThemeId == DEFAULT_THEME_ID,
+        selected = selectedThemeId == DEFAULT_THEME_ID,
         onSelect = { scope.launch { repository.setKeyboardThemeId(DEFAULT_THEME_ID) } },
     )
     // Which look each family's card is showing, when the user tapped a dot.
@@ -1354,7 +1443,7 @@ fun ThemesScreen(
     val shownVariant = remember { mutableStateMapOf<String, String>() }
     // A pencil tap on a family card asks what to copy: (family, shown look).
     var copyScopeFor by remember { mutableStateOf<Pair<ThemeSpec, ThemeSpec>?>(null) }
-    val customs = settings.customThemes.sortedBy { it.name.lowercase() }
+    val customs = settings.watch { it.customThemes }.sortedBy { it.name.lowercase() }
     val customEntries = if (grouped) customs else customs.flattenedThemes()
     if (customEntries.isNotEmpty()) {
         SectionHeaderPublic(stringResource(R.string.theme_custom_section_title))
@@ -1363,50 +1452,123 @@ fun ThemesScreen(
         Row(modifier = Modifier.padding(horizontal = 12.dp)) {
             for (entry in rowThemes) {
                 Box(modifier = Modifier.weight(1f)) {
-                    val members = if (grouped) entry.selfAndVariants() else listOf(entry)
-                    val isFamily = members.size > 1
-                    val shownId = if (isFamily) {
-                        shownVariant[entry.id]
-                            ?: members.find { it.id == settings.keyboardThemeId }?.id
-                            ?: entry.id
-                    } else {
-                        entry.id
+                    // Keyed on the theme, not on the slot: adding or deleting
+                    // a theme shifts every card after it along a place, and a
+                    // card must not play the selection ring and tick at a slot
+                    // that merely changed hands. See [ThemeCard].
+                    key(entry.id) {
+                        val members = if (grouped) entry.selfAndVariants() else listOf(entry)
+                        val isFamily = members.size > 1
+                        val shownId = if (isFamily) {
+                            shownVariant[entry.id]
+                                ?: members.find { it.id == selectedThemeId }?.id
+                                ?: entry.id
+                        } else {
+                            entry.id
+                        }
+                        val shown = members.find { it.id == shownId } ?: entry
+                        // Downloaded themes are custom themes, so this is where an
+                        // addon's Use button lands — on the card, not on the header.
+                        // A family card answers for every id it holds.
+                        HighlightableItem(members.map { it.id }) {
+                            ThemeCard(
+                                theme = shown,
+                                selected = members.any { it.id == selectedThemeId },
+                                onSelect = { scope.launch { repository.setKeyboardThemeId(shown.id) } },
+                                onEdit = { onEditTheme(shown.id) },
+                                editRoute = themeEditRoute(shown.id),
+                                onExport = {
+                                    // A family card exports the family; a flat card
+                                    // exports the one look it shows.
+                                    export(
+                                        if (grouped) entry
+                                        else entry.copy(variants = emptyList(), familyName = null),
+                                    )
+                                },
+                                onDelete = {
+                                    scope.launch {
+                                        // Image files are always left to the sweep:
+                                        // "Add look" and family copies share paths
+                                        // between specs, and only the sweep knows
+                                        // what else still points at a file.
+                                        val parent = settings.value.customThemes.findThemeFamily(entry.id)
+                                        if (parent != null && parent.id != entry.id) {
+                                            repository.deleteCustomThemeVariant(parent.id, entry.id)
+                                        } else {
+                                            repository.deleteCustomTheme(entry.id)
+                                        }
+                                    }
+                                },
+                                title = if (isFamily) themeFamilyName(entry) else null,
+                                subtitle = if (isFamily) themeName(shown) else null,
+                                swatches = if (isFamily) {
+                                    {
+                                        VariantSwatchRow(entry, shownId) { variant ->
+                                            shownVariant[entry.id] = variant.id
+                                            scope.launch { repository.setKeyboardThemeId(variant.id) }
+                                        }
+                                    }
+                                } else {
+                                    null
+                                },
+                            )
+                        }
                     }
-                    val shown = members.find { it.id == shownId } ?: entry
-                    // Downloaded themes are custom themes, so this is where an
-                    // addon's Use button lands — on the card, not on the header.
-                    // A family card answers for every id it holds.
-                    HighlightableItem(members.map { it.id }) {
+                }
+            }
+            if (rowThemes.size == 1) Spacer(Modifier.weight(1f))
+        }
+    }
+    SectionHeaderPublic(
+        stringResource(R.string.theme_builtin_section_title),
+        info = stringResource(R.string.theme_panel_pin_body),
+    )
+    val panelBuiltIns = settings.watch { it.toolbarBehavior.themesPanelBuiltIns ?: DefaultThemesPanelBuiltIns }
+    val builtinEntries = if (grouped) BuiltInThemes else BuiltInThemes.flattenedThemes()
+    for (rowThemes in builtinEntries.chunked(2)) {
+        Row(modifier = Modifier.padding(horizontal = 12.dp)) {
+            for (entry in rowThemes) {
+                Box(modifier = Modifier.weight(1f)) {
+                    // Keyed on the theme, not on the slot: switching between
+                    // grouped and flat reshuffles which card sits where, and
+                    // a card must not play the selection ring and tick at a
+                    // slot that merely changed hands. See [ThemeCard].
+                    key(entry.id) {
+                        val members = if (grouped) entry.selfAndVariants() else listOf(entry)
+                        val isFamily = members.size > 1
+                        val shownId = if (isFamily) {
+                            shownVariant[entry.id]
+                                ?: members.find { it.id == selectedThemeId }?.id
+                                ?: entry.id
+                        } else {
+                            entry.id
+                        }
+                        val shown = members.find { it.id == shownId } ?: entry
+                        val pinned = shown.id in panelBuiltIns
                         ThemeCard(
                             theme = shown,
-                            selected = members.any { it.id == settings.keyboardThemeId },
+                            selected = members.any { it.id == selectedThemeId },
                             onSelect = { scope.launch { repository.setKeyboardThemeId(shown.id) } },
-                            onEdit = { onEditTheme(shown.id) },
-                            editRoute = themeEditRoute(shown.id),
+                            // A family card asks whether the copy is of the shown
+                            // look or of the whole set; a lone card just copies.
+                            onEdit = {
+                                if (isFamily) copyScopeFor = entry to shown else duplicateAndEdit(shown)
+                            },
                             onExport = {
-                                // A family card exports the family; a flat card
-                                // exports the one look it shows.
                                 export(
                                     if (grouped) entry
                                     else entry.copy(variants = emptyList(), familyName = null),
                                 )
                             },
-                            onDelete = {
-                                scope.launch {
-                                    // Image files are always left to the sweep:
-                                    // "Add look" and family copies share paths
-                                    // between specs, and only the sweep knows
-                                    // what else still points at a file.
-                                    val parent = settings.customThemes.findThemeFamily(entry.id)
-                                    if (parent != null && parent.id != entry.id) {
-                                        repository.deleteCustomThemeVariant(parent.id, entry.id)
-                                    } else {
-                                        repository.deleteCustomTheme(entry.id)
-                                    }
-                                }
-                            },
+                            onDelete = null,
                             title = if (isFamily) themeFamilyName(entry) else null,
                             subtitle = if (isFamily) themeName(shown) else null,
+                            // The pin is per look, not per family: the keyboard
+                            // panel lists looks, so the toggle names what shows.
+                            panelShown = pinned,
+                            onTogglePanel = {
+                                scope.launch { repository.setThemesPanelBuiltIn(shown.id, !pinned) }
+                            },
                             swatches = if (isFamily) {
                                 {
                                     VariantSwatchRow(entry, shownId) { variant ->
@@ -1419,67 +1581,6 @@ fun ThemesScreen(
                             },
                         )
                     }
-                }
-            }
-            if (rowThemes.size == 1) Spacer(Modifier.weight(1f))
-        }
-    }
-    SectionHeaderPublic(
-        stringResource(R.string.theme_builtin_section_title),
-        info = stringResource(R.string.theme_panel_pin_body),
-    )
-    val panelBuiltIns = settings.toolbarBehavior.themesPanelBuiltIns ?: DefaultThemesPanelBuiltIns
-    val builtinEntries = if (grouped) BuiltInThemes else BuiltInThemes.flattenedThemes()
-    for (rowThemes in builtinEntries.chunked(2)) {
-        Row(modifier = Modifier.padding(horizontal = 12.dp)) {
-            for (entry in rowThemes) {
-                Box(modifier = Modifier.weight(1f)) {
-                    val members = if (grouped) entry.selfAndVariants() else listOf(entry)
-                    val isFamily = members.size > 1
-                    val shownId = if (isFamily) {
-                        shownVariant[entry.id]
-                            ?: members.find { it.id == settings.keyboardThemeId }?.id
-                            ?: entry.id
-                    } else {
-                        entry.id
-                    }
-                    val shown = members.find { it.id == shownId } ?: entry
-                    val pinned = shown.id in panelBuiltIns
-                    ThemeCard(
-                        theme = shown,
-                        selected = members.any { it.id == settings.keyboardThemeId },
-                        onSelect = { scope.launch { repository.setKeyboardThemeId(shown.id) } },
-                        // A family card asks whether the copy is of the shown
-                        // look or of the whole set; a lone card just copies.
-                        onEdit = {
-                            if (isFamily) copyScopeFor = entry to shown else duplicateAndEdit(shown)
-                        },
-                        onExport = {
-                            export(
-                                if (grouped) entry
-                                else entry.copy(variants = emptyList(), familyName = null),
-                            )
-                        },
-                        onDelete = null,
-                        title = if (isFamily) themeFamilyName(entry) else null,
-                        subtitle = if (isFamily) themeName(shown) else null,
-                        // The pin is per look, not per family: the keyboard
-                        // panel lists looks, so the toggle names what shows.
-                        panelShown = pinned,
-                        onTogglePanel = {
-                            scope.launch { repository.setThemesPanelBuiltIn(shown.id, !pinned) }
-                        },
-                        swatches = if (isFamily) {
-                            {
-                                VariantSwatchRow(entry, shownId) { variant ->
-                                    shownVariant[entry.id] = variant.id
-                                    scope.launch { repository.setKeyboardThemeId(variant.id) }
-                                }
-                            }
-                        } else {
-                            null
-                        },
-                    )
                 }
             }
             if (rowThemes.size == 1) Spacer(Modifier.weight(1f))
@@ -1634,6 +1735,15 @@ private fun DefaultThemeCard(selected: Boolean, onSelect: () -> Unit) {
     }
 }
 
+/** A theme card's outline, which its selection ring follows. */
+private val ThemeCardShape = RoundedCornerShape(14.dp)
+
+/** How long the picked card takes to put its ring and tick on. */
+private const val CardSelectMs = 180
+
+/** How long the card left behind takes to let go of its tick: a little quicker. */
+private const val CardDeselectMs = 140
+
 @Composable
 private fun ThemeCard(
     theme: ThemeSpec,
@@ -1670,17 +1780,47 @@ private fun ThemeCard(
     // of the two says the same word the heading will.
     val nameTag = if (editRoute == null) Modifier
     else Modifier.wmSharedBounds(takeOffKey("title", editRoute))
+    // Picking a theme moves the ring from one card to another. It thickens and
+    // takes the accent over a moment on the card picked, and lets go of it on
+    // the card left, rather than both snapping. Read in the draw phase below,
+    // so each frame of it redraws the two cards without recomposing them —
+    // each card holds a whole keyboard preview. The gallery keys every card
+    // on its theme, so this plays when the pick changes and not when a card
+    // is handed a different slot.
+    val reduceMotion = LocalReduceMotion.current
+    val ringTarget = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    val ringWidthTarget = if (selected) 2.dp else 1.dp
+    val ringColor by animateColorAsState(
+        ringTarget,
+        animationSpec = if (reduceMotion) snap() else tween(durationMillis = CardSelectMs),
+        label = "themeCardRing",
+    )
+    val ringWidth by animateDpAsState(
+        ringWidthTarget,
+        animationSpec = if (reduceMotion) snap() else tween(durationMillis = CardSelectMs),
+        label = "themeCardRingWidth",
+    )
     Column(
         modifier = Modifier
             .padding(4.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .then(
-                if (selected) {
-                    Modifier.border(2.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp))
-                } else {
-                    Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(14.dp))
+            .clip(ThemeCardShape)
+            .drawWithCache {
+                val outline = ThemeCardShape.createOutline(size, layoutDirection, this)
+                onDrawWithContent {
+                    drawContent()
+                    // Reduce motion reads the target, not a value a frame
+                    // behind it. The stroke is centred on the edge and twice
+                    // the ring's width: the clip above cuts it to exactly the
+                    // ring's width inside the card, which is what `border`
+                    // drew here before.
+                    val width = if (reduceMotion) ringWidthTarget else ringWidth
+                    drawOutline(
+                        outline,
+                        color = if (reduceMotion) ringTarget else ringColor,
+                        style = Stroke(width = width.toPx() * 2f),
+                    )
                 }
-            )
+            }
             .clickable(onClick = onSelect)
             .padding(6.dp),
     ) {
@@ -1714,13 +1854,26 @@ private fun ThemeCard(
                     )
                 }
             }
-            if (selected) {
+            val check: @Composable () -> Unit = {
                 Icon(
                     Icons.Outlined.Check,
                     contentDescription = stringResource(R.string.theme_selected_desc),
                     modifier = Modifier.size(18.dp),
                     tint = MaterialTheme.colorScheme.primary,
                 )
+            }
+            // The tick answers the tap: it pops in on the card picked while
+            // the one on the card left shrinks away.
+            if (reduceMotion) {
+                if (selected) check()
+            } else {
+                AnimatedVisibility(
+                    visible = selected,
+                    enter = scaleIn(tween(durationMillis = CardSelectMs), initialScale = 0.5f) +
+                        fadeIn(tween(durationMillis = CardSelectMs)),
+                    exit = scaleOut(tween(durationMillis = CardDeselectMs), targetScale = 0.5f) +
+                        fadeOut(tween(durationMillis = CardDeselectMs)),
+                ) { check() }
             }
         }
         if (onEdit != null || onExport != null || onDelete != null) {
@@ -1804,19 +1957,65 @@ private fun ThemeCard(
 
 // ---- theme editor ----
 
+/**
+ * The family stored under [routeId], and the look [lookId] inside it — the
+ * family itself once that look has gone. Null once the family has gone too.
+ */
+private fun openFamilyAndLook(
+    settings: KeyboardSettings,
+    routeId: String,
+    lookId: String,
+): Pair<ThemeSpec, ThemeSpec>? {
+    val family = settings.customThemes.findThemeFamily(routeId) ?: return null
+    return family to (family.selfAndVariants().find { it.id == lookId } ?: family)
+}
+
+/** What a row reads for the instant between its look being deleted and the editor closing. */
+private val GoneLook = ThemeSpec(id = "", name = "")
+
+/**
+ * The look the theme editor has open, read a field at a time.
+ *
+ * Every edit rewrites the stored theme, so read as one object the look was new
+ * on every write and every row of the editor recomposed to find its own field
+ * unchanged. Through [watch] a row recomposes when the field it draws changes
+ * and not otherwise.
+ */
+@Stable
+private class OpenLook(
+    private val settings: LiveSettings,
+    /** The id the route named, which finds the family that stores it. */
+    private val routeId: String,
+    /** The look being edited: the family itself or one of its variants. */
+    val id: String,
+) {
+    /** The family and the look as stored now, for a write; null once deleted. */
+    fun now(): Pair<ThemeSpec, ThemeSpec>? = openFamilyAndLook(settings.value, routeId, id)
+
+    /** [pick] of the look, recomposing the caller only when that changes. */
+    @Composable
+    fun <R> watch(pick: (ThemeSpec) -> R): R = watchWith { _, look -> pick(look) }
+
+    /** [pick] of the settings and the look, for a value that falls back to a setting. */
+    @Composable
+    fun <R> watchWith(pick: (KeyboardSettings, ThemeSpec) -> R): R =
+        settings.watch { pick(it, openFamilyAndLook(it, routeId, id)?.second ?: GoneLook) }
+}
+
 @Composable
 fun ThemeEditorScreen(
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     themeId: String,
     onNavigate: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     // The route id can name a variant; the editor opens on that look, inside
-    // the family entry that stores it.
-    val family = settings.customThemes.findThemeFamily(themeId)
-    if (family == null) {
+    // the family entry that stores it. The family's id and the open look's are
+    // what decide the screen; each row reads its own field of the look below.
+    val familyId = settings.watch { it.customThemes.findThemeFamily(themeId)?.id }
+    if (familyId == null) {
         Text(
             stringResource(R.string.theme_editor_missing_body),
             modifier = Modifier.padding(16.dp),
@@ -1826,18 +2025,23 @@ fun ThemeEditorScreen(
     }
     // Which look is open. Survives process death; a look deleted meanwhile
     // falls back to the family itself.
-    var editingId by rememberSaveable(family.id) { mutableStateOf(themeId) }
-    val theme = family.selfAndVariants().find { it.id == editingId } ?: family
+    var editingId by rememberSaveable(familyId) { mutableStateOf(themeId) }
+    val editing = editingId
+    val lookId = settings.watch { openFamilyAndLook(it, themeId, editing)?.second?.id } ?: familyId
+    val look = remember(settings, themeId, lookId) { OpenLook(settings, themeId, lookId) }
     // Every write goes through the family entry: editing a look must never
     // promote it to a top-level theme of its own.
     fun update(transform: (ThemeSpec) -> ThemeSpec) {
-        scope.launch { repository.upsertCustomTheme(family.replacingMember(theme.id, transform)) }
+        val (family, _) = look.now() ?: return
+        scope.launch { repository.upsertCustomTheme(family.replacingMember(look.id, transform)) }
     }
 
     val imagePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
+            val (family, theme) = look.now() ?: return@rememberLauncherForActivityResult
+            val keyOpacity = settings.value.photoBackground.keyOpacity
             scope.launch(Dispatchers.IO) {
                 runCancellable {
                     val file = File(themeImagesDir(context), "${theme.id}_${System.currentTimeMillis()}.img")
@@ -1862,8 +2066,8 @@ fun ThemeEditorScreen(
                                 backgroundImageBlur =
                                     if (animated) 0f else theme.backgroundImageBlur,
                                 boardBackground = theme.boardBackground and 0x00FFFFFFL,
-                                keyBackground = theme.keyBackground.softenedForPhoto(settings.photoBackground.keyOpacity),
-                                modifierKeyBackground = theme.modifierKeyBackground.softenedForPhoto(settings.photoBackground.keyOpacity),
+                                keyBackground = theme.keyBackground.softenedForPhoto(keyOpacity),
+                                modifierKeyBackground = theme.modifierKeyBackground.softenedForPhoto(keyOpacity),
                             )
                         },
                     )
@@ -1881,6 +2085,7 @@ fun ThemeEditorScreen(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
+            val (family, theme) = look.now() ?: return@rememberLauncherForActivityResult
             scope.launch(Dispatchers.IO) {
                 runCancellable {
                     val file = File(
@@ -1913,15 +2118,15 @@ fun ThemeEditorScreen(
             }
         }
     }
-    var cropOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
-    var cropLandscapeOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
-    var shapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
-    var popupShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
-    var chipShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
-    var menuShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
-    var cardShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
-    var toolShapePickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
-    var sourceDialogSlot by remember(theme.id) { mutableStateOf<BackgroundSlot?>(null) }
+    var cropOpen by rememberSaveable(lookId) { mutableStateOf(false) }
+    var cropLandscapeOpen by rememberSaveable(lookId) { mutableStateOf(false) }
+    var shapePickerOpen by rememberSaveable(lookId) { mutableStateOf(false) }
+    var popupShapePickerOpen by rememberSaveable(lookId) { mutableStateOf(false) }
+    var chipShapePickerOpen by rememberSaveable(lookId) { mutableStateOf(false) }
+    var menuShapePickerOpen by rememberSaveable(lookId) { mutableStateOf(false) }
+    var cardShapePickerOpen by rememberSaveable(lookId) { mutableStateOf(false) }
+    var toolShapePickerOpen by rememberSaveable(lookId) { mutableStateOf(false) }
+    var sourceDialogSlot by remember(lookId) { mutableStateOf<BackgroundSlot?>(null) }
 
     // The photo rows appear only once the user has started using photos.
     // Somebody who sets one picture from their gallery -- which is most people
@@ -1929,20 +2134,45 @@ fun ThemeEditorScreen(
     val collection by produceState(initialValue = emptyList<PoolEntry>(), themeId) {
         value = PhotoBackgroundManager.readPool(context).entries
     }
-    val photos = settings.photoBackground
-    val showRotation = collection.isNotEmpty() || photos.rotateEnabled
-    val showServices = photos.unsplashApiKey.isNotBlank() ||
-        photos.pexelsApiKey.isNotBlank() ||
-        collection.any { it.credit != null }
+    // What decides which rows the groups hold, and what their "?" says; each
+    // row reads its own value.
+    val rotateOn = settings.watch { it.photoBackground.rotateEnabled }
+    val hasPhotoKeys = settings.watch {
+        it.photoBackground.unsplashApiKey.isNotBlank() || it.photoBackground.pexelsApiKey.isNotBlank()
+    }
+    val showRotation = collection.isNotEmpty() || rotateOn
+    val showServices = hasPhotoKeys || collection.any { it.credit != null }
+    val popupsOn = settings.watch { it.popup.enabled }
+    val soundOn = settings.watch { it.sound.enabled }
+    val hasVariants = settings.watch { it.customThemes.findThemeFamily(themeId)?.variants?.isNotEmpty() == true }
+    val hasImage = look.watch { it.backgroundImage != null }
+    val hasLandscapeImage = look.watch { it.backgroundImageLandscape != null }
+    val photoCredit = look.watch { it.backgroundPhoto }
+    val landscapePhotoCredit = look.watch { it.backgroundPhotoLandscape }
+    val hasOneHandedFill = look.watch { it.oneHandedPanelBackground != null }
+    val hasKeyBorder = look.watch { it.keyBorderColor != null }
+    val texturedSlots = look.watch { t -> KeyTextureSlot.entries.filter { it.pathIn(t) != null }.toSet() }
+    val overrideIds = look.watch { it.keyOverrides.keys.sorted() }
+    val decals = look.watch { it.decals }
+    val hasPopupBorder = look.watch { it.popupBorderColor != null }
+    val popupHighlight = look.watch { it.popupSelectedBackground }
+    val hasToolBorder = look.watch { it.toolBorderColor != null }
+    val hasChipBorder = look.watch { it.chipBorderColor != null }
+    val chipRadiusShown = look.watch { t ->
+        keyShapeKindOrNull(t.chipShape).let {
+            it == null || it == KeyShapeKind.ROUNDED || it == KeyShapeKind.CUT
+        }
+    }
+    val themeAnimates = look.watch { it.animation != ThemeAnimation.NONE }
+    val effectKind = look.watch { keyEffectKindOrNull(it.keyEffect) }
+    val effectImages = look.watch { it.keyEffectImages }
+    val effectColourCustom = look.watch { keyEffectColorMode(it.keyEffectColor) == KeyEffectColorMode.CUSTOM }
+    val scriptFontIds = look.watch { it.scriptFontIds }
 
     sourceDialogSlot?.let { slot ->
         val landscape = slot == BackgroundSlot.LANDSCAPE
         BackgroundSourceDialog(
-            hasImage = if (landscape) {
-                theme.backgroundImageLandscape != null
-            } else {
-                theme.backgroundImage != null
-            },
+            hasImage = if (landscape) hasLandscapeImage else hasImage,
             onDevice = {
                 sourceDialogSlot = null
                 val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
@@ -1950,11 +2180,11 @@ fun ThemeEditorScreen(
             },
             onOnline = {
                 sourceDialogSlot = null
-                onNavigate(photoBrowseRoute(theme.id, slot))
+                onNavigate(photoBrowseRoute(look.id, slot))
             },
             onSaved = {
                 sourceDialogSlot = null
-                onNavigate(photoLibraryRoute(theme.id, slot))
+                onNavigate(photoLibraryRoute(look.id, slot))
             },
             onRemove = {
                 sourceDialogSlot = null
@@ -1962,7 +2192,7 @@ fun ThemeEditorScreen(
                     // The repository restores the board's opacity if applying a
                     // photo had zeroed it, so removal never leaves a
                     // see-through board.
-                    repository.clearThemePhoto(theme.id, landscape)?.let { File(it).delete() }
+                    repository.clearThemePhoto(look.id, landscape)?.let { File(it).delete() }
                 }
             },
             onDismiss = { sourceDialogSlot = null },
@@ -1975,11 +2205,11 @@ fun ThemeEditorScreen(
     // bottom of the window when the floating button asks for it, where the
     // sections scroll above it the way an app does over the keyboard. One
     // typed buffer serves both, so switching between them loses nothing.
-    val previewSandbox = remember(family.id) { mutableStateOf(ThemePreviewSandbox()) }
-    var keyboardDocked by rememberSaveable(family.id) { mutableStateOf(false) }
+    val previewSandbox = remember(familyId) { mutableStateOf(ThemePreviewSandbox()) }
+    var keyboardDocked by rememberSaveable(familyId) { mutableStateOf(false) }
     // Back takes the docked keyboard down first, as it would a real one.
     BackHandler(enabled = keyboardDocked) { keyboardDocked = false }
-    val reduceMotion = settings.reduceMotion
+    val reduceMotion = settings.watch { it.reduceMotion }
     RegisterPinned {
         AnimatedVisibility(
             visible = !keyboardDocked,
@@ -1988,8 +2218,8 @@ fun ThemeEditorScreen(
         ) {
             Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 ThemeKeyboardPreview(
-                    settings = settings,
-                    theme = theme,
+                    settings = settings.watch { it },
+                    theme = look.watch { it },
                     sandbox = previewSandbox,
                     miniature = true,
                     // The gallery card's miniature grows into this one. Both
@@ -2016,8 +2246,8 @@ fun ThemeEditorScreen(
             },
         ) {
             ThemeKeyboardPreview(
-                settings = settings,
-                theme = theme,
+                settings = settings.watch { it },
+                theme = look.watch { it },
                 sandbox = previewSandbox,
                 miniature = false,
                 onHide = { keyboardDocked = false },
@@ -2045,9 +2275,12 @@ fun ThemeEditorScreen(
     // The theme's looks: a chip per member, an add chip, and — when a
     // variant is open — a way to delete it. Everything below the row edits
     // the open look alone.
-    var confirmDeleteVariant by remember(theme.id) { mutableStateOf(false) }
+    var confirmDeleteVariant by remember(lookId) { mutableStateOf(false) }
     SettingsGroup(stringResource(R.string.theme_variant_section_title), foldKey = "theme/variant") {
         item {
+            val members = settings.watch { s ->
+                s.customThemes.findThemeFamily(themeId)?.selfAndVariants()?.map { it.id to it.name }.orEmpty()
+            }
             Row(
                 modifier = Modifier
                     .horizontalScroll(rememberScrollState())
@@ -2055,16 +2288,17 @@ fun ThemeEditorScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                family.selfAndVariants().forEach { member ->
+                members.forEach { (memberId, memberName) ->
                     FilterChip(
-                        selected = member.id == theme.id,
-                        onClick = { editingId = member.id },
-                        label = { Text(member.name.ifBlank { untitledName }) },
+                        selected = memberId == lookId,
+                        onClick = { editingId = memberId },
+                        label = { Text(memberName.ifBlank { untitledName }) },
                     )
                 }
                 AssistChip(
                     onClick = {
                         scope.launch {
+                            val (family, theme) = look.now() ?: return@launch
                             if (family.variants.size < MAX_THEME_VARIANTS) {
                                 val vid = "${family.id}_v${System.currentTimeMillis()}"
                                 // A copy of the open look. Image paths are
@@ -2086,13 +2320,13 @@ fun ThemeEditorScreen(
                             }
                         }
                     },
-                    enabled = family.variants.size < MAX_THEME_VARIANTS,
+                    enabled = members.size - 1 < MAX_THEME_VARIANTS,
                     label = { Text(stringResource(R.string.theme_variant_add_action)) },
                     leadingIcon = {
                         Icon(Icons.Outlined.Add, contentDescription = null, Modifier.size(16.dp))
                     },
                 )
-                if (theme.id != family.id) {
+                if (lookId != familyId) {
                     IconButton(
                         onClick = { confirmDeleteVariant = true },
                         modifier = Modifier.size(34.dp),
@@ -2107,18 +2341,20 @@ fun ThemeEditorScreen(
                 }
             }
         }
-        if (family.variants.isNotEmpty()) {
+        if (hasVariants) {
             item {
                 // Same local-echo pattern as the name field below: the field
                 // is the source of truth while the user types.
-                var familyNameText by rememberSaveable(family.id) {
-                    mutableStateOf(family.familyName.orEmpty())
+                val storedFamilyName = settings.watch { it.customThemes.findThemeFamily(themeId)?.familyName }
+                var familyNameText by rememberSaveable(familyId) {
+                    mutableStateOf(storedFamilyName.orEmpty())
                 }
                 OutlinedTextField(
                     value = familyNameText,
                     onValueChange = { text ->
                         familyNameText = text
                         scope.launch {
+                            val (family, _) = look.now() ?: return@launch
                             repository.upsertCustomTheme(
                                 family.copy(familyName = text.ifBlank { null }),
                             )
@@ -2141,16 +2377,16 @@ fun ThemeEditorScreen(
                 Text(
                     stringResource(
                         R.string.theme_variant_delete_message,
-                        theme.name.ifBlank { untitledName },
+                        look.watch { it.name }.ifBlank { untitledName },
                     ),
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDeleteVariant = false
-                    val doomedId = theme.id
-                    editingId = family.id
-                    scope.launch { repository.deleteCustomThemeVariant(family.id, doomedId) }
+                    val doomedId = lookId
+                    editingId = familyId
+                    scope.launch { repository.deleteCustomThemeVariant(familyId, doomedId) }
                 }) {
                     Text(stringResource(CommonR.string.common_delete))
                 }
@@ -2163,7 +2399,8 @@ fun ThemeEditorScreen(
         )
     }
 
-    var name by rememberSaveable(theme.id) { mutableStateOf(theme.name) }
+    val storedName = look.watch { it.name }
+    var name by rememberSaveable(lookId) { mutableStateOf(storedName) }
     OutlinedTextField(
         value = name,
         onValueChange = {
@@ -2178,7 +2415,7 @@ fun ThemeEditorScreen(
     )
 
     val seedImageNote = stringResource(R.string.photo_seed_keeps_image_body)
-        .takeIf { theme.backgroundImage != null || theme.backgroundImageLandscape != null }
+        .takeIf { hasImage || hasLandscapeImage }
     SettingsGroup(
         stringResource(R.string.theme_seed_section_title),
         foldKey = "theme/seed",
@@ -2195,8 +2432,27 @@ fun ThemeEditorScreen(
             ToggleSetting(
                 R.string.theme_editor_dark_title,
                 stringResource(R.string.theme_editor_dark_subtitle),
-                checked = theme.dark,
+                checked = look.watch { it.dark },
             ) { dark -> update { t -> t.reseeded(t.enterKeyBackground, dark) } }
+        }
+        item {
+            // Issue #357. The theme keeps its own colours and the keyboard moves
+            // them onto the wallpaper on the way to the screen, so this is a
+            // switch rather than a one-way conversion: off gives them back.
+            val supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+            ToggleSetting(
+                R.string.theme_follow_wallpaper_title,
+                stringResource(
+                    if (supported) {
+                        R.string.theme_follow_wallpaper_subtitle
+                    } else {
+                        R.string.theme_follow_wallpaper_unsupported
+                    },
+                ),
+                checked = look.watch { it.followWallpaper },
+                info = stringResource(R.string.theme_follow_wallpaper_info),
+                enabled = supported,
+            ) { follow -> update { t -> t.copy(followWallpaper = follow) } }
         }
         item {
             LazyRow(
@@ -2221,24 +2477,26 @@ fun ThemeEditorScreen(
         stringResource(R.string.theme_board_section_title),
         foldKey = "theme/board",
         info = stringResource(R.string.theme_background_image_alpha_body)
-            .takeIf { theme.backgroundImage != null },
+            .takeIf { hasImage },
     ) {
         item {
             ColorRow(
-                stringResource(R.string.theme_board_background_title),
-                theme.boardBackground,
+                R.string.theme_board_background_title,
+                look.watch { it.boardBackground },
                 supportsAlpha = true,
             ) {
                 update { t -> t.copy(boardBackground = it) }
             }
         }
         item {
+            val boardBackground = look.watch { it.boardBackground }
+            val accent = look.watch { it.accent }
             GradientEditor(
-                title = stringResource(R.string.theme_board_gradient_title),
+                title = R.string.theme_board_gradient_title,
                 subtitle = stringResource(R.string.theme_board_gradient_subtitle),
-                gradient = theme.boardGradient,
+                gradient = look.watch { it.boardGradient },
                 defaultGradient = GradientSpec(
-                    colors = listOf(theme.boardBackground or 0xFF000000L, theme.accent),
+                    colors = listOf(boardBackground or 0xFF000000L, accent),
                     type = GradientType.LINEAR,
                     angleDeg = 135f,
                 ),
@@ -2250,9 +2508,9 @@ fun ThemeEditorScreen(
             // their fallback swatch is the board's own colour and Auto is the
             // resting state (issue #109).
             NullableColorRow(
-                stringResource(R.string.theme_suggestion_bar_title),
-                theme.suggestionBarBackground,
-                fallback = theme.boardBackground,
+                R.string.theme_suggestion_bar_title,
+                look.watch { it.suggestionBarBackground },
+                fallback = look.watch { it.boardBackground },
                 supportsAlpha = true,
                 info = stringResource(R.string.theme_suggestion_bar_body),
                 onChange = { update { t -> t.copy(suggestionBarBackground = it) } },
@@ -2260,9 +2518,9 @@ fun ThemeEditorScreen(
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_navigation_bar_title),
-                theme.navigationBarBackground,
-                fallback = theme.boardBackground,
+                R.string.theme_navigation_bar_title,
+                look.watch { it.navigationBarBackground },
+                fallback = look.watch { it.boardBackground },
                 supportsAlpha = true,
                 info = stringResource(R.string.theme_navigation_bar_body),
                 onChange = { update { t -> t.copy(navigationBarBackground = it) } },
@@ -2272,9 +2530,9 @@ fun ThemeEditorScreen(
             // The rail beside the board in one-handed mode. Auto leaves it
             // transparent, so the board runs on behind it.
             NullableColorRow(
-                stringResource(R.string.theme_one_handed_title),
-                theme.oneHandedPanelBackground,
-                fallback = theme.boardBackground,
+                R.string.theme_one_handed_title,
+                look.watch { it.oneHandedPanelBackground },
+                fallback = look.watch { it.boardBackground },
                 supportsAlpha = true,
                 info = stringResource(R.string.theme_one_handed_body),
                 onChange = { update { t -> t.copy(oneHandedPanelBackground = it) } },
@@ -2282,30 +2540,27 @@ fun ThemeEditorScreen(
         }
         // Nested: the glyphs only need their own colour once the rail has a
         // fill of its own to sit on.
-        if (theme.oneHandedPanelBackground != null) {
+        if (hasOneHandedFill) {
             item {
                 NullableColorRow(
-                    stringResource(R.string.theme_one_handed_icon_title),
-                    theme.oneHandedPanelIcon,
-                    fallback = theme.secondaryText ?: theme.suggestionText ?: theme.keyText,
+                    R.string.theme_one_handed_icon_title,
+                    look.watch { it.oneHandedPanelIcon },
+                    fallback = look.watch { it.secondaryText ?: it.suggestionText ?: it.keyText },
                     onChange = { update { t -> t.copy(oneHandedPanelIcon = it) } },
                 )
             }
         }
         item {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_background_image_title)) },
-                supportingContent = {
-                    Text(
-                        stringResource(
-                            if (theme.backgroundImage == null) R.string.theme_background_image_none
-                            else R.string.theme_background_image_replace,
-                        ),
-                    )
-                },
-                leadingContent = { ImageThumb(theme.backgroundImage) },
-                trailingContent = {
-                    val existingImage = theme.backgroundImage
+            val image = look.watch { it.backgroundImage }
+            WmRow(
+                title = stringResource(R.string.theme_background_image_title),
+                subtitle = stringResource(
+                    if (image == null) R.string.theme_background_image_none
+                    else R.string.theme_background_image_replace,
+                ),
+                leading = { ImageThumb(image) },
+                trailing = {
+                    val existingImage = image
                     if (existingImage != null) {
                         TextButton(onClick = {
                             File(existingImage).delete()
@@ -2323,16 +2578,15 @@ fun ThemeEditorScreen(
                         }) { Text(stringResource(CommonR.string.common_delete)) }
                     }
                 },
-                colors = transparentListColors(),
-                modifier = Modifier.clickable { sourceDialogSlot = BackgroundSlot.PORTRAIT },
+                onClick = { sourceDialogSlot = BackgroundSlot.PORTRAIT },
             )
         }
-        theme.backgroundPhoto?.let { credit ->
+        photoCredit?.let { credit ->
             // Both services make it necessary to name the photographer where
             // their photo is shown, so the credit sits on the row itself.
             item { PhotoCreditRow(credit) { url -> openLink(context, url) } }
         }
-        if (theme.backgroundImage != null) {
+        if (hasImage) {
             item {
                 NavRow(
                     R.string.theme_crop_image_title,
@@ -2341,16 +2595,16 @@ fun ThemeEditorScreen(
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_image_opacity_title),
-                    value = theme.backgroundImageOpacity,
+                    R.string.theme_image_opacity_title,
+                    value = look.watch { it.backgroundImageOpacity },
                     range = 0f..1f,
                     display = { "${(it * 100).toInt()}%" },
                 ) { update { t -> t.copy(backgroundImageOpacity = it) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_image_blur_title),
-                    value = theme.backgroundImageBlur,
+                    R.string.theme_image_blur_title,
+                    value = look.watch { it.backgroundImageBlur },
                     range = 0f..25f,
                     display = { if (it < 0.5f) offLabel else it.toInt().toString() },
                     // Blurring an animation re-renders the effect every frame,
@@ -2358,11 +2612,11 @@ fun ThemeEditorScreen(
                     // stops the animation, and the switch below zeroes the blur.
                 ) { update { t -> t.copy(backgroundImageBlur = it, backgroundAnimated = false) } }
             }
-            if (!settings.reduceMotion) item {
+            if (!reduceMotion) item {
                 ToggleSetting(
                     R.string.theme_background_animated_title,
                     stringResource(R.string.theme_background_animated_subtitle),
-                    checked = theme.backgroundAnimated,
+                    checked = look.watch { it.backgroundAnimated },
                 ) { on ->
                     update { t ->
                         t.copy(
@@ -2374,24 +2628,19 @@ fun ThemeEditorScreen(
             }
         }
         item {
-            ListItem(
-                headlineContent = {
-                    Text(stringResource(R.string.theme_background_image_landscape_title))
-                },
-                supportingContent = {
-                    Text(
-                        stringResource(
-                            if (theme.backgroundImageLandscape == null) {
-                                R.string.theme_background_image_landscape_none
-                            } else {
-                                R.string.theme_background_image_replace
-                            },
-                        ),
-                    )
-                },
-                leadingContent = { ImageThumb(theme.backgroundImageLandscape) },
-                trailingContent = {
-                    val existingLandscapeImage = theme.backgroundImageLandscape
+            val landscapeImage = look.watch { it.backgroundImageLandscape }
+            WmRow(
+                title = stringResource(R.string.theme_background_image_landscape_title),
+                subtitle = stringResource(
+                    if (landscapeImage == null) {
+                        R.string.theme_background_image_landscape_none
+                    } else {
+                        R.string.theme_background_image_replace
+                    },
+                ),
+                leading = { ImageThumb(landscapeImage) },
+                trailing = {
+                    val existingLandscapeImage = landscapeImage
                     if (existingLandscapeImage != null) {
                         TextButton(onClick = {
                             File(existingLandscapeImage).delete()
@@ -2399,14 +2648,13 @@ fun ThemeEditorScreen(
                         }) { Text(stringResource(CommonR.string.common_delete)) }
                     }
                 },
-                colors = transparentListColors(),
-                modifier = Modifier.clickable { sourceDialogSlot = BackgroundSlot.LANDSCAPE },
+                onClick = { sourceDialogSlot = BackgroundSlot.LANDSCAPE },
             )
         }
-        theme.backgroundPhotoLandscape?.let { credit ->
+        landscapePhotoCredit?.let { credit ->
             item { PhotoCreditRow(credit) { url -> openLink(context, url) } }
         }
-        if (theme.backgroundImageLandscape != null) {
+        if (hasLandscapeImage) {
             item {
                 NavRow(
                     R.string.theme_crop_landscape_title,
@@ -2422,7 +2670,7 @@ fun ThemeEditorScreen(
                 R.string.photo_rotation_title,
                 subtitle = stringResource(R.string.photo_rotation_subtitle),
                 value = stringResource(
-                    if (settings.photoBackground.rotateEnabled) {
+                    if (rotateOn) {
                         CommonR.string.common_on
                     } else {
                         CommonR.string.common_off
@@ -2442,13 +2690,14 @@ fun ThemeEditorScreen(
         }
     }
 
-    val cropSource = theme.backgroundImage
+    val cropSource = look.watch { it.backgroundImage }
     if (cropOpen && cropSource != null) {
         CropImageDialog(
             path = cropSource,
             onCropped = { newPath ->
                 scope.launch {
                     File(cropSource).delete()
+                    val (family, theme) = look.now() ?: return@launch
                     // The crop decodes one frame and writes it back, so an
                     // animation does not survive it. Whether the theme still
                     // animates is now down to the other orientation's image.
@@ -2469,13 +2718,14 @@ fun ThemeEditorScreen(
             onDismiss = { cropOpen = false },
         )
     }
-    val cropLandscapeSource = theme.backgroundImageLandscape
+    val cropLandscapeSource = look.watch { it.backgroundImageLandscape }
     if (cropLandscapeOpen && cropLandscapeSource != null) {
         CropImageDialog(
             path = cropLandscapeSource,
             onCropped = { newPath ->
                 scope.launch {
                     File(cropLandscapeSource).delete()
+                    val (family, theme) = look.now() ?: return@launch
                     // As above: the cropped landscape image is a still now, so
                     // only the portrait one can keep the flag on.
                     val stillAnimated = withContext(Dispatchers.IO) {
@@ -2496,11 +2746,10 @@ fun ThemeEditorScreen(
         )
     }
 
-    val keyRadiusDp = theme.keyCornerRadiusDp ?: settings.keyCornerRadiusDp
     if (shapePickerOpen) {
         KeyShapePickerDialog(
-            selected = theme.keyShape,
-            radiusDp = keyRadiusDp,
+            selected = look.watch { it.keyShape },
+            radiusDp = look.watchWith { s, t -> t.keyCornerRadiusDp ?: s.keyCornerRadiusDp },
             onPick = { kind ->
                 update { t -> t.copy(keyShape = kind) }
                 shapePickerOpen = false
@@ -2511,8 +2760,8 @@ fun ThemeEditorScreen(
     }
     if (popupShapePickerOpen) {
         KeyShapePickerDialog(
-            selected = keyShapeKindOrNull(theme.popupShape) ?: settings.popup.shape,
-            radiusDp = theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
+            selected = look.watchWith { s, t -> keyShapeKindOrNull(t.popupShape) ?: s.popup.shape },
+            radiusDp = look.watchWith { s, t -> t.popupCornerRadiusDp ?: s.popup.cornerRadiusDp },
             onPick = { kind ->
                 update { t -> t.copy(popupShape = kind.name) }
                 popupShapePickerOpen = false
@@ -2523,8 +2772,8 @@ fun ThemeEditorScreen(
     }
     if (toolShapePickerOpen) {
         KeyShapePickerDialog(
-            selected = keyShapeKindOrNull(theme.toolShape) ?: settings.toolShape,
-            radiusDp = theme.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
+            selected = look.watchWith { s, t -> keyShapeKindOrNull(t.toolShape) ?: s.toolShape },
+            radiusDp = look.watchWith { s, t -> t.toolCircleRadiusDp ?: s.toolCircleRadiusDp },
             onPick = { kind ->
                 update { t -> t.copy(toolShape = kind.name) }
                 toolShapePickerOpen = false
@@ -2535,8 +2784,8 @@ fun ThemeEditorScreen(
     }
     if (chipShapePickerOpen) {
         KeyShapePickerDialog(
-            selected = keyShapeKindOrNull(theme.chipShape) ?: KeyShapeKind.ROUNDED,
-            radiusDp = theme.chipCornerRadiusDp ?: DefaultChipRadiusDp,
+            selected = look.watch { keyShapeKindOrNull(it.chipShape) ?: KeyShapeKind.ROUNDED },
+            radiusDp = look.watch { it.chipCornerRadiusDp ?: DefaultChipRadiusDp },
             onPick = { kind ->
                 update { t -> t.copy(chipShape = kind.name) }
                 chipShapePickerOpen = false
@@ -2547,8 +2796,8 @@ fun ThemeEditorScreen(
     }
     if (menuShapePickerOpen) {
         KeyShapePickerDialog(
-            selected = keyShapeKindOrNull(theme.menuShape),
-            radiusDp = theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
+            selected = look.watch { keyShapeKindOrNull(it.menuShape) },
+            radiusDp = look.watchWith { s, t -> t.popupCornerRadiusDp ?: s.popup.cornerRadiusDp },
             onPick = { kind ->
                 update { t -> t.copy(menuShape = kind.name) }
                 menuShapePickerOpen = false
@@ -2563,8 +2812,8 @@ fun ThemeEditorScreen(
     }
     if (cardShapePickerOpen) {
         KeyShapePickerDialog(
-            selected = keyShapeKindOrNull(theme.cardShape),
-            radiusDp = theme.chipCornerRadiusDp ?: DefaultChipRadiusDp,
+            selected = look.watch { keyShapeKindOrNull(it.cardShape) },
+            radiusDp = look.watch { it.chipCornerRadiusDp ?: DefaultChipRadiusDp },
             onPick = { kind ->
                 update { t -> t.copy(cardShape = kind.name) }
                 cardShapePickerOpen = false
@@ -2583,24 +2832,25 @@ fun ThemeEditorScreen(
             // A row plus a dialog, not a segmented row: a dozen shapes never fit
             // side by side, and a name on its own ("Squircle", "Leaf") does not
             // say what the key will look like. The dialog draws each one.
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_key_shape_title)) },
-                supportingContent = { Text(keyShapeName(theme.keyShape)) },
-                trailingContent = {
+            val keyShape = look.watch { it.keyShape }
+            WmRow(
+                title = stringResource(R.string.theme_key_shape_title),
+                icon = SettingsRowIcons[R.string.theme_key_shape_title],
+                subtitle = keyShapeName(keyShape),
+                trailing = {
                     KeyShapeSwatch(
-                        kind = theme.keyShape,
-                        radiusDp = keyRadiusDp,
+                        kind = keyShape,
+                        radiusDp = look.watchWith { s, t -> t.keyCornerRadiusDp ?: s.keyCornerRadiusDp },
                         color = MaterialTheme.colorScheme.primary,
                     )
                 },
-                colors = transparentListColors(),
-                modifier = Modifier.clickable { shapePickerOpen = true },
+                onClick = { shapePickerOpen = true },
             )
         }
         item {
             ColorRow(
-                stringResource(R.string.theme_letter_keys_title),
-                theme.keyBackground,
+                R.string.theme_letter_keys_title,
+                look.watch { it.keyBackground },
                 supportsAlpha = true,
             ) {
                 update { t -> t.copy(keyBackground = it) }
@@ -2608,9 +2858,9 @@ fun ThemeEditorScreen(
         }
         item {
             GradientEditor(
-                title = stringResource(R.string.theme_key_gradient_title),
+                title = R.string.theme_key_gradient_title,
                 subtitle = stringResource(R.string.theme_key_gradient_subtitle),
-                gradient = theme.keyGradient,
+                gradient = look.watch { it.keyGradient },
                 defaultGradient = GradientSpec(
                     colors = listOf(0x26FFFFFF, 0x00FFFFFF),
                     type = GradientType.LINEAR,
@@ -2620,14 +2870,14 @@ fun ThemeEditorScreen(
             )
         }
         item {
-            ColorRow(stringResource(R.string.theme_key_text_title), theme.keyText) {
+            ColorRow(R.string.theme_key_text_title, look.watch { it.keyText }) {
                 update { t -> t.copy(keyText = it) }
             }
         }
         item {
             ColorRow(
-                stringResource(R.string.theme_modifier_keys_title),
-                theme.modifierKeyBackground,
+                R.string.theme_modifier_keys_title,
+                look.watch { it.modifierKeyBackground },
                 supportsAlpha = true,
             ) {
                 update { t -> t.copy(modifierKeyBackground = it) }
@@ -2635,48 +2885,48 @@ fun ThemeEditorScreen(
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_modifier_key_text_title),
-                theme.modifierKeyText, fallback = theme.keyText,
+                R.string.theme_modifier_key_text_title,
+                look.watch { it.modifierKeyText }, fallback = look.watch { it.keyText },
                 onChange = { update { t -> t.copy(modifierKeyText = it) } },
             )
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_hint_text_title),
-                theme.hintText, fallback = theme.keyText,
+                R.string.theme_hint_text_title,
+                look.watch { it.hintText }, fallback = look.watch { it.keyText },
                 supportsAlpha = true,
                 onChange = { update { t -> t.copy(hintText = it) } },
             )
         }
         item {
-            ColorRow(stringResource(R.string.theme_enter_key_title), theme.enterKeyBackground) {
+            ColorRow(R.string.theme_enter_key_title, look.watch { it.enterKeyBackground }) {
                 update { t -> t.copy(enterKeyBackground = it) }
             }
         }
         item {
-            ColorRow(stringResource(R.string.theme_enter_key_icon_title), theme.enterKeyText) {
+            ColorRow(R.string.theme_enter_key_icon_title, look.watch { it.enterKeyText }) {
                 update { t -> t.copy(enterKeyText = it) }
             }
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_pressed_key_title),
-                theme.pressedKeyBackground, fallback = theme.effectivePressed(),
+                R.string.theme_pressed_key_title,
+                look.watch { it.pressedKeyBackground }, fallback = look.watch { it.effectivePressed() },
                 onChange = { update { t -> t.copy(pressedKeyBackground = it) } },
             )
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_key_border_title),
-                theme.keyBorderColor, fallback = theme.keyText,
+                R.string.theme_key_border_title,
+                look.watch { it.keyBorderColor }, fallback = look.watch { it.keyText },
                 onChange = { update { t -> t.copy(keyBorderColor = it) } },
             )
         }
-        if (theme.keyBorderColor != null) {
+        if (hasKeyBorder) {
             item {
                 SliderRow(
-                    stringResource(R.string.theme_border_width_title),
-                    value = theme.keyBorderWidthDp,
+                    R.string.theme_border_width_title,
+                    value = look.watch { it.keyBorderWidthDp },
                     range = 0f..3f,
                     display = { "%.1f dp".format(it) },
                 ) { update { t -> t.copy(keyBorderWidthDp = (it * 10).toInt() / 10f) } }
@@ -2687,8 +2937,8 @@ fun ThemeEditorScreen(
             // the key's own outline. Shapes that cannot cast one stay flat
             // however far this is pushed, and so does a see-through key.
             SliderRow(
-                stringResource(R.string.theme_key_elevation_title),
-                value = theme.keyElevationDp,
+                R.string.theme_key_elevation_title,
+                value = look.watch { it.keyElevationDp },
                 range = 0f..MAX_ELEVATION_DP,
                 display = { "%.1f dp".format(it) },
                 info = stringResource(R.string.theme_key_elevation_body),
@@ -2696,13 +2946,14 @@ fun ThemeEditorScreen(
         }
     }
 
-    var texturePickerSlot by remember(theme.id) { mutableStateOf<KeyTextureSlot?>(null) }
+    var texturePickerSlot by remember(lookId) { mutableStateOf<KeyTextureSlot?>(null) }
     val texturePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         val slot = texturePickerSlot
         texturePickerSlot = null
         if (uri != null && slot != null) {
+            val (family, theme) = look.now() ?: return@rememberLauncherForActivityResult
             scope.launch(Dispatchers.IO) {
                 runCancellable {
                     val path = importKeyTexture(context, theme.id, slot, uri)
@@ -2724,26 +2975,22 @@ fun ThemeEditorScreen(
         // The popup slot paints the preview bubble and nothing else, so it
         // drops out of the list while key popups are off.
         val slots = KeyTextureSlot.entries.filter {
-            it != KeyTextureSlot.POPUP || settings.popup.enabled
+            it != KeyTextureSlot.POPUP || popupsOn
         }
         for (slot in slots) {
             item {
-                val path = slot.pathIn(theme)
-                ListItem(
-                    headlineContent = { Text(stringResource(slot.titleRes)) },
-                    supportingContent = {
-                        Text(
-                            stringResource(
-                                if (path != null) {
-                                    R.string.theme_texture_set_label
-                                } else {
-                                    R.string.theme_texture_unset_label
-                                },
-                            ),
-                        )
-                    },
-                    leadingContent = { ImageThumb(path) },
-                    trailingContent = {
+                val path = look.watch { slot.pathIn(it) }
+                WmRow(
+                    title = stringResource(slot.titleRes),
+                    subtitle = stringResource(
+                        if (path != null) {
+                            R.string.theme_texture_set_label
+                        } else {
+                            R.string.theme_texture_unset_label
+                        },
+                    ),
+                    leading = { ImageThumb(path) },
+                    trailing = {
                         if (path != null) {
                             IconButton(
                                 onClick = {
@@ -2761,8 +3008,7 @@ fun ThemeEditorScreen(
                             }
                         }
                     },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable {
+                    onClick = {
                         texturePickerSlot = slot
                         texturePicker.launch(
                             PickVisualMediaRequest(
@@ -2773,7 +3019,7 @@ fun ThemeEditorScreen(
                 )
             }
         }
-        if (slots.any { it.pathIn(theme) != null }) {
+        if (slots.any { it in texturedSlots }) {
             item {
                 ChoiceControl(
                     options = KeyTextureScale.entries.map { mode ->
@@ -2786,7 +3032,7 @@ fun ThemeEditorScreen(
                             },
                         )
                     },
-                    selected = keyTextureScaleOrDefault(theme.keyTextureScale),
+                    selected = look.watch { keyTextureScaleOrDefault(it.keyTextureScale) },
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     label = stringResource(R.string.theme_texture_scale_label),
                     detail = { mode ->
@@ -2796,8 +3042,8 @@ fun ThemeEditorScreen(
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_texture_opacity_title),
-                    value = theme.keyTextureOpacity,
+                    R.string.theme_texture_opacity_title,
+                    value = look.watch { it.keyTextureOpacity },
                     range = 0.1f..1f,
                     display = { "${(it * 100).toInt()}%" },
                 ) { update { t -> t.copy(keyTextureOpacity = (it * 100).toInt() / 100f) } }
@@ -2805,18 +3051,18 @@ fun ThemeEditorScreen(
         }
     }
 
-    var overrideEditorId by rememberSaveable(theme.id) { mutableStateOf<String?>(null) }
-    var addOverrideOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var overrideEditorId by rememberSaveable(lookId) { mutableStateOf<String?>(null) }
+    var addOverrideOpen by rememberSaveable(lookId) { mutableStateOf(false) }
     SettingsGroup(
         stringResource(R.string.theme_key_override_section_title),
         foldKey = "theme/key_override",
         info = stringResource(R.string.theme_key_override_section_body),
     ) {
-        for (id in theme.keyOverrides.keys.sorted()) {
+        for (id in overrideIds) {
             item {
-                ListItem(
-                    headlineContent = { Text(keyOverrideDisplayName(id)) },
-                    trailingContent = {
+                WmRow(
+                    title = keyOverrideDisplayName(id),
+                    trailing = {
                         IconButton(
                             onClick = {
                                 update { t -> t.copy(keyOverrides = t.keyOverrides - id) }
@@ -2828,8 +3074,7 @@ fun ThemeEditorScreen(
                             )
                         }
                     },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable { overrideEditorId = id },
+                    onClick = { overrideEditorId = id },
                 )
             }
         }
@@ -2855,12 +3100,11 @@ fun ThemeEditorScreen(
     overrideEditorId?.let { id ->
         KeyOverrideDialog(
             id = id,
-            override = theme.keyOverrides[id] ?: KeyOverride(),
-            theme = theme,
-            popupsShown = settings.popup.enabled,
+            look = look,
+            popupsShown = popupsOn,
             // The theme's own effect group hides itself under reduce motion,
             // and a per-key burst is the same burst.
-            effectsShown = !settings.reduceMotion,
+            effectsShown = !reduceMotion,
             onChange = { changed ->
                 update { t -> t.copy(keyOverrides = t.keyOverrides + (id to changed)) }
             },
@@ -2868,11 +3112,12 @@ fun ThemeEditorScreen(
         )
     }
 
-    var decalEditorId by rememberSaveable(theme.id) { mutableStateOf<String?>(null) }
+    var decalEditorId by rememberSaveable(lookId) { mutableStateOf<String?>(null) }
     val decalPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
+            val (family, theme) = look.now() ?: return@rememberLauncherForActivityResult
             scope.launch(Dispatchers.IO) {
                 runCancellable {
                     val decalId = "d${System.currentTimeMillis()}"
@@ -2896,14 +3141,12 @@ fun ThemeEditorScreen(
         foldKey = "theme/decal",
         info = stringResource(R.string.theme_decal_section_body),
     ) {
-        theme.decals.forEachIndexed { index, decal ->
+        decals.forEachIndexed { index, decal ->
             item {
-                ListItem(
-                    headlineContent = {
-                        Text(stringResource(R.string.theme_decal_item_label, index + 1))
-                    },
-                    leadingContent = { Icon(Icons.Outlined.Image, contentDescription = null) },
-                    trailingContent = {
+                WmRow(
+                    title = stringResource(R.string.theme_decal_item_label, index + 1),
+                    leading = { Icon(Icons.Outlined.Image, contentDescription = null) },
+                    trailing = {
                         IconButton(
                             onClick = {
                                 update { t ->
@@ -2918,12 +3161,11 @@ fun ThemeEditorScreen(
                             )
                         }
                     },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable { decalEditorId = decal.id },
+                    onClick = { decalEditorId = decal.id },
                 )
             }
         }
-        item(visible = theme.decals.size < MAX_DECALS) {
+        item(visible = decals.size < MAX_DECALS) {
             OutlinedButton(
                 onClick = {
                     decalPicker.launch(
@@ -2938,7 +3180,7 @@ fun ThemeEditorScreen(
     }
     decalEditorId?.let { id ->
         DecalDialog(
-            theme = theme,
+            look = look,
             decalId = id,
             onChange = { changed ->
                 update { t ->
@@ -2952,8 +3194,8 @@ fun ThemeEditorScreen(
     SettingsGroup(stringResource(R.string.theme_accent_section_title), foldKey = "theme/accent") {
         item {
             ColorRow(
-                stringResource(R.string.theme_accent_title),
-                theme.accent,
+                R.string.theme_accent_title,
+                look.watch { it.accent },
                 info = stringResource(R.string.theme_accent_body),
             ) {
                 update { t -> t.copy(accent = it) }
@@ -2961,24 +3203,24 @@ fun ThemeEditorScreen(
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_gesture_trail_title),
-                theme.gestureTrailColor, fallback = theme.accent,
+                R.string.theme_gesture_trail_title,
+                look.watch { it.gestureTrailColor }, fallback = look.watch { it.accent },
                 supportsAlpha = true,
                 onChange = { update { t -> t.copy(gestureTrailColor = it) } },
             )
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_popup_background_title),
-                theme.popupBackground, fallback = theme.effectivePopup(),
+                R.string.theme_popup_background_title,
+                look.watch { it.popupBackground }, fallback = look.watch { it.effectivePopup() },
                 supportsAlpha = true,
                 onChange = { update { t -> t.copy(popupBackground = it) } },
             )
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_popup_text_title),
-                theme.popupText, fallback = theme.keyText,
+                R.string.theme_popup_text_title,
+                look.watch { it.popupText }, fallback = look.watch { it.keyText },
                 onChange = { update { t -> t.copy(popupText = it) } },
             )
         }
@@ -2987,26 +3229,26 @@ fun ThemeEditorScreen(
             // sat behind the custom-radii switch: the shape is not a radius,
             // and a theme that wants round popups on the standard radii had to
             // turn a slider group on to reach it.
-            val popupShape = keyShapeKindOrNull(theme.popupShape) ?: settings.popup.shape
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_popup_shape_title)) },
-                supportingContent = { Text(keyShapeName(popupShape)) },
-                trailingContent = {
+            val popupShape = look.watchWith { s, t -> keyShapeKindOrNull(t.popupShape) ?: s.popup.shape }
+            WmRow(
+                title = stringResource(R.string.theme_popup_shape_title),
+                icon = SettingsRowIcons[R.string.theme_popup_shape_title],
+                subtitle = keyShapeName(popupShape),
+                trailing = {
                     KeyShapeSwatch(
                         kind = popupShape,
-                        radiusDp = theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
+                        radiusDp = look.watchWith { s, t -> t.popupCornerRadiusDp ?: s.popup.cornerRadiusDp },
                         color = MaterialTheme.colorScheme.primary,
                     )
                 },
-                colors = transparentListColors(),
-                modifier = Modifier.clickable { popupShapePickerOpen = true },
+                onClick = { popupShapePickerOpen = true },
             )
         }
         // The preview bubble is the only thing that reads the placement, and
         // no bubble is ever published while key popups are switched off. The
         // theme keeps whatever was authored here — the row is hidden, not
         // cleared — so an exported theme is unaffected.
-        if (settings.popup.enabled) item {
+        if (popupsOn) item {
             // Placement: whether the bubble grows out of the key or floats
             // detached above it; the first option leaves the global setting
             // in charge.
@@ -3017,9 +3259,11 @@ fun ThemeEditorScreen(
                     "key" to stringResource(R.string.theme_popup_placement_key_label),
                     "float" to stringResource(R.string.theme_popup_placement_float_label),
                 ),
-                selected = theme.popupPlacement
-                    ?.lowercase()
-                    ?.takeIf { it == "key" || it == "float" },
+                selected = look.watch { t ->
+                    t.popupPlacement
+                        ?.lowercase()
+                        ?.takeIf { it == "key" || it == "float" }
+                },
                 detail = { value ->
                     ChoiceDetail(
                         stringResource(
@@ -3040,16 +3284,16 @@ fun ThemeEditorScreen(
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_popup_border_title),
-                theme.popupBorderColor, fallback = theme.popupText ?: theme.keyText,
+                R.string.theme_popup_border_title,
+                look.watch { it.popupBorderColor }, fallback = look.watch { it.popupText ?: it.keyText },
                 onChange = { update { t -> t.copy(popupBorderColor = it) } },
             )
         }
-        if (theme.popupBorderColor != null) {
+        if (hasPopupBorder) {
             item {
                 SliderRow(
-                    stringResource(R.string.theme_border_width_title),
-                    value = theme.popupBorderWidthDp,
+                    R.string.theme_border_width_title,
+                    value = look.watch { it.popupBorderWidthDp },
                     range = 0f..3f,
                     display = { "%.1f dp".format(it) },
                 ) { update { t -> t.copy(popupBorderWidthDp = (it * 10).toInt() / 10f) } }
@@ -3057,8 +3301,8 @@ fun ThemeEditorScreen(
         }
         item {
             SliderRow(
-                stringResource(R.string.theme_popup_elevation_title),
-                value = theme.popupElevationDp ?: DEFAULT_POPUP_ELEVATION_DP,
+                R.string.theme_popup_elevation_title,
+                value = look.watch { it.popupElevationDp ?: DEFAULT_POPUP_ELEVATION_DP },
                 range = 0f..MAX_ELEVATION_DP,
                 display = { "%.1f dp".format(it) },
             ) { update { t -> t.copy(popupElevationDp = (it * 10).toInt() / 10f) } }
@@ -3067,18 +3311,18 @@ fun ThemeEditorScreen(
             // The highlight under the alternate your finger is on, and under
             // the selected row of the language picker.
             NullableColorRow(
-                stringResource(R.string.theme_popup_selected_title),
-                theme.popupSelectedBackground, fallback = theme.accent,
+                R.string.theme_popup_selected_title,
+                look.watch { it.popupSelectedBackground }, fallback = look.watch { it.accent },
                 supportsAlpha = true,
                 info = stringResource(R.string.theme_popup_selected_body),
                 onChange = { update { t -> t.copy(popupSelectedBackground = it) } },
             )
         }
-        theme.popupSelectedBackground?.let { highlight ->
+        popupHighlight?.let { highlight ->
             item {
                 NullableColorRow(
-                    stringResource(R.string.theme_popup_selected_text_title),
-                    theme.popupSelectedText,
+                    R.string.theme_popup_selected_text_title,
+                    look.watch { it.popupSelectedText },
                     fallback = onColorFor(highlight),
                     onChange = { update { t -> t.copy(popupSelectedText = it) } },
                 )
@@ -3088,74 +3332,72 @@ fun ThemeEditorScreen(
             // The list menus (language picker, clipboard and emoji menus)
             // derive a safe shape from the popup shape unless named here — a
             // slanted bubble is charming, a slanted menu clips its rows.
-            val menuShape = keyShapeKindOrNull(theme.menuShape)
+            val menuShape = look.watch { keyShapeKindOrNull(it.menuShape) }
             val effective = menuShape ?: safeContainerKind(
-                keyShapeKindOrNull(theme.popupShape) ?: settings.popup.shape,
+                look.watchWith { s, t -> keyShapeKindOrNull(t.popupShape) ?: s.popup.shape },
             )
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_menu_shape_title)) },
-                supportingContent = {
-                    Text(
-                        if (menuShape == null) {
-                            stringResource(
-                                R.string.theme_shape_auto_safe_value,
-                                keyShapeName(effective),
-                            )
-                        } else {
-                            keyShapeName(menuShape)
-                        },
+            WmRow(
+                title = stringResource(R.string.theme_menu_shape_title),
+                icon = SettingsRowIcons[R.string.theme_menu_shape_title],
+                subtitle = if (menuShape == null) {
+                    stringResource(
+                        R.string.theme_shape_auto_safe_value,
+                        keyShapeName(effective),
                     )
+                } else {
+                    keyShapeName(menuShape)
                 },
-                trailingContent = {
+                trailing = {
                     KeyShapeSwatch(
                         kind = effective,
-                        radiusDp = theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
+                        radiusDp = look.watchWith { s, t -> t.popupCornerRadiusDp ?: s.popup.cornerRadiusDp },
                         color = MaterialTheme.colorScheme.primary,
                     )
                 },
-                colors = transparentListColors(),
-                modifier = Modifier.clickable { menuShapePickerOpen = true },
+                onClick = { menuShapePickerOpen = true },
             )
         }
     }
 
     SettingsGroup(stringResource(R.string.theme_toolbar_section_title), foldKey = "theme/toolbar") {
         item {
-            val toolShape = keyShapeKindOrNull(theme.toolShape) ?: settings.toolShape
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_tool_shape_title)) },
-                supportingContent = { Text(keyShapeName(toolShape)) },
-                trailingContent = {
+            val toolShape = look.watchWith { s, t -> keyShapeKindOrNull(t.toolShape) ?: s.toolShape }
+            WmRow(
+                title = stringResource(R.string.theme_tool_shape_title),
+                icon = SettingsRowIcons[R.string.theme_tool_shape_title],
+                subtitle = keyShapeName(toolShape),
+                trailing = {
                     KeyShapeSwatch(
                         kind = toolShape,
-                        radiusDp = theme.toolCircleRadiusDp ?: settings.toolCircleRadiusDp,
+                        radiusDp = look.watchWith { s, t -> t.toolCircleRadiusDp ?: s.toolCircleRadiusDp },
                         color = MaterialTheme.colorScheme.primary,
                     )
                 },
-                colors = transparentListColors(),
-                modifier = Modifier.clickable { toolShapePickerOpen = true },
+                onClick = { toolShapePickerOpen = true },
             )
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_tool_icons_title), theme.toolbarIcon,
-                fallback = colorOf(theme.keyText).copy(alpha = 0.65f)
-                    .compositeOver(colorOf(theme.boardBackground)).argb(),
+                R.string.theme_tool_icons_title, look.watch { it.toolbarIcon },
+                fallback = look.watch { t ->
+                    colorOf(t.keyText).copy(alpha = 0.65f)
+                        .compositeOver(colorOf(t.boardBackground)).argb()
+                },
                 onChange = { update { t -> t.copy(toolbarIcon = it) } },
             )
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_tool_circles_title),
-                theme.toolCircleBackground, fallback = theme.effectiveToolCircle(),
+                R.string.theme_tool_circles_title,
+                look.watch { it.toolCircleBackground }, fallback = look.watch { it.effectiveToolCircle() },
                 supportsAlpha = true,
                 onChange = { update { t -> t.copy(toolCircleBackground = it) } },
             )
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_tool_circle_active_title),
-                theme.toolCircleActiveBackground, fallback = theme.effectivePressed(),
+                R.string.theme_tool_circle_active_title,
+                look.watch { it.toolCircleActiveBackground }, fallback = look.watch { it.effectivePressed() },
                 supportsAlpha = true,
                 onChange = { update { t -> t.copy(toolCircleActiveBackground = it) } },
             )
@@ -3165,9 +3407,9 @@ fun ThemeEditorScreen(
             // the fill: a FlorisBoard sheet states the two separately, and
             // deriving one from the other threw away a colour the theme set.
             NullableColorRow(
-                stringResource(R.string.theme_tool_circle_active_icon_title),
-                theme.toolCircleActiveIcon,
-                fallback = theme.toolCircleActiveBackground?.let(::onColorFor) ?: theme.accent,
+                R.string.theme_tool_circle_active_icon_title,
+                look.watch { it.toolCircleActiveIcon },
+                fallback = look.watch { it.toolCircleActiveBackground?.let(::onColorFor) ?: it.accent },
                 onChange = { update { t -> t.copy(toolCircleActiveIcon = it) } },
             )
         }
@@ -3175,17 +3417,17 @@ fun ThemeEditorScreen(
             // Colour then width, the way the key border is set: the colour is
             // what turns the outline on, and the width row appears with it.
             NullableColorRow(
-                stringResource(R.string.theme_tool_border_title),
-                theme.toolBorderColor, fallback = theme.toolbarIcon ?: theme.keyText,
+                R.string.theme_tool_border_title,
+                look.watch { it.toolBorderColor }, fallback = look.watch { it.toolbarIcon ?: it.keyText },
                 supportsAlpha = true,
                 onChange = { update { t -> t.copy(toolBorderColor = it) } },
             )
         }
-        if (theme.toolBorderColor != null) {
+        if (hasToolBorder) {
             item {
                 SliderRow(
-                    stringResource(R.string.theme_tool_border_width_title),
-                    value = theme.toolBorderWidthDp,
+                    R.string.theme_tool_border_width_title,
+                    value = look.watch { it.toolBorderWidthDp },
                     range = 0f..3f,
                     display = { "%.1f dp".format(it) },
                 ) { update { t -> t.copy(toolBorderWidthDp = (it * 10).toInt() / 10f) } }
@@ -3193,8 +3435,8 @@ fun ThemeEditorScreen(
         }
         item {
             SliderRow(
-                stringResource(R.string.theme_tool_elevation_title),
-                value = theme.toolElevationDp,
+                R.string.theme_tool_elevation_title,
+                value = look.watch { it.toolElevationDp },
                 range = 0f..MAX_ELEVATION_DP,
                 display = { "%.1f dp".format(it) },
             ) { update { t -> t.copy(toolElevationDp = (it * 10).toInt() / 10f) } }
@@ -3204,16 +3446,16 @@ fun ThemeEditorScreen(
     SettingsGroup(stringResource(R.string.theme_panels_section_title), foldKey = "theme/panels") {
         item {
             NullableColorRow(
-                stringResource(R.string.theme_cards_title),
-                theme.chipBackground, fallback = theme.modifierKeyBackground,
+                R.string.theme_cards_title,
+                look.watch { it.chipBackground }, fallback = look.watch { it.modifierKeyBackground },
                 supportsAlpha = true,
                 onChange = { update { t -> t.copy(chipBackground = it) } },
             )
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_suggestion_text_title),
-                theme.suggestionText, fallback = theme.keyText,
+                R.string.theme_suggestion_text_title,
+                look.watch { it.suggestionText }, fallback = look.watch { it.keyText },
                 onChange = { update { t -> t.copy(suggestionText = it) } },
             )
         }
@@ -3222,9 +3464,9 @@ fun ThemeEditorScreen(
             // panel parts. Both used to be the suggestion colour at a fixed
             // alpha, which no theme could overrule.
             NullableColorRow(
-                stringResource(R.string.theme_secondary_text_title),
-                theme.secondaryText,
-                fallback = theme.suggestionText ?: theme.keyText,
+                R.string.theme_secondary_text_title,
+                look.watch { it.secondaryText },
+                fallback = look.watch { it.suggestionText ?: it.keyText },
                 supportsAlpha = true,
                 info = stringResource(R.string.theme_secondary_text_body),
                 onChange = { update { t -> t.copy(secondaryText = it) } },
@@ -3232,9 +3474,9 @@ fun ThemeEditorScreen(
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_divider_title),
-                theme.dividerColor,
-                fallback = theme.suggestionText ?: theme.keyText,
+                R.string.theme_divider_title,
+                look.watch { it.dividerColor },
+                fallback = look.watch { it.suggestionText ?: it.keyText },
                 supportsAlpha = true,
                 info = stringResource(R.string.theme_divider_body),
                 onChange = { update { t -> t.copy(dividerColor = it) } },
@@ -3249,39 +3491,39 @@ fun ThemeEditorScreen(
     ) {
         item {
             NullableColorRow(
-                stringResource(R.string.theme_chip_text_title),
-                theme.chipText, fallback = theme.modifierKeyText ?: theme.keyText,
+                R.string.theme_chip_text_title,
+                look.watch { it.chipText }, fallback = look.watch { it.modifierKeyText ?: it.keyText },
                 onChange = { update { t -> t.copy(chipText = it) } },
             )
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_chip_active_title),
-                theme.chipActiveBackground,
-                fallback = theme.toolCircleActiveBackground ?: theme.effectivePressed(),
+                R.string.theme_chip_active_title,
+                look.watch { it.chipActiveBackground },
+                fallback = look.watch { it.toolCircleActiveBackground ?: it.effectivePressed() },
                 supportsAlpha = true,
                 onChange = { update { t -> t.copy(chipActiveBackground = it) } },
             )
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_chip_active_text_title),
-                theme.chipActiveText, fallback = theme.accent,
+                R.string.theme_chip_active_text_title,
+                look.watch { it.chipActiveText }, fallback = look.watch { it.accent },
                 onChange = { update { t -> t.copy(chipActiveText = it) } },
             )
         }
         item {
             NullableColorRow(
-                stringResource(R.string.theme_chip_border_title),
-                theme.chipBorderColor, fallback = theme.accent,
+                R.string.theme_chip_border_title,
+                look.watch { it.chipBorderColor }, fallback = look.watch { it.accent },
                 onChange = { update { t -> t.copy(chipBorderColor = it) } },
             )
         }
-        if (theme.chipBorderColor != null) {
+        if (hasChipBorder) {
             item {
                 SliderRow(
-                    stringResource(R.string.theme_border_width_title),
-                    value = theme.chipBorderWidthDp,
+                    R.string.theme_border_width_title,
+                    value = look.watch { it.chipBorderWidthDp },
                     range = 0f..3f,
                     display = { "%.1f dp".format(it) },
                 ) { update { t -> t.copy(chipBorderWidthDp = (it * 10).toInt() / 10f) } }
@@ -3289,36 +3531,33 @@ fun ThemeEditorScreen(
         }
         item {
             SliderRow(
-                stringResource(R.string.theme_card_elevation_title),
-                value = theme.cardElevationDp,
+                R.string.theme_card_elevation_title,
+                value = look.watch { it.cardElevationDp },
                 range = 0f..MAX_ELEVATION_DP,
                 display = { "%.1f dp".format(it) },
             ) { update { t -> t.copy(cardElevationDp = (it * 10).toInt() / 10f) } }
         }
         item {
-            val chipShape = keyShapeKindOrNull(theme.chipShape) ?: KeyShapeKind.ROUNDED
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_chip_shape_title)) },
-                supportingContent = { Text(keyShapeName(chipShape)) },
-                trailingContent = {
+            val chipShape = look.watch { keyShapeKindOrNull(it.chipShape) ?: KeyShapeKind.ROUNDED }
+            WmRow(
+                title = stringResource(R.string.theme_chip_shape_title),
+                icon = SettingsRowIcons[R.string.theme_chip_shape_title],
+                subtitle = keyShapeName(chipShape),
+                trailing = {
                     KeyShapeSwatch(
                         kind = chipShape,
-                        radiusDp = theme.chipCornerRadiusDp ?: DefaultChipRadiusDp,
+                        radiusDp = look.watch { it.chipCornerRadiusDp ?: DefaultChipRadiusDp },
                         color = MaterialTheme.colorScheme.primary,
                     )
                 },
-                colors = transparentListColors(),
-                modifier = Modifier.clickable { chipShapePickerOpen = true },
+                onClick = { chipShapePickerOpen = true },
             )
         }
-        if (keyShapeKindOrNull(theme.chipShape).let {
-                it == null || it == KeyShapeKind.ROUNDED || it == KeyShapeKind.CUT
-            }
-        ) {
+        if (chipRadiusShown) {
             item {
                 SliderRow(
-                    stringResource(R.string.theme_chip_radius_title),
-                    value = (theme.chipCornerRadiusDp ?: DefaultChipRadiusDp).toFloat(),
+                    R.string.theme_chip_radius_title,
+                    value = look.watch { it.chipCornerRadiusDp ?: DefaultChipRadiusDp }.toFloat(),
                     range = 0f..24f,
                     display = { "${it.toInt()} dp" },
                 ) { update { t -> t.copy(chipCornerRadiusDp = it.toInt()) } }
@@ -3327,38 +3566,35 @@ fun ThemeEditorScreen(
         item {
             // The panel cards and search bars, under the same safety rule as
             // the menu shape: derived from the chip shape unless named.
-            val cardShape = keyShapeKindOrNull(theme.cardShape)
+            val cardShape = look.watch { keyShapeKindOrNull(it.cardShape) }
             val effective = cardShape ?: safeContainerKind(
-                keyShapeKindOrNull(theme.chipShape) ?: KeyShapeKind.ROUNDED,
+                look.watch { keyShapeKindOrNull(it.chipShape) ?: KeyShapeKind.ROUNDED },
             )
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.theme_card_shape_title)) },
-                supportingContent = {
-                    Text(
-                        if (cardShape == null) {
-                            stringResource(
-                                R.string.theme_shape_auto_safe_value,
-                                keyShapeName(effective),
-                            )
-                        } else {
-                            keyShapeName(cardShape)
-                        },
+            WmRow(
+                title = stringResource(R.string.theme_card_shape_title),
+                icon = SettingsRowIcons[R.string.theme_card_shape_title],
+                subtitle = if (cardShape == null) {
+                    stringResource(
+                        R.string.theme_shape_auto_safe_value,
+                        keyShapeName(effective),
                     )
+                } else {
+                    keyShapeName(cardShape)
                 },
-                trailingContent = {
+                trailing = {
                     KeyShapeSwatch(
                         kind = effective,
-                        radiusDp = theme.chipCornerRadiusDp ?: DefaultChipRadiusDp,
+                        radiusDp = look.watch { it.chipCornerRadiusDp ?: DefaultChipRadiusDp },
                         color = MaterialTheme.colorScheme.primary,
                     )
                 },
-                colors = transparentListColors(),
-                modifier = Modifier.clickable { cardShapePickerOpen = true },
+                onClick = { cardShapePickerOpen = true },
             )
         }
     }
 
-    val hasCustomRadii = theme.keyCornerRadiusDp != null
+    // Decides which rows the group holds; each row reads its own radius.
+    val hasCustomRadii = look.watch { it.keyCornerRadiusDp != null }
     SettingsGroup(stringResource(R.string.theme_corners_section_title), foldKey = "theme/corners") {
         item {
             ToggleSetting(
@@ -3366,15 +3602,16 @@ fun ThemeEditorScreen(
                 stringResource(R.string.theme_custom_radii_subtitle),
                 checked = hasCustomRadii,
             ) { enable ->
+                val current = settings.value
                 update { t ->
                     // Radii only. The popup and tool shapes live with their own
                     // colours now, and a theme that has picked one keeps it
                     // whether or not it also carries its own radii.
                     if (enable) {
                         t.copy(
-                            keyCornerRadiusDp = settings.keyCornerRadiusDp,
-                            popupCornerRadiusDp = settings.popup.cornerRadiusDp,
-                            toolCircleRadiusDp = settings.toolCircleRadiusDp,
+                            keyCornerRadiusDp = current.keyCornerRadiusDp,
+                            popupCornerRadiusDp = current.popup.cornerRadiusDp,
+                            toolCircleRadiusDp = current.toolCircleRadiusDp,
                         )
                     } else {
                         t.copy(
@@ -3388,24 +3625,24 @@ fun ThemeEditorScreen(
         }
         item(visible = hasCustomRadii) {
             SliderRow(
-                stringResource(R.string.theme_key_radius_title),
-                value = (theme.keyCornerRadiusDp ?: 8).toFloat(),
+                R.string.theme_key_radius_title,
+                value = look.watch { it.keyCornerRadiusDp ?: 8 }.toFloat(),
                 range = 0f..28f,
                 display = { "${it.toInt()} dp" },
             ) { update { t -> t.copy(keyCornerRadiusDp = it.toInt()) } }
         }
         item(visible = hasCustomRadii) {
             SliderRow(
-                stringResource(R.string.theme_popup_radius_title),
-                value = (theme.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp).toFloat(),
+                R.string.theme_popup_radius_title,
+                value = look.watchWith { s, t -> t.popupCornerRadiusDp ?: s.popup.cornerRadiusDp }.toFloat(),
                 range = 0f..40f,
                 display = { "${it.toInt()} dp" },
             ) { update { t -> t.copy(popupCornerRadiusDp = it.toInt()) } }
         }
         item(visible = hasCustomRadii) {
             SliderRow(
-                stringResource(R.string.theme_tool_circle_radius_title),
-                value = (theme.toolCircleRadiusDp ?: 20).toFloat(),
+                R.string.theme_tool_circle_radius_title,
+                value = look.watch { it.toolCircleRadiusDp ?: 20 }.toFloat(),
                 range = 0f..20f,
                 display = { if (it.toInt() == 0) offLabel else "${it.toInt()} dp" },
             ) { update { t -> t.copy(toolCircleRadiusDp = it.toInt()) } }
@@ -3415,7 +3652,7 @@ fun ThemeEditorScreen(
     // The toolbar-height field doubles as the group's on/off sentinel: the
     // switch always seeds or clears all ten fields together, so any one of
     // them being set means the group is on.
-    val hasLayoutOverrides = theme.toolbarHeightDp != null
+    val hasLayoutOverrides = look.watch { it.toolbarHeightDp != null }
     SettingsGroup(
         stringResource(R.string.theme_layout_section_title),
         foldKey = "theme/layout",
@@ -3427,28 +3664,29 @@ fun ThemeEditorScreen(
                 stringResource(R.string.theme_custom_layout_subtitle),
                 checked = hasLayoutOverrides,
             ) { enable ->
+                val current = settings.value
                 update { t ->
                     if (enable) {
                         t.copy(
-                            toolWidthDp = settings.toolbarBehavior.toolWidthDp,
-                            toolbarHeightDp = settings.toolbarHeightDp,
+                            toolWidthDp = current.toolbarBehavior.toolWidthDp,
+                            toolbarHeightDp = current.toolbarHeightDp,
                             // Both styles' heights, not the one the setting is
                             // in: a single seed handed the floating height to
                             // the on-key bubble the moment the style flipped
                             // (#87).
-                            popupHeightDp = settings.popup.onKeyHeightDp,
-                            popupFloatingHeightDp = settings.popup.floatingHeightDp,
-                            keyHeightDp = settings.keyHeightDp,
-                            keyGapScale = settings.keyGapScale,
-                            sidePadScale = settings.layoutBehavior.sidePadLeftScale
-                                .takeIf { it == settings.layoutBehavior.sidePadRightScale },
-                            sidePadLeftScale = settings.layoutBehavior.sidePadLeftScale,
-                            sidePadRightScale = settings.layoutBehavior.sidePadRightScale,
-                            fontScale = settings.fontScale,
-                            boldKeyLabels = settings.accessibility.boldLabels,
-                            hintFontScale = settings.layoutBehavior.hintFontScale,
-                            gestureTrailWidthDp = settings.gesture.trailWidthDp,
-                            gestureTrailOpacity = settings.gesture.trailOpacity,
+                            popupHeightDp = current.popup.onKeyHeightDp,
+                            popupFloatingHeightDp = current.popup.floatingHeightDp,
+                            keyHeightDp = current.keyHeightDp,
+                            keyGapScale = current.keyGapScale,
+                            sidePadScale = current.layoutBehavior.sidePadLeftScale
+                                .takeIf { it == current.layoutBehavior.sidePadRightScale },
+                            sidePadLeftScale = current.layoutBehavior.sidePadLeftScale,
+                            sidePadRightScale = current.layoutBehavior.sidePadRightScale,
+                            fontScale = current.fontScale,
+                            boldKeyLabels = current.accessibility.boldLabels,
+                            hintFontScale = current.layoutBehavior.hintFontScale,
+                            gestureTrailWidthDp = current.gesture.trailWidthDp,
+                            gestureTrailOpacity = current.gesture.trailOpacity,
                         )
                     } else {
                         t.copy(
@@ -3474,31 +3712,32 @@ fun ThemeEditorScreen(
         if (hasLayoutOverrides) {
             item {
                 SliderRow(
-                    stringResource(R.string.theme_tool_width_title),
-                    value = (theme.toolWidthDp ?: 38).toFloat(),
+                    R.string.theme_tool_width_title,
+                    value = look.watch { it.toolWidthDp ?: 38 }.toFloat(),
                     range = 38f..64f,
                     display = { "${it.toInt()} dp" },
                 ) { update { t -> t.copy(toolWidthDp = it.toInt()) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_toolbar_height_title),
-                    value = (theme.toolbarHeightDp ?: 44).toFloat(),
+                    R.string.theme_toolbar_height_title,
+                    value = look.watch { it.toolbarHeightDp ?: 44 }.toFloat(),
                     range = 32f..80f,
                     display = { "${it.toInt()} dp" },
                 ) { update { t -> t.copy(toolbarHeightDp = it.toInt()) } }
             }
-            if (settings.popup.enabled) item {
+            if (popupsOn) item {
                 // The height of the style in force for this theme — its own
                 // placement, else the global one — the way the global slider
                 // shows one style's value at a time. Each style keeps its own
                 // field, so a height dialled in while the bubble floated is
                 // never what the on-key bubble is drawn at (#87).
-                val onKey = popupOnKeyOrNull(theme.popupPlacement) ?: settings.popup.onKey
-                val height = (if (onKey) theme.popupHeightDp else theme.popupFloatingHeightDp)
-                    ?: settings.popup.heightFor(onKey)
+                val onKey = look.watchWith { s, t -> popupOnKeyOrNull(t.popupPlacement) ?: s.popup.onKey }
+                val height = look.watchWith { s, t ->
+                    (if (onKey) t.popupHeightDp else t.popupFloatingHeightDp) ?: s.popup.heightFor(onKey)
+                }
                 SliderRow(
-                    stringResource(R.string.theme_popup_height_title),
+                    R.string.theme_popup_height_title,
                     value = height.toFloat(),
                     range = 32f..160f,
                     display = { "${it.toInt()} dp" },
@@ -3514,40 +3753,40 @@ fun ThemeEditorScreen(
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_key_height_title),
-                    value = (theme.keyHeightDp ?: 48).toFloat(),
+                    R.string.theme_key_height_title,
+                    value = look.watch { it.keyHeightDp ?: 48 }.toFloat(),
                     range = 32f..100f,
                     display = { "${it.toInt()} dp" },
                 ) { update { t -> t.copy(keyHeightDp = it.toInt()) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_key_gap_title),
-                    value = theme.keyGapScale ?: 1f,
+                    R.string.theme_key_gap_title,
+                    value = look.watch { it.keyGapScale ?: 1f },
                     range = 0f..2f,
                     display = { "%.2f×".format(it) },
                 ) { update { t -> t.copy(keyGapScale = (it * 20).toInt() / 20f) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_side_padding_left_title),
-                    value = theme.sidePadLeftScale ?: theme.sidePadScale ?: 0f,
+                    R.string.theme_side_padding_left_title,
+                    value = look.watch { it.sidePadLeftScale ?: it.sidePadScale ?: 0f },
                     range = SidePadScaleRange,
                     display = { "${(it * 100).toInt()} %" },
                 ) { update { t -> t.withSidePad(left = (it * 100).toInt() / 100f) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_side_padding_right_title),
-                    value = theme.sidePadRightScale ?: theme.sidePadScale ?: 0f,
+                    R.string.theme_side_padding_right_title,
+                    value = look.watch { it.sidePadRightScale ?: it.sidePadScale ?: 0f },
                     range = SidePadScaleRange,
                     display = { "${(it * 100).toInt()} %" },
                 ) { update { t -> t.withSidePad(right = (it * 100).toInt() / 100f) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_font_scale_title),
-                    value = theme.fontScale ?: 1f,
+                    R.string.theme_font_scale_title,
+                    value = look.watch { it.fontScale ?: 1f },
                     range = 0.7f..1.5f,
                     display = { "%.2f×".format(it) },
                 ) { update { t -> t.copy(fontScale = (it * 20).toInt() / 20f) } }
@@ -3556,29 +3795,29 @@ fun ThemeEditorScreen(
                 ToggleSetting(
                     R.string.theme_bold_labels_title,
                     subtitle = null,
-                    checked = theme.boldKeyLabels ?: false,
+                    checked = look.watch { it.boldKeyLabels ?: false },
                 ) { bold -> update { t -> t.copy(boldKeyLabels = bold) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_hint_scale_title),
-                    value = theme.hintFontScale ?: 1f,
+                    R.string.theme_hint_scale_title,
+                    value = look.watch { it.hintFontScale ?: 1f },
                     range = 0.5f..2f,
                     display = { "%.2f×".format(it) },
                 ) { update { t -> t.copy(hintFontScale = (it * 20).toInt() / 20f) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_trail_width_title),
-                    value = theme.gestureTrailWidthDp ?: 10f,
+                    R.string.theme_trail_width_title,
+                    value = look.watch { it.gestureTrailWidthDp ?: 10f },
                     range = 2f..24f,
                     display = { "${it.toInt()} dp" },
                 ) { update { t -> t.copy(gestureTrailWidthDp = it.toInt().toFloat()) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_trail_opacity_title),
-                    value = theme.gestureTrailOpacity ?: 0.55f,
+                    R.string.theme_trail_opacity_title,
+                    value = look.watch { it.gestureTrailOpacity ?: 0.55f },
                     range = 0.1f..1f,
                     display = { "${(it * 100).toInt()} %" },
                 ) { update { t -> t.copy(gestureTrailOpacity = (it * 100).toInt() / 100f) } }
@@ -3593,7 +3832,7 @@ fun ThemeEditorScreen(
         foldKey = "theme/animation",
         info = stringResource(R.string.theme_animation_section_body),
     ) {
-        if (settings.reduceMotion) return@SettingsGroup
+        if (reduceMotion) return@SettingsGroup
         item {
             ChoiceControl(
                 options = ThemeAnimation.entries.map { anim ->
@@ -3604,15 +3843,15 @@ fun ThemeEditorScreen(
                             stringResource(R.string.theme_animation_hue_cycle_label)
                     }
                 },
-                selected = theme.animation,
+                selected = look.watch { it.animation },
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 detail = { anim -> ChoiceDetail(stringResource(themeAnimationDescRes(anim))) },
             ) { anim -> update { t -> t.copy(animation = anim) } }
         }
-        item(visible = theme.animation != ThemeAnimation.NONE) {
+        item(visible = themeAnimates) {
             SliderRow(
-                stringResource(R.string.theme_animation_speed_title),
-                value = theme.animationSpeed,
+                R.string.theme_animation_speed_title,
+                value = look.watch { it.animationSpeed },
                 range = 0.25f..3f,
                 display = { "%.2f×".format(it) },
             ) { update { t -> t.copy(animationSpeed = (it * 20).toInt() / 20f) } }
@@ -3623,6 +3862,7 @@ fun ThemeEditorScreen(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri != null) {
+            val (family, theme) = look.now() ?: return@rememberLauncherForActivityResult
             scope.launch(Dispatchers.IO) {
                 runCancellable {
                     val path = importEffectImage(context, theme.id, uri)
@@ -3641,16 +3881,16 @@ fun ThemeEditorScreen(
         }
     }
     val effectImagesNote = stringResource(R.string.theme_effect_images_body)
-        .takeIf { keyEffectKindOrNull(theme.keyEffect) == KeyEffectKind.CUSTOM_IMAGE }
+        .takeIf { effectKind == KeyEffectKind.CUSTOM_IMAGE }
     SettingsGroup(
         stringResource(R.string.theme_effect_section_title),
         foldKey = "theme/effect",
         info = listOfNotNull(stringResource(R.string.theme_effect_section_body), effectImagesNote)
             .joinToString("\n\n"),
     ) {
-        if (settings.reduceMotion) return@SettingsGroup
+        if (reduceMotion) return@SettingsGroup
         item {
-            val current = keyEffectKindOrNull(theme.keyEffect)
+            val current = effectKind
             ChoiceControl(
                 options = listOf<KeyEffectKind?>(null).plus(KeyEffectKind.entries).map { kind ->
                     kind to when (kind) {
@@ -3670,12 +3910,13 @@ fun ThemeEditorScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             ) { kind -> update { t -> t.copy(keyEffect = kind?.name) } }
         }
-        item(visible = keyEffectKindOrNull(theme.keyEffect) == KeyEffectKind.EMOJI) {
+        item(visible = effectKind == KeyEffectKind.EMOJI) {
             // Local state is the source of truth while typing: a field
             // bound straight to the async theme write scrambles input when
             // the DataStore emission echoes back mid-edit.
-            var emojiParam by remember(theme.id) {
-                mutableStateOf(theme.keyEffectParam.orEmpty())
+            val storedParam = look.watch { it.keyEffectParam }
+            var emojiParam by remember(lookId) {
+                mutableStateOf(storedParam.orEmpty())
             }
             OutlinedTextField(
                 value = emojiParam,
@@ -3691,20 +3932,16 @@ fun ThemeEditorScreen(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
-        if (keyEffectKindOrNull(theme.keyEffect) == KeyEffectKind.CUSTOM_IMAGE) {
-            theme.keyEffectImages.forEachIndexed { index, path ->
+        if (effectKind == KeyEffectKind.CUSTOM_IMAGE) {
+            effectImages.forEachIndexed { index, path ->
                 item {
-                    ListItem(
-                        headlineContent = {
-                            Text(
-                                stringResource(
-                                    R.string.theme_effect_image_item_label,
-                                    index + 1,
-                                ),
-                            )
-                        },
-                        leadingContent = { ImageThumb(path) },
-                        trailingContent = {
+                    WmRow(
+                        title = stringResource(
+                            R.string.theme_effect_image_item_label,
+                            index + 1,
+                        ),
+                        leading = { ImageThumb(path) },
+                        trailing = {
                             IconButton(
                                 onClick = {
                                     update { t ->
@@ -3725,11 +3962,10 @@ fun ThemeEditorScreen(
                                 )
                             }
                         },
-                        colors = transparentListColors(),
                     )
                 }
             }
-            item(visible = theme.keyEffectImages.size < MAX_EFFECT_IMAGES) {
+            item(visible = effectImages.size < MAX_EFFECT_IMAGES) {
                 OutlinedButton(
                     onClick = {
                         effectImagePicker.launch(
@@ -3742,17 +3978,21 @@ fun ThemeEditorScreen(
                 ) { Text(stringResource(R.string.theme_effect_image_add_action)) }
             }
         }
-        if (keyEffectKindOrNull(theme.keyEffect) != null) {
+        if (effectKind != null) {
             item {
                 SliderRow(
-                    stringResource(R.string.theme_effect_intensity_title),
-                    value = theme.keyEffectIntensity,
+                    R.string.theme_effect_intensity_title,
+                    value = look.watch { it.keyEffectIntensity },
                     range = 0.4f..2.4f,
                     display = { "%.1f×".format(it) },
                 ) { update { t -> t.copy(keyEffectIntensity = (it * 10).toInt() / 10f) } }
             }
             item {
-                val mode = keyEffectColorMode(theme.keyEffectColor)
+                val mode = look.watch { keyEffectColorMode(it.keyEffectColor) }
+                val keyText = look.watch { it.keyText }
+                val accent = look.watch { it.accent }
+                val trail = look.watch { it.gestureTrailColor ?: it.accent }
+                val customColour = look.watch { it.keyEffectCustomColor ?: it.accent }
                 // A swatch per option, since every one of these is a colour and
                 // the words for them ("Trail", "Accent") name where the colour
                 // comes from rather than what it looks like on this theme.
@@ -3761,25 +4001,25 @@ fun ThemeEditorScreen(
                         ChoiceDetail(stringResource(R.string.theme_effect_color_natural_desc)),
                     KeyEffectColorMode.KEY_TEXT to
                         ChoiceDetail(stringResource(R.string.theme_effect_color_key_text_desc)) {
-                            Swatch(theme.keyText)
+                            Swatch(keyText)
                         },
                     KeyEffectColorMode.ACCENT to
                         ChoiceDetail(stringResource(R.string.theme_effect_color_accent_desc)) {
-                            Swatch(theme.accent)
+                            Swatch(accent)
                         },
                     KeyEffectColorMode.GESTURE_TRAIL to
                         ChoiceDetail(stringResource(R.string.theme_effect_color_trail_desc)) {
-                            Swatch(theme.gestureTrailColor ?: theme.accent)
+                            Swatch(trail)
                         },
                     KeyEffectColorMode.CUSTOM to
                         ChoiceDetail(stringResource(R.string.theme_effect_color_custom_desc)) {
-                            Swatch(theme.keyEffectCustomColor ?: theme.accent)
+                            Swatch(customColour)
                         },
                     KeyEffectColorMode.RANDOM to
                         ChoiceDetail(stringResource(R.string.theme_effect_color_random_desc)),
                 )
                 ChoiceSetting(
-                    title = stringResource(R.string.theme_effect_color_title),
+                    title = R.string.theme_effect_color_title,
                     info = stringResource(R.string.theme_effect_color_body),
                     detail = { colourDetail[it] },
                     options = KeyEffectColorMode.entries.map { option ->
@@ -3801,41 +4041,41 @@ fun ThemeEditorScreen(
                     selected = mode,
                 ) { picked -> update { t -> t.copy(keyEffectColor = picked.name) } }
             }
-            item(visible = keyEffectColorMode(theme.keyEffectColor) == KeyEffectColorMode.CUSTOM) {
+            item(visible = effectColourCustom) {
                 NullableColorRow(
-                    stringResource(R.string.theme_effect_color_custom_label),
-                    theme.keyEffectCustomColor, fallback = theme.accent,
+                    R.string.theme_effect_color_custom_label,
+                    look.watch { it.keyEffectCustomColor }, fallback = look.watch { it.accent },
                     onChange = { update { t -> t.copy(keyEffectCustomColor = it) } },
                 )
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_effect_size_title),
-                    value = theme.keyEffectSize,
+                    R.string.theme_effect_size_title,
+                    value = look.watch { it.keyEffectSize },
                     range = EFFECT_SIZE_RANGE,
                     display = { "%.1f×".format(it) },
                 ) { update { t -> t.copy(keyEffectSize = (it * 10).toInt() / 10f) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_effect_speed_title),
-                    value = theme.keyEffectSpeed,
+                    R.string.theme_effect_speed_title,
+                    value = look.watch { it.keyEffectSpeed },
                     range = EFFECT_SPEED_RANGE,
                     display = { "%.1f×".format(it) },
                 ) { update { t -> t.copy(keyEffectSpeed = (it * 10).toInt() / 10f) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_effect_spread_title),
-                    value = theme.keyEffectSpread,
+                    R.string.theme_effect_spread_title,
+                    value = look.watch { it.keyEffectSpread },
                     range = EFFECT_SPREAD_RANGE,
                     display = { "%d%%".format((it * 100).roundToInt()) },
                 ) { update { t -> t.copy(keyEffectSpread = (it * 20).toInt() / 20f) } }
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_effect_gravity_title),
-                    value = theme.keyEffectGravity,
+                    R.string.theme_effect_gravity_title,
+                    value = look.watch { it.keyEffectGravity },
                     range = EFFECT_GRAVITY_RANGE,
                     display = { "%.1f×".format(it) },
                     info = stringResource(R.string.theme_effect_gravity_body),
@@ -3843,8 +4083,8 @@ fun ThemeEditorScreen(
             }
             item {
                 SliderRow(
-                    stringResource(R.string.theme_effect_duration_title),
-                    value = theme.keyEffectDurationMs.toFloat(),
+                    R.string.theme_effect_duration_title,
+                    value = look.watch { it.keyEffectDurationMs }.toFloat(),
                     range = EFFECT_DURATION_RANGE.first.toFloat()..
                         EFFECT_DURATION_RANGE.last.toFloat(),
                     display = { "%d ms".format(it.roundToInt()) },
@@ -3855,11 +4095,11 @@ fun ThemeEditorScreen(
         }
     }
 
-    var fontPickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
-    var soundPickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
-    var scriptPickerOpen by rememberSaveable(theme.id) { mutableStateOf(false) }
+    var fontPickerOpen by rememberSaveable(lookId) { mutableStateOf(false) }
+    var soundPickerOpen by rememberSaveable(lookId) { mutableStateOf(false) }
+    var scriptPickerOpen by rememberSaveable(lookId) { mutableStateOf(false) }
     /** `ScriptId.name` of the per-script font row being edited, if any. */
-    var scriptFontPicker by rememberSaveable(theme.id) { mutableStateOf<String?>(null) }
+    var scriptFontPicker by rememberSaveable(lookId) { mutableStateOf<String?>(null) }
     SettingsGroup(
         stringResource(R.string.theme_font_sound_section_title),
         foldKey = "theme/font_sound",
@@ -3868,7 +4108,7 @@ fun ThemeEditorScreen(
         item {
             NavRow(
                 R.string.theme_font_title,
-                value = theme.fontId?.let { KeyboardFonts.displayName(context, it, "") }
+                value = look.watch { it.fontId }?.let { KeyboardFonts.displayName(context, it, "") }
                     ?: stringResource(R.string.theme_follow_settings_label),
             ) { fontPickerOpen = true }
         }
@@ -3878,7 +4118,7 @@ fun ThemeEditorScreen(
         // scripts the theme has an answer for are listed; the rest keep Noto.
         for (script in KeyboardFonts.scriptFontChoices) {
             val key = script.script.name
-            val fontId = theme.scriptFontIds[key] ?: continue
+            val fontId = scriptFontIds[key] ?: continue
             item {
                 // The `String` form, because the row is named after a script
                 // rather than after a resource of its own. The glyph and the
@@ -3902,16 +4142,16 @@ fun ThemeEditorScreen(
         }
         // A theme's sound is resolved past the key-sound gate, so with key
         // sounds off there is nothing for it to replace.
-        if (settings.sound.enabled) item {
+        if (soundOn) item {
             NavRow(
                 R.string.theme_sound_title,
-                value = themeSoundLabel(theme),
+                value = themeSoundLabel(look.watch { it.soundStyle }, look.watch { it.soundCustomId }),
             ) { soundPickerOpen = true }
         }
     }
     if (fontPickerOpen) {
         ThemeFontPickerDialog(
-            current = theme.fontId,
+            current = look.watch { it.fontId },
             onPick = { id ->
                 fontPickerOpen = false
                 update { t -> t.copy(fontId = id) }
@@ -3921,7 +4161,7 @@ fun ThemeEditorScreen(
     }
     if (scriptPickerOpen) {
         ThemeScriptPickerDialog(
-            taken = theme.scriptFontIds.keys,
+            taken = scriptFontIds.keys,
             onPick = { script ->
                 scriptPickerOpen = false
                 scriptFontPicker = script
@@ -3939,7 +4179,7 @@ fun ThemeEditorScreen(
             // an absent key is the script keeping its automatic Noto face, which
             // is also what an uninstalled font id degrades to.
             defaultLabel = stringResource(R.string.theme_script_font_default_label),
-            current = theme.scriptFontIds[script],
+            current = scriptFontIds[script],
             onPick = { id ->
                 scriptFontPicker = null
                 update { t ->
@@ -3953,8 +4193,8 @@ fun ThemeEditorScreen(
     }
     if (soundPickerOpen) {
         ThemeSoundPickerDialog(
-            currentStyle = theme.soundStyle,
-            currentCustomId = theme.soundCustomId,
+            currentStyle = look.watch { it.soundStyle },
+            currentCustomId = look.watch { it.soundCustomId },
             onPick = { style, customId ->
                 soundPickerOpen = false
                 update { t -> t.copy(soundStyle = style, soundCustomId = customId) }
@@ -3967,9 +4207,9 @@ fun ThemeEditorScreen(
 
 /** The sound row's current-value line: a style's name, or "follow settings". */
 @Composable
-private fun themeSoundLabel(theme: ThemeSpec): String {
+private fun themeSoundLabel(soundStyle: String?, soundCustomId: String?): String {
     val context = LocalContext.current
-    val style = theme.soundStyle?.let { name ->
+    val style = soundStyle?.let { name ->
         KeySoundStyle.entries.firstOrNull { it.name == name }
     } ?: return stringResource(R.string.theme_follow_settings_label)
     // A theme names its sound in one field whichever kind it picked, so both
@@ -3979,8 +4219,8 @@ private fun themeSoundLabel(theme: ThemeSpec): String {
     // minted per device at install time, so matching on it alone left every
     // distributed theme reading "Custom" here.
     if (style == KeySoundStyle.CUSTOM) {
-        val name = remember(theme.soundCustomId) {
-            val wanted = theme.soundCustomId.orEmpty()
+        val name = remember(soundCustomId) {
+            val wanted = soundCustomId.orEmpty()
             SoundStore.get(context).sounds()
                 .firstOrNull { it.id == wanted || it.name.equals(wanted, ignoreCase = true) }
                 ?.name
@@ -3988,8 +4228,8 @@ private fun themeSoundLabel(theme: ThemeSpec): String {
         if (name != null) return name
     }
     if (style == KeySoundStyle.PACK) {
-        val name = remember(theme.soundCustomId) {
-            val wanted = theme.soundCustomId.orEmpty()
+        val name = remember(soundCustomId) {
+            val wanted = soundCustomId.orEmpty()
             SoundPackStore.get(context).packs()
                 .firstOrNull { it.id == wanted || it.name.equals(wanted, ignoreCase = true) }
                 ?.name
@@ -4359,8 +4599,7 @@ private fun AddKeyOverrideDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit)
 @Composable
 private fun KeyOverrideDialog(
     id: String,
-    override: KeyOverride,
-    theme: ThemeSpec,
+    look: OpenLook,
     /** Off while key popups are, which is what hides the two popup colours. */
     popupsShown: Boolean,
     /** Off under reduce motion, which is what hides the press effect. */
@@ -4370,6 +4609,8 @@ private fun KeyOverrideDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val override = look.watch { it.keyOverrides[id] ?: KeyOverride() }
+    val theme = look.watch { it }
     var shapePickerOpen by rememberSaveable(id) { mutableStateOf(false) }
     val texturePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()
@@ -4412,56 +4653,50 @@ private fun KeyOverrideDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 NullableColorRow(
-                    stringResource(R.string.theme_key_background_title),
+                    R.string.theme_key_background_title,
                     override.background, fallback = theme.keyBackground,
                     supportsAlpha = true,
                     onChange = { onChange(override.copy(background = it)) },
                 )
                 NullableColorRow(
-                    stringResource(R.string.theme_key_text_title),
+                    R.string.theme_key_text_title,
                     override.text, fallback = theme.keyText,
                     onChange = { onChange(override.copy(text = it)) },
                 )
                 NullableColorRow(
-                    stringResource(R.string.theme_hint_text_title),
+                    R.string.theme_hint_text_title,
                     override.hint, fallback = theme.hintText ?: theme.keyText,
                     onChange = { onChange(override.copy(hint = it)) },
                 )
                 NullableColorRow(
-                    stringResource(R.string.theme_key_border_title),
+                    R.string.theme_key_border_title,
                     override.border, fallback = theme.keyBorderColor ?: theme.keyText,
                     onChange = { onChange(override.copy(border = it)) },
                 )
                 if (popupsShown) {
                     NullableColorRow(
-                        stringResource(R.string.theme_popup_background_title),
+                        R.string.theme_popup_background_title,
                         override.popupBackground,
                         fallback = theme.popupBackground ?: theme.keyBackground,
                         onChange = { onChange(override.copy(popupBackground = it)) },
                     )
                     NullableColorRow(
-                        stringResource(R.string.theme_popup_text_title),
+                        R.string.theme_popup_text_title,
                         override.popupText, fallback = theme.popupText ?: theme.keyText,
                         onChange = { onChange(override.copy(popupText = it)) },
                     )
                 }
-                ListItem(
-                    headlineContent = {
-                        Text(stringResource(R.string.theme_key_override_texture_title))
-                    },
-                    supportingContent = {
-                        Text(
-                            stringResource(
-                                if (override.texture != null) {
-                                    R.string.theme_texture_set_label
-                                } else {
-                                    R.string.theme_key_override_texture_unset
-                                },
-                            ),
-                        )
-                    },
-                    leadingContent = { ImageThumb(override.texture) },
-                    trailingContent = {
+                WmRow(
+                    title = stringResource(R.string.theme_key_override_texture_title),
+                    subtitle = stringResource(
+                        if (override.texture != null) {
+                            R.string.theme_texture_set_label
+                        } else {
+                            R.string.theme_key_override_texture_unset
+                        },
+                    ),
+                    leading = { ImageThumb(override.texture) },
+                    trailing = {
                         if (override.texture != null) {
                             IconButton(
                                 onClick = {
@@ -4477,8 +4712,7 @@ private fun KeyOverrideDialog(
                             }
                         }
                     },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable {
+                    onClick = {
                         texturePicker.launch(
                             PickVisualMediaRequest(
                                 ActivityResultContracts.PickVisualMedia.ImageOnly,
@@ -4530,18 +4764,12 @@ private fun KeyOverrideDialog(
                         )
                     }
                 }
-                ListItem(
-                    headlineContent = {
-                        Text(stringResource(R.string.theme_key_override_shape_title))
-                    },
-                    supportingContent = {
-                        Text(
-                            keyShapeKindOrNull(override.shape)?.let { keyShapeName(it) }
-                                ?: stringResource(CommonR.string.common_auto),
-                        )
-                    },
-                    colors = transparentListColors(),
-                    modifier = Modifier.clickable { shapePickerOpen = true },
+                WmRow(
+                    title = stringResource(R.string.theme_key_override_shape_title),
+                    icon = SettingsRowIcons[R.string.theme_key_override_shape_title],
+                    subtitle = keyShapeKindOrNull(override.shape)?.let { keyShapeName(it) }
+                        ?: stringResource(CommonR.string.common_auto),
+                    onClick = { shapePickerOpen = true },
                 )
                 ChoiceControl(
                     options = listOf(
@@ -4553,29 +4781,15 @@ private fun KeyOverrideDialog(
                     modifier = Modifier.padding(vertical = 8.dp),
                     label = stringResource(R.string.theme_key_override_bold_label),
                 ) { bold -> onChange(override.copy(bold = bold)) }
-                ListItem(
-                    headlineContent = {
-                        Text(stringResource(R.string.theme_key_override_label_size_title))
-                    },
-                    supportingContent = {
-                        Text(
-                            override.labelScale?.let { "${(it * 100).toInt()}%" }
-                                ?: stringResource(CommonR.string.common_auto),
-                        )
-                    },
-                    trailingContent = {
-                        Switch(
-                            checked = override.labelScale != null,
-                            onCheckedChange = { on ->
-                                onChange(override.copy(labelScale = if (on) 1f else null))
-                            },
-                        )
-                    },
-                    colors = transparentListColors(),
-                )
+                ToggleSetting(
+                    title = R.string.theme_key_override_label_size_title,
+                    subtitle = override.labelScale?.let { "${(it * 100).toInt()}%" }
+                        ?: stringResource(CommonR.string.common_auto),
+                    checked = override.labelScale != null,
+                ) { on -> onChange(override.copy(labelScale = if (on) 1f else null)) }
                 override.labelScale?.let { scale ->
                     SliderRow(
-                        stringResource(R.string.theme_key_override_label_size_title),
+                        R.string.theme_key_override_label_size_title,
                         value = scale,
                         range = KEY_OVERRIDE_LABEL_SCALE_RANGE,
                         display = { "${(it * 100).toInt()}%" },
@@ -4610,11 +4824,13 @@ private fun importKeyOverrideTexture(
  */
 @Composable
 private fun DecalDialog(
-    theme: ThemeSpec,
+    look: OpenLook,
     decalId: String,
     onChange: (DecalSpec) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // The whole look, since the dialog draws it as its preview.
+    val theme = look.watch { it }
     val decal = theme.decals.firstOrNull { it.id == decalId } ?: return
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -4624,31 +4840,31 @@ private fun DecalDialog(
                 ThemePreview(theme, animatedBadge = false)
                 Spacer(Modifier.height(8.dp))
                 SliderRow(
-                    stringResource(R.string.theme_decal_x_title),
+                    R.string.theme_decal_x_title,
                     value = decal.x,
                     range = 0f..1f,
                     display = { "${(it * 100).toInt()}%" },
                 ) { onChange(decal.copy(x = (it * 100).toInt() / 100f)) }
                 SliderRow(
-                    stringResource(R.string.theme_decal_y_title),
+                    R.string.theme_decal_y_title,
                     value = decal.y,
                     range = 0f..1f,
                     display = { "${(it * 100).toInt()}%" },
                 ) { onChange(decal.copy(y = (it * 100).toInt() / 100f)) }
                 SliderRow(
-                    stringResource(R.string.theme_decal_size_title),
+                    R.string.theme_decal_size_title,
                     value = decal.scale,
                     range = 0.05f..0.8f,
                     display = { "${(it * 100).toInt()}%" },
                 ) { onChange(decal.copy(scale = (it * 100).toInt() / 100f)) }
                 SliderRow(
-                    stringResource(R.string.theme_decal_rotation_title),
+                    R.string.theme_decal_rotation_title,
                     value = decal.rotationDeg,
                     range = -180f..180f,
                     display = { "${it.toInt()}°" },
                 ) { onChange(decal.copy(rotationDeg = it.toInt().toFloat())) }
                 SliderRow(
-                    stringResource(R.string.theme_image_opacity_title),
+                    R.string.theme_image_opacity_title,
                     value = decal.opacity,
                     range = 0.1f..1f,
                     display = { "${(it * 100).toInt()}%" },
@@ -4798,23 +5014,15 @@ private fun openLink(context: android.content.Context, url: String) {
  */
 @Composable
 private fun GradientEditor(
-    title: String,
+    @StringRes title: Int,
     subtitle: String,
     gradient: GradientSpec?,
     defaultGradient: GradientSpec,
     onChange: (GradientSpec?) -> Unit,
 ) {
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = { Text(subtitle) },
-        trailingContent = {
-            Switch(
-                checked = gradient != null,
-                onCheckedChange = { on -> onChange(if (on) defaultGradient else null) },
-            )
-        },
-        colors = transparentListColors(),
-    )
+    ToggleSetting(title = title, subtitle = subtitle, checked = gradient != null) { on ->
+        onChange(if (on) defaultGradient else null)
+    }
     if (gradient == null) return
     Box(
         modifier = Modifier
@@ -4840,7 +5048,7 @@ private fun GradientEditor(
     ) { type -> onChange(gradient.copy(type = type)) }
     if (gradient.type != GradientType.RADIAL) {
         SliderRow(
-            stringResource(R.string.theme_gradient_angle_title),
+            R.string.theme_gradient_angle_title,
             value = gradient.angleDeg,
             range = 0f..360f,
             display = { "${it.toInt()}°" },
@@ -4848,7 +5056,12 @@ private fun GradientEditor(
     }
     gradient.colors.forEachIndexed { index, stop ->
         val stopTitle = stringResource(R.string.theme_gradient_color_title, index + 1)
-        ColorRow(stopTitle, stop, supportsAlpha = true) { picked ->
+        ColorRow(
+            stopTitle,
+            stop,
+            supportsAlpha = true,
+            icon = SettingsRowIcons[R.string.theme_gradient_color_title],
+        ) { picked ->
             onChange(
                 gradient.copy(
                     colors = gradient.colors.toMutableList().also { it[index] = picked },
@@ -5050,55 +5263,70 @@ private fun CropImageDialog(
 /** Shared with the sticker editor, which needs the same throttled slider. */
 @Composable
 internal fun SliderRow(
-    title: String,
+    @StringRes title: Int,
     value: Float,
     range: ClosedFloatingPointRange<Float>,
     display: (Float) -> String,
     info: String? = null,
     onChange: (Float) -> Unit,
+) = SliderRow(stringResource(title), value, range, display, info, SettingsRowIcons[title], onChange)
+
+/** [SliderRow] for a title that is not one fixed resource. */
+@Composable
+internal fun SliderRow(
+    title: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    display: (Float) -> String,
+    info: String? = null,
+    icon: ImageVector? = null,
+    onChange: (Float) -> Unit,
 ) {
-    // Local drag state, and one of the few sliders that keeps writing while the
-    // finger is down (`live`): this row's own screen draws the theme it is
-    // editing, so the preview above it has to follow the thumb. See
-    // rememberLiveSlider; without the local state the thumb itself would wait
-    // for the theme to round-trip through DataStore.
-    val slider = rememberLiveSlider(value, onChange, live = true)
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            if (info != null) InfoButton(title = title, detail = info)
-            Spacer(Modifier.weight(1f))
-            Text(display(slider.value), style = MaterialTheme.typography.labelLarge)
-        }
-        WmSlider(
-            value = slider.value,
-            onValueChange = slider::onDrag,
-            onValueChangeFinished = slider::onRelease,
-            valueRange = range,
-        )
-    }
+    // One of the few sliders that keeps writing while the finger is down
+    // (`live`): this row's own screen draws the theme it is editing, so the
+    // preview above it has to follow the thumb. See rememberLiveSlider.
+    SliderSetting(
+        title = title,
+        value = value,
+        range = range,
+        display = display,
+        info = info,
+        icon = icon,
+        live = true,
+        onChange = onChange,
+    )
 }
 
 /** A required color: tap the swatch to edit. */
+@Composable
+private fun ColorRow(
+    @StringRes title: Int,
+    color: Long,
+    supportsAlpha: Boolean = false,
+    info: String? = null,
+    onChange: (Long) -> Unit,
+) = ColorRow(stringResource(title), color, supportsAlpha, info, SettingsRowIcons[title], onChange)
+
 @Composable
 private fun ColorRow(
     title: String,
     color: Long,
     supportsAlpha: Boolean = false,
     info: String? = null,
+    icon: ImageVector? = null,
     onChange: (Long) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
-    ListItem(
-        headlineContent = { Text(title) },
-        trailingContent = {
+    WmRow(
+        title = title,
+        icon = icon,
+        trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (info != null) InfoButton(title = title, detail = info)
                 Swatch(color)
             }
         },
-        colors = transparentListColors(),
-        modifier = Modifier.clickable { open = true },
+        onClick = { open = true },
     )
     if (open) {
         ColorPickerDialog(
@@ -5115,6 +5343,16 @@ private fun ColorRow(
 
 /** An optional color: shows the derived fallback until overridden; resettable. */
 @Composable
+private fun NullableColorRow(
+    @StringRes title: Int,
+    color: Long?,
+    fallback: Long,
+    supportsAlpha: Boolean = false,
+    info: String? = null,
+    onChange: (Long?) -> Unit,
+) = NullableColorRow(stringResource(title), color, fallback, supportsAlpha, info, SettingsRowIcons[title], onChange)
+
+@Composable
 // detekt (1.23, K1 frontend) reads `color ?: fallback` in this @Composable as
 // having an unreachable right-hand side. `color` is a nullable parameter with no
 // preceding narrowing, and the Kotlin 2.2 compiler reports nothing here.
@@ -5125,12 +5363,14 @@ private fun NullableColorRow(
     fallback: Long,
     supportsAlpha: Boolean = false,
     info: String? = null,
+    icon: ImageVector? = null,
     onChange: (Long?) -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
-    ListItem(
-        headlineContent = { Text(title) },
-        supportingContent = if (color == null) {
+    WmRow(
+        title = title,
+        icon = icon,
+        supporting = if (color == null) {
             {
                 Text(
                     stringResource(CommonR.string.common_auto),
@@ -5140,14 +5380,13 @@ private fun NullableColorRow(
         } else {
             null
         },
-        trailingContent = {
+        trailing = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (info != null) InfoButton(title = title, detail = info)
                 Swatch(color ?: fallback)
             }
         },
-        colors = transparentListColors(),
-        modifier = Modifier.clickable { open = true },
+        onClick = { open = true },
     )
     if (open) {
         ColorPickerDialog(

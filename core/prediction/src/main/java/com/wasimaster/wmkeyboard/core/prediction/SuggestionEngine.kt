@@ -389,6 +389,22 @@ class SuggestionEngine(
             generation.incrementAndGet()
         }
 
+    /**
+     * Phonetic languages whose space bar commits the letter-for-letter reading
+     * rather than a dictionary word that sounds like it. Siblings still fill
+     * the strip behind the literal, so "asi" commits আসি and offers আছি; the
+     * fixed-spelling map has its own switch and is not affected.
+     */
+    @Volatile
+    private var phoneticSiblingsOffField: Set<String> = emptySet()
+    var phoneticSiblingsOff: Set<String>
+        get() = phoneticSiblingsOffField
+        set(value) {
+            if (value == phoneticSiblingsOffField) return
+            phoneticSiblingsOffField = value
+            generation.incrementAndGet()
+        }
+
     /** The spellings the user has overruled the script of; see [recordScriptChoice]. */
     @Volatile
     var scriptChoices: PhoneticScriptChoices = PhoneticScriptChoices()
@@ -1256,7 +1272,13 @@ class SuggestionEngine(
         // field the mix says is Banglish, it is the English-tagged habits
         // that crowd, and the Banglish ones that belong.
         val active = detectedLanguageId()
-        if (active.isEmpty()) return ranked
+        if (active.isEmpty() || ranked.isEmpty()) return ranked
+        val anyNeedDamp = ranked.any { c ->
+            c.dictScore == Double.NEGATIVE_INFINITY &&
+                c.userScore != Double.NEGATIVE_INFINITY &&
+                userLexicon.languageOf(c.word).let { it != null && it != active }
+        }
+        if (!anyNeedDamp) return ranked
         var changed = false
         val damped = ranked.map { c ->
             val pureUser = c.dictScore == Double.NEGATIVE_INFINITY &&
@@ -1527,8 +1549,6 @@ class SuggestionEngine(
         }
 
         /** Learned words get a large boost so personalization wins quickly. */
-        /** Completions scanned per source when building the next-letter map. */
-        private const val NEXT_LETTER_SCAN = 24
         private const val USER_WORD_WEIGHT = 500
 
         /**
@@ -1683,6 +1703,21 @@ class SuggestionEngine(
          * leads `t'as` and `cest` trails `c'est` by the same margin.
          */
         private const val ELISION_SHADOW_RATIO = 200.0
+
+        /**
+         * How many times commoner a hyphenated compound has to be than its
+         * fused spelling for the strip to offer it over a fused spelling some
+         * list holds; see [hyphenReading]. `что-то` against `чтото` is 1,800,
+         * `well-paid` against `wellpaid` about 64; `on-line` against `online` is far
+         * under 1 and is never offered.
+         */
+        private const val HYPHEN_SHADOW_RATIO = 50.0
+
+        /** Shortest fused spelling [hyphenReading] tries to split. */
+        private const val HYPHEN_READING_MIN_LENGTH = 4
+
+        /** Most parts [knownCompound] vouches for: `mother-in-law`, not a sentence of hyphens. */
+        private const val MAX_COMPOUND_PARTS = 4
 
         /**
          * How many times commoner than the word after its prefix a fused
@@ -1974,8 +2009,10 @@ class SuggestionEngine(
         val ambiguous = keys?.isAmbiguous == true
         // A typo the corpus kept is not known: the strip has to show the fix
         // the space bar is about to make (#244).
-        val known = !ambiguous && (inDictionaries(lower) || userLexicon.contains(lower)) &&
-            !typoShadowed(lower, touch, keys)
+        val known = !ambiguous && (
+            (inDictionaries(lower) || userLexicon.contains(lower)) && !typoShadowed(lower, touch, keys) ||
+                knownCompound(lower)
+            )
         val merged = HashMap<String, Double>()
 
         // One fuzzy walk covers completions AND corrections over every trie
@@ -1993,6 +2030,9 @@ class SuggestionEngine(
         // at all (#215, #240).
         if (!ambiguous) {
             apostropheReading(lower)?.let { merged.merge(it.spelling, it.score, ::maxOf) }
+            // The same for a compound typed without its hyphen: "чтото" is
+            // *что-то*, "wellpaid" is *well-paid*.
+            hyphenReading(lower)?.let { (spelling, score) -> merged.merge(spelling, score, ::maxOf) }
         }
         // The prefix sources read the buffer literally, so they sit out an
         // ambiguous decode: `adg` is not the start of anybody's name, and
@@ -2149,34 +2189,50 @@ class SuggestionEngine(
 
     /**
      * A distribution over the character most likely to be typed next, given the
-     * word-so-far [prefix]. Each dictionary word that starts with [prefix]
-     * contributes its frequency to the single letter that would extend the
-     * prefix by one; the personal lexicon counts extra so learned habits bias
-     * the keyboard. Values are normalised to 0..1 with the top letter at 1.0.
+     * word-so-far [prefix]. Each edge leaving [prefix]'s node scores the
+     * frequency of the best word under it (the stored maxSubtree), so a letter
+     * weighs what its likeliest word does, not the sum of every word it leads
+     * to; the personal lexicon counts extra so learned habits bias the
+     * keyboard. Values are normalised to 0..1 with the top letter at 1.0.
      * Empty when the prefix is blank or completes to nothing.
      *
-     * Deliberately cheap and approximate — it feeds smart key-hit detection,
-     * which only nudges boundary taps, so an imperfect distribution is fine.
+     * Deliberately cheap and approximate — one descent and one edge read per
+     * source, no completion walk — because it runs every keystroke and feeds
+     * smart key-hit detection, which only nudges boundary taps.
      */
     fun nextLetterWeights(prefix: String): Map<Char, Float> {
         if (prefix.isEmpty()) return emptyMap()
         val lower = prefix.lowercase()
-        val at = lower.length
         val tally = HashMap<Char, Double>()
-        fun fold(weight: Double, complete: (String, Int) -> List<Suggestion>) {
-            for (s in complete(lower, NEXT_LETTER_SCAN)) {
-                // Only genuine extensions; a completion equal to the prefix (the
-                // word itself) predicts no next letter.
-                if (s.word.length <= at) continue
-                val ch = s.word[at].lowercaseChar()
-                if (!ch.isLetter()) continue
-                tally.merge(ch, s.frequency.toDouble() * weight, Double::plus)
+        val buf = ChildBuffer()
+        fun fold(weight: Double, walkers: List<TrieWalker>) {
+            for (walker in walkers) {
+                var node = walker.root
+                var found = true
+                for (i in 0 until lower.length) {
+                    node = walker.child(node, lower[i])
+                    if (node < 0) {
+                        found = false
+                        break
+                    }
+                }
+                if (!found) continue
+                val count = walker.childrenInto(node, buf)
+                for (i in 0 until count) {
+                    val ch = buf.labels[i].lowercaseChar()
+                    if (!ch.isLetter()) continue
+                    val childNode = buf.nodes[i]
+                    val freq = walker.maxSubtree(childNode)
+                    if (freq > 0) {
+                        tally.merge(ch, freq.toDouble() * weight, Double::plus)
+                    }
+                }
             }
         }
-        fold(1.0, activeDictionary::complete)
-        fold(USER_WORD_WEIGHT.toDouble(), userLexicon::complete)
-        fold(USER_WORD_WEIGHT.toDouble(), systemDictionary::complete)
-        fold(CUSTOM_WORD_WEIGHT.toDouble(), customDictionary::complete)
+        fold(1.0, activeDictionary.walkers())
+        fold(USER_WORD_WEIGHT.toDouble(), userLexicon.walkers())
+        fold(USER_WORD_WEIGHT.toDouble(), systemDictionary.walkers())
+        fold(CUSTOM_WORD_WEIGHT.toDouble(), customDictionary.walkers())
         val max = tally.values.maxOrNull() ?: return emptyMap()
         if (max <= 0.0) return emptyMap()
         return tally.mapValues { (it.value / max).toFloat() }
@@ -2493,10 +2549,14 @@ class SuggestionEngine(
         // a near-tie sibling silently replacing it reads as a bug (হলো
         // becoming হল). A literal that isn't a dictionary word at all always
         // yields to siblings.
+        // Switched off for the language, the literal always leads and the
+        // siblings are only offered.
         val siblings = index.lookup(composing)
         val literalFreq = index.frequencyOf(phonetic)
         val topSiblingFreq = siblings.firstOrNull()?.let { index.frequencyOf(it) } ?: 0
-        if (literalFreq > 0 && topSiblingFreq < literalFreq * SIBLING_CONFIDENCE) {
+        if (backend.scheme.languageId in phoneticSiblingsOff ||
+            (literalFreq > 0 && topSiblingFreq < literalFreq * SIBLING_CONFIDENCE)
+        ) {
             ordered.add(phonetic)
         }
         ordered.addAll(siblings)
@@ -2912,13 +2972,14 @@ class SuggestionEngine(
         touch: List<TouchPoint?>? = null,
         timingMultiplier: Double = 1.0,
         previousWord: String? = null,
+        keys: KeySets? = null,
     ): CorrectionDecision {
         val lower = word.lowercase()
         if (lower.length < 3) return NO_CORRECTION
         // An all-caps word is a deliberate acronym or shout, not a typo of a
         // lowercase word — don't "correct" it away when the user asked us not to.
         if (skipAllCapsAutocorrect && isAllCaps(word)) return NO_CORRECTION
-        val ordinary = decideOrdinary(word, lower, touch, timingMultiplier)
+        val ordinary = decideOrdinary(word, lower, touch, timingMultiplier, keys)
         return withTaughtFix(word, lower, previousWord, ordinary)
     }
 
@@ -3153,6 +3214,53 @@ class SuggestionEngine(
      * while the space bar was about to type `that's`, and the user — who
      * watches the strip — read that as the fix not working at all (#240).
      */
+    /**
+     * [lower] read as a compound typed without its hyphen — `чтото` for
+     * *что-то*, `wellpaid` for *well-paid* — with its score on the walk's
+     * scale, or null.
+     *
+     * The walk cannot be left to find it. It would, as a one-letter insertion,
+     * but only for a spelling no list holds, and the big lists hold the fused
+     * form as a word: the Russian one counts `чтото` 89 times against
+     * `что-то`'s 162,833, so the typed spelling was "known", corrections were
+     * never asked for, and the strip had nothing to offer but what was typed.
+     * So this asks for itself, one split at a time, and offers the compound
+     * when the fused spelling is unknown or a stand-in the compound outnumbers
+     * [HYPHEN_SHADOW_RATIO] times over — `online` stays itself, never
+     * *on-line*.
+     *
+     * The strip only. Whether the space bar rewrites it is the corrector's
+     * call, made the way it makes every other ([typoShadowed]).
+     */
+    private fun hyphenReading(lower: String): Pair<String, Double>? {
+        if (lower.length < HYPHEN_READING_MIN_LENGTH || lower.length > JOIN_MAX_LENGTH) return null
+        if (!lower.all { WordContext.isWordChar(it) }) return null
+        val typed = dictionaryScore(lower)
+        var best: Pair<String, Double>? = null
+        for (at in 1 until lower.length) {
+            val compound = lower.substring(0, at) + '-' + lower.substring(at)
+            val score = dictionaryScore(compound)
+            if (score == Double.NEGATIVE_INFINITY || suppressed(compound)) continue
+            if (typed != Double.NEGATIVE_INFINITY && score - typed < ln(HYPHEN_SHADOW_RATIO)) continue
+            if (best == null || score > best.second) best = compound to score
+        }
+        return best
+    }
+
+    /**
+     * Whether [lower] is a hyphenated compound every part of which is a word:
+     * `hello-world`, `красно-белый`. Not a typo to correct, whatever the lists
+     * say about the whole — they hold only the compounds common enough to
+     * have been counted, and a compound is made up on the spot far more often
+     * than it is looked up.
+     */
+    private fun knownCompound(lower: String): Boolean {
+        if ('-' !in lower) return false
+        val parts = lower.split('-')
+        return parts.size in 2..MAX_COMPOUND_PARTS &&
+            parts.all { it.isNotEmpty() && (inDictionaries(it) || userLexicon.contains(it)) }
+    }
+
     private fun apostropheReading(lower: String): ElisionReading? {
         if (!apostropheFixes) return null
         var best: ElisionReading? = null
@@ -3268,13 +3376,15 @@ class SuggestionEngine(
         lower: String,
         touch: List<TouchPoint?>?,
         timingMultiplier: Double,
+        keys: KeySets? = null,
     ): CorrectionDecision {
         // A shadowed spelling is protected by neither the lists nor the
         // lexicon. The lexicon learned it only because a list vouched for it.
         val known = inDictionaries(lower) || userLexicon.isEstablished(lower, learnedWordMinCount)
-        if (known && !accentShadowed(lower, touch) && !typoShadowed(lower, touch)) {
+        if (known && !accentShadowed(lower, touch) && !typoShadowed(lower, touch, keys)) {
             return NO_CORRECTION
         }
+        if (knownCompound(lower)) return NO_CORRECTION
         // Contact and app names are known words too — never "corrected" away.
         if (contacts.contains(lower) || apps.contains(lower)) return NO_CORRECTION
         // Digits: exactly one digit may be a number-row slip (when the IME
@@ -3288,7 +3398,7 @@ class SuggestionEngine(
         // judged: a rank-20 word must never fire as a correction, nor may it
         // appear as the runner-up that tightens (or loosens) the gate.
         val shaped = rankedFor(
-            lower, FuzzyBeamSearch.AUTOCORRECT_K / 2, touch,
+            lower, FuzzyBeamSearch.AUTOCORRECT_K / 2, touch, keys,
         ).take(FuzzyBeamSearch.AUTOCORRECT_K).filter { c ->
             // Silent replacement only trusts classic one-edit shapes: a single
             // edit within one character of the typed length, or the

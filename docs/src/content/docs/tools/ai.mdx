@@ -9,11 +9,12 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import Flavor from '@components/Flavor.astro';
+import Shot from '@components/Shot.astro';
 
 The AI tool runs a fixed set of one-tap writing actions against whatever text is in the field you're typing in: rewrite, summarize, translate, and more. Where they run is up to you. Pick a cloud provider with your own API key, a self-hosted Ollama or LM Studio server on your network, or a model that downloads once and answers entirely on the device.
 
 <PhoneFrame caption="The AI panel's action chips, ready to run against the text in the field.">
-  {/* shot: tools/ai-panel-idle */}
+  <Shot id="tools/ai-panel-idle" alt="The AI panel's action chips, ready to run against the text in the field." />
 </PhoneFrame>
 
 ## Using it
@@ -27,8 +28,8 @@ The panel opens on a row of action chips. Eleven ship with the keyboard, and the
 
 If nothing is configured yet, the panel shows a short explanation in place of the chip row. You get an **Open settings** shortcut when no provider is set up, which is where a fresh install starts, or a **Download a model** shortcut when On-device is selected and nothing has come down yet. A model that's downloading right now takes over that empty state with its progress. Once you're past the empty state, a one-line progress strip sits above the chips, so a download you started in Settings stays visible while you carry on typing.
 
-<PhoneFrame caption="The empty state shown before any provider or local model is set up.">
-  ![The AI panel's empty state, before any provider or local model is set up.](@assets/screens/tools/ai-need-setup.webp)
+<PhoneFrame side caption="The empty state shown before any provider or local model is set up.">
+  <Shot id="tools/ai-need-setup" alt="The AI panel's empty state, before any provider or local model is set up." />
 </PhoneFrame>
 
 **What gets sent:** selected text wins if you've selected any, and otherwise the whole field goes. **Continue** is the exception. It always reads back from the cursor, since continuing needs to know what came before rather than what comes after, and **How much the AI reads back** sets how far: 500 to 32,000 characters, default 4,000. That limit only applies with nothing selected. A selection is always sent as it is. Tap a chip on a truly empty field with no selection and you get "There is nothing to work on. Type some text first." instead of a request.
@@ -41,8 +42,8 @@ If a model stops mid-answer because it hit the length ceiling, the panel says so
 
 ### Seeing what changed
 
-<PhoneFrame caption="A Fix grammar result in the Changes view, with the old spellings struck through.">
-  {/* shot: tools/ai-result-changes */}
+<PhoneFrame side caption="A Fix grammar result in the Changes view, with the old spellings struck through.">
+  <Shot id="tools/ai-result-changes" alt="A Fix grammar result in the Changes view, with the old spellings struck through." />
 </PhoneFrame>
 
 A finished result gets a **Result** / **Changes** pair of chips. Changes compares the answer against the text the action ran on and marks what the model added and what it took out, the way `git diff` does. It's the one thing the plain result can't show you: after a Fix grammar run, the spelling it corrected is simply gone from the screen.
@@ -54,7 +55,7 @@ Two cases can't be compared, so they don't offer the chips: **Continue**, which 
 The chips are on by default. **Open a result on the changes** (off by default) makes the panel start there instead.
 
 <PhoneFrame caption="A streamed result with Replace, Insert, and the strip-markdown checkbox.">
-  {/* shot: tools/ai-result-ready */}
+  <Shot id="tools/ai-result-ready" alt="A streamed result with Replace, Insert, and the strip-markdown checkbox." />
 </PhoneFrame>
 
 ### Reporting a result
@@ -76,8 +77,8 @@ For bugs in the keyboard itself rather than something a model wrote, use the **F
 
 A row of provider chips sits at the top of the tool's settings: **Claude**, **OpenAI**, **Gemini**, **Grok**, **DeepSeek**, **Ollama**, **LM Studio**, **Other service**, and **On-device**. The pick isn't for life. Switching providers is another tap.
 
-<PhoneFrame caption="The provider row and a cloud provider's API key and model fields.">
-  ![The AI settings screen's provider list.](@assets/screens/tools/ai-settings-providers.webp)
+<PhoneFrame side caption="The provider row and a cloud provider's API key and model fields.">
+  <Shot id="tools/ai-settings-providers" alt="The provider row and a cloud provider's API key and model fields." />
 </PhoneFrame>
 
 ### Cloud providers
@@ -120,8 +121,8 @@ Traffic to a self-hosted server is plain HTTP, and the app allows cleartext traf
 
 The **On-device** provider runs a model entirely on the phone, no network involved. It's the only provider option that needs a download first, and it's the one provider chip that doesn't appear at all in a Lite build.
 
-<PhoneFrame caption="The on-device model catalog, with tier badges and a params/size subtitle per model.">
-  ![The on-device model catalog, with tier badges and a size/RAM subtitle per model.](@assets/screens/tools/ai-settings-local-catalog.webp)
+<PhoneFrame side caption="The on-device model catalog, with tier badges and a params/size subtitle per model.">
+  <Shot id="tools/ai-settings-local-catalog" alt="The on-device model catalog, with tier badges and a size/RAM subtitle per model." />
 </PhoneFrame>
 
 The catalog is eight models, ordered best-first rather than smallest-first:

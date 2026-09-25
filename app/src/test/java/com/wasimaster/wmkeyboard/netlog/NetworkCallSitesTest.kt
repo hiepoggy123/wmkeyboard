@@ -57,6 +57,32 @@ class NetworkCallSitesTest {
         )
     }
 
+    /**
+     * A build without the internet permission (#292) must fail an OkHttp request
+     * with an `IOException`, not the `SecurityException` the host lookup throws.
+     * The lookup runs before any network interceptor, so the gate has to be an
+     * application interceptor on every client.
+     */
+    @Test
+    fun everyOkHttpClientIsGated() {
+        val root = listOf(File(".."), File("."))
+            .first { File(it, "settings.gradle.kts").isFile }
+        val ungated = listOf("app", "core", "feature").flatMap { top ->
+            File(root, top).walkTopDown()
+                .onEnter { dir -> dir.name != "build" && dir.name != "test" && dir.name != "androidTest" }
+                .filter { it.isFile && it.extension == "kt" }
+                .toList()
+        }.filter { file ->
+            val text = file.readText()
+            "OkHttpClient.Builder(" in text && "addInterceptor(InternetGate)" !in text
+        }.map { it.relativeTo(root).invariantSeparatorsPath }
+        assertTrue(
+            "These files build an OkHttp client without .addInterceptor(InternetGate):\n" +
+                ungated.joinToString("\n"),
+            ungated.isEmpty(),
+        )
+    }
+
     @Test
     fun exemptionsStillExist() {
         val root = listOf(File(".."), File("."))
@@ -78,6 +104,9 @@ class NetworkCallSitesTest {
             "core/kdeconnect/LanTransport.kt" to "links counted in Link.kt; UDP discovery",
             // Wraps sockets already opened elsewhere in TLS; opens nothing itself.
             "core/kdeconnect/Tls.kt" to "wraps existing sockets",
+            // Opens the socket for SmbSink, which holds the log row and counts
+            // every frame through the traffic callback it hands in.
+            "sink/smb/Smb2Client.kt" to "logged by SmbSink",
         ).mapKeys { (key, _) ->
             // Written short above; matched against the full source path.
             key.replace("core/kdeconnect/", "core/kdeconnect/src/main/java/com/wasimaster/wmkeyboard/core/kdeconnect/")

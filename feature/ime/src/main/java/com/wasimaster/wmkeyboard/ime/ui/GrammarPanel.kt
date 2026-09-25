@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,9 +24,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Done
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.FilterList
@@ -55,6 +59,10 @@ import com.wasimaster.wmkeyboard.core.grammar.GrammarLint
 import com.wasimaster.wmkeyboard.core.settings.GrammarCategory
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.GrammarLintKind
+import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.ime.AiChatAction
+import com.wasimaster.wmkeyboard.ime.DeepLWriteUi
+import com.wasimaster.wmkeyboard.ime.aichat.AskAiContext
 import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
@@ -104,6 +112,28 @@ private fun kindLabel(kind: String): String {
 }
 
 /**
+ * The grammar panel's service callbacks, bundled into one [KeyboardScreen]
+ * parameter for the reason [TranslateCallbacks] is: its caller sits against
+ * the JVM's 64K method-size ceiling. This bundle replaced eight parameters.
+ */
+data class GrammarCallbacks(
+    val onFix: (GrammarLint, GrammarFix) -> Unit = { _, _ -> },
+    val onFixAll: () -> Unit = {},
+    val onDismiss: (GrammarLint) -> Unit = {},
+    val onDialect: (GrammarDialect) -> Unit = {},
+    val onFocus: (GrammarLint) -> Unit = {},
+    val onKindShown: (GrammarLintKind, Boolean) -> Unit = { _, _ -> },
+    val onCategoryShown: (GrammarCategory, Boolean) -> Unit = { _, _ -> },
+    val onShowAllKinds: () -> Unit = {},
+    /** The DeepL Write chip: rewrite the field with DeepL (#331). */
+    val onRephrase: () -> Unit = {},
+    /** Replace on the DeepL Write card. */
+    val onRephraseApply: () -> Unit = {},
+    /** The X on the DeepL Write card. */
+    val onRephraseDismiss: () -> Unit = {},
+)
+
+/**
  * Offline grammar strip (Harper engine): sits above the key rows, which stay
  * visible so issues can be fixed by typing too. Each issue is a Grammarly-style
  * card — category header, struck-through original, tappable fix chips and an
@@ -111,21 +141,24 @@ private fun kindLabel(kind: String): String {
  * suggestion; the X on a card hides that issue until the text changes. The
  * dialect chip switches the English variant Harper checks, and the funnel
  * beside it picks which kinds of issue are worth showing at all.
+ *
+ * With DeepL Write set up in settings (#331), one more chip asks DeepL to
+ * rewrite the whole field, and its answer takes the issue list's place until
+ * Replace or its X. Without it the panel is exactly as it was.
  */
 @Composable
 internal fun GrammarPanel(
     state: KeyboardUiState,
-    onFix: (GrammarLint, GrammarFix) -> Unit,
-    onFixAll: () -> Unit,
-    onDismiss: (GrammarLint) -> Unit,
-    onDialect: (GrammarDialect) -> Unit,
-    onFocus: (GrammarLint) -> Unit,
-    onKindShown: (GrammarLintKind, Boolean) -> Unit,
-    onCategoryShown: (GrammarCategory, Boolean) -> Unit,
-    onShowAllKinds: () -> Unit,
+    callbacks: GrammarCallbacks,
 ) {
+    val onFix = callbacks.onFix
+    val onFixAll = callbacks.onFixAll
+    val onDismiss = callbacks.onDismiss
+    val onFocus = callbacks.onFocus
     val kb = LocalKbTheme.current
     val grammar = state.grammar
+    val deeplWrite = state.settings.translate.deepl.writeActive
+    val rephrase = grammar.rephrase
     var pickerOpen by remember { mutableStateOf(false) }
     var filterOpen by remember { mutableStateOf(false) }
     val hidden = state.settings.grammarHiddenKinds
@@ -216,7 +249,7 @@ internal fun GrammarPanel(
                         current = state.settings.grammarDialect,
                         onPick = {
                             pickerOpen = false
-                            onDialect(it)
+                            callbacks.onDialect(it)
                         },
                         onDismiss = { pickerOpen = false },
                     )
@@ -241,9 +274,9 @@ internal fun GrammarPanel(
                     GrammarFilterPicker(
                         hidden = hidden,
                         countByKind = countByKind,
-                        onCategory = onCategoryShown,
-                        onKind = onKindShown,
-                        onShowAll = onShowAllKinds,
+                        onCategory = callbacks.onCategoryShown,
+                        onKind = callbacks.onKindShown,
+                        onShowAll = callbacks.onShowAllKinds,
                         onDismiss = { filterOpen = false },
                     )
                 }
@@ -261,8 +294,23 @@ internal fun GrammarPanel(
                     maxLines = 1,
                 )
             }
+            if (deeplWrite) {
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    Icons.Outlined.EditNote,
+                    contentDescription = stringResource(R.string.ime_grammar_deepl_action_desc),
+                    modifier = Modifier
+                        .clip(kb.chipShape())
+                        .background(if (rephrase != null) kb.chipActive else kb.chip)
+                        .chipBorder(kb, kb.chipShape())
+                        .clickable(enabled = rephrase?.working != true) { callbacks.onRephrase() }
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
+                        .size(16.dp),
+                    tint = if (rephrase != null) kb.chipActiveText else kb.toolbarIcon,
+                )
+            }
             Spacer(Modifier.weight(1f))
-            if (grammar.checking) {
+            if (grammar.checking || rephrase?.working == true) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(14.dp),
                     strokeWidth = 2.dp,
@@ -299,7 +347,18 @@ internal fun GrammarPanel(
             }
         }
         Spacer(Modifier.height(4.dp))
+        if (rephrase != null && !rephrase.working) {
+            DeepLWriteCard(
+                rephrase = rephrase,
+                onApply = callbacks.onRephraseApply,
+                onDismiss = callbacks.onRephraseDismiss,
+            )
+            Spacer(Modifier.height(6.dp))
+        }
         when {
+            // The card holds the panel's body while it is up: 146dp has no
+            // room for it and the issue list both, and it is what was asked for.
+            rephrase != null && !rephrase.working -> Unit
             !grammar.available -> GrammarHint(
                 stringResource(R.string.ime_grammar_unavailable_info),
             )
@@ -348,11 +407,91 @@ internal fun GrammarPanel(
                         GrammarLintCard(
                             lint, onFix, onDismiss, onFocus,
                             focused = index == focusedLint,
+                            sourceText = grammar.sourceText,
                         )
                     }
                 }
             }
         }
+    }
+}
+
+/**
+ * DeepL Write's answer: its rewrite of the text sent, or why there is none.
+ * Replace swaps the text sent for it; the X puts the issue list back.
+ */
+@Composable
+private fun ColumnScope.DeepLWriteCard(
+    rephrase: DeepLWriteUi,
+    onApply: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    val cardShape = kb.cardShape()
+    Column(
+        modifier = Modifier
+            .weight(1f, fill = false)
+            .fillMaxWidth()
+            .clip(cardShape)
+            .background(kb.chip)
+            .chipBorder(kb, cardShape)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Outlined.EditNote,
+                contentDescription = null,
+                modifier = Modifier.size(14.dp),
+                tint = kb.accent,
+            )
+            Spacer(Modifier.width(6.dp))
+            Text(
+                stringResource(R.string.ime_grammar_deepl_title),
+                color = kb.secondaryText,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                modifier = Modifier.weight(1f),
+            )
+            val unchanged = rephrase.error == null && rephrase.result == rephrase.source
+            if (rephrase.error == null && rephrase.result.isNotEmpty() && !unchanged) {
+                Text(
+                    stringResource(R.string.ime_grammar_deepl_replace_action),
+                    color = kb.chipActiveText,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .clip(kb.chipShape())
+                        .background(kb.chipActive)
+                        .chipBorder(kb, kb.chipShape())
+                        .clickable { onApply() }
+                        .padding(horizontal = 10.dp, vertical = 3.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            Icon(
+                Icons.Outlined.Close,
+                contentDescription = stringResource(R.string.ime_grammar_deepl_dismiss_desc),
+                modifier = Modifier
+                    .size(16.dp)
+                    .clickable { onDismiss() },
+                tint = kb.secondaryText,
+            )
+        }
+        Text(
+            when {
+                rephrase.error != null -> rephrase.error
+                rephrase.result == rephrase.source -> stringResource(R.string.ime_grammar_deepl_unchanged)
+                else -> rephrase.result
+            },
+            color = if (rephrase.error != null) kb.accent else kb.suggestionText,
+            fontSize = 13.sp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+        )
     }
 }
 
@@ -379,8 +518,11 @@ private fun GrammarLintCard(
     onDismiss: (GrammarLint) -> Unit,
     onFocus: (GrammarLint) -> Unit,
     focused: Boolean = false,
+    /** The field text the lint is about, for Ask AI's sentence (#352). */
+    sourceText: String = "",
 ) {
     val kb = LocalKbTheme.current
+    val tools = LocalSelectionTools.current
     val category = categoryFor(lint.kind)
     val catColor = category.color(kb.dark)
     val cardShape = kb.cardShape()
@@ -420,6 +562,42 @@ private fun GrammarLintCard(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            if (tools.askAi) {
+                // Ask AI why (#352): the checker's note, its fixes and the
+                // sentence, so the answer can say whether the checker is right.
+                val askLabel = stringResource(R.string.ime_ask_ai_label_grammar)
+                val fixes = lint.suggestions.mapNotNull { fix -> fix.labelText?.takeIf { it.isNotBlank() } }
+                val kindName = if (kind.isEmpty()) categoryLabel else kind
+                Icon(
+                    Icons.Outlined.AutoAwesome,
+                    contentDescription = stringResource(R.string.ime_grammar_ask_ai_desc),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable {
+                            tools.onAiChat(
+                                AiChatAction.AskAbout(
+                                    AskAiContext.grammar(lint, fixes, sourceText, kindName),
+                                    askLabel,
+                                    fromSelection = false,
+                                ),
+                            )
+                        },
+                    tint = kb.accent,
+                )
+                Spacer(Modifier.width(10.dp))
+            }
+            // Harper's explanation, to the clipboard (#348).
+            if (lint.message.isNotBlank()) {
+                Icon(
+                    Icons.Outlined.ContentCopy,
+                    contentDescription = stringResource(CommonR.string.common_copy),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable { tools.onAiChat(AiChatAction.Copy(lint.message)) },
+                    tint = kb.secondaryText,
+                )
+                Spacer(Modifier.width(10.dp))
+            }
             Icon(
                 Icons.Outlined.Close,
                 contentDescription = stringResource(R.string.ime_grammar_dismiss_desc),

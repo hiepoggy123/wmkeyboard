@@ -19,6 +19,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.Layouts
 import com.wasimaster.wmkeyboard.core.layout.hasAmbiguousKeys
+import com.wasimaster.wmkeyboard.core.layout.hasKanaVariantKeys
 import com.wasimaster.wmkeyboard.core.layout.isAmbiguous
 import com.wasimaster.wmkeyboard.core.layout.letterSet
 import com.wasimaster.wmkeyboard.core.media.MediaSnapshot
@@ -29,12 +30,15 @@ import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
+import com.wasimaster.wmkeyboard.core.thesaurus.SynonymGroup
+import com.wasimaster.wmkeyboard.core.thesaurus.SynonymSource
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.settings.DataSaverStatus
 import com.wasimaster.wmkeyboard.core.prediction.GlideSandboxPolicy
 import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import com.wasimaster.wmkeyboard.core.prediction.WordFacts
 import com.wasimaster.wmkeyboard.core.settings.GrammarLintKind
+import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.RankControl
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
@@ -239,7 +243,22 @@ data class Modifiers(
  * beside the symbol layers rather than replacing the active layout, so the
  * language, dictionary and composer stay those of the layout underneath.
  */
-enum class LayoutMode { LETTERS, SYMBOLS, SYMBOLS_SHIFTED, FN, SECONDARY }
+enum class LayoutMode {
+    LETTERS,
+    SYMBOLS,
+    SYMBOLS_SHIFTED,
+    FN,
+    SECONDARY,
+
+    /**
+     * One of a converted Keyman layout's own further layers — a right-Alt
+     * page, a page of one consonant's vowel forms — named by
+     * [KeyboardUiState.namedLayer] and drawn from [LayoutSet.named]. Keyman
+     * reaches these by key and by rule, so they are part of the layout rather
+     * than something the user switched to, and the grid is sized for them.
+     */
+    NAMED,
+}
 
 /**
  * The layouts reachable from the focused field without a new `onStartInput`:
@@ -315,6 +334,27 @@ data class LayoutSet(
      * the letters layer's (issue #196).
      */
     val themeId: String? = null,
+    /**
+     * A converted Keyman layout's `shift` layer, drawn in place of [letters]
+     * while shift is on. It is the author's own set of shifted keys — often
+     * with other ids, layers and long presses than the keys under them — so it
+     * cannot be derived from [letters]. Null for every other layout.
+     */
+    val keymanShift: KeyboardLayout? = null,
+    /** The same for Keyman's `caps` layer, drawn while caps lock is on. */
+    val keymanCaps: KeyboardLayout? = null,
+    /**
+     * A converted Keyman layout's further layers, by their key in the layout
+     * (see [LayoutMode.NAMED]). Empty for every other layout.
+     */
+    val named: Map<String, KeyboardLayout> = emptyMap(),
+    /**
+     * Every layer a converted Keyman layout defines, by its key; null for any
+     * other layout. A Keyman switch to a layer not in here lands on the
+     * letters, as KeymanWeb's does — the symbols pages our own grids would
+     * otherwise lend it are not the keyboard's.
+     */
+    val keymanLayerKeys: Set<String>? = null,
 ) {
     /**
      * Rows the key grid reserves.
@@ -333,7 +373,24 @@ data class LayoutSet(
         symbolsShifted.rows.size,
         fn?.rows?.size ?: 0,
         numeric?.rows?.size ?: 0,
+        keymanShift?.rows?.size ?: 0,
+        keymanCaps?.rows?.size ?: 0,
+        named.values.maxOfOrNull { it.rows.size } ?: 0,
     ).coerceAtLeast(1)
+
+    /**
+     * Whether a key on one of the layers the ?123 and Fn keys cycle through can
+     * stand in for the 小゛゜ key (see [Key.kanaVariantWhileComposing]). The
+     * service publishes [KeyboardUiState.kanaVariantReady] only when this holds,
+     * because that flag is a key of the grid's `remember`: every other board
+     * would otherwise rebuild its keys on the kana-by-kana flips it makes.
+     *
+     * Not a constructor property, so it stays out of equals/hashCode/copy.
+     */
+    val hasKanaVariantKeys: Boolean = letters.hasKanaVariantKeys() ||
+        symbols.hasKanaVariantKeys() ||
+        symbolsShifted.hasKanaVariantKeys() ||
+        fn?.hasKanaVariantKeys() == true
 
     /**
      * Every character the letter layer can produce: base labels, their shifted
@@ -913,6 +970,20 @@ data class VoiceUi(
     val remote: Boolean = false,
     /** The server engine is selected but has no address yet — panel points to settings. */
     val serverNeedsSetup: Boolean = false,
+    /**
+     * Seconds until a [clipBased] recording stops by itself, over its last
+     * few; 0 the rest of the time. The clip has a fixed length and anything
+     * said past it is lost, so the surfaces count it down (#315).
+     */
+    val secondsLeft: Int = 0,
+    /**
+     * The keyboard-owned field this dictation types into (#353), as its
+     * [KeyboardUiState.captureKey], or null when it types into the app's field.
+     * Set by the microphone on that field's strip and kept until the field
+     * gives the keys back or the strip's close button puts it away, so an
+     * error has somewhere to be said.
+     */
+    val field: String? = null,
 )
 
 /** The session records a whole clip and transcribes it after the stop tap. */
@@ -939,6 +1010,18 @@ fun KeyboardUiState.voiceChipOnly(): Boolean =
         voice.status != VoiceStatus.MIC_BLOCKED &&
         voice.status != VoiceStatus.UNAVAILABLE &&
         voice.status != VoiceStatus.ERROR
+
+/**
+ * A dictation into the focused keyboard-owned field (#353) is running, or has
+ * something to say, so that field's strip gives its chips' room to the line
+ * that says it: listening, the words heard so far, transcribing, or what went
+ * wrong and what to do about it. Idle and fine, the strip is its chips again.
+ */
+fun KeyboardUiState.fieldVoiceSpeaks(): Boolean {
+    val field = voice.field ?: return false
+    if (field != captureKey()) return false
+    return voice.status != VoiceStatus.IDLE || voice.whisperNeedsModel || voice.serverNeedsSetup
+}
 
 /**
  * The keys are drawing what the transliterator is about to write with them:
@@ -1165,6 +1248,8 @@ data class TranslateUi(
     val sourceGuessed: Boolean = false,
     /** [translated] came from the on-device engine, not from a server. */
     val onDevice: Boolean = false,
+    /** [translated] came from DeepL, the user's own opt-in service (#331). */
+    val viaDeepL: Boolean = false,
     /**
      * Model codes the on-device engine needs before it can translate the
      * current query. Non-empty is what puts the download offer on screen.
@@ -1211,6 +1296,21 @@ data class GrammarUi(
     val checkedOnce: Boolean = false,
     /** Native Harper library present in this build. */
     val available: Boolean = true,
+    /**
+     * DeepL Write's rewrite of the field, while one was asked for (#331).
+     * Every fresh lint builds a new [GrammarUi] without it, which is what
+     * drops a rewrite of text the user has since changed.
+     */
+    val rephrase: DeepLWriteUi? = null,
+)
+
+/** One DeepL Write request from the grammar panel, and what came of it. */
+data class DeepLWriteUi(
+    /** The text sent: the start of the field, [com.wasimaster.wmkeyboard.core.tools.DeepLClient.MAX_CHARS] at most. */
+    val source: String,
+    val result: String = "",
+    val working: Boolean = true,
+    val error: String? = null,
 )
 
 /** Wikipedia panel state, owned by the service (it does the fetching). */
@@ -1382,7 +1482,16 @@ data class AiChatUi(
  * when the user asked for it: while the composer has the keys nothing can type
  * into the field, so it cannot go stale under them.
  */
-data class AiChatAttachment(val text: String, val fromSelection: Boolean)
+data class AiChatAttachment(
+    val text: String,
+    val fromSelection: Boolean,
+    /**
+     * Where a tool's text came from, as the composer names it ("Wikipedia:
+     * Cat"), when a tool handed it over with Ask AI (#352); blank for the
+     * field's own text.
+     */
+    val label: String = "",
+)
 
 /**
  * Everything the chat mode can ask of the service, as one type.
@@ -1416,6 +1525,14 @@ sealed interface AiChatAction {
     data class OpenInApp(val list: Boolean = false) : AiChatAction
     /** The answer at [index] of the conversation, reported (Play builds). */
     data class Report(val index: Int) : AiChatAction
+
+    /**
+     * Ask AI from another tool (#352): the AI panel opens on a new chat with
+     * [text] attached and the composer taking the keys. [label] names where the
+     * text came from, for the composer; [fromSelection] is a passage rather
+     * than the whole.
+     */
+    data class AskAbout(val text: String, val label: String, val fromSelection: Boolean) : AiChatAction
 }
 
 /** The KDE Connect panel's tabs, in rail order. */
@@ -1504,10 +1621,19 @@ sealed interface DictionaryUi {
     /** Nothing looked up yet (no word at the cursor, or auto-lookup off). */
     data object Idle : DictionaryUi
     data class Loading(val word: String) : DictionaryUi
+
+    /** No source could be reached. */
     data class Error(val word: String) : DictionaryUi
-    /** The API knows no entry for this word. */
+
+    /** Every source that answered knows no entry for this word. */
     data class NotFound(val word: String) : DictionaryUi
-    data class Ready(val entries: List<com.wasimaster.wmkeyboard.core.tools.DictEntry>) : DictionaryUi
+
+    /** The user turned every source off. */
+    data object NoSources : DictionaryUi
+    data class Ready(
+        val entries: List<com.wasimaster.wmkeyboard.core.tools.DictEntry>,
+        val source: com.wasimaster.wmkeyboard.core.tools.DictionarySource,
+    ) : DictionaryUi
 }
 
 /** The vocabulary panel's three views. */
@@ -1799,6 +1925,9 @@ sealed interface StripOfferAction {
 
     /** Go back up one level of [SnippetOfferSet.path]. */
     data object Back : StripOfferAction
+
+    /** The chip was held: the setting it asks about, in the app (#312). */
+    data object Explain : StripOfferAction
 }
 
 /**
@@ -1836,6 +1965,9 @@ sealed interface WordMenuAction {
      * to check the caret has not moved on under the menu.
      */
     data class SearchAllWords(val word: String) : WordMenuAction
+
+    /** Look up synonyms for [word] and offer them in its place (#321). */
+    data class Synonyms(val word: String) : WordMenuAction
 }
 
 /** What the word card can ask of the service, once open (#99). */
@@ -1915,6 +2047,11 @@ data class WordMenuFacts(
      * word being typed rather than the chip.
      */
     val searchableStroke: String? = null,
+    /**
+     * Whether Synonyms may be offered for the held word (#321): a word in
+     * letters, typed where the sources can answer (they are English).
+     */
+    val synonyms: Boolean = false,
 )
 
 /**
@@ -1948,6 +2085,52 @@ data class WordCard(
 )
 
 /**
+ * The synonyms the held-word menu asked for (#321), shown over the keyboard
+ * until one is picked or the sheet is closed. [status] fills in as the
+ * sources answer, one after another.
+ */
+data class SynonymsSheet(
+    /** The held word, as the chip showed it. */
+    val word: String,
+    /**
+     * The text whose capitals a pick wears: the word it replaces, so "Happy"
+     * at the start of a sentence gives "Glad". Empty when the pick replaces
+     * nothing (a next-word prediction was held), and the shift decides, as
+     * for any pick off the strip.
+     */
+    val caseModel: String = "",
+    val status: SynonymsStatus = SynonymsStatus.Loading,
+)
+
+/** How far the look-up behind a [SynonymsSheet] has got. */
+sealed interface SynonymsStatus {
+    data object Loading : SynonymsStatus
+
+    /** [source] had synonyms; the ones before it in the user's order did not. */
+    data class Found(val groups: List<SynonymGroup>, val source: SynonymSource) : SynonymsStatus
+
+    /** Every source asked answered, and none listed synonyms for the word. */
+    data object NotFound : SynonymsStatus
+
+    /** No source could be reached. */
+    data object Failed : SynonymsStatus
+
+    /** Every source is switched off in settings. */
+    data object NoSources : SynonymsStatus
+}
+
+/** What the synonyms sheet can ask of the service (#321). */
+sealed interface SynonymAction {
+    /** Put [word] in place of the held one, as picking it off the strip would. */
+    data class Pick(val word: String) : SynonymAction
+
+    /** Ask the sources again, after none could be reached. */
+    data object Retry : SynonymAction
+
+    data object Dismiss : SynonymAction
+}
+
+/**
  * A clip being edited in the clipboard panel's editor dialog.
  *
  * The same shape as [WordSpell]: an IME has no text field of its own to raise,
@@ -1978,6 +2161,15 @@ data class ClipEdit(
         const val MAX_LENGTH = 20_000
     }
 }
+
+/**
+ * The clipboard panel's Undo bar after a delete (#327): the clips it would put
+ * back, oldest delete first. Deleting another clip while the bar is up joins
+ * it, so one Undo reverses a quick run of swipes rather than only the last.
+ * The clips are held detached in the store until the bar goes (see
+ * `ClipboardStore.detach`).
+ */
+data class ClipUndo(val items: List<ClipItem>)
 
 /**
  * The word card's spelling editor (#138): the word being respelled, and what
@@ -2146,6 +2338,33 @@ data class DictionaryChip(
 )
 
 /**
+ * One of the user's own stickers, offered because the text before the cursor
+ * asked for it (#329). [span] is how many characters the trigger that matched
+ * it occupies, which is what a send takes back when the setting says to.
+ */
+data class StickerOfferItem(
+    val item: com.wasimaster.wmkeyboard.core.tools.GifItem,
+    val span: Int,
+)
+
+/**
+ * The stickers the text before the cursor asks for: their title typed out, a
+ * keyword, or an emoji they carry (see `StickerTriggerIndex`).
+ *
+ * [expanded] is the tray opened from the narrower styles' chip or their "more"
+ * button; [inEmojiPanel] marks an offer raised by an emoji picked in the emoji
+ * panel, which always shows as the tray, since the panel has no strip of words
+ * to share.
+ */
+data class StickerOffer(
+    /** The trigger as it was typed, for the chip's label and the tray's description. */
+    val trigger: String,
+    val stickers: List<StickerOfferItem>,
+    val expanded: Boolean = false,
+    val inEmojiPanel: Boolean = false,
+)
+
+/**
  * Immutable UI state rendered by the Compose keyboard. The service owns a
  * MutableStateFlow of this and mutates it via copy().
  */
@@ -2185,6 +2404,11 @@ data class KeyboardUiState(
      * returns to the same grid; an id the set no longer holds draws the letters.
      */
     val secondaryLayoutId: String? = null,
+    /**
+     * The Keyman layer [LayoutMode.NAMED] shows, as a key into
+     * [LayoutSet.named]. An id the set no longer holds draws the letters.
+     */
+    val namedLayer: String? = null,
     /**
      * Power saving is in force, from either source: the manual switch or an
      * automatic trigger (low battery, the system's own battery saver).
@@ -2412,6 +2636,15 @@ data class KeyboardUiState(
      */
     val composingRoman: String = "",
     /**
+     * The reading being typed ends in a kana that has a small, dakuten or
+     * handakuten form, so a [Key.kanaVariantWhileComposing] key is showing as
+     * the 小゛゜ key (issue #340).
+     *
+     * Only ever true on a board that has such a key ([LayoutSet.hasKanaVariantKeys]):
+     * it is a key of the grid's `remember`, and it moves kana by kana.
+     */
+    val kanaVariantReady: Boolean = false,
+    /**
      * Probability weight (0..1) of each letter being typed next, given the
      * current composing word. Drives smart key-hit detection, which nudges
      * boundary taps toward the high-weight letters. Empty when the feature is
@@ -2524,6 +2757,8 @@ data class KeyboardUiState(
      * chip over the suggestion strip.
      */
     val smart: SmartSuggest.SmartHit? = null,
+    /** Stickers of the user's own that the text before the cursor asks for (#329). */
+    val stickerOffer: StickerOffer? = null,
     /** Input a chip loaded into the tool it is about to open; consumed once. */
     val toolPrefill: ToolPrefill? = null,
     /** The word-of-the-day chip, offered once on the first field of the day. */
@@ -2555,6 +2790,8 @@ data class KeyboardUiState(
     val clipboardSearchActive: Boolean = false,
     /** The clip open in the clipboard panel's editor; see [clipEditActive]. */
     val clipEdit: ClipEdit? = null,
+    /** The clipboard panel's Undo bar, while a delete can still be taken back. */
+    val clipboardUndo: ClipUndo? = null,
     /**
      * Most recently copied text, offered as a paste chip on the suggestion strip
      * (Gboard style). Null when nothing recent, the chip expired, was dismissed,
@@ -2636,6 +2873,8 @@ data class KeyboardUiState(
     val wordCard: WordCard? = null,
     /** The card's spelling editor while it is up; see [WordSpell] (#138). */
     val wordSpell: WordSpell? = null,
+    /** The synonyms a held word's menu asked for, or null while none are up (#321). */
+    val synonyms: SynonymsSheet? = null,
     /**
      * The one-tap actions offered for the current selection, or null when
      * there is no selection to act on (or the feature is off).
@@ -2707,6 +2946,23 @@ data class KeyboardUiState(
      * connection cannot answer either. Avro in a terminal stays as it was.
      */
     val nullField: Boolean = false,
+    /**
+     * The keyboard is running on a television. A device fact rather than a
+     * setting, so it lives here and not in [KeyboardSettings]: the docked
+     * board is drawn as a card floating over the app, the way Gboard draws
+     * it on a TV, instead of a strip across the whole screen.
+     */
+    val television: Boolean = false,
+    /**
+     * Where the focused field asked the board to sit, from a
+     * `horizontalAlignment=left|center|right` in its
+     * [android.view.inputmethod.EditorInfo.privateImeOptions] — the hint
+     * Android TV documents for Gboard, so a sign-up form down the right of
+     * the screen keeps the board under it. Null when the field says nothing,
+     * and always null off a television. Beats
+     * [KeyboardSettings.keyboardAlignment] for this field only.
+     */
+    val fieldAlignment: KeyboardAlignment? = null,
     /**
      * The field asked the keyboard to hide the *suggestion strip*
      * (TYPE_TEXT_FLAG_NO_SUGGESTIONS, or an email/URI/filter/password
@@ -2845,6 +3101,14 @@ data class KeyboardUiState(
     val learnFromText: LearnFromTextUi? = null,
     val webSearch: WebSearchUi = WebSearchUi.Idle,
     val imageSearch: ImageSearchUi = ImageSearchUi.Idle,
+    /**
+     * The camera was opened from the image search panel's camera button
+     * (#349): its confirm step offers Search in place of Send, and its back
+     * button returns to image search. Set by [WMKeyboardService.onPanelChange]
+     * on every panel change, so it only ever means anything while the camera
+     * panel is open.
+     */
+    val cameraSearchOnly: Boolean = false,
     val translate: TranslateUi = TranslateUi(),
     val grammar: GrammarUi = GrammarUi(),
     val wiki: WikiUi = WikiUi.Idle,
@@ -3241,12 +3505,16 @@ data class KeyboardUiState(
         // The word card runs its own caret and selection (#204); reporting a
         // second one here would let two of them disagree about the draft.
         if (captureTarget()?.ownsCaret == true) return CaretText(text, wordSpell?.cursor ?: text.length)
-        val at = captureCaret?.takeIf { it.key == key && it.text == text }?.at ?: text.length
-        return CaretText(text, at)
+        val caret = captureCaret?.takeIf { it.key == key && it.text == text }
+            ?: return CaretText(text, text.length)
+        return CaretText(text, caret.at, caret.anchor)
     }
 
     /** Where the caret is drawn in the focused buffer, for the panels' fields. */
     fun captureCaretIndex(): Int = captureCaretText()?.at ?: 0
+
+    /** The other end of the focused buffer's selection; [captureCaretIndex] when none (#352). */
+    fun captureAnchorIndex(): Int = captureCaretText()?.anchorAt ?: 0
 
     /**
      * The item a panel should ring in [region], or null when the ring is

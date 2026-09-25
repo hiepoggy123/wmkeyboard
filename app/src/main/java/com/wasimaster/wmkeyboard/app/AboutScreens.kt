@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -27,8 +28,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.app.updates.AllLanguagesRow
+import com.wasimaster.wmkeyboard.app.updates.KeepEnglishOnlyRow
 import com.wasimaster.wmkeyboard.app.updates.UpdateSettings
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.app.updates.languageSwitchCanBeDropped
 import com.wasimaster.wmkeyboard.core.settings.OnboardingSettings
 import com.wasimaster.wmkeyboard.core.settings.PersonaDepth
 import com.wasimaster.wmkeyboard.core.settings.PersonaLanguages
@@ -68,7 +71,7 @@ internal const val DOCS_URL = "https://wmkeyboard.pages.dev"
  * because it is the same binary, and the page is about what the binary can do
  * rather than about where it came from.
  */
-private val PRIVACY_POLICY_URL = if (BuildConfig.FLAVOR == "lite") {
+private val PRIVACY_POLICY_URL = if (BuildConfig.FLAVOR_capabilities == "lite") {
     "$DOCS_URL/privacy/policy-fdroid/"
 } else {
     "$DOCS_URL/privacy/policy/"
@@ -156,6 +159,24 @@ private val bundledAttributions: List<Attribution> = buildList {
     )
     add(
         Attribution(
+            "JSch",
+            R.string.about_bundled_jsch_used,
+            "Copyright (c) 2002-2015 Atsuhiko Yamanaka, JCraft, Inc.; jBCrypt copyright (c) 2006 Damien Miller",
+            "BSD-3-Clause", "bsd-jsch.txt",
+            "https://github.com/mwiede/jsch",
+        ),
+    )
+    add(
+        Attribution(
+            "Bouncy Castle",
+            R.string.about_bundled_bouncycastle_used,
+            "Copyright (c) 2000-2026 The Legion of the Bouncy Castle Inc.",
+            "MIT", "mit-bouncycastle.txt",
+            "https://www.bouncycastle.org",
+        ),
+    )
+    add(
+        Attribution(
             "APNG4Android",
             R.string.about_bundled_apng_used,
             "Copyright Pengfei Zhou",
@@ -198,6 +219,28 @@ private val bundledAttributions: List<Attribution> = buildList {
                 "Copyright the respective crate authors",
                 "MIT / Apache-2.0 / others", "harper-third-party.txt",
                 "https://crates.io",
+            ),
+        )
+    }
+    if (BuildConfig.ENABLE_ML_KIT_SCANNERS) {
+        // Compiled into one native library for the text scanner; see
+        // native/tesseract-jni.
+        add(
+            Attribution(
+                "Tesseract",
+                R.string.about_bundled_tesseract_used,
+                "Copyright Hewlett-Packard, Google and Tesseract contributors",
+                "Apache-2.0", "apache-2.0.txt",
+                "https://github.com/tesseract-ocr/tesseract",
+            ),
+        )
+        add(
+            Attribution(
+                "Leptonica",
+                R.string.about_bundled_leptonica_used,
+                "Copyright (C) 2001-2020 Leptonica",
+                "BSD-2-Clause", "bsd-2-clause-leptonica.txt",
+                "http://www.leptonica.org",
             ),
         )
     }
@@ -495,6 +538,16 @@ private val serviceAttributions: List<Attribution> = listOf(
         "https://dictionaryapi.dev/",
     ),
     Attribution(
+        "Wiktionary & kaikki.org", R.string.about_service_wiktionary_used, "",
+        "CC BY-SA 4.0 and GFDL", null,
+        "https://en.wiktionary.org/wiki/Wiktionary:Copyrights",
+    ),
+    Attribution(
+        "Datamuse", R.string.about_service_synonyms_used, "",
+        "Provider terms", null,
+        "https://www.datamuse.com/api/",
+    ),
+    Attribution(
         "Hugging Face", R.string.about_service_models_used, "",
         "Per-model licence, accepted on the model's page", null,
         "https://huggingface.co/terms-of-service",
@@ -561,9 +614,50 @@ private fun personaSummary(persona: OnboardingSettings): String {
     return stringResource(R.string.about_persona_value, stringResource(depth), stringResource(languages))
 }
 
+/**
+ * The app's own interface language (#322). "System default" is the empty key
+ * and follows the phone; the rest are every translation this build carries,
+ * each named in itself with our name for it underneath.
+ *
+ * Choosing restarts the screen in the new language, so the selection read
+ * below is fresh on every visit and needs no state of its own.
+ */
+@Composable
+private fun AppLanguageSetting() {
+    val context = LocalContext.current
+    val uiLocale = LocalConfiguration.current.locales[0]
+    val selected = remember { AppLanguage.selected(context).orEmpty() }
+    val systemName = nativeLanguageName(AppLanguage.systemLocale().toLanguageTag())
+    val systemLabel = stringResource(R.string.about_app_language_system, systemName)
+    val options = remember(uiLocale, systemLabel) {
+        val collator = java.text.Collator.getInstance(uiLocale)
+        listOf("" to systemLabel) + AppLanguage.available
+            .map { it to nativeLanguageName(it) }
+            .sortedWith(compareBy(collator) { it.second })
+    }
+    ChoiceSetting(
+        R.string.about_app_language_title,
+        subtitle = stringResource(R.string.about_app_language_subtitle),
+        info = stringResource(R.string.about_app_language_info),
+        options = options,
+        selected = selected,
+        default = "",
+        detail = { tag ->
+            if (tag.isEmpty()) {
+                null
+            } else {
+                languageNameIn(tag, uiLocale)
+                    .takeIf { it != nativeLanguageName(tag) }
+                    ?.let { ChoiceDetail(description = it) }
+            }
+        },
+        onChange = { tag -> if (tag != selected) AppLanguage.select(context, tag.ifEmpty { null }) },
+    )
+}
+
 @Composable
 internal fun AboutSettings(
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     persona: OnboardingSettings,
     onOpenLicenses: () -> Unit,
     onOpenLicenseText: (String) -> Unit,
@@ -575,7 +669,7 @@ internal fun AboutSettings(
 ) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
-    val flavor = BuildConfig.FLAVOR.replaceFirstChar { it.uppercase() }
+    val flavor = BuildConfig.FLAVOR_capabilities.replaceFirstChar { it.uppercase() }
     val channel = when {
         BuildConfig.ENABLE_PLAY_STORE -> " · Play Store"
         BuildConfig.ENABLE_FDROID -> " · F-Droid"
@@ -622,6 +716,8 @@ internal fun AboutSettings(
     // settings (see LauncherName), and nothing else changes it while this
     // screen is open, so one read per visit is the truth.
     var shortName by remember { mutableStateOf(LauncherName.isShort(context)) }
+    // Read out here because the group's builder below is not composable.
+    val canDropLanguageSwitch = !AppLanguage.canChoose && languageSwitchCanBeDropped()
 
     SettingsGroup(
         stringResource(R.string.about_app_title),
@@ -686,6 +782,20 @@ internal fun AboutSettings(
                     LauncherName.setShort(context, it)
                 },
             )
+        }
+        // An English-only build has nothing to choose between, so the same
+        // slot says so and offers the build with every language instead.
+        if (AppLanguage.canChoose) {
+            item { AppLanguageSetting() }
+        } else {
+            item {
+                AllLanguagesRow(
+                    settings,
+                    extraLanguages = BuildConfig.TRANSLATED_LANGUAGE_COUNT,
+                    englishName = nativeLanguageName("en"),
+                )
+            }
+            item(visible = canDropLanguageSwitch) { KeepEnglishOnlyRow() }
         }
         item {
             NavRow(

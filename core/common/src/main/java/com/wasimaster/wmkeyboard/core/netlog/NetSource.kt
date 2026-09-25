@@ -25,16 +25,25 @@ enum class NetSource(
     val background: Boolean = false,
 ) {
     TRANSLATE("translate", ToolbarTool.TRANSLATE),
+
+    /** DeepL Write, from the grammar panel or the selection bar. Its settings sit on the Translate page. */
+    DEEPL_WRITE("deepl_write", ToolbarTool.TRANSLATE),
     GIF("gif", ToolbarTool.GIF),
     STICKER("sticker", ToolbarTool.STICKER),
     WEB_SEARCH("web_search", ToolbarTool.WEB_SEARCH),
     IMAGE_SEARCH("image_search", ToolbarTool.IMAGE_SEARCH),
+
+    /** A camera photo uploaded to a reverse image search site (#349). */
+    PHOTO_SEARCH("photo_search", ToolbarTool.CAMERA),
     AI("ai", ToolbarTool.AI),
     AI_CHAT("ai_chat", ToolbarTool.AI),
     TRANSCRIPTION("transcription", ToolbarTool.VOICE),
     WIKIPEDIA("wikipedia", ToolbarTool.WIKIPEDIA),
     DICTIONARY("dictionary", ToolbarTool.DICTIONARY),
     VOCABULARY("vocabulary", ToolbarTool.VOCABULARY),
+
+    /** Synonyms for a word held on the suggestion strip (#321). Its settings sit on the Suggestions page. */
+    SYNONYMS("synonyms"),
     WEATHER("weather", ToolbarTool.WEATHER),
     CURRENCY("currency", ToolbarTool.CURRENCY),
     /** Searching photos is asked for; refilling the rotation pool passes `background` itself. */
@@ -52,9 +61,15 @@ enum class NetSource(
     DOWNLOAD_VOCAB("download_vocab", ToolbarTool.VOCABULARY),
     DOWNLOAD_FONT("download_font"),
     DOWNLOAD_CUTOUT("download_cutout", ToolbarTool.STICKER),
+
+    /** Tesseract language data for the scan text tool. */
+    DOWNLOAD_OCR("download_ocr", ToolbarTool.OCR),
     ADDONS("addons"),
     KEYMAN("keyman"),
     SIGNAL_STICKERS("signal_stickers", ToolbarTool.STICKER),
+
+    /** The Rboard theme list and the packs picked from it, on the Themes screen. */
+    RBOARD_THEMES("rboard_themes"),
     LINK_IMPORT("link_import"),
     BACKUP("backup"),
     UPDATES("updates", background = true),

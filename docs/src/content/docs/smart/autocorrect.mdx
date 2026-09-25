@@ -8,11 +8,12 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
+import Shot from '@components/Shot.astro';
 
 Autocorrect fixes typos as you finish typing a word, but only when one candidate is clearly the right fix. A fat-fingered slip that's obviously "world" gets corrected. A word that sits genuinely between two real words is left alone for the suggestion strip to offer instead. This page is about that confidence gate, and about everything built around it: reverting a correction, the words autocorrect never touches, and the auto-space rules that ride along with it.
 
 <PhoneFrame caption="A mistyped word corrected inline as the next word begins.">
-  {/* shot: smart/autocorrect-confidence-fix */}
+  <Shot id="smart/autocorrect-confidence-fix" alt="A mistyped word corrected inline as the next word begins." />
 </PhoneFrame>
 
 ## How a correction is chosen
@@ -31,6 +32,10 @@ The two candidates have to be genuinely far apart in score, which keeps autocorr
 
 A word is never a correction target, whatever the confidence factor is set to, if any of these apply:
 
+<PhoneFrame side caption="ALL-CAPS words pass through untouched next to a corrected lowercase one.">
+  <Shot id="smart/autocorrect-skip-allcaps" alt="ALL-CAPS words pass through untouched next to a corrected lowercase one." />
+</PhoneFrame>
+
 - **It's shorter than three letters.** Too little signal to guess at safely.
 - **It's already a known word.** Anything in the active dictionary, a downloaded or custom wordlist, a secondary-language dictionary, or your own personal dictionary is left exactly as typed. A known word is never "corrected." There is one exception: a spelling that the word list holds only because people type another word without its accents. The Polish list contains "juz", but "już" is more than fifty times as common, so "juz" is corrected. When both spellings are common words, such as Polish "ze" and "że", the one you typed stays. The French list holds "cest", "jai" and "quil" as words for the same reason (real text is full of elisions typed without their apostrophe), and those are corrected the same way, to "c'est", "j'ai" and "qu'il"; Italian "cera" against "era" goes to "c'era" on the same terms, and so do the other eliding languages. The larger downloaded word lists also hold common typos, because the text they are counted from has typos in it: the Medium English list holds "wheee", "thw" and "teh". A spelling is treated as one of those typos when two things are true. First, it is further down its list than the 50,000 words the Small download keeps. Second, a word one slip away is at least a thousand times as common. So "wheee" is corrected to "where" and "thw" to "the", on any download size. A real word that is only rare, such as "cress" next to "dress", is left as typed. A word you added to Android's personal dictionary is never treated this way. A word nothing recognises doesn't become known just by being typed once: it has to be typed and left alone three times before it joins your dictionary, which is what stops a typo shielding itself from the fix it needed. See [Personal dictionary](/smart/personal-dictionary/#words-wait-their-turn) for that, and **Learn a word after** under <SettingsPath path="Typing / Suggestions" /> for a further threshold on top of it.
 - **It's a contact's name or an installed app's label**, if [contact and app-name suggestions](/smart/contacts/) have indexed it.
@@ -39,21 +44,19 @@ A word is never a correction target, whatever the confidence factor is set to, i
 - **The active language isn't English and has no bundled dictionary of its own.** The bundled English dictionary feeds autocorrect only while your active language is English, or has English configured as a secondary language. Type in French, German, or another language and corrections come from that language's own dictionary and whatever you've personally taught the keyboard.
 - **The field is a password field, or any structured field**: email, web address, number pad, phone pad. Autocorrect, like the rest of typing intelligence, is off in all of them.
 
-<PhoneFrame caption="ALL-CAPS words pass through untouched next to a corrected lowercase one.">
-  {/* shot: smart/autocorrect-skip-allcaps */}
-</PhoneFrame>
-
 :::note
 Missing apostrophes ("thats" &rarr; "that's") are fixed by a separate lookup that runs *before* autocorrect even looks at the word, so it's a known-word fix rather than a confidence-scored guess, and it wins whenever both could apply. The word with its apostrophe also leads the suggestion strip while you type, so what the strip shows is what the space bar is about to commit. Anything that ends a word applies it: the space bar, enter, and the full stop, comma, question mark and their family. English reads a fixed table of contractions. Seven languages that elide get the same fix from their word list instead of a table — French, Italian, Catalan, Occitan, Romansh, Corsican, Sardinian and Piedmontese: "cest" becomes "c'est", "lalbero" becomes "l'albero", "unamica" becomes "un'amica", "lhome" becomes "l'home", "lostal" becomes "l'ostal" and "sistadu" becomes "s'istadu". The keyboard knows which prefixes elide and which short words each one takes, so French "jet" is never split into "j'et" and Italian "sono" never into "s'ono". That table is deliberately thinner than a grammar book would write it, because a one-letter prefix in front of a short word usually spells a word: Occitan "ma" and "ta" are "my" and "your", Corsican "se" and "sa" are words in their own right, and each table was swept against its language's full word list to find them. A real word that happens to split, such as French "lune" or Italian "allora", stays as typed; "l'une" and "all'ora" sit behind it on the strip instead. It has its own toggle, "Fix missing apostrophes," in the same settings group, and no other language is read this way. Every language in the current mix is asked, not only the one in front: with Italian and English set as each other's secondary, "thats" becomes "that's" and "lalbero" becomes "l'albero" whichever of the two you are typing in. The word after an elided prefix still has to be a word of the language whose grammar allowed the split, so an Italian "d'" never reaches across the mix to make "dart" into "d'art". Offensive-word filtering and the suggestion blacklist also keep those words out of the plain suggestion strip, not only out of autocorrect. See [Suggestion blacklist](/smart/blacklist/) for the full mechanism.
+
+Hyphenated words are one word while you type them. A hyphen straight after a letter stays in the word being composed, so "well-pai" completes to "well-paid" and "что-" goes on to "что-то", instead of the strip starting over on the part after the hyphen. A hyphen the word ends on is only punctuation: "well-" then space leaves "well- " as typed, and a second hyphen in a row is a dash that ends the word. Putting the caret back after a compound picks up all of it, not only the last part. A compound whose parts are all known words, such as "hello-world", is never corrected, even when no word list holds it whole. The other way round, a compound typed without its hyphen is offered with it on the strip: "wellpaid" shows "well-paid". That holds even when the word list counts the fused spelling as a word, as the big Russian list does with "чтото", as long as the hyphenated form is at least fifty times as common; "online" is never offered as "on-line". Being on the strip does not mean the space bar will write it: that is still autocorrect's call, made the same way as for any other word.
 :::
 
 ## Undoing a correction
 
-<KeyCap>⌫</KeyCap> right after an autocorrected word undoes it, as long as nothing else has touched the text since. The cursor has to be sitting exactly where the correction left it, and the text right before it has to still read as the corrected word plus the space or line break that ended it. Backspace then deletes both and retypes what you originally typed instead. Move the cursor, tap elsewhere, or keep typing first and the undo is gone. Only the immediate next backspace can trigger it.
-
-<PhoneFrame caption="Backspace right after a correction restores what you originally typed.">
-  {/* shot: smart/autocorrect-backspace-undo */}
+<PhoneFrame side caption="Backspace right after a correction restores what you originally typed.">
+  <Shot id="smart/autocorrect-backspace-undo" alt="Backspace right after a correction restores what you originally typed." />
 </PhoneFrame>
+
+<KeyCap>⌫</KeyCap> right after an autocorrected word undoes it, as long as nothing else has touched the text since. The cursor has to be sitting exactly where the correction left it, and the text right before it has to still read as the corrected word plus the space or line break that ended it. Backspace then deletes both and retypes what you originally typed instead. Move the cursor, tap elsewhere, or keep typing first and the undo is gone. Only the immediate next backspace can trigger it.
 
 The same word won't be "corrected" again next time either way: undoing a correction retires that exact pair on the spot, and a second undo of it blocks the pair for good. That part is unconditional, because a rejection has to hold even with learning switched off.
 
@@ -136,7 +139,7 @@ Tapping the chip is itself evidence that the gate is too tight for that pair, so
 Two related rules ride along with autocorrect and share its "sentence in progress" bookkeeping. Each has its own toggle:
 
 - **Double space inserts a period.** Type two spaces in a row within a fraction of a second and the first space becomes `. `. Deleting a space and retyping it "undoes" nothing here; a following [Shift](#shift-cancels-a-pending-auto-space) is what cancels it. A separate, off-by-default setting can make a double space insert a tab instead, which takes priority over the period rule when both are on.
-- **Punctuation auto-inserts the space after it.** Off by default. When it's on, a sentence-ending or clause mark inserts a trailing space automatically: period, exclamation point, question mark, comma, semicolon, colon, and the Bengali `।`. You don't need a separate spacebar tap before the next word. A mark typed straight after a digit is part of the number and gets no space, so `5,000`, `3.14` and `5:00` stay whole. A run of marks like "..." or "?!" isn't pulled apart into "... !", because the space from the previous mark is taken back before the next one lands. A closing mark does the same thing: type `"hi.` and the closing quote hugs the full stop rather than landing a space past it. This is also gated off in password and structured fields, same as autocorrect itself.
+- **Punctuation auto-inserts the space after it.** Off by default. When it's on, a sentence-ending or clause mark inserts a trailing space automatically: period, exclamation point, question mark, comma, semicolon, colon, and the Bengali `।`. You don't need a separate spacebar tap before the next word. A mark typed straight after a digit is part of the number and gets no space, so `5,000`, `3.14` and `5:00` stay whole. A full stop inside an email address gets none either, so `test@pm.me` doesn't come out as `test@pm. Me`; a comma or question mark after the address still does. A run of marks like "..." or "?!" isn't pulled apart into "... !", because the space from the previous mark is taken back before the next one lands. A closing mark does the same thing: type `"hi.` and the closing quote hugs the full stop rather than landing a space past it. This is also gated off in password and structured fields, same as autocorrect itself.
 
 ### Shift cancels a pending auto-space
 
@@ -180,6 +183,20 @@ The joining marks work the same way, with one extra test. A slash, a backslash, 
 
 `#` and `@` are openers rather than joiners, because they attach to the word after them wherever they sit. `check this #` then a glided "cool" gives `check this #cool`.
 
+## Brackets close themselves
+
+**Close brackets for me** is off by default. Turn it on and an opening bracket types its closing half behind the cursor, with the cursor left between the two, so you carry straight on inside the pair: press `(` and you get `()` with the caret in the middle, ready for what goes in it.
+
+Three presses behave differently once it's on:
+
+- **The opening bracket** types the pair. `(` `[` `{` do it, and so do the CJK and fullwidth brackets: `（` `［` `｛` `〈` `《` `「` `『` `｢` `【` `〔` `〖` `〘` `〚` `⟨` `⟦`.
+- **The closing bracket**, pressed when that very character is already the next one in front of the cursor, steps over it instead of typing a second one. Typing both halves out of habit gives you `()`, not `())`.
+- **Backspace** on an empty pair takes both halves out in one press, so undoing the bracket undoes the closer that came with it. A pair with anything inside it deletes one character at a time, as always.
+
+Two kinds of character are deliberately left out. **Quotes** — `"`, `'`, `` ` ``, `«` — because the apostrophe in "don't" is the same key, and a keyboard that closed it would be wrong far more often than right; select some text and press the quote instead, which [wraps the selection](/tools/text-editing/) in the pair. **`<`** for the same sort of reason: outside code it is a less-than sign, and `5 <` is nobody opening a bracket.
+
+The rule also stands down when the bracket lands in front of a word — `(` typed immediately before `world` is you putting brackets around that word by hand, and a closer dropped into the middle of it would only have to be deleted again. A space, a mark, another bracket or the end of the text all leave room for the pair. Passwords, web addresses, email fields and number pads are untouched, the same hard gate every other rule on this page sits behind.
+
 ## Reducing typos before they happen
 
 Autopilot nudges which key a *borderline* tap resolves to, biasing toward whichever neighboring letter is more likely to continue the word you're typing. Fewer boundary mis-taps happen in the first place, before autocorrect would ever need to fix them. It has its own screen under the Suggestions settings group rather than sitting alongside autocorrect, since it needs suggestions on to have anything to bias toward. Its Strength slider sets how far a favoured letter reaches, and two optional views draw the touch areas it has claimed. See [Suggestions & prediction](/smart/suggestions/) for the rest of how the suggestion engine ranks candidates.
@@ -188,8 +205,8 @@ Autopilot nudges which key a *borderline* tap resolves to, biasing toward whiche
 
 <SettingsPath path="Typing / Automatic corrections" />
 
-<PhoneFrame caption="The Automatic corrections group in Typing settings, including the confidence slider.">
-  ![The Automatic corrections group in Typing settings, including the confidence slider.](@assets/screens/smart/autocorrect-options.webp)
+<PhoneFrame side caption="The Automatic corrections group in Typing settings, including the confidence slider.">
+  <Shot id="smart/autocorrect-options" alt="The Automatic corrections group in Typing settings, including the confidence slider." />
 </PhoneFrame>
 
 | Setting | Default | Shown when |
@@ -219,6 +236,7 @@ Autopilot nudges which key a *borderline* tap resolves to, biasing toward whiche
 | Remove a space before punctuation | On | always |
 | Marks that pull the space out | `.,?!;:।،؛؟۔` | Remove a space before punctuation on |
 | Space before French punctuation | On | always |
+| Close brackets for me | Off | always |
 
 The table covers the rows this page is about. The same group also carries **Adapt to app tone** and **Space after a suggestion** (both described on [Suggestions & prediction](/smart/suggestions/)), **Automatic capital letters**, and the two selection rules, wrap-with-a-pair and shift-re-cases-the-selection.
 

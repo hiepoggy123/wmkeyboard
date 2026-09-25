@@ -195,6 +195,10 @@
     <string name="keypress_symbols_numpad_subtitle">Press and hold the symbols key to open the number pad</string>
     <string name="keypress_symbols_numpad_info">Normally the ?123 key only changes to the symbol layer. With this setting on, hold it to open the number pad panel over any field. You get a full number pad without leaving the current text box. A quick press still changes the layer.</string>
 
+    <string name="keypress_enter_emoji_title">Press and hold enter for emoji</string>
+    <string name="keypress_enter_emoji_subtitle">Open the emoji panel from the enter key\'s popup</string>
+    <string name="keypress_enter_emoji_info">With this setting on, holding the enter key opens a popup with an emoji entry at the front. With Choose without lifting on, a plain press and hold opens the emoji panel as soon as you lift your finger. A quick press still does what enter always does.\n\nIn a chat or search box, the same popup also has the line break that the Send or Search key replaces. Slide to it to use it. This setting is off by default.</string>
+
     <string name="keypress_currency_keys_title">Currency keys</string>
     <!-- $ is the currency key on the symbol layer. The listed characters are the default set. -->
     <string name="keypress_currency_keys_info">These are the characters in the press and hold popup of the $ key, in order. Put your own currency first. Separate the characters with spaces. Keep the default (৳ € £ ¥ ₹ ₿), or clear the field to restore the built-in set.</string>
@@ -222,6 +226,9 @@
     <string name="keypress_hold_action_first_title">Action first</string>
     <string name="keypress_hold_action_first_subtitle">Press and hold runs the action instead of showing the accents</string>
     <string name="keypress_hold_action_first_info">The action usually sits at the end of the popup, so a plain press and hold gives you the first accent. With this on it moves to the front, and a press and hold on one of the shortcut keys runs the action straight away. The accents are still there: keep your finger down and slide onto the one you want. This needs Hold to select, under Alternate keys.</string>
+    <string name="keypress_globe_drag_title">Slide from 🌐 for shortcuts</string>
+    <string name="keypress_globe_drag_subtitle">Press 🌐 and slide onto C to copy, V to paste</string>
+    <string name="keypress_globe_drag_info">Put your finger on the 🌐 key, slide it onto a shortcut key and lift: onto A selects all, C copies, V pastes, X cuts, Z undoes and Y redoes. These are the same keys and the same actions as the hold shortcuts, and you can change the keys under Shortcut keys. This works when the hold shortcuts are off too. Lift anywhere else and nothing happens. Slide back onto 🌐 to change the language as a tap does. If you hold 🌐 still until the language list opens, the slide is for the list. This setting is off by default.</string>
     <string name="keypress_hold_action_select_all_label">Select all</string>
     <string name="keypress_hold_action_copy_label">Copy</string>
     <string name="keypress_hold_action_cut_label">Cut</string>

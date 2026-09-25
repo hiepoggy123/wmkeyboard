@@ -26,6 +26,7 @@ import com.wasimaster.wmkeyboard.core.kdeconnect.KdePhoneMedia
 import com.wasimaster.wmkeyboard.core.kdeconnect.KdeState
 import com.wasimaster.wmkeyboard.core.media.MediaControlManager
 import com.wasimaster.wmkeyboard.core.media.MediaSnapshot
+import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import com.wasimaster.wmkeyboard.core.notify.NotificationIds
 import com.wasimaster.wmkeyboard.core.notify.NotificationKind
 import com.wasimaster.wmkeyboard.core.notify.WmNotifications
@@ -105,8 +106,34 @@ object KdeConnectHub {
     private var collectors: List<Job> = emptyList()
     private var wired = false
 
+    /** Open [batch] calls; while above zero, [reconcile] only notes that it is owed. */
+    private var batchDepth = 0
+    private var reconcileOwed = false
+
+    /** What [syncShareAlias] last set the alias to, so an unchanged answer costs no binder call. */
+    private var shareAliasState: Int? = null
+
     /** Whether the keyboard is on screen: decides between showing something in the panel and posting a notification. */
     private val keyboardUp: Boolean get() = Reason.KEYBOARD in reasons
+
+    /**
+     * Runs [block] and reconciles once at the end, however many holds,
+     * releases and settings it changed. The keyboard's sync touches four of
+     * them on every show and hide, and each one alone reconciles — with a
+     * package-manager call and a config rebuild each time — on the main thread.
+     */
+    fun batch(block: () -> Unit) {
+        batchDepth++
+        try {
+            block()
+        } finally {
+            batchDepth--
+            if (batchDepth == 0 && reconcileOwed) {
+                reconcileOwed = false
+                reconcile()
+            }
+        }
+    }
 
     fun attach(context: Context) {
         if (app == null) app = context.applicationContext
@@ -193,6 +220,8 @@ object KdeConnectHub {
     private fun wanted(): Boolean {
         val context = app ?: return false
         if (!settings.enabled || !DirectBoot.isUserUnlocked(context)) return false
+        // Every KDE Connect socket needs the internet permission, LAN or not (#292).
+        if (!InternetPermission.granted) return false
         if (reasons.any { it == Reason.PANEL || it == Reason.SETTINGS || it == Reason.SHARE }) return true
         val lingering = System.currentTimeMillis() - keyboardLeftAtMs < KEYBOARD_LINGER_MS
         return when (settings.lifetime) {
@@ -222,6 +251,10 @@ object KdeConnectHub {
     }
 
     private fun reconcile() {
+        if (batchDepth > 0) {
+            reconcileOwed = true
+            return
+        }
         val context = app ?: return
         val browsing = browsers.isNotEmpty()
         if (!wanted()) {
@@ -453,15 +486,19 @@ object KdeConnectHub {
         val component = ComponentName(context.packageName, SHARE_ALIAS)
         val pm = context.packageManager
         val desired = if (want) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+        if (shareAliasState == desired) return
         runCatching {
             if (pm.getComponentEnabledSetting(component) != desired) {
                 pm.setComponentEnabledSetting(component, desired, PackageManager.DONT_KILL_APP)
             }
+            // Only this process moves the alias, so once set it stays set.
+            shareAliasState = desired
         }
     }
 
     private fun KdeConnectSettings.toConfig(context: Context): KdeEngineConfig {
-        val fallback = KdeDeviceNames.sanitize(Build.MODEL.orEmpty()).ifEmpty { "Android" }
+        // Tagged, because the KDE Connect app on the same phone also calls itself by the model.
+        val fallback = KdeDeviceNames.branded(Build.MODEL.orEmpty().ifBlank { "Android" })
         val tablet = context.resources.configuration.smallestScreenWidthDp >= 600
         return KdeEngineConfig(
             deviceName = KdeDeviceNames.sanitize(deviceName).ifEmpty { fallback },

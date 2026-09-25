@@ -9,6 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 import GestureDemo from '@components/GestureDemo.astro';
+import Shot from '@components/Shot.astro';
 
 Past tapping and long-pressing single keys, WM Keyboard has a few drag gestures that move across or along a key. The spacebar, backspace and the volume rocker each do something different when you swipe instead of tap. This page covers what those drags do once they're moving. Where a gesture belongs to another page, it links there rather than repeating it.
 
@@ -26,15 +27,19 @@ Setting **Press and hold, then swipe** to Cursor or Numpad costs one thing: hold
 
 ## Moving the cursor with a spacebar swipe
 
-Set a slot to **Cursor** and the drag moves the text cursor instead of typing. The caret steps one character for every 16&nbsp;dp of horizontal travel, in whichever direction you drag. That distance is a slider of its own, **Cursor speed**, which sits under the two swipe pickers and runs 8–32&nbsp;dp. Shorter moves the caret faster. Any composing text in progress (a word mid-transliteration, say) commits first, without autocorrect, so the cursor lands where you can see it rather than jumping past a word that was still being corrected.
-
-<PhoneFrame caption="Dragging the spacebar moves the text cursor a character at a time.">
-  {/* shot: typing/spacebar-cursor-swipe */}
+<PhoneFrame side caption="Dragging the spacebar moves the text cursor a character at a time.">
+  <Shot id="typing/spacebar-cursor-swipe" alt="Dragging the spacebar moves the text cursor a character at a time." />
 </PhoneFrame>
+
+Set a slot to **Cursor** and the drag moves the text cursor instead of typing. The caret steps one character for every 16&nbsp;dp of horizontal travel, in whichever direction you drag. That distance is a slider of its own, **Cursor speed**, which sits under the two swipe pickers and runs 8–32&nbsp;dp. Shorter moves the caret faster. Any composing text in progress (a word mid-transliteration, say) commits first, without autocorrect, so the cursor lands where you can see it rather than jumping past a word that was still being corrected.
 
 <SettingsPath path="Typing / Gestures / 2-D cursor touchpad" />
 
 **2-D cursor touchpad** (off by default) turns the same drag into a touchpad. A vertical component now steps the cursor up and down through the text too, on the same Cursor speed distance. Both axes send real arrow-key events rather than computing a raw text offset, so vertical movement follows whatever line-wrapping the app is doing instead of guessing at it. The toggle only appears once one of the two swipe slots above is set to Cursor, and Cursor speed appears beside it.
+
+<SettingsPath path="Typing / Gestures / Cursor magnifier" />
+
+**Cursor magnifier** (on by default) shows the line of text around the cursor, enlarged, in a bubble over the text while the drag moves the cursor. It comes up once the drag has resolved to Cursor and goes when you lift your finger. The bubble is the keyboard's own drawing of the text the app hands it, not a zoomed picture of the screen, so it uses the keyboard's colours and font. It sits above the cursor, or below it when the cursor is too close to the top of the screen, for apps that tell the keyboard where their cursor is, which most do. For an app that doesn't, or when the cursor is scrolled out of sight or hidden behind the keyboard, it sits just above the keyboard instead. In a password field it shows dots, never the password. It never takes a touch and it goes the moment you lift your finger. It appears beside Cursor speed, and the [trackpad](/tools/trackpad/) has a separate switch for the same bubble.
 
 The same drag **selects** text instead of moving through it while selection mode is on, on either axis. Turn the mode on from the toolbar's [Selection mode](/tools/text-editing/#selection-mode) tool, or hold that tool down and scrub the spacebar with your other thumb. A Shift you pressed yourself does it too, lock included, exactly as [Shift+Arrow](/tools/text-editing/#hold-shift-to-select) would: lock Shift, then scrub. A Shift the keyboard armed by itself at a sentence start doesn't count, so an ordinary drag never selects behind your back.
 
@@ -59,6 +64,14 @@ Every key with press-and-hold characters shows the first of them in its corner: 
 The swipe has to be all four things at once: **down** (within about 30° of straight down), **short** (between half a key's height and two of them), **straight**, and **quick** (under a quarter of a second from touch to lift). A drag that misses any of those is whatever it always was, so a slow pull down is still a glide and a tap that drifts is still a tap. The keys with a drag of their own keep it: the spacebar's swipes, backspace's delete swipe, the modifier and <KeyCap>?123</KeyCap> drags, and a kana key's four flick arms.
 
 The one real cost is with [glide typing](/typing/glide-typing/). A very fast glide of a short word whose stroke runs straight down between neighbouring rows, "ed" for instance, can read as a flick and type the hint instead. The timing rule is what keeps that rare, since even a short glide usually takes longer than a flick, but it's why the setting ships off.
+
+## Swiping up on a letter for its capital
+
+<SettingsPath path="Typing / Gestures / Swipe up for a capital" />
+
+The same flick the other way. With this on, a short, quick swipe straight up on a letter types its capital, so a single capital in the middle of a word or a name needs no trip to <KeyCap>Shift</KeyCap>. On a key that has a shifted character of its own, such as a number-row key with a symbol above it, the swipe types that character instead. Keys whose Shift changes nothing (a digit with no shifted twin, a script without capitals) don't take the swipe. It doesn't touch Shift either: a Shift you armed is still armed for the next letter. Off by default.
+
+The rules are the ones the hint flick uses, pointed up: within about 30° of straight up, between half a key's height and two of them, straight, and under a quarter of a second. When [Words on the keys](/smart/words-on-the-keys/) shows a word on the key, a swipe up still takes that word, as it always has. The glide cost is the mirror image too: a very fast glide of a short word that runs straight up between neighbouring rows, "de" for instance, can type a capital instead.
 
 ## Swiping to add 's
 
@@ -108,16 +121,16 @@ A layout can carry its own set instead. Open a layout in the [layout editor](/la
 
 <SettingsPath path="Key press / Delete keys" />
 
+<PhoneFrame side caption="Dragging backspace to the left deletes text a word at a time instead of a character at a time.">
+  <Shot id="typing/backspace-word-swipe" alt="Dragging backspace to the left deletes text a word at a time instead of a character at a time." />
+</PhoneFrame>
+
 **Swipe to delete** (on by default) lets a leftward drag on <KeyCap>⌫</KeyCap> take out more than the one character a press does. Backspace treats tap, hold-to-repeat and this swipe as one gesture. A press that stays still starts the normal hold-to-repeat once **Time before a key repeats** has elapsed, exactly as described on [Keys & typing basics](/typing/basics/#multi-touch-and-key-repeat). Moving left past a small slop cancels that repeat and switches to the swipe. Backspace owns the whole stroke: glide typing, handwriting and the floating-word flick never start from it, even though the key sits right beside the bottom letter row, so neither a swipe nor a held, repeating backspace that drifts onto the letters types a word on top of what it deletes. That holds with **Swipe to delete** off too, and the same goes for <KeyCap>⌦</KeyCap>.
 
 **Swipe deletes** picks what one step of that swipe takes off:
 
 - **Words** (the default) clears a sentence in one pull.
 - **Characters** walks back a letter at a time, which is the finer tool when the fix is inside a word rather than at the end of it. A whole multi-part emoji, or a whole conjunct in a script that asks for it, still counts as one character, the same as a backspace press does.
-
-<PhoneFrame caption="Dragging backspace to the left deletes text a word at a time instead of a character at a time.">
-  {/* shot: typing/backspace-word-swipe */}
-</PhoneFrame>
 
 Each step costs a certain amount of leftward travel. In Words mode the cost shrinks as you go, so clearing a whole sentence is one long pull rather than a series of flicks. The first word costs the most: **Word delete distance**, 72&nbsp;dp by default and adjustable 32–120&nbsp;dp in the same Delete keys group. Every word after it costs less, on a fixed curve derived from that one number, down to a floor past which extra words get no cheaper. In Characters mode there is no curve at all: every character costs the same **Character delete distance**, 20&nbsp;dp by default and adjustable 8–48&nbsp;dp, so the count stays easy to follow.
 
@@ -161,7 +174,7 @@ See [Sound & vibration](/typing/feedback/) for the **Vibrate on delete swipe** h
 
 ## Dragging from a modifier key
 
-Drag from <KeyCap>Shift</KeyCap> onto a letter and lift, and you get the capital: one movement instead of a shift tap and then the letter. A band stretches from the key you started on to your fingertip while you drag, drawn in the [glide typing](/typing/glide-typing/) trail's colour and width. It stays a straight line rather than tracing the path your finger took, because the chord is the two keys at its ends and the route between them means nothing.
+Drag from <KeyCap>Shift</KeyCap> onto a letter and lift, and you get the capital: one movement instead of a shift tap and then the letter. A band stretches from the key you started on to your fingertip while you drag, drawn in the [glide typing](/typing/glide-typing/) trail's colour and width. It stays a straight line rather than tracing the path your finger took, because the chord is the two keys at its ends and the route between them means nothing. While you drag from Shift the letters turn to capitals, and the key under your finger lights up the way a pressed key does, so you can see which capital the lift will type. The same light follows your finger from Ctrl, Alt and Meta, on any key that has a combination to send.
 
 <KeyCap>Ctrl</KeyCap>, <KeyCap>Alt</KeyCap> and <KeyCap>Meta</KeyCap> keys work the same way, and send the combination to the app: Ctrl to <KeyCap>C</KeyCap> copies, Ctrl to <KeyCap>Z</KeyCap> undoes, Ctrl to <KeyCap>Enter</KeyCap> sends the message in the apps that bind it. Shift does that too on any key that isn't a letter, so Shift to <KeyCap>Enter</KeyCap> is a real Shift+Enter and Shift to <KeyCap>Tab</KeyCap> tabs backwards.
 
@@ -206,7 +219,7 @@ A few rules keep the drag from firing when you didn't mean it:
 **Volume keys move the cursor** (off by default) repurposes the hardware volume rocker while the keyboard is on screen: volume down moves the cursor one character left, volume up moves it one character right. Holding a volume key repeats for free, riding Android's own hardware key-repeat rather than a separate timer. Both the press and the release are swallowed, so the app underneath never sees a stray volume keypress. It applies only while the keyboard is actually shown. Once it closes, the volume keys go back to controlling volume. With [Selection mode](/tools/text-editing/#selection-mode) on, or with a Shift you pressed yourself still up, each press selects a character instead of stepping past it, so the rocker drags a selection out.
 
 <PhoneFrame caption="With Volume keys move the cursor on, the hardware volume keys move the text cursor instead of the volume.">
-  {/* shot: typing/volume-cursor-control */}
+  <Shot id="typing/volume-cursor-control" alt="With Volume cursor control on, the hardware volume keys move the text cursor instead of the volume." />
 </PhoneFrame>
 
 **Release the keys while audio plays** (on by default) hands the volume keys back to ordinary volume control the instant something is playing: music, a video, a podcast. Typing a reply never costs you the ability to turn the sound down. The keys return to the cursor the moment playback stops. This is re-checked on every key press rather than latched once, so starting or stopping playback mid-typing takes effect immediately. Turn it off if you'd rather the volume keys always moved the cursor while the keyboard is open, playback or not.
@@ -230,8 +243,10 @@ A printable table of every gesture on one page lives at [Gesture cheat sheet](/r
 | Press and hold, then swipe | Cursor |
 | 2-D cursor touchpad | Off |
 | Cursor speed | 16&nbsp;dp (8–32&nbsp;dp) |
+| Cursor magnifier | On |
 | Swipe down to hide the keyboard | Off |
 | Swipe down to type the hint | Off |
+| Swipe up for a capital | Off |
 | Swipe to add 's | Off |
 | Arrows on the spacebar | On |
 | The spacebar shows | Language |
@@ -247,7 +262,7 @@ A printable table of every gesture on one page lives at [Gesture cheat sheet](/r
 | Volume keys move the cursor | Off |
 | Release the keys while audio plays | On |
 
-Open the **Typing** tile in settings, or search "Gestures", "Delete keys" or "Volume keys". The last two rows live under Typing / Key press rather than Delete keys, and Word delete interval only appears while Holding delete clears words is on. Cursor speed only appears while a swipe slot is set to Cursor. Swipe deletes, Show what you will delete and the two step distances only appear while Swipe to delete is on, and the two distances are one setting each: Words mode shows Word delete distance, Characters mode shows Character delete distance. The Gestures group's language-switching settings (Arrows on the spacebar, The spacebar shows, Spacebar text) are covered on [Switching languages](/languages/switching/#swiping-the-spacebar) instead of here. For the field-by-field breakdown see [Typing settings](/reference/settings/typing/).
+Open the **Typing** tile in settings, or search "Gestures", "Delete keys" or "Volume keys". The last two rows live under Typing / Key press rather than Delete keys, and Word delete interval only appears while Holding delete clears words is on. Cursor speed and Cursor magnifier only appear while a swipe slot is set to Cursor. Swipe deletes, Show what you will delete and the two step distances only appear while Swipe to delete is on, and the two distances are one setting each: Words mode shows Word delete distance, Characters mode shows Character delete distance. The Gestures group's language-switching settings (Arrows on the spacebar, The spacebar shows, Spacebar text) are covered on [Switching languages](/languages/switching/#swiping-the-spacebar) instead of here. For the field-by-field breakdown see [Typing settings](/reference/settings/typing/).
 
 ## Details & edge cases
 
@@ -262,6 +277,7 @@ Open the **Typing** tile in settings, or search "Gestures", "Delete keys" or "Vo
 - **Volume-key cursor control re-checks "is audio playing" on every key press**, not once at the start of the drag, so control passes back and forth live as playback starts and stops.
 - **A drag off <KeyCap>?123</KeyCap> or <KeyCap>ABC</KeyCap> is never read as a word either**, for the same reason as a modifier drag: <KeyCap>?123</KeyCap> sits against the bottom row beside the spacebar, and a touch that starts there belongs to the layer drag.
 - **A drag off a modifier or Shift key is never read as a word.** Glide typing and handwriting both measure where your finger landed, and a touch that started on one of those keys belongs to the chord drag. Shift is the one you may notice: it sits against the bottom letter row, so a glide that used to be startable from its inner edge now capitalizes instead. Start the word one key further in.
+- **A stroke from the spacebar is never read as a word either.** Glide typing, handwriting and the floating-word flick all leave it alone, so a language or cursor swipe is always that swipe. Glide typing used to decide by distance to the nearest letter, measured in key widths, and on a phone turned sideways the keys are twice as wide as a row is tall, so the whole spacebar counted as "near a letter" and a language swipe glided a word instead.
 - **Caps lock is not a drag source.** It's a state you leave switched on, so holding it for one key means nothing, and Shift is one key away for anyone who wants that.
 - **Ctrl to A, C, V or X goes through the same route as the toolbar's copy and paste.** Those four reach text fields that a raw key event doesn't, such as web views and Compose fields. **Ctrl shortcuts as raw key events**, under Typing / Key press, opts back out of that for terminal apps.
 - **Word deletion falls back to character-by-character inside overlay search boxes** (emoji, clipboard or dictionary search, a plugin text field, the typing-test box, or an in-progress handwriting stroke), since word-deleting the real field hidden behind the overlay would be invisible and wrong.

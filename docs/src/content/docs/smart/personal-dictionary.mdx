@@ -7,11 +7,12 @@ sidebar:
 
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
+import Shot from '@components/Shot.astro';
 
 WM Keyboard quietly builds a private, on-device vocabulary out of what you actually type: names, slang, abbreviations, anything the bundled dictionary doesn't know. Every word in it is safe from autocorrect. A word nothing recognises has to be typed a few times before it gets in, so one bad swipe doesn't put a misspelling in your dictionary for good. You can review that vocabulary, add to it or remove from it by hand, and wipe it entirely, all from Settings.
 
 <PhoneFrame caption="The Personal dictionary screen: learned and manually-added words, most-used first.">
-  ![The Personal dictionary screen: learned and manually-added words, most-used first.](@assets/screens/smart/personal-dictionary-list.webp)
+  <Shot id="smart/personal-dictionary-list" alt="The Personal dictionary screen: learned and manually-added words, most-used first." />
 </PhoneFrame>
 
 ## What gets learned, and how strongly
@@ -72,9 +73,24 @@ Press and hold any word on the suggestion strip and a small menu opens about it.
 - **Add "yourword"** appears while the word you are working on is not in your personal dictionary. It is about the word under the cursor, not the word you held: the suggestions are known words already, and the one you want in is the one you are writing. That covers the word you are typing right now and, with nothing being typed, the word the cursor is parked inside, which is when you usually spot the spelling your dictionary is missing. The word goes in spelled exactly as you typed it, counted as one use, and its capitals are kept (see [capitals](#capitals) below). If it was on the blacklist, it comes off.
 - **Delete "word"** appears for a word the keyboard can forget: one in your personal dictionary, one still waiting to be learned, one in Android's own dictionary, one you adjusted the rank of, or one in a word list you imported. It is forgotten from all of those. A word in an imported list is taken out of the list's file itself, so it does not come back with "Suggest again". If the word is also in a downloaded word list, which the keyboard cannot edit, it goes on the blacklist too, so it is gone from the strip either way. **Delete edits imported lists** under <SettingsPath path="Typing / Suggestions" /> is the switch: turn it off and imported lists are left as you imported them, and the word is blacklisted instead.
 - **Search all words for "word"** appears when the cursor sits inside a word a swipe wrote and that swipe's path is still kept. Like **Add**, it is about the word under the cursor rather than the one you held. It reads the stroke again against every word list you have — past whatever limit glide typing normally works under — and fills the strip with the answers, which is the only way back to a word the decoder was never allowed to offer. See [Going back to a misread swipe](/typing/glide-typing/#going-back-to-a-misread-swipe).
+- **Synonyms for "word"** lists words with the same meaning as the word you held, grouped by part of speech and, where the source gives one, by meaning. Tap one and it goes in place of the word, exactly as if you had picked it off the strip: it replaces the word you are typing, the word the cursor is in, or the word a swipe just wrote, and it takes that word's capitals, so "Happy" at the start of a sentence becomes "Glad". Held on a next-word prediction, it types the synonym as the next word. It appears for English words, on a keyboard with English among its languages. See [Synonyms](#synonyms) below for where the words come from.
 - **Edit** is always there. It opens the word card.
 
 Put the cursor inside a word and that word is itself the top candidate on the strip, so the menu for it is one hold away rather than a hunt for a chip that happens to be showing. Tapping that chip does nothing but put the strip away, since it would only replace the word with itself. See [When the cursor lands in a word](/smart/suggestions/#when-the-cursor-lands-in-a-word).
+
+### Synonyms
+
+The synonyms come from a list of sources, which **Synonym sources** under <SettingsPath path="Typing / Suggestions" /> puts in order. The keyboard asks the first source that is on. When that source has no synonyms for the word, or cannot be reached, it asks the next one, so one service being down or not knowing a word does not leave you with nothing. The panel says at the bottom which source answered.
+
+| Source | Where | What it knows |
+|---|---|---|
+| Vocabulary packs | on the phone | Wiktionary's synonyms for the words in the [vocabulary packs](/tools/vocabulary/) you downloaded, grouped by meaning. Nothing is sent anywhere |
+| Datamuse thesaurus | `api.datamuse.com` | most English words, ranked by how well each one stands in for yours |
+| Wiktionary | `kaikki.org` | Wiktionary's full entry for the word, grouped by meaning |
+| Free Dictionary API | `api.dictionaryapi.dev` | the source the [Dictionary](/tools/search/) tool uses |
+| Similar words | `api.datamuse.com` | words with a related meaning, for a word no thesaurus lists synonyms for. The panel says so when these are what you get |
+
+All five are on by default, in that order. Drag a source to move it and turn its switch off to never ask it. An online source receives the word you held and nothing else. A look-up happens only when you tap **Synonyms**, and [Data saver](/privacy/data-saver/) does not hold it back, the same as a vocabulary look-up. The keyboard remembers the last few answers, so opening the same word again asks nobody.
 
 The word card is a panel over the keyboard, and it is everything the dictionary screen can do to one word without leaving the keyboard. It lists everywhere the word was found: your personal dictionary with how often you typed it, the waiting room, each word list that has it with its place in that list ("#4,512 of 300,000"), an imported list, Android's dictionary, a contact, an app, or the blacklist. Under that come the word's own controls, and along the bottom the same actions as the menu, so a menu trimmed down in settings still reaches all of them.
 
@@ -128,6 +144,10 @@ Every word you've typed or added sits in one list, with the highest weight first
 
 **Date added** is when a word joined your dictionary, not when you last typed it, so a word you type every day stays where it joined. That makes **Newest first** the quick way to review what the keyboard picked up recently. Words saved by a version from before this order existed have no date of their own, so they sort by when you last typed them instead. Words learned in the same typing session share a date and sit A to Z among themselves.
 
+<PhoneFrame side caption="Adding a word by hand from the Add word dialog.">
+  ![Adding a word by hand from the Add word dialog.](@assets/screens/smart/personal-dictionary-add.webp)
+</PhoneFrame>
+
 **Add word** opens a dialog with a single field. Confirm and the word goes in at a weight of one, or one more than it already had, marked as added by hand. Adding a word says it is a word, not that it is a frequent one, so it earns weight the way every other word does, by being typed. What the mark buys is that the word is immediately safe from autocorrect whatever the **Learn a word after** threshold says, and that it is the last thing compaction (see below) would ever remove. A trash icon on each row removes that word, and drops it out of any word pairs it was part of.
 
 **Press any row to edit it.** The dialog that opens holds the spelling, the weight and a **Keep these capitals** switch, and you can change any of them. Fix the spelling and the word keeps everything it had: its weight, the language it was learned under, and every word pair and triple it was part of, so "have a good" still predicts the corrected word afterwards. Respell a word onto one that's already in the list and the two merge into one entry. The weight is the same number the row reads out as "Seen N times", typed straight in or nudged with the minus and plus buttons beside it, which step by one below 10, by ten below 100, and so on up a decade at a time. Anything from 1 to 1,000,000 is accepted. Raising a weight makes the word win the strip sooner; lowering it does the reverse, and a word taken down to 1 is back in reach of **Remove one-off words** unless you added it by hand. Weight has no effect on autocorrect protection: every word on this list is shielded whatever its number, subject only to the **Learn a word after** threshold.
@@ -137,10 +157,6 @@ Every word you've typed or added sits in one list, with the highest weight first
 To add a lot of words at once from something you already wrote, open the [Learn from text](/tools/learn-from-text/) tool in that note or draft. It lists the words the keyboard doesn't know yet, and adds the ones you keep checked exactly as **Add word** would.
 
 Words are capped at 32 characters, counted after the word is lowercased. Anything longer is dropped on the floor by both paths: typing it teaches nothing, and **Add word** closes the dialog as though it worked while the list stays exactly as it was. There's no error and no warning, so if a long entry never turns up in the list, count the characters.
-
-<PhoneFrame caption="Adding a word by hand from the Add word dialog.">
-  ![Adding a word by hand from the Add word dialog.](@assets/screens/smart/personal-dictionary-add.webp)
-</PhoneFrame>
 
 Every add, edit or remove here updates a version marker the running keyboard watches. If the keyboard is open in another app while you edit the list, it reloads your change instead of silently overwriting it the next time it saves. Before you've typed or added anything, the screen reads "Nothing here yet. Words appear as you type, if 'Learn from typing' is on in Privacy. You can also add a word above."
 
@@ -170,7 +186,7 @@ It reaches wider than this word list. Seven files are cleared together, because 
 Like an add or a remove, the delete bumps the version marker a running keyboard watches, so a session open in another app re-reads your vocabulary from disk instead of saving the old copy back over the wipe. Typing statistics live under their own folder and aren't touched. Clear those from the Statistics screen instead.
 
 <PhoneFrame caption="The 'Your data' group on the Privacy screen, with the delete button and its confirmation.">
-  {/* shot: smart/personal-dictionary-clear */}
+  <Shot id="smart/personal-dictionary-clear" alt="The 'Your data' group on the Privacy screen, with the one-tap clear button." />
 </PhoneFrame>
 
 :::caution[This does empty the list on this page]
@@ -181,14 +197,14 @@ The learned-word file this screen deletes *is* your personal dictionary, so this
 
 Your personal dictionary is a single JSON file in the app's private storage, never uploaded anywhere on its own. Two things are true by default, and two are opt-in:
 
+<PhoneFrame side caption="The Dictionary section of a manual export, off by default.">
+  <Shot id="smart/personal-dictionary-backup-toggle" alt="The Dictionary section of a manual export, off by default." />
+</PhoneFrame>
+
 - **It's inert during direct boot.** Between a restart and your first unlock, the file is unreachable, since it lives in credential-encrypted storage. The keyboard runs with an empty, in-memory-only vocabulary: nothing is read, and nothing you type in that state is written anywhere. Once you unlock, the real file is reattached and the temporary in-memory copy is discarded rather than merged in.
 - **Nothing mirrors outside the app by default.** An opt-in toggle can additionally copy newly-learned words (not autocorrect targets) into Android's own shared personal dictionary, so other keyboards and spell checkers can see them too. It's off by default, one-directional, and forced off automatically during direct boot however you've set it, since nothing typed on a lock screen should be learned anywhere. A separate toggle, on by default, does the reverse for a different field of that same system list. It reads back any shortcut entries you've defined there (like "omw" → "on my way") and offers the full phrase as you type the shortcut. Glide the shortcut instead and the full phrase is typed straight away; while you swipe, the floating word, the suggestion strip and the words offered when you hold still show it as `omw = on my way`, and one backspace puts the shortcut back. To move words across by hand in either direction, see [Android's dictionary](#androids-dictionary).
 - **Android's own backup is opt-in.** Turning on "Back up with Android" includes your whole keyboard, learned words included, in Android's standard app-data backup and phone-to-phone transfer.
 - **A manual export leaves it out by default.** The Backup & restore screen's "Dictionary" section covers your personal vocabulary, next-word patterns, rank adjustments, the fixes you have taught autocorrect and where your taps land, and it starts unchecked. A settings file you export and share out of habit carries no typing data along unless you deliberately opt in. Restoring that section does signal a running keyboard to reload, the same as adding or removing a word does.
-
-<PhoneFrame caption="The Dictionary section of a manual export, off by default.">
-  {/* shot: smart/personal-dictionary-backup-toggle */}
-</PhoneFrame>
 
 See [Incognito & secure fields](/privacy/incognito/) for the rest of how incognito and secure fields work, and [Backup & restore](/privacy/backup/) for the full export/restore and Android-backup picture.
 
@@ -211,7 +227,7 @@ See [Incognito & secure fields](/privacy/incognito/) for the rest of how incogni
 | Word menu | Never suggest, Add, Delete | Typing / Suggestions |
 | Adjust rank changes | Both | Typing / Suggestions |
 | Back up with Android | Off | Privacy / Android backup |
-| Include "Dictionary" in export | Off | Backup & restore / Include in export |
+| Include "Dictionary" in export | Off | Backup & restore / What goes in an export |
 
 The dictionary screen itself has no settings beyond the word list, its sort order, its two buttons, the two Android rows and the per-word edit dialog. Every toggle that controls *whether* something gets learned lives on the Privacy screen rather than here, with two exceptions: pausing learning during incognito is under the Incognito tool's own settings, and the three thresholds that decide when a word gets in and when it's shielded sit with the rest of the suggestion sliders.
 

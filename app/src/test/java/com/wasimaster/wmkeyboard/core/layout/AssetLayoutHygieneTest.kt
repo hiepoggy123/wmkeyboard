@@ -143,6 +143,9 @@ class AssetLayoutHygieneTest {
         // left to tell apart without inventing a difference.
         setOf("koi", "kv_cyrillic"),
         setOf("mdf", "myv_cyrillic"),
+        // Tachelhit and Standard Moroccan Tamazight are both written in IRCAM
+        // Tifinagh, the same letters on the same keys.
+        setOf("shi", "zgh_tifinagh"),
     )
 
     @Test
@@ -152,6 +155,9 @@ class AssetLayoutHygieneTest {
             .values
             .filter { group ->
                 group.size > 1 &&
+                    // A T9 keypad is the script's keypad standard, shared by
+                    // design the way InScript is (#332).
+                    group.any { (name, _) -> !name.endsWith("_t9") } &&
                     group.any { (_, l) -> l.id !in latinByDesign && l.script().id != ScriptId.LATIN } &&
                     // Membership, not an exact group match: fixing one language's
                     // letters moves it in or out of a shared-grid cluster, and a

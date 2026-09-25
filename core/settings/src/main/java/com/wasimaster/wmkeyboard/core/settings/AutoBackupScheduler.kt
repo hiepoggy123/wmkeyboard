@@ -23,6 +23,15 @@ object AutoBackupScheduler {
     /** Arbitrary and permanent. Changing it orphans whatever is scheduled. */
     private const val JOB_ID = 20260807
 
+    /** The one-off run [runNow] asks for; its own id so it never replaces the periodic job. */
+    private const val JOB_ID_NOW = 20260923
+
+    /**
+     * The job extra that makes a run ignore the interval, as the Back up now
+     * button does. Read by the job service in `:app`.
+     */
+    const val EXTRA_FORCE = "force"
+
     /**
      * The job runs in `:app`, which a library module cannot name in code. Same
      * string-component approach `AppCatalog` uses for launching activities.
@@ -35,6 +44,40 @@ object AutoBackupScheduler {
 
     /** Retry delay after a failure the job asked to have retried. */
     private const val BACKOFF_MS = 30L * 60L * 1000L
+
+    /**
+     * Only the destinations that go over the wire wait for a network; a SAF
+     * folder is usually local storage, and an offline phone should still be
+     * able to back up to its own card.
+     *
+     * A network destination with "Wi-Fi only" off still waits for *some*
+     * network. Without that the job ran offline, the token refresh failed, and
+     * the run was recorded against the destination.
+     */
+    fun networkTypeFor(settings: AutoBackupSettings): Int = when {
+        // Mixed locations wait for the network: a run is one pass over all of
+        // them, and the folder copy costs nothing to delay.
+        settings.backupTargets.none { it.type.needsNetwork } -> JobInfo.NETWORK_TYPE_NONE
+        settings.requireUnmetered -> JobInfo.NETWORK_TYPE_UNMETERED
+        else -> JobInfo.NETWORK_TYPE_ANY
+    }
+
+    /**
+     * Backs up once, as soon as the ticked locations' network rule allows, whether
+     * or not the automatic backup is on. A job rather than a coroutine because
+     * the caller (an automation intent) has seconds to live, and a backup to a
+     * cloud destination can take longer. False when there is nowhere to back
+     * up to.
+     */
+    fun runNow(context: Context, settings: AutoBackupSettings): Boolean {
+        if (settings.backupTargets.isEmpty()) return false
+        val scheduler = context.getSystemService(JobScheduler::class.java) ?: return false
+        val job = JobInfo.Builder(JOB_ID_NOW, ComponentName(context.packageName, SERVICE_CLASS))
+            .setRequiredNetworkType(networkTypeFor(settings))
+            .setExtras(android.os.PersistableBundle().apply { putBoolean(EXTRA_FORCE, true) })
+            .build()
+        return runCatching { scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS }.getOrDefault(false)
+    }
 
     /**
      * Schedules, reschedules or cancels to match [settings].
@@ -50,20 +93,13 @@ object AutoBackupScheduler {
         val scheduler = context.getSystemService(JobScheduler::class.java) ?: return
         val pending = runCatching { scheduler.getPendingJob(JOB_ID) }.getOrNull()
 
-        if (!settings.enabled || !settings.destinationConfigured) {
+        if (!settings.enabled || settings.backupTargets.isEmpty()) {
             if (pending != null) runCatching { scheduler.cancel(JOB_ID) }
             return
         }
 
         val intervalMs = settings.intervalHours.coerceAtLeast(1) * HOUR_MS
-        // Only the destinations that go over the wire wait for a network; a SAF
-        // folder is usually local storage, and an offline phone should still be
-        // able to back up to its own card.
-        val networkType = if (settings.requireUnmetered && settings.destination.needsNetwork) {
-            JobInfo.NETWORK_TYPE_UNMETERED
-        } else {
-            JobInfo.NETWORK_TYPE_NONE
-        }
+        val networkType = networkTypeFor(settings)
         // The constraints belong in this comparison as much as the period does.
         // Left out, turning the charging requirement off would write the
         // setting, leave the old job in place, and change nothing the user can

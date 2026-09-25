@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.settings.sink
 
 import com.wasimaster.wmkeyboard.core.net.BackupTraffic
+import com.wasimaster.wmkeyboard.core.net.InternetGate
 import com.wasimaster.wmkeyboard.core.net.NetLogInterceptor
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
 import java.util.concurrent.TimeUnit
@@ -36,6 +37,7 @@ class OAuthTokens(
 
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .addInterceptor(InternetGate)
             .addNetworkInterceptor(NetLogInterceptor(NetSource.BACKUP, NetLogInterceptor.PATH) { BackupTraffic.unattended })
             .connectTimeout(TIMEOUT_S, TimeUnit.SECONDS)
             .readTimeout(TIMEOUT_S, TimeUnit.SECONDS)
@@ -45,8 +47,9 @@ class OAuthTokens(
     @Volatile
     private var cached: String? = null
 
+    /** The refresh tokens [cached] answers for: the one asked with, and its replacement if any. */
     @Volatile
-    private var cachedFor: String? = null
+    private var cachedFor: Set<String> = emptySet()
 
     @Volatile
     private var expiresAtMs: Long = 0L
@@ -58,11 +61,26 @@ class OAuthTokens(
      * their password, and no amount of retrying will help. The sink turns that
      * into [SinkError.PERMISSION_LOST], which is the one the settings screen
      * tells the user to act on.
+     *
+     * Not being able to *ask* is a different thing, and throws
+     * [BackupSinkException] with [SinkError.IO] instead: no network, a timeout,
+     * or the service having a bad minute. Folding those into null told a user
+     * whose phone was offline at backup time to sign in again.
+     *
+     * [onRotated] gets the new refresh token when the service sent one in
+     * place of [refreshToken]. Microsoft does on every refresh, and its tokens
+     * die 90 days after they were issued however often they are used: keep
+     * only the first and every OneDrive backup fails three months after the
+     * sign-in. Dropbox never rotates, so for it this is never called.
      */
-    fun accessToken(refreshToken: String, nowMs: Long = System.currentTimeMillis()): String? {
+    fun accessToken(
+        refreshToken: String,
+        nowMs: Long = System.currentTimeMillis(),
+        onRotated: (String) -> Unit = {},
+    ): String? {
         if (refreshToken.isEmpty() || clientId.isEmpty()) return null
         val hit = cached
-        if (hit != null && cachedFor == refreshToken && nowMs < expiresAtMs) return hit
+        if (hit != null && refreshToken in cachedFor && nowMs < expiresAtMs) return hit
 
         val form = FormBody.Builder()
             .add("grant_type", "refresh_token")
@@ -71,20 +89,38 @@ class OAuthTokens(
             .apply { for ((name, value) in extraParams) add(name, value) }
             .build()
 
-        val body = runCatching {
+        val response = try {
             client.newCall(Request.Builder().url(tokenUrl).post(form).build()).execute()
-                .use { if (it.isSuccessful) it.body?.string() else null }
-        }.getOrNull() ?: return null
+        } catch (failure: java.io.IOException) {
+            BackupLog.w("refresh at $tokenUrl failed to connect", failure)
+            throw BackupSinkException(SinkError.IO, failure)
+        }
+        val body = response.use {
+            BackupLog.d("refresh at $tokenUrl -> ${it.code}")
+            if (!it.isSuccessful) BackupLog.w("refresh error body: ${it.peekBody(ERROR_PEEK).string()}")
+            when {
+                it.isSuccessful -> it.body?.string()
+                isRefusal(it.code) -> return null
+                else -> throw BackupSinkException(SinkError.IO)
+            }
+        } ?: throw BackupSinkException(SinkError.IO)
 
-        val root = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull() ?: return null
+        val root = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
+            ?: throw BackupSinkException(SinkError.IO)
         val token = root["access_token"]?.jsonPrimitive?.contentOrNull ?: return null
         val lifetime = root["expires_in"]?.jsonPrimitive?.intOrNull ?: DEFAULT_LIFETIME_S
+        val rotated = root["refresh_token"]?.jsonPrimitive?.contentOrNull
+            ?.takeIf { it.isNotEmpty() && it != refreshToken }
 
         cached = token
-        cachedFor = refreshToken
+        cachedFor = setOfNotNull(refreshToken, rotated)
         // A minute of slack, so a token does not expire between the check and
         // the request it was fetched for.
         expiresAtMs = nowMs + (lifetime - SLACK_S).coerceAtLeast(0) * 1000L
+        if (rotated != null) {
+            BackupLog.d("refresh at $tokenUrl rotated the refresh token")
+            onRotated(rotated)
+        }
         return token
     }
 
@@ -110,16 +146,30 @@ class OAuthTokens(
 
         val body = runCatching {
             client.newCall(Request.Builder().url(tokenUrl).post(form).build()).execute()
-                .use { if (it.isSuccessful) it.body?.string() else null }
-        }.getOrNull() ?: return null
+                .use {
+                    BackupLog.d("code exchange at $tokenUrl -> ${it.code}")
+                    if (!it.isSuccessful) BackupLog.w("code exchange error body: ${it.peekBody(ERROR_PEEK).string()}")
+                    if (it.isSuccessful) it.body?.string() else null
+                }
+        }.onFailure { BackupLog.w("code exchange failed to connect", it) }.getOrNull() ?: return null
 
         return runCatching {
             json.parseToJsonElement(body).jsonObject["refresh_token"]?.jsonPrimitive?.contentOrNull
-        }.getOrNull()
+        }.getOrNull().also { BackupLog.d("code exchange refresh token present=${it != null}") }
     }
 
     private companion object {
+        /**
+         * The answers that mean the grant itself is bad. OAuth reports
+         * `invalid_grant` and `invalid_client` as 400, some servers as 401;
+         * anything else, a 429 or a 5xx included, is worth another go later.
+         */
+        fun isRefusal(code: Int): Boolean = code == HTTP_BAD_REQUEST || code == HTTP_UNAUTHORIZED
+
+        const val HTTP_BAD_REQUEST = 400
+        const val HTTP_UNAUTHORIZED = 401
         const val TIMEOUT_S = 20L
+        const val ERROR_PEEK = 512L
         const val DEFAULT_LIFETIME_S = 3600
         const val SLACK_S = 60
     }

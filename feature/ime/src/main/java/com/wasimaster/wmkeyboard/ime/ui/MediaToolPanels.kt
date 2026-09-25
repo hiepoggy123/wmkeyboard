@@ -41,6 +41,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,6 +61,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -73,6 +75,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
+import com.wasimaster.wmkeyboard.core.net.InternetGate
 import com.wasimaster.wmkeyboard.core.net.NetLogInterceptor
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
 import kotlin.math.roundToInt
@@ -86,6 +89,7 @@ import coil3.gif.GifDecoder
 import coil3.memory.MemoryCache
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
@@ -191,7 +195,7 @@ internal fun SearchQueryText(
                 caret = caret,
                 textColor = textColor,
                 fontSize = fontSize,
-                onCaretTap = handle.onCaretTap,
+                handle = handle,
                 modifier = Modifier.weight(1f, fill = false),
             )
         }
@@ -214,19 +218,30 @@ private fun CaretQueryText(
     caret: Int,
     textColor: Color,
     fontSize: TextUnit,
-    onCaretTap: (Int) -> Unit,
+    handle: CaptureCaretHandle,
     modifier: Modifier = Modifier,
 ) {
     val scroll = rememberScrollState()
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
     val density = LocalDensity.current
+    // A selection in this field (#352): drawn here, its handles and bar by the
+    // body's overlay, which needs to know where this text is as it scrolls.
+    val overlay = LocalSelectionOverlay.current
+    val owner = remember { SelectionAnchor() }
+    val active = caret >= 0
+    val selecting = active && handle.hasSelection
+    val latestHandle by androidx.compose.runtime.rememberUpdatedState(handle)
     Box(
         modifier = modifier
             .horizontalScroll(scroll)
-            .pointerInput(query, caret < 0) {
-                if (caret < 0) return@pointerInput
-                detectTapGestures { position ->
-                    layout?.let { onCaretTap(it.getOffsetForPosition(position)) }
+            .pointerInput(query, active) {
+                if (!active) return@pointerInput
+                detectTapGestures(
+                    onLongPress = { position -> fieldLongPress(query, layout, position, latestHandle) },
+                ) { position ->
+                    layout?.takeIf { it.layoutInput.text.text == query }?.let {
+                        latestHandle.onCaretTap(it.getOffsetForPosition(position))
+                    }
                 }
             },
     ) {
@@ -237,7 +252,29 @@ private fun CaretQueryText(
             maxLines = 1,
             softWrap = false,
             overflow = TextOverflow.Clip,
-            onTextLayout = { layout = it },
+            onTextLayout = {
+                layout = it
+                overlay?.moved(owner)
+            },
+            modifier = Modifier
+                .onGloballyPositioned {
+                    owner.coordinates = it
+                    overlay?.moved(owner)
+                }
+                .selectionHighlight(
+                    query,
+                    if (selecting) handle.selectionStart else 0,
+                    if (selecting) handle.selectionEnd else 0,
+                    LocalKbTheme.current.accent.copy(alpha = HighlightAlpha),
+                ) { layout },
+        )
+        PublishFieldSelection(
+            owner = owner,
+            text = query,
+            active = active,
+            handle = handle,
+            coordinates = { owner.coordinates },
+            layout = { layout?.takeIf { it.layoutInput.text.text == query } },
         )
         // Only a layout of *this* text can say where the caret goes. `Text`
         // reports its layout during the layout phase, which runs after the
@@ -248,7 +285,8 @@ private fun CaretQueryText(
         // caret waits the one frame instead: writing `layout` in `onTextLayout`
         // schedules the recomposition that draws it.
         val result = layout?.takeIf { it.layoutInput.text.text == query }
-        if (caret >= 0 && result != null) {
+        // No caret while a span is selected: the highlight marks where typing lands.
+        if (caret >= 0 && result != null && !selecting) {
             // Clamped against the layout's own text and not against [query]:
             // they are the same string here, and it is the layout that defines
             // the legal range.
@@ -335,6 +373,7 @@ fun mediaImageLoader(context: Context): ImageLoader =
                     OkHttpNetworkFetcherFactory(
                         callFactory = {
                             OkHttpClient.Builder()
+                                .addInterceptor(InternetGate)
                                 .addNetworkInterceptor(NetLogInterceptor(NetSource.MEDIA_IMAGES))
                                 .build()
                         },
@@ -388,6 +427,8 @@ internal fun RowScope.MediaHeaderSearchBar(
     // A default argument cannot hold a resource, hence the null.
     activePlaceholder: String? = null,
     focused: Boolean = false,
+    // Shown while there is a query: starts a new search. Null hides it.
+    onClear: (() -> Unit)? = null,
 ) {
     val kb = LocalKbTheme.current
     val activeHint = activePlaceholder ?: stringResource(R.string.ime_media_search_active_hint)
@@ -426,6 +467,17 @@ internal fun RowScope.MediaHeaderSearchBar(
                 color = kb.secondaryText,
                 fontSize = 9.sp,
                 modifier = Modifier.padding(start = 6.dp),
+            )
+        }
+        if (onClear != null && state.mediaQuery.isNotEmpty()) {
+            Icon(
+                Icons.Outlined.Close,
+                contentDescription = stringResource(R.string.ime_clipboard_search_clear_desc),
+                modifier = Modifier
+                    .padding(start = 6.dp)
+                    .size(16.dp)
+                    .clickable { onClear() },
+                tint = kb.toolbarIcon,
             )
         }
     }
@@ -1109,8 +1161,13 @@ private fun MediaActionSheet(
                 .padding(vertical = 6.dp),
         ) {
             // The item's name first — long-press is also the only way to
-            // find out what a result is called.
-            if (item.title.isNotBlank()) {
+            // find out what a result is called. One of the user's own
+            // stickers says everything it is found by instead: its title,
+            // its pack, and the keywords and emoji that offer it while typing.
+            val own = if (item.source == GifSource.LOCAL) ownSticker(item, packs) else null
+            if (own != null) {
+                OwnStickerInfo(own.first, own.second)
+            } else if (item.title.isNotBlank()) {
                 Text(
                     item.title,
                     color = kb.secondaryText,
@@ -1147,6 +1204,66 @@ private fun MediaActionSheet(
             }
         }
     }
+}
+
+/** The pack and sticker behind a `local_…` grid item, from the packs the panel already holds. */
+private fun ownSticker(
+    item: GifItem,
+    packs: List<com.wasimaster.wmkeyboard.core.stickers.StickerPack>,
+): Pair<com.wasimaster.wmkeyboard.core.stickers.StickerPack, com.wasimaster.wmkeyboard.core.stickers.CustomSticker>? =
+    packs.firstNotNullOfOrNull { pack ->
+        val prefix = com.wasimaster.wmkeyboard.core.stickers.StickerPackStore.ITEM_PREFIX + pack.id + "_"
+        if (!item.id.startsWith(prefix)) return@firstNotNullOfOrNull null
+        pack.stickers.firstOrNull { it.id == item.id.removePrefix(prefix) }?.let { pack to it }
+    }
+
+/**
+ * The head of the long-press sheet for one of the user's own stickers: the
+ * title (or that it has none), the pack, then the word keywords and the emoji
+ * on lines of their own, since those are two different ways of calling it up.
+ */
+@Composable
+private fun OwnStickerInfo(
+    pack: com.wasimaster.wmkeyboard.core.stickers.StickerPack,
+    sticker: com.wasimaster.wmkeyboard.core.stickers.CustomSticker,
+) {
+    val kb = LocalKbTheme.current
+    val (emoji, words) = sticker.keywords.partition {
+        com.wasimaster.wmkeyboard.core.stickers.StickerKeywords.isEmoji(it)
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 18.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Text(
+            sticker.name.ifBlank { stringResource(R.string.ime_sticker_info_untitled) },
+            color = kb.popupText,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        OwnStickerInfoLine(stringResource(R.string.ime_sticker_info_pack, pack.name))
+        if (words.isNotEmpty()) {
+            OwnStickerInfoLine(stringResource(R.string.ime_sticker_info_keywords, words.joinToString(", ")))
+        }
+        if (emoji.isNotEmpty()) {
+            OwnStickerInfoLine(stringResource(R.string.ime_sticker_info_emoji, emoji.joinToString(" ")))
+        }
+    }
+}
+
+@Composable
+private fun OwnStickerInfoLine(text: String) {
+    Text(
+        text,
+        color = LocalKbTheme.current.secondaryText,
+        fontSize = 12.sp,
+        maxLines = 3,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 /**
@@ -1445,6 +1562,20 @@ internal fun WebSearchPanel(
 }
 
 // ---- image search panel ----
+
+/**
+ * Camera button beside the image search box (#349): opens the camera tool
+ * with Search in place of Send, to search by a photo instead of by words.
+ */
+@Composable
+internal fun SearchByPhotoButton(onClick: () -> Unit) {
+    ToolCircle(
+        slot = IconSlots.forTool(ToolbarTool.CAMERA),
+        description = stringResource(R.string.ime_image_search_by_photo_desc),
+        active = false,
+        onClick = onClick,
+    )
+}
 
 /**
  * Image search: grid of thumbnails; tap inserts the image itself (via

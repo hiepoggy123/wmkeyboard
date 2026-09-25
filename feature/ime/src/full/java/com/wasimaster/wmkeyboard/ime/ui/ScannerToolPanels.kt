@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.graphics.Bitmap
+import android.text.format.Formatter
+import android.util.Log
 import android.util.Rational
 import android.util.Size
 import android.view.Surface
@@ -22,6 +24,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.horizontalScroll
@@ -45,16 +48,20 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Deselect
+import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.FlashlightOff
 import androidx.compose.material.icons.outlined.FlashlightOn
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -88,6 +95,13 @@ import com.google.android.gms.tasks.Task
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.LinkPreview
+import com.wasimaster.wmkeyboard.core.ocr.OcrLanguages
+import com.wasimaster.wmkeyboard.core.ocr.OcrPacks
+import com.wasimaster.wmkeyboard.core.ocr.TesseractException
+import com.wasimaster.wmkeyboard.core.ocr.TesseractOcr
+import com.wasimaster.wmkeyboard.core.script.LanguageDef
+import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
+import com.wasimaster.wmkeyboard.core.settings.MeteredFeature
 import com.wasimaster.wmkeyboard.core.tools.EggLinks
 import com.wasimaster.wmkeyboard.core.tools.LinkPreviewClient
 import com.google.mlkit.vision.barcode.BarcodeScanning
@@ -100,8 +114,11 @@ import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
+import java.io.File
+import java.util.Locale
 import java.util.concurrent.Executors
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -112,8 +129,15 @@ import kotlinx.coroutines.withContext
 /** One recognized word, tappable in the result view. [id] is global. */
 private class OcrWord(val id: Int, val text: String)
 
-/** A frozen capture with its recognized text, as lines of words. */
-private class OcrResult(val bitmap: Bitmap, val lines: List<List<OcrWord>>) {
+/**
+ * A frozen capture with its recognized text, as lines of words. [errorRes]
+ * is set when recognition failed, which is not the same as finding no text.
+ */
+private class OcrResult(
+    val bitmap: Bitmap,
+    val lines: List<List<OcrWord>>,
+    @StringRes val errorRes: Int? = null,
+) {
     val wordCount = lines.sumOf { it.size }
 }
 
@@ -126,8 +150,11 @@ private sealed interface OcrStage {
 /**
  * OCR tool: point the camera at printed text, capture, and get the words
  * back as tappable chips — deselect the parts you don't want, then insert
- * or copy just the rest. Runs ML Kit's on-device Latin text recognizer, so
- * nothing leaves the phone. Unlike the other tool panels this one covers
+ * or copy just the rest. Reads with ML Kit's on-device Latin recognizer or
+ * with Tesseract, which covers most other scripts once a language's data is
+ * downloaded; the setting and the text's language pick which
+ * ([OcrLanguages.tesseractPack]). Either way the photo never leaves the
+ * phone. Unlike the other tool panels this one covers
  * the toolbar too ([keyRowsHeight] + [TopBarHeight]): reading text off a
  * photo needs all the room the keyboard has.
  */
@@ -197,7 +224,35 @@ private fun OcrContent(
         value = withContext(Dispatchers.IO) { ProcessCameraProvider.getInstance(context).get() }
     }
     val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
-    DisposableEffect(Unit) { onDispose { recognizer.close() } }
+    DisposableEffect(Unit) {
+        onDispose {
+            recognizer.close()
+            TesseractOcr.release()
+        }
+    }
+
+    // The text's language, which picks the engine and, for Tesseract, the
+    // pack. Starts as the keyboard's language; the chip steps through the
+    // other enabled languages without switching the keyboard.
+    val filesDir = context.filesDir
+    val engine = state.settings.scanner.ocrEngine
+    val chipLanguages = remember(state.settings.enabledLanguages, engine) {
+        OcrLanguages.chipLanguages(engine, state.settings.enabledLanguages, TesseractOcr.available)
+    }
+    var ocrLanguage by remember(chipLanguages) {
+        mutableStateOf(
+            if (OcrLanguages.packFor(state.language) != null) state.language
+            else chipLanguages.firstOrNull() ?: state.language
+        )
+    }
+    val pack = OcrLanguages.tesseractPack(engine, ocrLanguage, TesseractOcr.available)
+    val packStates by OcrPacks.states.collectAsState()
+    LaunchedEffect(pack) { if (pack != null) OcrPacks.refresh(filesDir, listOf(pack)) }
+    val packStatus = pack?.let { packStates[it] }
+    val packReady = remember(pack, packStatus) {
+        pack == null || packStatus == OcrPacks.Status.Downloaded ||
+            (packStatus == null && OcrPacks.isDownloaded(filesDir, pack))
+    }
 
     val previewView = remember {
         PreviewView(context).apply {
@@ -227,7 +282,7 @@ private fun OcrContent(
 
     // Bind only while the viewfinder is up; the frozen capture and its
     // words are the whole UI afterwards, so release the camera.
-    val scanning = stage is OcrStage.Viewfinder
+    val scanning = stage is OcrStage.Viewfinder && packReady
     DisposableEffect(provider, scanning, viewSize) {
         val cameraProvider = provider
         if (cameraProvider != null && scanning && viewSize != IntSize.Zero) {
@@ -260,8 +315,9 @@ private fun OcrContent(
     }
 
     fun capture() {
-        if (stage !is OcrStage.Viewfinder || viewSize == IntSize.Zero) return
+        if (stage !is OcrStage.Viewfinder || viewSize == IntSize.Zero || !packReady) return
         feedback()
+        val readPack = pack
         scope.launch {
             val bitmap = withContext(Dispatchers.IO) {
                 runCancellable {
@@ -269,19 +325,41 @@ private fun OcrContent(
                 }.getOrNull()
             } ?: return@launch
             stage = OcrStage.Recognizing(bitmap)
-            val lines = withContext(Dispatchers.Default) {
+            val read = withContext(Dispatchers.Default) {
                 runCancellable {
-                    var id = 0
-                    recognizer.process(InputImage.fromBitmap(bitmap, 0)).await()
-                        .textBlocks
-                        .flatMap { block ->
-                            block.lines.map { line ->
-                                line.elements.map { OcrWord(id++, it.text) }
+                    if (readPack != null) {
+                        readWithTesseract(filesDir, readPack, bitmap)
+                    } else {
+                        var id = 0
+                        recognizer.process(InputImage.fromBitmap(bitmap, 0)).await()
+                            .textBlocks
+                            .flatMap { block ->
+                                block.lines.map { line ->
+                                    line.elements.map { OcrWord(id++, it.text) }
+                                }
                             }
-                        }
-                }.getOrDefault(emptyList())
+                    }
+                }
             }
-            stage = OcrStage.Done(OcrResult(bitmap, lines))
+            // A failed read is an error on screen, never "no text found":
+            // that is what hid a broken engine from the user.
+            val failure = read.exceptionOrNull()
+            stage = when {
+                failure == null -> OcrStage.Done(OcrResult(bitmap, read.getOrThrow()))
+                // The pack went missing or would not load (and was deleted):
+                // back to the viewfinder, which now offers the download.
+                failure is TesseractException && readPack != null &&
+                    failure.reason == TesseractException.Reason.PACK_MISSING -> {
+                    OcrPacks.refresh(filesDir, listOf(readPack))
+                    OcrStage.Viewfinder
+                }
+                failure is TesseractException &&
+                    failure.reason == TesseractException.Reason.PACK_BROKEN -> OcrStage.Viewfinder
+                else -> {
+                    Log.w(OCR_LOG_TAG, "text recognition failed", failure)
+                    OcrStage.Done(OcrResult(bitmap, emptyList(), R.string.ime_scanner_ocr_read_error))
+                }
+            }
         }
     }
 
@@ -329,6 +407,35 @@ private fun OcrContent(
         val activeProvider = provider
         if (activeProvider != null && backOrFrontSelector(activeProvider) == null) {
             PanelCenteredMessage(stringResource(R.string.ime_scanner_no_camera))
+            return@Box
+        }
+
+        val nextLanguage: (() -> Unit)? = if (chipLanguages.size > 1) {
+            {
+                feedback()
+                fun route(l: LanguageDef) = OcrLanguages.tesseractPack(engine, l, TesseractOcr.available)
+                val at = chipLanguages.indexOfFirst { route(it) == route(ocrLanguage) }
+                ocrLanguage = chipLanguages[(at + 1).mod(chipLanguages.size)]
+            }
+        } else {
+            null
+        }
+
+        if (!packReady && pack != null) {
+            OcrPackPrompt(state, ocrLanguage, pack, packStatus, filesDir)
+            Box(modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
+                CameraChipButton(
+                    icon = Icons.AutoMirrored.Outlined.ArrowBack,
+                    description = stringResource(R.string.ime_scanner_ocr_close_desc),
+                    active = false,
+                ) {
+                    feedback()
+                    onClose()
+                }
+            }
+            nextLanguage?.let {
+                OcrLanguageChip(ocrLanguage, it, Modifier.align(Alignment.BottomStart).padding(12.dp))
+            }
             return@Box
         }
 
@@ -381,9 +488,184 @@ private fun OcrContent(
                 .padding(5.dp)
                 .clip(CircleShape)
                 .background(Color.White)
-                .pointerInput(Unit) { detectTapGestures { capture() } },
+                // Keyed on the pack: capture() reads it, and a Unit key would
+                // keep the first language's capture after the chip moved on.
+                .pointerInput(pack, packReady) { detectTapGestures { capture() } },
+        )
+        nextLanguage?.let {
+            OcrLanguageChip(ocrLanguage, it, Modifier.align(Alignment.BottomStart).padding(12.dp))
+        }
+    }
+}
+
+/** The name of [language] in the app's own language, for the panel's text. */
+private fun ocrLanguageName(language: LanguageDef): String =
+    Locale.forLanguageTag(language.localeTag).displayLanguage.ifEmpty { language.englishName }
+
+/** The text's language over the viewfinder; tapping steps to the next one. */
+@Composable
+private fun OcrLanguageChip(language: LanguageDef, onClick: () -> Unit, modifier: Modifier) {
+    val name = ocrLanguageName(language)
+    val description = stringResource(R.string.ime_scanner_ocr_language_desc, name)
+    Text(
+        name,
+        color = Color.White,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Medium,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(onClickLabel = description, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    )
+}
+
+/**
+ * Stands in for the viewfinder while the language's Tesseract data is not on
+ * the phone: what it costs, the button that fetches it, then its progress.
+ * Data saver is asked here, on the button, the way the translate panel does:
+ * the first press explains, the second is the yes.
+ */
+@Composable
+private fun OcrPackPrompt(
+    state: KeyboardUiState,
+    language: LanguageDef,
+    pack: String,
+    status: OcrPacks.Status?,
+    filesDir: File,
+) {
+    val kb = LocalKbTheme.current
+    val context = LocalContext.current
+    val feedback = LocalKeyPressFeedback.current
+    var meteredAsked by remember(pack) { mutableStateOf(false) }
+    var meteredBlocked by remember(pack) { mutableStateOf(false) }
+    val name = ocrLanguageName(language)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        if (status is OcrPacks.Status.Downloading) {
+            if (status.total > 0L) {
+                CircularProgressIndicator(
+                    progress = { (status.bytes.toFloat() / status.total).coerceIn(0f, 1f) },
+                    color = kb.accent,
+                )
+            } else {
+                CircularProgressIndicator(color = kb.accent)
+            }
+            Text(
+                stringResource(R.string.ime_scanner_ocr_downloading_progress, name),
+                color = kb.secondaryText,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 12.dp),
+            )
+            if (status.total > 0L) {
+                Text(
+                    stringResource(
+                        R.string.ime_scanner_ocr_download_of_total_progress,
+                        Formatter.formatShortFileSize(context, status.bytes),
+                        Formatter.formatShortFileSize(context, status.total),
+                    ),
+                    color = kb.secondaryText,
+                    fontSize = 12.sp,
+                )
+            }
+            OcrPromptButton(Icons.Outlined.Close, stringResource(CommonR.string.common_cancel)) {
+                feedback()
+                OcrPacks.cancel(pack)
+            }
+            return@Column
+        }
+
+        Text(
+            when {
+                meteredBlocked -> stringResource(R.string.ime_metered_off_body)
+                meteredAsked -> stringResource(R.string.ime_metered_ask_body)
+                status is OcrPacks.Status.Failed ->
+                    if (status.messageArg.isEmpty()) stringResource(status.messageRes)
+                    else stringResource(status.messageRes, status.messageArg)
+                else -> stringResource(
+                    R.string.ime_scanner_ocr_need_pack_body,
+                    name,
+                    Formatter.formatShortFileSize(context, OcrLanguages.sizeOf(pack)),
+                )
+            },
+            color = kb.secondaryText,
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center,
+        )
+        if (!meteredBlocked) {
+            OcrPromptButton(
+                Icons.Outlined.FileDownload,
+                stringResource(
+                    when {
+                        meteredAsked -> R.string.ime_metered_allow_action
+                        status is OcrPacks.Status.Failed -> CommonR.string.common_retry
+                        else -> CommonR.string.common_download
+                    },
+                ),
+            ) {
+                feedback()
+                when (state.dataSaver.decide(MeteredFeature.DOWNLOADS)) {
+                    MeteredDecision.ALLOWED -> OcrPacks.start(filesDir, pack)
+                    MeteredDecision.BLOCKED -> meteredBlocked = true
+                    MeteredDecision.ASK ->
+                        if (meteredAsked) OcrPacks.start(filesDir, pack) else meteredAsked = true
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OcrPromptButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    onClick: () -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    Row(
+        modifier = Modifier
+            .padding(top = 12.dp)
+            .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+            .background(kb.toolCircleActive)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = kb.toolCircleActiveIcon)
+        Text(
+            label,
+            color = kb.toolCircleActiveIcon,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(start = 6.dp),
         )
     }
+}
+
+private val WHITESPACE = Regex("\\s+")
+
+private const val OCR_LOG_TAG = "WMKB-OCR"
+
+/**
+ * Tesseract's text as the panel's lines of words. Throws
+ * [TesseractException] when the read failed rather than found nothing.
+ */
+private suspend fun readWithTesseract(filesDir: File, pack: String, bitmap: Bitmap): List<List<OcrWord>> {
+    val text = TesseractOcr.recognize(filesDir, pack, bitmap)
+    var id = 0
+    return text.lines()
+        .map { line -> line.split(WHITESPACE).filter { it.isNotEmpty() } }
+        .filter { it.isNotEmpty() }
+        .map { words -> words.map { OcrWord(id++, it) } }
 }
 
 /**
@@ -488,7 +770,9 @@ private fun OcrResultView(
                 onRescan()
             }
             Text(
-                if (result.wordCount == 0) {
+                if (result.errorRes != null) {
+                    stringResource(R.string.ime_scanner_ocr_failed_label)
+                } else if (result.wordCount == 0) {
                     stringResource(R.string.ime_scanner_ocr_no_text_label)
                 } else {
                     pluralStringResource(
@@ -525,7 +809,7 @@ private fun OcrResultView(
         if (result.wordCount == 0) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Text(
-                    stringResource(R.string.ime_scanner_ocr_empty),
+                    stringResource(result.errorRes ?: R.string.ime_scanner_ocr_empty),
                     color = kb.secondaryText,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -1112,8 +1396,12 @@ private fun barcodeFormatLabelRes(format: Int): Int = when (format) {
     else -> R.string.ime_scanner_format_generic
 }
 
-/** Suspends over a Play Services [Task] (same trick as Handwriting.kt). */
+/**
+ * Suspends over a Play Services [Task]. A failed task throws its exception:
+ * cancelling the continuation instead would unwind the capture as if the
+ * panel had closed, and leave it on the reading spinner.
+ */
 private suspend fun <T> Task<T>.await(): T = suspendCancellableCoroutine { cont ->
     addOnSuccessListener { cont.resume(it) }
-    addOnFailureListener { if (cont.isActive) cont.cancel(it) }
+    addOnFailureListener { if (cont.isActive) cont.resumeWithException(it) }
 }

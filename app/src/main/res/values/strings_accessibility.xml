@@ -55,6 +55,17 @@
     <string name="accessibility_reduce_motion_subtitle">Turn off the animation that is not necessary</string>
     <string name="accessibility_reduce_motion_info">This setting is for motion sensitivity. It turns off the slide and scale transitions in the keyboard toolbar and in this settings app. It also turns off the animated theme backgrounds, the blinking cursors and the pulse ring of the microphone.\n\nThe keyboard keeps the feedback that gives you information: the key preview bubble, the colour of a pressed key and the gesture trail. Without this feedback the keyboard is more difficult to use.\n\nThe cursors and the microphone ring stay visible. They hold still.\n\nWhen you turn animations off for the whole device, in Accessibility or in the developer options, the keyboard follows that and behaves as if this setting is on. This setting stays yours: it turns motion off for the keyboard only, and it leaves the rest of your device as it is.</string>
 
+    <!-- Accessibility settings screen, "Settings app" group: options for these
+         settings screens themselves rather than for the keyboard. -->
+    <string name="accessibility_settings_app_title">Settings app</string>
+
+    <string name="accessibility_row_icons_title">Icons in settings</string>
+    <string name="accessibility_row_icons_subtitle">A coloured icon beside every setting and screen name</string>
+    <string name="accessibility_screen_transitions_title">Screen transitions</string>
+    <string name="accessibility_screen_transitions_subtitle">A setting\'s icon and name move into the screen it opens</string>
+    <string name="accessibility_screen_transitions_info">Turn this off if these settings screens are slow to open on your phone. Moving a setting\'s icon and name into the screen it opens makes each screen take more work to draw, and some slower phones show that as a stutter. With this off, a screen opens with the plain slide, and it draws faster.\n\nThis changes only these settings screens. It does nothing to the keyboard. When Reduce motion is on, these transitions are already off.</string>
+    <string name="accessibility_row_icons_info">Turn this off for plain rows that show only words, as in earlier versions of the app. Some people find a list of words easier to read than a column of coloured icons.\n\nThis changes only these settings screens. The icons of the keyboard and of its tools stay as they are.</string>
+
     <!-- Accessibility settings screen, "Screen reader" group. TalkBack is the
          name of the Android screen reader and is not translated. -->
     <string name="accessibility_screen_reader_title">Screen reader</string>

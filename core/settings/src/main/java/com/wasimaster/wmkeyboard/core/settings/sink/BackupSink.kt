@@ -47,6 +47,14 @@ enum class SinkError {
 
     /** Everything else. Assumed transient, so the next run tries again. */
     IO,
+
+    /**
+     * The destination answered, and what it showed is not safe to write to: an
+     * SFTP server whose host key changed, a public Git repository, an SMB
+     * server that cannot encrypt when encryption is required. Not transient,
+     * and not a credential problem either.
+     */
+    UNSAFE,
 }
 
 /** The failure a [BackupSink] reports, carrying the [reason] the UI reads. */
@@ -71,6 +79,14 @@ interface BackupSink {
 
     /** Stable id, stored with the run record so a changed destination shows up. */
     val id: String
+
+    /**
+     * Whether two files can share a name here, so writing a name again adds a
+     * file rather than replacing one. Only Google Drive does this. Sync
+     * rewrites one file per device and has to clear the older copies itself
+     * where this is true.
+     */
+    val allowsDuplicateNames: Boolean get() = false
 
     /**
      * Whether a [write] could succeed right now.

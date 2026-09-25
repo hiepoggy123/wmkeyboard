@@ -8,11 +8,12 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
+import Shot from '@components/Shot.astro';
 
 Chinese and Japanese aren't typed directly: you type a *reading* (pinyin, bopomofo, a radical code, romaji) and pick the character it means from a candidate bar. Korean is different: Hangul jamo assemble into syllable blocks on their own, so it types and suggests like any other language. This page covers both.
 
 <PhoneFrame caption="Chinese Pinyin: the candidate strip replaces the usual word-suggestion row while you're composing a reading.">
-  {/* shot: languages/cjk-pinyin-candidate-strip */}
+  <Shot id="languages/cjk-pinyin-candidate-strip" alt="Chinese Pinyin: the candidate strip replaces the usual word-suggestion row while you're composing a reading." />
 </PhoneFrame>
 
 ## Two different input flows
@@ -24,6 +25,10 @@ Chinese and Japanese aren't typed directly: you type a *reading* (pinyin, bopomo
 ## Chinese input schemes
 
 Chinese carries six layouts. Adding it from the language catalogue turns on Pinyin alone, and the other five are a tap away on Chinese's own screen:
+
+<PhoneFrame side caption="Cangjie: radical keys build a shape code; the strip fills in once the code is complete.">
+  <Shot id="languages/cjk-cangjie-keys" alt="Cangjie: radical keys build a shape code; the strip fills in once the code is complete." />
+</PhoneFrame>
 
 | Layout | Reading unit | Buffer commits |
 |---|---|---|
@@ -37,10 +42,6 @@ Chinese carries six layouts. Adding it from the language catalogue turns on Piny
 Pinyin, T9 Pinyin, and Zhuyin are all **prefix-commit**: type `nihao` and the strip offers 你好 first, then leading-syllable candidates like 你 alone. Tapping one consumes only the part of the buffer it covers and re-converts the rest, so you don't have to clear the buffer between characters. Cangjie, Cangjie Quick, and Stroke are the opposite: shape and stroke codes map to exactly one character each, so a commit always consumes everything you've typed.
 
 Zhuyin and T9 Pinyin don't need their own dictionary. They reuse the Pinyin pack and translate each segmented syllable to its pinyin spelling. Cangjie and Cangjie Quick share one radical-code table. Stroke and Jyutping (below) each have their own pack.
-
-<PhoneFrame caption="Cangjie: radical keys build a shape code; the strip fills in once the code is complete.">
-  {/* shot: languages/cjk-cangjie-keys */}
-</PhoneFrame>
 
 ### Cantonese: Jyutping
 
@@ -76,8 +77,10 @@ Japanese ships three layouts, all feeding the same composer:
 - **Kana JIS**: each key emits a kana glyph directly, matching the physical JIS Japanese keyboard layout.
 
 <PhoneFrame caption="Japanese Flick: kana glyphs sit on the keys themselves, with directional flicks for the rest of the row.">
-  {/* shot: languages/cjk-japanese-flick */}
+  <Shot id="languages/cjk-japanese-flick" alt="Japanese Flick: kana glyphs sit on the keys themselves, with directional flicks for the rest of the row." />
 </PhoneFrame>
+
+The Flick pad is an ordinary layout, so you can change it in the [layout editor](/languages/custom-layouts/). Each key's sheet has a field for every flick direction, and the editor's preview draws a key's flicks around its edges, so you can see and move every kana on the pad. Any key of a Japanese layout can also be told to **become 小゛゜ after a kana**: while the last kana you typed has a small, ゛ or ゜ form, that key shows 小゛゜ and changes it, and once the word is done it goes back to its own job. Give that job to the globe or emoji key and the separate <KeyCap>小゛゜</KeyCap> key can go, which is how phone kana pads save the space.
 
 All three read the same kana or romaji into `JapaneseComposer`, which converts kana readings to kanji/word candidates using a Mozc-derived dictionary. If nothing in the dictionary matches (or before you've downloaded the pack at all), the reading still commits as plain hiragana, katakana, or half-width katakana, so every Japanese layout works as a bare kana keyboard with zero setup.
 
@@ -89,7 +92,15 @@ It only ever adds marks. A が or a っ you typed was asked for by name and is n
 
 Romaji is never widened. `ga` costs exactly what `ka` does on a QWERTY layout, so `kaki` means かき and nothing else, which keeps the strip as tight as it was.
 
+## Full-width space
+
+Japanese and Chinese text is spaced with the ideographic space (U+3000, 「　」), which is as wide as a character, rather than the narrow space between words in other languages. Turn on **Full-width space** in the language's options and the space bar types it. It is set per language, off by default, so you can have it for Japanese and not for Chinese. A space pressed while a reading is still waiting to convert picks a candidate as it always has; only a press with nothing composing types a space.
+
 ## The candidate bar
+
+<PhoneFrame side caption="The expanded candidate grid: every ranked candidate, wrapped to fit, covering the key rows while it's open.">
+  <Shot id="languages/cjk-candidate-grid-expanded" alt="The expanded candidate grid: every ranked candidate, wrapped to fit, covering the key rows while it's open." />
+</PhoneFrame>
 
 Whenever a conversion composer has a non-empty buffer, the usual word-suggestion strip is replaced by a horizontally-scrolling row of ranked candidates. They're sized to their text and packed from the left rather than spaced evenly, so the best candidate stays in a consistent spot instead of jumping around as the list changes length. A chevron at the end opens an expanded view, and it sits outside the scrolling area so it never scrolls off. That expanded view is a wrapping grid, and it covers the key rows while it's open, the same way Sogou, Baidu, and QQ handle it. By then you're choosing a character rather than typing one. Neither view pages. Both scroll.
 
@@ -98,10 +109,6 @@ Tapping a candidate (in the strip or the grid) resolves by its position in the r
 If a reading has no dictionary match at all, it always falls back to committing what you typed as-is (raw pinyin letters, kana, or a stroke code) rather than trapping you in an empty buffer.
 
 The candidate bar is not the ordinary suggestion strip wearing a different coat, and it isn't switched off by the things that switch that strip off. Turning **Suggestions** off, or typing into a field that asks for a silent strip (search and filter boxes, address bars, email fields, password boxes), leaves the candidates exactly where they are. For a conversion method the candidate list *is* the input method, so hiding it wouldn't quiet a guess, it would stop you typing the language at all. Password boxes convert too, and what they don't do is remember the pick afterwards, which is the same rule the rest of the keyboard's learning follows.
-
-<PhoneFrame caption="The expanded candidate grid: every ranked candidate, wrapped to fit, covering the key rows while it's open.">
-  {/* shot: languages/cjk-candidate-grid-expanded */}
-</PhoneFrame>
 
 ## Learning from your picks
 
@@ -128,6 +135,7 @@ Opening a Chinese, Cantonese, or Japanese entry from the Languages screen shows 
 | Regional wording (Standard / Taiwan / Hong Kong) | Standard | Same, only shown once Traditional is on |
 | Lazy pronunciation (懶音) | On | Cantonese only |
 | Match kana without marks | On | Japanese only, and only kana typed on Flick or Kana JIS |
+| Full-width space | Off | Chinese, Cantonese, and Japanese, each on its own |
 | Fuzzy Pinyin | Off | Chinese only |
 | The eleven fuzzy pairs, one row each | All on | Chinese only, shown while Fuzzy Pinyin is on |
 | Double Pinyin scheme | Off (full Pinyin) | Chinese only |

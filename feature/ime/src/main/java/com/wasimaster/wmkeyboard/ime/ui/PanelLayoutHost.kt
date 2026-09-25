@@ -11,7 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
 import com.wasimaster.wmkeyboard.core.layout.BuiltInPanelLayouts
 import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
@@ -53,12 +55,14 @@ internal class PanelLayoutCallbacks(
  * arrives at the service's `onTextEdit` with the selection mode it already
  * honours; the two-finger tap is a real space key for the same reason. The
  * hold rides the Selection mode tool's hold callback: on at the long press,
- * off at the release, the selection left standing.
+ * off at the release, the selection left standing. [onCaretDrag] brackets a
+ * drag for the caret magnifier (discussion #303), the same way.
  */
 @Immutable
 internal class TrackpadFieldCallbacks(
     private val onKey: (Key) -> Unit,
     val onSelectionHold: (Boolean) -> Unit,
+    val onCaretDrag: (Boolean) -> Unit = {},
 ) {
     fun onEdit(op: TextEditAction) = onKey(Key("", action = KeyAction.Edit(op)))
     fun onSpace() = onKey(Key(" ", action = KeyAction.Space))
@@ -101,9 +105,12 @@ internal fun KeyboardUiState.panelLayout(kind: PanelKind): PanelLayoutSpec {
  * it unless told otherwise, but a theme given to the letters layer alone is
  * that layer's and stops at its edge (issue #196). That is the rule the
  * editor's panel tab previews with, and the keyboard has to agree with it.
+ *
+ * [layout] is the typing grid when the caller already has it built; without
+ * it the grid is built here.
  */
-internal fun screenThemeId(state: KeyboardUiState): String? {
-    val panelKind = state.panel.layoutKind ?: return currentLayout(state).themeId
+internal fun screenThemeId(state: KeyboardUiState, layout: KeyboardLayout? = null): String? {
+    val panelKind = state.panel.layoutKind ?: return (layout ?: currentLayout(state)).themeId
     return state.panelLayout(panelKind).grid.themeId ?: state.layouts.themeId
 }
 
@@ -225,7 +232,7 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
             state, edit, callbacks.clipboard.actions,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(ClipboardSearchHeight + topBarHeight(state.settings) - captureStripHeight(state)),
+                .height(clipboardSearchPanelHeight(state)),
         )
         return
     }
@@ -239,7 +246,7 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
                 .fillMaxWidth()
                 // Less the row the query's own suggestion strip takes below
                 // the panel (#161), for the same reason.
-                .height(ClipboardSearchHeight + topBarHeight(state.settings) - captureStripHeight(state)),
+                .height(clipboardSearchPanelHeight(state)),
         )
         return
     }
@@ -376,3 +383,15 @@ private val HeaderToggleWidth = 44.dp
 
 /** Panel height while the clipboard search bar is capturing the keys. */
 internal val ClipboardSearchHeight = 132.dp
+
+/**
+ * The search's and the clip editor's height: [ClipboardSearchHeight] plus the
+ * toolbar row it stands in for, less the query's own strip below (#161), and
+ * fitted to the screen with the keys underneath it (#333).
+ */
+@Composable
+private fun clipboardSearchPanelHeight(state: KeyboardUiState): Dp = toolPanelHeight(
+    state,
+    wanted = ClipboardSearchHeight + topBarHeight(state.settings) - captureStripHeight(state),
+    floor = FullBleedHeaderHeight,
+)

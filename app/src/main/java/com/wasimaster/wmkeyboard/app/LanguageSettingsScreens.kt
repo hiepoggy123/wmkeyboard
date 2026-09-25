@@ -4,8 +4,11 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -34,11 +37,13 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.layout.resolveLayoutKeyman
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryStore
@@ -152,7 +157,7 @@ internal class LanguageSearchKey(language: LanguageDef) {
      */
     private val layouts = language.layoutIds.flatMap { layoutId ->
         listOfNotNull(
-            (BuiltInLayouts.byId(layoutId) ?: AssetLayouts.byId(layoutId))?.name?.lowercase(),
+            (BuiltInLayouts.byId(layoutId)?.name ?: AssetLayouts.nameOf(layoutId))?.lowercase(),
             layoutId.substringAfter('_').lowercase(),
         )
     }
@@ -169,11 +174,10 @@ internal class LanguageSearchKey(language: LanguageDef) {
 
 /**
  * Every registry language paired with its search key. The registry is a
- * constant, but the asset layouts' names arrive only once their JSON finishes
- * parsing off the main thread — so the index is memoised on
- * [AssetLayouts.generation] rather than built once, the same way
- * `resolveLayouts` is: an index built before the load would file every asset
- * layout under no name at all, forever.
+ * constant, but the asset layouts' names arrive only once their index is read
+ * off the main thread — so the index is memoised on [AssetLayouts.generation]
+ * rather than built once: an index built before the load would file every
+ * asset layout under no name at all, forever.
  */
 private object LanguageSearchIndex {
     class Entry(val generation: Int, val index: List<Pair<LanguageDef, LanguageSearchKey>>)
@@ -211,8 +215,8 @@ internal fun searchLanguages(query: String): List<LanguageDef> =
  * someone typing in eight languages does not need all eight recited at them.
  */
 @Composable
-internal fun enabledLanguagesSummary(settings: KeyboardSettings): String {
-    val names = settings.enabledLanguages.map { it.displayName.substringBefore(" · ") }
+internal fun enabledLanguagesSummary(settings: LiveSettings): String {
+    val names = settings.watch { s -> s.enabledLanguages.map { it.displayName.substringBefore(" · ") } }
     val shown = names.take(LANGUAGE_SUMMARY_LIMIT).joinToString()
     val rest = names.size - LANGUAGE_SUMMARY_LIMIT
     return when {
@@ -235,12 +239,12 @@ private const val LANGUAGE_SUMMARY_LIMIT = 3
  */
 @Composable
 internal fun rememberSuggestedLanguages(
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     limit: Int = LanguageSuggestions.DEFAULT_LIMIT,
 ): List<SuggestedLanguage> {
     val context = LocalContext.current
     val signals = remember(context) { DeviceLocales.read(context) }
-    val enabled = settings.enabledLanguages.mapTo(HashSet()) { it.id }
+    val enabled = settings.watch { s -> s.enabledLanguages.mapTo(HashSet()) { it.id } }
     return remember(signals, enabled, limit) {
         LanguageSuggestions.suggest(signals, exclude = enabled, limit = limit)
     }
@@ -276,14 +280,13 @@ internal fun suggestionReasonLabel(suggestion: SuggestedLanguage): String = when
 @Composable
 internal fun AddLanguageScreen(
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     onOpenLanguage: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
-    val enabledLangIds = remember(settings.enabledLanguages) {
-        settings.enabledLanguages.mapTo(HashSet()) { it.id }
-    }
+    // Decides the order the list is in, as well as each row's label.
+    val enabledLangIds = settings.watch { s -> s.enabledLanguages.mapTo(HashSet()) { it.id } }
     val q = query.trim().lowercase()
     // Both remembered on the query: this whole screen recomposes on every
     // letter typed into the search box, and re-running the filter over 843
@@ -299,7 +302,7 @@ internal fun AddLanguageScreen(
         // Nothing is enabled until the dialog is answered, so its Cancel really
         // is a cancel and has nothing to undo.
         prompt.ask(lang) {
-            addLanguage(scope, repository, settings, lang, onPaired = { pairs ->
+            addLanguage(scope, repository, settings.value, lang, onPaired = { pairs ->
                 // One toast even if several links landed: the first pair is
                 // the one the user just caused, and the detail screen lists
                 // the full truth.
@@ -484,8 +487,9 @@ internal fun languageData(langId: String): LanguageData {
  * the platform errs: a wrong "metered" would block a download on a connection
  * that costs nothing, and the user has no way to see why.
  */
-internal fun isMeteredNow(context: Context): Boolean =
-    context.getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered ?: false
+internal fun isMeteredNow(context: Context): Boolean = runCatching {
+    context.getSystemService(ConnectivityManager::class.java)?.isActiveNetworkMetered
+}.getOrNull() ?: false
 
 /**
  * Fetches everything [data] offers, as the prompt's Download does, with the
@@ -713,12 +717,6 @@ internal fun addLanguage(
 }
 
 /**
- * The route of a language's [MoreLayoutsScreen]. One function so the row that
- * opens it and the graph that declares it cannot drift apart.
- */
-internal fun moreLayoutsRoute(langId: String): String = "language/$langId/more"
-
-/**
  * The layouts of [lang] that the detail screen sends to [MoreLayoutsScreen]:
  * converted Keyman grids the user has not switched on.
  *
@@ -731,65 +729,18 @@ internal fun moreLayoutsRoute(langId: String): String = "language/$langId/more"
 private fun overflowLayoutIds(lang: LanguageDef, settings: KeyboardSettings): List<String> =
     lang.layoutIds.filter { id ->
         id !in settings.enabledLayoutIds &&
-            resolveLayout(settings.customLayouts, id).keyman != null
+            resolveLayoutKeyman(settings.customLayouts, id) != null
     }
-
-/**
- * A toggle per layout, and under each converted Keyman layout the row that
- * fetches its typing rules.
- *
- * An extension on the group scope rather than a composable of its own, so the
- * detail screen and [MoreLayoutsScreen] draw the same rows into their own cards
- * without one of them owning the other's. The `keyman` test stays outside
- * `item` because an item that composes nothing still takes a slot in the card.
- */
-private fun SettingsGroupScope.layoutRows(
-    layoutIds: List<String>,
-    settings: KeyboardSettings,
-    repository: SettingsRepository,
-    scope: CoroutineScope,
-    enableGate: (String, () -> Unit) -> Unit,
-    promptForRules: (KeymanBinding, String) -> Unit,
-    rulesRefresh: Int,
-) {
-    for (layoutId in layoutIds) {
-        val spec = resolveLayout(settings.customLayouts, layoutId)
-        item {
-            ToggleSetting(
-                spec.name,
-                null,
-                layoutId in settings.enabledLayoutIds,
-                default = layoutId in SettingsDefaults.enabledLayoutIds,
-            ) { enable ->
-                fun write() {
-                    scope.launch {
-                        val next =
-                            if (enable) settings.enabledLayoutIds + layoutId
-                            else settings.enabledLayoutIds - layoutId
-                        // At least one layout must stay enabled somewhere.
-                        if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
-                    }
-                    // Asked at the moment of switching on, because that is
-                    // when the user is deciding to type in this language.
-                    // Finding out later that the keys produce Latin letters
-                    // is the outcome this exists to prevent.
-                    if (enable) spec.keyman?.let { promptForRules(it, spec.name) }
-                }
-                if (enable) enableGate(layoutId) { write() } else write()
-            }
-        }
-        // A converted Keyman layout can only type what its author wrote once
-        // its rules are on the device, so the row that fetches them sits
-        // directly under the layout it belongs to, and names it.
-        spec.keyman?.let { binding ->
-            item { KeymanRulesRow(binding, spec.name, rulesRefresh) }
-        }
-    }
-}
 
 /**
  * The Layouts group for one language: the layouts we wrote for it plus whichever
- * converted ones are switched on, and a row down to the rest.
+ * converted ones are switched on, as a row of keyboard cards (see
+ * [LayoutCarousel]) that ends on a card down to the rest.
+ *
+ * The rules row a switched-on Keyman layout needs sits under the cards, named
+ * for its layout, rather than under the layout's own card: a card is a picture
+ * of a keyboard, and a download row squeezed under one would make that card
+ * taller than its neighbours.
  *
  * Split out of [LanguageDetailScreen] rather than left inline. That function was
  * already past detekt's complexity ceiling before the Keyman rows went in, and
@@ -799,73 +750,118 @@ private fun SettingsGroupScope.layoutRows(
 @Composable
 private fun LayoutsGroup(
     lang: LanguageDef,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     repository: SettingsRepository,
     scope: CoroutineScope,
     onNavigate: (String) -> Unit,
 ) {
-    val enableGate = rememberLayoutEnableGate(settings)
     // Bumped when the enable prompt installs rules, so the row underneath stops
     // offering to download what it just got.
     var rulesRefresh by remember { mutableStateOf(0) }
-    val promptForRules = rememberKeymanRulesPrompt { rulesRefresh++ }
+    val toggle = rememberLayoutToggle(settings, repository, scope) { rulesRefresh++ }
 
-    val overflow = overflowLayoutIds(lang, settings)
+    val overflow = settings.watch { overflowLayoutIds(lang, it) }
     val listed = lang.layoutIds - overflow.toSet()
+    val title = stringResource(R.string.languages_layouts_title)
 
-    SettingsGroup(stringResource(R.string.languages_layouts_title)) {
-        layoutRows(listed, settings, repository, scope, enableGate, promptForRules, rulesRefresh)
-        if (overflow.isNotEmpty()) {
-            item {
-                NavRow(
-                    R.string.languages_more_layouts_title,
-                    subtitle = pluralStringResource(
-                        R.plurals.languages_more_layouts_subtitle,
-                        overflow.size,
-                        overflow.size,
-                    ),
-                    route = moreLayoutsRoute(lang.id),
-                ) { onNavigate(moreLayoutsRoute(lang.id)) }
-            }
+    HighlightableRow(title, coarse = true) {
+        Column {
+            SectionHeader(
+                title,
+                info = stringResource(R.string.languages_layouts_info),
+                modifier = Modifier.padding(start = 32.dp, end = 16.dp, top = 4.dp, bottom = 8.dp),
+            )
+            LayoutCarousel(
+                layoutIds = listed,
+                settings = settings,
+                onToggle = toggle,
+                moreCount = overflow.size,
+                onMore = { onNavigate(moreLayoutsRoute(lang.id)) },
+            )
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+
+    // Which rows the group below holds; each row reads its own state.
+    val keymanListed = settings.watch { s ->
+        listed.mapNotNull { id ->
+            val spec = resolveLayout(s.customLayouts, id)
+            spec.keyman?.let { it to spec.name }
+        }
+    }
+    SettingsGroup {
+        // A converted Keyman layout can only type what its author wrote once
+        // its rules are on the device, so each one on the cards gets the row
+        // that fetches them, naming it.
+        for ((binding, name) in keymanListed) {
+            item { KeymanRulesRow(binding, name, rulesRefresh) }
         }
     }
 }
 
 /**
- * One language's converted Keyman layouts, a tap off its detail screen.
+ * What a layout card does when it is tapped, for every screen that has them:
+ * switch the layout, through the validation gate on the way on and the Keyman
+ * rules prompt once it is on, and refuse, out loud, to switch off the last
+ * layout left. Answers whether the switch happened.
  *
- * Lists every Keyman grid the language has, not only the ones the detail screen
- * left behind: this page is the catalogue, and a layout vanishing from it the
- * moment it is switched on would read as the toggle having deleted something.
- * The overlap is two rows for one setting, which both write the same value.
- *
- * Named "More layouts" rather than "Keyman layouts" because the name has to mean
- * something to a user who has never heard of Keyman, and the description says
- * where they come from for the user who has.
+ * [onRulesInstalled] fires when the prompt installs a layout's rules, so the
+ * screen can tell its rules rows to look again.
  */
 @Composable
-internal fun MoreLayoutsScreen(
-    langId: String,
+internal fun rememberLayoutToggle(
+    settings: LiveSettings,
     repository: SettingsRepository,
-    settings: KeyboardSettings,
-) {
-    val scope = rememberCoroutineScope()
-    val lang = LanguageRegistry.byId(langId)
+    scope: CoroutineScope,
+    onRulesInstalled: () -> Unit,
+): (layoutId: String, enable: Boolean) -> Boolean {
+    val context = LocalContext.current
     val enableGate = rememberLayoutEnableGate(settings)
-    var rulesRefresh by remember { mutableStateOf(0) }
-    val promptForRules = rememberKeymanRulesPrompt { rulesRefresh++ }
-
-    val layoutIds = lang.layoutIds.filter {
-        resolveLayout(settings.customLayouts, it).keyman != null
+    val promptForRules = rememberKeymanRulesPrompt(onRulesInstalled)
+    return { layoutId, enable ->
+        // At least one layout must stay enabled somewhere. Said out loud here,
+        // where the old switch just sprang back.
+        if (!enable && settings.value.enabledLayoutIds.all { it == layoutId }) {
+            Toast.makeText(context, R.string.languages_layout_keep_one, Toast.LENGTH_SHORT).show()
+            false
+        } else {
+            setLayoutEnabled(layoutId, enable, settings.value, repository, scope, enableGate, promptForRules)
+            true
+        }
     }
+}
 
-    // Guarded, or a language reached with no converted layouts at all — a stale
-    // deep link, a build that dropped them — draws a description of nothing.
-    if (layoutIds.isEmpty()) return
-    CaptionText(stringResource(R.string.languages_more_layouts_body))
-    SettingsGroup(stringResource(R.string.languages_layouts_title)) {
-        layoutRows(layoutIds, settings, repository, scope, enableGate, promptForRules, rulesRefresh)
+/**
+ * Switches [layoutId] on or off: through the validation gate on the way on,
+ * never on the way off, and with the Keyman rules prompt at the moment a
+ * converted layout is switched on.
+ */
+private fun setLayoutEnabled(
+    layoutId: String,
+    enable: Boolean,
+    settings: KeyboardSettings,
+    repository: SettingsRepository,
+    scope: CoroutineScope,
+    enableGate: (String, () -> Unit) -> Unit,
+    promptForRules: (KeymanBinding, String) -> Unit,
+) {
+    fun write() {
+        scope.launch {
+            val next =
+                if (enable) settings.enabledLayoutIds + layoutId
+                else settings.enabledLayoutIds - layoutId
+            // At least one layout must stay enabled somewhere.
+            if (next.isNotEmpty()) repository.setEnabledLayoutIds(next.distinct())
+        }
+        // Asked at the moment of switching on, because that is when the user
+        // is deciding to type in this language. Finding out later that the
+        // keys produce Latin letters is the outcome this exists to prevent.
+        if (enable) {
+            val spec = resolveLayout(settings.customLayouts, layoutId)
+            spec.keyman?.let { promptForRules(it, spec.name) }
+        }
     }
+    if (enable) enableGate(layoutId) { write() } else write()
 }
 
 /**
@@ -878,12 +874,13 @@ internal fun MoreLayoutsScreen(
 internal fun LanguageDetailScreen(
     langId: String,
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     onNavigate: (String) -> Unit,
     onRemoved: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val filesDir = context.filesDir
     val notifyDownload = rememberDownloadNotifier()
     val lang = LanguageRegistry.byId(langId)
@@ -891,8 +888,9 @@ internal fun LanguageDetailScreen(
 
     val removeLanguage: () -> Unit = {
         scope.launch {
-            val next = settings.enabledLayoutIds.filterNot {
-                resolveLayout(settings.customLayouts, it).language().id == langId
+            val current = settings.value
+            val next = current.enabledLayoutIds.filterNot {
+                resolveLayout(current.customLayouts, it).language().id == langId
             }
             if (next.isNotEmpty()) {
                 repository.setEnabledLayoutIds(next.distinct())
@@ -939,7 +937,7 @@ internal fun LanguageDetailScreen(
                     R.string.languages_fancy_style_row_title,
                     subtitle = stringResource(R.string.languages_fancy_style_row_subtitle),
                     options = FancyStyles.all.map { it to it.sample },
-                    selected = FancyStyles.byId(settings.layoutBehavior.fancyStyleId)
+                    selected = FancyStyles.byId(settings.watch { it.layoutBehavior.fancyStyleId })
                         ?: FancyStyles.all.first(),
                     default = FancyStyles.byId(SettingsDefaults.layoutBehavior.fancyStyleId)
                         ?: FancyStyles.all.first(),
@@ -960,7 +958,7 @@ internal fun LanguageDetailScreen(
                 ToggleSetting(
                     R.string.languages_conjunct_backspace_title,
                     stringResource(R.string.languages_conjunct_backspace_subtitle, sample),
-                    langId in settings.conjunctBackspaceLanguages,
+                    settings.watch { langId in it.conjunctBackspaceLanguages },
                     info = stringResource(
                         R.string.languages_conjunct_backspace_info,
                         lang.englishName,
@@ -982,13 +980,27 @@ internal fun LanguageDetailScreen(
                 ToggleSetting(
                     R.string.languages_spelling_map_row_title,
                     stringResource(R.string.languages_spelling_map_row_subtitle),
-                    settings.suggestionStrip.spellingMapEnabledFor(langId),
+                    settings.watch { it.suggestionStrip.spellingMapEnabledFor(langId) },
                     info = stringResource(
                         R.string.languages_spelling_map_info,
                         lang.englishName,
                     ),
                     default = SettingsDefaults.suggestionStrip.spellingMapEnabledFor(langId),
                 ) { scope.launch { repository.setSpellingMapEnabled(langId, it) } }
+            }
+            // Sound-alike words from the dictionary: "asi" commits আছি. Off
+            // commits exactly what the rules spell and leaves them in the strip.
+            item {
+                ToggleSetting(
+                    R.string.languages_phonetic_siblings_row_title,
+                    stringResource(R.string.languages_phonetic_siblings_row_subtitle),
+                    settings.watch { it.suggestionStrip.phoneticSiblingsEnabledFor(langId) },
+                    info = stringResource(
+                        R.string.languages_phonetic_siblings_info,
+                        lang.englishName,
+                    ),
+                    default = SettingsDefaults.suggestionStrip.phoneticSiblingsEnabledFor(langId),
+                ) { scope.launch { repository.setPhoneticSiblingsEnabled(langId, it) } }
             }
         }
     }
@@ -1002,9 +1014,11 @@ internal fun LanguageDetailScreen(
     // Gated on an *enabled* transliterating layout rather than on the language:
     // someone typing Bengali on Probhat alone has Bengali keys in front of them
     // and nothing to hint.
-    val transliterating = settings.enabledLayoutIds.any { id ->
-        val spec = resolveLayout(settings.customLayouts, id)
-        spec.langId == langId && spec.composerType() == ComposerType.TRANSLITERATE
+    val transliterating = settings.watch { s ->
+        s.enabledLayoutIds.any { id ->
+            val spec = resolveLayout(s.customLayouts, id)
+            spec.langId == langId && spec.composerType() == ComposerType.TRANSLITERATE
+        }
     }
     if (transliterating) {
         SettingsGroup(stringResource(R.string.languages_translit_hints_title)) {
@@ -1023,7 +1037,7 @@ internal fun LanguageDetailScreen(
                         TransliterationHintMode.CLUSTER to
                             stringResource(R.string.languages_translit_hints_cluster_label),
                     ),
-                    selected = settings.layoutBehavior.transliterationHints,
+                    selected = settings.watch { it.layoutBehavior.transliterationHints },
                     info = stringResource(
                         R.string.languages_translit_hints_info,
                         lang.englishName,
@@ -1033,6 +1047,9 @@ internal fun LanguageDetailScreen(
                 ) { scope.launch { repository.setTransliterationHints(it) } }
             }
         }
+        // The whole key map, for the letters no hint can teach: a hint shows
+        // what the next key writes, never which key writes ঁ.
+        PhoneticKeyMapGroup(langId) { uriHandler.openUri(it) }
     }
 
     // Numerals are per language: Arabic can type ٠-٩ while English beside it
@@ -1046,7 +1063,7 @@ internal fun LanguageDetailScreen(
     if (nativeNumerals != NumeralSystem.LATIN) {
         SettingsGroup(stringResource(R.string.languages_numerals_title)) {
             item {
-                val current = settings.layoutBehavior.numeralSystemFor(langId)
+                val current = settings.watch { it.layoutBehavior.numeralSystemFor(langId) }
                 ChoiceSetting(
                     R.string.languages_numeral_system_title,
                     subtitle = stringResource(
@@ -1077,9 +1094,11 @@ internal fun LanguageDetailScreen(
         }
     }
 
-    val others = settings.enabledLanguages.filter { it.id != langId }
+    // Which groups and rows these are depends on the other languages and on
+    // which of them are picked; each row reads everything else itself.
+    val others = settings.watch { s -> s.enabledLanguages.filter { it.id != langId } }
     if (others.isNotEmpty()) {
-        val secondaries = settings.secondaryLanguages[langId].orEmpty()
+        val secondaries = settings.watch { it.secondaryLanguages[langId].orEmpty() }
         SettingsGroup(
             stringResource(R.string.languages_secondary_title),
             info = stringResource(R.string.languages_secondary_info, lang.englishName),
@@ -1088,10 +1107,11 @@ internal fun LanguageDetailScreen(
                 item {
                     ToggleSetting(other.displayName, null, other.id in secondaries) { on ->
                         scope.launch {
-                            val cur = settings.secondaryLanguages[langId].orEmpty()
+                            val secondaryLanguages = settings.value.secondaryLanguages
+                            val cur = secondaryLanguages[langId].orEmpty()
                             val nextList = if (on) cur + other.id else cur - other.id
                             repository.setSecondaryLanguages(
-                                settings.secondaryLanguages + (langId to nextList.distinct()),
+                                secondaryLanguages + (langId to nextList.distinct()),
                             )
                         }
                     }
@@ -1107,7 +1127,7 @@ internal fun LanguageDetailScreen(
                     ToggleSetting(
                         R.string.languages_phonetic_english_title,
                         stringResource(R.string.languages_phonetic_english_subtitle),
-                        settings.suggestionStrip.phoneticEnglishFor(langId),
+                        settings.watch { it.suggestionStrip.phoneticEnglishFor(langId) },
                         info = stringResource(R.string.languages_phonetic_english_info, lang.englishName),
                         default = SettingsDefaults.suggestionStrip.phoneticEnglishFor(langId),
                     ) { scope.launch { repository.setPhoneticEnglish(langId, it) } }
@@ -1116,7 +1136,7 @@ internal fun LanguageDetailScreen(
                     ToggleSetting(
                         R.string.languages_phonetic_english_switch_title,
                         stringResource(R.string.languages_phonetic_english_switch_subtitle),
-                        settings.suggestionStrip.phoneticEnglishSwitch,
+                        settings.watch { it.suggestionStrip.phoneticEnglishSwitch },
                         info = stringResource(R.string.languages_phonetic_english_switch_info),
                         default = SettingsDefaults.suggestionStrip.phoneticEnglishSwitch,
                     ) { scope.launch { repository.setPhoneticEnglishSwitch(it) } }
@@ -1137,7 +1157,7 @@ internal fun LanguageDetailScreen(
 
     // Removing the only language would leave nothing to type in, so it is only
     // offered when another language is enabled.
-    if (settings.enabledLanguages.size > 1) {
+    if (settings.watch { it.enabledLanguages.size > 1 }) {
         SettingsGroup {
             item {
                 OutlinedButton(
@@ -1180,6 +1200,7 @@ internal fun EmojiDictRow(entry: EmojiDictEntry) {
 
     WmRow(
         title = stringResource(R.string.languages_emoji_keywords_title),
+        icon = SettingsRowIcons[R.string.languages_emoji_keywords_title],
         supporting = {
             Text(
                 when (status) {
@@ -1295,7 +1316,7 @@ private val FLEX_FILLABLE_PACKS = setOf("cangjie", "stroke")
 private fun CjkDictPackManager(
     langId: String,
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
 ) {
     val context = LocalContext.current
     val filesDir = context.filesDir
@@ -1350,6 +1371,10 @@ private fun CjkDictPackManager(
         R.string.languages_cjk_options_title,
         LanguageRegistry.byId(langId).englishName,
     )
+    // What decides which rows the groups hold; each row reads its own value.
+    val traditional = settings.watch { it.cjk.traditionalOutput }
+    val fuzzyOn = settings.watch { it.cjk.pinyinFuzzy }
+    val fuzzyPairsChanged = settings.watch { it.cjk.pinyinFuzzyPairs != PinyinFuzzy.ALL_PAIRS }
     SettingsGroup(
         groupTitle,
         info = stringResource(R.string.languages_cjk_download_info),
@@ -1421,6 +1446,7 @@ private fun CjkDictPackManager(
         item(visible = CjkDictCatalog.forLang(langId).any { it.id in FLEX_FILLABLE_PACKS }) {
             WmRow(
                 title = stringResource(R.string.languages_cjk_flex_import_title),
+                icon = SettingsRowIcons[R.string.languages_cjk_flex_import_title],
                 subtitle = flexMessage ?: stringResource(R.string.languages_cjk_flex_import_subtitle),
                 trailing = {
                     TextButton(
@@ -1437,7 +1463,7 @@ private fun CjkDictPackManager(
             ToggleSetting(
                 R.string.languages_cjk_traditional_title,
                 stringResource(R.string.languages_cjk_traditional_subtitle),
-                settings.cjk.traditionalOutput,
+                traditional,
                 info = stringResource(R.string.languages_cjk_traditional_info),
                 default = SettingsDefaults.cjk.traditionalOutput,
             ) { on -> scope.launch { repository.setCjkTraditionalOutput(on) } }
@@ -1446,12 +1472,12 @@ private fun CjkDictPackManager(
         // Traditional characters are only half of writing Traditional: Taipei
         // says 計程車 where the mainland says 出租車, and no character map
         // reaches that. Only worth showing once the toggle above is on.
-        item(visible = settings.cjk.traditionalOutput) {
+        item(visible = traditional) {
             ChoiceSetting(
                 R.string.languages_cjk_region_title,
                 info = stringResource(R.string.languages_cjk_region_info),
                 options = HanVariant.HanRegion.entries.map { it to stringResource(cjkRegionLabelRes(it)) },
-                selected = settings.cjk.hanRegion,
+                selected = settings.watch { it.cjk.hanRegion },
                 default = SettingsDefaults.cjk.hanRegion,
                 detail = { region -> ChoiceDetail(stringResource(cjkRegionDescRes(region))) },
             ) { region -> scope.launch { repository.setCjkHanRegion(region) } }
@@ -1464,7 +1490,7 @@ private fun CjkDictPackManager(
             ToggleSetting(
                 R.string.languages_cjk_lazy_title,
                 stringResource(R.string.languages_cjk_lazy_subtitle),
-                settings.cjk.jyutpingLazy,
+                settings.watch { it.cjk.jyutpingLazy },
                 default = SettingsDefaults.cjk.jyutpingLazy,
             ) { on -> scope.launch { repository.setJyutpingLazy(on) } }
         }
@@ -1475,10 +1501,23 @@ private fun CjkDictPackManager(
             ToggleSetting(
                 R.string.languages_cjk_loose_marks_title,
                 stringResource(R.string.languages_cjk_loose_marks_subtitle),
-                settings.cjk.kanaLooseMarks,
+                settings.watch { it.cjk.kanaLooseMarks },
                 info = stringResource(R.string.languages_cjk_loose_marks_info),
                 default = SettingsDefaults.cjk.kanaLooseMarks,
             ) { on -> scope.launch { repository.setKanaLooseMarks(on) } }
+        }
+
+        // Issue #341: Japanese and Chinese are spaced with the ideographic
+        // space, twice the width of an ASCII one. Per language, since the two
+        // conventions differ, and off until asked for.
+        item {
+            ToggleSetting(
+                R.string.languages_cjk_full_width_space_title,
+                stringResource(R.string.languages_cjk_full_width_space_subtitle),
+                settings.watch { langId in it.cjk.fullWidthSpaceLanguages },
+                info = stringResource(R.string.languages_cjk_full_width_space_info),
+                default = langId in SettingsDefaults.cjk.fullWidthSpaceLanguages,
+            ) { on -> scope.launch { repository.setFullWidthSpace(langId, on) } }
         }
 
     }
@@ -1492,7 +1531,7 @@ private fun CjkDictPackManager(
                 ToggleSetting(
                     R.string.languages_cjk_fuzzy_title,
                     stringResource(R.string.languages_cjk_fuzzy_subtitle),
-                    settings.cjk.pinyinFuzzy,
+                    fuzzyOn,
                     info = stringResource(R.string.languages_cjk_fuzzy_pairs_info),
                     default = SettingsDefaults.cjk.pinyinFuzzy,
                 ) { on -> scope.launch { repository.setPinyinFuzzy(on) } }
@@ -1501,10 +1540,10 @@ private fun CjkDictPackManager(
             // they are not one preference: the nasal endings are a regional
             // accent, while n↔l costs precision on every syllable starting with
             // either. Only drawn while fuzzy is on — off, they decide nothing.
-            if (settings.cjk.pinyinFuzzy) {
+            if (fuzzyOn) {
                 for (pair in PinyinFuzzy.PAIRS) {
                     item {
-                        val on = pair.id in settings.cjk.pinyinFuzzyPairs
+                        val on = settings.watch { pair.id in it.cjk.pinyinFuzzyPairs }
                         val label = pair.members.joinToString(" ↔ ")
                         WmRow(
                             title = label,
@@ -1528,7 +1567,7 @@ private fun CjkDictPackManager(
                         )
                     }
                 }
-                item(visible = settings.cjk.pinyinFuzzyPairs != PinyinFuzzy.ALL_PAIRS) {
+                item(visible = fuzzyPairsChanged) {
                     ActionRow(
                         title = R.string.languages_cjk_fuzzy_pairs_reset_title,
                         subtitle = null,
@@ -1540,7 +1579,7 @@ private fun CjkDictPackManager(
                 ChoiceSetting(
                     R.string.languages_cjk_double_pinyin_title,
                     options = DoublePinyinScheme.entries.map { it to stringResource(it.displayNameRes) },
-                    selected = settings.cjk.pinyinDoublePinyin,
+                    selected = settings.watch { it.cjk.pinyinDoublePinyin },
                     default = SettingsDefaults.cjk.pinyinDoublePinyin,
                 ) { scheme -> scope.launch { repository.setPinyinDoublePinyin(scheme) } }
             }

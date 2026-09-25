@@ -34,7 +34,7 @@ another host works the same way, as long as it holds the same files.
 
 | Repository | What it's for | By default |
 |---|---|---|
-| Language data | Word lists, n-gram packs, emoji keyword dictionaries, Chinese and Japanese conversion dictionaries, and vocabulary packs | `github.com/wasi-master/wmkeyboard-data` |
+| Language data | Word lists, n-gram packs, emoji keyword dictionaries, Chinese and Japanese conversion dictionaries, vocabulary packs, and the copy of Keyman typing rules used when keyman.com can't serve them | `github.com/wasi-master/wmkeyboard-data` |
 | Add-on repository | The add-on repository listed on a fresh install, and the Noto Color Emoji font | `github.com/wasi-master/wmkeyboard-addon-repository` |
 | Key sound repository | The key sound repository listed on a fresh install | `github.com/wasi-master/wmkeyboard-monkeytype-sounds` |
 | Espanso Hub | `hub.espanso.org` package links pasted on the Snippets screen | `github.com/espanso/hub` |
@@ -96,8 +96,9 @@ uses until it is.
 | Photos | Pexels | `https://api.pexels.com` |
 | Wikipedia | Wikipedia or another MediaWiki | `https://{lang}.wikipedia.org` |
 | Dictionary | Free Dictionary API | `https://api.dictionaryapi.dev` |
-| Vocabulary lookups | kaikki.org (Wiktextract) | `https://kaikki.org` |
-| Vocabulary lookups | Wiktionary | `https://en.wiktionary.org` |
+| Dictionary | Datamuse, for synonyms | `https://api.datamuse.com` |
+| Vocabulary lookups | kaikki.org (Wiktextract), also a Dictionary source | `https://kaikki.org` |
+| Vocabulary lookups | Wiktionary, also a Dictionary source | `https://en.wiktionary.org` |
 | Weather | Open-Meteo forecast | `https://api.open-meteo.com` |
 | Weather | Open-Meteo place search | `https://geocoding-api.open-meteo.com` |
 | Currency rates | currency-api, and its second server | jsDelivr, then `https://latest.currency-api.pages.dev` |
@@ -120,6 +121,7 @@ A few of these, in more detail:
 
 Not in the list: Google Drive, Dropbox and OneDrive backups, which the F-Droid
 edition can't use at all. [Backups](/reference/settings/backup/) to WebDAV,
-S3-compatible storage or a folder already take any address you give them.
+S3-compatible storage, SFTP, SMB, FTP, a Git server, a mail server or a folder
+already take any address you give them.
 
 See [Network policy](/privacy/network/) for what each service is sent, and when.

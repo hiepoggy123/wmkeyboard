@@ -65,7 +65,6 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -125,7 +124,6 @@ import com.wasimaster.wmkeyboard.core.addons.resolve
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
 import com.wasimaster.wmkeyboard.core.plugins.PluginStore
 import com.wasimaster.wmkeyboard.core.settings.DeviceNetworkState
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.stopsBackgroundWork
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
@@ -407,7 +405,7 @@ internal fun AddonsScreen(
     typeFilter: AddonType? = null,
     /** For the F-Droid build's repository server fields; the list works without them. */
     repository: SettingsRepository? = null,
-    settings: KeyboardSettings? = null,
+    settings: LiveSettings? = null,
     onNavigate: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -2299,14 +2297,12 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
             }
             for (sample in shown.samples) {
                 item {
-                    ListItem(
-                        leadingContent = {
+                    WmRow(
+                        title = sample.keywords,
+                        titleStyle = MaterialTheme.typography.bodySmall,
+                        leading = {
                             Text(sample.emoji, style = MaterialTheme.typography.titleLarge)
                         },
-                        headlineContent = {
-                            Text(sample.keywords, style = MaterialTheme.typography.bodySmall)
-                        },
-                        colors = transparentListColors(),
                     )
                 }
             }
@@ -2318,16 +2314,16 @@ private fun AddonPreviewSection(manifestUrl: String, entry: AddonEntry) {
             }
             for (sample in shown.samples) {
                 item {
-                    ListItem(
-                        headlineContent = { Text(sample.word, style = MaterialTheme.typography.titleSmall) },
-                        supportingContent = {
+                    WmRow(
+                        title = sample.word,
+                        titleStyle = MaterialTheme.typography.titleSmall,
+                        supporting = {
                             Text(
                                 listOf(sample.pos, sample.definition).filter { it.isNotBlank() }.joinToString(" · "),
                                 style = MaterialTheme.typography.bodySmall,
                                 maxLines = 2,
                             )
                         },
-                        colors = transparentListColors(),
                     )
                 }
             }

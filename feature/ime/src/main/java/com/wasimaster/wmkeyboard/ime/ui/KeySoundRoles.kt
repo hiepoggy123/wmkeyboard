@@ -23,13 +23,14 @@ fun Key.keySoundRole(): KeySoundRole = when (action) {
     KeyAction.Space -> KeySoundRole.SPACE
     // A newline key is the enter key by another name as far as a pack is
     // concerned: same place on the board, same recording.
-    KeyAction.Enter, KeyAction.Newline -> KeySoundRole.ENTER
+    KeyAction.Enter, KeyAction.Newline, KeyAction.EditorAction -> KeySoundRole.ENTER
     KeyAction.Delete, KeyAction.ForwardDelete -> KeySoundRole.DELETE
     KeyAction.Shift,
     KeyAction.Symbols,
     KeyAction.Letters,
     KeyAction.LanguageSwitch,
     KeyAction.InputMethodPicker,
+    is KeyAction.SwitchInputMethod,
     KeyAction.Emoji,
     KeyAction.Numpad,
     KeyAction.Fn,

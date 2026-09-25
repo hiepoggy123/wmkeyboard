@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -40,7 +41,6 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
 import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryEntry
 import com.wasimaster.wmkeyboard.core.aihistory.AiHistoryStore
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.ime.aichat.AiChatController
@@ -65,7 +65,7 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardSettings) {
+internal fun AiHistoryScreen(repository: SettingsRepository, settings: LiveSettings) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var revision by remember { mutableIntStateOf(0) }
@@ -73,6 +73,7 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
     var actionFilter by remember { mutableStateOf<String?>(null) }
     var expanded by remember { mutableStateOf<Long?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
+    val reduceMotion = LocalReduceMotion.current
 
     // Its own instance, deliberately: the keyboard holds another one in the
     // same process, and each re-reads the file before it writes.
@@ -100,7 +101,9 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
         }
     }
 
-    if (!settings.ai.historyEnabled) {
+    // Decides what the screen and its group hold; each row reads its own value.
+    val historyOn = settings.watch { it.ai.historyEnabled }
+    if (!historyOn) {
         CaptionText(stringResource(R.string.toolai_ai_history_off_body))
     }
     SettingsGroup {
@@ -108,7 +111,7 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
             ToggleSetting(
                 R.string.toolai_ai_history_title,
                 stringResource(R.string.toolai_ai_history_subtitle),
-                settings.ai.historyEnabled,
+                historyOn,
                 default = SettingsDefaults.ai.historyEnabled,
             ) { on ->
                 scope.launch {
@@ -122,11 +125,11 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
                 }
             }
         }
-        item(visible = settings.ai.historyEnabled) {
+        item(visible = historyOn) {
             SliderSetting(
                 R.string.toolai_ai_history_max_title,
                 subtitle = stringResource(R.string.toolai_ai_history_max_subtitle),
-                value = settings.ai.historyMax.toFloat(),
+                value = settings.watch { it.ai.historyMax }.toFloat(),
                 range = AiHistoryStore.MIN_MAX_ITEMS.toFloat()..
                     AiHistoryStore.MAX_ITEMS_CEILING.toFloat(),
                 display = { it.toInt().toString() },
@@ -151,7 +154,7 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
             SliderSetting(
                 R.string.toolai_continue_context_title,
                 subtitle = stringResource(R.string.toolai_continue_context_subtitle),
-                value = settings.ai.beforeCursorChars.toFloat(),
+                value = settings.watch { it.ai.beforeCursorChars }.toFloat(),
                 range = 500f..32_000f,
                 display = { charsFormat.format((it / 500f).roundToInt() * 500) },
                 info = stringResource(R.string.toolai_continue_context_info),
@@ -172,7 +175,7 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
             ToggleSetting(
                 R.string.toolai_keep_chats_title,
                 stringResource(R.string.toolai_keep_chats_subtitle),
-                settings.ai.keepChats,
+                settings.watch { it.ai.keepChats },
                 info = stringResource(R.string.toolai_keep_chats_info),
                 default = SettingsDefaults.ai.keepChats,
             ) { on ->
@@ -239,35 +242,56 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
         }
     }
 
-    when {
-        entries.isEmpty() && settings.ai.historyEnabled ->
-            CaptionText(stringResource(R.string.toolai_ai_history_empty))
-        shown.isEmpty() && entries.isNotEmpty() ->
-            CaptionText(stringResource(R.string.toolai_ai_history_filter_empty))
-        else -> LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(420.dp)
-                .padding(horizontal = 16.dp),
-        ) {
-            items(shown, key = { it.id }) { entry ->
-                AiHistoryRow(
-                    entry = entry,
-                    expanded = expanded == entry.id,
-                    onToggle = { expanded = if (expanded == entry.id) null else entry.id },
-                    onCopyInput = { copyToClipboard(context, entry.input) },
-                    onCopyOutput = { copyToClipboard(context, entry.output) },
-                    onDelete = {
-                        scope.launch {
-                            withContext(Dispatchers.IO) {
-                                store.reload()
-                                store.delete(entry.id)
-                                store.save()
+    val body = when {
+        entries.isEmpty() && historyOn -> HistoryBody.Empty
+        shown.isEmpty() && entries.isNotEmpty() -> HistoryBody.NoMatch
+        else -> HistoryBody.Rows(shown)
+    }
+    // The file is read off the main thread, so the screen opens on "nothing
+    // yet" and the list replaces it a moment later; a filter that empties the
+    // list swaps it for a note the same way. Cross-faded rather than cut.
+    // Keyed on which of the three it is, not on the rows: a deletion or a new
+    // run is a change to the list, not a new page.
+    //
+    // The rows themselves get no item motion. A tap opens a row in place, and
+    // with placement animated the rows under it would glide down late while
+    // the open row had already grown over them.
+    AnimatedContent(
+        targetState = body,
+        contentKey = { it::class },
+        transitionSpec = { stateSwapTransform(reduceMotion) },
+        label = "aiHistoryBody",
+    ) { state ->
+        when (state) {
+            HistoryBody.Empty -> CaptionText(stringResource(R.string.toolai_ai_history_empty))
+            HistoryBody.NoMatch -> CaptionText(stringResource(R.string.toolai_ai_history_filter_empty))
+            // From the state handed in, not from [shown]: the list on its way
+            // out must keep drawing the rows it had.
+            is HistoryBody.Rows -> LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(420.dp)
+                    .padding(horizontal = 16.dp),
+            ) {
+                items(state.shown, key = { it.id }) { entry ->
+                    AiHistoryRow(
+                        entry = entry,
+                        expanded = expanded == entry.id,
+                        onToggle = { expanded = if (expanded == entry.id) null else entry.id },
+                        onCopyInput = { copyToClipboard(context, entry.input) },
+                        onCopyOutput = { copyToClipboard(context, entry.output) },
+                        onDelete = {
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    store.reload()
+                                    store.delete(entry.id)
+                                    store.save()
+                                }
+                                revision++
                             }
-                            revision++
-                        }
-                    },
-                )
+                        },
+                    )
+                }
             }
         }
     }
@@ -309,6 +333,13 @@ internal fun AiHistoryScreen(repository: SettingsRepository, settings: KeyboardS
             },
         )
     }
+}
+
+/** What the bottom of the history screen is showing. See the [AnimatedContent] there. */
+private sealed interface HistoryBody {
+    data object Empty : HistoryBody
+    data object NoMatch : HistoryBody
+    data class Rows(val shown: List<AiHistoryEntry>) : HistoryBody
 }
 
 /**

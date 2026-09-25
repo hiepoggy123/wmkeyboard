@@ -9,7 +9,7 @@
     <string name="typing_group_gestures_title">Gestures</string>
     <string name="typing_group_glide_title">Glide typing</string>
     <string name="typing_group_glide_tuning_title">Advanced tuning</string>
-    <string name="typing_group_glide_tuning_summary">Error radius, pause, loop and wiggle</string>
+    <string name="typing_group_glide_tuning_summary">Error radius, pause, loop, wiggle and shapes per word</string>
     <string name="typing_group_glide_tuning_info">These values are how the keyboard reads a glide: how near the keys your finger has to go for a word to be offered at all, and what tells it that you wrote a letter twice. They ship at the values the keyboard was measured with. Move one, glide a few sentences, and press the reset on the row if it was worse. Nothing here can break the keyboard.</string>
     <string name="typing_group_glide_trail_title">Glide trail and preview</string>
     <string name="typing_group_spacebar_title">Spacebar gestures</string>
@@ -148,8 +148,12 @@
     <string name="typing_space_after_suggestion_info">This setting is on by default. When you press a suggestion, the keyboard types the word and a space after it, so the next word starts clean. Turn it off to type the word without the space. This helps in the languages or fields where a space after a word is usually wrong. If you go back to a word and continue it, the keyboard never adds a second space.</string>
 
     <string name="typing_wrap_selection_title">Wrap the selection with brackets</string>
-    <string name="typing_wrap_selection_subtitle">Press ( [ { &lt; \" \' or ` to put the pair around the selected text</string>
-    <string name="typing_wrap_selection_info">When you select text and press a bracket, a brace or a quote key, the keyboard puts the pair around the selection. It does not replace the selection. Example: select \"foo\", press ( and you get \"(foo)\". The wrapped text stays selected, so you can wrap it again. Turn this off to make these keys always replace the selection, like any other character.</string>
+    <string name="typing_wrap_selection_subtitle">Press either half of ( ) [ ] { } &lt; &gt; \" \' or ` to put the pair around the selected text</string>
+    <string name="typing_wrap_selection_info">When you select text and press a bracket, a brace or a quote key, the keyboard puts the pair around the selection. It does not replace the selection. Either half of the pair works. Example: select \"foo\", press ( or ) and you get \"(foo)\". The wrapped text stays selected, so you can wrap it again. Turn this off to make these keys always replace the selection, like any other character.</string>
+
+    <string name="typing_auto_close_brackets_title">Close brackets for me</string>
+    <string name="typing_auto_close_brackets_subtitle">Press ( [ { and the keyboard types the closing half, with the cursor between them</string>
+    <string name="typing_auto_close_brackets_info">This setting is off by default. With it on, pressing an opening bracket types the closing one behind the cursor and leaves the cursor between the two, so you type straight inside the pair: press ( and you get (), ready for what goes in it. Pressing the closing bracket when it is already the next character steps over it instead of typing a second one, and one backspace on an empty pair takes both halves out. The CJK brackets are included, and so are the fullwidth ones. Quotes are not: the apostrophe in \"don\'t\" shares that key, and closing it would be wrong more often than right. Nor is &lt;, which outside code is a less-than sign. Passwords, web addresses and number pads are left alone.</string>
 
     <string name="typing_shift_recase_title">Shift changes the case of the selection</string>
     <string name="typing_shift_recase_subtitle">Shift with text selected steps through lowercase, Title Case and UPPERCASE</string>
@@ -448,7 +452,11 @@
          Automatic). -->
     <string name="typing_glide_sandbox_title">Whose words a glide can produce</string>
     <string name="typing_glide_sandbox_subtitle">Let glide typing lean on the words this keyboard has learned from you</string>
-    <string name="typing_glide_sandbox_info">A glide tells the keyboard which keys your finger went near, so what it competes against decides how often it is right. Most people write with a few thousand words, and once the keyboard has learned yours, the rest of the dictionary is mostly competition. \"Only my words\" removes it: glide typing answers with the words you have written, and nothing else. In testing that reads the words you write about five points more accurately, and it cannot produce a word you have never written at all. \"Prefer my words\" changes almost nothing on its own — it runs both and counts how often your own words were enough, which is what \"Automatic\" uses to decide. \"Automatic\" starts at \"Every word\" and asks you before it moves up. Whichever you pick, backspacing a glided word searches every word in the dictionary for the stroke you drew, so a word the keyboard has not learned is never out of reach.</string>
+    <!-- Subtitle in place of the one above while Automatic is picked. %1$s is
+         the option Automatic currently behaves like (Every word, Prefer my
+         words or Only my words). -->
+    <string name="typing_glide_sandbox_automatic_subtitle">Automatic is working like \"%1$s\" now. Pick any other option to start it over</string>
+    <string name="typing_glide_sandbox_info">A glide tells the keyboard which keys your finger went near, so what it competes against decides how often it is right. Most people write with a few thousand words, and once the keyboard has learned yours, the rest of the dictionary is mostly competition. \"Only my words\" removes it: glide typing answers with the words you have written, and nothing else. In testing that reads the words you write about five points more accurately, and it cannot produce a word you have never written at all. \"Prefer my words\" changes almost nothing on its own — it runs both and counts how often your own words were enough, which is what \"Automatic\" uses to decide. \"Automatic\" starts at \"Every word\" and asks you before it moves up. Picking any other option puts it back at the start, and while it is picked the line under this setting says which option it is working like. Whichever you pick, backspacing a glided word searches every word in the dictionary for the stroke you drew, so a word the keyboard has not learned is never out of reach.</string>
 
     <!-- Toggle: whether the chip offering a full search comes forward on its
          own when the cursor lands inside a swiped word. -->
@@ -522,15 +530,16 @@
     <string name="typing_glide_near_radius_subtitle">How far a glide can pass from a letter on the way</string>
     <string name="typing_glide_near_radius_info">Measured in key widths. A letter is available to a word only when the glide passed this close to its key. A high value lets you cut corners and still get the letter. A low value keeps the keyboard to the keys you touched, which is faster and more exact, but a cut corner then loses the word. Move this up if long words come out with a letter missing.</string>
 
-    <!-- The three marks a stroke can carry for a doubled letter: a pause on
-         the key, a circle on it, a back and forth on it. -->
-    <string name="typing_glide_dwell_title">Pause to double a letter</string>
-    <string name="typing_glide_dwell_subtitle">How long to stay on a key to write the letter twice</string>
-    <string name="typing_glide_dwell_info">A glide draws \"good\" and \"god\" the same way, because the o is one key and your finger crosses it one time. Stay on the key for a moment to say that the letter is there twice. The value is a multiple of your own speed in that same glide, not a number of seconds, so it works in a quick glide and a slow one alike. A low value accepts a short stop, but a careful glide that slows down everywhere then writes letters twice by itself. A high value asks for a clear stop.</string>
+    <!-- The three marks a stroke can carry on a key: a pause and a back and
+         forth say the letter is in the word, a circle says it is there twice
+         (#337). -->
+    <string name="typing_glide_dwell_title">Pause to mark a letter</string>
+    <string name="typing_glide_dwell_subtitle">How long to stay on a key to say the letter is in the word</string>
+    <string name="typing_glide_dwell_info">A glide along one row of keys draws the same straight line for \"write\", \"wire\" and \"wrote\". Stop on a key for a moment to say that its letter is in the word, and the words without that letter lose. The stop counts for the key you stop on, not for the keys next to it. A stop does not write a letter twice: draw a loop for that. The value is a multiple of your own speed in that same glide, not a number of seconds, so it works in a quick glide and a slow one alike. A low value accepts a short stop, but a careful glide that slows down everywhere then marks keys that it only goes past. A high value asks for a clear stop.</string>
 
     <string name="typing_glide_loop_title">Loop to double a letter</string>
     <string name="typing_glide_loop_subtitle">Draw a small circle on a key to write the letter twice</string>
-    <string name="typing_glide_loop_info">This is the mark Swype taught. Glide to the letter, go around on it one time, and carry on. The circle costs the word nothing, because the keyboard takes the loop out of the distance your finger travelled. Turn this off if your glides curl on the way and you get letters written twice that you did not ask for.</string>
+    <string name="typing_glide_loop_info">This is the mark Swype taught, and it is the only mark that writes a letter twice. Glide to the letter, go around on it one time, and carry on. The circle costs the word nothing, because the keyboard takes the loop out of the distance your finger travelled. The circle belongs to the one key nearest its middle, so the keys that its edge goes over stay out of the word. Turn this off if your glides curl on the way and you get letters written twice that you did not ask for.</string>
 
     <string name="typing_glide_loop_arc_title">Loop sensitivity</string>
     <string name="typing_glide_loop_arc_subtitle">How much of a circle a curl must be to count as one</string>
@@ -542,19 +551,22 @@
 
     <string name="typing_glide_loop_radius_title">Loop centring</string>
     <string name="typing_glide_loop_radius_subtitle">How near the letter the middle of a circle must be</string>
-    <string name="typing_glide_loop_radius_info">Measured in key widths. The keyboard gives a circle to the key nearest its middle. A circle drawn through a key sits about a third of a key to one side, so a very low value finds no letter for it and the mark does nothing. A high value can give the mark to the key next door.</string>
+    <string name="typing_glide_loop_radius_info">Measured in key widths. The keyboard gives a circle to the one key nearest its middle, and only if that key is this near. A circle drawn through a key sits about a third of a key to one side, so a very low value finds no letter for it and the mark does nothing. A high value also accepts a circle drawn between two keys, and gives it to the nearer one.</string>
 
-    <string name="typing_glide_wiggle_title">Wiggle to double a letter</string>
-    <string name="typing_glide_wiggle_subtitle">Rub back and forth on a key to write the letter twice</string>
-    <string name="typing_glide_wiggle_info">The other mark people use for a letter written twice: instead of a circle, they scrub over the key. This is off, because a slow turn drawn with an unsteady finger looks much the same, and the keyboard then writes letters twice that you wrote one time. Turn it on if this is the mark you make.</string>
+    <string name="typing_glide_wiggle_title">Wiggle to mark a letter</string>
+    <string name="typing_glide_wiggle_subtitle">Rub back and forth on a key to say the letter is in the word</string>
+    <string name="typing_glide_wiggle_info">The moving way to do what a pause does: instead of a stop, scrub over the key. It says that the letter is in the word. It does not write the letter twice. This is off, because a slow turn drawn with an unsteady finger looks much the same, and the keyboard then marks keys that you only went past. Turn it on if this is the mark you make.</string>
 
     <string name="typing_glide_wiggle_strength_title">Wiggle strength</string>
-    <string name="typing_glide_wiggle_strength_subtitle">How much a rub counts as evidence of two letters</string>
-    <string name="typing_glide_wiggle_strength_info">A value of 100 percent makes the mark as good as a circle. A lower value leaves it as a hint, which a much more common word can still win against. Used only while the switch above is on.</string>
+    <string name="typing_glide_wiggle_strength_subtitle">How much a rub counts, compared with a full stop</string>
+    <string name="typing_glide_wiggle_strength_info">A value of 100 percent makes a rub as strong as a full stop on the key. A lower value leaves it as a hint, which a much more common word can still win against. Used only while the switch above is on.</string>
 
     <string name="typing_glide_wiggle_extent_title">Biggest wiggle that counts</string>
     <string name="typing_glide_wiggle_extent_subtitle">How far the finger can go in a rub</string>
-    <string name="typing_glide_wiggle_extent_info">Measured in key widths. Keep this under the width of one key, or a word that goes from one key to the key next door and back reads as one letter written twice. Used only while the switch above is on.</string>
+    <string name="typing_glide_shapes_per_word_title">Shapes kept per word</string>
+    <string name="typing_glide_shapes_per_word_subtitle">How many ways of swiping one word are remembered</string>
+    <string name="typing_glide_shapes_per_word_info">Learn my swipe style keeps your own shapes for each word you swipe, and a swipe is read against the nearest of them. Swipe a word the same way and the shape settles in; swipe it a clearly different way and that is kept as another shape, up to this many, the least used making room. Raise it if you swipe some words several different ways and the keyboard keeps forgetting one of them. The shapes travel in a backup under Swipe style, so you can see how many your words really use. Lowering it takes the extras out of use at once, and they are only deleted when that word next learns a new shape. Used only while Learn my swipe style is on.</string>
+    <string name="typing_glide_wiggle_extent_info">Measured in key widths. Keep this under the width of one key, or a word that goes from one key to the key next door and back reads as a rub on one key. Used only while the switch above is on.</string>
 
     <string name="typing_swipe_start_distance_title">Swipe start distance</string>
     <string name="typing_swipe_start_distance_subtitle">How far to move before a glide starts. A low value is more sensitive</string>
@@ -632,6 +644,10 @@
     <string name="typing_hint_flick_subtitle">A quick swipe down on a key types its small corner character</string>
     <string name="typing_hint_flick_info">Each key shows its first press-and-hold character in the corner, such as 1 on q. A short, quick swipe straight down on the key types that character with no hold. This works on any key that has press-and-hold characters, on every layer. The spacebar, backspace and the shift and modifier keys keep their own swipes. The swipe must be short, straight down and fast. A longer or slower drag is a glide, as before. With glide typing on, a very fast glide of a short word that goes straight down, such as \"ed\", can type the hint instead. This setting is off by default.</string>
 
+    <string name="typing_capital_flick_title">Swipe up for a capital</string>
+    <string name="typing_capital_flick_subtitle">A quick swipe up on a letter types it as a capital</string>
+    <string name="typing_capital_flick_info">A short, quick swipe straight up on a letter types its capital, with no need to press shift first. On a key that has its own shifted character, such as a number key with a symbol above it, the swipe types that character. The swipe must be short, straight up and fast, like the swipe down for the hint. A longer or slower drag is a glide, as before. If Words on the keys shows a word on the key, a swipe up still takes that word. With glide typing on, a very fast glide of a short word that goes straight up, such as \"de\", can type a capital instead. This setting is off by default.</string>
+
     <string name="typing_space_hold_keys_label">Spacebar long press keys</string>
     <string name="typing_space_hold_keys_hint">Type the characters you want on the spacebar long press, with a space between each one. Example: 🙂 ❤️ 👍. The keyboard then shows them in a popup when you press and hold the spacebar. Leave this blank to keep the normal long press, which opens the language picker or repeats spaces.</string>
 
@@ -650,6 +666,9 @@
     <string name="typing_language_picker_style_info">This is the chooser that opens when you hold the spacebar with more than four layouts on, or press and hold the 🌐 key. List shows your layouts top to bottom, and a hold on the spacebar walks it up and down. Carousel shows them side by side, centred on the one you are typing in, and the same hold walks it left and right, the way the spacebar swipe already moves. Both let you tap a layout, and both keep Other keyboards… at the end.</string>
     <string name="typing_language_picker_style_list_label">List</string>
     <string name="typing_language_picker_style_carousel_label">Carousel</string>
+    <string name="typing_space_hold_picker_long_ring_title">Picker for more than four layouts</string>
+    <string name="typing_space_hold_picker_long_ring_subtitle">Hold the spacebar to open the picker when more than four layouts are on</string>
+    <string name="typing_space_hold_picker_long_ring_info">With four layouts or fewer, holding the spacebar shows the sideways preview above it, and a drag steps through your layouts. Past four, the hold opens the picker instead, as a list or a carousel. Turn this off to keep the sideways preview however many layouts are on. It shows five at a time and slides along as you drag, so every layout is still in reach. The 🌐 key\'s long press still opens the picker. If the quick swipe is not set to Language, the hold opens the picker at any length.</string>
 
     <string name="typing_spacebar_text_label">Spacebar text</string>
     <!-- %1$s is the literal token %s, which the user types into the field. Keep it as it is. -->
@@ -779,6 +798,9 @@
 
     <string name="typing_space_cursor_step_title">Cursor speed</string>
     <string name="typing_space_cursor_step_subtitle">How far you slide along the spacebar to move one character</string>
+    <string name="typing_space_cursor_magnifier_title">Cursor magnifier</string>
+    <string name="typing_space_cursor_magnifier_subtitle">Show the text at the cursor, larger, while a spacebar swipe moves the cursor</string>
+    <string name="typing_space_cursor_magnifier_info">The magnifier shows the line of text around the cursor. It goes above the cursor when the app tells the keyboard where the cursor is. If the app does not, it goes above the keyboard. The trackpad tool has a separate setting for this.</string>
     <string name="typing_space_cursor_step_info">A smaller distance moves the cursor faster, so a short spacebar can still cross a long line. A larger one is steadier if your slides tend to overshoot. This setting is 16 dp by default.</string>
 
     <string name="typing_backspace_step_title">Word delete distance</string>
@@ -809,11 +831,15 @@
     <string name="typing_ask_before_learning_subtitle">Offer a chip instead of counting how often you type the word</string>
     <string name="typing_word_menu_title">Word menu</string>
     <string name="typing_word_menu_subtitle">What pressing and holding a suggested word offers</string>
-    <string name="typing_word_menu_info">Press and hold a word on the suggestion strip to open a menu about it. "Edit" is always there: it opens a card that spells, weights and ranks the word, shows where it comes from, and carries every action below, so you can turn the rest off to keep the menu short. "Add" only appears while you type a word that is not in your personal dictionary, and "Delete" only for a word the keyboard can forget.</string>
+    <string name="typing_word_menu_info">Press and hold a word on the suggestion strip to open a menu about it. "Edit" is always there: it opens a card that spells, weights and ranks the word, shows where it comes from, and carries the Never suggest, Add and Delete actions, so you can turn those off to keep the menu short. "Add" only appears while you type a word that is not in your personal dictionary, and "Delete" only for a word the keyboard can forget. "Synonyms" lists words with the same meaning, and tapping one puts it in place of the word. It appears for English words.</string>
     <!-- The three optional items of that menu, as chips. -->
     <string name="typing_word_menu_item_never_suggest">Never suggest</string>
     <string name="typing_word_menu_item_add">Add</string>
     <string name="typing_word_menu_item_delete">Delete</string>
+    <string name="typing_word_menu_item_synonyms">Synonyms</string>
+    <string name="typing_synonym_sources_title">Synonym sources</string>
+    <string name="typing_synonym_sources_subtitle">Where the word menu looks for synonyms, in order</string>
+    <string name="typing_synonym_sources_info">The keyboard asks the first source that is on. When it has no synonyms for the word, or cannot be reached, the keyboard asks the next one. Drag a source to change the order, and turn off a source to never ask it. Online sources receive only the word you held, and a look-up is not stopped by Data saver, because you ask for it.</string>
 
     <string name="typing_rank_control_title">Adjust rank changes</string>
     <string name="typing_rank_control_subtitle">What the word card\'s rank controls edit</string>

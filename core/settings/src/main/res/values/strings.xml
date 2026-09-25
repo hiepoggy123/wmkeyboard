@@ -60,6 +60,20 @@
     <string name="core_settings_translate_engine_auto_label">Automatic</string>
 
     <!-- ================================================================== -->
+    <!-- DeepL Write: how the rewritten text should read.                   -->
+    <!-- ================================================================== -->
+
+    <string name="core_settings_deepl_style_default_label">As it is</string>
+    <string name="core_settings_deepl_style_simple_label">Simple</string>
+    <string name="core_settings_deepl_style_business_label">Business</string>
+    <string name="core_settings_deepl_style_academic_label">Academic</string>
+    <string name="core_settings_deepl_style_casual_label">Casual</string>
+    <string name="core_settings_deepl_style_friendly_label">Friendly</string>
+    <string name="core_settings_deepl_style_confident_label">Confident</string>
+    <string name="core_settings_deepl_style_diplomatic_label">Diplomatic</string>
+    <string name="core_settings_deepl_style_enthusiastic_label">Enthusiastic</string>
+
+    <!-- ================================================================== -->
     <!-- Grammar tool: which English the offline checker reads against.     -->
     <!-- ================================================================== -->
 
@@ -137,6 +151,13 @@
     <string name="core_settings_copied_code_chip_off_label">Never</string>
     <string name="core_settings_clipboard_view_grid_label">Grid</string>
     <string name="core_settings_clipboard_view_list_label">List</string>
+    <string name="core_settings_clip_time_off_label">None</string>
+    <string name="core_settings_board_corner_top_left_label">Top left</string>
+    <string name="core_settings_board_corner_top_right_label">Top right</string>
+    <string name="core_settings_board_corner_bottom_left_label">Bottom left</string>
+    <string name="core_settings_board_corner_bottom_right_label">Bottom right</string>
+    <string name="core_settings_clip_time_copied_label">Time copied</string>
+    <string name="core_settings_clip_time_expires_label">Time left</string>
     <string name="core_settings_copied_code_chip_code_fields_label">Code boxes only</string>
     <string name="core_settings_copied_code_chip_any_field_label">Any field</string>
 
@@ -241,8 +262,12 @@
          no screen at all. -->
     <string name="core_settings_notify_backup_title">Automatic backup did not run</string>
     <string name="core_settings_notify_backup_permission">The keyboard no longer has access to the backup folder. Open Backup and choose it again.</string>
+    <string name="core_settings_notify_backup_permission_account">The keyboard lost access to your backup account. Open Backup and sign in again.</string>
+    <string name="core_settings_notify_backup_permission_server">The backup server did not accept the sign-in details. Open Backup and check them.</string>
+    <string name="core_settings_notify_backup_target_remote">The backup location is gone. Open Backup and check that location.</string>
     <string name="core_settings_notify_backup_target">The backup folder is gone. Open Backup and choose another one.</string>
     <string name="core_settings_notify_backup_space">There was not enough room to write the backup.</string>
+    <string name="core_settings_notify_backup_unsafe">The keyboard stopped a backup because the location is not safe. Open Backup to see why.</string>
     <string name="core_settings_notify_backup_io">The backup could not be written. Open Backup to see the details.</string>
 
 </resources>

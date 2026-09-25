@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.settings.sink
 
 import com.wasimaster.wmkeyboard.core.net.BackupTraffic
+import com.wasimaster.wmkeyboard.core.net.InternetGate
 import com.wasimaster.wmkeyboard.core.net.NetLogInterceptor
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
 import com.wasimaster.wmkeyboard.core.util.runCancellable
@@ -12,6 +13,7 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Credentials
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -29,10 +31,15 @@ import okhttp3.Response
  * library is already in the APK as Coil's network engine, so declaring it costs
  * nothing but the line in the version catalog.
  *
- * **HTTPS only.** The credentials go in an `Authorization: Basic` header, which
- * is the password in base64 and nothing more. The app permits cleartext traffic
- * for the local-model tools, so the platform will not stop this; [readiness]
- * does.
+ * **HTTPS only**, with one exception. The credentials go in an
+ * `Authorization: Basic` header, which is the password in base64 and nothing
+ * more. The app permits cleartext traffic for the local-model tools, so the
+ * platform will not stop this; [readiness] does. The exception is an address
+ * on a Tailscale network ([isTailnet]), where the plain HTTP travels inside
+ * Tailscale's WireGuard tunnel and Taildrive offers nothing else.
+ *
+ * No user name and no password sends no `Authorization` at all, for a server
+ * that asks for none. Taildrive is one: being on the tailnet is the permission.
  *
  * Unlike the SAF sink this one gets a real atomic install: `MOVE` is part of the
  * protocol rather than an optional capability, so a backup is written to a
@@ -53,6 +60,7 @@ class WebDavSink(
 
     private val client: OkHttpClient by lazy {
         OkHttpClient.Builder()
+            .addInterceptor(InternetGate)
             .addNetworkInterceptor(NetLogInterceptor(NetSource.BACKUP, NetLogInterceptor.PATH) { BackupTraffic.unattended })
             .connectTimeout(CONNECT_TIMEOUT_S, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_S, TimeUnit.SECONDS)
@@ -67,28 +75,62 @@ class WebDavSink(
 
     private fun request(url: String): Request.Builder = Request.Builder()
         .url(url)
-        .header("Authorization", Credentials.basic(user, password))
         .header("User-Agent", USER_AGENT)
+        .apply {
+            if (user.isNotEmpty() || password.isNotEmpty()) header("Authorization", Credentials.basic(user, password))
+        }
 
     override suspend fun readiness(): Result<Unit> = withContext(Dispatchers.IO) {
         runCancellable {
-            if (!base.startsWith("https://", ignoreCase = true)) {
+            if (!base.startsWith("https://", ignoreCase = true) && !isTailnet(base)) {
                 // Basic auth over cleartext is the password in plain sight on
                 // every hop. Refused here rather than warned about.
-                throw BackupSinkException(SinkError.NOT_CONFIGURED)
-            }
-            if (user.isEmpty() || password.isEmpty()) {
                 throw BackupSinkException(SinkError.NOT_CONFIGURED)
             }
             // Depth 0: ask about the collection itself and nothing in it. The
             // point is to fail before a bundle has been built, so it must not
             // pull a directory listing to do it.
-            call(
-                request(base)
-                    .header("Depth", "0")
-                    .method("PROPFIND", EMPTY_XML.toRequestBody(XML_MEDIA_TYPE))
-                    .build(),
-            ) { }
+            try {
+                propfindSelf(base)
+            } catch (missing: BackupSinkException) {
+                if (missing.reason != SinkError.TARGET_MISSING) throw missing
+                // A preset names a folder the user may not have made yet.
+                makeCollection(base, MKCOL_DEPTH)
+                propfindSelf(base)
+            }
+        }
+    }
+
+    private fun propfindSelf(url: String) {
+        call(
+            request(url)
+                .header("Depth", "0")
+                .method("PROPFIND", EMPTY_XML.toRequestBody(XML_MEDIA_TYPE))
+                .build(),
+        ) { }
+    }
+
+    /**
+     * MKCOL on [url], making up to [depth] missing parents first. A server
+     * answers 409 when the parent is missing, and 405 when the collection is
+     * already there, which is also fine.
+     */
+    private fun makeCollection(url: String, depth: Int) {
+        val response = try {
+            client.newCall(request(url).method("MKCOL", null).build()).execute()
+        } catch (failure: Throwable) {
+            throw BackupSinkException(SinkError.IO, failure)
+        }
+        val code = response.use { it.code }
+        when {
+            code in 200..299 || code == HTTP_METHOD_NOT_ALLOWED -> Unit
+            code == HTTP_CONFLICT && depth > 0 -> {
+                val parent = url.trimEnd('/').substringBeforeLast('/') + "/"
+                if (parent.length <= "https://x/".length) throw BackupSinkException(SinkError.TARGET_MISSING)
+                makeCollection(parent, depth - 1)
+                makeCollection(url, 0)
+            }
+            else -> throw BackupSinkException(statusError(code))
         }
     }
 
@@ -149,7 +191,7 @@ class WebDavSink(
             ) { it.body?.string().orEmpty() }
 
             WebDavListing.parse(xml)
-                .filter { !it.isCollection && AutoBackupNaming.isOurs(it.name) }
+                .filter { !it.isCollection && AutoBackupNaming.isListed(it.name) }
                 .map { entry ->
                     SinkEntry(
                         // The href, resolved against the base, is what addresses
@@ -227,6 +269,29 @@ class WebDavSink(
     companion object {
         const val ID = "webdav"
 
+        /**
+         * Whether [url] is an `http` address on a Tailscale network, where
+         * plain HTTP is allowed. Taildrive's local server at
+         * `100.100.100.100`, a tailnet peer's address (`100.64.0.0/10`, or
+         * `fd7a:115c:a1e0::/48` over IPv6), or a MagicDNS name under `ts.net`.
+         * Tailscale encrypts everything between those end to end.
+         *
+         * A hand-picked `100.64.x.x` on a network without Tailscale would pass
+         * too. That range is carrier-grade NAT space, not a home network's, and
+         * the user typed the address; the check is there to stop a mistake,
+         * not someone set on sending in clear.
+         */
+        fun isTailnet(url: String): Boolean {
+            val parsed = url.trim().toHttpUrlOrNull() ?: return false
+            if (parsed.scheme != "http") return false
+            val host = parsed.host.lowercase()
+            if (host.endsWith(".ts.net")) return true
+            if (host.startsWith("fd7a:115c:a1e0:")) return true
+            val octets = host.split('.').mapNotNull { it.toIntOrNull() }
+            if (octets.size != 4 || host.count { it == '.' } != 3) return false
+            return octets[0] == 100 && octets[1] in 64..127
+        }
+
         private const val USER_AGENT = "WMKeyboard"
 
         private const val CONNECT_TIMEOUT_S = 15L
@@ -237,6 +302,8 @@ class WebDavSink(
         private const val HTTP_FORBIDDEN = 403
         private const val HTTP_NOT_FOUND = 404
         private const val HTTP_CONFLICT = 409
+        private const val HTTP_METHOD_NOT_ALLOWED = 405
+        private const val MKCOL_DEPTH = 3
         private const val HTTP_PAYLOAD_TOO_LARGE = 413
         private const val HTTP_INSUFFICIENT_STORAGE = 507
 

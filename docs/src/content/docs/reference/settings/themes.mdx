@@ -7,11 +7,12 @@ sidebar:
 
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
+import Shot from '@components/Shot.astro';
 
 Two screens live behind **Keyboard themes**. One is a gallery for picking, creating, and managing themes. The other is an editor for building one from scratch. This page is the field reference for both. For the reasoning and the bigger picture, read [Theming overview](/themes/overview/) and [Theme editor](/themes/editor/) instead.
 
 <PhoneFrame caption="The theme gallery: Mode, Auto (light + dark), and the Themes grid.">
-![The theme gallery: Mode, Auto (light + dark), and the Themes grid.](@assets/screens/reference/settings/themes-gallery-overview.webp)
+<Shot id="reference/settings/themes-gallery-overview" alt="The theme gallery: Mode, Auto (light + dark), and the Themes grid." />
 </PhoneFrame>
 
 ## Theme list
@@ -49,10 +50,11 @@ Both apply to the settings app itself and to the **Default (system)** theme only
 Each half of the pair is independent: one can hold a single theme while the other selects from a set. A random half shows how many themes it selects from in place of a theme name. The picker's list is the same either way, with radio buttons for One theme and checkboxes for Random, and a checkbox on each family name that ticks or unticks every look in it.
 
 <PhoneFrame caption="The dark theme picker set to Random, with a family ticked whole.">
+  <Shot id="reference/settings/themes-random-dark" alt="The dark theme picker set to Random, with a family ticked whole." />
 </PhoneFrame>
 
 <PhoneFrame caption="Auto theme on, with Time of day chosen and both clock rows visible.">
-![Auto theme on, with Time of day chosen and both clock rows visible.](@assets/screens/reference/settings/themes-auto-schedule.webp)
+<Shot id="reference/settings/themes-auto-schedule" alt="Auto theme on, with Time of day chosen and both clock rows visible." />
 </PhoneFrame>
 
 ### Themes
@@ -61,6 +63,10 @@ Each half of the pair is independent: one can hold a single theme while the othe
 |---|---|---|---|
 | Theme gallery style | Segmented row | Auto / Grouped / Separate | Auto |
 
+<PhoneFrame side caption="Deleting a custom theme asks for confirmation before removing it.">
+<Shot id="reference/settings/themes-delete-confirm" alt="Deleting a custom theme asks for confirmation before removing it." />
+</PhoneFrame>
+
 **Grouped** draws a theme that has more than one look as a single card with a dot per look. **Separate** gives every look its own card. **Auto** reads your answer to the setup wizard's "how much do you want to tweak" question: "keep it simple" gets Separate, and every other answer (including never having answered) gets Grouped. A caption above the control says which way it's currently resolving. See [Theme families and looks](/themes/families/).
 
 | Control | What it does |
@@ -68,6 +74,7 @@ Each half of the pair is independent: one can hold a single theme while the othe
 | Create theme | Makes a new custom theme named "My theme", seeded from the first swatch in the theme editor's color row, generated dark or light to match what your phone is showing right now, sets it active, and opens the editor on it right away |
 | Import | Opens a file picker for a theme file, adds it to Your themes under a fresh id, and switches to it immediately (the editor doesn't open) |
 | FlorisBoard | Reads a FlorisBoard `.flex` theme file and converts it into a custom theme. See [Importing other keyboards](/reference/importing-other-keyboards/) |
+| Gboard | Asks **Open a file** (a Gboard theme `.zip` or an Rboard pack) or **Browse Rboard** (the Rboard collection, fetched from GitHub only when that screen opens; not in the Google Play build, where the button opens the file picker). Each theme is previewed with what did not come across, then saved without being switched on. See [Gboard themes and Rboard packs](/reference/importing-other-keyboards/#gboard-themes-and-rboard-packs) |
 | Card tap | Applies that theme to the keyboard immediately. On a family card, tapping a dot applies that look and turns the card's preview to it |
 | Card pencil (custom theme) | Opens that theme in the editor |
 | Card pencil (built-in theme) | Copies the built-in into a new custom theme named "*(name) copy*", makes the copy active, and opens the editor on the copy (the original is untouched) |
@@ -77,10 +84,6 @@ Each half of the pair is independent: one can hold a single theme while the othe
 | Card delete *(custom themes only)* | Confirms first, then removes the theme. Its background and texture images are swept off disk once nothing else still points at them, since looks and family copies share image files. Deleting a variant's own card (Separate style) removes just that look and falls the selection back to the family; deleting a family card, or the first look's card, removes the whole family and falls back to Default |
 
 The grid runs two cards per row. **Default (system)** comes first, with no edit, export, or delete, since it's generated live rather than stored. Then **Your themes**, which only shows once you have at least one. Then **Built-in**, under its own note: "Press a theme to use it. The pencil icon makes a copy that you can edit." Built-in cards never show a delete button. A second caption explains the pin: your own themes always show in the Appearance tool, built-ins only when pinned.
-
-<PhoneFrame caption="Deleting a custom theme asks for confirmation before removing it.">
-![Deleting a custom theme asks for confirmation before removing it.](@assets/screens/reference/settings/themes-delete-confirm.webp)
-</PhoneFrame>
 
 There are 29 built-in themes: 19 original WM Keyboard designs, plus 10 ports of well-known editor colour schemes (Dracula, Alucard, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Catppuccin Frappé, Catppuccin Macchiato, Tokyo Night). Cyberpunk sits with the ports in the source but isn't one: it's ours, and it's the theme that uses the whole feature set at once (animated board gradient, cut keys, translucent faces, neon outline). Twenty-four of the 29 sit in six families (Nightfall, Pastel, Gradients, Dracula, Solarized, Catppuccin), so the grouped grid shows eleven built-in cards. See [Theming overview](/themes/overview/#choosing-a-theme) for the full list and what each one showcases.
 
@@ -114,8 +117,11 @@ Everything below this row edits the open look alone. See [Theme families and loo
 | Theme name | Text field |
 | Dark theme | Toggle (regenerates the palette as a dark or light set) |
 | Seed swatch row | 15 tappable colors |
+| Follow wallpaper colors | Toggle, off (on for a FlorisBoard theme written in Material You colors). Needs Android 12 or later |
 
 Tapping a swatch, or flipping **Dark theme**, reseeds every seed-derived color at once (board, keys, accent, popups) while leaving hand-edited fields, gradients, the background image, key shape, border, and animation untouched.
+
+**Follow wallpaper colors** moves the theme's colors onto the wallpaper's palette as the keyboard draws them. The stored colors don't change. See [following your wallpaper](/themes/editor/#following-your-wallpaper) for how each kind of theme is mapped.
 
 ### Board
 

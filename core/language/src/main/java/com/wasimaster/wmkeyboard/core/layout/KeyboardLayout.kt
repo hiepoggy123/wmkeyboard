@@ -230,7 +230,50 @@ data class Key(
      * for one.
      */
     val repeatOnHold: Boolean = false,
+    /**
+     * While the reading being typed ends in a kana that has a small, dakuten
+     * or handakuten form, this key stands in for the 小゛゜ key: it draws
+     * `小゛゜` and a tap runs [KeyAction.KanaVariant] (issue #340). The rest of
+     * the time it is the key it was authored as — a 🌐, an emoji key, anything.
+     *
+     * The way the phone kana pads save a key: the 小゛゜ key is only ever useful
+     * right after a kana, which is exactly when nothing else on that key is
+     * wanted. A flag on the key rather than an action of its own, so the key's
+     * own action and everything else about it stay authored and editable, and
+     * any key of the pad can be given the second job, not only the globe.
+     *
+     * Additive and defaulted, so no format-version bump.
+     */
+    val kanaVariantWhileComposing: Boolean = false,
 )
+
+/** What a [Key.kanaVariantWhileComposing] key draws while it is the 小゛゜ key. */
+const val KanaVariantKeyLabel = "小゛゜"
+
+/**
+ * This key as the 小゛゜ key, for as long as [Key.kanaVariantWhileComposing]
+ * has it stand in for one. Everything about where and how big it is survives;
+ * everything about what it did is replaced, down to its hold, so a press and
+ * hold does not open the popup of the key it is covering for.
+ */
+fun Key.asKanaVariantKey(): Key = copy(
+    label = KanaVariantKeyLabel,
+    output = null,
+    shiftLabel = null,
+    action = KeyAction.KanaVariant,
+    longPress = emptyList(),
+    actionAlternates = emptyList(),
+    clipboardAction = null,
+    icon = null,
+    iconHint = null,
+    flick = emptyMap(),
+    letters = null,
+    repeatOnHold = false,
+)
+
+/** Whether any key of this grid can stand in for the 小゛゜ key. */
+fun KeyboardLayout.hasKanaVariantKeys(): Boolean =
+    rows.any { row -> row.any { it.kanaVariantWhileComposing } }
 
 /**
  * The letters this key can stand for, as the decoder and the glide grid read
@@ -255,6 +298,18 @@ fun Key.letterSet(): String {
 fun Key.isAmbiguous(): Boolean = letterSet().length > 1
 
 /**
+ * What a key's letter set may hold: a letter, or a combining mark that is part
+ * of a written word (a matra, a virama, a nukta, a tone mark).
+ */
+fun Char.spellsAWord(): Boolean = isLetter() || category in SPELLING_MARKS
+
+private val SPELLING_MARKS = setOf(
+    CharCategory.NON_SPACING_MARK,
+    CharCategory.COMBINING_SPACING_MARK,
+    CharCategory.ENCLOSING_MARK,
+)
+
+/**
  * This key rebuilt around the letter set [raw] spells, with the anchor invariant
  * applied rather than assumed.
  *
@@ -273,13 +328,19 @@ fun Key.isAmbiguous(): Boolean = letterSet().length > 1
  * which is not always 1:1 (Turkish `İ` lowercases to two characters) and would
  * quietly make the set longer than the label it came from.
  *
+ * A combining mark counts as a letter here (issue #332). An Indic keypad's 1
+ * carries the virama and the anusvara, and its 2 and 3 carry the vowel signs,
+ * because that is where the phones of the Indian market put them: each is a
+ * keystroke of its own that the word is spelled with, exactly like a letter,
+ * and dropping them left those scripts with no way to spell a word at all.
+ *
  * An empty result clears the field, which is what an ordinary key is.
  */
 fun Key.withLetters(raw: String): Key {
     val set = StringBuilder()
     for (ch in raw) {
         val letter = ch.lowercaseChar()
-        if (letter.isLetter() && letter !in set) set.append(letter)
+        if (letter.spellsAWord() && letter !in set) set.append(letter)
     }
     return if (set.isEmpty()) {
         copy(letters = null)
@@ -387,9 +448,27 @@ sealed interface AlternateEntry {
  * whole point of [Key.actionAlternatesFirst].
  */
 fun Key.alternateEntries(): List<AlternateEntry> {
-    val characters = longPress.map { AlternateEntry.Character(it) }
+    // A Keyman key's long-press entries are keys of their own, with their own
+    // id and layer for the rules to match on, so they go out as key presses
+    // rather than as the text on their caps.
+    val keyman = (action as? KeyAction.KeymanKey)?.longPress?.takeIf { it.size == longPress.size }
+    val characters = longPress.mapIndexed { i, text ->
+        keyman?.get(i)?.let { AlternateEntry.Action(KeyAlternate(action = it.toAction(), label = text)) }
+            ?: AlternateEntry.Character(text)
+    }
     val actions = actionAlternates.map { AlternateEntry.Action(it) }
     return if (actionAlternatesFirst) actions + characters else characters + actions
+}
+
+/**
+ * The key a flick towards [direction] commits: the flick's own Keyman key when
+ * this is a Keyman key that has one, else this key typing the flick's text.
+ */
+fun Key.flickKey(direction: FlickDirection): Key? {
+    val text = flick[direction] ?: return null
+    val target = (action as? KeyAction.KeymanKey)?.flick?.get(direction)
+        ?: return copy(output = text)
+    return Key(label = text, output = target.text, action = target.toAction())
 }
 
 /**
@@ -455,6 +534,8 @@ data class KeyboardLayout(
      * on screen rather than re-deriving the layer-beats-layout rule.
      */
     val themeId: String? = null,
+    /** [LayerSpec.keymanFrames], carried onto the grid on screen. */
+    val keymanFrames: Map<String, KeymanTarget> = emptyMap(),
 )
 
 /**

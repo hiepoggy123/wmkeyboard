@@ -72,7 +72,6 @@ import com.wasimaster.wmkeyboard.core.layout.rowScaledKeyHeight
 import com.wasimaster.wmkeyboard.core.layout.secondaryLayouts
 import com.wasimaster.wmkeyboard.core.layout.spanRowWidths
 import com.wasimaster.wmkeyboard.core.layout.validatePanelLayout
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ui.KbTheme
@@ -192,6 +191,7 @@ internal fun PanelLayoutsGroup(custom: List<PanelLayoutSpec>, onNavigate: (Strin
                 val isCustom = custom.any { it.panel == kind }
                 WmRow(
                     title = name,
+                    icon = SettingsRowIcons[panelTitleRes(kind)],
                     subtitle = stringResource(
                         if (isCustom) R.string.panel_layout_value_custom else R.string.panel_layout_value_default,
                     ),
@@ -206,7 +206,7 @@ internal fun PanelLayoutsGroup(custom: List<PanelLayoutSpec>, onNavigate: (Strin
 @Composable
 internal fun PanelLayoutEditorScreen(
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     kind: PanelKind,
     onNavigate: (String) -> Unit,
 ) {
@@ -260,8 +260,9 @@ internal fun PanelLayoutEditorScreen(
     fun editGridCoalesced(transform: (LayerSpec) -> LayerSpec) =
         editCoalesced { it.copy(grid = transform(it.grid)) }
 
-    val (compiled, previewHeightsDp) = remember(spec, settings.keyHeightDp, actualSize) {
-        panelPreview(kind, spec.grid, spec.appearance, settings, actualSize, themeId = spec.grid.themeId)
+    val keyHeightDp = settings.watch { it.keyHeightDp }
+    val (compiled, previewHeightsDp) = remember(spec, keyHeightDp, actualSize) {
+        panelPreview(kind, spec.grid, spec.appearance, keyHeightDp, actualSize, themeId = spec.grid.themeId)
     }
 
     SectionHeaderPublic(
@@ -412,7 +413,7 @@ internal fun panelPreview(
     kind: PanelKind,
     grid: LayerSpec,
     appearance: LayoutAppearance?,
-    settings: KeyboardSettings,
+    keyHeightDp: Int,
     actualSize: Boolean,
     themeId: String? = null,
 ): Pair<KeyboardLayout, List<Int>> {
@@ -428,7 +429,7 @@ internal fun panelPreview(
         ).takeUnless { it.isEmpty },
         themeId = themeId,
     )
-    val baseHeightDp = if (actualSize) settings.keyHeightDp else settings.keyHeightDp.coerceIn(38, 56)
+    val baseHeightDp = if (actualSize) keyHeightDp else keyHeightDp.coerceIn(38, 56)
     val heights = if (rows.isEmpty()) {
         emptyList()
     } else {
@@ -474,7 +475,7 @@ internal fun PanelEditorBody(
     onNavigate: (String) -> Unit,
     reset: ResetRow?,
     /** For the theme row: the picker lists this user's themes. */
-    settings: KeyboardSettings,
+    settings: LiveSettings,
 ) {
     val context = LocalContext.current
     val rows = grid.rows
@@ -550,6 +551,7 @@ internal fun PanelEditorBody(
         item {
             ReorderSetting(
                 title = stringResource(R.string.layout_editor_reorder_rows_title),
+                icon = SettingsRowIcons[R.string.layout_editor_reorder_rows_title],
                 dialogTitle = stringResource(R.string.layout_editor_row_order_dialog_title),
                 items = rows.indices.toList(),
                 label = { i -> rowReorderLabel(context, i + 1, rows[i].size) },
@@ -563,6 +565,7 @@ internal fun PanelEditorBody(
             item(visible = ref.row in rows.indices && rows[ref.row].size > 1) {
                 ReorderSetting(
                     title = stringResource(R.string.layout_editor_reorder_keys_title, ref.row + 1),
+                    icon = SettingsRowIcons[R.string.layout_editor_reorder_keys_title],
                     dialogTitle = stringResource(R.string.layout_editor_key_order_dialog_title),
                     items = rows[ref.row].indices.toList(),
                     label = { keyReorderLabel(context, rows[ref.row][it]) },
@@ -601,6 +604,7 @@ internal fun PanelEditorBody(
             val clearLabel = stringResource(CommonR.string.common_clear)
             WmRow(
                 title = stringResource(R.string.layout_editor_panel_theme_title),
+                icon = SettingsRowIcons[R.string.layout_editor_panel_theme_title],
                 subtitle = grid.themeId?.let { themeDisplayName(settings, it) }
                     ?: stringResource(R.string.layout_editor_panel_theme_inherit_subtitle),
                 trailing = {
@@ -707,7 +711,7 @@ internal fun PanelEditorBody(
             fieldKinds = fieldKindsFor(kind).takeIf { it.isNotEmpty() },
             // An "open a layout" key on a panel names a secondary layout the
             // same way one on a typing grid does.
-            secondaryLayouts = secondaryLayouts(settings.customLayouts),
+            secondaryLayouts = secondaryLayouts(settings.watch { it.customLayouts }),
         )
     }
 }
@@ -836,7 +840,7 @@ internal fun FieldKindPickerDialog(
 @Composable
 internal fun PanelLayoutJsonScreen(
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     kind: PanelKind,
     onDone: () -> Unit,
 ) {

@@ -79,6 +79,7 @@ import com.wasimaster.wmkeyboard.app.CaptionText
 import com.wasimaster.wmkeyboard.app.ChoiceControl
 import com.wasimaster.wmkeyboard.app.DOCS_URL
 import com.wasimaster.wmkeyboard.app.ExpandableCard
+import com.wasimaster.wmkeyboard.app.LiveSettings
 import com.wasimaster.wmkeyboard.app.LocalReduceMotion
 import com.wasimaster.wmkeyboard.app.LocalSettingsSnackbar
 import com.wasimaster.wmkeyboard.app.SectionHeader
@@ -122,7 +123,7 @@ import java.util.TimeZone
 @Composable
 internal fun NetworkActivityScreen(
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     onNavigate: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -137,17 +138,12 @@ internal fun NetworkActivityScreen(
     var shown by rememberSaveable { mutableIntStateOf(PAGE) }
     var open by remember { mutableStateOf<NetEntry?>(null) }
     val settled = rememberScreenSettled()
-    val own = remember(settings.selfHosted, settings.ai, settings.whisper, settings.autoBackup) {
-        ownHosts(settings)
-    }
-    val looks = remember(
-        settings.coloredToolIcons, settings.toolIconGradients,
-        settings.toolColorOverrides, settings.toolColorEndOverrides,
-    ) { NetSource.entries.associateWith { netSourceLook(it, settings) } }
+    val own = settings.watch { ownHosts(it) }
+    val looks = settings.watch { s -> NetSource.entries.associateWith { netSourceLook(it, s) } }
 
     LiveLine(inFlight.lastOrNull(), inFlight.size, snapshot?.rows?.firstOrNull()?.lastMillis, looks)
 
-    if (!settings.networkLog.keep) CaptionText(stringResource(R.string.netlog_off_body))
+    if (!settings.watch { it.networkLog.keep }) CaptionText(stringResource(R.string.netlog_off_body))
 
     val data = snapshot ?: return
     val summary = remember(data, period) { summarise(period, data.days, data.today, data.firstSeen) }
@@ -777,7 +773,7 @@ private fun EmptyCard(since: Long) {
 @Composable
 private fun Options(
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     hasRows: Boolean,
     onExport: () -> Unit,
 ) {
@@ -790,7 +786,7 @@ private fun Options(
             ToggleSetting(
                 R.string.netlog_keep_title,
                 stringResource(R.string.netlog_keep_subtitle),
-                settings.networkLog.keep,
+                settings.watch { it.networkLog.keep },
                 info = stringResource(R.string.netlog_keep_info),
                 default = SettingsDefaults.networkLog.keep,
             ) { scope.launch { repository.setNetworkLogKeep(it) } }
@@ -799,7 +795,7 @@ private fun Options(
             ToggleSetting(
                 R.string.netlog_keyboard_dot_title,
                 stringResource(R.string.netlog_keyboard_dot_subtitle),
-                settings.networkLog.showOnKeyboard,
+                settings.watch { it.networkLog.showOnKeyboard },
                 default = SettingsDefaults.networkLog.showOnKeyboard,
             ) { scope.launch { repository.setNetworkLogOnKeyboard(it) } }
         }
@@ -887,11 +883,18 @@ private fun ownHosts(settings: KeyboardSettings): Set<String> {
             add(compatibleUrl)
         }
         add(settings.whisper.serverUrl)
-        add(settings.autoBackup.webDavUrl)
-        add(settings.autoBackup.s3.endpoint)
+        add(settings.translate.deepl.endpoint)
+        // Every backup location's server, not only the one the screen had
+        // before there could be several.
+        for (location in settings.autoBackup.locations) {
+            add(location.webDavUrl)
+            add(location.s3.endpoint)
+        }
     }
-    return (urls.mapNotNull(::hostOf) + listOfNotNull(settings.autoBackup.ftp.host.trim().lowercase().takeIf { it.isNotEmpty() }))
-        .toSet()
+    val ftpHosts = settings.autoBackup.locations.mapNotNull { location ->
+        location.ftp.host.trim().lowercase().takeIf { it.isNotEmpty() }
+    }
+    return (urls.mapNotNull(::hostOf) + ftpHosts).toSet()
 }
 
 /** Plural quantity for a count that may exceed an Int. */

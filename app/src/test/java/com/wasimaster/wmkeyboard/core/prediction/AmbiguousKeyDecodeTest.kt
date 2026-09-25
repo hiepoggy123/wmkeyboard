@@ -1,6 +1,11 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
+import com.wasimaster.wmkeyboard.core.layout.LayoutFile
+import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
+import com.wasimaster.wmkeyboard.core.layout.isAmbiguous
+import com.wasimaster.wmkeyboard.core.layout.letterSet
 import java.io.File
+import java.text.Normalizer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -32,11 +37,11 @@ class AmbiguousKeyDecodeTest {
      * anchor letters that reach the buffer, paired with the key sets behind
      * them. Exactly the pair `WMKeyboardService` hands the engine.
      */
-    private fun keypad(word: String): Pair<String, KeySets> {
+    private fun keypad(word: String, pad: List<String> = t9): Pair<String, KeySets> {
         val anchors = StringBuilder()
         val sets = ArrayList<String>()
         for (ch in word) {
-            val group = t9.firstOrNull { ch in it } ?: error("no T9 key carries '$ch'")
+            val group = pad.firstOrNull { ch in it } ?: error("no T9 key carries '$ch'")
             anchors.append(group.first())
             sets.add(group)
         }
@@ -47,8 +52,9 @@ class AmbiguousKeyDecodeTest {
         entries: List<Pair<String, Int>>,
         word: String,
         limit: Int = 8,
+        pad: List<String> = t9,
     ): List<String> {
-        val (typed, keys) = keypad(word)
+        val (typed, keys) = keypad(word, pad)
         return search.search(
             listOf(source(PackedTrie.of(entries))), typed, KeyProximity.QWERTY, limit,
             BeamWorkspace(), keys = keys,
@@ -230,5 +236,91 @@ class AmbiguousKeyDecodeTest {
         for (word in listOf("good", "have", "there", "keyboard", "tomorrow")) {
             assertEquals(word, decode(entries, word).first())
         }
+    }
+
+    /** The key sets of a shipped per-language keypad (#332), read off its asset. */
+    private fun shippedKeypad(stem: String): List<String> {
+        val file = File("src/main/assets/layouts/${stem}_t9.${LayoutFile.FILE_EXTENSION}")
+        return LayoutFile.decode(file.readText())!!.layout.layer(LayoutLayer.LETTERS)!!
+            .rows.flatten()
+            .filter { it.isAmbiguous() }
+            .map { it.letterSet() }
+    }
+
+    @Test
+    fun aLanguageKeypadSpellsItsOwnLettersFromTheirBaseKey() {
+        // The English keypad cannot reach "für" at all: no key carries ü, and
+        // the accent fold only runs on unambiguous keystrokes. The German one
+        // puts ü on 8 with tuv, so 3 8 7 is the word, free and unedited.
+        val de = shippedKeypad("de")
+        val entries = listOf("für" to 900, "dur" to 40, "über" to 600, "straße" to 300)
+        assertEquals("für", decode(entries, "für", pad = de).first())
+        assertEquals("über", decode(entries, "über", pad = de).first())
+        assertEquals("straße", decode(entries, "straße", pad = de).first())
+    }
+
+    @Test
+    fun aKeypadInAnotherScriptDecodesTheSameWay() {
+        val cases = listOf(
+            "ru" to listOf("привет" to 500, "ещё" to 400),
+            "el" to listOf("καλημέρα" to 500, "είναι" to 400),
+            "he" to listOf("שלום" to 500, "מים" to 400),
+            "ar" to listOf("مرحبا" to 500, "إلى" to 400),
+            "fa" to listOf("سلام" to 500, "گفت" to 400),
+            "kk" to listOf("қазақ" to 500, "үй" to 400),
+            "hy" to listOf("բարև" to 500, "հայերեն" to 400),
+            "ka" to listOf("გამარჯობა" to 500, "სახლი" to 400),
+            "ur" to listOf("پاکستان" to 500, "ہے" to 400),
+        )
+        for ((stem, entries) in cases) {
+            val pad = shippedKeypad(stem)
+            for ((word, _) in entries) {
+                assertEquals("$stem: $word", word, decode(entries, word, pad = pad).first())
+            }
+        }
+    }
+
+    /**
+     * Scripts written with combining marks (#332): the vowel sign, the virama
+     * and the tone mark are keystrokes of their own, on the keys the phones put
+     * them on, and decode like any other letter of the set.
+     */
+    @Test
+    fun aKeypadSpellsWordsWithCombiningMarks() {
+        val cases = listOf(
+            "hi" to listOf("नमस्ते" to 500, "भारत" to 400),
+            "bn" to listOf("আমি" to 500, "বাংলা" to 400),
+            "ta" to listOf("வணக்கம்" to 500),
+            "th" to listOf("สวัสดี" to 500),
+            "vi" to listOf("việt" to 500, "người" to 400),
+            "yo" to listOf(Normalizer.normalize("ẹ\u0301kọ\u0301", Normalizer.Form.NFC) to 500),
+        )
+        for ((stem, entries) in cases) {
+            val pad = shippedKeypad(stem)
+            for ((word, _) in entries) {
+                assertEquals("$stem: $word", word, decode(entries, word, pad = pad).first())
+            }
+        }
+    }
+
+    /**
+     * A nukta letter on a key (ज़, U+095B) is spelled base + nukta in the word
+     * lists, because Unicode will not compose it back; one keystroke still
+     * reads the whole letter.
+     */
+    @Test
+    fun aNuktaLetterOnAKeyMatchesItsDecomposedSpelling() {
+        val typedWith = "\u095bिंदगी"
+        val listed = Normalizer.normalize(typedWith, Normalizer.Form.NFC)
+        assertEquals("the list spells it decomposed", typedWith.length + 1, listed.length)
+        val got = decode(listOf(listed to 500), typedWith, pad = shippedKeypad("hi"))
+        assertEquals(listed, got.first())
+    }
+
+    @Test
+    fun keySetsKnowWhichMembersSpellAsSeveralCharacters() {
+        val keys = requireNotNull(KeySets.of(listOf("चछजझञ\u095b", "abc")))
+        assertEquals(listOf("ज\u093c"), keys.spellingsAt(0)?.toList())
+        assertNull(keys.spellingsAt(1))
     }
 }

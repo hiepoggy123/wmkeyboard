@@ -30,8 +30,11 @@ import android.os.Build
 import com.wasimaster.wmkeyboard.core.input.composer.CjkLearning
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
 import com.wasimaster.wmkeyboard.core.settings.HoldToTalkRange
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ClipboardView
+import com.wasimaster.wmkeyboard.core.settings.ClipGridColumnsRange
+import com.wasimaster.wmkeyboard.core.settings.ClipMaxTextCharsSteps
+import com.wasimaster.wmkeyboard.core.settings.ClipPreviewLinesRange
+import com.wasimaster.wmkeyboard.core.settings.ClipTimeLabel
 import com.wasimaster.wmkeyboard.core.settings.CopiedCodeChip
 import com.wasimaster.wmkeyboard.core.settings.SensitiveClipHandling
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -62,10 +65,12 @@ private fun hasImagesPermission(context: Context): Boolean =
 @Composable
 internal fun PrivacySettings(
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    // Decides which rows the group holds; the rows read everything else.
+    val learnOn = settings.watch { it.learnFromTyping }
     // An unnamed group has no SectionHeader to hold it off the top bar, so the
     // breathing room a named group gets for free is spelled out here.
     Spacer(Modifier.height(12.dp))
@@ -113,18 +118,18 @@ internal fun PrivacySettings(
             ToggleSetting(
                 R.string.privacy_learn_typing_title,
                 stringResource(R.string.privacy_learn_typing_subtitle),
-                settings.learnFromTyping,
+                learnOn,
                 info = stringResource(R.string.privacy_learn_typing_info),
                 default = SettingsDefaults.learnFromTyping,
             ) { scope.launch { repository.setLearnFromTyping(it) } }
         }
         // Words only reach the system dictionary through the same learn path
         // the switch above owns, and that path returns before the mirror.
-        if (settings.learnFromTyping) item {
+        if (learnOn) item {
             ToggleSetting(
                 R.string.privacy_system_dictionary_title,
                 stringResource(R.string.privacy_system_dictionary_subtitle),
-                settings.addWordsToSystemDictionary,
+                settings.watch { it.addWordsToSystemDictionary },
                 info = stringResource(R.string.privacy_system_dictionary_info),
                 default = SettingsDefaults.addWordsToSystemDictionary,
             ) { scope.launch { repository.setAddWordsToSystemDictionary(it) } }
@@ -133,7 +138,7 @@ internal fun PrivacySettings(
             ToggleSetting(
                 R.string.privacy_use_system_dictionary_title,
                 stringResource(R.string.privacy_use_system_dictionary_subtitle),
-                settings.suggestionStrip.useSystemDictionary,
+                settings.watch { it.suggestionStrip.useSystemDictionary },
                 info = stringResource(R.string.privacy_use_system_dictionary_info),
                 default = SettingsDefaults.suggestionStrip.useSystemDictionary,
             ) { scope.launch { repository.setUseSystemDictionary(it) } }
@@ -142,7 +147,7 @@ internal fun PrivacySettings(
             ToggleSetting(
                 R.string.privacy_dict_shortcuts_title,
                 stringResource(R.string.privacy_dict_shortcuts_subtitle),
-                settings.suggestionStrip.expandUserDictShortcuts,
+                settings.watch { it.suggestionStrip.expandUserDictShortcuts },
                 info = stringResource(R.string.privacy_dict_shortcuts_info),
                 default = SettingsDefaults.suggestionStrip.expandUserDictShortcuts,
             ) { scope.launch { repository.setExpandUserDictShortcuts(it) } }
@@ -151,7 +156,7 @@ internal fun PrivacySettings(
             ToggleSetting(
                 R.string.privacy_incognito_title,
                 stringResource(R.string.privacy_incognito_subtitle),
-                settings.incognito,
+                settings.watch { it.incognito },
                 info = stringResource(R.string.privacy_incognito_info),
                 default = SettingsDefaults.incognito,
             ) { scope.launch { repository.setIncognito(it) } }
@@ -160,7 +165,7 @@ internal fun PrivacySettings(
             ToggleSetting(
                 R.string.privacy_auto_incognito_title,
                 stringResource(R.string.privacy_auto_incognito_subtitle),
-                settings.autoIncognito,
+                settings.watch { it.autoIncognito },
                 info = stringResource(AUTO_INCOGNITO_INFO),
                 default = SettingsDefaults.autoIncognito,
             ) { scope.launch { repository.setAutoIncognito(it) } }
@@ -171,12 +176,13 @@ internal fun PrivacySettings(
             ToggleSetting(
                 R.string.privacy_backup_title,
                 stringResource(R.string.privacy_backup_subtitle),
-                settings.cloudBackup,
+                settings.watch { it.cloudBackup },
                 info = stringResource(R.string.privacy_backup_info),
                 default = SettingsDefaults.cloudBackup,
             ) { scope.launch { repository.setCloudBackup(it) } }
         }
     }
+    OtherAppsGroup(repository, onNavigate)
     SettingsGroup(stringResource(R.string.privacy_data_group_title)) {
         item {
             ActionRow(
@@ -210,11 +216,16 @@ internal fun PrivacySettings(
  * settings.
  */
 @Composable
-internal fun VoiceSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSettings) {
     val scope = rememberCoroutineScope()
     val whisperEnabled = com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled()
-    val usingWhisper = whisperEnabled && settings.whisper.engine == "whisper"
-    val usingServer = settings.whisper.engine == "server"
+    // What decides which groups and rows the screen holds; each row reads its
+    // own value.
+    val engine = settings.watch { it.whisper.engine }
+    val voiceUiMode = settings.watch { it.voiceBar.mode }
+    val typingMode = settings.watch { it.voiceBar.typingMode }
+    val usingWhisper = whisperEnabled && engine == "whisper"
+    val usingServer = engine == "server"
     // Every build has the picker now: the server engine needs no model and no
     // native runtime, so the lite build offers system and server.
     run {
@@ -229,14 +240,14 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: KeyboardSet
                     // What the system engine is only matters while it is the one in use.
                     info = listOfNotNull(
                         stringResource(R.string.voice_engine_info),
-                        stringResource(R.string.voice_system_info).takeIf { settings.whisper.engine == "system" },
+                        stringResource(R.string.voice_system_info).takeIf { engine == "system" },
                     ).joinToString("\n\n"),
                     options = listOfNotNull(
                         "system" to systemEngine,
                         ("whisper" to whisperEngine).takeIf { whisperEnabled },
                         "server" to serverEngine,
                     ),
-                    selected = settings.whisper.engine,
+                    selected = engine,
                     default = SettingsDefaults.whisper.engine,
                     detail = { engine ->
                         when (engine) {
@@ -272,7 +283,7 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: KeyboardSet
                     com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_BAR to
                         stringResource(R.string.voice_ui_bar),
                 ),
-                selected = settings.voiceBar.mode,
+                selected = voiceUiMode,
                 default = SettingsDefaults.voiceBar.mode,
                 detail = { mode ->
                     ChoiceDetail(
@@ -299,7 +310,7 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: KeyboardSet
                     com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN to
                         stringResource(R.string.voice_typing_plain),
                 ),
-                selected = settings.voiceBar.typingMode,
+                selected = typingMode,
                 default = SettingsDefaults.voiceBar.typingMode,
                 detail = { mode ->
                     ChoiceDetail(
@@ -317,19 +328,19 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: KeyboardSet
             ToggleSetting(
                 R.string.voice_hold_picks_title,
                 stringResource(R.string.voice_hold_picks_subtitle),
-                settings.voiceBar.holdPicksTypingMode,
+                settings.watch { it.voiceBar.holdPicksTypingMode },
                 info = stringResource(R.string.voice_hold_picks_info),
                 default = SettingsDefaults.voiceBar.holdPicksTypingMode,
             ) { scope.launch { repository.setVoiceHoldPicksTypingMode(it) } }
         }
         // Only the panel's mic reads a hold: the strip and collapsed-bar mics
         // are plain taps, and the panel is never opened in those modes.
-        if (settings.voiceBar.mode == com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_PANEL) item {
+        if (voiceUiMode == com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_PANEL) item {
             val holdMsFormat = stringResource(R.string.typing_value_milliseconds)
             SliderSetting(
                 R.string.voice_hold_title,
                 subtitle = stringResource(R.string.voice_hold_subtitle),
-                value = settings.voiceBar.holdToTalkMs.toFloat(),
+                value = settings.watch { it.voiceBar.holdToTalkMs }.toFloat(),
                 range = HoldToTalkRange.first.toFloat()..HoldToTalkRange.last.toFloat(),
                 display = { holdMsFormat.format((it / 50f).roundToInt() * 50) },
                 info = stringResource(R.string.voice_hold_info),
@@ -345,22 +356,45 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: KeyboardSet
             // so it is drawn off rather than hidden: a missing row would read
             // as chaining being gone, when it is in fact forced on.
             val chainingForced =
-                settings.voiceBar.typingMode != com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_BLOCK
+                typingMode != com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_BLOCK
             ToggleSetting(
                 R.string.voice_continuous_title,
                 stringResource(R.string.voice_continuous_subtitle),
-                settings.voiceContinuous || chainingForced,
+                settings.watch { it.voiceContinuous } || chainingForced,
                 enabled = !chainingForced,
                 default = SettingsDefaults.voiceContinuous,
             ) { scope.launch { repository.setVoiceContinuous(it) } }
         }
-        if (settings.voiceBar.typingMode != com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN) item {
+        if (typingMode != com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN) item {
             ToggleSetting(
                 R.string.voice_punctuation_title,
                 stringResource(R.string.voice_punctuation_subtitle),
-                settings.voiceSpokenPunctuation,
+                settings.watch { it.voiceSpokenPunctuation },
                 default = SettingsDefaults.voiceSpokenPunctuation,
             ) { scope.launch { repository.setVoiceSpokenPunctuation(it) } }
+        }
+    }
+    // Offline Whisper has no way to take a hint, so the group only shows for
+    // the two engines that read it (#305).
+    if (!usingWhisper) {
+        SettingsGroup(stringResource(R.string.voice_bias_group)) {
+            item {
+                ToggleSetting(
+                    R.string.voice_bias_personal_title,
+                    stringResource(R.string.voice_bias_personal_subtitle),
+                    settings.watch { it.whisper.biasPersonalWords },
+                    info = stringResource(R.string.voice_bias_personal_info),
+                    default = SettingsDefaults.whisper.biasPersonalWords,
+                ) { scope.launch { repository.setVoiceBiasPersonalWords(it) } }
+            }
+            item {
+                TextFieldSetting(
+                    label = stringResource(R.string.voice_bias_words_label),
+                    value = settings.watch { it.whisper.biasWords },
+                    hint = stringResource(R.string.voice_bias_words_hint),
+                    default = SettingsDefaults.whisper.biasWords,
+                ) { repository.setVoiceBiasWords(it) }
+            }
         }
     }
     if (usingWhisper) {
@@ -369,7 +403,7 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: KeyboardSet
                 ToggleSetting(
                     R.string.voice_translate_title,
                     stringResource(R.string.voice_translate_subtitle),
-                    settings.whisper.translate,
+                    settings.watch { it.whisper.translate },
                     default = SettingsDefaults.whisper.translate,
                 ) { scope.launch { repository.setWhisperTranslate(it) } }
             }
@@ -386,13 +420,13 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: KeyboardSet
  * `/audio/transcriptions`; the docs page carries the recipes.
  */
 @Composable
-private fun VoiceServerSettings(repository: SettingsRepository, settings: KeyboardSettings) {
+private fun VoiceServerSettings(repository: SettingsRepository, settings: LiveSettings) {
     val scope = rememberCoroutineScope()
     SettingsGroup(stringResource(R.string.voice_server_group)) {
         item {
             TextFieldSetting(
                 label = stringResource(R.string.voice_server_url_label),
-                value = settings.whisper.serverUrl,
+                value = settings.watch { it.whisper.serverUrl },
                 hint = stringResource(R.string.voice_server_url_hint),
                 default = SettingsDefaults.whisper.serverUrl,
             ) { repository.setVoiceServerUrl(it) }
@@ -402,7 +436,7 @@ private fun VoiceServerSettings(repository: SettingsRepository, settings: Keyboa
             // the field, and a blank one lets each server pick its own.
             TextFieldSetting(
                 label = stringResource(R.string.voice_server_model_label),
-                value = settings.whisper.serverModel,
+                value = settings.watch { it.whisper.serverModel },
                 hint = stringResource(R.string.voice_server_model_hint),
                 default = SettingsDefaults.whisper.serverModel,
             ) { repository.setVoiceServerModel(it) }
@@ -410,7 +444,7 @@ private fun VoiceServerSettings(repository: SettingsRepository, settings: Keyboa
         item {
             ApiKeyField(
                 label = stringResource(R.string.voice_server_key_label),
-                value = settings.whisper.serverKey,
+                value = settings.watch { it.whisper.serverKey },
                 builtInAvailable = false,
                 emptyHint = stringResource(R.string.voice_server_key_hint),
             ) { repository.setVoiceServerKey(it) }
@@ -419,9 +453,17 @@ private fun VoiceServerSettings(repository: SettingsRepository, settings: Keyboa
             ToggleSetting(
                 R.string.voice_server_language_title,
                 stringResource(R.string.voice_server_language_subtitle),
-                settings.whisper.serverSendLanguage,
+                settings.watch { it.whisper.serverSendLanguage },
                 default = SettingsDefaults.whisper.serverSendLanguage,
             ) { scope.launch { repository.setVoiceServerSendLanguage(it) } }
+        }
+        item {
+            TextFieldSetting(
+                label = stringResource(R.string.voice_server_prompt_label),
+                value = settings.watch { it.whisper.serverPrompt },
+                hint = stringResource(R.string.voice_server_prompt_hint),
+                default = SettingsDefaults.whisper.serverPrompt,
+            ) { repository.setVoiceServerPrompt(it) }
         }
         item { VoiceServerTestRow(settings) }
     }
@@ -433,20 +475,21 @@ private fun VoiceServerSettings(repository: SettingsRepository, settings: Keyboa
  * the same line the keyboard would show mid-dictation.
  */
 @Composable
-private fun VoiceServerTestRow(settings: KeyboardSettings) {
+private fun VoiceServerTestRow(settings: LiveSettings) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var status by remember { mutableStateOf<String?>(null) }
     var running by remember { mutableStateOf(false) }
-    val w = settings.whisper
+    val hasUrl = settings.watch { it.whisper.serverUrl.isNotBlank() }
     val testing = stringResource(R.string.voice_server_test_running)
     val ok = stringResource(R.string.voice_server_test_ok)
     ActionRow(
         R.string.voice_server_test_title,
         subtitle = status ?: stringResource(R.string.voice_server_test_subtitle),
         action = stringResource(R.string.voice_server_test_action),
-        enabled = !running && w.serverUrl.isNotBlank(),
+        enabled = !running && hasUrl,
     ) {
+        val w = settings.value.whisper
         running = true
         status = testing
         scope.launch {
@@ -480,10 +523,17 @@ private fun VoiceServerTestRow(settings: KeyboardSettings) {
 @Composable
 internal fun ClipboardSettings(
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    // What decides which rows the groups hold; each row reads its own value.
+    val historyOn = settings.watch { it.clipboard.history }
+    val userScreenshots = settings.watch { it.clipboard.userScreenshots }
+    val trackSource = settings.watch { it.clipboard.trackSource }
+    val suggestRecent = settings.watch { it.clipboard.suggestRecent }
+    val detectEntities = settings.watch { it.clipboard.detectEntities }
+    val sensitiveHandling = settings.watch { it.clipboard.sensitiveHandling }
     // The slider readouts are plain lambdas, so their format strings are
     // resolved here and captured. The format also puts the number through the
     // locale, which is what gives Bengali or Arabic digits.
@@ -500,7 +550,7 @@ internal fun ClipboardSettings(
             ToggleSetting(
                 R.string.clipboard_history_title,
                 stringResource(R.string.clipboard_history_subtitle),
-                settings.clipboard.history,
+                historyOn,
                 default = SettingsDefaults.clipboard.history,
             ) { scope.launch { repository.setClipboardHistory(it) } }
         }
@@ -508,7 +558,7 @@ internal fun ClipboardSettings(
             SliderSetting(
                 R.string.clipboard_max_title,
                 subtitle = stringResource(R.string.clipboard_max_subtitle),
-                value = settings.clipboard.maxItems.toFloat(),
+                value = settings.watch { it.clipboard.maxItems }.toFloat(),
                 range = 5f..500f,
                 display = { numberFormat.format(it.toInt()) },
                 info = stringResource(R.string.clipboard_max_info),
@@ -522,28 +572,49 @@ internal fun ClipboardSettings(
             SliderSetting(
                 R.string.clipboard_expiry_title,
                 subtitle = stringResource(R.string.clipboard_expiry_subtitle),
-                value = settings.clipboard.expiryHours.toFloat(),
+                value = settings.watch { it.clipboard.expiryHours }.toFloat(),
                 range = 0f..168f,
                 display = { if (it.toInt() == 0) never else hoursFormat.format(it.toInt()) },
                 default = SettingsDefaults.clipboard.expiryHours.toFloat(),
             ) { scope.launch { repository.setClipboardExpiryHours(it.toInt()) } }
         }
         item {
+            // A slider over a handful of stops rather than every number: the
+            // choice is "about how much", and a round figure is one the user
+            // can set again.
+            val none = stringResource(R.string.clipboard_max_chars_none)
+            val steps = ClipMaxTextCharsSteps
+            val stored = settings.watch { it.clipboard.maxTextChars }
+            val index = steps.indices.minByOrNull { kotlin.math.abs(steps[it] - stored) } ?: 0
+            SliderSetting(
+                R.string.clipboard_max_chars_title,
+                subtitle = stringResource(R.string.clipboard_max_chars_subtitle),
+                value = index.toFloat(),
+                range = 0f..steps.lastIndex.toFloat(),
+                display = {
+                    val chars = steps[it.roundToInt().coerceIn(steps.indices)]
+                    if (chars == 0) none else numberFormat.format(chars)
+                },
+                info = stringResource(R.string.clipboard_max_chars_info),
+                default = steps.indexOf(SettingsDefaults.clipboard.maxTextChars).coerceAtLeast(0).toFloat(),
+            ) { scope.launch { repository.setClipboardMaxTextChars(steps[it.roundToInt().coerceIn(steps.indices)]) } }
+        }
+        item {
             ToggleSetting(
                 R.string.clipboard_pinned_last_title,
                 stringResource(R.string.clipboard_pinned_last_subtitle),
-                settings.clipboard.pinnedLast,
+                settings.watch { it.clipboard.pinnedLast },
                 default = SettingsDefaults.clipboard.pinnedLast,
             ) { scope.launch { repository.setClipboardPinnedLast(it) } }
         }
         // Screenshots, the source app and the paste chip are all read as a
         // clip is being stored, and nothing is stored with history off.
-        if (settings.clipboard.history) item {
+        if (historyOn) item {
             val context = LocalContext.current
             ToggleSetting(
                 R.string.clipboard_screenshots_title,
                 stringResource(R.string.clipboard_screenshots_subtitle),
-                settings.clipboard.userScreenshots,
+                userScreenshots,
                 default = SettingsDefaults.clipboard.userScreenshots,
             ) { on ->
                 scope.launch { repository.setClipboardUserScreenshots(on) }
@@ -557,7 +628,7 @@ internal fun ClipboardSettings(
         // The guard sits outside item {} on purpose: an item whose body
         // draws nothing still gets its own card, which showed up as a
         // sliver of empty surface once the permission was granted.
-        if (settings.clipboard.history && settings.clipboard.userScreenshots &&
+        if (historyOn && userScreenshots &&
             !screenshotsGranted
         ) {
             item {
@@ -576,13 +647,13 @@ internal fun ClipboardSettings(
                 }
             }
         }
-        if (settings.clipboard.history) item {
+        if (historyOn) item {
             val context = LocalContext.current
             val usageAccess = rememberDisclosedSpecialAccess(SpecialAccess.USAGE)
             ToggleSetting(
                 R.string.clipboard_track_source_title,
                 stringResource(R.string.clipboard_track_source_subtitle),
-                settings.clipboard.trackSource,
+                trackSource,
                 info = stringResource(R.string.clipboard_track_source_info),
                 default = SettingsDefaults.clipboard.trackSource,
             ) { on ->
@@ -593,7 +664,7 @@ internal fun ClipboardSettings(
                 if (on && !hasUsageAccess(context)) usageAccess()
             }
         }
-        if (settings.clipboard.history && settings.clipboard.trackSource &&
+        if (historyOn && trackSource &&
             !usageAccessGranted
         ) {
             item {
@@ -606,16 +677,16 @@ internal fun ClipboardSettings(
         }
     }
     SettingsGroup(stringResource(R.string.clipboard_suggest_group)) {
-        if (!settings.clipboard.history) return@SettingsGroup
+        if (!historyOn) return@SettingsGroup
         item {
             ToggleSetting(
                 R.string.clipboard_suggest_recent_title,
                 stringResource(R.string.clipboard_suggest_recent_subtitle),
-                settings.clipboard.suggestRecent,
+                suggestRecent,
                 default = SettingsDefaults.clipboard.suggestRecent,
             ) { scope.launch { repository.setClipboardSuggestRecent(it) } }
         }
-        item(visible = settings.clipboard.suggestRecent) {
+        item(visible = suggestRecent) {
             val untilDismissed =
                 stringResource(R.string.clipboard_chip_until_dismissed)
             val chipMinutesFormat = stringResource(R.string.values_minutes)
@@ -623,7 +694,7 @@ internal fun ClipboardSettings(
             SliderSetting(
                 R.string.clipboard_chip_life_title,
                 subtitle = stringResource(R.string.clipboard_chip_life_subtitle),
-                value = settings.clipboard.pasteChipSeconds.toFloat(),
+                value = settings.watch { it.clipboard.pasteChipSeconds }.toFloat(),
                 // Steps of 30 s to 30 min, with 0 at the top of the
                 // range reading as a word rather than a duration.
                 range = 0f..1800f,
@@ -642,13 +713,13 @@ internal fun ClipboardSettings(
                 scope.launch { repository.setPasteChipSeconds(secs) }
             }
         }
-        item(visible = settings.clipboard.suggestRecent) {
+        item(visible = suggestRecent) {
             ChoiceSetting(
                 title = R.string.clipboard_suggest_codes_title,
                 subtitle = stringResource(R.string.clipboard_suggest_codes_subtitle),
                 info = stringResource(R.string.clipboard_suggest_codes_info),
                 options = CopiedCodeChip.entries.map { it to stringResource(it.labelRes) },
-                selected = settings.clipboard.copiedCodeChip,
+                selected = settings.watch { it.clipboard.copiedCodeChip },
                 default = SettingsDefaults.clipboard.copiedCodeChip,
                 detail = { chip -> ChoiceDetail(stringResource(copiedCodeChipDescRes(chip))) },
             ) { scope.launch { repository.setClipboardCopiedCodeChip(it) } }
@@ -657,7 +728,7 @@ internal fun ClipboardSettings(
             ToggleSetting(
                 R.string.clipboard_entities_title,
                 stringResource(R.string.clipboard_entities_subtitle),
-                settings.clipboard.detectEntities,
+                detectEntities,
                 info = stringResource(R.string.clipboard_entities_info),
                 default = SettingsDefaults.clipboard.detectEntities,
             ) { scope.launch { repository.setClipboardDetectEntities(it) } }
@@ -665,8 +736,8 @@ internal fun ClipboardSettings(
         // The number chips are the ones that go wrong, because a phone
         // number is the one fragment with no shape of its own. This row
         // is where the user gives it one.
-        item(visible = settings.clipboard.detectEntities) {
-            val count = settings.clipboard.phoneFormats.size
+        item(visible = detectEntities) {
+            val count = settings.watch { it.clipboard.phoneFormats.size }
             NavRow(
                 R.string.clipboard_phone_formats_title,
                 subtitle = if (count == 0) {
@@ -696,7 +767,7 @@ internal fun ClipboardSettings(
             ToggleSetting(
                 R.string.clipboard_full_bleed_title,
                 stringResource(R.string.clipboard_full_bleed_subtitle),
-                settings.clipboard.fullBleed,
+                settings.watch { it.clipboard.fullBleed },
                 info = stringResource(R.string.clipboard_full_bleed_info),
                 default = SettingsDefaults.clipboard.fullBleed,
             ) { scope.launch { repository.setClipboardFullBleed(it) } }
@@ -707,24 +778,76 @@ internal fun ClipboardSettings(
                 subtitle = stringResource(R.string.clipboard_view_subtitle),
                 info = stringResource(R.string.clipboard_view_info),
                 options = ClipboardView.entries.map { it to stringResource(it.labelRes) },
-                selected = settings.clipboard.view,
+                selected = settings.watch { it.clipboard.view },
                 default = SettingsDefaults.clipboard.view,
             ) { scope.launch { repository.setClipboardView(it) } }
+        }
+        item {
+            SliderSetting(
+                R.string.clipboard_columns_title,
+                subtitle = stringResource(R.string.clipboard_columns_subtitle),
+                value = settings.watch { it.clipboard.gridColumns }.toFloat(),
+                range = ClipGridColumnsRange.first.toFloat()..ClipGridColumnsRange.last.toFloat(),
+                display = { numberFormat.format(it.roundToInt()) },
+                info = stringResource(R.string.clipboard_columns_info),
+                enabled = settings.watch { it.clipboard.view == ClipboardView.GRID },
+                default = SettingsDefaults.clipboard.gridColumns.toFloat(),
+            ) { scope.launch { repository.setClipboardGridColumns(it.roundToInt()) } }
+        }
+        item {
+            val auto = stringResource(R.string.clipboard_lines_auto)
+            SliderSetting(
+                R.string.clipboard_lines_title,
+                subtitle = stringResource(R.string.clipboard_lines_subtitle),
+                value = settings.watch { it.clipboard.previewLines }.toFloat(),
+                range = ClipPreviewLinesRange.first.toFloat()..ClipPreviewLinesRange.last.toFloat(),
+                display = { if (it.roundToInt() == 0) auto else numberFormat.format(it.roundToInt()) },
+                info = stringResource(R.string.clipboard_lines_info),
+                default = SettingsDefaults.clipboard.previewLines.toFloat(),
+            ) { scope.launch { repository.setClipboardPreviewLines(it.roundToInt()) } }
+        }
+        item {
+            ChoiceSetting(
+                title = R.string.clipboard_time_title,
+                subtitle = stringResource(R.string.clipboard_time_subtitle),
+                info = stringResource(R.string.clipboard_time_info),
+                options = ClipTimeLabel.entries.map { it to stringResource(it.labelRes) },
+                selected = settings.watch { it.clipboard.timeLabel },
+                default = SettingsDefaults.clipboard.timeLabel,
+            ) { scope.launch { repository.setClipboardTimeLabel(it) } }
         }
         item {
             ToggleSetting(
                 R.string.clipboard_numbers_title,
                 stringResource(R.string.clipboard_numbers_subtitle),
-                settings.clipboard.showNumbers,
+                settings.watch { it.clipboard.showNumbers },
                 info = stringResource(R.string.clipboard_numbers_info),
                 default = SettingsDefaults.clipboard.showNumbers,
             ) { scope.launch { repository.setClipboardShowNumbers(it) } }
         }
         item {
             ToggleSetting(
+                R.string.clipboard_swipe_delete_title,
+                stringResource(R.string.clipboard_swipe_delete_subtitle),
+                settings.watch { it.clipboard.swipeToDelete },
+                info = stringResource(R.string.clipboard_swipe_delete_info),
+                default = SettingsDefaults.clipboard.swipeToDelete,
+            ) { scope.launch { repository.setClipboardSwipeToDelete(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.clipboard_undo_delete_title,
+                stringResource(R.string.clipboard_undo_delete_subtitle),
+                settings.watch { it.clipboard.undoDelete },
+                info = stringResource(R.string.clipboard_undo_delete_info),
+                default = SettingsDefaults.clipboard.undoDelete,
+            ) { scope.launch { repository.setClipboardUndoDelete(it) } }
+        }
+        item {
+            ToggleSetting(
                 R.string.clipboard_search_title,
                 stringResource(R.string.clipboard_search_subtitle),
-                settings.clipboard.search,
+                settings.watch { it.clipboard.search },
                 default = SettingsDefaults.clipboard.search,
             ) { scope.launch { repository.setClipboardSearch(it) } }
         }
@@ -732,7 +855,7 @@ internal fun ClipboardSettings(
             ToggleSetting(
                 R.string.clipboard_link_previews_title,
                 stringResource(R.string.clipboard_link_previews_subtitle),
-                settings.clipboard.linkPreviews,
+                settings.watch { it.clipboard.linkPreviews },
                 default = SettingsDefaults.clipboard.linkPreviews,
             ) { scope.launch { repository.setClipboardLinkPreviews(it) } }
         }
@@ -740,7 +863,7 @@ internal fun ClipboardSettings(
             ToggleSetting(
                 R.string.clipboard_toast_title,
                 stringResource(R.string.clipboard_toast_subtitle),
-                settings.feedback.toastOnCopy,
+                settings.watch { it.feedback.toastOnCopy },
                 info = stringResource(R.string.clipboard_toast_info),
                 default = SettingsDefaults.feedback.toastOnCopy,
             ) { scope.launch { repository.setToastOnCopy(it) } }
@@ -751,7 +874,7 @@ internal fun ClipboardSettings(
             ToggleSetting(
                 R.string.clipboard_password_paste_title,
                 stringResource(R.string.clipboard_password_paste_subtitle),
-                settings.clipboard.clearAfterPasswordPaste,
+                settings.watch { it.clipboard.clearAfterPasswordPaste },
                 info = stringResource(R.string.clipboard_password_paste_info),
                 default = SettingsDefaults.clipboard.clearAfterPasswordPaste,
             ) { scope.launch { repository.setClipboardClearAfterPasswordPaste(it) } }
@@ -762,7 +885,7 @@ internal fun ClipboardSettings(
                 subtitle = stringResource(R.string.clipboard_sensitive_subtitle),
                 info = stringResource(R.string.clipboard_sensitive_info),
                 options = SensitiveClipHandling.entries.map { it to stringResource(it.labelRes) },
-                selected = settings.clipboard.sensitiveHandling,
+                selected = sensitiveHandling,
                 default = SettingsDefaults.clipboard.sensitiveHandling,
                 // The enum has carried the line under each answer since it was
                 // written; the picker only now has somewhere to draw it.
@@ -770,26 +893,26 @@ internal fun ClipboardSettings(
             ) { scope.launch { repository.setClipboardSensitiveHandling(it) } }
         }
         // Detection runs in the same listener, which returns with history off.
-        if (settings.clipboard.history &&
-            settings.clipboard.sensitiveHandling != SensitiveClipHandling.KEEP
+        if (historyOn &&
+            sensitiveHandling != SensitiveClipHandling.KEEP
         ) {
             item {
                 ToggleSetting(
                     R.string.clipboard_detect_sensitive_title,
                     stringResource(R.string.clipboard_detect_sensitive_subtitle),
-                    settings.clipboard.detectSensitive,
+                    settings.watch { it.clipboard.detectSensitive },
                     info = stringResource(R.string.clipboard_detect_sensitive_info),
                     default = SettingsDefaults.clipboard.detectSensitive,
                 ) { scope.launch { repository.setClipboardDetectSensitive(it) } }
             }
         }
-        item(visible = settings.clipboard.sensitiveHandling == SensitiveClipHandling.SHORT_LIVED) {
+        item(visible = sensitiveHandling == SensitiveClipHandling.SHORT_LIVED) {
             SliderSetting(
                 R.string.clipboard_sensitive_expiry_title,
                 subtitle = stringResource(
                     R.string.clipboard_sensitive_expiry_subtitle,
                 ),
-                value = settings.clipboard.sensitiveExpiryMinutes.toFloat(),
+                value = settings.watch { it.clipboard.sensitiveExpiryMinutes }.toFloat(),
                 range = 1f..120f,
                 display = { minutesFormat.format(it.toInt()) },
                 default = SettingsDefaults.clipboard.sensitiveExpiryMinutes.toFloat(),

@@ -319,7 +319,86 @@ class SettingsDeepLinkTest {
     }
 
     @Test
+    fun `a row on one mode's editor is reached through that mode`() {
+        // The editor's rows are indexed on the mode list, which is all search
+        // can open, and a link naming one mode still finds them (#323).
+        val target = SettingsDeepLink.parse(
+            "wmkeyboard://settings/mode_edit/mode_browser?setting=modes_symbol_sets_title",
+        )
+        assertEquals("mode_edit/mode_browser", target?.route)
+        val entry = SettingsDeepLink.resolve(target!!) { index }
+        assertEquals("modes#modes_symbol_sets_title", entry?.key)
+        // A mode the user made is addressed the same way, by its own id.
+        assertNotNull(
+            SettingsDeepLink.resolve(
+                SettingsDeepLink.Target("mode_edit/mode_custom_1700000000000", "modes_autocorrect_title"),
+            ) { index },
+        )
+        // A row that is not on the editor is not found there.
+        assertNull(
+            SettingsDeepLink.resolve(
+                SettingsDeepLink.Target("mode_edit/mode_browser", "typing_autocorrect_title"),
+            ) { index },
+        )
+    }
+
+    @Test
+    fun `every screen pattern in the index is an addressable route`() {
+        val patterns = index.mapNotNull { it.screenPattern }.distinct()
+        assertTrue("no row names a screen pattern", patterns.isNotEmpty())
+        assertEquals(emptyList<String>(), patterns.filterNot { it in SettingsRoutes.all })
+    }
+
+    @Test
+    fun `a filled route knows its pattern`() {
+        assertEquals("mode_edit/{modeId}", SettingsRoutes.patternOf("mode_edit/mode_chat"))
+        assertEquals("themes", SettingsRoutes.patternOf("THEMES"))
+        assertNull(SettingsRoutes.patternOf("no/such/screen"))
+    }
+
+    @Test
     fun `an unknown row name resolves to nothing`() {
         assertNull(SettingsDeepLink.resolve(SettingsDeepLink.Target("", "no_such_row_title")) { index })
+    }
+
+    // ---- since= ----------------------------------------------------------------
+
+    @Test
+    fun `since rides along on both hosts and changes nothing about where a link goes`() {
+        val screen = SettingsDeepLink.parse("wmkeyboard://settings/typing?setting=typing_autocorrect_title&since=0.5.12")
+        assertEquals("typing", screen?.route)
+        assertEquals("typing_autocorrect_title", screen?.setting)
+        assertEquals("0.5.12", screen?.since)
+        val row = SettingsDeepLink.parse("wmkeyboard://setting/typing_autocorrect_title?since=0.5.12")
+        assertEquals("typing_autocorrect_title", row?.setting)
+        assertEquals("0.5.12", row?.since)
+        assertEquals("0.6", SettingsDeepLink.parse("wmkeyboard:settings/themes?since=0.6")?.since)
+    }
+
+    @Test
+    fun `a since that is not a version is dropped`() {
+        assertEquals("", SettingsDeepLink.parse("wmkeyboard://settings/themes?since=soon")?.since)
+        assertEquals("", SettingsDeepLink.parse("wmkeyboard://settings/themes?since=%3Cb%3E")?.since)
+        assertEquals("", SettingsDeepLink.parse("wmkeyboard://settings/themes")?.since)
+    }
+
+    @Test
+    fun `a screen this build does not have is reported with the version it needs`() {
+        assertEquals(
+            SettingsDeepLink.Unknown("0.9.0"),
+            SettingsDeepLink.unknown("wmkeyboard://settings/from_the_future?since=0.9.0"),
+        )
+        assertEquals(SettingsDeepLink.Unknown(""), SettingsDeepLink.unknown("wmkeyboard://settings/typing/nope"))
+        assertEquals(SettingsDeepLink.Unknown(""), SettingsDeepLink.unknown("wmkeyboard://setting/Not%20A%20Name"))
+    }
+
+    @Test
+    fun `only a refused settings link is unknown`() {
+        assertNull(SettingsDeepLink.unknown("wmkeyboard://settings/themes?since=0.9.0"))
+        assertNull(SettingsDeepLink.unknown("wmkeyboard://setting/no_such_row_title?since=0.9.0"))
+        assertNull(SettingsDeepLink.unknown("wmkeyboard://addons"))
+        assertNull(SettingsDeepLink.unknown("wmkeyboard://nothing/here"))
+        assertNull(SettingsDeepLink.unknown("https://example.com/settings/nope"))
+        assertNull(SettingsDeepLink.unknown(null))
     }
 }

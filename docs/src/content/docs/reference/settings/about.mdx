@@ -8,11 +8,12 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import Flavor from '@components/Flavor.astro';
+import Shot from '@components/Shot.astro';
 
 About has its own group on the Settings home screen: one tap gets you the build you're running, every licence bundled into the app, and a diagnostics screen for pulling a shareable report when something needs debugging.
 
 <PhoneFrame caption="The About screen: Share, App, Updates, Feedback, Documentation, Third party, and Word lists groups.">
-  {/* shot: reference/settings/about-screen */}
+  <Shot id="reference/settings/about-screen" alt="The About screen: Share, App, Documentation, Third party, and Word lists groups." />
 </PhoneFrame>
 
 ## Sharing the app
@@ -21,12 +22,13 @@ The **Share** group at the top has up to three rows: **Share the Play Store link
 
 ## Checking version, licence, and source
 
-The **App** group holds nine rows:
+The **App** group holds ten rows:
 
 - **Version** shows the edition, build type and store channel as its subtitle ("Full build (release · Play Store)", or "Lite build (debug)" on something you sideloaded), with the build number after "code," and the version name as the row's trailing value. It navigates nowhere, but it isn't quite inert. Tap it seven times and you get [the hidden mini game](/reference/easter-eggs/#find-the-hidden-mini-game), with a toast counting you down from the fourth tap.
 - **Licence** shows "MIT, © 2026 Wasi Master" and opens the app's own MIT licence text in full underneath it, monospaced and horizontally scrollable.
 - **Source code** opens the GitHub repository directly in your browser; unlike the Share rows above, this one navigates immediately rather than opening a share sheet.
 - **Short app name** is a switch, off by default. Turn it on and your app drawer and home screen call the app **WMK** instead of **WM Keyboard**, so a narrow launcher grid doesn't cut the name short. See [Changing the name under the icon](#changing-the-name-under-the-icon).
+- **App language** picks the language the app's menus and settings are shown in, separate from your phone's. On the English-only download from GitHub it says so instead, and offers to fetch the version with every language. See [Changing the app's language](#changing-the-apps-language).
 - **Storage** opens the [storage screen](#seeing-what-the-app-is-using) below, which is where you see what the app keeps on your device and delete any of it.
 - **Statistics** opens [Statistics](/reference/settings/statistics/): how much you type, day by day, plus the switch that turns the counting off.
 - **Diagnostics** opens the [diagnostics screen](#diagnosing-a-problem) covered below.
@@ -47,6 +49,33 @@ A few things happen when you flip it:
 - The long-press shortcuts on the icon (Themes, Languages and the rest) stay the same under either name.
 
 The choice is kept by Android rather than in the app's settings, so it survives updates but doesn't travel in a settings export or a backup. Resetting the row puts the full name back.
+
+### Changing the app's language
+
+**App language** opens a list of every language the app is translated into, each written in its own script, with its name in the current language underneath. **System default**, at the top, follows your phone and names the language that means right now. Pick one and the screen restarts in it at once. Resetting the row goes back to System default.
+
+This only changes the words the app shows you. The languages you type in are a separate list, under [Languages](/languages/overview/).
+
+- **Android 13 and newer** already have this setting, under Settings, Apps, WM Keyboard, Language. The row here and that screen change the same value, so a change in one shows in the other. If you set a language on Android 12 and then upgrade the phone, the app moves your choice over the first time it opens.
+- **Android 12 and older** have no such setting, so the app keeps the choice itself and applies it to the settings app. The keyboard stays in your phone's language on these versions.
+- **Play Store builds** download a language the first time you pick it if the Play Store did not install it with the app, so the screen can take a moment to restart. If the download fails, the app shows English until the next try.
+- **F-Droid builds** carry every translation.
+
+### Getting every language on the English-only download
+
+GitHub releases come in two kinds: `intl`, with every translation, and `en`, English only and a good deal smaller. On an `en` install the row reads **This download of the app has English only** and names how many languages the other one adds. Press it to switch:
+
+1. A dialog says what happens next. Press **Download**.
+2. The row finds the `intl` build of the newest release your install can have. That is usually the same version you already run, or a newer one if an update is out. Then it downloads the file for your phone. On a metered connection you're asked first, the same as for any update.
+3. The row changes to **Install every language**. Press it when you're ready. The app and the keyboard restart once, the same as after an update.
+
+It's the same app, signed with the same key and at the same version, so it installs over the English-only one and keeps every setting, word and theme. The download goes through the same checks as an update: the checksum from the release, then the signing key. See [What a GitHub build checks before it installs](#what-a-github-build-checks-before-it-installs).
+
+While the switch is under way the Updates group below hides its status row, because the App language row is showing that download. **Keep English only**, under the row, stops the switch and deletes what it downloaded. A switch that fails and is left alone gives way to the ordinary update check the next time it runs. After the install, the home screen says **Every language is here** once, and App language becomes the ordinary picker.
+
+A copy of the `en` build with no GitHub updater in it, such as one you built yourself, links to the releases page instead.
+
+The setup wizard asks the same question as its very first page when your phone is somewhere English isn't the first language. See [Running the setup wizard](/start/setup/#running-the-setup-wizard).
 
 ## Updating the app
 
@@ -85,7 +114,7 @@ GitHub builds only. An F-Droid build has a page to send you to and no notes behi
 
 Downloading an APK and handing it to Android is the one thing in this app that replaces the app, so it's worth knowing exactly what's checked and in what order:
 
-1. The file name has to match the release and your phone: the right edition, and the right CPU, falling back to the universal build if your CPU has no build of its own.
+1. The file name has to match the release and your phone: the right edition, the same languages build as yours (every language, or English only), and the right CPU, falling back to the universal build if your CPU has no build of its own.
 2. The downloaded bytes are hashed and compared against the checksum published in the release. A file that doesn't match is deleted, not installed. A release that publishes no checksum at all is refused rather than trusted.
 3. The APK's signing key is compared against the key your current install is signed with. A mismatch stops there and tells you to fetch the file yourself, which is also what happens if you're running a build you compiled locally.
 4. Android is asked to install it, and shows its own confirmation.
@@ -145,8 +174,8 @@ Two more single-purpose groups round out the screen:
 
 Tapping **Open-source licences** opens a three-group screen: everything bundled into the APK, data the app can download, and the online services its tools call. Tap a row with a bundled licence text and it opens in full, monospaced and horizontally scrollable, matching the licence viewer described above. Rows without a bundled text, mostly the online services, open the provider's terms in your browser instead.
 
-<PhoneFrame caption="The open-source licences list, grouped by bundled components, downloadable data packs, and online services.">
-  {/* shot: reference/settings/licenses-screen */}
+<PhoneFrame side caption="The open-source licences list, grouped by bundled components, downloadable data packs, and online services.">
+  <Shot id="reference/settings/licenses-screen" alt="The open-source licences list, grouped by bundled components, downloadable data packs, and online services." />
 </PhoneFrame>
 
 **Inside the app** always lists AndroidX & Jetpack Compose, Kotlin/coroutines/serialization, Coil, OkHttp & Okio, ZXing, and LuaJ, all Apache-2.0 or MIT. <Flavor edition="full" /> adds Harper and its Rust dependencies (grammar checking), Google ML Kit (handwriting and scanning), LiteRT-LM (the local AI models), and LiteRT plus OpenAI Whisper and whisper_android (offline speech-to-text). The <Flavor edition="lite" /> build doesn't link those features, so their licences don't apply to it. A Play build adds one more, Play In-App Updates. It isn't open source, so it opens Google's SDK terms in your browser rather than a bundled text. Both editions also list Unicode CLDR & emoji data, gemoji, Keyman keyboard layouts, OpenCC, the LSHK Jyutping table, the bundled editor colour palettes (Dracula, Nord, Solarized, Catppuccin, Tokyo Night), Google Fonts, and Inter & Manrope. Those last two are the faces the settings app itself is set in. They ship as files in the APK, so they carry their own notice rather than the generic one.
@@ -155,14 +184,14 @@ That makes 22 bundled components on a full Play build and 14 on a lite F-Droid o
 
 **Data packs you can download** covers the frequency wordlists, offensive word lists, emoji keyword dictionaries and Noto Animated Emoji served from the WM Keyboard data repository, plus the CJK-specific conversion data: CC-CEDICT, mozc, rime-cantonese & CC-Canto, a Chinese stroke code table, and the Unicode Unihan database. Ten rows in all, since the AOSP dictionaries have their own. A <Flavor edition="full" /> build adds two more for downloads only it can make: the sticker editor's own U²-Net-P background remover (Apache-2.0) and the on-device AI models (Apache-2.0, or Google's Gemma Terms of Use for Gemma 3). A caption underneath notes these keep their upstream licences whether or not they're actually installed on your device.
 
-**Online services** lists what each network tool talks to and under what terms: Brave Search, KLIPY & GIPHY, Wikipedia, Google Translate, Open-Meteo, Frankfurter & ExchangeRate-API, Coinbase & the other coin-price sources, the Free Dictionary API, Hugging Face, and the bring-your-own-key AI providers (Anthropic, OpenAI, Google AI, xAI, DeepSeek, and whichever OpenAI-compatible service you point the escape hatch at). None of their code or data ships inside the app; see [Network policy](/privacy/network/) for what each one actually sends and when.
+**Online services** lists what each network tool talks to and under what terms: Brave Search, KLIPY & GIPHY, Wikipedia, Google Translate, Open-Meteo, Frankfurter & ExchangeRate-API, Coinbase & the other coin-price sources, the Free Dictionary API, Wiktionary & kaikki.org, Datamuse, Hugging Face, and the bring-your-own-key AI providers (Anthropic, OpenAI, Google AI, xAI, DeepSeek, and whichever OpenAI-compatible service you point the escape hatch at). None of their code or data ships inside the app; see [Network policy](/privacy/network/) for what each one actually sends and when.
 
 ## Diagnosing a problem
 
 **Diagnostics** is where you go if something's misbehaving and you want to send in what the keyboard recorded, or just look at it yourself. It never contains anything you typed. That's a hard design rule stated in the logging code's own documentation, not only a promise in the UI copy.
 
-<PhoneFrame caption="Diagnostics: report actions, the app log with its filter and level chips, and Clear app log at the bottom.">
-  {/* shot: reference/settings/diagnostics-screen */}
+<PhoneFrame side caption="Diagnostics: report actions, the app log with its filter and level chips, and Clear app log at the bottom.">
+  <Shot id="reference/settings/diagnostics-screen" alt="Diagnostics: report actions, the app log with its filter and level chips, and Clear app log at the bottom." />
 </PhoneFrame>
 
 The **Report** group has three controls:
@@ -177,13 +206,14 @@ The **app log** itself is a free-text filter field plus one level chip per sever
 
 ## Options
 
-There are only four switches in this whole tree. Everything else is either a display-only row (Version, Dictionaries) or a read-only browser (the licence and diagnostics screens).
+There are only four switches and one picker in this whole tree. Everything else is either a display-only row (Version, Dictionaries) or a read-only browser (the licence and diagnostics screens).
 
 <SettingsPath path="About" />
 
 | Setting | Control | Default |
 |---|---|---|
 | Short app name | Toggle | **Off** |
+| App language | Choice | **System default** (on the English-only build, an offer to switch) |
 
 <SettingsPath path="About / Updates" />
 

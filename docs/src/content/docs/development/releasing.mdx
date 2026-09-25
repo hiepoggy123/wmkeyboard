@@ -22,6 +22,8 @@ of it, so nothing here needs a branch or a patched source tree.
 | `wmkb.enableGms` | `true` | `false` | `true` |
 | `wmkb.enableFdroid` | `false` | `true` | `false` |
 | `wmkb.splitApks` | `true` | not used | ignored by `bundle*` |
+| `wmkb.enableCrashScreen` | not set | not set | `false`, forced by the Fastfile over `local.properties` |
+| Automation `TYPE_TEXT` | offered | offered | left out |
 | Artifact | one APK per ABI, for all four flavor combinations, plus R8 mappings, native symbols and `SHA256SUMS.txt` | one APK, built by F-Droid, carrying our signature once it matches the release's `-fdroid.apk` | one AAB, with its R8 mapping and native symbols inside |
 | ML Kit | bundled in the APK | absent | unbundled, fetched from Play services |
 | Local LLM | bundled | absent | on-demand `:feature:llm` module |
@@ -206,8 +208,9 @@ inside a fence long enough that no backtick run in it can escape.
 3. **Add the API-key secrets** you want baked into public builds:
    `WMKB_KLIPY_API_KEY`, `WMKB_GIPHY_API_KEY`, `WMKB_BRAVE_API_KEY`,
    `WMKB_TRANSLATE_API_KEY`, `WMKB_UNSPLASH_API_KEY`, `WMKB_PEXELS_API_KEY`,
-   `WMKB_DROPBOX_APP_KEY`. Any you leave out just make that tool show its
-   "needs an API key" state, so a release without them still builds and runs.
+   `WMKB_DROPBOX_APP_KEY`, `WMKB_ONEDRIVE_CLIENT_ID`. Any you leave out just
+   make that tool show its "needs an API key" state, or leave that backup
+   destination off the list, so a release without them still builds and runs.
 
 </Steps>
 
@@ -246,7 +249,62 @@ inside a fence long enough that no backtick run in it can escape.
    warning if the `PLAY_SERVICE_ACCOUNT_JSON` secret is not set. Promoting to
    production stays a decision you make by hand.
 
+6. **Pull the settings-link refresh.** Pushing the tag also starts the
+   **Settings links** workflow (`.github/workflows/settings-links.yml`). It
+   reruns `scripts/extract_settings_links.sh` and
+   `scripts/extract-settings-since.mjs`, which read the tags to find which
+   release first has each settings screen and row, and commits
+   `src/data/settings-since.json` back to `main`. The `/open/` page, the link
+   builder and the settings chips show that as "Added in version …". Until the
+   workflow finishes, what the new tag shipped still reads **Not released yet**
+   on the site. Pull `main` before you push again.
+
 </Steps>
+
+### Telling the issues
+
+Once the release is published, the `issue-comments` job calls
+[`release-comments.yml`](https://github.com/wasi-master/wmkeyboard/blob/main/.github/workflows/release-comments.yml),
+which comments on every issue the release notes link. The comment names the
+version, mentions whoever opened the issue, lists the commits behind it, and
+says that F-Droid and Google Play take 2 to 3 days to catch up with the GitHub
+release. So the issue links you write in `release-notes/<versionName>.md` are
+also the list of people who hear about it.
+
+When the change added settings, the comment links each one through
+`https://wmkeyboard.pages.dev/open/`, with `since=` set to the release, and
+notes that the links open only once that version is installed. Nothing
+records which settings belong to which issue, so the script works it out:
+
+1. **The commits.** Every commit between the previous tag and this one whose
+   message names the issue (`Closes #285`, `Refs #285`), the commits GitHub
+   tied to it on the issue's timeline (a reference, the closing commit, a
+   merged pull request that mentions it), and any commit a maintainer's
+   comment names by hash. A commit outside the release's range never counts.
+2. **The settings.** A `<string name>` those commits added under
+   `src/main/res/values/` that the previous tag did not have, and that
+   `docs/src/data/settings-links.json` lists as a screen or a row. A row's
+   link name is the resource name of its title, so this is an exact match. A
+   new screen stands for the rows on it, so a new tool is one link, not twenty.
+
+It runs from the release workflow rather than on `release: published`
+because the release is published with the workflow's own token, and GitHub
+starts no workflow for an event that token caused. The `release` trigger is
+still there for a release you publish by hand. Every comment carries a hidden
+marker for its tag, so a second run for the same release posts nothing twice:
+it skips an issue it already told, or updates the comment if the text has
+changed.
+
+Rehearse against any release that is already out, from the Actions tab
+(**Release comments**, dry run on by default, comments land in the run
+summary) or locally:
+
+```sh
+python3 .github/scripts/release_comments.py --tag v0.5.11 --dry-run
+python3 .github/scripts/release_comments.py --tag v0.5.11 --dry-run --only 285,302
+```
+
+A draft, a pre-release, or a release with no APKs attached is left alone.
 
 ### What the release body looks like
 

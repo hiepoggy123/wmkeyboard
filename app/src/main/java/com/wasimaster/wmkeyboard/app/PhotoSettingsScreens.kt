@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -58,7 +59,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import com.wasimaster.wmkeyboard.R
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.PhotoBackgroundSettings
 import com.wasimaster.wmkeyboard.core.settings.PoolEntry
 import com.wasimaster.wmkeyboard.core.settings.RotationInterval
@@ -89,10 +89,9 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 fun PhotoServicesScreen(
     anim: AnimatedVisibilityScope? = null,
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     onBack: () -> Unit,
 ) {
-    val photos = settings.photoBackground
     WmScreen(
         anim = anim,
         title = stringResource(R.string.photo_services_title),
@@ -107,7 +106,7 @@ fun PhotoServicesScreen(
             item {
                 ApiKeyField(
                     label = stringResource(R.string.photo_unsplash_key_label),
-                    value = photos.unsplashApiKey,
+                    value = settings.watch { it.photoBackground.unsplashApiKey },
                     builtInAvailable = ToolApiKeys.builtInUnsplash,
                     emptyHint = stringResource(R.string.photo_unsplash_key_hint),
                 ) { key ->
@@ -121,7 +120,7 @@ fun PhotoServicesScreen(
             item {
                 ApiKeyField(
                     label = stringResource(R.string.photo_pexels_key_label),
-                    value = photos.pexelsApiKey,
+                    value = settings.watch { it.photoBackground.pexelsApiKey },
                     builtInAvailable = ToolApiKeys.builtInPexels,
                     emptyHint = stringResource(R.string.photo_pexels_key_hint),
                 ) { key ->
@@ -141,13 +140,19 @@ fun PhotoServicesScreen(
 fun PhotoRotationScreen(
     anim: AnimatedVisibilityScope? = null,
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val photos = settings.photoBackground
+    // What decides which rows and groups the screen holds; each row reads its
+    // own value.
+    val rotateEnabled = settings.watch { it.photoBackground.rotateEnabled }
+    val hasSource = settings.watch { it.photoBackground.hasSource }
+    val pickingThemes = settings.watch { it.photoBackground.scope == RotationScope.SELECTED_THEMES }
+    val usesNetwork = settings.watch { it.photoBackground.usesNetwork }
+    val saverStops = settings.watch { it.dataSaver.photoBackgrounds.stopsBackgroundWork }
     var poolRevision by remember { mutableIntStateOf(0) }
     val pool by produceState(initialValue = emptyList<PoolEntry>(), poolRevision) {
         value = PhotoBackgroundManager.readPool(context).entries
@@ -164,7 +169,7 @@ fun PhotoRotationScreen(
         route = PHOTO_ROTATION_ROUTE,
         icon = { Icon(Icons.Outlined.Autorenew, contentDescription = null) },
     ) {
-        if (!photos.rotateEnabled) {
+        if (!rotateEnabled) {
             // First run is one explanation and one button, rather than fifteen
             // rows for something that is not switched on.
             PhotoNotice(
@@ -187,7 +192,7 @@ fun PhotoRotationScreen(
                 ToggleSetting(
                     title = R.string.photo_rotation_on_title,
                     subtitle = stringResource(R.string.photo_rotation_on_subtitle),
-                    checked = photos.rotateEnabled,
+                    checked = rotateEnabled,
                     default = SettingsDefaults.photoBackground.rotateEnabled,
                 ) { scope.launch { repository.setPhotoRotateEnabled(it) } }
             }
@@ -195,13 +200,14 @@ fun PhotoRotationScreen(
 
         SettingsGroup(stringResource(R.string.photo_rotation_now_section_title)) {
             item {
+                val poolTarget = settings.watch { it.photoBackground.poolTarget }
                 when {
                     pool.isEmpty() -> CaptionText(stringResource(R.string.photo_rotation_now_empty_body))
-                    pool.size < photos.poolTarget -> CaptionText(
+                    pool.size < poolTarget -> CaptionText(
                         stringResource(
                             R.string.photo_rotation_filling_progress,
                             pool.size,
-                            photos.poolTarget,
+                            poolTarget,
                         ),
                     )
                     else -> CaptionText(
@@ -209,26 +215,28 @@ fun PhotoRotationScreen(
                     )
                 }
             }
-            if (!photos.hasSource) {
+            if (!hasSource) {
                 item { CaptionText(stringResource(R.string.photo_rotation_no_source_body)) }
             }
             item {
                 WmRow(
                     title = stringResource(R.string.photo_rotation_shuffle_title),
+                    icon = SettingsRowIcons[R.string.photo_rotation_shuffle_title],
                     subtitle = stringResource(R.string.photo_rotation_shuffle_subtitle),
                     enabled = pool.size >= 2,
                     trailing = {
                         TextButton(
                             enabled = pool.size >= 2,
                             onClick = {
+                                val now = settings.value
                                 scope.launch {
                                     PhotoBackgroundManager.rotate(
                                         context = context,
                                         repository = repository,
-                                        themeId = settings.keyboardThemeId,
+                                        themeId = now.keyboardThemeId,
                                         current = null,
-                                        wantWide = photos.landscapeOnly,
-                                        sources = photos.sources,
+                                        wantWide = now.photoBackground.landscapeOnly,
+                                        sources = now.photoBackground.sources,
                                     )
                                     poolRevision++
                                 }
@@ -245,25 +253,26 @@ fun PhotoRotationScreen(
                 // long do not fit across a phone.
                 NavRow(
                     title = R.string.photo_rotation_interval_title,
-                    value = stringResource(photos.interval.labelRes),
+                    value = stringResource(settings.watch { it.photoBackground.interval }.labelRes),
                     onClick = { intervalOpen = true },
                 )
             }
             item {
                 NavRow(
                     title = R.string.photo_rotation_scope_title,
-                    value = stringResource(photos.scope.labelRes),
+                    value = stringResource(settings.watch { it.photoBackground.scope }.labelRes),
                     onClick = { scopeOpen = true },
                 )
             }
             // Without this the "Themes I select" choice would select nothing.
-            item(visible = photos.scope == RotationScope.SELECTED_THEMES) {
+            item(visible = pickingThemes) {
+                val picked = settings.watch { it.photoBackground.scopeThemeIds.size }
                 NavRow(
                     title = R.string.photo_rotation_scope_pick_title,
                     value = pluralStringResource(
                         R.plurals.photo_rotation_topics_value,
-                        photos.scopeThemeIds.size,
-                        photos.scopeThemeIds.size,
+                        picked,
+                        picked,
                     ),
                     onClick = { scopeThemesOpen = true },
                 )
@@ -276,35 +285,36 @@ fun PhotoRotationScreen(
                 // service and a photo picked off the device are the same thing
                 // to a rotation, and both live in the collection.
                 SourceToggle(
-                    title = stringResource(R.string.photo_rotation_source_saved_title),
+                    title = R.string.photo_rotation_source_saved_title,
                     subtitle = stringResource(R.string.photo_rotation_source_saved_subtitle),
                     kind = RotationSourceKind.SAVED,
-                    photos = photos,
+                    sources = settings.watch { it.photoBackground.sources },
                 ) { scope.launch { repository.setPhotoRotateSources(it) } }
             }
             item {
                 SourceToggle(
-                    title = stringResource(R.string.photo_rotation_source_online_title),
+                    title = R.string.photo_rotation_source_online_title,
                     subtitle = stringResource(R.string.photo_rotation_source_online_subtitle),
                     kind = RotationSourceKind.ONLINE,
-                    photos = photos,
+                    sources = settings.watch { it.photoBackground.sources },
                 ) { scope.launch { repository.setPhotoRotateSources(it) } }
             }
         }
 
-        if (photos.usesNetwork) {
+        if (usesNetwork) {
             SettingsGroup(
                 stringResource(R.string.photo_rotation_online_section_title),
                 info = stringResource(R.string.photo_rotation_subject_body),
             ) {
                 item {
+                    val topics = settings.watch { it.photoBackground.topics.size }
                     NavRow(
                         title = R.string.photo_rotation_topics_title,
                         subtitle = stringResource(R.string.photo_rotation_topics_subtitle),
                         value = pluralStringResource(
                             R.plurals.photo_rotation_topics_value,
-                            photos.topics.size,
-                            photos.topics.size,
+                            topics,
+                            topics,
                         ),
                         onClick = { topicsOpen = true },
                     )
@@ -312,7 +322,7 @@ fun PhotoRotationScreen(
                 item {
                     TextFieldSetting(
                         label = stringResource(R.string.photo_rotation_terms_label),
-                        value = photos.queries.joinToString(", "),
+                        value = settings.watch { it.photoBackground.queries }.joinToString(", "),
                         hint = stringResource(R.string.photo_rotation_terms_hint),
                         default = SettingsDefaults.photoBackground.queries.joinToString(", "),
                     ) { text ->
@@ -325,7 +335,7 @@ fun PhotoRotationScreen(
                     ToggleSetting(
                         title = R.string.photo_rotation_wide_title,
                         subtitle = stringResource(R.string.photo_rotation_wide_subtitle),
-                        checked = photos.landscapeOnly,
+                        checked = settings.watch { it.photoBackground.landscapeOnly },
                         default = SettingsDefaults.photoBackground.landscapeOnly,
                     ) { scope.launch { repository.setPhotoLandscapeOnly(it) } }
                 }
@@ -333,7 +343,7 @@ fun PhotoRotationScreen(
                     ToggleSetting(
                         title = R.string.photo_rotation_safe_title,
                         subtitle = stringResource(R.string.photo_rotation_safe_subtitle),
-                        checked = photos.safeSearch,
+                        checked = settings.watch { it.photoBackground.safeSearch },
                         default = SettingsDefaults.photoBackground.safeSearch,
                     ) { scope.launch { repository.setPhotoSafeSearch(it) } }
                 }
@@ -341,7 +351,6 @@ fun PhotoRotationScreen(
                 // network without touching the stored choice, so the row says
                 // so and points at the policy instead of showing a switch that
                 // does nothing there.
-                val saverStops = settings.dataSaver.photoBackgrounds.stopsBackgroundWork
                 item {
                     ToggleSetting(
                         title = R.string.photo_rotation_metered_title,
@@ -349,7 +358,7 @@ fun PhotoRotationScreen(
                             if (saverStops) R.string.photo_rotation_metered_saver_subtitle
                             else R.string.photo_rotation_metered_subtitle,
                         ),
-                        checked = photos.fetchOnMetered,
+                        checked = settings.watch { it.photoBackground.fetchOnMetered },
                         default = SettingsDefaults.photoBackground.fetchOnMetered,
                     ) { scope.launch { repository.setPhotoFetchOnMetered(it) } }
                 }
@@ -380,7 +389,7 @@ fun PhotoRotationScreen(
                 ToggleSetting(
                     R.string.photo_rotation_seed_palette_title,
                     stringResource(R.string.photo_rotation_seed_palette_subtitle),
-                    photos.seedPalette,
+                    settings.watch { it.photoBackground.seedPalette },
                     info = stringResource(R.string.photo_rotation_seed_palette_info),
                     default = SettingsDefaults.photoBackground.seedPalette,
                 ) { scope.launch { repository.setPhotoSeedPalette(it) } }
@@ -389,7 +398,7 @@ fun PhotoRotationScreen(
                 ToggleSetting(
                     R.string.photo_rotation_readability_title,
                     stringResource(R.string.photo_rotation_readability_subtitle),
-                    photos.readabilityGuard,
+                    settings.watch { it.photoBackground.readabilityGuard },
                     info = stringResource(R.string.photo_rotation_readability_info),
                     default = SettingsDefaults.photoBackground.readabilityGuard,
                 ) { scope.launch { repository.setPhotoReadabilityGuard(it) } }
@@ -399,7 +408,7 @@ fun PhotoRotationScreen(
                 SliderSetting(
                     title = R.string.photo_rotation_key_opacity_title,
                     subtitle = stringResource(R.string.photo_rotation_key_opacity_subtitle),
-                    value = photos.keyOpacity,
+                    value = settings.watch { it.photoBackground.keyOpacity },
                     range = 0.2f..1f,
                     display = { percentFormat.format((it * 100).roundToInt()) },
                     info = stringResource(R.string.photo_rotation_key_opacity_info),
@@ -412,7 +421,7 @@ fun PhotoRotationScreen(
             item {
                 SliderSetting(
                     title = R.string.photo_rotation_pool_title,
-                    value = photos.poolTarget.toFloat(),
+                    value = settings.watch { it.photoBackground.poolTarget }.toFloat(),
                     range = PhotoBackgroundSettings.MIN_POOL_TARGET.toFloat()..
                         PhotoBackgroundSettings.MAX_POOL_TARGET.toFloat(),
                     display = { it.toInt().toString() },
@@ -425,7 +434,7 @@ fun PhotoRotationScreen(
                 SliderSetting(
                     title = R.string.photo_rotation_budget_title,
                     subtitle = stringResource(R.string.photo_rotation_budget_subtitle),
-                    value = photos.poolBudgetMb.toFloat(),
+                    value = settings.watch { it.photoBackground.poolBudgetMb }.toFloat(),
                     range = PhotoBackgroundSettings.POOL_BUDGET_MB_RANGE.first.toFloat()..
                         PhotoBackgroundSettings.POOL_BUDGET_MB_RANGE.last.toFloat(),
                     display = { mbFormat.format(it.roundToInt()) },
@@ -444,6 +453,7 @@ fun PhotoRotationScreen(
             item {
                 WmRow(
                     title = stringResource(R.string.photo_rotation_delete_downloads_title),
+                    icon = SettingsRowIcons[R.string.photo_rotation_delete_downloads_title],
                     subtitle = stringResource(R.string.photo_rotation_delete_downloads_subtitle),
                     trailing = {
                         TextButton(onClick = {
@@ -467,7 +477,7 @@ fun PhotoRotationScreen(
         RadioPickerDialog(
             title = stringResource(R.string.photo_rotation_interval_title),
             options = RotationInterval.entries.map { it to stringResource(it.labelRes) },
-            selected = photos.interval,
+            selected = settings.watch { it.photoBackground.interval },
             onDismiss = { intervalOpen = false },
         ) { picked ->
             scope.launch { repository.setPhotoRotateInterval(picked) }
@@ -478,7 +488,7 @@ fun PhotoRotationScreen(
         RadioPickerDialog(
             title = stringResource(R.string.photo_rotation_scope_title),
             options = RotationScope.entries.map { it to stringResource(it.labelRes) },
-            selected = photos.scope,
+            selected = settings.watch { it.photoBackground.scope },
             onDismiss = { scopeOpen = false },
         ) { picked ->
             scope.launch { repository.setPhotoRotateScope(picked) }
@@ -486,7 +496,7 @@ fun PhotoRotationScreen(
         }
     }
     if (topicsOpen) {
-        TopicPickerDialog(photos.topics.toSet(), onDismiss = { topicsOpen = false }) { chosen ->
+        TopicPickerDialog(settings.watch { it.photoBackground.topics.toSet() }, onDismiss = { topicsOpen = false }) { chosen ->
             scope.launch { repository.setPhotoRotateTopics(chosen.toList()) }
             topicsOpen = false
         }
@@ -498,10 +508,10 @@ fun PhotoRotationScreen(
             // rotating photo is laid over a theme as it is drawn, so a
             // built-in can carry one even though it cannot store an image.
             // Families flatten — each variant is its own scope target.
-            options = (settings.customThemes.flattenedThemes().map { it.id to it.name } +
+            options = (settings.watch { s -> s.customThemes.flattenedThemes().map { it.id to it.name } } +
                 BuiltInThemes.flattenedThemes().map { it.id to themeName(it) })
                 .sortedBy { it.second.lowercase() },
-            selected = photos.scopeThemeIds,
+            selected = settings.watch { it.photoBackground.scopeThemeIds },
             onDismiss = { scopeThemesOpen = false },
         ) { chosen ->
             scope.launch { repository.setPhotoRotateScopeThemes(chosen) }
@@ -515,7 +525,7 @@ fun PhotoRotationScreen(
 fun PhotoLibraryScreen(
     anim: AnimatedVisibilityScope? = null,
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     themeId: String,
     onNavigate: (String) -> Unit,
     onBack: () -> Unit,
@@ -527,6 +537,7 @@ fun PhotoLibraryScreen(
         value = PhotoBackgroundManager.readPool(context).entries
     }
     val bytes = remember(entries) { entries.sumOf { it.bytes } }
+    val reduceMotion = LocalReduceMotion.current
 
     val devicePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(),
@@ -544,8 +555,10 @@ fun PhotoLibraryScreen(
         title = stringResource(R.string.photo_library_title),
         onBack = onBack,
         route = PHOTO_LIBRARY_ROUTE,
-        subtitle = themeId.takeIf { it.isNotBlank() }?.let { id ->
-            settings.customThemes.flattenedThemes().find { it.id == id }?.name
+        subtitle = settings.watch { s ->
+            themeId.takeIf { it.isNotBlank() }?.let { id ->
+                s.customThemes.flattenedThemes().find { it.id == id }?.name
+            }
         },
         subtitleInBar = true,
     ) { padding ->
@@ -615,11 +628,14 @@ fun PhotoLibraryScreen(
                     )
                 }
                 items(entries, key = { it.fileName }) { entry ->
+                    // A deleted photo fades out and the ones after it slide
+                    // back a place, instead of the grid redrawing one short.
                     SavedPhotoTile(
                         file = File(PhotoBackgroundManager.poolDir(context), entry.fileName),
                         entry = entry,
+                        modifier = gridItemMotion(reduceMotion),
                         onApply = {
-                            val target = themeId.takeIf { it.isNotBlank() } ?: settings.keyboardThemeId
+                            val target = themeId.takeIf { it.isNotBlank() } ?: settings.value.keyboardThemeId
                             scope.launch {
                                 repository.applyThemePhoto(
                                     themeId = target,
@@ -634,11 +650,12 @@ fun PhotoLibraryScreen(
                             }
                         },
                         onSeed = {
-                            val target = themeId.takeIf { it.isNotBlank() } ?: settings.keyboardThemeId
+                            val now = settings.value
+                            val target = themeId.takeIf { it.isNotBlank() } ?: now.keyboardThemeId
                             scope.launch {
                                 // The target can be a variant; the write goes
                                 // back through the family that carries it.
-                                settings.customThemes.findThemeFamily(target)?.let { family ->
+                                now.customThemes.findThemeFamily(target)?.let { family ->
                                     repository.upsertCustomTheme(
                                         family.replacingMember(target) {
                                             it.reseeded(entry.seedColor, it.dark)
@@ -661,29 +678,29 @@ fun PhotoLibraryScreen(
 }
 
 @Composable
-private fun HighContrastNote(settings: KeyboardSettings) {
+private fun HighContrastNote(settings: LiveSettings) {
     // High-contrast keys drops background images entirely, so a photo picked
     // here would quietly do nothing. Saying so beats letting it look broken.
-    if (settings.accessibility.highContrast) {
+    if (settings.watch { it.accessibility.highContrast }) {
         CaptionText(stringResource(R.string.photo_high_contrast_body))
     }
 }
 
 @Composable
 private fun SourceToggle(
-    title: String,
+    @StringRes title: Int,
     subtitle: String,
     kind: RotationSourceKind,
-    photos: PhotoBackgroundSettings,
+    sources: Set<RotationSourceKind>,
     onChange: (Set<RotationSourceKind>) -> Unit,
 ) {
     ToggleSetting(
         title = title,
         subtitle = subtitle,
-        checked = kind in photos.sources,
+        checked = kind in sources,
         default = kind in SettingsDefaults.photoBackground.sources,
     ) { on ->
-        onChange(if (on) photos.sources + kind else photos.sources - kind)
+        onChange(if (on) sources + kind else sources - kind)
     }
 }
 
@@ -782,9 +799,10 @@ private fun SavedPhotoTile(
     onApply: () -> Unit,
     onSeed: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    Box {
+    Box(modifier) {
         AsyncImage(
             model = file,
             contentDescription = entry.credit?.photographer,

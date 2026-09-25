@@ -38,7 +38,13 @@ class FuzzyBeamSearch {
      * tap position for each composing character (null where unknown —
      * hardware keys, pasted text, re-armed words).
      */
-    class TouchScoring(val model: KeyTouchModel, val points: List<TouchPoint?>)
+    class TouchScoring(val model: KeyTouchModel, val points: List<TouchPoint?>) {
+        val bestLogLikelihoods: DoubleArray = DoubleArray(points.size) { i ->
+            val p = points[i]
+            val best = p?.let { model.bestKey(it) }
+            if (p != null && best != null) model.logLikelihood(p, best) else Double.NEGATIVE_INFINITY
+        }
+    }
 
     class ScoredCandidate(
         val word: String,
@@ -83,8 +89,12 @@ class FuzzyBeamSearch {
 
         // Heaviest source first: its emissions raise the floor early, letting
         // lighter sources terminate after a handful of expansions.
-        val ordered = sources.sortedByDescending {
-            it.logWeight + ln1p(it.walker.maxSubtree(it.walker.root))
+        val ordered = if (sources.size <= 1) {
+            sources
+        } else {
+            sources.sortedByDescending {
+                it.logWeight + ln1p(it.walker.maxSubtree(it.walker.root))
+            }
         }
         for (src in ordered) {
             val rootBound = src.logWeight + ln1p(src.walker.maxSubtree(src.walker.root))
@@ -140,7 +150,7 @@ class FuzzyBeamSearch {
                     val score = src.logWeight + ln1p(walker.frequency(node)) - cost
                     if (score > floor - EPS || results.size < k) {
                         emit(ws.materialize(s), score, editSpend, edits, comp, accents, src.tier, results)
-                        if (results.size >= k) floor = kthBest(results, k)
+                        if (results.size >= k) floor = kthBest(results, k, ws)
                     }
                 }
                 // Completion: descend at no cost on a clean prefix — the bound
@@ -174,7 +184,7 @@ class FuzzyBeamSearch {
                 // Exact match of the next typed char. With touch evidence, an
                 // off-center tap makes even the "match" slightly expensive —
                 // which is exactly what lets the neighbouring key's word win.
-                val matched = walker.child(node, expected)
+                val matched = ws.children.find(expected, count)
                 if (matched >= 0) {
                     pushIfViable(
                         ws, src, walker, floor,
@@ -221,6 +231,33 @@ class FuzzyBeamSearch {
                         edits = edits, comp = comp, accents = accents, parent = s,
                         viaLabel = label,
                     )
+                }
+                // A letter on the key that the word list spells in several
+                // characters (क़ as क + nukta): the same free match, walked
+                // edge by edge, one keystroke for the lot.
+                keys?.spellingsAt(pos)?.forEach { spelled ->
+                    var at = node
+                    var link = s
+                    for (j in 0 until spelled.length - 1) {
+                        at = walker.child(at, spelled[j])
+                        if (at < 0) return@forEach
+                        link = ws.pushRecord(
+                            node = at, pos = pos, cost = cost,
+                            editSpend = editSpend, edits = edits, comp = comp,
+                            accents = accents, parent = link, viaLabel = spelled[j],
+                        )
+                    }
+                    val last = walker.child(at, spelled[spelled.length - 1])
+                    if (last >= 0) {
+                        pushIfViable(
+                            ws, src, walker, floor,
+                            node = last, pos = pos + 1,
+                            cost = cost + matchCost(touch, pos, spelled[0]),
+                            editSpend = editSpend,
+                            edits = edits, comp = comp, accents = accents, parent = link,
+                            viaLabel = spelled[spelled.length - 1],
+                        )
+                    }
                 }
             }
 
@@ -328,7 +365,7 @@ class FuzzyBeamSearch {
                     keySet == null && keys?.at(pos + 1) == null &&
                     editSpend + transposeCost <= MAX_EDIT_COST
                 ) {
-                    val first = walker.child(node, typed[pos + 1])
+                    val first = ws.children.find(typed[pos + 1], count)
                     if (first >= 0) {
                         val second = walker.child(first, typed[pos])
                         if (second >= 0) {
@@ -383,8 +420,9 @@ class FuzzyBeamSearch {
     private fun matchCost(touch: TouchScoring?, pos: Int, expected: Char): Double {
         val p = touch?.points?.getOrNull(pos) ?: return 0.0
         if (!touch.model.knows(expected)) return 0.0
-        val best = touch.model.bestKey(p) ?: return 0.0
-        val gap = touch.model.logLikelihood(p, best) - touch.model.logLikelihood(p, expected)
+        val bestScore = touch.bestLogLikelihoods.getOrElse(pos) { Double.NEGATIVE_INFINITY }
+        if (bestScore == Double.NEGATIVE_INFINITY) return 0.0
+        val gap = bestScore - touch.model.logLikelihood(p, expected)
         return gap.coerceIn(0.0, MATCH_CAP)
     }
 
@@ -448,13 +486,15 @@ class FuzzyBeamSearch {
         }
     }
 
-    private fun kthBest(results: HashMap<String, ScoredCandidate>, k: Int): Double {
-        if (results.size < k) return Double.NEGATIVE_INFINITY
-        val scores = DoubleArray(results.size)
+    private fun kthBest(results: HashMap<String, ScoredCandidate>, k: Int, ws: BeamWorkspace): Double {
+        val count = results.size
+        if (count < k) return Double.NEGATIVE_INFINITY
+        if (ws.scoreBuf.size < count) ws.scoreBuf = DoubleArray(maxOf(count, ws.scoreBuf.size * 2))
+        val buf = ws.scoreBuf
         var i = 0
-        for (c in results.values) scores[i++] = c.score
-        scores.sort()
-        return scores[scores.size - k]
+        for (c in results.values) buf[i++] = c.score
+        buf.sort(0, count)
+        return buf[count - k]
     }
 
     companion object {
@@ -593,6 +633,7 @@ class BeamWorkspace(initialCapacity: Int = 256) {
     var heapSize = 0; private set
 
     val children = ChildBuffer()
+    var scoreBuf = DoubleArray(64)
     private val sb = StringBuilder(24)
 
     fun reset() {

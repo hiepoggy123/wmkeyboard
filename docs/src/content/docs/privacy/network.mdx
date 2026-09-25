@@ -8,6 +8,7 @@ sidebar:
 import SettingsPath from '@components/SettingsPath.astro';
 import PhoneFrame from '@components/PhoneFrame.astro';
 import Flavor from '@components/Flavor.astro';
+import Shot from '@components/Shot.astro';
 
 The core typing engine has no network code anywhere in it. Prediction,
 autocorrect, gesture typing and layouts all behave the same with the radio
@@ -25,7 +26,7 @@ field empty and it calls the service's own server. See
 [Servers](/reference/settings/servers/).
 
 <PhoneFrame caption="The Tools screen: every tool has its own Enabled switch, on by default.">
-  ![The Tools screen: every tool has its own Enabled switch, on by default.](@assets/screens/privacy/tools-enabled-switches.webp)
+  <Shot id="privacy/tools-enabled-switches" alt="The Tools screen: every tool has its own Enabled switch, on by default." />
 </PhoneFrame>
 
 ## What each tool sends, and when
@@ -37,13 +38,16 @@ it.
 | Tool | Endpoint | Sends | Fires when |
 |---|---|---|---|
 | Translate | `translate.googleapis.com` (no key) or `translation.googleapis.com` (with a key) | the text you typed into the panel, up to 2,500 characters, plus the target language | as you type, about 400ms after you stop, only while the panel is open |
+| Translate and DeepL Write, with your DeepL key | `api-free.deepl.com` (Free keys), `api.deepl.com` (other keys), or the DeepL server you entered | Translate: the same as above. DeepL Write: the text in the field or the selection, up to 2,500 characters. Both send your key in a header | only after you add a DeepL key under Tools / Translate. Translate as you type in its panel; DeepL Write only when you tap it |
 | Translate, on-device models | `dl.google.com` (through Android's download manager), full edition only | nothing you typed: the request names the language model | when you press Download for a language, in the panel or under Tools / Translate |
 | GIF search | `api.klipy.com`, `api.giphy.com` | your search text, or nothing for the trending feed | immediately when you open the panel (trending), then live as you type |
 | Sticker search | same clients as GIF search | same | same |
 | Reporting a GIF or sticker result | none of the app's own | nothing: it builds a mail draft naming the provider, your search term, and the result's id and URL | only when you tap Report in the long-press menu, and only your mail app sends it |
 | Web search | `api.search.brave.com` | your search query | only when you submit a search, never as you type |
 | Image search | `api.search.brave.com` | your search query | same (submit only) |
-| Dictionary | `api.dictionaryapi.dev` | one English word: your selection, or the word at the cursor | on panel open, if "Look up the word at the cursor" is on (the default); also on manual search |
+| Camera, search by photo | `lens.google.com`, `www.bing.com`, `yandex.com` or `tineye.com`, whichever Tools / Camera / Search site names, or your own server for Custom | the photo, scaled to at most 1280 px | only when you press Search on a photo with Search with set to Web. The default, Google Lens, and the share sheet hand the photo to another app and send nothing from the keyboard |
+| Dictionary | `kaikki.org`, `en.wiktionary.org`, `api.dictionaryapi.dev`, in the order set under Tools / Dictionary / Dictionary sources | one English word: your selection, or the word at the cursor | on panel open, if "Look up the word at the cursor" is on (the default); also on manual search. A source is asked only when the ones before it had no entry or could not be reached. Installed vocabulary packs are read on the device first, and send nothing |
+| Synonyms | `api.datamuse.com`, `kaikki.org`, `api.dictionaryapi.dev`, in the order set under Typing / Suggestions / Synonym sources | one English word: the word you held on the suggestion strip | only when you tap Synonyms in the word menu, and a source is asked only when the ones before it had nothing. Installed vocabulary packs are read on the phone first, and send nothing |
 | Wikipedia | `wikipedia.org` | your search text or an article title | only when you search or open an article, never on panel open |
 | [KDE Connect](/tools/kde-connect/) | no server at all: computers on your local network, over UDP 1716 and TLS on TCP 1716 to 1764 | a name, a random device id and the list of features, to find computers; then, to a computer you paired, whatever you use the tool for: pointer moves, what you type there, the clipboard, files, media commands, battery level | never until you press Turn on. After that only while the link is allowed to exist (keyboard showing, by default), and to unpaired computers only while a device list is open. Album art for a player on the computer may be fetched from the web address that player names |
 | Currency converter | `open.er-api.com`, falling back to `api.frankfurter.dev`. The F-Droid edition starts from `cdn.jsdelivr.net` (currency-api, which uses `latest.currency-api.pages.dev` when jsDelivr fails) and falls back to `api.frankfurter.dev`. The source is yours to pick from those and `api.coinbase.com` | nothing identifying: it fetches the whole rate table, converted locally | on panel open, or the first time a smart chip sees an amount. In the F-Droid edition that chip waits for your tap unless **Fetch rates as you type** is on. Cached for hours, not fetched per conversion |
@@ -58,7 +62,7 @@ it.
 | QR scan link previews <Flavor edition="full" /> | whatever URL a scanned code contains | a GET request to that page | off by default; when on, right after a QR code decodes to a URL |
 | Voice typing (system recognizer) | Android's platform speech service (not WM Keyboard's own code) | your speech audio | whenever the on-device model for that language isn't installed: always, below Android 12 |
 | Voice typing (Whisper) <Flavor edition="full" /> | none | nothing leaves the phone during dictation | never: fully offline once the model is downloaded |
-| Voice typing ([transcription server](/tools/transcription-server/)) | a server address you enter, on your own network or a service such as Groq or OpenAI | the recording of each phrase (16 kHz WAV, up to 30 seconds), the model name you set, and the layout's language unless you turn that off | once per phrase, after you stop speaking, only while you dictate with this engine |
+| Voice typing ([transcription server](/tools/transcription-server/)) | a server address you enter, on your own network or a service such as Groq or OpenAI | the recording of each phrase (16 kHz WAV, up to 30 seconds), the model name you set, the layout's language unless you turn that off, and up to 150 of your own words plus your prompt text when [words to listen for](/tools/voice/#words-to-listen-for) are on | once per phrase, after you stop speaking, only while you dictate with this engine |
 
 The AI panel's **Report** button is the one row that quotes your own text
 without any network of its own. It opens a draft in your mail app holding
@@ -91,18 +95,19 @@ that entirely while the device is locked, under power saving, on mobile data
 unless you allow it, and when High contrast keys is on. See
 [Online photos and rotation](/themes/online-photos/).
 
-Everything else in the toolbox is offline by design: OCR, QR/barcode
+Everything else in the toolbox is offline by design: OCR (apart from the
+one-time download of a language's Tesseract data, below), QR/barcode
 scanning, document scanning, the calculator, unit converter, symbols picker,
 password generator, QR code generation, grammar and spell-check, the camera
-tool, and every calendar/alt-calendar/qibla/moon-phase/solar-time feature.
+tool (apart from searching with a photo on the Web setting, above), and every calendar/alt-calendar/qibla/moon-phase/solar-time feature.
 See [Scanner](/tools/scanner/#options) and
 [Utility tools](/tools/utilities/#details--edge-cases) for their own
 confirmations of that.
 
 ## The services behind them
 
-<PhoneFrame caption="AI tool settings: a self-hosted Ollama or LM Studio server address, with the plain-HTTP disclosure below it.">
-  ![AI tool settings: a self-hosted Ollama or LM Studio server address, with the plain-HTTP disclosure below it.](@assets/screens/privacy/ai-ollama-plain-http.webp)
+<PhoneFrame side caption="AI tool settings: a self-hosted Ollama or LM Studio server address, with the plain-HTTP disclosure below it.">
+  <Shot id="privacy/ai-ollama-plain-http" alt="AI tool settings: a self-hosted Ollama or LM Studio server address, with the plain-HTTP disclosure below it." />
 </PhoneFrame>
 
 "Google Translate" is really two different endpoints, and it's worth being
@@ -133,11 +138,17 @@ what's already in the table above:
 - **`f-droid.org`**, on an F-Droid build and no other, is asked what version
   F-Droid has, on the same six-hour schedule. That build downloads nothing: it
   can only point you back at the F-Droid client.
+- **`api.keyman.com`** and **`downloads.keyman.com`** are asked for a
+  [Keyman layout's](/languages/keyman/#typing-rules) typing rules, only when
+  you press its **Typing rules** row or accept the offer to fetch them as you
+  switch the layout on. The request names the keyboard and nothing else: the
+  first asks for its current version, the second serves the package.
 - **`raw.githubusercontent.com/wasi-master/wmkeyboard-data`** is the
   project's own data repository, source for downloadable dictionaries,
-  word-pair (n-gram) packs, emoji keyword packs, CJK conversion tables, and
+  word-pair (n-gram) packs, emoji keyword packs, CJK conversion tables,
   the 5 MB background remover the sticker editor fetches on a phone that has
-  no Google Play services to supply one.
+  no Google Play services to supply one, and a copy of Keyman keyboards'
+  typing rules that is read only when keyman.com can't serve them.
   See [Downloads](#downloads-dictionaries-models-and-addons) below.
 - **`raw.githubusercontent.com/wasi-master/wmkeyboard-addon-repository`** is
   the sample addon repository, and also where the one-tap **Noto Color
@@ -147,6 +158,11 @@ what's already in the table above:
 - **`raw.githubusercontent.com/wasi-master/wmkeyboard-monkeytype-sounds`** is
   the second pre-added addon repository, a set of key-sound packs. Like the
   one above it is removable, and removing it is permanent.
+- **`raw.githubusercontent.com/tesseract-ocr/tessdata_fast`** <Flavor edition="full" />
+  is the Tesseract project's own language data, pinned to its 4.1.0 release.
+  The [text scanner](/tools/scanner/#which-languages-it-reads) fetches one
+  file per language, 0.4 MB to 12 MB, only when you press **Download** for
+  it. The request names the language and nothing else.
 - **`huggingface.co`** is the source for offline Whisper speech models and
   on-device AI models. Most are public. A couple of gated on-device models
   need your own Hugging Face account token.
@@ -164,14 +180,16 @@ what's already in the table above:
   needs a face the device hasn't already cached, without you choosing
   anything. A device with no Play services falls back to the system font per
   glyph instead.
-- **Your backup destination, if you set one up.** That's Google Drive
+- **Your backup locations, if you add any.** That's Google Drive
   (`www.googleapis.com`), Dropbox (`www.dropbox.com` to sign in, then
   `api.dropbox.com`, `api.dropboxapi.com` and `content.dropboxapi.com`),
   OneDrive (`login.microsoftonline.com` to sign in, then
-  `graph.microsoft.com`), or the S3, WebDAV or FTP server whose address you
-  typed in yourself. Backups are off until you pick a destination, so none of
-  these are contacted on a fresh install. What travels is your settings file
-  and nothing else. See [Backup & restore](/privacy/backup/).
+  `graph.microsoft.com`), or the S3, WebDAV, SFTP, SMB, FTP, Git or IMAP
+  server whose address you typed in yourself. A Nextcloud WebDAV location can
+  also sign in through your own server's login page. Nothing is contacted until you add a location, so none of
+  these are contacted on a fresh install. What travels is your backup file,
+  and your sync file if you turn on sync between devices, and nothing else.
+  See [Backup & restore](/privacy/backup/).
 - **Whatever addon repository you add.** Two are pre-added the first time you
   open the Addons screen, the two named above, but adding a reference doesn't
   fetch anything by itself. See [Installing addons](/addons/installing/) for
@@ -192,7 +210,7 @@ without you, and only to the destination you chose yourself.
 <SettingsPath path="Tools / Translate" />
 
 Each tool that needs a key has its own field, all blank by default:
-Translate's Cloud Translation key, GIF search's Klipy and GIPHY keys, Web
+Translate's Cloud Translation and DeepL keys, GIF search's Klipy and GIPHY keys, Web
 and Image search's Brave key, photo backgrounds' Unsplash and Pexels keys,
 and the AI tool's per-provider keys
 (Anthropic, OpenAI, Gemini, Grok, DeepSeek, and whatever key the
@@ -234,17 +252,21 @@ some are.
 | Dictionaries and wordlists | the project's GitHub data repository | none beyond the gzip stream's own format check | Only from the "download everything for this language" button, which asks while [Data saver](/privacy/data-saver/) is on and its **Downloads** row is set to *Ask each time* (the default) |
 | Emoji keyword packs | same data repository | none beyond decode success | Same button, same setting |
 | CJK conversion tables (pinyin, kana, stroke, cangjie, jyutping) | same data repository | **SHA-256 verified** before the file is used | No |
+| [Keyman typing rules](/languages/keyman/#typing-rules) | `downloads.keyman.com`, or the same data repository's copy when keyman.com can't serve them | the file must parse as a keyboard before it's kept, and the data repository's copy is also **SHA-256 verified** against the checksum listed beside it | No |
 | Offline Whisper speech models | Hugging Face | no checksum, a file-size floor only | Yes, around 150 MB. See [Offline voice (Whisper)](/tools/whisper/#downloading-and-managing-models) |
+| Text scanner languages (Tesseract) <Flavor edition="full" /> | the Tesseract project's `tessdata_fast` 4.1.0 on GitHub | none beyond the file arriving at the length the server announced; a file Tesseract can't load is not read | Yes, from the scanner's button and from the settings page. See [Scanner](/tools/scanner/#which-languages-it-reads) |
 | On-device AI models | Hugging Face, per model | no checksum, a file-size floor only | Yes, at 500 MB. See [AI tools](/tools/ai/#local-models) |
 | Addons (themes, icon packs, plugins, sounds, layouts, sticker packs) | whichever repository you added | **SHA-256 verified when the manifest supplies one**, and mandatory for plugins specifically, since they run code | No |
 | [Signal sticker packs](/emoji/stickers/#signal-sticker-packs) | Signal's sticker storage, `cdn-ca.signal.org`. No Signal account is involved, and the request names the pack and nothing about you. The signalstickers.org gallery that the same screen links to opens in your browser, and the keyboard itself never contacts it | every file is checked against the key in the pack link (HMAC-SHA256) before it is opened, so a file that was changed on the way is refused | Yes. The pack preview asks before its first request while [Data saver](/privacy/data-saver/) is on and its **Downloads** row is set to *Ask each time* (the default) |
+| [Rboard themes](/reference/importing-other-keyboards/#gboard-themes-and-rboard-packs) | the Rboard repository on GitHub, `raw.githubusercontent.com/GboardThemes/PackRepoBeta`. The list is fetched when you open **Browse Rboard**, and a pack when you press it. The Google Play build has no Browse Rboard and never makes this request | each pack is **SHA-256 verified** against the checksum in the list before it is opened; the list itself is capped at 2 MB | Yes. The screen asks before its first request while [Data saver](/privacy/data-saver/) is on and its **Downloads** row is set to *Ask each time* (the default) |
 | Addon repository manifests themselves | the repository URL you added | none: it's the trust root, so there's nothing to check it against. Capped at a fixed size instead | No |
 | App updates (GitHub builds only) | this project's GitHub releases | **SHA-256 verified** against the checksum published in the release, and then the APK's signing key is compared against the key your install is signed with. A release with no checksum is refused rather than installed on trust | Yes, and it names the size before it starts |
 
-Only CJK packs, app updates, and addons with a declared hash get cryptographic
-verification. Wordlists, emoji packs, Whisper models, and on-device AI
-models rely on HTTPS transport integrity plus a basic size check rather than
-a checksum. That's worth knowing if you're deciding how much to trust a
+Only CJK packs, app updates, the data repository's copy of Keyman rules, Rboard
+theme packs, and addons with a declared hash get cryptographic verification. Wordlists, emoji
+packs, Whisper models, and on-device AI models rely on HTTPS transport
+integrity plus a basic size check rather than a checksum, and Keyman rules
+from keyman.com on HTTPS plus the check that they parse. That's worth knowing if you're deciding how much to trust a
 third-party addon repository versus the project's own data feed. See
 [Installing addons](/addons/installing/#where-each-type-lands) for how
 that mandatory plugin checksum is enforced.
@@ -317,6 +339,11 @@ place.
 
 ## Details & edge cases
 
+- **You can build a keyboard with no internet permission at all.** Build it
+  with `-Pwmkb.noInternet=true` and the permission is left out of the APK.
+  Everything on the device keeps working, and every tool on this page fails
+  the way it does offline. See
+  [Building](/development/building/#a-build-with-no-internet-permission).
 - **The in-app Privacy screen lists the tools, not the fetches.** Its note
   names translate, weather, web search, image search, GIFs, stickers,
   dictionary lookup and the AI tools, and says the network is used only at
@@ -350,8 +377,9 @@ place.
   self-hosted AI server possible at all. It doesn't weaken HTTPS anywhere
   the app picks the address: every tool in the table above is contacted over
   HTTPS, and an addon repository URL on plain `http` is rejected rather than
-  quietly upgraded. The two places a plain address is your own choice are the
-  self-hosted AI server and an S3 backup endpoint you type with `http://`.
+  quietly upgraded. The places a plain address is your own choice are the
+  self-hosted AI server, and an S3 backup endpoint or a Git backup server you
+  type with `http://`.
 
 See [Data collection](/privacy/data/) for what the keyboard learns from you
 locally, and [Backup & restore](/privacy/backup/) for how API keys and the

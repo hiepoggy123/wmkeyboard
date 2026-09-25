@@ -42,7 +42,7 @@ The auto-provisioned JDK 21 toolchain is not the project's bytecode target. Ever
 
 WM Keyboard ships as two build flavors on the same `capabilities` flavor dimension, declared identically in `:app` and all 20 `:core:*`/`:feature:*` modules. Two more, `:feature:llm` and `:feature:translate`, declare the same dimension but only join the build for Play-channel releases. The standalone `:tools:dictc` compiler is a plain JVM module and carries no flavors at all.
 
-- **`full`** builds every feature: ML Kit handwriting recognition, ML Kit OCR/QR/document scanning, the Harper grammar checker (and the Harper spell-checker service it registers with Android), the local LLM tool, offline Whisper dictation, and one-tap background removal in the sticker editor.
+- **`full`** builds every feature: ML Kit handwriting recognition, OCR (ML Kit and Tesseract), ML Kit QR/document scanning, the Harper grammar checker (and the Harper spell-checker service it registers with Android), the local LLM tool, offline Whisper dictation, and one-tap background removal in the sticker editor.
 - **`lite`** switches all of those off. That drops roughly 100 MB of ML Kit models and the Harper native library from the install, which is what makes it useful on a low-storage device.
 
 Both flavors exist on every module so the project builds uniformly across variants. Four modules actually carry different Kotlin per flavor: `core/voice`, `core/content`, `core/intelligence` and `feature/ime` each have a real `src/full/` and `src/lite/` split. `:app` has a `src/full/` as well, holding the spell-checker service's manifest entry and its strings, with nothing on the lite side. Everywhere else the flavor dimension is structural, and the sources compiling under `full` and `lite` are identical. `core/config` mirrors five `ENABLE_*` flags as `BuildConfig` booleans so library modules can read them without depending on `:app`. The sticker cutout has no flag of its own: `core/content` declares the segmentation library as `fullImplementation` and its lite stub reports `supported = false`.
@@ -60,6 +60,20 @@ Two single-dimension names survive in `:app` as aliases, one per store: `bundleF
 The practical consequence is that the two halves of the project disagree about variant names. `./gradlew testFullDebugUnitTest` runs the library suites and silently skips all of `:app`, which has no task by that name. Use `./gradlew unitTests`, the aggregate in the root build, which depends on both spellings.
 
 See [full vs. lite](/start/editions/) for what this means from the user's side, and [architecture](/development/architecture/) for how the module graph is laid out.
+
+## A build with no internet permission
+
+The released APKs declare `android.permission.INTERNET`, because the online tools, the downloads and the backups need it. If you want a keyboard that cannot reach the network at all, build one yourself with a single property:
+
+```bash
+./gradlew assembleFullEnDebug -Pwmkb.noInternet=true
+```
+
+It works on any variant, and `wmkb.noInternet=true` in `local.properties` or `WMKB_NO_INTERNET=true` in the environment does the same. The property adds `app/src/nointernet/AndroidManifest.xml`, which removes the permission from the merged manifest. Deleting the line from `app/src/main/AndroidManifest.xml` is not enough on the full edition: ML Kit declares the permission in its own manifest, and the merge puts it back. Check the result with `aapt dump permissions` on the APK.
+
+Nothing else changes. Typing, prediction, autocorrect, gesture typing, learning, the clipboard, the local tools and the on-device models you already have keep working. Every feature that fetches something fails the way it does with the phone offline, and the tools that show an error say that this build cannot connect to the internet. KDE Connect stays off, because its connections need the same permission even on your own network. There is no release variant of this build: it is for people who build their own.
+
+In the code, every request passes through `NetLog` (or, for the OkHttp clients, the `InternetGate` interceptor) before its socket opens, and both refuse with an `IOException` when the permission is missing. That matters because Android does not fail politely without it: a host name lookup throws `SecurityException`, which the offline paths are not written to catch. `NetworkCallSitesTest` fails the build if an OkHttp client is added without the gate.
 
 ## Rebuilding the native grammar engine
 
@@ -82,6 +96,19 @@ cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 24 \
 The same command is in `native/harper-jni/README.md`, along with the JNI contract the Kotlin side depends on.
 
 `--platform 24` matches the app's `minSdk` exactly. Release builds package all three supported ABIs (`arm64-v8a`, `armeabi-v7a` and `x86_64`) through `ndk.abiFilters` in `app/build.gradle.kts`. Debug builds restrict to `arm64-v8a` so local compiles finish sooner. Generic 32-bit `x86` is not supported.
+
+## Rebuilding the text scanner's Tesseract library
+
+<Flavor edition="full" />: like the grammar engine, it only ships in full builds.
+
+The text scanner reads most non-Latin scripts with [Tesseract](https://github.com/tesseract-ocr/tesseract), compiled with Leptonica into one small library, `libwmtess.so`, from `native/tesseract-jni/`. `core/intelligence/src/full/java/com/wasimaster/wmkeyboard/core/ocr/TesseractOcr.kt` is the Kotlin entry point, and the prebuilt `.so` files sit beside Harper's under `core/intelligence/src/full/jniLibs/<abi>/`, so a normal build needs no NDK here either. Rebuild them only after you edit `native/tesseract-jni/`:
+
+```sh
+# Needs NDK r29, CMake 3.22+ and Ninja
+ANDROID_NDK=/opt/homebrew/share/android-ndk native/tesseract-jni/build.sh
+```
+
+The script fetches the pinned Tesseract4Android sources, builds all three ABIs and copies the stripped libraries into place. The **Tesseract native build** workflow on GitHub does the same and uploads the result. `native/tesseract-jni/README.md` has the JNI contract and the size measurements behind each build flag.
 
 ## Running static analysis
 

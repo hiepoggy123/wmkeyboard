@@ -40,22 +40,26 @@ data class DictEntry(
 
 /**
  * Minimal client for the Free Dictionary API (dictionaryapi.dev — no key,
- * no account). Only called from the dictionary tool when the user looks a
- * word up.
+ * no account). One of the Dictionary tool's sources (see [DictionaryLookup]),
+ * asked only when the user looks a word up.
  */
 object DictionaryClient {
 
     /** The word exists in no entry — the API answered 404. */
     class NotFoundException(val word: String) : Exception("no entry for $word")
 
-    /** Blocking lookup; call on an IO dispatcher. Throws on any failure. */
-    fun lookup(word: String): List<DictEntry> {
+    /**
+     * Blocking lookup; call on an IO dispatcher. Throws on any failure.
+     * [netSource] names the feature in the network log: the synonym look-up
+     * asks the same API (#321).
+     */
+    fun lookup(word: String, netSource: NetSource = NetSource.DICTIONARY): List<DictEntry> {
         val cleaned = word.trim()
         require(cleaned.isNotEmpty()) { "empty word" }
         val url = ServiceEndpoints.base(ServiceEndpoint.DICTIONARY_API) + "/api/v2/entries/en/" +
             URLEncoder.encode(cleaned, "UTF-8").replace("+", "%20")
         val connection = URL(url).openConnection() as HttpURLConnection
-        val netCall = NetLog.call(NetSource.DICTIONARY, "GET", url, route = "/api/v2/entries")
+        val netCall = NetLog.call(netSource, "GET", url, route = "/api/v2/entries")
         try {
             connection.connectTimeout = 8000
             connection.readTimeout = 8000

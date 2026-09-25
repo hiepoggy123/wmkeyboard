@@ -9,6 +9,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import ThemePreview from '@components/ThemePreview.astro';
+import Shot from '@components/Shot.astro';
 
 WM Keyboard's look is driven by a theme: a full set of colors, gradients, key shapes and corner radii bundled together. Pick a built-in theme, let it follow your wallpaper, switch it automatically between day and night, or [build your own](/themes/editor/) from scratch.
 
@@ -18,13 +19,13 @@ WM Keyboard's look is driven by a theme: a full set of colors, gradients, key sh
 
 <SettingsPath path="Appearance / Keyboard themes" />
 
+<PhoneFrame side caption="The theme gallery: Default (system) first, then custom themes, then built-ins.">
+  <Shot id="themes/gallery-grid" alt="The theme gallery: custom themes on top, built-in themes below." />
+</PhoneFrame>
+
 The theme gallery is a two-column grid: the **Default (system)** card first, then your saved custom themes (if you have any), then every built-in theme below them. Tapping a card applies it to the keyboard immediately.
 
 The toolbox also has an **Appearance** tool that draws live mini-previews right over the keys. It carries a shortlist rather than the whole gallery. Your custom and downloaded themes always show up in it, along with whichever built-ins you pin: each built-in card in the settings gallery carries a pin that adds it to the tool or takes it out, and a fresh install starts with a spread of six. That makes the tool a quick mood switch, with a handful of favourites to flip between mid-typing and the full collection one tap away in Settings (the tool's caption says so too). The tool runs full-bleed. The toolbar row hides while it's open and its space becomes a header, with a back button on the left and the **Themes** / **Icons** / **Emoji** / **Fonts** tabs beside it, so the cards get the reclaimed rows. On the Themes tab, pressing a card while Auto theme is on sets whichever half of the pair, light or dark, is due right now. The grid goes read-only only when that half is set to Random, or when the active keyboard mode carries a theme of its own. A caption at the top names which of those two is holding it.
-
-<PhoneFrame caption="The theme gallery: Default (system) first, then custom themes, then built-ins.">
-  ![The theme gallery: custom themes on top, built-in themes below.](@assets/screens/themes/gallery-grid.webp)
-</PhoneFrame>
 
 There are 29 built-in themes. Nineteen are original WM Keyboard designs: plain colours like Ocean and Forest, gradient showcases like Nebula and the animated Sunset drift and Aurora, two shape showcases (Bubble for pill keys, Facet for cut corners), and Cyberpunk, which puts the whole feature set on screen at once. The other ten (Dracula, Alucard, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Catppuccin Frappé, Catppuccin Macchiato and Tokyo Night) are ports of well-known editor colour schemes. Alucard is Dracula's own light half, spelled backwards, so it draws as a second look on the Dracula card rather than a theme of its own. Cyberpunk is filed beside them in the source because it is written in that style, but the palette is ours. The MIT notices for the ones with upstream licences ship in the app's About screen.
 
@@ -34,17 +35,23 @@ None of the built-in themes are editable in place. Tapping the pencil on one mak
 
 ## Matching your wallpaper
 
-Turn on **Material You colors** and the **Default (system)** theme pulls its palette from your phone's wallpaper, the same way Android's own system UI does. It's off by default, because the app and the Default theme ship with a palette of their own — the deep indigo and violet the launcher icon is built from — and wallpaper color replaces it. It only takes effect on Android 12 and up. The switch still shows on older versions, where it has nothing to do. Wallpaper color only ever applies to the Default theme, because every built-in and custom theme carries its own fixed palette regardless of this switch. The same toggle recolors the settings app as well as the keyboard.
+Turn on **Material You colors** and the **Default (system)** theme pulls its palette from your phone's wallpaper, the same way Android's own system UI does. It's off by default, because the app and the Default theme ship with a palette of their own — the deep indigo and violet the launcher icon is built from — and wallpaper color replaces it. It only takes effect on Android 12 and up. The switch still shows on older versions, where it has nothing to do. This switch only changes the Default theme, and it recolors the settings app as well as the keyboard.
+
+Any other theme can follow the wallpaper too, one theme at a time. Open it in the [theme editor](/themes/editor/#following-your-wallpaper) and turn on **Follow wallpaper colors**. That works for your own themes, copies of the built-in ones, and themes imported from FlorisBoard, Gboard, Rboard or HeliBoard. A FlorisBoard theme written in Material You colors, such as FloriStyle, has it on from the moment you import it.
 
 ## Dark mode and AMOLED
 
 **Mode** is a four-way switch: System, Light, Dark, or AMOLED. Like Material You colors, it controls both the settings app and the Default theme. AMOLED always renders dark, and unlike System it doesn't wait on the phone's own light/dark setting. It forces the Default theme's board to pure black, and blacks out the settings app the same way — page, rows, bars, dialogs and sheets, not just the page behind them. Keys and other surfaces stay near-black blended tones rather than literal black, so key edges and the edges of settings rows are still visible against the black behind them. Built-in and custom themes ignore Mode entirely. If you want an AMOLED look on a fixed palette, the built-in **Pitch black** theme gets you there with its own true-black board.
 
 <PhoneFrame caption="Mode set to AMOLED: a true-black board under the Default theme.">
-  ![Mode set to AMOLED: a true-black board under the Default theme.](@assets/screens/themes/amoled-default-theme.webp)
+  <Shot id="themes/amoled-default-theme" alt="Mode set to AMOLED: a true-black board under the Default theme." />
 </PhoneFrame>
 
 ## Switching automatically
+
+<PhoneFrame side caption="Auto theme on, with Sunrise and sunset chosen as the trigger.">
+  <Shot id="themes/auto-theme-sun" alt="Auto theme on, with Sunrise & sunset chosen as the trigger." />
+</PhoneFrame>
 
 **Auto (light and dark)** picks two themes (one for day, one for night) and swaps between them on its own, using one of three triggers:
 
@@ -53,10 +60,6 @@ Turn on **Material You colors** and the **Default (system)** theme pulls its pal
 - **Sunrise and sunset** is computed on the device from the location saved in the weather tool, with no network round trip. Without a saved location, or on a polar day when the sun never rises or sets, this falls back to following the system setting.
 
 While Auto is on, pressing a card in the keyboard's own Appearance tool updates whichever half of the pair is currently due, light or dark. That only holds while the half isn't set to Random; a random half stays read-only there instead. Pressing a card in the settings gallery instead stores a manual pick for later, since Auto ignores it outright while it's on. A caption on each surface says which theme is live. Turn Auto off to pick themes manually again.
-
-<PhoneFrame caption="Auto theme on, with Sunrise and sunset chosen as the trigger.">
-  ![Auto theme on, with Sunrise and sunset chosen as the trigger.](@assets/screens/themes/auto-theme-sun.webp)
-</PhoneFrame>
 
 ### One theme, or a set
 
@@ -67,13 +70,14 @@ Switching to Random ticks the theme that half already showed, and the last ticke
 A **Change the theme** row appears once either half is random, and it decides how often a new theme comes up: every time the keyboard opens, every hour, every 6 hours, every day, every week, or only when you press Change. The theme never changes while you are typing. A new one is selected as the keyboard comes up for a new field, and the same theme stays for the whole session, so nothing moves under your hands mid-sentence. The next theme is never the one already showing, which is what makes the change worth having on a set of two or three.
 
 <PhoneFrame caption="The light theme picker in Random mode, with four themes ticked.">
+  <Shot id="themes/random-picker-light" alt="The light theme picker in Random mode, with four themes ticked." />
 </PhoneFrame>
 
 ## Options
 
 <SettingsPath path="Appearance / Keyboard themes" />
 
-- **Material You colors** (default off). Wallpaper-based dynamic color for the Default theme and the settings app, in place of the app's own indigo palette. It does nothing below Android 12, and nothing to built-in or custom themes.
+- **Material You colors** (default off). Wallpaper-based dynamic color for the Default theme and the settings app, in place of the app's own indigo palette. It does nothing below Android 12, and nothing to built-in or custom themes. Those have their own **Follow wallpaper colors** switch in the theme editor.
 - **Mode** (default System). System, Light, Dark, or AMOLED, applied to the settings app and the Default theme.
 - **Auto theme** (default off). Once on, pick a light theme, a dark theme, and a trigger (System light or dark, Time of day, or Sunrise and sunset). The time-of-day picker starts at 7:00 AM for the light theme and 7:00 PM for the dark theme.
 - **Light theme** and **Dark theme** (default One theme, Default (system) in both). Each row opens a picker that holds one theme or a set to select from at random.

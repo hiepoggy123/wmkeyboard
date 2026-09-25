@@ -144,8 +144,10 @@ class LoopbackTest {
         assertTrue(phone.engine.state.value.device(pc.id)!!.pairDeadlineMs > System.currentTimeMillis())
 
         pc.engine.acceptPair(phone.id)
-        await("paired") { phone.engine.state.value.device(pc.id)?.paired == true && phone.events.any { it is KdeEvent.Paired } }
-        assertTrue(phone.events.any { it is KdeEvent.Paired })
+        await("paired") { phone.engine.state.value.device(pc.id)?.paired == true }
+        // Events reach the list through a collector coroutine, so they can
+        // trail the state that was updated in the same step.
+        await("paired event") { phone.events.any { it is KdeEvent.Paired } }
         assertNull(phone.engine.state.value.device(pc.id)!!.verificationKey)
         assertTrue(phone.engine.hasPairedDevices())
     }
@@ -202,8 +204,8 @@ class LoopbackTest {
         }
 
         phone.engine.unpair(pcId)
-        await("both forget") { !phone.engine.hasPairedDevices() && !back.engine.hasPairedDevices() && back.events.any { it is KdeEvent.Unpaired } }
-        assertTrue(back.events.any { it is KdeEvent.Unpaired })
+        await("both forget") { !phone.engine.hasPairedDevices() && !back.engine.hasPairedDevices() }
+        await("unpaired event") { back.events.any { it is KdeEvent.Unpaired } }
     }
 
     @Test

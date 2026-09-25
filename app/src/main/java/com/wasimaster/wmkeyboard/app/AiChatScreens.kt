@@ -73,7 +73,6 @@ import com.wasimaster.wmkeyboard.core.aichat.AiChatConversation
 import com.wasimaster.wmkeyboard.core.aichat.AiChatMessage
 import com.wasimaster.wmkeyboard.core.aichat.AiChatStore
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
-import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.support.Support
 import com.wasimaster.wmkeyboard.core.tools.AiThinking
 import com.wasimaster.wmkeyboard.ime.aichat.AiChatController
@@ -101,6 +100,7 @@ internal fun AiChatListScreen(
     val version by AiChatController.storeVersion.collectAsState()
     val conversations = remember(version) { store.items() }
     var confirmDelete by remember { mutableStateOf<AiChatConversation?>(null) }
+    val reduceMotion = LocalReduceMotion.current
 
     // Nothing to list yet: skip the empty list and land in a chat directly.
     // The caller replaces this screen in the back stack, and a chat only
@@ -157,10 +157,14 @@ internal fun AiChatListScreen(
                 }
             }
             items(conversations, key = { it.id }) { conversation ->
+                // A deleted chat fades out and the ones under it close the
+                // gap, rather than the list redrawing one row shorter. The
+                // list is newest first, so a chat that moves up glides there.
                 ConversationRow(
                     conversation = conversation,
                     onClick = { onOpenChat(conversation.id) },
                     onDelete = { confirmDelete = conversation },
+                    modifier = listItemMotion(reduceMotion),
                 )
             }
         }
@@ -200,11 +204,13 @@ private fun ConversationRow(
     conversation: AiChatConversation,
     onClick: () -> Unit,
     onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     WmRow(
         title = conversation.title.ifBlank {
             stringResource(ImeR.string.ime_ai_chat_untitled)
         },
+        modifier = modifier,
         subtitle = DateUtils.getRelativeTimeSpanString(conversation.updatedAt).toString(),
         trailing = {
             IconButton(onClick = onDelete) {
@@ -231,7 +237,7 @@ private fun ConversationRow(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AiChatScreen(
-    settings: KeyboardSettings,
+    settings: LiveSettings,
     conversationId: Long,
     onBack: () -> Unit,
     onOpenAiSettings: () -> Unit,
@@ -249,7 +255,8 @@ internal fun AiChatScreen(
     // Everything usable right now: downloaded local models + configured
     // remote providers. Keyed on version so a chat opened right after a
     // download sees the new model.
-    val choices = remember(version, settings.ai) { AiChatController.choices(context, settings.ai) }
+    val ai = settings.watch { it.ai }
+    val choices = remember(version, ai) { AiChatController.choices(context, ai) }
     var choice by remember(choices) {
         mutableStateOf(AiChatController.initialChoice(store, choices))
     }
@@ -337,7 +344,7 @@ internal fun AiChatScreen(
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 run?.takeIf { it.conversationId == activeId }?.let { live ->
-                    item(key = "live") { StreamingBubble(live, settings.ai.showThinking) }
+                    item(key = "live") { StreamingBubble(live, settings.watch { it.ai.showThinking }) }
                 }
                 itemsIndexed(messages.asReversed()) { reversedIndex, message ->
                     // asReversed() is a view, so the position in the stored
@@ -346,7 +353,7 @@ internal fun AiChatScreen(
                     val newest = index == messages.lastIndex
                     val regenerate: () -> Unit = {
                         choice?.let { picked ->
-                            AiChatController.regenerate(context, settings.ai, activeId, picked)
+                            AiChatController.regenerate(context, settings.value.ai, activeId, picked)
                         }
                     }
                     val edit: () -> Unit = {
@@ -359,7 +366,7 @@ internal fun AiChatScreen(
                         message = message,
                         onRetry = retryFor(message, messages) {
                             choice?.let { picked ->
-                                AiChatController.retry(context, settings.ai, activeId, picked)
+                                AiChatController.retry(context, settings.value.ai, activeId, picked)
                             }
                         },
                         onRegenerate = regenerate.takeIf {
@@ -414,7 +421,7 @@ internal fun AiChatScreen(
                     val id = activeId.takeIf { it >= 0 }
                         ?: store.newConversation(System.currentTimeMillis()).id
                             .also { activeId = it }
-                    AiChatController.send(context, settings.ai, id, picked, draft, draftAttachment)
+                    AiChatController.send(context, settings.value.ai, id, picked, draft, draftAttachment)
                     draft = ""
                     draftAttachment = ""
                 },

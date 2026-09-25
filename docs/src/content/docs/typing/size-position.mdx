@@ -8,11 +8,12 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
+import Shot from '@components/Shot.astro';
 
 Every height, width and gap on WM Keyboard is a slider rather than a fixed number. Shrink the keyboard toward one thumb, split it down the middle for a wide screen, or detach it into a floating panel. Sizing you set for portrait carries to the unfolded shapes by default, landscape starts from its own shorter board, and all three can override any of it, right down to scaling the whole keyboard at once.
 
 <PhoneFrame caption="The Size & position group: key height, key spacing, width and position sliders.">
-  ![The Size & position group: key height, key spacing, width and position sliders.](@assets/screens/typing/size-position-settings-overview.webp)
+  <Shot id="typing/size-position-settings-overview" alt="The Size & position group: key height, key spacing, width and position sliders." />
 </PhoneFrame>
 
 ## Sizing the keys
@@ -41,11 +42,17 @@ Two sliders rather than one so the margins don't have to match. Set them equal f
 
 Each padding is claimed at its own edge before **Keyboard position** gets a say, so a margin you asked for is there whichever edge the keyboard hugs. Position then distributes whatever space the width slider left over on top of it. On Centre, equal paddings give exactly the even margin they always did.
 
-**Bottom padding** raises the whole keyboard away from the bottom edge and the gesture navigation bar, from 0dp to 160dp. The default depends on your Android version: **32dp** on Android 15 and up, where the IME window can draw behind the gesture bar, and **8dp** on older versions. Raise it if the bottom row feels cramped against the screen edge, or if you keep triggering system navigation by mistake. The slider runs so high because the inline **Resize** tool moves the same value, and that can push the keyboard a long way up the screen.
+**Bottom padding** raises the whole keyboard away from the bottom edge and the gesture navigation bar, from 0dp to 160dp. Until you move it, the keyboard picks the amount itself: **32dp** on Android 15 and up with gesture navigation, where the keyboard reaches down to the thin gesture handle, and **8dp** with three-button navigation or on older versions, where the bar below is already tall enough to keep your thumb off the edge. Raise it if the bottom row feels cramped against the screen edge, or if you keep triggering system navigation by mistake. The slider runs so high because the inline **Resize** tool moves the same value, and that can push the keyboard a long way up the screen.
+
+**Round top corners** and **Round bottom corners** cut rounded corners out of the docked keyboard, from square (the default) up to 40dp, and the app shows through the cut. The top and bottom are set apart, and **Which corners**, shown once either one is round, picks which of the four corners they apply to. All four by default, so rounding only the top two means leaving the bottom at Square. Round bottom corners suit gesture navigation and a phone whose screen corners are round too. With the older three-button navigation bar, the bar sits below the keyboard and the bottom corners open onto the app above it. The floating keyboard and the television card have round corners of their own and ignore these.
 
 ## Sizing each screen shape
 
 <SettingsPath path="Layout & size / Size and position / Per screen" />
+
+<PhoneFrame side caption="Per-screen sizing: Landscape expanded, showing the Keyboard scale slider.">
+  <Shot id="typing/size-position-per-screen" alt="Per-screen sizing: Landscape expanded, showing the Keyboard scale slider." />
+</PhoneFrame>
 
 Portrait is the base size: everything in the two sections above. Three other screen shapes can each override any of it, namely **Landscape**, **Portrait, unfolded** and **Landscape, unfolded**. Whatever you leave untouched on an override follows portrait, so tuning one shape never means setting up the rest.
 
@@ -59,10 +66,6 @@ Tap a shape's row to expand its editor:
 - **Key height**, **Number row height** (if the number row is on), **Bottom padding**, **Keyboard width**, **Font size**, **Key spacing**, **Left padding**, **Right padding**, **Bottom row height**, and, when width is under 100%, **Keyboard position**. Same ranges as their portrait counterparts above.
 - **Number row**, the one override that isn't a number at all. Landscape is what it's there for: it has the least room for a sixth row and the most need for the keys underneath it, which is why sideways starts without it unless you've set the digit row by hand.
 - **Follow portrait again**, which appears only once a shape has at least one override set. It clears every override for that shape in one tap. On landscape that returns it to the landscape defaults below, not to your portrait numbers.
-
-<PhoneFrame caption="Per-screen sizing: Landscape expanded, showing the Keyboard scale slider.">
-  {/* shot: typing/size-position-per-screen */}
-</PhoneFrame>
 
 Everything in [one-handed, split and floating](#one-handed-mode) below is global instead. It applies the same whichever screen shape you're on.
 
@@ -126,7 +129,7 @@ Each orientation gets its own three controls:
 - **Side** is which edge it docks to, Left or Right, default **Right** in both orientations.
 
 <PhoneFrame caption="One-handed mode docked to the right edge, with the flip and exit rail.">
-  ![One-handed mode docked to the right edge, with the flip and exit rail.](@assets/screens/typing/size-position-one-handed.webp)
+  <Shot id="typing/size-position-one-handed" alt="One-handed mode docked to the right edge, with the flip and exit rail." />
 </PhoneFrame>
 
 On the keyboard itself, a narrow rail fills the space one-handed mode leaves behind. It carries two buttons: an arrow that flips the keyboard to the other edge (live, and remembered as that orientation's new default side) and a fullscreen icon that exits one-handed mode entirely.
@@ -142,24 +145,24 @@ Pin the **One-handed** tool to your toolbar and tapping it toggles one-handed on
 **Split only on wide screens** is the second one, off by default. Split is a single global switch, so turning it on in landscape leaves the keyboard split after you rotate back, where half a phone-width keyboard is close to unusable. Turn this on and the split only happens in landscape or on an unfolded screen. Portrait on an ordinary phone stays whole.
 
 <PhoneFrame caption="Split keyboard: each row divided into left and right halves with a center gap.">
-  ![Split keyboard: each row divided into left and right halves with a center gap.](@assets/screens/typing/size-position-split.webp)
+  <Shot id="typing/size-position-split" alt="Split keyboard: each row divided into left and right halves with a center gap." />
 </PhoneFrame>
 
 ## Floating the keyboard
 
 <SettingsPath path="Layout & size / One-handed, split and floating / Floating keyboard" />
 
+<PhoneFrame side caption="The floating panel's handle bar: dock button, drag pill, and resize grip.">
+  <Shot id="typing/size-position-floating" alt="The floating panel's handle bar: dock button, drag pill, and resize grip." />
+</PhoneFrame>
+
 **Floating keyboard** detaches the keyboard from the bottom of the screen into a small, movable panel that hovers over whatever app is open. It's off by default. Turn it on and two sliders appear: **Floating keyboard width**, 240dp to 500dp, default **320dp**, and **Floating keyboard height**, 60% to 160% of the keyboard's normal height, default **100%**. The resize grip on the panel drives the same two values, and shares the 240dp floor and the 60–160% height range. It doesn't share the width ceiling: see the edge case below. A **Reset the floating panel** row appears below the sliders once you've moved or resized the panel, and puts its size and position back.
 
 The panel's handle bar carries three controls, left to right:
 
 - **Dock button**, a fullscreen icon that returns the keyboard to its normal, docked position.
-- **Drag pill**. Dragging anywhere across the middle of the handle bar moves the panel, not just the small pill drawn there. Its position is saved as a fraction of the free space around it rather than as a pixel coordinate, so it survives rotation. By default that's centered horizontally and pinned to the bottom of the available space.
-- **Resize grip**, drawn as two short diagonal lines rather than a diagonal-arrows icon, deliberately, so it doesn't read as another fullscreen button. Dragging it resizes width and height together: width tracks your finger directly, height tracks it inverted, because the grip sits on the panel's *top* bar. Drag up to grow the panel and down to shrink it.
-
-<PhoneFrame caption="The floating panel's handle bar: dock button, drag pill, and resize grip.">
-  ![The floating panel's handle bar: dock button, drag pill, and resize grip.](@assets/screens/typing/size-position-floating.webp)
-</PhoneFrame>
+- **Drag pill**. Dragging anywhere across the middle of the handle bar moves the panel, not just the small pill drawn there. Its position is saved as a fraction of the free space around it rather than as a pixel coordinate, so it survives rotation. By default that's centered horizontally and pinned to the bottom of the available space. The panel stays where you let go of it.
+- **Resize grip**, drawn as two short diagonal lines rather than a diagonal-arrows icon, deliberately, so it doesn't read as another fullscreen button. Dragging it resizes width and height together: width tracks your finger directly, height tracks it inverted, because the grip sits on the panel's *top* bar. Drag up to grow the panel and down to shrink it. The panel's top-left corner stays put while you resize, so the panel grows and shrinks from there instead of wandering across the screen.
 
 Floating mode replaces the normal layout logic rather than combining with it. While it's on:
 
@@ -192,7 +195,10 @@ Pin the **Keep on screen** tool to your toolbar to toggle this directly. That to
 | Left padding | 0% |
 | Right padding | 0% |
 | Key spacing | 100% |
-| Bottom padding | 32 dp (Android 15+) / 8 dp (older) |
+| Bottom padding | 32 dp (Android 15+ with gesture navigation) / 8 dp (three-button navigation, or older) |
+| Round top corners | Square (0 dp) |
+| Round bottom corners | Square (0 dp) |
+| Which corners | All four |
 | Keyboard width | 100% |
 | Keyboard position | Centre |
 | Keyboard scale (per screen shape) | 100% |
@@ -220,6 +226,7 @@ Accessibility settings has its own **Key size and spacing** shortcut that opens 
 - **Keyboard scale has no portrait equivalent.** It exists only on the three override screen shapes. Portrait is sized entirely by its own key-height and number-row-height sliders, with no multiplier on top.
 - **Landscape's defaults ignore your portrait key height, deliberately.** A landscape phone is short whatever you like upright, so carrying a 64dp portrait key across would put the board back through the bottom of the window. The digit row is the one that does carry: it's a row you asked for rather than a size the screen dictates.
 - **The key preview bubble gives way to the keys.** The empty band the keyboard holds above itself for a top-row preview is taken out of the screen's leftover space, never out of the board. On a screen too short for both, the board wins and the bubble gets whatever is left.
+- **No full-screen editor on a tablet or unfolded foldable.** Android's default gives a landscape keyboard a full-screen text box above it whenever the app doesn't opt out, which on a big screen covers the app for nothing. WM Keyboard keeps that box to phones in landscape, like Gboard does; a floating keyboard never gets it at all.
 - **"Unfolded" is a screen-size check, not a fold-sensor read.** Any device with a smallest dimension of 600dp or more counts, a tablet that never folds included. The label describes what the screen currently looks like, not the hardware.
 - **One-handed mode's width setting is a live override, not a rewrite.** Turning it on temporarily overrides the keyboard-width and position settings while active. Turning it off returns to whatever those were set to.
 - **A very wide screen can let the floating panel's resize grip briefly exceed 500dp mid-drag.** It snaps back to the 500dp maximum once you release it.

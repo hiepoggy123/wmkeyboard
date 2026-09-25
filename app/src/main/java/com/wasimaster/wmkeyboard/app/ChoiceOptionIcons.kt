@@ -1,9 +1,13 @@
 package com.wasimaster.wmkeyboard.app
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AccountTree
+import androidx.compose.material.icons.outlined.CenterFocusStrong
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Lan
 import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.Mail
 import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.OutlinedFlag
 import androidx.compose.material.icons.outlined.RecordVoiceOver
@@ -11,9 +15,11 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.HourglassBottom
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.SignalCellularAlt
 import androidx.compose.material.icons.outlined.SignalCellularAlt1Bar
 import androidx.compose.material.icons.outlined.SignalCellularAlt2Bar
+import androidx.compose.material.icons.outlined.Terminal
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.automirrored.outlined.ViewList
@@ -131,6 +137,7 @@ import com.wasimaster.wmkeyboard.core.settings.ManualModeDuration
 import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
+import com.wasimaster.wmkeyboard.core.settings.PhotoSearchTarget
 import com.wasimaster.wmkeyboard.core.settings.PowerSavingTrigger
 import com.wasimaster.wmkeyboard.core.settings.RotationInterval
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
@@ -400,6 +407,11 @@ internal object ChoiceOptionIcons {
         put(MediaSendMode.IMAGE) { Icons.Outlined.Image }
         put(MediaSendMode.STICKER) { Icons.Outlined.Style }
 
+        // The search sites are left out: four globes would say nothing.
+        put(PhotoSearchTarget.LENS) { Icons.Outlined.CenterFocusStrong }
+        put(PhotoSearchTarget.WEB) { Icons.Outlined.Public }
+        put(PhotoSearchTarget.SHARE) { Icons.Outlined.Share }
+
         put(AppSortOrder.ALPHABETICAL) { Icons.Outlined.SortByAlpha }
         put(AppSortOrder.RECENT_FIRST) { Icons.Outlined.History }
 
@@ -449,7 +461,7 @@ internal object ChoiceOptionIcons {
         put(UppercaseStyle.UPPERCASE) { Icons.Outlined.KeyboardCapslock }
 
         // ---- Backup ----
-        // The screen this table was asked for: six destinations, and the
+        // The screen this table was asked for: the destinations, and the
         // words alone do not say which of them is a server and which is an
         // account somewhere.
         put(BackupDestination.FOLDER) { Icons.Outlined.Folder }
@@ -459,6 +471,10 @@ internal object ChoiceOptionIcons {
         put(BackupDestination.DROPBOX) { Icons.Outlined.Cloud }
         put(BackupDestination.ONEDRIVE) { Icons.Outlined.Cloud }
         put(BackupDestination.FTP) { Icons.Outlined.Computer }
+        put(BackupDestination.SFTP) { Icons.Outlined.Terminal }
+        put(BackupDestination.SMB) { Icons.Outlined.Lan }
+        put(BackupDestination.GIT) { Icons.Outlined.AccountTree }
+        put(BackupDestination.IMAP) { Icons.Outlined.Mail }
 
         put(MeteredPolicy.ALLOW) { Icons.Outlined.AllInclusive }
         put(MeteredPolicy.ASK) { Icons.Outlined.HelpOutline }

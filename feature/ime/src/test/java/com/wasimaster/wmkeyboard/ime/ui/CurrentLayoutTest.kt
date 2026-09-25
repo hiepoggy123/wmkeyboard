@@ -116,6 +116,50 @@ class CurrentLayoutTest {
         currentLayout(s).keys().single { (it.output ?: it.label) == "c" }
 
     /** Settings with every default-on layout rewrite turned off. */
+    /** A one-row kana pad whose globe key doubles as 小゛゜ (issue #340). */
+    private fun kanaPad(settings: KeyboardSettings, ready: Boolean): KeyboardUiState {
+        val letters = KeyboardLayout(
+            name = "pad",
+            rows = listOf(
+                listOf(
+                    Key("🌐", action = KeyAction.LanguageSwitch, kanaVariantWhileComposing = true, width = 1.5f),
+                    Key("か"),
+                ),
+            ),
+        )
+        return KeyboardUiState(
+            settings = settings,
+            layouts = LayoutSet(letters, letters, letters),
+            kanaVariantReady = ready,
+        )
+    }
+
+    @Test
+    fun `a flagged key is itself until a kana can take a mark`() {
+        val globe = currentLayout(kanaPad(plain(), ready = false)).rows[0][0]
+        assertEquals(KeyAction.LanguageSwitch, globe.action)
+        assertEquals("🌐", globe.label)
+    }
+
+    @Test
+    fun `a flagged key becomes the kana-mark key and keeps its seat`() {
+        val key = currentLayout(kanaPad(plain(), ready = true)).rows[0][0]
+        assertEquals(KeyAction.KanaVariant, key.action)
+        assertEquals("小゛゜", key.label)
+        assertEquals(1.5f, key.width)
+    }
+
+    /**
+     * The emoji preference turns the globe into the emoji key before the swap
+     * runs; the swap still wins while there is a kana to change.
+     */
+    @Test
+    fun `the swap covers a globe the emoji preference already rewrote`() {
+        val settings = plain().copy(globeAsEmoji = true)
+        assertEquals(KeyAction.Emoji, currentLayout(kanaPad(settings, ready = false)).rows[0][0].action)
+        assertEquals(KeyAction.KanaVariant, currentLayout(kanaPad(settings, ready = true)).rows[0][0].action)
+    }
+
     private fun plain(): KeyboardSettings = KeyboardSettings(
         globeAsEmoji = false,
         swapCommaAndGlobe = false,
@@ -181,6 +225,39 @@ class CurrentLayoutTest {
         // And draws no corner hint: that comes from the character alternates,
         // which this key still has none of.
         assertTrue(enterKeyOf(s).longPress.isEmpty())
+    }
+
+    private fun withEnterEmoji(base: KeyboardSettings): KeyboardSettings =
+        base.copy(layoutBehavior = base.layoutBehavior.copy(enterLongPressEmoji = true))
+
+    /** Off by default: a hold on enter keeps doing what it did. */
+    @Test
+    fun `the enter key offers no emoji until asked`() {
+        val s = state(settings = plain()).copy(enterAction = EnterAction.SEND)
+        assertTrue(enterKeyOf(s).actionAlternates.none { it.action == KeyAction.Emoji })
+    }
+
+    /** On an ordinary field the emoji entry is the whole popup. */
+    @Test
+    fun `the setting puts emoji on the enter key's long press`() {
+        val s = state(settings = withEnterEmoji(plain())).copy(enterAction = EnterAction.DEFAULT)
+        val enter = enterKeyOf(s)
+        assertEquals(listOf(KeyAction.Emoji), enter.actionAlternates.map { it.action })
+        assertTrue(enter.opensAlternatesPopup())
+    }
+
+    /**
+     * A send field keeps its line break in the popup, but behind the emoji:
+     * the first entry is what a plain hold and release commits, and that is
+     * what the setting was turned on for.
+     */
+    @Test
+    fun `emoji goes ahead of the newline on a send field`() {
+        val s = state(settings = withEnterEmoji(plain())).copy(enterAction = EnterAction.SEND)
+        assertEquals(
+            listOf(KeyAction.Emoji, KeyAction.Newline),
+            enterKeyOf(s).actionAlternates.map { it.action },
+        )
     }
 
     private fun spaceKeyOf(s: KeyboardUiState): Key =
