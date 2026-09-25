@@ -370,7 +370,7 @@ internal fun AiToolSettings(
             ToggleSetting(
                 R.string.toolai_ai_auto_replace_title,
                 stringResource(R.string.toolai_ai_auto_replace_subtitle),
-                settings.ai.autoReplace,
+                settings.watch { it.ai.autoReplace },
                 default = SettingsDefaults.ai.autoReplace,
             ) { scope.launch { repository.setAiAutoReplace(it) } }
         }

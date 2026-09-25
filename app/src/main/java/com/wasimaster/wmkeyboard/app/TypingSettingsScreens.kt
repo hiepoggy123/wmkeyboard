@@ -3020,10 +3020,10 @@ private fun FlickDirChoice(
 @Composable
 internal fun TypingVietnameseFlickSettings(
     repository: SettingsRepository,
-    settings: KeyboardSettings,
+    settings: LiveSettings,
 ) {
     val scope = rememberCoroutineScope()
-    val flick = settings.vietnameseFlick
+    val flickEnabled = settings.watch { it.vietnameseFlick.enabled }
     val defaults = SettingsDefaults.vietnameseFlick
 
     SettingsGroup(stringResource(R.string.vietnamese_flick_group_title)) {
@@ -3031,7 +3031,7 @@ internal fun TypingVietnameseFlickSettings(
             ToggleSetting(
                 R.string.vietnamese_flick_enabled_title,
                 stringResource(R.string.vietnamese_flick_enabled_subtitle),
-                flick.enabled,
+                flickEnabled,
                 default = defaults.enabled,
             ) { enabled ->
                 scope.launch {
@@ -3042,13 +3042,13 @@ internal fun TypingVietnameseFlickSettings(
         }
     }
 
-    if (flick.enabled) {
+    if (flickEnabled) {
         SettingsGroup(stringResource(R.string.vietnamese_flick_vowels_header)) {
             item {
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_a_circumflex,
                     "a_circumflex",
-                    flick.dirA_Circumflex,
+                    settings.watch { it.vietnameseFlick.dirA_Circumflex },
                     defaults.dirA_Circumflex,
                     repository,
                 )
@@ -3057,7 +3057,7 @@ internal fun TypingVietnameseFlickSettings(
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_a_breve,
                     "a_breve",
-                    flick.dirA_Breve,
+                    settings.watch { it.vietnameseFlick.dirA_Breve },
                     defaults.dirA_Breve,
                     repository,
                 )
@@ -3066,7 +3066,7 @@ internal fun TypingVietnameseFlickSettings(
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_e_circumflex,
                     "e_circumflex",
-                    flick.dirE_Circumflex,
+                    settings.watch { it.vietnameseFlick.dirE_Circumflex },
                     defaults.dirE_Circumflex,
                     repository,
                 )
@@ -3075,7 +3075,7 @@ internal fun TypingVietnameseFlickSettings(
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_d_stroke,
                     "d_stroke",
-                    flick.dirD_Stroke,
+                    settings.watch { it.vietnameseFlick.dirD_Stroke },
                     defaults.dirD_Stroke,
                     repository,
                 )
@@ -3084,7 +3084,7 @@ internal fun TypingVietnameseFlickSettings(
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_o_circumflex,
                     "o_circumflex",
-                    flick.dirO_Circumflex,
+                    settings.watch { it.vietnameseFlick.dirO_Circumflex },
                     defaults.dirO_Circumflex,
                     repository,
                 )
@@ -3093,7 +3093,7 @@ internal fun TypingVietnameseFlickSettings(
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_o_horn,
                     "o_horn",
-                    flick.dirO_Horn,
+                    settings.watch { it.vietnameseFlick.dirO_Horn },
                     defaults.dirO_Horn,
                     repository,
                 )
@@ -3102,7 +3102,7 @@ internal fun TypingVietnameseFlickSettings(
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_u_horn,
                     "u_horn",
-                    flick.dirU_Horn,
+                    settings.watch { it.vietnameseFlick.dirU_Horn },
                     defaults.dirU_Horn,
                     repository,
                 )
@@ -3114,7 +3114,7 @@ internal fun TypingVietnameseFlickSettings(
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_tone_acute,
                     "tone_acute",
-                    flick.dirTone_Acute,
+                    settings.watch { it.vietnameseFlick.dirTone_Acute },
                     defaults.dirTone_Acute,
                     repository,
                 )
@@ -3123,7 +3123,7 @@ internal fun TypingVietnameseFlickSettings(
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_tone_grave,
                     "tone_grave",
-                    flick.dirTone_Grave,
+                    settings.watch { it.vietnameseFlick.dirTone_Grave },
                     defaults.dirTone_Grave,
                     repository,
                 )
@@ -3132,7 +3132,7 @@ internal fun TypingVietnameseFlickSettings(
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_tone_hook,
                     "tone_hook",
-                    flick.dirTone_Hook,
+                    settings.watch { it.vietnameseFlick.dirTone_Hook },
                     defaults.dirTone_Hook,
                     repository,
                 )
@@ -3141,7 +3141,7 @@ internal fun TypingVietnameseFlickSettings(
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_tone_tilde,
                     "tone_tilde",
-                    flick.dirTone_Tilde,
+                    settings.watch { it.vietnameseFlick.dirTone_Tilde },
                     defaults.dirTone_Tilde,
                     repository,
                 )
@@ -3150,7 +3150,7 @@ internal fun TypingVietnameseFlickSettings(
                 FlickDirChoice(
                     R.string.vietnamese_flick_dir_tone_dot,
                     "tone_dot",
-                    flick.dirTone_Dot,
+                    settings.watch { it.vietnameseFlick.dirTone_Dot },
                     defaults.dirTone_Dot,
                     repository,
                 )

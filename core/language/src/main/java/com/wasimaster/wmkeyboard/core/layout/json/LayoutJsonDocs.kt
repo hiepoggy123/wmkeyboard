@@ -136,6 +136,8 @@ object LayoutJsonDocs {
         "action:letters" to "Goes straight back to the letters.",
         "action:language_switch" to "Goes to the next layout that is on.",
         "action:input_method_picker" to "Opens the system list of keyboards, to change to another keyboard app.",
+        "action:switch_input_method" to "Switches straight to a chosen keyboard app, without opening the picker.",
+        "action:switch_input_method.id" to "The Android input method ID of the target keyboard app.",
         "action:emoji" to "Opens the emoji panel.",
         "action:numpad" to "Opens the number pad. The keyboard makes this key by itself, and a layout does not use it.",
         "action:tool" to "Opens one of the keyboard's tools, the same as its toolbar button.",
