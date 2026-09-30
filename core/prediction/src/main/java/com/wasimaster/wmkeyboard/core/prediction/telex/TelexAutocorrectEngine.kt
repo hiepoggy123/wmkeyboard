@@ -187,7 +187,7 @@ class TelexAutocorrectEngine private constructor() {
     private var isInitialized = false
 
     var isReady: Boolean
-        get() = isInitialized || trie.root.children.isNotEmpty()
+        get() = isInitialized || trie.root.children.isNotEmpty() || languageModel.unigrams.isNotEmpty()
         set(value) { isInitialized = value }
 
     companion object {

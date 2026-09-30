@@ -466,6 +466,7 @@ class TelexAutocorrectEngineTest {
             }
         """.trimIndent()
         engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
 
         val vniComposer: (String) -> String = { raw ->
             when (raw) {
