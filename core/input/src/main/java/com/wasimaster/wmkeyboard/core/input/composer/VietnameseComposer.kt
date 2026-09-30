@@ -173,20 +173,7 @@ internal object VietnameseEngine {
         return false
     }
 
-    private fun handleFlickMark(letters: ArrayList<VLetter>, base: Char, mark: VMark, upper: Boolean) {
-        val last = letters.lastOrNull()
-        if (last != null && last.base == base) {
-            if (last.mark == mark) {
-                last.mark = VMark.NONE
-            } else {
-                last.mark = mark
-            }
-        } else {
-            letters.add(VLetter(base, mark, upper))
-        }
-    }
-
-    fun transduce(raw: String, vni: Boolean, pureFlick: Boolean = false): String {
+    fun transduce(raw: String, vni: Boolean): String {
         val letters = ArrayList<VLetter>()
         var tone = VTone.NONE
 
@@ -224,15 +211,15 @@ internal object VietnameseEngine {
                 continue
             }
 
-            // Precomposed vowel marks and đ from flick gestures
+            // Precomposed vowel marks and đ from popups / clipboard
             when (lc) {
-                'ă' -> { handleFlickMark(letters, 'a', VMark.BREVE, upper); continue }
-                'â' -> { handleFlickMark(letters, 'a', VMark.CIRCUMFLEX, upper); continue }
-                'ê' -> { handleFlickMark(letters, 'e', VMark.CIRCUMFLEX, upper); continue }
-                'ô' -> { handleFlickMark(letters, 'o', VMark.CIRCUMFLEX, upper); continue }
-                'ơ' -> { handleFlickMark(letters, 'o', VMark.HORN, upper); continue }
-                'ư' -> { handleFlickMark(letters, 'u', VMark.HORN, upper); continue }
-                'đ' -> { handleFlickMark(letters, 'd', VMark.STROKE, upper); continue }
+                'ă' -> { letters.add(VLetter('a', VMark.BREVE, upper)); continue }
+                'â' -> { letters.add(VLetter('a', VMark.CIRCUMFLEX, upper)); continue }
+                'ê' -> { letters.add(VLetter('e', VMark.CIRCUMFLEX, upper)); continue }
+                'ô' -> { letters.add(VLetter('o', VMark.CIRCUMFLEX, upper)); continue }
+                'ơ' -> { letters.add(VLetter('o', VMark.HORN, upper)); continue }
+                'ư' -> { letters.add(VLetter('u', VMark.HORN, upper)); continue }
+                'đ' -> { letters.add(VLetter('d', VMark.STROKE, upper)); continue }
             }
             if (vni) {
                 // If the buffer already contains a literal digit, any subsequent digit is also treated as a literal digit
@@ -288,11 +275,7 @@ internal object VietnameseEngine {
                 letters.add(VLetter(lc, VMark.NONE, upper))
                 continue
             }
-            if (pureFlick) {
-                // Pure flick mode: tap NEVER mutates or transliterates. 100% plain Latin text.
-                letters.add(VLetter(lc, VMark.NONE, upper))
-                continue
-            }
+
 
             // Telex
             when (lc) {
@@ -377,12 +360,11 @@ internal object VietnameseEngine {
 
 /** Vietnamese Telex: letters spell the diacritics (`as`→á, `aw`→ă, `dd`→đ). */
 object VietnameseTelexComposer : Composer {
-    var pureFlickMode: Boolean = false
     override val isTransliterating: Boolean get() = true
     override val isVietnameseTelex: Boolean get() = true
     override fun buffersChar(c: Char): Boolean = c in "\u0301\u0300\u0309\u0303\u0323"
     override fun isPlausibleWord(word: String): Boolean = VietnameseOrthography.isSyllable(word)
-    override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = false, pureFlick = pureFlickMode)
+    override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = false)
 }
 
 /** Vietnamese VNI: digits spell the diacritics (`a8`→ă, `a1`→á, `d9`→đ). */

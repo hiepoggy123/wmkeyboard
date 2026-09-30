@@ -227,11 +227,10 @@ import com.wasimaster.wmkeyboard.core.prediction.WordFacts
 import com.wasimaster.wmkeyboard.core.prediction.WordKey
 import com.wasimaster.wmkeyboard.core.prediction.WordRanks
 import com.wasimaster.wmkeyboard.core.prediction.WordSource
-import com.wasimaster.wmkeyboard.core.prediction.telex.TypingToken
 import com.wasimaster.wmkeyboard.core.prediction.telex.TelexAutocorrectEngine
 import com.wasimaster.wmkeyboard.core.prediction.telex.VietnameseOrthography
 import com.wasimaster.wmkeyboard.core.input.composer.VietnameseTelexComposer
-import com.wasimaster.wmkeyboard.core.settings.VietnameseFlickSettings
+import com.wasimaster.wmkeyboard.core.prediction.vni.VniAutocorrectEngine
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
@@ -1102,9 +1101,6 @@ open class WMKeyboardService : InputMethodService() {
         }
     }
 
-    private val composingTokens = mutableListOf<TypingToken>()
-    private var pendingFlickToken: TypingToken? = null
-
     private var composing = StringBuilder()
         set(value) {
             // A word the user came back to and edited in the buffer ends here,
@@ -1117,7 +1113,6 @@ open class WMKeyboardService : InputMethodService() {
             // word was never tapped in this session, so it degrades to the
             // adjacency model via an all-null frame.
             composingTouch.clear()
-            composingTokens.clear()
             // Same boundary, same reason: a re-armed word's characters were
             // never pressed on this board, so nothing is known about which
             // keys they came off and the decode falls back to reading them
@@ -1281,13 +1276,6 @@ open class WMKeyboardService : InputMethodService() {
                 (state.shiftState == ShiftState.ON && state.shiftPressedByUser)
         }
         composing.append(text)
-        val token = pendingFlickToken ?: TypingToken(char = text.firstOrNull() ?: ' ', isFlick = false)
-        if (text.length == 1) {
-            composingTokens.add(token)
-        } else {
-            repeat(text.length) { composingTokens.add(token) }
-        }
-        pendingFlickToken = null
         if (composingTouch.size == composing.length - text.length) {
             // A compound's hyphen is not a letter the touch model could have
             // meant another key for, and it is usually typed on another layer
@@ -3308,8 +3296,6 @@ open class WMKeyboardService : InputMethodService() {
                     updateScreenshotObserver(settings.clipboard.userScreenshots)
                 }
                 if (!settings.floatingKeyboard) floatingPanelBounds = null
-                VietnameseTelexComposer.pureFlickMode =
-                    settings.vietnameseFlick.enabled && settings.vietnameseFlick.pureFlickMode
                 if (settings.suggestionSources.contacts != contactsEnabled) {
                     contactsEnabled = settings.suggestionSources.contacts
                     if (settings.suggestionSources.contacts) {
@@ -3487,7 +3473,6 @@ open class WMKeyboardService : InputMethodService() {
                             form,
                             modeSettings.numberRow,
                             modeSettings.customLayouts,
-                            modeSettings.vietnameseFlick,
                         ),
                         activeModeId = mode?.id,
                     )
@@ -5208,7 +5193,6 @@ open class WMKeyboardService : InputMethodService() {
                     deviceForm.value,
                     modeSettings.numberRow,
                     modeSettings.customLayouts,
-                    modeSettings.vietnameseFlick,
                 ),
                 activeModeId = activeMode?.id,
                 activeSymbolSetId = null,
@@ -6660,15 +6644,6 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     private fun onTextKey(key: Key) {
-        val isFlick = key.output != null && key.flick.containsValue(key.output)
-        val baseKey = key.label.firstOrNull()?.lowercaseChar()
-        val outChar = (key.output ?: key.label).firstOrNull() ?: ' '
-        pendingFlickToken = TypingToken(
-            char = outChar,
-            isFlick = isFlick,
-            baseKey = baseKey,
-            flickOutput = key.output
-        )
         val output = keyOutput(key, _uiState.value)
         val state = _uiState.value
         val isVietnamese = state.composer.isTransliterating || state.language.id.startsWith("vi")
@@ -8994,7 +8969,6 @@ open class WMKeyboardService : InputMethodService() {
             composing.setLength(composing.length - length)
             repeat(length) { composingTouch.removeLastOrNull() }
             repeat(length) { composingKeys.removeLastOrNull() }
-            repeat(length) { composingTokens.removeLastOrNull() }
             repeat(length) { composingHints.removeLastOrNull() }
             ambiguousReading = null
             updateComposingText(ic)
@@ -9078,8 +9052,6 @@ open class WMKeyboardService : InputMethodService() {
         when (revert.kind) {
             RevertibleCommit.Kind.AUTOCORRECT -> {
                 rejectedVietnameseWord = revert.original
-                val telexEngine = TelexAutocorrectEngine.getInstance()
-                telexEngine.rejectFlickCorrection(revert.original, revert.committed)
                 pendingLearn.forget(revert.committed)
                 // Undoing the correction retires that exact pair: without
                 // this the very next space corrected the word straight back.
@@ -10605,41 +10577,14 @@ open class WMKeyboardService : InputMethodService() {
      * short-circuits on identity, and the settings flow hands back the same
      * instance until something actually changes.
      */
-    private fun applyVietnameseFlick(
-        layout: KeyboardLayout,
-        flick: VietnameseFlickSettings,
-    ): KeyboardLayout {
-        if (!flick.enabled) return layout
-        val newRows = layout.rows.map { row ->
-            row.map { key ->
-                val newFlick: Map<FlickDirection, String>? = when (key.label.lowercase()) {
-                    "a" -> mapOf(flick.dirA_Circumflex to "â", flick.dirA_Breve to "ă")
-                    "e" -> mapOf(flick.dirE_Circumflex to "ê")
-                    "d" -> mapOf(flick.dirD_Stroke to "đ")
-                    "o" -> mapOf(flick.dirO_Circumflex to "ô", flick.dirO_Horn to "ơ")
-                    "u" -> mapOf(flick.dirU_Horn to "ư")
-                    "s" -> mapOf(flick.dirTone_Acute to "\u0301")
-                    "f" -> mapOf(flick.dirTone_Grave to "\u0300")
-                    "r" -> mapOf(flick.dirTone_Hook to "\u0309")
-                    "x" -> mapOf(flick.dirTone_Tilde to "\u0303")
-                    "j" -> mapOf(flick.dirTone_Dot to "\u0323")
-                    else -> null
-                }
-                if (newFlick != null) key.copy(flick = newFlick) else key
-            }
-        }
-        return layout.copy(rows = newRows)
-    }
-
     private fun resolveLayoutSet(
         spec: LayoutSpec,
         fieldKind: FieldKind,
         form: DeviceForm,
         numberRowShown: Boolean,
         customs: List<LayoutSpec>,
-        vietnameseFlick: VietnameseFlickSettings? = null,
     ): LayoutSet {
-        val key = LayoutSetKey(spec.id, fieldKind, form, numberRowShown, vietnameseFlick)
+        val key = LayoutSetKey(spec.id, fieldKind, form, numberRowShown)
         // The secondary grids ride along by reference, so an edit to one of
         // them — which re-decodes the custom list — misses the cache too.
         val secondaries = secondaryGrids(customs)
@@ -10647,14 +10592,8 @@ open class WMKeyboardService : InputMethodService() {
             if (cached == spec && set.secondaries === secondaries) return set
         }
         val baseSet = compileLayoutSet(spec, fieldKind, form, numberRowShown, secondaries, television)
-        val finalLetters = if (vietnameseFlick != null && spec.id == AssetLayouts.VI_TELEX_ID) {
-            applyVietnameseFlick(baseSet.letters, vietnameseFlick)
-        } else {
-            baseSet.letters
-        }
-        val set = if (finalLetters !== baseSet.letters) baseSet.copy(letters = finalLetters) else baseSet
-        layoutSetCache[key] = spec to set
-        return set
+        layoutSetCache[key] = spec to baseSet
+        return baseSet
     }
 
     /**
@@ -10670,7 +10609,6 @@ open class WMKeyboardService : InputMethodService() {
         val fieldKind: FieldKind,
         val form: DeviceForm,
         val numberRowShown: Boolean,
-        val vietnameseFlick: VietnameseFlickSettings? = null,
     )
 
     private val layoutSetCache = HashMap<LayoutSetKey, Pair<LayoutSpec, LayoutSet>>()
@@ -10913,7 +10851,6 @@ open class WMKeyboardService : InputMethodService() {
                     deviceForm.value,
                     it.settings.numberRow,
                     it.settings.customLayouts,
-                    it.settings.vietnameseFlick,
                 ),
                 layoutMode = LayoutMode.LETTERS,
             )
@@ -11526,24 +11463,13 @@ open class WMKeyboardService : InputMethodService() {
                 ) {
                     val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
                     val isComposedValid = telexEngine.isWordInDictionary(composed) || isUserLearned
-                    val hasFlick = composingTokens.any { it.isFlick }
                     if (isComposedValid) {
                         composed
                     } else {
                         val prev2 = recentWords.getOrNull(recentWords.size - 2)
-                        val flickNeighbors = if (hasFlick) {
-                            telexEngine.resolveFlickNeighbors(
-                                tokens = composingTokens,
-                                originalComposed = composed,
-                                previousWord = previousWord,
-                                previousWord2 = prev2,
-                                userLexicon = userLexicon,
-                                maxResults = 1
-                            )
-                        } else emptyList()
-
-                        val vniSlips = if (!hasFlick && state.composer.isVietnameseVni) {
-                            telexEngine.resolveVniSlips(
+                        if (state.composer.isVietnameseVni) {
+                            val vniEngine = VniAutocorrectEngine.getInstance()
+                            val candidates = vniEngine.correct(
                                 typed = typed,
                                 originalComposed = composed,
                                 previousWord = previousWord,
@@ -11552,12 +11478,7 @@ open class WMKeyboardService : InputMethodService() {
                                 composer = { state.composer.composeBuffer(it) },
                                 maxResults = 1
                             )
-                        } else emptyList()
-
-                        if (flickNeighbors.isNotEmpty()) {
-                            flickNeighbors.first().word
-                        } else if (vniSlips.isNotEmpty()) {
-                            vniSlips.first().word
+                            candidates.firstOrNull()?.word ?: composed
                         } else {
                             val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
                             val candidates = telexEngine.correct(
@@ -11565,17 +11486,9 @@ open class WMKeyboardService : InputMethodService() {
                                 previousWord = previousWord,
                                 previousWord2 = prev2,
                                 userLexicon = userLexicon,
-                                maxResults = 1,
-                                hasFlick = hasFlick
+                                maxResults = 1
                             )
-                            val filtered = if (state.composer.isVietnameseVni && !typed.any { it.isDigit() } && !telexEngine.isAccented(composed)) {
-                                candidates.filterNot { cand ->
-                                    telexEngine.isAccented(cand.word) && !telexEngine.isAccented(composed)
-                                }
-                            } else {
-                                candidates
-                            }
-                            filtered.firstOrNull()?.word ?: composed
+                            candidates.firstOrNull()?.word ?: composed
                         }
                     }
                 } else {
@@ -15555,7 +15468,6 @@ open class WMKeyboardService : InputMethodService() {
         resolutionJob?.cancel()
         val pending = PendingResolution(typed)
         pendingResolution = pending
-        val tokens = composingTokens.toList()
         val prev = previousWord
         val prev2 = recentWords.getOrNull(recentWords.size - 2)
         val state = _uiState.value
@@ -15570,24 +15482,12 @@ open class WMKeyboardService : InputMethodService() {
                 }
                 val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
                 val isComposedValid = telexEngine.isWordInDictionary(composed) || isUserLearned
-                val hasFlick = tokens.any { it.isFlick }
-
                 val target = if (isComposedValid) {
                     composed
                 } else {
-                    val flickNeighbors = if (hasFlick) {
-                        telexEngine.resolveFlickNeighbors(
-                            tokens = tokens,
-                            originalComposed = composed,
-                            previousWord = prev,
-                            previousWord2 = prev2,
-                            userLexicon = userLexicon,
-                            maxResults = 1
-                        )
-                    } else emptyList()
-
-                    val vniSlips = if (!hasFlick && isVni) {
-                        telexEngine.resolveVniSlips(
+                    if (isVni) {
+                        val vniEngine = VniAutocorrectEngine.getInstance()
+                        val candidates = vniEngine.correct(
                             typed = typed,
                             originalComposed = composed,
                             previousWord = prev,
@@ -15596,12 +15496,7 @@ open class WMKeyboardService : InputMethodService() {
                             composer = { state.composer.composeBuffer(it) },
                             maxResults = 1
                         )
-                    } else emptyList()
-
-                    if (flickNeighbors.isNotEmpty()) {
-                        flickNeighbors.first().word
-                    } else if (vniSlips.isNotEmpty()) {
-                        vniSlips.first().word
+                        candidates.firstOrNull()?.word ?: composed
                     } else {
                         val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
                         val candidates = telexEngine.correct(
@@ -15609,17 +15504,9 @@ open class WMKeyboardService : InputMethodService() {
                             previousWord = prev,
                             previousWord2 = prev2,
                             userLexicon = userLexicon,
-                            maxResults = 1,
-                            hasFlick = hasFlick
+                            maxResults = 1
                         )
-                        val filtered = if (isVni && !typed.any { it.isDigit() } && !telexEngine.isAccented(composed)) {
-                            candidates.filterNot { cand ->
-                                telexEngine.isAccented(cand.word) && !telexEngine.isAccented(composed)
-                            }
-                        } else {
-                            candidates
-                        }
-                        filtered.firstOrNull()?.word ?: composed
+                        candidates.firstOrNull()?.word ?: composed
                     }
                 }
 
@@ -15888,54 +15775,31 @@ open class WMKeyboardService : InputMethodService() {
                             (listOf(composed) + combinedDict.filterNot { it.equals(composed, ignoreCase = true) })
                                 .distinctBy { it.lowercase() }
                         } else {
-                            val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
-                            val hasFlick = composingTokens.any { it.isFlick }
                             val prev2 = recentSnapshot.getOrNull(recentSnapshot.size - 2)
-                            val flickNeighbors = if (hasFlick && !isComposedValid) {
-                                telexEngine.resolveFlickNeighbors(
-                                    tokens = composingTokens,
-                                    originalComposed = composed,
-                                    previousWord = previousWord,
-                                    previousWord2 = prev2,
-                                    userLexicon = userLexicon,
-                                    maxResults = 5
-                                ).map { it.word }
-                            } else emptyList()
-
-                            val vniSlips = if (!hasFlick && state.composer.isVietnameseVni && !isComposedValid) {
-                                telexEngine.resolveVniSlips(
-                                    typed = typed,
-                                    originalComposed = composed,
-                                    previousWord = previousWord,
-                                    previousWord2 = prev2,
-                                    userLexicon = userLexicon,
-                                    composer = { state.composer.composeBuffer(it) },
-                                    maxResults = 5
-                                ).map { it.word }
-                            } else emptyList()
-
-                            telexCandidates = if (flickNeighbors.isNotEmpty()) {
-                                flickNeighbors
-                            } else if (vniSlips.isNotEmpty()) {
-                                vniSlips
-                            } else if ((canonical.length >= 3 || typed.length >= 3) && !isComposedValid) {
-                                val candidates = telexEngine.correct(
-                                    rawInput = canonical.ifEmpty { typed },
-                                    previousWord = previousWord,
-                                    previousWord2 = prev2,
-                                    userLexicon = userLexicon,
-                                    maxResults = 5,
-                                    hasFlick = hasFlick
-                                )
-                                if (state.composer.isVietnameseVni && !typed.any { it.isDigit() } && !telexEngine.isAccented(composed)) {
-                                    candidates.filterNot { cand ->
-                                        telexEngine.isAccented(cand.word) && !telexEngine.isAccented(composed)
-                                    }.map { it.word }
-                                } else {
-                                    candidates.map { it.word }
-                                }
+                            telexCandidates = if (state.composer.isVietnameseVni) {
+                                if (!isComposedValid && (typed.length >= 2 || composed.length >= 2)) {
+                                    val vniEngine = VniAutocorrectEngine.getInstance()
+                                    vniEngine.correct(
+                                        typed = typed,
+                                        originalComposed = composed,
+                                        previousWord = previousWord,
+                                        previousWord2 = prev2,
+                                        userLexicon = userLexicon,
+                                        composer = { state.composer.composeBuffer(it) },
+                                        maxResults = 5
+                                    ).map { it.word }
+                                } else emptyList()
                             } else {
-                                emptyList()
+                                val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
+                                if (!isComposedValid && (canonical.length >= 3 || typed.length >= 3)) {
+                                    telexEngine.correct(
+                                        rawInput = canonical.ifEmpty { typed },
+                                        previousWord = previousWord,
+                                        previousWord2 = prev2,
+                                        userLexicon = userLexicon,
+                                        maxResults = 5
+                                    ).map { it.word }
+                                } else emptyList()
                             }
 
                             val rawCandidate = typed.takeIf {

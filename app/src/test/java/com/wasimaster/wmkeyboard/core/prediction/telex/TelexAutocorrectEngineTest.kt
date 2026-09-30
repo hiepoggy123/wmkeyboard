@@ -329,58 +329,6 @@ class TelexAutocorrectEngineTest {
         assertTrue("error must be whitelisted", TelexWhitelist.isWhitelisted("error"))
     }
 
-    @Test
-    fun testResolveFlickNeighbors_TrailingD_SuggestsDo() {
-        val engine = TelexAutocorrectEngine.getInstance()
-        val syllablesJson = """
-            {
-                "ddos": {"word": "đó", "freq": 800},
-                "ddof": {"word": "đò", "freq": 300}
-            }
-        """.trimIndent()
-        engine.loadSyllables(syllablesJson)
-        val uniJson = """{"đó": 800, "đò": 300}"""
-        engine.languageModel.loadUnigrams(uniJson)
-
-        val tokens = listOf(
-            TypingToken('đ', isFlick = false, baseKey = 'd'),
-            TypingToken('o', isFlick = false, baseKey = 'o'),
-            TypingToken('đ', isFlick = true, baseKey = 'd', flickOutput = "đ")
-        )
-
-        val results = engine.resolveFlickNeighbors(
-            tokens = tokens,
-            originalComposed = "đođ"
-        )
-        assertTrue("đođ should suggest đó via flick neighbor s", results.any { it.word == "đó" })
-    }
-
-    @Test
-    fun testResolveFlickNeighbors_RejectionSuppression() {
-        val engine = TelexAutocorrectEngine.getInstance()
-        val syllablesJson = """
-            {
-                "ddos": {"word": "đó", "freq": 800}
-            }
-        """.trimIndent()
-        engine.loadSyllables(syllablesJson)
-        val uniJson = """{"đó": 800}"""
-        engine.languageModel.loadUnigrams(uniJson)
-
-        val tokens = listOf(
-            TypingToken('đ', isFlick = false, baseKey = 'd'),
-            TypingToken('o', isFlick = false, baseKey = 'o'),
-            TypingToken('đ', isFlick = true, baseKey = 'd', flickOutput = "đ")
-        )
-
-        engine.rejectFlickCorrection("đođ", "đó")
-
-        val results = engine.resolveFlickNeighbors(
-            tokens = tokens,
-            originalComposed = "đođ"
-        )
-        assertTrue("đođ must NOT suggest đó after being rejected by user backspace", results.none { it.word == "đó" })
-    }
 
     @Test
     fun testTapTypingProximityAutocorrectWithoutFlick() {
@@ -408,12 +356,12 @@ class TelexAutocorrectEngineTest {
         val uniJson = """{"thành": 183, "thanh": 160}"""
         engine.languageModel.loadUnigrams(uniJson)
 
-        // 1. Accented mistyped tap typing (hasFlick = false): "thabhf" -> "thành"
-        val resultsAccented = engine.correct("thabhf", hasFlick = false)
+        // 1. Accented mistyped tap typing: "thabhf" -> "thành"
+        val resultsAccented = engine.correct("thabhf")
         assertTrue("Tap typing thabhf should suggest thành", resultsAccented.any { it.word == "thành" })
 
-        // 2. Unaccented mistyped tap typing (hasFlick = false): "thabh" -> "thanh"
-        val resultsUnaccented = engine.correct("thabh", hasFlick = false)
+        // 2. Unaccented mistyped tap typing: "thabh" -> "thanh"
+        val resultsUnaccented = engine.correct("thabh")
         assertTrue("Tap typing thabh should suggest thanh", resultsUnaccented.any { it.word == "thanh" })
         assertTrue("Tap typing unaccented thabh must not suggest accented thành", resultsUnaccented.none { it.word == "thành" })
     }
@@ -450,64 +398,6 @@ class TelexAutocorrectEngineTest {
         org.junit.Assert.assertFalse(engine.isAccented("just"))
     }
 
-    @Test
-    fun testResolveVniSlips() {
-        val engine = TelexAutocorrectEngine.getInstance()
-        val uniJson = """
-            {
-                "tè": 142,
-                "tẻ": 59,
-                "tẽ": 34,
-                "tê": 138,
-                "thà": 150,
-                "thả": 130,
-                "thá": 90,
-                "việt": 161,
-                "đường": 194
-            }
-        """.trimIndent()
-        engine.languageModel.loadUnigrams(uniJson)
-        engine.isReady = true
-
-        val vniComposer: (String) -> String = { raw ->
-            when (raw) {
-                "te2" -> "tè"
-                "te3" -> "tẻ"
-                "te4" -> "tẽ"
-                "te6" -> "tê"
-                "tha1" -> "thá"
-                "tha2" -> "thà"
-                "tha3" -> "thả"
-                "viet65" -> "việt"
-                "viet64" -> "viễt"
-                "duong72" -> "đường"
-                "duong71" -> "đướng"
-                else -> raw
-            }
-        }
-
-        // 1. "tee": e is adjacent to 3, 2, 4 -> should suggest "tè", "tẻ", "tẽ", and NEVER "tê" (6 is far from e)
-        val teeResults = engine.resolveVniSlips("tee", "tee", composer = vniComposer)
-        assertTrue("tee should suggest tè", teeResults.any { it.word == "tè" })
-        assertTrue("tee should suggest tẻ", teeResults.any { it.word == "tẻ" })
-        assertTrue("tee must NEVER suggest tê (6 is far from e)", teeResults.none { it.word == "tê" })
-
-        // 2. "thaw": w is adjacent to 2, 3, 1 -> should suggest "thà"
-        val thawResults = engine.resolveVniSlips("thaw", "thaw", composer = vniComposer)
-        assertTrue("thaw should suggest thà", thawResults.any { it.word == "thà" })
-
-        // 3. "viet64": 4 is horizontally adjacent to 5 on number row -> suggests "việt"
-        val vietResults = engine.resolveVniSlips("viet64", "viễt", composer = vniComposer)
-        assertTrue("viet64 should suggest việt", vietResults.any { it.word == "việt" })
-
-        // 4. "duong71": 1 is horizontally adjacent to 2 on number row -> suggests "đường"
-        val duongResults = engine.resolveVniSlips("duong71", "đướng", composer = vniComposer)
-        assertTrue("duong71 should suggest đường", duongResults.any { it.word == "đường" })
-
-        // 5. "taa": a has no number row neighbors -> should return empty list (remains taa)
-        val taaResults = engine.resolveVniSlips("taa", "taa", composer = vniComposer)
-        assertTrue("taa has no number row neighbors, should return empty", taaResults.isEmpty())
-    }
 
     @Test
     fun testIsWordInDictionaryValidation() {
@@ -528,30 +418,6 @@ class TelexAutocorrectEngineTest {
         assertFalse("tha2bh must NOT be in dictionary", engine.isWordInDictionary("tha2bh"))
     }
 
-    @Test
-    fun testTriTueVniSlipWithNgramContext() {
-        val engine = TelexAutocorrectEngine.getInstance()
-        val uniJson = """{"tuệ": 300, "trí": 500}"""
-        engine.languageModel.loadUnigrams(uniJson)
-        val biJson = """{"trí": {"tuệ": 229}}"""
-        engine.languageModel.loadBigrams(biJson)
-        val syllablesJson = """{"tueej": {"word": "tuệ", "freq": 300}}"""
-        engine.loadSyllables(syllablesJson)
-        engine.isReady = true
-
-        val vniComposer: (String) -> String = { raw ->
-            when (raw) {
-                "tue64" -> "tuễ"
-                "tue65" -> "tuệ"
-                else -> raw
-            }
-        }
-
-        // Typing "tue64" ("tuễ") with previousWord "trí" should slip 4 -> 5 to produce "tuệ" boosted by bigram
-        val results = engine.resolveVniSlips("tue64", "tuễ", previousWord = "trí", composer = vniComposer)
-        assertTrue("resolveVniSlips should find tuệ for tue64", results.any { it.word == "tuệ" })
-        assertEquals("tuệ should be top candidate boosted by bigram 'trí'", "tuệ", results.first().word)
-    }
 
     @Test
     fun testThabhCorrectToThanh() {
