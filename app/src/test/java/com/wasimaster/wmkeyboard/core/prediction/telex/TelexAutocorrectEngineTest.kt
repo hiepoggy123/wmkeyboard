@@ -448,5 +448,64 @@ class TelexAutocorrectEngineTest {
         org.junit.Assert.assertFalse(engine.isAccented("first"))
         org.junit.Assert.assertFalse(engine.isAccented("just"))
     }
+
+    @Test
+    fun testResolveVniSlips() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val uniJson = """
+            {
+                "tè": 142,
+                "tẻ": 59,
+                "tẽ": 34,
+                "tê": 138,
+                "thà": 150,
+                "thả": 130,
+                "thá": 90,
+                "việt": 161,
+                "đường": 194
+            }
+        """.trimIndent()
+        engine.languageModel.loadUnigrams(uniJson)
+
+        val vniComposer: (String) -> String = { raw ->
+            when (raw) {
+                "te2" -> "tè"
+                "te3" -> "tẻ"
+                "te4" -> "tẽ"
+                "te6" -> "tê"
+                "tha1" -> "thá"
+                "tha2" -> "thà"
+                "tha3" -> "thả"
+                "viet65" -> "việt"
+                "viet64" -> "viễt"
+                "duong72" -> "đường"
+                "duong71" -> "đướng"
+                else -> raw
+            }
+        }
+
+        // 1. "tee": e is adjacent to 3, 2, 4 -> should suggest "tè", "tẻ", "tẽ", and NEVER "tê" (6 is far from e)
+        val teeResults = engine.resolveVniSlips("tee", "tee", composer = vniComposer)
+        assertTrue("tee should suggest tè", teeResults.any { it.word == "tè" })
+        assertTrue("tee should suggest tẻ", teeResults.any { it.word == "tẻ" })
+        assertTrue("tee must NEVER suggest tê (6 is far from e)", teeResults.none { it.word == "tê" })
+
+        // 2. "thaw": w is adjacent to 2, 3, 1 -> should suggest "thà"
+        val thawResults = engine.resolveVniSlips("thaw", "thaw", composer = vniComposer)
+        assertTrue("thaw should suggest thà", thawResults.any { it.word == "thà" })
+
+        // 3. "viet64": 4 is horizontally adjacent to 5 on number row -> suggests "việt"
+        val vietResults = engine.resolveVniSlips("viet64", "viễt", composer = vniComposer)
+        assertTrue("viet64 should suggest việt", vietResults.any { it.word == "việt" })
+
+        // 4. "duong71": 1 is horizontally adjacent to 2 on number row -> suggests "đường"
+        val duongResults = engine.resolveVniSlips("duong71", "đướng", composer = vniComposer)
+        assertTrue("duong71 should suggest đường", duongResults.any { it.word == "đường" })
+
+        // 5. "taa": a has no number row neighbors -> should return empty list (remains taa)
+        val taaResults = engine.resolveVniSlips("taa", "taa", composer = vniComposer)
+        assertTrue("taa has no number row neighbors, should return empty", taaResults.isEmpty())
+    }
 }
+
 

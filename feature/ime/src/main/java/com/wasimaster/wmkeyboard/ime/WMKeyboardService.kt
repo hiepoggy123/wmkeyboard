@@ -11541,18 +11541,40 @@ open class WMKeyboardService : InputMethodService() {
                             )
                         } else emptyList()
 
+                        val vniSlips = if (!hasFlick && state.composer.isVietnameseVni) {
+                            telexEngine.resolveVniSlips(
+                                typed = typed,
+                                originalComposed = composed,
+                                previousWord = previousWord,
+                                previousWord2 = prev2,
+                                userLexicon = userLexicon,
+                                composer = { state.composer.composeBuffer(it) },
+                                maxResults = 1
+                            )
+                        } else emptyList()
+
                         if (flickNeighbors.isNotEmpty()) {
                             flickNeighbors.first().word
+                        } else if (vniSlips.isNotEmpty()) {
+                            vniSlips.first().word
                         } else {
                             val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
-                            telexEngine.correct(
+                            val candidates = telexEngine.correct(
                                 rawInput = canonical.ifEmpty { typed },
                                 previousWord = previousWord,
                                 previousWord2 = prev2,
                                 userLexicon = userLexicon,
                                 maxResults = 1,
                                 hasFlick = hasFlick
-                            ).firstOrNull()?.word ?: composed
+                            )
+                            val filtered = if (state.composer.isVietnameseVni && !typed.any { it.isDigit() } && !telexEngine.isAccented(composed)) {
+                                candidates.filterNot { cand ->
+                                    telexEngine.isAccented(cand.word) && !telexEngine.isAccented(composed)
+                                }
+                            } else {
+                                candidates
+                            }
+                            filtered.firstOrNull()?.word ?: composed
                         }
                     }
                 } else {
@@ -15763,17 +15785,38 @@ open class WMKeyboardService : InputMethodService() {
                                 ).map { it.word }
                             } else emptyList()
 
+                            val vniSlips = if (!hasFlick && state.composer.isVietnameseVni && !isComposedValid) {
+                                telexEngine.resolveVniSlips(
+                                    typed = typed,
+                                    originalComposed = composed,
+                                    previousWord = previousWord,
+                                    previousWord2 = prev2,
+                                    userLexicon = userLexicon,
+                                    composer = { state.composer.composeBuffer(it) },
+                                    maxResults = 5
+                                ).map { it.word }
+                            } else emptyList()
+
                             telexCandidates = if (flickNeighbors.isNotEmpty()) {
                                 flickNeighbors
+                            } else if (vniSlips.isNotEmpty()) {
+                                vniSlips
                             } else if ((canonical.length >= 3 || typed.length >= 3) && !isComposedValid) {
-                                telexEngine.correct(
+                                val candidates = telexEngine.correct(
                                     rawInput = canonical.ifEmpty { typed },
                                     previousWord = previousWord,
                                     previousWord2 = prev2,
                                     userLexicon = userLexicon,
                                     maxResults = 5,
                                     hasFlick = hasFlick
-                                ).map { it.word }
+                                )
+                                if (state.composer.isVietnameseVni && !typed.any { it.isDigit() } && !telexEngine.isAccented(composed)) {
+                                    candidates.filterNot { cand ->
+                                        telexEngine.isAccented(cand.word) && !telexEngine.isAccented(composed)
+                                    }.map { it.word }
+                                } else {
+                                    candidates.map { it.word }
+                                }
                             } else {
                                 emptyList()
                             }

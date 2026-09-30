@@ -499,6 +499,111 @@ class TelexAutocorrectEngine private constructor() {
         return distinct
     }
 
+    val VNI_KEY_DIGIT_NEIGHBORS: Map<Char, List<Pair<Char, Double>>> = mapOf(
+        // Row 1 letter-to-digit vertical and diagonal slips
+        'q' to listOf('1' to 1.2, '2' to 1.34),
+        'w' to listOf('2' to 1.2, '1' to 1.34, '3' to 1.34),
+        'e' to listOf('3' to 1.2, '2' to 1.34, '4' to 1.34),
+        'r' to listOf('4' to 1.2, '3' to 1.34, '5' to 1.34),
+        't' to listOf('5' to 1.2, '4' to 1.34, '6' to 1.34),
+        'y' to listOf('6' to 1.2, '5' to 1.34, '7' to 1.34),
+        'u' to listOf('7' to 1.2, '6' to 1.34, '8' to 1.34),
+        'i' to listOf('8' to 1.2, '7' to 1.34, '9' to 1.34),
+        'o' to listOf('9' to 1.2, '8' to 1.34, '0' to 1.34),
+        'p' to listOf('0' to 1.2, '9' to 1.34),
+
+        // Number row digit-to-digit horizontal slips
+        '1' to listOf('2' to 1.2),
+        '2' to listOf('1' to 1.2, '3' to 1.2),
+        '3' to listOf('2' to 1.2, '4' to 1.2),
+        '4' to listOf('3' to 1.2, '5' to 1.2),
+        '5' to listOf('4' to 1.2, '6' to 1.2),
+        '6' to listOf('5' to 1.2, '7' to 1.2),
+        '7' to listOf('6' to 1.2, '8' to 1.2),
+        '8' to listOf('7' to 1.2, '9' to 1.2),
+        '9' to listOf('8' to 1.2, '0' to 1.2),
+        '0' to listOf('9' to 1.2)
+    )
+
+    /**
+     * Resolves VNI digit-slip errors on keyboards with a Number Row (0..9).
+     * Handles:
+     * 1. Letter-to-Digit slips (Row 1 keys slipping into/from Number Row keys directly above):
+     *    e.g. "tee" -> "te3" ("tẻ"), "te2" ("tè"), "te4" ("tẽ")
+     *    e.g. "thaw" -> "tha2" ("thà")
+     * 2. Digit-to-Digit horizontal slips on the Number Row:
+     *    e.g. "viet64" -> "viet65" ("việt")
+     *    e.g. "duong71" -> "duong72" ("đường")
+     */
+    fun resolveVniSlips(
+        typed: String,
+        originalComposed: String,
+        previousWord: String? = null,
+        previousWord2: String? = null,
+        userLexicon: UserLexicon? = null,
+        composer: (String) -> String,
+        maxResults: Int = 3
+    ): List<TelexCorrectionCandidate> {
+        if (!isReady || typed.length < 2) return emptyList()
+
+        val cleanPrev = previousWord?.trim()?.lowercase()
+        val cleanPrev2 = previousWord2?.trim()?.lowercase()
+        val candidates = ArrayList<TelexCorrectionCandidate>()
+        val seenWords = HashSet<String>()
+
+        val rawLower = typed.lowercase()
+
+        for (i in rawLower.indices) {
+            val c = rawLower[i]
+            val neighbors = VNI_KEY_DIGIT_NEIGHBORS[c] ?: continue
+            for ((digitChar, penalty) in neighbors) {
+                val candidateRaw = buildString {
+                    append(rawLower, 0, i)
+                    append(digitChar)
+                    append(rawLower, i + 1, rawLower.length)
+                }
+                val candidateWord = composer(candidateRaw)
+                if (candidateWord.isEmpty() || candidateWord == originalComposed || candidateWord == typed) continue
+                if (!isWordInDictionary(candidateWord)) continue
+                if (isFlickCorrectionRejected(originalComposed, candidateWord)) continue
+                if (!seenWords.add(candidateWord.lowercase())) continue
+
+                val baseUnigram = languageModel.getUnigramScore(candidateWord)
+                var baseBigram = 0
+                var baseTrigram = 0
+                if (!cleanPrev.isNullOrEmpty()) {
+                    baseBigram = languageModel.getBigramScore(cleanPrev, candidateWord)
+                    if (!cleanPrev2.isNullOrEmpty()) {
+                        baseTrigram = languageModel.getTrigramScore(cleanPrev2, cleanPrev, candidateWord)
+                    }
+                }
+                val userUnigramCount = userLexicon?.frequencyOf(candidateWord) ?: 0
+                val userBigramCount = if (!cleanPrev.isNullOrEmpty()) {
+                    userLexicon?.bigramCount(cleanPrev, candidateWord) ?: 0
+                } else 0
+
+                val totalScore = - (penalty * WEIGHT_PENALTY) +
+                        (baseUnigram * WEIGHT_UNIGRAM) +
+                        (baseBigram * WEIGHT_BIGRAM) +
+                        (baseTrigram * WEIGHT_TRIGRAM) +
+                        (userUnigramCount * WEIGHT_USER_UNIGRAM) +
+                        (userBigramCount * WEIGHT_USER_BIGRAM)
+
+                candidates.add(
+                    TelexCorrectionCandidate(
+                        word = applyCasing(candidateWord, typed),
+                        telex = candidateRaw,
+                        penalty = penalty,
+                        score = totalScore
+                    )
+                )
+            }
+        }
+
+        candidates.sort()
+        return if (candidates.size > maxResults) candidates.subList(0, maxResults) else candidates
+    }
+
     @Synchronized
     fun initialize(context: Context) {
         initialize(context.assets, context.filesDir)
