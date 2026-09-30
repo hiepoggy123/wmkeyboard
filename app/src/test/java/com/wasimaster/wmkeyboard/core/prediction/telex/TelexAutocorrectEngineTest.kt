@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.prediction.telex
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -506,6 +507,77 @@ class TelexAutocorrectEngineTest {
         // 5. "taa": a has no number row neighbors -> should return empty list (remains taa)
         val taaResults = engine.resolveVniSlips("taa", "taa", composer = vniComposer)
         assertTrue("taa has no number row neighbors, should return empty", taaResults.isEmpty())
+    }
+
+    @Test
+    fun testIsWordInDictionaryValidation() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val uniJson = """{"tuệ": 300, "thành": 200, "trí": 250}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        val syllablesJson = """{"tueej": {"word": "tuệ", "freq": 300}, "thanhf": {"word": "thành", "freq": 200}}"""
+        engine.loadSyllables(syllablesJson)
+        engine.isReady = true
+
+        // Valid words in dictionary
+        assertTrue("tuệ is a valid dictionary word", engine.isWordInDictionary("tuệ"))
+        assertTrue("thành is a valid dictionary word", engine.isWordInDictionary("thành"))
+
+        // Nonsense or typo syllables must NOT be considered dictionary words
+        assertFalse("tuễ must NOT be in dictionary even though phonotactically constructible", engine.isWordInDictionary("tuễ"))
+        assertFalse("thàbh must NOT be in dictionary", engine.isWordInDictionary("thàbh"))
+        assertFalse("tha2bh must NOT be in dictionary", engine.isWordInDictionary("tha2bh"))
+    }
+
+    @Test
+    fun testTriTueVniSlipWithNgramContext() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val uniJson = """{"tuệ": 300, "trí": 500}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        val biJson = """{"trí": {"tuệ": 229}}"""
+        engine.languageModel.loadBigrams(biJson)
+        val syllablesJson = """{"tueej": {"word": "tuệ", "freq": 300}}"""
+        engine.loadSyllables(syllablesJson)
+        engine.isReady = true
+
+        val vniComposer: (String) -> String = { raw ->
+            when (raw) {
+                "tue64" -> "tuễ"
+                "tue65" -> "tuệ"
+                else -> raw
+            }
+        }
+
+        // Typing "tue64" ("tuễ") with previousWord "trí" should slip 4 -> 5 to produce "tuệ" boosted by bigram
+        val results = engine.resolveVniSlips("tue64", "tuễ", previousWord = "trí", composer = vniComposer)
+        assertTrue("resolveVniSlips should find tuệ for tue64", results.any { it.word == "tuệ" })
+        assertEquals("tuệ should be top candidate boosted by bigram 'trí'", "tuệ", results.first().word)
+    }
+
+    @Test
+    fun testThabhCorrectToThanh() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val uniJson = """{"thành": 183}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        val syllablesJson = """{"thanhf": {"word": "thành", "freq": 183}}"""
+        engine.loadSyllables(syllablesJson)
+
+        val proxJson = """
+            {
+                "b": {
+                    "neighbors": [
+                        {"key": "b", "distance": 0.0, "penalty": 0.0},
+                        {"key": "n", "distance": 1.0, "penalty": 1.2}
+                    ]
+                }
+            }
+        """.trimIndent()
+        engine.proximityManager.loadFromJson(proxJson)
+        engine.isReady = true
+
+        // Typing "thabhf" (from "thàbh" or typo b instead of n) should correct to "thành"
+        val results = engine.correct("thabhf")
+        assertTrue("thabhf should correct to thành via QWERTY proximity DFS", results.any { it.word == "thành" })
+        assertEquals("thành should be top candidate", "thành", results.first().word)
     }
 }
 

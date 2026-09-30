@@ -251,13 +251,13 @@ class TelexAutocorrectEngine private constructor() {
                 }
             }
 
-            if (!packLoaded) {
-                // Fallback to JSON if .wmng not available or no filesDir (e.g. test environments)
-                try {
-                    val bigramsJson = readAsset(assets, "telex/bigrams.json")
-                    languageModel.loadBigrams(bigramsJson)
-                } catch (_: Exception) {}
+            // Always load JSON bigrams into memory as fallback
+            try {
+                val bigramsJson = readAsset(assets, "telex/bigrams.json")
+                languageModel.loadBigrams(bigramsJson)
+            } catch (_: Exception) {}
 
+            if (!packLoaded) {
                 try {
                     val trigramsJson = readAsset(assets, "telex/trigrams.json")
                     languageModel.loadTrigrams(trigramsJson)
@@ -274,13 +274,22 @@ class TelexAutocorrectEngine private constructor() {
         val dir = File(File(filesDir, "dict"), "bundled")
         if (!dir.isDirectory && !dir.mkdirs()) return null
         val outFile = File(dir, "telex_ngrams.wmng")
-        if (outFile.isFile && outFile.length() > 0) return outFile
+        val expectedLength = try {
+            assets.openFd("telex/ngrams.wmng").length
+        } catch (_: Exception) {
+            -1L
+        }
+        if (outFile.isFile && outFile.length() > 0 && (expectedLength <= 0 || outFile.length() == expectedLength)) {
+            return outFile
+        }
         return try {
             val tmp = File(dir, "telex_ngrams.wmng.tmp")
+            if (tmp.exists()) tmp.delete()
             assets.open("telex/ngrams.wmng").use { input ->
                 tmp.outputStream().use { input.copyTo(it) }
             }
-            if (tmp.renameTo(outFile)) outFile else null
+            if (outFile.exists()) outFile.delete()
+            if (tmp.renameTo(outFile)) outFile else (if (outFile.isFile && outFile.length() > 0) outFile else null)
         } catch (_: Exception) {
             null
         }
@@ -390,10 +399,11 @@ class TelexAutocorrectEngine private constructor() {
     }
 
     fun isWordInDictionary(word: String): Boolean {
-        val clean = word.lowercase()
+        val clean = word.lowercase().trim()
+        if (clean.isEmpty()) return false
         return languageModel.unigrams.containsKey(clean) ||
                 TelexWhitelist.isWhitelisted(clean) ||
-                VietnameseOrthography.isValidVietnameseSyllable(clean)
+                (trie.root.children.isNotEmpty() && trie.findWord(toCanonicalTelex(clean)) != null)
     }
 
     fun isWhitelisted(word: String): Boolean {
