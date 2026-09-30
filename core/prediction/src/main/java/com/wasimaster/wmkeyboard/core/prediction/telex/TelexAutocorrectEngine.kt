@@ -331,10 +331,47 @@ class TelexAutocorrectEngine private constructor() {
     )
 
     fun isAccented(word: String): Boolean {
-        for (ch in word) {
-            val lc = ch.lowercaseChar()
-            if (lc !in 'a'..'z') return true
+        if (word.isEmpty()) return false
+        val lower = word.lowercase()
+
+        // 1. Unicode accented characters, combining marks, or VNI digits (1..9)
+        for (ch in lower) {
+            if (ch !in 'a'..'z') {
+                if (ch in '1'..'9') return true
+                if (ch.isLetter() || ch in '\u0300'..'\u036f' || ch in '\u1dc0'..'\u1dff') return true
+            }
         }
+
+        // 2. Telex vowel diacritics: 'w' (ă, ơ, ư), 'aa' (â), 'ee' (ê), 'oo' (ô), 'dd' (đ)
+        if (lower.contains('w')) return true
+        if (lower.contains("aa") || lower.contains("ee") || lower.contains("oo") || lower.contains("dd")) return true
+
+        // 3. Telex tones:
+        // 'f' (huyền) and 'j' (nặng) are tone markers when not at initial position (index > 0)
+        for (i in 1 until lower.length) {
+            val ch = lower[i]
+            if (ch == 'f' || ch == 'j') return true
+        }
+
+        // 's' (sắc), 'r' (hỏi), 'x' (ngã) placed at the end of the syllable (standard/canonical Telex)
+        val lastChar = lower.last()
+        if (lastChar == 's' || lastChar == 'x') return true
+        if (lastChar == 'r' && !(lower.length == 2 && lower.startsWith("t"))) return true
+
+        // Transposed tone markers in bimanual desync (e.g. "toasn" -> 's' transposed before coda 'n')
+        // In Vietnamese syllables, codas are: n, m, p, t, c, g, h.
+        // A tone 's', 'r', 'x' preceded by a vowel and followed by a coda consonant (e.g. "asn", "asm", "asng", "asnh")
+        // indicates a desynced tone.
+        for (i in 1 until lower.length - 1) {
+            val ch = lower[i]
+            if ((ch == 's' || ch == 'r' || ch == 'x') && lower[i - 1] in "aeiouy") {
+                val next = lower[i + 1]
+                if (next in "nmpg" || (next == 'c' && i + 1 == lower.length - 1)) {
+                    return true
+                }
+            }
+        }
+
         return false
     }
 
@@ -607,7 +644,7 @@ class TelexAutocorrectEngine private constructor() {
         previousWord2: String? = null,
         userLexicon: UserLexicon? = null,
         maxResults: Int = 3,
-        hasFlick: Boolean = true
+        hasFlick: Boolean = false
     ): List<TelexCorrectionCandidate> {
         if (!isReady) return emptyList()
 

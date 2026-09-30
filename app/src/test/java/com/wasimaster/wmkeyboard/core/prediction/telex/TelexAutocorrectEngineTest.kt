@@ -380,4 +380,73 @@ class TelexAutocorrectEngineTest {
         )
         assertTrue("đođ must NOT suggest đó after being rejected by user backspace", results.none { it.word == "đó" })
     }
+
+    @Test
+    fun testTapTypingProximityAutocorrectWithoutFlick() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "thanhf": {"word": "thành", "freq": 183},
+                "thanh": {"word": "thanh", "freq": 160}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+
+        val proxJson = """
+            {
+                "b": {
+                    "neighbors": [
+                        {"key": "b", "distance": 0.0, "penalty": 0.0},
+                        {"key": "n", "distance": 1.0, "penalty": 1.2}
+                    ]
+                }
+            }
+        """.trimIndent()
+        engine.proximityManager.loadFromJson(proxJson)
+
+        val uniJson = """{"thành": 183, "thanh": 160}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // 1. Accented mistyped tap typing (hasFlick = false): "thabhf" -> "thành"
+        val resultsAccented = engine.correct("thabhf", hasFlick = false)
+        assertTrue("Tap typing thabhf should suggest thành", resultsAccented.any { it.word == "thành" })
+
+        // 2. Unaccented mistyped tap typing (hasFlick = false): "thabh" -> "thanh"
+        val resultsUnaccented = engine.correct("thabh", hasFlick = false)
+        assertTrue("Tap typing thabh should suggest thanh", resultsUnaccented.any { it.word == "thanh" })
+        assertTrue("Tap typing unaccented thabh must not suggest accented thành", resultsUnaccented.none { it.word == "thành" })
+    }
+
+    @Test
+    fun testIsAccentedDetection() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        // Accented words / Telex / VNI sequences
+        assertTrue(engine.isAccented("thành"))
+        assertTrue(engine.isAccented("thàbh"))
+        assertTrue(engine.isAccented("thabhf"))
+        assertTrue(engine.isAccented("tha2bh"))
+        assertTrue(engine.isAccented("rueej"))
+        assertTrue(engine.isAccented("tuệ"))
+        assertTrue(engine.isAccented("caanr"))
+        assertTrue(engine.isAccented("toasn"))
+        assertTrue(engine.isAccented("ddos"))
+        assertTrue(engine.isAccented("nguowif"))
+        assertTrue(engine.isAccented("trangr"))
+
+        // Unaccented words / non-Vietnamese plain Latin
+        org.junit.Assert.assertFalse(engine.isAccented("thanh"))
+        org.junit.Assert.assertFalse(engine.isAccented("thabh"))
+        org.junit.Assert.assertFalse(engine.isAccented("trang"))
+        org.junit.Assert.assertFalse(engine.isAccented("tra"))
+        org.junit.Assert.assertFalse(engine.isAccented("cat"))
+        org.junit.Assert.assertFalse(engine.isAccented("dog"))
+        org.junit.Assert.assertFalse(engine.isAccented("test"))
+        org.junit.Assert.assertFalse(engine.isAccented("best"))
+        org.junit.Assert.assertFalse(engine.isAccented("fast"))
+        org.junit.Assert.assertFalse(engine.isAccented("cost"))
+        org.junit.Assert.assertFalse(engine.isAccented("list"))
+        org.junit.Assert.assertFalse(engine.isAccented("first"))
+        org.junit.Assert.assertFalse(engine.isAccented("just"))
+    }
 }
+
