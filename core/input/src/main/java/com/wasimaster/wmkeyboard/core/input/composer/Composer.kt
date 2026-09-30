@@ -43,6 +43,16 @@ interface Composer {
     val isVietnameseTelex: Boolean get() = false
 
     /**
+     * Vietnamese VNI transliterator: digits spell the diacritics.
+     */
+    val isVietnameseVni: Boolean get() = false
+
+    /**
+     * Either Vietnamese transliterating input method (Telex or VNI).
+     */
+    val isVietnamese: Boolean get() = isVietnameseTelex || isVietnameseVni
+
+    /**
      * A fixed complex-script layout (Probhat, and later Devanagari, Tamil …):
      * types script characters directly and shapes clusters / contextual vowel
      * forms. The registry-era replacement for `isFixedBengali`.

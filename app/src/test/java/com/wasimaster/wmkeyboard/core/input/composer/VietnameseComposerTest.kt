@@ -172,6 +172,38 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun vniDoubleDigitEscapes() {
+        val c = VietnameseVniComposer
+        // Tone double-tap cancels tone and restores digit (e.g. a1 -> á, a11 -> a1)
+        assertEquals("a1", c.composeBuffer("a11"))
+        assertEquals("a2", c.composeBuffer("a22"))
+        assertEquals("a3", c.composeBuffer("a33"))
+        assertEquals("a4", c.composeBuffer("a44"))
+        assertEquals("a5", c.composeBuffer("a55"))
+
+        // Mark double-tap cancels mark and restores digit (e.g. a6 -> â, a66 -> a6)
+        assertEquals("a6", c.composeBuffer("a66"))
+        assertEquals("o7", c.composeBuffer("o77"))
+        assertEquals("u7", c.composeBuffer("u77"))
+        assertEquals("a8", c.composeBuffer("a88"))
+        assertEquals("d9", c.composeBuffer("d99"))
+    }
+
+    @Test
+    fun vniAlphanumericSequences() {
+        val c = VietnameseVniComposer
+        // After an escaped digit, subsequent digits remain literal numbers
+        assertEquals("a12", c.composeBuffer("a112"))
+        // Numbers after consonants that cannot bear tones stay numbers
+        assertEquals("b1", c.composeBuffer("b1"))
+        assertEquals("b12", c.composeBuffer("b12"))
+        // 0 key: removes tone when present, or types literal 0 when no tone
+        assertEquals("a0", c.composeBuffer("a0"))
+        assertEquals("a", c.composeBuffer("a10"))
+        assertEquals("a0", c.composeBuffer("a100"))
+    }
+
+    @Test
     fun testDirectToneMarks() {
         val c = VietnameseTelexComposer
         // Tone after syllable

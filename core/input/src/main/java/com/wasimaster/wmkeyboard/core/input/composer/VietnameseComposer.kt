@@ -158,6 +158,21 @@ internal object VietnameseEngine {
         return false
     }
 
+    private fun applyVniMark(letters: ArrayList<VLetter>, targets: String, mark: VMark, digit: Char, upper: Boolean): Boolean {
+        for (i in letters.indices.reversed()) {
+            if (letters[i].base in targets) {
+                if (letters[i].mark == mark) {
+                    letters[i].mark = VMark.NONE
+                    letters.add(VLetter(digit, VMark.NONE, upper))
+                } else {
+                    letters[i].mark = mark
+                }
+                return true
+            }
+        }
+        return false
+    }
+
     private fun handleFlickMark(letters: ArrayList<VLetter>, base: Char, mark: VMark, upper: Boolean) {
         val last = letters.lastOrNull()
         if (last != null && last.base == base) {
@@ -220,32 +235,55 @@ internal object VietnameseEngine {
                 'đ' -> { handleFlickMark(letters, 'd', VMark.STROKE, upper); continue }
             }
             if (vni) {
+                // If the buffer already contains a literal digit, any subsequent digit is also treated as a literal digit
+                if (letters.any { it.base.isDigit() } && lc in '0'..'9') {
+                    letters.add(VLetter(lc, VMark.NONE, upper))
+                    continue
+                }
+
                 when (lc) {
-                    '1' -> {
-                        if (hasValidVowelCluster()) toggleTone(VTone.ACUTE)
+                    '1', '2', '3', '4', '5' -> {
+                        val t = when (lc) {
+                            '1' -> VTone.ACUTE
+                            '2' -> VTone.GRAVE
+                            '3' -> VTone.HOOK
+                            '4' -> VTone.TILDE
+                            else -> VTone.DOT
+                        }
+                        if (hasValidVowelCluster()) {
+                            if (tone == t) {
+                                // Double-tapping the same tone digit cancels the tone and adds the literal digit
+                                // (e.g. "a1" -> "á", "a11" -> "a1", "a22" -> "a2")
+                                tone = VTone.NONE
+                                letters.add(VLetter(lc, VMark.NONE, upper))
+                            } else {
+                                tone = t
+                            }
+                        } else {
+                            letters.add(VLetter(lc, VMark.NONE, upper))
+                        }
                         continue
                     }
-                    '2' -> {
-                        if (hasValidVowelCluster()) toggleTone(VTone.GRAVE)
+                    '0' -> {
+                        if (tone != VTone.NONE) {
+                            tone = VTone.NONE
+                        } else {
+                            letters.add(VLetter(lc, VMark.NONE, upper))
+                        }
                         continue
                     }
-                    '3' -> {
-                        if (hasValidVowelCluster()) toggleTone(VTone.HOOK)
-                        continue
+                    '6' -> {
+                        if (applyVniMark(letters, "aeo", VMark.CIRCUMFLEX, lc, upper)) continue
                     }
-                    '4' -> {
-                        if (hasValidVowelCluster()) toggleTone(VTone.TILDE)
-                        continue
+                    '7' -> {
+                        if (applyVniMark(letters, "ou", VMark.HORN, lc, upper)) continue
                     }
-                    '5' -> {
-                        if (hasValidVowelCluster()) toggleTone(VTone.DOT)
-                        continue
+                    '8' -> {
+                        if (applyVniMark(letters, "a", VMark.BREVE, lc, upper)) continue
                     }
-                    '0' -> { tone = VTone.NONE; continue }
-                    '6' -> { if (applyMark(letters, "aeo", VMark.CIRCUMFLEX)) continue }
-                    '7' -> { if (applyMark(letters, "ou", VMark.HORN)) continue }
-                    '8' -> { if (applyMark(letters, "a", VMark.BREVE)) continue }
-                    '9' -> { if (applyMark(letters, "d", VMark.STROKE)) continue }
+                    '9' -> {
+                        if (applyVniMark(letters, "d", VMark.STROKE, lc, upper)) continue
+                    }
                 }
                 letters.add(VLetter(lc, VMark.NONE, upper))
                 continue
@@ -350,6 +388,7 @@ object VietnameseTelexComposer : Composer {
 /** Vietnamese VNI: digits spell the diacritics (`a8`→ă, `a1`→á, `d9`→đ). */
 object VietnameseVniComposer : Composer {
     override val isTransliterating: Boolean get() = true
+    override val isVietnameseVni: Boolean get() = true
     override val bufferDigits: Boolean get() = true
     override fun buffersChar(c: Char): Boolean = c in "\u0301\u0300\u0309\u0303\u0323"
     override fun isPlausibleWord(word: String): Boolean = VietnameseOrthography.isSyllable(word)
