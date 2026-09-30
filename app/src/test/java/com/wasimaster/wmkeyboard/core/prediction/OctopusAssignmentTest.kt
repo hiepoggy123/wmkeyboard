@@ -276,4 +276,41 @@ class OctopusAssignmentTest {
     fun `an empty candidate list floats nothing`() {
         assertEquals(emptyList<OctopusWord>(), assign("hel", emptyList()))
     }
+
+    // ---- Vietnamese key assignment and divergence ----
+
+    @Test
+    fun `vietnamese completion hangs off base latin key`() {
+        val baseLetterKeyOf: (Int) -> Int = { vietnameseBaseChar(it) }
+
+        // When "vi" is typed, next letter of "việt" is 'ệ', which hangs off 'e'
+        val floatedE = assign("vi", listOf(candidate("việt", 1.0)), keyOf = baseLetterKeyOf).firstOrNull()!!
+        assertEquals('e'.code, floatedE.keyCodePoint)
+        assertEquals(2, floatedE.typedChars)
+
+        // When "vie" is typed, divergence agrees on 'ệ' and 'e', next letter is 't'
+        val floatedT = assign("vie", listOf(candidate("việt", 1.0)), keyOf = baseLetterKeyOf).firstOrNull()!!
+        assertEquals('t'.code, floatedT.keyCodePoint)
+        assertEquals(3, floatedT.typedChars)
+
+        // When "viê" is typed (via VNI composeBuffer), divergence agrees on 'ệ' and 'ê', next letter is 't'
+        val floatedVni = assign("viê", listOf(candidate("việt", 1.0)), keyOf = baseLetterKeyOf).firstOrNull()!!
+        assertEquals('t'.code, floatedVni.keyCodePoint)
+        assertEquals(3, floatedVni.typedChars)
+    }
+
+    @Test
+    fun `vietnamese stroked letter đ hangs off d key`() {
+        val baseLetterKeyOf: (Int) -> Int = { vietnameseBaseChar(it) }
+
+        // Next word "được" from empty buffer hangs off 'd'
+        val floatedD = assign("", listOf(candidate("được", 1.0)), keyOf = baseLetterKeyOf).firstOrNull()!!
+        assertEquals('d'.code, floatedD.keyCodePoint)
+        assertEquals(0, floatedD.typedChars)
+
+        // After typing "d", divergence agrees on 'd' and 'đ', next letter 'ư' hangs off 'u'
+        val floatedU = assign("d", listOf(candidate("được", 1.0)), keyOf = baseLetterKeyOf).firstOrNull()!!
+        assertEquals('u'.code, floatedU.keyCodePoint)
+        assertEquals(1, floatedU.typedChars)
+    }
 }

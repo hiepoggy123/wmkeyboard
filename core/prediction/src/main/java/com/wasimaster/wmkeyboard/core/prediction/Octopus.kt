@@ -82,7 +82,8 @@ fun octopusDivergence(typed: String, candidate: String, keys: KeySets? = null): 
     while (i < shared) {
         val ch = candidate[i]
         val agrees = typed[i].equals(ch, ignoreCase = true) ||
-            keys?.accepts(i, ch.lowercaseChar()) == true
+            keys?.accepts(i, ch.lowercaseChar()) == true ||
+            vietnameseBaseChar(typed[i]).equals(vietnameseBaseChar(ch), ignoreCase = true)
         if (!agrees) break
         i++
     }
@@ -182,3 +183,85 @@ fun assignOctopus(
  */
 fun octopusTrieFan(walker: TrieWalker, prefix: String): Map<Int, Suggestion> =
     TrieCompleter.bestPerNextCodePoint(walker, prefix)
+
+/**
+ * Strips accents from [c] to its base Latin character (e.g. 'ệ' -> 'e', 'đ' -> 'd').
+ */
+fun vietnameseBaseChar(c: Char): Char = Accents.bare(c)
+
+/**
+ * Strips accents from [codePoint] to its base Latin character code point (e.g. 'ệ' -> 'e', 'đ' -> 'd').
+ */
+fun vietnameseBaseChar(codePoint: Int): Int =
+    if (codePoint in 0..0xFFFF) Accents.bare(codePoint.toChar()).code else codePoint
+
+/**
+ * Returns the Vietnamese vowel mark or stroke for [c]:
+ * 1 = CIRCUMFLEX (â, ê, ô), 2 = BREVE (ă), 3 = HORN (ơ, ư), 4 = STROKE (đ), 0 = NONE.
+ */
+fun getVietnameseMark(c: Char): Int = when (c.lowercaseChar()) {
+    'â', 'ầ', 'ấ', 'ẩ', 'ẫ', 'ậ',
+    'ê', 'ề', 'ế', 'ể', 'ễ', 'ệ',
+    'ô', 'ồ', 'ố', 'ổ', 'ỗ', 'ộ', '\u0302' -> 1 // CIRCUMFLEX
+    'ă', 'ằ', 'ắ', 'ẳ', 'ẵ', 'ặ', '\u0306' -> 2 // BREVE
+    'ơ', 'ờ', 'ớ', 'ở', 'ỡ', 'ợ',
+    'ư', 'ừ', 'ứ', 'ử', 'ữ', 'ự', '\u031b' -> 3 // HORN
+    'đ' -> 4 // STROKE
+    else -> 0
+}
+
+/**
+ * Returns the Vietnamese tone mark for [c]:
+ * 1 = ACUTE (sắc), 2 = GRAVE (huyền), 3 = HOOK (hỏi), 4 = TILDE (ngã), 5 = DOT (nặng), 0 = NONE.
+ */
+fun getVietnameseTone(c: Char): Int = when (c.lowercaseChar()) {
+    'á', 'ắ', 'ấ', 'é', 'ế', 'í', 'ó', 'ố', 'ớ', 'ú', 'ứ', 'ý', '\u0301', '́' -> 1 // ACUTE
+    'à', 'ằ', 'ầ', 'è', 'ề', 'ì', 'ò', 'ồ', 'ờ', 'ù', 'ừ', 'ỳ', '\u0300', '̀' -> 2 // GRAVE
+    'ả', 'ẳ', 'ẩ', 'ẻ', 'ể', 'ỉ', 'ỏ', 'ổ', 'ở', 'ủ', 'ử', 'ỷ', '\u0309', '̉' -> 3 // HOOK
+    'ã', 'ẵ', 'ẫ', 'ẽ', 'ễ', 'ĩ', 'õ', 'ỗ', 'ỡ', 'ũ', 'ữ', 'ỹ', '\u0303', '̃' -> 4 // TILDE
+    'ạ', 'ặ', 'ậ', 'ẹ', 'ệ', 'ị', 'ọ', 'ộ', 'ợ', 'ụ', 'ự', 'ỵ', '\u0323', '̣' -> 5 // DOT
+    else -> 0
+}
+
+/**
+ * Checks if [word] matches [cleanPrefix] in Vietnamese, taking base Latin characters,
+ * vowel marks, and tone marks into account.
+ */
+fun matchesVietnamesePrefix(word: String, cleanPrefix: String): Boolean {
+    if (word.length < cleanPrefix.length) return false
+    for (i in cleanPrefix.indices) {
+        val pChar = cleanPrefix[i]
+        val wChar = word[i]
+        if (vietnameseBaseChar(pChar).lowercaseChar() != vietnameseBaseChar(wChar).lowercaseChar()) {
+            return false
+        }
+        val pMark = getVietnameseMark(pChar)
+        val wMark = getVietnameseMark(wChar)
+        if (pMark != 0 && pMark != wMark) return false
+
+        val pTone = getVietnameseTone(pChar)
+        val wTone = getVietnameseTone(wChar)
+        if (pTone != 0 && pTone != wTone) return false
+    }
+    return true
+}
+
+/**
+ * Checks if [word] is a completion of [prefix] in Vietnamese.
+ */
+fun isVietnameseCompletion(word: String, prefix: String): Boolean {
+    val cleanWord = word.lowercase()
+    val cleanPrefix = prefix.lowercase()
+    return cleanWord.length > cleanPrefix.length && matchesVietnamesePrefix(cleanWord, cleanPrefix)
+}
+
+/**
+ * Converts [s] to its base Latin representation without diacritics.
+ */
+fun toVietnameseBase(s: String): String {
+    val sb = StringBuilder(s.length)
+    for (i in 0 until s.length) {
+        sb.append(vietnameseBaseChar(s[i]).lowercaseChar())
+    }
+    return sb.toString()
+}

@@ -2308,7 +2308,7 @@ class SuggestionEngine(
         for ((place, word) in pool.withIndex()) {
             // A word that carries on from the buffer is a completion; one that
             // does not is the engine offering a fix.
-            val kind = if (word.lowercase().startsWith(lower)) {
+            val kind = if (word.lowercase().startsWith(lower) || isVietnameseCompletion(word, lower)) {
                 OctopusKind.COMPLETION
             } else {
                 OctopusKind.CORRECTION

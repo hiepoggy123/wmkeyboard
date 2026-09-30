@@ -579,6 +579,62 @@ class TelexAutocorrectEngineTest {
         assertTrue("thabhf should correct to thành via QWERTY proximity DFS", results.any { it.word == "thành" })
         assertEquals("thành should be top candidate", "thành", results.first().word)
     }
+
+    @Test
+    fun testFindCompletionsVietnameseBasePrefix() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val uniJson = """
+            {
+                "việt": 500,
+                "việc": 400,
+                "viên": 300,
+                "vinh": 200,
+                "vào": 600
+            }
+        """.trimIndent()
+        engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
+
+        // "vie" matches base Latin prefix of "việt", "việc", "viên"
+        val completionsVie = engine.findCompletions("vie", maxResults = 5)
+        assertTrue(completionsVie.contains("việt"))
+        assertTrue(completionsVie.contains("việc"))
+        assertTrue(completionsVie.contains("viên"))
+        assertFalse(completionsVie.contains("vinh"))
+
+        // "viê" matches "việt", "việc", "viên" (has circumflex mark)
+        val completionsVieCircumflex = engine.findCompletions("viê", maxResults = 5)
+        assertTrue(completionsVieCircumflex.contains("việt"))
+        assertTrue(completionsVieCircumflex.contains("việc"))
+        assertTrue(completionsVieCircumflex.contains("viên"))
+
+        // "việ" matches "việt", "việc" (has nặng tone), but NOT "viên" (flat tone)
+        val completionsVieTone = engine.findCompletions("việ", maxResults = 5)
+        assertTrue(completionsVieTone.contains("việt"))
+        assertTrue(completionsVieTone.contains("việc"))
+        assertFalse(completionsVieTone.contains("viên"))
+    }
+
+    @Test
+    fun testTopUnigrams() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val uniJson = """
+            {
+                "và": 1000,
+                "của": 800,
+                "người": 600,
+                "được": 900
+            }
+        """.trimIndent()
+        engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
+
+        val top = engine.topUnigrams(3)
+        assertEquals(3, top.size)
+        assertEquals("và", top[0])
+        assertEquals("được", top[1])
+        assertEquals("của", top[2])
+    }
 }
 
 

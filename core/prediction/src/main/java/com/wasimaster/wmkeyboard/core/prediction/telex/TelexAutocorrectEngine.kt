@@ -6,6 +6,7 @@ import androidx.annotation.VisibleForTesting
 import com.wasimaster.wmkeyboard.core.prediction.MappedNgramPack
 import com.wasimaster.wmkeyboard.core.prediction.NgramPack
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
+import com.wasimaster.wmkeyboard.core.prediction.matchesVietnamesePrefix
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
@@ -118,11 +119,29 @@ class TelexLanguageModel {
     val trigrams: HashMap<String, HashMap<String, Int>> = HashMap()
     var ngramPack: NgramPack = NgramPack.EMPTY
 
+    @Volatile
+    private var cachedTopUnigrams: List<String>? = null
+
     fun loadUnigrams(jsonStr: String) {
         val root = Json.parseToJsonElement(jsonStr).jsonObject
         for ((word, element) in root) {
             unigrams[word] = element.jsonPrimitive.intOrNull ?: 1
         }
+        cachedTopUnigrams = null
+    }
+
+    fun clearCache() {
+        cachedTopUnigrams = null
+    }
+
+    fun topUnigrams(limit: Int = 30): List<String> {
+        val cached = cachedTopUnigrams
+        if (cached != null) return cached.take(limit)
+        val sorted = unigrams.entries
+            .sortedByDescending { it.value }
+            .map { it.key }
+        cachedTopUnigrams = sorted
+        return sorted.take(limit)
     }
 
     fun loadBigrams(jsonStr: String) {
@@ -219,6 +238,7 @@ class TelexAutocorrectEngine private constructor() {
         languageModel.bigrams.clear()
         languageModel.trigrams.clear()
         languageModel.ngramPack = NgramPack.EMPTY
+        languageModel.clearCache()
         isInitialized = false
     }
 
@@ -732,16 +752,25 @@ class TelexAutocorrectEngine private constructor() {
     }
 
     /**
-     * Finds Vietnamese word completions matching a prefix (e.g. "việ" -> ["việt", "việc", ...]).
+     * Finds Vietnamese word completions matching a prefix (e.g. "việ" -> ["việt", "việc", ...],
+     * "vie" -> ["việt", "việc", "viên", ...]).
      */
     fun findCompletions(prefix: String, maxResults: Int = 5): List<String> {
         if (!isReady || prefix.isBlank()) return emptyList()
         val clean = prefix.trim().lowercase()
         return languageModel.unigrams.entries
-            .filter { it.key.startsWith(clean) && it.key != clean }
+            .filter { (it.key.startsWith(clean) || matchesVietnamesePrefix(it.key, clean)) && it.key != clean }
             .sortedByDescending { it.value }
             .take(maxResults)
             .map { it.key }
+    }
+
+    /**
+     * Returns top Vietnamese unigrams sorted by frequency.
+     */
+    fun topUnigrams(limit: Int = 30): List<String> {
+        if (!isReady) return emptyList()
+        return languageModel.topUnigrams(limit)
     }
 
     /**

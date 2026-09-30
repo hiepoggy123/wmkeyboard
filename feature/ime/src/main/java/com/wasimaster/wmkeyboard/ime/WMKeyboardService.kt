@@ -185,6 +185,7 @@ import com.wasimaster.wmkeyboard.core.prediction.OctopusCandidate
 import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import com.wasimaster.wmkeyboard.core.prediction.assignOctopus
+import com.wasimaster.wmkeyboard.core.prediction.vietnameseBaseChar
 import com.wasimaster.wmkeyboard.core.prediction.KeystrokeTiming
 import com.wasimaster.wmkeyboard.core.prediction.Register
 import com.wasimaster.wmkeyboard.core.prediction.RevisionAdvisor
@@ -15284,7 +15285,7 @@ open class WMKeyboardService : InputMethodService() {
             typed = leader,
             candidates = alternates,
             keys = null,
-            keyOf = { codePoint -> anchors[codePoint] ?: -1 },
+            keyOf = { codePoint -> anchors[codePoint] ?: anchors[vietnameseBaseChar(codePoint)] ?: -1 },
             limit = octopus.density,
             // Every alternate the decoder still holds is worth showing: it has
             // already survived the beam, and quietening it here would hide the
@@ -15348,21 +15349,40 @@ open class WMKeyboardService : InputMethodService() {
     ): OctopusBoard {
         val octopus = state.settings.octopus
         if (!octopus.enabled || !state.allowsTypingIntelligence) return emptyMap()
-        if (state.composer.isConversion || state.composer.isTransliterating) return emptyMap()
+        if (state.composer.isConversion || (state.composer.isTransliterating && !state.composer.isVietnamese)) return emptyMap()
         if (state.layoutMode != LayoutMode.LETTERS) return emptyMap()
         val engine = suggestionEngine ?: return emptyMap()
         val anchors = state.layouts.keyAnchors(octopus.longPressKeys)
         if (anchors.isEmpty()) return emptyMap()
+        val effectiveTyped = if (state.composer.isVietnamese) {
+            state.composer.composeBuffer(typed)
+        } else {
+            typed
+        }
+        val effectivePool = if (state.composer.isVietnamese && pool.isEmpty()) {
+            val telexEngine = TelexAutocorrectEngine.getInstance()
+            if (!telexEngine.isReady) {
+                telexEngine.initialize(assets, filesDir)
+            }
+            if (effectiveTyped.isEmpty()) {
+                val next = telexEngine.predictNextWords(previous, previous2, maxResults = octopus.density * OCTOPUS_POOL_DEPTH)
+                if (next.isNotEmpty()) next else telexEngine.topUnigrams(octopus.density * OCTOPUS_POOL_DEPTH)
+            } else {
+                telexEngine.findCompletions(effectiveTyped, maxResults = octopus.density * OCTOPUS_POOL_DEPTH)
+            }
+        } else {
+            pool
+        }
         return engine.octopusWords(
-            composing = typed,
+            composing = effectiveTyped,
             previousWord = previous,
             previousWord2 = previous2,
             keys = keys,
             limit = octopus.density,
             kinds = octopus.kinds,
             dense = octopus.dense,
-            pool = pool,
-            keyOf = { codePoint -> anchors[codePoint] ?: -1 },
+            pool = effectivePool,
+            keyOf = { codePoint -> anchors[codePoint] ?: anchors[vietnameseBaseChar(codePoint)] ?: -1 },
             perKey = octopus.wordsPerKey,
         ).toOctopusBoard()
     }
@@ -15833,15 +15853,20 @@ open class WMKeyboardService : InputMethodService() {
                         if (nextWords.isNotEmpty()) {
                             nextWords
                         } else {
-                            engine.suggest(
-                                composing = "",
-                                previousWord = previousWord,
-                                previousWord2 = previousWord2,
-                                previousWord3 = previousWord3,
-                                recentWords = recentSnapshot,
-                                allowRerank = true,
-                                limit = askFor,
-                            )
+                            val top = telexEngine.topUnigrams(askFor)
+                            if (top.isNotEmpty()) {
+                                top
+                            } else {
+                                engine.suggest(
+                                    composing = "",
+                                    previousWord = previousWord,
+                                    previousWord2 = previousWord2,
+                                    previousWord3 = previousWord3,
+                                    recentWords = recentSnapshot,
+                                    allowRerank = true,
+                                    limit = askFor,
+                                )
+                            }
                         }
                     } else {
                         val dictSuggestions = engine.suggest(
@@ -15853,7 +15878,7 @@ open class WMKeyboardService : InputMethodService() {
                             allowRerank = true,
                             limit = askFor,
                         )
-                        val telexCompletions = telexEngine.findCompletions(composed, maxResults = 4)
+                        val telexCompletions = telexEngine.findCompletions(composed, maxResults = maxOf(SUGGEST_LIMIT, askFor))
                         val combinedDict = (dictSuggestions + telexCompletions).distinctBy { it.lowercase() }
 
                         val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
