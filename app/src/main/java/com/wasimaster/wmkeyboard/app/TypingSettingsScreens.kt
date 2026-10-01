@@ -78,6 +78,7 @@ import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.ShiftGlideMode
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.GlideRadiusRange
+import com.wasimaster.wmkeyboard.core.settings.LanguageEchoMsRange
 import com.wasimaster.wmkeyboard.core.settings.GlideDwellFullRange
 import com.wasimaster.wmkeyboard.core.settings.GlideLoopMinArcRange
 import com.wasimaster.wmkeyboard.core.settings.GlideLoopExtentRange
@@ -403,6 +404,15 @@ internal fun TypingCorrectionsSettings(
                     info = stringResource(R.string.typing_skip_all_caps_info),
                     default = SettingsDefaults.correction.skipAllCaps,
                 ) { scope.launch { repository.setAutocorrectSkipAllCaps(it) } }
+            }
+            item {
+                ToggleSetting(
+                    R.string.typing_autocorrect_on_enter_title,
+                    stringResource(R.string.typing_autocorrect_on_enter_subtitle),
+                    settings.watch { it.correction.onEnter },
+                    info = stringResource(R.string.typing_autocorrect_on_enter_info),
+                    default = SettingsDefaults.correction.onEnter,
+                ) { scope.launch { repository.setAutocorrectOnEnter(it) } }
             }
             item {
                 ToggleSetting(
@@ -1803,6 +1813,15 @@ internal fun TypingGesturesSettings(
                         default = SettingsDefaults.gesture.autoSpaceAfterGlide,
                     ) { scope.launch { repository.setGestureAutoSpace(it) } }
                 }
+                item {
+                    ToggleSetting(
+                        R.string.typing_glide_backspace_undo_title,
+                        stringResource(R.string.typing_glide_backspace_undo_subtitle),
+                        settings.watch { it.gesture.backspaceUndoesGlide },
+                        info = stringResource(R.string.typing_glide_backspace_undo_info),
+                        default = SettingsDefaults.gesture.backspaceUndoesGlide,
+                    ) { scope.launch { repository.setGestureBackspaceUndoesGlide(it) } }
+                }
                 // Which key a glide reads as an apostrophe, so "it's" can be
                 // drawn rather than guessed at. One key, never several.
                 item {
@@ -2075,6 +2094,29 @@ internal fun TypingGesturesSettings(
                     default = SettingsDefaults.textEditing.spaceCursorStepDp.toFloat(),
                 ) { scope.launch { repository.setSpaceCursorStepDp(it.toInt()) } }
             }
+            // Issue #385: the drag speeds up the further it goes.
+            item {
+                ToggleSetting(
+                    R.string.typing_space_cursor_accelerate_title,
+                    stringResource(R.string.typing_space_cursor_accelerate_subtitle),
+                    settings.watch { it.textEditing.spaceCursorAccelerate },
+                    info = stringResource(R.string.typing_space_cursor_accelerate_info),
+                    default = SettingsDefaults.textEditing.spaceCursorAccelerate,
+                ) { scope.launch { repository.setSpaceCursorAccelerate(it) } }
+            }
+            item {
+                val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
+                SliderSetting(
+                    R.string.typing_space_cursor_top_speed_title,
+                    subtitle = stringResource(R.string.typing_space_cursor_top_speed_subtitle),
+                    value = settings.watch { it.textEditing.spaceCursorTopSpeed }.toFloat(),
+                    range = 2f..8f,
+                    display = { valueFormat.format(it.roundToInt().toString()) },
+                    info = stringResource(R.string.typing_space_cursor_top_speed_info),
+                    enabled = settings.watch { it.textEditing.spaceCursorAccelerate },
+                    default = SettingsDefaults.textEditing.spaceCursorTopSpeed.toFloat(),
+                ) { scope.launch { repository.setSpaceCursorTopSpeed(it.roundToInt()) } }
+            }
             item {
                 ToggleSetting(
                     R.string.typing_space_cursor_magnifier_title,
@@ -2093,6 +2135,15 @@ internal fun TypingGesturesSettings(
                 info = stringResource(R.string.typing_space_swipe_down_hide_info),
                 default = SettingsDefaults.layoutBehavior.spaceSwipeDownHide,
             ) { scope.launch { repository.setSpaceSwipeDownHide(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.typing_edge_swipe_back_title,
+                stringResource(R.string.typing_edge_swipe_back_subtitle),
+                settings.watch { it.layoutBehavior.edgeSwipeBack },
+                info = stringResource(R.string.typing_edge_swipe_back_info),
+                default = SettingsDefaults.layoutBehavior.edgeSwipeBack,
+            ) { scope.launch { repository.setEdgeSwipeBack(it) } }
         }
         item {
             // Issue #178: a quick flick down on a key types its corner hint.
@@ -2159,6 +2210,24 @@ internal fun TypingGesturesSettings(
                     info = stringResource(R.string.typing_spacebar_language_arrows_info),
                     default = SettingsDefaults.spacebarLanguageArrows,
                 ) { scope.launch { repository.setSpacebarLanguageArrows(it) } }
+            }
+            item {
+                // Issue #376: how long a switch keeps its language up after the
+                // lift. Steps of 50 ms, like the globe typing guard.
+                val offLabel = stringResource(CommonR.string.common_off)
+                val msFormat = stringResource(R.string.typing_value_milliseconds)
+                SliderSetting(
+                    R.string.typing_language_echo_title,
+                    subtitle = stringResource(R.string.typing_language_echo_subtitle),
+                    value = settings.watch { it.layoutBehavior.languageEchoMs }.toFloat(),
+                    range = LanguageEchoMsRange.first.toFloat()..LanguageEchoMsRange.last.toFloat(),
+                    display = {
+                        val ms = (it / 50f).roundToInt() * 50
+                        if (ms == 0) offLabel else msFormat.format(ms)
+                    },
+                    info = stringResource(R.string.typing_language_echo_info),
+                    default = SettingsDefaults.layoutBehavior.languageEchoMs.toFloat(),
+                ) { scope.launch { repository.setLanguageEchoMs((it / 50f).roundToInt() * 50) } }
             }
         }
         item {

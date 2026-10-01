@@ -17,8 +17,9 @@ import java.net.URL
 import java.net.URLEncoder
 import java.net.UnknownHostException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import com.wasimaster.wmkeyboard.common.R as CommonR
 
 /**
@@ -62,9 +63,11 @@ object ToolHttp {
     /**
      * Browser-ish UA for every request: arbitrary image hosts surfaced by
      * Google image/GIF search often 403 the default Java agent, and the
-     * APIs don't mind either way.
+     * APIs don't mind either way. Public because the media image loader
+     * sends it too: Wikimedia's thumb and upload hosts answer 403 to
+     * OkHttp's default `okhttp/x.y` agent.
      */
-    private const val USER_AGENT =
+    const val USER_AGENT =
         "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) " +
             "Chrome/124.0 Mobile Safari/537.36"
 
@@ -433,6 +436,19 @@ object ToolHttp {
             ?: context.getString(CommonR.string.common_error_generic)
     }
 
+    /**
+     * Whether [t] says the server could not be reached at all: no connection,
+     * no such host, nothing listening, no answer in time, or a gateway in front
+     * of it reporting the same (#452). A server that answered with a refusal
+     * was reached, so that is not this.
+     */
+    fun isUnreachable(t: Throwable): Boolean = when (t) {
+        is ToolHttpException -> t.status in HttpURLConnection.HTTP_BAD_GATEWAY..HttpURLConnection.HTTP_GATEWAY_TIMEOUT
+        is NoInternetPermissionException -> false
+        is UnknownHostException, is SocketTimeoutException, is java.net.SocketException -> true
+        else -> false
+    }
+
     /** The provider's own words, or our wording for the status it answered with. */
     private fun httpText(context: Context, t: ToolHttpException): String {
         t.apiMessage?.takeIf { it.isNotBlank() }?.let { return it }
@@ -451,13 +467,20 @@ object ToolHttp {
 
     /**
      * The provider's own error text, when the response body carried any.
-     * Google APIs return `{"error": {"message": …}}`; anything else reads as
-     * no message at all.
+     * Google APIs return `{"error": {"message": …}}` and Brave
+     * `{"error": {"detail": …}}`; Tavily returns `{"detail": {"error": …}}`,
+     * or `{"error": …}` when rate-limited. Anything else reads as no message
+     * at all.
      */
     fun apiErrorText(body: String?): String? = body?.let {
         runCatching {
-            Json.parseToJsonElement(it).jsonObject["error"]?.jsonObject
-                ?.get("message")?.jsonPrimitive?.content
+            val root = Json.parseToJsonElement(it).jsonObject
+            val error = root["error"]
+            (error as? JsonObject)?.let { e -> e["message"] ?: e["detail"] }
+                ?.let { m -> (m as? JsonPrimitive)?.content }
+                ?: (error as? JsonPrimitive)?.takeIf { e -> e.isString }?.content
+                ?: ((root["detail"] as? JsonObject)?.get("error") as? JsonPrimitive)
+                    ?.takeIf { e -> e.isString }?.content
         }.getOrNull()
     }?.takeIf { it.isNotBlank() }
 

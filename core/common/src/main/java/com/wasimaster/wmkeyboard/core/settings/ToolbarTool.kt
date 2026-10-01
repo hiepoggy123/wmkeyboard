@@ -17,6 +17,14 @@ import com.wasimaster.wmkeyboard.core.util.PlayServices
  */
 enum class MediaSendMode { IMAGE, STICKER }
 
+/**
+ * Where the emoji, GIF and sticker panels draw the switch that jumps between
+ * the three (issue #366): along the bottom beside abc and space, or up top
+ * beside the search. Down here rather than with the emoji settings so the
+ * shipped emoji panel layout, in the layout module, can be drawn for either.
+ */
+enum class MediaSwitcher { OFF, TOP, BOTTOM }
+
 
 /**
  * A tool that can live on the top toolbar. Tools not in
@@ -84,6 +92,9 @@ enum class ToolbarTool {
     // A paired computer over KDE Connect: its mouse, keyboard, media, clipboard
     // and files, and the computer typing back into the phone (issue #285).
     KDE_CONNECT,
+    // A shortcut to the settings app's Statistics screen: the level, the
+    // achievements and the tap heatmap, one tap from the keys (issue #390).
+    STATISTICS,
 }
 
 /** The cursor tools, in the order they read on the toolbar. */
@@ -267,7 +278,8 @@ val ToolTopUps: Set<ToolbarTool> = setOf(ToolbarTool.WIKIPEDIA, ToolbarTool.POWE
  */
 private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
-    ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.TYPING_TEST, ToolbarTool.PLUGINS, ToolbarTool.CUSTOM_LAYOUT,
+    ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.TYPING_TEST, ToolbarTool.STATISTICS, ToolbarTool.PLUGINS,
+    ToolbarTool.CUSTOM_LAYOUT,
     ToolbarTool.FLOATING, ToolbarTool.PERSISTENT, ToolbarTool.RESIZE, ToolbarTool.INCOGNITO,
     ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.SOUND_HAPTICS,
     ToolbarTool.QR_SCAN, ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA,

@@ -405,6 +405,16 @@ class SuggestionEngine(
             generation.incrementAndGet()
         }
 
+    /**
+     * Whether a phonetic layout's strip keeps its first two chips fixed — the
+     * buffer as typed in Latin letters, then the rules' reading of it — and
+     * what fills the rest; null is the ordinary strip, whose head is whatever
+     * a space commits. Only the strip moves: a space commits exactly what it
+     * would have ([phoneticCommit]). Not part of the walk, so no generation.
+     */
+    @Volatile
+    var phoneticFixedStrip: PhoneticStripSource? = null
+
     /** The spellings the user has overruled the script of; see [recordScriptChoice]. */
     @Volatile
     var scriptChoices: PhoneticScriptChoices = PhoneticScriptChoices()
@@ -515,6 +525,16 @@ class SuggestionEngine(
      */
     @Volatile
     var offensiveWords: Set<String> = emptySet()
+
+    /**
+     * The same words by the language whose list flags them, so a flag can be
+     * weighed against the language a word actually belongs to (#465). English's
+     * list holds `wel`, `nog` and `ging`, which are harmless everyday Dutch;
+     * unioned, they vanished from a Dutch keyboard that had English on too.
+     * Empty means every flag counts, as before.
+     */
+    @Volatile
+    var offensiveByLanguage: Map<String, Set<String>> = emptyMap()
 
     /**
      * When on, a word typed entirely in capitals (SHOUTING, or an acronym like
@@ -650,8 +670,32 @@ class SuggestionEngine(
         blacklist.isNotEmpty() && word.lowercase() in blacklist
 
     /** True when the offensive filter is on and [word] is a blocked word. */
-    private fun offensive(word: String): Boolean =
-        blockOffensiveWords && offensiveWords.isNotEmpty() && word.lowercase() in offensiveWords
+    private fun offensive(word: String): Boolean {
+        if (!blockOffensiveWords || offensiveWords.isEmpty()) return false
+        val lower = word.lowercase()
+        if (lower !in offensiveWords) return false
+        // A word the user added by hand is one they asked for by name.
+        if (userLexicon.isAddedByHand(lower)) return false
+        return !clearedByItsLanguage(lower)
+    }
+
+    /**
+     * Whether [lower], flagged by some language's list, is really a word of a
+     * language that does not flag it (#465): the mix knows it, and none of the
+     * languages that flag it does. A flagging language outside the mix cannot
+     * be asked, so its flag stands, and so does the flag on a word nobody's
+     * list knows.
+     */
+    private fun clearedByItsLanguage(lower: String): Boolean {
+        val byLanguage = offensiveByLanguage
+        if (byLanguage.isEmpty()) return false
+        val owners = languagesOwning(lower)
+        if (owners.isEmpty()) return false
+        val mix = mixLanguageIds()
+        return byLanguage.none { (langId, words) ->
+            lower in words && (langId in owners || langId !in mix)
+        }
+    }
 
     /**
      * True when [word] must not be offered or used as an autocorrect target,
@@ -1637,6 +1681,18 @@ class SuggestionEngine(
         /** Chips a strip is assumed to show when the caller does not say. */
         const val DEFAULT_PHONETIC_SLOTS = 3
 
+        /** How many completions [nativeCompletions] draws from each source before ranking. */
+        private const val NATIVE_COMPLETION_POOL = 24
+
+        /**
+         * Where a word the user taught the keyboard starts on
+         * [nativeCompletions]' 0..1 dictionary scale, and how fast its own count
+         * lifts it: a word typed and kept outranks all but the list's commonest,
+         * and a few more uses carry it past those too.
+         */
+        private const val LEARNED_COMPLETION_FLOOR = 0.9
+        private const val LEARNED_COMPLETION_SCALE = 10.0
+
         /**
          * How common a word the user taught the keyboard under English counts
          * as, on [PhoneticScriptVerdict]'s scale. It has no corpus frequency,
@@ -1742,6 +1798,15 @@ class SuggestionEngine(
          * thousandfold.
          */
         private const val CONTRACTION_LEAD = 7.0
+
+        /**
+         * The furthest behind the typed word an ambiguous contraction (`ill`
+         * as *I'll*) sits on the strip, as a factor; see [declaredReading].
+         */
+        private const val DECLARED_TRAIL = 2.0
+
+        /** How far short of the typed word that reading stops, in log units. */
+        private const val DECLARED_BEHIND = 1e-3
 
         /**
          * Share of the silent-replacement margin a candidate has to clear to
@@ -1985,19 +2050,29 @@ class SuggestionEngine(
         keys: KeySets? = null,
         previousWord3: String? = null,
         phoneticSlots: Int = DEFAULT_PHONETIC_SLOTS,
+        completionLanguage: String? = null,
     ): List<String> {
         if (composing.isEmpty()) {
             return nextWords(previousWord, previousWord2, limit, previousWord3)
         }
+        if (completionLanguage != null) {
+            return nativeCompletions(completionLanguage, composing, previousWord, limit)
+        }
         phoneticBackend(phoneticLanguage)?.let { backend ->
-            if (!phoneticMixing) return phoneticSuggestions(backend, composing, limit)
-            return phoneticStrip(backend, composing, previousWord, limit, phoneticSlots) {
+            val latinCompletions = {
                 suggest(
                     composing, previousWord, phoneticLanguage = null, limit = limit, touch = touch,
                     previousWord2 = previousWord2, recentWords = recentWords, keys = keys,
                     previousWord3 = previousWord3,
                 )
             }
+            phoneticFixedStrip?.let { source ->
+                return fixedPhoneticStrip(
+                    backend, composing, previousWord, limit, phoneticSlots, source, latinCompletions,
+                )
+            }
+            if (!phoneticMixing) return phoneticSuggestions(backend, composing, limit)
+            return phoneticStrip(backend, composing, previousWord, limit, phoneticSlots, latinCompletions)
         }
 
         val lower = composing.lowercase()
@@ -2534,6 +2609,61 @@ class SuggestionEngine(
     fun phoneticSpelling(languageId: String, composing: String): String? =
         phoneticBackend(languageId)?.spellings?.lookup(composing)?.firstOrNull { !suppressed(it) }
 
+    /**
+     * The strip of a layout whose keys already spell the word (Khipro, see
+     * `Composer.completionLanguage`): [composed] itself first, since that is
+     * exactly what a space commits, then [languageId]'s words that begin with
+     * it. Dictionary words rank by frequency, the user's own words ride near
+     * the top of them, and a word the user or the corpus has seen after [previousWord]
+     * gets the same bounded lift [suggest] gives it. Nothing here corrects:
+     * the keys are not a guess.
+     */
+    private fun nativeCompletions(
+        languageId: String,
+        composed: String,
+        previousWord: String?,
+        limit: Int,
+    ): List<String> {
+        val index = phoneticBackend(languageId)?.index ?: PhoneticIndex.EMPTY
+        val scores = HashMap<String, Double>()
+        val scale = ln(1.0 + index.maxFrequency.coerceAtLeast(1))
+        // The keys write ড় ঢ় য় precomposed and a word list may hold them
+        // decomposed ([WordKey] explains why both exist), so a prefix with one
+        // in it is asked both ways.
+        for (prefix in listOf(composed, WordKey.surface(composed)).distinct()) {
+            for (word in index.completions(prefix, NATIVE_COMPLETION_POOL)) {
+                scores[word] = ln(1.0 + index.frequencyOf(word)) / scale
+            }
+        }
+        for (learned in userLexicon.complete(WordKey.of(composed), NATIVE_COMPLETION_POOL)) {
+            val score = LEARNED_COMPLETION_FLOOR + ln(1.0 + learned.frequency) / LEARNED_COMPLETION_SCALE
+            scores.merge(displayForm(learned.word), score, ::maxOf)
+        }
+        val prev = previousWord?.takeIf { it.isNotEmpty() }
+        if (prev != null) {
+            for (entry in scores.entries) {
+                val count = maxOf(
+                    userLexicon.bigramCount(prev, entry.key),
+                    ngramPack.bigramCount(prev, entry.key) / PACK_COUNT_SCALE,
+                )
+                if (count > 0) {
+                    entry.setValue(
+                        entry.value + minOf(ln(1.0 + CONTEXT_BIGRAM_BETA * ln(1.0 + count)), MAX_CONTEXT_BOOST),
+                    )
+                }
+            }
+        }
+        applyRankOffsets(scores)
+        // One chip per word however it is composed, and never the typed word twice.
+        val seen = hashSetOf(WordKey.of(composed))
+        val rest = scores.entries
+            .sortedWith(compareByDescending<Map.Entry<String, Double>> { it.value }.thenBy { it.key })
+            .asSequence()
+            .map { it.key }
+            .filter { !suppressed(it) && seen.add(WordKey.of(it)) }
+        return (sequenceOf(composed) + rest).take(limit).toList()
+    }
+
     private fun phoneticSuggestions(backend: PhoneticBackend, composing: String, limit: Int): List<String> {
         val spellings = backend.spellings
         val index = backend.index
@@ -2644,6 +2774,20 @@ class SuggestionEngine(
         previousWord: String?,
     ): PhoneticScriptVerdict.Verdict {
         if (!phoneticAutoEnglish) return NATIVE_UNCONTESTED
+        return readScript(backend, composing, previousWord)
+    }
+
+    /**
+     * Which script [composing] reads as, whether or not a space is allowed to
+     * act on it: [scriptVerdict] without the auto-English gate. The fixed strip
+     * asks it to decide which language leads its suggestions, which is a
+     * question about the word, not about what the space bar may do.
+     */
+    private fun readScript(
+        backend: PhoneticBackend,
+        composing: String,
+        previousWord: String?,
+    ): PhoneticScriptVerdict.Verdict {
         // A romanization is letters. Anything else in the buffer is the
         // scheme's own notation, and so is a capital past the first: Avro's T,
         // D, N and O are letters in their own right, and nobody reaches for
@@ -2794,6 +2938,77 @@ class SuggestionEngine(
             native.take(1) + latin + native.drop(1)
         }
         return ordered.distinct().take(limit)
+    }
+
+    /**
+     * The strip of a phonetic layout set to keep its first two chips still:
+     * the buffer as typed in Latin letters, then the rules' own reading of it
+     * (Avro's `ami` → আমি, letter for letter, before any dictionary has a
+     * say), then [source]'s suggestions. The two never trade places and never
+     * leave, so a tap on the left is always the English and the one beside it
+     * always the transliteration.
+     *
+     * The head is therefore not what a space commits here; the caller asks
+     * [phoneticCommit] for that instead of reading it off the list.
+     */
+    private fun fixedPhoneticStrip(
+        backend: PhoneticBackend,
+        composing: String,
+        previousWord: String?,
+        limit: Int,
+        slots: Int,
+        source: PhoneticStripSource,
+        latinCompletions: () -> List<String>,
+    ): List<String> {
+        val literal = latinForm(composing)
+        val reading = backend.scheme.transliterate(composing)
+        val fixed = listOf(literal, reading).distinct()
+        fun isFixed(word: String) = word == reading || word.equals(literal, ignoreCase = true)
+        val want = limit + fixed.size
+        val native = { phoneticSuggestions(backend, composing, want).filterNot(::isFixed) }
+        val english = { englishCompletions(composing, want, latinCompletions).filterNot(::isFixed) }
+        val rest = when (source) {
+            PhoneticStripSource.NATIVE -> native()
+            PhoneticStripSource.ENGLISH -> english()
+            PhoneticStripSource.SMART -> {
+                val englishLeads = detectedLanguageId() == EN ||
+                    readScript(backend, composing, previousWord).script == PhoneticScript.LATIN
+                val (lead, other) = if (englishLeads) english() to native() else native() to english()
+                // The other language's best on the last chip on screen, as the
+                // ordinary mixed strip pins it; with a single free chip there
+                // is no room, and the leader keeps it.
+                val visible = slots - fixed.size
+                val top = other.firstOrNull()
+                if (top != null && visible >= 2) {
+                    pinned(lead, top, visible - 1) + other.drop(1)
+                } else {
+                    lead + other
+                }
+            }
+        }
+        return (fixed + rest).distinct().take(limit)
+    }
+
+    /**
+     * English words for [composing] typed on a phonetic layout: [walk], the
+     * ordinary fuzzy walk, and — when English is not among the layout's
+     * secondary languages, so the walk has only the user's own words to read —
+     * the bundled English list by prefix, so that picking English for the
+     * fixed strip is never picking an empty one.
+     */
+    private fun englishCompletions(composing: String, limit: Int, walk: () -> List<String>): List<String> {
+        // Avro's own notation (`,,` for a hasant, `^` for a chandrabindu) and
+        // digits spell no English word; asking the dictionary would only
+        // answer a question nobody typed.
+        if (!composing.all { it in 'a'..'z' || it in 'A'..'Z' }) return emptyList()
+        val words = LinkedHashSet<String>()
+        words.addAll(walk())
+        if (!phoneticMixing) {
+            for (s in dictionary.complete(composing.lowercase(), limit)) {
+                words.add(matchCase(composing, displayForm(s.word)))
+            }
+        }
+        return words.asSequence().filterNot(::suppressed).take(limit).toList()
     }
 
     /** [list] with [item] at index [at], or at the end when the list is shorter. */
@@ -3284,12 +3499,78 @@ class SuggestionEngine(
      * spelling in the strip, by [CONTRACTION_LEAD], exactly as it overrides
      * it at commit. A strip that disagreed with the space bar would be the
      * bug this fixes.
+     *
+     * Certain in English, that is. The table only knows which spellings are
+     * English words; `im` is not one, but it is one of the commonest German
+     * words there are. So where the field is being written in another
+     * language of the mix and that language has the typed spelling, the
+     * contraction drops to an offer behind it, exactly as an ambiguous
+     * English form does (#425).
      */
     private fun contractionReading(lower: String, langId: String): ElisionReading? {
         if (!Apostrophes.servesLanguage(langId)) return null
-        val fixed = Apostrophes.fix(lower) ?: return null
+        val fixed = Apostrophes.fix(lower) ?: return declaredReading(lower)
+        // A repair the user took back with backspace is held back the way any
+        // undone correction is (#402): offered on the strip behind what was
+        // typed, never committed over it, for as long as the undo memory says.
+        // One undo is enough. An ordinary correction's first undo is a
+        // handicap on its score, but a table repair has no score to weigh
+        // against anything, so a handicap would leave it firing exactly as
+        // before once the in-process block ran out (#425).
+        val undone = when (correctionStats.penalty(lower, fixed)) {
+            CorrectionStats.Penalty.PENALIZED,
+            CorrectionStats.Penalty.PROBATION,
+            CorrectionStats.Penalty.BLOCKED,
+            -> true
+            CorrectionStats.Penalty.NONE -> false
+        }
+        if (undone || wordOfWrittenLanguage(lower)) return declaredReading(lower, fixed)
         val scored = maxOf(finiteScore(fixed.lowercase()), finiteScore(lower))
         return ElisionReading(fixed, scored + CONTRACTION_LEAD, shadowed = true)
+    }
+
+    /**
+     * Whether [lower] is a word of the language the field is being written
+     * in, when that language is not English: `im` typed into German (#425).
+     *
+     * The written language rather than every language of the mix, so an
+     * English keyboard carrying German as a secondary still repairs `im`
+     * while its field is English, and stops the moment detection sees the
+     * field has turned German. Only that language's own words count — the
+     * classification the field mix itself makes ([languagesOwning]).
+     */
+    private fun wordOfWrittenLanguage(lower: String): Boolean {
+        val written = detectedLanguageId()
+        if (written.isEmpty() || Apostrophes.servesLanguage(written)) return false
+        return written in languagesOwning(lower)
+    }
+
+    /**
+     * [lower] read as the contraction it spells when it is also a word of its
+     * own: `ill` is *I'll* as often as it is ill (#384).
+     *
+     * Offered, never committed, and never ahead of what was typed: the
+     * contraction takes its own count, or [DECLARED_TRAIL] behind the typed
+     * word's where the list has it lower (the downloadable list, tokenised at
+     * the apostrophe, barely has it at all), and stops just short of the typed
+     * word either way. That keeps it on the strip above the long tail of
+     * completions without the strip preferring a reading the space bar will
+     * not make.
+     *
+     * [fixed] is the table's own answer for a repair the user has undone,
+     * which drops to exactly this standing.
+     */
+    private fun declaredReading(lower: String, fixed: String? = Apostrophes.offer(lower)): ElisionReading? {
+        if (fixed == null) return null
+        val typed = dictionaryScore(lower)
+        val own = dictionaryScore(fixed.lowercase())
+        val score = if (typed == Double.NEGATIVE_INFINITY) {
+            own
+        } else {
+            minOf(maxOf(own, typed - ln(DECLARED_TRAIL)), typed - DECLARED_BEHIND)
+        }
+        if (score == Double.NEGATIVE_INFINITY) return null
+        return ElisionReading(fixed, score, shadowed = false)
     }
 
     /** [dictionaryScore] with an unknown word's negative infinity read as zero. */
@@ -3382,6 +3663,12 @@ class SuggestionEngine(
         // lexicon. The lexicon learned it only because a list vouched for it.
         val known = inDictionaries(lower) || userLexicon.isEstablished(lower, learnedWordMinCount)
         if (known && !accentShadowed(lower, touch) && !typoShadowed(lower, touch, keys)) {
+            return NO_CORRECTION
+        }
+        // A verb form (-s, -ed, -ing) the list left out while keeping the verb (#395).
+        if (!known && (englishSources || englishAsSecondary) &&
+            Inflections.isVerbForm(lower) { inDictionaries(it) }
+        ) {
             return NO_CORRECTION
         }
         if (knownCompound(lower)) return NO_CORRECTION

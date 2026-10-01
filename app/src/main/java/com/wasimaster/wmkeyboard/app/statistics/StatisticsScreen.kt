@@ -49,6 +49,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.tools.StatsPeriod
+import com.wasimaster.wmkeyboard.core.tools.TypingProgress
 import com.wasimaster.wmkeyboard.core.tools.TypingStats
 import com.wasimaster.wmkeyboard.core.tools.TypingStatsMath
 import kotlinx.coroutines.Dispatchers
@@ -68,8 +69,9 @@ import androidx.compose.material.icons.outlined.TextFields
 import com.wasimaster.wmkeyboard.app.ChoiceDetail
 
 /**
- * How much you type: all-time totals, a day/week/month history with charts,
- * and the switch that turns the counting off.
+ * How much you type: your level and achievements, where you tap, all-time
+ * totals, a day/week/month history with charts, and the switch that turns the
+ * counting off.
  *
  * The screen is a *reader* of the keyboard's [TypingStats] file — it builds
  * its own instance on the same path and never calls save, so it cannot race
@@ -85,15 +87,22 @@ internal fun StatisticsScreen(repository: SettingsRepository, settings: LiveSett
 
     var entries by remember { mutableStateOf<List<TypingStats.DayEntry>>(emptyList()) }
     var totals by remember { mutableStateOf<TypingStats.Totals?>(null) }
+    var heatmaps by remember { mutableStateOf<List<TypingStats.Heatmap>>(emptyList()) }
     // statsVersion is the reload signal both here and in the keyboard: the
     // delete below bumps it, and this effect re-reads the emptied file.
     LaunchedEffect(settings.watch { it.statsVersion }) {
         val read = withContext(Dispatchers.IO) {
             val stats = TypingStats(File(context.filesDir, TypingStats.FILE_PATH))
-            stats.dayEntries() to stats.lifetime()
+            // With sync on, every other device's counts are added in (#447).
+            // Only read here, never saved: this instance is a reader.
+            stats.absorbDevices(
+                runCatching { File(context.filesDir, TypingStats.DEVICES_FILE_PATH).readText() }.getOrNull(),
+            )
+            Triple(stats.dayEntries(), stats.lifetime(), stats.heatmaps())
         }
         entries = read.first
         totals = read.second
+        heatmaps = read.third
     }
 
     val statsOn = settings.watch { it.typingStatsEnabled }
@@ -106,14 +115,35 @@ internal fun StatisticsScreen(repository: SettingsRepository, settings: LiveSett
     ) { scope.launch { repository.setTypingStatsEnabled(it) } }
 
     val lifetime = totals
+    val empty = lifetime == null ||
+        (lifetime.chars == 0L && !TypingProgress.hasProgress(lifetime) && heatmaps.isEmpty())
     if (!statsOn) {
         CaptionText(stringResource(R.string.statistics_off_body))
-    } else if (lifetime != null && lifetime.chars == 0L) {
+    } else if (lifetime != null && empty) {
         CaptionText(stringResource(R.string.statistics_empty_body))
     }
-    if (lifetime == null || lifetime.chars == 0L) {
+    if (lifetime == null || empty) {
         DeleteStatistics(enabled = false) { }
         return
+    }
+
+    // Levels and achievements first, the way SwiftKey leads with them (#390):
+    // they are the part people open the screen to look at.
+    SectionHeader(
+        stringResource(R.string.statistics_level_section),
+        info = stringResource(R.string.statistics_level_info),
+    )
+    LevelCard(TypingProgress.level(lifetime))
+
+    SectionHeader(stringResource(R.string.statistics_achievements_section))
+    AchievementRows(TypingProgress.achievements(lifetime))
+
+    if (heatmaps.isNotEmpty()) {
+        SectionHeader(
+            stringResource(R.string.statistics_heatmap_section),
+            info = stringResource(R.string.statistics_heatmap_info),
+        )
+        HeatmapCard(heatmaps)
     }
 
     SectionHeader(stringResource(R.string.statistics_totals_section))
@@ -138,6 +168,9 @@ internal fun StatisticsScreen(repository: SettingsRepository, settings: LiveSett
                 confirmDelete = false
                 scope.launch(Dispatchers.IO) {
                     TypingStats(File(context.filesDir, TypingStats.FILE_PATH)).clear()
+                    // The other devices' counts too: the screen shows the
+                    // total, and sync carries the deletion to them.
+                    File(context.filesDir, TypingStats.DEVICES_FILE_PATH).delete()
                     // The keyboard's cue not to save the old numbers back —
                     // and this screen's own cue to re-read, via the effect.
                     repository.bumpStatsVersion()

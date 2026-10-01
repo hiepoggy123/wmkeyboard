@@ -1,6 +1,6 @@
 ---
 title: "Layout & size"
-description: "Every row on the Layout & size screen, covering the number row, key and row sizing, per-screen overrides, one-handed, split & floating, and the bottom-row emoji keys."
+description: "Every row on the Layout & size screen, covering the number row, the arrow keys row, key and row sizing, per-screen overrides, one-handed, split & floating, and the bottom-row emoji keys."
 sidebar:
   order: 10
 ---
@@ -22,7 +22,7 @@ You can reach this screen from the home screen's **Layout & size** tile, from Ac
 
 <SettingsPath path="Layout & size" />
 
-A small keyboard preview stays pinned under the title while you scroll. Size and position (with the per-screen overrides) and One-handed, split and floating are pages of their own; Your layouts, Number row, Symbols layer, Numerals and Bottom-row keys stay on the hub.
+A small keyboard preview stays pinned under the title while you scroll. Size and position (with the per-screen overrides) and One-handed, split and floating are pages of their own; Your layouts, Number row, Arrow keys row, Symbols layer, Numerals and Bottom-row keys stay on the hub.
 
 ### Your layouts
 
@@ -53,6 +53,17 @@ The tablet heights in the table are what you get until you touch the slider. Set
 
 See [Number row and numerals](/typing/basics/#number-row-and-numerals) for the full walkthrough.
 
+### Arrow keys row
+
+<SettingsPath path="Layout & size / Arrow keys row" />
+
+| Setting | Control | Range | Default |
+|---|---|---|---|
+| Arrow keys row | Toggle | On / Off | Off |
+| Arrow order | Drag list | Left, Up, Down, Right in any order | Left, Up, Down, Right |
+
+**Arrow keys row** adds a row of four arrow keys under the spacebar, so you can move the cursor without a toolbar tool or a drag on the spacebar. Each key sends a real arrow key press, and holding one keeps moving the cursor. The row shows on every layer except a secondary layout, which stays exactly as its author built it. It takes the height of the number row (the **Number row height** slider above, or a screen shape's own override), so the resize handle and one-handed mode scale it with the rest of the keyboard, and the keyboard grows by that much. **Arrow order** appears once the row is on: drag the handles to put the four keys in the order you want, left to right.
+
 ### Symbols layer
 
 <SettingsPath path="Layout & size / Symbols layer" />
@@ -61,12 +72,15 @@ See [Number row and numerals](/typing/basics/#number-row-and-numerals) for the f
 |---|---|---|---|
 | Go back to the letters | Toggle | On / Off | Off |
 | Characters that go back | Text field *(shown when the toggle is on)* | Any characters | `!?.,;:` |
+| Go back after a space | Toggle | On / Off | Off |
 
 **Go back to the letters** returns the keyboard to the letter keys right after you type one of the listed characters on the ?123 layer, so a single full stop doesn't strand you in the symbols. It's the same idea as the emoji panel's **Return to keyboard after inserting**. It's off by default, because plenty of people open ?123 to type a run of punctuation.
 
 **Characters that go back** is the list itself. Type the characters you want, with or without spaces between them. Duplicates and spaces are dropped on save, and an empty box falls back to `!` `?` `.` `,` `;` `:`. Digits are deliberately out of that default, since typing "12" is exactly when you want to stay put.
 
 Only single-character keys count, so a `.com` key or an emoticon key never triggers the return. Long-press alternates do, since they insert a single character too. Both symbol pages are covered, so a character typed on the second page returns to the letters the same way.
+
+**Go back after a space** returns to the letters when you press the spacebar on either symbol page, so "at 5 pm" doesn't need an <KeyCap>ABC</KeyCap> press between the number and the word. A space can't go in the character list above (spaces are dropped from it), so it has its own toggle, and it works whether **Go back to the letters** is on or off. It's off by default, so a phone number or a time typed with spaces stays on ?123.
 
 ### Numerals
 
@@ -147,6 +161,7 @@ Landscape is also the one shape that doesn't fall back to portrait for the three
 | Split keyboard | Toggle | On / Off | Off |
 | Split only on wide screens *(shown only when Split keyboard is on)* | Toggle | On / Off | Off |
 | Split gap *(shown only when Split keyboard is on)* | Slider | 5–40% | 12% |
+| Split the spacebar *(shown only when Split keyboard is on)* | Toggle | On / Off | On |
 | Floating keyboard | Toggle | On / Off | Off |
 | Floating keyboard width *(shown only when Floating keyboard is on)* | Slider | 240–500 dp | 320 dp |
 | Floating keyboard height *(shown only when Floating keyboard is on)* | Slider | 60%–160% | 100% |
@@ -184,6 +199,8 @@ Full detail on all three (plus the floating panel's drag pill and resize grip) i
 **Keep the 🌐 key in one place** is on by default. Layouts don't all agree on where the 🌐 key goes: many imported ones, most of the converted Keyman layouts among them, put it at the far left, straight after `?123`, or after the spacebar. With this on, the key moves to the slot the built-in layouts use, so it sits under the same spot on the screen in every language you switch between. That slot is measured as a share of the row, not counted in keys: the key starts a quarter of the way along the row and is a tenth of it wide, or, with **Swap the comma and 🌐 keys** on, it starts at 15% with the comma after it. The keys before it get wider or narrower to fill the space up to it, the spacebar grows or shrinks to fit, and every other key keeps its width and its order. When nothing sits before the key, the key itself widens to reach its slot, so a thumb aimed at the usual place still lands on it. A row where the move would squeeze keys to under half their width, stretch them past two and a half times it, or leave the spacebar under a fifth of the row is left as it is, and so is a row with a key that spans two rows. The built-in layouts already have the key in its slot, so nothing about them changes. A second layout you open from a key is always drawn as its author made it, and so is the expanded tablet grid.
 
 **Show the 🌐 key** is on by default. Turn it off and the key is gone from the bottom row of every layout, on the symbol layers too, and so is the emoji key that **Emoji key instead of 🌐** puts in its place. The spacebar takes its width, so the row stays the same length. While the key is hidden, **Emoji key instead of 🌐**, **Swap the comma and 🌐 keys** and **Keep the 🌐 key in one place** have nothing to change and are greyed out. Language switching stays on the spacebar: a quick swipe does it by default. See [Switching languages](/languages/switching/).
+
+None of these five settings touches a layer you've laid out by hand in the layout editor. Moving or changing a key there that one of them had moved or changed turns on that layer's **Keep this bottom row as it is here** switch, and from then on the keyboard draws that row exactly as the editor shows it. See [The bottom row and its settings](/languages/custom-layouts/#the-bottom-row-and-its-settings).
 
 **Ignore 🌐 right after typing** is off by default. Set a time and a tap on 🌐 that comes sooner than that after a typed key (a letter, space, backspace or enter) does nothing, so a thumb that misses the comma or the spacebar mid-word no longer changes the language. Holding 🌐 still opens the picker. Greyed out while the key is hidden. See [Switching languages](/languages/switching/#ignoring-a--tap-right-after-typing).
 

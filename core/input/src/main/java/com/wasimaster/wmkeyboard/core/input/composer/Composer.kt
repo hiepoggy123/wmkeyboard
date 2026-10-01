@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.input.composer
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.text.Graphemes
 
 /**
  * Turns keystrokes into committed text for scripts that need more than a 1:1
@@ -35,6 +36,16 @@ interface Composer {
      * that composes but has no such dictionary pass (Hangul, Telex).
      */
     val phoneticLanguage: String? get() = null
+
+     * The language whose word list completes this composer's *output*: the
+     * strip offers that language's words beginning with [composeBuffer] of the
+     * buffer, and a space still commits the composed text exactly. For a
+     * deterministic transliterator (Khipro) whose keys already spell the word,
+     * so there is nothing to rank or correct but a word to finish. Null for
+     * everything else, including Avro, whose buffer goes through
+     * [phoneticLanguage] instead.
+     */
+    val completionLanguage: String? get() = null
 
     /**
      * Vietnamese Telex transliterator: its commit and suggestions route through
@@ -78,6 +89,15 @@ interface Composer {
     val digitsStartBuffer: Boolean get() = false
 
     /**
+     * Whether a space pressed while a `Key.multitap` run is still open only
+     * closes the run, typing nothing. A 천지인 (Cheonjiin) pad needs this: ㄱ is
+     * the key ㄱㅋ tapped once, so ㄱ followed by another ㄱ — 먹고 — is ㄱ, space,
+     * ㄱ, the way Samsung's pad spells it, and the second space is the real one.
+     * Everywhere else a space is a space.
+     */
+    val spaceEndsMultitap: Boolean get() = false
+
+    /**
      * Whether [c] is a non-letter this composer still takes into its buffer. The
      * buffer otherwise admits only letters, the apostrophe and (with
      * [bufferDigits]) digits, which is exactly right for spelling-based methods
@@ -86,6 +106,14 @@ interface Composer {
      * instead of widening the search.
      */
     fun buffersChar(c: Char): Boolean = false
+
+    /**
+     * [buffersChar] for a composer whose answer depends on whether a word is
+     * already being composed: Khipro's comma is part of a word (`j,,` is জ়)
+     * but a comma typed between words is only punctuation. The service asks
+     * this one; the default defers to [buffersChar].
+     */
+    fun buffersChar(c: Char, composing: CharSequence): Boolean = buffersChar(c)
 
     /**
      * Whether [word] is shaped like a word of this composer's script, and so
@@ -207,12 +235,12 @@ interface Composer {
     fun contextualForm(text: String, before: Char?): String = text
 }
 
-/** One visual unit at the end of [before]: a surrogate pair, else one char. */
-internal fun defaultDeleteLength(before: CharSequence): Int {
-    if (before.isEmpty()) return 0
-    val last = before.length - 1
-    return if (last >= 1 && Character.isSurrogatePair(before[last - 1], before[last])) 2 else 1
-}
+/**
+ * One unit at the end of [before] by the keyboard's ordinary backspace rule:
+ * a code point, never half a surrogate pair, with an invisible trailing part
+ * taken together with what it belongs to (see [Graphemes.backspaceLength]).
+ */
+internal fun defaultDeleteLength(before: CharSequence): Int = Graphemes.backspaceLength(before)
 
 /**
  * No special composing: Latin, Cyrillic, Greek. Dead-key accent fusion is a
@@ -235,6 +263,7 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
         else -> NoComposer
     }
     ComposerType.HANGUL -> HangulComposer
+    ComposerType.CHEONJIIN -> CheonjiinComposer
     ComposerType.TELEX -> VietnameseTelexComposer
     ComposerType.VNI -> VietnameseVniComposer
     ComposerType.ROMAJI -> JapaneseComposer
@@ -245,4 +274,5 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
     ComposerType.CANGJIE -> CangjieComposer
     ComposerType.CANGJIE_QUICK -> CangjieQuickComposer
     ComposerType.JYUTPING -> JyutpingComposer
+    ComposerType.KHIPRO -> if (script.id == ScriptId.BENGALI) KhiproComposer else NoComposer
 }

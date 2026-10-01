@@ -778,9 +778,10 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     // has: the region is empty until something publishes into it.
     PanelMode.THEMES ->
         listOf(FocusRegion.CHIPS, FocusRegion.CATEGORIES, FocusRegion.RESULTS)
-    // The clipboard's chips are the fragments pulled out of its history.
+    // The clipboard's chips are the fragments pulled out of its history; its
+    // categories are the unpinned and pinned tabs, when those are on (#371).
     PanelMode.CLIPBOARD ->
-        listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS)
+        listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.CATEGORIES, FocusRegion.RESULTS)
     PanelMode.DICTIONARY,
     PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH, PanelMode.WIKIPEDIA,
     -> listOf(FocusRegion.SEARCH, FocusRegion.RESULTS)
@@ -1224,10 +1225,17 @@ sealed interface ImageSearchUi {
 /**
  * Translate panel state. The panel is its own little window: what gets
  * translated is the query typed into it ([KeyboardUiState.mediaQuery], the
- * same key-rerouting trick as the media panels) — the focused field is
- * never read.
+ * same key-rerouting trick as the media panels). The focused field is read
+ * once, as the panel opens, and only for its selection (see [selection]).
  */
 data class TranslateUi(
+    /**
+     * The field's selection the panel opened on, which also became the query
+     * (#434), or "" when it opened on nothing selected. Replace puts the
+     * translation over this selection rather than over the whole field, as
+     * long as it is still what is selected.
+     */
+    val selection: String = "",
     /** The typed query the current [translated] corresponds to. */
     val sourceText: String = "",
     val translated: String = "",
@@ -1250,6 +1258,13 @@ data class TranslateUi(
     val onDevice: Boolean = false,
     /** [translated] came from DeepL, the user's own opt-in service (#331). */
     val viaDeepL: Boolean = false,
+    /** [translated] came from the user's own translation server (#435). */
+    val viaServer: Boolean = false,
+    /**
+     * [translated] came from the on-device engine standing in for the online
+     * one, because there was no connection or the service did not answer (#452).
+     */
+    val offlineStandIn: Boolean = false,
     /**
      * Model codes the on-device engine needs before it can translate the
      * current query. Non-empty is what puts the download offer on screen.
@@ -1280,7 +1295,7 @@ data class TranslateUi(
  * would quietly put the source chip back on detect.
  */
 fun TranslateUi.cleared(): TranslateUi =
-    TranslateUi(sourceOverride = sourceOverride, models = models, module = module)
+    TranslateUi(selection = selection, sourceOverride = sourceOverride, models = models, module = module)
 
 /**
  * Grammar strip state. Like translate, the strip follows the focused field:
@@ -1928,6 +1943,13 @@ sealed interface StripOfferAction {
 
     /** The chip was held: the setting it asks about, in the app (#312). */
     data object Explain : StripOfferAction
+
+    /**
+     * The ANSI button beside the words on a Bengali layout: write Bijoy-era
+     * ANSI, or Unicode again. Not an offer, but a strip button all the same,
+     * and riding this type costs the screen's call chain no parameter.
+     */
+    data object ToggleAnsi : StripOfferAction
 }
 
 /**
@@ -3109,6 +3131,14 @@ data class KeyboardUiState(
      * panel is open.
      */
     val cameraSearchOnly: Boolean = false,
+    /**
+     * The picture the OCR panel reads instead of the camera: the file of an
+     * image clip whose Extract text was pressed in the clipboard panel (#371).
+     * Its back button returns to the clipboard. Cleared by
+     * [WMKeyboardService.onPanelChange] on every panel change, like
+     * [cameraSearchOnly].
+     */
+    val ocrImage: String? = null,
     val translate: TranslateUi = TranslateUi(),
     val grammar: GrammarUi = GrammarUi(),
     val wiki: WikiUi = WikiUi.Idle,

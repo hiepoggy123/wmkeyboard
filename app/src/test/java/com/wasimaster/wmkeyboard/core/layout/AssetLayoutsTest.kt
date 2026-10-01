@@ -1,10 +1,12 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.ime.keySpelling
 import java.io.File
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -170,6 +172,29 @@ class AssetLayoutsTest {
     }
 
     /**
+     * The 천지인 pad (discussion #372) has to reach every initial consonant
+     * through its multi-tap cycles, and spell vowels only from the three
+     * strokes `CheonjiinComposer` reads — a key typing a finished vowel would
+     * bypass the stroke table.
+     */
+    @Test
+    fun `the cheonjiin pad reaches every consonant and types only strokes for vowels`() {
+        val file = layoutFiles.first { it.name == "ko_cheonjiin.${LayoutFile.FILE_EXTENSION}" }
+        val layout = LayoutFile.decode(file.readText())!!.layout
+        assertEquals("ko", layout.langId)
+        assertEquals(ComposerType.CHEONJIIN, layout.composer)
+        assertTrue(layout.id in LanguageRegistry.byId("ko").layoutIds)
+        val typed = layout.layers.getValue(LayoutLayer.LETTERS.key).rows.flatten()
+            .filter { it.action == KeyAction.Text }
+            .flatMap { listOf(it.output ?: it.label) + it.multitap }
+            .filter { it.length == 1 && it[0].code in 0x3131..0x318E }
+            .map { it[0] }
+            .toSet()
+        assertEquals("ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ".toSet(), typed.filter { it.code < 0x314F }.toSet())
+        assertEquals(setOf('ㅣ', 'ㆍ', 'ㅡ'), typed.filter { it.code >= 0x314F }.toSet())
+    }
+
+    /**
      * The three-set Korean grids have to emit *conjoining* jamo (U+1100 block):
      * a positional keyboard distinguishes initial ᄀ from final ᆨ, which the
      * compatibility block cannot. A key quietly swapped for its look-alike
@@ -244,6 +269,22 @@ class AssetLayoutsTest {
         assertTrue("u should not offer ó", keys["u"]?.longPress?.contains("ó") != true)
     }
 
+    /**
+     * #407: Persian is uncased, so shift carried nothing and the harakat were
+     * nowhere on the layout. It now carries the ISIRI 9147 shift plane.
+     */
+    @Test
+    fun `the persian layout puts the harakat and shadda on shift`() {
+        val file = layoutFiles.first { it.name == "fa_standard.${LayoutFile.FILE_EXTENSION}" }
+        val shifted = LayoutFile.decode(file.readText())!!.layout
+            .layers.getValue(LayoutLayer.LETTERS.key).rows.flatten()
+            .mapNotNull { it.shiftLabel }
+            .toSet()
+        for (mark in listOf("ْ", "ٌ", "ٍ", "ً", "ُ", "ِ", "َ", "ّ", "ٔ", "ٰ")) {
+            assertTrue("shift should reach U+%04X".format(mark[0].code), mark in shifted)
+        }
+    }
+
     @Test
     fun `asset layout ids are unique and never shadow a built-in`() {
         val builtInIds = BuiltInLayouts.all.mapTo(HashSet()) { it.id }
@@ -256,5 +297,13 @@ class AssetLayoutsTest {
                 id !in builtInIds,
             )
         }
+    }
+
+    @Test
+    fun `Thai layout script has no letter case`() {
+        val file = layoutFiles.first { it.name == "th_kedmanee.${LayoutFile.FILE_EXTENSION}" }
+        val layout = LayoutFile.decode(file.readText())!!.layout
+        assertEquals(ScriptId.THAI, layout.script().id)
+        assertFalse(layout.script().hasLetterCase)
     }
 }

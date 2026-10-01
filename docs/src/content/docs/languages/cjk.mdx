@@ -20,7 +20,9 @@ Chinese and Japanese aren't typed directly: you type a *reading* (pinyin, bopomo
 
 **Conversion input methods** (Pinyin, T9 Pinyin, Zhuyin, Cangjie, Cangjie Quick, Stroke for Chinese; Jyutping for Cantonese; Romaji, Flick, and Kana JIS for Japanese) hold what you type in a composing buffer and replace the entire suggestion strip with ranked character/word candidates. Nothing commits until you pick a candidate, press space, or otherwise flush the buffer.
 
-**Korean** types the other way. `HangulComposer` composes jamo directly into syllable blocks (ㄱ + ㅏ + ㄴ → 간) with no reading step and no candidate list. There's nothing to convert. Three keymaps ship: the standard two-set (두벌식) grid, where one key is ㄱ whether it starts or ends a syllable and the composer decides by position, and the two three-set (세벌식) grids, 390 and Final, whose keys say for themselves whether they are an initial or a final. On a three-set grid a tense initial is typed by pressing the plain one twice (ᄀ ᄀ → ㄲ), and a vowel after a final never pulls that final into the next syllable. Korean typing gets the ordinary word-suggestion and autocorrect strip instead, backed by a real downloadable dictionary (see [Downloadable dictionaries](/languages/dictionaries/)). If you've used a Chinese or Japanese IME before, don't expect Korean to work the same way. It's a direct phonetic keyboard.
+**Korean** types the other way. `HangulComposer` composes jamo directly into syllable blocks (ㄱ + ㅏ + ㄴ → 간) with no reading step and no candidate list. There's nothing to convert. Four keymaps ship: the standard two-set (두벌식) grid, where one key is ㄱ whether it starts or ends a syllable and the composer decides by position, the two three-set (세벌식) grids, 390 and Final, whose keys say for themselves whether they are an initial or a final, and the 천지인 (Cheonjiin) 12-key pad. On a three-set grid a tense initial is typed by pressing the plain one twice (ᄀ ᄀ → ㄲ), and a vowel after a final never pulls that final into the next syllable. Syllables build the same way in the keyboard's own text boxes, such as the emoji, GIF and clipboard searches, Find and replace, and the AI prompt: backspace there takes back the last jamo rather than the whole block. The same goes for the other keyboards that build letters from keys, Vietnamese Telex and VNI and Khipro. Korean typing gets the ordinary word-suggestion and autocorrect strip instead, backed by a real downloadable dictionary (see [Downloadable dictionaries](/languages/dictionaries/)). If you've used a Chinese or Japanese IME before, don't expect Korean to work the same way. It's a direct phonetic keyboard.
+
+**천지인 (Cheonjiin)** is the phone keypad, laid out the way Samsung's is. Vowels are drawn from three strokes, <KeyCap>ㅣ</KeyCap>, <KeyCap>ㆍ</KeyCap> and <KeyCap>ㅡ</KeyCap>, in the order you would write them: ㅣ ㆍ is ㅏ, ㆍ ㅣ is ㅓ, ㆍ ㅡ is ㅗ, ㅡ ㆍ is ㅜ, a second dot gives the y-vowel (ㅣ ㆍ ㆍ is ㅑ), and a ㅣ after a vowel gives ㅐ, ㅔ, ㅚ, ㅟ and the rest. A dot that isn't part of a vowel yet waits on screen as ㆍ or ‥, and a third dot goes back to one. Each consonant key holds two or three letters, picked by tapping it again: <KeyCap>ㄱㅋ</KeyCap> once is ㄱ, twice ㅋ, three times ㄲ. To type the same consonant twice in a row (the ㄱ ㄱ in 먹고), either pause for a second before the second tap or press <KeyCap>Space</KeyCap> between them. A space straight after a consonant tap only ends that letter and types nothing; press it again for a real space. The <KeyCap>.,?!</KeyCap> key cycles through its four marks the same way. <KeyCap>Delete</KeyCap> takes back one tap: a whole consonant, or one stroke of a vowel (ㅏ back to ㅣ).
 
 ## Chinese input schemes
 
@@ -50,6 +52,25 @@ Cantonese is a separate language entry (not a Chinese sub-option) with one layou
 ## Double Pinyin
 
 For Pinyin typists who want fewer keystrokes, Double Pinyin encodes every syllable as exactly two keys (one for the initial, one for the final), which the composer expands to full Pinyin before segmenting as usual. Five real schemes are available: Microsoft, Sogou (identical key table to Microsoft), Xiaohe (小鹤), Ziranma, and Pinyin++. Turning one on replaces the syllable-typing rules on the same Pinyin layout. It isn't a separate keyboard.
+
+## Jianpin (简拼): initials are enough
+
+Nobody types 中国人民 as `zhongguorenmin`. **Jianpin** lets a syllable be its first letter alone, so `zgrm` reaches the same word, `wm` finds 我们 and `bj` finds 北京. It's on by default, the way every desktop and phone Pinyin IME has it, and it's a switch on the Chinese screen if you'd rather not.
+
+The rule is one letter, one syllable, boundaries included: `hd` means *h…* plus *d…*, never "any reading with an h and a d in it". That's what makes mixed input work too. Spell out as many syllables as you like and abbreviate the rest: `haod` finds 好的, `zguo` finds 中国, `beij` finds 北京. A syllable you type in full is matched exactly and never widened, so `hao` still means 好 and nothing beginning with *hao*.
+
+Three conventions borrowed from Sogou and Google Pinyin:
+
+- **`z`, `c` and `s` cover the retroflex initials too.** `zg` finds 中国 (zhōng guó) as well as 祖国 (zǔ guó). A typed `zh`, `ch` or `sh` reads both ways: `sh` is s + h (上海, 生活) and also the initial sh… on its own (是, 说), and `zhg` still reaches 中国. Both are on the strip and rank by likelihood. An apostrophe is your own boundary: `s'h` is s + h only.
+- **The vowels `a`, `e` and `o` are both a syllable and an abbreviation.** `aq` finds 安全. Typed on their own, the exact reading leads: `a` offers 啊 before 爱 and 安.
+- **A phrase beats a stitch.** Where the dictionary has the word (我们, 中国), it comes first; single characters strung together to cover the same letters rank below it. So the strip leads with what the abbreviation was for, and the ranking the issue asks for falls out of that: an exact reading first, then a partly spelled one, then pure initials.
+
+Two things follow from abbreviations being real units:
+
+- **Candidates appear from the first key.** `n` alone offers 你, 那, 能 and so on, and `nih` already leads with 你好, so a whole word is often on the strip before its second syllable is finished.
+- **A half-typed trailing syllable is guessed, not ignored.** With `nihaoz` on the strip, the top candidate covers all six letters (你好在, say), where before it would have covered 你好 and left the `z`. Keep typing and the guess resolves; tap 你好 and only those five letters commit, the `z` stays.
+
+Jianpin is a matching rule, not a second dictionary. Its index is the ~410-syllable inventory grouped by first letter, so a run of initials costs a handful of binary searches per syllable rather than a scan. It has no effect under a Double Pinyin scheme, where a syllable is always exactly two keys, and it's independent of Fuzzy Pinyin: a syllable typed in full can still be matched fuzzily, an abbreviated one is expanded, and the two combine. Picks are learned under the reading the abbreviation resolved to, so choosing 我们 for `wm` also promotes it for `women`.
 
 ## Fuzzy Pinyin and lazy Jyutping
 
@@ -136,6 +157,7 @@ Opening a Chinese, Cantonese, or Japanese entry from the Languages screen shows 
 | Lazy pronunciation (懶音) | On | Cantonese only |
 | Match kana without marks | On | Japanese only, and only kana typed on Flick or Kana JIS |
 | Full-width space | Off | Chinese, Cantonese, and Japanese, each on its own |
+| Jianpin (简拼) | On | Chinese only; ignored under a Double Pinyin scheme |
 | Fuzzy Pinyin | Off | Chinese only |
 | The eleven fuzzy pairs, one row each | All on | Chinese only, shown while Fuzzy Pinyin is on |
 | Double Pinyin scheme | Off (full Pinyin) | Chinese only |

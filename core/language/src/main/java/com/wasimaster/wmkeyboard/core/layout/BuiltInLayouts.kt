@@ -30,6 +30,7 @@ object BuiltInLayouts {
     const val WORKMAN_ID = "builtin_workman"
     const val HALMAK_ID = "builtin_halmak"
     const val AVRO_ID = "builtin_avro"
+    const val KHIPRO_ID = "builtin_khipro"
     const val PROBHAT_ID = "builtin_probhat"
     const val JATIYA_ID = "builtin_jatiya"
     const val FRENCH_ID = "builtin_french"
@@ -141,6 +142,28 @@ object BuiltInLayouts {
         langId = "bn",
         composer = ComposerType.TRANSLITERATE,
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(qwertyRows)),
+    )
+
+    /**
+     * Khipro (ক্ষিপ্র), Bengali composed from lowercase keys (issue #400).
+     *
+     * The grid follows the Khipro team's own guideline for touchscreens, which
+     * HeliBoard and Borno also follow: Khipro never needs shift, so the shift
+     * key becomes `/`, the slicer, which Khipro types constantly (ৎ, ঁ, and
+     * breaking a conjunct back apart). `;`, the separator, gets a key beside
+     * the spacebar. The full stop key stays, and is the danda as on every
+     * Bengali grid.
+     *
+     * No tablet expansion: that grid is built around a shift key this one does
+     * not have.
+     */
+    val KHIPRO = LayoutSpec(
+        id = KHIPRO_ID,
+        name = "Khipro",
+        langId = "bn",
+        composer = ComposerType.KHIPRO,
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(khiproRows)),
+        tabletExpand = false,
     )
 
     /**
@@ -357,7 +380,7 @@ object BuiltInLayouts {
      * add the language tail at runtime, and both feed `findLayout`.
      */
     val all: List<LayoutSpec> = listOf(
-        QWERTY, AZERTY, DVORAK, COLEMAK, WORKMAN, HALMAK, AVRO, PROBHAT, JATIYA, FRENCH,
+        QWERTY, AZERTY, DVORAK, COLEMAK, WORKMAN, HALMAK, AVRO, KHIPRO, PROBHAT, JATIYA, FRENCH,
         GERMAN, SPANISH, KOREAN, RUSSIAN, ARABIC, GREEK, HEBREW, HINDI, HINDI_PHONETIC, T9, COMPACT,
     )
 
@@ -537,6 +560,50 @@ private val qwertyRows = listOf(
         Key("⌫", action = KeyAction.Delete, width = 1.5f),
     ),
     bottomRow(),
+)
+
+/**
+ * QWERTY's letters with its digit and symbol alternates but none of its Latin
+ * accents: Khipro reads every letter key as a Khipro key, so an é picked from
+ * a popup would only land in the word as a stray Latin letter.
+ */
+private val khiproRows = listOf(
+    listOf(
+        Key("q", longPress = listOf("1")), Key("w", longPress = listOf("2")),
+        Key("e", longPress = listOf("3")), Key("r", longPress = listOf("4")),
+        Key("t", longPress = listOf("5")), Key("y", longPress = listOf("6")),
+        Key("u", longPress = listOf("7")), Key("i", longPress = listOf("8")),
+        Key("o", longPress = listOf("9")), Key("p", longPress = listOf("0")),
+    ),
+    listOf(
+        Key("a", longPress = listOf("@")), Key("s", longPress = listOf("#")),
+        Key("d", longPress = listOf("৳", "$")), Key("f", longPress = listOf("_")),
+        Key("g", longPress = listOf("&")), Key("h", longPress = listOf("-")),
+        Key("j", longPress = listOf("+")), Key("k", longPress = listOf("(")),
+        Key("l", longPress = listOf(")")),
+    ),
+    listOf(
+        // The slicer where shift would be; the blinder, Khipro's other
+        // modifier, on its long-press.
+        Key("/", longPress = listOf("\\", "|"), width = 1.5f),
+        Key("z", longPress = listOf("*")), Key("x", longPress = listOf("\"")),
+        Key("c", longPress = listOf("'")), Key("v", longPress = listOf(":")),
+        Key("b", longPress = listOf(";")), Key("n", longPress = listOf("!")),
+        Key("m", longPress = listOf("?")),
+        Key("⌫", action = KeyAction.Delete, width = 1.5f),
+    ),
+    listOf(
+        Key("?123", action = KeyAction.Symbols, width = 1.5f),
+        Key(",", role = KeyRole.Comma, longPress = listOf("!", "?")),
+        Key("🌐", action = KeyAction.LanguageSwitch),
+        Key(" ", action = KeyAction.Space, width = 3f),
+        // Not a full stop: no role, so the danda rewrite leaves it alone.
+        Key(";", longPress = listOf(":", "?")),
+        // The danda once the script's full stop is applied; ॥ is what
+        // Khipro's desktop spec spells as `.f`.
+        Key(".", role = KeyRole.Period, longPress = listOf("॥", "…", ",", "?", "!", ":")),
+        Key("⏎", action = KeyAction.Enter, width = 1.5f),
+    ),
 )
 
 private val azertyRows = listOf(
@@ -1077,8 +1144,16 @@ private fun numpad(
     listOf(bottomLeft, zero, bottomRight, Key("⏎", action = KeyAction.Enter)),
 )
 
-/** A keypad space key: blank label so no language name is drawn on it. */
-private fun padSpace() = Key("", action = KeyAction.Space)
+/**
+ * The legend a keypad's space key wears (issue #459): the open box keycaps use
+ * for a visible space. A spacebar with a label draws the language name, which a
+ * key a quarter of the pad wide has no room for, and a blank one drew nothing
+ * at all, so the renderer draws this one as the key's glyph instead.
+ */
+const val PAD_SPACE_LABEL = "\u2423"
+
+/** A keypad space key, labelled [PAD_SPACE_LABEL] rather than the language name. */
+private fun padSpace() = Key(PAD_SPACE_LABEL, action = KeyAction.Space)
 
 /**
  * TYPE_CLASS_NUMBER. The minus and decimal keys are always present — fields that

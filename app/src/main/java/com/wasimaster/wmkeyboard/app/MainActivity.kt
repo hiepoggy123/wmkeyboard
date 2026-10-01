@@ -54,6 +54,8 @@ import com.wasimaster.wmkeyboard.app.statistics.StatisticsScreen
 import com.wasimaster.wmkeyboard.app.storage.StorageScreen
 import com.wasimaster.wmkeyboard.app.storage.storageRoute
 import com.wasimaster.wmkeyboard.app.language.appLanguageSplitCompat
+import com.wasimaster.wmkeyboard.app.launcher.LauncherCombos
+import com.wasimaster.wmkeyboard.app.launcher.LauncherCombosScreen
 import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
 import com.wasimaster.wmkeyboard.app.lock.BiometricAppLock
 import com.wasimaster.wmkeyboard.app.lock.LocalAppLock
@@ -118,6 +120,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import com.wasimaster.wmkeyboard.core.ui.WmSlider
@@ -135,6 +138,7 @@ import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -166,6 +170,7 @@ import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
+import com.wasimaster.wmkeyboard.core.perf.JankMonitor
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
@@ -230,6 +235,9 @@ class MainActivity : FragmentActivity() {
     }
 
     private lateinit var repository: SettingsRepository
+
+    /** Per-frame jank logging, off unless `log.tag.WMJank` asks for it; see [JankMonitor]. */
+    private val jankMonitor = JankMonitor("settings")
 
     /**
      * The fingerprint gate. Built in [onCreate] and not lazily: the library
@@ -373,6 +381,16 @@ class MainActivity : FragmentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         missingLink.value?.save(outState)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        jankMonitor.start(window)
+    }
+
+    override fun onPause() {
+        jankMonitor.stop()
+        super.onPause()
     }
 
     /**
@@ -615,6 +633,10 @@ private fun SettingsNavHost(
     // tool's own page and not the row that opened it.
     var openedFrom by rememberSaveable { mutableStateOf<String?>(null) }
     val topRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    // Which screen a janky frame belongs to, for JankMonitor's log. A no-op
+    // unless a developer has switched that log on.
+    val rootView = LocalView.current
+    LaunchedEffect(topRoute) { JankMonitor.screen(rootView, topRoute.orEmpty()) }
     // A shared element is a motion and has no still version, so reduced
     // motion switches the flights off at the source, and so can the user
     // (Accessibility › Settings app › Screen transitions), for a slow phone.
@@ -1325,6 +1347,15 @@ private fun SettingsNavGraph(
                 }
             }
         }
+        composable("theme_assets/{themeId}") { backStackEntry ->
+            val themeId = backStackEntry.arguments?.getString("themeId").orEmpty()
+            SettingsScreen(
+                stringResource(R.string.theme_assets_title),
+                { navController.popBackStack() },
+            ) {
+                ThemeAssetGuideScreen(settings, themeId)
+            }
+        }
         composable(PHOTO_HUB_ROUTE) {
             PhotoServicesScreen(
                 anim = this,
@@ -1463,6 +1494,15 @@ private fun SettingsNavGraph(
                 route = SIGNAL_STICKERS_ROUTE,
             ) {
                 SignalStickersScreen { route -> navController.navigate(route) }
+            }
+        }
+        composable(WHATSAPP_STICKERS_ROUTE) {
+            SettingsScreen(
+                stringResource(R.string.import_whatsapp_row_title),
+                { navController.popBackStack() },
+                route = WHATSAPP_STICKERS_ROUTE,
+            ) {
+                WhatsAppStickersScreen { route -> navController.navigate(route) }
             }
         }
         composable("signal_pack/{packId}/{packKey}") { backStackEntry ->
@@ -3744,6 +3784,7 @@ internal fun SliderSetting(
     default: Float? = null,
     onReset: (() -> Unit)? = null,
     preview: ((Float) -> Unit)? = null,
+    typed: Boolean = true,
     onChange: (Float) -> Unit,
 ) = SliderSetting(
     title = stringResource(title),
@@ -3758,6 +3799,7 @@ internal fun SliderSetting(
     default = default,
     onReset = onReset,
     preview = preview,
+    typed = typed,
     onChange = onChange,
 )
 
@@ -3805,9 +3847,16 @@ internal fun SliderSetting(
      * `rememberLiveSlider`; everywhere else one write on release is the point.
      */
     live: Boolean = false,
+    /**
+     * Whether tapping the readout opens a field to type the value in. Off only
+     * for a readout that changes unit along the track ("12 hours", then
+     * "1 day"), where a bare number cannot say which one it means.
+     */
+    typed: Boolean = true,
     onChange: (Float) -> Unit,
 ) {
     val slider = rememberLiveSlider(value, onChange, live = live, preview = preview)
+    var typing by rememberSaveable { mutableStateOf(false) }
     // The readout is the slider's detent: this row's values are continuous, so
     // the steps the user is actually aiming at are the ones the number they can
     // read changes on. Keyed on the string rather than the float, so a drag
@@ -3849,10 +3898,25 @@ internal fun SliderSetting(
                     }
                     if (info != null) InfoButton(title, info)
                 }
+                // A slider cannot be landed on one exact millisecond by thumb,
+                // so the number is a button that takes it typed (#415). The
+                // pill is what says so; a bare number reads as a label.
                 Text(
                     readout,
                     style = MaterialTheme.typography.labelLarge,
                     maxLines = 1,
+                    modifier = if (typed && enabled) {
+                        Modifier
+                            .clip(MaterialTheme.shapes.small)
+                            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                            .clickable(
+                                onClickLabel = stringResource(CommonR.string.common_type_setting_value_desc, title),
+                                role = Role.Button,
+                            ) { typing = true }
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    } else {
+                        Modifier
+                    },
                 )
             },
         ) {
@@ -3863,6 +3927,22 @@ internal fun SliderSetting(
                 valueRange = range,
                 enabled = enabled,
             )
+        }
+    }
+    if (typing) {
+        SliderEntryDialog(
+            title = title,
+            readout = readout,
+            range = range,
+            display = display,
+            onDismiss = { typing = false },
+        ) {
+            typing = false
+            // Through the slider rather than to onChange directly, so the
+            // thumb moves at once, a sound or haptic row plays the new value,
+            // and a live editor writes it the same way a drag would.
+            slider.onDrag(it)
+            slider.onRelease()
         }
     }
 }
