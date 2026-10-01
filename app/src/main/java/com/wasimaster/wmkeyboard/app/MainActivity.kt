@@ -200,8 +200,6 @@ import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.BottomSheetDefaults
 import com.wasimaster.wmkeyboard.core.ui.ScrollRail
 import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
-import com.wasimaster.wmkeyboard.app.launcher.LauncherCombos
-import com.wasimaster.wmkeyboard.app.launcher.LauncherCombosScreen
 
 /**
  * Settings app: setup wizard plus every keyboard option, Material 3 +

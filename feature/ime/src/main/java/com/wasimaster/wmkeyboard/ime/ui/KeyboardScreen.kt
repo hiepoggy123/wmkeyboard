@@ -144,7 +144,6 @@ import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Phone
-import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.RemoveCircleOutline
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
@@ -347,7 +346,6 @@ import com.wasimaster.wmkeyboard.ime.Modifiers
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
 import com.wasimaster.wmkeyboard.core.settings.ShiftGlideMode
-import kotlinx.coroutines.delay
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.clipboard.ClipEntities
 import com.wasimaster.wmkeyboard.core.clipboard.ClipEntity
