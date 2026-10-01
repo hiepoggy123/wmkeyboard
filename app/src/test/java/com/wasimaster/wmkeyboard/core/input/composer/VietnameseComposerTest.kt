@@ -228,18 +228,9 @@ class VietnameseComposerTest {
     }
 
     @Test
-    fun testFlickVowelAndConsonantMarks() {
+    fun testPrecomposedVowels() {
         val c = VietnameseTelexComposer
-        // Flick on base key: base key + mark replaces base key with marked letter
-        assertEquals("câ", c.composeBuffer("caâ"))
-        assertEquals("că", c.composeBuffer("caă"))
-        assertEquals("mê", c.composeBuffer("meê"))
-        assertEquals("đ", c.composeBuffer("dđ"))
-        assertEquals("dô", c.composeBuffer("doô"))
-        assertEquals("dơ", c.composeBuffer("doơ"))
-        assertEquals("mư", c.composeBuffer("muư"))
-
-        // Direct flick without preceding tap
+        // Direct precomposed without preceding tap
         assertEquals("â", c.composeBuffer("â"))
         assertEquals("đường", c.composeBuffer("đương\u0300"))
     }

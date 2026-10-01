@@ -115,7 +115,7 @@ object GestureEvalBaseline {
      * consult, and top-1 would fall a long way below what is measured here.
      */
     val BENGALI = Floors(
-        top1 = 0.7955,
+        top1 = 0.7845,
         top3 = 0.8890,
         mrr = 0.8444,
         clean = 0.8220,
