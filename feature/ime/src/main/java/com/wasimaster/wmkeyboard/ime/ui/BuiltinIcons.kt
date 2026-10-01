@@ -139,6 +139,7 @@ import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.QueryStats
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.Save
@@ -340,6 +341,7 @@ object BuiltinIcons {
         "PushPin" to Icons.Outlined.PushPin,
         "QrCode2" to Icons.Outlined.QrCode2,
         "QrCodeScanner" to Icons.Outlined.QrCodeScanner,
+        "QueryStats" to Icons.Outlined.QueryStats,
         "Redo" to Icons.AutoMirrored.Outlined.Redo,
         "Refresh" to Icons.Outlined.Refresh,
         "Remove" to Icons.Outlined.Remove,
