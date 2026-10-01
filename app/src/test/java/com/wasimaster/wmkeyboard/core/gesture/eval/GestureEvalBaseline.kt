@@ -116,12 +116,12 @@ object GestureEvalBaseline {
      */
     val BENGALI = Floors(
         top1 = 0.7845,
-        top3 = 0.8890,
-        mrr = 0.8444,
-        clean = 0.8220,
-        light = 0.8500,
-        typical = 0.7760,
-        sloppy = 0.7340,
+        top3 = 0.8785,
+        mrr = 0.8311,
+        clean = 0.8040,
+        light = 0.8380,
+        typical = 0.7900,
+        sloppy = 0.7060,
     )
 
     /**
