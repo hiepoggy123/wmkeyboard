@@ -37,6 +37,7 @@ interface Composer {
      */
     val phoneticLanguage: String? get() = null
 
+    /**
      * The language whose word list completes this composer's *output*: the
      * strip offers that language's words beginning with [composeBuffer] of the
      * buffer, and a space still commits the composed text exactly. For a
