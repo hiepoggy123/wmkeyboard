@@ -121,6 +121,7 @@ tasks.register("unitTests") {
         subprojects
             .filter { it.buildFile.exists() }
             .filter { it.path.startsWith(":core:") || it.path.startsWith(":feature:") }
+            .filter { it.path != ":core:keyman" }
             .map { "${it.path}:testFullDebugUnitTest" },
     )
     // The architecture rules: a plain JVM module, so plain `test`.

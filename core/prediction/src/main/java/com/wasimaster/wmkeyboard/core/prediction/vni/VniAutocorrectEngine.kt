@@ -24,13 +24,17 @@ data class VniCorrectionCandidate(
  * 1. Bimanual Typing Desynchronization: Fixes Left-Right hand speed differences where
  *    VNI digits (e.g. '6', '7', '8', '9', '1'..'5') are hit before their intended vowels
  *    (e.g. "vi6et5" -> "vie6t5" -> "việt", "vi6e5t" -> "vie6t5" -> "việt", "to1an" -> "toán").
- * 2. Number Row Horizontal Slips: Corrects adjacent digit fat-finger errors
- *    (e.g. "viet64" -> "viet65" -> "việt", "duong71" -> "duong72" -> "đường").
- * 3. Vertical Letter-to-Digit Slips: Corrects reaches where number row was intended but
- *    Row 1 letter key was hit (e.g. "viett6" -> "việt", "vieyt5" -> "việt", "thaw" -> "thà", "tee" -> "tẻ").
- * 4. Double-Tap Number Cancel Recovery: Recovers from accidental repeated digit cancellation (e.g. "viet655" -> "việt").
- * 5. QWERTY Consonant/Vowel Proximity: Fixes typos on physical adjacent letter keys (e.g. "thabh2" -> "thành").
- * 6. Direct Language Model Scoring: Evaluates directly against Vietnamese unigrams & n-grams with 0 intermediate conversion.
+ * 2. Left-Right Key Slips on Standard QWERTY Layout:
+ *    Only considers horizontal slip errors (mispressing adjacent keys left or right on the
+ *    standard QWERTY rows: Q-W-E-R..., A-S-D-F..., Z-X-C-V...). The top number row of VNI is
+ *    completely skipped/ignored for key slips.
+ * 3. Double-Tap Number Cancel Recovery: Recovers from accidental repeated digit cancellation (e.g. "viet655" -> "việt").
+ * 4. Strict Input Mode Separation:
+ *    - If user did NOT type any digit: User is writing English or unaccented Vietnamese.
+ *      Candidates MUST NOT have any Vietnamese diacritics / tone marks.
+ *    - If user DID type digits: User is writing accented Vietnamese.
+ *      Candidates MUST be accented Vietnamese words (chữ tiếng Việt có dấu hoặc nguyên âm có dấu).
+ * 5. Direct Language Model Scoring: Evaluates directly against Vietnamese unigrams & n-grams.
  */
 class VniAutocorrectEngine private constructor() {
 
@@ -51,35 +55,71 @@ class VniAutocorrectEngine private constructor() {
         private const val WEIGHT_USER_UNIGRAM = 3.0
         private const val WEIGHT_USER_BIGRAM = 6.0
 
-        // Vertical slips: letter on Row 1 reaching up to/down from Number Row directly above
-        val VNI_VERTICAL_LETTER_TO_DIGIT: Map<Char, Char> = mapOf(
-            'q' to '1', 'w' to '2', 'e' to '3', 'r' to '4', 't' to '5',
-            'y' to '6', 'u' to '7', 'i' to '8', 'o' to '9', 'p' to '0'
+        // Standard QWERTY horizontal (left-right) neighbors on the 3 letter rows.
+        // Hàng số trên cùng của VNI hoàn toàn được bỏ qua; chỉ xét bấm lệch trái phải trên layout QWERTY tiêu chuẩn.
+        val QWERTY_HORIZONTAL_NEIGHBORS: Map<Char, List<Char>> = mapOf(
+            // Row 1: q w e r t y u i o p
+            'q' to listOf('w'),
+            'w' to listOf('q', 'e'),
+            'e' to listOf('w', 'r'),
+            'r' to listOf('e', 't'),
+            't' to listOf('r', 'y'),
+            'y' to listOf('t', 'u'),
+            'u' to listOf('y', 'i'),
+            'i' to listOf('u', 'o'),
+            'o' to listOf('i', 'p'),
+            'p' to listOf('o'),
+
+            // Row 2: a s d f g h j k l
+            'a' to listOf('s'),
+            's' to listOf('a', 'd'),
+            'd' to listOf('s', 'f'),
+            'f' to listOf('d', 'g'),
+            'g' to listOf('f', 'h'),
+            'h' to listOf('g', 'j'),
+            'j' to listOf('h', 'k'),
+            'k' to listOf('j', 'l'),
+            'l' to listOf('k'),
+
+            // Row 3: z x c v b n m
+            'z' to listOf('x'),
+            'x' to listOf('z', 'c'),
+            'c' to listOf('x', 'v'),
+            'v' to listOf('c', 'b'),
+            'b' to listOf('v', 'n'),
+            'n' to listOf('b', 'm'),
+            'm' to listOf('n')
         )
 
-        // Vertical slips: digit on Number Row reaching down into Row 1 letter key directly below
-        val VNI_VERTICAL_DIGIT_TO_LETTER: Map<Char, Char> = mapOf(
-            '1' to 'q', '2' to 'w', '3' to 'e', '4' to 'r', '5' to 't',
-            '6' to 'y', '7' to 'u', '8' to 'i', '9' to 'o', '0' to 'p'
+        val VIETNAMESE_ACCENTED_CHARS: Set<Char> = setOf(
+            'à', 'á', 'ả', 'ã', 'ạ',
+            'ă', 'ằ', 'ắ', 'ẳ', 'ẵ', 'ặ',
+            'â', 'ầ', 'ấ', 'ẩ', 'ẫ', 'ậ',
+            'è', 'é', 'ẻ', 'ẽ', 'ẹ',
+            'ê', 'ề', 'ế', 'ể', 'ễ', 'ệ',
+            'ì', 'í', 'ỉ', 'ĩ', 'ị',
+            'ò', 'ó', 'ỏ', 'õ', 'ọ',
+            'ô', 'ồ', 'ố', 'ổ', 'ỗ', 'ộ',
+            'ơ', 'ờ', 'ớ', 'ở', 'ỡ', 'ợ',
+            'ù', 'ú', 'ủ', 'ũ', 'ụ',
+            'ư', 'ừ', 'ứ', 'ử', 'ữ', 'ự',
+            'ỳ', 'ý', 'ỷ', 'ỹ', 'ỵ',
+            'đ'
         )
 
-        // Horizontal slips on number row: adjacent digits
-        val VNI_DIGIT_NEIGHBORS: Map<Char, List<Char>> = mapOf(
-            '1' to listOf('2'),
-            '2' to listOf('1', '3'),
-            '3' to listOf('2', '4'),
-            '4' to listOf('3', '5'),
-            '5' to listOf('4', '6'),
-            '6' to listOf('5', '7'),
-            '7' to listOf('6', '8'),
-            '8' to listOf('7', '9'),
-            '9' to listOf('8', '0'),
-            '0' to listOf('9')
-        )
+        fun hasVietnameseDiacritics(word: String): Boolean {
+            val lower = word.lowercase()
+            for (ch in lower) {
+                if (ch in VIETNAMESE_ACCENTED_CHARS || ch in '\u0300'..'\u036f' || ch in '\u1dc0'..'\u1dff') {
+                    return true
+                }
+            }
+            return false
+        }
     }
 
     /**
-     * Resolves all VNI errors (desync, slips, letter typos) directly from raw VNI typed buffer.
+     * Resolves VNI autocorrect candidates directly from raw VNI typed buffer.
      */
     fun correct(
         typed: String,
@@ -98,13 +138,24 @@ class VniAutocorrectEngine private constructor() {
         val candidates = ArrayList<VniCorrectionCandidate>()
         val seenWords = HashSet<String>()
         val rawLower = typed.lowercase()
+        val hasDigits = rawLower.any { it.isDigit() }
 
         fun evaluateCandidate(variant: String, penalty: Double) {
             val candidateWord = composer(variant)
             val lowerWord = candidateWord.lowercase()
             if (lowerWord.isEmpty() || lowerWord == originalComposed.lowercase()) return
-            // Must not contain leftover raw digits unless original also had them
-            if (candidateWord.any { it.isDigit() } && !originalComposed.any { it.isDigit() }) return
+
+            // Rule:
+            // 1. If user typed numbers -> must be accented Vietnamese word (có dấu hoặc nguyên âm có dấu),
+            //    and cannot have leftover digits.
+            // 2. If user did NOT type numbers -> must be English or unaccented Vietnamese (không có dấu).
+            if (hasDigits) {
+                if (!hasVietnameseDiacritics(candidateWord)) return
+                if (candidateWord.any { it.isDigit() }) return
+            } else {
+                if (hasVietnameseDiacritics(candidateWord)) return
+                if (candidateWord.any { it.isDigit() }) return
+            }
 
             val isDict = telexEngine.isWordInDictionary(candidateWord)
             val userCount = userLexicon?.frequencyOf(candidateWord) ?: 0
@@ -142,120 +193,80 @@ class VniAutocorrectEngine private constructor() {
             }
         }
 
-        // 1. Bimanual Desync: Hand timing errors (e.g. "vi6et5" -> "vie6t5", "to1an" -> "toa1n")
-        val chars = rawLower.toCharArray()
-        // 1a. Swap adjacent digit and letter
-        for (i in 0 until chars.size - 1) {
-            val c1 = chars[i]
-            val c2 = chars[i + 1]
-            if (c1.isDigit() != c2.isDigit()) {
-                chars[i] = c2
-                chars[i + 1] = c1
-                evaluateCandidate(String(chars), 0.10)
-                chars[i] = c1
-                chars[i + 1] = c2
+        if (!hasDigits) {
+            // Case A: User typed NO numbers -> Writing English or Vietnamese without accents.
+            // Only evaluate horizontal left-right slips on standard QWERTY letter keys.
+            val chars = rawLower.toCharArray()
+            for (i in chars.indices) {
+                val ch = chars[i]
+                val neighbors = QWERTY_HORIZONTAL_NEIGHBORS[ch] ?: continue
+                for (nb in neighbors) {
+                    chars[i] = nb
+                    evaluateCandidate(String(chars), 0.40)
+                    chars[i] = ch
+                }
             }
-        }
+        } else {
+            // Case B: User typed numbers -> Writing Vietnamese with accents.
+            val chars = rawLower.toCharArray()
 
-        // 1b. Misplaced VNI diacritic digits (e.g. digits typed early inside syllable: "vi6et5" -> "viet65", "to1an" -> "toan1")
-        val letterIndices = ArrayList<Int>()
-        val digitIndices = ArrayList<Int>()
-        for (i in rawLower.indices) {
-            if (rawLower[i].isDigit()) digitIndices.add(i) else letterIndices.add(i)
-        }
-        if (digitIndices.isNotEmpty() && letterIndices.isNotEmpty()) {
+            // 1. Hand timing / Bimanual Desync: swap adjacent digit and letter
+            for (i in 0 until chars.size - 1) {
+                val c1 = chars[i]
+                val c2 = chars[i + 1]
+                if (c1.isDigit() != c2.isDigit()) {
+                    chars[i] = c2
+                    chars[i + 1] = c1
+                    evaluateCandidate(String(chars), 0.10)
+                    chars[i] = c1
+                    chars[i + 1] = c2
+                }
+            }
+
+            // 2. Misplaced diacritic digits inside syllable (e.g. "vi6et5" -> "viet65", "to1an" -> "toan1")
             val lettersOnly = rawLower.filter { !it.isDigit() }
             val digitsOnly = rawLower.filter { it.isDigit() }
-            // Try letters followed by digits: e.g. "vi6et5" -> "viet65", "vi6e5t" -> "viet65"
-            evaluateCandidate(lettersOnly + digitsOnly, 0.12)
-            // Try diacritic marks before tone marks (6,7,8,9 before 1..5): e.g. "viet56" -> "viet65"
-            val marksFirst = digitsOnly.toList().sortedBy { if (it in '1'..'5') 1 else 0 }.joinToString("")
-            if (marksFirst != digitsOnly) {
-                evaluateCandidate(lettersOnly + marksFirst, 0.14)
-            }
-            // Try digits reversed if multiple: e.g. "viet56" -> "viet65"
-            if (digitsOnly.length >= 2) {
-                evaluateCandidate(lettersOnly + digitsOnly.reversed(), 0.15)
-            }
-        }
-
-        // 2. Horizontal Digit Slips on Number Row (e.g. "viet64" -> "viet65", "duong71" -> "duong72")
-        for (i in chars.indices) {
-            val ch = chars[i]
-            if (ch.isDigit()) {
-                val neighbors = VNI_DIGIT_NEIGHBORS[ch] ?: continue
-                for (n in neighbors) {
-                    chars[i] = n
-                    evaluateCandidate(String(chars), 0.40)
-                    // Combine with end digits if bimanual desync also occurred
-                    val lettersOnly = String(chars).filter { !it.isDigit() }
-                    val digitsOnly = String(chars).filter { it.isDigit() }
-                    evaluateCandidate(lettersOnly + digitsOnly, 0.50)
-                    val marksFirst = digitsOnly.toList().sortedBy { if (it in '1'..'5') 1 else 0 }.joinToString("")
-                    if (marksFirst != digitsOnly) {
-                        evaluateCandidate(lettersOnly + marksFirst, 0.50)
-                    }
-                }
-                chars[i] = ch
-            }
-        }
-
-        // 3. Vertical Slips between Number Row and Row 1 Letters
-        // 3a. Letter-to-Digit: e.g. "viett6" -> "viet56", "vieyt5" -> "viet65", "thaw" -> "tha2", "tee" -> "te3"
-        for (i in chars.indices) {
-            val ch = chars[i]
-            val digit = VNI_VERTICAL_LETTER_TO_DIGIT[ch]
-            if (digit != null) {
-                chars[i] = digit
-                evaluateCandidate(String(chars), 0.45)
-                // Combine with end digits
-                val lettersOnly = String(chars).filter { !it.isDigit() }
-                val digitsOnly = String(chars).filter { it.isDigit() }
-                evaluateCandidate(lettersOnly + digitsOnly, 0.55)
+            if (lettersOnly.isNotEmpty() && digitsOnly.isNotEmpty()) {
+                evaluateCandidate(lettersOnly + digitsOnly, 0.12)
+                // Marks before tone: e.g. 6,7,8 before 1..5: "viet56" -> "viet65"
                 val marksFirst = digitsOnly.toList().sortedBy { if (it in '1'..'5') 1 else 0 }.joinToString("")
                 if (marksFirst != digitsOnly) {
-                    evaluateCandidate(lettersOnly + marksFirst, 0.55)
+                    evaluateCandidate(lettersOnly + marksFirst, 0.14)
                 }
-                chars[i] = ch
-            }
-        }
-        // 3b. Digit-to-Letter: e.g. "vie55" -> "viet5" ("việt")
-        for (i in chars.indices) {
-            val ch = chars[i]
-            val letter = VNI_VERTICAL_DIGIT_TO_LETTER[ch]
-            if (letter != null) {
-                chars[i] = letter
-                evaluateCandidate(String(chars), 0.45)
-                val lettersOnly = String(chars).filter { !it.isDigit() }
-                val digitsOnly = String(chars).filter { it.isDigit() }
-                if (digitsOnly.isNotEmpty()) {
-                    evaluateCandidate(lettersOnly + digitsOnly, 0.55)
-                    val marksFirst = digitsOnly.toList().sortedBy { if (it in '1'..'5') 1 else 0 }.joinToString("")
-                    if (marksFirst != digitsOnly) {
-                        evaluateCandidate(lettersOnly + marksFirst, 0.55)
-                    }
+                if (digitsOnly.length >= 2) {
+                    evaluateCandidate(lettersOnly + digitsOnly.reversed(), 0.15)
                 }
-                chars[i] = ch
             }
-        }
 
-        // 4. Double-Tap Number Cancel Slips (e.g. "viet655" -> "viet65")
-        for (i in 0 until chars.size - 1) {
-            if (chars[i].isDigit() && chars[i] == chars[i + 1]) {
-                val dedupped = rawLower.removeRange(i, i + 1)
-                evaluateCandidate(dedupped, 0.30)
+            // 3. Double-tap number cancel recovery (e.g. "viet655" -> "viet65")
+            for (i in 0 until chars.size - 1) {
+                if (chars[i].isDigit() && chars[i] == chars[i + 1]) {
+                    val dedupped = rawLower.removeRange(i, i + 1)
+                    evaluateCandidate(dedupped, 0.25)
+                }
             }
-        }
 
-        // 5. QWERTY Physical Proximity on Letters (e.g. "thabh2" -> "thanh2")
-        for (i in chars.indices) {
-            val ch = chars[i]
-            if (ch.isLetter()) {
-                val neighbors = telexEngine.proximityManager.getNeighbors(ch)
-                for (nb in neighbors) {
-                    if (nb.key != ch) {
-                        chars[i] = nb.key
-                        evaluateCandidate(String(chars), 0.60 + nb.penalty)
+            // 4. Standard QWERTY horizontal (left-right) slips on letters
+            // (e.g. "thabh2" -> 'b' left-right slip to 'n' -> "thanh2" -> "thành")
+            for (i in chars.indices) {
+                val ch = chars[i]
+                if (ch.isLetter()) {
+                    val neighbors = QWERTY_HORIZONTAL_NEIGHBORS[ch] ?: continue
+                    for (nb in neighbors) {
+                        chars[i] = nb
+                        val variant = String(chars)
+                        evaluateCandidate(variant, 0.40)
+
+                        // Combine with letters-then-digits if desync also happened
+                        val vLetters = variant.filter { !it.isDigit() }
+                        val vDigits = variant.filter { it.isDigit() }
+                        if (vLetters.isNotEmpty() && vDigits.isNotEmpty()) {
+                            evaluateCandidate(vLetters + vDigits, 0.50)
+                            val vMarksFirst = vDigits.toList().sortedBy { if (it in '1'..'5') 1 else 0 }.joinToString("")
+                            if (vMarksFirst != vDigits) {
+                                evaluateCandidate(vLetters + vMarksFirst, 0.52)
+                            }
+                        }
                         chars[i] = ch
                     }
                 }
