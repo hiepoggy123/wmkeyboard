@@ -30,7 +30,7 @@ class VniAutocorrectEngineTest {
             "hello" -> "hello"
             "helko" -> "helko"
             "thanh" -> "thanh"
-            "thsmh" -> "thsmh"
+            "thsnh" -> "thsnh"
             "thaw" -> "thaw"
             "tee" -> "tee"
             else -> raw
@@ -131,9 +131,9 @@ class VniAutocorrectEngineTest {
         val results3 = vniEngine.correct("helko", "helko", composer = vniComposer)
         assertTrue("helko should suggest hello", results3.any { it.word == "hello" })
 
-        // 4. User typed "thsmh" ('s' is horizontal left neighbor of 'a' on QWERTY) -> unaccented "thanh"
-        val results4 = vniEngine.correct("thsmh", "thsmh", composer = vniComposer)
-        assertTrue("thsmh should suggest thanh", results4.any { it.word == "thanh" })
+        // 4. User typed "thsnh" ('s' is horizontal left neighbor of 'a' on QWERTY) -> unaccented "thanh"
+        val results4 = vniEngine.correct("thsnh", "thsnh", composer = vniComposer)
+        assertTrue("thsnh should suggest thanh", results4.any { it.word == "thanh" })
     }
 
     @Test
