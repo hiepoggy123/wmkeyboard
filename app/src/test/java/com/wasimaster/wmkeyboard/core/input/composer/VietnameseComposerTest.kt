@@ -152,6 +152,9 @@ class VietnameseComposerTest {
         assertEquals("â", c.composeBuffer("a6"))
         assertEquals("ơ", c.composeBuffer("o7"))
         assertEquals("ư", c.composeBuffer("u7"))
+        assertEquals("ươ", c.composeBuffer("uo7"))
+        assertEquals("Ươ", c.composeBuffer("Uo7"))
+        assertEquals("ƯƠ", c.composeBuffer("UO7"))
         assertEquals("ă", c.composeBuffer("a8"))
         assertEquals("đ", c.composeBuffer("d9"))
     }
@@ -169,6 +172,12 @@ class VietnameseComposerTest {
         val c = VietnameseVniComposer
         assertEquals("Việt", c.composeBuffer("Vie65t"))
         assertEquals("Đường", c.composeBuffer("D9u7o7ng2"))
+        assertEquals("Đường", c.composeBuffer("D9uo7ng2"))
+        assertEquals("người", c.composeBuffer("nguo7i2"))
+        assertEquals("người", c.composeBuffer("nguoi72"))
+        assertEquals("thuở", c.composeBuffer("thuo73"))
+        assertEquals("mười", c.composeBuffer("muo7i2"))
+        assertEquals("bước", c.composeBuffer("buo7c1"))
     }
 
     @Test
@@ -185,6 +194,7 @@ class VietnameseComposerTest {
         assertEquals("a6", c.composeBuffer("a66"))
         assertEquals("o7", c.composeBuffer("o77"))
         assertEquals("u7", c.composeBuffer("u77"))
+        assertEquals("uo7", c.composeBuffer("uo77"))
         assertEquals("a8", c.composeBuffer("a88"))
         assertEquals("d9", c.composeBuffer("d99"))
     }

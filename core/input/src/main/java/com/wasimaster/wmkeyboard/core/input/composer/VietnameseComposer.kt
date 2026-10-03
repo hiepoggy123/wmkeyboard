@@ -263,6 +263,19 @@ internal object VietnameseEngine {
                         if (applyVniMark(letters, "aeo", VMark.CIRCUMFLEX, lc, upper)) continue
                     }
                     '7' -> {
+                        val uIdx = letters.indexOfLast { it.base == 'u' }
+                        val oIdx = letters.indexOfLast { it.base == 'o' }
+                        if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1) {
+                            if (letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN) {
+                                letters[uIdx].mark = VMark.NONE
+                                letters[oIdx].mark = VMark.NONE
+                                letters.add(VLetter(lc, VMark.NONE, upper))
+                            } else {
+                                letters[uIdx].mark = VMark.HORN
+                                letters[oIdx].mark = VMark.HORN
+                            }
+                            continue
+                        }
                         if (applyVniMark(letters, "ou", VMark.HORN, lc, upper)) continue
                     }
                     '8' -> {
