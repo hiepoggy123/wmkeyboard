@@ -228,6 +228,27 @@ class TelexAutocorrectEngine private constructor() {
         private const val WEIGHT_USER_UNIGRAM = 3.0     // Bonus weight for words learned from user
         private const val WEIGHT_USER_BIGRAM = 6.0      // Bonus weight for word pairs learned from user
         private const val MAX_PENALTY_THRESHOLD = 1.4   // Maximum allowed cumulative key distance penalty (strictly enforces single-key proximity error, edit distance <= 1)
+
+        /**
+         * Key slips on Telex diacritic modifier keys (QWERTY adjacent keys).
+         * Mispressing an adjacent key instead of the intended tone or vowel modifier key.
+         */
+        val TELEX_DIACRITIC_SLIPS: Map<Char, List<Char>> = mapOf(
+            'a' to listOf('s'),
+            'd' to listOf('s', 'f'),
+            'w' to listOf('s'),
+            'g' to listOf('f'),
+            'e' to listOf('r'),
+            't' to listOf('r'),
+            'c' to listOf('x'),
+            'z' to listOf('x'),
+            'h' to listOf('j'),
+            'k' to listOf('j'),
+            'u' to listOf('j'),
+            'n' to listOf('j'),
+            'm' to listOf('j'),
+            'q' to listOf('w')
+        )
     }
 
     @VisibleForTesting
@@ -334,11 +355,11 @@ class TelexAutocorrectEngine private constructor() {
     fun isAccented(word: String): Boolean {
         if (word.isEmpty()) return false
         val lower = word.lowercase()
+        if (TelexWhitelist.isWhitelisted(lower)) return false
 
-        // 1. Unicode accented characters, combining marks, or VNI digits (1..9)
+        // 1. Unicode accented characters or combining marks
         for (ch in lower) {
             if (ch !in 'a'..'z') {
-                if (ch in '1'..'9') return true
                 if (ch.isLetter() || ch in '\u0300'..'\u036f' || ch in '\u1dc0'..'\u1dff') return true
             }
         }
@@ -359,15 +380,13 @@ class TelexAutocorrectEngine private constructor() {
         if (lastChar == 's' || lastChar == 'x') return true
         if (lastChar == 'r' && !(lower.length == 2 && lower.startsWith("t"))) return true
 
-        // Transposed tone markers in bimanual desync (e.g. "toasn" -> 's' transposed before coda 'n')
-        // In Vietnamese syllables, codas are: n, m, p, t, c, g, h.
-        // A tone 's', 'r', 'x' preceded by a vowel and followed by a coda consonant (e.g. "asn", "asm", "asng", "asnh")
-        // indicates a desynced tone.
+        // Transposed tone markers in bimanual desync (e.g. "toasn" -> 's' transposed before coda 'n', "tieesng" -> 's' before 'ng')
+        // Left hand hits tone (s, r, x) before Right hand hits nasal coda (n, m, ng, nh)
         for (i in 1 until lower.length - 1) {
             val ch = lower[i]
             if ((ch == 's' || ch == 'r' || ch == 'x') && lower[i - 1] in "aeiouy") {
                 val next = lower[i + 1]
-                if (next in "nmpg" || (next == 'c' && i + 1 == lower.length - 1)) {
+                if (next == 'n' || next == 'm' || (next == 'g' && lower.endsWith("ng")) || (next == 'h' && lower.endsWith("nh"))) {
                     return true
                 }
             }
@@ -397,7 +416,7 @@ class TelexAutocorrectEngine private constructor() {
     /**
      * Converts a Vietnamese word or composing buffer (which may contain precomposed
      * characters or combining tone marks from flick gestures) into a canonical Telex
-     * keystroke sequence (e.g. "chao\u0300" -> "chaof", "toán" -> "toans", "tuệ" -> "tueej").
+     * keystroke sequence (e.g. "chao\u0300" -> "chaof", "toán" -> "toans", "tuệ" -> "tueej", "người" -> "nguowif").
      */
     fun toCanonicalTelex(input: String): String {
         if (input.isEmpty()) return ""
@@ -427,7 +446,21 @@ class TelexAutocorrectEngine private constructor() {
                     }
                 }
                 '\u0306' -> sb.append('w') // Breve: 'a' + 'w' -> 'aw'
-                '\u031b' -> sb.append('w') // Horn: 'o' or 'u' + 'w' -> 'ow' or 'uw'
+                '\u031b' -> {
+                    // Horn: 'o' or 'u' + 'w' -> 'ow' or 'uw'.
+                    // For 'ươ' (u+horn + o+horn), canonical telex is 'uow', not 'uwow'.
+                    if (sb.length >= 2 && sb[sb.length - 1].lowercaseChar() == 'o' && sb[sb.length - 2].lowercaseChar() == 'w') {
+                        if (sb.length >= 3 && sb[sb.length - 3].lowercaseChar() == 'u') {
+                            val upper = sb[sb.length - 1].isUpperCase()
+                            sb.deleteCharAt(sb.length - 2)
+                            sb.append(if (upper) 'W' else 'w')
+                        } else {
+                            sb.append('w')
+                        }
+                    } else {
+                        sb.append('w')
+                    }
+                }
                 'đ' -> sb.append("dd")
                 'Đ' -> sb.append("DD")
                 else -> {
@@ -554,14 +587,15 @@ class TelexAutocorrectEngine private constructor() {
         val cleanPrev2 = previousWord2?.trim()?.lowercase()
 
         val rawCandidates = ArrayList<TelexCorrectionCandidate>()
+        val seenWords = HashSet<String>()
 
-        // 2. Bimanual Typing Desync Candidates (Left-Right hand timing errors)
-        val desyncCandidates = BimanualDesyncEngine.generateCandidates(cleanInput, this)
-        for (desync in desyncCandidates) {
-            val unicodeWord = desync.word
-            if (!isAccented(cleanInput) && isAccented(unicodeWord)) {
-                continue
-            }
+        fun evaluateCandidate(unicodeWord: String, telexVariant: String, penalty: Double) {
+            val lowerWord = unicodeWord.lowercase()
+            if (lowerWord.isEmpty()) return
+            if (isWordInDictionary(cleanInput) && !isAccented(cleanInput) && isAccented(unicodeWord)) return
+            if (!isWordInDictionary(unicodeWord)) return
+            if (!seenWords.add(lowerWord)) return
+
             val baseUnigram = languageModel.getUnigramScore(unicodeWord)
             var baseBigram = 0
             var baseTrigram = 0
@@ -575,8 +609,10 @@ class TelexAutocorrectEngine private constructor() {
             val userBigramCount = if (!cleanPrev.isNullOrEmpty()) {
                 userLexicon?.bigramCount(cleanPrev, unicodeWord) ?: 0
             } else 0
+            val exactBonus = if (penalty < 0.001) EXACT_MATCH_BONUS else 0.0
 
-            val totalScore = - (desync.penalty * WEIGHT_PENALTY) +
+            val totalScore = exactBonus -
+                    (penalty * WEIGHT_PENALTY) +
                     (baseUnigram * WEIGHT_UNIGRAM) +
                     (baseBigram * WEIGHT_BIGRAM) +
                     (baseTrigram * WEIGHT_TRIGRAM) +
@@ -586,60 +622,89 @@ class TelexAutocorrectEngine private constructor() {
             rawCandidates.add(
                 TelexCorrectionCandidate(
                     word = applyCasing(unicodeWord, rawInput),
-                    telex = desync.telex,
-                    penalty = desync.penalty,
+                    telex = telexVariant,
+                    penalty = penalty,
                     score = totalScore
                 )
             )
         }
 
-        // 3. QWERTY Key Proximity Candidates (Zero-Allocation DFS)
+        // 1. Exact match bonus
+        val exactWord = trie.findWord(cleanInput)
+        if (exactWord != null) {
+            evaluateCandidate(exactWord, cleanInput, 0.0)
+        }
+
+        // 2. Bimanual Typing Desync Candidates (Left-Right hand timing and transposition errors)
+        val desyncCandidates = BimanualDesyncEngine.generateCandidates(cleanInput, this)
+        for (desync in desyncCandidates) {
+            evaluateCandidate(desync.word, desync.telex, desync.penalty)
+        }
+
+        // 3. Telex Diacritic Key Slips (Mispressing adjacent keys for Telex tones/modifiers)
+        if (cleanInput.length >= 2) {
+            val chars = cleanInput.toCharArray()
+            for (i in chars.indices) {
+                val ch = chars[i]
+                val slips = TELEX_DIACRITIC_SLIPS[ch] ?: continue
+                for (replacement in slips) {
+                    chars[i] = replacement
+                    val variant = String(chars)
+                    val word = trie.findWord(variant)
+                    if (word != null) {
+                        evaluateCandidate(word, variant, 0.28)
+                    }
+                    val desyncSub = BimanualDesyncEngine.generateCandidates(variant, this)
+                    for (sub in desyncSub) {
+                        evaluateCandidate(sub.word, sub.telex, 0.35)
+                    }
+                    chars[i] = ch
+                }
+            }
+        }
+
+        // 4. Missing Modifier Recovery (e.g. "d" -> "dd" for "đ", single vowel -> double vowel)
+        if (cleanInput.startsWith("d") && !cleanInput.startsWith("dd")) {
+            val withDd = "d$cleanInput"
+            val word = trie.findWord(withDd)
+            if (word != null) {
+                evaluateCandidate(word, withDd, 0.18)
+            }
+            val desyncDd = BimanualDesyncEngine.generateCandidates(withDd, this)
+            for (sub in desyncDd) {
+                evaluateCandidate(sub.word, sub.telex, 0.22)
+            }
+        }
+
+        for (i in cleanInput.indices) {
+            val ch = cleanInput[i]
+            if (ch == 'a' || ch == 'e' || ch == 'o') {
+                val doubled = cleanInput.substring(0, i + 1) + ch + cleanInput.substring(i + 1)
+                val word = trie.findWord(doubled)
+                if (word != null) {
+                    evaluateCandidate(word, doubled, 0.22)
+                }
+            }
+        }
+
+        // 5. Repeated / Sticking Key Recovery (Double-tap cancel or key bounce: "toanss" -> "toans" [toán], "chaoff" -> "chào")
+        for (i in 0 until cleanInput.length - 1) {
+            if (cleanInput[i] == cleanInput[i + 1]) {
+                val dedupped = cleanInput.removeRange(i, i + 1)
+                val word = trie.findWord(dedupped)
+                if (word != null) {
+                    evaluateCandidate(word, dedupped, 0.15)
+                }
+            }
+        }
+
+        // 6. QWERTY Key Proximity Candidates (Zero-Allocation DFS)
         val charBuffer = CharArray(16)
 
         fun dfs(node: TelexTrieNode, idx: Int, currentPenalty: Double, errorCount: Int) {
             if (idx == cleanInput.length) {
                 node.word?.let { unicodeWord ->
-                    if (!isAccented(cleanInput) && isAccented(unicodeWord)) {
-                        return
-                    }
-                    val baseUnigram = node.unigramScore
-                    var baseBigram = 0
-                    var baseTrigram = 0
-                    if (!cleanPrev.isNullOrEmpty()) {
-                        baseBigram = languageModel.getBigramScore(cleanPrev, unicodeWord)
-                        if (!cleanPrev2.isNullOrEmpty()) {
-                            baseTrigram = languageModel.getTrigramScore(cleanPrev2, cleanPrev, unicodeWord)
-                        }
-                    }
-
-                    // Incorporate user learning from UserLexicon
-                    val userUnigramCount = userLexicon?.frequencyOf(unicodeWord) ?: 0
-                    val userBigramCount = if (!cleanPrev.isNullOrEmpty()) {
-                        userLexicon?.bigramCount(cleanPrev, unicodeWord) ?: 0
-                    } else 0
-
-                    // Massive bonus if exact match (penalty == 0.0)
-                    val exactBonus = if (currentPenalty < 0.001) EXACT_MATCH_BONUS else 0.0
-
-                    val totalScore = exactBonus -
-                            (currentPenalty * WEIGHT_PENALTY) +
-                            (baseUnigram * WEIGHT_UNIGRAM) +
-                            (baseBigram * WEIGHT_BIGRAM) +
-                            (baseTrigram * WEIGHT_TRIGRAM) +
-                            (userUnigramCount * WEIGHT_USER_UNIGRAM) +
-                            (userBigramCount * WEIGHT_USER_BIGRAM)
-
-                    // Apply case style of rawInput to candidate
-                    val casedWord = applyCasing(unicodeWord, rawInput)
-
-                    rawCandidates.add(
-                        TelexCorrectionCandidate(
-                            word = casedWord,
-                            telex = String(charBuffer, 0, idx),
-                            penalty = currentPenalty,
-                            score = totalScore
-                        )
-                    )
+                    evaluateCandidate(unicodeWord, String(charBuffer, 0, idx), currentPenalty)
                 }
                 return
             }
@@ -671,10 +736,10 @@ class TelexAutocorrectEngine private constructor() {
         rawCandidates.sort()
 
         val uniqueResults = ArrayList<TelexCorrectionCandidate>()
-        val seenWords = HashSet<String>()
+        val resultWords = HashSet<String>()
 
         for (cand in rawCandidates) {
-            if (seenWords.add(cand.word.lowercase())) {
+            if (resultWords.add(cand.word.lowercase())) {
                 uniqueResults.add(cand)
                 if (uniqueResults.size >= maxResults) break
             }

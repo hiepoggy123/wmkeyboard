@@ -232,7 +232,6 @@ import com.wasimaster.wmkeyboard.core.prediction.WordSource
 import com.wasimaster.wmkeyboard.core.prediction.telex.TelexAutocorrectEngine
 import com.wasimaster.wmkeyboard.core.prediction.telex.VietnameseOrthography
 import com.wasimaster.wmkeyboard.core.input.composer.VietnameseTelexComposer
-import com.wasimaster.wmkeyboard.core.prediction.vni.VniAutocorrectEngine
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiInsertMode
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
@@ -12071,29 +12070,15 @@ open class WMKeyboardService : InputMethodService() {
                         composed
                     } else {
                         val prev2 = recentWords.getOrNull(recentWords.size - 2)
-                        if (state.composer.isVietnameseVni) {
-                            val vniEngine = VniAutocorrectEngine.getInstance()
-                            val candidates = vniEngine.correct(
-                                typed = typed,
-                                originalComposed = composed,
-                                previousWord = previousWord,
-                                previousWord2 = prev2,
-                                userLexicon = userLexicon,
-                                composer = { state.composer.composeBuffer(it) },
-                                maxResults = 1
-                            )
-                            candidates.firstOrNull()?.word ?: composed
-                        } else {
-                            val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
-                            val candidates = telexEngine.correct(
-                                rawInput = canonical.ifEmpty { typed },
-                                previousWord = previousWord,
-                                previousWord2 = prev2,
-                                userLexicon = userLexicon,
-                                maxResults = 1
-                            )
-                            candidates.firstOrNull()?.word ?: composed
-                        }
+                        val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
+                        val candidates = telexEngine.correct(
+                            rawInput = canonical.ifEmpty { typed },
+                            previousWord = previousWord,
+                            previousWord2 = prev2,
+                            userLexicon = userLexicon,
+                            maxResults = 1
+                        )
+                        candidates.firstOrNull()?.word ?: composed
                     }
                 } else {
                     composed
@@ -16095,7 +16080,6 @@ open class WMKeyboardService : InputMethodService() {
         val prev = previousWord
         val prev2 = recentWords.getOrNull(recentWords.size - 2)
         val state = _uiState.value
-        val isVni = state.composer.isVietnameseVni
         resolutionJob = serviceScope.launch(resolutionDispatcher) {
             pending.started = true
             try {
@@ -16109,29 +16093,15 @@ open class WMKeyboardService : InputMethodService() {
                 val target = if (isComposedValid) {
                     composed
                 } else {
-                    if (isVni) {
-                        val vniEngine = VniAutocorrectEngine.getInstance()
-                        val candidates = vniEngine.correct(
-                            typed = typed,
-                            originalComposed = composed,
-                            previousWord = prev,
-                            previousWord2 = prev2,
-                            userLexicon = userLexicon,
-                            composer = { state.composer.composeBuffer(it) },
-                            maxResults = 1
-                        )
-                        candidates.firstOrNull()?.word ?: composed
-                    } else {
-                        val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
-                        val candidates = telexEngine.correct(
-                            rawInput = canonical.ifEmpty { typed },
-                            previousWord = prev,
-                            previousWord2 = prev2,
-                            userLexicon = userLexicon,
-                            maxResults = 1
-                        )
-                        candidates.firstOrNull()?.word ?: composed
-                    }
+                    val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
+                    val candidates = telexEngine.correct(
+                        rawInput = canonical.ifEmpty { typed },
+                        previousWord = prev,
+                        previousWord2 = prev2,
+                        userLexicon = userLexicon,
+                        maxResults = 1
+                    )
+                    candidates.firstOrNull()?.word ?: composed
                 }
 
                 if (pendingResolution !== pending) return@launch
@@ -16407,53 +16377,32 @@ open class WMKeyboardService : InputMethodService() {
                                     .distinctBy { it.lowercase() }
                             } else {
                                 val prev2 = recentSnapshot.getOrNull(recentSnapshot.size - 2)
-                                telexCandidates = if (state.composer.isVietnameseVni) {
-                                    if (!isComposedValid && (typed.length >= 2 || composed.length >= 2)) {
-                                        val vniEngine = VniAutocorrectEngine.getInstance()
-                                        vniEngine.correct(
-                                            typed = typed,
-                                            originalComposed = composed,
-                                            previousWord = previousWord,
-                                            previousWord2 = prev2,
-                                            userLexicon = userLexicon,
-                                            composer = { state.composer.composeBuffer(it) },
-                                            maxResults = 5
-                                        ).map { it.word }
-                                    } else emptyList()
-                                } else {
-                                    val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
-                                    if (!isComposedValid && (canonical.length >= 3 || typed.length >= 3)) {
-                                        telexEngine.correct(
-                                            rawInput = canonical.ifEmpty { typed },
-                                            previousWord = previousWord,
-                                            previousWord2 = prev2,
-                                            userLexicon = userLexicon,
-                                            maxResults = 5
-                                        ).map { it.word }
-                                    } else emptyList()
-                                }
+                                val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
+                                telexCandidates = if (!isComposedValid && (canonical.length >= 2 || typed.length >= 2)) {
+                                    telexEngine.correct(
+                                        rawInput = canonical.ifEmpty { typed },
+                                        previousWord = previousWord,
+                                        previousWord2 = prev2,
+                                        userLexicon = userLexicon,
+                                        maxResults = 5
+                                    ).map { it.word }
+                                } else emptyList()
 
-                                val rawCandidate = typed.takeIf {
-                                    state.composer.isVietnameseVni && typed.any { it.isDigit() } && typed != composed
-                                }
                                 val baseList = if (isComposedValid) {
                                     val list = mutableListOf(composed)
-                                    rawCandidate?.let { list.add(it) }
-                                    list.addAll((combinedDict + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) || it.equals(rawCandidate, ignoreCase = true) })
+                                    list.addAll((combinedDict + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) })
                                     list
                                 } else if (telexCandidates.isNotEmpty()) {
                                     val list = mutableListOf<String>()
                                     list.addAll(telexCandidates)
                                     list.add(composed)
-                                    rawCandidate?.let { list.add(it) }
                                     list.addAll(combinedDict.filterNot { cand ->
-                                        telexCandidates.any { it.equals(cand, ignoreCase = true) } || cand.equals(composed, ignoreCase = true) || cand.equals(rawCandidate, ignoreCase = true)
+                                        telexCandidates.any { it.equals(cand, ignoreCase = true) } || cand.equals(composed, ignoreCase = true)
                                     })
                                     list
                                 } else {
                                     val list = mutableListOf(composed)
-                                    rawCandidate?.let { list.add(it) }
-                                    list.addAll(combinedDict.filterNot { it.equals(composed, ignoreCase = true) || it.equals(rawCandidate, ignoreCase = true) })
+                                    list.addAll(combinedDict.filterNot { it.equals(composed, ignoreCase = true) })
                                     list
                                 }
                                 baseList.distinctBy { it.lowercase() }

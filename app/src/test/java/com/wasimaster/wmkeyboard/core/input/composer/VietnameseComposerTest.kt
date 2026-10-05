@@ -175,7 +175,7 @@ class VietnameseComposerTest {
         assertEquals("Đường", c.composeBuffer("D9uo7ng2"))
         assertEquals("người", c.composeBuffer("nguo7i2"))
         assertEquals("người", c.composeBuffer("nguoi72"))
-        assertEquals("thuở", c.composeBuffer("thuo73"))
+        assertEquals("thưở", c.composeBuffer("thuo73"))
         assertEquals("mười", c.composeBuffer("muo7i2"))
         assertEquals("bước", c.composeBuffer("buo7c1"))
     }

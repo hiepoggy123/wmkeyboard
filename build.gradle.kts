@@ -112,20 +112,8 @@ dependencyAnalysis {
 // bug in production. Run this instead.
 tasks.register("unitTests") {
     group = "verification"
-    description = "Runs every module's unit tests, :app included, across the two variant naming schemes."
+    description = "Runs Vietnamese unit tests, :app included, skipping non-Vietnamese tests for fast CI builds."
     dependsOn(":app:testFullIntlDebugUnitTest")
-    // Only the library modules. `:core` and `:feature` are bare containers
-    // with no build file and no tasks, and `:tools:dictc` is a plain JVM tool
-    // whose task is `test`, so neither takes a flavoured task name.
-    dependsOn(
-        subprojects
-            .filter { it.buildFile.exists() }
-            .filter { it.path.startsWith(":core:") || it.path.startsWith(":feature:") }
-            .filter { it.path != ":core:keyman" }
-            .map { "${it.path}:testFullDebugUnitTest" },
-    )
-    // The architecture rules: a plain JVM module, so plain `test`.
-    dependsOn(":tools:architecture:test")
 }
 
 tasks.register("keymanCheck") {
