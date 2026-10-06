@@ -594,15 +594,12 @@ internal object VietnameseEngine {
                     '7' -> {
                         val uIdx = letters.indexOfLast { it.base == 'u' }
                         val oIdx = letters.indexOfLast { it.base == 'o' }
-                        if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1) {
-                            if (letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN) {
-                                letters[uIdx].mark = VMark.NONE
-                                letters[oIdx].mark = VMark.NONE
-                                letters.add(VLetter(lc, VMark.NONE, upper))
-                            } else {
-                                letters[uIdx].mark = VMark.HORN
-                                letters[oIdx].mark = VMark.HORN
-                            }
+                        if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1 &&
+                            letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN
+                        ) {
+                            letters[uIdx].mark = VMark.NONE
+                            letters[oIdx].mark = VMark.NONE
+                            letters.add(VLetter(lc, VMark.NONE, upper))
                             continue
                         }
                         if (applyVniMark(letters, "ou", VMark.HORN, lc, upper)) continue
@@ -920,7 +917,7 @@ object VietnameseVniComposer : Composer {
     override fun resumeBuffer(text: String): String? = VietnameseEngine.toKeystrokes(text, vni = true)
     override fun backspaceBuffer(buffer: String): String = VietnameseEngine.backspace(buffer, vni = true)
     override val bufferDigits: Boolean get() = true
-    override fun buffersChar(c: Char): Boolean = c in "\u0301\u0300\u0309\u0303\u0323"
+    override fun buffersChar(c: Char): Boolean = VietnameseEngine.isToneChar(c)
     override fun isPlausibleWord(word: String): Boolean = VietnameseOrthography.isSyllable(word)
     override fun composeBuffer(buffer: String): String = VietnameseEngine.transduce(buffer, vni = true)
 }

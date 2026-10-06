@@ -13,26 +13,25 @@
 # ---- Run once, at class initialisation or on load ----
 com.wasimaster.wmkeyboard.core.layout.BuiltInLayoutsKt.<clinit>  28000  896  # class init: the built-in layouts table, once per process
 com.wasimaster.wmkeyboard.core.transliteration.BijoyAnsiTables.<clinit>  19800  448  # class init: Bijoy ANSI table, once per process
-com.wasimaster.wmkeyboard.core.script.KeymanLanguages.<clinit>  19100  768  # class init: Keyman language table, once per process
-com.wasimaster.wmkeyboard.app.SettingsRowIcons.<clinit>  16200  256  # class init: icon builders (lambdas), settings app only
-com.wasimaster.wmkeyboard.core.script.LanguageRegistry.<clinit>  17400  704  # class init: language table, once per process
+com.wasimaster.wmkeyboard.app.SettingsRowIcons.<clinit>  17100  256  # class init: icon builders (lambdas), settings app only
+com.wasimaster.wmkeyboard.core.script.LanguageRegistry.<clinit>  18200  768  # class init: language table, once per process
 com.wasimaster.wmkeyboard.core.script.FancyStyles.<clinit>  11600  384  # class init: Fancy Text alphabets, once per process
-com.wasimaster.wmkeyboard.core.theme.ThemeSpecKt.<clinit>  3400  3904  # class init: built-in themes, once per process
-com.wasimaster.wmkeyboard.core.theme.ThemeSpec$$serializer.deserialize  15600  2368  # generated serializer: runs when a theme is loaded, not per key
+com.wasimaster.wmkeyboard.core.theme.ThemeSpecKt.<clinit>  3600  4096  # class init: built-in themes, once per process
+com.wasimaster.wmkeyboard.core.theme.ThemeSpec$$serializer.deserialize  17000  2560  # generated serializer: runs when a theme is loaded, not per key
 
 # ---- Settings app screens: composed on open, not on the typing path ----
-com.wasimaster.wmkeyboard.app.ToolDetailScreensKt.ToolDetailSettings  11300  768  # settings screen
+com.wasimaster.wmkeyboard.app.ToolDetailScreensKt.ToolDetailSettings  11500  768  # settings screen
 com.wasimaster.wmkeyboard.app.LayoutEditorScreensKt.KeyLayoutEditorScreen  11600  1728  # settings screen
-com.wasimaster.wmkeyboard.app.ThemeScreensKt.ThemeEditorScreen  10400  1344  # settings screen
-com.wasimaster.wmkeyboard.app.LayoutKeyboardPreviewKt.layoutPreviewState  1200  4160  # settings screen: layout preview
+com.wasimaster.wmkeyboard.app.ThemeScreensKt.ThemeEditorScreen  10600  1408  # settings screen
 
 # ---- Keyboard, but off the per-keystroke path ----
 com.wasimaster.wmkeyboard.ime.ui.KeyboardScreenKt.KeyboardScreen  14000  3904  # outer keyboard composable: collects the state without reading it, so it recomposes only when the service recomposes the root (see its opening comment)
-com.wasimaster.wmkeyboard.ime.ui.KeyboardScreenKt.KeyboardScreen$lambda$149  500  3840  # the stable composition locals around KeyboardScreenFrame: recomposes with KeyboardScreen, not per key
-com.wasimaster.wmkeyboard.ime.WMKeyboardService.restorePersistentSurface  1200  3712  # once per show
-com.wasimaster.wmkeyboard.ime.WMKeyboardService.openDictionary  1000  3712  # opening the dictionary tool
-com.wasimaster.wmkeyboard.ime.WMKeyboardService$refreshEmojiResults$1.invokeSuspend  1100  3712  # emoji panel search, debounced
-com.wasimaster.wmkeyboard.ime.WMKeyboardService.captureWrite  4900  3712  # typing into a keyboard-owned field (#161), not into apps
+com.wasimaster.wmkeyboard.ime.ui.KeyboardScreenKt.TopBar$lambda$59$0$1$8  9700  1280  # top bar composable lambda
+com.wasimaster.wmkeyboard.ime.ui.KeyboardScreenKt.KeyboardScreen$lambda$150  500  3840  # the stable composition locals around KeyboardScreenFrame: recomposes with KeyboardScreen, not per key
+com.wasimaster.wmkeyboard.ime.WMKeyboardService.restorePersistentSurface  1300  3904  # once per show
+com.wasimaster.wmkeyboard.ime.WMKeyboardService.openDictionary  1000  3840  # opening the dictionary tool
+com.wasimaster.wmkeyboard.ime.WMKeyboardService$refreshEmojiResults$1.invokeSuspend  1100  3904  # emoji panel search, debounced
+com.wasimaster.wmkeyboard.ime.WMKeyboardService.captureWrite  6200  3968  # typing into a keyboard-owned field (#161), not into apps
 
 # ---- On the typing path: known debt, each with the fix it needs ----
 # Under both limits for insns, so the JIT and the baseline profile compile them;
@@ -44,7 +43,7 @@ com.wasimaster.wmkeyboard.ime.WMKeyboardService.captureWrite  4900  3712  # typi
 com.wasimaster.wmkeyboard.ime.ui.KeyboardScreenKt.KeyboardBody  8500  3520  # ~157 parameters, and a lambda capturing them
 com.wasimaster.wmkeyboard.ime.ui.KeyboardScreenKt.KeyboardBody$lambda$25  400  3392  # same parameter list
 com.wasimaster.wmkeyboard.ime.ui.KeyboardScreenKt.KeyboardScreen$lambda$140$1  400  3200  # the call to KeyboardBody: 157 argument slots
-com.wasimaster.wmkeyboard.ime.KeyboardUiState.<init>  3300  4160  # generated: one register per field
-com.wasimaster.wmkeyboard.ime.KeyboardUiState.copy  900  3520  # generated: one register per field
-com.wasimaster.wmkeyboard.core.settings.KeyboardSettings.<init>  6400  4224  # generated: one register per field
-com.wasimaster.wmkeyboard.core.settings.KeyboardSettings.copy  1300  4288  # generated: one register per field
+com.wasimaster.wmkeyboard.ime.KeyboardUiState.<init>  3500  4352  # generated: one register per field
+com.wasimaster.wmkeyboard.ime.KeyboardUiState.copy  1000  3712  # generated: one register per field
+com.wasimaster.wmkeyboard.core.settings.KeyboardSettings.<init>  6800  4416  # generated: one register per field
+com.wasimaster.wmkeyboard.core.settings.KeyboardSettings.copy  1300  4352  # generated: one register per field

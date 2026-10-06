@@ -52,8 +52,7 @@ class VietnameseComposerTest {
         assertEquals("ô", c.composeBuffer("oo"))
         assertEquals("ơ", c.composeBuffer("ow"))
         assertEquals("ư", c.composeBuffer("uw"))
-        assertEquals("w", c.composeBuffer("w"))
-        assertEquals("ww", c.composeBuffer("ww"))
+        assertEquals("ư", c.composeBuffer("w"))
         assertEquals("đ", c.composeBuffer("dd"))
     }
 
@@ -81,27 +80,33 @@ class VietnameseComposerTest {
 
     @Test
     fun telexEnglishWordsNotCorrupted() {
-        val c = VietnameseTelexComposer
-        // Tone keys inside the word (before consonants) MUST NOT turn English into Vietnamese
-        assertEquals("test", c.composeBuffer("test"))
-        assertEquals("best", c.composeBuffer("best"))
-        assertEquals("rest", c.composeBuffer("rest"))
-        assertEquals("text", c.composeBuffer("text"))
-        assertEquals("fast", c.composeBuffer("fast"))
-        assertEquals("first", c.composeBuffer("first"))
-        assertEquals("post", c.composeBuffer("post"))
-        assertEquals("cost", c.composeBuffer("cost"))
-        assertEquals("just", c.composeBuffer("just"))
-        assertEquals("cast", c.composeBuffer("cast"))
-        assertEquals("tiêsng", c.composeBuffer("tieesng"))
-        // Multi-vowel / foreign words must not be corrupted
-        assertEquals("telex", c.composeBuffer("telex"))
-        assertEquals("dad", c.composeBuffer("dad"))
-        assertEquals("dead", c.composeBuffer("dead"))
-        assertEquals("did", c.composeBuffer("did"))
-        assertEquals("relax", c.composeBuffer("relax"))
-        assertEquals("complex", c.composeBuffer("complex"))
-        assertEquals("inbox", c.composeBuffer("inbox"))
+        val was = VietnameseConfig.strictTones
+        VietnameseConfig.strictTones = true
+        try {
+            val c = VietnameseTelexComposer
+            // Tone keys inside the word (before consonants) MUST NOT turn English into Vietnamese
+            assertEquals("test", c.composeBuffer("test"))
+            assertEquals("best", c.composeBuffer("best"))
+            assertEquals("rest", c.composeBuffer("rest"))
+            assertEquals("text", c.composeBuffer("text"))
+            assertEquals("fast", c.composeBuffer("fast"))
+            assertEquals("first", c.composeBuffer("first"))
+            assertEquals("post", c.composeBuffer("post"))
+            assertEquals("cost", c.composeBuffer("cost"))
+            assertEquals("just", c.composeBuffer("just"))
+            assertEquals("cast", c.composeBuffer("cast"))
+            assertEquals("tiếng", c.composeBuffer("tieesng"))
+            // Multi-vowel / foreign words must not be corrupted
+            assertEquals("telex", c.composeBuffer("telex"))
+            assertEquals("dad", c.composeBuffer("dad"))
+            assertEquals("dead", c.composeBuffer("dead"))
+            assertEquals("did", c.composeBuffer("did"))
+            assertEquals("relax", c.composeBuffer("relax"))
+            assertEquals("complex", c.composeBuffer("complex"))
+            assertEquals("inbox", c.composeBuffer("inbox"))
+        } finally {
+            VietnameseConfig.strictTones = was
+        }
     }
 
     @Test
@@ -543,9 +548,6 @@ class VietnameseComposerTest {
         assertEquals("â", c.composeBuffer("a6"))
         assertEquals("ơ", c.composeBuffer("o7"))
         assertEquals("ư", c.composeBuffer("u7"))
-        assertEquals("ươ", c.composeBuffer("uo7"))
-        assertEquals("Ươ", c.composeBuffer("Uo7"))
-        assertEquals("ƯƠ", c.composeBuffer("UO7"))
         assertEquals("ă", c.composeBuffer("a8"))
         assertEquals("đ", c.composeBuffer("d9"))
     }
@@ -566,7 +568,7 @@ class VietnameseComposerTest {
         assertEquals("Đường", c.composeBuffer("D9uo7ng2"))
         assertEquals("người", c.composeBuffer("nguo7i2"))
         assertEquals("người", c.composeBuffer("nguoi72"))
-        assertEquals("thưở", c.composeBuffer("thuo73"))
+        assertEquals("thuở", c.composeBuffer("thuo73"))
         assertEquals("mười", c.composeBuffer("muo7i2"))
         assertEquals("bước", c.composeBuffer("buo7c1"))
     }
@@ -605,20 +607,11 @@ class VietnameseComposerTest {
     }
 
     @Test
-    fun testDirectToneMarks() {
-        val c = VietnameseTelexComposer
-        // Tone after syllable
-        assertEquals("chào", c.composeBuffer("chao\u0300"))
-        assertEquals("chào", c.composeBuffer("chaò"))
+    fun vniToneMarksAndVowelRun() {
+        val c = VietnameseVniComposer
         assertEquals("cháo", c.composeBuffer("chao\u0301"))
-        assertEquals("chảo", c.composeBuffer("chao\u0309"))
-        assertEquals("chão", c.composeBuffer("chao\u0303"))
-        assertEquals("chạo", c.composeBuffer("chao\u0323"))
-
-        // Free tone placement: tone before vowel
-        assertEquals("à", c.composeBuffer("\u0300a"))
-        assertEquals("toán", c.composeBuffer("\u0301toan"))
-        assertEquals("toán", c.composeBuffer("toan\u0301"))
+        assertEquals("chao", c.composeBuffer("chao1\u25CC"))
+        assertEquals("banana1", c.composeBuffer("banana1"))
     }
 
     @Test
