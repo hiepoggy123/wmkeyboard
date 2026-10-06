@@ -227,6 +227,7 @@ class TelexAutocorrectEngine private constructor() {
         private const val WEIGHT_TRIGRAM = 5.0          // Context Trigram weight (from V7 AI model)
         private const val WEIGHT_USER_UNIGRAM = 3.0     // Bonus weight for words learned from user
         private const val WEIGHT_USER_BIGRAM = 6.0      // Bonus weight for word pairs learned from user
+        private const val WEIGHT_USER_TRIGRAM = 10.0    // Bonus weight for 3-word habits learned from user
         private const val MAX_PENALTY_THRESHOLD = 1.4   // Maximum allowed cumulative key distance penalty (strictly enforces single-key proximity error, edit distance <= 1)
 
         /**
@@ -483,11 +484,13 @@ class TelexAutocorrectEngine private constructor() {
 
     /**
      * Predicts the most likely next Vietnamese words given the previous words context.
-     * Prioritizes binary NgramPack (.wmng) before falling back to in-memory JSON bigrams/trigrams.
+     * Prioritizes user habit learning (UserLexicon trigram/bigram), then binary NgramPack (.wmng),
+     * and finally in-memory JSON fallback.
      */
     fun predictNextWords(
         previousWord: String?,
         previousWord2: String? = null,
+        userLexicon: UserLexicon? = null,
         maxResults: Int = 3
     ): List<String> {
         if (!isReady || previousWord.isNullOrBlank()) return emptyList()
@@ -495,6 +498,24 @@ class TelexAutocorrectEngine private constructor() {
         val prev2 = previousWord2?.trim()?.lowercase()
 
         val results = LinkedHashSet<String>()
+
+        // 0. High priority: UserLexicon Trigrams & Bigrams (personalized learning)
+        if (userLexicon != null) {
+            if (!prev2.isNullOrBlank()) {
+                val userTrigramCandidates = userLexicon.nextWordsAfter(prev2, prev1, maxResults)
+                for (w in userTrigramCandidates) {
+                    val display = userLexicon.displayOf(w) ?: w
+                    results.add(display)
+                    if (results.size >= maxResults) return results.toList()
+                }
+            }
+            val userBigramCandidates = userLexicon.nextWords(prev1, maxResults)
+            for (w in userBigramCandidates) {
+                val display = userLexicon.displayOf(w) ?: w
+                results.add(display)
+                if (results.size >= maxResults) return results.toList()
+            }
+        }
 
         // 1. Trigrams from binary NgramPack
         if (!prev2.isNullOrBlank() && !languageModel.ngramPack.isEmpty) {
@@ -542,15 +563,41 @@ class TelexAutocorrectEngine private constructor() {
     /**
      * Finds Vietnamese word completions matching a prefix (e.g. "việ" -> ["việt", "việc", ...],
      * "vie" -> ["việt", "việc", "viên", ...]).
+     * Prioritizes completions from UserLexicon when available.
      */
-    fun findCompletions(prefix: String, maxResults: Int = 5): List<String> {
+    fun findCompletions(
+        prefix: String,
+        userLexicon: UserLexicon? = null,
+        maxResults: Int = 5
+    ): List<String> {
         if (!isReady || prefix.isBlank()) return emptyList()
         val clean = prefix.trim().lowercase()
-        return languageModel.unigrams.entries
+        val results = LinkedHashSet<String>()
+
+        // 1. User personalized completions
+        if (userLexicon != null) {
+            val userCompletions = userLexicon.complete(clean, maxResults)
+            for (sug in userCompletions) {
+                if (sug.word != clean) {
+                    results.add(userLexicon.displayOf(sug.word) ?: sug.word)
+                    if (results.size >= maxResults) return results.toList()
+                }
+            }
+        }
+
+        // 2. Static unigrams completions
+        val dictCompletions = languageModel.unigrams.entries
             .filter { (it.key.startsWith(clean) || matchesVietnamesePrefix(it.key, clean)) && it.key != clean }
             .sortedByDescending { it.value }
             .take(maxResults)
             .map { it.key }
+
+        for (w in dictCompletions) {
+            results.add(w)
+            if (results.size >= maxResults) break
+        }
+
+        return results.toList()
     }
 
     /**
@@ -593,7 +640,8 @@ class TelexAutocorrectEngine private constructor() {
             val lowerWord = unicodeWord.lowercase()
             if (lowerWord.isEmpty()) return
             if (isWordInDictionary(cleanInput) && !isAccented(cleanInput) && isAccented(unicodeWord)) return
-            if (!isWordInDictionary(unicodeWord)) return
+            val inUserLexicon = userLexicon?.contains(unicodeWord) == true
+            if (!isWordInDictionary(unicodeWord) && !inUserLexicon) return
             if (!seenWords.add(lowerWord)) return
 
             val baseUnigram = languageModel.getUnigramScore(unicodeWord)
@@ -609,6 +657,9 @@ class TelexAutocorrectEngine private constructor() {
             val userBigramCount = if (!cleanPrev.isNullOrEmpty()) {
                 userLexicon?.bigramCount(cleanPrev, unicodeWord) ?: 0
             } else 0
+            val userTrigramCount = if (!cleanPrev.isNullOrEmpty() && !cleanPrev2.isNullOrEmpty()) {
+                userLexicon?.trigramCount(cleanPrev2, cleanPrev, unicodeWord) ?: 0
+            } else 0
             val exactBonus = if (penalty < 0.001) EXACT_MATCH_BONUS else 0.0
 
             val totalScore = exactBonus -
@@ -617,7 +668,8 @@ class TelexAutocorrectEngine private constructor() {
                     (baseBigram * WEIGHT_BIGRAM) +
                     (baseTrigram * WEIGHT_TRIGRAM) +
                     (userUnigramCount * WEIGHT_USER_UNIGRAM) +
-                    (userBigramCount * WEIGHT_USER_BIGRAM)
+                    (userBigramCount * WEIGHT_USER_BIGRAM) +
+                    (userTrigramCount * WEIGHT_USER_TRIGRAM)
 
             rawCandidates.add(
                 TelexCorrectionCandidate(
@@ -633,6 +685,10 @@ class TelexAutocorrectEngine private constructor() {
         val exactWord = trie.findWord(cleanInput)
         if (exactWord != null) {
             evaluateCandidate(exactWord, cleanInput, 0.0)
+        }
+        if (userLexicon?.contains(cleanInput) == true) {
+            val userWord = userLexicon.displayOf(cleanInput) ?: cleanInput
+            evaluateCandidate(userWord, cleanInput, 0.0)
         }
 
         // 2. Bimanual Typing Desync Candidates (Left-Right hand timing and transposition errors)

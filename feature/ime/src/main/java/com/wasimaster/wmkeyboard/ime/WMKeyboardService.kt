@@ -15884,11 +15884,12 @@ open class WMKeyboardService : InputMethodService() {
             if (!telexEngine.isReady) {
                 telexEngine.initialize(assets, filesDir)
             }
+            val currentLexicon = if (::userLexicon.isInitialized) userLexicon else null
             if (effectiveTyped.isEmpty()) {
-                val next = telexEngine.predictNextWords(previous, previous2, maxResults = octopus.density * OCTOPUS_POOL_DEPTH)
+                val next = telexEngine.predictNextWords(previous, previous2, userLexicon = currentLexicon, maxResults = octopus.density * OCTOPUS_POOL_DEPTH)
                 if (next.isNotEmpty()) next else telexEngine.topUnigrams(octopus.density * OCTOPUS_POOL_DEPTH)
             } else {
-                telexEngine.findCompletions(effectiveTyped, maxResults = octopus.density * OCTOPUS_POOL_DEPTH)
+                telexEngine.findCompletions(effectiveTyped, userLexicon = currentLexicon, maxResults = octopus.density * OCTOPUS_POOL_DEPTH)
             }
         } else {
             pool
@@ -16336,6 +16337,7 @@ open class WMKeyboardService : InputMethodService() {
                             val nextWords = telexEngine.predictNextWords(
                                 previousWord = previousWord,
                                 previousWord2 = previousWord2,
+                                userLexicon = userLexicon,
                                 maxResults = askFor
                             )
                             if (nextWords.isNotEmpty()) {
@@ -16366,7 +16368,11 @@ open class WMKeyboardService : InputMethodService() {
                                 allowRerank = true,
                                 limit = askFor,
                             )
-                            val telexCompletions = telexEngine.findCompletions(composed, maxResults = maxOf(SUGGEST_LIMIT, askFor))
+                            val telexCompletions = telexEngine.findCompletions(
+                                prefix = composed,
+                                userLexicon = userLexicon,
+                                maxResults = maxOf(SUGGEST_LIMIT, askFor)
+                            )
                             val combinedDict = (dictSuggestions + telexCompletions).distinctBy { it.lowercase() }
 
                             val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())

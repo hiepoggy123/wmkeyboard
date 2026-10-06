@@ -845,13 +845,22 @@ androidComponents {
         // "en" keeps the unqualified res/values, which is the English one, and
         // drops every values-xx alongside it. That takes the translations of
         // the dependencies with it, so the saving is a little larger than the
-        // app's own strings account for. Nothing filters the `intl` variant:
-        // it packages whatever values-xx the merge produced.
+        // "en" keeps the unqualified res/values, which is the English one, and
+        // drops every values-xx alongside it. That takes the translations of
+        // the dependencies with it, so the saving is a little larger than the
+        // app's own strings account for.
+        // For `intl`, only keep "en" and "vi" to drop 45+ MB of unused foreign language strings
+        // in resources.arsc while preserving Vietnamese and English.
         if (variant.productFlavors.any { (dimension, flavor) ->
                 dimension == "languages" && flavor == "en"
             }
         ) {
             variant.androidResources.localeFilters.set(setOf("en"))
+        } else if (variant.productFlavors.any { (dimension, flavor) ->
+                dimension == "languages" && flavor == "intl"
+            }
+        ) {
+            variant.androidResources.localeFilters.set(setOf("en", "vi"))
         }
     }
 }
