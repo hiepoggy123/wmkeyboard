@@ -17917,7 +17917,6 @@ open class WMKeyboardService : InputMethodService() {
                         )
                     }
                 }
-                }
                 val deep = deepAll.take(askFor)
                 state.composer.phoneticLanguage?.let { lang ->
                     val where = state.settings.suggestionStrip.phoneticCandidateListFor(lang)

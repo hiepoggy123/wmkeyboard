@@ -23330,6 +23330,7 @@ private fun Modifier.pointerInputKey(
                                     delay(intervalMs)
                                 }
                             }
+                        }
                     }
                     change.consume()
                 }
