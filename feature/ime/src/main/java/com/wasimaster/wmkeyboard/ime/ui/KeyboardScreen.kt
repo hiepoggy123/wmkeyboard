@@ -1599,6 +1599,11 @@ fun KeyboardScreen(
             onSizingAction = onSizingAction,
             onFloatingBounds = onFloatingBounds,
             onWindowHeadroom = onWindowHeadroom,
+            onHandwritingStroke = onHandwritingStroke,
+            onHandwritingUndo = onHandwritingUndo,
+            onHandwritingDownload = onHandwritingDownload,
+            onSuggestion = onSuggestion,
+            onPanelChange = onPanelChange,
         )
     }
 }
@@ -1632,6 +1637,12 @@ private fun KeyboardScreenFrame(
     onSizingAction: (SizingAction) -> Unit,
     onFloatingBounds: (IntRect) -> Unit,
     onWindowHeadroom: (Int) -> Unit,
+    // Full-screen handwriting (#386) draws in the frame, outside the body.
+    onHandwritingStroke: (HwStroke, IntSize) -> Unit,
+    onHandwritingUndo: () -> Unit,
+    onHandwritingDownload: () -> Unit,
+    onSuggestion: (String) -> Unit,
+    onPanelChange: (PanelMode) -> Unit,
 ) {
     val movableBody = body
     LaunchedEffect(languageSwitchEcho.shown) {
@@ -4391,6 +4402,7 @@ private fun TopBar(
                         alpha = stripContentFade,
                         textScale = state.settings.suggestionStrip.textScale,
                         hints = if (suggestionsShowing) suggestionHintPlan(state) else null,
+                        highlighted = state.candidateCursor,
                         onCandidate = onCandidate,
                         onExpand = onCandidatesExpand,
                     )
@@ -5277,10 +5289,19 @@ private fun RowScope.CandidateStrip(
     textScale: Float,
     /** The hotkey badges, or null when no physical keyboard is asking for them. */
     hints: HintPlan? = null,
+    /** The candidate the arrow keys or a stepping space bar moved to, or -1 (#419). */
+    highlighted: Int = -1,
     onCandidate: (String, Int) -> Unit,
     onExpand: () -> Unit,
 ) {
+    val listState = rememberLazyListState()
+    // Stepping past the right edge has to bring the highlight with it, or the
+    // candidate Enter is about to type is one nobody can see.
+    ScrollFocusIntoView(highlighted.takeIf { it >= 0 && it < candidates.size }) {
+        listState.animateScrollToItem(it)
+    }
     LazyRow(
+        state = listState,
         modifier = Modifier
             .weight(1f)
             .fillMaxHeight()
@@ -5299,6 +5320,8 @@ private fun RowScope.CandidateStrip(
                 modifier = Modifier
                     .widthIn(min = CandidateChipMinWidth)
                     .fillMaxHeight()
+                    .padding(vertical = if (index == highlighted) 6.dp else 0.dp)
+                    .focusRing(index == highlighted, RoundedCornerShape(10.dp))
                     // By position, not text: the composer works out how much of
                     // the buffer to eat from where the chip sat.
                     .clickable(enabled = enabled) { onCandidate(suggestion, index) },
@@ -5309,7 +5332,9 @@ private fun RowScope.CandidateStrip(
                     modifier = Modifier.padding(horizontal = 10.dp),
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = CandidateFontSize * textScale,
-                    fontWeight = if (index == 0) FontWeight.SemiBold else FontWeight.Normal,
+                    // Bold is "what the space bar commits", which is the
+                    // highlight once there is one.
+                    fontWeight = if (index == highlighted.coerceAtLeast(0)) FontWeight.SemiBold else FontWeight.Normal,
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -10168,6 +10193,9 @@ internal fun FullBleedTool(
     // A band over the header, out of the panel's own height: the clipboard's
     // drag bar that sets how tall the panel opens (#414).
     topHandle: (@Composable () -> Unit)? = null,
+    // Folds the header away and gives its row to [content]: the GIF and
+    // sticker panels' search box while their results scroll down.
+    headerHidden: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -10189,33 +10217,35 @@ internal fun FullBleedTool(
             .height(height),
     ) {
         topHandle?.invoke()
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(FullBleedHeaderHeight)
-                .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (showBack) {
-                ToolCircle(
-                    slot = IconSlots.CHROME_PANEL_BACK,
-                    description = stringResource(R.string.ime_panel_back_desc),
-                    active = false,
-                    onClick = onClose,
-                )
-            }
-            if (title.isNotEmpty()) {
-                Text(
-                    title,
-                    color = kb.secondaryText,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
-            if (headerActions != null) {
-                if (title.isNotEmpty()) Spacer(Modifier.weight(1f))
-                headerActions()
+        MediaHeaderReveal(collapsed = headerHidden) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(FullBleedHeaderHeight)
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (showBack) {
+                    ToolCircle(
+                        slot = IconSlots.CHROME_PANEL_BACK,
+                        description = stringResource(R.string.ime_panel_back_desc),
+                        active = false,
+                        onClick = onClose,
+                    )
+                }
+                if (title.isNotEmpty()) {
+                    Text(
+                        title,
+                        color = kb.secondaryText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+                if (headerActions != null) {
+                    if (title.isNotEmpty()) Spacer(Modifier.weight(1f))
+                    headerActions()
+                }
             }
         }
         Box(
@@ -10665,8 +10695,11 @@ private fun KeyboardBody(
                 state.panel == PanelMode.NONE &&
                 !fullBleed && !emojiSearching && !clipboardSearching && !lockHidden
             // Disabling the toolbar drops the whole strip — suggestions and
-            // tools alike — so the keys claim its height.
-            val topBarVisible = state.settings.toolbarBehavior.enabled && !fullBleed &&
+            // tools alike — so the keys claim its height. Not when the strip is
+            // all there is: a view up only for a physical keyboard's candidates
+            // would otherwise be an empty band (#419).
+            val topBarVisible = (state.settings.toolbarBehavior.enabled || state.hardwareCandidateWindow) &&
+                !fullBleed &&
                 !emojiSearching && !clipboardSearching && !lockHidden
             // The other placement: the macros take the suggestion strip's own
             // row instead of asking for one.
@@ -10941,6 +10974,7 @@ private fun KeyboardBody(
                     onSelectionHold = toolHold.onSelectionHold,
                     onCaretDrag = { toolHold.caretMagnifier.onDrag(CaretDragSource.TRACKPAD, it) },
                 ),
+                onMediaPanelHeight = toolHold.onMediaPanelHeight,
             )
         }
         val shownPanel = if (lockHidden && state.panel == PanelMode.CLIPBOARD) PanelMode.NONE else state.panel
@@ -11185,7 +11219,9 @@ private fun KeyboardBody(
                 // for the key strip, the echo line and a sliver of touchpad.
                 PanelMode.KDE_CONNECT -> FullBleedTool(
                     state,
-                    title = stringResource(R.string.ime_tool_kde_connect),
+                    // Its name is drawn by the header actions, beside the device chip that
+                    // gives way to it when the row runs short.
+                    title = "",
                     onClose = { onPanelChange(PanelMode.KDE_CONNECT) },
                     compact = state.kdeTypingActive || state.kdeHostEntryActive,
                     compactHeight = if (state.kdeHostEntryActive) 96.dp else KdeTypingCompactHeight,
@@ -11580,9 +11616,11 @@ private fun KeyboardBody(
                 )
                 // With a hardware keyboard and toolbar-only mode on, the keys
                 // step aside and just the toolbar remains — tools stay one tap
-                // away while the physical keyboard does the typing.
+                // away while the physical keyboard does the typing. Same for a
+                // view that is only up to show a reading's candidates (#419).
                 PanelMode.NONE -> if (
-                    !(state.hardwareKeyboardPresent && state.settings.toolbarBehavior.onlyWithHardwareKeyboard)
+                    !(state.hardwareKeyboardPresent && state.settings.toolbarBehavior.onlyWithHardwareKeyboard) &&
+                    !state.hardwareCandidateWindow
                 ) {
                     KeyRows(
                         state, onKey, onText, onGesture, onGesturePreview, onCursorMove, onLayoutSelect,
@@ -14805,7 +14843,15 @@ private fun KeyRows(
     val cooldownMs = gesture.postTypeCooldownMs
     // Which key a glide reads as an apostrophe. Read through a State because the
     // grid is built inside the pointer loop, which outlives this composition.
-    val apostropheKey = rememberUpdatedState(gesture.apostropheKey)
+    // A language that spells with the apostrophe (Klingon, Lojban) draws it
+    // through its own `'` key when the setting names none.
+    val apostropheKey = rememberUpdatedState(
+        if (gesture.apostropheKey == GlideApostropheKey.OFF && state.language.apostropheIsLetter) {
+            GlideApostropheKey.APOSTROPHE
+        } else {
+            gesture.apostropheKey
+        },
+    )
     // The spacebar cannot both end a word mid-stroke and stand for an
     // apostrophe: one crossing, two readings. Choosing it as the apostrophe key
     // stands the multi-word split down for as long as that choice holds.
@@ -16064,7 +16110,10 @@ private fun KeyRows(
                         // them as letters: both consumers of the map that are
                         // about letters filter them back out (see
                         // [GlidePunctuationCodePoints]).
-                        val letter = key.glideAnchor() ?: key.glidePunctuationCodePoint()
+                        // A multi-letter key (Klingon's `ch`) reports under
+                        // the letter it carries on the glide grid, when it has one.
+                        val letter = key.glideAnchor() ?: liveLayouts.value.digraphAnchors[key]
+                            ?: key.glidePunctuationCodePoint()
                         if (letter != null) {
                             val topLeft = coords.positionInRoot() - boxOrigin
                             val center = Offset(
@@ -19730,6 +19779,13 @@ internal class AlternatesHold(
     /** The key's touch cell in the keyboard window; the pointer's origin. */
     var cell: Rect = Rect.Zero
 
+    /**
+     * The popup as it was before #532 (Accessibility › Classic press-and-hold
+     * popup): the finger aims where it is, and nothing grows under it. Set by
+     * the popup from the settings as it composes.
+     */
+    var classic: Boolean = false
+
     /** Where the finger was when the popup opened, and whether it has left yet. */
     private var anchor: Offset? = null
     private var steering = false
@@ -19801,7 +19857,7 @@ internal class AlternatesHold(
             if ((local - start).getDistance() < steerPx) return
             steering = true
         }
-        val shift = shiftX ?: steeringShift(start)?.also { shiftX = it } ?: 0f
+        val shift = if (classic) 0f else shiftX ?: steeringShift(start)?.also { shiftX = it } ?: 0f
         val index = indexAt(local, reachPx, shift)
         selected.intValue = index
         pointer.value = if (index < 0) null else aimInGrid(local, shift)
@@ -19833,7 +19889,7 @@ internal class AlternatesHold(
      */
     fun magnification(index: Int): Float {
         val chosen = selected.intValue
-        if (chosen < 0) return 1f
+        if (chosen < 0 || classic) return 1f
         val at = pointer.value ?: return if (index == chosen) AlternatesMagnify else 1f
         val rect = rects.getOrNull(index) ?: return 1f
         if (rect.width <= 0f || rect.height <= 0f) return 1f
@@ -19930,6 +19986,19 @@ internal class AlternatesHold(
 /** How far outside the popup and its key a finger may stray and still be choosing. */
 private val AlternatesReachDp = 24.dp
 
+/** How far the highlight leans toward the finger, as a share of the finger's distance from the entry's centre. */
+private const val AlternatesLeanShare = 0.25f
+
+/** The most the highlight leans, as a share of the entry's size: enough to move, never enough to mislead. */
+private const val AlternatesLeanMax = 0.12f
+
+/** The lean's spring: soft and a little bouncy, so the highlight gives under the finger. */
+private val AlternatesLeanSpring = spring(
+    dampingRatio = 0.55f,
+    stiffness = 700f,
+    visibilityThreshold = Offset(0.5f, 0.5f),
+)
+
 /** How much bigger the alternate the finger is aimed at draws, as a share of its size. */
 private const val AlternatesMagnify = 1.35f
 
@@ -19994,6 +20063,8 @@ private fun AlternatesPopup(
 ) {
     val kb = LocalKbTheme.current
     val configuration = LocalConfiguration.current
+    val classic = popup.alternatesClassic
+    hold?.classic = classic
     val fontScale = popup.alternatesFontScale
     val entryPadding = popup.alternatesPaddingDp.dp
     // The widest the wrap is allowed to grow: the display, less a margin at each
@@ -20029,7 +20100,8 @@ private fun AlternatesPopup(
     // until the first layout, which then places the popup as it always was.
     val firstEntry = remember { mutableStateOf<FirstAlternate?>(null) }
     val mirrored = remember { mutableStateOf(false) }
-    val firstAt = firstEntry.value
+    // Classic: placed where the key is, as before #532.
+    val firstAt = firstEntry.value.takeIf { !classic }
     val provider = remember(popupPosition, hold, marginPx, firstAt) {
         object : PopupPositionProvider {
             override fun calculatePosition(
@@ -20074,22 +20146,51 @@ private fun AlternatesPopup(
     // read in the effect below, never in composition.
     val entryRects = remember { mutableStateOf(emptyList<Rect>()) }
     val highlight = remember { Animatable(Rect.Zero, Rect.VectorConverter) }
+    // The highlight leans a little toward the finger inside the entry it is
+    // on, on a soft spring, so it is never still while the finger moves; once
+    // the finger crosses into the next entry it jumps there in about 30 ms.
+    // That is how Gboard's feels: a give under the finger, then a near-instant
+    // step. The lean is a few percent of the entry, never enough to look like
+    // the highlight is on the wrong one.
+    val lean = remember { Animatable(Offset.Zero, Offset.VectorConverter) }
     val reduceMotion = kb.reduceMotion
+    val still = reduceMotion || classic
     if (hold != null) {
-        LaunchedEffect(hold, reduceMotion) {
+        LaunchedEffect(hold, still) {
             var lit = false
             snapshotFlow { hold.selected.intValue to entryRects.value }.collectLatest { (index, rects) ->
                 val target = rects.getOrNull(index)
                 when {
                     target == null -> lit = false
                     // Appearing, it is already where it belongs; only a move slides.
-                    !lit || reduceMotion -> {
+                    !lit || still -> {
                         lit = true
                         highlight.snapTo(target)
                     }
                     else -> highlight.animateTo(target, AlternatesHighlightSpring)
                 }
             }
+        }
+        LaunchedEffect(hold, still) {
+            if (still) {
+                lean.snapTo(Offset.Zero)
+                return@LaunchedEffect
+            }
+            snapshotFlow { Triple(hold.pointer.value, hold.selected.intValue, entryRects.value) }
+                .collectLatest { (pointer, index, rects) ->
+                    val rect = rects.getOrNull(index)
+                    val wanted = if (pointer == null || rect == null) {
+                        Offset.Zero
+                    } else {
+                        Offset(
+                            ((pointer.x - rect.center.x) * AlternatesLeanShare)
+                                .coerceIn(-rect.width * AlternatesLeanMax, rect.width * AlternatesLeanMax),
+                            ((pointer.y - rect.center.y) * AlternatesLeanShare)
+                                .coerceIn(-rect.height * AlternatesLeanMax, rect.height * AlternatesLeanMax),
+                        )
+                    }
+                    lean.animateTo(wanted, AlternatesLeanSpring)
+                }
         }
     }
     // Opens out of the key it was held on and settles, rather than appearing at
@@ -20175,7 +20276,7 @@ private fun AlternatesPopup(
                                     val at = highlight.value
                                     drawRoundRect(
                                         color = kb.popupSelected,
-                                        topLeft = at.topLeft,
+                                        topLeft = at.topLeft + lean.value,
                                         size = at.size,
                                         cornerRadius = CornerRadius(kb.popupRadiusDp.dp.toPx()),
                                     )
@@ -20705,14 +20806,14 @@ private fun Modifier.alternateMagnify(index: Int, hold: AlternatesHold?): Modifi
 }
 
 /**
- * The highlight's slide between alternates: settled in about 60 ms, as near
- * instant as Gboard's, with just enough travel and a trace of overshoot that it
- * reads as the highlight moving rather than as a flicker. The first cut (900,
- * 0.62) took a quarter of a second and trailed a fast finger.
+ * The highlight's step from one alternate to the next: critically damped and
+ * settled in about 30 ms, which is Gboard's near-instant but not instant. The
+ * give under the finger before the step is [AlternatesLeanSpring]'s. The first
+ * cut (900, 0.62) took a quarter of a second; the second (6000, 0.8) 60 ms.
  */
 private val AlternatesHighlightSpring = spring(
-    dampingRatio = 0.8f,
-    stiffness = 6000f,
+    dampingRatio = 1f,
+    stiffness = 15_000f,
     visibilityThreshold = Rect(0.5f, 0.5f, 0.5f, 0.5f),
 )
 
@@ -24719,6 +24820,12 @@ data class ToolHoldCallbacks(
     val clipboard: ClipboardPanelActions = ClipboardPanelActions(),
     /** The caret magnifier (discussion #303); here for the same reason as [dictionaryBar]. */
     val caretMagnifier: CaretMagnifierSeam = CaretMagnifierSeam(),
+    /**
+     * The GIF and sticker panels' height bar let go: how many dp taller than
+     * the keyboard the emoji, GIF and sticker panels open. Here for the same
+     * reason as [dictionaryBar].
+     */
+    val onMediaPanelHeight: (Int) -> Unit = {},
 )
 
 // ---- snippets panel ----

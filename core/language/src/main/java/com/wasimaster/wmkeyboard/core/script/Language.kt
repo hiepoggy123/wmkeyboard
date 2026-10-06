@@ -48,6 +48,22 @@ data class LanguageDef(
      * the French standard.
      */
     val spacedOpeners: String = "",
+    /**
+     * Whether a letter's case is part of its spelling rather than a matter of
+     * where it stands: Klingon's `q` and `Q` are two different consonants, and
+     * `D`, `H`, `I` and `S` are only ever written as capitals. The keyboard
+     * then never changes case on its own — no capital at a sentence start, none
+     * carried over from the language switched away from — and leaves every
+     * capital to the keys and to shift.
+     */
+    val letterCaseIsSpelling: Boolean = false,
+    /**
+     * Whether the apostrophe is a letter of the alphabet rather than
+     * punctuation: Klingon's glottal stop (`Qapla'`), Lojban's `'` between
+     * vowels. A glide then draws it through the `'` key like any other letter,
+     * without the "Apostrophe in a glide" setting having to name a key.
+     */
+    val apostropheIsLetter: Boolean = false,
 ) {
     /** English-language convenience, preserving the old `InputMode.isEnglish` reads. */
     val isEnglish: Boolean get() = id == "en"
@@ -1778,7 +1794,9 @@ object LanguageRegistry {
             englishName = "Lojban",
             script = ScriptId.LATIN,
             localeTag = "jbo",
-            layoutIds = listOf(BuiltInLayouts.QWERTY_ID),
+            layoutIds = listOf(AssetLayouts.JBO_QWERTY_ID),
+            letterCaseIsSpelling = true,
+            apostropheIsLetter = true,
         ),
         LanguageDef(
             id = "tlh",
@@ -1786,7 +1804,9 @@ object LanguageRegistry {
             englishName = "Klingon",
             script = ScriptId.LATIN,
             localeTag = "tlh",
-            layoutIds = listOf(BuiltInLayouts.QWERTY_ID, AssetLayouts.TLH_T9_ID),
+            layoutIds = listOf(AssetLayouts.TLH_QWERTY_ID, AssetLayouts.TLH_PIQAD_ID, AssetLayouts.TLH_T9_ID),
+            letterCaseIsSpelling = true,
+            apostropheIsLetter = true,
         ),
         LanguageDef(
             id = "se",
@@ -3774,7 +3794,8 @@ object LanguageRegistry {
         }
     }
 
-    fun byId(id: String): LanguageDef = index[id] ?: keymanIndex[id] ?: GENERIC
+    fun byId(id: String): LanguageDef =
+        index[id] ?: keymanIndex[id] ?: KeymanLanguages.mergedInto[id]?.let(index::get) ?: GENERIC
 
     /**
      * The language whose primary subtag matches a BCP-47 tag ("fr-FR" → French,

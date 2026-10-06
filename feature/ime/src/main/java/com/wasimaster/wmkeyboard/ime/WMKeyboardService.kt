@@ -173,6 +173,8 @@ import com.wasimaster.wmkeyboard.core.prediction.Apostrophes
 import com.wasimaster.wmkeyboard.core.prediction.AppLanguageMix
 import com.wasimaster.wmkeyboard.core.prediction.TypedEmails
 import com.wasimaster.wmkeyboard.core.prediction.TypedNumbers
+import com.wasimaster.wmkeyboard.core.prediction.KlingonNumbers
+import com.wasimaster.wmkeyboard.core.prediction.KlingonSuffixes
 import com.wasimaster.wmkeyboard.core.input.BrailleChord
 import com.wasimaster.wmkeyboard.core.input.BrailleGrade1
 import com.wasimaster.wmkeyboard.core.input.DeadKeys
@@ -446,6 +448,7 @@ import com.wasimaster.wmkeyboard.core.localllm.LocalLlmEngine
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
+import com.wasimaster.wmkeyboard.core.tools.AiToolActivity
 import com.wasimaster.wmkeyboard.core.tools.AiToolLoop
 import com.wasimaster.wmkeyboard.core.tools.AiToolRunner
 import com.wasimaster.wmkeyboard.core.tools.AiToolSpec
@@ -3751,7 +3754,7 @@ open class WMKeyboardService : InputMethodService() {
                 // language switch must not leave the old keyboard's rules
                 // running against the new grid.
                 syncKeymanSession(activeSpec)
-                val shift = shiftAcrossScriptChange(activeSpec.script())
+                val shift = shiftAcrossScriptChange(activeSpec.script(), activeSpec.language())
                 _uiState.update {
                     it.copy(
                         settings = modeSettings,
@@ -4339,6 +4342,7 @@ open class WMKeyboardService : InputMethodService() {
                 skipAllCapsAutocorrect = _uiState.value.settings.correction.skipAllCaps
                 dictionaryCapitalsEnabled = _uiState.value.settings.correction.dictionaryCapitals
                 dictionaryCapitals = loadDictionaryCapitals()
+                dictionarySpellings = loadDictionarySpellings()
                 bundledCapitals = loadBundledCapitals()
                 learnedWordMinCount =
                     _uiState.value.settings.suggestionStrip.learnedWordMinCount
@@ -5074,6 +5078,9 @@ open class WMKeyboardService : InputMethodService() {
         // somewhere to draw it — even though a hardware keyboard would normally
         // mean no input view at all. Dropped again when the tool closes.
         if (forcedInputView) return true
+        // A physical keyboard's conversion reading: its candidates are how the
+        // language is typed at all, so the strip comes up for them (#419).
+        if (candidateInputView) return true
         // A pinned keyboard is wanted whatever the field — or the lack of one.
         if (pinnedNow()) return true
         val toolbar = _uiState.value.settings.toolbarBehavior
@@ -5780,7 +5787,7 @@ open class WMKeyboardService : InputMethodService() {
                 deviceLocked = deviceLocked,
                 // Against the layout this field opens on: the state still holds
                 // the last field's script until this update lands.
-                shiftState = autoCapitalizeShift(fieldSpec.script()),
+                shiftState = autoCapitalizeShift(fieldSpec.script(), fieldSpec.language()),
                 shiftPressedByUser = false,
                 clipboardItems = if (clipboardAccessible) clipboardStore.items() else emptyList(),
                 clipboardSuggestion = if (clipboardAccessible) it.clipboardSuggestion else null,
@@ -8920,6 +8927,7 @@ open class WMKeyboardService : InputMethodService() {
      * our dead-key state machine over it as well would double-apply accents.
      */
     private fun processTypedText(input: String, applyDeadKeys: Boolean) {
+        commitSteppedCandidateBeforeTyping()
         val state = _uiState.value
         var text = input
         // A typed character is new text, so the span a pattern was told to
@@ -9996,6 +10004,14 @@ open class WMKeyboardService : InputMethodService() {
             return
         }
         val state = _uiState.value
+        // A stepping space bar's highlight is a conversion in progress, and
+        // backspace backs out of it to the reading, as in Mozc (#419).
+        if (state.candidateCursor >= 0 && composing.isNotEmpty() && state.composer.isConversion &&
+            spaceStepsCandidates(state)
+        ) {
+            _uiState.update { it.copy(candidateCursor = -1) }
+            return
+        }
         // Backspace while handwritten ink is waiting for recognition throws
         // the ink away instead of deleting committed text — the natural
         // "no, not that" while writing. Applies to the panel and to
@@ -11195,14 +11211,24 @@ open class WMKeyboardService : InputMethodService() {
      * on, since it runs on every caret echo.
      */
     private fun noteNumberRun(ic: InputConnection, before: CharSequence?) {
-        if (!typedNumbersOn(_uiState.value)) {
+        val state = _uiState.value
+        val remembering = typedNumbersOn(state)
+        if (!remembering && !klingonNumbersOn(state)) {
             numberRunPending = false
             return
         }
         val digits = TypedNumbers.runBefore(before ?: ic.getTextBeforeCursor(NUMBER_RUN_LOOKBEHIND, 0))
         numberRun = digits
-        numberRunPending = digits != null
+        numberRunPending = remembering && digits != null
     }
+
+    /**
+     * Whether digits typed here are offered in Klingon words ([KlingonNumbers]):
+     * on a Klingon layout, outside a password box. Independent of remembering
+     * numbers, which is about the user's own numbers rather than how to say one.
+     */
+    private fun klingonNumbersOn(state: KeyboardUiState): Boolean =
+        state.language.id == KlingonSuffixes.LANGUAGE && !state.secureField
 
     /**
      * Keeps the number the caret sits right after, if there is one standing
@@ -11228,7 +11254,11 @@ open class WMKeyboardService : InputMethodService() {
      * scan of a capped list, so it runs inline.
      */
     private fun publishTypedNumbers(digits: String): Boolean {
-        val numbers = typedNumbers.complete(digits, NUMBER_SUGGESTION_LIMIT)
+        val state = _uiState.value
+        // In Klingon the number said in words leads, then the remembered ones.
+        val spoken = if (klingonNumbersOn(state)) KlingonNumbers.spell(digits) else null
+        val remembered = if (typedNumbersOn(state)) typedNumbers.complete(digits, NUMBER_SUGGESTION_LIMIT) else emptyList()
+        val numbers = listOfNotNull(spoken) + remembered
         if (numbers.isEmpty()) return false
         suggestionJob?.cancel()
         _uiState.update {
@@ -11684,6 +11714,21 @@ open class WMKeyboardService : InputMethodService() {
         // space (CJK runs words together). An empty buffer falls through to a
         // plain space.
         if (composing.isNotEmpty() && state.composer.isConversion) {
+            // The stepping space bar of Japanese IMEs (#419): the first press
+            // highlights the top candidate, each one after moves on, and Enter
+            // types it. With nothing ranked yet there is nothing to step
+            // through, so the press converts as it always has.
+            if (spaceStepsCandidates(state) && state.suggestions.isNotEmpty()) {
+                val size = state.suggestions.size
+                _uiState.update { it.copy(candidateCursor = (it.candidateCursor + 1).mod(size)) }
+                lastSpaceTime = now
+                return
+            }
+            // The arrow keys moved off the first candidate: that is the pick.
+            if (commitHighlightedCandidate()) {
+                lastSpaceTime = now
+                return
+            }
             val buf = composing.toString()
             val top = state.composer.candidates(buf).firstOrNull()
             if (top != null) {
@@ -11802,8 +11847,10 @@ open class WMKeyboardService : InputMethodService() {
         // A conversion reading still waiting: Enter confirms it as typed, and
         // that is all it does — the hiragana or the letters, no candidate, no
         // newline, no send (#514, #515). Space and a tapped candidate convert.
+        // Unless a candidate has been highlighted with the arrow keys or a
+        // stepping space bar, in which case Enter is what picks it (#419).
         if (composing.isNotEmpty() && state.composer.isConversion) {
-            commitConversionAsTyped(ic)
+            if (!commitHighlightedCandidate()) commitConversionAsTyped(ic)
             return
         }
         // Whether this ends up a newline or an editor action, it ends the
@@ -12559,7 +12606,7 @@ open class WMKeyboardService : InputMethodService() {
         // running against the new grid.
         syncKeymanSession(spec)
         syncEngineBlacklist(spec.language().id)
-        val shift = shiftAcrossScriptChange(spec.script())
+        val shift = shiftAcrossScriptChange(spec.script(), spec.language())
         _uiState.update {
             it.copy(
                 language = spec.language(),
@@ -14537,8 +14584,10 @@ open class WMKeyboardService : InputMethodService() {
                 suggestions = nextWords,
                 emojiSuggestions = nextEmojis,
                 autocorrectWord = null,
+                candidateCursor = -1,
             )
         }
+        syncHardwareCandidateWindow()
     }
 
     /**
@@ -14582,8 +14631,10 @@ open class WMKeyboardService : InputMethodService() {
                     // an empty panel with the keyboard hidden behind it.
                     panel = if (it.panel == PanelMode.CANDIDATES) PanelMode.NONE else it.panel,
                     expandedCandidates = emptyList(),
+                    candidateCursor = -1,
                 )
             }
+            syncHardwareCandidateWindow()
         } else {
             // Re-show the remaining pinyin/kana as the composing region and
             // convert it — the next chunk's candidates fill the strip.
@@ -17440,6 +17491,12 @@ open class WMKeyboardService : InputMethodService() {
         val composer = state.composer
         val gridOpen = state.panel == PanelMode.CANDIDATES
         refreshConversionPackOffer(state, typed)
+        // A new reading is a new list, so whatever the arrow keys had
+        // highlighted in the old one no longer means anything. Reset here, on
+        // the keystroke, rather than when the list lands: a stepping space
+        // pressed in between has already moved on to the new list.
+        if (state.candidateCursor != -1) _uiState.update { it.copy(candidateCursor = -1) }
+        syncHardwareCandidateWindow()
         // The lattice decode runs off the main thread, with no debounce: the
         // candidates are how this language is typed at all, so they must not
         // wait. A key typed meanwhile cancels the job, and one still queued
@@ -18448,8 +18505,11 @@ open class WMKeyboardService : InputMethodService() {
         // nothing rather than land somewhere they no longer are. No space
         // after it, since what follows a number is as often a mark as a word.
         val digitRun = numberRun
-        if (digitRun != null && composing.isEmpty() && suggestion.length > digitRun.length &&
-            suggestion.startsWith(digitRun)
+        if (digitRun != null && composing.isEmpty() && (
+                suggestion.length > digitRun.length && suggestion.startsWith(digitRun) ||
+                    // The same digits said in Klingon words replace them the same way.
+                    suggestion == KlingonNumbers.spell(digitRun)
+                )
         ) {
             numberRun = null
             if (TypedNumbers.runBefore(ic.getTextBeforeCursor(NUMBER_RUN_LOOKBEHIND, 0)) != digitRun) return
@@ -18498,8 +18558,10 @@ open class WMKeyboardService : InputMethodService() {
             if (caret.tail.isEmpty() && expectedSelEnd > expectedSelStart &&
                 ic.getSelectedText(0)?.toString() == caret.word
             ) {
-                val replacement =
-                    displayCaseForShift(caseLike(suggestion, caret.word), _uiState.value.shiftState)
+                val replacement = displayCaseForShift(
+                    caseLike(suggestion, caret.word, _uiState.value.language.letterCaseIsSpelling),
+                    _uiState.value.shiftState,
+                )
                 ic.commitText(replacement, 1)
                 invalidateExpectedSelection()
                 recordStat { onWordsCommitted(1, System.currentTimeMillis()) }
@@ -18535,7 +18597,10 @@ open class WMKeyboardService : InputMethodService() {
             // replaced, whose capital the live shift state can no longer
             // account for (#212).
             val replacement =
-                displayCaseForShift(caseLike(suggestion, caret.word), _uiState.value.shiftState)
+                displayCaseForShift(
+                    caseLike(suggestion, caret.word, _uiState.value.language.letterCaseIsSpelling),
+                    _uiState.value.shiftState,
+                )
             ic.beginBatchEdit()
             ic.deleteSurroundingText(head.length, tail.length)
             ic.commitText(replacement, 1)
@@ -18690,7 +18755,10 @@ open class WMKeyboardService : InputMethodService() {
         // since spent — auto-capitalize's above all (#212).
         notePhoneticPick(suggestion)
         val committed = _uiState.value.let { state ->
-            val cased = displayCaseForShift(caseLike(suggestion, replacedWord), state.shiftState)
+            val cased = displayCaseForShift(
+                caseLike(suggestion, replacedWord, state.language.letterCaseIsSpelling),
+                state.shiftState,
+            )
             // An English word picked on a layout with no case of its own opens
             // a sentence with a capital the way a committed one does.
             if (composing.isNotEmpty() && isLatinOnPhonetic(cased, state)) {
@@ -20008,7 +20076,11 @@ open class WMKeyboardService : InputMethodService() {
                     converts = state.composer.isTransliterating || state.composer.isConversion,
                     phonetic = state.composer.phoneticLanguage
                         ?: KHIPRO_GLIDE.takeIf { state.composer is KhiproComposer },
-                    alphabet = state.layouts.letterAlphabet + state.composer.glideKeys,
+                    alphabet = state.layouts.letterAlphabet + state.composer.glideKeys +
+                        // The glide grid puts the apostrophe on the `'` key for
+                        // these (see KeyboardScreen), so their words count as
+                        // drawable: most of Klingon's commonest end in one.
+                        if (state.language.apostropheIsLetter) APOSTROPHE_LETTERS else emptySet(),
                     sources = epoch,
                 )
             }
@@ -26717,6 +26789,8 @@ open class WMKeyboardService : InputMethodService() {
             // never recorded either.
             if (seq != aiRunSeq) return@launch
             if (localStandIn && (fellBack || result.isSuccess)) noteOfflineFallback(OFFLINE_FALLBACK_AI, fellBack)
+            // What the model looked up stays over the finished answer.
+            val toolUses = aiToolsOf(_uiState.value.ai)
             val next = result.fold(
                 onSuccess = { completion ->
                     val raw = completion.text
@@ -26738,6 +26812,7 @@ open class WMKeyboardService : InputMethodService() {
                                     aiDiffable(action, generated),
                                 diffable = aiDiffable(action, generated),
                                 autoReplaced = willAutoReplace,
+                                tools = toolUses,
                             )
                         }
                         raw.isBlank() -> AiUi.Error(
@@ -26893,6 +26968,8 @@ open class WMKeyboardService : InputMethodService() {
                     )
                 }
             },
+            onToolCall = { call -> applyAiTools(seq) { it + AiToolActivity.started(call) } },
+            onToolResult = { result -> applyAiTools(seq) { AiToolActivity.record(it, result) } },
             isActive = { seq == aiRunSeq },
         ) { roundSystem, roundTurns, _, roundPartial ->
             AiClient.Completion(
@@ -26927,6 +27004,30 @@ open class WMKeyboardService : InputMethodService() {
             val loading = it.ai as? AiUi.Loading
             if (loading == null) it else it.copy(ai = loading.copy(phase = phase))
         }
+    }
+
+    /**
+     * Rewrites the tool record of the run on screen, whichever view it is in:
+     * a model that wrote "let me check" before searching is already showing
+     * its streaming result, and the search belongs over that.
+     */
+    private fun applyAiTools(seq: Int, change: (List<AiToolActivity>) -> List<AiToolActivity>) {
+        if (seq != aiRunSeq) return
+        _uiState.update {
+            if (seq != aiRunSeq) return@update it
+            when (val ai = it.ai) {
+                is AiUi.Loading -> it.copy(ai = ai.copy(tools = change(ai.tools)))
+                is AiUi.Ready -> it.copy(ai = ai.copy(tools = change(ai.tools)))
+                else -> it
+            }
+        }
+    }
+
+    /** The tool record of the run on screen, to carry into the state that replaces it. */
+    private fun aiToolsOf(ai: AiUi): List<AiToolActivity> = when (ai) {
+        is AiUi.Loading -> ai.tools
+        is AiUi.Ready -> ai.tools
+        else -> emptyList()
     }
 
     /**
@@ -26968,6 +27069,8 @@ open class WMKeyboardService : InputMethodService() {
                     )
                 }
             },
+            onToolCall = { call -> applyAiTools(seq) { it + AiToolActivity.started(call) } },
+            onToolResult = { result -> applyAiTools(seq) { AiToolActivity.record(it, result) } },
             // A superseded or closed run stops reading here rather than holding
             // the socket — and paying for tokens — until the model finishes.
             isActive = { seq == aiRunSeq },
@@ -27006,6 +27109,7 @@ open class WMKeyboardService : InputMethodService() {
                         phase = AiPhase.THINKING,
                         thinkingChars = raw.length,
                         startedAtMs = startedAt,
+                        tools = aiToolsOf(it.ai),
                     )
                     shown.output.isBlank() -> it.ai // nothing visible yet
                     // showDiff stays false while this streams: a half-finished
@@ -27017,6 +27121,7 @@ open class WMKeyboardService : InputMethodService() {
                         sourceFromSelection = fromSelection,
                         stripMarkdown = (it.ai as? AiUi.Ready)?.stripMarkdown ?: true,
                         diffable = aiDiffable(action, generated),
+                        tools = aiToolsOf(it.ai),
                     )
                 },
             )
@@ -29822,6 +29927,7 @@ open class WMKeyboardService : InputMethodService() {
                 onUndo = ::onFindReplaceUndo,
             ),
             clipboard = clipboardPanelActions(),
+            onMediaPanelHeight = ::onMediaPanelHeight,
             caretMagnifier = com.wasimaster.wmkeyboard.ime.ui.CaretMagnifierSeam(
                 onDrag = ::onCaretDrag,
                 state = caretMagnifier.state,
@@ -32417,6 +32523,9 @@ open class WMKeyboardService : InputMethodService() {
         learningBuffer.drop(trimmed)
         wordRanks.remove(trimmed)
         glideShapes.forget(trimmed)
+        // A caret on a swiped word fills the strip from that stroke's readings,
+        // not from the engine, so the refresh below put it straight back (#277).
+        glideReadings.dropReading(trimmed)
         suggestionEngine?.rankOffsets = wordRanks.snapshot()
         serviceScope.launch {
             val removed = withContext(Dispatchers.IO) {
@@ -33766,6 +33875,16 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * The GIF or sticker panel's height bar let go: [extraDp] is how much
+     * taller than the keyboard the emoji, GIF and sticker panels open from now
+     * on, the setting the emoji settings' Panel height slider writes (#537).
+     */
+    fun onMediaPanelHeight(extraDp: Int) {
+        if (extraDp == _uiState.value.settings.emoji.panelExtraHeightDp) return
+        serviceScope.launch { settingsRepository.setMediaPanelExtraHeightDp(extraDp) }
+    }
+
+    /**
      * Opens a link clip in the browser, from its press-and-hold popup (#371).
      * Only a clip that is one bare web address: [ClipLinks.asUrl] takes nothing
      * but http, https and www, so a copied `intent:` or `file:` never opens.
@@ -34211,6 +34330,7 @@ open class WMKeyboardService : InputMethodService() {
         // A browse whose Ctrl-up went to another window can never commit.
         if (_uiState.value.languageSwitch != null) cancelLanguageBrowse()
         releaseForcedInputView()
+        releaseHardwareCandidateWindow()
     }
 
     private fun hardwareShortcutSettings(): HardwareKeyboardSettings =
@@ -34344,6 +34464,8 @@ open class WMKeyboardService : InputMethodService() {
     private fun handleKeyGridNavKey(event: KeyEvent): Boolean {
         if (!_uiState.value.settings.hardwareKeyboard.dpadKeyNavigation) return false
         if (!isInputViewShown) return false
+        // Up only for a physical keyboard's candidates: there are no keys to ring.
+        if (_uiState.value.hardwareCandidateWindow) return false
         if (_uiState.value.panel != PanelMode.NONE) return false
         val focus = panelFocus.keyGrid
         val keyCode = event.keyCode
@@ -34999,6 +35121,7 @@ open class WMKeyboardService : InputMethodService() {
             return false
         }
 
+        if (handleCandidateKey(event)) return consumeHardwareKey(keyCode)
         stopVoiceForManualInput()
         return when (keyCode) {
             KeyEvent.KEYCODE_SPACE -> {
@@ -35053,6 +35176,108 @@ open class WMKeyboardService : InputMethodService() {
                 }
             }
         }
+    }
+
+    /**
+     * The arrow keys, Escape and the digits over a conversion reading's
+     * candidates (#419) — how fcitx, Mozc and every desktop CJK IME pick one.
+     *
+     * Right and Down move the highlight on, Left and Up back, wrapping at the
+     * ends. Once something is highlighted, Escape drops back to the reading and
+     * a bare 1–9 picks that candidate; before that the digits are left alone,
+     * because Jyutping's tones and the T9 pad type them into the reading.
+     */
+    private fun handleCandidateKey(event: KeyEvent): Boolean {
+        val state = _uiState.value
+        if (composing.isEmpty() || !state.composer.isConversion || state.captureTarget() != null) return false
+        val highlighted = state.candidateCursor >= 0
+        return when (val keyCode = event.keyCode) {
+            KeyEvent.KEYCODE_DPAD_RIGHT, KeyEvent.KEYCODE_DPAD_DOWN -> moveCandidateCursor(1)
+            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_UP -> moveCandidateCursor(-1)
+            KeyEvent.KEYCODE_ESCAPE -> {
+                if (highlighted) _uiState.update { it.copy(candidateCursor = -1) }
+                highlighted
+            }
+            in KeyEvent.KEYCODE_1..KeyEvent.KEYCODE_9 ->
+                highlighted && event.hasNoModifiers() && pickSuggestion(keyCode - KeyEvent.KEYCODE_1)
+            else -> false
+        }
+    }
+
+    /** Moves the candidate highlight [delta] places, wrapping; false with no candidates to move over. */
+    private fun moveCandidateCursor(delta: Int): Boolean {
+        val state = _uiState.value
+        val size = state.suggestions.size
+        if (composing.isEmpty() || !state.composer.isConversion || size == 0) return false
+        // Nobody has moved yet means the first candidate, since that is what
+        // the space bar would pick: Right goes to the second.
+        val next = (state.candidateCursor.coerceAtLeast(0) + delta).mod(size)
+        _uiState.update { it.copy(candidateCursor = next) }
+        return true
+    }
+
+    /**
+     * Commits the highlighted conversion candidate, through the same path a tap
+     * takes so the span it consumes is worked out by position. False when
+     * nothing is highlighted, which leaves the caller to do what it did before.
+     */
+    private fun commitHighlightedCandidate(): Boolean {
+        val state = _uiState.value
+        val index = state.candidateCursor
+        if (index < 0 || composing.isEmpty() || !state.composer.isConversion) return false
+        val candidate = state.suggestions.getOrNull(index) ?: return false
+        onCandidateTapped(candidate, index)
+        return true
+    }
+
+    /** Whether [state]'s language has the stepping space bar (#419). */
+    private fun spaceStepsCandidates(state: KeyboardUiState): Boolean =
+        state.language.id in state.settings.cjk.spaceStepsCandidatesLanguages
+
+    /**
+     * Typing on after stepping to a candidate confirms it, as in every Japanese
+     * IME: the highlight is the conversion the user chose, and the next letter
+     * starts a new reading after it. The rest of the old reading converts to
+     * its best candidates so none of it is left behind as letters.
+     */
+    private fun commitSteppedCandidateBeforeTyping() {
+        val state = _uiState.value
+        if (state.candidateCursor < 0 || !spaceStepsCandidates(state)) return
+        val ic = currentInputConnection ?: return
+        if (!commitHighlightedCandidate()) return
+        if (composing.isNotEmpty()) flushConversion(ic)
+    }
+
+    /** The input view is up for [KeyboardUiState.hardwareCandidateWindow] and owes a restore. */
+    private var candidateInputView = false
+
+    /**
+     * Brings the candidate strip up for a reading typed on a physical keyboard,
+     * and takes it down again once the reading is spent (#419).
+     *
+     * A hardware keyboard normally means no input view at all, which for a
+     * conversion language means no candidates: the reading composes and only
+     * the space bar's top pick is ever reachable. A view already on screen (the
+     * toolbar-only view, a pinned keyboard, the soft keys) shows the strip
+     * anyway and is left alone.
+     */
+    private fun syncHardwareCandidateWindow() {
+        val state = _uiState.value
+        val wanted = composing.isNotEmpty() && state.composer.isConversion &&
+            state.captureTarget() == null && hasHardwareKeyboard()
+        if (wanted == candidateInputView) return
+        if (wanted && isInputViewShown) return
+        candidateInputView = wanted
+        _uiState.update { it.copy(hardwareCandidateWindow = wanted) }
+        updateInputViewShown()
+    }
+
+    /** Gives back a view [syncHardwareCandidateWindow] brought up, whatever is composing. */
+    private fun releaseHardwareCandidateWindow() {
+        if (!candidateInputView) return
+        candidateInputView = false
+        _uiState.update { it.copy(hardwareCandidateWindow = false) }
+        updateInputViewShown()
     }
 
     /**
@@ -35284,6 +35509,19 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * Every cased spelling of the downloaded lists of languages whose capitals
+     * are letters of their own (Klingon), by language id; see
+     * [DictionaryCapitals.spellingsOf]. Only those languages write the file.
+     */
+    private fun loadDictionarySpellings(): Map<String, WordSource> {
+        if (!userUnlocked) return emptyMap()
+        return DictionaryStore.downloadedLanguageIds(filesDir)
+            .filter { LanguageRegistry.byId(it).letterCaseIsSpelling && shippedDictionaryEnabled(it) }
+            .mapNotNull { id -> MappedTrie.open(DictionaryStore.spellingsFile(filesDir, id))?.let { id to it } }
+            .toMap()
+    }
+
+    /**
      * The capitals shipped for English's bundled list, which spells nothing
      * with one (#517): Monday, London, iPhone. Read from the APK, so a locked
      * boot has them too. Small enough to hold on the heap.
@@ -35326,6 +35564,7 @@ open class WMKeyboardService : InputMethodService() {
         suggestionEngine?.let { engine ->
             engine.dictionary = english ?: PackedTrie.EMPTY
             engine.dictionaryCapitals = loadDictionaryCapitals()
+            engine.dictionarySpellings = loadDictionarySpellings()
             engine.bengaliIndex = buildBengaliIndex()
             val lang = _uiState.value.language
             engine.customDictionary = customDictionaries[lang.id] ?: PackedTrie.EMPTY
@@ -35610,17 +35849,25 @@ open class WMKeyboardService : InputMethodService() {
      * onStartInput and a live connection: the framework computed it for
      * exactly this purpose.
      *
-     * [script] is the script the answer is for. It defaults to the one on
-     * screen; a caller about to swap the layout passes the incoming one, since
-     * the state still holds the outgoing script until its update lands.
+     * [script] and [language] are what the answer is for. They default to the
+     * ones on screen; a caller about to swap the layout passes the incoming
+     * ones, since the state still holds the outgoing pair until its update
+     * lands.
      */
-    private fun autoCapitalizeShift(script: ScriptDef = _uiState.value.script): ShiftState {
+    private fun autoCapitalizeShift(
+        script: ScriptDef = _uiState.value.script,
+        language: LanguageDef = _uiState.value.language,
+    ): ShiftState {
         val state = _uiState.value
         if (!state.settings.autoText.capitalize) return ShiftState.OFF
         // Sentence capitalization applies to every cased script; Arabic,
         // Bengali and the rest have no letter case, and their shift layer is a
         // second set of letters rather than capitals.
         if (!script.hasLetterCase) return ShiftState.OFF
+        // Nor in a language whose capitals are letters of their own (Klingon,
+        // #566): an armed shift there turns the word's first letter into a
+        // different one, `qaH` into `QaH`.
+        if (language.letterCaseIsSpelling) return ShiftState.OFF
         val info = currentInputEditorInfo ?: return ShiftState.OFF
         if (info.inputType and InputType.TYPE_MASK_CLASS != InputType.TYPE_CLASS_TEXT) {
             return ShiftState.OFF
@@ -35647,12 +35894,19 @@ open class WMKeyboardService : InputMethodService() {
      * without this the Arabic grid opened shifted after every switch at a
      * sentence start. Going the other way, Arabic to English at a sentence
      * start now gets its capital.
+     *
+     * A language whose case is spelling ([LanguageDef.letterCaseIsSpelling])
+     * counts as caseless here, though its script is Latin: the shift English
+     * armed at a sentence start would otherwise ride into Klingon and turn
+     * the first `q` into `Q`.
      */
-    private fun shiftAcrossScriptChange(script: ScriptDef): ShiftState? {
-        val from = _uiState.value.script
-        if (from.id == script.id) return null
-        if (from.hasLetterCase && script.hasLetterCase) return null
-        return autoCapitalizeShift(script)
+    private fun shiftAcrossScriptChange(script: ScriptDef, language: LanguageDef): ShiftState? {
+        val from = _uiState.value
+        val fromCased = from.script.hasLetterCase && !from.language.letterCaseIsSpelling
+        val toCased = script.hasLetterCase && !language.letterCaseIsSpelling
+        if (from.script.id == script.id && fromCased == toCased) return null
+        if (fromCased && toCased) return null
+        return autoCapitalizeShift(script, language)
     }
 
     private fun maybeAutoCapitalize() {
@@ -36903,3 +37157,6 @@ private const val LATIN_EXTENDED_END = 0x24F
 
 /** WhatsApp, and the business build that registers its own package. */
 private val WHATSAPP_PACKAGES = listOf("com.whatsapp", "com.whatsapp.w4b")
+
+/** The apostrophe's two spellings, as code points: what a glide counts as a letter where it is one. */
+private val APOSTROPHE_LETTERS: Set<Int> = setOf('\''.code, '’'.code)

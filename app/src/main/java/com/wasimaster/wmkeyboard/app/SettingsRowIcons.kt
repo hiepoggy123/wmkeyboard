@@ -396,6 +396,7 @@ internal object SettingsRowIcons {
         put(R.string.accessibility_text_size_title) { Icons.Outlined.FormatSize }
         put(R.string.accessibility_keyboard_font_title) { Icons.Outlined.TextFields }
         put(R.string.accessibility_reduce_motion_title) { Icons.Outlined.MotionPhotosOff }
+        put(R.string.accessibility_classic_popup_title) { Icons.Outlined.Keyboard }
         put(R.string.accessibility_row_icons_title) { Icons.Outlined.Interests }
         put(R.string.accessibility_screen_transitions_title) { Icons.Outlined.Animation }
         put(R.string.accessibility_keyboard_preview_title) { Icons.Outlined.Keyboard }
@@ -626,6 +627,7 @@ internal object SettingsRowIcons {
         put(R.string.languages_cjk_lazy_title) { Icons.Outlined.RecordVoiceOver }
         put(R.string.languages_cjk_loose_marks_title) { Icons.Outlined.Spellcheck }
         put(R.string.languages_cjk_full_width_space_title) { Icons.Outlined.SpaceBar }
+        put(R.string.languages_cjk_space_steps_title) { Icons.Outlined.SwapHoriz }
         put(R.string.languages_cjk_fuzzy_pairs_reset_title) { Icons.Outlined.Restore }
         put(R.string.languages_fancy_style_row_title) { Icons.Outlined.TextFormat }
         put(R.string.languages_spelling_map_row_title) { Icons.Outlined.Spellcheck }
@@ -1257,6 +1259,10 @@ internal object SettingsRowIcons {
         put(R.string.tooldetail_sticker_suggest_style_title) { Icons.Outlined.ViewAgenda }
         put(R.string.tooldetail_sticker_suggest_trigger_title) { Icons.AutoMirrored.Outlined.Backspace }
         put(R.string.tooldetail_media_full_bleed_title) { Icons.Outlined.Fullscreen }
+        put(R.string.tooldetail_media_gif_per_row_title) { Icons.Outlined.ViewColumn }
+        put(R.string.tooldetail_media_sticker_per_row_title) { Icons.Outlined.ViewColumn }
+        put(R.string.tooldetail_media_spacing_title) { Icons.Outlined.Padding }
+        put(R.string.tooldetail_media_hide_header_title) { Icons.Outlined.SwipeUp }
         put(R.string.tooldetail_media_sticker_send_title) { Icons.AutoMirrored.Outlined.Send }
         put(R.string.tooldetail_media_gif_send_title) { Icons.AutoMirrored.Outlined.Send }
         put(R.string.tooldetail_media_limit_title) { Icons.Outlined.Numbers }

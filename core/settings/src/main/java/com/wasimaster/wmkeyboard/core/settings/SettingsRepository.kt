@@ -431,6 +431,14 @@ data class KeyPopupSettings(
      * leaves and a second tap picks an entry.
      */
     val alternatesHoldToSelect: Boolean = true,
+    /**
+     * The long-press popup as it was before #532: laid out where the key is
+     * rather than with its first entry over the key, the finger aiming where it
+     * is rather than where it started, no entry growing under the finger, and a
+     * highlight that jumps rather than slides. For anyone who finds the moving
+     * parts harder to follow (Accessibility › Motion). Off by default.
+     */
+    val alternatesClassic: Boolean = false,
 ) {
     /**
      * The stored height of one style, on or off: what [heightDp] is for [onKey],
@@ -2598,7 +2606,30 @@ data class GifSettings(
      * Off, a hold does nothing and a slide scrolls the tray.
      */
     val stickerSuggestMagnify: Boolean = true,
+    /**
+     * How many GIFs the panel puts side by side in a row, at most. Rows are
+     * justified, so a wide GIF still takes more of its row than a square one;
+     * this sets how many share one, and so how big each is. See
+     * [MediaPerRowRange].
+     */
+    val gifPerRow: Int = 3,
+    /** The same as [gifPerRow], for the sticker panel. */
+    val stickerPerRow: Int = 3,
+    /** The gap between the cells of the GIF and sticker grids, in dp. See [MediaGridSpacingRange]. */
+    val gridSpacing: Int = 4,
+    /**
+     * Scrolling down the GIF or sticker results slides the search box and the
+     * rows of chips under it out of the way, and scrolling back up brings them
+     * back. Off by default: they stay put, as they always have.
+     */
+    val hideHeaderOnScroll: Boolean = false,
 )
+
+/** Bounds for [GifSettings.gifPerRow] and [GifSettings.stickerPerRow]; the settings sliders share them. */
+val MediaPerRowRange = 1..6
+
+/** Bounds for [GifSettings.gridSpacing]; the settings slider shares them. */
+val MediaGridSpacingRange = 0..12
 
 /**
  * The web, image and encyclopedia search tools.
@@ -4623,6 +4654,18 @@ data class CjkSettings(
      * its own way. Empty by default, so nobody's space changes under them.
      */
     val fullWidthSpaceLanguages: Set<String> = emptySet(),
+    /**
+     * The languages whose space bar steps through the conversion candidates
+     * instead of committing the first one, by language id (#419): the first
+     * press highlights the top candidate, each press after it moves on, and
+     * Enter types the highlighted one. How Japanese IMEs (and fcitx's) work.
+     *
+     * Per language for the same reason as [fullWidthSpaceLanguages], and empty
+     * by default: the space bar committing the top candidate is what everyone
+     * already typing Chinese here has in their fingers. The arrow keys step
+     * through the candidates whatever this says.
+     */
+    val spaceStepsCandidatesLanguages: Set<String> = emptySet(),
     /** Which region's vocabulary Traditional output should prefer. */
     val hanRegion: HanVariant.HanRegion = HanVariant.HanRegion.GENERIC,
 )
@@ -6659,9 +6702,11 @@ data class IconSettings(
      * Slot id → icon source, for slots the user changed one at a time.
      *
      * A source is `b:<name>` for one of the bundled Material icons (see
-     * `BuiltinIcons`) or `p:<packId>` to take that slot from a specific
-     * installed pack. An entry naming a pack or an icon that no longer exists
-     * falls back to the default rather than drawing nothing.
+     * `BuiltinIcons`), `p:<packId>` to take that slot from a specific
+     * installed pack, or `v:<variant>` for one of the slot's other looks, out
+     * of the active pack or the app's own (`IconDefaults.variant`). An entry
+     * naming a pack, an icon or a look that no longer exists falls back to the
+     * default rather than drawing nothing.
      */
     val overrides: Map<String, String> = emptyMap(),
     /**
@@ -7767,6 +7812,14 @@ data class SuggestionStripSettings(
      */
     val phoneticStripSources: Map<String, PhoneticStripSource> = emptyMap(),
     /**
+     * Where each phonetic language shows desktop Avro's candidate list — the
+     * words Avro drops down under the word being typed: folded into the strip,
+     * or a scrollable row above it. A language with no entry shows none, so
+     * the strip stays what it was until someone asks. Read it through
+     * [phoneticCandidateListFor].
+     */
+    val phoneticCandidateLists: Map<String, PhoneticCandidateList> = emptyMap(),
+    /**
      * Whether Bengali may be written as "ANSI", the pre-Unicode encoding of
      * Bijoy and the SutonnyMJ fonts (আ as `Av`), for fields that are set in
      * one of those fonts. Allowing it only puts the ANSI button on the strip
@@ -7775,14 +7828,6 @@ data class SuggestionStripSettings(
      * font. On Bengali's own screen.
      */
     val bengaliAnsiAllowed: Boolean = false,
-    /**
-     * Where each phonetic language shows desktop Avro's candidate list — the
-     * words Avro drops down under the word being typed: folded into the strip,
-     * or a scrollable row above it. A language with no entry shows none, so
-     * the strip stays what it was until someone asks. Read it through
-     * [phoneticCandidateListFor].
-     */
-    val phoneticCandidateLists: Map<String, PhoneticCandidateList> = emptyMap(),
     /** Whether the Bengali layouts write ANSI right now: the strip button's state. */
     val bengaliAnsiOn: Boolean = false,
     /**
@@ -7856,6 +7901,10 @@ data class SuggestionStripSettings(
     fun phoneticFixedStripFor(langId: String?): PhoneticStripSource? =
         langId?.takeIf { it in phoneticFixedStripLangs }?.let(::phoneticStripSourceFor)
 
+    /** Where [langId]'s phonetic layout shows its candidate list; OFF for no phonetic layout. */
+    fun phoneticCandidateListFor(langId: String?): PhoneticCandidateList =
+        langId?.let { phoneticCandidateLists[it] } ?: PhoneticCandidateList.OFF
+
     /**
      * Whether [langId] still reads the bundled and downloaded dictionaries, as
      * opposed to the user's imported lists alone. See [importedOnlyLangs].
@@ -7864,12 +7913,7 @@ data class SuggestionStripSettings(
 
     /** Whether predictions read [langId]'s downloaded word-pair data. */
     fun wordPairsEnabledFor(langId: String): Boolean = langId !in wordPairsOffLangs
-
-    /** Where [langId]'s phonetic layout shows its candidate list; OFF for no phonetic layout. */
-    fun phoneticCandidateListFor(langId: String?): PhoneticCandidateList =
-        langId?.let { phoneticCandidateLists[it] } ?: PhoneticCandidateList.OFF
 }
-
 
 /**
  * DataStore-backed settings. Every option on the settings screens flows
@@ -8266,6 +8310,7 @@ class SettingsRepository(private val context: Context) {
         private val ALTERNATES_NEAREST_FIRST = booleanPreferencesKey("alternates_nearest_first")
         private val ALTERNATES_ORDER = stringPreferencesKey("alternates_order")
         private val ALTERNATES_HOLD_TO_SELECT = booleanPreferencesKey("alternates_hold_to_select")
+        private val ALTERNATES_CLASSIC = booleanPreferencesKey("alternates_classic")
         private val COLOR_VISION_FILTER = stringPreferencesKey("color_vision_filter")
         private val HIGH_CONTRAST_KEYS = booleanPreferencesKey("high_contrast_keys")
         private val KEY_OUTLINES = booleanPreferencesKey("key_outlines")
@@ -8328,6 +8373,7 @@ class SettingsRepository(private val context: Context) {
 
         /** `langId=SOURCE` entries, one per language that has picked one. */
         private val PHONETIC_STRIP_SOURCES = stringSetPreferencesKey("phonetic_strip_sources")
+        private val PHONETIC_CANDIDATE_LISTS = stringSetPreferencesKey("phonetic_candidate_lists")
 
         /** What the old single switch meant while it was on: every language with a phonetic layout. */
         private val LEGACY_PHONETIC_ENGLISH_LANGS = setOf("bn", "hi")
@@ -8337,7 +8383,6 @@ class SettingsRepository(private val context: Context) {
         private val NUMBER_PREDICTION = booleanPreferencesKey("number_prediction")
         private val AUTOCORRECT_SPLITS = booleanPreferencesKey("autocorrect_splits")
         private val REGISTER_PRIORS = booleanPreferencesKey("register_priors")
-        private val PHONETIC_CANDIDATE_LISTS = stringSetPreferencesKey("phonetic_candidate_lists")
         private val TIMING_SIGNAL_STRENGTH = floatPreferencesKey("timing_signal_strength")
         private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
         private val CONTACT_EMAIL_SUGGESTIONS =
@@ -8644,6 +8689,8 @@ class SettingsRepository(private val context: Context) {
         private val JYUTPING_LAZY = booleanPreferencesKey("jyutping_lazy")
         private val KANA_LOOSE_MARKS = booleanPreferencesKey("kana_loose_marks")
         private val FULL_WIDTH_SPACE_LANGUAGES = stringSetPreferencesKey("full_width_space_languages")
+        private val SPACE_STEPS_CANDIDATES_LANGUAGES =
+            stringSetPreferencesKey("space_steps_candidates_languages")
         private val CJK_HAN_REGION = stringPreferencesKey("cjk_han_region")
         private val VI_STRICT_TONES = booleanPreferencesKey("vi_strict_tones")
         private val VI_RESTORE_MARKS = booleanPreferencesKey("vi_restore_marks")
@@ -9128,6 +9175,10 @@ class SettingsRepository(private val context: Context) {
         private val STICKER_SUGGEST_STYLE = stringPreferencesKey("sticker_suggest_style")
         private val STICKER_SUGGEST_TRIGGER = stringPreferencesKey("sticker_suggest_trigger")
         private val STICKER_SUGGEST_MAGNIFY = booleanPreferencesKey("sticker_suggest_magnify")
+        private val GIF_PER_ROW = intPreferencesKey("gif_per_row")
+        private val STICKER_PER_ROW = intPreferencesKey("sticker_per_row")
+        private val MEDIA_GRID_SPACING = intPreferencesKey("media_grid_spacing")
+        private val MEDIA_HIDE_HEADER_ON_SCROLL = booleanPreferencesKey("media_hide_header_on_scroll")
         private val SEARCH_SAFE = booleanPreferencesKey("search_safe")
         private val SEARCH_RESULT_COUNT = intPreferencesKey("search_result_count")
         private val SEARCH_SHOW_ANSWER = booleanPreferencesKey("search_show_answer")
@@ -10179,6 +10230,8 @@ class SettingsRepository(private val context: Context) {
             jyutpingLazy = p[JYUTPING_LAZY] ?: defaults.cjk.jyutpingLazy,
             kanaLooseMarks = p[KANA_LOOSE_MARKS] ?: defaults.cjk.kanaLooseMarks,
             fullWidthSpaceLanguages = p[FULL_WIDTH_SPACE_LANGUAGES] ?: defaults.cjk.fullWidthSpaceLanguages,
+            spaceStepsCandidatesLanguages = p[SPACE_STEPS_CANDIDATES_LANGUAGES]
+                ?: defaults.cjk.spaceStepsCandidatesLanguages,
             hanRegion = p[CJK_HAN_REGION]
                 ?.let { runCatching { HanVariant.HanRegion.valueOf(it) }.getOrNull() }
                 ?: defaults.cjk.hanRegion,
@@ -10462,6 +10515,15 @@ class SettingsRepository(private val context: Context) {
                 }
                 ?.toMap()
                 ?: defaults.suggestionStrip.phoneticStripSources,
+            phoneticCandidateLists = p[PHONETIC_CANDIDATE_LISTS]
+                ?.mapNotNull { entry ->
+                    val lang = entry.substringBefore('=', "")
+                    val where = runCatching { PhoneticCandidateList.valueOf(entry.substringAfter('=')) }
+                        .getOrNull()
+                    if (lang.isEmpty() || where == null) null else lang to where
+                }
+                ?.toMap()
+                ?: defaults.suggestionStrip.phoneticCandidateLists,
             // An item name this build does not know is dropped, not kept
             // as a stale string.
             wordMenuItems = p[WORD_MENU_ITEMS]
@@ -10472,15 +10534,6 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.suggestionStrip.wordMenuItems,
             synonymSources = p[SYNONYM_SOURCES]?.let(SynonymSources::decode)
                 ?: defaults.suggestionStrip.synonymSources,
-            phoneticCandidateLists = p[PHONETIC_CANDIDATE_LISTS]
-                ?.mapNotNull { entry ->
-                    val lang = entry.substringBefore('=', "")
-                    val where = runCatching { PhoneticCandidateList.valueOf(entry.substringAfter('=')) }
-                        .getOrNull()
-                    if (lang.isEmpty() || where == null) null else lang to where
-                }
-                ?.toMap()
-                ?: defaults.suggestionStrip.phoneticCandidateLists,
             rankControl = p[WORD_RANK_CONTROL]
                 ?.let { runCatching { RankControl.valueOf(it) }.getOrNull() }
                 ?: defaults.suggestionStrip.rankControl,
@@ -10913,6 +10966,10 @@ class SettingsRepository(private val context: Context) {
                 ?.let { runCatching { StickerTriggerAction.valueOf(it) }.getOrNull() }
                 ?: defaults.gif.stickerSuggestTrigger,
             stickerSuggestMagnify = p[STICKER_SUGGEST_MAGNIFY] ?: defaults.gif.stickerSuggestMagnify,
+            gifPerRow = p[GIF_PER_ROW]?.coerceIn(MediaPerRowRange) ?: defaults.gif.gifPerRow,
+            stickerPerRow = p[STICKER_PER_ROW]?.coerceIn(MediaPerRowRange) ?: defaults.gif.stickerPerRow,
+            gridSpacing = p[MEDIA_GRID_SPACING]?.coerceIn(MediaGridSpacingRange) ?: defaults.gif.gridSpacing,
+            hideHeaderOnScroll = p[MEDIA_HIDE_HEADER_ON_SCROLL] ?: defaults.gif.hideHeaderOnScroll,
         )
 
     private fun readTextEditing(p: Preferences, defaults: KeyboardSettings) =
@@ -13464,6 +13521,7 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.popup.alternatesOrder,
             alternatesHoldToSelect = p[ALTERNATES_HOLD_TO_SELECT]
                 ?: defaults.popup.alternatesHoldToSelect,
+            alternatesClassic = p[ALTERNATES_CLASSIC] ?: defaults.popup.alternatesClassic,
         )
     }
 
@@ -14734,6 +14792,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAlternatesNearestFirst(value: Boolean) =
         editPrefs { it[ALTERNATES_NEAREST_FIRST] = value }
 
+    suspend fun setAlternatesClassic(value: Boolean) =
+        editPrefs { it[ALTERNATES_CLASSIC] = value }
+
     suspend fun setAlternatesOrder(value: List<AlternateGroup>) =
         editPrefs { it[ALTERNATES_ORDER] = encodeAlternatesOrder(value) }
 
@@ -14923,6 +14984,12 @@ class SettingsRepository(private val context: Context) {
             it[PHONETIC_STRIP_SOURCES] = others.toSet() + "$langId=${source.name}"
         }
 
+    suspend fun setPhoneticCandidateList(langId: String, where: PhoneticCandidateList) =
+        editPrefs {
+            val others = it[PHONETIC_CANDIDATE_LISTS].orEmpty().filterNot { e -> e.substringBefore('=') == langId }
+            it[PHONETIC_CANDIDATE_LISTS] = others.toSet() + "$langId=${where.name}"
+        }
+
     suspend fun setNumberRowCorrections(value: Boolean) =
         editPrefs { it[NUMBER_ROW_CORRECTIONS] = value }
 
@@ -14934,12 +15001,6 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAutoSpaceAfterSuggestion(value: Boolean) =
         editPrefs { it[AUTO_SPACE_AFTER_SUGGESTION] = value }
-    suspend fun setPhoneticCandidateList(langId: String, where: PhoneticCandidateList) =
-        editPrefs {
-            val others = it[PHONETIC_CANDIDATE_LISTS].orEmpty().filterNot { e -> e.substringBefore('=') == langId }
-            it[PHONETIC_CANDIDATE_LISTS] = others.toSet() + "$langId=${where.name}"
-        }
-
 
     suspend fun setExpandUserDictShortcuts(value: Boolean) =
         editPrefs { it[EXPAND_USER_DICT_SHORTCUTS] = value }
@@ -16088,6 +16149,11 @@ class SettingsRepository(private val context: Context) {
         p[FULL_WIDTH_SPACE_LANGUAGES] = if (value) current + languageId else current - languageId
     }
 
+    suspend fun setSpaceStepsCandidates(languageId: String, value: Boolean) = editPrefs { p ->
+        val current = p[SPACE_STEPS_CANDIDATES_LANGUAGES] ?: emptySet()
+        p[SPACE_STEPS_CANDIDATES_LANGUAGES] = if (value) current + languageId else current - languageId
+    }
+
     suspend fun setCjkHanRegion(value: HanVariant.HanRegion) =
         editPrefs { it[CJK_HAN_REGION] = value.name }
 
@@ -16876,6 +16942,18 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setStickerSuggestMagnify(value: Boolean) =
         editPrefs { it[STICKER_SUGGEST_MAGNIFY] = value }
+
+    suspend fun setGifPerRow(value: Int) =
+        editPrefs { it[GIF_PER_ROW] = value.coerceIn(MediaPerRowRange) }
+
+    suspend fun setStickerPerRow(value: Int) =
+        editPrefs { it[STICKER_PER_ROW] = value.coerceIn(MediaPerRowRange) }
+
+    suspend fun setMediaGridSpacing(value: Int) =
+        editPrefs { it[MEDIA_GRID_SPACING] = value.coerceIn(MediaGridSpacingRange) }
+
+    suspend fun setMediaHideHeaderOnScroll(value: Boolean) =
+        editPrefs { it[MEDIA_HIDE_HEADER_ON_SCROLL] = value }
 
     suspend fun setGifContentFilter(value: GifContentFilter) =
         editPrefs { it[GIF_CONTENT_FILTER] = value.name }
