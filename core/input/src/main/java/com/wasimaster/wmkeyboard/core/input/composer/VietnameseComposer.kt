@@ -492,7 +492,7 @@ internal object VietnameseEngine {
 
         fun toggleTone(t: VTone) { tone = if (tone == t) VTone.NONE else t }
         fun hasVowel() = letters.any { isVowel(it.base) }
-        fun hasValidVowelCluster(): Boolean {
+        fun hasVowelCluster(): Boolean {
             var first = -1
             var last = -1
             var count = 0
