@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.input.composer
 
+import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
+import com.wasimaster.wmkeyboard.core.layout.composerType
+import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptId
@@ -27,6 +30,52 @@ interface Composer {
      * strip off, where plain suggestion-composing does not.
      */
     val isTransliterating: Boolean get() = false
+
+    /**
+     * Whether a word read back out of the field may be re-armed as the composing
+     * buffer at all — the word-independent half of [resumeBuffer], and the reason
+     * it is asked before the field is read.
+     *
+     * False for every composer whose buffer is not the field's text: Avro's
+     * buffer is the roman source of Bengali text that cannot be reversed back
+     * into it, Hangul's is jamo, and a conversion IME's is a reading with a whole
+     * choice of outputs behind it. Asking this first keeps a blocking read of the
+     * focused app off the caret path for the layouts that could never use it.
+     *
+     * Vietnamese Telex and VNI are the exception among transliterators: their
+     * output is a pure function of their keystrokes, so a word already in the
+     * field can be spelled back into keys ([resumeBuffer]) and edited further.
+     */
+    val resumesComposedText: Boolean get() = !isTransliterating
+
+    /**
+     * The composing buffer that reproduces [text] — the word the caret was put
+     * back into, read out of the field — or null when this composer cannot take
+     * it.
+     *
+     * Only asked when [resumesComposedText] is true. The buffer is the field's
+     * text itself for most layouts, so the default is the identity; a
+     * transliterator overrides it to spell its own output back into keys, and
+     * answers null for anything its keys would not compose exactly, which leaves
+     * the word with the read-only treatment it has today.
+     */
+    fun resumeBuffer(text: String): String? = if (isTransliterating) null else text
+
+    /**
+     * The composing buffer after one backspace — what is left of [buffer] once
+     * the last thing the user can *see* has been taken off it.
+     *
+     * Not the same as dropping the last key. A transliterator's buffer holds
+     * the keys while the field holds what they spelled, and the last letter on
+     * screen may sit several keys back with a tone key or two riding it: one
+     * backspace over `huowngs` (`hướng`) has to leave `hướn`, not `hương`.
+     *
+     * The default drops one key, which is what every composer whose keys *are*
+     * its letters needs. Vietnamese overrides it to take the last letter of
+     * its output and keep the marks of the letters before it.
+     */
+    fun backspaceBuffer(buffer: String): String =
+        if (buffer.isEmpty()) buffer else buffer.dropLast(1)
 
     /**
      * The language whose dictionary a phonetic transliterator is ranked against
@@ -63,6 +112,27 @@ interface Composer {
      * Either Vietnamese transliterating input method (Telex or VNI).
      */
     val isVietnamese: Boolean get() = isVietnameseTelex || isVietnameseVni
+
+    /**
+     * Keys other than letters that a swipe over this layout may pass through as
+     * part of a word, by the character they type. Khipro's slicer `/` makes
+     * চন্দ্রবিন্দু and খণ্ড-ত, so a word with either is drawn through it (#541).
+     * Empty everywhere else: a stroke that grazes the comma is not spelling one.
+     */
+    val glideKeys: Set<Int> get() = emptySet()
+
+    /**
+     * Whether this composer spells its buffer in roman letters: Avro's, Hindi
+     * phonetic's, Khipro's.
+     *
+     * What lets a word half-typed on a Latin keyboard carry into the buffer
+     * when the language is switched mid-word (#522) — the letters already in
+     * the field are the very letters this composer would have taken. False for
+     * every composer whose keys are its own script (Hangul's jamo, 천지인,
+     * Cangjie's strokes, Zhuyin's bopomofo) and for the conversion IMEs, whose
+     * buffer stands for a choice of outputs rather than one reading.
+     */
+    val isRomanBuffer: Boolean get() = false
 
     /**
      * A fixed complex-script layout (Probhat, and later Devanagari, Tamil …):
@@ -215,6 +285,15 @@ interface Composer {
     fun composeBuffer(buffer: String): String = buffer
 
     /**
+     * What Enter commits for a conversion reading: the reading itself,
+     * converted to nothing (#514, #515). Japanese gives the kana the user sees,
+     * which is how a kana IME confirms hiragana it is not asked to convert.
+     * The default is [composeBuffer]; a composer whose composing region shows
+     * something other than the keys pressed answers with the keys instead.
+     */
+    fun typedReading(buffer: String): String = composeBuffer(buffer)
+
+    /**
      * What a key typing [key] would write, given the roman [buffer] already
      * composing — the ক a `k` writes at a word start, and after a consonant
      * either the ্ক it adds or the ক্ক that leaves ([wholeCluster]). The
@@ -254,13 +333,22 @@ object NoComposer : Composer
  * The [Composer] a layout uses, from its resolved [script] and [type]
  * (`LayoutSpec.composerType()`). Unknown/unbuilt composers degrade to
  * [NoComposer] so the layout still types.
+ *
+ * [langId] decides between transliterators that share a script: Bengali and
+ * Assamese are both written in the Bengali script, Hindi and Marathi in
+ * Devanagari, Urdu, Persian and Arabic in the Arabic one, and each has its own
+ * phonetic rules ([PhoneticComposers]). Without it a phonetic layout falls back
+ * to the script's first language — Bengali, Hindi, Urdu — which is what every
+ * caller that only knows a script has always had. Pass it whenever there is a
+ * layout to read it from; [resolvedComposer] does.
  */
-fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
+fun composerFor(script: ScriptDef, type: ComposerType, langId: String? = null): Composer = when (type) {
     ComposerType.NONE, ComposerType.DEAD_KEY -> NoComposer
     ComposerType.INDIC_CLUSTER -> IndicClusterComposer(script)
-    ComposerType.TRANSLITERATE -> when (script.id) {
+    ComposerType.TRANSLITERATE -> langId?.let(PhoneticComposers::forLanguage) ?: when (script.id) {
         ScriptId.BENGALI -> BengaliTransliterateComposer
         ScriptId.DEVANAGARI -> HindiTransliterateComposer
+        ScriptId.ARABIC -> UrduTransliterateComposer
         else -> NoComposer
     }
     ComposerType.HANGUL -> HangulComposer
@@ -277,3 +365,10 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
     ComposerType.JYUTPING -> JyutpingComposer
     ComposerType.KHIPRO -> if (script.id == ScriptId.BENGALI) KhiproComposer else NoComposer
 }
+
+/**
+ * The composer this layout types through: [composerFor] with the layout's own
+ * script, composer override and language, so two languages that share a script
+ * get their own phonetic rules.
+ */
+fun LayoutSpec.resolvedComposer(): Composer = composerFor(script(), composerType(), langId)

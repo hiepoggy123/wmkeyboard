@@ -150,6 +150,8 @@
     <string name="ime_service_incognito_off_toast">Incognito is off</string>
     <string name="ime_service_power_saving_on_toast">Power saving is on</string>
     <string name="ime_service_resize_floating_toast">Dock the keyboard to resize it</string>
+    <!-- The One-handed tool was pressed with the phone sideways while the "Portrait only" setting holds the mode off there. -->
+    <string name="ime_service_one_handed_portrait_only_toast">One-handed mode is set to portrait only</string>
     <string name="ime_service_power_saving_on_empty_toast">Power saving is on. No feature is set to stop yet.</string>
     <string name="ime_service_power_saving_still_on_toast">Power saving stays on. The battery trigger is on.</string>
     <string name="ime_service_power_saving_off_toast">Power saving is off</string>
@@ -168,6 +170,8 @@
     <string name="ime_service_fancy_on_toast">Fancy text is on</string>
     <string name="ime_service_fancy_off_toast">Fancy text is off</string>
     <string name="ime_service_flashlight_missing_toast">Your device has no flashlight</string>
+    <string name="khipro_glide_preparing_title">Khipro swipe typing</string>
+    <string name="khipro_glide_preparing_progress">Spelling your Bangla words for swiping: <xliff:g id="done" example="120000">%1$d</xliff:g> of <xliff:g id="total" example="451348">%2$d</xliff:g></string>
     <string name="ime_service_already_in_settings_toast">You are already in the settings</string>
     <!-- Shown the first time a tool order is saved for one keyboard mode. %1$s is the name of the mode. -->
     <string name="ime_service_mode_tool_order_toast">The keyboard saved the tool order only for the %1$s mode. Other apps keep their own order.</string>

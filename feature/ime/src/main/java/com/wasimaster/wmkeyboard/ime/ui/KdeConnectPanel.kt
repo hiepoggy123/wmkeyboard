@@ -34,22 +34,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.outlined.VolumeOff
-import androidx.compose.material.icons.automirrored.outlined.VolumeUp
-import androidx.compose.material.icons.outlined.Computer
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.Laptop
-import androidx.compose.material.icons.outlined.Phonelink
-import androidx.compose.material.icons.outlined.Repeat
-import androidx.compose.material.icons.outlined.RepeatOne
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Shuffle
-import androidx.compose.material.icons.outlined.Smartphone
-import androidx.compose.material.icons.outlined.Tablet
-import androidx.compose.material.icons.outlined.Tv
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.KeyboardArrowLeft
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.KeyboardArrowRight
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeOff
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Computer
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowDown
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowUp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Laptop
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Phonelink
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Repeat
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.RepeatOne
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Settings
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Shuffle
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Smartphone
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tablet
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tv
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Slider
@@ -574,9 +574,7 @@ private fun MediaTab(kb: KbTheme, device: KdeDevice, engine: KdeConnectEngine) {
                 CenterNotice(kb, Icons.Outlined.Computer, stringResource(R.string.ime_kde_media_empty_title), stringResource(R.string.ime_kde_media_empty_body))
             } else {
                 val art = remember(player.albumArtUrl, mpris.artRevision) {
-                    engine.mpris.art(player.albumArtUrl)?.let { bytes ->
-                        runCatching { BitmapFactory.decodeByteArray(bytes, 0, bytes.size) }.getOrNull()
-                    }
+                    engine.mpris.art(player.albumArtUrl)?.let(::decodeAlbumArt)
                 }
                 val snapshot = remember(player, art) { player.toSnapshot(device.name, art) }
                 NowPlaying(
@@ -1011,3 +1009,31 @@ private const val NOTICE_MS = 3_500L
 private const val ECHO_CHARS = 120
 private const val OUTPUT_LINES_SHOWN = 200
 private const val FINGERPRINT_SHOWN = 47
+
+/** Longest edge album art is decoded at. A panel never draws one bigger. */
+private const val ALBUM_ART_MAX_PX = 512
+
+/**
+ * Album art from the paired computer, sampled down on the way in.
+ *
+ * The bytes come off another machine and are allowed to be up to six megabytes
+ * of compressed image (`MprisPlugin.MAX_ART_BYTES`). Decoding that whole is
+ * `width * height * 4` — tens of megabytes, and for a large cover hundreds —
+ * inside the keyboard's process, to draw a square a couple of hundred dp wide.
+ * The sample stops while the long edge still covers [ALBUM_ART_MAX_PX], so
+ * nothing visible changes.
+ */
+private fun decodeAlbumArt(bytes: ByteArray): android.graphics.Bitmap? = runCatching {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    val longest = maxOf(bounds.outWidth, bounds.outHeight)
+    if (longest <= 0) return@runCatching null
+    var sample = 1
+    while (longest / (sample * 2) >= ALBUM_ART_MAX_PX) sample *= 2
+    BitmapFactory.decodeByteArray(
+        bytes,
+        0,
+        bytes.size,
+        BitmapFactory.Options().apply { inSampleSize = sample },
+    )
+}.getOrNull()

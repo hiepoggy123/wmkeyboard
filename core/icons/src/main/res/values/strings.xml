@@ -27,7 +27,8 @@
     <string name="core_icons_slot_shift_label">Shift</string>
     <!-- The shift key while it is on, so the next letter is a capital letter. -->
     <string name="core_icons_slot_shift_on_label">Shift (on)</string>
-    <string name="core_icons_slot_caps_lock_label">Caps lock</string>
+    <string name="core_icons_slot_caps_lock_label">Shift (caps lock)</string>
+    <string name="core_icons_slot_caps_lock_key_label">Caps lock key</string>
     <string name="core_icons_slot_backspace_label">Backspace</string>
     <!-- The key that deletes the character after the cursor. -->
     <string name="core_icons_slot_forward_delete_label">Forward delete</string>
@@ -45,6 +46,12 @@
     <!-- The key that opens the system list of keyboards on the device. -->
     <string name="core_icons_slot_input_method_picker_label">Switch keyboard</string>
     <string name="core_icons_slot_emoji_key_label">Emoji key</string>
+    <!-- The four keys of the optional arrow keys row under the keyboard. -->
+    <string name="core_icons_slot_arrow_left_label">Arrow left</string>
+    <string name="core_icons_slot_arrow_up_label">Arrow up</string>
+    <string name="core_icons_slot_arrow_down_label">Arrow down</string>
+    <string name="core_icons_slot_arrow_right_label">Arrow right</string>
+    <string name="core_icons_slot_tab_label">Tab key</string>
 
     <!-- ================================================================== -->
     <!-- Toolbar icons.                                                     -->
@@ -104,7 +111,7 @@
 
     <!-- %1$s is the id of the icon, for example key.shift. Ids are not
          translated: they are the same in every language. -->
-    <string name="core_icons_repair_svg_unreadable">The app dropped \"<xliff:g id="slot" example="key.shift">%1$s</xliff:g>\". The app cannot read its SVG file.</string>
+    <string name="core_icons_repair_svg_unreadable">The app dropped \"<xliff:g id="slot" example="key.shift">%1$s</xliff:g>\". Its file is not an SVG or a picture the app can read.</string>
 
     <!-- %1$s is the id of the icon, for example key.shift. -->
     <string name="core_icons_repair_not_saved">The app dropped \"<xliff:g id="slot" example="key.shift">%1$s</xliff:g>\". The app cannot save it.</string>

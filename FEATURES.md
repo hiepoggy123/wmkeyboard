@@ -54,6 +54,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Read off the pressed keys, not the letters — AZERTY's 1 is on a, Dvorak's on the apostrophe, German has none; a number row that is showing has already stripped the hints, so it is quiet then
     - Last slot, never the primary — Never what a space commits and never autocorrected to; two letters at least, so a lone I is not an 8
     - Grouped like the number chip — Five to fifteen digits, no leading zero, under the chip's grouping style, when that chip is on
+  - Remember numbers you type `RARE` — Digits typed on their own are kept and completed from their first ones, most used first (#431); off by default
+    - Read off the field, not a buffer — A word-initial digit commits straight through, so the run at the caret is read on each caret echo
+    - Only a run that stands alone — After whitespace, the start, or + ( #; never glued to letters or behind , : - so 1,234 and 12:30 are not kept in pieces
+    - Kept on space, enter or leaving the field — Three to twenty digits, 100 numbers, least recently used out; never from a password field, incognito or with learning off
   - Next-letter distribution `uncommon` — nextLetterWeights feeds autopilot
     - Weighted across three sources — Dictionary x1, lexicon x500, custom list x100; 24 completions scanned per source
     - Boundary-tap remap at pointer-down — Distance divided by (1 + strength x bias); capped reach; the touch is never consumed
@@ -553,9 +557,13 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Stolen-pointer handling — When glide consumes the pointer the press is cancelled without committing
     - Separate key-up event — Fires per finger, for sound packs that recorded a release sample
   - Tremor debounce `RARE` — Ignores a repeat press of the same key within N ms (0 = off); scoped per key so alternating keys are unaffected
-  - Flick keys — 4-direction flick arms with a live cross popup; ships on the Japanese 12-key layout (ja_flick)
-    - Dominant-axis resolution — 22 dp slop; a flick toward an undefined arm falls back to the centre tap
-    - Long press still works — Committing to an arm cancels the pending alternates timer
+  - Flick keys — 8-direction flick arms (edges and corners, #410) with a live 3×3 cross popup; ships on the Japanese 12-key layout (ja_flick) and the English 3×3 MessagEase-style board (en_flick); any key gets arms in the layout editor's 3×3 pad
+    - Nearest-arm resolution — Euclidean slop (layoutBehavior.flickDistanceDp, 8–48, default 22); the stroke's bearing takes the nearest defined arm within 67.5°, which is the old dominant axis on a four-arm key and 45° sectors on an eight-arm one; a flick toward an undefined arm falls back to the centre tap
+    - Arms on the key face — layoutBehavior.flickHints (default on) draws every arm small in the hint colour at the edge or corner it is flicked towards, in the draw phase (one node per key, no layout cost); the centre label is held in from edges that carry an arm and an up-right arm takes the corner hint's place
+    - Swipe and return — A text arm with a capital of its own keeps the arm the finger reached, and coming more than halfway back from it types that capital (FlickBoard/Thumb-Key); arms with no capital (kana, actions, Keyman) keep the old drift-back-to-centre cancel
+    - Flick keys own their stroke — ownsDrag() covers every flick key, so glide, handwriting, the octopus and the hint/capital flicks leave it alone; the branch yields on a consumed change and the key-preview bubble gives way to the cross (layoutBehavior.flickPopup, default on)
+    - Long press still works — Committing to an arm cancels the pending alternates timer; choosing an arm buzzes once
+    - Television and tablet transforms decline flick pads — Their geometry is the feature
     - Kana variant key — 小゛゜ cycles the last kana through dakuten/handakuten/small forms
   - Chorded and timed input modes `RARE` — Braille and morse ride the same key dispatch as every other press
     - 6-dot braille — Perkins contract: dots gather on the way down, the cell commits when the last finger lifts; stolen pointers still count as lifts
@@ -736,7 +744,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Per-script pinned fonts `uncommon` — 25 scripts map to a specific Google font; Music to Noto Music, Braille to Noto Sans Symbols 2
     - Per-script font pickers — Curated alternative families per script, shown only while a language on that script is enabled
     - Per-glyph fallback — A glyph the pinned face lacks falls back to the system font rather than blanking
-- **Keyboard layouts** — 1,709 shipped layouts: 22 compiled built-ins + 1,687 JSON assets (862 of them converted Keyman keyboards)
+- **Keyboard layouts** — 1,715 shipped layouts: 22 compiled built-ins + 1,693 JSON assets (862 of them converted Keyman keyboards)
   - Shipped catalogue — 20 Kotlin LayoutSpecs (boot-critical) plus 354 .wmlayout.json assets parsed off the main thread
     - Latin ergonomic alternates — QWERTY, AZERTY, Dvorak, Colemak, Workman, Halmak built in; BÉPO, Swiss German, LatAm Spanish, Turkish-Q as assets
     - Ambiguous boards — T9 and Compact QWERTY built in; keys twice to four times the usual size, decoded rather than multi-tapped (#103); T9 keypads for 309 more languages as assets (#332)
@@ -811,7 +819,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Raw JSON editor `RARE` — Draft with an explicit Apply, theme-coloured syntax highlighting, no reformatting
     - Defaults omitted for humans — encodeDefaults off shrinks a QWERTY from ~33 kB to about a tenth
     - The edited id always wins — Pasting another layout's id is ignored so you cannot overwrite a different layout
-    - Reaches fields the grid editor has no control for — Clipboard long-press actions and per-direction flick maps
+    - Reaches fields the grid editor has no control for — Clipboard long-press actions and multitap cycles
   - Layout files `RARE` — .wmlayout.json versioned envelope tagged "wmkeyboard-layout"
     - Format tag is the only strict check — Everything else is repaired and reported rather than rejected
     - Export, duplicate, import — Filename derived from the layout name; import registered as a system file handler
@@ -868,6 +876,24 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Download-only vocabulary — index built over the downloaded and imported Hindi lists, only while the phonetic layout is enabled; a one-time strip chip points at the download when there is none
     - Hindi spelling map — hand-written everyday words, chat shorthand (h, nhi, kr, bhut) and English loanwords, consulted first; per-language off switch
     - Glide — strokes decoded against the spelling map and the downloaded Hinglish list, resolved through the same index
+  - Urdu phonetic `RARE` — roman keys in, Urdu script out (aap kaise ho gives آپ کیسے ہو); its own layout under Urdu, the Urdu-lettered keyboard still the default (#496)
+    - Short vowels written as nothing — Urdu marks them with diacritics nobody types, so din gives دن and kitab کتب; only the long vowels get a letter, and the dictionary settles which a is long
+    - Position-dependent vowels — a word-final vowel is a letter (ka کا, hai ہے, ke کے), a word-initial one takes its carrier (ab اب, aap آپ, ek ایک, aur اور), a hamza carries one vowel onto another (koi کوئی, hua ہوا, jaao جاؤ)
+    - Aspiration and the retroflexes — do-chashmi he for bh ph th kh gh ch jh (dekh دیکھ, phir پھر, ghar گھر); capitals for ٹ ڈ ڑ and for the Perso-Arabic خ غ ح ص ض, which no roman spelling marks
+    - kh is خ at a word start and کھ elsewhere — khush خوش and khabar خبر against dekh دیکھ and likh لکھ; Kh is خ wherever typed, gh stays گھ because گھر outweighs the غ words
+    - Doubling written once — Urdu geminates with a shadda nobody types (sunna سنا, pakka پکا), while a doubled c is the aspirate people mean (accha اچھا)
+    - Consonant-skeleton index — both sides folded to the word's consonants, which is how the Arabic script spells anyway; ت ٹ ط, د ڈ, ر ڑ, س ص ث, ز ذ ض ظ, ک ق, ہ ح each one key, aspiration and which letter of the key as ranked detail; a vowel at either end of a word must be written, one inside need not, and a closing ہ or a ں may be left off (hai finds ہیں, bacha بچہ)
+    - Flat word list, so the map carries the ranking — every word in the downloadable Urdu list ships at frequency 1, so siblings order by typed detail and then by the shorter word; 580 curated spellings cover what people type most
+    - Other readings on the strip — the same spelling with its last inner a long, every one long, or the first one long; what fills the strip when no word list is installed
+    - Urdu spelling map — hand-written everyday words, chat shorthand (k, h, nhi, kr, bht) and English loanwords in the Urdu script (school اسکول, mobile موبائل); per-language off switch
+  - Phonetic layouts for eleven more languages `RARE` — Marathi, Gujarati, Punjabi, Odia, Assamese, Tamil, Telugu, Kannada, Malayalam, Persian and Arabic, each a QWERTY grid writing the language's own script; the script layout stays the default
+    - One Brahmic engine for eight of them — words spelled in Devanagari and moved into the target block (the Unicode blocks are parallel), then each script's own conventions applied: Tamil's folded stops and spelled-out nasals, Malayalam chillus, Gurmukhi addak / tippi / bindi and no conjuncts, Odia ୟ / ୱ
+    - Two reading models — Hindi's schwa-dropping one for Marathi, Gujarati and Punjabi (grammatical endings per language), and an every-vowel-typed one for Odia and the Dravidian four (clusters join, a closing consonant takes a virama, pulli or chillu)
+    - Per-language rules tuned against ~200 hand-written chat spellings each — Marathi postpositions and -णार, Gujarati -ું / -વું / locative માં, Punjabi y-glides as vowel carriers and nasal finals, Tamil doubling and ன்ற, Telugu/Kannada e/o length by context, Malayalam Mozhi conventions (ന്റ, ങ്ങ, ം); rules alone 42–66% exact
+    - Assamese on Avro with ৰ for র, x for স and ৱ for a w-glide; Persian (Finglish) with می‌ / نمی‌ joined by ZWNJ; Arabic (Arabizi) with digits for letters, the article ال, initial أ, and ة / ى offered for a closing a
+    - Word-list index through Devanagari — the Hindi fold reached by script conversion, with per-language romanization prep (Dravidian th/dh, closing m, Malayalam voicing) and, for Tamil's frequency-less list, ties broken by closeness to the rules' spelling; Persian and Arabic on Urdu's consonant-skeleton fold (gh as ق too, Arabizi digits as letters); big lists capped at 300k words (shortest first when flat)
+    - Spelling maps and English loanwords for all eleven, ~380–500 and ~110–150 pairs each, every form checked against the word list
+    - Composer chosen by the layout's language, not its script — Assamese vs Bangla, Marathi vs Hindi, Persian / Arabic vs Urdu
   - Vietnamese Telex and VNI — Two shared-engine transliterators; letters spell the marks in Telex, digits in VNI
     - Standard tone placement — A marked vowel wins; else single vowel, else last vowel of a closed cluster, else first of an open one (oa/oe/uy take the second)
     - qu/gi onsets excluded from the nucleus — The u or i is a glide unless it is the syllable's only vowel
@@ -1011,7 +1037,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Per-script pinned fonts and per-script font pickers (Noto Music, Noto Sans Symbols 2, Noto Sans <script>) | fetched through the Google Play Services downloadable-fonts provider; on a GMS-free or offline device the async font falls back to the platform default |
 | Android subtype auto-enabling for every layout | needs API 34+ (setExplicitlyEnabledInputMethodSubtypes); on Android 13 and below the user must tick languages in system settings |
 | Layout import from FlorisBoard/HeliBoard files, and addon-repo layout installs | file picker / repository URL; foreign files capped at 4 MB |
-| Everything else in this area (867-language registry, 1,709 layouts, all composers, Avro, Bengali spelling maps, fancy text, notation layouts, layout editor) | no flavour gate - :core:language and :core:input have no full/lite source sets, so all of it ships in Lite too |
+| Everything else in this area (867-language registry, 1,715 layouts, all composers, Avro, Bengali spelling maps, fancy text, notation layouts, layout editor) | no flavour gate - :core:language and :core:input have no full/lite source sets, so all of it ships in Lite too |
 
 ## Themes and appearance
 
@@ -1806,7 +1832,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Implicit multiplication — 2π, 3(4+1), (1+2)(3+4), 3√4
     - 19 named functions — sin/cos/tan, asin/acos/atan, sinh/cosh/tanh, ln, log, lg, sqrt, cbrt, abs, exp, floor, ceil, round
     - nPr and nCr keypad shorthand — 5p3 and 4c2, built as running products so 60P3 doesn't overflow
-    - Percent is context-sensitive — Trailing % divides by 100; % followed by a value is modulo
+    - Percent is context-sensitive — A trailing % added or subtracted is a share of the left side (`100+20%` is 120, `100-20%` is 80, a second one compounding on the new total); alone or against × and ÷ it is a plain hundredth (`20%` is 0.2, `100×20%` is 20, `100÷20%` is 500), and brackets force that reading (`100+(20%)` is 100.2); % followed by a value is modulo
     - deg/rad chip — Remembers the choice; inverse trig returns in the same unit
     - = collapses in place — 12*4= becomes 12*4=48 rather than clearing
     - Insert chip — Types the formatted result at the cursor
@@ -2203,6 +2229,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - The key that fired a caret-parked snippet is swallowed — A space would otherwise land in the middle of the inserted text
     - Composing region finished before the delete — deleteSurroundingText behaves differently in EditText and BasicTextField otherwise
     - Never runs in password fields or no-suggestion fields
+    - Expand in password fields — Opt-in (default off, #555): word and suffix triggers read back on space/Enter/symbol; the ending space is swallowed, Enter still submits; patterns, ask-first chips and automation stay refused
   - Import, export and packs `uncommon`
     - .wmsnippets.json versioned envelope — format tag is the only strict check; permissive import MIME list
     - Repair-not-reject import — 500-snippet cap, 20,000-char text cap, blank label filled from the first line
@@ -2296,6 +2323,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - What the action reads `uncommon` — selection wins over everything; otherwise whole field, or text before cursor for append-style actions
     - Chips grey out on an empty field — aiHasText re-read on panel open and on every cursor/text change
     - Empty field switches to generation mode — the task (or typed instruction) becomes the user message and the model writes new text
+  - Tool calling `RARE` — the model can search the web or read one page before it answers, in the panel and in chat
+    - Two tools, opted into separately — web_search (on, hidden until a search backend exists) and web_fetch (off: it is the one tool an address in the user's own field could point)
+    - Native function calling where the provider has it — OpenAI/Anthropic/Gemini/Ollama wire shapes, tool_use and tool_result turns carried through the chat history
+    - Prompt-sentinel fallback where it does not — Brave and on-device models are told the protocol in prose and their stream is filtered for `<tool_call>` before anything is shown
+    - Bounded rounds, never an error — 1-5 lookups per answer; the last round is sent with no tools offered so the model has to answer with what it found
+    - Searches reuse the search tool's backend — SearXNG > Tavily > Brave, 5 results, logged under its own AI tool use network source
+    - Pages are read as text and cut — markup, scripts and styles stripped, ~6000 characters, http/https only so an invented file:// address is refused
+    - A failed tool answers the model, not the user — no backend, a 404, a bad address: the model is told in a sentence and carries on
   - Streaming result view `uncommon` — answer renders as it forms for every provider including on-device
     - Replace and Insert commit — Replace appends instead of overwriting for append-mode actions
     - Markdown stripping checkbox — detects headings, bullets, quotes, fences, links, bold/italic; on by default when markdown is present, reformats the preview too
@@ -2482,7 +2517,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Dot leeway after a stroke — default 700 ms, 0–1500 ms: a tap over the letters becomes the dot on i/j/t instead of typing the key
     - Ink commit waits out the leeway — otherwise the dot would have no character to join
     - Taps still type normally
-  - Text conventions `uncommon` — auto-space between consecutively written words, never before punctuation
+  - Handwriting layouts (#557) `common` — ja/zh/ko ship a layout whose letters layer is one bottom row with a writing canvas over the rest (`LayoutSpec.handwriting`); ink recognised in the layout's language, no gesture setting needed
+  - Text conventions `uncommon` — auto-space between consecutively written words, never before punctuation, never next to a spaceless script (CJK, Thai…)
     - Sentence-start capitalisation only for en-US, never in a secure field
 - **Scanners** `uncommon` — Three camera tools: text OCR, QR/barcode, and document scan
   - Text scan (OCR) `RARE` — ML Kit Latin text recognition inside the keyboard, full-bleed over the toolbar
@@ -3180,8 +3216,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - XXE hardened — Any DOCTYPE anywhere rejects the file outright — Android's SAX throws on Apache's disallow-doctype-decl, so it's done by inspection
     - Monochrome detection — An icon declaring no colours tracks the keyboard theme and the per-tool accent; a coloured one is drawn as authored
     - Parser caps — 256 KB source, 400 paths, 64 KB path data, depth 32, viewport clamp against width="1e999"
-  - Sound pack .wmsoundpack `RARE` — ZIP: pack.json + sounds/; 16 MB, 64 samples, 32 variants per list, 20 packs installed
+  - Sound pack .wmsoundpack `RARE` — ZIP: pack.json + sounds/; 16 MB, 512 samples, 32 variants per list, 20 packs installed
     - 5 key roles — default, space, enter, delete, modifier — each may carry its own samples and gain, falling back per field
+    - Per-key sounds — keys{} maps the text a key types (lowercased, multi-character allowed) to its own samples and gain; beats the role per field; 256 keys; what an Animalese-style voice pack needs
+    - A pack per layout — KeySoundSettings.packByLayout points one layout at its own pack; unnamed layouts follow the global pick, and the new pack is decoded on the switch
     - Key-down and key-up sets — Separate press/release lists so holding a key really holds the sound open; empty release means silence, not a fallback
     - Variant randomisation — Many recordings of one keyboard, one picked per press
     - Gain is a cut — Clamped to 0..1 because SoundPool can't amplify; a pack asking for 2.0 gets 1.0
@@ -3364,6 +3402,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Numeric keypads get operators instead of a second set of digits — Phone field: + * # , ; ( ) - / . ; other keypads: + - * / = ( ) % : .
   - Symbols on shift `RARE` — Holding shift on letters turns the digits into =\<>[]{}|~; off by default
   - Number row in symbols `uncommon` — On by default; off drops the digit row from the ?123 layer and shrinks the board there
+  - Symbol row on number pads `uncommon` — On by default; off drops that operator row from number/phone/date/time keypads, leaving the bare pad (#523)
   - Layout-authored number row `RARE` — A layout file can supply its own numberRow, per layer
     - Authored rows resolved for LETTERS, SYMBOLS, SYMBOLS_SHIFTED and FN independently
   - Tablet digit row carries backspace `RARE` — The body row gave it up for the mirrored shift, so both answers come from one condition
@@ -3624,7 +3663,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 - **Input behaviour: glide, gestures, cursor, editing, keys**: Read in full or in the relevant sections: core/input (DeadKeys, BrailleChord, MorseCode), core/prediction/gesture (GlideBeam, GlideCoverage, GlideKeyMap, GlideWorkspace, RomanizedIndex, GestureGeometry), core/language KeyActions.kt, core/tools/HardwareShortcuts.kt, core/settings/SettingsRepository.kt (KeyPopupSettings, KeyRepeatSettings, OneHandedSettings, HardwareKeyboardSettings, FeedbackSettings, LongPressLetterActions, GestureSettings, LayoutBehaviorSettings, TextEditingSettings, SpaceSwipeAction/LetterSwipeAction/SpacebarDisplay, and the input-related fields of KeyboardSettings), core/common ToolbarTool.kt. In feature/ime: KeyboardScreen.kt gesture detectors, pointerInputKey (spacebar / backspace / flick / generic branches), smart-hit observers, popups, one-handed rail, docked and floating frames; ResizeOverlay.kt; TextEditPanel.kt; ComposingResume.kt; LanguageSwitchOverlay.kt; and WMKeyboardService.kt onKey/onShift/onCapsLock/onDelete/deleteFromField/onDeleteWord/onSpace/onCursorMove(+Vertical)/onUndoRedo/onTextEdit/glide decode+commit paths/hardware key dispatch/autoCapitalizeShift/onModifier/onSizingAction/onComputeInsets. Selection macros were added later and read from core/content/.../core/selection/SelectionMacros.kt, the SelectionMacroSettings/SelectionMacroPlacement block and DirectBootSettings entry in core/settings, feature/ime/.../ui/SelectionMacroBar.kt, and WMKeyboardService's refreshSelectionMacros/onSelectionMacro/replaceSelection paths. Cross-checked against docs/src/content/docs/reference/gestures.mdx but every entry is grounded in code. Not covered (other areas): the suggestion strip and autocorrect scoring itself, prediction engine internals, emoji/GIF/sticker panel gestures, clipboard panel swipes, toolbar drag-to-pin, voice bar dragging, theme/appearance, layout editor, per-app language, and the CJK/Avro composers beyond how they gate glide and hardware interception. I did not count shipped layouts or languages (another area's job) — the only layout count here is the single shipped flick layout (app/src/main/assets/layouts/ja_flick.wmlayout.json). Nothing was run or device-verified; this is a static read.
 - **Languages, scripts, layouts, transliteration**: Read in full: core/language (Script.kt, Language.kt, Numerals.kt, FancyStyles.kt, LanguageSuggestions.kt, DeviceLocales.kt, RomanizedPairing.kt; core/layout's LayoutSpec, BuiltInLayouts, AssetLayouts, KeyActions, KeyboardLayout, LayoutFile, LayoutSelection, ForeignLayout end to end, LayoutRepair head, TabletExpansion head; transliteration/AvroPhonetic, BengaliGraphemes, BengaliPhoneticIndex). Read in core/input: Composer.kt, PinyinComposer, DoublePinyin, CjkConfig, CjkDictCatalog, CjkDictDownloadManager head, HanVariant, PinyinFuzzy, JyutpingFuzzy, CjkUserHistory, CjkNgrams, StrokeComposer, CangjieComposer, T9/Zhuyin/Japanese/Jyutping heads, HangulComposer, VietnameseComposer head, IndicClusterComposer, DeadKeys, MorseCode, BrailleChord. Also Subtypes.kt, the per-app-language and fullStop/emoji-key rewrite paths in WMKeyboardService and KeyboardScreen, KeyIcons, KeyboardFonts, LanguageSettingsScreens, LayoutEditorScreens (action catalog + foreign import), SpellingMap, FieldLanguageMix, LanguageMixConfidence, and all 8 docs/src/content/docs/languages/*.mdx.
 
-Counts come from code and assets and are pinned by `ShippedCountsTest`: 867 languages (386 hand-written + 481 generated from the Keyman corpus) and 1,709 layouts (22 built-in + 1,687 .wmlayout.json assets, 862 of them converted Keyman keyboards). Run that test rather than recounting by hand; it also lists every file that quotes these figures. Spelling-map figures are data lines excluding comments (11,914 bn_rom + 2,369 en_bn); the docs round these to 12,000 and 2,300. The editor's action picker has 28 entries in 6 groups, which the docs now match.
+Counts come from code and assets and are pinned by `ShippedCountsTest`: 867 languages (386 hand-written + 481 generated from the Keyman corpus) and 1,715 layouts (22 built-in + 1,693 .wmlayout.json assets, 862 of them converted Keyman keyboards). Run that test rather than recounting by hand; it also lists every file that quotes these figures. Spelling-map figures are data lines excluding comments (11,914 bn_rom + 2,369 en_bn); the docs round these to 12,000 and 2,300. The editor's action picker has 28 entries in 6 groups, which the docs now match.
 
 Not covered (other areas or not read): the suggestion/prediction engine itself, glide typing, autocorrect, the downloadable word-list catalogue and its per-language sizes, emoji keyword packs, handwriting, voice/dictation languages, theme-side script font storage (ThemeSpec.scriptFontIds), and the addon repository format beyond noting "layout" is one of its types. I did not read Lattice.kt, ConversionDictionary.kt, CodeTableDictionary.kt or SyllableSegmenter.kt in full (headers and call sites only), nor LayoutRepair.kt past its rule constants, TabletExpansion.kt past its eligibility contract, or the 354 asset layout files individually - those I analysed programmatically for composer/layer/flick distribution. IPA and music layer contents come from the asset JSON structure plus the docs, not a key-by-key read.
 - **Themes and appearance**: Read in full: core/theme (ThemeSpec.kt, PaletteThemes.kt, ThemeRendering.kt, ColorVision.kt, PhotoPalette.kt, BackgroundBitmaps.kt, FlexTheme.kt, SnyggMapper.kt head), core/settings (ThemeOverrides.kt, RotationPool.kt, PhotoBackgroundSettings.kt, ThemePhotoSweep.kt, RotatingBackground.kt, DirectBootSettings.kt theme half, AutoThemeSettings + ThemeMode + KeySoundStyle + ThemeGalleryStyle in SettingsRepository.kt), feature/ime/ui/KbTheme.kt, feature/tools/PhotoBackgroundManager.kt, core/tools/PhotoSources.kt, app/PhotoBackgroundUi.kt. Read in full or by section: app/ThemeScreens.kt (4180 lines — gallery, editor, all pickers, gradient editor, cropper, colour picker), core/icons (IconSlots.kt, IconOverrides.kt, IconPacks.kt, IconPackFile.kt head, IconPackStore constants), feature/ime/ui/KeyboardFonts.kt, KeyTextures.kt, KeyPressEffects.kt, BoardDecals.kt, BuiltinIcons.kt catalog. Counts verified from code/assets: 28 built-in looks in 12 entries (4 families), 10 palette ports, 12 key shapes, 24 editor colour rows, 15 seed swatches, 6 texture slots, 6 decals, 12 variants, 6 effect kinds, 6 effect images, 97 icon slots, 181 bundled glyphs, 20 Latin Google Fonts, 27 automatic script faces, 22 script pickers, 12 photo topics, 14 photo colours, 6 rotation intervals, 3 scopes. Skipped or only skimmed: Snygg.kt stylesheet parser internals, SvgParser.kt, IconPackStore.kt beyond its constants, PhotoDetailScreens.kt and the photo library/rotation settings screens (read only their entry points and the shared UI in PhotoBackgroundUi.kt), UnsplashClient/PexelsClient request building, AddonScreens/AddonInstaller theme-install UI beyond the theme branches, MainActivity route plumbing, onboarding theme picks (OnboardingPages.kt), and the docs prose (used only to cross-check — note docs/themes/overview.mdx says 26 built-ins, which is stale against the 28 in code). Did not run the app or verify anything on a device.

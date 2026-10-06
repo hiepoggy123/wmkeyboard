@@ -37,6 +37,14 @@ enum class NetSource(
     PHOTO_SEARCH("photo_search", ToolbarTool.CAMERA),
     AI("ai", ToolbarTool.AI),
     AI_CHAT("ai_chat", ToolbarTool.AI),
+
+    /**
+     * A search or a page the AI tool made on its own, because the model asked
+     * for it (#470). Its own source rather than [WEB_SEARCH]: the user did not
+     * run that search, and a log that said they had would be wrong about the
+     * one thing it exists to record.
+     */
+    AI_TOOLS("ai_tools", ToolbarTool.AI),
     TRANSCRIPTION("transcription", ToolbarTool.VOICE),
     WIKIPEDIA("wikipedia", ToolbarTool.WIKIPEDIA),
     DICTIONARY("dictionary", ToolbarTool.DICTIONARY),
@@ -61,6 +69,9 @@ enum class NetSource(
     DOWNLOAD_VOCAB("download_vocab", ToolbarTool.VOCABULARY),
     DOWNLOAD_FONT("download_font"),
     DOWNLOAD_CUTOUT("download_cutout", ToolbarTool.STICKER),
+
+    /** A photo the scan text tool sends to the user's online text reader (#469). */
+    OCR_ONLINE("ocr_online", ToolbarTool.OCR),
 
     /** Tesseract language data for the scan text tool. */
     DOWNLOAD_OCR("download_ocr", ToolbarTool.OCR),

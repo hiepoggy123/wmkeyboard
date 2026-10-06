@@ -53,17 +53,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.core.net.toUri
-import androidx.compose.material.icons.outlined.Collections
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.PhotoLibrary
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.FileDownload
-import androidx.compose.material.icons.outlined.FileUpload
-import androidx.compose.material.icons.outlined.Image
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Collections
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PushPin
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Edit
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileDownload
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileUpload
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Image
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
@@ -178,6 +178,7 @@ import com.wasimaster.wmkeyboard.core.theme.keyEffectColorMode
 import com.wasimaster.wmkeyboard.core.theme.keyEffectKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.MAX_DECALS
+import com.wasimaster.wmkeyboard.core.theme.SECONDARY_SUGGESTION_SCALE_RANGE
 import com.wasimaster.wmkeyboard.core.theme.MAX_EFFECT_IMAGES
 import com.wasimaster.wmkeyboard.core.theme.MAX_THEME_VARIANTS
 import com.wasimaster.wmkeyboard.core.theme.withSidePad
@@ -207,6 +208,7 @@ import com.wasimaster.wmkeyboard.core.theme.themeName
 import com.wasimaster.wmkeyboard.core.theme.withFreshIds
 import com.wasimaster.wmkeyboard.core.theme.withEmbeddedImages
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
+import com.wasimaster.wmkeyboard.core.util.readTextCapped
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import kotlinx.coroutines.Dispatchers
@@ -215,7 +217,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.max
 import kotlin.math.roundToInt
-import androidx.compose.material.icons.outlined.SwapHoriz
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.theme.FlexResult
 import com.wasimaster.wmkeyboard.core.theme.FlexTheme
 import com.wasimaster.wmkeyboard.core.theme.dynamicSnyggPalette
@@ -223,15 +225,15 @@ import com.wasimaster.wmkeyboard.core.theme.GboardResult
 import com.wasimaster.wmkeyboard.core.theme.GboardTheme
 import com.wasimaster.wmkeyboard.core.theme.HeliResult
 import com.wasimaster.wmkeyboard.core.theme.HeliTheme
-import androidx.compose.material.icons.outlined.Crop169
-import androidx.compose.material.icons.outlined.CropFree
-import androidx.compose.material.icons.outlined.CropSquare
-import androidx.compose.material.icons.outlined.Layers
-import androidx.compose.material.icons.outlined.Shuffle
-import androidx.compose.material.icons.outlined.Keyboard
-import androidx.compose.material.icons.outlined.KeyboardHide
-import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Tune
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Crop169
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CropFree
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CropSquare
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Layers
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Shuffle
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Keyboard
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardHide
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Palette
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tune
 
 // ---- shared helpers ----
 
@@ -973,8 +975,7 @@ fun ThemesScreen(
         scope.launch {
             val text = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.requireInputStream(uri)
-                        .use { it.readBytes().decodeToString() }
+                    context.contentResolver.readTextCapped(uri)
                 }.getOrNull()
             }
             val parsed = text?.let { ThemeCodec.decode(it) }
@@ -1064,12 +1065,23 @@ fun ThemesScreen(
         repository.upsertCustomTheme(stored)
         // Saved, not switched to, for the reason the FlorisBoard import is:
         // a converted theme is the thing worth looking at first.
-        message = context.getString(
-            R.string.import_heli_done,
-            stored.name,
-            result.coloursUsed,
-            result.coloursRead,
-        )
+        message = buildString {
+            append(
+                context.getString(
+                    R.string.import_heli_done,
+                    stored.name,
+                    result.coloursUsed,
+                    result.coloursRead,
+                ),
+            )
+            // The same list the other two imports show. "N of M colours" on
+            // its own never said which M − N, and for the all-colours export
+            // it is nearly always the emoji board.
+            if (result.dropped.isNotEmpty()) {
+                append("\n\n").append(context.getString(R.string.import_repairs_pending_title))
+                for (line in result.dropped) append("\n• ").append(heliDroppedLine(context, line))
+            }
+        }
     }
     val heliLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -1078,8 +1090,7 @@ fun ThemesScreen(
         scope.launch {
             val text = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.requireInputStream(uri)
-                        .use { it.readBytes().decodeToString() }
+                    context.contentResolver.readTextCapped(uri)
                 }.getOrNull()
             }
             applyHeliTheme(text)
@@ -1323,6 +1334,7 @@ fun ThemesScreen(
             action = stringResource(CommonR.string.common_disable),
         ) { scope.launch { repository.setAutoThemeEnabled(false) } }
     }
+    HighContrastThemeBanner(repository, settings)
     ChoiceControl(
         options = ThemeGalleryStyle.entries.map { it to stringResource(themeGalleryStyleLabelRes(it)) },
         selected = settings.watch { it.appUi.themeGalleryStyle },
@@ -2002,6 +2014,22 @@ private class OpenLook(
         settings.watch { pick(it, openFamilyAndLook(it, routeId, id)?.second ?: GoneLook) }
 }
 
+/**
+ * High contrast repaints the keys, the board and the hints over whatever theme
+ * is on, and the previews here draw the theme as it is stored. Without a word
+ * about it, a theme edited to the user's own colours looks right in every card
+ * and wrong on the keyboard (#493).
+ */
+@Composable
+private fun HighContrastThemeBanner(repository: SettingsRepository, settings: LiveSettings) {
+    if (!settings.watch { it.accessibility.highContrast }) return
+    val scope = rememberCoroutineScope()
+    StateBanner(
+        text = stringResource(R.string.theme_high_contrast_on_body),
+        action = stringResource(CommonR.string.common_disable),
+    ) { scope.launch { repository.setHighContrastKeys(false) } }
+}
+
 @Composable
 fun ThemeEditorScreen(
     repository: SettingsRepository,
@@ -2151,6 +2179,7 @@ fun ThemeEditorScreen(
     val landscapePhotoCredit = look.watch { it.backgroundPhotoLandscape }
     val hasOneHandedFill = look.watch { it.oneHandedPanelBackground != null }
     val hasKeyBorder = look.watch { it.keyBorderColor != null }
+    val hasKeyShadow = look.watch { it.keyElevationDp > 0f }
     val texturedSlots = look.watch { t -> KeyTextureSlot.entries.filter { it.pathIn(t) != null }.toSet() }
     val overrideIds = look.watch { it.keyOverrides.keys.sorted() }
     val decals = look.watch { it.decals }
@@ -2276,6 +2305,7 @@ fun ThemeEditorScreen(
     // variant is open — a way to delete it. Everything below the row edits
     // the open look alone.
     var confirmDeleteVariant by remember(lookId) { mutableStateOf(false) }
+    HighContrastThemeBanner(repository, settings)
     SettingsGroup(stringResource(R.string.theme_variant_section_title), foldKey = "theme/variant") {
         item {
             val members = settings.watch { s ->
@@ -2907,7 +2937,13 @@ fun ThemeEditorScreen(
             )
         }
         item {
-            ColorRow(R.string.theme_enter_key_title, look.watch { it.enterKeyBackground }) {
+            // Alpha like the other two key faces: a see-through enter key is
+            // half of a see-through keyboard (#504).
+            ColorRow(
+                R.string.theme_enter_key_title,
+                look.watch { it.enterKeyBackground },
+                supportsAlpha = true,
+            ) {
                 update { t -> t.copy(enterKeyBackground = it) }
             }
         }
@@ -2951,6 +2987,17 @@ fun ThemeEditorScreen(
                 display = { "%.1f dp".format(it) },
                 info = stringResource(R.string.theme_key_elevation_body),
             ) { update { t -> t.copy(keyElevationDp = (it * 10).toInt() / 10f) } }
+        }
+        item(visible = hasKeyShadow) {
+            // Unset is the platform's own black. Alpha counts: a soft coloured
+            // glow is most of what the themes that set one are after.
+            NullableColorRow(
+                R.string.theme_key_shadow_color_title,
+                look.watch { it.keyShadowColor }, fallback = 0xFF000000,
+                supportsAlpha = true,
+                info = stringResource(R.string.theme_key_shadow_color_body),
+                onChange = { update { t -> t.copy(keyShadowColor = it) } },
+            )
         }
     }
 
@@ -3369,6 +3416,19 @@ fun ThemeEditorScreen(
 
     SettingsGroup(stringResource(R.string.theme_toolbar_section_title), foldKey = "theme/toolbar") {
         item {
+            // The fill behind the tools, its own row or the strip while the
+            // tools hold it. Auto follows the suggestion strip's fill, which
+            // itself follows the board, so the fallback swatch walks that chain.
+            NullableColorRow(
+                R.string.theme_toolbar_background_title,
+                look.watch { it.toolbarBackground },
+                fallback = look.watch { it.suggestionBarBackground ?: it.boardBackground },
+                supportsAlpha = true,
+                info = stringResource(R.string.theme_toolbar_background_body),
+                onChange = { update { t -> t.copy(toolbarBackground = it) } },
+            )
+        }
+        item {
             val toolShape = look.watchWith { s, t -> keyShapeKindOrNull(t.toolShape) ?: s.toolShape }
             WmRow(
                 title = stringResource(R.string.theme_tool_shape_title),
@@ -3466,6 +3526,32 @@ fun ThemeEditorScreen(
                 look.watch { it.suggestionText }, fallback = look.watch { it.keyText },
                 onChange = { update { t -> t.copy(suggestionText = it) } },
             )
+        }
+        item {
+            // The suggestions beside the primary one: their own colour, and
+            // their size as a share of the primary's (#504). Auto is the
+            // strip's text colour at full size, which is what they always were.
+            NullableColorRow(
+                R.string.theme_other_suggestions_title,
+                look.watch { it.secondarySuggestionText },
+                fallback = look.watch { it.suggestionText ?: it.keyText },
+                info = stringResource(R.string.theme_other_suggestions_body),
+                onChange = { update { t -> t.copy(secondarySuggestionText = it) } },
+            )
+        }
+        item {
+            SliderRow(
+                R.string.theme_other_suggestions_size_title,
+                value = look.watch { it.secondarySuggestionScale ?: 1f },
+                range = SECONDARY_SUGGESTION_SCALE_RANGE,
+                display = { "${(it * 100).roundToInt()}%" },
+                info = stringResource(R.string.theme_other_suggestions_size_body),
+            ) {
+                // Stored in 5% steps, and the resting value stays null so a
+                // theme that never touched the slider stays "same size".
+                val stepped = (it * 20).roundToInt() / 20f
+                update { t -> t.copy(secondarySuggestionScale = stepped.takeIf { s -> s != 1f }) }
+            }
         }
         item {
             // The quieter line beside the main one, and the hairlines between
@@ -4886,21 +4972,40 @@ private fun DecalDialog(
 }
 
 /**
- * Copies a picked sticker into the theme-images folder, downscaled like a key
- * texture and kept as PNG so its transparency survives.
+ * Decodes [uri] sampled down, scales it to [maxPx] on its longest edge, and
+ * writes it as PNG under [fileName] in the theme-images folder. Returns the
+ * path, or null when the image cannot be read.
+ *
+ * The sampling is the point. Every importer here used to `decodeStream` the
+ * picked picture **whole** and only then ask whether it was too big — one
+ * allocation of width x height x 4 bytes, which for an ordinary 12 MP phone
+ * photo is 48 MB and for a 108 MP one is over 400 MB, in the process that also
+ * draws the keyboard, to end up storing 512 px (or 192 for a particle). Reading
+ * the bounds first costs a second open of the stream and nothing else. The
+ * sample stops while the long edge still covers [maxPx], so the scale that
+ * follows loses nothing.
  */
-private fun importDecalImage(
+private fun importScaledThemeImage(
     context: android.content.Context,
-    themeId: String,
-    decalId: String,
     uri: android.net.Uri,
+    maxPx: Int,
+    fileName: String,
 ): String? = runCatching {
+    val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    context.contentResolver.requireInputStream(uri).use { input ->
+        android.graphics.BitmapFactory.decodeStream(input, null, bounds)
+    }
+    val longest = maxOf(bounds.outWidth, bounds.outHeight)
+    if (longest <= 0) return null
+    var sample = 1
+    while (longest / (sample * 2) >= maxPx) sample *= 2
+    val options = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
     val source = context.contentResolver.requireInputStream(uri).use { input ->
-        android.graphics.BitmapFactory.decodeStream(input)
+        android.graphics.BitmapFactory.decodeStream(input, null, options)
     } ?: return null
-    val longest = maxOf(source.width, source.height)
-    val scaled = if (longest > KEY_TEXTURE_IMPORT_PX) {
-        val scale = KEY_TEXTURE_IMPORT_PX.toFloat() / longest
+    val decoded = maxOf(source.width, source.height)
+    val scaled = if (decoded > maxPx) {
+        val scale = maxPx.toFloat() / decoded
         android.graphics.Bitmap.createScaledBitmap(
             source,
             maxOf(1, (source.width * scale).toInt()),
@@ -4910,12 +5015,30 @@ private fun importDecalImage(
     } else {
         source
     }
-    val file = File(themeImagesDir(context), "${themeId}_decal_$decalId.img")
+    val file = File(themeImagesDir(context), fileName)
     file.outputStream().use { out ->
         scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
     }
+    if (scaled != source) source.recycle()
+    scaled.recycle()
     file.absolutePath
 }.getOrNull()
+
+/**
+ * Copies a picked sticker into the theme-images folder, downscaled like a key
+ * texture and kept as PNG so its transparency survives.
+ */
+private fun importDecalImage(
+    context: android.content.Context,
+    themeId: String,
+    decalId: String,
+    uri: android.net.Uri,
+): String? = importScaledThemeImage(
+    context = context,
+    uri = uri,
+    maxPx = KEY_TEXTURE_IMPORT_PX,
+    fileName = "${themeId}_decal_$decalId.img",
+)
 
 /** Longest edge a press-effect particle image is stored at. */
 private const val EFFECT_IMAGE_IMPORT_PX = 192
@@ -4928,31 +5051,12 @@ private fun importEffectImage(
     context: android.content.Context,
     themeId: String,
     uri: android.net.Uri,
-): String? = runCatching {
-    val source = context.contentResolver.requireInputStream(uri).use { input ->
-        android.graphics.BitmapFactory.decodeStream(input)
-    } ?: return null
-    val longest = maxOf(source.width, source.height)
-    val scaled = if (longest > EFFECT_IMAGE_IMPORT_PX) {
-        val scale = EFFECT_IMAGE_IMPORT_PX.toFloat() / longest
-        android.graphics.Bitmap.createScaledBitmap(
-            source,
-            maxOf(1, (source.width * scale).toInt()),
-            maxOf(1, (source.height * scale).toInt()),
-            true,
-        )
-    } else {
-        source
-    }
-    val file = File(
-        themeImagesDir(context),
-        "${themeId}_fx_${System.currentTimeMillis()}.img",
-    )
-    file.outputStream().use { out ->
-        scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
-    }
-    file.absolutePath
-}.getOrNull()
+): String? = importScaledThemeImage(
+    context = context,
+    uri = uri,
+    maxPx = EFFECT_IMAGE_IMPORT_PX,
+    fileName = "${themeId}_fx_${System.currentTimeMillis()}.img",
+)
 
 /** Longest edge a texture is stored at. A key never draws bigger than this. */
 private const val KEY_TEXTURE_IMPORT_PX = 512
@@ -4981,31 +5085,12 @@ private fun importThemeImage(
     context: android.content.Context,
     namePrefix: String,
     uri: android.net.Uri,
-): String? = runCatching {
-    val source = context.contentResolver.requireInputStream(uri).use { input ->
-        android.graphics.BitmapFactory.decodeStream(input)
-    } ?: return null
-    val longest = maxOf(source.width, source.height)
-    val scaled = if (longest > KEY_TEXTURE_IMPORT_PX) {
-        val scale = KEY_TEXTURE_IMPORT_PX.toFloat() / longest
-        android.graphics.Bitmap.createScaledBitmap(
-            source,
-            maxOf(1, (source.width * scale).toInt()),
-            maxOf(1, (source.height * scale).toInt()),
-            true,
-        )
-    } else {
-        source
-    }
-    val file = File(
-        themeImagesDir(context),
-        "${namePrefix}_${System.currentTimeMillis()}.img",
-    )
-    file.outputStream().use { out ->
-        scaled.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
-    }
-    file.absolutePath
-}.getOrNull()
+): String? = importScaledThemeImage(
+    context = context,
+    uri = uri,
+    maxPx = KEY_TEXTURE_IMPORT_PX,
+    fileName = "${namePrefix}_${System.currentTimeMillis()}.img",
+)
 
 /** Opens a credit link in the browser. Failure is not worth a message. */
 private fun openLink(context: android.content.Context, url: String) {

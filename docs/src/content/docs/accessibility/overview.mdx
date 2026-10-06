@@ -54,11 +54,11 @@ Tap that row. A disclosure sheet explains what the service does and what it can'
 
 **Colour vision** applies a real-time correction, not a simulation, for red-green and blue-yellow colour blindness. **Deutan** and **Protan** cover the two red-green types, and deuteranopia is by far the more common of them. **Tritan** covers the blue-yellow type. **Grey** removes colour from the keyboard entirely. The filter reshuffles the keyboard's palette so hues that would otherwise collapse into each other stay distinguishable. It runs after your theme resolves, so it works the same way over a built-in theme, a custom theme, or dynamic colour.
 
-**High contrast keys** replaces your theme's key and board colors with a flat black-or-white pair, and forces every label to the opposite extreme. Any gradient, background image or animation is dropped while it's active, and so are a theme's own suggestion strip and navigation bar fills, since those two bars have to take the flat board for the label contrast to hold. Your theme's accent color is kept, so <KeyCap>Shift</KeyCap> and an active toolbar tool still stand out against the flat board. If your theme's key shape is **None**, the keys come back as plain rounded ones while this is on.
+**High contrast keys** replaces your theme's key and board colors with a flat black-or-white pair, and forces every label to the opposite extreme, the small long-press hint in each key's corner included. Any gradient, background image or animation is dropped while it's active, and so are a theme's own suggestion strip and navigation bar fills, since those two bars have to take the flat board for the label contrast to hold. Your theme's accent color is kept, so <KeyCap>Shift</KeyCap> and an active toolbar tool still stand out against the flat board. If your theme's key shape is **None**, the keys come back as plain rounded ones while this is on. Because it overrides your theme's colors, the theme gallery and the theme editor show a note while it's on, with a button that turns it off. Turn it off if you'd rather set your own key and hint colors in a custom theme.
 
 **Key outlines** draws a border around every key, and around the background behind every toolbar tool. It helps when a key's fill and the board sit close in brightness, as on a translucent theme or one carrying a background image. A theme that already defines its own key border or tool outline keeps what it has. If the key shape is **None**, the keys come back as rounded ones while this is on, so there's an edge to outline. Tools are skipped when their background is switched off (tool circle radius at 0), because there's nothing there to outline.
 
-**Bold key labels** thickens the letters drawn on each key.
+**Bold key labels** thickens the letters drawn on each key, and the long-press hint in its corner. To make the hints bigger as well, raise **Key hint font size** in [Appearance](/reference/settings/appearance/).
 
 **Readable font** is a one-tap shortcut to Atkinson Hyperlegible, a typeface the Braille Institute designed to keep easily-confused characters visually distinct: capital I, lowercase l and the digit 1, or capital O and zero. Turning it off restores the keyboard's default font. To pick a different face entirely, or import your own, use the **Keyboard font** row below it. That row opens the same font browser covered in [Fonts](/themes/fonts/).
 
@@ -105,6 +105,12 @@ This changes only the settings app. The keyboard, its toolbar and the Tools list
 When you open a setting, its icon and name move up into the heading of the screen it opens. That motion costs more than it looks: while it's on, every settings screen is laid out twice each time anything on it changes, and a slower phone can show that as a stutter when a screen opens or scrolls. Turn off **Screen transitions** and screens open with the plain sideways slide instead, laid out once.
 
 It's on by default, and a phone that runs the settings smoothly has no reason to turn it off. **Reduce motion** already turns these transitions off, so with that on this switch changes nothing. The keyboard itself isn't affected either way.
+
+## Keyboard test button
+
+<SettingsPath path="Accessibility / Settings app / Keyboard test button" />
+
+Every settings screen has a small keyboard button in its bottom corner, above the screen's own button if it has one. It opens a text field with the real keyboard under it, so you can try a change without leaving the screen. If the button gets in your way, turn off **Keyboard test button** and it's gone from every screen. See [Trying a change](/reference/settings/#trying-a-change) for how the field behaves.
 
 ## Touch accommodations
 

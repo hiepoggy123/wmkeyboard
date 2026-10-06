@@ -19,8 +19,8 @@ import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Check
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Edit
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
 import androidx.compose.material3.IconButton
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
@@ -202,6 +202,17 @@ internal fun LanguageSettings(
                     lock = AppLockTargets["action_forget_app_languages"],
                 ) { scope.launch { repository.clearPerAppLayouts() } }
             }
+        }
+    }
+    SettingsGroup(stringResource(R.string.langemoji_lang_switching_title)) {
+        item {
+            ToggleSetting(
+                R.string.langemoji_lang_carry_word_title,
+                stringResource(R.string.langemoji_lang_carry_word_subtitle),
+                settings.watch { it.carryWordOnLanguageSwitch },
+                info = stringResource(R.string.langemoji_lang_carry_word_info),
+                default = SettingsDefaults.carryWordOnLanguageSwitch,
+            ) { scope.launch { repository.setCarryWordOnLanguageSwitch(it) } }
         }
     }
     SettingsGroup(stringResource(R.string.langemoji_lang_per_app_title)) {

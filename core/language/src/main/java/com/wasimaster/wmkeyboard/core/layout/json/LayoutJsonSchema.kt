@@ -266,7 +266,8 @@ object LayoutJsonSchema {
             layoutJson.encodeToJsonElement(PanelLayoutSpec.serializer(), PanelLayoutSpec(PanelKind.EMOJI, LayerSpec(emptyList()))),
         )
         val samples = listOf(
-            KeyAction.Tool(), KeyAction.Layout(), KeyAction.SwitchInputMethod(), KeyAction.SendKey(keyCode = 0), KeyAction.BrailleDot(dot = 1),
+            KeyAction.Tool(), KeyAction.Layout(), KeyAction.LayerSwitch(), KeyAction.SwitchInputMethod(),
+            KeyAction.SendKey(keyCode = 0), KeyAction.BrailleDot(dot = 1),
             KeyAction.KeymanKey(vkey = 0), KeyAction.Field(),
         )
         for (sample in samples) {
@@ -443,4 +444,5 @@ fun JsonShape.summary(): String = when (this) {
     BooleanShape -> "boolean"
 }
 
-private const val ENUM_SUMMARY_VALUES = 4
+// Eight, so the flick directions still spell themselves out in a hover.
+private const val ENUM_SUMMARY_VALUES = 8

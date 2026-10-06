@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2" xmlns:tools="http://schemas.android.com/tools">
 
     <!-- ===== Languages settings screen ===== -->
 
@@ -34,6 +34,11 @@
     <string name="langemoji_lang_keymaps_empty_subtitle">Make your own key grid, or start from a built-in one</string>
     <string name="langemoji_lang_keymaps_subtitle">Edit, add and delete layouts</string>
 
+    <string name="langemoji_lang_switching_title">Switching language</string>
+    <string name="langemoji_lang_carry_word_title">Carry the word over</string>
+    <string name="langemoji_lang_carry_word_subtitle">Switch to a phonetic layout mid-word and the letters that you typed convert too</string>
+    <string name="langemoji_lang_carry_word_info">Phonetic layouts such as Avro, Hindi phonetic and Khipro spell their script with roman letters. When you notice halfway through a word that you are still on your Latin keyboard, switching language now converts the letters that you already typed instead of leaving them as they are: type "tu", switch to Avro, and the word reads তু, so "mi" after it finishes তুমি. Turn this off if you often switch language right after an English word and before typing a space, because that word is carried over as well.</string>
+
     <string name="langemoji_lang_per_app_title">Per-app language</string>
     <string name="langemoji_lang_per_app_toggle_title">Remember language per app</string>
     <string name="langemoji_lang_per_app_toggle_subtitle">Open each app with the layout that you used there last</string>
@@ -58,6 +63,8 @@
     <string name="langemoji_emoji_access_title">Access</string>
     <string name="langemoji_emoji_toolbar_title">Emoji button in toolbar</string>
     <string name="langemoji_emoji_toolbar_subtitle">Open emoji with one press from the top bar</string>
+    <string name="langemoji_strip_shortcut_title">Button beside the suggestions</string>
+    <string name="langemoji_strip_shortcut_subtitle">The tool that stays in the top bar while the suggestions show</string>
     <string name="langemoji_emoji_toolbar_info">The emoji button stays visible in the top bar, also while the suggestions show. The emoji panel has a tab for each category. You can search in English and Bengali, and in any language that you add a keyword pack for. Press and hold an emoji for the skin tone variants.</string>
     <string name="langemoji_emoji_full_bleed_title">Full-screen emoji panel</string>
     <string name="langemoji_emoji_full_bleed_subtitle">Hide the toolbar and move the category tabs up, next to a back button</string>
@@ -102,6 +109,14 @@
     <string name="langemoji_media_switcher_info">The switch has one button for each of the emoji panel, the GIF panel and the sticker panel, so that you can go from one to the next directly. It is at the same place in all three panels. \"Bottom\" puts it in the bottom row, between ABC and the space bar. \"Top\" puts it at the end of the search row. The GIF button and the sticker button show only while those tools are on. If you changed the layout of the emoji panel, the switch is where your layout puts it. To add it, use the \"Emoji, GIF and sticker switch\" part in the panel layout editor.</string>
     <string name="langemoji_media_switcher_top">Top</string>
     <string name="langemoji_media_switcher_bottom">Bottom</string>
+    <string name="langemoji_emoji_continuous_title">One long list</string>
+    <string name="langemoji_emoji_continuous_subtitle">Scroll through all the emoji, with a heading over each category</string>
+    <string name="langemoji_emoji_continuous_info">When this is on, the emoji panel is one list that you scroll from top to bottom. Each category starts with its name, and you go from one category to the next without a stop. The category tabs jump to a category and show the category that you are in. When this is off, each category is a page, and you swipe left or right to go to the next one.</string>
+    <string name="langemoji_panel_height_title">Panel height</string>
+    <string name="langemoji_panel_height_subtitle">How much taller than the keyboard the emoji, GIF and sticker panels open</string>
+    <string name="langemoji_panel_height_info">A taller panel shows more emoji, GIFs and stickers at one time. The letters keep their own height, and the three panels have the same height, so the keyboard does not move when you go from one to the next. The panel never covers more than most of the screen, so on a short screen, or with the phone sideways, it can stay shorter than this.</string>
+    <string name="langemoji_panel_height_none">Same as keyboard</string>
+    <string name="langemoji_panel_height_value" tools:ignore="PluralsCandidate">+%1$d dp</string>
     <string name="langemoji_media_remember_title">Open the last used panel</string>
     <string name="langemoji_media_remember_subtitle">The emoji key opens emoji, GIFs or stickers, the same as you left them</string>
     <string name="langemoji_media_remember_info">When this is on, the emoji key and the emoji tool open the panel of the three that you used last. If one of the three panels is open, they close it. When this is off, the emoji key always opens the emoji panel. The keyboard forgets the last panel when it restarts.</string>
@@ -194,6 +209,9 @@
     <string name="langemoji_emoji_hide_unrenderable_info">Older devices, and some brands, have an emoji font that is older than the newest emoji. Those emoji then show as an empty \"tofu\" box. This setting hides every emoji that the emoji font of your device cannot draw. To see them all, set the emoji font above to \"Google\" (Noto Color Emoji). You can also install a complete emoji font from Addons, such as Twemoji or OpenMoji. WM Keyboard has no emoji font of its own. It uses the font that you select here.</string>
     <!-- Second paragraph, added only when the user selected an emoji font of their own. -->
     <string name="langemoji_emoji_hide_unrenderable_own_font_info">The font that you selected above covers only the emoji that it was built with. Usually only the newest release has the newest emoji. The keyboard does not hide those emoji. It draws each one in the emoji font of your device, so you still see it, but in another style.</string>
+    <string name="langemoji_emoji_unicode_search_title">Find any character by its Unicode name</string>
+    <string name="langemoji_emoji_unicode_search_subtitle">The emoji search also finds symbols, letters and marks by the words of their name</string>
+    <string name="langemoji_emoji_unicode_search_info">Type the words of a character\'s Unicode name in the emoji search and it appears after the emoji: em dash, copyright sign, greek small letter lambda, latin small letter a with ogonek. Every character of the Basic Multilingual Plane is covered, which is tens of thousands of letters, marks and symbols. Tapping one inserts it. This setting is off by default.</string>
 
     <string name="langemoji_emoji_tip_body">Tip: press and hold any emoji in the panel to make it a favourite or to select skin tones. For an emoji with two persons, such as 🤝, you can set the tone of each person.</string>
 

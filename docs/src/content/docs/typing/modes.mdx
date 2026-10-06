@@ -25,11 +25,13 @@ Tapping <KeyCap>?123</KeyCap> steps through the symbol pages. <KeyCap>ABC</KeyCa
 - **Symbols 2 → Symbols.** The same corner now reads <KeyCap>?123</KeyCap> again and goes back one page. There's no page 3, so it just bounces between the two.
 - **Letters key wins from anywhere**, including from the Fn layer. Pressing <KeyCap>ABC</KeyCap> while Fn is active leaves Fn entirely and drops any Fn lock, rather than returning to whatever Fn was layered over.
 
-Pressing <KeyCap>?123</KeyCap> to leave letters also drops any in-progress handwriting ink on the writing surface, since letters is the only layer that hosts it. The keyboard's height doesn't jump when you cycle: its row count is fixed to the tallest reachable grid (letters, symbols, symbols-2, Fn and the field's own keypad), so shorter pages pad rather than resize.
+Pressing <KeyCap>?123</KeyCap> to leave letters also drops any in-progress handwriting ink on the writing surface, since letters is the only layer that hosts it. The keyboard's height doesn't jump when you cycle: its row count is fixed to the tallest reachable grid (letters, symbols, symbols-2, Fn and the field's own keypad), so a shorter page grows its keys to fill the same height rather than resizing the keyboard. The bottom row (space, enter) keeps its height on every page, so it stays under your thumb; the rows above it share the extra room, the way Gboard's symbol pages do. A layout that sets its own row heights keeps them and pads at the top instead.
 
 <SettingsPath path="Key press / Press and hold shortcuts / Press and hold ?123 for the number pad" />
 
-**Press and hold ?123 for the number pad** turns a long press on <KeyCap>?123</KeyCap> into a shortcut straight to the number pad panel, skipping the symbol pages. It's on by default. A quick tap always cycles the layers as described above, whatever this setting says; only the long press changes.
+**Press and hold ?123 for the number pad** turns a long press on <KeyCap>?123</KeyCap> into a shortcut straight to the number pad panel, skipping the symbol pages. It's on by default. A quick tap always cycles the layers as described above, whatever this setting says; only the long press changes. If your layout gives <KeyCap>?123</KeyCap> press-and-hold characters of its own, an imported one for example, the hold opens those instead, and the number pad is an entry in that popup.
+
+For a key you can see, turn on **1234 key on the symbol pages** under <SettingsPath path="Layout & size / Bottom row keys" />. It puts a <KeyCap>1234</KeyCap> key after <KeyCap>ABC</KeyCap> on both symbol pages that opens the same number pad. It's off by default.
 
 ### Coming back automatically
 
@@ -126,6 +128,8 @@ Six modes ship by default:
 | Coding | Symbol row on (Coding, Math sets) | Termux, Acode, RK Editor, Spck |
 
 Passwords and Writing replace the toolbar outright instead of adding to it. Nothing that opens a network-facing panel belongs next to a password box, and Writing's own pins want the bar to themselves, so the global Settings shortcut doesn't ride along into a writing session. Chat appends its tools to your existing pins instead.
+
+A tool a mode pins is switched on for as long as that mode is active, even if you'd turned it off globally, because a mode that pinned nothing you could see would be pinning nothing at all. That reach stops at the mode's own list: a tool you've switched off in **Tools** stays off under every mode that doesn't name it. Switching a tool off leaves it in its toolbar slot so re-enabling puts it back where it was, and a mode inheriting your toolbar inherits that slot without reading it as a pin of its own.
 
 If an existing install already had its own mode list saved before Chat and Writing shipped, both are appended automatically on upgrade. A mode you've since deleted stays deleted and isn't re-added. A later round topped up the Chat mode the same way, adding the nine apps it didn't have yet (Facebook, Facebook Lite, TikTok, Snapchat, Viber, LINE, KakaoTalk, WeChat, Beeper) and the notification-reply field type to a stored copy. An app you'd already bound to another mode is left where it is.
 

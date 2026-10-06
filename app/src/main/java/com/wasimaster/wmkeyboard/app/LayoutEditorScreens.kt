@@ -13,14 +13,14 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.outlined.Redo
-import androidx.compose.material.icons.automirrored.outlined.Undo
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.Remove
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.KeyboardArrowLeft
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.KeyboardArrowRight
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Redo
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Undo
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowDown
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowUp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Remove
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.KeyboardType
@@ -34,12 +34,16 @@ import androidx.compose.material3.RadioButton
 import com.wasimaster.wmkeyboard.core.layout.BottomRowRule
 import com.wasimaster.wmkeyboard.core.layout.BottomRowRules
 import com.wasimaster.wmkeyboard.core.layout.KeyRole
+import com.wasimaster.wmkeyboard.core.layout.FlickArm
+import com.wasimaster.wmkeyboard.core.layout.flickArm
+import com.wasimaster.wmkeyboard.core.layout.takesFlickActions
 import com.wasimaster.wmkeyboard.core.layout.arrangedBy
 import com.wasimaster.wmkeyboard.core.layout.FlickDirection
 import com.wasimaster.wmkeyboard.core.layout.KanaVariantKeyLabel
 import com.wasimaster.wmkeyboard.core.layout.LayerFile
 import com.wasimaster.wmkeyboard.core.layout.LayerSpec
 import com.wasimaster.wmkeyboard.core.ui.WmSlider
+import com.wasimaster.wmkeyboard.core.util.readTextCapped
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import com.wasimaster.wmkeyboard.core.util.runCancellable
@@ -50,8 +54,8 @@ import com.wasimaster.wmkeyboard.core.layout.tabletGridWidth
 import com.wasimaster.wmkeyboard.core.settings.DeviceForm
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.outlined.FileOpen
-import androidx.compose.material.icons.outlined.Share
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileOpen
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Share
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,13 +65,14 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.addons.AddonStore
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.SwapHoriz
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.layout.ConvertedLayout
 import com.wasimaster.wmkeyboard.core.keyman.KeymanImport
 import com.wasimaster.wmkeyboard.core.layout.ForeignLayouts
 import com.wasimaster.wmkeyboard.core.layout.FutoLayouts
 import com.wasimaster.wmkeyboard.core.layout.ForeignSource
+import com.wasimaster.wmkeyboard.core.layout.KeysCafeLayouts
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.layout.LayoutMessage
@@ -93,14 +98,14 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.ContentPaste
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
-import androidx.compose.material.icons.outlined.Refresh
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentCopy
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentPaste
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Edit
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ExpandLess
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ExpandMore
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -127,6 +132,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
@@ -192,6 +199,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeySlot
 import com.wasimaster.wmkeyboard.core.layout.roundGridUnit
 import com.wasimaster.wmkeyboard.core.layout.rowScaledKeyHeight
 import com.wasimaster.wmkeyboard.core.layout.fallbackLabel
+import com.wasimaster.wmkeyboard.core.layout.shiftLabelReplacesIcon
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.layout.findLayout
 import com.wasimaster.wmkeyboard.core.layout.isShippedLayoutId
@@ -217,12 +225,14 @@ import kotlinx.coroutines.launch
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material.icons.outlined.AutoMode
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.FiberManualRecord
-import androidx.compose.material.icons.outlined.MoreHoriz
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoMode
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Visibility
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VisibilityOff
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Block
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Bolt
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Lock
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FiberManualRecord
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MoreHoriz
 import com.wasimaster.wmkeyboard.core.ui.ScrollRailBox
 import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -505,8 +515,7 @@ internal fun KeyLayoutsScreen(
         scope.launch {
             val text = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.requireInputStream(uri)
-                        .use { it.readBytes().decodeToString() }
+                    context.contentResolver.readTextCapped(uri)
                 }.getOrNull()
             }
             val parsed = text?.let { LayoutFile.decode(it) }
@@ -543,7 +552,11 @@ internal fun KeyLayoutsScreen(
                         // FlorisBoard reader would take one and return null
                         // rather than deferring, so order is the dispatch.
                         val text = bytes.decodeToString()
-                        when {
+                        // Keys Cafe before everything: its file is base64 text,
+                        // which none of the readers below could take for theirs.
+                        // The sniff can pass a HeliBoard text layout of plain
+                        // letters by accident, so a refusal falls through.
+                        KeysCafeLayouts.takeIf { it.looksLikeKcf(text) }?.convert(text, name) ?: when {
                             KeymanImport.looksLikeTouchLayout(text) ->
                                 KeymanImport.convert(text, name)
                             // FUTO before the JSON reader for the same reason:
@@ -936,6 +949,7 @@ internal fun KeyLayoutsScreen(
                                 ForeignSource.FUTO_YAML -> R.string.layout_editor_foreign_from_futo
                                 ForeignSource.KEYMAN_TOUCH_LAYOUT ->
                                     R.string.layout_editor_foreign_from_keyman
+                                ForeignSource.KEYS_CAFE -> R.string.layout_editor_foreign_from_keyscafe
                             },
                         ),
                     )
@@ -3537,6 +3551,11 @@ internal fun EditorKeyCell(
                 ?: (key.action as? KeyAction.Edit)
                     ?.takeIf { key.label.isBlank() }
                     ?.let { textEditIcon(it.op) }
+                // Tab, the arrows, and a layout, layer, broadcast or key-send
+                // key: the glyph the board draws where the label is blank.
+                ?: key.action
+                    .takeIf { key.label.isBlank() || key.label == it.fallbackLabel() }
+                    ?.let(KeyIcons::forAction)
             if (cellIcon != null) {
                 Icon(
                     cellIcon,
@@ -3574,16 +3593,42 @@ internal fun EditorKeyCell(
         // towards. The keyboard only shows the cross under a finger, which
         // the editor has none of, so a kana pad here was a grid of あ, か, さ
         // with no way to see the forty other kana it types.
-        for ((direction, text) in key.flick) {
-            Text(
-                text = text,
-                color = foreground.copy(alpha = 0.6f),
-                fontSize = (EditorFlickSp * fontScale).sp,
-                maxLines = 1,
-                modifier = Modifier
-                    .align(flickAlignment(direction))
-                    .padding(horizontal = 3.dp, vertical = 1.dp),
-            )
+        // An arm that runs an action (issue #549) wears that action's icon,
+        // and the shift view shows each arm's own shift form (issue #550).
+        for (direction in FlickDirection.entries) {
+            val armModifier = Modifier
+                .align(flickAlignment(direction))
+                .padding(horizontal = 3.dp, vertical = 1.dp)
+            when (val arm = key.flickArm(direction)) {
+                null -> Unit
+                is FlickArm.Text -> Text(
+                    text = if (showShift) key.flickShift[direction] ?: arm.text.uppercase() else arm.text,
+                    color = foreground.copy(alpha = 0.6f),
+                    fontSize = (EditorFlickSp * fontScale).sp,
+                    maxLines = 1,
+                    modifier = armModifier,
+                )
+                is FlickArm.Action -> {
+                    val action = arm.alternate.action
+                    val armIcon = flickArmIcon(arm.alternate)
+                    if (armIcon != null && arm.alternate.label.isBlank()) {
+                        Icon(
+                            armIcon,
+                            contentDescription = null,
+                            tint = foreground.copy(alpha = 0.6f),
+                            modifier = armModifier.size((EditorFlickSp * 1.4f * fontScale).dp),
+                        )
+                    } else {
+                        Text(
+                            text = arm.alternate.label.ifBlank { actionGlyph(action, spaceLabel) },
+                            color = foreground.copy(alpha = 0.6f),
+                            fontSize = (EditorFlickSp * fontScale).sp,
+                            maxLines = 1,
+                            modifier = armModifier,
+                        )
+                    }
+                }
+            }
         }
         // Issue #340: a key that becomes 小゛゜ after a kana says so.
         if (key.kanaVariantWhileComposing) {
@@ -3600,12 +3645,30 @@ internal fun EditorKeyCell(
     }
 }
 
-/** Where a flick's glyph sits on a preview cell: the edge it is flicked towards. */
+/** Where a flick's glyph sits on a preview cell: the edge or corner it is flicked towards. */
 private fun flickAlignment(direction: FlickDirection): Alignment = when (direction) {
     FlickDirection.LEFT -> Alignment.CenterStart
     FlickDirection.UP -> Alignment.TopCenter
     FlickDirection.RIGHT -> Alignment.CenterEnd
     FlickDirection.DOWN -> Alignment.BottomCenter
+    FlickDirection.UP_LEFT -> Alignment.TopStart
+    FlickDirection.UP_RIGHT -> Alignment.TopEnd
+    FlickDirection.DOWN_LEFT -> Alignment.BottomStart
+    FlickDirection.DOWN_RIGHT -> Alignment.BottomEnd
+}
+
+/**
+ * The icon an action arm draws in the preview and on the flick pad: the one
+ * the author named, the action's own, a tool's, or a text-editing operation's.
+ * Null when the arm wears a label instead, or nothing draws for it.
+ */
+private fun flickArmIcon(alternate: KeyAlternate): ImageVector? {
+    val action = alternate.action
+    return KeyIcons.byName(alternate.icon)
+        ?: KeyIcons.byName(actionIconName(action))
+        ?: (action as? KeyAction.Tool)?.let { toolIconFor(it.tool) }
+        ?: (action as? KeyAction.Edit)?.let { textEditIcon(it.op) }
+        ?: KeyIcons.forAction(action)
 }
 
 /** The preview's size for a flick glyph: small enough to leave the key's own label alone. */
@@ -4038,7 +4101,9 @@ internal fun KeyEditSheet(
                 resetKey = ref,
             ) { text -> onChange { it.copy(shiftLabel = text.ifBlank { null }) } }
 
-            if (!isField && key.action == KeyAction.Text) FlickFields(key, ref, onChange)
+            if (!isField && (key.action == KeyAction.Text || key.takesFlickActions())) {
+                FlickFields(key, ref, secondaryLayouts, onChange)
+            }
 
             val option = catalog.firstOrNull { it.matches(key.action) }
             val actionDetail = option?.let { stringResource(it.detailRes) }
@@ -4448,8 +4513,8 @@ private fun outputFieldSupport(key: Key): String = when {
 }
 
 /**
- * The four flick directions of a kana-pad key (issue #339): what a short flick
- * left, up, right or down types instead of the tap.
+ * The flick directions of a key (issue #339, eight of them since #410): what a
+ * short flick towards each edge or corner types instead of the tap.
  *
  * These were reachable only from the raw JSON, on the grounds that a flick map
  * is rare and whoever wants one already knows the word (see [LettersField]).
@@ -4461,22 +4526,93 @@ private fun outputFieldSupport(key: Key): String = when {
  * Blank removes the direction rather than storing an empty string: an empty
  * arm is what the keyboard already treats as no flick, and keeping the map to
  * the directions that type something keeps the file what an author would write.
+ *
+ * Each arm that types something gets a Shift field under it (issue #550), the
+ * way the key's own label has one. Any arm can run an action instead (issue
+ * #549), through the button at the end of its field; on an action key, which
+ * has no text to flick, the arms are action rows and nothing else. An arm is one
+ * or the other, so choosing an action drops the arm's text, and the file says
+ * what the sheet shows.
  */
 @Composable
-private fun FlickFields(key: Key, ref: KeyRef, onChange: ((Key) -> Key) -> Unit) {
-    var open by remember(ref) { mutableStateOf(key.flick.isNotEmpty()) }
+private fun FlickFields(
+    key: Key,
+    ref: KeyRef,
+    secondaryLayouts: List<LayoutSpec>,
+    onChange: ((Key) -> Key) -> Unit,
+) {
+    val typesText = key.action == KeyAction.Text
+    val takesActions = key.takesFlickActions()
+    var open by remember(ref) { mutableStateOf(key.flick.isNotEmpty() || key.flickActions.isNotEmpty()) }
+    // The arm whose action is being picked, then the second question some
+    // actions ask: which operation, which tool, which layout.
+    var picking by remember(ref) { mutableStateOf<FlickDirection?>(null) }
+    var pickingEditAt by remember(ref) { mutableStateOf<FlickDirection?>(null) }
+    var pickingToolAt by remember(ref) { mutableStateOf<FlickDirection?>(null) }
+    var pickingLayoutAt by remember(ref) { mutableStateOf<FlickDirection?>(null) }
     if (!open) {
         WmRow(
             title = stringResource(R.string.layout_editor_flick_add_action),
-            subtitle = stringResource(R.string.layout_editor_flick_add_subtitle),
+            subtitle = stringResource(
+                if (typesText) R.string.layout_editor_flick_add_subtitle else R.string.layout_editor_flick_add_subtitle_action,
+            ),
             leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
             onClick = { open = true },
         )
         return
     }
-    CaptionText(stringResource(R.string.layout_editor_flick_caption))
-    for (direction in FlickDirection.entries) {
+    CaptionText(
+        stringResource(if (typesText) R.string.layout_editor_flick_caption else R.string.layout_editor_flick_caption_action),
+    )
+    fun setArm(direction: FlickDirection, alternate: KeyAlternate) = onChange {
+        it.copy(
+            flickActions = (it.flickActions + (direction to alternate)).inFlickOrder(),
+            flick = it.flick - direction,
+            flickShift = it.flickShift - direction,
+        )
+    }
+    fun updateArm(direction: FlickDirection, change: (KeyAlternate) -> KeyAlternate) = onChange { k ->
+        val arm = k.flickActions[direction] ?: return@onChange k
+        k.copy(flickActions = k.flickActions + (direction to change(arm)))
+    }
+    // Issue #410: the eight arms as a 3×3 pad with the key itself in the
+    // middle, the way the keyboard draws them. Tap a cell to edit that arm in
+    // the fields below; eight pairs of fields in a column was a sheet nobody
+    // could see the shape of.
+    var selected by remember(ref, key.action) { mutableStateOf(FlickDirection.UP) }
+    FlickPad(key = key, selected = selected, takesActions = takesActions) { selected = it }
+    val direction = selected
+    val arm = key.flickActions[direction]?.takeIf { takesActions }
+    if (arm != null) {
+        WmRow(
+            title = stringResource(flickLabelRes(direction)),
+            subtitle = stringResource(
+                R.string.layout_editor_flick_action_set,
+                actionAlternateName(arm, secondaryLayouts),
+            ),
+            leading = { Icon(Icons.Outlined.Bolt, contentDescription = null) },
+            trailing = {
+                IconButton(onClick = { onChange { it.copy(flickActions = it.flickActions - direction) } }) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = stringResource(R.string.layout_editor_action_alternate_remove_desc),
+                    )
+                }
+            },
+            onClick = { picking = direction },
+        )
+    } else if (!typesText) {
+        WmRow(
+            title = stringResource(flickLabelRes(direction)),
+            subtitle = stringResource(R.string.layout_editor_flick_action_none),
+            leading = { Icon(Icons.Outlined.Bolt, contentDescription = null) },
+            onClick = { picking = direction },
+        )
+    } else {
         val value = key.flick[direction].orEmpty()
+        // The direction is part of the reset key: the field remembers its text
+        // per key, and switching cells mid-edit must show the new arm's text,
+        // not the one just typed into.
         SheetField(
             label = stringResource(flickLabelRes(direction)),
             value = value,
@@ -4485,12 +4621,220 @@ private fun FlickFields(key: Key, ref: KeyRef, onChange: ((Key) -> Key) -> Unit)
             } else {
                 stringResource(R.string.layout_editor_flick_set_hint, value)
             },
-            resetKey = ref to direction,
+            resetKey = Triple(ref, direction, FlickTextField),
+            trailing = if (takesActions) {
+                {
+                    IconButton(onClick = { picking = direction }) {
+                        Icon(
+                            Icons.Outlined.Bolt,
+                            contentDescription = stringResource(R.string.layout_editor_flick_action_pick_desc),
+                        )
+                    }
+                }
+            } else {
+                null
+            },
         ) { text ->
-            onChange { it.copy(flick = it.flick.withArm(direction, text)) }
+            onChange {
+                it.copy(
+                    flick = it.flick.withArm(direction, text),
+                    // The shift form of an arm that types nothing is a field
+                    // nothing reads; it goes with the arm.
+                    flickShift = if (text.isEmpty()) it.flickShift - direction else it.flickShift,
+                )
+            }
+        }
+        if (value.isNotEmpty()) {
+            SheetField(
+                label = stringResource(R.string.layout_editor_flick_shift_label, stringResource(flickLabelRes(direction))),
+                value = key.flickShift[direction].orEmpty(),
+                supporting = stringResource(R.string.layout_editor_flick_shift_hint),
+                resetKey = Triple(ref, direction, FlickShiftField),
+            ) { text ->
+                onChange { it.copy(flickShift = it.flickShift.withArm(direction, text)) }
+            }
+        }
+    }
+    if (key.flick.isNotEmpty() || key.flickShift.isNotEmpty() || key.flickActions.isNotEmpty()) {
+        TextButton(
+            onClick = {
+                onChange { it.copy(flick = emptyMap(), flickShift = emptyMap(), flickActions = emptyMap()) }
+                open = false
+            },
+            modifier = Modifier.padding(horizontal = 8.dp),
+        ) {
+            Text(stringResource(R.string.layout_editor_flick_clear))
+        }
+    }
+
+    picking?.let { direction ->
+        KeyActionPickerDialog(
+            current = key.flickActions[direction]?.action ?: KeyAction.None,
+            options = AlternateActionCatalog,
+            onPick = { action ->
+                picking = null
+                setArm(direction, KeyAlternate(action))
+                // Half an answer until it names its operation, tool or layout.
+                when (action) {
+                    is KeyAction.Edit -> pickingEditAt = direction
+                    is KeyAction.Tool -> pickingToolAt = direction
+                    is KeyAction.Layout -> pickingLayoutAt = direction
+                    else -> Unit
+                }
+            },
+            onDismiss = { picking = null },
+        )
+    }
+
+    pickingEditAt?.let { direction ->
+        TextEditActionPickerDialog(
+            current = (key.flickActions[direction]?.action as? KeyAction.Edit)?.op,
+            onDismiss = { pickingEditAt = null },
+            onPick = { op ->
+                pickingEditAt = null
+                updateArm(direction) { it.copy(action = KeyAction.Edit(op)) }
+            },
+        )
+    }
+
+    pickingToolAt?.let { direction ->
+        ToolPickerDialog(
+            title = stringResource(R.string.layout_editor_tool_picker_title),
+            current = (key.flickActions[direction]?.action as? KeyAction.Tool)?.tool,
+            options = ToolbarTool.entries.filter(::isSupportedTool),
+            onDismiss = { pickingToolAt = null },
+            onPick = { picked ->
+                pickingToolAt = null
+                picked?.let { tool -> updateArm(direction) { it.copy(action = KeyAction.Tool(tool)) } }
+            },
+        )
+    }
+
+    pickingLayoutAt?.let { direction ->
+        SecondaryLayoutPickerDialog(
+            current = (key.flickActions[direction]?.action as? KeyAction.Layout)?.id,
+            options = secondaryLayouts,
+            onDismiss = { pickingLayoutAt = null },
+            onPick = { picked ->
+                pickingLayoutAt = null
+                updateArm(direction) {
+                    it.copy(action = KeyAction.Layout(picked.id), label = it.label.ifBlank { picked.name })
+                }
+            },
+        )
+    }
+}
+
+/**
+ * The 3×3 pad of a key's flick arms (issue #410): each arm's text or action
+ * icon in the cell it is flicked towards, a faint plus where there is none, the
+ * key's own label in the middle. Tapping a cell selects it for the fields
+ * under the pad; the selected cell wears the accent outline.
+ */
+@Composable
+private fun FlickPad(
+    key: Key,
+    selected: FlickDirection,
+    takesActions: Boolean,
+    onSelect: (FlickDirection) -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(10.dp)
+    val padDesc = stringResource(R.string.layout_editor_flick_pad_desc)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .semantics { contentDescription = padDesc },
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        for (row in FlickDirection.gridOrder.chunked(3)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (direction in row) {
+                    val isSelected = direction != null && direction == selected
+                    val label = direction?.let { stringResource(flickLabelRes(it)) }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clip(shape)
+                            .background(if (direction == null) colors.surfaceVariant else colors.surface)
+                            .border(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) colors.primary else colors.outlineVariant,
+                                shape = shape,
+                            )
+                            .then(
+                                if (direction != null) {
+                                    Modifier.clickable(onClickLabel = label) { onSelect(direction) }
+                                } else {
+                                    Modifier
+                                },
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (direction == null) {
+                            Text(
+                                text = key.label.ifBlank { "•" },
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                color = colors.onSurfaceVariant,
+                            )
+                        } else {
+                            FlickPadCell(key, direction, takesActions, isSelected)
+                        }
+                    }
+                }
+            }
         }
     }
 }
+
+/** One arm's cell on the [FlickPad]: its text, its action's icon, or a faint plus. */
+@Composable
+private fun FlickPadCell(key: Key, direction: FlickDirection, takesActions: Boolean, selected: Boolean) {
+    val colors = MaterialTheme.colorScheme
+    val tint = if (selected) colors.primary else colors.onSurface
+    when (val arm = key.flickArm(direction)) {
+        null -> Icon(
+            Icons.Outlined.Add,
+            contentDescription = null,
+            tint = colors.outline.copy(alpha = 0.6f),
+            modifier = Modifier.size(16.dp),
+        )
+        is FlickArm.Text -> Text(
+            text = arm.text,
+            color = tint,
+            fontSize = 16.sp,
+            maxLines = 1,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+        is FlickArm.Action -> {
+            val icon = flickArmIcon(arm.alternate).takeIf { takesActions && arm.alternate.label.isBlank() }
+            if (icon != null) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+            } else {
+                Text(
+                    text = arm.alternate.label.ifBlank { "⚡" },
+                    color = tint,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
+        }
+    }
+}
+
+/** Tells a flick arm's text field apart from its Shift field, which share a direction. */
+private const val FlickTextField = "text"
+
+/** Tells a flick arm's Shift field apart from its text field, which share a direction. */
+private const val FlickShiftField = "shift"
+
+/** [this] in the file's order of directions, which is the order an author would write. */
+private fun <T> Map<FlickDirection, T>.inFlickOrder(): Map<FlickDirection, T> =
+    FlickDirection.entries.mapNotNull { dir -> this[dir]?.let { dir to it } }.toMap()
 
 /** [this] with [direction] typing [text], or without it for a blank one, in the file's order. */
 internal fun Map<FlickDirection, String>.withArm(direction: FlickDirection, text: String): Map<FlickDirection, String> {
@@ -4506,6 +4850,10 @@ private fun flickLabelRes(direction: FlickDirection): Int = when (direction) {
     FlickDirection.UP -> R.string.layout_editor_flick_up_label
     FlickDirection.RIGHT -> R.string.layout_editor_flick_right_label
     FlickDirection.DOWN -> R.string.layout_editor_flick_down_label
+    FlickDirection.UP_LEFT -> R.string.layout_editor_flick_up_left_label
+    FlickDirection.UP_RIGHT -> R.string.layout_editor_flick_up_right_label
+    FlickDirection.DOWN_LEFT -> R.string.layout_editor_flick_down_left_label
+    FlickDirection.DOWN_RIGHT -> R.string.layout_editor_flick_down_right_label
 }
 
 /**
@@ -4924,6 +5272,8 @@ private fun SheetField(
      * flight and the incoming value is the only truth there is.
      */
     enabled: Boolean = true,
+    /** Drawn at the field's end, for a control that acts on this one field. */
+    trailing: (@Composable () -> Unit)? = null,
     onChange: (String) -> Unit,
 ) {
     var text by remember(resetKey) { mutableStateOf(value) }
@@ -4946,6 +5296,7 @@ private fun SheetField(
         },
         label = { Text(label) },
         supportingText = { Text(supporting) },
+        trailingIcon = trailing,
         singleLine = true,
         modifier = Modifier
             .fillMaxWidth()
@@ -5059,6 +5410,7 @@ private fun RoleRow(role: KeyRole?, onChange: (KeyRole?) -> Unit) {
             null to stringResource(CommonR.string.common_none),
             KeyRole.Comma to stringResource(R.string.layout_editor_role_comma),
             KeyRole.Period to stringResource(R.string.layout_editor_role_period),
+            KeyRole.Plain to stringResource(R.string.layout_editor_role_plain),
         ),
         selected = role,
         detail = { slot ->
@@ -5067,12 +5419,14 @@ private fun RoleRow(role: KeyRole?, onChange: (KeyRole?) -> Unit) {
                     null -> Icons.Outlined.Block
                     KeyRole.Comma -> Icons.Outlined.MoreHoriz
                     KeyRole.Period -> Icons.Outlined.FiberManualRecord
+                    KeyRole.Plain -> Icons.Outlined.Lock
                 },
                 description = stringResource(
                     when (slot) {
                         null -> R.string.layout_editor_role_none_desc
                         KeyRole.Comma -> R.string.layout_editor_role_comma_desc
                         KeyRole.Period -> R.string.layout_editor_role_period_desc
+                        KeyRole.Plain -> R.string.layout_editor_role_plain_desc
                     },
                 ),
             )
@@ -5266,7 +5620,10 @@ private fun KeyLabelScaleRow(key: Key, onChange: (Float?) -> Unit) {
  * `KeyContent`'s own `when`, which is what it has to stay in step with.
  */
 private fun drawsScalableLabel(key: Key): Boolean = when (key.action) {
-    KeyAction.Shift, KeyAction.CapsLock, KeyAction.Delete, KeyAction.ForwardDelete,
+    // A worded shift key draws its label in place of the arrow (#559).
+    KeyAction.Shift, KeyAction.CapsLock ->
+        KeyIcons.byName(key.icon) == null && shiftLabelReplacesIcon(key.label)
+    KeyAction.Delete, KeyAction.ForwardDelete,
     KeyAction.Enter, KeyAction.Newline, KeyAction.LanguageSwitch,
     KeyAction.InputMethodPicker, KeyAction.Emoji, KeyAction.Space,
     is KeyAction.SwitchInputMethod,

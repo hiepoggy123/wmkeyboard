@@ -86,7 +86,14 @@ data class ClipItem(
  * kind/format words ("image", "png", "folder") so a clip with no text of its
  * own — an image, a screenshot — is still findable by what it is.
  */
-fun ClipItem.searchHaystack(): String = buildList {
+fun ClipItem.searchHaystack(): String = searchParts().joinToString(" ")
+
+/**
+ * [searchHaystack] before it is joined, one entry per thing a clip is known
+ * by. A regex search tries each on its own, so `^` and `$` anchor to the
+ * clip's text rather than to wherever it happens to sit in the joined string.
+ */
+private fun ClipItem.searchParts(): List<String> = buildList {
     add(text)
     fileName?.let(::add)
     linkPreview?.let { preview ->
@@ -109,17 +116,34 @@ fun ClipItem.searchHaystack(): String = buildList {
         },
     )
     mimeType.substringAfterLast('/').takeIf { it.isNotBlank() }?.let(::add)
-}.joinToString(" ")
+}
 
 /**
  * Whether this clip should be shown for [query]. A blank query matches
  * everything; otherwise the query is a case-insensitive substring of
  * [searchHaystack]. The clipboard panel's filter and [ClipboardStore.search]
- * both go through here so the two can never drift apart.
+ * both go through [clipQueryMatcher] so the two can never drift apart.
  */
-fun ClipItem.matchesQuery(query: String): Boolean {
+fun ClipItem.matchesQuery(query: String): Boolean = clipQueryMatcher(query, regex = false)(this)
+
+/**
+ * The filter behind [matchesQuery], built once per query so a regex is
+ * compiled once rather than once per clip.
+ *
+ * With [regex] on (#414) the query is a case-insensitive regular expression,
+ * found anywhere in any one of a clip's [searchParts]. A pattern that does not
+ * compile, which is what one is halfway through being typed (`(htt`, `[0-9`),
+ * searches as plain text instead, so the list never blanks out mid-word.
+ */
+fun clipQueryMatcher(query: String, regex: Boolean): (ClipItem) -> Boolean {
     val trimmed = query.trim()
-    return trimmed.isEmpty() || searchHaystack().contains(trimmed, ignoreCase = true)
+    if (trimmed.isEmpty()) return { true }
+    val pattern = if (regex) runCatching { Regex(trimmed, RegexOption.IGNORE_CASE) }.getOrNull() else null
+    return if (pattern != null) {
+        { item -> item.searchParts().any { pattern.containsMatchIn(it) } }
+    } else {
+        { item -> item.searchHaystack().contains(trimmed, ignoreCase = true) }
+    }
 }
 
 /**
@@ -187,6 +211,12 @@ class ClipboardStore(
      * is never touched.
      */
     var maxTextChars: Int = 0,
+    /**
+     * Whether a copy that arrives with markup keeps it (#414). Off, every
+     * text clip is stored as plain text: the markup is dropped at the door,
+     * so the clip wears no "Rich text" tag and pastes as plain text.
+     */
+    var keepRichText: Boolean = true,
 ) {
 
     @Serializable
@@ -367,8 +397,9 @@ class ClipboardStore(
         if (whole.isEmpty()) return null
         // A cut can land after a space; the clip should not end in one.
         val trimmed = capClipText(whole, maxTextChars).trimEnd()
-        // Markup for the whole text would paste back what the cut dropped.
-        val html = html.takeIf { trimmed.length == whole.length }
+        // Markup for the whole text would paste back what the cut dropped;
+        // and none at all when the user has asked for plain text (#414).
+        val html = html.takeIf { keepRichText && trimmed.length == whole.length }
         val isLink = html == null && ClipLinks.asUrl(trimmed) != null
         // Re-copying an existing item moves it to the top instead of duplicating.
         val existing = items.firstOrNull { it.kind.isTextual && it.text == trimmed }

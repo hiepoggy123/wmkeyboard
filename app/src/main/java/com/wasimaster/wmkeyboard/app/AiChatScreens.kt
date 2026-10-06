@@ -27,12 +27,12 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Stop
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowBack
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Send
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Stop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -312,7 +312,9 @@ internal fun AiChatScreen(
         // off the top of the screen (#143). Stopping the column at the keyboard
         // instead shrinks the reverseLayout transcript from its top, so the
         // newest message stays on screen. The Scaffold's bottom inset is
-        // consumed first so the navigation bar is not counted twice.
+        // consumed first so the navigation bar is not counted twice. The
+        // window is told not to pan as well, or the composer rises twice.
+        ResizeForKeyboard()
         Column(
             modifier = Modifier
                 .padding(padding)
@@ -353,7 +355,7 @@ internal fun AiChatScreen(
                     val newest = index == messages.lastIndex
                     val regenerate: () -> Unit = {
                         choice?.let { picked ->
-                            AiChatController.regenerate(context, settings.value.ai, activeId, picked)
+                            AiChatController.regenerate(context, settings.value, activeId, picked)
                         }
                     }
                     val edit: () -> Unit = {
@@ -366,7 +368,7 @@ internal fun AiChatScreen(
                         message = message,
                         onRetry = retryFor(message, messages) {
                             choice?.let { picked ->
-                                AiChatController.retry(context, settings.value.ai, activeId, picked)
+                                AiChatController.retry(context, settings.value, activeId, picked)
                             }
                         },
                         onRegenerate = regenerate.takeIf {
@@ -421,7 +423,7 @@ internal fun AiChatScreen(
                     val id = activeId.takeIf { it >= 0 }
                         ?: store.newConversation(System.currentTimeMillis()).id
                             .also { activeId = it }
-                    AiChatController.send(context, settings.value.ai, id, picked, draft, draftAttachment)
+                    AiChatController.send(context, settings.value, id, picked, draft, draftAttachment)
                     draft = ""
                     draftAttachment = ""
                 },

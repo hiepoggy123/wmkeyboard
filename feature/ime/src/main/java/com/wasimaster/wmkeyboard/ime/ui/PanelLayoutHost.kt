@@ -14,6 +14,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -101,7 +102,54 @@ internal fun KeyboardUiState.panelLayout(kind: PanelKind): PanelLayoutSpec {
     // The shipped emoji panel with the switch to GIFs and stickers where the
     // setting puts it (issue #366), or left out while there is nowhere to switch.
     if (kind == PanelKind.EMOJI) return BuiltInPanelLayouts.emoji(mediaSwitcherPlacement(settings))
+    // GIFs and stickers the user never laid out end the way the emoji panel
+    // does, whatever shape that is (#538).
+    if (kind == PanelKind.GIF || kind == PanelKind.STICKER) {
+        return mediaPanelLayout(kind, panelLayout(PanelKind.EMOJI), mediaSwitcherPlacement(settings))
+    }
     return shared ?: BuiltInPanelLayouts.default(kind)
+}
+
+/**
+ * [this] shipped field keypad with its backspace and enter moved to where the
+ * user put them on their own Numpad (issue #508). A phone, number or date field
+ * opens its own pad rather than the Numpad tool's, and someone who swapped
+ * backspace and enter on the tool kept hitting the wrong one of the two the
+ * moment a dialer field opened the stock pad.
+ *
+ * Only the two action keys travel, each by trading places with whatever key of
+ * the pad sits where the user's has it; everything a field pad carries for its
+ * kind (the dialer's * # +, a date's separators) stays on the pad. A Numpad
+ * the user never laid out moves nothing, which keeps the Number pad's
+ * deliberately low backspace where it is, and a key placed outside the pad's
+ * four by four stays put too.
+ */
+internal fun KeyboardLayout.withNumpadActionKeys(state: KeyboardUiState): KeyboardLayout {
+    val numpad = state.panelLayout(PanelKind.NUMPAD)
+    if (numpad == BuiltInPanelLayouts.numpad(calculator = state.settings.numpadCalculatorLayout)) return this
+    val grid = rows.map { it.toMutableList() }
+    for (action in NumpadActionKeys) {
+        val (row, col) = numpad.grid.rows.positionOf(action) ?: continue
+        val (fromRow, fromCol) = grid.positionOf(action) ?: continue
+        if (row !in grid.indices || col !in grid[row].indices) continue
+        if (row == fromRow && col == fromCol) continue
+        val moving = grid[fromRow][fromCol]
+        grid[fromRow][fromCol] = grid[row][col]
+        grid[row][col] = moving
+    }
+    return if (grid == rows) this else copy(rows = grid)
+}
+
+/** The keys [withNumpadActionKeys] moves, backspace first. */
+private val NumpadActionKeys = listOf(KeyAction.Delete, KeyAction.Enter)
+
+/** Row and column of the first key here firing [action], or null. */
+private fun List<List<Key>>.positionOf(action: KeyAction): Pair<Int, Int>? {
+    forEachIndexed { r, row ->
+        val c = row.indexOfFirst { it.action == action }
+        if (c >= 0) return r to c
+    }
+    return null
 }
 
 /**
@@ -185,6 +233,7 @@ internal fun EmojiPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCallba
                 val rest = spec.withoutLeadingRow()
                 FullBleedTool(
                     state, title = "", onClose = onClose,
+                    extraHeight = mediaPanelExtraHeight(state),
                     headerActions = {
                         for (key in strip) {
                             Box(
@@ -199,7 +248,12 @@ internal fun EmojiPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCallba
                     PanelLayoutGrid(state, rest, callbacks, onClose, fields, Modifier.fillMaxSize())
                 }
             } else {
-                FullBleedTool(state, stringResource(R.string.ime_tool_emoji), onClose = onClose) {
+                FullBleedTool(
+                    state,
+                    stringResource(R.string.ime_tool_emoji),
+                    onClose = onClose,
+                    extraHeight = mediaPanelExtraHeight(state),
+                ) {
                     PanelLayoutGrid(state, spec, callbacks, onClose, fields, Modifier.fillMaxSize())
                 }
             }
@@ -211,7 +265,7 @@ internal fun EmojiPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCallba
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(keyRowsHeight(state) + barCompensation),
+                    .height(mediaPanelHeight(state, keyRowsHeight(state) + barCompensation)),
             ) {
                 PanelLayoutGrid(state, spec, callbacks, onClose, fields, Modifier.fillMaxSize())
             }
@@ -283,7 +337,7 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
     // keyboard, up to what the screen can give it, and the bar on top drags it.
     val clipboard = state.settings.clipboard
     val resize = rememberClipPanelResize(clipboard.panelExtraHeightDp)
-    val base = if (clipboard.fullBleed) keyRowsHeight(state) + fullBleedHiddenRows(state) else keyRowsHeight(state)
+    val base = if (clipboard.fullBleed) keyRowsHeight(state) + fullBleedHiddenRows(state, macroRowAtPanelOpen(state)) else keyRowsHeight(state)
     val maxPanel = toolPanelHeight(state, wanted = base + ClipPanelExtraHeightRange.last.dp, floor = base)
     val maxExtra = (maxPanel - base).coerceAtLeast(0.dp)
     val extra = resize.shownDp(clipboard.panelExtraHeightDp).dp.coerceIn(0.dp, maxExtra)
@@ -293,6 +347,20 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
     // No bar where the screen leaves no room to grow: it would drag nothing.
     val bar: (@Composable () -> Unit)? = if (maxExtra < 1.dp) null else {
         { ClipPanelHeightBar(resize, extra, maxExtra, callbacks.clipboard.actions.onPanelHeight) }
+    }
+    // Stacked over the keys (#414): a short panel, the keys under it, and no
+    // height bar, since the keys decide the height now.
+    val stacked = clipboardStacked(state)
+    val keysToggle: @Composable () -> Unit = {
+        ToolCircle(
+            slot = IconSlots.KEY_INPUT_METHOD_PICKER,
+            description = stringResource(
+                if (stacked) R.string.ime_clipboard_keys_hide_desc else R.string.ime_clipboard_keys_show_desc,
+            ),
+            active = stacked,
+            onClick = callbacks.clipboard.actions.onKeysToggle,
+            modifier = Modifier.padding(start = 2.dp),
+        )
     }
     if (clipboard.fullBleed) {
         // Full-bleed: the toolbar row becomes the back header and the
@@ -311,9 +379,11 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
                     title = if (searchShown) "" else stringResource(R.string.ime_tool_clipboard),
                     onClose = onClose,
                     extraHeight = extra,
-                    topHandle = bar,
-                    headerActions = if (shown.isEmpty()) null else {
-                        {
+                    compact = stacked,
+                    compactHeight = ClipStackedHeight,
+                    topHandle = if (stacked) null else bar,
+                    headerActions = {
+                        run {
                             for (key in shown) {
                                 val kind = (key.action as KeyAction.Field).kind
                                 // The pill takes its share of the width; the switch
@@ -327,10 +397,14 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
                                 Box(
                                     modifier = cell
                                         .fillMaxHeight()
-                                        .padding(horizontal = 2.dp),
+                                        // Clear of the header's edges the way its
+                                        // circles are, so the pill no longer sits
+                                        // on the cards scrolled up under it (#414).
+                                        .padding(horizontal = 2.dp, vertical = 4.dp),
                                 ) { fields(kind) }
                             }
                         }
+                        keysToggle()
                     },
                 ) {
                     PanelLayoutGrid(
@@ -345,7 +419,10 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
                     stringResource(R.string.ime_tool_clipboard),
                     onClose = onClose,
                     extraHeight = extra,
-                    topHandle = bar,
+                    compact = stacked,
+                    compactHeight = ClipStackedHeight,
+                    topHandle = if (stacked) null else bar,
+                    headerActions = { keysToggle() },
                 ) {
                     PanelLayoutGrid(state, spec, callbacks, onClose, fields, Modifier.fillMaxSize(), collapsed)
                 }
@@ -364,6 +441,12 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
         }
     }
 }
+
+/**
+ * The clipboard's height while stacked over the keys (#414): its header and
+ * about two rows of cards, which is what a paste between sentences needs.
+ */
+private val ClipStackedHeight = 190.dp
 
 /** The text-editing pad: keys only, filling the key area. */
 @Composable
@@ -424,6 +507,28 @@ internal fun TrackpadPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCal
             modifier = Modifier.fillMaxSize(),
         )
     }
+}
+
+/**
+ * How much taller than the keyboard the emoji, GIF and sticker panels open
+ * (#537): the setting, which the three share so a switch between them never
+ * moves the keyboard's top edge. A full-bleed panel fits it to the screen
+ * itself; [mediaPanelHeight] does that for the others.
+ */
+internal fun mediaPanelExtraHeight(state: KeyboardUiState): Dp =
+    state.settings.emoji.panelExtraHeightDp.coerceAtLeast(0).dp
+
+/**
+ * The height of an emoji, GIF or sticker panel that is not full-bleed: the
+ * [base] it has always had, plus [mediaPanelExtraHeight], fitted to the
+ * screen the way every taller tool panel is (#333), and never shorter than
+ * [base], so the setting can only ever add room.
+ */
+@Composable
+internal fun mediaPanelHeight(state: KeyboardUiState, base: Dp): Dp {
+    val extra = mediaPanelExtraHeight(state)
+    if (extra <= 0.dp) return base
+    return toolPanelHeight(state, wanted = base + extra, floor = base)
 }
 
 /** The clipboard's view switch in a full-bleed header: its square plus a little air. */

@@ -13,6 +13,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,15 +40,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Search
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.OpenInNew
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AddLink
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Info
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -145,13 +149,13 @@ internal fun showMediaCategories(
     /** Passed in rather than read off [state]: the state's own getter needs a
      *  framework call, and this rule is worth having under a plain JVM test. */
     acceptsRichMedia: Boolean,
-    /** Height a row under the grid takes from the panel: the switch's row (#366). */
-    reserved: Dp = 0.dp,
+    /** The height the panel's body is given, when the keys of its layout take some of the key area (#538). */
+    available: Dp? = null,
 ): Boolean {
     if (state.mediaCategories.isEmpty()) return false
     if (state.mediaSearchActive || localGrid || !acceptsRichMedia) return false
     if (state.mediaQuery.isNotBlank() && state.mediaCategory == null) return false
-    return fullBleed || keyRowsHeight(state) - reserved >= MediaCategoryMinPanelHeight
+    return fullBleed || (available ?: keyRowsHeight(state)) >= MediaCategoryMinPanelHeight
 }
 
 /**
@@ -456,6 +460,22 @@ fun mediaImageLoader(context: Context): ImageLoader =
             .build()
             .also { sharedMediaLoader = it }
     }
+
+/**
+ * Empties the media loader's in-memory thumbnails, if one was ever built.
+ *
+ * Coil 3.2 has no notion of "the UI is not on screen" — the background
+ * trimming its 3.3 release added keys off a process lifecycle an input method
+ * never drives — so nothing here ever gave these back on its own. Twelve
+ * percent of the heap in GIF and sticker thumbnails is worth holding while the
+ * panel is open and worth nothing at all once the keyboard is a text field's
+ * keyboard again, and the disk cache behind it makes a re-scroll a decode
+ * rather than a download. Deliberately does not touch the loader itself:
+ * shutting it down would close the disk cache the next panel wants.
+ */
+fun trimMediaImageMemory() {
+    sharedMediaLoader?.memoryCache?.clear()
+}
 
 /** The process-wide media loader; see [mediaImageLoader]. */
 @Composable
@@ -800,7 +820,8 @@ internal fun RowScope.GifHeaderSearchBar(
  * @param switcher the switch to the emoji and the other media panel, drawn at
  *   the end of the search bar (issue #366). Unused in [fullBleed], whose
  *   header is the host's to fill.
- * @param bottomBar the row under the grid that carries that switch instead.
+ * @param inGrid the panel is the browser cell of its layout (#538), which
+ *   owns the height, so the body fills the cell it is given.
  */
 @Composable
 internal fun GifPanel(
@@ -821,7 +842,7 @@ internal fun GifPanel(
     onDismissAction: () -> Unit = {},
     onOpenRoute: (String) -> Unit = {},
     switcher: (@Composable () -> Unit)? = null,
-    bottomBar: (@Composable () -> Unit)? = null,
+    inGrid: Boolean = false,
 ) {
     val ui = if (stickers) state.sticker else state.gif
     val tool = if (stickers) ToolbarTool.STICKER else ToolbarTool.GIF
@@ -829,7 +850,7 @@ internal fun GifPanel(
     val tabsMode = state.settings.gif.sourceMode == GifSourceMode.TABS
     val chips = GifSources.chips(sources, tabsMode)
     val localGrid = GifSources.targets(sources, state.mediaSource, tabsMode) == listOf(GifSource.LOCAL)
-    val sizing = if (fullBleed) {
+    val sizing = if (fullBleed || inGrid) {
         Modifier.fillMaxSize()
     } else {
         val height = if (state.mediaSearchActive) MediaSearchHeight else keyRowsHeight(state)
@@ -840,7 +861,9 @@ internal fun GifPanel(
     // "Add to which pack?", up when the add chip is pressed under All with
     // more than one pack to choose from. Panel-local: nothing else reads it.
     var choosingAddPack by remember { mutableStateOf(false) }
-    Box(modifier = sizing) {
+    BoxWithConstraints(modifier = sizing) {
+        // In a layout cell the keys around it have taken some of the key area.
+        val available = if (inGrid) maxHeight else null
         Column(modifier = Modifier.fillMaxSize()) {
             PanelFocusTarget(
                 panel = state.panel,
@@ -893,8 +916,7 @@ internal fun GifPanel(
                     },
                 )
             }
-            val reserved = if (bottomBar != null) mediaBottomRowHeight(state) else 0.dp
-            if (showMediaCategories(state, localGrid, fullBleed, state.acceptsRichMedia, reserved)) {
+            if (showMediaCategories(state, localGrid, fullBleed, state.acceptsRichMedia, available)) {
                 // Trending first, so there is always a way back out of a
                 // category — and somewhere for the focus ring to sit when no
                 // category is on.
@@ -925,8 +947,8 @@ internal fun GifPanel(
             // Not while the search box is up — the panel is squeezed to a couple
             // of rows there, and the notice is waiting when the results land.
             if (unsupported && !state.mediaSearchActive) MediaUnsupportedNotice(stickers)
-            // Weighted, so the row under it keeps its height and the results,
-            // the notices and the spinner fill what is left.
+            // Weighted, so the results, the notices and the spinner fill
+            // whatever the rows above leave.
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -978,7 +1000,6 @@ internal fun GifPanel(
                     }
                 }
             }
-            bottomBar?.invoke()
         }
         if (choosingAddPack) {
             StickerAddPackSheet(
@@ -1587,26 +1608,42 @@ internal fun WebSearchPanel(
             )
             is WebSearchUi.Metered -> MeteredNotice(ui.canAllow, onRetry)
             is WebSearchUi.Ready -> {
-                if (ui.results.isEmpty()) {
+                if (ui.results.isEmpty() && ui.answer == null) {
                     PanelNotice(stringResource(R.string.ime_web_search_empty, ui.query))
                 } else {
                     val focused = state.focusedIndex()
                     val listState = rememberLazyListState()
+                    // Issue #470: the row can open the page instead, with the
+                    // side button inserting the link, for a user who searches to
+                    // read rather than to share.
+                    val openFirst = state.settings.webSearch.openInBrowser
+                    val rowAction = if (openFirst) onOpen else onResult
+                    val sideAction = if (openFirst) onResult else onOpen
+                    // The answer box is the list's first item when there is one,
+                    // so focus indices start after it.
+                    val lead = if (ui.answer != null) 1 else 0
                     PanelFocusTarget(
                         panel = PanelMode.WEB_SEARCH,
                         count = ui.results.size,
                         columns = 1,
-                        // The open-in-browser icon stays touch-only; Enter does
-                        // what a tap on the row does, which is insert.
-                        onActivate = { index -> ui.results.getOrNull(index)?.let(onResult) },
+                        // The side icon stays touch-only; Enter does what a tap
+                        // on the row does.
+                        onActivate = { index -> ui.results.getOrNull(index)?.let(rowAction) },
                     )
-                    ScrollFocusIntoView(focused) { listState.animateScrollToItem(it) }
+                    ScrollFocusIntoView(focused) { listState.animateScrollToItem(it + lead) }
                     LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                        ui.answer?.let { answer ->
+                            item(key = "answer") {
+                                WebSearchAnswer(answer) {
+                                    onResult(WebResult(title = "", snippet = answer, url = "", displayUrl = ""))
+                                }
+                            }
+                        }
                         itemsIndexed(ui.results) { index, result ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { onResult(result) }
+                                    .clickable { rowAction(result) }
                                     .focusRing(index == focused, RoundedCornerShape(8.dp))
                                     .padding(horizontal = 12.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -1637,11 +1674,13 @@ internal fun WebSearchPanel(
                                         )
                                     }
                                 }
-                                IconButton(onClick = { onOpen(result) }) {
+                                IconButton(onClick = { sideAction(result) }) {
                                     Icon(
-                                        Icons.AutoMirrored.Outlined.OpenInNew,
-                                        contentDescription =
-                                            stringResource(R.string.ime_web_search_open_desc),
+                                        if (openFirst) Icons.Outlined.AddLink else Icons.AutoMirrored.Outlined.OpenInNew,
+                                        contentDescription = stringResource(
+                                            if (openFirst) R.string.ime_web_search_insert_desc
+                                            else R.string.ime_web_search_open_desc,
+                                        ),
                                         modifier = Modifier.size(18.dp),
                                         tint = kb.toolbarIcon,
                                     )
@@ -1654,6 +1693,58 @@ internal fun WebSearchPanel(
         }
     }
 }
+
+/**
+ * The backend's own answer to the query, above the results (#470): Tavily's
+ * written answer, a SearXNG instance's instant answer. Folded to a few lines,
+ * a tap opens the rest, and Insert puts the whole of it in the field.
+ */
+@Composable
+private fun WebSearchAnswer(answer: String, onInsert: () -> Unit) {
+    val kb = LocalKbTheme.current
+    var expanded by remember(answer) { mutableStateOf(false) }
+    val shape = kb.cardShape()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clip(shape)
+            .background(kb.chip)
+            .clickable { expanded = !expanded }
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Outlined.AutoAwesome,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = kb.accent,
+            )
+            Text(
+                stringResource(R.string.ime_web_search_answer_label),
+                color = kb.secondaryText,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 6.dp),
+            )
+            TextButton(onClick = onInsert) {
+                Text(stringResource(R.string.ime_insert_action), color = kb.accent, fontSize = 13.sp)
+            }
+        }
+        Text(
+            answer,
+            color = kb.chipText,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            maxLines = if (expanded) Int.MAX_VALUE else WebAnswerFoldedLines,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** How many lines of the answer show before a tap opens the rest. */
+private const val WebAnswerFoldedLines = 4
 
 // ---- image search panel ----
 

@@ -153,10 +153,12 @@ sealed interface KeyAction {
     @Serializable @SerialName("emoji") data object Emoji : KeyAction
 
     /**
-     * Opens the numeric keypad panel over the current field. Produced only at
-     * runtime by a long-press on the ?123 / symbols key (opt-in via
-     * `LayoutBehaviorSettings.symbolsLongPressNumpad`) — no built-in or custom
-     * layout binds it, so it is never written to a serialized layout.
+     * Opens the numeric keypad panel over the current field. Produced at
+     * runtime by a long-press on the ?123 / symbols key or the popup entry it
+     * adds to one with alternates
+     * (`LayoutBehaviorSettings.symbolsLongPressNumpad`), and by the symbols
+     * pages' 1234 key (`LayoutBehaviorSettings.symbolsNumpadKey`, issue #423).
+     * Imported FlorisBoard and FUTO layouts also bind it to their own keys.
      */
     @Serializable @SerialName("numpad") data object Numpad : KeyAction
 
@@ -203,6 +205,33 @@ sealed interface KeyAction {
      * is what a file from a newer build with a missing field coerces to.
      */
     @Serializable @SerialName("layout") data class Layout(val id: String = "") : KeyAction
+
+    /**
+     * Shows one of this layout's *own* further grids, named by its key in
+     * [LayoutSpec.layers] — the page key of a paginated keyboard.
+     *
+     * The shipped layers are a fixed set ([LayoutLayer]) because the keyboard
+     * reaches them for its own reasons: ?123 cycles the symbol pages, a numeric
+     * field picks a keypad. A grid that is simply "page 3 of this alphabet" has
+     * no such reason and no slot, and a Devanagari keyboard needs four of them:
+     * the script has more letters, matras and conjunct ligatures than fit on
+     * fifty keys, and the native layout answers that the way Gboard does, with a
+     * `1/4` key in the corner (issue #498).
+     *
+     * [layer] is the layer's key, which is any string that is not one of
+     * [LayoutLayer]'s — the same place a converted Keyman layout's extra pages
+     * live, and drawn by the same `LayoutMode.NAMED` path. Naming the letters
+     * layer, or a layer this layout does not define, goes back to the letters
+     * rather than leaving the user on a page with no way off; a blank [layer]
+     * — the editor's placeholder, and what a file from a newer build with the
+     * field missing coerces to — does the same.
+     *
+     * Not a toggle, unlike [Layout]: the key that says `2/4` means "go to page
+     * three", and a second press of it on page three would have to mean
+     * something else. A page goes back the way it came, by naming the layer it
+     * wants.
+     */
+    @Serializable @SerialName("layer") data class LayerSwitch(val layer: String = "") : KeyAction
 
     /**
      * Latches a modifier for the next key, the way [Shift] latches case: tap to
@@ -407,6 +436,23 @@ sealed interface KeyAction {
 }
 
 /**
+ * Whether a shift or caps-lock key draws its [label] instead of the arrow
+ * (issue #559).
+ *
+ * Those keys draw from an icon slot, and every label used to be thrown away
+ * for it: a key the author worded "A" or "ABC", or a syllabics board's
+ * "ᐃ ᐊ", still came out as the arrow. A blank label and the arrow glyphs the
+ * shipped layouts and importers write ("⇧", "⇪") keep the slot, so an icon
+ * pack still redresses them; anything else is the author's own face for the
+ * key, the same rule a tool key follows.
+ */
+fun shiftLabelReplacesIcon(label: String): Boolean =
+    label.isNotBlank() && label.trim() !in ShiftArrowGlyphs
+
+/** The labels that only spell a shift key's arrow; see [shiftLabelReplacesIcon]. */
+private val ShiftArrowGlyphs = setOf("⇧", "⇪", "⬆", "⇑", "↑", "⇮", "⇯")
+
+/**
  * What to draw on a key of this action that carries no label of its own.
  *
  * Both the keyboard and the layout editor's preview grid resolve a blank label
@@ -474,6 +520,10 @@ fun KeyAction.fallbackLabel(): String = when (this) {
     // The editor writes the layout's name onto the key when it is picked; this
     // is the grid glyph a hand-written layout that left the label blank gets.
     is KeyAction.Layout -> "▦"
+    // A page key is normally labelled by hand ("1/4"); this is what an
+    // unlabelled one falls back to, and it is deliberately not the layer's key,
+    // which is an identifier and can be any length.
+    is KeyAction.LayerSwitch -> "▤"
     is KeyAction.SwitchInputMethod -> "⌨"
     // A field is not a key: the cell draws its component, and the editor draws
     // the component's name from a string resource.
@@ -633,6 +683,7 @@ fun KeyAction.canRepeatOnHold(): Boolean = when (this) {
     KeyAction.LanguageSwitch, KeyAction.InputMethodPicker -> false
     is KeyAction.SwitchInputMethod -> false
     is KeyAction.Mod, is KeyAction.Layout, is KeyAction.Tool -> false
+    is KeyAction.LayerSwitch -> false
     is KeyAction.Unknown -> false
     else -> !holdIsSpokenFor()
 }
@@ -657,7 +708,7 @@ fun KeyAction.commitsNoText(): Boolean = when (this) {
     KeyAction.Symbols, KeyAction.Letters, KeyAction.Numpad, KeyAction.Fn,
     KeyAction.Shift, KeyAction.CapsLock, KeyAction.LanguageSwitch, KeyAction.None,
     -> true
-    is KeyAction.Layout, is KeyAction.SwitchInputMethod -> true
+    is KeyAction.Layout, is KeyAction.LayerSwitch, is KeyAction.SwitchInputMethod -> true
     else -> false
 }
 
@@ -710,9 +761,10 @@ enum class PanelFieldKind(val panel: PanelKind) {
     @SerialName("emoji_search") EMOJI_SEARCH(PanelKind.EMOJI),
     @SerialName("emoji_grid") EMOJI_GRID(PanelKind.EMOJI),
     /**
-     * The emoji / GIF / sticker switch (issue #366). An emoji panel component
-     * because that panel is the one with a layout; the GIF and sticker panels
-     * draw the row it sits in, so the switch is in the same place in all three.
+     * The emoji / GIF / sticker switch (issue #366). Filed under the emoji
+     * panel, but each of the three may carry it ([isOn]): the GIF and sticker
+     * panels borrow the emoji panel's row it sits in until the user lays them
+     * out (#538), so the switch is in the same place in all three.
      */
     @SerialName("media_tabs") MEDIA_TABS(PanelKind.EMOJI),
     @SerialName("clipboard_search") CLIPBOARD_SEARCH(PanelKind.CLIPBOARD),
@@ -721,8 +773,22 @@ enum class PanelFieldKind(val panel: PanelKind) {
     /** The grid / list switch for the clipboard history. */
     @SerialName("clipboard_view") CLIPBOARD_VIEW(PanelKind.CLIPBOARD),
     @SerialName("trackpad") TRACKPAD(PanelKind.TRACKPAD),
+    /**
+     * The GIF panel's body (#538): its search box, source and category chips
+     * and the results, as one cell. The panel lays out the keys around it.
+     */
+    @SerialName("gif_browser") GIF_BROWSER(PanelKind.GIF),
+    /** The sticker panel's body, as [GIF_BROWSER] is the GIF panel's. */
+    @SerialName("sticker_browser") STICKER_BROWSER(PanelKind.STICKER),
     @SerialName("unknown") UNKNOWN(PanelKind.EMOJI),
     ;
+
+    /**
+     * Whether a layout of [kind] may carry this component: its own panel's,
+     * plus the emoji / GIF / sticker switch on any of those three panels.
+     */
+    fun isOn(kind: PanelKind): Boolean =
+        panel == kind || (this == MEDIA_TABS && (kind == PanelKind.GIF || kind == PanelKind.STICKER))
 
     /** Whether the editor may offer this kind; [UNKNOWN] is a decode artefact. */
     val isReal: Boolean get() = this != UNKNOWN
@@ -733,7 +799,8 @@ enum class PanelFieldKind(val panel: PanelKind) {
      * (tabs, search, the fragment chips) are a row tall, like a row of keys.
      */
     val fills: Boolean
-        get() = this == EMOJI_GRID || this == CLIPBOARD_LIST || this == TRACKPAD
+        get() = this == EMOJI_GRID || this == CLIPBOARD_LIST || this == TRACKPAD ||
+            this == GIF_BROWSER || this == STICKER_BROWSER
 }
 
 /**
@@ -787,6 +854,20 @@ enum class KeyRole {
 
     /** The secondary-punctuation slot; becomes @ in EMAIL, / in URI, or the emoji key. */
     Comma,
+
+    /**
+     * Neither slot, and no rewrite of any kind: this key types exactly what its
+     * author put on it (issue #529).
+     *
+     * A null [Key.role] cannot say this, because null is also what every layout
+     * written before roles existed carries, and the fallback below reads a
+     * bottom-row `.` or `,` as a slot so those layouts keep their field
+     * adaptation. That inference is right far more often than not, but it has no
+     * off switch: on a script whose sentence mark is not `.` — Japanese `。`,
+     * Devanagari `।` — a `.` key put somewhere deliberately was swapped to the
+     * mark and there was no way to say "I meant the full stop". This is that way.
+     */
+    Plain,
 }
 
 /**

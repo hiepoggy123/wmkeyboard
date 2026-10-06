@@ -21,7 +21,7 @@ Type an expression like `12*8` and the strip offers `96` as a tappable chip. It 
 
 Permutations and combinations use the shorthand a calculator keypad uses: `5p3` offers `60` and `4c2` offers `6`. Both letters have to sit tight between two digits, so `page 5 c 2` stays a sentence.
 
-A few things deliberately don't trigger a chip. A bare number on its own isn't a sum, and a trailing `%` reads as "percent" rather than an instruction to divide by 100. Named functions and word-operators like `sin`, `sqrt`, `log`, or `mod` never show up as an inline chip either. Apart from `p` and `c`, the symbol scanner only looks for digits, operators, and the two symbols `π`/`e`. Anything with more letters than that works only by opening the Calculator tool itself.
+A few things deliberately don't trigger a chip. A bare number on its own isn't a sum, and `100%` on its own reads as "percent" rather than a sum to evaluate. A `%` with arithmetic around it does count, and reads as it does in the [Calculator](/tools/utilities/#doing-the-math): `100+20%` offers `120`. Named functions and word-operators like `sin`, `sqrt`, `log`, or `mod` never show up as an inline chip either. Apart from `p` and `c`, the symbol scanner only looks for digits, operators, and the two symbols `π`/`e`. Anything with more letters than that works only by opening the Calculator tool itself.
 
 Some arithmetic gets written as a sentence, though, and a second scanner catches three shapes of it: a share of an amount (`15% of 200`, `15% on 200`, `15% tip on 4500`), a discount (`20% off 1500`, `20% off of 1500`), and a bill split (`split 4500 between 3`, `split 4500 3 ways`, `4500 split 3 ways`; `among` and `by` work as well as `between`, and `people`, `persons` or `friends` as well as `ways`). Each one produces an ordinary calc chip, and the gear opens the Calculator on the equivalent sum.
 
@@ -103,7 +103,7 @@ A code you never copied has its own route to the strip. If you let the keyboard 
 
 Each detector has guards against the shapes of text that look like a trigger but usually aren't:
 
-- **Dates** (`12/04`, `12/04/2025`, `2024-07`) never read as arithmetic. A zero-padded pair reads as a date, and a lone `-` between two plain numbers needs a second operator to count as a sum. Either way, an explicit `=` forces the answer.
+- **Dates** (`12/04`, `12/04/2025`, `2024-07`) never read as arithmetic. A zero-padded pair reads as a date. A lone `-` between two plain numbers is a sum (`12-4` offers `8`) unless either side has four digits or a leading zero, since `555-1234`, `2024-25` and `2024-07` are a phone number, a season and a month. Either way, an explicit `=` forces the answer.
 - **Order numbers and prices** don't turn into phone numbers. A leading `#`, `$`, `£`, or `€` rules a run of digits out.
 - **Years** don't turn into codes. A bare 4-digit value between 1900 and 2099 is rejected even next to a code-sounding word.
 - Google's `G-123456` SMS prefix is stripped before the code check, since it's branding rather than part of the code.

@@ -12,16 +12,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.OpenWith
-import androidx.compose.material.icons.outlined.RestartAlt
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.OpenWith
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.RestartAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -363,7 +363,7 @@ internal fun BoxScope.ResizeOverlay(
         modifier = Modifier
             .matchParentSize()
             .onSizeChanged { metrics.widthPx = it.width }
-            .navigationBarsPadding()
+            .windowInsetsPadding(navigationBarInsets())
             .padding(bottom = bottomPaddingDp(state.settings).dp),
     ) {
         if (arrangement.leftSlack > 0.001f) {

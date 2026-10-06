@@ -22,10 +22,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
 import com.wasimaster.wmkeyboard.app.media.MusicApps
 import com.wasimaster.wmkeyboard.app.launcher.LauncherCombos
 import com.wasimaster.wmkeyboard.core.settings.LauncherOpenMode
+import com.wasimaster.wmkeyboard.core.settings.MAX_SEARCH_RESULTS
 import com.wasimaster.wmkeyboard.ime.AppLaunchModes
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
@@ -36,13 +37,14 @@ import com.wasimaster.wmkeyboard.core.settings.LauncherIconShape
 import com.wasimaster.wmkeyboard.core.settings.PhotoSearchEngine
 import com.wasimaster.wmkeyboard.core.settings.PhotoSearchTarget
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
+import com.wasimaster.wmkeyboard.core.settings.HandwritingFullScreenMode
 import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.CurrencyLabel
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Settings
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CheckCircle
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Lock
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Settings
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -142,14 +144,14 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.ToolHoldAction
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.outlined.AltRoute
-import androidx.compose.material.icons.outlined.Keyboard
-import androidx.compose.material.icons.outlined.Timer10
-import androidx.compose.material.icons.outlined.Timer3
-import androidx.compose.material.icons.outlined.TimerOff
-import androidx.compose.material.icons.outlined.PhotoSizeSelectActual
-import androidx.compose.material.icons.outlined.PhotoSizeSelectLarge
-import androidx.compose.material.icons.outlined.PhotoSizeSelectSmall
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AltRoute
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Keyboard
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Timer10
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Timer3
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.TimerOff
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoSizeSelectActual
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoSizeSelectLarge
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoSizeSelectSmall
 import com.wasimaster.wmkeyboard.core.ui.ScrollRailBox
 import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -1735,6 +1737,36 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.handwritingCommitDelayMs.toFloat(),
                     ) { scope.launch { repository.setHandwritingCommitDelayMs(it.roundToInt()) } }
                 }
+                // Issue #386. Automatic rides on Android's own stylus
+                // handwriting, which only exists from Android 14; below that
+                // the row would offer a choice of one.
+                item(visible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    ChoiceSetting(
+                        title = R.string.tooldetail_handwriting_full_screen_title,
+                        subtitle = stringResource(R.string.tooldetail_handwriting_full_screen_subtitle),
+                        info = stringResource(R.string.tooldetail_handwriting_full_screen_info),
+                        options = listOf(
+                            HandwritingFullScreenMode.MANUAL to
+                                stringResource(R.string.tooldetail_handwriting_full_screen_manual_label),
+                            HandwritingFullScreenMode.AUTOMATIC to
+                                stringResource(R.string.tooldetail_handwriting_full_screen_automatic_label),
+                        ),
+                        selected = settings.watch { it.handwritingFullScreenMode },
+                        onChange = { scope.launch { repository.setHandwritingFullScreenMode(it) } },
+                        default = SettingsDefaults.handwritingFullScreenMode,
+                        detail = { mode ->
+                            ChoiceDetail(
+                                stringResource(
+                                    if (mode == HandwritingFullScreenMode.AUTOMATIC) {
+                                        R.string.tooldetail_handwriting_full_screen_automatic_desc
+                                    } else {
+                                        R.string.tooldetail_handwriting_full_screen_manual_desc
+                                    },
+                                ),
+                            )
+                        },
+                    )
+                }
             }
             SectionHeader(
                 stringResource(R.string.tooldetail_handwriting_models_header),
@@ -2007,6 +2039,23 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.mediaFullBleed,
                     ) { scope.launch { repository.setMediaFullBleed(it) } }
                 }
+                item {
+                    // A panel layout like the emoji panel's (#538): the keys
+                    // under the results, and where the switch sits.
+                    val panel = if (tool == ToolbarTool.STICKER) PanelKind.STICKER else PanelKind.GIF
+                    val customPanels by repository.customPanelLayouts.collectAsStateWithLifecycle(emptyList())
+                    NavRow(
+                        title = R.string.panel_layout_row_title,
+                        subtitle = stringResource(R.string.panel_layout_row_subtitle),
+                        value = stringResource(
+                            if (customPanels.none { it.panel == panel }) {
+                                R.string.panel_layout_value_default
+                            } else {
+                                R.string.panel_layout_value_custom
+                            },
+                        ),
+                    ) { onNavigate(panelEditRoute(panel)) }
+                }
             }
             if (tool == ToolbarTool.GIF) OfflineGifPacksGroup()
             SettingsGroup(
@@ -2182,6 +2231,15 @@ internal fun ToolDetailSettings(
                         emptyHint = stringResource(R.string.tooldetail_tavily_key_hint),
                     ) { repository.setTavilyApiKey(it) }
                 }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_tavily_advanced_title,
+                        stringResource(R.string.tooldetail_tavily_advanced_subtitle),
+                        settings.watch { it.webSearch.tavilyAdvanced },
+                        info = stringResource(R.string.tooldetail_tavily_advanced_info),
+                        default = SettingsDefaults.webSearch.tavilyAdvanced,
+                    ) { scope.launch { repository.setSearchTavilyAdvanced(it) } }
+                }
             }
             SettingsGroup(stringResource(R.string.tooldetail_search_results_group)) {
                 item {
@@ -2197,10 +2255,27 @@ internal fun ToolDetailSettings(
                         R.string.tooldetail_search_count_title,
                         subtitle = stringResource(R.string.tooldetail_search_count_subtitle),
                         value = settings.watch { it.webSearch.resultCount }.toFloat(),
-                        range = 1f..10f,
+                        range = 1f..MAX_SEARCH_RESULTS.toFloat(),
                         display = { numberFormat.format(it.roundToInt()) },
                         default = SettingsDefaults.webSearch.resultCount.toFloat(),
                     ) { scope.launch { repository.setSearchResultCount(it.roundToInt()) } }
+                }
+                item(visible = tool == ToolbarTool.WEB_SEARCH) {
+                    ToggleSetting(
+                        R.string.tooldetail_search_answer_title,
+                        stringResource(R.string.tooldetail_search_answer_subtitle),
+                        settings.watch { it.webSearch.showAnswer },
+                        info = stringResource(R.string.tooldetail_search_answer_info),
+                        default = SettingsDefaults.webSearch.showAnswer,
+                    ) { scope.launch { repository.setSearchShowAnswer(it) } }
+                }
+                item(visible = tool == ToolbarTool.WEB_SEARCH) {
+                    ToggleSetting(
+                        R.string.tooldetail_search_open_browser_title,
+                        stringResource(R.string.tooldetail_search_open_browser_subtitle),
+                        settings.watch { it.webSearch.openInBrowser },
+                        default = SettingsDefaults.webSearch.openInBrowser,
+                    ) { scope.launch { repository.setSearchOpenInBrowser(it) } }
                 }
                 item(visible = tool == ToolbarTool.IMAGE_SEARCH) {
                     SliderSetting(
@@ -2236,13 +2311,47 @@ internal fun ToolDetailSettings(
                             OcrEngine.AUTO to stringResource(R.string.tooldetail_ocr_engine_auto),
                             OcrEngine.ML_KIT to stringResource(R.string.tooldetail_ocr_engine_mlkit),
                             OcrEngine.TESSERACT to stringResource(R.string.tooldetail_ocr_engine_tesseract),
+                            OcrEngine.ONLINE to stringResource(R.string.tooldetail_ocr_engine_online),
                         ),
                         selected = settings.watch { it.scanner.ocrEngine },
                         default = SettingsDefaults.scanner.ocrEngine,
                     ) { scope.launch { repository.setOcrEngine(it) } }
                 }
             }
-            if (settings.watch { it.scanner.ocrEngine != OcrEngine.ML_KIT }) {
+            // Issue #469: a model that reads images, behind an
+            // OpenAI-compatible address of the user's choosing.
+            if (settings.watch { it.scanner.ocrEngine == OcrEngine.ONLINE }) {
+                SettingsGroup(
+                    stringResource(R.string.tooldetail_ocr_online_group),
+                    info = stringResource(R.string.tooldetail_ocr_online_info),
+                ) {
+                    item {
+                        TextFieldSetting(
+                            label = stringResource(R.string.tooldetail_ocr_online_url_label),
+                            value = settings.watch { it.scanner.ocrOnlineUrl },
+                            hint = stringResource(R.string.tooldetail_ocr_online_url_hint),
+                            default = SettingsDefaults.scanner.ocrOnlineUrl,
+                        ) { repository.setOcrOnlineUrl(it) }
+                    }
+                    item {
+                        TextFieldSetting(
+                            label = stringResource(R.string.tooldetail_ocr_online_model_label),
+                            value = settings.watch { it.scanner.ocrOnlineModel },
+                            hint = stringResource(R.string.tooldetail_ocr_online_model_hint),
+                            default = SettingsDefaults.scanner.ocrOnlineModel,
+                        ) { repository.setOcrOnlineModel(it) }
+                    }
+                    item {
+                        ApiKeyField(
+                            label = stringResource(R.string.tooldetail_ocr_online_key_label),
+                            value = settings.watch { it.scanner.ocrOnlineKey },
+                            builtInAvailable = false,
+                            emptyHint = stringResource(R.string.tooldetail_ocr_online_key_hint),
+                        ) { repository.setOcrOnlineKey(it) }
+                    }
+                }
+            }
+            if (settings.watch { it.scanner.ocrEngine != OcrEngine.ML_KIT && it.scanner.ocrEngine != OcrEngine.ONLINE }) {
                 SectionHeader(
                     stringResource(R.string.tooldetail_ocr_packs_header),
                     info = stringResource(R.string.tooldetail_ocr_packs_info),

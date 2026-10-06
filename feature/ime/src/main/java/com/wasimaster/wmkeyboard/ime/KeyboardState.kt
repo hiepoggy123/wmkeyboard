@@ -251,8 +251,9 @@ enum class LayoutMode {
     SECONDARY,
 
     /**
-     * One of a converted Keyman layout's own further layers — a right-Alt
-     * page, a page of one consonant's vowel forms — named by
+     * One of a layout's own further layers — a converted Keyman layout's
+     * right-Alt page or page of one consonant's vowel forms, or page three of
+     * four on a paginated alphabet (issue #498) — named by
      * [KeyboardUiState.namedLayer] and drawn from [LayoutSet.named]. Keyman
      * reaches these by key and by rule, so they are part of the layout rather
      * than something the user switched to, and the grid is sized for them.
@@ -280,6 +281,12 @@ data class LayoutSet(
     val fn: KeyboardLayout? = null,
     /** Keypad for the focused field kind; null for TEXT/EMAIL/URI. */
     val numeric: KeyboardLayout? = null,
+    /**
+     * Whether the layout authored [numeric] itself rather than inheriting the
+     * shipped keypad. An authored one is drawn as laid out; a shipped one takes
+     * its backspace and enter from the user's own Numpad (issue #508).
+     */
+    val numericAuthored: Boolean = false,
     /**
      * The layout's own Number layer, when it authored one; null inherits. What
      * the Numpad tool and a long press on ?123 draw (issue #55): before this
@@ -344,8 +351,9 @@ data class LayoutSet(
     /** The same for Keyman's `caps` layer, drawn while caps lock is on. */
     val keymanCaps: KeyboardLayout? = null,
     /**
-     * A converted Keyman layout's further layers, by their key in the layout
-     * (see [LayoutMode.NAMED]). Empty for every other layout.
+     * A layout's further grids, by their key in the layout (see
+     * [LayoutMode.NAMED]): a converted Keyman layout's extra layers, and the
+     * pages of a paginated layout. Empty for every other layout.
      */
     val named: Map<String, KeyboardLayout> = emptyMap(),
     /**
@@ -355,6 +363,11 @@ data class LayoutSet(
      * otherwise lend it are not the keyboard's.
      */
     val keymanLayerKeys: Set<String>? = null,
+    /**
+     * Whether the letters layer is a handwriting canvas over [letters]' one
+     * row (`LayoutSpec.handwriting`, issue #557).
+     */
+    val handwriting: Boolean = false,
 ) {
     /**
      * Rows the key grid reserves.
@@ -530,6 +543,8 @@ data class LayoutSet(
      */
     fun glideKeys(
         apostropheCenter: Pair<Float, Float>? = null,
+        /** Non-letter keys the composer spells through, by character, at their centres (Khipro's `/`). */
+        extraCenters: List<Pair<Int, Pair<Float, Float>>> = emptyList(),
         centerOf: (Int) -> Pair<Float, Float>?,
     ): List<KeyCenter> {
         val out = ArrayList<KeyCenter>(letters.rows.sumOf { it.size } * 2)
@@ -545,6 +560,7 @@ data class LayoutSet(
             out.add(KeyCenter('\'', x, y))
             out.add(KeyCenter('’', x, y))
         }
+        for ((codePoint, center) in extraCenters) out.add(KeyCenter(codePoint, center.first, center.second))
         for (pass in 0 until PASSES) {
             for (row in letters.rows) {
                 for (key in row) {
@@ -668,14 +684,17 @@ enum class PanelMode {
 }
 
 /**
- * The panel layout behind a panel mode, for the four panels that are layouts
- * (issue #63); null for every other panel and for none. Shared by the
+ * The panel layout behind a panel mode, for the panels that are layouts
+ * (issue #63, the GIF and sticker panels since #538); null for every other
+ * panel and for none. Shared by the
  * service's "keep this panel open" check and the theme resolution, so the two
  * cannot disagree about which panels have a grid of their own.
  */
 val PanelMode.layoutKind: PanelKind?
     get() = when (this) {
         PanelMode.EMOJI -> PanelKind.EMOJI
+        PanelMode.GIF -> PanelKind.GIF
+        PanelMode.STICKER -> PanelKind.STICKER
         PanelMode.CLIPBOARD -> PanelKind.CLIPBOARD
         PanelMode.TEXT_EDIT -> PanelKind.TEXT_EDIT
         PanelMode.TRACKPAD -> PanelKind.TRACKPAD
@@ -903,6 +922,17 @@ data class HandwritingUi(
     val download: com.wasimaster.wmkeyboard.core.handwriting.HandwritingDownloadProgress? = null,
     /** What this language's model installs to, or 0 when ML Kit lists no size. */
     val modelBytes: Long = 0,
+    /**
+     * The panel is blown up to a see-through canvas over the whole app with
+     * the keyboard shrunk to a small bar (issue #386). Kept across a status
+     * reset, so a language switch does not drop the user out of it.
+     */
+    val fullScreen: Boolean = false,
+    /**
+     * Pen-button mode only: the full-screen canvas is catching touches (true)
+     * or letting them through to the app (false).
+     */
+    val fullScreenInk: Boolean = true,
 )
 
 /**
@@ -953,6 +983,12 @@ data class VoiceUi(
     val barInline: Boolean = false,
     /** A just-dictated utterance is still at the cursor; the undo chip shows. */
     val canUndo: Boolean = false,
+    /**
+     * The phrase just dictated is with the AI tool's model being tidied (#499).
+     * Rides [VoiceStatus.TRANSCRIBING], which already means "the words are
+     * coming, the mic is shut"; this only changes what the status line says.
+     */
+    val tidying: Boolean = false,
     /** Offline-model chip on the panel (download for offline dictation). */
     val modelState: VoiceModelState = VoiceModelState.UNKNOWN,
     /** Download percent while [modelState] is DOWNLOADING, -1 when unknown. */
@@ -1104,6 +1140,12 @@ sealed interface VoiceBarAction {
      * service's touchable region, so touches beside the bar reach the app.
      */
     data class Bounds(val left: Int, val top: Int, val right: Int, val bottom: Int) : VoiceBarAction
+
+    /**
+     * A pick off the voice panel's language chip (#416): the languages
+     * dictation listens for, in order, or none to follow the keyboard.
+     */
+    data class PickLanguages(val ids: List<String>) : VoiceBarAction
 }
 
 /**
@@ -1205,6 +1247,8 @@ sealed interface WebSearchUi {
     data class Ready(
         val results: List<com.wasimaster.wmkeyboard.core.tools.WebResult>,
         val query: String,
+        /** The backend's own short answer, shown above the results (#470). */
+        val answer: String? = null,
     ) : WebSearchUi
 }
 
@@ -2427,8 +2471,9 @@ data class KeyboardUiState(
      */
     val secondaryLayoutId: String? = null,
     /**
-     * The Keyman layer [LayoutMode.NAMED] shows, as a key into
-     * [LayoutSet.named]. An id the set no longer holds draws the letters.
+     * The layer [LayoutMode.NAMED] shows — a Keyman page, or a page of a
+     * paginated layout — as a key into [LayoutSet.named]. An id the set no
+     * longer holds draws the letters.
      */
     val namedLayer: String? = null,
     /**
@@ -2514,6 +2559,12 @@ data class KeyboardUiState(
      */
     val expandedCandidates: List<String> = emptyList(),
     val suggestions: List<String> = emptyList(),
+    /**
+     * Desktop Avro's candidate list for the word being typed, for the row
+     * above the strip; empty unless the phonetic language is set to show it
+     * there (`SuggestionStripSettings.phoneticCandidateLists`).
+     */
+    val phoneticCandidates: List<String> = emptyList(),
     /**
      * The word the next commit will really put in, as opposed to the word
      * merely leading the strip. The strip colours that chip and no other, so
@@ -2810,6 +2861,13 @@ data class KeyboardUiState(
     val clipboardQuery: String = "",
     /** Typing edits [clipboardQuery] instead of the field, like emoji search. */
     val clipboardSearchActive: Boolean = false,
+    /**
+     * The clipboard is stacked over the live keys (#414): a short strip of
+     * clips with the key rows under it, typing into the app, so pasting and
+     * typing can alternate without opening and closing the panel. Toggled
+     * from the panel's header and kept until toggled back.
+     */
+    val clipboardWithKeys: Boolean = false,
     /** The clip open in the clipboard panel's editor; see [clipEditActive]. */
     val clipEdit: ClipEdit? = null,
     /** The clipboard panel's Undo bar, while a delete can still be taken back. */
@@ -2820,6 +2878,12 @@ data class KeyboardUiState(
      * or the feature is off. Cleared on paste/dismiss/timeout.
      */
     val clipboardSuggestion: ClipItem? = null,
+    /**
+     * The row of recent copies on the idle strip (#414) was put away with its
+     * ✕, for this field. Back for the next field, and the moment something new
+     * is copied.
+     */
+    val clipChipsDismissed: Boolean = false,
     /**
      * One-time code lifted from a just-arrived notification, offered as a chip
      * on the suggestion strip. Null when there is none, it expired, it was
@@ -2920,6 +2984,13 @@ data class KeyboardUiState(
      * `remember` inside the panel body.
      */
     val snippetFolderOpen: Long? = null,
+    /**
+     * The snippets panel's search text (#471), matched against every snippet's
+     * label, text and triggers, folders or not. Empty when not searching.
+     */
+    val snippetQuery: String = "",
+    /** Typing edits [snippetQuery]; the panel collapses so the keys fit under it. */
+    val snippetSearchActive: Boolean = false,
     /**
      * The picker a held snippet tile opened, or null while the panel is showing
      * tiles. Panel state for the same reason [snippetFolderOpen] is: back has to
@@ -3488,6 +3559,7 @@ data class KeyboardUiState(
         mediaSearchActive && panel.hasMediaSearch -> CaptureTarget.MEDIA_SEARCH
         dictionarySearchActive -> CaptureTarget.DICTIONARY_SEARCH
         clipboardSearchActive -> CaptureTarget.CLIPBOARD_SEARCH
+        snippetSearchActive -> CaptureTarget.SNIPPET_SEARCH
         else -> null
     }
 
@@ -3522,6 +3594,7 @@ data class KeyboardUiState(
         CaptureTarget.DICTIONARY_SEARCH -> dictionaryQuery
         CaptureTarget.CLIPBOARD_SEARCH -> clipboardQuery
         CaptureTarget.CLIP_EDIT -> clipEdit?.draft.orEmpty()
+        CaptureTarget.SNIPPET_SEARCH -> snippetQuery
     }
 
     /**
@@ -3571,12 +3644,26 @@ data class KeyboardUiState(
      * With no folders anywhere this is every snippet, which is what makes the
      * panel identical to its pre-folder self for anyone who never makes one.
      */
-    fun snippetsShown(): List<Snippet> = when {
-        snippetFolders.isEmpty() -> snippets
-        openSnippetFolder() != null -> snippets.filter { it.folderId == snippetFolderOpen }
-        else -> snippets.filter { it.folderId == 0L }
+    fun snippetsShown(): List<Snippet> {
+        // A search looks through every snippet, whatever folder it is filed
+        // in (#471): the point of typing a name is not having to remember
+        // where it was put.
+        val query = snippetQuery.trim()
+        if (query.isNotEmpty()) return snippets.filter { it.matchesQuery(query) }
+        return when {
+            snippetFolders.isEmpty() -> snippets
+            openSnippetFolder() != null -> snippets.filter { it.folderId == snippetFolderOpen }
+            else -> snippets.filter { it.folderId == 0L }
+        }
     }
 }
+
+/** Whether [query] appears in this snippet's label, its text, or any of its triggers. */
+private fun Snippet.matchesQuery(query: String): Boolean =
+    label.contains(query, ignoreCase = true) ||
+        text.contains(query, ignoreCase = true) ||
+        trigger?.contains(query, ignoreCase = true) == true ||
+        aliases.any { it.contains(query, ignoreCase = true) }
 
 /**
  * What the Plugins panel is showing.

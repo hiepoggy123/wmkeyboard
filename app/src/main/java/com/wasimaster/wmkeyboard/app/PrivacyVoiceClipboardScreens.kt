@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.height
 import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
 import com.wasimaster.wmkeyboard.app.lock.LocalAppLock
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
-import androidx.compose.material.icons.outlined.Settings
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -29,7 +29,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.input.composer.CjkLearning
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
+import com.wasimaster.wmkeyboard.core.settings.ClipRecentChipsMax
 import com.wasimaster.wmkeyboard.core.settings.HoldToTalkRange
+import com.wasimaster.wmkeyboard.core.settings.VoiceSilenceStopRange
 import com.wasimaster.wmkeyboard.core.settings.ClipboardView
 import com.wasimaster.wmkeyboard.core.settings.ClipGridColumnsRange
 import com.wasimaster.wmkeyboard.core.settings.ClipMaxItemsSteps
@@ -43,16 +45,16 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.outlined.Memory
-import androidx.compose.material.icons.outlined.PhoneAndroid
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Memory
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhoneAndroid
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.Dns
-import androidx.compose.material.icons.outlined.Dashboard
-import androidx.compose.material.icons.outlined.TextFields
-import androidx.compose.material.icons.outlined.TouchApp
-import androidx.compose.material.icons.outlined.ViewCompact
-import androidx.compose.material.icons.outlined.ViewStream
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Block
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Dns
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Dashboard
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.TextFields
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.TouchApp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ViewCompact
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ViewStream
 
 /** The permission that lets the clipboard read the user's screenshots. */
 private val ImagesPermission: String
@@ -269,6 +271,7 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
                     },
                 ) { scope.launch { repository.setVoiceEngine(it) } }
             }
+            item { VoiceLanguageRow(repository, settings) }
         }
     }
     SettingsGroup(stringResource(R.string.voice_dictation_group)) {
@@ -335,6 +338,15 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
                 default = SettingsDefaults.voiceBar.holdPicksTypingMode,
             ) { scope.launch { repository.setVoiceHoldPicksTypingMode(it) } }
         }
+        item {
+            ToggleSetting(
+                R.string.voice_pause_media_title,
+                stringResource(R.string.voice_pause_media_subtitle),
+                settings.watch { it.voiceBar.pauseMedia },
+                info = stringResource(R.string.voice_pause_media_info),
+                default = SettingsDefaults.voiceBar.pauseMedia,
+            ) { scope.launch { repository.setVoicePauseMedia(it) } }
+        }
         // Only the panel's mic reads a hold: the strip and collapsed-bar mics
         // are plain taps, and the panel is never opened in those modes.
         if (voiceUiMode == com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.MODE_PANEL) item {
@@ -367,6 +379,24 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
                 default = SettingsDefaults.voiceContinuous,
             ) { scope.launch { repository.setVoiceContinuous(it) } }
         }
+        item {
+            val offLabel = stringResource(R.string.voice_silence_stop_off)
+            val secondsFormat = stringResource(R.string.voice_silence_stop_seconds)
+            SliderSetting(
+                R.string.voice_silence_stop_title,
+                subtitle = stringResource(R.string.voice_silence_stop_subtitle),
+                value = settings.watch { it.voiceBar.silenceStopMs }.toFloat(),
+                range = 0f..VoiceSilenceStopRange.last.toFloat(),
+                display = { picked ->
+                    val ms = (picked / 250f).roundToInt() * 250
+                    if (ms == 0) offLabel else secondsFormat.format(ms / 1000f)
+                },
+                info = stringResource(R.string.voice_silence_stop_info),
+                default = SettingsDefaults.voiceBar.silenceStopMs.toFloat(),
+            ) { picked ->
+                scope.launch { repository.setVoiceSilenceStopMs((picked / 250f).roundToInt() * 250) }
+            }
+        }
         if (typingMode != com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN) item {
             ToggleSetting(
                 R.string.voice_punctuation_title,
@@ -374,6 +404,17 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
                 settings.watch { it.voiceSpokenPunctuation },
                 default = SettingsDefaults.voiceSpokenPunctuation,
             ) { scope.launch { repository.setVoiceSpokenPunctuation(it) } }
+        }
+        // Plain voice typing is the words exactly as said, so it is never
+        // tidied (#499) and the row goes with the punctuation one above.
+        if (typingMode != com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN) item {
+            ToggleSetting(
+                R.string.voice_ai_tidy_title,
+                stringResource(R.string.voice_ai_tidy_subtitle),
+                settings.watch { it.voiceBar.aiTidy },
+                info = stringResource(R.string.voice_ai_tidy_info),
+                default = SettingsDefaults.voiceBar.aiTidy,
+            ) { scope.launch { repository.setVoiceAiTidy(it) } }
         }
     }
     // Offline Whisper has no way to take a hint, so the group only shows for
@@ -545,8 +586,10 @@ internal fun ClipboardSettings(
     val userScreenshots = settings.watch { it.clipboard.userScreenshots }
     val trackSource = settings.watch { it.clipboard.trackSource }
     val suggestRecent = settings.watch { it.clipboard.suggestRecent }
+    val swipeToDelete = settings.watch { it.clipboard.swipeToDelete }
     val detectEntities = settings.watch { it.clipboard.detectEntities }
     val sensitiveHandling = settings.watch { it.clipboard.sensitiveHandling }
+    val clipSearch = settings.watch { it.clipboard.search }
     // The slider readouts are plain lambdas, so their format strings are
     // resolved here and captured. The format also puts the number through the
     // locale, which is what gives Bengali or Arabic digits.
@@ -746,6 +789,18 @@ internal fun ClipboardSettings(
             }
         }
         item(visible = suggestRecent) {
+            // Issue #414: the last few copies as a row, FUTO-style.
+            SliderSetting(
+                R.string.clipboard_recent_chips_title,
+                subtitle = stringResource(R.string.clipboard_recent_chips_subtitle),
+                value = settings.watch { it.clipboard.recentChips }.toFloat(),
+                range = 1f..ClipRecentChipsMax.toFloat(),
+                display = { it.toInt().toString() },
+                info = stringResource(R.string.clipboard_recent_chips_info),
+                default = SettingsDefaults.clipboard.recentChips.toFloat(),
+            ) { scope.launch { repository.setClipboardRecentChips(it.toInt()) } }
+        }
+        item(visible = suggestRecent) {
             ChoiceSetting(
                 title = R.string.clipboard_suggest_codes_title,
                 subtitle = stringResource(R.string.clipboard_suggest_codes_subtitle),
@@ -764,6 +819,23 @@ internal fun ClipboardSettings(
                 info = stringResource(R.string.clipboard_entities_info),
                 default = SettingsDefaults.clipboard.detectEntities,
             ) { scope.launch { repository.setClipboardDetectEntities(it) } }
+        }
+        item(visible = detectEntities) {
+            ToggleSetting(
+                R.string.clipboard_entity_icons_title,
+                stringResource(R.string.clipboard_entity_icons_subtitle),
+                settings.watch { it.clipboard.entityIcons },
+                info = stringResource(R.string.clipboard_entity_icons_info),
+                default = SettingsDefaults.clipboard.entityIcons,
+            ) { scope.launch { repository.setClipboardEntityIcons(it) } }
+        }
+        item(visible = detectEntities) {
+            ToggleSetting(
+                R.string.clipboard_entity_to_clipboard_title,
+                stringResource(R.string.clipboard_entity_to_clipboard_subtitle),
+                settings.watch { it.clipboard.entityToClipboard },
+                default = SettingsDefaults.clipboard.entityToClipboard,
+            ) { scope.launch { repository.setClipboardEntityToClipboard(it) } }
         }
         // The number chips are the ones that go wrong, because a phone
         // number is the one fragment with no shape of its own. This row
@@ -902,12 +974,48 @@ internal fun ClipboardSettings(
         }
         item {
             ToggleSetting(
+                R.string.clipboard_type_out_title,
+                stringResource(R.string.clipboard_type_out_subtitle),
+                settings.watch { it.clipboard.typeOutPastes },
+                info = stringResource(R.string.clipboard_type_out_info),
+                default = SettingsDefaults.clipboard.typeOutPastes,
+            ) { scope.launch { repository.setClipboardTypeOutPastes(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.clipboard_type_tags_title,
+                stringResource(R.string.clipboard_type_tags_subtitle),
+                settings.watch { it.clipboard.typeTags },
+                info = stringResource(R.string.clipboard_type_tags_info),
+                default = SettingsDefaults.clipboard.typeTags,
+            ) { scope.launch { repository.setClipboardTypeTags(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.clipboard_keep_rich_text_title,
+                stringResource(R.string.clipboard_keep_rich_text_subtitle),
+                settings.watch { it.clipboard.keepRichText },
+                info = stringResource(R.string.clipboard_keep_rich_text_info),
+                default = SettingsDefaults.clipboard.keepRichText,
+            ) { scope.launch { repository.setClipboardKeepRichText(it) } }
+        }
+        item {
+            ToggleSetting(
                 R.string.clipboard_swipe_delete_title,
                 stringResource(R.string.clipboard_swipe_delete_subtitle),
                 settings.watch { it.clipboard.swipeToDelete },
                 info = stringResource(R.string.clipboard_swipe_delete_info),
                 default = SettingsDefaults.clipboard.swipeToDelete,
             ) { scope.launch { repository.setClipboardSwipeToDelete(it) } }
+        }
+        item(visible = swipeToDelete) {
+            ToggleSetting(
+                R.string.clipboard_swipe_right_pins_title,
+                stringResource(R.string.clipboard_swipe_right_pins_subtitle),
+                settings.watch { it.clipboard.swipeRightPins },
+                info = stringResource(R.string.clipboard_swipe_right_pins_info),
+                default = SettingsDefaults.clipboard.swipeRightPins,
+            ) { scope.launch { repository.setClipboardSwipeRightPins(it) } }
         }
         item {
             ToggleSetting(
@@ -925,6 +1033,15 @@ internal fun ClipboardSettings(
                 settings.watch { it.clipboard.search },
                 default = SettingsDefaults.clipboard.search,
             ) { scope.launch { repository.setClipboardSearch(it) } }
+        }
+        item(visible = clipSearch) {
+            ToggleSetting(
+                R.string.clipboard_search_regex_title,
+                stringResource(R.string.clipboard_search_regex_subtitle),
+                settings.watch { it.clipboard.searchRegex },
+                info = stringResource(R.string.clipboard_search_regex_info),
+                default = SettingsDefaults.clipboard.searchRegex,
+            ) { scope.launch { repository.setClipboardSearchRegex(it) } }
         }
         item {
             ToggleSetting(

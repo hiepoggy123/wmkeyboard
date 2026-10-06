@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import com.wasimaster.wmkeyboard.core.addons.AddonType
@@ -25,22 +25,23 @@ import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
 import com.wasimaster.wmkeyboard.core.netlog.NetLog
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.Notes
-import androidx.compose.material.icons.outlined.Star
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Edit
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Folder
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowDown
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowUp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Notes
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Star
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.material3.AssistChip
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Checkbox
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.runtime.mutableStateListOf
@@ -80,7 +81,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
-import com.wasimaster.wmkeyboard.core.util.requireInputStream
+import com.wasimaster.wmkeyboard.core.util.readBytesCapped
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import kotlinx.coroutines.Dispatchers
@@ -106,11 +107,11 @@ import com.wasimaster.wmkeyboard.core.snippets.espanso.EspansoHub
 import com.wasimaster.wmkeyboard.core.snippets.espanso.EspansoManifest
 import com.wasimaster.wmkeyboard.core.snippets.espanso.EspansoWriter
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.outlined.Check
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.material.icons.outlined.Code
-import androidx.compose.material.icons.outlined.TextFields
-import androidx.compose.material.icons.outlined.Block
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Code
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.TextFields
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Block
 import com.wasimaster.wmkeyboard.core.ui.ScrollRail
 import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
 
@@ -291,9 +292,8 @@ internal fun SnippetSettings(
             val name = WMFileTypes.displayName(context, uri)
             val parsed = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.requireInputStream(uri).use {
-                        SnippetPayload.read(it.readBytes(), name)
-                    }
+                    context.contentResolver.readBytesCapped(uri)
+                        ?.let { SnippetPayload.read(it, name) }
                 }.getOrNull()
             }
             when {
@@ -445,6 +445,26 @@ internal fun SnippetSettings(
                     )
                 },
             ) { scope.launch { repository.setSnippetMultiExpand(it) } }
+        }
+        item {
+            SliderSetting(
+                R.string.expander_grid_columns_title,
+                subtitle = stringResource(R.string.expander_grid_columns_subtitle),
+                value = settings.watch { it.suggestionStrip.snippetGridColumns }.toFloat(),
+                range = 1f..4f,
+                display = { it.toInt().toString() },
+                info = stringResource(R.string.expander_grid_columns_info),
+                default = SettingsDefaults.suggestionStrip.snippetGridColumns.toFloat(),
+            ) { scope.launch { repository.setSnippetGridColumns(it.toInt()) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.expander_secure_fields_title,
+                stringResource(R.string.expander_secure_fields_subtitle),
+                settings.watch { it.suggestionStrip.snippetsInSecureFields },
+                info = stringResource(R.string.expander_secure_fields_info),
+                default = SettingsDefaults.suggestionStrip.snippetsInSecureFields,
+            ) { scope.launch { repository.setSnippetsInSecureFields(it) } }
         }
     }
     Spacer(Modifier.height(12.dp))
@@ -1554,6 +1574,55 @@ private fun SnippetEditorForm(
     val kept = expansions.filter { it.isNotBlank() }
     val valid = label.isNotBlank() && kept.isNotEmpty() && patternOk
 
+    // The snippet as the fields describe it right now: what Save writes, and
+    // what the back check compares against the snippet as it was opened.
+    fun draft() = Snippet(
+        id = initial?.id ?: 0,
+        label = label.trim(),
+        text = kept.firstOrNull().orEmpty(),
+        alternates = kept.drop(1),
+        createdAt = initial?.createdAt ?: 0,
+        trigger = if (word) allTriggers.firstOrNull() else null,
+        aliases = if (word) allTriggers.drop(1) else emptyList(),
+        propagateCase = word && propagateCase,
+        uppercaseStyle = uppercaseStyle,
+        triggerPattern = if (word) null else pattern.text.trim().ifBlank { null },
+        triggerWords = if (word) 0 else words,
+        confirm = confirm,
+        folderId = folderId,
+        // A link to something deleted while this screen was open is not a link.
+        children = children.filter { id -> all.any { it.id == id } },
+        tags = allTags,
+        multiExpand = multiExpand,
+    )
+    // Issue #471: Save sat under every field, where nobody scrolled to it, and
+    // back threw the edit away without a word, on a settings app where every
+    // other screen saves as it goes. So Save floats where it is always in
+    // reach, and leaving with changes asks first.
+    val opened = remember { draft() }
+    val dirty = draft() != opened
+    var leaveOpen by remember { mutableStateOf(false) }
+    BackHandler(enabled = dirty) { leaveOpen = true }
+    RegisterFab {
+        ExtendedFloatingActionButton(
+            onClick = { if (valid) onSave(draft()) },
+            icon = { Icon(Icons.Outlined.Check, contentDescription = null) },
+            text = { Text(stringResource(CommonR.string.common_save)) },
+            containerColor = if (valid) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
+            },
+            contentColor = if (valid) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+            },
+        )
+    }
+
+    // It pads itself by the keyboard, so the window must not pan as well.
+    ResizeForKeyboard()
     Column(modifier = Modifier.imePadding()) {
         SettingsGroup {
             item {
@@ -1759,43 +1828,36 @@ private fun SnippetEditorForm(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Button(
-                enabled = valid,
-                onClick = {
-                    onSave(
-                        Snippet(
-                            id = initial?.id ?: 0,
-                            label = label.trim(),
-                            text = kept.first(),
-                            alternates = kept.drop(1),
-                            createdAt = initial?.createdAt ?: 0,
-                            trigger = if (word) allTriggers.firstOrNull() else null,
-                            aliases = if (word) allTriggers.drop(1) else emptyList(),
-                            propagateCase = word && propagateCase,
-                            uppercaseStyle = uppercaseStyle,
-                            triggerPattern = if (word) null else pattern.text.trim().ifBlank { null },
-                            triggerWords = if (word) 0 else words,
-                            confirm = confirm,
-                            folderId = folderId,
-                            // A link to something deleted while this screen was
-                            // open is not a link.
-                            children = children.filter { id -> all.any { it.id == id } },
-                            tags = allTags,
-                            multiExpand = multiExpand,
-                        ),
-                    )
-                },
-            ) { Text(stringResource(CommonR.string.common_save)) }
-            OutlinedButton(onClick = onCancel) {
-                Text(stringResource(CommonR.string.common_cancel))
-            }
-        }
-        Spacer(Modifier.height(24.dp))
+        // Room for the Save button, which floats over the last rows.
+        Spacer(Modifier.height(88.dp))
+    }
+
+    if (leaveOpen) {
+        AlertDialog(
+            onDismissRequest = { leaveOpen = false },
+            title = { Text(stringResource(R.string.rows_snippet_unsaved_title)) },
+            text = { Text(stringResource(R.string.rows_snippet_unsaved_body)) },
+            confirmButton = {
+                TextButton(
+                    enabled = valid,
+                    onClick = {
+                        leaveOpen = false
+                        onSave(draft())
+                    },
+                ) { Text(stringResource(CommonR.string.common_save)) }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        leaveOpen = false
+                        onCancel()
+                    }) { Text(stringResource(R.string.rows_snippet_unsaved_discard)) }
+                    TextButton(onClick = { leaveOpen = false }) {
+                        Text(stringResource(CommonR.string.common_cancel))
+                    }
+                }
+            },
+        )
     }
 
     if (pickingLinks) {
@@ -1982,6 +2044,15 @@ private fun ExpansionListEditor(
                 },
                 trailing = {
                     Row {
+                        // Says the row can be opened (#471): with one expansion
+                        // the arrows and the bin all draw disabled, and nothing
+                        // else on the row said a saved text could be changed.
+                        IconButton(onClick = { onOpenChange(if (open) null else index) }) {
+                            Icon(
+                                Icons.Outlined.Edit,
+                                contentDescription = stringResource(CommonR.string.common_edit),
+                            )
+                        }
                         IconButton(
                             enabled = index > 0,
                             onClick = {

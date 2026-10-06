@@ -1,9 +1,15 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
@@ -16,26 +22,44 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import com.wasimaster.wmkeyboard.core.icons.IconArt
 import com.wasimaster.wmkeyboard.core.icons.IconOverrides
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
-import com.wasimaster.wmkeyboard.core.icons.SvgDoc
+import com.wasimaster.wmkeyboard.core.icons.IconSlots
+import com.wasimaster.wmkeyboard.core.icons.RasterIcons
+import com.wasimaster.wmkeyboard.core.icons.SvgParser
+import com.wasimaster.wmkeyboard.core.icons.SymbolIcons
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.IconSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
+import kotlin.math.ceil
 
 /**
- * A resolved icon: the vector to draw, and whether the caller's tint applies.
+ * A resolved icon: what to draw, and whether the caller's tint applies.
  *
  * A monochrome icon declared no colours of its own and is recoloured to match
  * the theme (and the per-tool accent colour). One that did is drawn as its
  * author painted it, which is why the tint has to be dropped for it rather
  * than flattening it to a single colour.
+ *
+ * Exactly one of [vector] and [bitmap] is set. A pack's icon may be either
+ * since issue #504 — a vector where the author drew one, a raster where they
+ * had a PNG, or where it came out of a Gboard theme, which is the only form
+ * those ship their key glyphs in.
  */
 @Immutable
-data class ResolvedIcon(val vector: ImageVector, val monochrome: Boolean)
+data class ResolvedIcon(
+    val vector: ImageVector? = null,
+    val bitmap: ImageBitmap? = null,
+    val monochrome: Boolean = true,
+)
 
 /**
  * Every icon the user has replaced, already parsed and ready to draw.
@@ -69,6 +93,28 @@ class IconSet(private val icons: Map<String, ResolvedIcon>) {
 val LocalIconSet = staticCompositionLocalOf { IconSet.Builtin }
 
 /**
+ * Whether the layout in use is a phonetic one for an Indic language.
+ *
+ * The phonetic English switch wears the plain translate glyph, which the
+ * Translate tool wears too. On an Indic phonetic layout it draws
+ * `translate_indic` (a Devanagari letter beside a Latin one) instead, which says
+ * what the switch flips between. Arabic-script phonetic layouts keep the plain
+ * glyph: its non-Latin half is a CJK character, no closer to theirs.
+ *
+ * Not static: it changes with the language, and only the one slot reads it.
+ */
+val LocalPhoneticIndic = compositionLocalOf { false }
+
+/** The phonetic languages typed in an Arabic script; every other one is Indic. */
+private val ArabicScriptPhonetic = setOf("ar", "fa", "ur")
+
+/** Whether [phoneticLanguage], a composer's `phoneticLanguage`, is an Indic one. */
+fun phoneticIsIndic(phoneticLanguage: String?): Boolean =
+    phoneticLanguage != null && phoneticLanguage !in ArabicScriptPhonetic
+
+private val PhoneticEnglishSlot = IconSlots.forTool(ToolbarTool.PHONETIC_ENGLISH)
+
+/**
  * Draws the icon for [slot]: the user's replacement if they set one, otherwise
  * the built-in glyph.
  *
@@ -92,15 +138,28 @@ fun SlotIcon(
     brush: Brush? = null,
 ) {
     val resolved = LocalIconSet.current.resolve(slot)
-    val vector = resolved?.vector ?: IconDefaults.forSlot(slot) ?: return
     val recolourable = resolved == null || resolved.monochrome
-    Icon(
-        imageVector = vector,
-        contentDescription = contentDescription,
-        modifier = if (brush != null && recolourable) modifier.paintedWith(brush) else modifier,
-        tint = if (recolourable) tint else Color.Unspecified,
-    )
+    val painted = if (brush != null && recolourable) modifier.paintedWith(brush) else modifier
+    val shade = if (recolourable) tint else Color.Unspecified
+    val bitmap = resolved?.bitmap
+    if (bitmap != null) {
+        Icon(bitmap = bitmap, contentDescription = contentDescription, modifier = painted, tint = shade)
+        return
+    }
+    val vector = resolved?.vector ?: builtinIcon(slot) ?: return
+    Icon(imageVector = vector, contentDescription = contentDescription, modifier = painted, tint = shade)
 }
+
+/** The built-in glyph for [slot], with the one that depends on the language. */
+@Composable
+private fun builtinIcon(slot: String): ImageVector? =
+    // The slot is compared first so that every other icon on the board stays
+    // clear of the composition local and never recomposes when it changes.
+    if (slot == PhoneticEnglishSlot && LocalPhoneticIndic.current) {
+        SymbolIcons.TranslateIndic
+    } else {
+        IconDefaults.forSlot(slot)
+    }
 
 /**
  * Replaces whatever this element drew with [brush], keeping its shape.
@@ -152,22 +211,31 @@ fun buildIconSet(settings: IconSettings, store: IconPackStore): IconSet {
     IconDefaults.warm()
 
     val activePackId = settings.activePackId
-    if (activePackId.isEmpty() && settings.overrides.isEmpty()) return IconSet.Builtin
+    val themeIcons = settings.themeIcons
+    if (activePackId.isEmpty() && settings.overrides.isEmpty() && themeIcons.isEmpty()) {
+        return IconSet.Builtin
+    }
 
     val resolved = HashMap<String, ResolvedIcon>()
-    // The active pack first, so a per-slot override written afterwards wins.
+    // The theme's own icons are the weakest layer: they dress a board the user
+    // picked, but the icon pack and the per-slot picks are standing choices
+    // about the whole keyboard, and a theme must not quietly undo one.
+    for ((slot, path) in themeIcons) {
+        readIconFile(path)?.toResolvedIcon(slot, fitGlyph = true)?.let { resolved[slot] = it }
+    }
+    // Then the active pack, so a per-slot override written afterwards wins.
     if (activePackId.isNotEmpty()) {
-        for ((slot, doc) in store.docs(activePackId)) {
-            resolved[slot] = doc.toResolvedIcon(slot) ?: continue
+        for ((slot, art) in store.art(activePackId)) {
+            resolved[slot] = art.toResolvedIcon(slot) ?: continue
         }
     }
     for ((slot, source) in settings.overrides) {
         val icon = when {
             source.startsWith(IconOverrides.BUILTIN_PREFIX) ->
                 BuiltinIcons.byName(source.removePrefix(IconOverrides.BUILTIN_PREFIX))
-                ?.let { ResolvedIcon(it, monochrome = true) }
+                ?.let { ResolvedIcon(vector = it, monochrome = true) }
             source.startsWith(IconOverrides.PACK_PREFIX) ->
-                store.docs(source.removePrefix(IconOverrides.PACK_PREFIX))[slot]
+                store.art(source.removePrefix(IconOverrides.PACK_PREFIX))[slot]
                 ?.toResolvedIcon(slot)
             else -> null
         }
@@ -180,15 +248,160 @@ fun buildIconSet(settings: IconSettings, store: IconPackStore): IconSet {
 }
 
 /**
- * Builds the drawable form of a parsed icon, or null when it cannot be built.
+ * A theme's icon file as art, or null when it has gone or is not one.
  *
- * The parser is lenient by design and the vector builder is not: a document it
- * accepted can still fail to become an [ImageVector] — unusable path data,
- * geometry that overflows, a shape Compose's builder rejects. Every one of
- * those is a stranger's file, and none of them is worth taking the keyboard
- * down for. A null here leaves the slot to [IconDefaults], so the failure shows
- * up as "this one icon didn't change" instead of a crash on the frame that
- * first drew it.
+ * A theme points at app-private files `withExtractedImages` wrote, so the path
+ * is ours; the caps still apply, because the theme itself may have come from a
+ * stranger. Bounded the same way a pack's own file is — see
+ * `IconPackStore.readArt`, which this deliberately mirrors.
  */
-private fun SvgDoc.toResolvedIcon(slot: String): ResolvedIcon? =
-    runCatching { ResolvedIcon(toImageVector(slot), monochrome) }.getOrNull()
+private fun readIconFile(path: String): IconArt? {
+    val file = File(path)
+    if (!file.isFile || file.length() > RasterIcons.MAX_SOURCE_BYTES) return null
+    val bytes = runCatching { file.readBytes() }.getOrNull() ?: return null
+    RasterIcons.read(bytes)?.let { return it }
+    if (bytes.size > SvgParser.MAX_SOURCE_BYTES) return null
+    return runCatching { SvgParser.parse(bytes.decodeToString()) }.getOrNull()?.let(IconArt::Vector)
+}
+
+/**
+ * Builds the drawable form of an icon, or null when it cannot be built.
+ *
+ * The readers are lenient by design and the drawing side is not: a document the
+ * SVG parser accepted can still fail to become an [ImageVector] — unusable path
+ * data, geometry that overflows, a shape Compose's builder rejects — and a
+ * raster whose header read fine can still fail to decode. Every one of those is
+ * a stranger's file, and none of them is worth taking the keyboard down for. A
+ * null here leaves the slot to [IconDefaults], so the failure shows up as "this
+ * one icon didn't change" instead of a crash on the frame that first drew it.
+ */
+private fun IconArt.toResolvedIcon(slot: String, fitGlyph: Boolean = false): ResolvedIcon? = when (this) {
+    is IconArt.Vector ->
+        runCatching { ResolvedIcon(vector = doc.toImageVector(slot), monochrome = doc.monochrome) }
+            .getOrNull()
+
+    is IconArt.Raster -> runCatching {
+        val decoded = decodeIcon(bytes) ?: return null
+        val bitmap = if (fitGlyph) decoded.fittedLikeMaterial() else decoded
+        // The pixel verdict, which the header could not give: a glyph drawn in
+        // one colour on transparency is a mask and takes the theme's tint, and
+        // anything with more than one colour in it was painted deliberately.
+        // Gboard themes are the reason this matters — three quarters of the
+        // glyphs in the Rboard repository are white-on-transparent, and drawn
+        // as authored they vanish on a light theme.
+        ResolvedIcon(bitmap = bitmap.asImageBitmap(), monochrome = mask ?: bitmap.looksLikeMask())
+    }.getOrNull()
+}
+
+/**
+ * Decodes an icon no larger than a key can show it.
+ *
+ * `inSampleSize` halves, so a glyph at the size themes actually ship (around
+ * 100 px) is decoded untouched and only something far larger is reduced. The
+ * cap is there because a pack holds ninety slots and an ARGB bitmap is four
+ * bytes a pixel: at 2048 px square that is 16 MB per icon, in a process whose
+ * whole budget the keyboard shares with the app (#476).
+ */
+private fun decodeIcon(bytes: ByteArray): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    val longest = maxOf(bounds.outWidth, bounds.outHeight)
+    var sample = 1
+    while (longest / (sample * 2) >= MAX_ICON_PX) sample *= 2
+    val options = BitmapFactory.Options().apply {
+        inSampleSize = sample
+        inPreferredConfig = Bitmap.Config.ARGB_8888
+    }
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
+}
+
+/**
+ * Whether every visible pixel is the same hue, so the image is a stencil of a
+ * glyph rather than a picture of one.
+ *
+ * Sampled on a stride rather than read whole: the answer only has to be right
+ * about artwork, and a grid of a few thousand pixels settles that. Anti-aliased
+ * edges are why the test is on the opaque-enough pixels and not all of them —
+ * a white glyph's fringe runs through every alpha, and its *colour* stays
+ * white.
+ */
+private fun Bitmap.looksLikeMask(): Boolean {
+    if (width <= 0 || height <= 0) return false
+    val stride = maxOf(1, maxOf(width, height) / MASK_SAMPLES)
+    var seen = -1
+    var y = 0
+    while (y < height) {
+        var x = 0
+        while (x < width) {
+            val pixel = getPixel(x, y)
+            if ((pixel ushr 24) and 0xFF >= MASK_MIN_ALPHA) {
+                val rgb = pixel and 0xFFFFFF
+                if (seen == -1) seen = rgb else if (seen != rgb) return false
+            }
+            x += stride
+        }
+        y += stride
+    }
+    // Nothing visible at all is not a mask; it is an empty file, and drawing it
+    // tinted would put a solid block of the theme's colour on the key.
+    return seen != -1
+}
+
+/**
+ * This glyph trimmed to what it draws and centred in a square with the margin a
+ * Material icon leaves, so it comes out the size of the icon it replaces.
+ *
+ * A Gboard theme's key glyphs are PNGs cropped tight to their edges, or nearly,
+ * and a Material icon's glyph covers about three quarters of its 24 dp box. Drawn
+ * into the same box, the theme's delete and enter came out a third bigger than
+ * the stock ones beside them. Trimming first makes the result the same whatever
+ * margin the file happened to carry.
+ */
+private fun Bitmap.fittedLikeMaterial(): Bitmap {
+    var left = width
+    var top = height
+    var right = -1
+    var bottom = -1
+    val row = IntArray(width)
+    for (y in 0 until height) {
+        getPixels(row, 0, width, 0, y, width, 1)
+        for (x in 0 until width) {
+            if ((row[x] ushr 24) > TRIM_MAX_ALPHA) {
+                if (x < left) left = x
+                if (x > right) right = x
+                if (y < top) top = y
+                if (y > bottom) bottom = y
+            }
+        }
+    }
+    // Nothing visible: leave it to the mask test, which refuses an empty file.
+    if (right < 0) return this
+    val glyphWidth = right - left + 1
+    val glyphHeight = bottom - top + 1
+    val side = ceil(maxOf(glyphWidth, glyphHeight) / MATERIAL_GLYPH_SHARE).toInt()
+    val out = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+    val x = (side - glyphWidth) / 2
+    val y = (side - glyphHeight) / 2
+    Canvas(out).drawBitmap(
+        this,
+        Rect(left, top, right + 1, bottom + 1),
+        Rect(x, y, x + glyphWidth, y + glyphHeight),
+        Paint(Paint.FILTER_BITMAP_FLAG),
+    )
+    return out
+}
+
+/** How much of its box a Material icon's glyph covers along its longer side. */
+private const val MATERIAL_GLYPH_SHARE = 0.75f
+
+/** At or below this alpha a pixel is margin, not glyph: the faintest anti-aliasing. */
+private const val TRIM_MAX_ALPHA = 0x08
+
+/** Longest edge an icon is decoded at; see [decodeIcon]. */
+private const val MAX_ICON_PX = 192
+
+/** Roughly how many samples across the longest edge [looksLikeMask] takes. */
+private const val MASK_SAMPLES = 48
+
+/** Below this an edge pixel's colour is the background showing through. */
+private const val MASK_MIN_ALPHA = 0x80

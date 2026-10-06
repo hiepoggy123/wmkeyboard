@@ -25,6 +25,7 @@ import java.io.IOException
 object DictionaryStore {
 
     private const val FILE_NAME = "main.wmdict"
+    private const val CAPITALS_NAME = "caps.wmdict"
     private const val BUNDLED_DIR = "bundled"
 
     private fun root(filesDir: File) = File(filesDir, "dict")
@@ -36,6 +37,15 @@ object DictionaryStore {
 
     fun partFile(filesDir: File, langId: String): File =
         File(File(root(filesDir), langId), "$FILE_NAME.part")
+
+    /**
+     * The capitals [langId]'s downloaded list spells its words with (see
+     * [DictionaryCapitals]). Always written with the list, and empty for a
+     * list with no capitals, so its presence also says the list beside it is
+     * keyed in lower case.
+     */
+    fun capitalsFile(filesDir: File, langId: String): File =
+        File(File(root(filesDir), langId), CAPITALS_NAME)
 
     /**
      * Whether this build can actually read [langId]'s downloaded dictionary.
@@ -77,6 +87,7 @@ object DictionaryStore {
         val dir = File(root(filesDir), langId)
         File(dir, FILE_NAME).delete()
         File(dir, "$FILE_NAME.part").delete()
+        File(dir, CAPITALS_NAME).delete()
         File(dir, "source").delete()
         File(dir, "size").delete()
     }
@@ -146,6 +157,24 @@ object DictionaryStore {
             h = h * 31 + file.length().toInt()
             h * 31 + file.lastModified().toInt()
         }
+
+    /**
+     * The languages whose word list ships inside the APK, as
+     * [LanguageDef.id][com.wasimaster.wmkeyboard.core.script.LanguageDef.id]
+     * spells them — English and Bangla today. Read off the assets rather than
+     * written down here, so compiling a third list into `dictionaries-src`
+     * needs no change in this file.
+     *
+     * What it answers is "could a download add a list this language does not
+     * already have": nothing offers one for a language in this set, because
+     * there is nothing on its page to press.
+     */
+    fun bundledLanguageIds(context: Context): Set<String> =
+        runCatching {
+            context.assets.list("dictionaries").orEmpty()
+                .filter { it.endsWith(".wmdict") }
+                .mapTo(HashSet()) { it.removeSuffix(".wmdict") }
+        }.getOrDefault(emptySet())
 
     /**
      * Guarantees the bundled dictionary [baseName] (e.g. `"en"`) exists as a

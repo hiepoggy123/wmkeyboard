@@ -174,6 +174,7 @@ object LanguageRegistry {
                 AssetLayouts.KO_CHEONJIIN_ID,
                 AssetLayouts.KO_PHONETIC_ID,
                 AssetLayouts.KO_DANMOEUM_ID,
+                AssetLayouts.KO_HANDWRITING_ID,
             ),
         ),
         LanguageDef(
@@ -200,6 +201,7 @@ object LanguageRegistry {
             localeTag = "ar-SA",
             layoutIds = listOf(
                 BuiltInLayouts.ARABIC_ID,
+                BuiltInLayouts.ARABIC_PHONETIC_ID,
                 AssetLayouts.AR_HIJAI_ID,
                 AssetLayouts.AR_LETTERS_ID,
                 AssetLayouts.AR_LULUA_ID,
@@ -238,6 +240,7 @@ object LanguageRegistry {
             layoutIds = listOf(
                 BuiltInLayouts.HINDI_ID,
                 BuiltInLayouts.HINDI_PHONETIC_ID,
+                AssetLayouts.HI_DEVANAGARI_ID,
                 AssetLayouts.HI_REMINGTON_GAIL_ID,
                 AssetLayouts.HI_COMPACT_ID,
                 AssetLayouts.HI_PHONETIC_KEYS_ID,
@@ -421,7 +424,12 @@ object LanguageRegistry {
             englishName = "Persian",
             script = ScriptId.ARABIC,
             localeTag = "fa-IR",
-            layoutIds = listOf(AssetLayouts.FA_STANDARD_ID, AssetLayouts.FA_T9_ID),
+            layoutIds = listOf(
+                AssetLayouts.FA_STANDARD_ID,
+                BuiltInLayouts.PERSIAN_PHONETIC_ID,
+                AssetLayouts.FA_GBOARD_ID,
+                AssetLayouts.FA_T9_ID,
+            ),
             numeralSystem = NumeralSystem.PERSIAN,
         ),
         LanguageDef(
@@ -479,8 +487,12 @@ object LanguageRegistry {
             englishName = "Urdu",
             script = ScriptId.ARABIC,
             localeTag = "ur-PK",
+            // The Urdu-lettered keyboard leads, so it is still what enabling
+            // Urdu gives; the roman-key phonetic layout is a choice made on the
+            // language's own screen, as Hindi's is.
             layoutIds = listOf(
                 AssetLayouts.UR_PHONETIC_ID,
+                BuiltInLayouts.URDU_PHONETIC_ID,
                 AssetLayouts.UR_NLA_ID,
                 AssetLayouts.UR_PHONETIC_FOUR_ROWS_ID,
                 AssetLayouts.UR_T9_ID,
@@ -668,6 +680,7 @@ object LanguageRegistry {
             localeTag = "mr-IN",
             layoutIds = listOf(
                 AssetLayouts.MR_INSCRIPT_ID,
+                BuiltInLayouts.MARATHI_PHONETIC_ID,
                 AssetLayouts.MR_ALPHABETIC_ID,
                 AssetLayouts.MR_T9_ID,
             ),
@@ -699,6 +712,7 @@ object LanguageRegistry {
             localeTag = "ta-IN",
             layoutIds = listOf(
                 AssetLayouts.TA_TAMIL99_ID,
+                BuiltInLayouts.TAMIL_PHONETIC_ID,
                 AssetLayouts.TA_INSCRIPT_ID,
                 AssetLayouts.TA_ALPHABETIC_ID,
                 AssetLayouts.TA_T9_ID,
@@ -718,7 +732,11 @@ object LanguageRegistry {
             englishName = "Telugu",
             script = ScriptId.TELUGU,
             localeTag = "te-IN",
-            layoutIds = listOf(AssetLayouts.TE_INSCRIPT_ID, AssetLayouts.TE_T9_ID),
+            layoutIds = listOf(
+                AssetLayouts.TE_INSCRIPT_ID,
+                BuiltInLayouts.TELUGU_PHONETIC_ID,
+                AssetLayouts.TE_T9_ID,
+            ),
         ),
         LanguageDef(
             id = "kn",
@@ -728,6 +746,7 @@ object LanguageRegistry {
             localeTag = "kn-IN",
             layoutIds = listOf(
                 AssetLayouts.KN_INSCRIPT_ID,
+                BuiltInLayouts.KANNADA_PHONETIC_ID,
                 AssetLayouts.KN_KPRAO_ID,
                 AssetLayouts.KN_EXTENDED_ID,
                 AssetLayouts.KN_T9_ID,
@@ -741,6 +760,7 @@ object LanguageRegistry {
             localeTag = "ml-IN",
             layoutIds = listOf(
                 AssetLayouts.ML_INSCRIPT_ID,
+                BuiltInLayouts.MALAYALAM_PHONETIC_ID,
                 AssetLayouts.ML_INSCRIPT_ENHANCED_ID,
                 AssetLayouts.ML_ALPHABETIC_ID,
                 AssetLayouts.ML_T9_ID,
@@ -754,6 +774,7 @@ object LanguageRegistry {
             localeTag = "gu-IN",
             layoutIds = listOf(
                 AssetLayouts.GU_INSCRIPT_ID,
+                BuiltInLayouts.GUJARATI_PHONETIC_ID,
                 AssetLayouts.GU_ALPHABETIC_ID,
                 AssetLayouts.GU_T9_ID,
             ),
@@ -766,6 +787,7 @@ object LanguageRegistry {
             localeTag = "pa-IN",
             layoutIds = listOf(
                 AssetLayouts.PA_INSCRIPT_ID,
+                BuiltInLayouts.PUNJABI_PHONETIC_ID,
                 AssetLayouts.PA_JHELUM_ID,
                 AssetLayouts.PA_ALPHABETIC_ID,
                 AssetLayouts.PA_T9_ID,
@@ -777,7 +799,12 @@ object LanguageRegistry {
             englishName = "Odia",
             script = ScriptId.ORIYA,
             localeTag = "or-IN",
-            layoutIds = listOf(AssetLayouts.OR_INSCRIPT_ID, AssetLayouts.OR_PHONETIC_ID, AssetLayouts.OR_T9_ID),
+            layoutIds = listOf(
+                AssetLayouts.OR_INSCRIPT_ID,
+                BuiltInLayouts.ODIA_PHONETIC_ID,
+                AssetLayouts.OR_PHONETIC_ID,
+                AssetLayouts.OR_T9_ID,
+            ),
         ),
         LanguageDef(
             id = "ca",
@@ -1210,6 +1237,7 @@ object LanguageRegistry {
                 AssetLayouts.JA_ROMAJI_ID,
                 AssetLayouts.JA_FLICK_ID,
                 AssetLayouts.JA_KANA_JIS_ID,
+                AssetLayouts.JA_HANDWRITING_ID,
             ),
         ),
         LanguageDef(
@@ -1225,6 +1253,7 @@ object LanguageRegistry {
                 AssetLayouts.ZH_CANGJIE_ID,
                 AssetLayouts.ZH_CANGJIE_QUICK_ID,
                 AssetLayouts.ZH_STROKE_ID,
+                AssetLayouts.ZH_HANDWRITING_ID,
             ),
         ),
         LanguageDef(
@@ -1983,7 +2012,12 @@ object LanguageRegistry {
             englishName = "Assamese",
             script = ScriptId.BENGALI,
             localeTag = "as-IN",
-            layoutIds = listOf(AssetLayouts.AS_BENGALI_ID, AssetLayouts.AS_INSCRIPT_ID, AssetLayouts.AS_T9_ID),
+            layoutIds = listOf(
+                AssetLayouts.AS_BENGALI_ID,
+                BuiltInLayouts.ASSAMESE_PHONETIC_ID,
+                AssetLayouts.AS_INSCRIPT_ID,
+                AssetLayouts.AS_T9_ID,
+            ),
             numeralSystem = NumeralSystem.BENGALI,
         ),
         LanguageDef(
@@ -3689,10 +3723,12 @@ object LanguageRegistry {
      * them instead would leave 290 layouts that no language names — which is to
      * say, that the user cannot reach.
      */
-    val all: List<LanguageDef> = (handWritten + handWrittenMore).map { lang ->
+    private val handWrittenAll: List<LanguageDef> = (handWritten + handWrittenMore).map { lang ->
         val extra = KeymanLanguages.extraLayoutIds[lang.id]
         if (extra.isNullOrEmpty()) lang else lang.copy(layoutIds = lang.layoutIds + extra)
-    } + KeymanLanguages.all
+    }
+
+    val all: List<LanguageDef> by lazy { handWrittenAll + KeymanLanguages.all }
 
     /** The stand-in for an id this build does not recognise. Never surfaced in UI. */
     val GENERIC: LanguageDef = LanguageDef(
@@ -3704,13 +3740,41 @@ object LanguageRegistry {
         layoutIds = emptyList(),
     )
 
-    private val index: Map<String, LanguageDef> = all.associateBy { it.id }
+    private val index: Map<String, LanguageDef> = handWrittenAll.associateBy { it.id }
 
     private val byLayout: Map<String, LanguageDef> = buildMap {
-        for (lang in all) for (layoutId in lang.layoutIds) putIfAbsent(layoutId, lang)
+        for (lang in handWrittenAll) for (layoutId in lang.layoutIds) putIfAbsent(layoutId, lang)
     }
 
-    fun byId(id: String): LanguageDef = index[id] ?: GENERIC
+    /**
+     * The generated half's two indexes, built only if something asks for a
+     * language or a layout the hand-written half does not have.
+     *
+     * The split is a cold-start cost, not a design preference. Building the 481
+     * Keyman entries runs an initializer ART refuses to compile (past its
+     * 10,000-instruction ceiling, so interpreted every process start) and keeps
+     * their defs, layout lists and two map's worth of entries resident — in the
+     * keyboard's process, which typically types one language and will never
+     * name any of them. Nothing above this line reaches them, so a user who has
+     * no Keyman layout enabled never pays for the table at all.
+     *
+     * Hand-written entries win a collision here where the merged map let the
+     * generated ones shadow them. That is the documented intent either way (see
+     * [all]) — `extraLayoutIds` exists precisely so a converted layout for a
+     * language we already carry joins that entry instead of replacing it — and
+     * `LanguageRegistryTest` holds the ids apart.
+     */
+    private val keymanIndex: Map<String, LanguageDef> by lazy {
+        KeymanLanguages.all.associateBy { it.id }
+    }
+
+    private val keymanByLayout: Map<String, LanguageDef> by lazy {
+        buildMap {
+            for (lang in KeymanLanguages.all) for (layoutId in lang.layoutIds) putIfAbsent(layoutId, lang)
+        }
+    }
+
+    fun byId(id: String): LanguageDef = index[id] ?: keymanIndex[id] ?: GENERIC
 
     /**
      * The language whose primary subtag matches a BCP-47 tag ("fr-FR" → French,
@@ -3720,7 +3784,12 @@ object LanguageRegistry {
     fun byLocale(tag: String): LanguageDef? {
         val primary = tag.replace('_', '-').substringBefore('-').lowercase()
         if (primary.isEmpty()) return null
-        return all.firstOrNull { it.id == primary || it.localeTag.substringBefore('-').lowercase() == primary }
+        fun match(lang: LanguageDef) =
+            lang.id == primary || lang.localeTag.substringBefore('-').lowercase() == primary
+        // Hand-written first, which is the order the merged list had, so the
+        // answer is unchanged — but a tag one of them matches never builds the
+        // generated half.
+        return handWrittenAll.firstOrNull(::match) ?: KeymanLanguages.all.firstOrNull(::match)
     }
 
     /**
@@ -3728,5 +3797,6 @@ object LanguageRegistry {
      * their own `langId` on the spec and should resolve through that instead;
      * this covers the built-in ids the UI lists.
      */
-    fun languageOf(layoutId: String): LanguageDef = byLayout[layoutId] ?: GENERIC
+    fun languageOf(layoutId: String): LanguageDef =
+        byLayout[layoutId] ?: keymanByLayout[layoutId] ?: GENERIC
 }

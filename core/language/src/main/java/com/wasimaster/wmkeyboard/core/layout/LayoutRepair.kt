@@ -562,6 +562,9 @@ fun LayoutSpec.repair(): RepairedLayout {
 private fun Key.leavesSecondaryLayout(): Boolean = when (action) {
     KeyAction.Letters, KeyAction.Symbols, KeyAction.LanguageSwitch -> true
     is KeyAction.Layout, is KeyAction.Tool -> true
+    // A page key leaves for one of the layout's own grids, which is off the
+    // secondary one either way.
+    is KeyAction.LayerSwitch -> true
     else -> false
 }
 
@@ -689,6 +692,14 @@ internal fun Key.repairKey(
     // so a blank one commits nothing.
     if (fixed.actionAlternates.any { !it.isUsable() }) {
         fixed = fixed.copy(actionAlternates = fixed.actionAlternates.filter { it.isUsable() })
+    }
+    // A flick arm is a popup entry by another gesture (issue #549), and a dead
+    // one is dead in the same way. Typing text is what [Key.flick] is for, so
+    // an action arm that only types goes too rather than shadowing it.
+    if (fixed.flickActions.values.any { !it.isUsable() || it.action == KeyAction.Text }) {
+        fixed = fixed.copy(
+            flickActions = fixed.flickActions.filterValues { it.isUsable() && it.action != KeyAction.Text },
+        )
     }
     // Quietly again: a repeat on a key that cannot use one is not a broken
     // layout, it is a flag nothing reads — the hold on a ?123 key would

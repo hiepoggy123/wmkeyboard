@@ -103,7 +103,15 @@ object LayoutJsonDocs {
         "Key.iconBesideLabel" to "On the space bar, draws the icon before the language name instead of in its place.",
         "Key.hideHint" to "Draws no corner hint on this key, even when it has alternates.",
         "Key.forceHint" to "Draws this key's corner hint even when hints are off in the settings. hideHint wins when both are on.",
-        "Key.flick" to "What a flick in each direction types, for a 12-key kana pad.",
+        "Key.flick" to
+            "What a short swipe in each of the eight directions (left, up, right, down, up_left, up_right, " +
+            "down_left, down_right) types instead of the tap, for a kana pad or a MessagEase-style board.",
+        "Key.flickShift" to
+            "What a flick in each direction types while Shift is on. Leave a direction out and Shift makes its flick a " +
+            "capital letter.",
+        "Key.flickActions" to
+            "Flicks that run an action instead of typing, by direction, such as moving the cursor. They win over flick " +
+            "text in the same direction, and work on action keys too.",
         "Key.multitap" to "What tapping the key again types in place of the last tap, in order. After the last entry the cycle goes back to the key itself.",
         "Key.labelScale" to "This key's label size, as a multiple of a letter's. Leave it out and the keyboard decides.",
         "Key.letters" to "Every letter this key stands for, such as \"abc\" on a T9 key. The prediction works out which one you meant.",
@@ -135,19 +143,29 @@ object LayoutJsonDocs {
         "action:space" to "Types a space. Holding it opens the language picker, unless the key has alternates.",
         "action:enter" to "Enter, or the field's own action, such as Send or Search.",
         "action:newline" to "Types a line break, and never the field's Send or Search action.",
-        "action:editor_action" to "Runs the field's own action, such as Send or Search, and never a line break.",
+        "action:editor_action" to
+            "Fires the field's own action, Send or Search or Go, whatever Shift is doing. The enter key's hold uses it while a " +
+            "shift has turned the key itself into a line break.",
         "action:symbols" to "Goes from the letters to the symbols, and between the two symbol pages.",
         "action:letters" to "Goes straight back to the letters.",
         "action:language_switch" to "Goes to the next layout that is on.",
         "action:input_method_picker" to "Opens the system list of keyboards, to change to another keyboard app.",
-        "action:switch_input_method" to "Switches straight to a chosen keyboard app, without opening the picker.",
-        "action:switch_input_method.id" to "The Android input method ID of the target keyboard app.",
+        "action:switch_input_method" to
+            "Hands the field straight to one keyboard app you name, with no list in between. A keyboard that is no longer on " +
+            "opens the system list instead, so the key is never dead.",
+        "action:switch_input_method.id" to
+            "The other keyboard's input method id, the package/.ServiceClass text the system files it under. Leave it blank and " +
+            "the key opens the system list.",
         "action:emoji" to "Opens the emoji panel.",
         "action:numpad" to "Opens the number pad. The keyboard makes this key by itself, and a layout does not use it.",
         "action:tool" to "Opens one of the keyboard's tools, the same as its toolbar button.",
         "action:tool.tool" to "Which tool the key opens.",
         "action:layout" to "Shows one of your secondary layouts in place of the letters. A second press goes back.",
         "action:layout.id" to "The id of the secondary layout.",
+        "action:layer" to
+            "Shows another of this layout's own grids: the page key of a layout spread over several pages. " +
+                "Naming the letters layer, or a layer this layout does not have, goes back to the letters.",
+        "action:layer.layer" to "The layer's name, as it is spelled under \"layers\".",
         "action:mod" to "Ctrl, Alt or Meta for the next key. Tap to arm it, and tap again to lock it.",
         "action:mod.key" to "Which modifier.",
         "action:send_key" to "Sends a key press to the app, such as Tab, Escape or an arrow.",

@@ -2,6 +2,8 @@ package com.wasimaster.wmkeyboard.ime
 
 import com.wasimaster.wmkeyboard.core.input.composer.JapaneseComposer
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinComposer
+import com.wasimaster.wmkeyboard.core.input.composer.VietnameseTelexComposer
+import com.wasimaster.wmkeyboard.core.input.composer.VietnameseVniComposer
 import com.wasimaster.wmkeyboard.core.input.composer.composerFor
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
@@ -70,6 +72,25 @@ class ComposingResumeTest {
         val avro = composerOf(BuiltInLayouts.AVRO)
         assertTrue(avro.isTransliterating)
         assertFalse(composingResumable(avro, hasWordSources = true))
+    }
+
+    @Test
+    fun `vietnamese telex and vni resume`() {
+        // The transliterators that *can*: both are pure functions of their
+        // keystrokes, so the word read out of the field is spelled back into
+        // the keys that spell it (`tôi` → `tooi`, VNI `to6i`) and the caret
+        // types on into it. Pinned next to Avro and Hangul because the gate
+        // used to read "a transliterator's buffer is not its output", which is
+        // still true of them and no longer the whole story.
+        for (composer in listOf(VietnameseTelexComposer, VietnameseVniComposer)) {
+            assertTrue(composer.isTransliterating)
+            assertTrue(composer.resumesComposedText)
+            assertTrue(composingResumable(composer, hasWordSources = true))
+        }
+        // The same rule as every other layout: nothing to complete from, no
+        // resume.
+        assertFalse(composingResumable(VietnameseTelexComposer, hasWordSources = false))
+        assertFalse(composingResumable(VietnameseVniComposer, hasWordSources = false))
     }
 
     @Test
@@ -248,6 +269,38 @@ class ComposingResumeTest {
         // strip still answers about বাংলা.
         assertEquals("বাংল" to "া", caretWordAt("আমি বাংল", "া"))
         assertEquals("कि" to "या", caretWordAt("उसने कि", "या"))
+    }
+
+    // --- carrying a word across a language switch (#522) -------------------
+
+    @Test
+    fun `roman letters carry, lowercased`() {
+        assertEquals("tu", carriedRomanWord("tu"))
+        // The capital is the sentence start's, or an English word's; Avro would
+        // read T as ট and spell a different word.
+        assertEquals("tumi", carriedRomanWord("Tumi"))
+    }
+
+    @Test
+    fun `anything but roman letters does not carry`() {
+        assertNull(carriedRomanWord(""))
+        assertNull(carriedRomanWord("don't"))
+        assertNull(carriedRomanWord("well-pai"))
+        assertNull(carriedRomanWord("tu2"))
+        assertNull(carriedRomanWord("তু"))
+        assertNull(carriedRomanWord("a".repeat(CARRIED_WORD_MAX + 1)))
+    }
+
+    @Test
+    fun `only the roman-spelled composers take a carried word`() {
+        for (spec in listOf(BuiltInLayouts.AVRO, BuiltInLayouts.PROBHAT, BuiltInLayouts.QWERTY)) {
+            val roman = composerOf(spec).isRomanBuffer
+            assertEquals(spec.id, spec.id == BuiltInLayouts.AVRO.id, roman)
+        }
+        // A reading that stands for a choice of outputs is not a spelling
+        // another transliterator could read.
+        assertFalse(PinyinComposer.isRomanBuffer)
+        assertFalse(JapaneseComposer.isRomanBuffer)
     }
 
     // --- backspacing the resumed buffer ------------------------------------

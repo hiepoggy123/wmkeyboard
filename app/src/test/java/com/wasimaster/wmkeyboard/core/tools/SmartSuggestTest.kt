@@ -553,6 +553,14 @@ class SmartSuggestTest {
     }
 
     @Test
+    fun aShortSubtractionIsASumWithoutTheEquals() {
+        // #545
+        assertEquals("8", hit("12-4")?.result)
+        assertEquals("75", hit("100-25")?.result)
+        assertNull(hit("2024-25"))
+    }
+
+    @Test
     fun aPlainDivisionIsASumOfItsOwn() {
         assertEquals("0.5", hit("1/2")?.result)
         assertEquals("3", hit("12/4")?.result)
@@ -589,9 +597,9 @@ class SmartSuggestTest {
     fun aTrailingPercentIsAPercentageNotADivision() {
         assertNull(hit("100%"))
         assertNull(hit("up 50%"))
-        // Mixed with another operator it is arithmetic again — and the
-        // engine reads a trailing "%" as "of one", so this is 50 + 0.1.
-        assertEquals("50.1", hit("50+10%")?.result)
+        // Mixed with another operator it is arithmetic again — and an
+        // added percentage is a share of the left side, so this is 50 + 5.
+        assertEquals("55", hit("50+10%")?.result)
     }
 
     @Test

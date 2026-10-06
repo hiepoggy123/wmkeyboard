@@ -54,9 +54,9 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.SwapHoriz
-import androidx.compose.material.icons.outlined.ViewColumn
-import androidx.compose.material.icons.outlined.ViewWeek
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ViewColumn
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ViewWeek
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -869,6 +869,15 @@ internal fun LayoutSettings(
                 default = SettingsDefaults.layoutBehavior.numberRowInSymbols,
             ) { scope.launch { repository.setNumberRowInSymbols(it) } }
         }
+        item(visible = numberRow) {
+            ToggleSetting(
+                R.string.layout_number_row_on_keypad_title,
+                stringResource(R.string.layout_number_row_on_keypad_subtitle),
+                settings.watch { it.layoutBehavior.numberRowOnKeypad },
+                info = stringResource(R.string.layout_number_row_on_keypad_info),
+                default = SettingsDefaults.layoutBehavior.numberRowOnKeypad,
+            ) { scope.launch { repository.setNumberRowOnKeypad(it) } }
+        }
     }
     // Issue #369: the caret keys as a row of their own under the spacebar.
     val arrowRow = settings.watch { it.layoutBehavior.arrowRow }
@@ -1016,6 +1025,16 @@ internal fun LayoutSettings(
                 info = stringResource(R.string.keypress_enter_emoji_info),
                 default = SettingsDefaults.layoutBehavior.enterLongPressEmoji,
             ) { scope.launch { repository.setEnterLongPressEmoji(it) } }
+        }
+        item {
+            // Issue #423: Gboard's 1234 key on the symbols pages.
+            ToggleSetting(
+                R.string.layout_symbols_numpad_key_title,
+                stringResource(R.string.layout_symbols_numpad_key_subtitle),
+                settings.watch { it.layoutBehavior.symbolsNumpadKey },
+                info = stringResource(R.string.layout_symbols_numpad_key_info),
+                default = SettingsDefaults.layoutBehavior.symbolsNumpadKey,
+            ) { scope.launch { repository.setSymbolsNumpadKey(it) } }
         }
         item {
             ToggleSetting(
@@ -1231,6 +1250,16 @@ internal fun LayoutSizeSettings(
                 enabled = pinned == null,
                 default = SettingsDefaults.keyGapScale,
             ) { scope.launch { repository.setKeyGapScale(it) } }
+        }
+        item {
+            // Issue #530: a tap in a short row's side gap types the key at that end.
+            ToggleSetting(
+                R.string.layout_extend_edge_keys_title,
+                stringResource(R.string.layout_extend_edge_keys_subtitle),
+                settings.watch { it.layoutBehavior.extendEdgeKeys },
+                info = stringResource(R.string.layout_extend_edge_keys_info),
+                default = SettingsDefaults.layoutBehavior.extendEdgeKeys,
+            ) { scope.launch { repository.setExtendEdgeKeys(it) } }
         }
         item {
             val bottomPadding = settings.watch { it.bottomPaddingDp }
@@ -1522,6 +1551,15 @@ internal fun LayoutOneHandedSettings(
                 selected = settings.watch { it.oneHandedMode },
                 default = SettingsDefaults.oneHandedMode,
             ) { scope.launch { repository.setOneHandedMode(it) } }
+        }
+        if (oneHanded) item {
+            ToggleSetting(
+                R.string.layout_one_handed_portrait_only_title,
+                stringResource(R.string.layout_one_handed_portrait_only_subtitle),
+                settings.watch { it.oneHanded.portraitOnly },
+                info = stringResource(R.string.layout_one_handed_portrait_only_info),
+                default = SettingsDefaults.oneHanded.portraitOnly,
+            ) { scope.launch { repository.setOneHandedPortraitOnly(it) } }
         }
         val orientations = listOf(
             false to R.string.layout_orientation_portrait_label,

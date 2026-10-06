@@ -13,8 +13,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -83,6 +81,7 @@ import com.wasimaster.wmkeyboard.core.theme.EFFECT_SIZE_RANGE
 import com.wasimaster.wmkeyboard.core.theme.EFFECT_SPEED_RANGE
 import com.wasimaster.wmkeyboard.core.theme.EFFECT_SPREAD_RANGE
 import com.wasimaster.wmkeyboard.core.theme.MAX_EFFECT_IMAGES
+import com.wasimaster.wmkeyboard.core.theme.SECONDARY_SUGGESTION_SCALE_RANGE
 import com.wasimaster.wmkeyboard.core.theme.keyEffectColorMode
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
@@ -116,6 +115,11 @@ data class KbTheme(
      * board's own gradient, image or animation carries on through the bars.
      */
     val suggestionBar: Color?,
+    /**
+     * Fill behind the tools — their own row, and the strip while it shows
+     * them; null follows [suggestionBar], so the draw sites fall back to it.
+     */
+    val toolbar: Color?,
     /** Fill for the system navigation bar's band; null inherits the board. */
     val navigationBar: Color?,
     /**
@@ -192,6 +196,8 @@ data class KbTheme(
     val keyBorderWidthDp: Float,
     /** Lift under each key; already 0 for a shape that must not cast one. */
     val keyElevation: Dp,
+    /** Colour of that lift's shadow; null draws the platform's black. */
+    val keyShadow: Color?,
     val accent: Color,
     /** Colour of the glide-typing trail; defaults to [accent] when a theme leaves it unset. */
     val gestureTrail: Color,
@@ -227,6 +233,9 @@ data class KbTheme(
     val chipBorderWidthDp: Float,
     val cardElevation: Dp,
     val suggestionText: Color,
+    /** The strip's suggestions other than the primary one, and their size against it. */
+    val secondarySuggestionText: Color,
+    val secondarySuggestionScale: Float,
     val secondaryText: Color,
     val divider: Color,
     val keyRadiusDp: Int,
@@ -548,6 +557,7 @@ internal fun defaultKbTheme(
         // The dynamic theme has no palette of its own to spend here: both bars
         // are the board, which is exactly what null means.
         suggestionBar = null,
+        toolbar = null,
         navigationBar = null,
         oneHandedPanel = Color.Transparent,
         oneHandedPanelIcon = scheme.onSurfaceVariant,
@@ -589,6 +599,7 @@ internal fun defaultKbTheme(
         keyBorder = null,
         keyBorderWidthDp = 0f,
         keyElevation = 0.dp,
+        keyShadow = null,
         accent = scheme.primary,
         gestureTrail = scheme.primary,
         popup = popup,
@@ -624,6 +635,8 @@ internal fun defaultKbTheme(
         chipBorderWidthDp = 0f,
         cardElevation = 0.dp,
         suggestionText = scheme.onSurface,
+        secondarySuggestionText = scheme.onSurface,
+        secondarySuggestionScale = 1f,
         secondaryText = scheme.onSurfaceVariant,
         divider = scheme.outlineVariant,
         keyRadiusDp = settings.keyCornerRadiusDp,
@@ -680,6 +693,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         board = board,
         boardGradient = spec.boardGradient,
         suggestionBar = spec.suggestionBarBackground?.let(::colorOf),
+        toolbar = spec.toolbarBackground?.let(::colorOf),
         navigationBar = spec.navigationBarBackground?.let(::colorOf),
         // Transparent, not the board colour: the rail sits *on* the board, and
         // painting a flat fill over it would cover a board gradient, image or
@@ -742,6 +756,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
             spec.keyShape,
             spec.keyElevationDp.coerceIn(0f, MAX_ELEVATION_DP).dp,
         ).takeIf { keyCastsShadow(spec) } ?: 0.dp,
+        keyShadow = spec.keyShadowColor?.let(::colorOf),
         accent = accent,
         gestureTrail = spec.gestureTrailColor?.let(::colorOf) ?: accent,
         // A light theme's keyText is dark, so a heavy blend produced a dark
@@ -779,6 +794,9 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         chipBorderWidthDp = spec.chipBorderWidthDp,
         cardElevation = spec.cardElevationDp.coerceIn(0f, MAX_ELEVATION_DP).dp,
         suggestionText = stripText,
+        secondarySuggestionText = spec.secondarySuggestionText?.let(::colorOf) ?: stripText,
+        secondarySuggestionScale = (spec.secondarySuggestionScale ?: 1f)
+            .coerceIn(SECONDARY_SUGGESTION_SCALE_RANGE),
         secondaryText = spec.secondaryText?.let(::colorOf) ?: secondary,
         divider = spec.dividerColor?.let(::colorOf) ?: stripText.copy(alpha = 0.25f),
         keyRadiusDp = spec.keyCornerRadiusDp ?: settings.keyCornerRadiusDp,
@@ -861,6 +879,7 @@ private fun KbTheme.mapColors(f: (Color) -> Color): KbTheme = copy(
     board = f(board),
     boardGradient = boardGradient?.mapColors(f),
     suggestionBar = suggestionBar?.let(f),
+    toolbar = toolbar?.let(f),
     navigationBar = navigationBar?.let(f),
     keyGradient = keyGradient?.mapColors(f),
     key = f(key),
@@ -887,6 +906,7 @@ private fun KbTheme.mapColors(f: (Color) -> Color): KbTheme = copy(
     chipActiveText = f(chipActiveText),
     chipBorder = chipBorder?.let(f),
     suggestionText = f(suggestionText),
+    secondarySuggestionText = f(secondarySuggestionText),
     secondaryText = f(secondaryText),
     divider = f(divider),
     keyOverrides = if (keyOverrides.isEmpty()) {
@@ -933,6 +953,7 @@ internal fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme 
             // against the board just below, so a bar painted in the theme's
             // colour would be the one surface that contrast pass never saw.
             suggestionBar = null,
+            toolbar = null,
             navigationBar = null,
             keyGradient = null,
             backgroundImage = null,
@@ -952,14 +973,17 @@ internal fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme 
             modifierKey = modifier,
             keyText = maxContrastOn(key),
             modifierKeyText = maxContrastOn(modifier),
-            // Back to the label colour faded: a theme's own hint hue was
-            // picked against faces this mode has just repainted.
-            hintText = null,
+            // As legible as the label it sits beside. A theme's own hint hue
+            // was picked against faces this mode has just repainted, and the
+            // label faded to half, the fallback everywhere else, is the one
+            // thing on the key a low-vision reader cannot make out (#493).
+            hintText = maxContrastOn(key),
             enterKeyText = maxContrastOn(kb.enterKey),
             popupText = maxContrastOn(kb.popup),
             chipText = maxContrastOn(kb.chip),
             chipActiveText = maxContrastOn(kb.chipActive),
             suggestionText = maxContrastOn(board),
+            secondarySuggestionText = maxContrastOn(board),
             toolbarIcon = maxContrastOn(board),
             secondaryText = maxContrastOn(board).copy(alpha = 0.75f),
             divider = maxContrastOn(board).copy(alpha = 0.4f),
@@ -1340,6 +1364,7 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         backgroundAnimated = if (past) b.backgroundAnimated else a.backgroundAnimated,
         keyShapeKind = if (past) b.keyShapeKind else a.keyShapeKind,
         suggestionBar = lerpColorOrNull(a.suggestionBar, b.suggestionBar, t),
+        toolbar = lerpColorOrNull(a.toolbar, b.toolbar, t),
         navigationBar = lerpColorOrNull(a.navigationBar, b.navigationBar, t),
         keyGradient = lerpGradient(a.keyGradient, b.keyGradient, t, a.key, b.key),
         // Discrete like the background image: a texture is a decoded file.
@@ -1375,6 +1400,7 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         keyBorder = lerpColorOrNull(a.keyBorder, b.keyBorder, t),
         keyBorderWidthDp = lerpF(a.keyBorderWidthDp, b.keyBorderWidthDp, t),
         keyElevation = lerpDp(a.keyElevation, b.keyElevation, t),
+        keyShadow = lerpColorOrNull(a.keyShadow, b.keyShadow, t),
         accent = lerp(a.accent, b.accent, t),
         gestureTrail = lerp(a.gestureTrail, b.gestureTrail, t),
         popup = lerp(a.popup, b.popup, t),
@@ -1402,6 +1428,8 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         chipBorderWidthDp = lerpF(a.chipBorderWidthDp, b.chipBorderWidthDp, t),
         cardElevation = lerpDp(a.cardElevation, b.cardElevation, t),
         suggestionText = lerp(a.suggestionText, b.suggestionText, t),
+        secondarySuggestionText = lerp(a.secondarySuggestionText, b.secondarySuggestionText, t),
+        secondarySuggestionScale = lerpF(a.secondarySuggestionScale, b.secondarySuggestionScale, t),
         secondaryText = lerp(a.secondaryText, b.secondaryText, t),
         divider = lerp(a.divider, b.divider, t),
         oneHandedPanel = lerp(a.oneHandedPanel, b.oneHandedPanel, t),
@@ -1559,7 +1587,7 @@ fun BoxScope.BoardBackground(kb: KbTheme) {
  *
  * Drawn straight after [BoardBackground] and under everything else in the
  * keyboard box, so the keys — which hold themselves clear of the bar with
- * `navigationBarsPadding` — never sit on top of it. A theme that leaves
+ * [navigationBarInsets] — never sit on top of it. A theme that leaves
  * [KbTheme.navigationBar] unset draws nothing at all here, which is what keeps
  * the board's gradient, image and animation running to the edges exactly as
  * they did before this existed (issue #109).
@@ -1577,7 +1605,7 @@ fun BoxScope.BoardBackground(kb: KbTheme) {
 @Composable
 fun BoxScope.NavigationBarBackground(kb: KbTheme) {
     val color = kb.navigationBar ?: return
-    val insets = WindowInsets.navigationBars
+    val insets = navigationBarInsets()
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val bottom = insets.getBottom(density).toFloat()

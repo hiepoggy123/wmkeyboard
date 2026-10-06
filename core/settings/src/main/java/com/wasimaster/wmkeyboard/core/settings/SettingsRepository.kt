@@ -44,6 +44,7 @@ import com.wasimaster.wmkeyboard.core.gesture.GlideShapeStore
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.PhoneticStripSource
+import com.wasimaster.wmkeyboard.core.prediction.PhoneticCandidateList
 import com.wasimaster.wmkeyboard.core.prediction.SuggestionEngine
 import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
 import com.wasimaster.wmkeyboard.prediction.R as PredictionR
@@ -413,6 +414,13 @@ data class KeyPopupSettings(
      */
     val alternatesNearestFirst: Boolean = false,
     /**
+     * The order of the groups in a letter's popup (#385): the layout's own
+     * alternates, the accents the passes add, and the capital or shifted
+     * form. The default is the order they were always assembled in. See
+     * [AlternateGroup].
+     */
+    val alternatesOrder: List<AlternateGroup> = DefaultAlternatesOrder,
+    /**
      * Whether the finger that opened the popup keeps choosing inside it: the
      * first alternate is highlighted as the popup appears, sliding the finger
      * moves the highlight, and letting go commits what is highlighted.
@@ -530,11 +538,27 @@ data class OneHandedProfile(
 data class OneHandedSettings(
     val portrait: OneHandedProfile = OneHandedProfile(),
     val landscape: OneHandedProfile = OneHandedProfile(widthPercent = 55),
+    /**
+     * Hold one-handed mode back while the phone is sideways (#503): on, the
+     * keyboard is one-handed in portrait and whole in landscape, where the
+     * width is usually wanted for a split keyboard instead. Off by default.
+     * The mode itself stays as set, so rotating back brings it straight back.
+     */
+    val portraitOnly: Boolean = false,
 ) {
     /** The profile that applies for the current orientation. */
     fun forLandscape(landscape: Boolean): OneHandedProfile =
         if (landscape) this.landscape else portrait
 }
+
+/**
+ * The one-handed mode in force on a screen held [landscape] or upright:
+ * [KeyboardSettings.oneHandedMode], unless [OneHandedSettings.portraitOnly]
+ * holds it back in landscape (#503). Every reader of the mode that draws or
+ * toggles the board goes through this; the raw field is what the setting stores.
+ */
+fun KeyboardSettings.oneHandedModeFor(landscape: Boolean): OneHandedMode =
+    if (landscape && oneHanded.portraitOnly) OneHandedMode.OFF else oneHandedMode
 
 /** Where a width-reduced keyboard sits horizontally. */
 enum class KeyboardAlignment { LEFT, CENTER, RIGHT }
@@ -622,6 +646,13 @@ enum class OcrEngine {
     AUTO,
     ML_KIT,
     TESSERACT,
+
+    /**
+     * A model that reads images, through an OpenAI-compatible API the user
+     * names (#469). Any script, nothing to download, but the photo leaves the
+     * phone. See [ScannerSettings.ocrOnlineUrl].
+     */
+    ONLINE,
 }
 
 /**
@@ -928,7 +959,32 @@ data class KeySoundSettings(
      * from, and the packs that did not are unaffected either way.
      */
     val playRelease: Boolean = true,
-)
+    /**
+     * Sound pack per layout, keyed by layout id — the pack [KeySoundStyle.PACK]
+     * plays while that layout is up, overriding [packId] (issue #520).
+     *
+     * A layout the map does not name follows [packId], so this is an override
+     * list rather than a second setting to keep in step: a user who wants one
+     * pack everywhere never touches it, and one who wants a voice pack on their
+     * Bengali layout and switches recordings on QWERTY names one layout.
+     *
+     * Keyed by layout rather than by language because the layout is what the
+     * keyboard switches between and what the user picked in the first place —
+     * two layouts of the same language can differ by more than their letters.
+     */
+    val packByLayout: Map<String, String> = emptyMap(),
+) {
+    /**
+     * The pack to play while [layoutId] is up: its own, if it has one, else the
+     * global pick.
+     *
+     * A blank entry is treated as absent rather than as "no pack": the only way
+     * to store one is to clear a layout's override, and clearing it means
+     * "follow the global pick".
+     */
+    fun packFor(layoutId: String): String =
+        packByLayout[layoutId]?.takeIf { it.isNotBlank() } ?: packId
+}
 
 /**
  * Key-press haptic waveform.
@@ -1009,7 +1065,30 @@ data class HapticSettings(
     val onLongPress: Boolean = true,
     /** Vibrate again when the finger lifts off a long press. */
     val onLongPressRelease: Boolean = false,
+    /**
+     * Vibrate on each step the caret takes under a spacebar drag or a volume
+     * key (#466). On by default, which is how the drag has always felt; off,
+     * the caret moves silently while every other key keeps its vibration.
+     */
+    val onCursorMove: Boolean = true,
 )
+
+/**
+ * The layouts the language switcher stops at: [KeyboardSettings.enabledLayoutIds]
+ * without the layouts of a language in
+ * [LayoutBehaviorSettings.pickerHiddenLanguages] (#473). What the globe key,
+ * the spacebar swipe and the language picker walk.
+ *
+ * Never empty. If hiding would leave nothing to switch to, every layout
+ * stands, since a switcher with no stops strands the keyboard on whatever it
+ * was showing.
+ */
+fun KeyboardSettings.switchLayoutIds(): List<String> {
+    val all = enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+    val hidden = layoutBehavior.pickerHiddenLanguages
+    if (hidden.isEmpty()) return all
+    return all.filter { resolveLayout(customLayouts, it).language().id !in hidden }.ifEmpty { all }
+}
 
 /**
  * What a horizontal swipe on the spacebar does. "Short" swipes start
@@ -1017,7 +1096,19 @@ data class HapticSettings(
  * delay first, then drag — distance is deliberately not the discriminator,
  * a fast flick travels further than a careful drag.
  */
-enum class SpaceSwipeAction { NONE, LANGUAGE, CURSOR, NUMPAD }
+enum class SpaceSwipeAction {
+    NONE,
+    LANGUAGE,
+    CURSOR,
+    NUMPAD,
+
+    /**
+     * Opens Android's own list of keyboards (#477). On the hold slot a still
+     * hold is enough: there is nothing for a drag to steer, so the list
+     * opens when the hold delay runs out.
+     */
+    KEYBOARDS,
+}
 
 /**
  * What the resting spacebar label shows. [LANGUAGE] the current language name,
@@ -1058,6 +1149,15 @@ enum class TransliterationHintMode { OFF, ADDED, CLUSTER }
  * ML Kit recognizer (full builds only — needs a downloaded handwriting model).
  */
 enum class LetterSwipeAction { TYPE_WORDS, HANDWRITE }
+
+/**
+ * How full-screen handwriting tells ink from touches meant for the app
+ * (issue #386). MANUAL: a pen button on the compact bar switches the
+ * transparent canvas between catching every touch and letting every touch
+ * through. AUTOMATIC: a stylus writes and a finger keeps working the app,
+ * through Android's own stylus handwriting (Android 14 and later).
+ */
+enum class HandwritingFullScreenMode { MANUAL, AUTOMATIC }
 
 /**
  * Which key a glide reads as an apostrophe, so a contraction can be *drawn*:
@@ -1607,6 +1707,13 @@ data class ToolbarBehavior(
      * never asked for.
      */
     val holdActions: Map<ToolbarTool, ToolHoldAction> = emptyMap(),
+    /**
+     * The tool whose button stays beside the suggestions while the pinned
+     * tools are off the row (#462). The emoji tool by default, which is the
+     * button this has always been; [KeyboardSettings.emojiToolbar] is what
+     * shows or hides it.
+     */
+    val stripShortcut: ToolbarTool = ToolbarTool.EMOJI,
 )
 
 /**
@@ -2119,9 +2226,23 @@ data class AutocorrectSettings(
      * Whether Enter ends a word the way space does, correction included
      * (issue #457). Off, the word before Enter goes in as typed: a search
      * query or a name sent with Enter is the one place a correction is sent
-     * before anyone reads it. Space and punctuation still correct.
+     * before anyone reads it. Space still corrects.
      */
     val onEnter: Boolean = true,
+    /**
+     * Whether a mark that ends a word (. , ! ? ; : and the danda) corrects it
+     * the way space does, so "teh!" lands as "the!" (#562). Off by default: a
+     * mark is also typed for its own sake, mid-abbreviation or inside a name
+     * the word list has never heard of, and nothing used to touch the word
+     * in front of it.
+     */
+    val onPunctuation: Boolean = false,
+    /**
+     * Whether a word the word list spells with a capital and never without
+     * one ("Haus", "Berlin") is written that way when it is typed or swiped
+     * in lower case (#481). German writes every noun like this.
+     */
+    val dictionaryCapitals: Boolean = true,
 )
 
 /**
@@ -2239,6 +2360,18 @@ data class SuggestionSourceSettings(
      * matters while [contactEmails] is on.
      */
     val contactEmailsInEmailFields: Boolean = true,
+    /**
+     * Remember the addresses typed into email fields and offer them in the
+     * next one, before a letter is typed (issue #475). Learns only from fields
+     * that call themselves email fields, and stays on the device.
+     */
+    val typedEmails: Boolean = false,
+    /**
+     * Remember the numbers typed on their own and offer the whole of one once
+     * its first digits are typed again (issue #431), the way Samsung's
+     * keyboard completes a phone number. Stays on the device.
+     */
+    val typedNumbers: Boolean = false,
     /** Suggest the names of installed apps ("sign" → Signal). No permission needed. */
     val appNames: Boolean = false,
     /**
@@ -2408,6 +2541,12 @@ data class ScannerSettings(
     val ocrAutoSelectWords: Boolean = true,
     /** Which engine the text scanner reads with; see [OcrEngine]. */
     val ocrEngine: OcrEngine = OcrEngine.AUTO,
+    /** [OcrEngine.ONLINE]'s OpenAI-compatible address, up to `/v1` or the whole `/chat/completions`. */
+    val ocrOnlineUrl: String = "",
+    /** The model [OcrEngine.ONLINE] asks; one that reads images. */
+    val ocrOnlineModel: String = "",
+    /** The key for [ocrOnlineUrl]; blank for a server that asks for none. */
+    val ocrOnlineKey: String = "",
     /** Vibrate when the QR scanner spots a code. */
     val qrScanHaptics: Boolean = true,
     /** Insert a scanned code into the field the moment it is spotted. */
@@ -2481,8 +2620,14 @@ data class WebSearchSettings(
     val tavilyApiKey: String = "",
     /** SafeSearch for the web and image search tools. */
     val safe: Boolean = true,
-    /** Results per web/image search (the API caps a page at 10). */
+    /** Results per web/image search; Brave and Tavily both cap a page at 20 (#470). */
     val resultCount: Int = 8,
+    /** Show the short answer the backend writes for a web search above its results (#470). */
+    val showAnswer: Boolean = true,
+    /** A tapped web result opens in the browser, and the side button inserts its link instead (#470). */
+    val openInBrowser: Boolean = false,
+    /** Tavily's advanced search: better results for two credits a search instead of one (#470). */
+    val tavilyAdvanced: Boolean = false,
     /** Wikipedia subdomain the encyclopedia tool reads (en, bn, de …). */
     val wikiLanguage: String = "en",
     /** Insert Wikipedia links as `[Title](url)` instead of the bare URL. */
@@ -2787,6 +2932,19 @@ data class KeyboardSettings(
      */
     val globeRecentOrder: Boolean = false,
     /**
+     * Switching language in the middle of a word hands the roman letters
+     * already typed to the phonetic layout being switched to, so they are
+     * transliterated with the rest of the word instead of staying Latin
+     * (#522): "tu" typed on English, then a switch to Avro, reads তু and the
+     * "mi" after it finishes তুমি.
+     *
+     * On by default — a switch mid-word is almost always one the user meant to
+     * make earlier. What it costs is the other reading of the same keypress: a
+     * finished English word with no space after it ("hello", then a switch to
+     * write the next word in Bengali) is carried over too, and becomes হেল্লো.
+     */
+    val carryWordOnLanguageSwitch: Boolean = true,
+    /**
      * List each enabled layout as an Android input-method subtype, so the
      * system language switcher (the "Choose input method" sheet) lists them and
      * can switch between them. Off = the keyboard registers no subtypes and
@@ -2826,6 +2984,7 @@ data class KeyboardSettings(
     val conjunctBackspaceLanguages: Set<String> = emptySet(),
     /** Chinese/Cantonese conversion-IME options (see [CjkSettings] for why nested). */
     val cjk: CjkSettings = CjkSettings(),
+    val vietnamese: VietnameseSettings = VietnameseSettings(),
     val oneHandedMode: OneHandedMode = OneHandedMode.OFF,
     /** Per-orientation one-handed width, height scale and dock side. */
     val oneHanded: OneHandedSettings = OneHandedSettings(),
@@ -2971,6 +3130,8 @@ data class KeyboardSettings(
     val handwritingCommitDelayMs: Int = 700,
     /** Insert a space between consecutively handwritten words. */
     val handwritingAutoSpace: Boolean = true,
+    /** How full-screen handwriting separates ink from app touches (see [HandwritingFullScreenMode]). */
+    val handwritingFullScreenMode: HandwritingFullScreenMode = HandwritingFullScreenMode.MANUAL,
     /** Voice tool surface and collapsed-bar state, grouped (see [VoiceBarSettings]). */
     val voiceBar: VoiceBarSettings = VoiceBarSettings(),
     /** Keep listening after each dictated sentence. */
@@ -3726,6 +3887,23 @@ const val PHONETIC_SCRIPT_CHOICES_FILE = "learning/phonetic_script_choices.json"
 /** What the user did with the words their glides gave them (see `GlideOutcomes` in :core:prediction). */
 const val GLIDE_OUTCOMES_FILE = "learning/glide_outcomes.json"
 
+/** The most results one web or image search asks for: Brave's and Tavily's page size. */
+const val MAX_SEARCH_RESULTS = 20
+
+/**
+ * Rounds of tool calls one AI run may take (#470). One is "look something up,
+ * then answer"; the ceiling is low on purpose, because every round repeats
+ * every result found so far and a model that can loop freely is a model that
+ * can empty a search quota on one question.
+ */
+val AiToolRoundsRange = 1..5
+
+/** Addresses typed into email fields (see `TypedEmails` in :core:prediction). */
+const val TYPED_EMAILS_FILE = "learning/typed_emails.json"
+
+/** Numbers typed on their own (see `TypedNumbers` in :core:prediction). */
+const val TYPED_NUMBERS_FILE = "learning/typed_numbers.json"
+
 /** How the user draws each word (see `GlideShapeStore` in :core:prediction). */
 const val GLIDE_SHAPES_FILE = "learning/glide_shapes.json"
 
@@ -3743,6 +3921,8 @@ val LEARNED_DATA_FILES = listOf(
     LEARNED_CORRECTIONS_FILE,
     TAP_MODEL_FILE,
     APP_LANGUAGE_MIX_FILE,
+    TYPED_EMAILS_FILE,
+    TYPED_NUMBERS_FILE,
     PHONETIC_SCRIPT_CHOICES_FILE,
     GLIDE_OUTCOMES_FILE,
     GLIDE_SHAPES_FILE,
@@ -3975,6 +4155,33 @@ data class AiSettings(
      * focused field text with the answer instead of waiting for a manual tap.
      */
     val autoReplace: Boolean = true,
+    /**
+     * Let the model search the web when it needs to (#470).
+     *
+     * On by default, but only reachable once a search service is set up — the
+     * row is hidden otherwise, because a tool whose answer is always "search
+     * is not configured" costs tokens on every run and buys nothing. Turning
+     * it on sends the user's field text nowhere new: the search goes to the
+     * backend they already chose for the search tool, and only ever with the
+     * query the model wrote.
+     */
+    val toolWebSearch: Boolean = true,
+    /**
+     * Let the model open one web page and read it (#470).
+     *
+     * Off by default, unlike search. This one will fetch whatever address a
+     * model names, and that address can come from text in the field — so it
+     * is the one tool here that a prompt in the user's own document could
+     * point somewhere, and it waits to be asked for.
+     */
+    val toolWebFetch: Boolean = false,
+    /**
+     * How many rounds of tool calls one run may take before the model has to
+     * answer with what it found. Each round is another request and another
+     * replay of every result so far, so this is the setting that decides what
+     * a curious model can cost.
+     */
+    val toolMaxRounds: Int = 3,
 )
 
 /**
@@ -4310,6 +4517,25 @@ data class SelectionMacroSettings(
      * generic half of the bar is the half that always applies.
      */
     val detectEntities: Boolean = true,
+    /**
+     * Keep the bar up for a selection longer than the keyboard will read
+     * (`MAX_MACRO_SELECTION`, 4000 characters), offering the actions that do
+     * not need the text: Select all, Copy, Cut, Paste and Delete.
+     *
+     * Off, such a selection takes the bar away altogether, on the grounds
+     * that a selection that large is a document and the app's own toolbar has
+     * Copy. That leaves the bar's Copy and Paste — which for many people is
+     * the whole reason it is on, the app's toolbar being too small to hold
+     * what they reach for — gone exactly when the selection is biggest
+     * (#525). The actions this keeps cost nothing at any length: the editor
+     * does the work, and the keyboard never reads the selection.
+     *
+     * The entity actions, the case ladder and every rewrite stay off a
+     * selection that long whichever way this is set, because each of them
+     * begins by reading it. Password fields are excluded regardless, as they
+     * are everywhere else on this bar.
+     */
+    val inEverySelection: Boolean = false,
 )
 
 /** The zones the ladder shows: the picked ones, or UTC and the device's own. */
@@ -4362,6 +4588,12 @@ data class CjkSettings(
     val pinyinFuzzyPairs: Set<String> = PinyinFuzzy.ALL_PAIRS,
     /** Chinese: the Double Pinyin scheme, or OFF for full pinyin. */
     val pinyinDoublePinyin: DoublePinyinScheme = DoublePinyinScheme.OFF,
+    /**
+     * Chinese: the user's own Double Pinyin scheme, as text in fcitx's sp.dat
+     * format (see `DoublePinyinProfile`), typed with when [pinyinDoublePinyin]
+     * is CUSTOM (#502). Empty until they write one.
+     */
+    val pinyinDoublePinyinCustom: String = "",
     /** Convert candidate output to Traditional characters (Taiwan, Hong Kong). */
     val traditionalOutput: Boolean = false,
     /**
@@ -4393,6 +4625,43 @@ data class CjkSettings(
     val fullWidthSpaceLanguages: Set<String> = emptySet(),
     /** Which region's vocabulary Traditional output should prefer. */
     val hanRegion: HanVariant.HanRegion = HanVariant.HanRegion.GENERIC,
+)
+
+/**
+ * Vietnamese options. Keyed by the language rather than by the layout, so the
+ * Telex and the VNI board share one answer — they are two spellings of the same
+ * request, and a person switching between them means the same thing by both.
+ */
+data class VietnameseSettings(
+    /**
+     * Whether a tone key may tone only a syllable Vietnamese actually spells.
+     *
+     * Off, Telex marks whatever the vowel run allows, so `fas` becomes `fá` —
+     * free tone marking. On, a tone key that would land on something that is not
+     * a word is the letter it is drawn as instead: `fas` stays `fas`, `fix`
+     * stays `fix`. `f` is not an onset, so there was never a word there.
+     *
+     * The rule is Vietnamese spelling, not "does it look English": `mix` is
+     * still `mĩ`, because m is an onset and ĩ is a tone it can carry.
+     *
+     * Off by default. It changes what the keys do, and a Telex typist who has
+     * learned the loose rule would be surprised by it; the strict reading is
+     * the one that has to be asked for.
+     */
+    val strictTones: Boolean = false,
+    /**
+     * Whether the word list may put back a mark the user left out when a
+     * Telex or VNI word is committed: `tieng` → `tiếng`, `duong` → `đường`.
+     *
+     * Only an unambiguous reading is restored (`toan` is toàn, toán and toản
+     * at once and is left alone), a word the list holds is never touched, and
+     * it needs autocorrect on and a `vi` list on the device as well.
+     *
+     * Off by default. Plenty of people type Vietnamese without marks on
+     * purpose, and a keyboard that starts adding them unasked is rewriting
+     * their text; the ones who want it ask for it.
+     */
+    val restoreMarks: Boolean = false,
 )
 
 /**
@@ -4490,6 +4759,9 @@ data class CameraSettings(
 /** What [VoiceBarSettings.holdToTalkMs] may be set to. */
 val HoldToTalkRange = 200..1500
 
+/** What [VoiceBarSettings.silenceStopMs] may be set to when it is on; 0 is off. */
+val VoiceSilenceStopRange = 500..4000
+
 data class VoiceBarSettings(
     /** What the voice tool opens: the full panel, the strip over the keys, or the collapsed bar. */
     val mode: String = MODE_PANEL,
@@ -4520,6 +4792,14 @@ data class VoiceBarSettings(
      */
     val holdToTalkMs: Int = 600,
     /**
+     * How long a pause ends a Whisper or transcription-server clip by itself
+     * (#500), in milliseconds; 0, the default, keeps recording until the
+     * microphone is pressed or the 30-second window fills. The system
+     * recognizer stops on a pause of its own accord and ignores this. See
+     * [VoiceSilenceStopRange].
+     */
+    val silenceStopMs: Int = 0,
+    /**
      * A press and hold on the Voice tool while it is pinned to the toolbar
      * opens a menu of the three [typingMode]s, and picking one starts
      * dictation in it at once (#173). On by default; off gives the hold back
@@ -4528,6 +4808,21 @@ data class VoiceBarSettings(
      * only name another tool, so a hold that opens a menu is its own flag.
      */
     val holdPicksTypingMode: Boolean = true,
+    /**
+     * Pause whatever is playing while the microphone is listening (#485), and
+     * let it carry on when dictation ends. Off by default: music under a
+     * dictation is something a few people want gone and the rest never asked
+     * to have interrupted.
+     */
+    val pauseMedia: Boolean = false,
+    /**
+     * Each dictated phrase is tidied by the AI tool's provider after it lands
+     * (#499): filler words, false starts and spoken self-corrections taken out,
+     * the way Gboard's "Rambler" does it on Google's servers. Off by default:
+     * it sends every phrase to whichever model the AI tool uses. Never in
+     * plain voice typing, whose point is the words exactly as said.
+     */
+    val aiTidy: Boolean = false,
     /**
      * The surface the bar's expand button goes back to — whichever of
      * [MODE_PANEL] or [MODE_STRIP] the user collapsed from, defaulting to the
@@ -4686,7 +4981,28 @@ data class WhisperSettings(
      * words above are sent in front of it.
      */
     val serverPrompt: String = "",
+    /**
+     * The languages dictation listens for (#416), as language ids in the order
+     * they were picked. Empty, the default, follows the keyboard: dictation
+     * hears the language of the layout being typed on, as it always has. One
+     * id pins dictation to that language whatever the layout. Two or more let
+     * the recognizer tell them apart where it can; [dictationLanguages] says
+     * which one a session starts in.
+     */
+    val languages: List<String> = emptyList(),
 )
+
+/**
+ * The languages a dictation listens for (#416), the one it starts in first.
+ * [keyboardId] is the language of the layout in use: what an empty choice
+ * follows, and the one a combined choice starts in when it is one of them,
+ * so switching layouts still moves the recognizer's first guess.
+ */
+fun WhisperSettings.dictationLanguages(keyboardId: String): List<String> = when {
+    languages.isEmpty() -> listOf(keyboardId)
+    keyboardId in languages -> listOf(keyboardId) + (languages - keyboardId)
+    else -> languages
+}
 
 /**
  * What one step of a sideways backspace swipe takes off (issue #36).
@@ -4817,6 +5133,36 @@ data class TextEditingSettings(
      * cursor drag ends up going, once it has gone far enough to reach it.
      */
     val spaceCursorTopSpeed: Int = 4,
+    /**
+     * Move the caret under a spacebar swipe by setting the selection rather
+     * than by sending arrow keys (#505). An arrow key event is what a search
+     * box with a dropdown reads as "step through my suggestions", and what
+     * some file managers answer by putting their field's caret back at the
+     * start; a selection change is nothing but a caret move. Off by default:
+     * the arrow key is what every editor understands, and this needs the
+     * field to have reported where its caret is, which not every app does —
+     * when it has not, the swipe falls back to the arrow key. Selection mode
+     * and a held shift keep the arrow, which is what drags a selection out.
+     */
+    val spaceCursorDirect: Boolean = false,
+    /**
+     * A cursor drag parked past either end of the spacebar keeps the caret
+     * moving that way, a step at a time, until the finger comes back or
+     * lifts (#505). The spacebar runs out before a long line does; this is
+     * how the drag reaches the rest of it without a second swipe. Off by
+     * default: a caret that keeps going after the finger has stopped is a
+     * surprise to anyone who did not ask for it.
+     */
+    val spaceCursorEdgeRepeat: Boolean = false,
+    /**
+     * Once a spacebar swipe has turned into a cursor drag, the whole key area
+     * is its touchpad (#505): the keys dim, a second finger on them types
+     * nothing, and [spaceCursorEdgeRepeat] measures its edges and its reach
+     * from the sides of the keyboard instead of the spacebar's. The finger was
+     * always followed off the key; what changes is that nothing else under it
+     * can go off. Off by default, as the drag looks different with it on.
+     */
+    val spaceCursorWholeKeyboard: Boolean = false,
     /**
      * A magnifier over the caret while a spacebar cursor swipe moves it
      * (discussion #303): the line around the caret, enlarged, in a bubble over
@@ -4991,6 +5337,9 @@ enum class BoardCorner {
 /** Bounds for the docked keyboard's corner radii, in dp; 0 is square. */
 val BoardCornerRadiusRange = 0..40
 
+/** Bounds for [LayoutBehaviorSettings.flickDistanceDp], in dp. The slider shares them. */
+val FlickDistanceRange = 8..48
+
 /** Bounds for [LayoutBehaviorSettings.globeTypingGuardMs]; 0 is off. The slider shares them. */
 val GlobeTypingGuardMsRange = 0..1000
 
@@ -5077,6 +5426,13 @@ data class AppUiSettings(
      * shows opening a screen. The plain slide between screens stays.
      */
     val screenTransitions: Boolean = true,
+    /**
+     * Whether every settings screen carries the small keyboard button that
+     * opens a text field and the real keyboard under it, so a change can be
+     * tried where it was made (#412). Off for anyone who finds the button in
+     * the way; nothing in the keyboard reads it.
+     */
+    val keyboardPreviewButton: Boolean = true,
 )
 
 /** What the symbol row's height slider offers, matching the number row's. */
@@ -5396,6 +5752,11 @@ data class ClipboardSettings(
     val pinnedLast: Boolean = false,
     /** Show a search bar at the top of the clipboard panel to filter history. */
     val search: Boolean = false,
+    /**
+     * Read that search as a case-insensitive regular expression (#414). Off
+     * by default; a pattern that does not compile searches as plain text.
+     */
+    val searchRegex: Boolean = false,
     /** Show user screenshots in the clipboard alongside copied text and images. */
     val userScreenshots: Boolean = false,
     /**
@@ -5413,6 +5774,17 @@ data class ClipboardSettings(
      * verification SMS are one tap away instead of a copy-edit-paste.
      */
     val detectEntities: Boolean = true,
+    /**
+     * Each clip shows what was found in it as small icons, a count on each
+     * kind, instead of the strip of chips above the history (#472). Only
+     * while [detectEntities] is on.
+     */
+    val entityIcons: Boolean = false,
+    /**
+     * A fragment picked from a clip (a chip, or from Extract) goes onto the
+     * clipboard as a clip of its own instead of into the text box (#472).
+     */
+    val entityToClipboard: Boolean = false,
     /**
      * The phone-number shapes to keep, as masks (`+880 1XXX-XXXXXX`). Empty
      * means every number-shaped run counts, which is where the detector's false
@@ -5507,12 +5879,58 @@ data class ClipboardSettings(
      */
     val cardButtons: Boolean = true,
     /**
+     * Type a pasted clip into the field one character at a time, the way a
+     * one-time code goes into a row of boxes, instead of committing it whole
+     * (#418). Asked for as an effect: the text appears as if typed. Off by
+     * default. Clips longer than [ClipTypeOutMaxChars] are pasted whole, so a
+     * page of text does not take a minute to arrive.
+     */
+    val typeOutPastes: Boolean = false,
+    /**
+     * The small "Rich text" tag under a clip that carries formatting (#414).
+     * On by default. Off, the tag goes, and with it the footer row of a card
+     * that had nothing else to show there, the same as the buttons toggle.
+     */
+    val typeTags: Boolean = true,
+    /**
+     * Keep the formatting of a copied rich text, so a paste into an app that
+     * takes it gets it back (#414). On by default. Off, every copy is kept as
+     * plain text: no "Rich text" tag, no formatting on paste.
+     */
+    val keepRichText: Boolean = true,
+    /**
+     * A swipe to the right pins the clip instead of deleting it (#414), so the
+     * two directions do two things. Off by default, where either direction
+     * deletes, as it always has. Only while swipes are on at all.
+     */
+    val swipeRightPins: Boolean = false,
+    /**
+     * How many recent copies the idle strip offers as chips (#414), 1 to
+     * [ClipRecentChipsMax]. At 1, the default, the strip shows the single
+     * paste chip for the last copy, as it always has, for as long as its own
+     * timer says. Above 1 the idle strip shows that many of the latest text
+     * clips in a row that scrolls, until something is typed or its ✕ is
+     * pressed, and comes back on the next field or the next copy.
+     */
+    val recentChips: Int = 1,
+    /**
      * How much taller than the keyboard the clipboard panel opens, in dp
      * (#414), set by dragging the bar on top of the panel. 0, the default, is
      * the keyboard's own height. See [ClipPanelExtraHeightRange].
      */
     val panelExtraHeightDp: Int = 0,
 )
+
+/** The most recent copies [ClipboardSettings.recentChips] may put on the strip. */
+const val ClipRecentChipsMax: Int = 5
+
+/**
+ * The longest clip [ClipboardSettings.typeOutPastes] types out character by
+ * character; a longer one is pasted whole. At the forty-millisecond step a
+ * code uses, this is eight seconds of typing, which is already the far end
+ * of an effect.
+ */
+const val ClipTypeOutMaxChars: Int = 200
 
 /**
  * Emoji behaviour split off into its own object because [KeyboardSettings]
@@ -5576,6 +5994,13 @@ data class EmojiSettings(
      * complete emoji font under Emoji → Emoji font is the way to widen it.
      */
     val hideUnrenderable: Boolean = false,
+    /**
+     * The emoji search also finds any character of the Basic Multilingual
+     * Plane by the words of its Unicode name (#385): "em dash", "greek small
+     * letter lambda", "copyright sign". Off by default, so a search for "cat"
+     * is emoji and nothing else unless asked.
+     */
+    val unicodeSearch: Boolean = false,
     /**
      * Let the emoji row scroll sideways to reach the emoji past its visible
      * slots. On by default: the row is seeded with more emoji than fit across a
@@ -5688,7 +6113,23 @@ data class EmojiSettings(
      * Off by default: the emoji key opens emoji.
      */
     val rememberMediaTab: Boolean = false,
+    /**
+     * The emoji panel as one long list, every category under a short heading,
+     * instead of a page per category (#540). The tabs jump to a heading and
+     * follow the scroll. Off by default: pages are what the panel has always been.
+     */
+    val continuousScroll: Boolean = false,
+    /**
+     * How much taller than the keyboard the emoji, GIF and sticker panels open,
+     * in dp (#537); the letters stay as compact as they are. One value for the
+     * three, so switching between them never changes the height. See
+     * [MediaPanelExtraHeightRange].
+     */
+    val panelExtraHeightDp: Int = 0,
 )
+
+/** How much taller than the keyboard the emoji, GIF and sticker panels may be set, in dp (#537). */
+val MediaPanelExtraHeightRange = 0..400
 
 /** Bounds for [EmojiSettings.barCount]; the settings slider shares them. */
 val EmojiBarCountRange = 3..16
@@ -6201,9 +6642,10 @@ fun GestureSettings.glideTuning(): GlideBeam.Tuning = GlideBeam.Tuning.DEFAULT.c
  * constructor is at the JVM's 255-argument ceiling (see [ToolbarBehavior]).
  * Both fields still persist under their own DataStore key.
  *
- * Resolution order is [overrides], then [activePackId], then the built-in
- * glyph — a single icon the user picked by hand outranks the pack they
- * installed, which outranks the app's own default. See
+ * Resolution order is [overrides], then [activePackId], then [themeIcons], then
+ * the built-in glyph — a single icon the user picked by hand outranks the pack
+ * they installed, which outranks the icons that came with the theme they are
+ * wearing, which outranks the app's own default. See
  * `com.wasimaster.wmkeyboard.core.icons.IconSlots` for the slot ids and
  * `ime/ui/IconResolver.kt` for the lookup itself.
  */
@@ -6222,6 +6664,17 @@ data class IconSettings(
      * falls back to the default rather than drawing nothing.
      */
     val overrides: Map<String, String> = emptyMap(),
+    /**
+     * Slot id → local file, for the icons the *active theme* carries.
+     *
+     * Never persisted and never written by the user: [applyThemeOverrides] lays
+     * it on from [ThemeSpec.keyIcons] the same way it lays on the theme's key
+     * height, so a theme's glyphs reach the keyboard through the one chain every
+     * other theme override already travels and switching theme switches them.
+     *
+     * The weakest layer of the three, deliberately — see the class comment.
+     */
+    val themeIcons: Map<String, String> = emptyMap(),
 )
 
 /**
@@ -6239,6 +6692,13 @@ data class LayoutBehaviorSettings(
      * costs nothing when it is not wanted.
      */
     val symbolsLongPressNumpad: Boolean = true,
+    /**
+     * A 1234 key beside ABC on the symbols pages that opens the number pad, the
+     * way Gboard's symbols page has one (issue #423). It takes one key's width
+     * off the spacebar. Off by default: it changes a bottom row people already
+     * know by touch, and the pad has a hold on ?123 and a tool already.
+     */
+    val symbolsNumpadKey: Boolean = false,
     /**
      * Holding the enter key offers the emoji panel, the way SwiftKey's enter
      * key does, for a layout whose bottom row has no emoji key of its own.
@@ -6267,6 +6727,15 @@ data class LayoutBehaviorSettings(
      */
     val edgeSwipeBack: Boolean = false,
     /**
+     * The keys at the ends of a row narrower than the board take the blank
+     * space beside them (#530): a tap left of QWERTY's `a` or right of its `l`
+     * types that letter instead of landing on nothing, the way Gboard does.
+     * Only the touch area grows; the key is drawn, and reports its centre to
+     * glide and autopilot, exactly where it was. On by default, since a tap in
+     * the gap has never done anything else.
+     */
+    val extendEdgeKeys: Boolean = true,
+    /**
      * A short, quick swipe down on a key types its corner hint — the first of
      * its long-press characters — without waiting out the hold (issue #178).
      * The `1` on `q`, the `!` on the exclamation-mark key's shifted twin,
@@ -6292,6 +6761,29 @@ data class LayoutBehaviorSettings(
      * up off a key ("de") can read as a flick.
      */
     val capitalFlick: Boolean = false,
+    /**
+     * Whether a key with flick arms ([com.wasimaster.wmkeyboard.core.layout.Key.flick])
+     * draws them on its face, small, at the edge or corner each is flicked
+     * towards, the way MessagEase-style boards and Multiling O show what a
+     * swipe will type (issue #410). On by default: a nine-letter key with no
+     * arms drawn is a key you have to memorise. Off leaves the face to the
+     * centre label and the corner hint, as the kana pad shipped.
+     */
+    val flickHints: Boolean = true,
+    /**
+     * Whether holding a flick key shows the cross popup of its arms, with the
+     * one the finger is over lit. On by default, as the kana pad shipped. Off
+     * for a board whose face already shows every arm ([flickHints]) and whose
+     * user would rather nothing covered the keys around it.
+     */
+    val flickPopup: Boolean = true,
+    /**
+     * How far a finger has to travel from the down before a flick key reads
+     * the stroke as a flick rather than a tap, in dp; see [FlickDistanceRange].
+     * 22 is what the kana pad shipped with. Lower makes a quick, short flick
+     * count on a small key; higher stops a tap that drifts from flicking.
+     */
+    val flickDistanceDp: Int = 22,
     /**
      * For this long after a typed key, a tap on the 🌐 key is ignored, in ms
      * (0 = off). The globe sits between `?123`/comma and the spacebar, and a
@@ -6333,6 +6825,14 @@ data class LayoutBehaviorSettings(
      * spaces is what a second tap does.
      */
     val spaceHoldKeys: List<String> = emptyList(),
+    /**
+     * Languages that stay switched on without a stop of their own in the
+     * language switcher (#473). For a romanized language that is only there
+     * to lend its words to another keyboard: Banglish suggested on the
+     * English layout, with one swipe between that and Bangla instead of two.
+     * See [switchLayoutIds].
+     */
+    val pickerHiddenLanguages: Set<String> = emptySet(),
     /** What the resting spacebar label shows: language, layout, or both. */
     val spacebarDisplay: SpacebarDisplay = SpacebarDisplay.LANGUAGE,
     /**
@@ -6474,6 +6974,19 @@ data class LayoutBehaviorSettings(
      * is what it was reported as (issue #93).
      */
     val numberRowInSymbols: Boolean = true,
+    /**
+     * Whether the number row's slot is kept over a numeric keypad, where it
+     * carries symbols rather than a second set of digits — `+ * # , ; ( ) - / .`
+     * on a phone field, `+ - * / = ( ) % : .` on the other numeric ones.
+     * Only meaningful when [KeyboardSettings.numberRow] is on. On by default
+     * (the long-standing behaviour); off leaves the bare keypad.
+     *
+     * Its own switch rather than a reading of [KeyboardSettings.numberRow]:
+     * the row this one draws is not the digit row at all, and the only way to
+     * be rid of it was to give up the digits over the letters too, which is
+     * what it was reported as (issue #523).
+     */
+    val numberRowOnKeypad: Boolean = true,
     /**
      * A row of the four arrow keys under the keyboard (issue #369), for moving
      * the caret without a toolbar tool or a spacebar drag. Off by default. The
@@ -6825,6 +7338,35 @@ data class SuggestionStripSettings(
      */
     val scrollable: Boolean = false,
     /**
+     * An emoji candidate takes one of the [slotCount] slots instead of riding
+     * after them (#413). On, the strip never shows more chips than the count
+     * asks for: the best emoji sits in the last slot and the words get one
+     * fewer. Off by default, which keeps the tail of up to four emoji after
+     * the words.
+     */
+    val emojiTakesSlot: Boolean = false,
+    /**
+     * Every word keeps its place (#513): the strip always lays out
+     * [slotCount] slots of one width, an empty one stays empty rather than
+     * the others widening into it, and the primary word stays in its slot. A
+     * chip that is not a word takes a slot of its own instead of pushing the
+     * words aside: an emoji or the punctuation marks the last, a tool's
+     * keyword chip the first. Off by default.
+     */
+    val fixedSlots: Boolean = false,
+    /**
+     * How many suggested emoji ride after the words, 1 to 4 (#509). Four is
+     * what the strip always showed. Not read while an emoji takes a slot,
+     * which holds one.
+     */
+    val emojiCount: Int = 4,
+    /**
+     * Each word on a pill of the theme's accent colour, the best word's the
+     * deepest (#510): the slots told apart by colour, which a Material You
+     * theme takes from the wallpaper. Off by default.
+     */
+    val tintedSlots: Boolean = false,
+    /**
      * The colour the strip draws its primary word in: the bold one autocorrect
      * puts in for a space (#90). ARGB; null follows the theme's suggestion text.
      */
@@ -6944,6 +7486,19 @@ data class SuggestionStripSettings(
      */
     val adaptToTaps: Boolean = true,
     /**
+     * Mistype tolerance (#385), as a percentage of the tap model's own
+     * scatter: 100 is the long-standing reading, more lets a tap land further
+     * inside a neighbouring key and still be read as a slip of the one meant,
+     * less trusts the key that was hit. 50 to 200.
+     */
+    val mistypeTolerance: Int = 100,
+    /**
+     * Swipe down on the word suggestions to see more of them (#385): the
+     * engine's deeper list, in a grid over the keys. Off by default, since a
+     * downward swipe on the strip otherwise hides the keyboard when that is on.
+     */
+    val swipeForMore: Boolean = false,
+    /**
      * Bumped by the settings app when it edits or deletes the learned
      * corrections or the tap model, so a running keyboard reloads its copy —
      * its own signal, because the lexicon's also empties the learning buffer.
@@ -7026,6 +7581,21 @@ data class SuggestionStripSettings(
      */
     val snippetMultiExpand: MultiExpandMode = MultiExpandMode.CHIPS_ONLY,
     /**
+     * Columns of tiles in the snippets panel's grid, 1 to 4 (#471). Two, as
+     * the panel has always drawn; a wide screen or short labels suit more.
+     * Beside [snippetMultiExpand] for the same field-ceiling reason.
+     */
+    val snippetGridColumns: Int = 2,
+    /**
+     * Let a word or suffix trigger expand in a password field (#555). Off by
+     * default: with it on, the keyboard reads the few characters before the
+     * caret back out of a password box when Space, Enter or a trigger's last
+     * symbol lands, which is the one kind of field it otherwise never reads.
+     * Patterns, ask-first chips and the automation API stay refused there
+     * either way. Beside [snippetMultiExpand] for the same field-ceiling reason.
+     */
+    val snippetsInSecureFields: Boolean = false,
+    /**
      * Show the system's smart replies ("On my way!") beside the word
      * candidates. They arrive down the same inline-suggestions API as
      * password-manager chips but from Android System Intelligence rather than
@@ -7105,6 +7675,14 @@ data class SuggestionStripSettings(
      * set, so a language nobody has touched keeps them on, as it always had.
      */
     val phoneticSiblingsOffLangs: Set<String> = emptySet(),
+    /**
+     * Phonetic languages whose readings ignore the words before the one being
+     * typed. Everywhere else the strip and the space bar weigh them the way the
+     * Latin strip does — the user's own word pairs and triples, and the
+     * language's downloaded corpus pack — so "kam" after "mera" is کام. Stored
+     * as the switched-off set, so a language nobody has touched reads context.
+     */
+    val phoneticContextOffLangs: Set<String> = emptySet(),
     /**
      * Languages whose suggestions come from the user's own imported word lists
      * alone: the bundled list and any downloaded one are dropped for them
@@ -7197,6 +7775,14 @@ data class SuggestionStripSettings(
      * font. On Bengali's own screen.
      */
     val bengaliAnsiAllowed: Boolean = false,
+    /**
+     * Where each phonetic language shows desktop Avro's candidate list — the
+     * words Avro drops down under the word being typed: folded into the strip,
+     * or a scrollable row above it. A language with no entry shows none, so
+     * the strip stays what it was until someone asks. Read it through
+     * [phoneticCandidateListFor].
+     */
+    val phoneticCandidateLists: Map<String, PhoneticCandidateList> = emptyMap(),
     /** Whether the Bengali layouts write ANSI right now: the strip button's state. */
     val bengaliAnsiOn: Boolean = false,
     /**
@@ -7249,6 +7835,9 @@ data class SuggestionStripSettings(
     /** Whether a space on [langId]'s phonetic layout may commit a sound-alike dictionary word. */
     fun phoneticSiblingsEnabledFor(langId: String): Boolean = langId !in phoneticSiblingsOffLangs
 
+    /** Whether [langId]'s phonetic layout ranks its readings by the words before them. */
+    fun phoneticContextEnabledFor(langId: String): Boolean = langId !in phoneticContextOffLangs
+
     /** Whether [langId]'s phonetic layout commits English words as English; null is no phonetic layout. */
     fun phoneticEnglishFor(langId: String?): Boolean = langId != null && langId in phoneticEnglishLangs
 
@@ -7276,6 +7865,10 @@ data class SuggestionStripSettings(
     /** Whether predictions read [langId]'s downloaded word-pair data. */
     fun wordPairsEnabledFor(langId: String): Boolean = langId !in wordPairsOffLangs
 }
+    /** Where [langId]'s phonetic layout shows its candidate list; OFF for no phonetic layout. */
+    fun phoneticCandidateListFor(langId: String?): PhoneticCandidateList =
+        langId?.let { phoneticCandidateLists[it] } ?: PhoneticCandidateList.OFF
+
 
 /**
  * DataStore-backed settings. Every option on the settings screens flows
@@ -7436,6 +8029,22 @@ private fun decodeEmojiOrder(raw: String?): Map<String, List<String>> {
         .mapValues { (_, order) -> order.filter { it.isNotEmpty() }.distinct() }
         .filterValues { it.isNotEmpty() }
 }
+
+/** Serializes the per-layout sound-pack map to a compact `layoutId=packId;...` string. */
+private fun encodeKeySoundPacksByLayout(map: Map<String, String>): String =
+    map.entries
+        .filter { it.key.isNotEmpty() && it.value.isNotEmpty() }
+        .joinToString(";") { (layoutId, packId) -> "$layoutId=$packId" }
+
+private fun decodeKeySoundPacksByLayout(raw: String): Map<String, String> =
+    raw.split(';')
+        .filter { it.isNotEmpty() }
+        .mapNotNull { entry ->
+            val eq = entry.indexOf('=')
+            if (eq <= 0 || eq == entry.length - 1) return@mapNotNull null
+            entry.substring(0, eq) to entry.substring(eq + 1)
+        }
+        .toMap()
 
 /** Serializes the per-script font map to a compact `SCRIPT=fontId;...` string. */
 private fun encodeScriptFontIds(map: Map<String, String>): String =
@@ -7626,6 +8235,7 @@ class SettingsRepository(private val context: Context) {
         private val HAPTIC_STYLE = stringPreferencesKey("haptic_style")
         private val HAPTIC_ON_LONG_PRESS = booleanPreferencesKey("haptic_on_long_press")
         private val HAPTIC_ON_LONG_PRESS_RELEASE = booleanPreferencesKey("haptic_on_long_press_release")
+        private val HAPTIC_ON_CURSOR_MOVE = booleanPreferencesKey("haptic_on_cursor_move")
         private val FEEDBACK_VIBRATE_SPACE = booleanPreferencesKey("feedback_vibrate_space")
         private val FEEDBACK_VIBRATE_DELETE_SWIPE = booleanPreferencesKey("feedback_vibrate_delete_swipe")
         private val FEEDBACK_VIBRATE_REPEAT = booleanPreferencesKey("feedback_vibrate_repeat")
@@ -7653,6 +8263,7 @@ class SettingsRepository(private val context: Context) {
         private val ALTERNATES_PADDING = intPreferencesKey("alternates_padding")
         private val ALTERNATES_COLUMNS = intPreferencesKey("alternates_columns")
         private val ALTERNATES_NEAREST_FIRST = booleanPreferencesKey("alternates_nearest_first")
+        private val ALTERNATES_ORDER = stringPreferencesKey("alternates_order")
         private val ALTERNATES_HOLD_TO_SELECT = booleanPreferencesKey("alternates_hold_to_select")
         private val COLOR_VISION_FILTER = stringPreferencesKey("color_vision_filter")
         private val HIGH_CONTRAST_KEYS = booleanPreferencesKey("high_contrast_keys")
@@ -7672,6 +8283,8 @@ class SettingsRepository(private val context: Context) {
         private val AUTOCORRECT_SKIP_ALL_CAPS =
             booleanPreferencesKey("autocorrect_skip_all_caps")
         private val AUTOCORRECT_ON_ENTER = booleanPreferencesKey("autocorrect_on_enter")
+        private val AUTOCORRECT_ON_PUNCTUATION = booleanPreferencesKey("autocorrect_on_punctuation")
+        private val DICTIONARY_CAPITALS = booleanPreferencesKey("dictionary_capitals")
         private val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
         private val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
         private val DOUBLE_SPACE_TAB = booleanPreferencesKey("double_space_tab")
@@ -7723,12 +8336,15 @@ class SettingsRepository(private val context: Context) {
         private val NUMBER_PREDICTION = booleanPreferencesKey("number_prediction")
         private val AUTOCORRECT_SPLITS = booleanPreferencesKey("autocorrect_splits")
         private val REGISTER_PRIORS = booleanPreferencesKey("register_priors")
+        private val PHONETIC_CANDIDATE_LISTS = stringSetPreferencesKey("phonetic_candidate_lists")
         private val TIMING_SIGNAL_STRENGTH = floatPreferencesKey("timing_signal_strength")
         private val CONTACT_SUGGESTIONS = booleanPreferencesKey("contact_suggestions")
         private val CONTACT_EMAIL_SUGGESTIONS =
             booleanPreferencesKey("contact_email_suggestions")
         private val CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS =
             booleanPreferencesKey("contact_email_suggestions_in_email_fields")
+        private val TYPED_EMAIL_SUGGESTIONS = booleanPreferencesKey("typed_email_suggestions")
+        private val TYPED_NUMBER_SUGGESTIONS = booleanPreferencesKey("typed_number_suggestions")
         private val APP_NAME_SUGGESTIONS = booleanPreferencesKey("app_name_suggestions")
         private val SUGGESTION_BLACKLIST = stringSetPreferencesKey("suggestion_blacklist")
         private val SUGGESTION_BLACKLIST_SCOPE = stringPreferencesKey("suggestion_blacklist_scope")
@@ -7760,6 +8376,7 @@ class SettingsRepository(private val context: Context) {
         }
         private val SPELLING_MAP_OFF_LANGS = stringSetPreferencesKey("spelling_map_off_langs")
         private val PHONETIC_SIBLINGS_OFF_LANGS = stringSetPreferencesKey("phonetic_siblings_off_langs")
+        private val PHONETIC_CONTEXT_OFF_LANGS = stringSetPreferencesKey("phonetic_context_off_langs")
         private val IMPORTED_ONLY_LANGS = stringSetPreferencesKey("imported_only_langs")
         private val WORD_PAIRS_OFF_LANGS = stringSetPreferencesKey("word_pairs_off_langs")
         private val WORD_MENU_ITEMS = stringSetPreferencesKey("word_menu_items")
@@ -7837,9 +8454,11 @@ class SettingsRepository(private val context: Context) {
         private val SPACEBAR_LANGUAGE_ARROWS = booleanPreferencesKey("spacebar_language_arrows")
         private val SPACEBAR_LABEL = stringPreferencesKey("spacebar_label")
         private val SYMBOLS_LONGPRESS_NUMPAD = booleanPreferencesKey("symbols_longpress_numpad")
+        private val SYMBOLS_NUMPAD_KEY = booleanPreferencesKey("symbols_numpad_key")
         private val ENTER_LONGPRESS_EMOJI = booleanPreferencesKey("enter_longpress_emoji")
         private val SPACE_SWIPE_DOWN_HIDE = booleanPreferencesKey("space_swipe_down_hide")
         private val EDGE_SWIPE_BACK = booleanPreferencesKey("edge_swipe_back")
+        private val EXTEND_EDGE_KEYS = booleanPreferencesKey("extend_edge_keys")
         private val GLOBE_IN_ONE_PLACE = booleanPreferencesKey("globe_in_one_place")
         private val HINT_FLICK = booleanPreferencesKey("hint_flick")
         private val CAPITAL_FLICK = booleanPreferencesKey("capital_flick")
@@ -7851,6 +8470,9 @@ class SettingsRepository(private val context: Context) {
         private val SPACE_CURSOR_2D = booleanPreferencesKey("space_cursor_2d")
         private val HINT_FONT_SCALE = floatPreferencesKey("hint_font_scale")
         private val HINT_OFFSET = intPreferencesKey("hint_offset_dp")
+        private val FLICK_HINTS = booleanPreferencesKey("flick_hints")
+        private val FLICK_POPUP = booleanPreferencesKey("flick_popup")
+        private val FLICK_DISTANCE = intPreferencesKey("flick_distance_dp")
         private val TRANSLITERATION_HINTS = stringPreferencesKey("transliteration_hints")
         private val FANCY_STYLE = stringPreferencesKey("fancy_style")
         private val FANCY_TOOL_STYLE = stringPreferencesKey("fancy_tool_style")
@@ -7860,6 +8482,7 @@ class SettingsRepository(private val context: Context) {
         private val CUSTOM_LAYOUT_TOOL = stringPreferencesKey("custom_layout_tool")
         private val NUMBER_ROW_SHIFT_SYMBOLS = booleanPreferencesKey("number_row_shift_symbols")
         private val NUMBER_ROW_IN_SYMBOLS = booleanPreferencesKey("number_row_in_symbols")
+        private val NUMBER_ROW_ON_KEYPAD = booleanPreferencesKey("number_row_on_keypad")
         private val ARROW_ROW = booleanPreferencesKey("arrow_row")
         private val ARROW_ROW_ORDER = stringPreferencesKey("arrow_row_order")
         private val BOTTOM_ROW_HEIGHT = intPreferencesKey("bottom_row_height")
@@ -7876,6 +8499,7 @@ class SettingsRepository(private val context: Context) {
         private val SHIFTED_POPUP_KEYS = booleanPreferencesKey("shifted_popup_keys")
         private val CURRENCY_KEYS = stringPreferencesKey("currency_keys")
         private val SPACE_HOLD_KEYS = stringPreferencesKey("space_hold_keys")
+        private val PICKER_HIDDEN_LANGUAGES = stringSetPreferencesKey("picker_hidden_languages")
         private val SYMBOLS_RETURN_TO_LETTERS =
             booleanPreferencesKey("symbols_return_to_letters")
         private val SYMBOLS_RETURN_CHARS = stringPreferencesKey("symbols_return_chars")
@@ -7885,6 +8509,8 @@ class SettingsRepository(private val context: Context) {
         private val EXPAND_USER_DICT_SHORTCUTS = booleanPreferencesKey("expand_user_dict_shortcuts")
         private val USE_SYSTEM_DICTIONARY = booleanPreferencesKey("use_system_dictionary")
         private val SNIPPET_MULTI_EXPAND = stringPreferencesKey("snippet_multi_expand")
+        private val SNIPPET_GRID_COLUMNS = intPreferencesKey("snippet_grid_columns")
+        private val SNIPPETS_IN_SECURE_FIELDS = booleanPreferencesKey("snippets_in_secure_fields")
         private val SYSTEM_SMART_REPLIES = booleanPreferencesKey("system_smart_replies")
         private val SMART_HIT_DETECTION = booleanPreferencesKey("smart_hit_detection")
         private val AUTOPILOT_STRENGTH = intPreferencesKey("autopilot_strength")
@@ -7971,6 +8597,8 @@ class SettingsRepository(private val context: Context) {
         private val GLOBE_AS_EMOJI = booleanPreferencesKey("globe_as_emoji")
         private val SHOW_GLOBE_KEY = booleanPreferencesKey("show_globe_key")
         private val GLOBE_RECENT_ORDER = booleanPreferencesKey("globe_recent_order")
+        private val CARRY_WORD_ON_LANGUAGE_SWITCH =
+            booleanPreferencesKey("carry_word_on_language_switch")
         private val OS_LANGUAGE_SWITCHER = booleanPreferencesKey("os_language_switcher")
         private val SUBTYPE_APP_NAME_FIRST = booleanPreferencesKey("subtype_app_name_first")
         private val PER_APP_LANGUAGE_ENABLED = booleanPreferencesKey("per_app_language_enabled")
@@ -7986,6 +8614,8 @@ class SettingsRepository(private val context: Context) {
         private val DICTIONARY_SORT = stringPreferencesKey("dictionary_sort")
         private val SETTINGS_ROW_ICONS = booleanPreferencesKey("settings_row_icons")
         private val SETTINGS_SCREEN_TRANSITIONS = booleanPreferencesKey("settings_screen_transitions")
+        private val SETTINGS_KEYBOARD_PREVIEW_BUTTON =
+            booleanPreferencesKey("settings_keyboard_preview_button")
         private val SYMBOL_ROW_HEIGHT = intPreferencesKey("symbol_row_height")
         private val SYMBOL_ROW_LINES = intPreferencesKey("symbol_row_lines")
         private val SYMBOL_ROW_SCROLL = stringPreferencesKey("symbol_row_scroll")
@@ -8008,12 +8638,16 @@ class SettingsRepository(private val context: Context) {
         private val PINYIN_FUZZY = booleanPreferencesKey("pinyin_fuzzy")
         private val PINYIN_FUZZY_PAIRS = stringSetPreferencesKey("pinyin_fuzzy_pairs")
         private val PINYIN_DOUBLE_PINYIN = stringPreferencesKey("pinyin_double_pinyin")
+        private val PINYIN_DOUBLE_PINYIN_CUSTOM = stringPreferencesKey("pinyin_double_pinyin_custom")
         private val CJK_TRADITIONAL_OUTPUT = booleanPreferencesKey("cjk_traditional_output")
         private val JYUTPING_LAZY = booleanPreferencesKey("jyutping_lazy")
         private val KANA_LOOSE_MARKS = booleanPreferencesKey("kana_loose_marks")
         private val FULL_WIDTH_SPACE_LANGUAGES = stringSetPreferencesKey("full_width_space_languages")
         private val CJK_HAN_REGION = stringPreferencesKey("cjk_han_region")
+        private val VI_STRICT_TONES = booleanPreferencesKey("vi_strict_tones")
+        private val VI_RESTORE_MARKS = booleanPreferencesKey("vi_restore_marks")
         private val ONE_HANDED_MODE = stringPreferencesKey("one_handed_mode")
+        private val ONE_HANDED_PORTRAIT_ONLY = booleanPreferencesKey("one_handed_portrait_only")
         // One-handed width leaves room for the rail on the inner edge, so it is
         // capped below 100%. Height scale never grows the keys, only shrinks.
         const val ONE_HANDED_WIDTH_MIN = 40
@@ -8063,10 +8697,13 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_BOTTOM_ROW = booleanPreferencesKey("clipboard_bottom_row")
         private val CLIPBOARD_PINNED_LAST = booleanPreferencesKey("clipboard_pinned_last")
         private val CLIPBOARD_SEARCH = booleanPreferencesKey("clipboard_search")
+        private val CLIPBOARD_SEARCH_REGEX = booleanPreferencesKey("clipboard_search_regex")
         private val CLIPBOARD_USER_SCREENSHOTS = booleanPreferencesKey("clipboard_user_screenshots")
         private val CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE =
             booleanPreferencesKey("clipboard_clear_after_password_paste")
         private val CLIPBOARD_DETECT_ENTITIES = booleanPreferencesKey("clipboard_detect_entities")
+        private val CLIPBOARD_ENTITY_ICONS = booleanPreferencesKey("clipboard_entity_icons")
+        private val CLIPBOARD_ENTITY_TO_CLIPBOARD = booleanPreferencesKey("clipboard_entity_to_clipboard")
         private val CLIPBOARD_PHONE_FORMATS = stringSetPreferencesKey("clipboard_phone_formats")
         private val CLIPBOARD_FULL_BLEED = booleanPreferencesKey("clipboard_full_bleed")
         private val CLIPBOARD_VIEW = stringPreferencesKey("clipboard_view")
@@ -8081,6 +8718,11 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_PINNED_TABS = booleanPreferencesKey("clipboard_pinned_tabs")
         private val CLIPBOARD_OUTLINE_PINNED = booleanPreferencesKey("clipboard_outline_pinned")
         private val CLIPBOARD_CARD_BUTTONS = booleanPreferencesKey("clipboard_card_buttons")
+        private val CLIPBOARD_TYPE_OUT_PASTES = booleanPreferencesKey("clipboard_type_out_pastes")
+        private val CLIPBOARD_TYPE_TAGS = booleanPreferencesKey("clipboard_type_tags")
+        private val CLIPBOARD_KEEP_RICH_TEXT = booleanPreferencesKey("clipboard_keep_rich_text")
+        private val CLIPBOARD_SWIPE_RIGHT_PINS = booleanPreferencesKey("clipboard_swipe_right_pins")
+        private val CLIPBOARD_RECENT_CHIPS = intPreferencesKey("clipboard_recent_chips")
         private val CLIPBOARD_PANEL_EXTRA_HEIGHT_DP = intPreferencesKey("clipboard_panel_extra_height_dp")
         private val OTP_CHIP_ENABLED = booleanPreferencesKey("otp_chip_enabled")
         // Stored under its old name: the test behind it grew from "number
@@ -8194,6 +8836,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBAR_PLACEMENT = stringPreferencesKey("toolbar_placement")
         private val TOOLBAR_SHOW_STRIP = booleanPreferencesKey("toolbar_show_strip")
         private val TOOLBAR_HOLD_ACTIONS = stringPreferencesKey("toolbar_hold_actions")
+        private val TOOLBAR_STRIP_SHORTCUT = stringPreferencesKey("toolbar_strip_shortcut")
         private val TOOLBAR_DRAG_REARRANGE = booleanPreferencesKey("toolbar_drag_rearrange")
         private val THEMES_PANEL_BUILTINS = stringSetPreferencesKey("themes_panel_builtins")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
@@ -8210,6 +8853,7 @@ class SettingsRepository(private val context: Context) {
             booleanPreferencesKey("emoji_tone_override_last_used")
         private val EMOJI_CLOSE_AFTER_INSERT = booleanPreferencesKey("emoji_close_after_insert")
         private val EMOJI_HIDE_UNRENDERABLE = booleanPreferencesKey("emoji_hide_unrenderable")
+        private val EMOJI_UNICODE_SEARCH = booleanPreferencesKey("emoji_unicode_search")
         private val EMOJI_BAR_SCROLLABLE = booleanPreferencesKey("emoji_bar_scrollable")
         private val EMOJI_BAR_COUNT = intPreferencesKey("emoji_bar_count")
         private val EMOJI_GRID_CELL_SIZE = intPreferencesKey("emoji_grid_cell_size")
@@ -8231,6 +8875,8 @@ class SettingsRepository(private val context: Context) {
             stringPreferencesKey("emoji_category_emoji_order")
         private val EMOJI_MEDIA_SWITCHER = stringPreferencesKey("emoji_media_switcher")
         private val EMOJI_REMEMBER_MEDIA_TAB = booleanPreferencesKey("emoji_remember_media_tab")
+        private val EMOJI_CONTINUOUS_SCROLL = booleanPreferencesKey("emoji_continuous_scroll")
+        private val EMOJI_PANEL_EXTRA_HEIGHT_DP = intPreferencesKey("emoji_panel_extra_height_dp")
         private val EMOJI_AUTO_DOWNLOAD_KEYWORDS =
             booleanPreferencesKey("emoji_auto_download_keywords")
         // Stored as the DISABLED set so tools added in future versions
@@ -8246,6 +8892,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_SOUND_CUSTOM_ID = stringPreferencesKey("key_sound_custom_id")
         private val KEY_SOUND_PACK_ID = stringPreferencesKey("key_sound_pack_id")
         private val KEY_SOUND_RELEASE = booleanPreferencesKey("key_sound_release")
+        private val KEY_SOUND_PACK_BY_LAYOUT = stringPreferencesKey("key_sound_pack_by_layout")
         private val LEVEL_SHOW_ANGLES = booleanPreferencesKey("level_show_angles")
         private val REDO_USES_CTRL_Y = booleanPreferencesKey("redo_uses_ctrl_y")
         private val MOON_SOUTHERN = booleanPreferencesKey("moon_southern_hemisphere")
@@ -8267,6 +8914,7 @@ class SettingsRepository(private val context: Context) {
         private val HANDWRITING_STYLUS_ONLY = booleanPreferencesKey("handwriting_stylus_only")
         private val HANDWRITING_COMMIT_DELAY = intPreferencesKey("handwriting_commit_delay")
         private val HANDWRITING_AUTO_SPACE = booleanPreferencesKey("handwriting_auto_space")
+        private val HANDWRITING_FULL_SCREEN_MODE = stringPreferencesKey("handwriting_full_screen_mode")
         // Legacy boolean the three-way voice_ui_mode replaced; still read as
         // the fallback so an existing strip-mode choice survives the update.
         private val VOICE_STRIP_MODE = booleanPreferencesKey("voice_strip_mode")
@@ -8278,8 +8926,11 @@ class SettingsRepository(private val context: Context) {
         private val VOICE_BAR_EDGE_RIGHT = booleanPreferencesKey("voice_bar_edge_right")
         private val VOICE_BAR_Y_BIAS = floatPreferencesKey("voice_bar_y_bias")
         private val VOICE_BAR_DOCK_BIAS = floatPreferencesKey("voice_bar_dock_bias")
+        private val VOICE_SILENCE_STOP_MS = intPreferencesKey("voice_silence_stop_ms")
         private val VOICE_HOLD_TO_TALK_MS = intPreferencesKey("voice_hold_to_talk_ms")
         private val VOICE_HOLD_PICKS_MODE = booleanPreferencesKey("voice_hold_picks_mode")
+        private val VOICE_PAUSE_MEDIA = booleanPreferencesKey("voice_pause_media")
+        private val VOICE_AI_TIDY = booleanPreferencesKey("voice_ai_tidy")
         private val VOICE_UI_RETURN_MODE = stringPreferencesKey("voice_ui_return_mode")
         private val VOICE_BAR_INLINE = booleanPreferencesKey("voice_bar_inline")
         private val VOICE_CONTINUOUS = booleanPreferencesKey("voice_continuous")
@@ -8300,6 +8951,8 @@ class SettingsRepository(private val context: Context) {
         private val VOICE_BIAS_PERSONAL_WORDS = booleanPreferencesKey("voice_bias_personal_words")
         private val VOICE_BIAS_WORDS = stringPreferencesKey("voice_bias_words")
         private val VOICE_SERVER_PROMPT = stringPreferencesKey("voice_server_prompt")
+        /** Comma-separated language ids, in the order picked; see [WhisperSettings.languages]. */
+        private val VOICE_LANGUAGES = stringPreferencesKey("voice_languages")
         private val CAMERA_PREFER_FRONT = booleanPreferencesKey("camera_prefer_front")
         private val CAMERA_TIMER_SECONDS = intPreferencesKey("camera_timer_seconds")
         private val CAMERA_CAPTURE_MAX_PX = intPreferencesKey("camera_capture_max_px")
@@ -8358,6 +9011,9 @@ class SettingsRepository(private val context: Context) {
         private val SPACE_CURSOR_STEP_DP = intPreferencesKey("space_cursor_step_dp")
         private val SPACE_CURSOR_MAGNIFIER = booleanPreferencesKey("space_cursor_magnifier")
         private val SPACE_CURSOR_ACCELERATE = booleanPreferencesKey("space_cursor_accelerate")
+        private val SPACE_CURSOR_DIRECT = booleanPreferencesKey("space_cursor_direct")
+        private val SPACE_CURSOR_EDGE_REPEAT = booleanPreferencesKey("space_cursor_edge_repeat")
+        private val SPACE_CURSOR_WHOLE_KEYBOARD = booleanPreferencesKey("space_cursor_whole_keyboard")
         private val SPACE_CURSOR_TOP_SPEED = intPreferencesKey("space_cursor_top_speed")
         private val BACKSPACE_WORD_STEP_DP = intPreferencesKey("backspace_word_step_dp")
         private val BACKSPACE_SWIPE_UNIT = stringPreferencesKey("backspace_swipe_unit")
@@ -8368,6 +9024,10 @@ class SettingsRepository(private val context: Context) {
         private val PUNCTUATION_CHIPS = stringPreferencesKey("punctuation_chips")
         private val SUGGESTION_SLOT_COUNT = intPreferencesKey("suggestion_slot_count")
         private val SUGGESTION_SCROLLABLE = booleanPreferencesKey("suggestion_scrollable")
+        private val SUGGESTION_EMOJI_TAKES_SLOT = booleanPreferencesKey("suggestion_emoji_takes_slot")
+        private val SUGGESTION_FIXED_SLOTS = booleanPreferencesKey("suggestion_fixed_slots")
+        private val SUGGESTION_EMOJI_COUNT = intPreferencesKey("suggestion_emoji_count")
+        private val SUGGESTION_TINTED_SLOTS = booleanPreferencesKey("suggestion_tinted_slots")
         private val SUGGESTION_PRIMARY_COLOR = longPreferencesKey("suggestion_primary_color")
         private val SUGGESTION_CHIP_PADDING = intPreferencesKey("suggestion_chip_padding")
         private val NUMPAD_CALCULATOR_LAYOUT = booleanPreferencesKey("numpad_calculator_layout")
@@ -8384,6 +9044,9 @@ class SettingsRepository(private val context: Context) {
         private val AUTO_INCOGNITO = booleanPreferencesKey("auto_incognito")
         private val OCR_AUTO_SELECT_WORDS = booleanPreferencesKey("ocr_auto_select_words")
         private val OCR_ENGINE = stringPreferencesKey("ocr_engine")
+        private val OCR_ONLINE_URL = stringPreferencesKey("ocr_online_url")
+        private val OCR_ONLINE_MODEL = stringPreferencesKey("ocr_online_model")
+        private val OCR_ONLINE_KEY = stringPreferencesKey("ocr_online_key")
         private val QR_SCAN_HAPTICS = booleanPreferencesKey("qr_scan_haptics")
         private val QR_SCAN_AUTO_INSERT = booleanPreferencesKey("qr_scan_auto_insert")
         private val QR_SCAN_LINK_PREVIEWS = booleanPreferencesKey("qr_scan_link_previews")
@@ -8432,6 +9095,8 @@ class SettingsRepository(private val context: Context) {
         private val UNDO_CHIP_OBVIOUSNESS = floatPreferencesKey("undo_chip_obviousness")
         private val LEARN_FROM_CORRECTIONS = booleanPreferencesKey("learn_from_corrections")
         private val ADAPT_TO_TAPS = booleanPreferencesKey("adapt_to_taps")
+        private val MISTYPE_TOLERANCE = intPreferencesKey("mistype_tolerance")
+        private val SUGGESTIONS_SWIPE_FOR_MORE = booleanPreferencesKey("suggestions_swipe_for_more")
         private val CORRECTIONS_VERSION = intPreferencesKey("corrections_version")
         private val EMOJI_ROW_ABOVE_TOOLBAR = booleanPreferencesKey("emoji_row_above_toolbar")
         private val TRANSLATE_TARGET_LANG = stringPreferencesKey("translate_target_lang")
@@ -8464,6 +9129,9 @@ class SettingsRepository(private val context: Context) {
         private val STICKER_SUGGEST_MAGNIFY = booleanPreferencesKey("sticker_suggest_magnify")
         private val SEARCH_SAFE = booleanPreferencesKey("search_safe")
         private val SEARCH_RESULT_COUNT = intPreferencesKey("search_result_count")
+        private val SEARCH_SHOW_ANSWER = booleanPreferencesKey("search_show_answer")
+        private val SEARCH_OPEN_IN_BROWSER = booleanPreferencesKey("search_open_in_browser")
+        private val SEARCH_TAVILY_ADVANCED = booleanPreferencesKey("search_tavily_advanced")
         private val WIKI_LANGUAGE = stringPreferencesKey("wiki_language")
         private val WIKI_LINKS_MARKDOWN = booleanPreferencesKey("wiki_links_markdown")
         // Tab-separated (symbols are single graphemes; some are commas).
@@ -8543,6 +9211,8 @@ class SettingsRepository(private val context: Context) {
         private val SELECTION_MACROS_ENABLED = booleanPreferencesKey("selection_macros_enabled")
         private val SELECTION_MACROS_PLACEMENT = stringPreferencesKey("selection_macros_placement")
         private val SELECTION_MACROS_DETECT = booleanPreferencesKey("selection_macros_detect")
+        private val SELECTION_MACROS_EVERY_SELECTION =
+            booleanPreferencesKey("selection_macros_every_selection")
 
         /**
          * The macros that are on, by [SelectionMacro] name.
@@ -8621,6 +9291,9 @@ class SettingsRepository(private val context: Context) {
         private val AI_DOWNLOAD_UNMETERED = booleanPreferencesKey("ai_download_unmetered_only")
         private val AI_BEFORE_CURSOR_CHARS = intPreferencesKey("ai_before_cursor_chars")
         private val AI_DIFF_VIEW = booleanPreferencesKey("ai_diff_view")
+        private val AI_TOOL_WEB_SEARCH = booleanPreferencesKey("ai_tool_web_search")
+        private val AI_TOOL_WEB_FETCH = booleanPreferencesKey("ai_tool_web_fetch")
+        private val AI_TOOL_MAX_ROUNDS = intPreferencesKey("ai_tool_max_rounds")
         private val AI_DIFF_OPENS_FIRST = booleanPreferencesKey("ai_diff_opens_first")
         private val AI_AUTO_REPLACE = booleanPreferencesKey("ai_auto_replace")
         private val AI_CUSTOM_ACTIONS = stringPreferencesKey("ai_custom_actions")
@@ -8928,6 +9601,8 @@ class SettingsRepository(private val context: Context) {
             globeAsEmoji = p[GLOBE_AS_EMOJI] ?: defaults.globeAsEmoji,
             showGlobeKey = p[SHOW_GLOBE_KEY] ?: defaults.showGlobeKey,
             globeRecentOrder = p[GLOBE_RECENT_ORDER] ?: defaults.globeRecentOrder,
+            carryWordOnLanguageSwitch = p[CARRY_WORD_ON_LANGUAGE_SWITCH]
+                ?: defaults.carryWordOnLanguageSwitch,
             osLanguageSwitcher = p[OS_LANGUAGE_SWITCHER] ?: defaults.osLanguageSwitcher,
             subtypeAppNameFirst = p[SUBTYPE_APP_NAME_FIRST] ?: defaults.subtypeAppNameFirst,
             perAppLanguage = readPerAppLanguage(p, defaults),
@@ -8938,6 +9613,7 @@ class SettingsRepository(private val context: Context) {
             rows = readRows(p, defaults),
             conjunctBackspaceLanguages = conjunctLanguagesFromPrefs(p, layoutSelection.enabledLanguages),
             cjk = readCjk(p, defaults),
+            vietnamese = readVietnamese(p, defaults),
             oneHandedMode = p[ONE_HANDED_MODE]
                 ?.let { runCatching { OneHandedMode.valueOf(it) }.getOrNull() }
                 ?: defaults.oneHandedMode,
@@ -9005,6 +9681,9 @@ class SettingsRepository(private val context: Context) {
             handwritingCommitDelayMs = p[HANDWRITING_COMMIT_DELAY]
                 ?: defaults.handwritingCommitDelayMs,
             handwritingAutoSpace = p[HANDWRITING_AUTO_SPACE] ?: defaults.handwritingAutoSpace,
+            handwritingFullScreenMode = p[HANDWRITING_FULL_SCREEN_MODE]
+                ?.let { runCatching { HandwritingFullScreenMode.valueOf(it) }.getOrNull() }
+                ?: defaults.handwritingFullScreenMode,
             voiceBar = readVoiceBar(p, defaults),
             voiceContinuous = p[VOICE_CONTINUOUS] ?: defaults.voiceContinuous,
             voiceSpokenPunctuation = p[VOICE_SPOKEN_PUNCTUATION]
@@ -9202,6 +9881,7 @@ class SettingsRepository(private val context: Context) {
             onLongPress = p[HAPTIC_ON_LONG_PRESS] ?: defaults.haptics.onLongPress,
             onLongPressRelease = p[HAPTIC_ON_LONG_PRESS_RELEASE]
                 ?: defaults.haptics.onLongPressRelease,
+            onCursorMove = p[HAPTIC_ON_CURSOR_MOVE] ?: defaults.haptics.onCursorMove,
         )
 
     private fun readFeedback(p: Preferences, defaults: KeyboardSettings) =
@@ -9228,6 +9908,9 @@ class SettingsRepository(private val context: Context) {
             customId = p[KEY_SOUND_CUSTOM_ID] ?: defaults.sound.customId,
             packId = p[KEY_SOUND_PACK_ID] ?: defaults.sound.packId,
             playRelease = p[KEY_SOUND_RELEASE] ?: defaults.sound.playRelease,
+            packByLayout = p[KEY_SOUND_PACK_BY_LAYOUT]
+                ?.let { decodeKeySoundPacksByLayout(it) }
+                ?: defaults.sound.packByLayout,
         )
 
     private fun readAccessibility(p: Preferences, defaults: KeyboardSettings) =
@@ -9256,6 +9939,8 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.correction.undoMemory,
             skipAllCaps = p[AUTOCORRECT_SKIP_ALL_CAPS] ?: defaults.correction.skipAllCaps,
             onEnter = p[AUTOCORRECT_ON_ENTER] ?: defaults.correction.onEnter,
+            onPunctuation = p[AUTOCORRECT_ON_PUNCTUATION] ?: defaults.correction.onPunctuation,
+            dictionaryCapitals = p[DICTIONARY_CAPITALS] ?: defaults.correction.dictionaryCapitals,
         )
 
     private fun readAutoText(p: Preferences, defaults: KeyboardSettings) =
@@ -9282,6 +9967,8 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.suggestionSources.contactEmails,
             contactEmailsInEmailFields = p[CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS]
                 ?: defaults.suggestionSources.contactEmailsInEmailFields,
+            typedEmails = p[TYPED_EMAIL_SUGGESTIONS] ?: defaults.suggestionSources.typedEmails,
+            typedNumbers = p[TYPED_NUMBER_SUGGESTIONS] ?: defaults.suggestionSources.typedNumbers,
             appNames = p[APP_NAME_SUGGESTIONS] ?: defaults.suggestionSources.appNames,
             blacklist = p[SUGGESTION_BLACKLIST] ?: defaults.suggestionSources.blacklist,
             blacklistByLanguage = blacklistsByLanguage(p),
@@ -9442,6 +10129,8 @@ class SettingsRepository(private val context: Context) {
             rowIcons = p[SETTINGS_ROW_ICONS] ?: defaults.appUi.rowIcons,
             screenTransitions = p[SETTINGS_SCREEN_TRANSITIONS]
                 ?: defaults.appUi.screenTransitions,
+            keyboardPreviewButton = p[SETTINGS_KEYBOARD_PREVIEW_BUTTON]
+                ?: defaults.appUi.keyboardPreviewButton,
         )
 
     private fun readToolLimits(p: Preferences, defaults: KeyboardSettings) =
@@ -9484,6 +10173,7 @@ class SettingsRepository(private val context: Context) {
             pinyinDoublePinyin = p[PINYIN_DOUBLE_PINYIN]
                 ?.let { runCatching { DoublePinyinScheme.valueOf(it) }.getOrNull() }
                 ?: defaults.cjk.pinyinDoublePinyin,
+            pinyinDoublePinyinCustom = p[PINYIN_DOUBLE_PINYIN_CUSTOM] ?: defaults.cjk.pinyinDoublePinyinCustom,
             traditionalOutput = p[CJK_TRADITIONAL_OUTPUT] ?: defaults.cjk.traditionalOutput,
             jyutpingLazy = p[JYUTPING_LAZY] ?: defaults.cjk.jyutpingLazy,
             kanaLooseMarks = p[KANA_LOOSE_MARKS] ?: defaults.cjk.kanaLooseMarks,
@@ -9493,10 +10183,17 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.cjk.hanRegion,
         )
 
+    private fun readVietnamese(p: Preferences, defaults: KeyboardSettings) =
+        VietnameseSettings(
+            strictTones = p[VI_STRICT_TONES] ?: defaults.vietnamese.strictTones,
+            restoreMarks = p[VI_RESTORE_MARKS] ?: defaults.vietnamese.restoreMarks,
+        )
+
     private fun readOneHanded(p: Preferences, defaults: KeyboardSettings) =
         OneHandedSettings(
             portrait = readOneHandedProfile(p, landscape = false, defaults.oneHanded.portrait),
             landscape = readOneHandedProfile(p, landscape = true, defaults.oneHanded.landscape),
+            portraitOnly = p[ONE_HANDED_PORTRAIT_ONLY] ?: defaults.oneHanded.portraitOnly,
         )
 
     private fun readClipboard(p: Preferences, defaults: KeyboardSettings) =
@@ -9523,10 +10220,13 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.clipboard.copiedCodeChip,
             pinnedLast = p[CLIPBOARD_PINNED_LAST] ?: defaults.clipboard.pinnedLast,
             search = p[CLIPBOARD_SEARCH] ?: defaults.clipboard.search,
+            searchRegex = p[CLIPBOARD_SEARCH_REGEX] ?: defaults.clipboard.searchRegex,
             userScreenshots = p[CLIPBOARD_USER_SCREENSHOTS] ?: defaults.clipboard.userScreenshots,
             clearAfterPasswordPaste = p[CLIPBOARD_CLEAR_AFTER_PASSWORD_PASTE]
                 ?: defaults.clipboard.clearAfterPasswordPaste,
             detectEntities = p[CLIPBOARD_DETECT_ENTITIES] ?: defaults.clipboard.detectEntities,
+            entityIcons = p[CLIPBOARD_ENTITY_ICONS] ?: defaults.clipboard.entityIcons,
+            entityToClipboard = p[CLIPBOARD_ENTITY_TO_CLIPBOARD] ?: defaults.clipboard.entityToClipboard,
             phoneFormats = p[CLIPBOARD_PHONE_FORMATS] ?: seededPhoneFormats(),
             fullBleed = p[CLIPBOARD_FULL_BLEED] ?: defaults.clipboard.fullBleed,
             view = p[CLIPBOARD_VIEW]
@@ -9548,6 +10248,12 @@ class SettingsRepository(private val context: Context) {
             pinnedTabs = p[CLIPBOARD_PINNED_TABS] ?: defaults.clipboard.pinnedTabs,
             outlinePinned = p[CLIPBOARD_OUTLINE_PINNED] ?: defaults.clipboard.outlinePinned,
             cardButtons = p[CLIPBOARD_CARD_BUTTONS] ?: defaults.clipboard.cardButtons,
+            typeOutPastes = p[CLIPBOARD_TYPE_OUT_PASTES] ?: defaults.clipboard.typeOutPastes,
+            typeTags = p[CLIPBOARD_TYPE_TAGS] ?: defaults.clipboard.typeTags,
+            keepRichText = p[CLIPBOARD_KEEP_RICH_TEXT] ?: defaults.clipboard.keepRichText,
+            swipeRightPins = p[CLIPBOARD_SWIPE_RIGHT_PINS] ?: defaults.clipboard.swipeRightPins,
+            recentChips = p[CLIPBOARD_RECENT_CHIPS]?.coerceIn(1, ClipRecentChipsMax)
+                ?: defaults.clipboard.recentChips,
             panelExtraHeightDp = p[CLIPBOARD_PANEL_EXTRA_HEIGHT_DP]?.coerceIn(ClipPanelExtraHeightRange)
                 ?: defaults.clipboard.panelExtraHeightDp,
         )
@@ -9655,6 +10361,10 @@ class SettingsRepository(private val context: Context) {
             slotCount = p[SUGGESTION_SLOT_COUNT] ?: defaults.suggestionStrip.slotCount,
             textScale = p[SUGGESTION_TEXT_SCALE] ?: defaults.suggestionStrip.textScale,
             scrollable = p[SUGGESTION_SCROLLABLE] ?: defaults.suggestionStrip.scrollable,
+            emojiTakesSlot = p[SUGGESTION_EMOJI_TAKES_SLOT] ?: defaults.suggestionStrip.emojiTakesSlot,
+            fixedSlots = p[SUGGESTION_FIXED_SLOTS] ?: defaults.suggestionStrip.fixedSlots,
+            emojiCount = (p[SUGGESTION_EMOJI_COUNT] ?: defaults.suggestionStrip.emojiCount).coerceIn(1, 4),
+            tintedSlots = p[SUGGESTION_TINTED_SLOTS] ?: defaults.suggestionStrip.tintedSlots,
             primaryColor = p[SUGGESTION_PRIMARY_COLOR] ?: defaults.suggestionStrip.primaryColor,
             chipPadding = p[SUGGESTION_CHIP_PADDING] ?: defaults.suggestionStrip.chipPadding,
             learnedWordMinCount = p[LEARNED_WORD_MIN_COUNT]
@@ -9672,6 +10382,9 @@ class SettingsRepository(private val context: Context) {
             learnFromCorrections = p[LEARN_FROM_CORRECTIONS]
                 ?: defaults.suggestionStrip.learnFromCorrections,
             adaptToTaps = p[ADAPT_TO_TAPS] ?: defaults.suggestionStrip.adaptToTaps,
+            mistypeTolerance = p[MISTYPE_TOLERANCE]?.coerceIn(50, 200)
+                ?: defaults.suggestionStrip.mistypeTolerance,
+            swipeForMore = p[SUGGESTIONS_SWIPE_FOR_MORE] ?: defaults.suggestionStrip.swipeForMore,
             correctionsVersion = p[CORRECTIONS_VERSION]
                 ?: defaults.suggestionStrip.correctionsVersion,
             suggestionsFirst = p[SUGGESTIONS_FIRST] ?: defaults.suggestionStrip.suggestionsFirst,
@@ -9694,6 +10407,10 @@ class SettingsRepository(private val context: Context) {
             snippetMultiExpand = p[SNIPPET_MULTI_EXPAND]
                 ?.let { runCatching { MultiExpandMode.valueOf(it) }.getOrNull() }
                 ?: defaults.suggestionStrip.snippetMultiExpand,
+            snippetGridColumns = p[SNIPPET_GRID_COLUMNS]?.coerceIn(1, 4)
+                ?: defaults.suggestionStrip.snippetGridColumns,
+            snippetsInSecureFields = p[SNIPPETS_IN_SECURE_FIELDS]
+                ?: defaults.suggestionStrip.snippetsInSecureFields,
             systemSmartReplies = p[SYSTEM_SMART_REPLIES]
                 ?: defaults.suggestionStrip.systemSmartReplies,
             registerPriors = p[REGISTER_PRIORS]
@@ -9710,6 +10427,8 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.suggestionStrip.spellingMapOffLangs,
             phoneticSiblingsOffLangs = p[PHONETIC_SIBLINGS_OFF_LANGS]
                 ?: defaults.suggestionStrip.phoneticSiblingsOffLangs,
+            phoneticContextOffLangs = p[PHONETIC_CONTEXT_OFF_LANGS]
+                ?: defaults.suggestionStrip.phoneticContextOffLangs,
             importedOnlyLangs = p[IMPORTED_ONLY_LANGS]
                 ?: defaults.suggestionStrip.importedOnlyLangs,
             wordPairsOffLangs = p[WORD_PAIRS_OFF_LANGS]
@@ -9752,6 +10471,15 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.suggestionStrip.wordMenuItems,
             synonymSources = p[SYNONYM_SOURCES]?.let(SynonymSources::decode)
                 ?: defaults.suggestionStrip.synonymSources,
+            phoneticCandidateLists = p[PHONETIC_CANDIDATE_LISTS]
+                ?.mapNotNull { entry ->
+                    val lang = entry.substringBefore('=', "")
+                    val where = runCatching { PhoneticCandidateList.valueOf(entry.substringAfter('=')) }
+                        .getOrNull()
+                    if (lang.isEmpty() || where == null) null else lang to where
+                }
+                ?.toMap()
+                ?: defaults.suggestionStrip.phoneticCandidateLists,
             rankControl = p[WORD_RANK_CONTROL]
                 ?.let { runCatching { RankControl.valueOf(it) }.getOrNull() }
                 ?: defaults.suggestionStrip.rankControl,
@@ -9803,11 +10531,13 @@ class SettingsRepository(private val context: Context) {
         LayoutBehaviorSettings(
             symbolsLongPressNumpad =
                 p[SYMBOLS_LONGPRESS_NUMPAD] ?: defaults.layoutBehavior.symbolsLongPressNumpad,
+            symbolsNumpadKey = p[SYMBOLS_NUMPAD_KEY] ?: defaults.layoutBehavior.symbolsNumpadKey,
             enterLongPressEmoji =
                 p[ENTER_LONGPRESS_EMOJI] ?: defaults.layoutBehavior.enterLongPressEmoji,
             spaceSwipeDownHide =
                 p[SPACE_SWIPE_DOWN_HIDE] ?: defaults.layoutBehavior.spaceSwipeDownHide,
             edgeSwipeBack = p[EDGE_SWIPE_BACK] ?: defaults.layoutBehavior.edgeSwipeBack,
+            extendEdgeKeys = p[EXTEND_EDGE_KEYS] ?: defaults.layoutBehavior.extendEdgeKeys,
             globeInOnePlace = p[GLOBE_IN_ONE_PLACE] ?: defaults.layoutBehavior.globeInOnePlace,
             hintFlick = p[HINT_FLICK] ?: defaults.layoutBehavior.hintFlick,
             capitalFlick = p[CAPITAL_FLICK] ?: defaults.layoutBehavior.capitalFlick,
@@ -9825,8 +10555,14 @@ class SettingsRepository(private val context: Context) {
             spaceHoldKeys = p[SPACE_HOLD_KEYS]
                 ?.split('\n')?.filter { it.isNotEmpty() }
                 ?: defaults.layoutBehavior.spaceHoldKeys,
+            pickerHiddenLanguages = p[PICKER_HIDDEN_LANGUAGES]
+                ?: defaults.layoutBehavior.pickerHiddenLanguages,
             hintFontScale = p[HINT_FONT_SCALE] ?: defaults.layoutBehavior.hintFontScale,
             hintOffsetDp = p[HINT_OFFSET] ?: defaults.layoutBehavior.hintOffsetDp,
+            flickHints = p[FLICK_HINTS] ?: defaults.layoutBehavior.flickHints,
+            flickPopup = p[FLICK_POPUP] ?: defaults.layoutBehavior.flickPopup,
+            flickDistanceDp = p[FLICK_DISTANCE]?.coerceIn(FlickDistanceRange)
+                ?: defaults.layoutBehavior.flickDistanceDp,
             transliterationHints = p[TRANSLITERATION_HINTS]
                 ?.let { runCatching { TransliterationHintMode.valueOf(it) }.getOrNull() }
                 ?: defaults.layoutBehavior.transliterationHints,
@@ -9875,6 +10611,8 @@ class SettingsRepository(private val context: Context) {
                 p[SHIFT_ENTER_NEWLINE] ?: defaults.layoutBehavior.shiftEnterNewline,
             numberRowInSymbols =
                 p[NUMBER_ROW_IN_SYMBOLS] ?: defaults.layoutBehavior.numberRowInSymbols,
+            numberRowOnKeypad =
+                p[NUMBER_ROW_ON_KEYPAD] ?: defaults.layoutBehavior.numberRowOnKeypad,
             arrowRow = p[ARROW_ROW] ?: defaults.layoutBehavior.arrowRow,
             arrowRowOrder = p[ARROW_ROW_ORDER]?.let(::decodeArrowRowOrder)
                 ?: defaults.layoutBehavior.arrowRowOrder,
@@ -9957,6 +10695,9 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.toolbarBehavior.placement,
             showStrip = p[TOOLBAR_SHOW_STRIP] ?: defaults.toolbarBehavior.showStrip,
             holdActions = ToolHoldActions.decode(p[TOOLBAR_HOLD_ACTIONS]),
+            stripShortcut = p[TOOLBAR_STRIP_SHORTCUT]
+                ?.let { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
+                ?: defaults.toolbarBehavior.stripShortcut,
         )
 
     private fun readEmoji(p: Preferences, defaults: KeyboardSettings) =
@@ -9968,6 +10709,7 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.emoji.toneOverrideByLastUsed,
             closeAfterInsert = p[EMOJI_CLOSE_AFTER_INSERT] ?: defaults.emoji.closeAfterInsert,
             hideUnrenderable = p[EMOJI_HIDE_UNRENDERABLE] ?: defaults.emoji.hideUnrenderable,
+            unicodeSearch = p[EMOJI_UNICODE_SEARCH] ?: defaults.emoji.unicodeSearch,
             barScrollable = p[EMOJI_BAR_SCROLLABLE] ?: defaults.emoji.barScrollable,
             barCount = p[EMOJI_BAR_COUNT]?.coerceIn(EmojiBarCountRange)
                 ?: defaults.emoji.barCount,
@@ -10002,6 +10744,9 @@ class SettingsRepository(private val context: Context) {
                 ?.let { runCatching { MediaSwitcher.valueOf(it) }.getOrNull() }
                 ?: defaults.emoji.mediaSwitcher,
             rememberMediaTab = p[EMOJI_REMEMBER_MEDIA_TAB] ?: defaults.emoji.rememberMediaTab,
+            continuousScroll = p[EMOJI_CONTINUOUS_SCROLL] ?: defaults.emoji.continuousScroll,
+            panelExtraHeightDp = p[EMOJI_PANEL_EXTRA_HEIGHT_DP]?.coerceIn(MediaPanelExtraHeightRange)
+                ?: defaults.emoji.panelExtraHeightDp,
         )
 
     private fun readToolbox(p: Preferences, defaults: KeyboardSettings) =
@@ -10067,7 +10812,10 @@ class SettingsRepository(private val context: Context) {
             yBias = p[VOICE_BAR_Y_BIAS] ?: defaults.voiceBar.yBias,
             dockBias = p[VOICE_BAR_DOCK_BIAS] ?: defaults.voiceBar.dockBias,
             holdToTalkMs = p[VOICE_HOLD_TO_TALK_MS] ?: defaults.voiceBar.holdToTalkMs,
+            silenceStopMs = p[VOICE_SILENCE_STOP_MS] ?: defaults.voiceBar.silenceStopMs,
             holdPicksTypingMode = p[VOICE_HOLD_PICKS_MODE] ?: defaults.voiceBar.holdPicksTypingMode,
+            pauseMedia = p[VOICE_PAUSE_MEDIA] ?: defaults.voiceBar.pauseMedia,
+            aiTidy = p[VOICE_AI_TIDY] ?: defaults.voiceBar.aiTidy,
             returnMode = p[VOICE_UI_RETURN_MODE] ?: defaults.voiceBar.returnMode,
             inline = p[VOICE_BAR_INLINE] ?: defaults.voiceBar.inline,
         )
@@ -10090,7 +10838,11 @@ class SettingsRepository(private val context: Context) {
             biasPersonalWords = p[VOICE_BIAS_PERSONAL_WORDS] ?: defaults.whisper.biasPersonalWords,
             biasWords = p[VOICE_BIAS_WORDS] ?: defaults.whisper.biasWords,
             serverPrompt = p[VOICE_SERVER_PROMPT] ?: defaults.whisper.serverPrompt,
+            languages = p[VOICE_LANGUAGES]?.let(::decodeVoiceLanguages) ?: defaults.whisper.languages,
         )
+
+    private fun decodeVoiceLanguages(raw: String): List<String> =
+        raw.split(',').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
 
     private fun readCamera(p: Preferences, defaults: KeyboardSettings) =
         CameraSettings(
@@ -10126,6 +10878,9 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.scanner.ocrAutoSelectWords,
             ocrEngine = p[OCR_ENGINE]?.let { runCatching { OcrEngine.valueOf(it) }.getOrNull() }
                 ?: defaults.scanner.ocrEngine,
+            ocrOnlineUrl = p[OCR_ONLINE_URL] ?: defaults.scanner.ocrOnlineUrl,
+            ocrOnlineModel = p[OCR_ONLINE_MODEL] ?: defaults.scanner.ocrOnlineModel,
+            ocrOnlineKey = p[OCR_ONLINE_KEY] ?: defaults.scanner.ocrOnlineKey,
             qrScanHaptics = p[QR_SCAN_HAPTICS] ?: defaults.scanner.qrScanHaptics,
             qrScanAutoInsert = p[QR_SCAN_AUTO_INSERT] ?: defaults.scanner.qrScanAutoInsert,
             qrScanLinkPreviews = p[QR_SCAN_LINK_PREVIEWS]
@@ -10188,6 +10943,10 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.textEditing.spaceCursorMagnifier,
             spaceCursorAccelerate = p[SPACE_CURSOR_ACCELERATE]
                 ?: defaults.textEditing.spaceCursorAccelerate,
+            spaceCursorDirect = p[SPACE_CURSOR_DIRECT] ?: defaults.textEditing.spaceCursorDirect,
+            spaceCursorEdgeRepeat = p[SPACE_CURSOR_EDGE_REPEAT] ?: defaults.textEditing.spaceCursorEdgeRepeat,
+            spaceCursorWholeKeyboard = p[SPACE_CURSOR_WHOLE_KEYBOARD]
+                ?: defaults.textEditing.spaceCursorWholeKeyboard,
             spaceCursorTopSpeed = p[SPACE_CURSOR_TOP_SPEED]
                 ?: defaults.textEditing.spaceCursorTopSpeed,
             backspaceWordStepDp = p[BACKSPACE_WORD_STEP_DP]
@@ -10330,6 +11089,9 @@ class SettingsRepository(private val context: Context) {
             tavilyApiKey = p[TAVILY_API_KEY] ?: defaults.webSearch.tavilyApiKey,
             safe = p[SEARCH_SAFE] ?: defaults.webSearch.safe,
             resultCount = p[SEARCH_RESULT_COUNT] ?: defaults.webSearch.resultCount,
+            showAnswer = p[SEARCH_SHOW_ANSWER] ?: defaults.webSearch.showAnswer,
+            openInBrowser = p[SEARCH_OPEN_IN_BROWSER] ?: defaults.webSearch.openInBrowser,
+            tavilyAdvanced = p[SEARCH_TAVILY_ADVANCED] ?: defaults.webSearch.tavilyAdvanced,
             wikiLanguage = p[WIKI_LANGUAGE] ?: defaults.webSearch.wikiLanguage,
             wikiLinksMarkdown = p[WIKI_LINKS_MARKDOWN]
                 ?: defaults.webSearch.wikiLinksMarkdown,
@@ -10375,6 +11137,8 @@ class SettingsRepository(private val context: Context) {
             timeZones = p[SELECTION_MACROS_TIME_ZONES]?.let(AiActionCodec::decodeIds)
                 ?: defaults.selectionMacros.timeZones,
             detectEntities = p[SELECTION_MACROS_DETECT] ?: defaults.selectionMacros.detectEntities,
+            inEverySelection = p[SELECTION_MACROS_EVERY_SELECTION]
+                ?: defaults.selectionMacros.inEverySelection,
         )
 
     private fun readPasswordGenerator(p: Preferences, defaults: KeyboardSettings) =
@@ -10459,6 +11223,7 @@ class SettingsRepository(private val context: Context) {
             panelModelPicker = p[AI_PANEL_MODEL_PICKER] ?: defaults.ai.panelModelPicker,
             diffView = p[AI_DIFF_VIEW] ?: defaults.ai.diffView,
             diffOpensFirst = p[AI_DIFF_OPENS_FIRST] ?: defaults.ai.diffOpensFirst,
+            autoReplace = p[AI_AUTO_REPLACE] ?: defaults.ai.autoReplace,
             historyEnabled = p[AI_HISTORY_ENABLED] ?: defaults.ai.historyEnabled,
             historyMax = p[AI_HISTORY_MAX] ?: defaults.ai.historyMax,
             keepChats = p[AI_KEEP_CHATS] ?: defaults.ai.keepChats,
@@ -10466,6 +11231,9 @@ class SettingsRepository(private val context: Context) {
             panelChat = p[AI_PANEL_CHAT] ?: defaults.ai.panelChat,
             beforeCursorChars = p[AI_BEFORE_CURSOR_CHARS]
                 ?: defaults.ai.beforeCursorChars,
+            toolWebSearch = p[AI_TOOL_WEB_SEARCH] ?: defaults.ai.toolWebSearch,
+            toolWebFetch = p[AI_TOOL_WEB_FETCH] ?: defaults.ai.toolWebFetch,
+            toolMaxRounds = p[AI_TOOL_MAX_ROUNDS] ?: defaults.ai.toolMaxRounds,
         )
 
     private fun readLauncher(p: Preferences, defaults: KeyboardSettings) =
@@ -10927,6 +11695,39 @@ class SettingsRepository(private val context: Context) {
     suspend fun setKeySoundPlayRelease(value: Boolean) =
         editPrefs { it[KEY_SOUND_RELEASE] = value }
 
+    /**
+     * Points one layout at its own sound pack, or clears the override with a
+     * blank [packId] so the layout follows the global pick again.
+     *
+     * Switches the style to [KeySoundStyle.PACK] for the same reason
+     * [setKeySoundPackId] does: choosing a pack is the user saying they want to
+     * hear one, and leaving the style on Click would have them wonder why
+     * nothing changed. Clearing an override does not, since it selects nothing.
+     */
+    suspend fun setKeySoundPackForLayout(layoutId: String, packId: String) {
+        if (layoutId.isBlank()) return
+        editPrefs { prefs ->
+            val current = prefs[KEY_SOUND_PACK_BY_LAYOUT]
+                ?.let { decodeKeySoundPacksByLayout(it) }
+                .orEmpty()
+            val updated = if (packId.isBlank()) {
+                current - layoutId
+            } else {
+                current + (layoutId to packId)
+            }
+            if (updated.isEmpty()) {
+                prefs.remove(KEY_SOUND_PACK_BY_LAYOUT)
+            } else {
+                prefs[KEY_SOUND_PACK_BY_LAYOUT] = encodeKeySoundPacksByLayout(updated)
+            }
+            if (packId.isNotBlank()) prefs[KEY_SOUND_STYLE] = KeySoundStyle.PACK.name
+        }
+    }
+
+    /** Drops every per-layout sound-pack override; the whole board follows [KeySoundSettings.packId]. */
+    suspend fun clearKeySoundPacksByLayout() =
+        editPrefs { it.remove(KEY_SOUND_PACK_BY_LAYOUT) }
+
     suspend fun setLevelShowAngles(value: Boolean) =
         editPrefs { it[LEVEL_SHOW_ANGLES] = value }
 
@@ -11035,6 +11836,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setHandwritingAutoSpace(value: Boolean) =
         editPrefs { it[HANDWRITING_AUTO_SPACE] = value }
 
+    suspend fun setHandwritingFullScreenMode(value: HandwritingFullScreenMode) =
+        editPrefs { it[HANDWRITING_FULL_SCREEN_MODE] = value.name }
+
     suspend fun setVoiceUiMode(value: String) =
         editPrefs {
             it[VOICE_UI_MODE] = value
@@ -11048,6 +11852,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setVoiceHoldPicksTypingMode(value: Boolean) =
         editPrefs { it[VOICE_HOLD_PICKS_MODE] = value }
+
+    suspend fun setVoicePauseMedia(value: Boolean) =
+        editPrefs { it[VOICE_PAUSE_MEDIA] = value }
+
+    suspend fun setVoiceAiTidy(value: Boolean) =
+        editPrefs { it[VOICE_AI_TIDY] = value }
 
     suspend fun setVoiceBarActive(value: Boolean) =
         editPrefs { it[VOICE_BAR_ACTIVE] = value }
@@ -11158,6 +11968,10 @@ class SettingsRepository(private val context: Context) {
     suspend fun setVoiceServerPrompt(value: String) =
         editPrefs { it[VOICE_SERVER_PROMPT] = value }
 
+    /** [ids] in the order picked; an empty list goes back to following the keyboard (#416). */
+    suspend fun setVoiceLanguages(ids: List<String>) =
+        editPrefs { it[VOICE_LANGUAGES] = ids.distinct().joinToString(",") }
+
     suspend fun setCameraPreferFront(value: Boolean) =
         editPrefs { it[CAMERA_PREFER_FRONT] = value }
 
@@ -11241,6 +12055,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSpaceCursorAccelerate(value: Boolean) =
         editPrefs { it[SPACE_CURSOR_ACCELERATE] = value }
+
+    suspend fun setSpaceCursorDirect(value: Boolean) =
+        editPrefs { it[SPACE_CURSOR_DIRECT] = value }
+
+    suspend fun setSpaceCursorEdgeRepeat(value: Boolean) =
+        editPrefs { it[SPACE_CURSOR_EDGE_REPEAT] = value }
+
+    suspend fun setSpaceCursorWholeKeyboard(value: Boolean) =
+        editPrefs { it[SPACE_CURSOR_WHOLE_KEYBOARD] = value }
 
     suspend fun setSpaceCursorTopSpeed(value: Int) =
         editPrefs { it[SPACE_CURSOR_TOP_SPEED] = value.coerceIn(2, 8) }
@@ -11355,6 +12178,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setOcrEngine(value: OcrEngine) =
         editPrefs { it[OCR_ENGINE] = value.name }
+
+    suspend fun setOcrOnlineUrl(value: String) =
+        editPrefs { it[OCR_ONLINE_URL] = value.trim() }
+
+    suspend fun setOcrOnlineModel(value: String) =
+        editPrefs { it[OCR_ONLINE_MODEL] = value.trim() }
+
+    suspend fun setOcrOnlineKey(value: String) =
+        editPrefs { it[OCR_ONLINE_KEY] = value.trim() }
 
     suspend fun setQrScanHaptics(value: Boolean) =
         editPrefs { it[QR_SCAN_HAPTICS] = value }
@@ -11487,6 +12319,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAdaptToTaps(value: Boolean) =
         editPrefs { it[ADAPT_TO_TAPS] = value }
 
+    suspend fun setMistypeTolerance(value: Int) =
+        editPrefs { it[MISTYPE_TOLERANCE] = value.coerceIn(50, 200) }
+
+    suspend fun setSuggestionsSwipeForMore(value: Boolean) =
+        editPrefs { it[SUGGESTIONS_SWIPE_FOR_MORE] = value }
+
     /**
      * The Learned-corrections screen changed the learned corrections or the
      * tap model on disk: tell a running keyboard to drop its copy — without
@@ -11572,6 +12410,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setToolbarShowStrip(value: Boolean) =
         editPrefs { it[TOOLBAR_SHOW_STRIP] = value }
+
+    suspend fun setStripShortcut(value: ToolbarTool) =
+        editPrefs { it[TOOLBAR_STRIP_SHORTCUT] = value.name }
 
     /**
      * Sets or clears one tool's press-and-hold action. Null puts that tool back
@@ -12332,7 +13173,7 @@ class SettingsRepository(private val context: Context) {
         when (kind) {
             PanelKind.TEXT_EDIT -> prefs.remove(TEXT_EDIT_LAYOUT)
             PanelKind.CLIPBOARD -> prefs.remove(CLIPBOARD_BOTTOM_ROW)
-            PanelKind.EMOJI, PanelKind.TRACKPAD, PanelKind.NUMPAD -> Unit
+            PanelKind.EMOJI, PanelKind.GIF, PanelKind.STICKER, PanelKind.TRACKPAD, PanelKind.NUMPAD -> Unit
         }
     }
 
@@ -12618,6 +13459,8 @@ class SettingsRepository(private val context: Context) {
             alternatesColumns = p[ALTERNATES_COLUMNS] ?: defaults.popup.alternatesColumns,
             alternatesNearestFirst = p[ALTERNATES_NEAREST_FIRST]
                 ?: defaults.popup.alternatesNearestFirst,
+            alternatesOrder = p[ALTERNATES_ORDER]?.let(::decodeAlternatesOrder)
+                ?: defaults.popup.alternatesOrder,
             alternatesHoldToSelect = p[ALTERNATES_HOLD_TO_SELECT]
                 ?: defaults.popup.alternatesHoldToSelect,
         )
@@ -13619,6 +14462,14 @@ class SettingsRepository(private val context: Context) {
     suspend fun setEmojiRememberMediaTab(value: Boolean) =
         editPrefs { it[EMOJI_REMEMBER_MEDIA_TAB] = value }
 
+    /** See [EmojiSettings.continuousScroll]. */
+    suspend fun setEmojiContinuousScroll(value: Boolean) =
+        editPrefs { it[EMOJI_CONTINUOUS_SCROLL] = value }
+
+    /** See [EmojiSettings.panelExtraHeightDp]. */
+    suspend fun setMediaPanelExtraHeightDp(value: Int) =
+        editPrefs { it[EMOJI_PANEL_EXTRA_HEIGHT_DP] = value.coerceIn(MediaPanelExtraHeightRange) }
+
     /**
      * Rewrites the category tab order; see [EmojiSettings.categoryOrder]. The
      * ids are stored as given, including categories this build's catalog does
@@ -13810,6 +14661,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setHapticOnLongPressRelease(value: Boolean) =
         editPrefs { it[HAPTIC_ON_LONG_PRESS_RELEASE] = value }
 
+    suspend fun setHapticOnCursorMove(value: Boolean) =
+        editPrefs { it[HAPTIC_ON_CURSOR_MOVE] = value }
+
     suspend fun setVibrateOnSpace(value: Boolean) =
         editPrefs { it[FEEDBACK_VIBRATE_SPACE] = value }
 
@@ -13878,6 +14732,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAlternatesNearestFirst(value: Boolean) =
         editPrefs { it[ALTERNATES_NEAREST_FIRST] = value }
+
+    suspend fun setAlternatesOrder(value: List<AlternateGroup>) =
+        editPrefs { it[ALTERNATES_ORDER] = encodeAlternatesOrder(value) }
 
     suspend fun setAlternatesHoldToSelect(value: Boolean) =
         editPrefs { it[ALTERNATES_HOLD_TO_SELECT] = value }
@@ -13956,6 +14813,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutocorrectOnEnter(value: Boolean) =
         editPrefs { it[AUTOCORRECT_ON_ENTER] = value }
 
+    suspend fun setAutocorrectOnPunctuation(value: Boolean) =
+        editPrefs { it[AUTOCORRECT_ON_PUNCTUATION] = value }
+
+    suspend fun setDictionaryCapitals(value: Boolean) =
+        editPrefs { it[DICTIONARY_CAPITALS] = value }
+
     suspend fun setAutoCapitalize(value: Boolean) =
         editPrefs { it[AUTO_CAPITALIZE] = value }
 
@@ -14028,6 +14891,13 @@ class SettingsRepository(private val context: Context) {
             it[PHONETIC_ENGLISH_LANGS] = if (enabled) on + langId else on - langId
         }
 
+    /** Takes [langId] out of the language switcher, or puts it back (#473). */
+    suspend fun setLanguageHiddenFromPicker(langId: String, hidden: Boolean) =
+        editPrefs {
+            val current = it[PICKER_HIDDEN_LANGUAGES].orEmpty()
+            it[PICKER_HIDDEN_LANGUAGES] = if (hidden) current + langId else current - langId
+        }
+
     suspend fun setPhoneticEnglishSwitch(value: Boolean) =
         editPrefs { it[PHONETIC_ENGLISH_SWITCH] = value }
 
@@ -14063,6 +14933,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAutoSpaceAfterSuggestion(value: Boolean) =
         editPrefs { it[AUTO_SPACE_AFTER_SUGGESTION] = value }
+    suspend fun setPhoneticCandidateList(langId: String, where: PhoneticCandidateList) =
+        editPrefs {
+            val others = it[PHONETIC_CANDIDATE_LISTS].orEmpty().filterNot { e -> e.substringBefore('=') == langId }
+            it[PHONETIC_CANDIDATE_LISTS] = others.toSet() + "$langId=${where.name}"
+        }
+
 
     suspend fun setExpandUserDictShortcuts(value: Boolean) =
         editPrefs { it[EXPAND_USER_DICT_SHORTCUTS] = value }
@@ -14072,6 +14948,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSnippetMultiExpand(value: MultiExpandMode) =
         editPrefs { it[SNIPPET_MULTI_EXPAND] = value.name }
+
+    suspend fun setSnippetGridColumns(value: Int) =
+        editPrefs { it[SNIPPET_GRID_COLUMNS] = value.coerceIn(1, 4) }
+
+    suspend fun setSnippetsInSecureFields(value: Boolean) =
+        editPrefs { it[SNIPPETS_IN_SECURE_FIELDS] = value }
 
     suspend fun setSystemSmartReplies(value: Boolean) =
         editPrefs { it[SYSTEM_SMART_REPLIES] = value }
@@ -14084,6 +14966,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setNumberRowInSymbols(value: Boolean) =
         editPrefs { it[NUMBER_ROW_IN_SYMBOLS] = value }
+
+    suspend fun setNumberRowOnKeypad(value: Boolean) =
+        editPrefs { it[NUMBER_ROW_ON_KEYPAD] = value }
 
     suspend fun setArrowRow(value: Boolean) =
         editPrefs { it[ARROW_ROW] = value }
@@ -14207,6 +15092,12 @@ class SettingsRepository(private val context: Context) {
         it[VOICE_HOLD_TO_TALK_MS] = value.coerceIn(HoldToTalkRange.first, HoldToTalkRange.last)
     }
 
+    /** 0 turns the pause off; anything else is held to [VoiceSilenceStopRange]. */
+    suspend fun setVoiceSilenceStopMs(value: Int) = editPrefs {
+        it[VOICE_SILENCE_STOP_MS] =
+            if (value <= 0) 0 else value.coerceIn(VoiceSilenceStopRange.first, VoiceSilenceStopRange.last)
+    }
+
     suspend fun setAiKeepChats(value: Boolean) = editPrefs { it[AI_KEEP_CHATS] = value }
 
     suspend fun setAiChatEnterSends(value: Boolean) =
@@ -14216,6 +15107,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAiBeforeCursorChars(value: Int) =
         editPrefs { it[AI_BEFORE_CURSOR_CHARS] = value.coerceIn(500, 32_000) }
+
+    suspend fun setAiToolWebSearch(value: Boolean) =
+        editPrefs { it[AI_TOOL_WEB_SEARCH] = value }
+
+    suspend fun setAiToolWebFetch(value: Boolean) =
+        editPrefs { it[AI_TOOL_WEB_FETCH] = value }
+
+    suspend fun setAiToolMaxRounds(value: Int) =
+        editPrefs { it[AI_TOOL_MAX_ROUNDS] = value.coerceIn(AiToolRoundsRange) }
 
     suspend fun setShiftCapsLockMs(value: Int) =
         editPrefs { it[SHIFT_CAPS_LOCK_MS] = value.coerceIn(ShiftCapsLockMsRange.first, ShiftCapsLockMsRange.last) }
@@ -14294,6 +15194,16 @@ class SettingsRepository(private val context: Context) {
         }
 
     /**
+     * Let one phonetic language rank its readings by the words before them, or
+     * keep them context-free. Only the switched-off languages are stored.
+     */
+    suspend fun setPhoneticContextEnabled(langId: String, enabled: Boolean) =
+        editPrefs {
+            val off = it[PHONETIC_CONTEXT_OFF_LANGS].orEmpty()
+            it[PHONETIC_CONTEXT_OFF_LANGS] = if (enabled) off - langId else off + langId
+        }
+
+    /**
      * Turn the bundled and downloaded dictionaries on or off for one language,
      * leaving it to the user's imported lists. Only the switched-off languages
      * are stored, so a language nobody has touched keeps the shipped
@@ -14340,6 +15250,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setContactEmailSuggestionsInEmailFields(value: Boolean) =
         editPrefs { it[CONTACT_EMAIL_SUGGESTIONS_IN_EMAIL_FIELDS] = value }
+
+    suspend fun setTypedEmailSuggestions(value: Boolean) =
+        editPrefs { it[TYPED_EMAIL_SUGGESTIONS] = value }
+
+    suspend fun setTypedNumberSuggestions(value: Boolean) =
+        editPrefs { it[TYPED_NUMBER_SUGGESTIONS] = value }
 
     suspend fun setAppNameSuggestions(value: Boolean) =
         editPrefs { it[APP_NAME_SUGGESTIONS] = value }
@@ -14642,6 +15558,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSymbolsLongPressNumpad(value: Boolean) =
         editPrefs { it[SYMBOLS_LONGPRESS_NUMPAD] = value }
 
+    suspend fun setSymbolsNumpadKey(value: Boolean) =
+        editPrefs { it[SYMBOLS_NUMPAD_KEY] = value }
+
     suspend fun setEnterLongPressEmoji(value: Boolean) =
         editPrefs { it[ENTER_LONGPRESS_EMOJI] = value }
 
@@ -14650,6 +15569,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setEdgeSwipeBack(value: Boolean) =
         editPrefs { it[EDGE_SWIPE_BACK] = value }
+
+    suspend fun setExtendEdgeKeys(value: Boolean) =
+        editPrefs { it[EXTEND_EDGE_KEYS] = value }
 
     suspend fun setGlobeInOnePlace(value: Boolean) =
         editPrefs { it[GLOBE_IN_ONE_PLACE] = value }
@@ -14683,6 +15605,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setHintOffsetDp(value: Int) =
         editPrefs { it[HINT_OFFSET] = value.coerceIn(0, 16) }
+
+    suspend fun setFlickHints(value: Boolean) =
+        editPrefs { it[FLICK_HINTS] = value }
+
+    suspend fun setFlickPopup(value: Boolean) =
+        editPrefs { it[FLICK_POPUP] = value }
+
+    suspend fun setFlickDistanceDp(value: Int) =
+        editPrefs { it[FLICK_DISTANCE] = value.coerceIn(FlickDistanceRange) }
 
     suspend fun setTransliterationHints(value: TransliterationHintMode) =
         editPrefs { it[TRANSLITERATION_HINTS] = value.name }
@@ -14980,6 +15911,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setGlobeRecentOrder(value: Boolean) =
         editPrefs { it[GLOBE_RECENT_ORDER] = value }
 
+    suspend fun setCarryWordOnLanguageSwitch(value: Boolean) =
+        editPrefs { it[CARRY_WORD_ON_LANGUAGE_SWITCH] = value }
+
     suspend fun setOsLanguageSwitcher(value: Boolean) =
         editPrefs { it[OS_LANGUAGE_SWITCHER] = value }
 
@@ -15032,6 +15966,10 @@ class SettingsRepository(private val context: Context) {
     /** See [AppUiSettings.screenTransitions]. */
     suspend fun setSettingsScreenTransitions(value: Boolean) =
         editPrefs { it[SETTINGS_SCREEN_TRANSITIONS] = value }
+
+    /** See [AppUiSettings.keyboardPreviewButton]. */
+    suspend fun setKeyboardPreviewButton(value: Boolean) =
+        editPrefs { it[SETTINGS_KEYBOARD_PREVIEW_BUTTON] = value }
 
     suspend fun setWeatherRefreshMinutes(value: Int) =
         editPrefs { it[WEATHER_REFRESH_MINUTES] = value.coerceIn(1, 180) }
@@ -15108,6 +16046,12 @@ class SettingsRepository(private val context: Context) {
     suspend fun setPinyinFuzzy(value: Boolean) =
         editPrefs { it[PINYIN_FUZZY] = value }
 
+    suspend fun setVietnameseStrictTones(value: Boolean) =
+        editPrefs { it[VI_STRICT_TONES] = value }
+
+    suspend fun setVietnameseRestoreMarks(value: Boolean) =
+        editPrefs { it[VI_RESTORE_MARKS] = value }
+
     suspend fun setPinyinFuzzyPair(id: String, on: Boolean) = editPrefs { p ->
         val current = p[PINYIN_FUZZY_PAIRS] ?: PinyinFuzzy.ALL_PAIRS
         p[PINYIN_FUZZY_PAIRS] = if (on) current + id else current - id
@@ -15118,6 +16062,16 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPinyinDoublePinyin(value: DoublePinyinScheme) =
         editPrefs { it[PINYIN_DOUBLE_PINYIN] = value.name }
+
+    /**
+     * Saves the custom Double Pinyin scheme's text, and with [select] also
+     * switches to it, in the one write so the keyboard never sees the scheme
+     * chosen with its old text.
+     */
+    suspend fun setPinyinDoublePinyinCustom(text: String, select: Boolean = false) = editPrefs {
+        it[PINYIN_DOUBLE_PINYIN_CUSTOM] = text
+        if (select) it[PINYIN_DOUBLE_PINYIN] = DoublePinyinScheme.CUSTOM.name
+    }
 
     suspend fun setCjkTraditionalOutput(value: Boolean) =
         editPrefs { it[CJK_TRADITIONAL_OUTPUT] = value }
@@ -15153,6 +16107,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setOneHandedSide(landscape: Boolean, value: OneHandedSide) =
         editPrefs { it[oneHandedSideKey(landscape)] = value.name }
+
+    suspend fun setOneHandedPortraitOnly(value: Boolean) =
+        editPrefs { it[ONE_HANDED_PORTRAIT_ONLY] = value }
 
     /**
      * Reads one orientation's one-handed profile. A missing dock side falls
@@ -15236,6 +16193,18 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSuggestionScrollable(value: Boolean) =
         editPrefs { it[SUGGESTION_SCROLLABLE] = value }
 
+    suspend fun setSuggestionEmojiTakesSlot(value: Boolean) =
+        editPrefs { it[SUGGESTION_EMOJI_TAKES_SLOT] = value }
+
+    suspend fun setSuggestionFixedSlots(value: Boolean) =
+        editPrefs { it[SUGGESTION_FIXED_SLOTS] = value }
+
+    suspend fun setSuggestionEmojiCount(value: Int) =
+        editPrefs { it[SUGGESTION_EMOJI_COUNT] = value.coerceIn(1, 4) }
+
+    suspend fun setSuggestionTintedSlots(value: Boolean) =
+        editPrefs { it[SUGGESTION_TINTED_SLOTS] = value }
+
     /** Null clears the key, so the strip follows the theme again (#90). */
     suspend fun setSuggestionPrimaryColor(value: Long?) =
         editPrefs {
@@ -15252,6 +16221,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setClipboardSearch(value: Boolean) =
         editPrefs { it[CLIPBOARD_SEARCH] = value }
 
+    suspend fun setClipboardSearchRegex(value: Boolean) =
+        editPrefs { it[CLIPBOARD_SEARCH_REGEX] = value }
+
     suspend fun setClipboardUserScreenshots(value: Boolean) =
         editPrefs { it[CLIPBOARD_USER_SCREENSHOTS] = value }
 
@@ -15260,6 +16232,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardDetectEntities(value: Boolean) =
         editPrefs { it[CLIPBOARD_DETECT_ENTITIES] = value }
+
+    suspend fun setClipboardEntityIcons(value: Boolean) =
+        editPrefs { it[CLIPBOARD_ENTITY_ICONS] = value }
+
+    suspend fun setClipboardEntityToClipboard(value: Boolean) =
+        editPrefs { it[CLIPBOARD_ENTITY_TO_CLIPBOARD] = value }
 
     /**
      * Adds a phone-number mask. Invalid masks are dropped here rather than at
@@ -15323,6 +16301,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardCardButtons(value: Boolean) =
         editPrefs { it[CLIPBOARD_CARD_BUTTONS] = value }
+
+    suspend fun setClipboardTypeOutPastes(value: Boolean) =
+        editPrefs { it[CLIPBOARD_TYPE_OUT_PASTES] = value }
+
+    suspend fun setClipboardTypeTags(value: Boolean) =
+        editPrefs { it[CLIPBOARD_TYPE_TAGS] = value }
+
+    suspend fun setClipboardKeepRichText(value: Boolean) =
+        editPrefs { it[CLIPBOARD_KEEP_RICH_TEXT] = value }
+
+    suspend fun setClipboardSwipeRightPins(value: Boolean) =
+        editPrefs { it[CLIPBOARD_SWIPE_RIGHT_PINS] = value }
+
+    suspend fun setClipboardRecentChips(value: Int) =
+        editPrefs { it[CLIPBOARD_RECENT_CHIPS] = value.coerceIn(1, ClipRecentChipsMax) }
 
     suspend fun setClipboardPanelExtraHeightDp(value: Int) =
         editPrefs { it[CLIPBOARD_PANEL_EXTRA_HEIGHT_DP] = value.coerceIn(ClipPanelExtraHeightRange) }
@@ -15783,6 +16776,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setHideUnrenderableEmoji(value: Boolean) =
         editPrefs { it[EMOJI_HIDE_UNRENDERABLE] = value }
 
+    suspend fun setEmojiUnicodeSearch(value: Boolean) =
+        editPrefs { it[EMOJI_UNICODE_SEARCH] = value }
+
     suspend fun setEmojiKaomojiTabs(value: Boolean) =
         editPrefs { it[EMOJI_KAOMOJI_TABS] = value }
 
@@ -15890,7 +16886,16 @@ class SettingsRepository(private val context: Context) {
         editPrefs { it[GIF_RESULT_LIMIT] = value.coerceIn(6, 48) }
 
     suspend fun setSearchResultCount(value: Int) =
-        editPrefs { it[SEARCH_RESULT_COUNT] = value.coerceIn(1, 10) }
+        editPrefs { it[SEARCH_RESULT_COUNT] = value.coerceIn(1, MAX_SEARCH_RESULTS) }
+
+    suspend fun setSearchShowAnswer(value: Boolean) =
+        editPrefs { it[SEARCH_SHOW_ANSWER] = value }
+
+    suspend fun setSearchOpenInBrowser(value: Boolean) =
+        editPrefs { it[SEARCH_OPEN_IN_BROWSER] = value }
+
+    suspend fun setSearchTavilyAdvanced(value: Boolean) =
+        editPrefs { it[SEARCH_TAVILY_ADVANCED] = value }
 
     suspend fun setWikiLanguage(value: String) =
         editPrefs { it[WIKI_LANGUAGE] = value.trim().lowercase() }
@@ -16185,6 +17190,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSelectionMacroDetectEntities(value: Boolean) =
         editPrefs { it[SELECTION_MACROS_DETECT] = value }
+
+    suspend fun setSelectionMacrosInEverySelection(value: Boolean) =
+        editPrefs { it[SELECTION_MACROS_EVERY_SELECTION] = value }
 
     /**
      * Stamps the current list version, writing the shipped lists first when
