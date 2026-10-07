@@ -195,6 +195,19 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun telexEnglishWordsWithWNotCorrupted() {
+        val c = VietnameseTelexComposer
+        assertEquals("Theotown", c.composeBuffer("Theotown"))
+        assertEquals("theotown", c.composeBuffer("theotown"))
+        assertEquals("Tinder", c.composeBuffer("Tinder"))
+        assertEquals("network", c.composeBuffer("network"))
+        assertEquals("new", c.composeBuffer("new"))
+        assertEquals("view", c.composeBuffer("view"))
+        assertEquals("few", c.composeBuffer("few"))
+        assertEquals("crew", c.composeBuffer("crew"))
+    }
+
+    @Test
     fun telexMarkKeyReachesALetterThatIsNotAdjacent() {
         val c = VietnameseTelexComposer
         // A Telex mark key names the letter it is spelled with, not the letter

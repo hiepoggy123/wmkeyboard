@@ -506,6 +506,20 @@ internal object VietnameseEngine {
             return count > 0 && last - first + 1 == count
         }
 
+        fun hasBrokenVowelCluster(): Boolean {
+            var first = -1
+            var last = -1
+            var count = 0
+            for (i in letters.indices) {
+                if (isVowel(letters[i].base)) {
+                    if (first < 0) first = i
+                    last = i
+                    count++
+                }
+            }
+            return count > 0 && last - first + 1 != count
+        }
+
         /**
          * Whether a tone key may mark the letters so far: the vowel-run rule the
          * keyboard has always had, and — with [VietnameseConfig.strictTones] on
@@ -685,88 +699,94 @@ internal object VietnameseEngine {
                     // layout: row, draw, show and flow are all a marked vowel
                     // plus a w that has nowhere else to go. Undoing the mark
                     // without typing the w left `ro` for `roww`.
-                    val uIdx = letters.indexOfLast { it.base == 'u' }
-                    val oIdx = letters.indexOfLast { it.base == 'o' }
-                    if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1) {
-                        // A `u` that is a `qu` glide ([isQuGlide]) is not a
-                        // letter of the pair's nucleus, so the pair has no `ươ`
-                        // in it to spell and the open reading holds whatever the
-                        // coda. A `u` already carrying a horn is a pair the user
-                        // spelled himself and is not this case at all: the
-                        // branches below ask for a bare `u` and send `quwow` to
-                        // the last one, which horns both.
-                        val glide = isQuGlide(letters, uIdx)
-                        if (letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN) {
-                            letters[uIdx].mark = VMark.NONE
-                            letters[oIdx].mark = VMark.NONE
-                            letters.add(VLetter('w', VMark.NONE, upper))
-                        } else if (letters[oIdx].mark == VMark.HORN) {
-                            // The pair's first w horned the `o` alone, there
-                            // being no coda in sight then; this one follows
-                            // through on the `u`. The glide takes no horn, so
-                            // there the first w simply comes back off: `quoww`
-                            // is `quow`.
-                            if (glide) {
+                    if (hasBrokenVowelCluster()) {
+                        letters.add(VLetter('w', VMark.NONE, upper))
+                    } else {
+                        val uIdx = letters.indexOfLast { it.base == 'u' }
+                        val oIdx = letters.indexOfLast { it.base == 'o' }
+                        if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1) {
+                            // A `u` that is a `qu` glide ([isQuGlide]) is not a
+                            // letter of the pair's nucleus, so the pair has no `ươ`
+                            // in it to spell and the open reading holds whatever the
+                            // coda. A `u` already carrying a horn is a pair the user
+                            // spelled himself and is not this case at all: the
+                            // branches below ask for a bare `u` and send `quwow` to
+                            // the last one, which horns both.
+                            val glide = isQuGlide(letters, uIdx)
+                            if (letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN) {
+                                letters[uIdx].mark = VMark.NONE
                                 letters[oIdx].mark = VMark.NONE
                                 letters.add(VLetter('w', VMark.NONE, upper))
-                            } else {
-                                letters[uIdx].mark = VMark.HORN
-                            }
-                        } else if (letters[uIdx].mark == VMark.NONE &&
-                            (glide || !codaFollows(letters, oIdx, raw, index))
-                        ) {
-                            // Nothing says `ươ` yet: the coda that would, is
-                            // not there and is not coming, and the `u` was not
-                            // horned by a key of its own. The open `uơ` is what
-                            // the keys spell — and the glide is always this
-                            // case, a coda or not.
-                            letters[oIdx].mark = VMark.HORN
-                        } else {
-                            letters[uIdx].mark = VMark.HORN
-                            letters[oIdx].mark = VMark.HORN
-                        }
-                    } else {
-                        // Check if repeating 'w' on an already marked horn/breve vowel:
-                        val marked = letters.indexOfLast {
-                            (it.base == 'a' && it.mark == VMark.BREVE) ||
-                            ((it.base == 'o' || it.base == 'u') && it.mark == VMark.HORN)
-                        }
-                        if (marked != -1) {
-                            // A ư the engine spelled from a bare w was never
-                            // typed, so its letter goes with the mark: `ww` is
-                            // w, not the `uw` a stranded u would leave. A mark
-                            // on a vowel the user typed keeps its letter, which
-                            // is what leaves `row` for `roww`.
-                            // A ư the engine spelled from a bare w stands for
-                            // that w, so the letter taking it back *is* that
-                            // letter and keeps its case: at the start of a
-                            // sentence `Ww` is `W`, not the lower-case `w` the
-                            // second key is drawn as — the keyboard capitalised
-                            // the first key and not the ones after it.
-                            val taken = letters[marked].synthesized
-                            val replacementUpper = if (taken) letters[marked].upper else upper
-                            if (taken) letters.removeAt(marked)
-                            else letters[marked].mark = VMark.NONE
-                            letters.add(VLetter('w', VMark.NONE, replacementUpper))
-                        } else {
-                            // Normal first press of 'w': apply horn to 'ou' or breve to 'a':
-                            val applied = applyMark(letters, "a", VMark.BREVE) ||
-                                applyMark(letters, "ou", VMark.HORN)
-                            // A bare w is ư, which is Telex as it is written —
-                            // but only the first of a run. The w after it takes
-                            // that ư back and types the letter (above), and every
-                            // w after *that* is the letter too: holding the key
-                            // types a run of `w`s, rather than ư returning on
-                            // every second press and leaving `wư`, `ww`, `wư`…
-                            if (!applied) {
-                                // A w after a w is that key's own letter, and
-                                // takes its own case: only the first key of a
-                                // sentence is capitalised, so `Www` is `Ww` —
-                                // the capital on the first `w` and nowhere else.
-                                if (letters.lastOrNull()?.base == 'w') {
+                            } else if (letters[oIdx].mark == VMark.HORN) {
+                                // The pair's first w horned the `o` alone, there
+                                // being no coda in sight then; this one follows
+                                // through on the `u`. The glide takes no horn, so
+                                // there the first w simply comes back off: `quoww`
+                                // is `quow`.
+                                if (glide) {
+                                    letters[oIdx].mark = VMark.NONE
                                     letters.add(VLetter('w', VMark.NONE, upper))
                                 } else {
-                                    letters.add(VLetter('u', VMark.HORN, upper, synthesized = true))
+                                    letters[uIdx].mark = VMark.HORN
+                                }
+                            } else if (letters[uIdx].mark == VMark.NONE &&
+                                (glide || !codaFollows(letters, oIdx, raw, index))
+                            ) {
+                                // Nothing says `ươ` yet: the coda that would, is
+                                // not there and is not coming, and the `u` was not
+                                // horned by a key of its own. The open `uơ` is what
+                                // the keys spell — and the glide is always this
+                                // case, a coda or not.
+                                letters[oIdx].mark = VMark.HORN
+                            } else {
+                                letters[uIdx].mark = VMark.HORN
+                                letters[oIdx].mark = VMark.HORN
+                            }
+                        } else {
+                            // Check if repeating 'w' on an already marked horn/breve vowel:
+                            val marked = letters.indexOfLast {
+                                (it.base == 'a' && it.mark == VMark.BREVE) ||
+                                ((it.base == 'o' || it.base == 'u') && it.mark == VMark.HORN)
+                            }
+                            if (marked != -1) {
+                                // A ư the engine spelled from a bare w was never
+                                // typed, so its letter goes with the mark: `ww` is
+                                // w, not the `uw` a stranded u would leave. A mark
+                                // on a vowel the user typed keeps its letter, which
+                                // is what leaves `row` for `roww`.
+                                // A ư the engine spelled from a bare w stands for
+                                // that w, so the letter taking it back *is* that
+                                // letter and keeps its case: at the start of a
+                                // sentence `Ww` is `W`, not the lower-case `w` the
+                                // second key is drawn as — the keyboard capitalised
+                                // the first key and not the ones after it.
+                                val taken = letters[marked].synthesized
+                                val replacementUpper = if (taken) letters[marked].upper else upper
+                                if (taken) letters.removeAt(marked)
+                                else letters[marked].mark = VMark.NONE
+                                letters.add(VLetter('w', VMark.NONE, replacementUpper))
+                            } else {
+                                // Normal first press of 'w': apply horn to 'ou' or breve to 'a':
+                                val applied = applyMark(letters, "a", VMark.BREVE) ||
+                                    applyMark(letters, "ou", VMark.HORN)
+                                // A bare w is ư, which is Telex as it is written —
+                                // but only the first of a run. The w after it takes
+                                // that ư back and types the letter (above), and every
+                                // w after *that* is the letter too: holding the key
+                                // types a run of `w`s, rather than ư returning on
+                                // every second press and leaving `wư`, `ww`, `wư`…
+                                if (!applied) {
+                                    // A w after a w is that key's own letter, and
+                                    // takes its own case: only the first key of a
+                                    // sentence is capitalised, so `Www` is `Ww` —
+                                    // the capital on the first `w` and nowhere else.
+                                    if (letters.lastOrNull()?.base == 'w') {
+                                        letters.add(VLetter('w', VMark.NONE, upper))
+                                    } else if (letters.any { isVowel(it.base) }) {
+                                        letters.add(VLetter('w', VMark.NONE, upper))
+                                    } else {
+                                        letters.add(VLetter('u', VMark.HORN, upper, synthesized = true))
+                                    }
                                 }
                             }
                         }

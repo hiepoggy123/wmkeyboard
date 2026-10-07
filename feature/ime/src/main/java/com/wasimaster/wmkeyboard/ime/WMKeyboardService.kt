@@ -13314,15 +13314,20 @@ open class WMKeyboardService : InputMethodService() {
                 if (!telexEngine.isReady) {
                     telexEngine.initialize(assets, filesDir)
                 }
+                val isTypedLearned = userLexicon.contains(typed.lowercase())
+                val isComposedLearned = userLexicon.contains(composed.lowercase())
+                val isComposedInDict = telexEngine.isWordInDictionary(composed)
+                val isComposedValid = isComposedInDict || isComposedLearned
+
                 val target = if (pre != null && pre.isTelex) {
                     pre.telexTop
                 } else if (
                     autocorrect && state.allowsTypingIntelligence &&
                     composed.length >= 3
                 ) {
-                    val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
-                    val isComposedValid = telexEngine.isWordInDictionary(composed) || isUserLearned
-                    if (isComposedValid) {
+                    if (isTypedLearned && !isComposedInDict) {
+                        typed
+                    } else if (isComposedValid) {
                         composed
                     } else {
                         val prev2 = recentWords.getOrNull(recentWords.size - 2)
@@ -13334,10 +13339,17 @@ open class WMKeyboardService : InputMethodService() {
                             userLexicon = userLexicon,
                             maxResults = 1
                         )
-                        candidates.firstOrNull()?.word ?: composed
+                        val top = candidates.firstOrNull()?.word
+                        if (top != null) {
+                            top
+                        } else if (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase())) {
+                            typed
+                        } else {
+                            composed
+                        }
                     }
                 } else {
-                    composed
+                    if (!isComposedValid && (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase()))) typed else composed
                 }
                 if (target != null && target != composed) {
                     corrected = target
@@ -17601,9 +17613,13 @@ open class WMKeyboardService : InputMethodService() {
                 if (!telexEngine.isReady) {
                     telexEngine.initialize(assets, filesDir)
                 }
-                val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
-                val isComposedValid = telexEngine.isWordInDictionary(composed) || isUserLearned
-                val target = if (isComposedValid) {
+                val isTypedLearned = userLexicon.contains(typed.lowercase())
+                val isComposedLearned = userLexicon.contains(composed.lowercase())
+                val isComposedInDict = telexEngine.isWordInDictionary(composed)
+                val isComposedValid = isComposedInDict || isComposedLearned
+                val target = if (isTypedLearned && !isComposedInDict) {
+                    typed
+                } else if (isComposedValid) {
                     composed
                 } else {
                     val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
@@ -17614,7 +17630,14 @@ open class WMKeyboardService : InputMethodService() {
                         userLexicon = userLexicon,
                         maxResults = 1
                     )
-                    candidates.firstOrNull()?.word ?: composed
+                    val top = candidates.firstOrNull()?.word
+                    if (top != null) {
+                        top
+                    } else if (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase())) {
+                        typed
+                    } else {
+                        composed
+                    }
                 }
 
                 if (pendingResolution !== pending) return@launch
@@ -17917,8 +17940,10 @@ open class WMKeyboardService : InputMethodService() {
                             )
                             val combinedDict = (dictSuggestions + telexCompletions).distinctBy { it.lowercase() }
 
-                            val isUserLearned = userLexicon.contains(composed.lowercase()) || userLexicon.contains(typed.lowercase())
-                            val isComposedValid = telexEngine.isWordInDictionary(composed) || isUserLearned
+                            val isTypedLearned = userLexicon.contains(typed.lowercase())
+                            val isComposedLearned = userLexicon.contains(composed.lowercase())
+                            val isComposedInDict = telexEngine.isWordInDictionary(composed)
+                            val isComposedValid = isComposedInDict || isComposedLearned
 
                             if (composed.equals(rejectedVietnameseWord, ignoreCase = true) || typed.length < 2) {
                                 (listOf(composed) + combinedDict.filterNot { it.equals(composed, ignoreCase = true) })
@@ -17949,8 +17974,16 @@ open class WMKeyboardService : InputMethodService() {
                                     })
                                     list
                                 } else {
-                                    val list = mutableListOf(composed)
-                                    list.addAll((combinedDict + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) })
+                                    val defaultWord = if (isTypedLearned && !isComposedInDict) {
+                                        typed
+                                    } else if (!isComposedValid && (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase()))) {
+                                        typed
+                                    } else {
+                                        composed
+                                    }
+                                    val list = mutableListOf(defaultWord)
+                                    if (defaultWord != composed) list.add(composed)
+                                    list.addAll((combinedDict + telexCandidates).filterNot { it.equals(defaultWord, ignoreCase = true) || it.equals(composed, ignoreCase = true) })
                                     list
                                 }
                                 baseList.distinctBy { it.lowercase() }

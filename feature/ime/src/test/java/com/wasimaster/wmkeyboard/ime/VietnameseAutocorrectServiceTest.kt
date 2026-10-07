@@ -238,4 +238,15 @@ class VietnameseAutocorrectServiceTest {
 
         assertEquals("tieng ngiêng ", editor.text.toString())
     }
+
+    @Test
+    fun `implausible or whitelisted english word commits typed letters`() {
+        val editor = RecordingEditor()
+        val service = keyboardOn(editor, withWords = false)
+
+        type(service, "Theotown")
+        space(service)
+
+        assertEquals("Theotown ", editor.text.toString())
+    }
 }

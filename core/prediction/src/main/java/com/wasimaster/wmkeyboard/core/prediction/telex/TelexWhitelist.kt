@@ -121,7 +121,7 @@ object TelexWhitelist {
         "tbh", "team", "teens", "temperature", "temporary", "tennessee", "term", "terms", "terrace",
         "terraform", "terrain", "terrible", "territories", "territory", "terror", "terrorism",
         "terrorist", "terrorists", "terry", "test", "tests", "thank", "thanks", "themes", "themselves",
-        "there", "these", "thickness", "thongs", "those", "thousands", "tier", "ties", "tiffany",
+        "theotown", "there", "these", "thickness", "thongs", "those", "thousands", "tier", "ties", "tiffany",
         "tiki", "tinder", "tire", "tires", "tissue", "tks", "tomorrow", "tons", "toolbox", "top",
         "topless", "tour", "tower", "town", "traffic", "transactions", "transferred", "transmission",
         "transsexual", "trees", "trend", "tries", "trip", "trips", "troops", "trust", "turn",
