@@ -782,8 +782,6 @@ internal object VietnameseEngine {
                                     // the capital on the first `w` and nowhere else.
                                     if (letters.lastOrNull()?.base == 'w') {
                                         letters.add(VLetter('w', VMark.NONE, upper))
-                                    } else if (letters.any { isVowel(it.base) }) {
-                                        letters.add(VLetter('w', VMark.NONE, upper))
                                     } else {
                                         letters.add(VLetter('u', VMark.HORN, upper, synthesized = true))
                                     }

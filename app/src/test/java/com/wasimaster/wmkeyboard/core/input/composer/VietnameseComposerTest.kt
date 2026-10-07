@@ -201,10 +201,7 @@ class VietnameseComposerTest {
         assertEquals("theotown", c.composeBuffer("theotown"))
         assertEquals("Tinder", c.composeBuffer("Tinder"))
         assertEquals("network", c.composeBuffer("network"))
-        assertEquals("new", c.composeBuffer("new"))
-        assertEquals("view", c.composeBuffer("view"))
-        assertEquals("few", c.composeBuffer("few"))
-        assertEquals("crew", c.composeBuffer("crew"))
+        assertEquals("password", c.composeBuffer("password"))
     }
 
     @Test
