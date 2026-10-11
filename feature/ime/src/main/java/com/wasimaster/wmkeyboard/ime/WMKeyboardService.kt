@@ -11862,12 +11862,15 @@ open class WMKeyboardService : InputMethodService() {
         // Unless the user asked Enter to leave the word alone (#457): a query
         // sent with Enter is sent before the correction can be read.
         recordStat { onSeparator(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
+        val batched = composing.isNotEmpty()
+        if (batched) ic.beginBatchEdit()
         commitComposing(
             ic,
             autocorrect = state.settings.correction.enabled && state.settings.correction.onEnter,
             fixApostrophes = state.settings.autoText.apostrophe,
             expandPatterns = true,
         ) || tryUncomposedTrigger(ic, state)
+        if (batched) ic.endBatchEdit()
         // The word is over, however this key ends up reaching the field. What
         // follows hands the field to the app, so the caret update that comes
         // back must not re-compose the word this just finished (#236).
@@ -11977,12 +11980,15 @@ open class WMKeyboardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         recordStat { onSeparator(System.currentTimeMillis(), SystemClock.uptimeMillis()) }
         val settings = _uiState.value.settings
+        val batched = composing.isNotEmpty()
+        if (batched) ic.beginBatchEdit()
         commitComposing(
             ic,
             autocorrect = settings.correction.enabled && settings.correction.onEnter,
             fixApostrophes = settings.autoText.apostrophe,
             expandPatterns = true,
         )
+        if (batched) ic.endBatchEdit()
         // Same as [onEnter]: the break ends the word, so the caret update it
         // causes must not re-arm it as composing (#236).
         wordEndedByEnter = true
@@ -13322,34 +13328,35 @@ open class WMKeyboardService : InputMethodService() {
                 val isComposedInDict = telexEngine.isWordInDictionary(composed)
                 val isComposedValid = isComposedInDict || isComposedLearned
 
-                val target = if (pre != null && pre.isTelex) {
-                    pre.telexTop
-                } else if (
-                    autocorrect && state.allowsTypingIntelligence &&
-                    composed.length >= 3
-                ) {
-                    if (isTypedLearned && !isComposedInDict) {
-                        typed
-                    } else if (isComposedValid) {
-                        composed
-                    } else {
-                        val prev2 = recentWords.getOrNull(recentWords.size - 2)
-                        val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
-                        val candidates = telexEngine.correct(
-                            rawInput = canonical.ifEmpty { typed },
-                            previousWord = previousWord,
-                            previousWord2 = prev2,
-                            userLexicon = userLexicon,
-                            maxResults = 1
-                        )
-                        val top = candidates.firstOrNull()?.word
-                        if (top != null) {
-                            top
-                        } else if (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase())) {
+                val target = if (autocorrect && state.allowsTypingIntelligence) {
+                    if (pre != null && pre.isTelex) {
+                        pre.telexTop
+                    } else if (composed.length >= 2 || typed.length >= 2) {
+                        if (isTypedLearned && !isComposedInDict) {
                             typed
-                        } else {
+                        } else if (isComposedValid) {
                             composed
+                        } else {
+                            val prev2 = recentWords.getOrNull(recentWords.size - 2)
+                            val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
+                            val candidates = telexEngine.correct(
+                                rawInput = canonical.ifEmpty { typed },
+                                previousWord = previousWord,
+                                previousWord2 = prev2,
+                                userLexicon = userLexicon,
+                                maxResults = 1
+                            )
+                            val top = candidates.firstOrNull()?.word
+                            if (top != null) {
+                                top
+                            } else if (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase())) {
+                                typed
+                            } else {
+                                composed
+                            }
                         }
+                    } else {
+                        if (!isComposedValid && (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase()))) typed else composed
                     }
                 } else {
                     if (!isComposedValid && (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase()))) typed else composed
@@ -17672,6 +17679,47 @@ open class WMKeyboardService : InputMethodService() {
         state.composer === VietnameseTelexComposer || state.composer === VietnameseVniComposer
 
     /**
+     * Extracts next-letter probabilities for Vietnamese Telex input from the
+     * ranked candidate words (or falls back to canonical keystrokes).
+     */
+    private fun rankedNextTelexLetters(
+        typed: String,
+        words: List<String>,
+        composer: Composer,
+        telexEngine: TelexAutocorrectEngine,
+    ): Map<Char, Float> {
+        if (typed.isEmpty() || words.isEmpty()) return emptyMap()
+        val lowerTyped = typed.lowercase()
+        val composed = composer.composeBuffer(typed)
+        val canonicalTyped = telexEngine.toCanonicalTelex(composed.ifEmpty { typed }).lowercase()
+        val tally = HashMap<Char, Double>()
+        val decay = 0.85
+        var weight = 1.0
+
+        for (word in words) {
+            val telex = (composer.resumeBuffer(word) ?: telexEngine.toCanonicalTelex(word)).lowercase()
+            val matchLen = if (telex.startsWith(lowerTyped)) {
+                lowerTyped.length
+            } else if (canonicalTyped.isNotEmpty() && telex.startsWith(canonicalTyped)) {
+                canonicalTyped.length
+            } else {
+                -1
+            }
+            if (matchLen in 0 until telex.length) {
+                val nextChar = telex[matchLen]
+                if (nextChar.isLetter()) {
+                    tally.merge(nextChar, weight, Double::plus)
+                }
+            }
+            weight *= decay
+        }
+
+        val max = tally.values.maxOrNull() ?: return emptyMap()
+        if (max <= 0.0) return emptyMap()
+        return tally.mapValues { (it.value / max).toFloat() }
+    }
+
+    /**
      * Starts working out what a space would make of [typed], now.
      *
      * It used to ride the strip pass, which waits out a debounce of up to
@@ -18101,12 +18149,21 @@ open class WMKeyboardService : InputMethodService() {
                 // Next-letter distribution for smart key-hit detection. Only for
                 // plain Latin composing — conversion/transliteration IMEs commit
                 // through their own composer, where a Latin-letter nudge is wrong.
+                // Vietnamese Telex is an exception: it is typed on a Latin keyboard,
+                // so Autopilot nudges and visual feedback should guide next keys.
                 val bias = if (
                     state.settings.layoutBehavior.smartHitDetection &&
                     typed.isNotEmpty() &&
-                    !state.composer.isTransliterating
+                    (!state.composer.isTransliterating || state.composer.isVietnamese)
                 ) {
-                    engine.nextLetterWeights(typed)
+                    if (state.composer.isVietnamese) {
+                        val telexEngine = TelexAutocorrectEngine.getInstance()
+                        rankedNextTelexLetters(typed, deepAll, state.composer, telexEngine).ifEmpty {
+                            telexEngine.nextLetterWeights(typed)
+                        }
+                    } else {
+                        engine.nextLetterWeights(typed)
+                    }
                 } else {
                     emptyMap()
                 }

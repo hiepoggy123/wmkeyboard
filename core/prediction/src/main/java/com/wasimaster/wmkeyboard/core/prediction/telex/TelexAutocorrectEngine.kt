@@ -39,6 +39,7 @@ class TelexTrieNode {
     val children: HashMap<Char, TelexTrieNode> = HashMap()
     var word: String? = null
     var unigramScore: Int = 0
+    var maxSubtreeScore: Int = 0
 }
 
 /**
@@ -49,8 +50,10 @@ class TelexTrie {
 
     fun insert(telex: String, word: String, unigramScore: Int) {
         var current = root
+        current.maxSubtreeScore = maxOf(current.maxSubtreeScore, unigramScore)
         for (char in telex) {
             current = current.children.getOrPut(char) { TelexTrieNode() }
+            current.maxSubtreeScore = maxOf(current.maxSubtreeScore, unigramScore)
         }
         current.word = word
         current.unigramScore = unigramScore
@@ -606,6 +609,29 @@ class TelexAutocorrectEngine private constructor() {
     fun topUnigrams(limit: Int = 30): List<String> {
         if (!isReady) return emptyList()
         return languageModel.topUnigrams(limit)
+    }
+
+    /**
+     * Next-letter distribution for smart key-hit detection (Autopilot) on Vietnamese Telex.
+     * Walks the syllable trie to find all valid next keystrokes following [prefix],
+     * weighted by the maximum unigram frequency in each subtree.
+     */
+    fun nextLetterWeights(prefix: String): Map<Char, Float> {
+        if (!isReady || prefix.isEmpty()) return emptyMap()
+        val lower = prefix.lowercase()
+        val node = trie.find(lower) ?: trie.find(toCanonicalTelex(lower).lowercase()) ?: return emptyMap()
+        if (node.children.isEmpty()) return emptyMap()
+
+        val tally = HashMap<Char, Double>()
+        for ((char, child) in node.children) {
+            if (char.isLetter()) {
+                val score = if (child.maxSubtreeScore > 0) child.maxSubtreeScore.toDouble() else 1.0
+                tally[char] = score
+            }
+        }
+        val max = tally.values.maxOrNull() ?: return emptyMap()
+        if (max <= 0.0) return emptyMap()
+        return tally.mapValues { (it.value / max).toFloat() }
     }
 
     /**

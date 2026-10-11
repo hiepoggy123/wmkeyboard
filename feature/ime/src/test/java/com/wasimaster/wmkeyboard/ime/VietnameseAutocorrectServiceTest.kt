@@ -10,7 +10,9 @@ import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
+import com.wasimaster.wmkeyboard.core.settings.AutocorrectSettings
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.LayoutBehaviorSettings
 import com.wasimaster.wmkeyboard.core.settings.VietnameseSettings
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import org.junit.Assert.assertEquals
@@ -81,6 +83,8 @@ class VietnameseAutocorrectServiceTest {
         editor: RecordingEditor,
         withWords: Boolean = true,
         restoreMarks: Boolean = true,
+        onEnter: Boolean = true,
+        smartHit: Boolean = true,
     ): GlideKeyboard {
         val service = GlideKeyboard(editor)
         plantPersonalStores(service)
@@ -96,6 +100,8 @@ class VietnameseAutocorrectServiceTest {
                 // job that dies there dies silently.
                 settings = KeyboardSettings(
                     learnFromTyping = false,
+                    correction = AutocorrectSettings(onEnter = onEnter),
+                    layoutBehavior = LayoutBehaviorSettings(smartHitDetection = smartHit),
                     vietnamese = VietnameseSettings(restoreMarks = restoreMarks),
                 ),
                 fieldNoSuggestions = false,
@@ -113,6 +119,8 @@ class VietnameseAutocorrectServiceTest {
     }
 
     private fun space(service: GlideKeyboard) = service.onKey(Key(label = "space", action = KeyAction.Space))
+
+    private fun enter(service: GlideKeyboard) = service.onKey(Key(label = "enter", action = KeyAction.Enter))
 
     private fun backspace(service: GlideKeyboard) = service.onKey(Key(label = "⌫", action = KeyAction.Delete))
 
@@ -248,5 +256,27 @@ class VietnameseAutocorrectServiceTest {
         space(service)
 
         assertEquals("Theotown ", editor.text.toString())
+    }
+
+    @Test
+    fun `a missing tone is restored on enter when onEnter is true`() {
+        val editor = RecordingEditor()
+        val service = keyboardOn(editor, onEnter = true)
+
+        type(service, "tieng")
+        enter(service)
+
+        assertEquals("tiếng\n", editor.text.toString())
+    }
+
+    @Test
+    fun `with onEnter off the composed word lands uncorrected on enter`() {
+        val editor = RecordingEditor()
+        val service = keyboardOn(editor, onEnter = false)
+
+        type(service, "tieng")
+        enter(service)
+
+        assertEquals("tieng\n", editor.text.toString())
     }
 }

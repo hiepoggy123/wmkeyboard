@@ -658,6 +658,29 @@ class TelexAutocorrectEngineTest {
         val res2 = engine.correct("chaoff")
         assertTrue("chaoff should correct to chào", res2.any { it.word == "chào" })
     }
+
+    @Test
+    fun testNextLetterWeights() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "tieengs": {"word": "tiếng", "freq": 900},
+                "tieenf": {"word": "tiền", "freq": 450},
+                "trid": {"word": "trí", "freq": 200}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        engine.isReady = true
+
+        val weightsT = engine.nextLetterWeights("t")
+        assertTrue(weightsT.containsKey('i'))
+        assertTrue(weightsT.containsKey('r'))
+        assertEquals(1.0f, weightsT['i'] ?: 0f, 0.01f)
+
+        val weightsTie = engine.nextLetterWeights("tie")
+        assertTrue(weightsTie.containsKey('e'))
+        assertEquals(1.0f, weightsTie['e'] ?: 0f, 0.01f)
+    }
 }
 
 
