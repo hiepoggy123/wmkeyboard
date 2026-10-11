@@ -18012,18 +18012,19 @@ open class WMKeyboardService : InputMethodService() {
                                     ).map { it.word }
                                 } else emptyList()
 
-                                val baseList = if (isComposedValid) {
-                                    val list = mutableListOf(composed)
-                                    list.addAll((combinedDict + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) })
-                                    list
-                                } else if (telexCandidates.isNotEmpty()) {
+                                val completions = combinedDict.filterNot { it.equals(composed, ignoreCase = true) }
+                                val baseList = if (telexCandidates.isNotEmpty()) {
                                     val list = mutableListOf<String>()
                                     list.addAll(telexCandidates)
-                                    list.add(composed)
-                                    list.addAll(combinedDict.filterNot { cand ->
-                                        telexCandidates.any { it.equals(cand, ignoreCase = true) } || cand.equals(composed, ignoreCase = true)
+                                    list.addAll(completions.filterNot { cand ->
+                                        telexCandidates.any { it.equals(cand, ignoreCase = true) }
                                     })
+                                    if (list.isEmpty()) {
+                                        list.add(composed)
+                                    }
                                     list
+                                } else if (completions.isNotEmpty()) {
+                                    completions
                                 } else {
                                     val defaultWord = if (isTypedLearned && !isComposedInDict) {
                                         typed
@@ -18032,10 +18033,7 @@ open class WMKeyboardService : InputMethodService() {
                                     } else {
                                         composed
                                     }
-                                    val list = mutableListOf(defaultWord)
-                                    if (defaultWord != composed) list.add(composed)
-                                    list.addAll((combinedDict + telexCandidates).filterNot { it.equals(defaultWord, ignoreCase = true) || it.equals(composed, ignoreCase = true) })
-                                    list
+                                    listOf(defaultWord)
                                 }
                                 baseList.distinctBy { it.lowercase() }
                             }

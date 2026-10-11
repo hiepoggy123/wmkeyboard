@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
@@ -74,6 +75,7 @@ internal fun SmartSuggestionChip(
      * drawn (#176).
      */
     canOpen: Boolean = true,
+    toolTint: Color? = null,
 ) {
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
@@ -86,7 +88,7 @@ internal fun SmartSuggestionChip(
             appear.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
         }
     }
-    val tint = kb.accent
+    val tint = toolTint ?: kb.accent
     val fill = tint.copy(alpha = if (kb.dark) 0.20f else 0.11f)
     val keyword = hit.kind in SmartSuggest.narrowKinds
 

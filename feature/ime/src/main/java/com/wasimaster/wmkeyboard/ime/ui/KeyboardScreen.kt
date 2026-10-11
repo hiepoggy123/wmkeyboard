@@ -4187,6 +4187,7 @@ private fun TopBar(
                         hit = smart,
                         reduceMotion = state.settings.reduceMotion,
                         icon = toolIcon(smart.tool),
+                        toolTint = toolAccentPaint(smart.tool, state.settings)?.color,
                         // An answer chip still shows with its tool switched off,
                         // and onToolTap would drop the gear's press without a word.
                         canOpen = smart.tool in state.settings.enabledTools &&
@@ -4272,6 +4273,7 @@ private fun TopBar(
                     emptyList()
                 }
                 if (clipBarChips.isNotEmpty()) {
+                    val clipTint = toolAccentPaint(ToolbarTool.CLIPBOARD, state.settings)?.color
                     Row(
                         modifier = Modifier
                             .weight(1f)
@@ -4287,6 +4289,7 @@ private fun TopBar(
                                 onPaste = { onClipboardSuggestion(chip) },
                                 onDismiss = {},
                                 dismissible = false,
+                                toolTint = clipTint,
                                 modifier = Modifier.widthIn(max = 200.dp),
                             )
                         }
@@ -4308,6 +4311,7 @@ private fun TopBar(
                     return@StripSlot
                 }
                 if (recentClipChip && smart == null) {
+                    val clipTint = toolAccentPaint(ToolbarTool.CLIPBOARD, state.settings)?.color
                     val clipChip = @Composable { chipModifier: Modifier ->
                         ClipboardSuggestionChip(
                             clip = recentClip,
@@ -4317,6 +4321,7 @@ private fun TopBar(
                                 else onClipboardSuggestion(recentClip)
                             },
                             onDismiss = onClipboardSuggestionDismiss,
+                            toolTint = clipTint,
                             modifier = chipModifier,
                         )
                     }
@@ -5478,10 +5483,11 @@ private fun ClipboardSuggestionChip(
     otp: ClipEntity? = null,
     /** False for a chip in the row of recent copies (#414), which shares one ✕ for the row. */
     dismissible: Boolean = true,
+    toolTint: Color? = null,
 ) {
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
-    val tint = kb.accent
+    val tint = toolTint ?: kb.accent
     // The fragment chip is an outline, not a solid — same language as the
     // clipboard panel's own fragment chips, and unmistakably not the ordinary
     // "paste what you copied" pill.
@@ -9067,10 +9073,13 @@ private fun RowScope.ToolbarRow(
                         holdMenu = holdPicksVoiceMode(tool, fromToolbar = true, state = state),
                         onHoldMenu = { voiceMenuOpen = true },
                     ) { dragModifier ->
+                        val paint = toolAccentPaint(tool, state.settings)
                         ToolCircle(
                             slot = IconSlots.forTool(tool),
                             description = toolLabel(tool),
                             active = toolActive(tool, state),
+                            tint = paint?.color,
+                            tintBrush = paint?.brush,
                             label = if (labels) toolLabel(tool) else null,
                             labelSizeSp = labelSize,
                             // This cell IS the drop preview while it is the one
