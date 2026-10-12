@@ -1265,7 +1265,7 @@ internal fun LearnedPhrasesSettings(repository: SettingsRepository, settings: Li
     var trigrams by remember { mutableStateOf<List<UserLexicon.LearnedTrigram>>(emptyList()) }
     var loaded by remember { mutableStateOf(false) }
 
-    LaunchedEffect(settings.watch { it.suggestionStrip.lexiconVersion }) {
+    LaunchedEffect(settings.watch { it.lexiconVersion }) {
         val (bi, tri) = withContext(Dispatchers.IO) {
             val lex = UserLexicon(file)
             lex.allBigrams() to lex.allTrigrams()
