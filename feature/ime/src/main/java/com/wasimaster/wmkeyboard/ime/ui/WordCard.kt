@@ -148,12 +148,12 @@ private fun WordCardWindow(card: WordCard, growth: PopupGrowth, onAction: (WordC
             contentAlignment = Alignment.Center,
         ) {
             Surface(
-                modifier = Modifier.frostGlass(kb, kb.menuShape(), FrostSurface.MENUS, sampleBackdrop = false),
                 shape = kb.menuShape(),
                 color = kb.popupFill(FrostSurface.MENUS),
                 border = kb.popupSurfaceBorder(),
                 shadowElevation = elevationFor(kb.menuShapeKind, 8.dp),
                 modifier = Modifier
+                    .frostGlass(kb, kb.menuShape(), FrostSurface.MENUS, sampleBackdrop = false)
                     .padding(12.dp)
                     .popupGrow(growth)
                     .fillMaxWidth(0.94f)

@@ -4370,6 +4370,7 @@ private fun TopBar(
                                 if (chipOtp != null) onClipboardEntity(chipOtp)
                                 else onClipboardSuggestion(recentClip)
                             },
+                            onDismiss = onClipboardSuggestionDismiss,
                             toolTint = clipTint,
                             // More than the last copy, from a button on the
                             // chip (#612), when the row is set to hold more.

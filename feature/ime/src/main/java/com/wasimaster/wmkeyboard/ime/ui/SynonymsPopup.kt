@@ -102,12 +102,12 @@ private fun SynonymsWindow(sheet: SynonymsSheet, growth: PopupGrowth, onAction: 
             contentAlignment = Alignment.Center,
         ) {
             Surface(
-                modifier = Modifier.frostGlass(kb, kb.menuShape(), FrostSurface.MENUS, sampleBackdrop = false),
                 shape = kb.menuShape(),
                 color = kb.popupFill(FrostSurface.MENUS),
                 border = kb.popupSurfaceBorder(),
                 shadowElevation = elevationFor(kb.menuShapeKind, 8.dp),
                 modifier = Modifier
+                    .frostGlass(kb, kb.menuShape(), FrostSurface.MENUS, sampleBackdrop = false)
                     .padding(12.dp)
                     .popupGrow(growth)
                     // As tall as its list, and no taller than the keyboard:

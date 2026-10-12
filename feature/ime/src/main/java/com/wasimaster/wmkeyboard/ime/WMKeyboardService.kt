@@ -19518,7 +19518,7 @@ open class WMKeyboardService : InputMethodService() {
                 )
             }
         }
-    }
+
 
     /**
      * The strip for a caret sitting inside a word: the word itself, then

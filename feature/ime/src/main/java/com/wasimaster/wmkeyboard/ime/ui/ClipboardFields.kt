@@ -1703,12 +1703,12 @@ private fun ClipFullTextPopup(
     ) {
         PopupBlurBehind(kb, FrostSurface.MENUS)
         Surface(
-            modifier = Modifier.frostGlass(kb, kb.menuShape(), FrostSurface.MENUS, sampleBackdrop = false),
             shape = kb.menuShape(),
             color = kb.popupFill(FrostSurface.MENUS),
             border = kb.popupSurfaceBorder(),
             shadowElevation = elevationFor(kb.menuShapeKind, 6.dp),
             modifier = Modifier
+                .frostGlass(kb, kb.menuShape(), FrostSurface.MENUS, sampleBackdrop = false)
                 .padding(horizontal = 8.dp)
                 .widthIn(max = ClipFullTextMaxWidth)
                 .fillMaxWidth(),
@@ -2119,12 +2119,12 @@ private fun ClipExtractPopup(entities: List<ClipEntity>, onPick: (ClipEntity) ->
     ) {
         PopupBlurBehind(kb, FrostSurface.MENUS)
         Surface(
-            modifier = Modifier.frostGlass(kb, kb.menuShape(), FrostSurface.MENUS, sampleBackdrop = false),
             shape = kb.menuShape(),
             color = kb.popupFill(FrostSurface.MENUS),
             border = kb.popupSurfaceBorder(),
             shadowElevation = elevationFor(kb.menuShapeKind, 6.dp),
             modifier = Modifier
+                .frostGlass(kb, kb.menuShape(), FrostSurface.MENUS, sampleBackdrop = false)
                 .padding(horizontal = 8.dp)
                 .widthIn(min = 200.dp, max = ClipFullTextMaxWidth),
         ) {
