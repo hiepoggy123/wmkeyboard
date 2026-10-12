@@ -322,7 +322,13 @@ class CorrectionMemory(private val storageFile: File?) {
             original: String,
             revised: String,
             known: (String) -> Boolean,
-            minTypedLength: Int = MIN_TYPED_LENGTH,
+        ): Boolean = accepts(original, revised, known, MIN_TYPED_LENGTH)
+
+        fun accepts(
+            original: String,
+            revised: String,
+            known: (String) -> Boolean,
+            minTypedLength: Int,
         ): Boolean {
             val o = WordKey.of(original.trim())
             val r = WordKey.of(revised.trim())
