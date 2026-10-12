@@ -92,6 +92,16 @@
     <string name="about_user_guide_title">User guide</string>
     <string name="about_privacy_policy_title">Privacy policy</string>
     <string name="about_privacy_policy_subtitle">What leaves your device, and what never leaves it</string>
+    <!-- How a settings row offers a web link to itself (#646). The three options are Off, Hold and Button. -->
+    <string name="about_setting_links_title">Setting links</string>
+    <string name="about_setting_links_subtitle">Copy a web link that opens one setting</string>
+    <string name="about_setting_links_info">Use this to send someone to a setting. The link opens this app on that screen and flashes the setting. If the app is not installed, the link opens a page on the website that tells how to get it. "Hold" copies the link when you touch and hold a setting or a group heading. "Button" shows a small link button next to each setting and group heading. Settings with no fixed name, such as one language or one theme, have no link.</string>
+    <string name="about_setting_links_hold">Hold</string>
+    <string name="about_setting_links_button">Button</string>
+    <!-- Content description of the link button on a settings row. %1$s = the name of the setting. -->
+    <string name="about_setting_link_desc">Copy link to <xliff:g id="setting" example="Autocorrect">%1$s</xliff:g></string>
+    <!-- Shown after a setting link is copied, on Android versions that do not confirm a copy themselves. -->
+    <string name="about_setting_link_copied">Link copied</string>
 
     <!-- About screen: the Third party group. -->
     <string name="about_third_party_title">Third party</string>
@@ -138,6 +148,7 @@
     <string name="about_bundled_bouncycastle_used">The cryptography for the SFTP and SMB backup locations that Android does not have</string>
     <!-- APNG is an image format. Keep it as it is. -->
     <string name="about_bundled_apng_used">Reads animated PNG stickers</string>
+    <string name="about_bundled_lottie_used">Draws animated Telegram stickers</string>
     <string name="about_bundled_zxing_used">Makes the QR codes</string>
     <string name="about_bundled_luaj_used">The Lua interpreter that runs the plugins in their sandbox</string>
     <string name="about_bundled_harper_used">Checks the grammar and the style offline (native library)</string>
@@ -151,9 +162,12 @@
     <!-- TFLite is the file format of the model, not an abbreviation to translate. -->
     <string name="about_bundled_whisper_used">The speech recognition model, in TFLite versions that run on your device</string>
     <string name="about_bundled_whisper_android_used">The reference for the mel spectrogram and the tokenizer port</string>
+    <string name="about_bundled_whistle_used">The Offline Whistle speech recognition engine and its model, which run on your device</string>
     <string name="about_bundled_unicode_used">The emoji catalogue, names, keywords and skin tone sequences</string>
     <!-- :tada: is one of the shortcodes and stays exactly as it is. -->
     <string name="about_bundled_gemoji_used">The emoji shortcodes, the :tada: names that GitHub, Discord and Slack use</string>
+    <!-- X11 is the window system of Linux; keysym is its word for a key's character. -->
+    <string name="about_bundled_keysyms_used">The table of X11 keysym names, to read Linux keyboard layouts</string>
     <string name="about_bundled_keyman_used">The key grids for 862 layouts, mostly for languages no other keyboard covers</string>
     <string name="about_bundled_avro_used">Desktop Avro\'s dictionary, suffixes, autocorrect and search rules, behind the Avro candidate list</string>
     <string name="about_bundled_khipro_used">The rules of the Khipro Bangla layout</string>

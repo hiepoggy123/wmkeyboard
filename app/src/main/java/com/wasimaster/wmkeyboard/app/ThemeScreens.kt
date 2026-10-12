@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import com.wasimaster.wmkeyboard.BuildConfig
 import android.graphics.BitmapFactory
 import android.os.Build
+import android.Manifest
 import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -142,6 +143,10 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
+import com.wasimaster.wmkeyboard.core.settings.AppColorScope
+import com.wasimaster.wmkeyboard.core.theme.AppColorSource
+import com.wasimaster.wmkeyboard.core.theme.PaletteStyle
+import com.wasimaster.wmkeyboard.core.theme.paletteStyleSwatch
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.RotationInterval
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
@@ -186,8 +191,27 @@ import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
 import com.wasimaster.wmkeyboard.core.theme.SeedSwatches
 import com.wasimaster.wmkeyboard.core.theme.isAnimatedImageFile
+import com.wasimaster.wmkeyboard.core.theme.FROST_BACKDROP_BLUR_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_BRIGHTNESS_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_FALLBACK_OPACITY_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_GRAIN_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_RIM_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_SATURATION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FrostPreset
+import com.wasimaster.wmkeyboard.core.theme.FROST_DISPERSION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_REFRACTION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FrostSpec
+import com.wasimaster.wmkeyboard.core.theme.FrostStyle
+import com.wasimaster.wmkeyboard.core.theme.FrostSurface
+import com.wasimaster.wmkeyboard.core.theme.WINDOW_BLUR_RADIUS_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FrostBackdropSource
+import com.wasimaster.wmkeyboard.core.theme.WallpaperBackdrop
+import com.wasimaster.wmkeyboard.core.theme.WallpaperBand
+import com.wasimaster.wmkeyboard.core.theme.dressedForGlass
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
+import com.wasimaster.wmkeyboard.core.theme.FutoTheme
+import com.wasimaster.wmkeyboard.core.theme.FutoThemeResult
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
@@ -225,6 +249,8 @@ import com.wasimaster.wmkeyboard.core.theme.GboardResult
 import com.wasimaster.wmkeyboard.core.theme.GboardTheme
 import com.wasimaster.wmkeyboard.core.theme.HeliResult
 import com.wasimaster.wmkeyboard.core.theme.HeliTheme
+import com.wasimaster.wmkeyboard.core.theme.MultilingTheme
+import com.wasimaster.wmkeyboard.core.theme.MultilingThemeResult
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Crop169
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CropFree
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CropSquare
@@ -239,6 +265,64 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tune
 
 private fun colorOf(argb: Long): Color = Color(argb.toInt())
 private fun Color.argb(): Long = toArgb().toLong() and 0xFFFFFFFFL
+
+@StringRes
+private fun frostPresetLabelRes(preset: FrostPreset): Int = when (preset) {
+    FrostPreset.FROSTED -> R.string.theme_glass_preset_frosted
+    FrostPreset.CLEAR -> R.string.theme_glass_preset_clear
+    FrostPreset.MICA -> R.string.theme_glass_preset_mica
+    FrostPreset.SMOKED -> R.string.theme_glass_preset_smoked
+    FrostPreset.LIQUID -> R.string.theme_glass_preset_liquid
+}
+
+@StringRes
+private fun frostStyleLabelRes(style: FrostStyle): Int = when (style) {
+    FrostStyle.FROSTED -> R.string.theme_glass_style_frosted
+    FrostStyle.LIQUID -> R.string.theme_glass_style_liquid
+}
+
+@StringRes
+private fun frostStyleDescRes(style: FrostStyle): Int = when (style) {
+    FrostStyle.FROSTED -> R.string.theme_glass_style_frosted_desc
+    FrostStyle.LIQUID -> R.string.theme_glass_style_liquid_desc
+}
+
+@StringRes
+private fun frostBackdropLabelRes(source: FrostBackdropSource): Int = when (source) {
+    FrostBackdropSource.AUTO -> R.string.theme_glass_backdrop_auto
+    FrostBackdropSource.IMAGE -> R.string.theme_glass_backdrop_image
+    FrostBackdropSource.WALLPAPER -> R.string.theme_glass_backdrop_wallpaper
+    FrostBackdropSource.NONE -> R.string.theme_glass_backdrop_none
+}
+
+@StringRes
+private fun frostBackdropDescRes(source: FrostBackdropSource): Int = when (source) {
+    FrostBackdropSource.AUTO -> R.string.theme_glass_backdrop_auto_desc
+    FrostBackdropSource.IMAGE -> R.string.theme_glass_backdrop_image_desc
+    FrostBackdropSource.WALLPAPER -> R.string.theme_glass_backdrop_wallpaper_desc
+    FrostBackdropSource.NONE -> R.string.theme_glass_backdrop_none_desc
+}
+
+@StringRes
+private fun wallpaperBandLabelRes(band: WallpaperBand): Int = when (band) {
+    WallpaperBand.BOTTOM -> R.string.theme_glass_wallpaper_band_bottom
+    WallpaperBand.CENTER -> R.string.theme_glass_wallpaper_band_center
+    WallpaperBand.TOP -> R.string.theme_glass_wallpaper_band_top
+}
+
+@StringRes
+private fun frostSurfaceLabelRes(surface: FrostSurface): Int = when (surface) {
+    FrostSurface.KEYS -> R.string.theme_glass_surface_keys
+    FrostSurface.MODIFIER_KEYS -> R.string.theme_glass_surface_modifier_keys
+    FrostSurface.ENTER_KEY -> R.string.theme_glass_surface_enter_key
+    FrostSurface.SPACE_BAR -> R.string.theme_glass_surface_space_bar
+    FrostSurface.BARS -> R.string.theme_glass_surface_bars
+    FrostSurface.TOOLS -> R.string.theme_glass_surface_tools
+    FrostSurface.CHIPS -> R.string.theme_glass_surface_chips
+    FrostSurface.CARDS -> R.string.theme_glass_surface_cards
+    FrostSurface.POPUPS -> R.string.theme_glass_surface_popups
+    FrostSurface.MENUS -> R.string.theme_glass_surface_menus
+}
 
 private fun themeImagesDir(context: android.content.Context): File =
     File(context.filesDir, "theme_images").apply { mkdirs() }
@@ -1046,6 +1130,24 @@ fun ThemesScreen(
             }
         }
     }
+    // A FUTO theme is a ZIP, read and saved the way the file dialog does it.
+    val futoLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri).use { FutoTheme.read(it) }
+                }.getOrElse { FutoThemeResult.Unreadable }
+            }
+            message = if (result is FutoThemeResult.Converted) {
+                saveFutoTheme(context, repository, result)
+            } else {
+                context.getString(R.string.import_futo_theme_unreadable_body)
+            }
+        }
+    }
     // HeliBoard and LeanType have no theme file: a theme is a line of JSON,
     // copied out of their colour screen and pasted into a forum post. So this
     // import takes text from either source, and the button opens a two-way
@@ -1094,6 +1196,51 @@ fun ThemesScreen(
                 }.getOrNull()
             }
             applyHeliTheme(text)
+        }
+    }
+    // Multiling O has no theme file either: a theme is the colours block of its
+    // settings export, pasted or saved to a text file, or a link to the
+    // community theme page with the block in it. The same two-way chooser.
+    var multilingChooser by remember { mutableStateOf(false) }
+    suspend fun applyMultilingTheme(text: String?) {
+        if (text.isNullOrBlank()) {
+            message = context.getString(R.string.import_heli_clipboard_empty_body)
+            return
+        }
+        val result = withContext(Dispatchers.Default) { MultilingTheme.read(text) }
+        if (result !is MultilingThemeResult.Converted) {
+            message = context.getString(R.string.import_multiling_theme_unreadable_body)
+            return
+        }
+        val stored = result.theme.copy(id = "custom_${System.currentTimeMillis()}")
+        repository.upsertCustomTheme(stored)
+        // Saved, not switched to, like the other converted themes.
+        message = buildString {
+            append(
+                context.getString(
+                    R.string.import_heli_done,
+                    stored.name,
+                    result.coloursUsed,
+                    result.coloursRead,
+                ),
+            )
+            if (result.dropped.isNotEmpty()) {
+                append("\n\n").append(context.getString(R.string.import_repairs_pending_title))
+                for (line in result.dropped) append("\n• ").append(multilingDroppedLine(context, line))
+            }
+        }
+    }
+    val multilingLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.readTextCapped(uri)
+                }.getOrNull()
+            }
+            applyMultilingTheme(text)
         }
     }
     // Gboard themes: a ZIP picked here, or the Rboard collection on its own
@@ -1320,6 +1467,8 @@ fun ThemesScreen(
         )
     }
 
+    AppColorsGroup(repository, settings)
+
     // The gallery is a grid of theme cards, which are their own surfaces, so
     // it keeps a plain header rather than being wrapped in a settings card.
     val grouped = settings.watch { it.themeGalleryGrouped() }
@@ -1376,6 +1525,16 @@ fun ThemesScreen(
             Icon(Icons.Outlined.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.theme_import_heli_action))
+        }
+        OutlinedButton(onClick = { futoLauncher.launch(FutoTheme.IMPORT_MIME_TYPES) }) {
+            Icon(Icons.Outlined.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.theme_import_futo_action))
+        }
+        OutlinedButton(onClick = { multilingChooser = true }) {
+            Icon(Icons.Outlined.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.theme_import_multiling_action))
         }
         // The Play build has no Rboard browser (it would fetch a collection of
         // unlicensed third-party artwork from inside the app), so there is
@@ -1436,6 +1595,27 @@ fun ThemesScreen(
                 TextButton(onClick = {
                     heliChooser = false
                     heliLauncher.launch(HeliTheme.IMPORT_MIME_TYPES)
+                }) { Text(stringResource(R.string.import_heli_file_action)) }
+            },
+        )
+    }
+    if (multilingChooser) {
+        val clipboard = LocalClipboardManager.current
+        AlertDialog(
+            onDismissRequest = { multilingChooser = false },
+            title = { Text(stringResource(R.string.import_multiling_theme_title)) },
+            text = { Text(stringResource(R.string.import_multiling_theme_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    multilingChooser = false
+                    val pasted = clipboard.getText()?.text
+                    scope.launch { applyMultilingTheme(pasted) }
+                }) { Text(stringResource(R.string.import_heli_paste_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    multilingChooser = false
+                    multilingLauncher.launch(MultilingTheme.IMPORT_MIME_TYPES)
                 }) { Text(stringResource(R.string.import_heli_file_action)) }
             },
         )
@@ -1645,6 +1825,129 @@ fun ThemesScreen(
 }
 
 /** The label of one [ThemeGalleryStyle] choice. */
+/**
+ * The keyboard taking the colors of the app it types in (issue #592).
+ *
+ * Only the switch until it is on: the rest are refinements of a feature the
+ * user has not asked for yet. The per-app choices themselves are made on the
+ * keyboard, in the app they are about; here they can only be counted and
+ * cleared.
+ */
+@Composable
+private fun AppColorsGroup(repository: SettingsRepository, settings: LiveSettings) {
+    val scope = rememberCoroutineScope()
+    val on = settings.watch { it.appColors.enabled }
+    val picks = settings.watch { it.appColors.pickByPackage.size }
+    SettingsGroup(
+        stringResource(R.string.theme_app_colors_section_title),
+        info = stringResource(R.string.theme_app_colors_section_body),
+    ) {
+        item {
+            ToggleSetting(
+                R.string.theme_app_colors_title,
+                stringResource(R.string.theme_app_colors_subtitle),
+                checked = on,
+                default = SettingsDefaults.appColors.enabled,
+            ) { scope.launch { repository.setAppColorsEnabled(it) } }
+        }
+        item(visible = on) {
+            ChoiceSetting(
+                title = R.string.theme_app_colors_scope_title,
+                options = AppColorScope.entries.map { it to stringResource(appColorScopeLabelRes(it)) },
+                selected = settings.watch { it.appColors.scope },
+                default = SettingsDefaults.appColors.scope,
+                detail = { ChoiceDetail(stringResource(appColorScopeDescRes(it))) },
+            ) { value -> scope.launch { repository.setAppColorsScope(value) } }
+        }
+        item(visible = on) {
+            ChoiceSetting(
+                title = R.string.theme_app_colors_source_title,
+                options = AppColorSource.entries.map { it to stringResource(appColorSourceLabelRes(it)) },
+                selected = settings.watch { it.appColors.source },
+                default = SettingsDefaults.appColors.source,
+                detail = { ChoiceDetail(stringResource(appColorSourceDescRes(it))) },
+            ) { value -> scope.launch { repository.setAppColorsSource(value) } }
+        }
+        item(visible = on) {
+            ChoiceSetting(
+                title = R.string.theme_app_colors_style_title,
+                subtitle = stringResource(R.string.theme_app_colors_style_subtitle),
+                options = PaletteStyle.entries.map { it to stringResource(it.labelRes) },
+                selected = settings.watch { it.appColors.style },
+                default = SettingsDefaults.appColors.style,
+                detail = { style ->
+                    ChoiceDetail(
+                        description = stringResource(paletteStyleDescRes(style)),
+                        leading = { PaletteStyleSwatch(style) },
+                    )
+                },
+            ) { value -> scope.launch { repository.setAppColorsStyle(value) } }
+        }
+        item(visible = on && picks > 0) {
+            ActionRow(
+                title = R.string.theme_app_colors_reset_title,
+                subtitle = pluralStringResource(R.plurals.theme_app_colors_reset_subtitle, picks, picks),
+                action = stringResource(R.string.theme_app_colors_reset_action),
+            ) { scope.launch { repository.clearAppColorPicks() } }
+        }
+    }
+}
+
+/**
+ * One style, drawn as the three colours it grows out of a sample app colour.
+ * The sample is a plain blue because the screen has no app in hand; on the
+ * keyboard the same swatches are drawn in the real app's colour.
+ */
+@Composable
+private fun PaletteStyleSwatch(style: PaletteStyle) {
+    val colors = remember(style) { paletteStyleSwatch(PALETTE_SAMPLE_SEED, style) }
+    Canvas(Modifier.size(width = 24.dp, height = 12.dp)) {
+        val radius = size.height / 2f
+        colors.forEachIndexed { index, argb ->
+            drawCircle(
+                color = Color(argb.toInt()),
+                radius = radius,
+                center = Offset(radius + index * radius * 1.2f, radius),
+            )
+        }
+    }
+}
+
+private const val PALETTE_SAMPLE_SEED = 0xFF1E88E5L
+
+private fun appColorScopeLabelRes(scope: AppColorScope): Int = when (scope) {
+    AppColorScope.FOLLOWING -> R.string.theme_app_colors_scope_following_label
+    AppColorScope.ALL -> R.string.theme_app_colors_scope_all_label
+}
+
+private fun appColorScopeDescRes(scope: AppColorScope): Int = when (scope) {
+    AppColorScope.FOLLOWING -> R.string.theme_app_colors_scope_following_desc
+    AppColorScope.ALL -> R.string.theme_app_colors_scope_all_desc
+}
+
+private fun appColorSourceLabelRes(source: AppColorSource): Int = when (source) {
+    AppColorSource.AUTO -> R.string.theme_app_colors_source_auto_label
+    AppColorSource.ICON -> R.string.theme_app_colors_source_icon_label
+    AppColorSource.APP_THEME -> R.string.theme_app_colors_source_app_label
+}
+
+private fun appColorSourceDescRes(source: AppColorSource): Int = when (source) {
+    AppColorSource.AUTO -> R.string.theme_app_colors_source_auto_desc
+    AppColorSource.ICON -> R.string.theme_app_colors_source_icon_desc
+    AppColorSource.APP_THEME -> R.string.theme_app_colors_source_app_desc
+}
+
+private fun paletteStyleDescRes(style: PaletteStyle): Int = when (style) {
+    PaletteStyle.TONAL_SPOT -> R.string.theme_app_colors_style_tonal_spot_desc
+    PaletteStyle.VIBRANT -> R.string.theme_app_colors_style_vibrant_desc
+    PaletteStyle.EXPRESSIVE -> R.string.theme_app_colors_style_expressive_desc
+    PaletteStyle.FIDELITY -> R.string.theme_app_colors_style_fidelity_desc
+    PaletteStyle.NEUTRAL -> R.string.theme_app_colors_style_neutral_desc
+    PaletteStyle.MONOCHROME -> R.string.theme_app_colors_style_monochrome_desc
+    PaletteStyle.RAINBOW -> R.string.theme_app_colors_style_rainbow_desc
+    PaletteStyle.FRUIT_SALAD -> R.string.theme_app_colors_style_fruit_salad_desc
+}
+
 private fun themeGalleryStyleLabelRes(style: ThemeGalleryStyle): Int = when (style) {
     ThemeGalleryStyle.AUTO -> R.string.theme_gallery_style_auto_label
     ThemeGalleryStyle.GROUPED -> R.string.theme_gallery_style_grouped_label
@@ -3022,6 +3325,239 @@ fun ThemeEditorScreen(
             }
         }
     }
+    // ---- Glass ----
+    val frostSpec = look.watch { it.frost }
+    val frostOn = frostSpec?.enabled == true
+    val frost = frostSpec ?: FrostSpec()
+    val lookDark = look.watch { it.dark }
+    fun updateFrost(transform: (FrostSpec) -> FrostSpec) =
+        update { t -> t.copy(frost = transform(t.frost ?: FrostSpec())) }
+    // What the glass would stand on in the editor's own preview, which has no
+    // window to blur: the image, or the wallpaper, or nothing.
+    val usesWallpaper = when (frost.backdropSource) {
+        FrostBackdropSource.WALLPAPER -> true
+        FrostBackdropSource.AUTO -> !hasImage
+        FrostBackdropSource.IMAGE, FrostBackdropSource.NONE -> false
+    }
+    val hasBackdrop = usesWallpaper || (hasImage && frost.backdropSource != FrostBackdropSource.NONE)
+    val wallpaperPixelsPossible = Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2
+    var wallpaperReadable by remember { mutableStateOf(WallpaperBackdrop.canReadPixels(context)) }
+    val wallpaperPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { wallpaperReadable = WallpaperBackdrop.canReadPixels(context) }
+    SettingsGroup(
+        stringResource(R.string.theme_glass_section_title),
+        foldKey = "theme/glass",
+        info = stringResource(R.string.theme_glass_section_body),
+    ) {
+        item {
+            ToggleSetting(
+                R.string.theme_glass_title,
+                stringResource(R.string.theme_glass_subtitle),
+                checked = frostOn,
+            ) { on -> updateFrost { it.copy(enabled = on) } }
+        }
+        if (!frostOn) return@SettingsGroup
+        item {
+            // A preset writes ordinary fields: the glass sliders and, where a
+            // fill is still opaque, its opacity. Nothing remembers the pick.
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Text(
+                    stringResource(R.string.theme_glass_preset_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FrostPreset.entries.forEach { preset ->
+                        AssistChip(
+                            onClick = { update { t -> t.dressedForGlass(preset) } },
+                            label = { Text(stringResource(frostPresetLabelRes(preset))) },
+                        )
+                    }
+                }
+                Text(
+                    stringResource(R.string.theme_glass_preset_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+        item {
+            ChoiceControl(
+                options = FrostStyle.entries.map { it to stringResource(frostStyleLabelRes(it)) },
+                selected = frost.glassStyle,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                label = stringResource(R.string.theme_glass_style_label),
+                detail = { style -> ChoiceDetail(stringResource(frostStyleDescRes(style))) },
+            ) { style -> updateFrost { f -> f.copy(style = style.name) } }
+        }
+        item(visible = frost.glassStyle == FrostStyle.LIQUID) {
+            SliderRow(
+                R.string.theme_glass_refraction_title,
+                value = frost.refraction,
+                range = FROST_REFRACTION_RANGE,
+                display = { if (it < 0.005f) offLabel else "${(it * 100).roundToInt()}%" },
+                info = stringResource(R.string.theme_glass_refraction_body),
+            ) { updateFrost { f -> f.copy(refraction = (it * 100).roundToInt() / 100f) } }
+        }
+        item(visible = frost.glassStyle == FrostStyle.LIQUID) {
+            SliderRow(
+                R.string.theme_glass_dispersion_title,
+                value = frost.dispersion,
+                range = FROST_DISPERSION_RANGE,
+                display = { if (it < 0.005f) offLabel else "${(it * 100).roundToInt()}%" },
+                info = stringResource(R.string.theme_glass_dispersion_body),
+            ) { updateFrost { f -> f.copy(dispersion = (it * 100).roundToInt() / 100f) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.theme_glass_window_blur_title,
+                stringResource(R.string.theme_glass_window_blur_subtitle),
+                checked = frost.windowBlur,
+            ) { on -> updateFrost { it.copy(windowBlur = on) } }
+        }
+        item {
+            SliderRow(
+                R.string.theme_glass_blur_strength_title,
+                value = frost.windowBlurRadiusDp.toFloat(),
+                range = WINDOW_BLUR_RADIUS_RANGE.first.toFloat()..WINDOW_BLUR_RADIUS_RANGE.last.toFloat(),
+                display = { "${it.roundToInt()} dp" },
+                info = stringResource(R.string.theme_glass_blur_strength_body),
+            ) { updateFrost { f -> f.copy(windowBlurRadiusDp = it.roundToInt()) } }
+        }
+        item(visible = frost.windowBlur) {
+            SliderRow(
+                R.string.theme_glass_fallback_title,
+                value = frost.fallbackOpacity,
+                range = FROST_FALLBACK_OPACITY_RANGE,
+                display = { "${(it * 100).roundToInt()}%" },
+                info = stringResource(R.string.theme_glass_fallback_body),
+            ) { updateFrost { f -> f.copy(fallbackOpacity = (it * 100).roundToInt() / 100f) } }
+        }
+        item {
+            val selected = frost.surfaceSet
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Text(
+                    stringResource(R.string.theme_glass_surfaces_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FrostSurface.entries.forEach { surface ->
+                        val on = surface in selected
+                        FilterChip(
+                            selected = on,
+                            onClick = {
+                                updateFrost { f ->
+                                    val next = if (on) f.surfaceSet - surface else f.surfaceSet + surface
+                                    f.copy(surfaces = next.sortedBy { it.ordinal }.map { it.name })
+                                }
+                            },
+                            label = { Text(stringResource(frostSurfaceLabelRes(surface))) },
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            ChoiceControl(
+                options = FrostBackdropSource.entries.map { it to stringResource(frostBackdropLabelRes(it)) },
+                selected = frost.backdropSource,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                label = stringResource(R.string.theme_glass_backdrop_label),
+                detail = { source -> ChoiceDetail(stringResource(frostBackdropDescRes(source))) },
+            ) { source -> updateFrost { f -> f.copy(backdrop = source.name) } }
+        }
+        item(visible = usesWallpaper) {
+            ChoiceControl(
+                options = WallpaperBand.entries.map { it to stringResource(wallpaperBandLabelRes(it)) },
+                selected = frost.band,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                label = stringResource(R.string.theme_glass_wallpaper_band_label),
+            ) { band -> updateFrost { f -> f.copy(wallpaperBand = band.name) } }
+        }
+        item(visible = usesWallpaper && wallpaperPixelsPossible && !wallpaperReadable) {
+            // Android 12 and below read the wallpaper's pixels with the
+            // storage permission; without it the glass paints the
+            // wallpaper's colours instead, which is also all Android 13 allows.
+            NavRow(
+                R.string.theme_glass_wallpaper_permission_title,
+                subtitle = stringResource(R.string.theme_glass_wallpaper_permission_subtitle),
+            ) { wallpaperPermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE) }
+        }
+        item(visible = usesWallpaper && !wallpaperPixelsPossible) {
+            Text(
+                stringResource(R.string.theme_glass_wallpaper_colours_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        item(visible = !hasBackdrop) {
+            Text(
+                stringResource(R.string.theme_glass_no_image_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        item(visible = hasBackdrop) {
+            SliderRow(
+                R.string.theme_glass_backdrop_blur_title,
+                value = frost.backdropBlur,
+                range = FROST_BACKDROP_BLUR_RANGE,
+                display = { if (it < 0.5f) offLabel else it.toInt().toString() },
+                info = stringResource(R.string.theme_glass_backdrop_blur_body),
+            ) { updateFrost { f -> f.copy(backdropBlur = it.roundToInt().toFloat()) } }
+        }
+        item(visible = hasBackdrop) {
+            SliderRow(
+                R.string.theme_glass_saturation_title,
+                value = frost.saturation,
+                range = FROST_SATURATION_RANGE,
+                display = { "%.2f×".format(it) },
+            ) { updateFrost { f -> f.copy(saturation = (it * 20).roundToInt() / 20f) } }
+        }
+        item(visible = hasBackdrop) {
+            SliderRow(
+                R.string.theme_glass_brightness_title,
+                value = frost.brightness,
+                range = FROST_BRIGHTNESS_RANGE,
+                display = { "%+d%%".format((it * 100).roundToInt()) },
+            ) { updateFrost { f -> f.copy(brightness = (it * 100).roundToInt() / 100f) } }
+        }
+        item {
+            SliderRow(
+                R.string.theme_glass_rim_title,
+                value = frost.rim,
+                range = FROST_RIM_RANGE,
+                display = { if (it < 0.005f) offLabel else "${(it * 100).roundToInt()}%" },
+                info = stringResource(R.string.theme_glass_rim_body),
+            ) { updateFrost { f -> f.copy(rim = (it * 100).roundToInt() / 100f) } }
+        }
+        item(visible = frost.rim > 0f) {
+            NullableColorRow(
+                R.string.theme_glass_rim_color_title,
+                frost.rimColor,
+                fallback = if (lookDark) 0xB3FFFFFF else 0xE6FFFFFF,
+                supportsAlpha = true,
+                onChange = { updateFrost { f -> f.copy(rimColor = it) } },
+            )
+        }
+        item {
+            SliderRow(
+                R.string.theme_glass_grain_title,
+                value = frost.grain,
+                range = FROST_GRAIN_RANGE,
+                display = { if (it < 0.005f) offLabel else "${(it * 100).roundToInt()}%" },
+            ) { updateFrost { f -> f.copy(grain = (it * 100).roundToInt() / 100f) } }
+        }
+    }
+
     SettingsGroup(
         stringResource(R.string.theme_texture_section_title),
         foldKey = "theme/texture",

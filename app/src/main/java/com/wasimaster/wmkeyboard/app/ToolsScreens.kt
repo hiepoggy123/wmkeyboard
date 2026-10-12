@@ -145,6 +145,8 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.MEDIA_CONTROL -> R.string.fonts_tool_media_control_title
     ToolbarTool.KDE_CONNECT -> ImeR.string.ime_tool_kde_connect
     ToolbarTool.STATISTICS -> ImeR.string.ime_tool_statistics
+    ToolbarTool.FIND_REPLACE -> ImeR.string.ime_tool_find_replace
+    ToolbarTool.NOTES -> ImeR.string.ime_tool_notes
     ToolbarTool.PLUGINS -> ImeR.string.ime_tool_plugins
     ToolbarTool.APP_LAUNCHER -> R.string.fonts_tool_app_launcher_title
     ToolbarTool.AI -> R.string.fonts_tool_ai_title
@@ -169,6 +171,7 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CUT -> ImeR.string.ime_tool_cut
     ToolbarTool.PASTE -> ImeR.string.ime_tool_paste
     ToolbarTool.HIDE_KEYBOARD -> R.string.fonts_tool_hide_keyboard_title
+    ToolbarTool.RECENT_COPIES -> R.string.fonts_tool_recent_copies_title
 }
 /** The one-line description under a tool's name, as a string resource. */
 @StringRes
@@ -226,6 +229,8 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.MEDIA_CONTROL -> R.string.fonts_tool_media_control_desc
     ToolbarTool.KDE_CONNECT -> R.string.fonts_tool_kde_connect_desc
     ToolbarTool.STATISTICS -> R.string.fonts_tool_statistics_desc
+    ToolbarTool.FIND_REPLACE -> R.string.fonts_tool_find_replace_desc
+    ToolbarTool.NOTES -> R.string.fonts_tool_notes_desc
     ToolbarTool.PLUGINS -> R.string.fonts_tool_plugins_desc
     ToolbarTool.APP_LAUNCHER -> R.string.fonts_tool_app_launcher_desc
     ToolbarTool.AI -> R.string.fonts_tool_ai_desc
@@ -250,6 +255,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CUT -> R.string.fonts_tool_cut_desc
     ToolbarTool.PASTE -> R.string.fonts_tool_paste_desc
     ToolbarTool.HIDE_KEYBOARD -> R.string.fonts_tool_hide_keyboard_desc
+    ToolbarTool.RECENT_COPIES -> R.string.fonts_tool_recent_copies_desc
 }
 internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector =
     IconDefaults.forTool(tool)
@@ -482,6 +488,7 @@ private fun ToolRow(
             ToolBlocker.NEEDS_SEARCH_KEY -> stringResource(R.string.tools_needs_key_subtitle)
             ToolBlocker.NEEDS_SEARCH_INSTANCE -> stringResource(R.string.tools_needs_instance_subtitle)
             ToolBlocker.NEEDS_SECONDARY_LAYOUT -> stringResource(R.string.tools_needs_layout_subtitle)
+            ToolBlocker.VOICE_OFF -> stringResource(R.string.tools_voice_off_subtitle)
         },
         leading = {
             SlotIcon(
@@ -532,10 +539,10 @@ private fun ToolRow(
 internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
     add(
         R.string.tools_group_panels_title to listOf(
-            ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
+            ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.NOTES,
             ToolbarTool.TEXT_EDIT, ToolbarTool.TRACKPAD, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
             ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.DICTIONARY, ToolbarTool.VOCABULARY,
-            ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.GRAMMAR, ToolbarTool.APP_LAUNCHER, ToolbarTool.MEDIA_CONTROL,
+            ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.FIND_REPLACE, ToolbarTool.GRAMMAR, ToolbarTool.APP_LAUNCHER, ToolbarTool.MEDIA_CONTROL,
             ToolbarTool.KDE_CONNECT,
         ),
     )
@@ -567,7 +574,7 @@ internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
     add(
         R.string.tools_group_quick_actions_title to listOf(
             ToolbarTool.UNDO, ToolbarTool.REDO,
-            ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
+            ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE, ToolbarTool.RECENT_COPIES,
             ToolbarTool.AUTOCORRECT, ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH,
             ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS,
             ToolbarTool.THEMES, ToolbarTool.POWER_SAVING, ToolbarTool.SETTINGS, ToolbarTool.STATISTICS,

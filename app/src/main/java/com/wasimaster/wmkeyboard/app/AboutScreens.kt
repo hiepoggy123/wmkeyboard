@@ -13,6 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -35,6 +37,9 @@ import com.wasimaster.wmkeyboard.app.updates.languageSwitchCanBeDropped
 import com.wasimaster.wmkeyboard.core.settings.OnboardingSettings
 import com.wasimaster.wmkeyboard.core.settings.PersonaDepth
 import com.wasimaster.wmkeyboard.core.settings.PersonaLanguages
+import com.wasimaster.wmkeyboard.core.settings.SettingLinkMode
+import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
+import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.support.Support
 import kotlinx.coroutines.Dispatchers
@@ -186,6 +191,15 @@ private val bundledAttributions: List<Attribution> = buildList {
     )
     add(
         Attribution(
+            "Lottie for Android",
+            R.string.about_bundled_lottie_used,
+            "Copyright Airbnb, Inc.",
+            "Apache-2.0", "apache-2.0.txt",
+            "https://github.com/airbnb/lottie-android",
+        ),
+    )
+    add(
+        Attribution(
             "ZXing",
             R.string.about_bundled_zxing_used,
             "Copyright ZXing authors",
@@ -309,6 +323,16 @@ private val bundledAttributions: List<Attribution> = buildList {
                 "https://github.com/vilassn/whisper_android",
             ),
         )
+        // The other offline engine (#548), in the same builds.
+        add(
+            Attribution(
+                "Cactus Needle and Whistle",
+                R.string.about_bundled_whistle_used,
+                "Copyright Cactus Compute, Inc.",
+                "Apache-2.0", "apache-2.0.txt",
+                "https://huggingface.co/Cactus-Compute/whistle",
+            ),
+        )
     }
     add(
         Attribution(
@@ -339,6 +363,17 @@ private val bundledAttributions: List<Attribution> = buildList {
             "Copyright the individual keyboard authors, listed in the licence",
             "MIT", "mit-keyman.txt",
             "https://github.com/keymanapp/keyboards",
+        ),
+    )
+    // The keysym names in XkbKeysyms.kt, generated from xorgproto's
+    // keysymdef.h, whose notice asks to travel with copies.
+    add(
+        Attribution(
+            "X11 keysym table",
+            R.string.about_bundled_keysyms_used,
+            "Copyright 1987, 1994, 1998 The Open Group; 1987 Digital Equipment Corporation",
+            "X11", "x11-keysymdef.txt",
+            "https://gitlab.freedesktop.org/xorg/proto/xorgproto",
         ),
     )
     // The layouts added for parity with FUTO Keyboard and FlorisBoard were
@@ -707,6 +742,7 @@ private fun AppLanguageSetting() {
 @Composable
 internal fun AboutSettings(
     settings: LiveSettings,
+    repository: SettingsRepository,
     persona: OnboardingSettings,
     onOpenLicenses: () -> Unit,
     onOpenLicenseText: (String) -> Unit,
@@ -718,6 +754,7 @@ internal fun AboutSettings(
 ) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val flavor = BuildConfig.FLAVOR_capabilities.replaceFirstChar { it.uppercase() }
     val channel = when {
         BuildConfig.ENABLE_PLAY_STORE -> " · Play Store"
@@ -942,6 +979,23 @@ internal fun AboutSettings(
             ) {
                 uriHandler.openUri(PRIVACY_POLICY_URL)
             }
+        }
+        item {
+            // A web link to one setting, from the setting itself (#646). The
+            // rows read the mode through LocalSettingLinks, so this row and
+            // its own heading change the moment it is picked.
+            ChoiceSetting(
+                R.string.about_setting_links_title,
+                subtitle = stringResource(R.string.about_setting_links_subtitle),
+                info = stringResource(R.string.about_setting_links_info),
+                options = listOf(
+                    SettingLinkMode.OFF to stringResource(CommonR.string.common_off),
+                    SettingLinkMode.HOLD to stringResource(R.string.about_setting_links_hold),
+                    SettingLinkMode.BUTTON to stringResource(R.string.about_setting_links_button),
+                ),
+                selected = settings.watch { it.appUi.settingLinks },
+                default = SettingsDefaults.appUi.settingLinks,
+            ) { scope.launch { repository.setSettingLinks(it) } }
         }
     }
 

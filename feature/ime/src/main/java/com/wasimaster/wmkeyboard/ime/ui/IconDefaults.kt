@@ -78,6 +78,8 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Public
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PushPin
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCode2
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QueryStats
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FindReplace
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.StickyNote2
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCodeScanner
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Schedule
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.School
@@ -181,6 +183,8 @@ object IconDefaults {
         // The settings app's own Statistics glyph, so the tool and the row it
         // opens look like the same thing.
         ToolbarTool.STATISTICS -> Icons.Outlined.QueryStats
+        ToolbarTool.FIND_REPLACE -> Icons.Outlined.FindReplace
+        ToolbarTool.NOTES -> Icons.Outlined.StickyNote2
         ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
         ToolbarTool.KDE_CONNECT -> Icons.Outlined.Phonelink
         ToolbarTool.PLUGINS -> Icons.Outlined.Extension
@@ -210,6 +214,7 @@ object IconDefaults {
         ToolbarTool.COPY -> Icons.Outlined.ContentCopy
         ToolbarTool.CUT -> Icons.Outlined.ContentCut
         ToolbarTool.PASTE -> Icons.Outlined.ContentPaste
+        ToolbarTool.RECENT_COPIES -> Icons.Outlined.History
     }
 
     /**
@@ -301,6 +306,8 @@ object IconDefaults {
         put(IconSlots.CHROME_SEARCH_CLOSE, Icons.Outlined.Close)
         put(IconSlots.CHROME_INCOGNITO, KeyboardIcons.Incognito)
         put(IconSlots.CHROME_POWER_SAVING, Icons.Outlined.BatterySaver)
+        put(IconSlots.CHROME_SHOW_KEYS, Icons.Outlined.Keyboard)
+        put(IconSlots.CHROME_HIDE_KEYS, Icons.Outlined.KeyboardHide)
 
         put(IconSlots.EMOJI_TAB_SEARCH, Icons.Outlined.Search)
         put(IconSlots.EMOJI_TAB_RECENT, Icons.Outlined.Schedule)

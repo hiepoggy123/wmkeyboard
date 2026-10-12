@@ -6,8 +6,10 @@ import android.os.StatFs
 import android.provider.OpenableColumns
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.dictionaries.AvroDictionaryDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
+import com.wasimaster.wmkeyboard.core.dictionaries.KhiproGlideDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackDownloadManager
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackEntry
@@ -25,6 +27,8 @@ import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.stickers.CutoutModel
 import com.wasimaster.wmkeyboard.core.tools.offlinegif.OfflineGifPacks
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager
+import com.wasimaster.wmkeyboard.core.voice.whistle.WhistleModelDownloadManager
+import com.wasimaster.wmkeyboard.core.voice.whistle.WhistleModelStore
 import java.io.File
 import java.io.IOException
 import java.util.zip.ZipFile
@@ -133,6 +137,9 @@ internal object OfflineImport {
         for (file in files) {
             val name = file.name
             if (IGNORED.any { it.matches(name) }) continue
+            // A language pack carries a CJK table's earlier version too, for
+            // app versions that pin it; this one would fail its checksum.
+            if (CjkDictCatalog.isLegacyFileName(name)) continue
             val wordlist = DictionaryCatalog.byFileName(name)
             val pair = if (wordlist == null) NgramPackCatalog.byFileName(name) else null
             when {
@@ -217,10 +224,32 @@ internal object OfflineImport {
                 }
             }
         }
+        if (name == WhistleModelStore.MODEL_FILE_NAME) {
+            return attempt(name, busy = WhistleModelDownloadManager.isBusy) {
+                if (WhistleModelStore.install(filesDir, file)) {
+                    WhistleModelDownloadManager.refresh(filesDir)
+                    Outcome(name, true, R.string.offline_import_whistle_ready)
+                } else {
+                    Outcome(name, false, R.string.offline_import_mismatch)
+                }
+            }
+        }
         OcrPacks.packOf(name)?.let { pack ->
             return attempt(name) {
                 OcrPacks.install(filesDir, pack, file)
                 Outcome(name, true, R.string.offline_import_ocr_done, listOf(OcrLanguages.nameOf(pack)))
+            }
+        }
+        if (name == AvroDictionaryDownloads.PUBLISHED_NAME) {
+            return attempt(name) {
+                AvroDictionaryDownloads.install(filesDir, file)
+                Outcome(name, true, R.string.offline_import_avro_done)
+            }
+        }
+        if (name == KhiproGlideDownloads.PUBLISHED_NAME) {
+            return attempt(name, busy = KhiproGlideDownloads.isBusy) {
+                KhiproGlideDownloads.install(filesDir, file)
+                Outcome(name, true, R.string.offline_import_khipro_glide_done)
             }
         }
         if (name == CutoutModel.FILE_NAME) {

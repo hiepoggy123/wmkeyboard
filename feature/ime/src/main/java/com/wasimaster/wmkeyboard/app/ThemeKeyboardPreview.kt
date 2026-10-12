@@ -85,6 +85,7 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.LayoutSet
+import com.wasimaster.wmkeyboard.ime.authoredHolds
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.ui.KeyPreviewBandMode
@@ -146,6 +147,7 @@ fun ThemeKeyboardPreview(
             keyboardThemeId = theme.id,
             autoTheme = settings.autoTheme.copy(enabled = false),
             floatingKeyboard = false,
+            floatingKeyboardLandscape = false,
             oneHandedMode = OneHandedMode.OFF,
         )
     }
@@ -277,6 +279,10 @@ fun ThemeKeyboardPreview(
     // miniature is clipped to its own rounded corners, so there a bubble is
     // clamped to the top edge rather than cut in half.
     val bandMode = if (miniature) KeyPreviewBandMode.INSIDE else KeyPreviewBandMode.OUTSIDE
+    // No window of its own to blur the app behind: the default window-frost
+    // host reports none, so a glass theme previews the way it draws on a
+    // phone that cannot blur — on its wallpaper band, or at its fallback
+    // opacity.
     val keyboard: @Composable () -> Unit = {
         CompositionLocalProvider(
             LocalKeyPreviewBand provides bandMode,
@@ -423,6 +429,7 @@ private fun previewLayoutSet(
         secondaries = secondaryLayouts(customs).associate { secondary ->
             secondary.id to secondary.repair().spec.compile(LayoutLayer.LETTERS).unthemed()
         },
+        authoredHolds = authoredHolds(spec, letters),
     )
 }
 

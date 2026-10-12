@@ -372,6 +372,12 @@ data class LayoutSet(
      * row (`LayoutSpec.handwriting`, issue #557).
      */
     val handwriting: Boolean = false,
+    /**
+     * The letter keys whose long-press order the user wrote (issue #622), which
+     * the "your language's letters first" pass leaves as written. See
+     * [authoredHolds].
+     */
+    val authoredHolds: Set<Key> = emptySet(),
 ) {
     /**
      * Rows the key grid reserves.
@@ -725,6 +731,13 @@ enum class PanelMode {
      * keyboard does not know yet, to add in one go. See [LearnFromTextUi].
      */
     LEARN_FROM_TEXT,
+
+    /**
+     * The Notes tool (#560): a list of the user's notes, one open to read, or
+     * one being written. See [NotesPanelUi]; its fields take the keys through
+     * the `NOTE_*` capture targets.
+     */
+    NOTES,
 }
 
 /**
@@ -743,6 +756,7 @@ val PanelMode.layoutKind: PanelKind?
         PanelMode.TEXT_EDIT -> PanelKind.TEXT_EDIT
         PanelMode.TRACKPAD -> PanelKind.TRACKPAD
         PanelMode.NUMPAD -> PanelKind.NUMPAD
+        PanelMode.HANDWRITING -> PanelKind.HANDWRITING
         else -> null
     }
 
@@ -887,6 +901,9 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     PanelMode.FIND_REPLACE -> listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.ACTIONS)
     // The header chips, then the word rows.
     PanelMode.LEARN_FROM_TEXT -> listOf(FocusRegion.CHIPS, FocusRegion.RESULTS)
+    // The search pill, the filter chips, the note rows (or the read view's
+    // tag chips), then the action row under an open note or the editor.
+    PanelMode.NOTES -> listOf(FocusRegion.SEARCH, FocusRegion.CHIPS, FocusRegion.RESULTS, FocusRegion.ACTIONS)
     PanelMode.PASSWORD_GEN ->
         listOf(FocusRegion.CHIPS, FocusRegion.ACTIONS, FocusRegion.RESULTS)
     // The dialect and Fix-all chips, then the lint cards. Seed-only (see
@@ -1065,13 +1082,39 @@ data class VoiceUi(
      * error has somewhere to be said.
      */
     val field: String? = null,
+    /**
+     * The kinds of microphone plugged in now (#581), as
+     * [com.wasimaster.wmkeyboard.core.voice.VoiceMics] names them, for the
+     * panel's microphone chip. Kept current by the service's device watcher.
+     */
+    val mics: List<String> = emptyList(),
+    /**
+     * The microphone the last session listened through (#581): its
+     * [com.wasimaster.wmkeyboard.core.voice.VoiceMics] kind, never auto, and
+     * the name the device gives (the headset's, or the phone model). Empty
+     * until a session has started.
+     */
+    val micKind: String = "",
+    val micName: String = "",
+    /**
+     * When the surfaces were last asked to say which microphone is in use, in
+     * `SystemClock.uptimeMillis`: when it changes, when the switch is
+     * pressed, and on the first session after the keyboard comes up, not on
+     * every chained phrase. A time rather than a count, so a surface that
+     * mounts a frame after the session started still shows the rest of it.
+     */
+    val micNoticeAt: Long = 0L,
 )
 
 /** The session records a whole clip and transcribes it after the stop tap. */
 val VoiceUi.clipBased: Boolean get() = whisper || remote
 
-/** The persisted settings say the collapsed voice bar should be up. */
-fun VoiceBarSettings.armed(): Boolean = mode == VoiceBarSettings.MODE_BAR && active
+/**
+ * The persisted settings say the collapsed voice bar should be up. Never while
+ * voice typing is switched off (#578); [active] is kept, so the bar comes back
+ * if it is switched on again.
+ */
+fun VoiceBarSettings.armed(): Boolean = enabled && mode == VoiceBarSettings.MODE_BAR && active
 
 /**
  * An interactive voice typing session can be run from one microphone button,
@@ -1190,6 +1233,9 @@ sealed interface VoiceBarAction {
      * dictation listens for, in order, or none to follow the keyboard.
      */
     data class PickLanguages(val ids: List<String>) : VoiceBarAction
+
+    /** The voice panel's microphone chip (#581): listen through the next microphone plugged in. */
+    data object CycleMic : VoiceBarAction
 }
 
 /**
@@ -1646,6 +1692,12 @@ sealed interface AiChatAction {
      * than the whole.
      */
     data class AskAbout(val text: String, val label: String, val fromSelection: Boolean) : AiChatAction
+
+    /**
+     * The user's answer to an MCP call that asked first (#573), from the
+     * chat or from the AI panel's actions: both ride this one callback.
+     */
+    data class ToolApproval(val choice: com.wasimaster.wmkeyboard.core.tools.AiToolApproval) : AiChatAction
 }
 
 /** The KDE Connect panel's tabs, in rail order. */
@@ -1746,6 +1798,11 @@ sealed interface DictionaryUi {
     data class Ready(
         val entries: List<com.wasimaster.wmkeyboard.core.tools.DictEntry>,
         val source: com.wasimaster.wmkeyboard.core.tools.DictionarySource,
+        /**
+         * The word's meaning in the user's language, from an installed
+         * vocabulary pack's translations (#651); null for a word no pack has.
+         */
+        val meaning: com.wasimaster.wmkeyboard.core.vocab.VocabMeaning? = null,
     ) : DictionaryUi
 }
 
@@ -2282,6 +2339,49 @@ data class ClipEdit(
     }
 }
 
+/** Which of [ClipCombineDraft]'s three boxes the keys type into. */
+enum class ClipCombineField { JOINER, BASE, APPEND }
+
+/**
+ * Several clips being joined into one in the clipboard panel (#612): the clips
+ * in the order they were picked, and the rule, which the keys type into the way
+ * they type into the clip editor. See `ClipCombine.combine` for what each part
+ * of the rule does.
+ */
+data class ClipCombineDraft(
+    val ids: List<Long>,
+    /** What goes between the clips. */
+    val joiner: String,
+    /** What goes in front of them all. */
+    val base: String = "",
+    /** A pattern: each clip gives only its first match, when not empty. */
+    val append: String = "",
+    val focused: ClipCombineField = ClipCombineField.JOINER,
+) {
+    /** The box [focused] names. */
+    val focusedText: String
+        get() = when (focused) {
+            ClipCombineField.JOINER -> joiner
+            ClipCombineField.BASE -> base
+            ClipCombineField.APPEND -> append
+        }
+
+    /** This, with [text] in the box [focused] names, cut to [MAX_LENGTH]. */
+    fun withFocusedText(text: String): ClipCombineDraft {
+        val cut = text.take(MAX_LENGTH)
+        return when (focused) {
+            ClipCombineField.JOINER -> copy(joiner = cut)
+            ClipCombineField.BASE -> copy(base = cut)
+            ClipCombineField.APPEND -> copy(append = cut)
+        }
+    }
+
+    companion object {
+        /** Each box's ceiling: a rule, not a document. */
+        const val MAX_LENGTH = 500
+    }
+}
+
 /**
  * The clipboard panel's Undo bar after a delete (#327): the clips it would put
  * back, oldest delete first. Deleting another clip while the bar is up joins
@@ -2626,6 +2726,12 @@ data class KeyboardUiState(
     val expandedCandidates: List<String> = emptyList(),
     val suggestions: List<String> = emptyList(),
     /**
+     * What the next undecided syllable of a conversion reading could be, for a
+     * reading column to offer (`Composer.readings`, issue #635). Empty for every
+     * composer but T9 pinyin, and once every syllable is settled.
+     */
+    val conversionReadings: List<String> = emptyList(),
+    /**
      * Desktop Avro's candidate list for the word being typed, for the row
      * above the strip; empty unless the phonetic language is set to show it
      * there (`SuggestionStripSettings.phoneticCandidateLists`).
@@ -2936,6 +3042,8 @@ data class KeyboardUiState(
     val clipboardWithKeys: Boolean = false,
     /** The clip open in the clipboard panel's editor; see [clipEditActive]. */
     val clipEdit: ClipEdit? = null,
+    /** The clips being combined into one, and the rule (#612); see [clipCombineActive]. */
+    val clipCombine: ClipCombineDraft? = null,
     /** The clipboard panel's Undo bar, while a delete can still be taken back. */
     val clipboardUndo: ClipUndo? = null,
     /**
@@ -2945,11 +3053,13 @@ data class KeyboardUiState(
      */
     val clipboardSuggestion: ClipItem? = null,
     /**
-     * The row of recent copies on the idle strip (#414) was put away with its
-     * ✕, for this field. Back for the next field, and the moment something new
-     * is copied.
+     * The row of recent copies is on the strip (#414, #612). Only ever put
+     * there by hand, by the button beside the last-copy chip or the Recent
+     * copies tool, and taken down by the first key typed, its ✕, or another
+     * field: a row that came and went by itself flickered every time the
+     * strip had nothing else to show.
      */
-    val clipChipsDismissed: Boolean = false,
+    val recentClipsOpen: Boolean = false,
     /**
      * One-time code lifted from a just-arrived notification, offered as a chip
      * on the suggestion strip. Null when there is none, it expired, it was
@@ -3174,6 +3284,8 @@ data class KeyboardUiState(
     val enterActionLabel: String? = null,
     /** Torch state, mirrored from CameraManager for the flashlight tool. */
     val torchOn: Boolean = false,
+    /** The Notes panel (#560); survives the panel closing like [vocab]. */
+    val notes: NotesPanelUi = NotesPanelUi(),
     val weather: WeatherUi = WeatherUi.NoLocation,
     val dictionary: DictionaryUi = DictionaryUi.Idle,
     /** Word in the dictionary panel's search field. */
@@ -3240,8 +3352,14 @@ data class KeyboardUiState(
     val mediaAction: com.wasimaster.wmkeyboard.core.tools.GifItem? = null,
     /** Categories to browse in the GIF/sticker default view; empty hides the row. */
     val mediaCategories: List<com.wasimaster.wmkeyboard.core.tools.MediaCategory> = emptyList(),
-    /** The category chip in effect, or null for trending and for a typed query. */
+    /**
+     * The category chip in effect, or null for trending and for a typed query.
+     * Also the GIF panel's favourites and recent chips (#597), as
+     * [com.wasimaster.wmkeyboard.core.tools.MediaCategories.FAVOURITES] and `RECENT`.
+     */
     val mediaCategory: String? = null,
+    /** Ids of the GIF favourites, for the long-press menu's star and the favourites chip (#597). */
+    val gifFavouriteIds: Set<String> = emptySet(),
     /** What the Plugins panel is showing: the list, a running plugin, or a failure. */
     val plugins: PluginPanelUi = PluginPanelUi.List(emptyList()),
     /**
@@ -3428,6 +3546,19 @@ data class KeyboardUiState(
         get() = !secureField && (fieldKind == FieldKind.TEXT || fieldKind == FieldKind.URI)
 
     /**
+     * Whether an opening bracket may type its closer behind the caret, and the
+     * two presses that go with it (stepping over a closer, a backspace taking
+     * an empty pair). Wider than [allowsTypingIntelligence] by the URL field,
+     * for the reason [allowsGestureTyping] is: a browser's address bar is a
+     * search box as often as an address box, and "(" typed there is somebody
+     * opening a bracket (#617). Nothing in the pair is a guess about a word, so
+     * nothing here second-guesses an address. Email fields, passwords, keypads
+     * and terminals stay out.
+     */
+    val allowsBracketPairs: Boolean
+        get() = !secureField && !nullField && (fieldKind == FieldKind.TEXT || fieldKind == FieldKind.URI)
+
+    /**
      * Whether the letters typed here are gathered into a word for the strip to
      * complete. Plain text fields, and a URL bar once "Suggestions in every
      * field" has put the strip on it (#98): a browser's address bar is typed
@@ -3559,12 +3690,31 @@ data class KeyboardUiState(
         get() = wordSpell != null
 
     /**
+     * Whether keystrokes belong to the Notes panel's editor (#560). Panel
+     * *and* an open edit, like [clipEditActive], so an edit left behind by a
+     * panel that closed some other way cannot keep the keys.
+     */
+    val notesEditActive: Boolean
+        get() = panel == PanelMode.NOTES && notes.editing != null
+
+    /**
+     * Whether one of the Notes panel's fields has the keys: the editor, or the
+     * search pill. The same contract as [notesEditActive].
+     */
+    val notesTypingActive: Boolean
+        get() = panel == PanelMode.NOTES && (notes.editing != null || notes.searchActive)
+
+    /**
      * Whether keystrokes belong to the clipboard panel's clip editor. Panel
      * *and* an open edit, like [learnEditActive], so an edit left behind by a
      * panel that closed some other way cannot keep the keys.
      */
     val clipEditActive: Boolean
         get() = panel == PanelMode.CLIPBOARD && clipEdit != null
+
+    /** Whether keystrokes belong to the clipboard panel's Combine rule (#612); as [clipEditActive]. */
+    val clipCombineActive: Boolean
+        get() = panel == PanelMode.CLIPBOARD && clipCombine != null
 
     /**
      * Whether the clipboard panel has handed the key rows back for one of its
@@ -3573,7 +3723,9 @@ data class KeyboardUiState(
      */
     val clipboardTakesKeys: Boolean
         get() = when (captureTarget()) {
-            CaptureTarget.CLIPBOARD_SEARCH, CaptureTarget.CLIP_EDIT -> panel == PanelMode.CLIPBOARD
+            CaptureTarget.CLIPBOARD_SEARCH, CaptureTarget.CLIP_EDIT,
+            CaptureTarget.CLIP_JOINER, CaptureTarget.CLIP_BASE, CaptureTarget.CLIP_APPEND,
+            -> panel == PanelMode.CLIPBOARD
             else -> false
         }
 
@@ -3617,10 +3769,21 @@ data class KeyboardUiState(
                 CaptureTarget.FIND_QUERY
             }
         learnEditActive -> CaptureTarget.LEARN_EDIT
+        notesTypingActive -> when (notes.editing?.focused) {
+            NoteEditField.TITLE -> CaptureTarget.NOTE_TITLE
+            NoteEditField.BODY -> CaptureTarget.NOTE_BODY
+            NoteEditField.TAG -> CaptureTarget.NOTE_TAG
+            null -> CaptureTarget.NOTE_SEARCH
+        }
         calcTypingActive -> CaptureTarget.CALC
         converterTypingActive -> CaptureTarget.CONVERTER
         wordSpellActive -> CaptureTarget.WORD_SPELL
         clipEditActive -> CaptureTarget.CLIP_EDIT
+        clipCombineActive -> when (clipCombine?.focused) {
+            ClipCombineField.BASE -> CaptureTarget.CLIP_BASE
+            ClipCombineField.APPEND -> CaptureTarget.CLIP_APPEND
+            else -> CaptureTarget.CLIP_JOINER
+        }
         emojiSearchActive -> CaptureTarget.EMOJI_SEARCH
         mediaSearchActive && panel.hasMediaSearch -> CaptureTarget.MEDIA_SEARCH
         dictionarySearchActive -> CaptureTarget.DICTIONARY_SEARCH
@@ -3660,7 +3823,14 @@ data class KeyboardUiState(
         CaptureTarget.DICTIONARY_SEARCH -> dictionaryQuery
         CaptureTarget.CLIPBOARD_SEARCH -> clipboardQuery
         CaptureTarget.CLIP_EDIT -> clipEdit?.draft.orEmpty()
+        CaptureTarget.CLIP_JOINER -> clipCombine?.joiner.orEmpty()
+        CaptureTarget.CLIP_BASE -> clipCombine?.base.orEmpty()
+        CaptureTarget.CLIP_APPEND -> clipCombine?.append.orEmpty()
         CaptureTarget.SNIPPET_SEARCH -> snippetQuery
+        CaptureTarget.NOTE_SEARCH -> notes.query
+        CaptureTarget.NOTE_TITLE -> notes.editing?.titleDraft.orEmpty()
+        CaptureTarget.NOTE_BODY -> notes.editing?.bodyDraft.orEmpty()
+        CaptureTarget.NOTE_TAG -> notes.editing?.tagDraft.orEmpty()
     }
 
     /**

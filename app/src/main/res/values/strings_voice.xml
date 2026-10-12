@@ -7,15 +7,22 @@
 -->
 <resources>
 
+    <!-- The switch at the top of the screen. Off hides every other row on it. -->
+    <string name="voice_enabled_title">Use voice typing</string>
+    <string name="voice_enabled_subtitle">Off removes the microphone from the whole keyboard</string>
+    <string name="voice_enabled_info">When this is off, the keyboard never opens the microphone. The Voice tool goes from the toolbar, the toolbox and the shortcuts, the boxes of the keyboard itself lose their microphone button, and the collapsed bar does not show. The recognition engines and the Whisper models are not loaded, so voice typing uses no memory. Your voice settings stay as they are for when you turn it on again.</string>
     <string name="voice_engine_group">Engine</string>
     <string name="voice_engine_title">Recognition engine</string>
     <string name="voice_engine_subtitle">How the keyboard turns speech into text</string>
-    <string name="voice_engine_info">The system recognizer is fast and shows the words while you speak, but it depends on the operating system and its languages. Offline Whisper runs fully on your device across many languages and sends no audio anywhere. It transcribes each phrase after you stop speaking. A transcription server does the same work on a computer you choose, so your phone spends less battery. The recording of each phrase goes to that server and nowhere else.</string>
+    <string name="voice_engine_info">The system recognizer is fast and shows the words while you speak, but it depends on the operating system and its languages. Offline Whisper runs fully on your device across many languages and sends no audio anywhere. It transcribes each phrase after you stop speaking. Offline Whistle works the same way with one small, fast model for seven languages: English, German, French, Spanish, Italian, Dutch and Polish. A transcription server does the same work on a computer you choose, so your phone spends less battery. The recording of each phrase goes to that server and nowhere else.</string>
     <string name="voice_engine_system">System recognizer</string>
     <string name="voice_engine_whisper">Offline Whisper</string>
     <!-- One line under each option in the recognition engine picker. -->
     <string name="voice_engine_system_desc">Fast, and it shows the words while you speak. It depends on your device and its languages</string>
     <string name="voice_engine_whisper_desc">Runs on your device and sends no audio anywhere. Each phrase arrives after you stop</string>
+    <!-- Whistle is the model's name and is not translated. -->
+    <string name="voice_engine_whistle">Offline Whistle</string>
+    <string name="voice_engine_whistle_desc">One fast 17 MB model on your device for English, German, French, Spanish, Italian, Dutch and Polish. Other languages use the system recognizer</string>
     <string name="voice_engine_server">Transcription server</string>
     <string name="voice_engine_server_desc">Sends each phrase to a server you run, which saves battery. Each phrase arrives after you stop</string>
     <string name="voice_dictation_group">Dictation</string>
@@ -77,7 +84,7 @@
     <string name="voice_bias_group">Words to listen for</string>
     <string name="voice_bias_personal_title">Listen for my words</string>
     <string name="voice_bias_personal_subtitle">Names and other words from your dictionary, so they are spelled your way</string>
-    <string name="voice_bias_personal_info">Each time you dictate, the keyboard sends a list of your own words with it: the words you added by hand, the words in Android\'s personal dictionary, and the words the keyboard learned from your typing that are not in any word list, such as names. The system engine also gets permission to use what it knows about your phone, such as your contacts. The list goes to the engine that listens to your voice, and nowhere else. The system engine uses it on Android 13 and later, if the engine supports it. A transcription server gets it as part of its prompt. Offline Whisper cannot use a list, so this setting does not show for it.</string>
+    <string name="voice_bias_personal_info">Each time you dictate, the keyboard sends a list of your own words with it: the words you added by hand, the words in Android\'s personal dictionary, and the words the keyboard learned from your typing that are not in any word list, such as names. The system engine also gets permission to use what it knows about your phone, such as your contacts. The list goes to the engine that listens to your voice, and nowhere else. The system engine uses it on Android 13 and later, if the engine supports it. A transcription server gets it as part of its prompt, and Offline Whistle as words to favour. Offline Whisper cannot use a list, so this setting does not show for it.</string>
     <string name="voice_bias_words_label">More words to listen for</string>
     <string name="voice_bias_words_hint">Optional. Separate them with commas. These go first, before the words from your dictionary</string>
     <!-- A model or a whole other server for one language (#389). -->
@@ -103,8 +110,19 @@
     <string name="voice_system_info">Recognition uses the speech recognizer of your device. On Android 12 and later it runs on your device when the language model is installed. If it is not, the audio goes to the recognizer service while you speak. Press and hold the microphone to speak in walkie-talkie style. It stops when you let go.</string>
 
     <!-- The line between a tap and a walkie-talkie hold. -->
+    <string name="voice_strip_language_title">Language button on the compact bar</string>
+    <string name="voice_strip_language_subtitle">Pick the voice typing language without leaving the bar</string>
+    <string name="voice_strip_language_info">Adds a small button with the language code, such as EN, to the compact bar over the keys. Tap it to choose which language voice typing listens for: the keyboard\'s language, one language whatever the keyboard is set to, or all your keyboard languages at once. It is the same choice as the button on the full voice panel.\n\nThis setting is off by default, because the bar has room for one line. The button shows only when you have more than one keyboard language, or a language already chosen.</string>
     <string name="voice_pause_media_title">Pause media during voice typing</string>
     <string name="voice_pause_media_subtitle">Pause music and video while the microphone listens</string>
+    <string name="voice_mic_title">Microphone</string>
+    <string name="voice_mic_subtitle">Prefer a Bluetooth, wired or USB microphone when one is connected</string>
+    <string name="voice_mic_info">Which microphone voice typing listens through. Automatic uses the one Android picks, which is a plugged-in headset before the phone. Pick a kind to prefer it whenever one is connected. When it is not connected, voice typing uses the automatic choice.\n\nOffline Whisper and the transcription server can use every kind. The system recognizer records the audio itself, so for it only Bluetooth has an effect.\n\nThe microphone button on the voice panel and both voice bars shows the microphone in use. Tap it to switch to the next one that is connected.</string>
+    <string name="voice_mic_auto">Automatic</string>
+    <string name="voice_mic_phone">Phone microphone</string>
+    <string name="voice_mic_wired">Wired headset</string>
+    <string name="voice_mic_usb">USB microphone</string>
+    <string name="voice_mic_bluetooth">Bluetooth headset</string>
     <string name="voice_pause_media_info">When voice typing starts, the keyboard asks other apps to pause their sound. Music, podcasts and video stop while the microphone listens. They continue a moment after voice typing stops. An app that ignores the request continues to play.</string>
     <!-- #499: each dictated phrase is cleaned up by the model of the AI tool. -->
     <string name="voice_ai_tidy_title">Tidy dictation with AI</string>
@@ -124,4 +142,14 @@
     <string name="voice_languages_keyboard_group">Your keyboard languages</string>
     <string name="voice_languages_other_group">Other languages</string>
     <string name="voice_languages_dialog_body">Following the keyboard, dictation listens for the language of the layout you are typing on. Tick one language to keep dictation in it whatever the layout. Tick several to speak any of them. The system recognizer tells them apart on Android 14 and later, where the recognizer supports it. Offline Whisper and the transcription server work out the language themselves, so give Whisper a model that covers all of them. Elsewhere the first language is the one heard: the keyboard\'s language when it is ticked.</string>
+
+    <!-- ================================================================== -->
+    <!-- The Offline Whistle model (#548). Whistle and Cactus are names.     -->
+    <!-- ================================================================== -->
+    <string name="voice_whistle_group">Whistle model</string>
+    <string name="voice_whistle_model_title">Cactus Whistle</string>
+    <string name="voice_whistle_model_info">Whistle is a speech recognition model by Cactus Compute that runs on this phone. It covers English, German, French, Spanish, Italian, Dutch and Polish, and it is small and quick enough that a phrase is usually typed a moment after you stop. While a layout in another language is in use, dictation uses the system recognizer instead. The model comes from Hugging Face once, and after that no audio leaves the phone.</string>
+    <!-- %1$s is the download size, for example "16.9 MB". -->
+    <string name="voice_whistle_model_missing">Not downloaded · %1$s</string>
+    <string name="voice_whistle_model_ready">Ready. No audio leaves your phone</string>
 </resources>

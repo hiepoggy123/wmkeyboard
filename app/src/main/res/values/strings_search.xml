@@ -96,6 +96,7 @@
     <string name="search_kw_ime_tool_trackpad">touchpad mouse pad joystick</string>
     <string name="search_kw_ime_tool_translate">translator interpreter deepl</string>
     <string name="search_kw_ime_tool_vocabulary">spaced repetition anki srs</string>
+    <string name="search_kw_ime_tool_notes">notebook memo jot scratchpad keep diary</string>
     <string name="search_kw_ime_tool_weather">forecast temperature rain</string>
     <string name="search_kw_ime_tool_wikipedia">encyclopedia wiki article</string>
     <string name="search_kw_keypress_all_accents">diacritics umlaut tilde cedilla circumflex</string>
@@ -138,11 +139,13 @@
     <string name="search_kw_languages_ansi">bayanno sutonnymj unicode converter legacy bangla</string>
     <string name="search_kw_layout_floating">undock detached unpinned draggable</string>
     <string name="search_kw_layout_globe_emoji">globe world</string>
+    <string name="search_kw_layout_hide_system_keyboard_bar">navbar navigation gesture chevron switcher</string>
     <string name="search_kw_layout_key_height">taller shorter bigger smaller</string>
     <string name="search_kw_layout_keyboard_scale">zoom shrink enlarge magnify</string>
     <string name="search_kw_layout_number_row_on_keypad">numpad keypad dialpad pin code otp authenticator</string>
     <string name="search_kw_layout_one_handed">single hand compact reachable</string>
     <string name="search_kw_layout_persistent">pin persistent sticky always</string>
+    <string name="search_kw_layout_summon_button">bubble overlay show summon fieldless hackers</string>
     <string name="search_kw_layout_show_globe">hide remove globe language</string>
     <string name="search_kw_layout_globe_recent">recent previous toggle alt tab switch</string>
     <string name="search_kw_layout_size_position">resize shrink compact grow</string>
@@ -193,7 +196,7 @@
     <string name="search_kw_typing_flick_distance">flick swipe threshold slop sensitivity distance kana pad messagease</string>
     <string name="search_kw_typing_possessive_swipe">possessive apostrophe contraction gesture flick comma full stop dont ill were youve</string>
     <string name="search_kw_typing_smart_currency">exchange rate forex dollar euro</string>
-    <string name="search_kw_layout_extend_edge_keys">hitbox hit box touch area tap target edge gap margin</string>
+    <string name="search_kw_layout_extend_edge_keys">hitbox hit box touch area tap target edge gap margin bottom space bar below</string>
     <string name="search_kw_typing_smart_hit_detection">hit detection hitbox proximity targeting</string>
     <string name="search_kw_typing_smart_numbers">thousands separator comma</string>
     <string name="search_kw_typing_smart_replies">canned responses</string>
@@ -328,6 +331,7 @@
     <string name="search_kw_blacklist">banned words, never suggest, block words, ban</string>
     <string name="search_kw_learnedcorrections">learned corrections, my fixes, typo pairs, taught fixes, autocorrect learning, slips, habits</string>
     <string name="search_kw_learnedphrases">learned phrases, ngrams, bigrams, trigrams, multi-word phrases, word pairs, phrases</string>
+    <string name="search_kw_cliprules">regex, pattern, tidy, strip, remove, replace, https, links, copy, clipboard</string>
     <string name="search_kw_phoneformats">phone number, dial code, country code, mobile number, clipboard chips</string>
     <string name="search_kw_codes">otp, one time password, 2fa, two factor, verification code, sms code, login code</string>
     <string name="search_kw_musicapps">music apps, spotify, player apps, now playing, podcast apps</string>

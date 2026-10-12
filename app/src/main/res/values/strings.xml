@@ -83,10 +83,14 @@
     <string name="offline_import_emoji_done">Emoji names in %1$s, %2$s emoji</string>
     <string name="offline_import_cjk_done">Conversion dictionary: %1$s</string>
     <string name="offline_import_whisper_ready">Voice model %1$s is ready</string>
+    <!-- Whistle is the name of a voice model and is not translated. -->
+    <string name="offline_import_whistle_ready">The Whistle voice model is ready</string>
     <string name="offline_import_whisper_needs_vocab">Voice model %1$s is in place, and still needs %2$s beside it</string>
     <string name="offline_import_whisper_vocab">Vocabulary file, for %1$s voice models</string>
     <string name="offline_import_ocr_done">Text recognition data for %1$s</string>
     <string name="offline_import_cutout_done">Background remover model</string>
+    <string name="offline_import_khipro_glide_done">Khipro spellings, for gliding on the Khipro layout</string>
+    <string name="offline_import_avro_done">Desktop Avro\'s dictionary, for the Bangla candidate list</string>
     <string name="offline_import_mismatch">Not the file this app expects: its size or checksum differs from the one published.</string>
     <string name="offline_import_llm_done">AI model %1$s</string>
     <string name="offline_import_gif_done">GIF pack %1$s, %2$s GIFs</string>

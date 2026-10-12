@@ -680,6 +680,9 @@ private fun SettingsNavHost(
             // handed the settings.
             LocalReduceMotion provides reduceMotion,
             LocalKeyboardPreview provides preview.takeIf { previewWanted },
+            // About › Documentation › Setting links (#646): how a row hands
+            // out a link to itself, read by every row and heading.
+            LocalSettingLinks provides rememberSettingLinks(settings.watch { it.appUi.settingLinks }),
             // "Icons in settings", animated once here for every row and
             // heading, so the screen the switch is on sees its tiles leave.
             LocalIconReveal provides rememberIconReveal(
@@ -1223,6 +1226,16 @@ private fun SettingsNavGraph(
                 com.wasimaster.wmkeyboard.app.kdeconnect.KdeDevicesScreen(repository, settings)
             }
         }
+        composable("cliprules") {
+            SettingsScreen(
+                stringResource(R.string.clipboard_copy_rules_title),
+                { navController.popBackStack() },
+                route = "cliprules",
+                subtitle = stringResource(R.string.copy_rules_info),
+            ) {
+                CopyRuleSettings(repository, settings)
+            }
+        }
         composable("phoneformats") {
             SettingsScreen(
                 stringResource(R.string.home_screen_phoneformats_title),
@@ -1503,6 +1516,32 @@ private fun SettingsNavGraph(
                 VocabWordScreen(packId, word, settings) { route -> navController.navigate(route) }
             }
         }
+        composable("notes") {
+            SettingsScreen(stringResource(R.string.notes_title), { navController.popBackStack() }, route = "notes") {
+                NotesListScreen(repository, settings) { route -> navController.navigate(route) }
+            }
+        }
+        composable("notes/edit/{noteId}") { backStackEntry ->
+            // 0 is "a note that does not exist yet", which the Add button opens.
+            val noteId = backStackEntry.arguments?.getString("noteId")?.toLongOrNull() ?: 0L
+            SettingsScreen(
+                stringResource(if (noteId == 0L) R.string.notes_new_title else R.string.notes_edit_title),
+                { navController.popBackStack() },
+                route = noteEditRoute(noteId),
+            ) {
+                NoteEditorScreen(settings, noteId) { navController.popBackStack() }
+            }
+        }
+        composable("notes/tags") {
+            SettingsScreen(stringResource(R.string.notes_tags_title), { navController.popBackStack() }, route = "notes/tags") {
+                NoteTagsScreen(settings)
+            }
+        }
+        composable("notes/trash") {
+            SettingsScreen(stringResource(R.string.notes_trash_title), { navController.popBackStack() }, route = "notes/trash") {
+                NotesTrashScreen(settings)
+            }
+        }
         composable("sticker_packs") {
             SettingsScreen(
                 stringResource(R.string.home_screen_sticker_packs_title),
@@ -1519,6 +1558,30 @@ private fun SettingsNavGraph(
                 route = SIGNAL_STICKERS_ROUTE,
             ) {
                 SignalStickersScreen { route -> navController.navigate(route) }
+            }
+        }
+        composable(TELEGRAM_STICKERS_ROUTE) {
+            SettingsScreen(
+                stringResource(R.string.import_telegram_row_title),
+                { navController.popBackStack() },
+                route = TELEGRAM_STICKERS_ROUTE,
+            ) {
+                TelegramStickersScreen(repository, settings) { route -> navController.navigate(route) }
+            }
+        }
+        composable("telegram_pack/{setName}") { backStackEntry ->
+            val setName = backStackEntry.arguments?.getString("setName").orEmpty()
+            SettingsScreen(
+                stringResource(R.string.import_telegram_pack_title),
+                { navController.popBackStack() },
+                route = telegramPackRoute(setName),
+            ) {
+                TelegramPackScreen(
+                    setName = setName,
+                    settings = settings,
+                    onNavigate = { route -> navController.navigate(route) },
+                    onBack = { navController.popBackStack() },
+                )
             }
         }
         composable(WHATSAPP_STICKERS_ROUTE) {
@@ -2148,6 +2211,25 @@ private fun SettingsNavGraph(
                 AiActionEditor(repository, settings, actionId) { navController.popBackStack() }
             }
         }
+        composable("ai_mcp") {
+            SettingsScreen(
+                stringResource(R.string.toolai_ai_mcp_screen_title),
+                { navController.popBackStack() },
+                route = "ai_mcp",
+            ) {
+                AiMcpSettings(repository, settings) { navController.navigate(it) }
+            }
+        }
+        composable("ai_mcp_edit/{serverId}") { backStackEntry ->
+            val serverId = backStackEntry.arguments?.getString("serverId").orEmpty()
+            SettingsScreen(
+                stringResource(R.string.toolai_ai_mcp_edit_screen_title),
+                { navController.popBackStack() },
+                route = aiMcpEditRoute(serverId),
+            ) {
+                AiMcpEditor(repository, settings, serverId) { navController.popBackStack() }
+            }
+        }
         composable("symbol_set_edit/{setId}") { backStackEntry ->
             val setId = backStackEntry.arguments?.getString("setId").orEmpty()
             SettingsScreen(
@@ -2191,6 +2273,7 @@ private fun SettingsNavGraph(
             ) {
                 AboutSettings(
                     settings = settings,
+                    repository = repository,
                     persona = settings.watch { it.onboarding },
                     onOpenLicenses = { navController.navigate("licenses") },
                     onOpenLicenseText = { navController.navigate("license_text/$it") },
@@ -2808,14 +2891,26 @@ internal class SettingsGroupScope {
     class Entry(
         val visible: Boolean,
         val conditional: Boolean,
+        /** Who the row is, for a row in a list the user edits; see [item]. */
+        val key: Any?,
         val content: @Composable () -> Unit,
     )
 
     val items = mutableListOf<Entry>()
 
-    /** A row that is always part of the group. */
-    fun item(content: @Composable () -> Unit) {
-        items += Entry(visible = true, conditional = false, content = content)
+    /**
+     * A row that is always part of the group.
+     *
+     * Give a row of a list the user adds to and deletes from — a word, a
+     * snippet, a pack — a [key] that names what it shows (its id, its
+     * spelling). The row then keeps its own state when the rows above it
+     * change, opens into its place when it is added and closes out of it when
+     * it goes, instead of the rows under it jumping. See [GroupRows]. A keyed
+     * row is still composed for the moment it takes to close, so its body
+     * must not depend on the item still being in the list.
+     */
+    fun item(key: Any? = null, content: @Composable () -> Unit) {
+        items += Entry(visible = true, conditional = false, key = key, content = content)
     }
 
     /**
@@ -2833,8 +2928,8 @@ internal class SettingsGroupScope {
      * through a null check the condition is doing, say — wants the `if` after
      * all.
      */
-    fun item(visible: Boolean, content: @Composable () -> Unit) {
-        items += Entry(visible = visible, conditional = true, content = content)
+    fun item(visible: Boolean, key: Any? = null, content: @Composable () -> Unit) {
+        items += Entry(visible = visible, conditional = true, key = key, content = content)
     }
 }
 
@@ -2911,7 +3006,7 @@ internal fun SettingsGroup(
                 folds?.toggle(foldId, !open)
             }
         } else if (title != null) {
-            SectionHeader(title, info = info, action = action, modifier = GroupHeadingPadding)
+            SectionHeader(title, info = info, action = action, modifier = GroupHeadingPadding, linkable = true)
         }
         val cards: @Composable () -> Unit = {
             // The 3 dp between two cards is drawn by the card below rather
@@ -2921,29 +3016,16 @@ internal fun SettingsGroup(
             // of air where a row used to be. Carried by the row, the gap goes
             // away with it.
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                val first = scope.items.indexOfFirst { it.visible }
-                val last = scope.items.indexOfLast { it.visible }
-                scope.items.forEachIndexed { index, entry ->
-                    val card: @Composable () -> Unit = {
-                        Column {
-                            if (index > 0) Spacer(Modifier.height(3.dp))
-                            GroupCard(
-                                top = if (index == first) GroupEndCorner else GroupInnerCorner,
-                                bottom = if (index == last) GroupEndCorner else GroupInnerCorner,
-                                content = entry.content,
-                            )
-                        }
-                    }
-                    when {
-                        !entry.conditional -> card()
-                        // Reduced motion has no still version of a reveal, so
-                        // the row is or is not there.
-                        LocalReduceMotion.current -> if (entry.visible) card()
-                        else -> AnimatedVisibility(
-                            visible = entry.visible,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut(),
-                            content = { card() },
+                // Which rows are drawn, and how keyed ones arrive and leave,
+                // is GroupRows' business (SettingsGroupMotion.kt); the card
+                // each one sits on is this file's.
+                GroupRows(scope.items) { modifier, gapAbove, first, last, content ->
+                    Column(modifier = modifier) {
+                        if (gapAbove) Spacer(Modifier.height(3.dp))
+                        GroupCard(
+                            top = if (first) GroupEndCorner else GroupInnerCorner,
+                            bottom = if (last) GroupEndCorner else GroupInnerCorner,
+                            content = content,
                         )
                     }
                 }
@@ -3029,6 +3111,7 @@ private fun FoldHeader(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .settingLinkHold()
             .clickable(onClick = onToggle)
             .then(GroupHeadingPadding),
     ) {
@@ -3059,6 +3142,7 @@ private fun FoldHeader(
         )
         HeadingControls {
             if (info != null) InfoButton(title = title, detail = info)
+            SettingLinkButton(title)
             ExpandChevron(open)
         }
     }
@@ -3302,18 +3386,27 @@ internal fun SectionHeader(
     modifier: Modifier = Modifier.padding(start = 32.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
     action: (@Composable () -> Unit)? = null,
     trailing: String? = null,
+    /**
+     * True for a [SettingsGroup]'s own heading, which can hand out a link to
+     * its group (#646). A free-standing heading is not the row the link would
+     * flash, so it never offers one.
+     */
+    linkable: Boolean = false,
 ) {
+    val link = linkable && settingLinkButtonShown() && currentRowLink() != null
+    val outer = if (linkable) Modifier.settingLinkHold().then(modifier) else modifier
     if (trailing != null) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = outer.fillMaxWidth()) {
             Text(
                 text,
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.weight(1f),
             )
-            if (info != null || action != null) {
+            if (info != null || action != null || link) {
                 HeadingControls {
                     if (info != null) InfoButton(title = text, detail = info)
+                    if (link) SettingLinkButton(text)
                     action?.invoke()
                 }
             }
@@ -3328,16 +3421,16 @@ internal fun SectionHeader(
         }
         return
     }
-    if (info == null && action == null) {
+    if (info == null && action == null && !link) {
         Text(
             text,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = modifier,
+            modifier = outer,
         )
         return
     }
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = outer) {
         Text(
             text,
             style = MaterialTheme.typography.titleSmall,
@@ -3346,6 +3439,7 @@ internal fun SectionHeader(
         )
         HeadingControls {
             if (info != null) InfoButton(title = text, detail = info)
+            if (link) SettingLinkButton(text)
             action?.invoke()
         }
     }
@@ -3414,7 +3508,7 @@ internal fun NavRow(
     val beside = value != null && fitsBesideTitle(
         value,
         MaterialTheme.typography.labelLarge,
-        furniture = TRAILING_ICON_WIDTH + 4.dp,
+        furniture = TRAILING_ICON_WIDTH + 4.dp + (if (settingLinkButtonShown()) SettingLinkTargetSize else 0.dp),
         hasIcon = rowHasTile(icon),
     )
     val below = value.takeIf { it != null && !beside }
@@ -3427,6 +3521,7 @@ internal fun NavRow(
             flightTo = route,
             trailing = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    SettingLinkButton(title)
                     if (beside && value != null) {
                         RowValueText(value, textAlign = TextAlign.End, maxLines = 1)
                         Spacer(Modifier.width(4.dp))
@@ -3627,6 +3722,7 @@ internal fun ToggleSetting(
                         change(default == true)
                     }
                     if (info != null) InfoButton(title, info)
+                    SettingLinkButton(title)
                     Switch(
                         checked = checked,
                         onCheckedChange = change,
@@ -3677,6 +3773,7 @@ internal fun ToggleNavRow(
                         onChange(default == true)
                     }
                     if (info != null) InfoButton(name, info)
+                    SettingLinkButton(name)
                     Switch(
                         checked = checked,
                         onCheckedChange = onChange,
@@ -3797,6 +3894,7 @@ internal fun ControlSetting(
             header = {
                 ReflowingText(title, style = MaterialTheme.typography.bodyLarge)
                 if (info != null) InfoButton(title, info)
+                SettingLinkButton(title)
                 Spacer(Modifier.weight(1f))
             },
             content = content,
@@ -3931,6 +4029,7 @@ internal fun SliderSetting(
                         }
                     }
                     if (info != null) InfoButton(title, info)
+                    SettingLinkButton(title)
                 }
                 // A slider cannot be landed on one exact millisecond by thumb,
                 // so the number is a button that takes it typed (#415). The
@@ -4060,6 +4159,7 @@ internal fun StepperSetting(
                         onChange(default ?: 0)
                     }
                     if (info != null) InfoButton(title, info)
+                    SettingLinkButton(title)
                 }
             },
         ) {
@@ -4286,6 +4386,7 @@ internal fun <T> ChoiceSetting(
                             default?.let(onChange)
                         }
                         if (info != null) InfoButton(title, info)
+                        SettingLinkButton(title)
                         Spacer(Modifier.weight(1f))
                     },
                 ) {
@@ -4315,6 +4416,7 @@ internal fun <T> ChoiceSetting(
             furniture = TRAILING_ICON_WIDTH +
                 (if (info != null) INFO_BUTTON_WIDTH else 0.dp) +
                 (if (default != null) RESET_WIDTH else 0.dp) +
+                (if (settingLinkButtonShown()) SettingLinkTargetSize else 0.dp) +
                 (if (glyph != null) ChoiceValueGlyphSize + ChoiceValueGlyphGap else 0.dp),
             hasIcon = rowHasTile(icon),
             rowWidth = maxWidth,
@@ -4342,6 +4444,7 @@ internal fun <T> ChoiceSetting(
                             default?.let(onChange)
                         }
                         if (info != null) InfoButton(title, info)
+                        SettingLinkButton(title)
                         // The same glyph the sheet puts on this option, small
                         // enough to sit in a value's lane: the row and the
                         // sheet then agree at a glance about what is chosen.
@@ -4721,6 +4824,7 @@ internal fun <T> MultiChoiceSetting(
                     default?.let(onChange)
                 }
                 if (info != null) InfoButton(name, info)
+                SettingLinkButton(name)
                 Spacer(Modifier.weight(1f))
             },
         ) {

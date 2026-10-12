@@ -728,5 +728,16 @@ class UserLexiconTest {
         lexicon.clearNgrams()
         assertTrue(lexicon.allBigrams().isEmpty())
         assertTrue(lexicon.allTrigrams().isEmpty())
+    /** #620: "I" and "a" are words, and the pairs they start are learned. */
+    @Test
+    fun aOneLetterWordIsLearnedWithItsPairs() {
+        val lexicon = UserLexicon(null)
+        assertTrue(lexicon.learnWord("I"))
+        assertTrue(lexicon.learnWord("a"))
+        assertTrue(lexicon.contains("i"))
+        assertTrue(lexicon.contains("a"))
+        lexicon.learnBigram("I", "think")
+        assertEquals(listOf("think"), lexicon.nextWords("i", 3))
+        assertFalse(lexicon.learnWord(""))
     }
 }

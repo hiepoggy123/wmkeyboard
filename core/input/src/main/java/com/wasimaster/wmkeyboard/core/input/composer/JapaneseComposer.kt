@@ -21,7 +21,9 @@ object JapaneseComposer : Composer {
 
     override val isTransliterating: Boolean get() = true
     override val isConversion: Boolean get() = true
+    override val keepsUnconvertedReading: Boolean get() = true
     override val missingPack: String? get() = CjkDictionaries.missingJapanese
+    override val readsLatinLetters: Boolean get() = true
 
     /** Reading space for learned picks: kana readings. */
     private const val NAMESPACE = "ja_kana"
@@ -52,6 +54,16 @@ object JapaneseComposer : Composer {
     private const val LOOSE_PENALTY = -0.035
 
     override fun composeBuffer(buffer: String): String = Kana.toHiragana(buffer)
+
+    /**
+     * A hyphen typed inside a word is the long-vowel mark, as in every romaji
+     * IME: `ka-do` is かーど and converts to カード (#596). Without this the
+     * hyphen is punctuation, committing `ka` as か and typing a literal `-`.
+     * Between words it stays a hyphen. The kana layouts type ー itself, which
+     * is a letter and joins the word already.
+     */
+    override fun buffersChar(c: Char, composing: CharSequence): Boolean =
+        c == '-' && composing.isNotEmpty()
 
     override fun candidates(buffer: String): List<String> = candidates(buffer, LIMIT)
 

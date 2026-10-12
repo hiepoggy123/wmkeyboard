@@ -23,6 +23,8 @@
     <string name="fonts_default_system_label">System default</string>
     <!-- The row that keeps the Noto font the app selects for the script. -->
     <string name="fonts_default_noto_label">Automatic (Noto)</string>
+    <!-- The default font of a script that is not a Noto face. The app downloads it when the keyboard first needs it. -->
+    <string name="fonts_default_named_label">Automatic (<xliff:g id="font" example="Klingon pIqaD HaSta">%1$s</xliff:g>)</string>
     <!-- Name of a font file the user imported that has no name of its own. -->
     <string name="fonts_imported_label">Imported font</string>
 
@@ -72,6 +74,7 @@
     <string name="fonts_tool_cursor_up_title">Cursor up</string>
     <string name="fonts_tool_cursor_down_title">Cursor down</string>
     <string name="fonts_tool_hide_keyboard_title">Hide keyboard</string>
+    <string name="fonts_tool_recent_copies_title">Recent copies</string>
 
     <!-- ==================================================================== -->
     <!-- Tools: the one-line description under the name of a tool.            -->
@@ -155,8 +158,11 @@
     <string name="fonts_tool_cut_desc">Cut the selected text</string>
     <string name="fonts_tool_paste_desc">Paste from the clipboard</string>
     <string name="fonts_tool_hide_keyboard_desc">Hide the keyboard with one press</string>
+    <string name="fonts_tool_recent_copies_desc">Show your latest copies in a row on the suggestion strip, until you type</string>
 
     <string name="fonts_tool_vocabulary_desc">Word cards, nudges and flashcards from downloadable vocabulary packs</string>
+    <string name="fonts_tool_notes_desc">Write and keep notes in the keyboard, with tags, checklists, pins and a trash</string>
+    <string name="fonts_tool_find_replace_desc">Search the text you are writing and replace matches, with match case, whole word and regular expressions</string>
     <string name="fonts_tool_learn_from_text_desc">List the words in what you have written that the keyboard does not know yet, and add them to your personal dictionary</string>
 
 </resources>

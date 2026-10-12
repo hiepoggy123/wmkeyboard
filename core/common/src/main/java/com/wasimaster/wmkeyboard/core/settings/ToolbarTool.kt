@@ -95,6 +95,18 @@ enum class ToolbarTool {
     // A shortcut to the settings app's Statistics screen: the level, the
     // achievements and the tap heatmap, one tap from the keys (issue #390).
     STATISTICS,
+    // Find and replace over the field (#627): the panel the selection bar's
+    // Replace chip opens, reachable with nothing selected first.
+    FIND_REPLACE,
+    // A notebook inside the keyboard (#560): notes with Markdown, tags,
+    // checklists, pin, archive and trash, kept in the app's files and shared
+    // with the settings app's Notes screen. Reads filesDir, so not available
+    // before the first unlock.
+    NOTES,
+    // The row of the latest copies on the suggestion strip (#612), up until a
+    // key is typed. Bound to a hold, Copy's for one, it is the last few copies
+    // one press away without opening the clipboard.
+    RECENT_COPIES,
 }
 
 /** The cursor tools, in the order they read on the toolbar. */
@@ -167,6 +179,9 @@ fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.SELECTION_ACTIONS,
     // A switch over a setting too.
     ToolbarTool.PHONETIC_ENGLISH,
+    // Reads and edits only the field. Its search history is credential-
+    // protected and simply reads empty before the first unlock.
+    ToolbarTool.FIND_REPLACE,
     ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.PASSWORD_GEN, ToolbarTool.QR_GEN,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // Copy and cut only touch the field the user is already typing in. Paste is
@@ -197,7 +212,7 @@ fun toolOpensScreen(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.FLASHLIGHT, ToolbarTool.UNDO, ToolbarTool.REDO,
     ToolbarTool.INCOGNITO, ToolbarTool.POWER_SAVING, ToolbarTool.AUTOCORRECT,
     ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.HIDE_KEYBOARD,
-    ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH,
+    ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.RECENT_COPIES,
     -> false
     // The cursor moves nudge the caret and nothing else, and the clipboard trio
     // acts on the selection in place.
@@ -253,7 +268,7 @@ val RecommendedTools: Set<ToolbarTool> = MinimalTools + setOf(
  * their converters and their calendar already on.
  */
 val PowerTools: Set<ToolbarTool> = RecommendedTools + setOf(
-    ToolbarTool.WIKIPEDIA, ToolbarTool.VOCABULARY, ToolbarTool.POWER_SAVING, ToolbarTool.MODES,
+    ToolbarTool.WIKIPEDIA, ToolbarTool.VOCABULARY, ToolbarTool.NOTES, ToolbarTool.POWER_SAVING, ToolbarTool.MODES,
     ToolbarTool.NUMPAD,
     ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY,
     ToolbarTool.PASSWORD_GEN, ToolbarTool.CALENDAR, ToolbarTool.WEATHER,
@@ -278,7 +293,7 @@ val ToolTopUps: Set<ToolbarTool> = setOf(ToolbarTool.WIKIPEDIA, ToolbarTool.POWE
  */
 private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
-    ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.TYPING_TEST, ToolbarTool.STATISTICS, ToolbarTool.PLUGINS,
+    ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.FIND_REPLACE, ToolbarTool.TYPING_TEST, ToolbarTool.STATISTICS, ToolbarTool.PLUGINS,
     ToolbarTool.CUSTOM_LAYOUT,
     ToolbarTool.FLOATING, ToolbarTool.PERSISTENT, ToolbarTool.RESIZE, ToolbarTool.INCOGNITO,
     ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.SOUND_HAPTICS,
@@ -292,7 +307,7 @@ private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
     ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE, ToolbarTool.SELECT_ALL,
     ToolbarTool.SELECT_MODE,
-    ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
+    ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE, ToolbarTool.RECENT_COPIES,
 )
 
 /**

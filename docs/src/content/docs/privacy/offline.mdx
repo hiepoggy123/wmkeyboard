@@ -36,11 +36,13 @@ Files are recognised by name, which is the name they are published under. Renami
 
 A language pack is one zip holding everything a language downloads: its word lists, its word-pair data, its emoji names, and for Chinese, Japanese and Cantonese their conversion tables. There is one per folder of the [data repository](https://github.com/wasi-master/wmkeyboard-data), named `wmkb-lang-<code>.zip`, on its [language packs release](https://github.com/wasi-master/wmkeyboard-data/releases/tag/language-packs). **Get the files** on a language's screen links its own pack directly. The packs are rebuilt whenever the data changes.
 
-Some folders serve two languages. The Bangla pack also carries Banglish, and importing it installs both. Where a pack holds more than one word list for a language, the import asks which one to install, since a language uses one at a time. English's pack has three: AOSP **United States**, AOSP **United Kingdom** and the counted **Frequency** list. The dialog opens on the one a download would start on, the others are listed as not used, and **Cancel** installs none of them. To switch later, import the pack again and pick another; the new list replaces the old one. The word list is kept at the size you last chose for downloads (Large, 300,000 words, until you pick another), the same cap a download applies.
+Some folders serve two languages. The Bangla pack also carries Banglish, and importing it installs both, along with desktop Avro's dictionary (`bn_avro_dictionary.txt.gz`) for the Avro candidate list and the Khipro spellings (`bn_khipro_glide.txt.gz`) that glide typing on Khipro reads. Where a pack holds more than one word list for a language, the import asks which one to install, since a language uses one at a time. English's pack has three: AOSP **United States**, AOSP **United Kingdom** and the counted **Frequency** list. The dialog opens on the one a download would start on, the others are listed as not used, and **Cancel** installs none of them. To switch later, import the pack again and pick another; the new list replaces the old one. The word list is kept at the size you last chose for downloads (Large, 300,000 words, until you pick another), the same cap a download applies.
 
 ## Voice models
 
 A Whisper model is two files: the graph and a vocabulary file that several models share. Import both together, or in either order. A vocabulary imported first waits for its model; a model imported without its vocabulary is placed and reported as still needing it, and becomes ready the moment the vocabulary arrives. Graphs are matched on their exact size as well as their name, because two different files have been published as `whisper-tiny.en.tflite` and only one of them works.
+
+The [Whistle](/tools/whistle/) model is one file, `whistle.cact`. Only the exact file the app downloads is accepted: its SHA-256 is checked before it is put in place.
 
 ## GIF packs
 
