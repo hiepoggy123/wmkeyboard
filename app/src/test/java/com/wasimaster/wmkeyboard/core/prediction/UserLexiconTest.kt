@@ -695,4 +695,38 @@ class UserLexiconTest {
         assertFalse(f.readText().contains("manager\\\""))
         assertTrue(f.readText().contains("c++"))
     }
+
+    @Test
+    fun learnedNgramsCanBeListedAndForgotten() {
+        val lexicon = UserLexicon(null)
+        lexicon.learnBigram("xin", "chào")
+        lexicon.learnBigram("xin", "chào")
+        lexicon.learnTrigram("hôm", "nay", "vui")
+        val bigrams = lexicon.allBigrams()
+        assertEquals(1, bigrams.size)
+        assertEquals("xin", bigrams[0].previous)
+        assertEquals("chào", bigrams[0].next)
+        assertEquals(2, bigrams[0].count)
+
+        val trigrams = lexicon.allTrigrams()
+        assertEquals(1, trigrams.size)
+        assertEquals("hôm", trigrams[0].prev2)
+        assertEquals("nay", trigrams[0].prev1)
+        assertEquals("vui", trigrams[0].next)
+        assertEquals(1, trigrams[0].count)
+
+        lexicon.forgetBigram("xin", "chào")
+        assertTrue(lexicon.allBigrams().isEmpty())
+
+        lexicon.forgetTrigram("hôm", "nay", "vui")
+        assertTrue(lexicon.allTrigrams().isEmpty())
+
+        lexicon.learnBigram("a", "b")
+        lexicon.learnTrigram("a", "b", "c")
+        assertEquals(1, lexicon.allBigrams().size)
+        assertEquals(1, lexicon.allTrigrams().size)
+        lexicon.clearNgrams()
+        assertTrue(lexicon.allBigrams().isEmpty())
+        assertTrue(lexicon.allTrigrams().isEmpty())
+    }
 }

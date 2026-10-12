@@ -949,6 +949,7 @@ private fun SettingsNavGraph(
                     repository,
                     settings,
                     onOpenLearnedCorrections = { navController.navigate("learnedcorrections") },
+                    onOpenLearnedPhrases = { navController.navigate("learnedphrases") },
                 )
             }
         }
@@ -1072,7 +1073,7 @@ private fun SettingsNavGraph(
                 route = "dictionary",
                 subtitle = stringResource(R.string.backup_dictionary_info),
             ) {
-                DictionarySettings(repository, settings)
+                DictionarySettings(repository, settings) { navController.navigate("learnedphrases") }
             }
         }
         composable("backup/auto") {
@@ -1182,6 +1183,16 @@ private fun SettingsNavGraph(
                 subtitle = stringResource(R.string.typing_learned_corrections_subtitle),
             ) {
                 LearnedCorrectionsSettings(repository, settings)
+            }
+        }
+        composable("learnedphrases") {
+            SettingsScreen(
+                stringResource(R.string.typing_learned_phrases_title),
+                { navController.popBackStack() },
+                route = "learnedphrases",
+                subtitle = stringResource(R.string.typing_learned_phrases_subtitle),
+            ) {
+                LearnedPhrasesSettings(repository, settings)
             }
         }
         composable(MusicApps.ROUTE) {

@@ -102,7 +102,11 @@ private fun ShowMoreWordsRow(remaining: Int, onClick: () -> Unit) {
  * own in-memory copy) reloads from disk instead of clobbering the edit.
  */
 @Composable
-internal fun DictionarySettings(repository: SettingsRepository, settings: LiveSettings) {
+internal fun DictionarySettings(
+    repository: SettingsRepository,
+    settings: LiveSettings,
+    onOpenLearnedPhrases: (() -> Unit)? = null,
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val file = remember { java.io.File(context.filesDir, "learning/user_lexicon.json") }
@@ -235,6 +239,16 @@ internal fun DictionarySettings(repository: SettingsRepository, settings: LiveSe
     }
     Spacer(Modifier.height(12.dp))
     SettingsGroup {
+        if (onOpenLearnedPhrases != null) {
+            item {
+                NavRow(
+                    R.string.typing_learned_phrases_title,
+                    stringResource(R.string.typing_learned_phrases_subtitle),
+                    route = "learnedphrases",
+                    onClick = onOpenLearnedPhrases,
+                )
+            }
+        }
         item {
             WmRow(
                 title = stringResource(R.string.backup_android_import_title),
@@ -1239,5 +1253,176 @@ private fun habitLabel(habit: CorrectionMemory.Habit): String {
             stringResource(R.string.typing_habit_swap, shown(habit.from), shown(habit.to))
         CorrectionMemory.HabitKind.SPACE_SLIP -> stringResource(R.string.typing_habit_space_slip, shown(habit.from))
         CorrectionMemory.HabitKind.MISSED_SPACE -> stringResource(R.string.typing_habit_missed_space)
+    }
+}
+
+@Composable
+internal fun LearnedPhrasesSettings(repository: SettingsRepository, settings: LiveSettings) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val file = remember { java.io.File(context.filesDir, "learning/user_lexicon.json") }
+    var bigrams by remember { mutableStateOf<List<UserLexicon.LearnedBigram>>(emptyList()) }
+    var trigrams by remember { mutableStateOf<List<UserLexicon.LearnedTrigram>>(emptyList()) }
+    var loaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(settings.watch { it.suggestionStrip.lexiconVersion }) {
+        val (bi, tri) = withContext(Dispatchers.IO) {
+            val lex = UserLexicon(file)
+            lex.allBigrams() to lex.allTrigrams()
+        }
+        bigrams = bi
+        trigrams = tri
+        loaded = true
+    }
+
+    fun persist(edit: (UserLexicon) -> Unit) {
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                val lex = UserLexicon(file)
+                edit(lex)
+                lex.save()
+            }
+            repository.bumpLexiconVersion()
+        }
+    }
+
+    if (!loaded) return
+
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var query by remember { mutableStateOf("") }
+
+    val totalCount = bigrams.size + trigrams.size
+    if (totalCount == 0) {
+        CaptionText(stringResource(R.string.typing_learned_phrases_empty))
+        return
+    }
+
+    SettingsGroup {
+        item {
+            ActionRow(
+                title = R.string.typing_learned_phrases_clear_title,
+                subtitle = pluralStringResource(
+                    R.plurals.typing_learned_phrases_clear_subtitle,
+                    totalCount,
+                    totalCount,
+                ),
+                action = stringResource(CommonR.string.common_clear),
+                confirm = stringResource(R.string.typing_learned_phrases_clear_confirm),
+            ) {
+                persist { it.clearNgrams() }
+            }
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilterChip(
+            selected = selectedTab == 0,
+            onClick = { selectedTab = 0 },
+            label = { Text("${stringResource(R.string.typing_learned_phrases_tab_all)} ($totalCount)") },
+        )
+        FilterChip(
+            selected = selectedTab == 1,
+            onClick = { selectedTab = 1 },
+            label = { Text("${stringResource(R.string.typing_learned_phrases_tab_bigrams)} (${bigrams.size})") },
+        )
+        FilterChip(
+            selected = selectedTab == 2,
+            onClick = { selectedTab = 2 },
+            label = { Text("${stringResource(R.string.typing_learned_phrases_tab_trigrams)} (${trigrams.size})") },
+        )
+    }
+
+    if (totalCount > DICTIONARY_SEARCH_THRESHOLD || query.isNotEmpty()) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = { query = it },
+            label = { Text(stringResource(CommonR.string.common_search)) },
+            singleLine = true,
+            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { query = "" }) {
+                        Icon(
+                            Icons.Outlined.Close,
+                            contentDescription = stringResource(CommonR.string.common_clear),
+                        )
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+    }
+
+    val allItems = remember(bigrams, trigrams, selectedTab) {
+        when (selectedTab) {
+            1 -> bigrams.map { LearnedPhraseItem.Bigram(it) }
+            2 -> trigrams.map { LearnedPhraseItem.Trigram(it) }
+            else -> (bigrams.map { LearnedPhraseItem.Bigram(it) } + trigrams.map { LearnedPhraseItem.Trigram(it) })
+                .sortedByDescending { it.count }
+        }
+    }
+
+    val needle = query.trim().lowercase()
+    val shown = remember(allItems, needle) {
+        if (needle.isEmpty()) allItems else allItems.filter { needle in it.phrase.lowercase() }
+    }
+
+    var visible by remember(query, selectedTab) { mutableIntStateOf(WORD_LIST_PAGE) }
+
+    if (shown.isEmpty() && query.isNotEmpty()) {
+        CaptionText(stringResource(R.string.typing_learned_phrases_no_matches, query))
+    } else if (shown.isNotEmpty()) {
+        SettingsGroup {
+            for (entry in shown.take(visible)) {
+                item {
+                    WmRow(
+                        title = entry.phrase,
+                        subtitle = pluralStringResource(
+                            R.plurals.typing_learned_corrections_times,
+                            entry.count,
+                            entry.count,
+                        ),
+                        trailing = {
+                            IconButton(onClick = {
+                                when (entry) {
+                                    is LearnedPhraseItem.Bigram -> persist { it.forgetBigram(entry.item.previous, entry.item.next) }
+                                    is LearnedPhraseItem.Trigram -> persist { it.forgetTrigram(entry.item.prev2, entry.item.prev1, entry.item.next) }
+                                }
+                            }) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = stringResource(
+                                        R.string.typing_learned_phrases_delete_desc, entry.phrase,
+                                    ),
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+            if (shown.size > visible) {
+                item { ShowMoreWordsRow(shown.size - visible) { visible += WORD_LIST_PAGE } }
+            }
+        }
+    }
+}
+
+private sealed class LearnedPhraseItem {
+    abstract val phrase: String
+    abstract val count: Int
+    data class Bigram(val item: UserLexicon.LearnedBigram) : LearnedPhraseItem() {
+        override val phrase = "${item.previous} ${item.next}"
+        override val count = item.count
+    }
+    data class Trigram(val item: UserLexicon.LearnedTrigram) : LearnedPhraseItem() {
+        override val phrase = "${item.prev2} ${item.prev1} ${item.next}"
+        override val count = item.count
     }
 }

@@ -13327,10 +13327,24 @@ open class WMKeyboardService : InputMethodService() {
                 val isComposedLearned = userLexicon.contains(composed.lowercase())
                 val isComposedInDict = telexEngine.isWordInDictionary(composed)
                 val isComposedValid = isComposedInDict || isComposedLearned
+                val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
+
+                val taught = if (::correctionMemory.isInitialized) {
+                    correctionMemory.fixFor(canonical.ifEmpty { typed })
+                        ?: correctionMemory.fixFor(composed)
+                        ?: correctionMemory.fixFor(typed)
+                } else null
+
+                val applyTaught = taught != null && (
+                    (!isComposedValid && taught.count >= CorrectionMemory.APPLY_AT) ||
+                    (isComposedValid && taught.count >= CorrectionMemory.APPLY_KNOWN_AT)
+                )
 
                 val target = if (autocorrect && state.allowsTypingIntelligence) {
                     if (pre != null && pre.isTelex) {
                         pre.telexTop
+                    } else if (applyTaught && taught != null) {
+                        telexEngine.applyCasing(taught.fixed, composed.ifEmpty { typed })
                     } else if (composed.length >= 2 || typed.length >= 2) {
                         if (isTypedLearned && !isComposedInDict) {
                             typed
@@ -13338,12 +13352,12 @@ open class WMKeyboardService : InputMethodService() {
                             composed
                         } else {
                             val prev2 = recentWords.getOrNull(recentWords.size - 2)
-                            val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
                             val candidates = telexEngine.correct(
                                 rawInput = canonical.ifEmpty { typed },
                                 previousWord = previousWord,
                                 previousWord2 = prev2,
                                 userLexicon = userLexicon,
+                                correctionMemory = if (::correctionMemory.isInitialized) correctionMemory else null,
                                 maxResults = 1
                             )
                             val top = candidates.firstOrNull()?.word
@@ -13359,7 +13373,9 @@ open class WMKeyboardService : InputMethodService() {
                         if (!isComposedValid && (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase()))) typed else composed
                     }
                 } else {
-                    if (!isComposedValid && (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase()))) typed else composed
+                    if (applyTaught && taught != null) {
+                        telexEngine.applyCasing(taught.fixed, composed.ifEmpty { typed })
+                    } else if (!isComposedValid && (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase()))) typed else composed
                 }
                 if (target != null && target != composed) {
                     corrected = target
@@ -15417,8 +15433,12 @@ open class WMKeyboardService : InputMethodService() {
      * Falls back to the lexicon alone before the engine exists, which is the
      * cautious answer: an unrecognised word is only held back, never lost.
      */
-    private fun isKnownWord(word: String): Boolean =
-        suggestionEngine?.isKnownWord(word) ?: userLexicon.contains(word)
+    private fun isKnownWord(word: String): Boolean {
+        if (suggestionEngine?.isKnownWord(word) == true) return true
+        if (::userLexicon.isInitialized && userLexicon.contains(word)) return true
+        val telexEngine = TelexAutocorrectEngine.getInstance()
+        return telexEngine.isReady && telexEngine.isWordInDictionary(word)
+    }
 
     /**
      * A word the keyboard already recognises has been committed.
@@ -15773,10 +15793,16 @@ open class WMKeyboardService : InputMethodService() {
         learningAllowed && _uiState.value.settings.suggestionStrip.learnFromCorrections
 
     /** A word a revision tracker is worth arming on: word-sized, word characters only. */
-    private fun isRevisableWord(word: String): Boolean =
-        word.length >= CorrectionMemory.MIN_TYPED_LENGTH &&
+    private fun isRevisableWord(word: String): Boolean {
+        val minLen = if (_uiState.value.composer.isVietnamese || word.any { it.code > 127 }) {
+            CorrectionMemory.MIN_TYPED_LENGTH_SHORT
+        } else {
+            CorrectionMemory.MIN_TYPED_LENGTH
+        }
+        return word.length >= minLen &&
             word.length <= CorrectionMemory.MAX_WORD_LENGTH &&
             word.all { isComposingWordChar(it) }
+    }
 
     /**
      * How [word] got into the field, if the caret echo that led here dropped
@@ -16022,7 +16048,12 @@ open class WMKeyboardService : InputMethodService() {
             val text = window() ?: return
             if (containsWord(text, original) || !containsWord(text, revised)) return
         }
-        if (!CorrectionMemory.accepts(original, revised, ::isKnownWord)) return
+        val minLen = if (_uiState.value.composer.isVietnamese || original.any { it.code > 127 } || revised.any { it.code > 127 }) {
+            CorrectionMemory.MIN_TYPED_LENGTH_SHORT
+        } else {
+            CorrectionMemory.MIN_TYPED_LENGTH
+        }
+        if (!CorrectionMemory.accepts(original, revised, ::isKnownWord, minLen)) return
         val blacklist = _uiState.value.let { it.settings.suggestionSources.blacklistFor(it.language.id) }
         if (original.lowercase() in blacklist || revised.lowercase().split(' ').any { it in blacklist }) return
         val kind = if (entry.replacesOrigin == WordOrigin.TYPED && !isKnownWord(original)) {
@@ -17627,17 +17658,32 @@ open class WMKeyboardService : InputMethodService() {
                 val isComposedLearned = userLexicon.contains(composed.lowercase())
                 val isComposedInDict = telexEngine.isWordInDictionary(composed)
                 val isComposedValid = isComposedInDict || isComposedLearned
-                val target = if (isTypedLearned && !isComposedInDict) {
+                val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
+
+                val taught = if (::correctionMemory.isInitialized) {
+                    correctionMemory.fixFor(canonical.ifEmpty { typed })
+                        ?: correctionMemory.fixFor(composed)
+                        ?: correctionMemory.fixFor(typed)
+                } else null
+
+                val applyTaught = taught != null && (
+                    (!isComposedValid && taught.count >= CorrectionMemory.APPLY_AT) ||
+                    (isComposedValid && taught.count >= CorrectionMemory.APPLY_KNOWN_AT)
+                )
+
+                val target = if (applyTaught && taught != null) {
+                    telexEngine.applyCasing(taught.fixed, composed.ifEmpty { typed })
+                } else if (isTypedLearned && !isComposedInDict) {
                     typed
                 } else if (isComposedValid) {
                     composed
                 } else {
-                    val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
                     val candidates = telexEngine.correct(
                         rawInput = canonical.ifEmpty { typed },
                         previousWord = prev,
                         previousWord2 = prev2,
                         userLexicon = userLexicon,
+                        correctionMemory = if (::correctionMemory.isInitialized) correctionMemory else null,
                         maxResults = 1
                     )
                     val top = candidates.firstOrNull()?.word
@@ -18002,17 +18048,37 @@ open class WMKeyboardService : InputMethodService() {
                             } else {
                                 val prev2 = recentSnapshot.getOrNull(recentSnapshot.size - 2)
                                 val canonical = telexEngine.toCanonicalTelex(composed.ifEmpty { typed })
-                                telexCandidates = if (!isComposedValid && (canonical.length >= 2 || typed.length >= 2)) {
+                                telexCandidates = if (canonical.length >= 2 || typed.length >= 2) {
                                     telexEngine.correct(
                                         rawInput = canonical.ifEmpty { typed },
                                         previousWord = previousWord,
                                         previousWord2 = prev2,
                                         userLexicon = userLexicon,
+                                        correctionMemory = if (::correctionMemory.isInitialized) correctionMemory else null,
                                         maxResults = 5
                                     ).map { it.word }
                                 } else emptyList()
 
-                                val baseList = if (isComposedValid) {
+                                val taught = if (::correctionMemory.isInitialized) {
+                                    correctionMemory.fixFor(canonical.ifEmpty { typed })
+                                        ?: correctionMemory.fixFor(composed)
+                                        ?: correctionMemory.fixFor(typed)
+                                } else null
+
+                                val applyTaught = taught != null && (
+                                    (!isComposedValid && taught.count >= CorrectionMemory.APPLY_AT) ||
+                                    (isComposedValid && taught.count >= CorrectionMemory.APPLY_KNOWN_AT)
+                                )
+                                val taughtWord = if (applyTaught && taught != null) {
+                                    telexEngine.applyCasing(taught.fixed, composed.ifEmpty { typed })
+                                } else null
+
+                                val baseList = if (taughtWord != null) {
+                                    val list = mutableListOf(taughtWord)
+                                    if (isComposedValid) list.add(composed)
+                                    list.addAll((combinedDict + telexCandidates).filterNot { it.equals(taughtWord, ignoreCase = true) || it.equals(composed, ignoreCase = true) })
+                                    list
+                                } else if (isComposedValid) {
                                     val list = mutableListOf(composed)
                                     list.addAll((combinedDict + telexCandidates).filterNot { it.equals(composed, ignoreCase = true) })
                                     list

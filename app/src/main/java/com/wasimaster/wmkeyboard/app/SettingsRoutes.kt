@@ -93,6 +93,7 @@ internal object SettingsRoutes {
         "emojikeywords",
         "blacklist",
         "learnedcorrections",
+        "learnedphrases",
         "musicapps",
         "launchercombos",
         "kdeconnect/devices",

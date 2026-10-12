@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.prediction.telex
 
+import com.wasimaster.wmkeyboard.core.prediction.CorrectionMemory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -680,6 +681,30 @@ class TelexAutocorrectEngineTest {
         val weightsTie = engine.nextLetterWeights("tie")
         assertTrue(weightsTie.containsKey('e'))
         assertEquals(1.0f, weightsTie['e'] ?: 0f, 0.01f)
+    }
+
+    @Test
+    fun testLearnedCorrectionBoostsCandidate() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "tieengs": {"word": "tiếng", "freq": 900},
+                "tieenf": {"word": "tiền", "freq": 450}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"tiếng": 900, "tiền": 450}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
+
+        val memory = CorrectionMemory(null)
+        // User explicitly teaches typo "tieen" -> "tiền" twice
+        memory.teach("tieen", "tiền", "qwerty", CorrectionMemory.Kind.PAIR_ONLY)
+        memory.teach("tieen", "tiền", "qwerty", CorrectionMemory.Kind.PAIR_ONLY)
+
+        val candidates = engine.correct("tieen", correctionMemory = memory)
+        assertTrue(candidates.isNotEmpty())
+        assertEquals("tiền", candidates.first().word)
     }
 }
 

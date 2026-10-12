@@ -206,4 +206,19 @@ class CorrectionMemoryTest {
         assertNotNull(CorrectionMemory.accepts("hello", "hello", knows))
         assertFalse(CorrectionMemory.accepts("hello", "hello", knows))
     }
+
+    @Test
+    fun acceptsVietnameseShortWordsAndAccents() {
+        val known = setOf("ăn", "đi", "và", "có", "em", "người", "việt")
+        val knows: (String) -> Boolean = { it in known }
+        // 2-letter Vietnamese words with accents or explicit min length 2
+        assertTrue(CorrectionMemory.accepts("an", "ăn", knows))
+        assertTrue(CorrectionMemory.accepts("di", "đi", knows))
+        assertTrue(CorrectionMemory.accepts("va", "và", knows))
+        // Explicit minTypedLength 2
+        assertTrue(CorrectionMemory.accepts("em", "em", { true }).not()) // same word
+        assertTrue(CorrectionMemory.accepts("co", "có", knows, minTypedLength = 2))
+        // Standard English short words still rejected by default
+        assertFalse(CorrectionMemory.accepts("te", "the", knows))
+    }
 }

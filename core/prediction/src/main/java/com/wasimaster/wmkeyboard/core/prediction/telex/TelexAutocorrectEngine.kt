@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.prediction.telex
 import android.content.Context
 import android.content.res.AssetManager
 import androidx.annotation.VisibleForTesting
+import com.wasimaster.wmkeyboard.core.prediction.CorrectionMemory
 import com.wasimaster.wmkeyboard.core.prediction.MappedNgramPack
 import com.wasimaster.wmkeyboard.core.prediction.NgramPack
 import com.wasimaster.wmkeyboard.core.prediction.UserLexicon
@@ -648,12 +649,13 @@ class TelexAutocorrectEngine private constructor() {
         previousWord: String? = null,
         previousWord2: String? = null,
         userLexicon: UserLexicon? = null,
+        correctionMemory: CorrectionMemory? = null,
         maxResults: Int = 3
     ): List<TelexCorrectionCandidate> {
         if (!isReady) return emptyList()
 
         val cleanInput = rawInput.trim().lowercase()
-        if (cleanInput.length < 3 || cleanInput.length > 12) return emptyList()
+        if (cleanInput.length < 2 || cleanInput.length > 16) return emptyList()
         if (TelexWhitelist.isWhitelisted(cleanInput)) return emptyList()
 
         val cleanPrev = previousWord?.trim()?.lowercase()
@@ -662,12 +664,17 @@ class TelexAutocorrectEngine private constructor() {
         val rawCandidates = ArrayList<TelexCorrectionCandidate>()
         val seenWords = HashSet<String>()
 
+        val taught = if (correctionMemory != null) {
+            correctionMemory.fixFor(cleanInput) ?: correctionMemory.fixFor(toCanonicalTelex(cleanInput))
+        } else null
+
         fun evaluateCandidate(unicodeWord: String, telexVariant: String, penalty: Double) {
             val lowerWord = unicodeWord.lowercase()
             if (lowerWord.isEmpty()) return
-            if (isWordInDictionary(cleanInput) && !isAccented(cleanInput) && isAccented(unicodeWord)) return
+            val isTaught = taught != null && unicodeWord.equals(taught.fixed, ignoreCase = true)
+            if (!isTaught && isWordInDictionary(cleanInput) && !isAccented(cleanInput) && isAccented(unicodeWord)) return
             val inUserLexicon = userLexicon?.contains(unicodeWord) == true
-            if (!isWordInDictionary(unicodeWord) && !inUserLexicon) return
+            if (!isTaught && !isWordInDictionary(unicodeWord) && !inUserLexicon) return
             if (!seenWords.add(lowerWord)) return
 
             val baseUnigram = languageModel.getUnigramScore(unicodeWord)
@@ -688,7 +695,18 @@ class TelexAutocorrectEngine private constructor() {
             } else 0
             val exactBonus = if (penalty < 0.001) EXACT_MATCH_BONUS else 0.0
 
-            val totalScore = exactBonus -
+            val taughtBonus = if (isTaught && taught != null) {
+                val isExactKnown = isWordInDictionary(cleanInput)
+                if (!isExactKnown && taught.count >= CorrectionMemory.APPLY_AT) {
+                    taught.count * 1500.0
+                } else if (isExactKnown && taught.count >= CorrectionMemory.APPLY_KNOWN_AT) {
+                    taught.count * 2000.0
+                } else {
+                    taught.count * 500.0
+                }
+            } else 0.0
+
+            val totalScore = exactBonus + taughtBonus -
                     (penalty * WEIGHT_PENALTY) +
                     (baseUnigram * WEIGHT_UNIGRAM) +
                     (baseBigram * WEIGHT_BIGRAM) +
@@ -705,6 +723,12 @@ class TelexAutocorrectEngine private constructor() {
                     score = totalScore
                 )
             )
+        }
+
+        // 0. Learned correction candidate from CorrectionMemory
+        if (taught != null && taught.count >= CorrectionMemory.APPLY_AT) {
+            val telexFixed = toCanonicalTelex(taught.fixed)
+            evaluateCandidate(taught.fixed, telexFixed, 0.0)
         }
 
         // 1. Exact match bonus
@@ -833,7 +857,7 @@ class TelexAutocorrectEngine private constructor() {
     /**
      * Match output casing to input format (lowercase, Titlecase, UPPERCASE).
      */
-    private fun applyCasing(word: String, originalInput: String): String {
+    fun applyCasing(word: String, originalInput: String): String {
         if (word.isEmpty() || originalInput.isEmpty()) return word
         val isAllUpper = originalInput.all { it.isUpperCase() }
         if (isAllUpper) return word.uppercase()
