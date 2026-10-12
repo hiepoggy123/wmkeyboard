@@ -12,10 +12,22 @@
  * Throws when a file or a declaration is missing, so a moved model fails the
  * docs build instead of quietly publishing an empty reference.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const ROOT = new URL('../../../', import.meta.url);
-const read = (path) => readFileSync(new URL(path, ROOT), 'utf8');
+const read = (path) => {
+	const candidates = [
+		resolve(process.cwd(), '..', path),
+		resolve(process.cwd(), path),
+		fileURLToPath(new URL('../../../' + path, import.meta.url)),
+		fileURLToPath(new URL('../../../../' + path, import.meta.url)),
+	];
+	for (const c of candidates) {
+		if (existsSync(c)) return readFileSync(c, 'utf8');
+	}
+	throw new Error(`layout-json-schema: could not find ${path} in any of: ${candidates.join(', ')}`);
+};
 
 const CORE = 'core/language/src/main/java/com/wasimaster/wmkeyboard/core/';
 const SETTINGS = 'core/common/src/main/java/com/wasimaster/wmkeyboard/core/settings/';
