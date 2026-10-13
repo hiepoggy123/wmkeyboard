@@ -19269,9 +19269,6 @@ open class WMKeyboardService : InputMethodService() {
                     } else {
                         list
                     }
-                    } else {
-                        list
-                    }
                 // Deliberately unfiltered: commitResolution below reads this,
                 // and on a Bengali or ambiguous board its first entry is what a
                 // space commits. Dropping the typed word from *that* would make
@@ -19518,7 +19515,7 @@ open class WMKeyboardService : InputMethodService() {
                 )
             }
         }
-
+    }
 
     /**
      * The strip for a caret sitting inside a word: the word itself, then
