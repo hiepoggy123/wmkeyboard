@@ -18409,7 +18409,7 @@ open class WMKeyboardService : InputMethodService() {
             val telexEngine = TelexAutocorrectEngine.getInstance()
             val rawNotInDict = rawWord != null &&
                 !telexEngine.isWordInDictionary(rawWord) &&
-                !userLexicon.contains(rawWord.lowercase())
+                (if (::userLexicon.isInitialized) !userLexicon.contains(rawWord.lowercase()) else true)
 
             _uiState.update {
                 it.copy(
