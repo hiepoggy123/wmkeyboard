@@ -237,7 +237,7 @@ object SnippetCsv {
      * semicolon (what a spreadsheet writes where the comma is the decimal
      * mark). Null when the line has none of them, which a table cannot be.
      */
-    internal fun sniffDelimiter(text: String): Char? {
+    fun sniffDelimiter(text: String): Char? {
         val counts = IntArray(CANDIDATES.size)
         var quoted = false
         for (c in text) {
@@ -262,7 +262,7 @@ object SnippetCsv {
      * anywhere else it is an ordinary character, which is how hand-written
      * files that never quote anything still read as written.
      */
-    internal fun parseRows(text: String, delimiter: Char): List<List<String>> {
+    fun parseRows(text: String, delimiter: Char): List<List<String>> {
         val rows = ArrayList<List<String>>()
         var row = ArrayList<String>()
         val field = StringBuilder()

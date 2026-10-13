@@ -728,6 +728,8 @@ class UserLexiconTest {
         lexicon.clearNgrams()
         assertTrue(lexicon.allBigrams().isEmpty())
         assertTrue(lexicon.allTrigrams().isEmpty())
+    }
+
     /** #620: "I" and "a" are words, and the pairs they start are learned. */
     @Test
     fun aOneLetterWordIsLearnedWithItsPairs() {
