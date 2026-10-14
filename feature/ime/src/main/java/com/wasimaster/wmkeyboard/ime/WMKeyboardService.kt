@@ -17814,7 +17814,7 @@ open class WMKeyboardService : InputMethodService() {
      * the whole of one. Capped, so a stalled worker cannot hold up a commit.
      */
     private fun awaitCommitResolution(typed: String): CommitResolution? {
-        val pending = pendingResolution?.takeIf { it.typed == typed && it.started } ?: return null
+        val pending = pendingResolution?.takeIf { it.typed == typed } ?: return null
         pending.done.await(COMMIT_RESOLUTION_WAIT_MS, TimeUnit.MILLISECONDS)
         return commitResolution?.takeIf { it.typed == typed }
     }

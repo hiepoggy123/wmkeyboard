@@ -706,6 +706,53 @@ class TelexAutocorrectEngineTest {
         assertTrue(candidates.isNotEmpty())
         assertEquals("tiền", candidates.first().word)
     }
+
+    @Test
+    fun testTwoLetterAbbreviationsNotAutocorrected() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "un": {"word": "un", "freq": 100},
+                "st": {"word": "st", "freq": 100}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val proxJson = """
+            {
+                "h": {"coords": [5.0, 1.0], "neighbors": [{"key": "h", "distance": 0.0, "penalty": 0.0}, {"key": "u", "distance": 1.0, "penalty": 0.4}]},
+                "d": {"coords": [2.0, 1.0], "neighbors": [{"key": "d", "distance": 0.0, "penalty": 0.0}, {"key": "s", "distance": 1.0, "penalty": 0.4}]},
+                "n": {"coords": [5.0, 2.0], "neighbors": [{"key": "n", "distance": 0.0, "penalty": 0.0}]},
+                "t": {"coords": [4.0, 0.0], "neighbors": [{"key": "t", "distance": 0.0, "penalty": 0.0}]}
+            }
+        """.trimIndent()
+        engine.proximityManager.loadFromJson(proxJson)
+        engine.isReady = true
+
+        // "hn" and "dt" are whitelisted abbreviations and must never autocorrect to "un" or "st"
+        assertTrue(TelexWhitelist.isWhitelisted("hn"))
+        assertTrue(TelexWhitelist.isWhitelisted("dt"))
+        assertTrue(engine.correct("hn").isEmpty())
+        assertTrue(engine.correct("dt").isEmpty())
+    }
+
+    @Test
+    fun testNonSyllablesWithoutVowelsRejected() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "st": {"word": "st", "freq": 100},
+                "mc": {"word": "mc", "freq": 100},
+                "chao": {"word": "chao", "freq": 100}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        // "st" and "mc" have no vowels and must not be loaded into the trie
+        assertFalse(VietnameseOrthography.isValidVietnameseSyllable("st"))
+        assertFalse(VietnameseOrthography.isValidVietnameseSyllable("mc"))
+        assertEquals(null, engine.trie.findWord("st"))
+        assertEquals(null, engine.trie.findWord("mc"))
+        assertEquals("chao", engine.trie.findWord("chao"))
+    }
 }
 
 

@@ -353,6 +353,7 @@ class TelexAutocorrectEngine private constructor() {
             val obj = element.jsonObject
             val word = obj["word"]?.jsonPrimitive?.content ?: continue
             val freq = obj["freq"]?.jsonPrimitive?.intOrNull ?: 1
+            if (!VietnameseOrthography.isValidVietnameseSyllable(word) && !TelexWhitelist.isWhitelisted(word)) continue
             trie.insert(telex, word, freq)
         }
     }
@@ -675,6 +676,7 @@ class TelexAutocorrectEngine private constructor() {
             if (!isTaught && isWordInDictionary(cleanInput) && !isAccented(cleanInput) && isAccented(unicodeWord)) return
             val inUserLexicon = userLexicon?.contains(unicodeWord) == true
             if (!isTaught && !isWordInDictionary(unicodeWord) && !inUserLexicon) return
+            if (!isTaught && !inUserLexicon && !VietnameseOrthography.isValidVietnameseSyllable(unicodeWord) && !TelexWhitelist.isWhitelisted(unicodeWord)) return
             if (!seenWords.add(lowerWord)) return
 
             val baseUnigram = languageModel.getUnigramScore(unicodeWord)
@@ -805,37 +807,42 @@ class TelexAutocorrectEngine private constructor() {
         }
 
         // 6. QWERTY Key Proximity Candidates (Zero-Allocation DFS)
-        val charBuffer = CharArray(16)
+        // Only run proximity substitution on words of length >= 3. For 2-letter words,
+        // substituting 1 character alters 50% of the word, producing false positives on abbreviations
+        // like "hn" -> "un" or "dt" -> "st".
+        if (cleanInput.length >= 3) {
+            val charBuffer = CharArray(16)
 
-        fun dfs(node: TelexTrieNode, idx: Int, currentPenalty: Double, errorCount: Int) {
-            if (idx == cleanInput.length) {
-                node.word?.let { unicodeWord ->
-                    evaluateCandidate(unicodeWord, String(charBuffer, 0, idx), currentPenalty)
+            fun dfs(node: TelexTrieNode, idx: Int, currentPenalty: Double, errorCount: Int) {
+                if (idx == cleanInput.length) {
+                    node.word?.let { unicodeWord ->
+                        evaluateCandidate(unicodeWord, String(charBuffer, 0, idx), currentPenalty)
+                    }
+                    return
                 }
-                return
-            }
 
-            val targetChar = cleanInput[idx]
-            val neighbors = proximityManager.getNeighbors(targetChar)
+                val targetChar = cleanInput[idx]
+                val neighbors = proximityManager.getNeighbors(targetChar)
 
-            for (neighbor in neighbors) {
-                val nextChar = neighbor.key
-                val stepPenalty = neighbor.penalty
-                val nextTotalPenalty = currentPenalty + stepPenalty
-                val nextErrors = if (nextChar != targetChar) errorCount + 1 else errorCount
+                for (neighbor in neighbors) {
+                    val nextChar = neighbor.key
+                    val stepPenalty = neighbor.penalty
+                    val nextTotalPenalty = currentPenalty + stepPenalty
+                    val nextErrors = if (nextChar != targetChar) errorCount + 1 else errorCount
 
-                // Strictly allow at most 1 substituted key (proximity edit distance <= 1) and penalty <= 1.4
-                if (nextErrors <= 1 && nextTotalPenalty <= MAX_PENALTY_THRESHOLD) {
-                    val nextNode = node.children[nextChar]
-                    if (nextNode != null) {
-                        charBuffer[idx] = nextChar
-                        dfs(nextNode, idx + 1, nextTotalPenalty, nextErrors)
+                    // Strictly allow at most 1 substituted key (proximity edit distance <= 1) and penalty <= 1.4
+                    if (nextErrors <= 1 && nextTotalPenalty <= MAX_PENALTY_THRESHOLD) {
+                        val nextNode = node.children[nextChar]
+                        if (nextNode != null) {
+                            charBuffer[idx] = nextChar
+                            dfs(nextNode, idx + 1, nextTotalPenalty, nextErrors)
+                        }
                     }
                 }
             }
-        }
 
-        dfs(trie.root, 0, 0.0, 0)
+            dfs(trie.root, 0, 0.0, 0)
+        }
 
         if (rawCandidates.isEmpty()) return emptyList()
 

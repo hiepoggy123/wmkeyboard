@@ -131,7 +131,9 @@ object TelexWhitelist {
         "vkl", "vl", "vlog", "vlxx", "vnpay", "vpn", "war", "warranty", "wars", "wax", "web",
         "websites", "welcome", "wibu", "wifi", "win", "window", "wireless", "wisconsin", "workers",
         "writer", "writers", "wrong", "xanax", "yeah", "yep", "yes", "yt", "zalo", "zalopay",
-        "zero", "zn", "zoom", "zui", "đc", "đcl", "đcm", "đkl", "đm"
+        "zero", "zn", "zoom", "zui", "đc", "đcl", "đcm", "đkl", "đm", "đt",
+        "hn", "dt", "bt", "mk", "vs", "mn", "tk", "sn", "vd", "ns", "pt", "kn", "tn", "tl",
+        "cx", "qt", "ct", "kb", "tt", "kh", "lh", "bh"
     )
 
     /**
