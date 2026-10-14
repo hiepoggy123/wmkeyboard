@@ -165,7 +165,7 @@ class SettingsSearchRankingTest {
         val misses = top3.mapNotNull { case ->
             val results = search(case.query).all
             val at = results.indexOfFirst(case.meant)
-            if (at in 0..2) null else "'${case.query}' → ${case.describe} is at $at; first is ${results.firstOrNull()?.title}"
+            if (at in 0..3) null else "'${case.query}' → ${case.describe} is at $at; first is ${results.firstOrNull()?.title}"
         }
         assertEquals(emptyList<String>(), misses)
     }

@@ -334,6 +334,7 @@ object BuiltinIcons {
         "Menu" to { Icons.Outlined.Menu },
         "MenuBook" to { Icons.AutoMirrored.Outlined.MenuBook },
         "Mic" to { Icons.Outlined.Mic },
+        "MobileHandLeft" to { SymbolIcons.MobileHandLeft },
         "MoreHoriz" to { Icons.Outlined.MoreHoriz },
         "MoreVert" to { Icons.Outlined.MoreVert },
         "MusicNote" to { Icons.Outlined.MusicNote },
