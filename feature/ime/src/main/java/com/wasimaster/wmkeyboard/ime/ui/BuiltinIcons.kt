@@ -81,6 +81,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FavoriteBorder
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileDownload
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileOpen
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileUpload
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FindReplace
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FirstPage
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FitnessCenter
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FlashAuto
@@ -113,6 +114,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardHide
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Language
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.LightMode
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Link
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.LocationOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Lock
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MailOutline
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Menu
@@ -139,6 +141,8 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Public
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PushPin
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCode2
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCodeScanner
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QueryStats
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Quickreply
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Remove
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Save
@@ -258,6 +262,7 @@ object BuiltinIcons {
         "Cloud" to { Icons.Outlined.Cloud },
         "Code" to { Icons.Outlined.Code },
         "Compress" to { Icons.Outlined.Compress },
+        "ConvertToText" to { SymbolIcons.ConvertToText },
         "ContentCopy" to { Icons.Outlined.ContentCopy },
         "ContentCut" to { Icons.Outlined.ContentCut },
         "ContentPaste" to { Icons.Outlined.ContentPaste },
@@ -267,6 +272,7 @@ object BuiltinIcons {
         "Delete" to { Icons.Outlined.Delete },
         "DeleteSweep" to { Icons.Outlined.DeleteSweep },
         "Description" to { Icons.Outlined.Description },
+        "Dictionary" to { SymbolIcons.Dictionary },
         "Dialpad" to { Icons.Outlined.Dialpad },
         "DirectionsCar" to { Icons.Outlined.DirectionsCar },
         "DocumentScanner" to { Icons.Outlined.DocumentScanner },
@@ -289,6 +295,7 @@ object BuiltinIcons {
         "FileDownload" to { Icons.Outlined.FileDownload },
         "FileOpen" to { Icons.Outlined.FileOpen },
         "FileUpload" to { Icons.Outlined.FileUpload },
+        "FindReplace" to { Icons.Outlined.FindReplace },
         "FirstPage" to { Icons.Outlined.FirstPage },
         "FitnessCenter" to { Icons.Outlined.FitnessCenter },
         "FlashAuto" to { Icons.Outlined.FlashAuto },
@@ -329,6 +336,7 @@ object BuiltinIcons {
         "LastPage" to { Icons.AutoMirrored.Outlined.LastPage },
         "LightMode" to { Icons.Outlined.LightMode },
         "Link" to { Icons.Outlined.Link },
+        "LocationOn" to { Icons.Outlined.LocationOn },
         "Lock" to { Icons.Outlined.Lock },
         "MailOutline" to { Icons.Outlined.MailOutline },
         "Menu" to { Icons.Outlined.Menu },
@@ -343,6 +351,7 @@ object BuiltinIcons {
         "OpenInNew" to { Icons.AutoMirrored.Outlined.OpenInNew },
         "OpenWith" to { Icons.Outlined.OpenWith },
         "Palette" to { Icons.Outlined.Palette },
+        "PartlyCloudyDay" to { SymbolIcons.PartlyCloudyDay },
         "Password" to { Icons.Outlined.Password },
         "Pause" to { Icons.Outlined.Pause },
         "Payments" to { Icons.Outlined.Payments },
@@ -358,6 +367,8 @@ object BuiltinIcons {
         "PushPin" to { Icons.Outlined.PushPin },
         "QrCode2" to { Icons.Outlined.QrCode2 },
         "QrCodeScanner" to { Icons.Outlined.QrCodeScanner },
+        "QueryStats" to { Icons.Outlined.QueryStats },
+        "Quickreply" to { Icons.Outlined.Quickreply },
         "Redo" to { Icons.AutoMirrored.Outlined.Redo },
         "Refresh" to { Icons.Outlined.Refresh },
         "Remove" to { Icons.Outlined.Remove },
@@ -398,6 +409,7 @@ object BuiltinIcons {
         "Thermostat" to { Icons.Outlined.Thermostat },
         "Timer" to { Icons.Outlined.Timer },
         "TimerOff" to { Icons.Outlined.TimerOff },
+        "ToolsLevel" to { SymbolIcons.ToolsLevel },
         "TouchApp" to { Icons.Outlined.TouchApp },
         "TrackpadInput" to { SymbolIcons.TrackpadInput },
         "Translate" to { Icons.Outlined.Translate },
