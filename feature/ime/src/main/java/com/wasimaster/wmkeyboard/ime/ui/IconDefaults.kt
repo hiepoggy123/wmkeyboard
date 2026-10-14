@@ -15,6 +15,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Keyboa
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.LastPage
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Redo
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Send
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.StickyNote2
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.TextSnippet
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Undo
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
@@ -80,7 +81,6 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PushPin
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCode2
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QueryStats
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FindReplace
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.StickyNote2
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.LocationOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCodeScanner
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Schedule
@@ -187,7 +187,7 @@ object IconDefaults {
         // opens look like the same thing.
         ToolbarTool.STATISTICS -> Icons.Outlined.QueryStats
         ToolbarTool.FIND_REPLACE -> Icons.Outlined.FindReplace
-        ToolbarTool.NOTES -> Icons.Outlined.StickyNote2
+        ToolbarTool.NOTES -> Icons.AutoMirrored.Outlined.StickyNote2
         ToolbarTool.LOCATION -> Icons.Outlined.LocationOn
         ToolbarTool.CLOCK -> Icons.Outlined.Schedule
         ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
