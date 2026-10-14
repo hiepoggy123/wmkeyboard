@@ -3652,8 +3652,6 @@ data class KeyboardUiState(
     val launcherLoading: Boolean = false,
     /** The app whose activity list is open, or null for the grid. */
     val launcherDetail: LauncherDetailUi? = null,
-    val rawInputWord: String? = null,
-    val rawInputNotInDictionary: Boolean = false,
     /**
      * The caret in whichever keyboard-owned field has the keys (#161).
      *

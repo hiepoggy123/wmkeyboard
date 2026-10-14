@@ -20276,21 +20276,12 @@ open class WMKeyboardService : InputMethodService() {
             // up pointing at the wrong span — so it waits for the space rather
             // than risking the word being typed.
             val undo = undoableCorrection?.typed?.takeIf { typed.isEmpty() }
-            val rawWord = if (state.composer.isVietnamese && typed.isNotEmpty()) {
-                state.composer.composeBuffer(typed)
-            } else null
-            val telexEngine = TelexAutocorrectEngine.getInstance()
-            val rawNotInDict = rawWord != null &&
-                !telexEngine.isWordInDictionary(rawWord) &&
-                (if (::userLexicon.isInitialized) !userLexicon.contains(rawWord.lowercase()) else true)
 
             _uiState.update {
                 it.copy(
                     suggestions = results,
                     phoneticCandidates = candidateBar,
                     emojiSuggestions = shownEmojis,
-                    rawInputWord = rawWord,
-                    rawInputNotInDictionary = rawNotInDict,
                     punctuationSuggestions = punct,
                     nextLetterBias = bias,
                     octopus = floating,

@@ -4684,8 +4684,6 @@ private fun TopBar(
                             !state.fixedPhoneticStrip(),
                         primaryColor = state.settings.suggestionStrip.primaryColor?.let { Color(it.toInt()) },
                         autocorrectWord = state.autocorrectWord,
-                        rawInputWord = state.rawInputWord,
-                        rawInputNotInDictionary = state.rawInputNotInDictionary,
                         // A fixed phonetic strip leads with the word as typed, not
                         // with what a space writes; the bold follows the latter.
                         primaryWord = if (state.fixedPhoneticStrip()) state.autocorrectWord.orEmpty() else null,
@@ -4967,8 +4965,6 @@ private fun RowScope.LatinSuggestionChips(
      * names; the raw word is still what a tap commits.
      */
     casedWords: Map<String, String> = emptyMap(),
-    rawInputWord: String? = null,
-    rawInputNotInDictionary: Boolean = false,
     /**
      * Words that are text-expansion triggers a glide will expand, keyed by the
      * raw word (#205): drawn as "fk = FUTO Keyboard" with the trigger dimmed.
@@ -5180,14 +5176,10 @@ private fun RowScope.LatinSuggestionChips(
                         casedWords[suggestion] ?: displayCaseForShift(suggestion, shiftState)
                     }
                     val primary = index == primaryIndex
-                    val isRawNotInDict = rawInputNotInDictionary &&
-                        rawInputWord != null &&
-                        suggestion.equals(rawInputWord, ignoreCase = true)
                     // See the colour note on the Text below. The other
                     // suggestions take the theme's own colour and size for
                     // them (#504), which are the strip's until a theme says.
                     val textColor = when {
-                        isRawNotInDict -> Color(0xFF4CAF50)
                         primaryColor != null &&
                             suggestion.equals(autocorrectWord, ignoreCase = true) -> primaryColor
                         !primary -> kb.secondarySuggestionText
