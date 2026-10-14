@@ -984,6 +984,20 @@
         <item quantity="other">%d fixes and every slip the keyboard noticed</item>
     </plurals>
     <string name="typing_learned_corrections_clear_confirm">Every fix you taught and every slip the keyboard noticed is forgotten. Learned words and undone corrections are not affected.</string>
+    <string name="typing_learned_phrases_title">Learned phrases</string>
+    <string name="typing_learned_phrases_subtitle">Word pairs and phrases the keyboard has learned from your typing</string>
+    <string name="typing_learned_phrases_empty">No phrases learned yet. As you type multi-word phrases, they will appear here.</string>
+    <string name="typing_learned_phrases_no_matches">No learned phrases match \"%1$s\"</string>
+    <string name="typing_learned_phrases_clear_title">Forget all learned phrases</string>
+    <plurals name="typing_learned_phrases_clear_subtitle">
+        <item quantity="one">%d learned phrase</item>
+        <item quantity="other">%d learned phrases</item>
+    </plurals>
+    <string name="typing_learned_phrases_clear_confirm">All word pairs, trigrams, and learned phrases will be forgotten. Learned individual words are not affected.</string>
+    <string name="typing_learned_phrases_delete_desc">Forget phrase %1$s</string>
+    <string name="typing_learned_phrases_tab_all">All</string>
+    <string name="typing_learned_phrases_tab_bigrams">2-word pairs</string>
+    <string name="typing_learned_phrases_tab_trigrams">3-word phrases</string>
     <string name="typing_habits_title">Slips the keyboard has noticed</string>
     <string name="typing_habits_info">How your fixes were made, letter by letter. Autocorrect treats these slips as likely for you, so the same slip in a word you never fixed is still understood.</string>
     <string name="typing_habit_substitution">%1$s typed instead of %2$s</string>

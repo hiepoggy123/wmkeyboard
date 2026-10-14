@@ -4684,6 +4684,8 @@ private fun TopBar(
                             !state.fixedPhoneticStrip(),
                         primaryColor = state.settings.suggestionStrip.primaryColor?.let { Color(it.toInt()) },
                         autocorrectWord = state.autocorrectWord,
+                        rawInputWord = state.rawInputWord,
+                        rawInputNotInDictionary = state.rawInputNotInDictionary,
                         // A fixed phonetic strip leads with the word as typed, not
                         // with what a space writes; the bold follows the latter.
                         primaryWord = if (state.fixedPhoneticStrip()) state.autocorrectWord.orEmpty() else null,
@@ -4965,6 +4967,8 @@ private fun RowScope.LatinSuggestionChips(
      * names; the raw word is still what a tap commits.
      */
     casedWords: Map<String, String> = emptyMap(),
+    rawInputWord: String? = null,
+    rawInputNotInDictionary: Boolean = false,
     /**
      * Words that are text-expansion triggers a glide will expand, keyed by the
      * raw word (#205): drawn as "fk = FUTO Keyboard" with the trigger dimmed.
@@ -5176,10 +5180,14 @@ private fun RowScope.LatinSuggestionChips(
                         casedWords[suggestion] ?: displayCaseForShift(suggestion, shiftState)
                     }
                     val primary = index == primaryIndex
+                    val isRawNotInDict = rawInputNotInDictionary &&
+                        rawInputWord != null &&
+                        suggestion.equals(rawInputWord, ignoreCase = true)
                     // See the colour note on the Text below. The other
                     // suggestions take the theme's own colour and size for
                     // them (#504), which are the strip's until a theme says.
                     val textColor = when {
+                        isRawNotInDict -> Color(0xFF4CAF50)
                         primaryColor != null &&
                             suggestion.equals(autocorrectWord, ignoreCase = true) -> primaryColor
                         !primary -> kb.secondarySuggestionText
@@ -15147,6 +15155,32 @@ internal class KeyPreviewState(
         if (drop(token)) revision++
     }
 
+    /** Updates the displayed label of an already-shown preview bubble (e.g. flicking). */
+    fun updateLabel(token: Any, label: String) {
+        updatePreview(token, label)
+    }
+
+    /** Updates the displayed label and colors of an already-shown preview bubble (e.g. flicking). */
+    fun updatePreview(
+        token: Any,
+        label: String,
+        background: Color? = null,
+        text: Color? = null,
+    ) {
+        val index = shown.indexOfFirst { it.token === token }
+        if (index >= 0) {
+            val current = shown[index]
+            if (current.label != label || current.popupBackground != background || current.popupText != text) {
+                shown[index] = current.copy(
+                    label = label,
+                    popupBackground = background,
+                    popupText = text,
+                )
+                revision++
+            }
+        }
+    }
+
     /**
      * Drops every bubble whose time is up, and returns when the next one is due
      * (uptime millis), or null when nothing is waiting on a clock.
@@ -20972,7 +21006,29 @@ internal fun KeyButton(
                         alternatesHold.open()
                         keyPreview.cancel(previewToken)
                     },
-                    setFlickDirection = { flickDirection.value = it },
+                    setFlickDirection = { dir ->
+                        flickDirection.value = dir
+                        if (previewWanted.value && pressed.value) {
+                            val flickText = dir?.let { key.flick[it] }?.let { displayFlickText(it) }
+                            if (flickText != null) {
+                                val label = if (visual.label.firstOrNull()?.isUpperCase() == true) {
+                                    flickText.uppercase()
+                                } else {
+                                    flickText
+                                }
+                                val flickBg = kb.accent
+                                val flickTextCol = maxContrastOn(flickBg)
+                                keyPreview.updatePreview(previewToken, label, flickBg, flickTextCol)
+                            } else {
+                                keyPreview.updatePreview(
+                                    previewToken,
+                                    previewLabel.value,
+                                    previewColors.value.first,
+                                    previewColors.value.second,
+                                )
+                            }
+                        }
+                    },
                     setFlickReturned = { flickReturned.value = it },
                     flickDistanceDp = settings.layoutBehavior.flickDistanceDp,
                     onKey = debounced,
@@ -21190,6 +21246,7 @@ internal fun KeyButton(
             flickReturned = flickReturned,
             shiftOn = visual.flickShiftOn,
             shiftCases = visual.flickShiftCases,
+            previewActive = previewWanted.value,
         )
 
         // Tooltip above the spacebar while a swipe is cycling languages: the
@@ -22681,12 +22738,22 @@ private fun KeyFlickPopup(
     shiftOn: Boolean,
     /** [KeyVisual.flickShiftCases]. */
     shiftCases: Boolean,
+    previewActive: Boolean = false,
 ) {
-    if (enabled && key.hasFlicks() && !alternatesOpen && pressed.value) {
+    if (!previewActive && enabled && key.hasFlicks() && !alternatesOpen && pressed.value) {
         Popup(popupPositionProvider = FlickPopupPositionProvider) {
             FlickCrossPopup(key, flickDirection.value, flickReturned.value, fontScale, shiftOn, shiftCases)
         }
     }
+}
+
+private fun displayFlickText(raw: String): String = when (raw) {
+    "\u0301" -> "◌́"
+    "\u0300" -> "◌̀"
+    "\u0309" -> "◌̉"
+    "\u0303" -> "◌̃"
+    "\u0323" -> "◌̣"
+    else -> raw
 }
 
 /**
@@ -22777,7 +22844,7 @@ private fun BoxScope.FlickCell(
     ) {
         when (arm) {
             is FlickArm.Text -> Text(
-                text = arm.text,
+                text = displayFlickText(arm.text),
                 fontSize = (20 * fontScale).sp,
                 color = tint,
             )
@@ -23603,7 +23670,7 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
             val hint = if (key.hideHint) {
                 null
             } else {
-                key.longPress.firstOrNull()?.let {
+                (key.longPress.firstOrNull() ?: key.flick.values.firstOrNull()?.let { displayFlickText(it) })?.let {
                     rtlMirrored(shiftCased(it, visual.alternatesShifted), mirrorBrackets)
                 }
             }
@@ -23639,7 +23706,7 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
             KeyCornerHint(
                 transliterationRoman = if (key.hideHint) null else visual.transliterationRoman,
                 hintIcon = hintIcon.takeIf { showHints && !cornerTaken },
-                hint = hint.takeIf { showHints && !cornerTaken && key.opensAlternatesPopup() },
+                hint = hint.takeIf { showHints && !cornerTaken && (key.opensAlternatesPopup() || key.flick.isNotEmpty()) },
                 hintMask = hintMask,
                 hintColor = hintColor,
                 fontScale = fontScale,

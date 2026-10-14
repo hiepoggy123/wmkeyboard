@@ -786,6 +786,7 @@ internal object VietnameseEngine {
 /** Vietnamese Telex: letters spell the diacritics (`as`→á, `aw`→ă, `dd`→đ). */
 object VietnameseTelexComposer : Composer {
     override val isTransliterating: Boolean get() = true
+    override val isVietnameseTelex: Boolean get() = true
     override val resumesComposedText: Boolean get() = true
     override fun resumeBuffer(text: String): String? = VietnameseEngine.toKeystrokes(text, vni = false)
     override fun backspaceBuffer(buffer: String): String = VietnameseEngine.backspace(buffer, vni = false)
@@ -799,6 +800,7 @@ object VietnameseTelexComposer : Composer {
 /** Vietnamese VNI: digits spell the diacritics (`a8`→ă, `a1`→á, `d9`→đ). */
 object VietnameseVniComposer : Composer {
     override val isTransliterating: Boolean get() = true
+    override val isVietnameseVni: Boolean get() = true
     override val resumesComposedText: Boolean get() = true
     override fun resumeBuffer(text: String): String? = VietnameseEngine.toKeystrokes(text, vni = true)
     override fun backspaceBuffer(buffer: String): String = VietnameseEngine.backspace(buffer, vni = true)

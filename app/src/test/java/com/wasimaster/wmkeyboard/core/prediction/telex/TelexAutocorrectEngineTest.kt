@@ -1,0 +1,759 @@
+package com.wasimaster.wmkeyboard.core.prediction.telex
+
+import com.wasimaster.wmkeyboard.core.prediction.CorrectionMemory
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import java.io.File
+
+class TelexAutocorrectEngineTest {
+
+    @Before
+    fun setUp() {
+        TelexAutocorrectEngine.getInstance().resetForTesting()
+    }
+
+    @Test
+    fun testTrieStructure() {
+        val trie = TelexTrie()
+        trie.insert("tueej", "tuệ", 100)
+        trie.insert("trid", "trí", 200)
+
+        assertEquals("tuệ", trie.root.children['t']?.children['u']?.children['e']?.children['e']?.children['j']?.word)
+        assertEquals("trí", trie.root.children['t']?.children['r']?.children['i']?.children['d']?.word)
+    }
+
+    @Test
+    fun testProximityNeighbors() {
+        val prox = TelexProximityManager()
+        val sampleJson = """
+            {
+                "y": {
+                    "coords": [5.5, 0.5],
+                    "neighbors": [
+                        {"key": "y", "distance": 0.0, "penalty": 0.0},
+                        {"key": "t", "distance": 1.0, "penalty": 1.2},
+                        {"key": "u", "distance": 1.0, "penalty": 1.2}
+                    ]
+                }
+            }
+        """.trimIndent()
+        prox.loadFromJson(sampleJson)
+
+        val neighbors = prox.getNeighbors('y')
+        assertEquals(3, neighbors.size)
+        assertTrue(neighbors.any { it.key == 't' })
+        assertTrue(neighbors.any { it.key == 'u' })
+    }
+
+    @Test
+    fun testLanguageModelBigram() {
+        val lm = TelexLanguageModel()
+        val uniJson = """{"trí": 500, "tuệ": 300, "huệ": 100}"""
+        val biJson = """{"trí": {"tuệ": 90, "huệ": 10}}"""
+
+        lm.loadUnigrams(uniJson)
+        lm.loadBigrams(biJson)
+
+        assertEquals(500, lm.getUnigramScore("trí"))
+        assertEquals(300, lm.getUnigramScore("tuệ"))
+        assertEquals(90, lm.getBigramScore("trí", "tuệ"))
+        assertEquals(10, lm.getBigramScore("trí", "huệ"))
+        assertEquals(0, lm.getBigramScore("tâm", "tuệ"))
+    }
+
+    @Test
+    fun testCandidateRanking() {
+        val cand1 = TelexCorrectionCandidate("tuệ", "tueej", 1.2, 150.0)
+        val cand2 = TelexCorrectionCandidate("huệ", "hueej", 1.2, 80.0)
+        val list = mutableListOf(cand2, cand1)
+        list.sort()
+
+        assertEquals("tuệ", list[0].word)
+        assertEquals("huệ", list[1].word)
+    }
+
+    @Test
+    fun testExactMatchBeatsHigherFrequencyNeighbor() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        // Setup engine with mock syllables & proximity
+        val syllablesJson = """
+            {
+                "caanr": {"word": "cẩn", "freq": 82},
+                "caanf": {"word": "cần", "freq": 213}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+
+        val proxJson = """
+            {
+                "c": {"coords": [3.0, 2.0], "neighbors": [{"key": "c", "distance": 0.0, "penalty": 0.0}]},
+                "a": {"coords": [1.0, 1.0], "neighbors": [{"key": "a", "distance": 0.0, "penalty": 0.0}]},
+                "n": {"coords": [6.0, 2.0], "neighbors": [{"key": "n", "distance": 0.0, "penalty": 0.0}]},
+                "r": {"coords": [4.0, 0.0], "neighbors": [
+                    {"key": "r", "distance": 0.0, "penalty": 0.0},
+                    {"key": "f", "distance": 1.0, "penalty": 1.2}
+                ]}
+            }
+        """.trimIndent()
+        engine.proximityManager.loadFromJson(proxJson)
+
+        val uniJson = """{"cẩn": 82, "cần": 213}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        val results = engine.correct("caanr", maxResults = 2)
+        assertTrue(results.isNotEmpty())
+        assertEquals("cẩn", results[0].word) // "cẩn" must win over "cần" because it is an exact match
+    }
+
+    @Test
+    fun testToneBeforeCodaPermutations() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "thaatj": {"word": "thật", "freq": 205},
+                "thaanr": {"word": "thẩn", "freq": 1}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+
+        val uniJson = """{"thật": 205, "thẩn": 1}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // Typing canonical "thaatj"
+        val res1 = engine.correct("thaatj", maxResults = 1)
+        assertTrue(res1.isNotEmpty())
+        assertEquals("thật", res1[0].word)
+
+        // Typing tone before coda "thaajt"
+        val res2 = engine.correct("thaajt", maxResults = 1)
+        assertTrue(res2.isNotEmpty())
+        assertEquals("thật", res2[0].word)
+    }
+
+    @Test
+    fun testVietnameseOrthographyValidator() {
+        // Valid Vietnamese words
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("hôm"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("nay"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("trời"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("thật"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("đẹp"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("nghiêng"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("khuỷu"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("gì"))
+        assertTrue(VietnameseOrthography.isValidVietnameseSyllable("gìn"))
+
+        // Invalid phonotactics
+        org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("rtời")) // Invalid onset "rt"
+        org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("htật")) // Invalid onset "ht"
+        org.junit.Assert.assertFalse(VietnameseOrthography.isValidVietnameseSyllable("đpe"))  // Invalid cluster "đp"
+    }
+
+    @Test
+    fun testBimanualDesyncEngineOppositeHand() {
+        // c (Left) vs h (Right) -> Opposite hand
+        assertTrue(BimanualDesyncEngine.isOppositeHand('c', 'h'))
+        assertTrue(BimanualDesyncEngine.isOppositeHand('r', 't') == false) // r and t are both Left Hand
+        assertTrue(BimanualDesyncEngine.isOppositeHand('t', 'h')) // t (Left) vs h (Right) -> Opposite hand
+        assertTrue(BimanualDesyncEngine.isOppositeHand('n', 'g')) // n (Right) vs g (Left) -> Opposite hand
+    }
+
+    @Test
+    fun testLanguageModelTrigram() {
+        val lm = TelexLanguageModel()
+        val uniJson = """{"đẹp": 900, "buồn": 300}"""
+        val biJson = """{"thật": {"đẹp": 800, "buồn": 100}}"""
+        val triJson = """{"trời thật": {"đẹp": 980, "buồn": 50}}"""
+
+        lm.loadUnigrams(uniJson)
+        lm.loadBigrams(biJson)
+        lm.loadTrigrams(triJson)
+
+        assertEquals(980, lm.getTrigramScore("trời", "thật", "đẹp"))
+        assertEquals(50, lm.getTrigramScore("trời", "thật", "buồn"))
+        assertEquals(0, lm.getTrigramScore("người", "thật", "đẹp"))
+    }
+
+    @Test
+    fun testBimanualDesyncCandidates() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "troif": {"word": "trời", "freq": 170},
+                "thaatj": {"word": "thật", "freq": 205},
+                "ddepj": {"word": "đẹp", "freq": 185}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+
+        val uniJson = """{"trời": 170, "thật": 205, "đẹp": 185}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // Same-hand keys like 'r' and 't' (both Left hand) must NOT be swapped
+        val sameHandDesync = BimanualDesyncEngine.generateCandidates("rtoif", engine)
+        assertTrue("Same-hand pairs must be ignored", sameHandDesync.isEmpty())
+
+        // Typing swapped left-right hand "htaatj" ('h' Right, 't' Left) -> desync candidates include "thật"
+        val desync2 = BimanualDesyncEngine.generateCandidates("htaatj", engine)
+        assertTrue(desync2.any { it.word == "thật" })
+    }
+
+    @Test
+    fun testNewVowelCores() {
+        // The 6 newly added core vowel combinations
+        assertTrue("ngoài should be valid", VietnameseOrthography.isValidVietnameseSyllable("ngoài"))
+        assertTrue("xoay should be valid", VietnameseOrthography.isValidVietnameseSyllable("xoay"))
+        assertTrue("khuấy should be valid", VietnameseOrthography.isValidVietnameseSyllable("khuấy"))
+        assertTrue("nhiều should be valid", VietnameseOrthography.isValidVietnameseSyllable("nhiều"))
+        assertTrue("yêu should be valid", VietnameseOrthography.isValidVietnameseSyllable("yêu"))
+        assertTrue("chuối should be valid", VietnameseOrthography.isValidVietnameseSyllable("chuối"))
+    }
+
+    @Test
+    fun testNgramPackBinaryLookup() {
+        val file = File("src/main/assets/telex/ngrams.wmng")
+        if (file.exists()) {
+            val engine = TelexAutocorrectEngine.getInstance()
+            assertTrue("loadNgramPack should succeed", engine.loadNgramPack(file))
+            assertEquals(222, engine.languageModel.getBigramScore("hôm", "nay"))
+            assertEquals(216, engine.languageModel.getBigramScore("người", "việt"))
+            assertEquals(100, engine.languageModel.getTrigramScore("trời", "quang", "mây"))
+        }
+    }
+
+    @Test
+    fun testDfsProximityCandidateSearch() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """{"tueej": {"word": "tuệ", "freq": 300}}"""
+        engine.loadSyllables(syllablesJson)
+
+        val proxJson = """
+            {
+                "r": {
+                    "neighbors": [
+                        {"key": "r", "distance": 0.0, "penalty": 0.0},
+                        {"key": "t", "distance": 1.0, "penalty": 1.2}
+                    ]
+                }
+            }
+        """.trimIndent()
+        engine.proximityManager.loadFromJson(proxJson)
+
+        // Typing "rueej" with typo 'r' near 't' should be corrected to "tuệ" via DFS
+        val results = engine.correct("rueej")
+        assertTrue("DFS should find candidate tuệ", results.any { it.word == "tuệ" })
+    }
+
+    @Test
+    fun testEnglishWhitelistAndAdjacentDesync() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "tieengs": {"word": "tiếng", "freq": 1000},
+                "troif": {"word": "trời", "freq": 1200},
+                "thaatj": {"word": "thật", "freq": 1500},
+                "ddos": {"word": "đó", "freq": 2000},
+                "tets": {"word": "tét", "freq": 50}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+
+        val uniJson = """{"tiếng": 1000, "trời": 1200, "thật": 1500, "đó": 2000, "tét": 50}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // 1. English word "test" is whitelisted -> must not be corrected to "tét"
+        assertTrue("test must be whitelisted", TelexWhitelist.isWhitelisted("test"))
+        val results = engine.correct("test")
+        assertTrue("test should return empty candidates (not corrupted)", results.isEmpty())
+
+        // 2. Same-hand keys "rtoif" ('r' and 't' both Left hand) are ignored
+        val desync1 = BimanualDesyncEngine.generateCandidates("rtoif", engine)
+        assertTrue("rtoif (same hand) should be ignored", desync1.isEmpty())
+
+        // 3. Adjacent opposite hand desync: "dods" (swapped adjacent 'o' [Right] and 'd' [Left]) -> "đó"
+        val desync2 = BimanualDesyncEngine.generateCandidates("dods", engine)
+        assertTrue("dods should generate candidate đó", desync2.any { it.word == "đó" })
+
+        // 4. "tieesng": Tone 's' typed before coda "ng" -> correctly generates candidate "tiếng"
+        val desync3 = BimanualDesyncEngine.generateCandidates("tieesng", engine)
+        assertTrue("tieesng should generate candidate tiếng via tone-before-coda", desync3.any { it.word == "tiếng" })
+    }
+
+    @Test
+    fun testUserToasnDesyncScenario() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "toans": {"word": "toán", "freq": 500}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"toán": 500}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // "toasn": 's' (Left) and 'n' (Right) are swapped -> generates "toán"
+        // 'a' (Left) and 's' (Left) are on same hand -> ignored
+        val desync = BimanualDesyncEngine.generateCandidates("toasn", engine)
+        assertTrue("toasn should generate candidate toán via s-n swap", desync.any { it.word == "toán" })
+    }
+
+    @Test
+    fun testCompoundErrorNotAllowed() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "hoans": {"word": "hoán", "freq": 200},
+                "toans": {"word": "toán", "freq": 500}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"hoán": 200, "toán": 500}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // "toasn" should correct to "toán", but NEVER "hoán" (no compound fat-finger + swap)
+        val results = engine.correct("toasn")
+        assertTrue("toasn should suggest toán", results.any { it.word == "toán" })
+        assertTrue("toasn must NEVER suggest hoán", results.none { it.word == "hoán" })
+    }
+
+    @Test
+    fun testVietTelexEnglishCollisionsWhitelisted() {
+        assertTrue("cost must be whitelisted", TelexWhitelist.isWhitelisted("cost"))
+        assertTrue("costs must be whitelisted", TelexWhitelist.isWhitelisted("costs"))
+        assertTrue("office must be whitelisted", TelexWhitelist.isWhitelisted("office"))
+        assertTrue("boss must be whitelisted", TelexWhitelist.isWhitelisted("boss"))
+        assertTrue("class must be whitelisted", TelexWhitelist.isWhitelisted("class"))
+        assertTrue("error must be whitelisted", TelexWhitelist.isWhitelisted("error"))
+    }
+
+
+    @Test
+    fun testTapTypingProximityAutocorrectWithoutFlick() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "thanhf": {"word": "thành", "freq": 183},
+                "thanh": {"word": "thanh", "freq": 160}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+
+        val proxJson = """
+            {
+                "b": {
+                    "neighbors": [
+                        {"key": "b", "distance": 0.0, "penalty": 0.0},
+                        {"key": "n", "distance": 1.0, "penalty": 1.2}
+                    ]
+                }
+            }
+        """.trimIndent()
+        engine.proximityManager.loadFromJson(proxJson)
+
+        val uniJson = """{"thành": 183, "thanh": 160}"""
+        engine.languageModel.loadUnigrams(uniJson)
+
+        // 1. Accented mistyped tap typing: "thabhf" -> "thành"
+        val resultsAccented = engine.correct("thabhf")
+        assertTrue("Tap typing thabhf should suggest thành", resultsAccented.any { it.word == "thành" })
+
+        // 2. Unaccented mistyped tap typing: "thabh" -> "thanh"
+        val resultsUnaccented = engine.correct("thabh")
+        assertTrue("Tap typing thabh should suggest thanh", resultsUnaccented.any { it.word == "thanh" })
+        assertTrue("Tap typing unaccented thabh must not suggest accented thành", resultsUnaccented.none { it.word == "thành" })
+    }
+
+    @Test
+    fun testIsAccentedDetection() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        // Accented words / Telex / VNI sequences
+        assertTrue(engine.isAccented("thành"))
+        assertTrue(engine.isAccented("thàbh"))
+        assertTrue(engine.isAccented("thabhf"))
+        assertTrue(engine.isAccented("rueej"))
+        assertTrue(engine.isAccented("tuệ"))
+        assertTrue(engine.isAccented("caanr"))
+        assertTrue(engine.isAccented("toasn"))
+        assertTrue(engine.isAccented("ddos"))
+        assertTrue(engine.isAccented("nguowif"))
+        assertTrue(engine.isAccented("trangr"))
+
+        // Unaccented words / non-Vietnamese plain Latin
+        org.junit.Assert.assertFalse(engine.isAccented("thanh"))
+        org.junit.Assert.assertFalse(engine.isAccented("thabh"))
+        org.junit.Assert.assertFalse(engine.isAccented("trang"))
+        org.junit.Assert.assertFalse(engine.isAccented("tra"))
+        org.junit.Assert.assertFalse(engine.isAccented("cat"))
+        org.junit.Assert.assertFalse(engine.isAccented("dog"))
+        org.junit.Assert.assertFalse(engine.isAccented("test"))
+        org.junit.Assert.assertFalse(engine.isAccented("best"))
+        org.junit.Assert.assertFalse(engine.isAccented("fast"))
+        org.junit.Assert.assertFalse(engine.isAccented("cost"))
+        org.junit.Assert.assertFalse(engine.isAccented("list"))
+        org.junit.Assert.assertFalse(engine.isAccented("first"))
+        org.junit.Assert.assertFalse(engine.isAccented("just"))
+    }
+
+
+    @Test
+    fun testIsWordInDictionaryValidation() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val uniJson = """{"tuệ": 300, "thành": 200, "trí": 250}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        val syllablesJson = """{"tueej": {"word": "tuệ", "freq": 300}, "thanhf": {"word": "thành", "freq": 200}}"""
+        engine.loadSyllables(syllablesJson)
+        engine.isReady = true
+
+        // Valid words in dictionary
+        assertTrue("tuệ is a valid dictionary word", engine.isWordInDictionary("tuệ"))
+        assertTrue("thành is a valid dictionary word", engine.isWordInDictionary("thành"))
+
+        // Nonsense or typo syllables must NOT be considered dictionary words
+        assertFalse("tuễ must NOT be in dictionary even though phonotactically constructible", engine.isWordInDictionary("tuễ"))
+        assertFalse("thàbh must NOT be in dictionary", engine.isWordInDictionary("thàbh"))
+        assertFalse("tha2bh must NOT be in dictionary", engine.isWordInDictionary("tha2bh"))
+    }
+
+
+    @Test
+    fun testThabhCorrectToThanh() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val uniJson = """{"thành": 183}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        val syllablesJson = """{"thanhf": {"word": "thành", "freq": 183}}"""
+        engine.loadSyllables(syllablesJson)
+
+        val proxJson = """
+            {
+                "b": {
+                    "neighbors": [
+                        {"key": "b", "distance": 0.0, "penalty": 0.0},
+                        {"key": "n", "distance": 1.0, "penalty": 1.2}
+                    ]
+                }
+            }
+        """.trimIndent()
+        engine.proximityManager.loadFromJson(proxJson)
+        engine.isReady = true
+
+        // Typing "thabhf" (from "thàbh" or typo b instead of n) should correct to "thành"
+        val results = engine.correct("thabhf")
+        assertTrue("thabhf should correct to thành via QWERTY proximity DFS", results.any { it.word == "thành" })
+        assertEquals("thành should be top candidate", "thành", results.first().word)
+    }
+
+    @Test
+    fun testFindCompletionsVietnameseBasePrefix() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val uniJson = """
+            {
+                "việt": 500,
+                "việc": 400,
+                "viên": 300,
+                "vinh": 200,
+                "vào": 600
+            }
+        """.trimIndent()
+        engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
+
+        // "vie" matches base Latin prefix of "việt", "việc", "viên"
+        val completionsVie = engine.findCompletions("vie", maxResults = 5)
+        assertTrue(completionsVie.contains("việt"))
+        assertTrue(completionsVie.contains("việc"))
+        assertTrue(completionsVie.contains("viên"))
+        assertFalse(completionsVie.contains("vinh"))
+
+        // "viê" matches "việt", "việc", "viên" (has circumflex mark)
+        val completionsVieCircumflex = engine.findCompletions("viê", maxResults = 5)
+        assertTrue(completionsVieCircumflex.contains("việt"))
+        assertTrue(completionsVieCircumflex.contains("việc"))
+        assertTrue(completionsVieCircumflex.contains("viên"))
+
+        // "việ" matches "việt", "việc" (has nặng tone), but NOT "viên" (flat tone)
+        val completionsVieTone = engine.findCompletions("việ", maxResults = 5)
+        assertTrue(completionsVieTone.contains("việt"))
+        assertTrue(completionsVieTone.contains("việc"))
+        assertFalse(completionsVieTone.contains("viên"))
+    }
+
+    @Test
+    fun testTopUnigrams() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val uniJson = """
+            {
+                "và": 1000,
+                "của": 800,
+                "người": 600,
+                "được": 900
+            }
+        """.trimIndent()
+        engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
+
+        val top = engine.topUnigrams(3)
+        assertEquals(3, top.size)
+        assertEquals("và", top[0])
+        assertEquals("được", top[1])
+        assertEquals("của", top[2])
+    }
+
+    @Test
+    fun testToneBeforeCodaDesyncFull() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "tieengs": {"word": "tiếng", "freq": 1000},
+                "toans": {"word": "toán", "freq": 500},
+                "hoawcj": {"word": "hoặc", "freq": 400},
+                "tinhs": {"word": "tính", "freq": 450},
+                "thieets": {"word": "thiết", "freq": 350}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"tiếng": 1000, "toán": 500, "hoặc": 400, "tính": 450, "thiết": 350}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
+
+        // tieesng (tone 's' before coda 'ng') -> tiếng
+        val res1 = engine.correct("tieesng")
+        assertTrue("tieesng should correct to tiếng", res1.any { it.word == "tiếng" })
+
+        // toasn (tone 's' before coda 'n') -> toán
+        val res2 = engine.correct("toasn")
+        assertTrue("toasn should correct to toán", res2.any { it.word == "toán" })
+
+        // hoawjc (tone 'j' before coda 'c') -> hoặc
+        val res3 = engine.correct("hoawjc")
+        assertTrue("hoawjc should correct to hoặc", res3.any { it.word == "hoặc" })
+
+        // tisnh (tone 's' before coda 'nh') -> tính
+        val res4 = engine.correct("tisnh")
+        assertTrue("tisnh should correct to tính", res4.any { it.word == "tính" })
+
+        // thieest (tone 's' before coda 't') -> thiết
+        val res5 = engine.correct("thieest")
+        assertTrue("thieest should correct to thiết", res5.any { it.word == "thiết" })
+    }
+
+    @Test
+    fun testTelexDiacriticSlips() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "chaof": {"word": "chào", "freq": 500},
+                "thaatj": {"word": "thật", "freq": 600},
+                "toans": {"word": "toán", "freq": 700},
+                "hoir": {"word": "hỏi", "freq": 400},
+                "anw": {"word": "ăn", "freq": 300}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"chào": 500, "thật": 600, "toán": 700, "hỏi": 400, "ăn": 300}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
+
+        // chaog ('g' slip for 'f') -> chào
+        val res1 = engine.correct("chaog")
+        assertTrue("chaog should correct to chào", res1.any { it.word == "chào" })
+
+        // chaod ('d' slip for 'f') -> chào
+        val res2 = engine.correct("chaod")
+        assertTrue("chaod should correct to chào", res2.any { it.word == "chào" })
+
+        // thaath ('h' slip for 'j') -> thật
+        val res3 = engine.correct("thaath")
+        assertTrue("thaath should correct to thật", res3.any { it.word == "thật" })
+
+        // toand ('d' slip for 's') -> toán
+        val res4 = engine.correct("toand")
+        assertTrue("toand should correct to toán", res4.any { it.word == "toán" })
+
+        // hoie ('e' slip for 'r') -> hỏi
+        val res5 = engine.correct("hoie")
+        assertTrue("hoie should correct to hỏi", res5.any { it.word == "hỏi" })
+
+        // hoit ('t' slip for 'r') -> hỏi
+        val res6 = engine.correct("hoit")
+        assertTrue("hoit should correct to hỏi", res6.any { it.word == "hỏi" })
+
+        // anq ('q' slip for 'w') -> ăn
+        val res7 = engine.correct("anq")
+        assertTrue("anq should correct to ăn", res7.any { it.word == "ăn" })
+    }
+
+    @Test
+    fun testOnsetVowelInversion() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "thees": {"word": "thế", "freq": 800},
+                "chaf": {"word": "chà", "freq": 200}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"thế": 800, "chà": 200}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
+
+        // tehes (onset 'h' delayed after vowel 'e') -> thế
+        val res1 = engine.correct("tehes")
+        assertTrue("tehes should correct to thế", res1.any { it.word == "thế" })
+
+        // cahf (onset 'h' delayed after vowel 'a') -> chà
+        val res2 = engine.correct("cahf")
+        assertTrue("cahf should correct to chà", res2.any { it.word == "chà" })
+    }
+
+    @Test
+    fun testMissingModifiers() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "dduowngf": {"word": "đường", "freq": 900},
+                "caanf": {"word": "cần", "freq": 700},
+                "thees": {"word": "thế", "freq": 800}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"đường": 900, "cần": 700, "thế": 800}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
+
+        // duowngf (single 'd' instead of 'dd') -> đường
+        val res1 = engine.correct("duowngf")
+        assertTrue("duowngf should correct to đường", res1.any { it.word == "đường" })
+
+        // canf (single 'a' instead of 'aa') -> cần
+        val res2 = engine.correct("canf")
+        assertTrue("canf should correct to cần", res2.any { it.word == "cần" })
+
+        // thes (single 'e' instead of 'ee') -> thế
+        val res3 = engine.correct("thes")
+        assertTrue("thes should correct to thế", res3.any { it.word == "thế" })
+    }
+
+    @Test
+    fun testRepeatedKeyRecovery() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "toans": {"word": "toán", "freq": 500},
+                "chaof": {"word": "chào", "freq": 500}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"toán": 500, "chào": 500}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
+
+        // toanss (double tap tone cancel recovery) -> toán
+        val res1 = engine.correct("toanss")
+        assertTrue("toanss should correct to toán", res1.any { it.word == "toán" })
+
+        // chaoff (repeated 'f') -> chào
+        val res2 = engine.correct("chaoff")
+        assertTrue("chaoff should correct to chào", res2.any { it.word == "chào" })
+    }
+
+    @Test
+    fun testNextLetterWeights() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "tieengs": {"word": "tiếng", "freq": 900},
+                "tieenf": {"word": "tiền", "freq": 450},
+                "trid": {"word": "trí", "freq": 200}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        engine.isReady = true
+
+        val weightsT = engine.nextLetterWeights("t")
+        assertTrue(weightsT.containsKey('i'))
+        assertTrue(weightsT.containsKey('r'))
+        assertEquals(1.0f, weightsT['i'] ?: 0f, 0.01f)
+
+        val weightsTie = engine.nextLetterWeights("tie")
+        assertTrue(weightsTie.containsKey('e'))
+        assertEquals(1.0f, weightsTie['e'] ?: 0f, 0.01f)
+    }
+
+    @Test
+    fun testLearnedCorrectionBoostsCandidate() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "tieengs": {"word": "tiếng", "freq": 900},
+                "tieenf": {"word": "tiền", "freq": 450}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val uniJson = """{"tiếng": 900, "tiền": 450}"""
+        engine.languageModel.loadUnigrams(uniJson)
+        engine.isReady = true
+
+        val memory = CorrectionMemory(null)
+        // User explicitly teaches typo "tieen" -> "tiền" twice
+        memory.teach("tieen", "tiền", "qwerty", CorrectionMemory.Kind.PAIR_ONLY)
+        memory.teach("tieen", "tiền", "qwerty", CorrectionMemory.Kind.PAIR_ONLY)
+
+        val candidates = engine.correct("tieen", correctionMemory = memory)
+        assertTrue(candidates.isNotEmpty())
+        assertEquals("tiền", candidates.first().word)
+    }
+
+    @Test
+    fun testTwoLetterAbbreviationsNotAutocorrected() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "un": {"word": "un", "freq": 100},
+                "st": {"word": "st", "freq": 100}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        val proxJson = """
+            {
+                "h": {"coords": [5.0, 1.0], "neighbors": [{"key": "h", "distance": 0.0, "penalty": 0.0}, {"key": "u", "distance": 1.0, "penalty": 0.4}]},
+                "d": {"coords": [2.0, 1.0], "neighbors": [{"key": "d", "distance": 0.0, "penalty": 0.0}, {"key": "s", "distance": 1.0, "penalty": 0.4}]},
+                "n": {"coords": [5.0, 2.0], "neighbors": [{"key": "n", "distance": 0.0, "penalty": 0.0}]},
+                "t": {"coords": [4.0, 0.0], "neighbors": [{"key": "t", "distance": 0.0, "penalty": 0.0}]}
+            }
+        """.trimIndent()
+        engine.proximityManager.loadFromJson(proxJson)
+        engine.isReady = true
+
+        // "hn" and "dt" are whitelisted abbreviations and must never autocorrect to "un" or "st"
+        assertTrue(TelexWhitelist.isWhitelisted("hn"))
+        assertTrue(TelexWhitelist.isWhitelisted("dt"))
+        assertTrue(engine.correct("hn").isEmpty())
+        assertTrue(engine.correct("dt").isEmpty())
+    }
+
+    @Test
+    fun testNonSyllablesWithoutVowelsRejected() {
+        val engine = TelexAutocorrectEngine.getInstance()
+        val syllablesJson = """
+            {
+                "st": {"word": "st", "freq": 100},
+                "mc": {"word": "mc", "freq": 100},
+                "chao": {"word": "chao", "freq": 100}
+            }
+        """.trimIndent()
+        engine.loadSyllables(syllablesJson)
+        // "st" and "mc" have no vowels and must not be loaded into the trie
+        assertFalse(VietnameseOrthography.isValidVietnameseSyllable("st"))
+        assertFalse(VietnameseOrthography.isValidVietnameseSyllable("mc"))
+        assertEquals(null, engine.trie.findWord("st"))
+        assertEquals(null, engine.trie.findWord("mc"))
+        assertEquals("chao", engine.trie.findWord("chao"))
+    }
+}
+
+
+

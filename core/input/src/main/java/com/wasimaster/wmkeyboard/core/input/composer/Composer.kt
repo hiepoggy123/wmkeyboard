@@ -99,6 +99,22 @@ interface Composer {
     val completionLanguage: String? get() = null
 
     /**
+     * Vietnamese Telex transliterator: its commit and suggestions route through
+     * the TelexAutocorrectEngine.
+     */
+    val isVietnameseTelex: Boolean get() = false
+
+    /**
+     * Vietnamese VNI transliterator: digits spell the diacritics.
+     */
+    val isVietnameseVni: Boolean get() = false
+
+    /**
+     * Either Vietnamese transliterating input method (Telex or VNI).
+     */
+    val isVietnamese: Boolean get() = isVietnameseTelex || isVietnameseVni
+
+    /**
      * Keys other than letters that a swipe over this layout may pass through as
      * part of a word, by the character they type. Khipro's slicer `/` makes
      * চন্দ্রবিন্দু and খণ্ড-ত, so a word with either is drawn through it (#541).

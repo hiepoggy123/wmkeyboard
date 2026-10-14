@@ -681,6 +681,104 @@ class UserLexicon(private val storageFile: File?) {
     fun allWords(): List<Pair<String, Int>> =
         words.map { (key, count) -> (wordCase[key] ?: key) to count }
 
+    data class LearnedBigram(
+        val previous: String,
+        val next: String,
+        val count: Int,
+    )
+
+    data class LearnedTrigram(
+        val prev2: String,
+        val prev1: String,
+        val next: String,
+        val count: Int,
+    )
+
+    /**
+     * Snapshot of all learned word pairs (bigrams), count-descending.
+     */
+    @Synchronized
+    fun allBigrams(): List<LearnedBigram> {
+        val result = ArrayList<LearnedBigram>()
+        for ((prev, followers) in bigrams) {
+            val prevDisplay = wordCase[prev] ?: prev
+            for ((nxt, count) in followers.counts) {
+                val nxtDisplay = wordCase[nxt] ?: nxt
+                result.add(LearnedBigram(prevDisplay, nxtDisplay, count))
+            }
+        }
+        return result.sortedByDescending { it.count }
+    }
+
+    /**
+     * Snapshot of all learned 3-word phrases (trigrams), count-descending.
+     */
+    @Synchronized
+    fun allTrigrams(): List<LearnedTrigram> {
+        val result = ArrayList<LearnedTrigram>()
+        for ((context, followers) in trigrams) {
+            val parts = context.split(TRIGRAM_SEPARATOR)
+            if (parts.size == 2) {
+                val p2 = wordCase[parts[0]] ?: parts[0]
+                val p1 = wordCase[parts[1]] ?: parts[1]
+                for ((nxt, count) in followers.counts) {
+                    val nxtDisplay = wordCase[nxt] ?: nxt
+                    result.add(LearnedTrigram(p2, p1, nxtDisplay, count))
+                }
+            }
+        }
+        return result.sortedByDescending { it.count }
+    }
+
+    /**
+     * Forgets a specific learned bigram pair.
+     */
+    @Synchronized
+    fun forgetBigram(previous: String, next: String) {
+        val prevKey = WordKey.of(previous)
+        val nxtKey = WordKey.of(next)
+        val followers = bigrams[prevKey] ?: return
+        if (followers.counts.remove(nxtKey) != null) {
+            followers.sorted = null
+            if (followers.counts.isEmpty()) {
+                bigrams.remove(prevKey)
+            }
+            dirty = true
+            mutations++
+        }
+    }
+
+    /**
+     * Forgets a specific learned trigram sequence.
+     */
+    @Synchronized
+    fun forgetTrigram(prev2: String, prev1: String, next: String) {
+        val context = trigramKey(WordKey.of(prev2), WordKey.of(prev1))
+        val nxtKey = WordKey.of(next)
+        val followers = trigrams[context] ?: return
+        if (followers.counts.remove(nxtKey) != null) {
+            followers.sorted = null
+            if (followers.counts.isEmpty()) {
+                trigrams.remove(context)
+            }
+            dirty = true
+            mutations++
+        }
+    }
+
+    /**
+     * Forgets all learned N-grams (bigrams, trigrams, skip-grams).
+     */
+    @Synchronized
+    fun clearNgrams() {
+        bigrams.clear()
+        trigrams.clear()
+        skip1grams.clear()
+        skip2grams.clear()
+        dirty = true
+        mutations++
+    }
+
     @Synchronized
     fun forget(word: String) {
         forgetAll(listOf(word))

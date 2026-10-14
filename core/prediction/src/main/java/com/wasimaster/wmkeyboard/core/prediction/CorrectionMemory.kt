@@ -318,10 +318,26 @@ class CorrectionMemory(private val storageFile: File?) {
          * Case is folded first, so a capital put back is not a fix either —
          * the case memory owns that.
          */
-        fun accepts(original: String, revised: String, known: (String) -> Boolean): Boolean {
+        fun accepts(
+            original: String,
+            revised: String,
+            known: (String) -> Boolean,
+        ): Boolean = accepts(original, revised, known, MIN_TYPED_LENGTH)
+
+        fun accepts(
+            original: String,
+            revised: String,
+            known: (String) -> Boolean,
+            minTypedLength: Int,
+        ): Boolean {
             val o = WordKey.of(original.trim())
             val r = WordKey.of(revised.trim())
-            if (o.length < MIN_TYPED_LENGTH || o.length > MAX_WORD_LENGTH || r.isEmpty()) return false
+            val effectiveMin = if (minTypedLength <= MIN_TYPED_LENGTH_SHORT || o.any { it.code > 127 } || r.any { it.code > 127 }) {
+                MIN_TYPED_LENGTH_SHORT
+            } else {
+                MIN_TYPED_LENGTH
+            }
+            if (o.length < effectiveMin || o.length > MAX_WORD_LENGTH || r.isEmpty()) return false
             if (o == r || o.any { it.isWhitespace() }) return false
             val parts = r.split(' ')
             if (parts.size > 2 || parts.any { it.length < MIN_HALF_LENGTH || !known(it) }) return false
@@ -387,6 +403,7 @@ class CorrectionMemory(private val storageFile: File?) {
 
         /** Autocorrect never touches shorter words; nor does this. */
         const val MIN_TYPED_LENGTH = 3
+        const val MIN_TYPED_LENGTH_SHORT = 2
         const val MAX_WORD_LENGTH = 32
         const val MIN_HALF_LENGTH = 2
         const val MAX_EDITS = 2

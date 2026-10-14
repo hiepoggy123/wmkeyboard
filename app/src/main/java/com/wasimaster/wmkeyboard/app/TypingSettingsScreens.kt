@@ -273,6 +273,7 @@ internal fun TypingCorrectionsSettings(
     repository: SettingsRepository,
     settings: LiveSettings,
     onOpenLearnedCorrections: () -> Unit,
+    onOpenLearnedPhrases: (() -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -402,6 +403,16 @@ internal fun TypingCorrectionsSettings(
                     route = "learnedcorrections",
                     onClick = onOpenLearnedCorrections,
                 )
+            }
+            if (onOpenLearnedPhrases != null) {
+                item {
+                    NavRow(
+                        R.string.typing_learned_phrases_title,
+                        stringResource(R.string.typing_learned_phrases_subtitle),
+                        route = "learnedphrases",
+                        onClick = onOpenLearnedPhrases,
+                    )
+                }
             }
             item {
                 ToggleSetting(

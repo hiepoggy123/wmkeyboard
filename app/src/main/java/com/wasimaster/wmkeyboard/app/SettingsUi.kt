@@ -442,6 +442,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "blacklist" to Color(0xFFEF5350),
     // A child of Typing → Corrections: the autocorrect family's amber.
     "learnedcorrections" to Color(0xFFFFA726),
+    "learnedphrases" to Color(0xFF26A69A),
     // A child of Clipboard, so it keeps the parent's blue.
     "phoneformats" to Color(0xFF42A5F5),
     "cliprules" to Color(0xFF42A5F5),

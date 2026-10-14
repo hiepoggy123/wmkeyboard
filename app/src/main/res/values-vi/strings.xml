@@ -5811,6 +5811,7 @@
     <string name="search_kw_layout_summon_button">hiện lớp phủ bong bóng gọi trường không có hacker</string>
     <string name="search_kw_layout_symbols_numpad_key">bàn phím số phím số bàn phím quay số 1234 gboard</string>
     <string name="search_kw_learnedcorrections">sửa lỗi đã học, các bản sửa lỗi của tôi, cặp lỗi chính tả, bản sửa lỗi đã dạy, học tự động sửa, lỗi trượt, thói quen</string>
+    <string name="search_kw_learnedphrases">cụm từ đã học, ngram, bigram, trigram, cụm nhiều từ, cặp từ, thói quen gõ từ, ngữ cảnh</string>
     <string name="search_kw_licenses">mã nguồn mở, ghi công, tín dụng</string>
     <string name="search_kw_modes">hồ sơ, cài đặt sẵn, theo ứng dụng</string>
     <string name="search_kw_more_layouts">keyman, bố cục cộng đồng, bố cục bổ sung, thêm bàn phím, ngôn ngữ thiểu số</string>
@@ -8474,6 +8475,20 @@
         <item quantity="other">Đã sửa %d lần</item>
     </plurals>
     <string name="typing_learned_corrections_title">Các sửa lỗi đã học</string>
+    <string name="typing_learned_phrases_title">Cụm từ đã học</string>
+    <string name="typing_learned_phrases_subtitle">Các cặp từ và cụm từ bàn phím đã học từ thói quen gõ của bạn</string>
+    <string name="typing_learned_phrases_empty">Chưa có cụm từ nào được học. Khi bạn gõ các cụm từ nhiều từ, chúng sẽ xuất hiện ở đây.</string>
+    <string name="typing_learned_phrases_no_matches">Không có cụm từ đã học nào khớp với \"%1$s\"</string>
+    <string name="typing_learned_phrases_clear_title">Xóa tất cả cụm từ đã học</string>
+    <plurals name="typing_learned_phrases_clear_subtitle">
+        <item quantity="one">%d cụm từ đã học</item>
+        <item quantity="other">%d cụm từ đã học</item>
+    </plurals>
+    <string name="typing_learned_phrases_clear_confirm">Tất cả các cặp từ (bigram) và cụm 3 từ (trigram) đã học sẽ bị xóa. Các từ đơn lẻ đã học không bị ảnh hưởng.</string>
+    <string name="typing_learned_phrases_delete_desc">Quên cụm từ %1$s</string>
+    <string name="typing_learned_phrases_tab_all">Tất cả</string>
+    <string name="typing_learned_phrases_tab_bigrams">Cặp 2 từ</string>
+    <string name="typing_learned_phrases_tab_trigrams">Cụm 3 từ</string>
     <string name="typing_letter_swipe_action_info">Khi chọn Viết tay, bàn phím sẽ đọc thao tác vuốt trên các phím như là viết tay. Vẽ một chữ cái hoặc một từ. Sau một khoảng dừng ngắn, bàn phím sẽ nhận dạng và nhập nó, đồng thời cung cấp các cách đọc khác trong dải gợi ý. Tính năng này cần một mô hình viết tay (Cài đặt → Viết tay). Nhấn bình thường vẫn nhập phím đó.</string>
     <string name="typing_letter_swipe_action_subtitle">Vẽ chữ cái trên các phím thay vì vuốt để nhập</string>
     <string name="typing_letter_swipe_action_title">Viết tay bằng cách vuốt</string>
