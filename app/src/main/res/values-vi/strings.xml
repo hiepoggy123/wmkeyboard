@@ -469,6 +469,9 @@
     <string name="appearance_toolbar_rtl_info">Đối với các tập lệnh viết từ phải sang trái, chẳng hạn như tiếng Ả Rập và tiếng Do Thái, các công cụ được ghim cũng đi từ phải sang trái để thanh công cụ tuân theo văn bản. Cài đặt này được bật theo mặc định. Lưới hộp công cụ không thay đổi.</string>
     <string name="appearance_toolbar_rtl_subtitle">Đảo ngược thứ tự các công cụ khi bạn nhập văn bản viết từ phải sang trái</string>
     <string name="appearance_toolbar_rtl_title">Đảo ngược thứ tự cho các ngôn ngữ viết từ phải sang trái</string>
+    <string name="appearance_toolbar_colored_icons_title">Biểu tượng thanh công cụ nhiều màu sắc</string>
+    <string name="appearance_toolbar_colored_icons_subtitle">Hiển thị các biểu tượng trên thanh công cụ nhiều màu sắc giống như bảng công cụ</string>
+    <string name="appearance_toolbar_colored_icons_info">Khi bật, các biểu tượng công cụ trên thanh công cụ và thanh gợi ý sẽ hiển thị nhiều màu sắc rực rỡ và điểm nhấn giống hệt như trong bảng công cụ.</string>
     <string name="appearance_toolbar_section_subtitle">Nội dung hiển thị trên thanh phía trên các phím và cách hiển thị</string>
     <string name="appearance_toolbar_section_title">Thanh công cụ</string>
     <string name="appearance_toolbar_show_info">Thanh công cụ là hàng phía trên các phím. Nó hiển thị các gợi ý từ khi bạn nhập. Vào những lúc khác, nó hiển thị các công cụ đã ghim của bạn, chẳng hạn như biểu tượng cảm xúc, khay nhớ tạm và phím con trỏ. Tắt nó đi để dành chiều cao đó cho các phím. Ứng dụng yêu cầu bạn xác nhận vì thao tác này cũng ẩn các gợi ý và mọi công cụ.</string>

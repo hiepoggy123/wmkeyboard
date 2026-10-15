@@ -9498,6 +9498,13 @@ private fun stripToolSet(state: KeyboardUiState): Set<ToolbarTool> {
  * Its own composable: the strip's lambda sits near ART's 10,000-instruction
  * compile ceiling, and this loop would push it over.
  */
+private fun toolbarToolPaint(tool: ToolbarTool, state: KeyboardUiState): ToolPaint? =
+    if (state.settings.toolbarBehavior.coloredIcons) {
+        toolAccentPaint(tool, state.settings)
+    } else {
+        null
+    }
+
 @Composable
 private fun StripTools(
     state: KeyboardUiState,
@@ -9540,6 +9547,7 @@ private fun StripToolButton(
         drag.pinnedToolWidthPx.takeIf { it > 0 && !behavior.stripOwnSize }?.toDp()
     }
     val label = stringResource(toolLabelRes(tool))
+    val paint = toolbarToolPaint(tool, state)
     ToolCircle(
         // The emoji keeps an icon-pack slot of its own here, the one this
         // button has always had.
@@ -9559,6 +9567,8 @@ private fun StripToolButton(
         compact = compact,
         widthDp = behavior.stripToolWidthDp.takeIf { behavior.stripOwnSize },
         iconSizeDp = behavior.stripIconSizeDp.takeIf { behavior.stripOwnSize },
+        tint = paint?.color,
+        tintBrush = paint?.brush,
     ) { onToolTap(tool) }
 }
 
@@ -9920,6 +9930,7 @@ private fun RowScope.ToolbarRow(
                         holdMenu = holdPicksVoiceMode(tool, fromToolbar = true, state = state),
                         onHoldMenu = { voiceMenuOpen = true },
                     ) { dragModifier ->
+                        val paint = toolbarToolPaint(tool, state)
                         ToolCircle(
                             slot = IconSlots.forTool(tool),
                             description = toolLabel(tool),
@@ -9977,6 +9988,8 @@ private fun RowScope.ToolbarRow(
                                     },
                                 ),
                             interactive = false,
+                            tint = paint?.color,
+                            tintBrush = paint?.brush,
                         ) {}
                     }
                     if (voiceMenuOpen) {
