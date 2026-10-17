@@ -219,9 +219,6 @@ android {
             abiFilters += setOf("arm64-v8a")
         }
 
-        // Restrict packaged resources to English, Vietnamese and Chinese.
-        resourceConfigurations += setOf("en", "vi", "zh-rCN")
-
         buildConfigField("String", "KLIPY_API_KEY", "\"${apiKey("wmkb.klipyApiKey", "WMKB_KLIPY_API_KEY")}\"")
         buildConfigField("String", "GIPHY_API_KEY", "\"${apiKey("wmkb.giphyApiKey", "WMKB_GIPHY_API_KEY")}\"")
         buildConfigField("String", "BRAVE_API_KEY", "\"${apiKey("wmkb.braveApiKey", "WMKB_BRAVE_API_KEY")}\"")
