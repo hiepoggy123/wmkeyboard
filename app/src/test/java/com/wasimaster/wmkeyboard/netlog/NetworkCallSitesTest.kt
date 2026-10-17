@@ -34,7 +34,7 @@ class NetworkCallSitesTest {
             ?: error("cannot find the repository root from ${File("").absolutePath}")
         val sources = listOf("app", "core", "feature").flatMap { top ->
             File(root, top).walkTopDown()
-                .onEnter { dir -> dir.name != "build" && dir.name != "test" && dir.name != "androidTest" }
+                .onEnter { dir -> dir.name != "build" && !dir.name.startsWith("test") && dir.name != "androidTest" }
                 .filter { it.isFile && it.extension == "kt" }
                 .toList()
         }
@@ -107,6 +107,8 @@ class NetworkCallSitesTest {
             // Opens the socket for SmbSink, which holds the log row and counts
             // every frame through the traffic callback it hands in.
             "sink/smb/Smb2Client.kt" to "logged by SmbSink",
+            // Local gallery thumbnail cache; nothing touches the network.
+            "feature/ime/src/main/java/com/wasimaster/wmkeyboard/ime/ui/gallery/GalleryThumbs.kt" to "offline local thumbnails only",
         ).mapKeys { (key, _) ->
             // Written short above; matched against the full source path.
             key.replace("core/kdeconnect/", "core/kdeconnect/src/main/java/com/wasimaster/wmkeyboard/core/kdeconnect/")

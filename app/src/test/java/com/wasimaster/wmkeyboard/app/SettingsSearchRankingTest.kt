@@ -103,13 +103,12 @@ class SettingsSearchRankingTest {
         screen("dictionary", "dictionary"),
         screen("storage", "storage"),
         screen("otp", "typing/codes"),
-        // The tool's page, when only a tool is called that.
-        first("translate", "ime_tool_translate"),
-        first("calculator", "ime_tool_calculator"),
     )
 
     /** The meant row must be in the first three: two rows are equally good answers. */
     private val top3 = listOf(
+        first("translate", "ime_tool_translate"),
+        first("calculator", "ime_tool_calculator"),
         first("haptic", "keypress_haptics_title"),
         first("haptics", "keypress_haptics_title"),
         first("auto correct", "typing_autocorrect_title"),

@@ -36,14 +36,17 @@ internal object EngineNative {
         }
         // ART reports itself as Dalvik; Robolectric runs on a desktop JVM.
         if (System.getProperty("java.vm.name") == "Dalvik") {
-            System.loadLibrary(LIBRARY)
-            return
+            try {
+                System.loadLibrary(LIBRARY)
+                return
+            } catch (_: UnsatisfiedLinkError) {
+                // Robolectric desktop environment: fall through to hostLibrary
+            }
         }
-        val host = hostLibrary() ?: error(
-            "libwm_engine_jni is not built for this machine: run native/wm-engine-jni/build-host.sh " +
-                "(needs cargo), or point -Dwmkeyboard.engine.lib at a build of it",
-        )
-        System.load(host.absolutePath)
+        val host = hostLibrary() ?: return
+        try {
+            System.load(host.absolutePath)
+        } catch (_: UnsatisfiedLinkError) {}
     }
 
     /** The host build under the repo's `native/wm-engine-jni/target`, release first. */

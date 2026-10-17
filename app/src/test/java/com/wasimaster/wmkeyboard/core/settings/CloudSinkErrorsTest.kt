@@ -81,7 +81,7 @@ class CloudSinkErrorsTest {
 
     @Test
     fun `a network location always waits for a network`() {
-        for (destination in BackupDestination.entries - BackupDestination.FOLDER) {
+        for (destination in BackupDestination.entries.filter { it.needsNetwork }) {
             assertEquals(
                 JobInfo.NETWORK_TYPE_ANY,
                 AutoBackupScheduler.networkTypeFor(with(destination, unmetered = false)),
@@ -95,11 +95,13 @@ class CloudSinkErrorsTest {
 
     @Test
     fun `folders only need no network either way`() {
-        for (unmetered in listOf(true, false)) {
-            assertEquals(
-                JobInfo.NETWORK_TYPE_NONE,
-                AutoBackupScheduler.networkTypeFor(with(BackupDestination.FOLDER, unmetered = unmetered)),
-            )
+        for (destination in listOf(BackupDestination.FOLDER, BackupDestination.NEARBY)) {
+            for (unmetered in listOf(true, false)) {
+                assertEquals(
+                    JobInfo.NETWORK_TYPE_NONE,
+                    AutoBackupScheduler.networkTypeFor(with(destination, unmetered = unmetered)),
+                )
+            }
         }
     }
 
