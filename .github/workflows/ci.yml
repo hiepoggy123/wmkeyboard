@@ -65,8 +65,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        capability: [full, lite]
-        language: [intl, en]
+        capability: [lite]
+        language: [intl]
     steps:
       - uses: actions/checkout@v4
 

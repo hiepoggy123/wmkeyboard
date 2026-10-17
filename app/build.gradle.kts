@@ -157,16 +157,16 @@ val channelManifests = listOfNotNull(
 )
 
 // Every interface language the repo has a translation for, as BCP-47 tags
-// ("en,ar,bn,…,zh-CN"), read off the res/values-xx folders so the in-app
-// picker cannot drift from what is actually translated. English is the
-// unqualified res/values (see resources.properties).
+// ("en,vi,zh-CN"), filtered to the 3 target languages (English, Vietnamese, Chinese).
+// English is the unqualified res/values (see resources.properties).
 val translatedLocales: String = run {
     val folder = Regex("values-([a-z]{2,3})(?:-r([A-Z]{2}))?")
     val tags = file("src/main/res").listFiles().orEmpty().mapNotNull { dir ->
         val match = folder.matchEntire(dir.name) ?: return@mapNotNull null
         if (!File(dir, "strings.xml").isFile) return@mapNotNull null
         val (language, region) = match.destructured
-        if (region.isEmpty()) language else "$language-$region"
+        val tag = if (region.isEmpty()) language else "$language-$region"
+        tag.takeIf { it == "vi" || it == "zh-CN" }
     }
     (listOf("en") + tags.sorted()).joinToString(",")
 }
@@ -214,7 +214,13 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // ABI target filtering is handled by ndk.abiFilters per buildType below.
+        ndk {
+            abiFilters.clear()
+            abiFilters += setOf("arm64-v8a")
+        }
+
+        // Restrict packaged resources to English, Vietnamese and Chinese.
+        resourceConfigurations += setOf("en", "vi", "zh-rCN")
 
         buildConfigField("String", "KLIPY_API_KEY", "\"${apiKey("wmkb.klipyApiKey", "WMKB_KLIPY_API_KEY")}\"")
         buildConfigField("String", "GIPHY_API_KEY", "\"${apiKey("wmkb.giphyApiKey", "WMKB_GIPHY_API_KEY")}\"")
@@ -323,12 +329,14 @@ android {
     buildTypes {
         debug {
             ndk {
-                if (!splitApks) abiFilters += setOf("arm64-v8a")
+                abiFilters.clear()
+                abiFilters += setOf("arm64-v8a")
             }
         }
         release {
             ndk {
-                if (!splitApks) abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64")
+                abiFilters.clear()
+                abiFilters += setOf("arm64-v8a")
                 debugSymbolLevel = "FULL"
             }
             // No debug-key fallback. A debug-signed "release" build looks
@@ -439,8 +447,8 @@ android {
         abi {
             isEnable = splitApks
             reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64")
-            isUniversalApk = true
+            include("arm64-v8a")
+            isUniversalApk = false
         }
     }
     compileOptions {
@@ -482,6 +490,7 @@ android {
         // could only ever follow the system language. Generated rather than
         // hand-written so the list cannot drift from the locales that shipped.
         generateLocaleConfig = true
+        localeFilters += setOf("en", "vi", "zh-rCN", "zh-CN")
     }
 
     // Android Lint. Severities live in config/lint/lint.xml — this block only
@@ -942,6 +951,8 @@ androidComponents {
             }
         ) {
             variant.androidResources.localeFilters.set(setOf("en"))
+        } else {
+            variant.androidResources.localeFilters.set(setOf("en", "vi", "zh-rCN", "zh-CN"))
         }
     }
 }
