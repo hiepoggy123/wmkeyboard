@@ -159,6 +159,7 @@ val channelManifests = listOfNotNull(
 // Every interface language the repo has a translation for, as BCP-47 tags
 // ("en,vi,zh-CN"), filtered to the 3 target languages (English, Vietnamese, Chinese).
 // English is the unqualified res/values (see resources.properties).
+val allowedLocales = setOf("en", "vi", "zh-CN")
 val translatedLocales: String = run {
     val folder = Regex("values-([a-z]{2,3})(?:-r([A-Z]{2}))?")
     val tags = file("src/main/res").listFiles().orEmpty().mapNotNull { dir ->
@@ -166,7 +167,7 @@ val translatedLocales: String = run {
         if (!File(dir, "strings.xml").isFile) return@mapNotNull null
         val (language, region) = match.destructured
         val tag = if (region.isEmpty()) language else "$language-$region"
-        tag.takeIf { it == "vi" || it == "zh-CN" }
+        tag.takeIf { it in allowedLocales }
     }
     (listOf("en") + tags.sorted()).joinToString(",")
 }
@@ -407,7 +408,7 @@ android {
                 // Kit and LiteRT native code. `debugSymbolLevel` off for the
                 // same reason -- nothing here is going to a crash symbolicator.
                 abiFilters.clear()
-                if (!splitApks) abiFilters += setOf("arm64-v8a")
+                abiFilters += setOf("arm64-v8a")
                 debugSymbolLevel = "NONE"
             }
         }
@@ -442,7 +443,7 @@ android {
     // assembly only — bundle<Variant> ignores this block entirely.
     splits {
         abi {
-            isEnable = splitApks
+            isEnable = false
             reset()
             include("arm64-v8a")
             isUniversalApk = false

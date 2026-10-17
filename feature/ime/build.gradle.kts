@@ -153,3 +153,5 @@ dependencies {
     testImplementation(libs.androidx.junit)
     testImplementation(libs.androidx.espresso.core)
 }
+
+tasks.withType<Test>().configureEach { dependsOn(":core:language:buildHostEngine") }

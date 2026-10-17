@@ -15124,11 +15124,13 @@ open class WMKeyboardService : InputMethodService() {
                                 )
                             } else emptyList()
                             val top = (if (telexEngine.isReady) candidates.firstOrNull()?.word else null)
-                                ?: suggestionEngine?.decideCorrection(
-                                    composed,
-                                    timingMultiplier = timingMultiplier(),
-                                    previousWord = previousWord,
-                                )?.apply
+                                ?: if (state.settings.vietnamese.restoreMarks) {
+                                    suggestionEngine?.decideCorrection(
+                                        composed,
+                                        timingMultiplier = timingMultiplier(),
+                                        previousWord = previousWord,
+                                    )?.apply
+                                } else null
                             if (top != null) {
                                 top
                             } else if (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase())) {
@@ -15145,19 +15147,10 @@ open class WMKeyboardService : InputMethodService() {
                         telexEngine.applyCasing(taught.fixed, composed.ifEmpty { typed })
                     } else if (!isComposedValid && (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase()))) typed else composed
                 }
-                val finalTarget = if (target != null &&
-                    !state.settings.vietnamese.restoreMarks &&
-                    !telexEngine.isAccented(composed) &&
-                    !telexEngine.isAccented(typed)
-                ) {
-                    composed
-                } else {
-                    target
+                if (target != null && target != composed) {
+                    corrected = target
                 }
-                if (finalTarget != null && finalTarget != composed) {
-                    corrected = finalTarget
-                }
-                finalTarget ?: composed
+                target ?: composed
             }
             // Other transliterators (Hangul) commit the composed text
             // directly, with no dictionary pass. A layout whose keys spell the
@@ -20316,11 +20309,13 @@ open class WMKeyboardService : InputMethodService() {
                             )
                         } else emptyList()
                         val top = (if (telexEngine.isReady) candidates.firstOrNull()?.word else null)
-                            ?: suggestionEngine?.decideCorrection(
-                                composed,
-                                timingMultiplier = timingMultiplier(),
-                                previousWord = prev,
-                            )?.apply
+                            ?: if (state.settings.vietnamese.restoreMarks) {
+                                suggestionEngine?.decideCorrection(
+                                    composed,
+                                    timingMultiplier = timingMultiplier(),
+                                    previousWord = prev,
+                                )?.apply
+                            } else null
                         if (top != null) {
                             top
                         } else if (!state.composer.isPlausibleWord(composed) || telexEngine.isWhitelisted(typed.lowercase())) {
@@ -20336,22 +20331,13 @@ open class WMKeyboardService : InputMethodService() {
                 }
 
                 if (pendingResolution !== pending) return@launch
-                val finalTarget = if (target != null &&
-                    !state.settings.vietnamese.restoreMarks &&
-                    !telexEngine.isAccented(composed) &&
-                    !telexEngine.isAccented(typed)
-                ) {
-                    composed
-                } else {
-                    target
-                }
                 commitResolution = CommitResolution(
                     typed = typed,
                     isPhonetic = false,
                     phoneticTop = null,
                     isTelex = true,
-                    telexTop = finalTarget,
-                    correction = finalTarget.takeIf { it != composed },
+                    telexTop = target,
+                    correction = target.takeIf { it != composed },
                 )
             } finally {
                 pending.done.countDown()
@@ -20868,17 +20854,9 @@ open class WMKeyboardService : InputMethodService() {
                         ambiguousTop = words.firstOrNull(),
                     )
                     state.composer.isVietnamese -> {
-                        val telexEngine = TelexAutocorrectEngine.getInstance()
                         val composed = state.composer.composeBuffer(typed)
                         val spaceWord = words.firstOrNull() ?: composed
-                        val targetWord = if (!state.settings.vietnamese.restoreMarks &&
-                            !telexEngine.isAccented(composed) &&
-                            !telexEngine.isAccented(typed)
-                        ) {
-                            composed
-                        } else {
-                            spaceWord
-                        }
+                        val targetWord = if (state.settings.vietnamese.restoreMarks) spaceWord else composed
                         CommitResolution(
                             typed = typed,
                             isPhonetic = false,
