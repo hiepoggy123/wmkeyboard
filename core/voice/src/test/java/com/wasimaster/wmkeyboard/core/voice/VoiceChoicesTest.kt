@@ -3,6 +3,9 @@ package com.wasimaster.wmkeyboard.core.voice
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtCatalog
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtEngine
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCatalog
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperModel
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperSize
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperTier
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -10,8 +13,34 @@ import org.junit.Test
 
 class VoiceChoicesTest {
 
-    private val multilingual = WhisperCatalog.models.first { it.langCodes.isEmpty() }
-    private val englishOnly = WhisperCatalog.models.first { it.fixedLang == "en" }
+    private val multilingual = WhisperCatalog.models.firstOrNull { it.langCodes.isEmpty() }
+        ?: WhisperModel(
+            id = "cpp-small",
+            displayName = "Whisper Small",
+            size = WhisperSize.SMALL,
+            repo = "ggerganov/whisper.cpp",
+            modelFile = "ggml-small.bin",
+            vocabFile = "",
+            modelBytes = 0L,
+            vocabBytes = 0L,
+            langCodes = emptySet(),
+            tier = WhisperTier.STANDARD,
+            descriptionRes = 0,
+        )
+    private val englishOnly = WhisperCatalog.models.firstOrNull { it.fixedLang == "en" }
+        ?: WhisperModel(
+            id = "base-en",
+            displayName = "Whisper Base (English)",
+            size = WhisperSize.BASE,
+            repo = "DocWolle/whisper_tflite_models",
+            modelFile = "whisper-base.en.tflite",
+            vocabFile = "",
+            modelBytes = 0L,
+            vocabBytes = 0L,
+            langCodes = setOf("en"),
+            tier = WhisperTier.STANDARD,
+            descriptionRes = 0,
+        )
     private val parakeet = EtCatalog.forEngine(EtEngine.PARAKEET).first()
     private val moonshine = EtCatalog.forEngine(EtEngine.MOONSHINE).first()
 
